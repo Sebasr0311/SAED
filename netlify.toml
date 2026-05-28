@@ -4,7 +4,7 @@
 # Proxy API calls to Railway backend
 [[redirects]]
   from = "/api/*"
-  to = "https://pruebaproyecto.up.railway.app/api/:splat"
+  to = "https://pruebaproyecto-production.up.railway.app/api/:splat"
   status = 200
   force = true
 
