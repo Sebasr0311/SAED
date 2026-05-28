@@ -1,8 +1,14 @@
+```gitignore
 ### IntelliJ IDEA ###
+.idea/
+*.iml
 out/
 !**/src/main/**/out/
 !**/src/test/**/out/
 .kotlin
+
+### Maven ###
+target/
 
 ### Eclipse ###
 .apt_generated
@@ -26,8 +32,25 @@ bin/
 ### VS Code ###
 .vscode/
 
+### Node ###
+node_modules/
+
+### Environment ###
+.env
+.env.local
+
+### Logs ###
+*.log
+
+### Java ###
+*.class
+
 ### Mac OS ###
 .DS_Store
 
+### Windows ###
+Thumbs.db
+
 ### Credenciales — NO versionar ###
 src/main/resources/bd.properties
+```
