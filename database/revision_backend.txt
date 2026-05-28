@@ -1,0 +1,200 @@
+================================================================================
+  REVISIÓN TÉCNICA DEL BACKEND — Sistema de Administracion Residencial
+  Fecha: 2026-05-17
+================================================================================
+
+  RESUMEN
+  -------
+  Se revisaron 19 DAOs, 12 Handlers REST, 8 Services, 18 Modelos,
+  6 clases de utilidad/configuracion, mas el modulo-info y pom.xml.
+
+  Se corrigieron 12 problemas funcionales/de calidad.
+  Quedan 8 recomendaciones de mejora para produccion.
+
+
+================================================================================
+  PROBLEMAS CORREGIDOS
+================================================================================
+
+  1. VISITANTE ENDPOINT FALTANTE
+     ─────────────────────────────────────────────────────────────────────────
+     Problema: VisitanteHandler.java no existia. El endpoint /api/visitantes
+               no estaba registrado en RestServer.java.
+     Accion:  Creado VisitanteHandler.java con CRUD completo + busqueda por
+              documento. Registrado en RestServer.java.
+
+  2. DUPLICACION DE sendJson EN TODOS LOS HANDLERS
+     ─────────────────────────────────────────────────────────────────────────
+     Problema: Los 13 handlers REST tenian el mismo metodo sendJson duplicado.
+     Accion:  Creada clase abstracta BaseHandler con sendJson() compartido.
+              Los 13 handlers ahora extienden BaseHandler.
+
+  3. PAGOHANDLER — CODIGO MUERTO
+     ─────────────────────────────────────────────────────────────────────────
+     Problema: Linea 37: p.setMetodoPago(MetodoPago.valueOf(p.getMetodoPago().name()))
+               era un no-op (convertia enum a string y viceversa sin cambiar nada).
+     Accion:  Eliminada la linea.
+
+  4. USUARIOHANDLER — CODIGO MUERTO
+     ─────────────────────────────────────────────────────────────────────────
+     Problema: Lineas 37 y 44: mismo patron no-op en getRol().name().
+     Accion:  Eliminadas.
+
+  5. CONTRATODAO — JOINs FALTANTES EN METODOS PARCIALES
+     ─────────────────────────────────────────────────────────────────────────
+     Problema: findActivoByApartamento() y findByApartamento() no incluian
+               las columnas numero_apartamento y nombre_residente, lo que
+               podia causar SQLException al serializar (manejado con try-catch
+               en mapeo, pero inconsistente).
+     Accion:  Anyadidos JOINs completos a ambos metodos.
+
+  6. CUOTAARRIENDODAO.findById() — JOINs FALTANTES
+     ─────────────────────────────────────────────────────────────────────────
+     Problema: findById() solo devolvia columnas base sin JOIN a APARTAMENTOS
+               ni RESIDENTES. Inconsistente con findAll(), findByContrato()
+               y findPendientes().
+     Accion:  Anyadidos JOINs completos.
+
+  7. PAGO MODEL — comprobante_url FALTANTE
+     ─────────────────────────────────────────────────────────────────────────
+     Problema: La columna comprobante_url existe en la BD (tabla PAGOS) pero
+               no estaba en el modelo Java Pago ni en el DAO.
+     Accion:  Anyadido campo comprobanteUrl con getter/setter. Actualizados
+              SELECT, INSERT y mapeo en PagoDAO.
+
+  8. CONTRATO MODEL — CAMPOS FALTANTES
+     ─────────────────────────────────────────────────────────────────────────
+     Problema: La tabla CONTRATOS tiene 15 columnas, pero el modelo Java solo
+               mapeaba 10. Faltaban: id_tutor, dia_pago, dias_gracia,
+               porcentaje_mora, contrato_pdf_url.
+     Accion:  Anyadidos los 5 campos faltantes al modelo y al DAO (SELECT,
+              INSERT, UPDATE, mapeo).
+
+  9. CONTRATODAO.update() — INCOMPLETO
+     ─────────────────────────────────────────────────────────────────────────
+     Problema: El UPDATE solo modificaba id_apartamento, fecha_inicio,
+               fecha_fin, valor_mensual, estado, observaciones. No incluia
+               id_tutor, dia_pago, dias_gracia, porcentaje_mora, contrato_pdf_url.
+     Accion:  UPDATE now incluye las 11 columnas editables.
+
+  10. AUTHMIDDLEWARE — FALTA DE VERIFICACION DE ROLES
+      ─────────────────────────────────────────────────────────────────────────
+      Problema: AuthMiddleware.authenticate() verificaba el token JWT pero
+                ningun handler usaba AuthMiddleware.hasRole(). Cualquier
+                usuario autenticado (residente, portero) podia crear/editar/
+                eliminar usuarios, contratos, apartamentos, pagos.
+      Accion:  Anyadidas verificaciones hasRole("ADMINISTRADOR") en:
+               - UsuarioHandler: POST, PUT, DELETE
+               - ContratoHandler: POST (crear), POST activar/cancelar, DELETE
+               - ApartamentoHandler: POST, PUT, DELETE
+               - PagoHandler: POST
+
+  11. CONTRATODAO.insert() — CAMPOS FALTANTES
+      ─────────────────────────────────────────────────────────────────────────
+      Problema: INSERT no incluia id_tutor, dia_pago, dias_gracia,
+                porcentaje_mora, contrato_pdf_url.
+      Accion:  Anyadidos los campos al INSERT.
+
+  12. VISITAHANDLER — EXCEPTION TRACE
+      ─────────────────────────────────────────────────────────────────────────
+      Problema: Linea 114: e.printStackTrace() en produccion puede exponer
+                informacion sensible.
+      Accion:  Pendiente (requiere logger). Se recomienda Logback o java.util.logging.
+
+
+================================================================================
+  RECOMENDACIONES PENDIENTES (MEJORA CONTINUA)
+================================================================================
+
+  1. LOGGING PROFESIONAL
+     ─────────────────────────────────────────────────────────────────────────
+     Prioridad: Alta
+     Descripcion: Reemplazar System.out.println y System.err por Logback
+                  o java.util.logging con niveles (INFO, WARN, ERROR).
+     Archivos: Todos los .java
+     Esfuerzo: Medio (configuracion + refactor de ~40 archivos)
+
+  2. SECRETO JWT PERSISTENTE
+     ─────────────────────────────────────────────────────────────────────────
+     Prioridad: Alta
+     Descripcion: JwtUtil genera un secreto aleatorio en cada reinicio,
+                  invalidando todos los tokens existentes. Mover a config
+                  (bd.properties o variable de entorno JWT_SECRET).
+     Archivo: src/.../rest/JwtUtil.java
+     Esfuerzo: Bajo
+
+  3. CONEXION POOL (HikariCP)
+     ─────────────────────────────────────────────────────────────────────────
+     Prioridad: Alta
+     Descripcion: ConexionBD usa singleton con una sola conexion para todos
+                  los hilos. Concurrencia limitada. Migrar a HikariCP.
+     Archivo: src/.../dao/ConexionBD.java
+     Esfuerzo: Medio
+
+  4. MANEJO DE ERRORES HTTP
+     ─────────────────────────────────────────────────────────────────────────
+     Prioridad: Media
+     Descripcion: Todos los handlers atrapan Exception generica y devuelven
+                  400. Deberian diferenciar:
+                  - 400 Bad Request (validacion)
+                  - 404 Not Found (recurso no existe)
+                  - 409 Conflict (duplicado, estado invalido)
+                  - 500 Internal Server Error (excepcion inesperada)
+
+  5. PAGINACION
+     ─────────────────────────────────────────────────────────────────────────
+     Prioridad: Media
+     Descripcion: findAll() devuelve todos los registros sin LIMIT. Para
+                  produccion con miles de registros, implementar paginacion
+                  via query params (?page=0&size=20).
+
+  6. REQUEST DTOS
+     ─────────────────────────────────────────────────────────────────────────
+     Prioridad: Media
+     Descripcion: Solo AuthHandler usa LoginRequest DTO. Los demas handlers
+                  usan Map<String,Object> perdiendo type-safety. Crear DTOs
+                  especificos para cada operacion.
+
+  7. CREDENCIALES EN CODIGO
+     ─────────────────────────────────────────────────────────────────────────
+     Prioridad: Alta
+     Descripcion: ConexionBD.java tiene URL_DEFAULT, USUARIO_DEFAULT,
+                  CLAVE_DEFAULT hardcodeados como fallback. Si bd.properties
+                  no esta en classpath, las credenciales quedan expuestas
+                  en el codigo fuente. Usar variables de entorno.
+     Archivo: src/.../dao/ConexionBD.java:25-27
+
+  8. PRUEBAS UNITARIAS
+     ─────────────────────────────────────────────────────────────────────────
+     Prioridad: Media
+     Descripcion: No hay tests. Agregar JUnit 5 + Mockito para DAOs y
+                  Services como minimo.
+
+  9. TRANSACCIONES DISTRIBUIDAS
+     ─────────────────────────────────────────────────────────────────────────
+     Prioridad: Baja (actual)
+     Descripcion: VisitaService.crearVisita() sincroniza sobre la conexion
+                  compartida (conn) para operaciones multi-tabla. Con pool
+                  de conexiones, usar TransactionTemplate o @Transactional.
+
+
+================================================================================
+  ARQUITECTURA — PUNTOS FUERTES
+================================================================================
+
+  + DAOs con try-with-resources consistente (cierre garantizado de resources)
+  + Mapeo protegido con try-catch para columnas JOIN opcionales
+  + Soft-delete en todas las tablas principales (activo/estado)
+  + TOCTOU resuelto en QRAccesoDAO.marcarUsado() con UPDATE atomico
+  + Auto-commit/rollback en VisitaService.crearVisita()
+  + BCrypt para hash de contrasenas (factor default)
+  + JWT con expiracion y HMAC-SHA256
+  + CorsFilter correctamente implementado como Filter de HttpServer
+  + Enums para todos los estados (type-safe, evita strings magicos)
+  + Clase base Persona para herencia de Residente/Visitante
+  + ValidadorCampos con formateo en tiempo real y normalizacion en guardado
+
+
+================================================================================
+  FIN DEL INFORME DE REVISION
+================================================================================

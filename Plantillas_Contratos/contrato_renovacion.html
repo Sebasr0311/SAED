@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Contrato de Renovación – Torres del Horizonte</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@400;500;600;700&display=swap');
+
+    :root {
+      --forest:  #1A3028;
+      --teal:    #2E7D6E;
+      --teal-lt: #4AA090;
+      --cream:   #F5F7F2;
+      --line:    #C8D5CC;
+      --gray:    #5A6B62;
+      --gold:    #C09B3A;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Lora', Georgia, serif;
+      font-size: 11.5pt;
+      color: var(--forest);
+      background: #fff;
+      line-height: 1.75;
+    }
+
+    .page {
+      width: 210mm;
+      min-height: 297mm;
+      margin: 0 auto;
+      padding: 18mm 20mm 20mm;
+    }
+
+    /* ── ENCABEZADO ── */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: stretch;
+      margin-bottom: 0;
+    }
+    .header-accent {
+      width: 6px;
+      background: var(--teal);
+      margin-right: 14px;
+      border-radius: 3px 0 0 3px;
+    }
+    .header-text .building-name {
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 700;
+      font-size: 15pt;
+      color: var(--forest);
+      letter-spacing: 0.5px;
+    }
+    .header-text .building-sub {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 7.5pt;
+      color: var(--teal);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+    .header-right {
+      text-align: right;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 7.5pt;
+      color: var(--gray);
+      line-height: 1.6;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .badge-tipo {
+      display: inline-block;
+      background: var(--teal);
+      color: #fff;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 7pt;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      padding: 3px 10px;
+      border-radius: 2px;
+      align-self: flex-end;
+    }
+    .header-divider {
+      border: none;
+      border-top: 2px solid var(--teal);
+      margin: 8px 0 4px;
+    }
+    .acta-line {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 7pt;
+      color: var(--gray);
+      text-align: right;
+      margin-bottom: 14px;
+    }
+
+    /* ── TÍTULO ── */
+    .contract-title {
+      text-align: center;
+      margin: 14px 0 6px;
+    }
+    .contract-title h1 {
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 700;
+      font-size: 13pt;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--forest);
+    }
+    .contract-title .subtitle {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 8pt;
+      color: var(--teal);
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      margin-top: 3px;
+    }
+    .divider-ornament {
+      text-align: center;
+      color: var(--teal-lt);
+      margin: 8px 0;
+      font-size: 10pt;
+      letter-spacing: 8px;
+    }
+
+    /* ── HISTORIAL BADGE ── */
+    .historial-badge {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: var(--cream);
+      border: 1px solid var(--line);
+      border-left: 5px solid var(--teal);
+      padding: 9px 14px;
+      margin: 12px 0;
+    }
+    .historial-badge .star { font-size: 18pt; }
+    .historial-badge .text {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 9pt;
+      color: var(--forest);
+    }
+    .historial-badge .text strong {
+      display: block;
+      font-size: 8pt;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--teal);
+      margin-bottom: 1px;
+    }
+
+    /* ── INFO GRID ── */
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin: 12px 0;
+    }
+    .info-box {
+      border: 1px solid var(--line);
+      border-top: 3px solid var(--teal);
+      padding: 10px 12px;
+      background: var(--cream);
+    }
+    .info-box.full { grid-column: 1 / -1; }
+    .info-box h4 {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 7pt;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--teal);
+      margin-bottom: 7px;
+    }
+    .info-row {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 3px;
+    }
+    .info-label {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 7.5pt;
+      font-weight: 600;
+      color: var(--gray);
+      min-width: 120px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      padding-top: 2px;
+    }
+    .info-value {
+      font-family: 'Lora', serif;
+      font-size: 10.5pt;
+      color: var(--forest);
+      font-weight: 600;
+      border-bottom: 1px dotted var(--line);
+      flex: 1;
+    }
+    .highlight-value { color: var(--teal); font-weight: 700; }
+
+    /* ── TABLA FINANCIERA ── */
+    .finance-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10px 0;
+      font-size: 10.5pt;
+    }
+    .finance-table th {
+      background: var(--forest);
+      color: #fff;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 7pt;
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      padding: 7px 10px;
+      text-align: left;
+    }
+    .finance-table td { padding: 6px 10px; border-bottom: 1px solid var(--line); }
+    .finance-table tr:nth-child(even) td { background: var(--cream); }
+    .finance-table .total-row td {
+      background: var(--teal);
+      color: #fff;
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 700;
+      font-size: 10pt;
+    }
+    .finance-table .deposito-row td {
+      background: #e8f2ef;
+      color: var(--forest);
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 600;
+      font-size: 10pt;
+      border-top: 2px solid var(--teal);
+    }
+    .text-right { text-align: right; }
+
+    /* ── SECCIONES ── */
+    .section { margin: 14px 0; }
+    .section-title {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 8pt;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--forest);
+      border-left: 4px solid var(--teal);
+      padding-left: 8px;
+      margin-bottom: 8px;
+    }
+    .clause {
+      margin-bottom: 9px;
+      text-align: justify;
+      hyphens: auto;
+    }
+    .clause-number {
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 700;
+      font-size: 8.5pt;
+      color: var(--teal);
+      margin-right: 4px;
+    }
+
+    /* ── RENOVACIÓN INFO ── */
+    .renov-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin: 10px 0;
+    }
+    .renov-card {
+      border: 1px solid var(--line);
+      padding: 10px;
+      text-align: center;
+      background: var(--cream);
+    }
+    .renov-card .renov-num {
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 700;
+      font-size: 18pt;
+      color: var(--teal);
+    }
+    .renov-card .renov-label {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 7pt;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--gray);
+      margin-top: 2px;
+    }
+
+    /* ── CAUSALES ── */
+    .causal-list { list-style: none; margin: 6px 0 6px 4px; }
+    .causal-list li {
+      padding: 3px 0 3px 16px;
+      position: relative;
+      font-size: 10.5pt;
+      border-bottom: 1px dotted var(--line);
+    }
+    .causal-list li::before {
+      content: '◆';
+      position: absolute;
+      left: 0;
+      color: var(--teal);
+      font-size: 5pt;
+      top: 8px;
+    }
+
+    /* ── FIRMAS ── */
+    .firma-section { margin-top: 24px; page-break-inside: avoid; }
+    .firma-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 30px;
+      margin-top: 12px;
+    }
+    .firma-box { text-align: center; }
+    .firma-line { border-top: 2px solid var(--forest); margin: 50px 10px 6px; }
+    .firma-name { font-family: 'DM Sans', sans-serif; font-weight: 700; font-size: 9pt; color: var(--forest); }
+    .firma-role { font-family: 'DM Sans', sans-serif; font-size: 7.5pt; color: var(--gray); text-transform: uppercase; letter-spacing: 1px; }
+    .firma-doc { font-size: 9.5pt; color: var(--gray); margin-top: 2px; }
+
+    .tutor-section {
+      margin-top: 14px;
+      border: 1px dashed var(--line);
+      padding: 10px 14px;
+      background: var(--cream);
+    }
+    .tutor-section h4 {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 7pt; font-weight: 700;
+      color: var(--teal);
+      letter-spacing: 2px; text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+
+    /* ── PIE ── */
+    .footer {
+      margin-top: 20px;
+      border-top: 2px solid var(--forest);
+      padding-top: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .footer-left { font-family: 'DM Sans', sans-serif; font-size: 7pt; color: var(--gray); line-height: 1.6; }
+    .footer-right { font-family: 'DM Sans', sans-serif; font-size: 7pt; color: var(--gray); text-align: right; }
+
+    .watermark-tipo {
+      position: fixed;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%) rotate(-35deg);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 72pt; font-weight: 900;
+      color: rgba(26, 48, 40, 0.035);
+      letter-spacing: 8px; text-transform: uppercase;
+      pointer-events: none; white-space: nowrap;
+    }
+
+    @media print {
+      .page { margin: 0; padding: 15mm 18mm; }
+    }
+  </style>
+</head>
+<body>
+<div class="watermark-tipo">RENOVACIÓN</div>
+<div class="page">
+
+  <!-- ENCABEZADO -->
+  <div class="header">
+    <div class="header-accent"></div>
+    <div class="header-text" style="flex:1">
+      <div class="building-name">Torres del Horizonte</div>
+      <div class="building-sub">Administración de Propiedad Horizontal</div>
+    </div>
+    <div class="header-right">
+      <div>
+        NIT: 900.456.789-1<br/>
+        Cra 12 # 45-67, Montería, Córdoba<br/>
+        Rep. Legal: Carlos Andrés Mendoza
+      </div>
+      <div class="badge-tipo">Contrato Renovación</div>
+    </div>
+  </div>
+  <hr class="header-divider"/>
+  <div class="acta-line">
+    No. de Contrato: <strong>{{numeroContrato}}</strong> &nbsp;|&nbsp;
+    Contrato anterior: <strong>{{numeroContratoAnterior}}</strong> &nbsp;|&nbsp;
+    Generado: {{fechaGeneracion}} &nbsp;|&nbsp;
+    Estado: <strong>PENDIENTE DE FIRMA</strong>
+  </div>
+
+  <!-- TÍTULO -->
+  <div class="contract-title">
+    <h1>Contrato de Renovación de Arrendamiento</h1>
+    <div class="subtitle">Período de Consolidación — Seis (6) Meses — Ley 820 de 2003</div>
+  </div>
+  <div class="divider-ornament">— ✦ ✦ ✦ —</div>
+
+  <!-- BADGE DE BUEN HISTORIAL -->
+  <div class="historial-badge">
+    <div class="star">★</div>
+    <div class="text">
+      <strong>Renovación aprobada por buen historial</strong>
+      El presente contrato reconoce el cumplimiento satisfactorio del período inicial por parte del
+      ARRENDATARIO. Se otorga un período de seis (6) meses con condiciones mejoradas de estabilidad.
+    </div>
+  </div>
+
+  <!-- COMPARECIENTES -->
+  <p class="clause">
+    Entre los suscritos: <strong>TORRES DEL HORIZONTE</strong>, NIT <strong>900.456.789-1</strong>,
+    representada por <strong>Carlos Andrés Mendoza</strong>, C.C. <strong>79.123.456</strong>
+    (<strong>EL ARRENDADOR</strong>); y <strong>{{nombreCompletoResidente}}</strong>,
+    <strong>{{tipoDocumento}} No. {{numeroDocumento}}</strong> (<strong>EL ARRENDATARIO</strong>);
+    hemos convenido celebrar el presente Contrato de Renovación de Arrendamiento de Vivienda Urbana,
+    que se regirá por la Ley 820 de 2003, con las siguientes cláusulas:
+  </p>
+
+  <!-- TARJETAS RESUMEN -->
+  <div class="renov-grid">
+    <div class="renov-card">
+      <div class="renov-num">6</div>
+      <div class="renov-label">Meses de vigencia</div>
+    </div>
+    <div class="renov-card">
+      <div class="renov-num">30</div>
+      <div class="renov-label">Días aviso previo</div>
+    </div>
+    <div class="renov-card">
+      <div class="renov-num">0.5</div>
+      <div class="renov-label">Meses penalización</div>
+    </div>
+  </div>
+
+  <!-- DATOS DEL CONTRATO -->
+  <div class="info-grid">
+    <div class="info-box">
+      <h4>Datos del Arrendatario</h4>
+      <div class="info-row">
+        <span class="info-label">Nombre completo</span>
+        <span class="info-value">{{nombreCompletoResidente}}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Tipo documento</span>
+        <span class="info-value">{{tipoDocumento}}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Número documento</span>
+        <span class="info-value">{{numeroDocumento}}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Correo electrónico</span>
+        <span class="info-value">{{correoResidente}}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Teléfono</span>
+        <span class="info-value">{{telefonoResidente}}</span>
+      </div>
+    </div>
+
+    <div class="info-box">
+      <h4>Datos del Inmueble</h4>
+      <div class="info-row">
+        <span class="info-label">Apartamento No.</span>
+        <span class="info-value highlight-value">{{numeroApartamento}}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Tipo</span>
+        <span class="info-value">{{tipoApartamento}}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Piso</span>
+        <span class="info-value">{{piso}}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Área</span>
+        <span class="info-value">{{area}} m²</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Capacidad máx.</span>
+        <span class="info-value">{{capacidadMaxima}} personas</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Parqueadero</span>
+        <span class="info-value">{{nombreParqueadero}}</span>
+      </div>
+    </div>
+
+    <div class="info-box full">
+      <h4>Vigencia de la Renovación</h4>
+      <div class="info-grid" style="margin:0; gap:6px;">
+        <div>
+          <div class="info-row">
+            <span class="info-label">Tipo de contrato</span>
+            <span class="info-value highlight-value">RENOVACIÓN – 6 MESES</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Fecha de inicio</span>
+            <span class="info-value">{{fechaInicio}}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Fecha de vencimiento</span>
+            <span class="info-value">{{fechaFin}}</span>
+          </div>
+        </div>
+        <div>
+          <div class="info-row">
+            <span class="info-label">Aviso previo salida</span>
+            <span class="info-value">30 días calendario</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Penalización anticipada</span>
+            <span class="info-value">0.5 meses de canon</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Inspecciones</span>
+            <span class="info-value">Trimestrales</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Próxima renovación</span>
+            <span class="info-value">Evaluable — sujeto a historial</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TABLA FINANCIERA -->
+  <div class="section">
+    <div class="section-title">Condiciones Económicas</div>
+    <table class="finance-table">
+      <thead>
+        <tr>
+          <th>Concepto</th>
+          <th class="text-right">Valor Mensual</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Canon de arrendamiento</td>
+          <td class="text-right">{{valorCanon}}</td>
+        </tr>
+        <tr>
+          <td>Cuota de administración</td>
+          <td class="text-right">{{valorAdministracion}}</td>
+        </tr>
+        <tr class="total-row">
+          <td><strong>TOTAL MENSUAL A PAGAR</strong></td>
+          <td class="text-right"><strong>{{valorTotal}}</strong></td>
+        </tr>
+        <tr class="deposito-row">
+          <td>Depósito en garantía (ya pagado — se mantiene del contrato anterior)</td>
+          <td class="text-right">{{valorDeposito}}</td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="clause" style="font-size:9.5pt; margin-top:6px;">
+      <span class="clause-number">§</span>
+      Fecha de pago: dentro de los primeros <strong>{{diaPago}} días</strong> de cada mes.
+      Días de gracia: <strong>{{diasGracia}} días</strong>.
+      Mora: <strong>{{porcentajeMora}}% diario</strong> sobre el total adeudado.
+      Referencia de pago: número de apartamento.
+    </p>
+  </div>
+
+  <!-- CLÁUSULAS -->
+  <div class="section">
+    <div class="section-title">Cláusulas y Condiciones</div>
+
+    <p class="clause"><span class="clause-number">PRIMERA — OBJETO.</span>
+    El ARRENDADOR renueva el contrato de arrendamiento del apartamento No.
+    <strong>{{numeroApartamento}}</strong>, tipo <strong>{{tipoApartamento}}</strong>,
+    piso <strong>{{piso}}</strong>, área <strong>{{area}} m²</strong>, para uso
+    <strong>exclusivamente residencial</strong>. Se mantienen las mismas condiciones de uso
+    establecidas en el contrato inicial, salvo las modificaciones expresamente indicadas en
+    el presente documento.</p>
+
+    <p class="clause"><span class="clause-number">SEGUNDA — OCUPANTES Y CAPACIDAD MÁXIMA.</span>
+    Se mantiene la capacidad máxima de <strong>{{capacidadMaxima}} personas</strong>.
+    El ARRENDATARIO confirma que los ocupantes registrados en el sistema al momento de la
+    renovación son los únicos autorizados, y se obliga a notificar cualquier cambio a la
+    administración dentro de los <strong>5 días hábiles</strong> siguientes.</p>
+
+    <p class="clause"><span class="clause-number">TERCERA — AJUSTE DE CANON.</span>
+    El canon de arrendamiento pactado para el presente período de renovación es de
+    <strong>{{valorCanon}}</strong> mensuales. Este valor podrá ajustarse al inicio del
+    siguiente período de renovación conforme al IPC certificado por el DANE para el año
+    inmediatamente anterior, sin que dicho ajuste supere el 100% del IPC anual.</p>
+
+    <p class="clause"><span class="clause-number">CUARTA — PROHIBICIÓN DE SUBARRIENDO.</span>
+    Se mantiene la prohibición absoluta de subarrendar, ceder o permitir el uso del inmueble
+    a terceros no autorizados, bajo pena de terminación inmediata del contrato.</p>
+
+    <p class="clause"><span class="clause-number">QUINTA — SERVICIOS PÚBLICOS.</span>
+    Los servicios de energía, agua, gas, internet y demás son a cargo exclusivo del
+    ARRENDATARIO. El ARRENDADOR no responde por suspensiones derivadas de mora del
+    ARRENDATARIO con las empresas de servicios.</p>
+
+    <p class="clause"><span class="clause-number">SEXTA — MASCOTAS.</span>
+    Se ratifica la autorización para tenencia de hasta <strong>dos (2) mascotas</strong>
+    de razas no peligrosas. El ARRENDATARIO asume responsabilidad plena por daños y
+    molestias causados por sus mascotas.</p>
+
+    <p class="clause"><span class="clause-number">SÉPTIMA — CONVIVENCIA, RUIDO Y MULTAS.</span>
+    Se reafirma la obligación de respetar los horarios de silencio nocturno
+    (<strong>10:00 p.m. – 6:00 a.m.</strong>). Ante queja de ruido, el portero generará aviso;
+    transcurridos 20 minutos sin solución, procederá la multa. Con tres (3) multas vigentes
+    se inicia proceso de terminación del contrato.</p>
+
+    <p class="clause"><span class="clause-number">OCTAVA — INSPECCIONES TRIMESTRALES.</span>
+    Durante la vigencia del presente contrato de renovación, la administración realizará
+    inspecciones programadas con periodicidad <strong>trimestral</strong>, previa notificación
+    al ARRENDATARIO con mínimo <strong>3 días hábiles</strong> de antelación a través del
+    sistema digital del edificio.</p>
+
+    <p class="clause"><span class="clause-number">NOVENA — VISITANTES Y CONTROL DE ACCESO.</span>
+    El sistema QR de acceso continúa vigente. El ARRENDATARIO es responsable por sus
+    visitantes. El portero asignará parqueaderos de visitantes cuando corresponda.</p>
+
+    <p class="clause"><span class="clause-number">DÉCIMA — PARQUEADERO.</span>
+    Se mantiene la asignación del parqueadero <strong>{{nombreParqueadero}}</strong>.
+    Queda prohibido el uso de espacios no asignados.</p>
+
+    <p class="clause"><span class="clause-number">DÉCIMA PRIMERA — MORA.</span>
+    Vencidos los <strong>{{diasGracia}} días</strong> de gracia, se aplica mora de
+    <strong>{{porcentajeMora}}% diario</strong>. Mora superior a 60 días constituye causal
+    de terminación.</p>
+
+    <p class="clause"><span class="clause-number">DÉCIMA SEGUNDA — MANTENIMIENTO.</span>
+    Las reparaciones menores son a cargo del ARRENDATARIO; las estructurales a cargo del
+    ARRENDADOR. Las solicitudes de reparación deben canalizarse por el sistema de solicitudes
+    del edificio.</p>
+
+    <p class="clause"><span class="clause-number">DÉCIMA TERCERA — ENTREGA DEL INMUEBLE.</span>
+    Al vencimiento, el ARRENDATARIO entregará el inmueble en el mismo estado recibido. El
+    depósito cubre daños verificados en la inspección de entrega. Si el depósito no cubre
+    los daños, el ARRENDATARIO pagará la diferencia.</p>
+
+    <p class="clause"><span class="clause-number">DÉCIMA CUARTA — PRÓXIMA RENOVACIÓN.</span>
+    Al vencimiento del presente período, la administración evaluará el historial de pagos,
+    multas y comportamiento del ARRENDATARIO para determinar si procede una renovación a
+    contrato de permanencia indefinida. La decisión será notificada con
+    <strong>30 días</strong> de anticipación al vencimiento.</p>
+  </div>
+
+  <!-- CAUSALES -->
+  <div class="section">
+    <div class="section-title">Causales de Terminación Inmediata</div>
+    <ul class="causal-list">
+      <li>Subarriendo o cesión no autorizada del inmueble.</li>
+      <li>Actividades ilícitas o perturbación del orden público.</li>
+      <li>Agresiones a residentes, visitantes o personal del edificio.</li>
+      <li>Manipulación del sistema QR de control de acceso.</li>
+      <li>Exceso de la capacidad máxima de <strong>{{capacidadMaxima}} personas</strong>.</li>
+      <li>Mora superior a 60 días calendario.</li>
+      <li>Tres (3) o más multas vigentes registradas en el sistema.</li>
+      <li>Daños graves intencionales a la estructura o bienes comunes.</li>
+      <li>Falsificación de información o documentación.</li>
+    </ul>
+  </div>
+
+  <!-- FIRMAS -->
+  <div class="firma-section">
+    <div class="section-title">Firmas de las Partes</div>
+    <p class="clause" style="font-size:9.5pt; margin-bottom:10px;">
+      En constancia de lo anterior, las partes suscriben el presente contrato de renovación
+      en Montería a los <strong>{{diaFirma}}</strong> días del mes de
+      <strong>{{mesFirma}}</strong> de <strong>{{anioFirma}}</strong>.
+    </p>
+    <div class="firma-grid">
+      <div class="firma-box">
+        <div class="firma-line"></div>
+        <div class="firma-name">Carlos Andrés Mendoza</div>
+        <div class="firma-role">El Arrendador / Representante Legal</div>
+        <div class="firma-doc">C.C. 79.123.456</div>
+        <div class="firma-doc">Torres del Horizonte – NIT 900.456.789-1</div>
+      </div>
+      <div class="firma-box">
+        <div class="firma-line"></div>
+        <div class="firma-name">{{nombreCompletoResidente}}</div>
+        <div class="firma-role">El Arrendatario</div>
+        <div class="firma-doc">{{tipoDocumento}} No. {{numeroDocumento}}</div>
+        <div class="firma-doc">Apto. {{numeroApartamento}} – Piso {{piso}}</div>
+      </div>
+    </div>
+
+    <div class="tutor-section">
+      <h4>Firma del Tutor o Representante Legal (solo si el arrendatario es menor de edad)</h4>
+      <div class="firma-grid" style="margin-top:8px;">
+        <div class="firma-box">
+          <div class="firma-line" style="margin-top:40px;"></div>
+          <div class="firma-name">{{nombreTutor}}</div>
+          <div class="firma-role">{{relacionTutor}} del Arrendatario</div>
+          <div class="firma-doc">C.C. {{cedulaTutor}}</div>
+        </div>
+        <div class="firma-box" style="display:flex; align-items:flex-end; justify-content:center; padding-bottom:20px;">
+          <div style="font-family:'DM Sans',sans-serif; font-size:7.5pt; color:var(--gray); text-align:center; max-width:180px;">
+            Esta sección aplica únicamente cuando el arrendatario tiene entre 16 y 17 años.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PIE -->
+  <div class="footer">
+    <div class="footer-left">
+      <strong>Torres del Horizonte</strong> · NIT 900.456.789-1<br/>
+      Cra 12 # 45-67, Montería, Córdoba · {{telefonoAdministracion}} · {{correoAdministracion}}
+    </div>
+    <div class="footer-right">
+      Contrato No. {{numeroContrato}}<br/>
+      Generado: {{fechaGeneracion}}<br/>
+      Tipo: RENOVACIÓN (6 meses)
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

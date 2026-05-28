@@ -1,0 +1,453 @@
+-- =============================================================================
+-- SAED — Datos de prueba finales y consistentes
+-- 16 aptos (8 OCUPADOS / 8 DISPONIBLES)
+-- 12 usuarios (1 admin + 3 porteros + 8 residentes)
+-- 38 parqueaderos | 18 residentes | 11 visitas | etc.
+-- =============================================================================
+
+-- ============================== LIMPIEZA TOTAL ==============================
+BEGIN
+  FOR s IN (SELECT sequence_name FROM user_sequences) LOOP
+    EXECUTE IMMEDIATE 'DROP SEQUENCE '||s.sequence_name;
+  END LOOP;
+END;
+/
+DELETE FROM ALERTAS_PAGO;
+DELETE FROM REGISTROS_ACCESO;
+DELETE FROM QR_ACCESOS;
+DELETE FROM REGISTRO_VISITA;
+DELETE FROM VEHICULOS_VISITA;
+DELETE FROM VISITAS;
+DELETE FROM VISITANTES;
+DELETE FROM PAGOS;
+DELETE FROM CUOTAS_ARRIENDO;
+DELETE FROM MULTAS;
+DELETE FROM BUZON;
+DELETE FROM CONTRATO_RESIDENTE;
+DELETE FROM TUTORES;
+DELETE FROM CONTRATOS;
+DELETE FROM USUARIOS;
+DELETE FROM RESIDENTES;
+DELETE FROM PARQUEADEROS;
+DELETE FROM APARTAMENTOS;
+COMMIT;
+
+-- ============================== SECUENCIAS ==================================
+CREATE SEQUENCE SEC_TIPOS_DOCUMENTO      START WITH 1 INCREMENT BY 1 NOCACHE ORDER;
+CREATE SEQUENCE SEC_APARTAMENTOS         START WITH 1 INCREMENT BY 1 NOCACHE ORDER;
+CREATE SEQUENCE SEC_PARQUEADEROS         START WITH 1 INCREMENT BY 1 NOCACHE ORDER;
+CREATE SEQUENCE SEC_RESIDENTES           START WITH 1 INCREMENT BY 1 NOCACHE ORDER;
+CREATE SEQUENCE SEC_TUTORES              START WITH 1 INCREMENT BY 1 NOCACHE ORDER;
+CREATE SEQUENCE SEC_USUARIOS             START WITH 1 INCREMENT BY 1 NOCACHE ORDER;
+CREATE SEQUENCE SEC_CONTRATOS            START WITH 1 INCREMENT BY 1 NOCACHE ORDER;
+CREATE SEQUENCE SEC_CONTRATO_RESIDENTE   START WITH 1 INCREMENT BY 1 NOCACHE ORDER;
+CREATE SEQUENCE SEC_CUOTAS_ARRIENDO      START WITH 1 INCREMENT BY 1 NOCACHE ORDER;
+CREATE SEQUENCE SEC_PAGOS                START WITH 1 INCREMENT BY 1 NOCACHE ORDER;
+CREATE SEQUENCE SEC_ALERTAS_PAGO         START WITH 1 INCREMENT BY 1 NOCACHE ORDER;
+CREATE SEQUENCE SEC_VISITAS              START WITH 1 INCREMENT BY 1 NOCACHE ORDER;
+CREATE SEQUENCE SEC_QR_ACCESOS           START WITH 1 INCREMENT BY 1 NOCACHE ORDER;
+CREATE SEQUENCE SEC_VISITANTES           START WITH 1 INCREMENT BY 1 NOCACHE ORDER;
+CREATE SEQUENCE SEC_VEHICULOS_VISITA     START WITH 1 INCREMENT BY 1 NOCACHE ORDER;
+CREATE SEQUENCE SEC_REGISTRO_VISITA      START WITH 1 INCREMENT BY 1 NOCACHE ORDER;
+CREATE SEQUENCE SEC_FRECUENTES_RESIDENTE START WITH 1 INCREMENT BY 1 NOCACHE ORDER;
+CREATE SEQUENCE SEC_REGISTROS_ACCESO     START WITH 1 INCREMENT BY 1 NOCACHE ORDER;
+CREATE SEQUENCE SEC_BUZON                START WITH 1 INCREMENT BY 1 NOCACHE ORDER;
+CREATE SEQUENCE SEC_MULTAS               START WITH 1 INCREMENT BY 1 NOCACHE ORDER;
+COMMIT;
+
+-- ============================== APARTAMENTOS ================================
+INSERT INTO APARTAMENTOS VALUES (SEC_APARTAMENTOS.NEXTVAL,'201',2,'1_HAB',50,2,'OCUPADO',1,SYSTIMESTAMP,SYSTIMESTAMP);
+INSERT INTO APARTAMENTOS VALUES (SEC_APARTAMENTOS.NEXTVAL,'202',2,'2_HAB',70,3,'OCUPADO',1,SYSTIMESTAMP,SYSTIMESTAMP);
+INSERT INTO APARTAMENTOS VALUES (SEC_APARTAMENTOS.NEXTVAL,'203',2,'ESTUDIO',40,2,'DISPONIBLE',1,SYSTIMESTAMP,SYSTIMESTAMP);
+INSERT INTO APARTAMENTOS VALUES (SEC_APARTAMENTOS.NEXTVAL,'204',2,'1_HAB',50,2,'DISPONIBLE',1,SYSTIMESTAMP,SYSTIMESTAMP);
+INSERT INTO APARTAMENTOS VALUES (SEC_APARTAMENTOS.NEXTVAL,'301',3,'2_HAB',75,4,'OCUPADO',1,SYSTIMESTAMP,SYSTIMESTAMP);
+INSERT INTO APARTAMENTOS VALUES (SEC_APARTAMENTOS.NEXTVAL,'302',3,'3_HAB',95,5,'OCUPADO',1,SYSTIMESTAMP,SYSTIMESTAMP);
+INSERT INTO APARTAMENTOS VALUES (SEC_APARTAMENTOS.NEXTVAL,'303',3,'1_HAB',55,2,'DISPONIBLE',1,SYSTIMESTAMP,SYSTIMESTAMP);
+INSERT INTO APARTAMENTOS VALUES (SEC_APARTAMENTOS.NEXTVAL,'304',3,'2_HAB',70,3,'DISPONIBLE',1,SYSTIMESTAMP,SYSTIMESTAMP);
+INSERT INTO APARTAMENTOS VALUES (SEC_APARTAMENTOS.NEXTVAL,'401',4,'3_HAB',90,5,'OCUPADO',1,SYSTIMESTAMP,SYSTIMESTAMP);
+INSERT INTO APARTAMENTOS VALUES (SEC_APARTAMENTOS.NEXTVAL,'402',4,'PENTHOUSE',140,6,'OCUPADO',1,SYSTIMESTAMP,SYSTIMESTAMP);
+INSERT INTO APARTAMENTOS VALUES (SEC_APARTAMENTOS.NEXTVAL,'403',4,'2_HAB',75,4,'DISPONIBLE',1,SYSTIMESTAMP,SYSTIMESTAMP);
+INSERT INTO APARTAMENTOS VALUES (SEC_APARTAMENTOS.NEXTVAL,'404',4,'3_HAB',85,4,'DISPONIBLE',1,SYSTIMESTAMP,SYSTIMESTAMP);
+INSERT INTO APARTAMENTOS VALUES (SEC_APARTAMENTOS.NEXTVAL,'501',5,'1_HAB',55,2,'OCUPADO',1,SYSTIMESTAMP,SYSTIMESTAMP);
+INSERT INTO APARTAMENTOS VALUES (SEC_APARTAMENTOS.NEXTVAL,'502',5,'1_HAB',60,3,'OCUPADO',1,SYSTIMESTAMP,SYSTIMESTAMP);
+INSERT INTO APARTAMENTOS VALUES (SEC_APARTAMENTOS.NEXTVAL,'503',5,'ESTUDIO',42,2,'DISPONIBLE',1,SYSTIMESTAMP,SYSTIMESTAMP);
+INSERT INTO APARTAMENTOS VALUES (SEC_APARTAMENTOS.NEXTVAL,'504',5,'ESTUDIO',38,2,'DISPONIBLE',1,SYSTIMESTAMP,SYSTIMESTAMP);
+COMMIT;
+
+-- ============================== PARQUEADEROS ================================
+-- 16 fijos P01-P16 (uno por apto)
+DECLARE
+  v_cont NUMBER := 0;
+BEGIN
+  FOR a IN (SELECT id_apartamento FROM APARTAMENTOS ORDER BY numero) LOOP
+    v_cont := v_cont + 1;
+    INSERT INTO PARQUEADEROS VALUES (SEC_PARQUEADEROS.NEXTVAL,'P'||LPAD(v_cont,2,'0'),'VEHICULO',0,'DISPONIBLE',a.id_apartamento,SYSTIMESTAMP,SYSTIMESTAMP);
+  END LOOP;
+  COMMIT;
+END;
+/
+-- 10 visitantes carro V01-V10
+BEGIN
+  FOR i IN 1..10 LOOP
+    INSERT INTO PARQUEADEROS VALUES (SEC_PARQUEADEROS.NEXTVAL,'V'||LPAD(i,2,'0'),'VEHICULO',1,'DISPONIBLE',NULL,SYSTIMESTAMP,SYSTIMESTAMP);
+  END LOOP;
+  COMMIT;
+END;
+/
+-- 12 visitantes moto M01-M12
+BEGIN
+  FOR i IN 1..12 LOOP
+    INSERT INTO PARQUEADEROS VALUES (SEC_PARQUEADEROS.NEXTVAL,'M'||LPAD(i,2,'0'),'MOTO',1,'DISPONIBLE',NULL,SYSTIMESTAMP,SYSTIMESTAMP);
+  END LOOP;
+  COMMIT;
+END;
+/
+
+-- ============================== RESIDENTES ==================================
+-- 8 arrendatarios + 8 convivientes (1 menor) + 2 extra = 18
+INSERT INTO RESIDENTES VALUES (SEC_RESIDENTES.NEXTVAL,1,'10000001','Carlos Andrés','Pérez Ramos',   DATE '1990-03-15','3001110001','carlos.perez@email.com',NULL,NULL,DATE '2024-01-01',0,1,SYSTIMESTAMP,SYSTIMESTAMP);
+INSERT INTO RESIDENTES VALUES (SEC_RESIDENTES.NEXTVAL,1,'10000002','María Fernanda','Ruiz Torres',  DATE '1993-07-22','3001110002','maria.ruiz@email.com',NULL,NULL,DATE '2024-01-01',0,1,SYSTIMESTAMP,SYSTIMESTAMP);
+INSERT INTO RESIDENTES VALUES (SEC_RESIDENTES.NEXTVAL,1,'10000003','Jhon Sebastián','Martínez López',DATE '1985-11-08','3001110003','jhon.martinez@email.com',NULL,NULL,DATE '2023-06-01',0,1,SYSTIMESTAMP,SYSTIMESTAMP);
+INSERT INTO RESIDENTES VALUES (SEC_RESIDENTES.NEXTVAL,1,'10000004','Luisa Valentina','Gómez Ríos',   DATE '1991-05-30','3001110004','luisa.gomez@email.com',NULL,NULL,DATE '2023-06-01',0,1,SYSTIMESTAMP,SYSTIMESTAMP);
+INSERT INTO RESIDENTES VALUES (SEC_RESIDENTES.NEXTVAL,1,'10000005','Pedro Antonio','Soto Vargas',    DATE '1978-02-14','3001110005','pedro.soto@email.com',NULL,NULL,DATE '2024-03-01',0,1,SYSTIMESTAMP,SYSTIMESTAMP);
+INSERT INTO RESIDENTES VALUES (SEC_RESIDENTES.NEXTVAL,5,'50000001','Miguel Ángel','Torres Soto',    DATE '2010-06-12',NULL,NULL,NULL,NULL,DATE '2024-03-01',1,1,SYSTIMESTAMP,SYSTIMESTAMP);
+INSERT INTO RESIDENTES VALUES (SEC_RESIDENTES.NEXTVAL,1,'10000006','Andrés Felipe','Ramírez Ortiz',  DATE '1988-09-20','3001110006','andres.ramirez@email.com',NULL,NULL,DATE '2024-01-01',0,1,SYSTIMESTAMP,SYSTIMESTAMP);
+INSERT INTO RESIDENTES VALUES (SEC_RESIDENTES.NEXTVAL,1,'10000007','Carolina','Morales Peña',       DATE '1992-12-10','3001110007','carolina.morales@email.com',NULL,NULL,DATE '2024-01-01',0,1,SYSTIMESTAMP,SYSTIMESTAMP);
+INSERT INTO RESIDENTES VALUES (SEC_RESIDENTES.NEXTVAL,1,'10000008','Daniel','Castro Medina',        DATE '1980-04-05','3001110008','daniel.castro@email.com',NULL,NULL,DATE '2024-06-01',0,1,SYSTIMESTAMP,SYSTIMESTAMP);
+INSERT INTO RESIDENTES VALUES (SEC_RESIDENTES.NEXTVAL,1,'10000009','Laura','Londoño Vélez',         DATE '1985-08-15','3001110009','laura.londono@email.com',NULL,NULL,DATE '2024-06-01',0,1,SYSTIMESTAMP,SYSTIMESTAMP);
+INSERT INTO RESIDENTES VALUES (SEC_RESIDENTES.NEXTVAL,1,'10000010','Fernando','Vargas Uribe',       DATE '1975-11-30','3001110010','fernando.vargas@email.com',NULL,NULL,DATE '2024-01-01',0,1,SYSTIMESTAMP,SYSTIMESTAMP);
+INSERT INTO RESIDENTES VALUES (SEC_RESIDENTES.NEXTVAL,1,'10000011','Ana Lucía','Ríos Mejía',        DATE '1978-03-22','3001110011','ana.rios@email.com',NULL,NULL,DATE '2024-01-01',0,1,SYSTIMESTAMP,SYSTIMESTAMP);
+INSERT INTO RESIDENTES VALUES (SEC_RESIDENTES.NEXTVAL,1,'10000012','Gabriel','Torres Pabón',        DATE '1995-06-18','3001110012','gabriel.torres@email.com',NULL,NULL,DATE '2025-01-01',0,1,SYSTIMESTAMP,SYSTIMESTAMP);
+INSERT INTO RESIDENTES VALUES (SEC_RESIDENTES.NEXTVAL,1,'10000013','Valentina','Herrera Díaz',      DATE '1997-01-25','3001110013','valentina.herrera@email.com',NULL,NULL,DATE '2025-01-01',0,1,SYSTIMESTAMP,SYSTIMESTAMP);
+INSERT INTO RESIDENTES VALUES (SEC_RESIDENTES.NEXTVAL,1,'10000014','Héctor','Mendoza Salazar',      DATE '1982-09-08','3001110014','hector.mendoza@email.com',NULL,NULL,DATE '2024-08-01',0,1,SYSTIMESTAMP,SYSTIMESTAMP);
+INSERT INTO RESIDENTES VALUES (SEC_RESIDENTES.NEXTVAL,1,'10000015','Diana','Rojas Pineda',          DATE '1986-04-14','3001110015','diana.rojas@email.com',NULL,NULL,DATE '2024-08-01',0,1,SYSTIMESTAMP,SYSTIMESTAMP);
+INSERT INTO RESIDENTES VALUES (SEC_RESIDENTES.NEXTVAL,1,'10000016','Ana Lucía','Morales Peña',      DATE '1970-09-25','3001110016','ana.morales2@email.com',NULL,NULL,DATE '2024-01-01',0,1,SYSTIMESTAMP,SYSTIMESTAMP);
+INSERT INTO RESIDENTES VALUES (SEC_RESIDENTES.NEXTVAL,2,'CE100001','Jean Pierre','Dubois',          DATE '1985-07-14','3001110017','jean.dubois@email.com',NULL,NULL,DATE '2024-01-01',0,1,SYSTIMESTAMP,SYSTIMESTAMP);
+COMMIT;
+
+-- ============================== USUARIOS ====================================
+-- 12 usuarios: 1 admin + 3 porteros + 8 residentes (uno por arrendatario)
+INSERT INTO USUARIOS VALUES (SEC_USUARIOS.NEXTVAL,NULL,'admin','$2b$12$eImiTXuWVxfM37uY4JANjOeH/y3bFMPqV5oRqF2LYqHBH0X3hZBfO','ADMINISTRADOR',1,SYSTIMESTAMP,SYSTIMESTAMP,SYSTIMESTAMP);
+INSERT INTO USUARIOS VALUES (SEC_USUARIOS.NEXTVAL,NULL,'portero1','$2b$12$eImiTXuWVxfM37uY4JANjOeH/y3bFMPqV5oRqF2LYqHBH0X3hZBfO','PORTERO',1,SYSTIMESTAMP,SYSTIMESTAMP,SYSTIMESTAMP);
+INSERT INTO USUARIOS VALUES (SEC_USUARIOS.NEXTVAL,NULL,'portero2','$2b$12$eImiTXuWVxfM37uY4JANjOeH/y3bFMPqV5oRqF2LYqHBH0X3hZBfO','PORTERO',1,SYSTIMESTAMP,SYSTIMESTAMP,SYSTIMESTAMP);
+INSERT INTO USUARIOS VALUES (SEC_USUARIOS.NEXTVAL,NULL,'portero3','$2b$12$eImiTXuWVxfM37uY4JANjOeH/y3bFMPqV5oRqF2LYqHBH0X3hZBfO','PORTERO',1,SYSTIMESTAMP,SYSTIMESTAMP,SYSTIMESTAMP);
+INSERT INTO USUARIOS VALUES (SEC_USUARIOS.NEXTVAL,(SELECT id_residente FROM RESIDENTES WHERE numero_documento='10000001'),'carlos.perez','$2b$12$eImiTXuWVxfM37uY4JANjOeH/y3bFMPqV5oRqF2LYqHBH0X3hZBfO','RESIDENTE',1,SYSTIMESTAMP,SYSTIMESTAMP,SYSTIMESTAMP);
+INSERT INTO USUARIOS VALUES (SEC_USUARIOS.NEXTVAL,(SELECT id_residente FROM RESIDENTES WHERE numero_documento='10000003'),'jhon.martinez','$2b$12$eImiTXuWVxfM37uY4JANjOeH/y3bFMPqV5oRqF2LYqHBH0X3hZBfO','RESIDENTE',1,SYSTIMESTAMP,SYSTIMESTAMP,SYSTIMESTAMP);
+INSERT INTO USUARIOS VALUES (SEC_USUARIOS.NEXTVAL,(SELECT id_residente FROM RESIDENTES WHERE numero_documento='10000005'),'pedro.soto','$2b$12$eImiTXuWVxfM37uY4JANjOeH/y3bFMPqV5oRqF2LYqHBH0X3hZBfO','RESIDENTE',1,SYSTIMESTAMP,SYSTIMESTAMP,SYSTIMESTAMP);
+INSERT INTO USUARIOS VALUES (SEC_USUARIOS.NEXTVAL,(SELECT id_residente FROM RESIDENTES WHERE numero_documento='10000006'),'andres.ramirez','$2b$12$eImiTXuWVxfM37uY4JANjOeH/y3bFMPqV5oRqF2LYqHBH0X3hZBfO','RESIDENTE',1,SYSTIMESTAMP,SYSTIMESTAMP,SYSTIMESTAMP);
+INSERT INTO USUARIOS VALUES (SEC_USUARIOS.NEXTVAL,(SELECT id_residente FROM RESIDENTES WHERE numero_documento='10000008'),'daniel.castro','$2b$12$eImiTXuWVxfM37uY4JANjOeH/y3bFMPqV5oRqF2LYqHBH0X3hZBfO','RESIDENTE',1,SYSTIMESTAMP,SYSTIMESTAMP,SYSTIMESTAMP);
+INSERT INTO USUARIOS VALUES (SEC_USUARIOS.NEXTVAL,(SELECT id_residente FROM RESIDENTES WHERE numero_documento='10000010'),'fernando.vargas','$2b$12$eImiTXuWVxfM37uY4JANjOeH/y3bFMPqV5oRqF2LYqHBH0X3hZBfO','RESIDENTE',1,SYSTIMESTAMP,SYSTIMESTAMP,SYSTIMESTAMP);
+INSERT INTO USUARIOS VALUES (SEC_USUARIOS.NEXTVAL,(SELECT id_residente FROM RESIDENTES WHERE numero_documento='10000012'),'gabriel.torres','$2b$12$eImiTXuWVxfM37uY4JANjOeH/y3bFMPqV5oRqF2LYqHBH0X3hZBfO','RESIDENTE',1,SYSTIMESTAMP,SYSTIMESTAMP,SYSTIMESTAMP);
+INSERT INTO USUARIOS VALUES (SEC_USUARIOS.NEXTVAL,(SELECT id_residente FROM RESIDENTES WHERE numero_documento='10000014'),'hector.mendoza','$2b$12$eImiTXuWVxfM37uY4JANjOeH/y3bFMPqV5oRqF2LYqHBH0X3hZBfO','RESIDENTE',1,SYSTIMESTAMP,SYSTIMESTAMP,SYSTIMESTAMP);
+COMMIT;
+
+-- ============================== CONTRATOS ===================================
+DECLARE
+  v_id_admin USUARIOS.id_usuario%TYPE;
+BEGIN
+  SELECT id_usuario INTO v_id_admin FROM USUARIOS WHERE username='admin';
+  FOR a IN (SELECT id_apartamento, numero FROM APARTAMENTOS WHERE estado='OCUPADO' ORDER BY numero) LOOP
+    INSERT INTO CONTRATOS (id_contrato,id_apartamento,id_registrado_por,fecha_inicio,valor_mensual,dia_pago,dias_gracia,porcentaje_mora,estado,fecha_registro,actualizado_en)
+    VALUES (SEC_CONTRATOS.NEXTVAL, a.id_apartamento, v_id_admin, DATE '2024-01-01',
+      CASE a.numero
+        WHEN '201' THEN 1200000 WHEN '202' THEN 1800000 WHEN '301' THEN 1500000
+        WHEN '302' THEN 2200000 WHEN '401' THEN 2500000 WHEN '402' THEN 3500000
+        WHEN '501' THEN 1000000 WHEN '502' THEN 1100000
+      END,
+      CASE a.numero
+        WHEN '201' THEN 5 WHEN '202' THEN 10 WHEN '301' THEN 5
+        WHEN '302' THEN 15 WHEN '401' THEN 8 WHEN '402' THEN 5
+        WHEN '501' THEN 10 WHEN '502' THEN 12
+      END,
+      5, 1.5, 'ACTIVO', SYSTIMESTAMP, SYSTIMESTAMP);
+  END LOOP;
+  COMMIT;
+END;
+/
+
+-- ============================== CONTRATO_RESIDENTE + TUTOR ==================
+DECLARE
+  v_id_contrato CONTRATOS.id_contrato%TYPE;
+  v_arrend RESIDENTES.id_residente%TYPE;
+  v_conv  RESIDENTES.id_residente%TYPE;
+BEGIN
+  FOR a IN (SELECT numero FROM APARTAMENTOS WHERE estado='OCUPADO' ORDER BY numero) LOOP
+    SELECT c.id_contrato INTO v_id_contrato FROM CONTRATOS c JOIN APARTAMENTOS ap ON c.id_apartamento=ap.id_apartamento WHERE ap.numero=a.numero AND c.estado='ACTIVO';
+    SELECT r.id_residente INTO v_arrend FROM RESIDENTES r WHERE r.numero_documento=
+      CASE a.numero WHEN '201' THEN '10000001' WHEN '202' THEN '10000003' WHEN '301' THEN '10000005'
+                    WHEN '302' THEN '10000006' WHEN '401' THEN '10000008' WHEN '402' THEN '10000010'
+                    WHEN '501' THEN '10000012' WHEN '502' THEN '10000014' END;
+    SELECT r.id_residente INTO v_conv FROM RESIDENTES r WHERE r.numero_documento=
+      CASE a.numero WHEN '201' THEN '10000002' WHEN '202' THEN '10000004' WHEN '301' THEN '50000001'
+                    WHEN '302' THEN '10000007' WHEN '401' THEN '10000009' WHEN '402' THEN '10000011'
+                    WHEN '501' THEN '10000013' WHEN '502' THEN '10000015' END;
+    INSERT INTO CONTRATO_RESIDENTE VALUES (SEC_CONTRATO_RESIDENTE.NEXTVAL, v_id_contrato, v_arrend, 'ARRENDATARIO');
+    INSERT INTO CONTRATO_RESIDENTE VALUES (SEC_CONTRATO_RESIDENTE.NEXTVAL, v_id_contrato, v_conv,
+      CASE WHEN a.numero='301' THEN 'RESIDENTE_MENOR' ELSE 'OTRO' END);
+    IF a.numero = '301' THEN
+      INSERT INTO TUTORES VALUES (SEC_TUTORES.NEXTVAL, v_conv, 1, '10000005', 'Pedro Antonio', 'Soto Vargas', '3001110005', 'pedro.soto@email.com', 'PADRE', NULL, SYSTIMESTAMP, SYSTIMESTAMP);
+    END IF;
+  END LOOP;
+  COMMIT;
+END;
+/
+
+-- ============================== CUOTAS_ARRIENDO =============================
+DECLARE
+  v_mes NUMBER;
+BEGIN
+  FOR c IN (SELECT id_contrato, valor_mensual, dia_pago FROM CONTRATOS WHERE estado='ACTIVO') LOOP
+    FOR v_mes IN 2..7 LOOP
+      INSERT INTO CUOTAS_ARRIENDO (id_cuota,id_contrato,anio,mes,fecha_limite,valor_base,valor_mora,valor_total,estado,fecha_generacion,actualizado_en)
+      VALUES (SEC_CUOTAS_ARRIENDO.NEXTVAL, c.id_contrato, 2025, v_mes,
+              TO_DATE('2025-'||LPAD(v_mes,2,'0')||'-'||LPAD(c.dia_pago,2,'0'),'YYYY-MM-DD'),
+              c.valor_mensual,
+              CASE WHEN v_mes=4 THEN ROUND(c.valor_mensual*0.015) ELSE 0 END,
+              CASE WHEN v_mes=4 THEN ROUND(c.valor_mensual*1.015) ELSE c.valor_mensual END,
+              CASE WHEN v_mes IN (2,3) THEN 'PAGADA' WHEN v_mes=4 THEN 'EN_MORA' ELSE 'PENDIENTE' END,
+              SYSTIMESTAMP, SYSTIMESTAMP);
+    END LOOP;
+  END LOOP;
+  COMMIT;
+END;
+/
+
+-- ============================== PAGOS =======================================
+BEGIN
+  FOR c IN (SELECT id_contrato FROM CONTRATOS WHERE estado='ACTIVO') LOOP
+    INSERT INTO PAGOS (id_pago,id_cuota,id_registrado_por,fecha_pago,valor_pagado,metodo_pago,referencia,fecha_registro)
+    SELECT SEC_PAGOS.NEXTVAL, q.id_cuota, u.id_usuario, q.fecha_limite-1, q.valor_total, 'TRANSFERENCIA', 'TXN-'||q.id_cuota, SYSTIMESTAMP
+    FROM CUOTAS_ARRIENDO q
+    CROSS JOIN (SELECT id_usuario FROM USUARIOS WHERE username='admin') u
+    WHERE q.id_contrato=c.id_contrato AND q.estado='PAGADA';
+  END LOOP;
+  COMMIT;
+END;
+/
+
+-- ============================== VISITANTES ==================================
+INSERT INTO VISITANTES VALUES (SEC_VISITANTES.NEXTVAL,1,'20000001','Laura Camila','Díaz Suárez','3111000001',1,SYSTIMESTAMP,SYSTIMESTAMP);
+INSERT INTO VISITANTES VALUES (SEC_VISITANTES.NEXTVAL,1,'20000002','Roberto','Castillo Medina','3111000002',1,SYSTIMESTAMP,SYSTIMESTAMP);
+INSERT INTO VISITANTES VALUES (SEC_VISITANTES.NEXTVAL,1,'20000003','Fernando','Ospina Lara','3111000003',1,SYSTIMESTAMP,SYSTIMESTAMP);
+INSERT INTO VISITANTES VALUES (SEC_VISITANTES.NEXTVAL,4,'PAS00001','Emily','Johnson',NULL,1,SYSTIMESTAMP,SYSTIMESTAMP);
+INSERT INTO VISITANTES VALUES (SEC_VISITANTES.NEXTVAL,2,'CE200001','Jean Pierre','Dupont','3111000004',1,SYSTIMESTAMP,SYSTIMESTAMP);
+INSERT INTO VISITANTES VALUES (SEC_VISITANTES.NEXTVAL,1,'20000004','Marcela','Giraldo Pérez','3111000005',1,SYSTIMESTAMP,SYSTIMESTAMP);
+INSERT INTO VISITANTES VALUES (SEC_VISITANTES.NEXTVAL,1,'20000005','Sergio','Londoño Arias','3111000006',1,SYSTIMESTAMP,SYSTIMESTAMP);
+INSERT INTO VISITANTES VALUES (SEC_VISITANTES.NEXTVAL,1,'20000006','Paola','Montoya Gil','3111000007',1,SYSTIMESTAMP,SYSTIMESTAMP);
+INSERT INTO VISITANTES VALUES (SEC_VISITANTES.NEXTVAL,1,'20000007','Camilo','Restrepo Zuluaga','3111000008',1,SYSTIMESTAMP,SYSTIMESTAMP);
+INSERT INTO VISITANTES VALUES (SEC_VISITANTES.NEXTVAL,1,'20000008','Andrea','Cifuentes Duque','3111000009',1,SYSTIMESTAMP,SYSTIMESTAMP);
+COMMIT;
+
+-- ============================== VISITAS =====================================
+-- V1: ACTIVA — Carlos (AP-201) recibe a Roberto
+INSERT INTO VISITAS (id_visita,id_contrato_res,id_residente,tiempo_validez_min,cantidad_personas,estado,notas,fecha_registro,actualizado_en)
+SELECT SEC_VISITAS.NEXTVAL, cr.id_contrato_res, r.id_residente, 60, 2, 'ACTIVA', 'Amigos con carro', SYSTIMESTAMP - INTERVAL '1' HOUR, SYSTIMESTAMP
+FROM RESIDENTES r
+JOIN CONTRATO_RESIDENTE cr ON cr.id_residente=r.id_residente AND cr.rol_en_contrato='ARRENDATARIO'
+WHERE r.numero_documento='10000001';
+
+-- V2: PENDIENTE — Jhon (AP-202) autoriza a Fernando
+INSERT INTO VISITAS (id_visita,id_contrato_res,id_residente,tiempo_validez_min,cantidad_personas,estado,notas,fecha_registro,actualizado_en)
+SELECT SEC_VISITAS.NEXTVAL, cr.id_contrato_res, r.id_residente, 30, 1, 'PENDIENTE', 'Técnico internet', SYSTIMESTAMP - INTERVAL '30' MINUTE, SYSTIMESTAMP
+FROM RESIDENTES r
+JOIN CONTRATO_RESIDENTE cr ON cr.id_residente=r.id_residente AND cr.rol_en_contrato='ARRENDATARIO'
+WHERE r.numero_documento='10000003';
+
+-- V3: FINALIZADA — Carlos recibió a Laura
+INSERT INTO VISITAS (id_visita,id_contrato_res,id_residente,tiempo_validez_min,cantidad_personas,estado,notas,fecha_registro,actualizado_en)
+SELECT SEC_VISITAS.NEXTVAL, cr.id_contrato_res, r.id_residente, 30, 1, 'FINALIZADA', 'Visita frecuente', SYSTIMESTAMP - INTERVAL '2' DAY, SYSTIMESTAMP
+FROM RESIDENTES r
+JOIN CONTRATO_RESIDENTE cr ON cr.id_residente=r.id_residente AND cr.rol_en_contrato='ARRENDATARIO'
+WHERE r.numero_documento='10000001';
+
+-- V4: CANCELADA — Jhon canceló a Emily
+INSERT INTO VISITAS (id_visita,id_contrato_res,id_residente,tiempo_validez_min,cantidad_personas,estado,notas,fecha_registro,actualizado_en)
+SELECT SEC_VISITAS.NEXTVAL, cr.id_contrato_res, r.id_residente, 30, 1, 'CANCELADA', 'Cambio de planes', SYSTIMESTAMP - INTERVAL '5' DAY, SYSTIMESTAMP
+FROM RESIDENTES r
+JOIN CONTRATO_RESIDENTE cr ON cr.id_residente=r.id_residente AND cr.rol_en_contrato='ARRENDATARIO'
+WHERE r.numero_documento='10000003';
+
+-- V5: EXPIRADA
+INSERT INTO VISITAS (id_visita,id_contrato_res,id_residente,tiempo_validez_min,cantidad_personas,estado,notas,fecha_registro,actualizado_en)
+SELECT SEC_VISITAS.NEXTVAL, cr.id_contrato_res, r.id_residente, 15, 1, 'EXPIRADA', 'QR expiró sin uso', SYSTIMESTAMP - INTERVAL '3' DAY, SYSTIMESTAMP
+FROM RESIDENTES r
+JOIN CONTRATO_RESIDENTE cr ON cr.id_residente=r.id_residente AND cr.rol_en_contrato='ARRENDATARIO'
+WHERE r.numero_documento='10000001';
+
+-- Visitas sociales (FINALIZADA) para los otros 6 arrendatarios
+INSERT INTO VISITAS (id_visita,id_contrato_res,id_residente,tiempo_validez_min,cantidad_personas,estado,notas,fecha_registro,actualizado_en)
+SELECT SEC_VISITAS.NEXTVAL, cr.id_contrato_res, r.id_residente, 30, 2, 'FINALIZADA', 'Visita social', SYSTIMESTAMP - INTERVAL '1' DAY, SYSTIMESTAMP
+FROM RESIDENTES r
+JOIN CONTRATO_RESIDENTE cr ON cr.id_residente=r.id_residente AND cr.rol_en_contrato='ARRENDATARIO'
+WHERE r.numero_documento IN ('10000005','10000006','10000008','10000010','10000012','10000014');
+COMMIT;
+
+-- ============================== VEHICULOS_VISITA ============================
+INSERT INTO VEHICULOS_VISITA (id_vehiculo_visita,id_visita,tipo,placa,descripcion_tipo,marca,id_parqueadero)
+SELECT SEC_VEHICULOS_VISITA.NEXTVAL, v.id_visita, 'VEHICULO', 'ABC-123', 'Toyota Corolla gris', 'Toyota', p.id_parqueadero
+FROM VISITAS v
+CROSS JOIN (SELECT id_parqueadero FROM PARQUEADEROS WHERE codigo='V01') p
+WHERE v.estado='ACTIVA';
+COMMIT;
+
+-- ============================== REGISTRO_VISITA =============================
+-- V1 (ACTIVA): Roberto con carro
+INSERT INTO REGISTRO_VISITA (id_registro_visita,id_visita,id_visitante,id_vehiculo_visita,es_titular)
+SELECT SEC_REGISTRO_VISITA.NEXTVAL, v.id_visita, vis.id_visitante, vv.id_vehiculo_visita, 1
+FROM VISITAS v
+JOIN VEHICULOS_VISITA vv ON vv.id_visita=v.id_visita
+CROSS JOIN (SELECT id_visitante FROM VISITANTES WHERE numero_documento='20000002') vis
+WHERE v.estado='ACTIVA';
+
+-- V2 (PENDIENTE): Fernando
+INSERT INTO REGISTRO_VISITA (id_registro_visita,id_visita,id_visitante,es_titular)
+SELECT SEC_REGISTRO_VISITA.NEXTVAL, v.id_visita, vis.id_visitante, 1
+FROM VISITAS v
+CROSS JOIN (SELECT id_visitante FROM VISITANTES WHERE numero_documento='20000003') vis
+WHERE v.estado='PENDIENTE';
+
+-- V3: Laura (finalizada)
+INSERT INTO REGISTRO_VISITA (id_registro_visita,id_visita,id_visitante,es_titular)
+SELECT SEC_REGISTRO_VISITA.NEXTVAL, v.id_visita, vis.id_visitante, 1
+FROM VISITAS v
+CROSS JOIN (SELECT id_visitante FROM VISITANTES WHERE numero_documento='20000001') vis
+WHERE v.notas='Visita frecuente';
+
+-- V4: Emily (cancelada)
+INSERT INTO REGISTRO_VISITA (id_registro_visita,id_visita,id_visitante,es_titular)
+SELECT SEC_REGISTRO_VISITA.NEXTVAL, v.id_visita, vis.id_visitante, 1
+FROM VISITAS v
+CROSS JOIN (SELECT id_visitante FROM VISITANTES WHERE numero_documento='PAS00001') vis
+WHERE v.estado='CANCELADA';
+
+-- V5: Jean Pierre (expirada)
+INSERT INTO REGISTRO_VISITA (id_registro_visita,id_visita,id_visitante,es_titular)
+SELECT SEC_REGISTRO_VISITA.NEXTVAL, v.id_visita, vis.id_visitante, 1
+FROM VISITAS v
+CROSS JOIN (SELECT id_visitante FROM VISITANTES WHERE numero_documento='CE200001') vis
+WHERE v.estado='EXPIRADA';
+
+-- Visitas sociales
+INSERT INTO REGISTRO_VISITA (id_registro_visita,id_visita,id_visitante,es_titular)
+SELECT SEC_REGISTRO_VISITA.NEXTVAL, v.id_visita, vis.id_visitante, 1
+FROM (SELECT v.id_visita, ROWNUM rn FROM VISITAS v WHERE v.notas='Visita social' ORDER BY v.id_visita) v
+JOIN (SELECT vis.id_visitante, ROWNUM rn FROM VISITANTES vis WHERE vis.numero_documento IN ('20000004','20000005','20000006','20000007','20000008') ORDER BY vis.id_visitante) vis ON vis.rn = v.rn;
+COMMIT;
+
+-- ============================== QR_ACCESOS ==============================
+INSERT INTO QR_ACCESOS (id_qr,id_visita,codigo_qr,fecha_generacion,fecha_expiracion,usado,fecha_uso,id_vigilante_uso)
+SELECT SEC_QR_ACCESOS.NEXTVAL, v.id_visita, 'QR-'||RAWTOHEX(SYS_GUID()),
+       SYSTIMESTAMP - INTERVAL '1' HOUR, SYSTIMESTAMP + INTERVAL '59' MINUTE, 1,
+       SYSTIMESTAMP - INTERVAL '55' MINUTE, u.id_usuario
+FROM VISITAS v
+CROSS JOIN (SELECT id_usuario FROM USUARIOS WHERE username='portero1') u
+WHERE v.estado='ACTIVA';
+
+INSERT INTO QR_ACCESOS (id_qr,id_visita,codigo_qr,fecha_generacion,fecha_expiracion,usado)
+SELECT SEC_QR_ACCESOS.NEXTVAL, v.id_visita, 'QR-'||RAWTOHEX(SYS_GUID()),
+       SYSTIMESTAMP - INTERVAL '30' MINUTE, SYSTIMESTAMP + INTERVAL '15' MINUTE, 0
+FROM VISITAS v WHERE v.estado='PENDIENTE';
+
+INSERT INTO QR_ACCESOS (id_qr,id_visita,codigo_qr,fecha_generacion,fecha_expiracion,usado,fecha_uso,id_vigilante_uso)
+SELECT SEC_QR_ACCESOS.NEXTVAL, v.id_visita, 'QR-'||RAWTOHEX(SYS_GUID()),
+       SYSTIMESTAMP - INTERVAL '2' DAY, SYSTIMESTAMP - INTERVAL '2' DAY + INTERVAL '30' MINUTE, 1,
+       SYSTIMESTAMP - INTERVAL '2' DAY + INTERVAL '10' MINUTE, u.id_usuario
+FROM VISITAS v
+CROSS JOIN (SELECT id_usuario FROM USUARIOS WHERE username='portero1') u
+WHERE v.notas='Visita frecuente';
+COMMIT;
+
+-- ============================== REGISTROS_ACCESO ============================
+INSERT INTO REGISTROS_ACCESO (id_acceso,id_visita,id_vigilante,hora_entrada,observaciones)
+SELECT SEC_REGISTROS_ACCESO.NEXTVAL, v.id_visita, u.id_usuario,
+       SYSTIMESTAMP - INTERVAL '55' MINUTE, 'Ingreso QR, vehículo V01'
+FROM VISITAS v
+CROSS JOIN (SELECT id_usuario FROM USUARIOS WHERE username='portero1') u
+WHERE v.estado='ACTIVA';
+
+INSERT INTO REGISTROS_ACCESO (id_acceso,id_visita,id_vigilante,hora_entrada,hora_salida,observaciones)
+SELECT SEC_REGISTROS_ACCESO.NEXTVAL, v.id_visita, u.id_usuario,
+       SYSTIMESTAMP - INTERVAL '2' DAY, SYSTIMESTAMP - INTERVAL '2' DAY + INTERVAL '90' MINUTE, 'Visita completada'
+FROM VISITAS v
+CROSS JOIN (SELECT id_usuario FROM USUARIOS WHERE username='portero1') u
+WHERE v.notas='Visita frecuente';
+COMMIT;
+
+-- ============================== BUZON =======================================
+-- Aviso general para cada apto OCUPADO
+INSERT INTO BUZON (id_mensaje,id_apartamento,tipo,titulo,cuerpo,creado_por,entregado)
+SELECT SEC_BUZON.NEXTVAL, a.id_apartamento, 'AVISO', 'Corte de agua programado',
+       '30 de mayo 8am-2pm mantenimiento del acueducto.', u.id_usuario, 0
+FROM APARTAMENTOS a
+CROSS JOIN (SELECT id_usuario FROM USUARIOS WHERE username='admin') u
+WHERE a.estado='OCUPADO';
+
+-- Paquete AP-201 (entregado)
+INSERT INTO BUZON (id_mensaje,id_apartamento,tipo,titulo,cuerpo,creado_por,fecha_creacion,entregado,entregado_en)
+SELECT SEC_BUZON.NEXTVAL, a.id_apartamento, 'PAQUETE', 'Paquete Amazon',
+       'Paquete Amazon 2.5kg recibido en portería.', u.id_usuario,
+       SYSTIMESTAMP - INTERVAL '5' HOUR, 1, SYSTIMESTAMP - INTERVAL '3' HOUR
+FROM APARTAMENTOS a
+CROSS JOIN (SELECT id_usuario FROM USUARIOS WHERE username='portero1') u
+WHERE a.numero='201';
+
+-- Paquete AP-301 (pendiente)
+INSERT INTO BUZON (id_mensaje,id_apartamento,tipo,titulo,cuerpo,creado_por,entregado)
+SELECT SEC_BUZON.NEXTVAL, a.id_apartamento, 'PAQUETE', 'Paquete Rappi',
+       'Domicilio Rappi en portería.', u.id_usuario, 0
+FROM APARTAMENTOS a
+CROSS JOIN (SELECT id_usuario FROM USUARIOS WHERE username='portero1') u
+WHERE a.numero='301';
+COMMIT;
+
+-- ============================== MULTAS ======================================
+INSERT INTO MULTAS (id_multa,id_apartamento,tipo,monto,estado,creado_por,fecha_creacion)
+SELECT SEC_MULTAS.NEXTVAL, a.id_apartamento, 'RUIDO', 100000, 'PENDIENTE', u.id_usuario, SYSTIMESTAMP - INTERVAL '5' DAY
+FROM APARTAMENTOS a CROSS JOIN (SELECT id_usuario FROM USUARIOS WHERE username='admin') u WHERE a.numero='201';
+INSERT INTO MULTAS (id_multa,id_apartamento,tipo,monto,estado,creado_por,fecha_creacion)
+SELECT SEC_MULTAS.NEXTVAL, a.id_apartamento, 'PARQUEADERO', 50000, 'PAGADA', u.id_usuario, SYSTIMESTAMP - INTERVAL '10' DAY
+FROM APARTAMENTOS a CROSS JOIN (SELECT id_usuario FROM USUARIOS WHERE username='portero1') u WHERE a.numero='202';
+INSERT INTO MULTAS (id_multa,id_apartamento,tipo,monto,estado,creado_por,fecha_creacion)
+SELECT SEC_MULTAS.NEXTVAL, a.id_apartamento, 'RUIDO', 100000, 'PENDIENTE', u.id_usuario, SYSTIMESTAMP - INTERVAL '5' DAY
+FROM APARTAMENTOS a CROSS JOIN (SELECT id_usuario FROM USUARIOS WHERE username='admin') u WHERE a.numero='301';
+INSERT INTO MULTAS (id_multa,id_apartamento,tipo,monto,estado,creado_por,fecha_creacion)
+SELECT SEC_MULTAS.NEXTVAL, a.id_apartamento, 'PARQUEADERO', 50000, 'ANULADA', u.id_usuario, SYSTIMESTAMP - INTERVAL '20' DAY
+FROM APARTAMENTOS a CROSS JOIN (SELECT id_usuario FROM USUARIOS WHERE username='portero1') u WHERE a.numero='302';
+INSERT INTO MULTAS (id_multa,id_apartamento,tipo,monto,estado,creado_por,fecha_creacion)
+SELECT SEC_MULTAS.NEXTVAL, a.id_apartamento, 'RUIDO', 100000, 'PENDIENTE', u.id_usuario, SYSTIMESTAMP - INTERVAL '5' DAY
+FROM APARTAMENTOS a CROSS JOIN (SELECT id_usuario FROM USUARIOS WHERE username='admin') u WHERE a.numero='401';
+INSERT INTO MULTAS (id_multa,id_apartamento,id_mensaje,tipo,monto,estado,creado_por,fecha_creacion)
+SELECT SEC_MULTAS.NEXTVAL, a.id_apartamento, b.id_mensaje, 'PARQUEADERO', 50000, 'PENDIENTE', u.id_usuario, SYSTIMESTAMP - INTERVAL '1' DAY
+FROM APARTAMENTOS a JOIN BUZON b ON b.id_apartamento=a.id_apartamento AND b.tipo='PAQUETE'
+CROSS JOIN (SELECT id_usuario FROM USUARIOS WHERE username='portero1') u WHERE a.numero='201';
+COMMIT;
+
+-- ============================== ALERTAS_PAGO ================================
+INSERT INTO ALERTAS_PAGO (id_alerta,id_cuota,tipo_alerta,canal,leida,enviada_en)
+SELECT SEC_ALERTAS_PAGO.NEXTVAL, q.id_cuota, 'EN_MORA', 'SISTEMA', 0, SYSTIMESTAMP - INTERVAL '5' DAY
+FROM CUOTAS_ARRIENDO q WHERE q.estado='EN_MORA';
+
+INSERT INTO ALERTAS_PAGO (id_alerta,id_cuota,tipo_alerta,canal,leida,enviada_en)
+SELECT SEC_ALERTAS_PAGO.NEXTVAL, q.id_cuota, 'PROXIMO_VENCIMIENTO', 'SISTEMA', 0, SYSTIMESTAMP
+FROM CUOTAS_ARRIENDO q WHERE q.estado='PENDIENTE' AND q.mes=5;
+COMMIT;
+
+-- ============================== VERIFICACIÓN ================================
+SELECT 'APARTAMENTOS'     e, COUNT(*) t FROM APARTAMENTOS   UNION ALL
+SELECT 'PARQUEADEROS',    COUNT(*) FROM PARQUEADEROS        UNION ALL
+SELECT 'RESIDENTES',      COUNT(*) FROM RESIDENTES          UNION ALL
+SELECT 'USUARIOS',        COUNT(*) FROM USUARIOS            UNION ALL
+SELECT 'CONTRATOS',       COUNT(*) FROM CONTRATOS           UNION ALL
+SELECT 'CONTRATO_RES',    COUNT(*) FROM CONTRATO_RESIDENTE  UNION ALL
+SELECT 'TUTORES',         COUNT(*) FROM TUTORES             UNION ALL
+SELECT 'CUOTAS',          COUNT(*) FROM CUOTAS_ARRIENDO     UNION ALL
+SELECT 'PAGOS',           COUNT(*) FROM PAGOS               UNION ALL
+SELECT 'VISITANTES',      COUNT(*) FROM VISITANTES          UNION ALL
+SELECT 'VISITAS',         COUNT(*) FROM VISITAS             UNION ALL
+SELECT 'VEH_VISITA',      COUNT(*) FROM VEHICULOS_VISITA    UNION ALL
+SELECT 'REG_VISITA',      COUNT(*) FROM REGISTRO_VISITA     UNION ALL
+SELECT 'QR_ACCESOS',      COUNT(*) FROM QR_ACCESOS          UNION ALL
+SELECT 'REG_ACCESO',      COUNT(*) FROM REGISTROS_ACCESO    UNION ALL
+SELECT 'BUZON',           COUNT(*) FROM BUZON               UNION ALL
+SELECT 'MULTAS',          COUNT(*) FROM MULTAS              UNION ALL
+SELECT 'ALERTAS_PAGO',    COUNT(*) FROM ALERTAS_PAGO;

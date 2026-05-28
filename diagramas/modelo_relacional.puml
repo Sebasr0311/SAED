@@ -1,0 +1,166 @@
+' -----------------------------------------------------------------------------
+' Modelo Relacional - Sistema de Administración Residencial
+' Universidad Popular del Cesar - Programación de Computadores III
+' -----------------------------------------------------------------------------
+
+@startuml ER_Diagram
+
+!define PRIMARY_KEY(x) <b><color:#DarkGreen>x</b></color>
+!define FOREIGN_KEY(x) <color:#DarkBlue>x</color>
+!define NOT_NULL(x) <b>x</b>
+
+hide stereotypes
+skinparam linetype ortho
+skinparam padding 2
+
+entity "APARTAMENTOS" as apt #lightblue {
+    PRIMARY_KEY(id) : NUMBER
+    --
+    NOT_NULL(numero) : VARCHAR2(10)
+    NOT_NULL(piso) : NUMBER(2)
+    NOT_NULL(capacidad) : NUMBER(2)
+    estado : VARCHAR2(20)
+}
+
+entity "RESIDENTES" as res #lightgreen {
+    PRIMARY_KEY(id) : NUMBER
+    --
+    NOT_NULL(nombre) : VARCHAR2(100)
+    documento : VARCHAR2(20)
+    correo : VARCHAR2(100)
+    telefono : VARCHAR2(20)
+    fecha_nacimiento : DATE
+    FOREIGN_KEY(apartamento_id) : NUMBER
+    NOT_NULL(fecha_ingreso) : DATE
+    cantidad_habitantes : NUMBER(2)
+    estado : VARCHAR2(20)
+}
+
+entity "USUARIOS" as usr #lightyellow {
+    PRIMARY_KEY(id) : NUMBER
+    --
+    NOT_NULL(nombres) : VARCHAR2(100)
+    apellidos : VARCHAR2(100)
+    tipo_documento : VARCHAR2(20)
+    numero_documento : VARCHAR2(20)
+    telefono : VARCHAR2(20)
+    correo : VARCHAR2(100)
+    NOT_NULL(nombre_usuario) : VARCHAR2(50)
+    NOT_NULL(contrasena) : VARCHAR2(100)
+    NOT_NULL(rol) : VARCHAR2(20)
+    activo : NUMBER(1)
+}
+
+entity "CONTRATOS" as con #lightpink {
+    PRIMARY_KEY(id) : NUMBER
+    --
+    NOT_NULL(fecha_inicio) : DATE
+    NOT_NULL(fecha_fin) : DATE
+    NOT_NULL(valor_mensual) : NUMBER(10,2)
+    estado : VARCHAR2(20)
+    pdf_contrato : VARCHAR2(500)
+    FOREIGN_KEY(residente_id) : NUMBER
+    tutor_legal_id : NUMBER
+}
+
+entity "PAGOS" as pag #lightgray {
+    PRIMARY_KEY(id) : NUMBER
+    --
+    NOT_NULL(fecha_pago) : DATE
+    NOT_NULL(valor) : NUMBER(10,2)
+    estado : VARCHAR2(20)
+    FOREIGN_KEY(contrato_id) : NUMBER
+}
+
+entity "PARQUEADEROS" as par #lightcyan {
+    PRIMARY_KEY(id) : NUMBER
+    --
+    NOT_NULL(numero) : VARCHAR2(10)
+    NOT_NULL(tipo) : VARCHAR2(10)
+    estado : VARCHAR2(20)
+    piso : NUMBER(2)
+}
+
+entity "VISITAS" as vis #lightgoldenrod {
+    PRIMARY_KEY(id) : NUMBER
+    --
+    fecha_registro : TIMESTAMP
+    fecha_entrada : TIMESTAMP
+    fecha_salida : TIMESTAMP
+    estado : VARCHAR2(20)
+    FOREIGN_KEY(residente_id) : NUMBER
+    FOREIGN_KEY(qr_id) : NUMBER
+}
+
+entity "QR_ACCESO" as qr #lightsteelblue {
+    PRIMARY_KEY(id) : NUMBER
+    --
+    NOT_NULL(token) : VARCHAR2(100)
+    NOT_NULL(fecha_generacion) : TIMESTAMP
+    NOT_NULL(fecha_expiracion) : TIMESTAMP
+    usado : NUMBER(1)
+    FOREIGN_KEY(visita_id) : NUMBER
+}
+
+entity "PERSONAS_VISITA" as pv #lavender {
+    PRIMARY_KEY(id) : NUMBER
+    --
+    NOT_NULL(nombre) : VARCHAR2(100)
+    NOT_NULL(documento) : VARCHAR2(20)
+    correo : VARCHAR2(100)
+    telefono : VARCHAR2(20)
+    fecha_nacimiento : DATE
+    principal : NUMBER(1)
+    pdf_documento : VARCHAR2(500)
+    parentesco : VARCHAR2(50)
+    FOREIGN_KEY(visita_id) : NUMBER
+}
+
+entity "VEHICULOS_VISITA" as vv #mistyrose {
+    PRIMARY_KEY(id) : NUMBER
+    --
+    NOT_NULL(placa) : VARCHAR2(10)
+    tipo_vehiculo : VARCHAR2(10)
+    FOREIGN_KEY(parqueadero_asignado) : NUMBER
+    FOREIGN_KEY(visita_id) : NUMBER
+}
+
+' -------------------- RELACIONES --------------------
+
+usr ||--o{ con : "tutor legal"
+res ||--o{ con : "contrato"
+con ||--o{ pag : "pagos"
+apt ||--o{ res : "residencia"
+
+res ||--o{ vis : "visitas"
+vis ||--o{ qr : "genera"
+vis ||--o{ pv : "visitantes"
+vis ||--o{ vv : "vehiculos"
+
+vv }o--|| par : "asigna"
+
+' -------------------- NOTAS --------------------
+
+note top of apt
+Tabla principal de
+apartamentos del edificio
+end note
+
+note top of res
+Residentes que habitan
+en los apartamentos
+end note
+
+note top of usr
+Usuarios del sistema:
+ADMINISTRADOR, VIGILANTE,
+RESIDENTE
+end note
+
+note top of vis
+Control de visitas
+con registro de entrada
+y salida
+end note
+
+@enduml

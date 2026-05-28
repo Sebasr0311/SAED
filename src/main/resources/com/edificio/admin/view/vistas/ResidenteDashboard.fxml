@@ -1,0 +1,377 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.layout.*?>
+
+<!--
+    Panel exclusivo para el rol RESIDENTE.
+    5 secciones en TabPane:
+      0. Mi Perfil        — ver y editar datos personales
+      1. Mi Apartamento   — info del apartamento y contrato activo
+      2. Mis Cuotas       — historial de cuotas / pagos pendientes
+      3. Mis Frecuentes   — FlowPane con tarjetas dinámicas
+      4. Nueva Visita     — registrar visita nueva + generar QR
+-->
+<BorderPane xmlns="http://javafx.com/javafx/17"
+            xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.edificio.admin.view.controladores.ResidenteDashboardController"
+            styleClass="vista-container">
+
+    <!-- ====================================================
+         CABECERA
+         ==================================================== -->
+    <top>
+        <HBox spacing="12" alignment="CENTER_LEFT" styleClass="barra-herramientas">
+            <padding><Insets top="10" bottom="10" left="15" right="15"/></padding>
+
+            <Label fx:id="lblBienvenida" styleClass="titulo-vista"/>
+
+            <Region HBox.hgrow="ALWAYS"/>
+
+            <Button text="Cerrar Sesión"
+                    onAction="#cerrarSesion"
+                    styleClass="boton-accion"/>
+        </HBox>
+    </top>
+
+    <!-- ====================================================
+         CONTENIDO: TabPane con 5 secciones
+         ==================================================== -->
+    <center>
+        <TabPane fx:id="tabPaneResidente" tabClosingPolicy="UNAVAILABLE"
+                 styleClass="tab-pane">
+
+            <!-- =============================================
+                 TAB 0 — Mi Perfil
+                 ============================================= -->
+            <Tab text="Mi Perfil">
+                <content>
+                    <ScrollPane fitToWidth="true" fitToHeight="true">
+                        <content>
+                            <VBox spacing="12" maxWidth="480">
+                                <padding><Insets top="20" bottom="20" left="30" right="30"/></padding>
+
+                                <Label text="Mis Datos Personales" styleClass="subtitulo"/>
+
+                                <Label text="Nombres:" styleClass="label-formulario"/>
+                                <TextField fx:id="txtPerfilNombres"
+                                           styleClass="campo-texto"
+                                           editable="false"
+                                           style="-fx-background-color: #f5f5f5;"/>
+
+                                <Label text="Apellidos:" styleClass="label-formulario"/>
+                                <TextField fx:id="txtPerfilApellidos"
+                                           styleClass="campo-texto"
+                                           editable="false"
+                                           style="-fx-background-color: #f5f5f5;"/>
+
+                                <Label text="Teléfono:" styleClass="label-formulario"/>
+                                <TextField fx:id="txtPerfilTelefono" styleClass="campo-texto"/>
+
+                                <Label text="Correo electrónico:" styleClass="label-formulario"/>
+                                <TextField fx:id="txtPerfilEmail"
+                                           promptText="ejemplo@correo.com"
+                                           styleClass="campo-texto"/>
+
+                                <Label text="Número de documento:" styleClass="label-formulario"/>
+                                <TextField fx:id="txtPerfilDocumento"
+                                           styleClass="campo-texto"
+                                           editable="false"
+                                           style="-fx-background-color: #f5f5f5;"/>
+
+                                <HBox spacing="10">
+                                    <Button text="Guardar cambios"
+                                            onAction="#guardarPerfil"
+                                            styleClass="boton-accion"/>
+                                    <Button text="Cancelar"
+                                            onAction="#cargarPerfil"
+                                            styleClass="boton-accion"/>
+                                </HBox>
+
+                                <Label fx:id="lblPerfilMensaje"
+                                       styleClass="label-formulario"
+                                       wrapText="true"
+                                       style="-fx-text-fill: #27ae60; -fx-font-style: italic;"/>
+                            </VBox>
+                        </content>
+                    </ScrollPane>
+                </content>
+            </Tab>
+
+            <!-- =============================================
+                 TAB 1 — Mi Apartamento
+                 ============================================= -->
+            <Tab text="Mi Apartamento">
+                <content>
+                    <ScrollPane fitToWidth="true" fitToHeight="true">
+                        <content>
+                            <VBox spacing="12" maxWidth="520">
+                                <padding><Insets top="20" bottom="20" left="30" right="30"/></padding>
+
+                                <Label text="Información del Apartamento" styleClass="subtitulo"/>
+
+                                <HBox spacing="10">
+                                    <Label text="Número:"    styleClass="label-formulario" minWidth="130"/>
+                                    <Label fx:id="lblAptNumero"  styleClass="valor-destacado"/>
+                                </HBox>
+                                <HBox spacing="10">
+                                    <Label text="Piso:"       styleClass="label-formulario" minWidth="130"/>
+                                    <Label fx:id="lblAptPiso"     styleClass="valor-destacado"/>
+                                </HBox>
+                                <HBox spacing="10">
+                                    <Label text="Tipo:"       styleClass="label-formulario" minWidth="130"/>
+                                    <Label fx:id="lblAptTipo"     styleClass="valor-destacado"/>
+                                </HBox>
+                                <HBox spacing="10">
+                                    <Label text="Área (m²):"  styleClass="label-formulario" minWidth="130"/>
+                                    <Label fx:id="lblAptArea"     styleClass="valor-destacado"/>
+                                </HBox>
+                                <HBox spacing="10">
+                                    <Label text="Estado apto:" styleClass="label-formulario" minWidth="130"/>
+                                    <Label fx:id="lblAptEstado"   styleClass="valor-destacado"/>
+                                </HBox>
+
+                                <Separator/>
+                                <Label text="Contrato Activo" styleClass="subtitulo"/>
+
+                                <HBox spacing="10">
+                                    <Label text="ID Contrato:"   styleClass="label-formulario" minWidth="130"/>
+                                    <Label fx:id="lblContId"         styleClass="valor-destacado"/>
+                                </HBox>
+                                <HBox spacing="10">
+                                    <Label text="Inicio:"        styleClass="label-formulario" minWidth="130"/>
+                                    <Label fx:id="lblContInicio"     styleClass="valor-destacado"/>
+                                </HBox>
+                                <HBox spacing="10">
+                                    <Label text="Fin:"           styleClass="label-formulario" minWidth="130"/>
+                                    <Label fx:id="lblContFin"        styleClass="valor-destacado"/>
+                                </HBox>
+                                <HBox spacing="10">
+                                    <Label text="Valor mensual:" styleClass="label-formulario" minWidth="130"/>
+                                    <Label fx:id="lblContValor"      styleClass="valor-destacado"/>
+                                </HBox>
+                                <HBox spacing="10">
+                                    <Label text="Estado:"        styleClass="label-formulario" minWidth="130"/>
+                                    <Label fx:id="lblContEstado"     styleClass="valor-destacado"/>
+                                </HBox>
+
+                                <Label fx:id="lblAptSinInfo"
+                                       text="No tienes un contrato activo asociado."
+                                       styleClass="label-formulario"
+                                       visible="false" managed="false"
+                                       style="-fx-text-fill: #e74c3c; -fx-font-style: italic;"/>
+                            </VBox>
+                        </content>
+                    </ScrollPane>
+                </content>
+            </Tab>
+
+            <!-- =============================================
+                 TAB 2 — Mis Cuotas
+                 ============================================= -->
+            <Tab text="Mis Cuotas">
+                <content>
+                    <VBox spacing="10">
+                        <padding><Insets top="15" bottom="15" left="15" right="15"/></padding>
+
+                        <HBox spacing="10" alignment="CENTER_LEFT">
+                            <Label text="Mis Cuotas de Arriendo" styleClass="subtitulo"
+                                   HBox.hgrow="ALWAYS"/>
+                            <Label text="Pendiente total:" styleClass="label-formulario"/>
+                            <Label fx:id="lblCuotasTotalPendiente"
+                                   styleClass="valor-destacado"
+                                   style="-fx-text-fill: #e74c3c;"/>
+                            <Label text="  Pagado total:" styleClass="label-formulario"/>
+                            <Label fx:id="lblCuotasTotalPagado"
+                                   styleClass="valor-destacado"
+                                   style="-fx-text-fill: #27ae60;"/>
+                        </HBox>
+
+                        <TableView fx:id="tablaCuotasResidente" VBox.vgrow="ALWAYS" styleClass="tabla">
+                            <columns>
+                                <TableColumn fx:id="colCuotaId"      text="ID"          prefWidth="55"/>
+                                <TableColumn fx:id="colCuotaAnio"    text="Año"         prefWidth="55"/>
+                                <TableColumn fx:id="colCuotaMes"     text="Mes"         prefWidth="55"/>
+                                <TableColumn fx:id="colCuotaLimite"  text="Vence"       prefWidth="100"/>
+                                <TableColumn fx:id="colCuotaValor"   text="Valor"       prefWidth="110"/>
+                                <TableColumn fx:id="colCuotaEstado"  text="Estado"      prefWidth="110"/>
+                            </columns>
+                            <columnResizePolicy>
+                                <TableView fx:constant="CONSTRAINED_RESIZE_POLICY"/>
+                            </columnResizePolicy>
+                        </TableView>
+                    </VBox>
+                </content>
+            </Tab>
+
+            <!-- =============================================
+                 TAB 3 — Mis Frecuentes
+                 ============================================= -->
+            <Tab text="Mis Frecuentes">
+                <content>
+                    <VBox spacing="10">
+                        <padding><Insets top="12" bottom="12" left="15" right="15"/></padding>
+
+                        <HBox spacing="10" alignment="CENTER_LEFT">
+                            <Label fx:id="lblTituloSeccion"
+                                   text="Mis Visitantes Frecuentes"
+                                   styleClass="subtitulo"
+                                   HBox.hgrow="ALWAYS"/>
+                            <Button fx:id="btnVerOcultos"
+                                    text="Ver Ocultos"
+                                    onAction="#mostrarOcultos"
+                                    styleClass="boton-accion"/>
+                            <Button fx:id="btnVolver"
+                                    text="← Mis Frecuentes"
+                                    onAction="#mostrarActivos"
+                                    styleClass="boton-accion"
+                                    visible="false"
+                                    managed="false"/>
+                        </HBox>
+
+                        <Label fx:id="lblSinFrecuentes"
+                               text="Aún no tienes visitantes frecuentes registrados."
+                               styleClass="label-formulario"
+                               visible="false" managed="false"
+                               style="-fx-text-fill: #888888; -fx-font-style: italic;"/>
+
+                        <ScrollPane fitToWidth="true" VBox.vgrow="ALWAYS">
+                            <content>
+                                <FlowPane fx:id="flowFrecuentes"
+                                          hgap="15" vgap="15"
+                                          prefWrapLength="820">
+                                    <padding><Insets top="8" bottom="8" left="4" right="4"/></padding>
+                                </FlowPane>
+                            </content>
+                        </ScrollPane>
+                    </VBox>
+                </content>
+            </Tab>
+
+            <!-- =============================================
+                 TAB 4 — Nueva Visita + QR
+                 ============================================= -->
+            <Tab text="Nueva Visita">
+                <content>
+                    <HBox spacing="20" VBox.vgrow="ALWAYS">
+                        <padding><Insets top="15" bottom="15" left="15" right="15"/></padding>
+
+                        <!-- Panel izquierdo: formulario -->
+                        <ScrollPane fitToWidth="true" prefWidth="310" minWidth="280">
+                            <content>
+                                <VBox spacing="10">
+                                    <padding><Insets top="10" bottom="10" left="5" right="5"/></padding>
+
+                                    <Label text="Datos del Visitante" styleClass="subtitulo"/>
+
+                                    <Label text="Nombres:" styleClass="label-formulario"/>
+                                    <TextField fx:id="txtVisNombres" styleClass="campo-texto"/>
+
+                                    <Label text="Apellidos:" styleClass="label-formulario"/>
+                                    <TextField fx:id="txtVisApellidos" styleClass="campo-texto"/>
+
+                                    <Label text="Tipo Documento:" styleClass="label-formulario"/>
+                                    <ComboBox fx:id="cmbVisTipoDoc" maxWidth="Infinity" styleClass="combobox"/>
+
+                                    <Label text="Número Documento:" styleClass="label-formulario"/>
+                                    <TextField fx:id="txtVisDocumento" styleClass="campo-texto"/>
+
+                                    <Label text="Foto/Documento ID:" styleClass="label-formulario"/>
+                                    <HBox spacing="5">
+                                        <Button text="Seleccionar PDF"
+                                                onAction="#seleccionarDocPdf"
+                                                styleClass="boton-pequeno"/>
+                                        <Label fx:id="lblDocPdfSeleccionado"
+                                               text="Sin archivo"
+                                               styleClass="label-ayuda"
+                                               HBox.hgrow="ALWAYS"/>
+                                    </HBox>
+
+                                    <Label text="Teléfono:" styleClass="label-formulario"/>
+                                    <TextField fx:id="txtVisTelefono" styleClass="campo-texto"/>
+
+                                    <Label text="Correo electrónico:" styleClass="label-formulario"/>
+                                    <TextField fx:id="txtVisEmail"
+                                               promptText="ejemplo@correo.com"
+                                               styleClass="campo-texto"/>
+
+                                    <Separator/>
+                                    <Label text="Parámetros de la Visita" styleClass="subtitulo"/>
+
+                                    <Label text="Tiempo Validez QR (min):" styleClass="label-formulario"/>
+                                    <Spinner fx:id="spnVisValidez" maxWidth="Infinity" styleClass="spinner"/>
+
+                                    <Label text="Cantidad de Personas:" styleClass="label-formulario"/>
+                                    <Spinner fx:id="spnVisPersonas" maxWidth="Infinity" styleClass="spinner"/>
+
+                                    <Label text="Notas:" styleClass="label-formulario"/>
+                                    <TextArea fx:id="txtVisNotas" prefRowCount="2" styleClass="textarea"/>
+
+                                    <Separator/>
+                                    <Label text="Vehículo (opcional)" styleClass="subtitulo"/>
+
+                                    <Label text="Placa:" styleClass="label-formulario"/>
+                                    <TextField fx:id="txtVisPlaca"
+                                               promptText="Ej: ABC123 — vacío si viene a pie"
+                                               styleClass="campo-texto"/>
+
+                                    <Label text="Tipo Vehículo:" styleClass="label-formulario"/>
+                                    <ComboBox fx:id="cmbVisTipoVehiculo" maxWidth="Infinity" styleClass="combobox"/>
+
+                                    <HBox spacing="8">
+                                        <Button text="Generar QR"
+                                                onAction="#registrarVisitaResidente"
+                                                styleClass="boton-accion"
+                                                HBox.hgrow="ALWAYS" maxWidth="Infinity"/>
+                                        <Button text="Limpiar"
+                                                onAction="#limpiarFormVisita"
+                                                styleClass="boton-accion"/>
+                                    </HBox>
+                                </VBox>
+                            </content>
+                        </ScrollPane>
+
+                        <!-- Panel derecho: QR generado + compartir -->
+                        <VBox spacing="12" HBox.hgrow="ALWAYS" alignment="TOP_CENTER">
+                            <padding><Insets top="10" bottom="10" left="10" right="10"/></padding>
+
+                            <Label text="Código QR Generado" styleClass="subtitulo"/>
+
+                            <Label fx:id="lblVisCodigoQR"
+                                   text="El QR aparecerá aquí al registrar la visita."
+                                   styleClass="label-formulario"
+                                   wrapText="true"
+                                   style="-fx-font-style: italic; -fx-text-fill: #888888;"/>
+
+                            <ImageView fx:id="imgVisQR"
+                                       fitWidth="220" fitHeight="220"
+                                       preserveRatio="true"
+                                       smooth="true"/>
+
+                            <Label text="Compartir QR con el visitante:"
+                                   styleClass="label-formulario"/>
+                            <HBox spacing="6">
+                                <Button text="Correo"
+                                        onAction="#visCompartirCorreo"
+                                        styleClass="boton-accion"
+                                        HBox.hgrow="ALWAYS" maxWidth="Infinity"/>
+                                <Button text="Telegram"
+                                        onAction="#visCompartirTelegram"
+                                        styleClass="boton-accion"
+                                        HBox.hgrow="ALWAYS" maxWidth="Infinity"/>
+                                <Button text="SMS"
+                                        onAction="#visCompartirSMS"
+                                        styleClass="boton-accion"
+                                        HBox.hgrow="ALWAYS" maxWidth="Infinity"/>
+                            </HBox>
+                        </VBox>
+                    </HBox>
+                </content>
+            </Tab>
+
+        </TabPane>
+    </center>
+
+</BorderPane>

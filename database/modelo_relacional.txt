@@ -1,0 +1,1069 @@
+==============================================================================
+  MODELO RELACIONAL — SISTEMA DE ADMINISTRACION RESIDENCIAL
+  Base de datos: Oracle 18c+ | 18 tablas | 5 vistas | 17 triggers | 2 SPs
+==============================================================================
+
+  INDICE
+  1. Diagrama de dependencias entre tablas
+  2. Catalogo de tablas (atributos, tipo, restricciones, descripcion)
+  3. Explicacion detallada de cada relacion
+  4. Cardinalidad entre entidades
+  5. Vistas del sistema
+  6. Triggers principales
+  7. Stored Procedures
+
+
+==============================================================================
+  1. DIAGRAMA DE DEPENDENCIAS ENTRE TABLAS
+==============================================================================
+
+  TIPOS_DOCUMENTO (catalogo)
+    ├── RESIDENTES          (cada residente tiene un tipo de documento)
+    ├── TUTORES             (cada tutor tiene un tipo de documento)
+    └── VISITANTES          (cada visitante tiene un tipo de documento)
+
+  APARTAMENTOS (infraestructura)
+    ├── PARQUEADEROS        (cada parqueadero fijo pertenece a un apto)
+    └── CONTRATOS           (cada contrato se asigna a un apartamento)
+
+  RESIDENTES (personas)
+    ├── TUTORES             (cada tutor se asocia a un residente menor)
+    ├── USUARIOS            (cada usuario puede tener un residente asociado)
+    ├── CONTRATO_RESIDENTE  (NM entre contratos y residentes)
+    ├── VISITAS             (cada visita la autoriza un residente)
+    └── FRECUENTES_RESIDENTE (cada frecuente vincula residente-visitante)
+
+  TUTORES → CONTRATOS       (un contrato puede tener un tutor asociado)
+
+  USUARIOS (cuentas)
+    ├── CONTRATOS           (admin que registro el contrato)
+    ├── PAGOS               (admin que registro el pago)
+    ├── QR_ACCESOS          (portero que escaneo el QR)
+    └── REGISTROS_ACCESO    (portero que autorizo el ingreso)
+
+  CONTRATOS (arrendamiento)
+    ├── CONTRATO_RESIDENTE  (NM contratos-residentes)
+    ├── CUOTAS_ARRIENDO     (cada contrato genera cuotas mensuales)
+    └── VISITAS             (cada visita se asocia a un contrato-residente)
+
+  CONTRATO_RESIDENTE
+    └── VISITAS             (FK a la tabla puente)
+
+  CUOTAS_ARRIENDO
+    ├── PAGOS               (cada pago cancela parcial/total una cuota)
+    └── ALERTAS_PAGO        (alertas de vencimiento por cuota)
+
+  VISITAS
+    ├── QR_ACCESOS          (1:1 con visita, token QR)
+    ├── VEHICULOS_VISITA    (vehiculos de la visita)
+    ├── REGISTRO_VISITA     (NM visitas-visitantes)
+    └── REGISTROS_ACCESO    (1:1 registro de entrada/salida)
+
+  VISITANTES
+    ├── REGISTRO_VISITA     (NM visitas-visitantes)
+    └── FRECUENTES_RESIDENTE (NM residentes-visitantes frecuentes)
+
+  VEHICULOS_VISITA
+    └── REGISTRO_VISITA     (vehiculo asignado a un visitante en una visita)
+
+  PARQUEADEROS
+    └── VEHICULOS_VISITA    (parqueadero ocupado por un vehiculo de visita)
+
+
+==============================================================================
+  2. CATALOGO DE TABLAS
+==============================================================================
+
+
+----------------------------------------------------------------------
+  TABLA 1: TIPOS_DOCUMENTO
+----------------------------------------------------------------------
+  Descripcion: Catalogo de tipos de documento de identidad validos
+               en Colombia (CC, TI, CE, PP, PEP, RC, NIT).
+  Datos semilla: 7 registros insertados en el DDL.
+
+  Atributos:
+    id_tipo_doc   NUMBER        PK, Identity  — Identificador unico
+    codigo        VARCHAR2(10)  NOT NULL, UQ  — Codigo corto (CC, TI, CE...)
+    descripcion   VARCHAR2(80)  NOT NULL      — Nombre completo del tipo
+    activo        NUMBER(1)     DEFAULT 1     — 0 = descontinuado
+
+  Cardinalidad: 1 ──< N  (un tipo de documento -> muchos residentes/tutores/visitantes)
+  ------
+
+
+----------------------------------------------------------------------
+  TABLA 2: APARTAMENTOS
+----------------------------------------------------------------------
+  Descripcion: Unidades habitacionales del edificio. Solo se arriendan,
+               no se venden. El estado se sincroniza automaticamente
+               mediante TRG_CONT_SYNC_APARTAMENTO cuando cambia el
+               estado del contrato asociado.
+
+  Atributos:
+    id_apartamento  NUMBER        PK, Identity  — Identificador unico
+    numero          VARCHAR2(20)  NOT NULL, UQ  — Identificador visible (101, 202B)
+    piso            NUMBER(3)     NOT NULL      — Piso donde se ubica (>= 1)
+    tipo            VARCHAR2(20)  NOT NULL      — ESTUDIO|1_HAB|2_HAB|3_HAB|PENTHOUSE|OTRO
+    area_m2         NUMBER(6,2)                 — Area en metros cuadrados (> 0)
+    capacidad_maxima NUMBER(3)   DEFAULT 4      — Maximo de residentes permitido
+    estado          VARCHAR2(20)  DEFAULT 'DISPONIBLE' — DISPONIBLE|OCUPADO|EN_MANTENIMIENTO
+    activo          NUMBER(1)     DEFAULT 1     — 0 = soft-delete
+    fecha_registro  TIMESTAMP     DEFAULT SYSTIMESTAMP
+    actualizado_en  TIMESTAMP                   — Actualizado por TRG_APARTAMENTOS_UPD
+
+  Cardinalidad: 1 ──< N  (un apartamento -> muchos parqueaderos)
+                1 ──< N  (un apartamento -> muchos contratos en el tiempo)
+  ------
+
+
+----------------------------------------------------------------------
+  TABLA 3: PARQUEADEROS
+----------------------------------------------------------------------
+  Descripcion: Espacios de parqueo del edificio. Pueden ser fijos
+               (asignados 1:1 a un apartamento) o rotativos (para
+               visitantes). La restriccion CHK_PARQ_EXCLUSIVIDAD
+               evita que un parqueadero sea fijo y visitante a la vez.
+
+  Atributos:
+    id_parqueadero  NUMBER        PK, Identity  — Identificador unico
+    codigo          VARCHAR2(20)  NOT NULL, UQ  — Codigo visible (P-01, M-03, B-01)
+    tipo            VARCHAR2(15)  NOT NULL      — VEHICULO|MOTO|BICICLETA
+    estado          VARCHAR2(20)  DEFAULT 'DISPONIBLE' — DISPONIBLE|OCUPADO|EN_MANTENIMIENTO
+    es_visitante    NUMBER(1)     DEFAULT 0     — 0=fijo | 1=rotativo visitantes
+    id_apartamento  NUMBER        FK, UQ        — FK al apartamento (NULL = rotativo)
+    fecha_registro  TIMESTAMP     DEFAULT SYSTIMESTAMP
+    actualizado_en  TIMESTAMP                   — Actualizado por TRG_PARQUEADEROS_UPD
+
+  Relaciones:
+    FK_PARQ_APARTAMENTO: id_apartamento -> APARTAMENTOS(id_apartamento) ON DELETE SET NULL
+
+  Cardinalidad: N ──> 1  (muchos parqueaderos -> un apartamento)
+                1 ──< N  (un parqueadero -> muchos vehiculos_visita en el tiempo)
+  ------
+
+
+----------------------------------------------------------------------
+  TABLA 4: RESIDENTES
+----------------------------------------------------------------------
+  Descripcion: Personas que habitan el edificio. No tienen relacion
+               directa con el apartamento — esta se establece a
+               traves de CONTRATOS y CONTRATO_RESIDENTE. Incluye
+               soporte para menores de edad (es_menor_edad=1).
+
+  Atributos:
+    id_residente      NUMBER        PK, Identity  — Identificador unico
+    id_tipo_doc       NUMBER        NOT NULL, FK  — FK -> TIPOS_DOCUMENTO
+    numero_documento  VARCHAR2(20)  NOT NULL      — Numero de identidad
+    nombres           VARCHAR2(100) NOT NULL      — Nombres completos
+    apellidos         VARCHAR2(100) NOT NULL      — Apellidos completos
+    fecha_nacimiento  DATE          NOT NULL      — Fecha de nacimiento
+    telefono          VARCHAR2(20)                — Telefono de contacto
+    email             VARCHAR2(254) UQ            — Correo electronico
+    foto_url          VARCHAR2(2000)              — URL de la foto
+    doc_pdf_url       VARCHAR2(2000)              — URL del documento escaneado
+    fecha_ingreso     DATE          DEFAULT SYSDATE — Fecha de ingreso al edificio
+    es_menor_edad     NUMBER(1)     DEFAULT 0     — 1 = menor de 18 anos
+    activo            NUMBER(1)     DEFAULT 1     — 0 = soft-delete
+    fecha_registro    TIMESTAMP     DEFAULT SYSTIMESTAMP
+    actualizado_en    TIMESTAMP                   — Actualizado por TRG_RESIDENTES_UPD
+
+  Relaciones:
+    FK_RES_TIPO_DOC: id_tipo_doc -> TIPOS_DOCUMENTO(id_tipo_doc) [RESTRICT]
+
+  Cardinalidad: N ──> 1  (muchos residentes -> un tipo de documento)
+                1 ──< N  (un residente -> muchos tutores como menor)
+                1 ──< N  (un residente -> muchos CONTRATO_RESIDENTE)
+                1 ──< N  (un residente -> muchas visitas autorizadas)
+                1 ──< N  (un residente -> muchos FRECUENTES_RESIDENTE)
+                1 ── 1  (un residente -> cero o un USUARIO)
+  ------
+
+
+----------------------------------------------------------------------
+  TABLA 5: TUTORES
+----------------------------------------------------------------------
+  Descripcion: Responsables legales de residentes menores de edad.
+               No tienen acceso al sistema (no son USUARIOS).
+               Cada tutor se asocia a EXACTAMENTE UN residente menor.
+
+  Atributos:
+    id_tutor            NUMBER        PK, Identity  — Identificador unico
+    id_residente_menor  NUMBER        NOT NULL, FK  — FK -> RESIDENTES ON DELETE CASCADE
+    id_tipo_doc         NUMBER        NOT NULL, FK  — FK -> TIPOS_DOCUMENTO
+    numero_documento    VARCHAR2(20)  NOT NULL      — Numero de identidad
+    nombres             VARCHAR2(100) NOT NULL      — Nombres del tutor
+    apellidos           VARCHAR2(100) NOT NULL      — Apellidos del tutor
+    telefono            VARCHAR2(20)                — Telefono de contacto
+    email               VARCHAR2(254)               — Correo electronico
+    parentesco          VARCHAR2(30)  NOT NULL      — PADRE|MADRE|ABUELO|TIO|HERMANO|TUTOR_LEGAL|OTRO
+    doc_pdf_url         VARCHAR2(2000)              — URL del documento escaneado
+    fecha_registro      TIMESTAMP     DEFAULT SYSTIMESTAMP
+    actualizado_en      TIMESTAMP                   — Actualizado por TRG_TUTORES_UPD
+
+  Relaciones:
+    FK_TUTOR_RESIDENTE: id_residente_menor -> RESIDENTES(id_residente) ON DELETE CASCADE
+    FK_TUTOR_TIPO_DOC:  id_tipo_doc -> TIPOS_DOCUMENTO(id_tipo_doc) [RESTRICT]
+
+  Unicidad: UQ_TUTOR_DOC ON (id_tipo_doc, numero_documento)
+
+  Cardinalidad: N ──> 1  (muchos tutores -> un tipo de documento)
+                N ──> 1  (muchos tutores posibles -> un residente menor)
+                1 ──< N  (un tutor -> muchos contratos como tutor asociado)
+  ------
+
+
+----------------------------------------------------------------------
+  TABLA 6: USUARIOS
+----------------------------------------------------------------------
+  Descripcion: Cuentas de acceso al sistema. Tres roles:
+               ADMINISTRADOR (gestiona todo), PORTERO (valida QR,
+               registra acceso), RESIDENTE (genera QR de visitas).
+               id_residente = NULL para administradores y porteros.
+
+  Atributos:
+    id_usuario      NUMBER        PK, Identity  — Identificador unico
+    id_residente    NUMBER        FK, UQ        — FK -> RESIDENTES (NULL = admin/portero)
+    username        VARCHAR2(50)  NOT NULL, UQ  — Nombre de usuario (minusculas, >= 4 chars)
+    password_hash   VARCHAR2(255) NOT NULL      — Hash BCrypt factor >= 12
+    rol             VARCHAR2(20)  NOT NULL      — ADMINISTRADOR|PORTERO|RESIDENTE
+    activo          NUMBER(1)     DEFAULT 1     — 0 = cuenta desactivada
+    ultimo_login    TIMESTAMP                   — Ultimo ingreso al sistema
+    fecha_registro  TIMESTAMP     DEFAULT SYSTIMESTAMP
+    actualizado_en  TIMESTAMP                   — Actualizado por TRG_USUARIOS_UPD
+
+  Relaciones:
+    FK_USR_RESIDENTE: id_residente -> RESIDENTES(id_residente) ON DELETE SET NULL
+
+  Cardinalidad: 1 ── 1  (un usuario puede tener un residente asociado, o ninguno)
+                N ──< N  (un usuario admin registra muchos contratos y pagos)
+                N ──< N  (un usuario portero escanea muchos QR y registra accesos)
+  ------
+
+
+----------------------------------------------------------------------
+  TABLA 7: CONTRATOS
+----------------------------------------------------------------------
+  Descripcion: Contratos de arrendamiento. Un apartamento solo puede
+               tener UN contrato ACTIVO a la vez, garantizado por el
+               indice unico funcional UIX_CONT_APT_ACTIVO.
+               Al cambiar el estado a ACTIVO, TRG_CONT_SYNC_APARTAMENTO
+               marca el apartamento como OCUPADO automaticamente.
+
+  Atributos:
+    id_contrato       NUMBER        PK, Identity  — Identificador unico
+    id_apartamento    NUMBER        NOT NULL, FK  — FK -> APARTAMENTOS
+    id_tutor          NUMBER        FK            — FK -> TUTORES ON DELETE SET NULL
+    id_registrado_por NUMBER        NOT NULL, FK  — FK -> USUARIOS (admin que lo creo)
+    fecha_inicio      DATE          NOT NULL      — Inicio de vigencia
+    fecha_fin         DATE                        — NULL = contrato indefinido
+    valor_mensual     NUMBER(12,2)  NOT NULL      — Canon mensual en COP (> 0)
+    dia_pago          NUMBER(2)     DEFAULT 5     — Dia del mes para pago (1-28)
+    dias_gracia       NUMBER(2)     DEFAULT 5     — Dias adicionales sin mora
+    porcentaje_mora   NUMBER(5,2)   DEFAULT 1.5   — % mensual de mora
+    contrato_pdf_url  VARCHAR2(2000)              — URL al PDF firmado
+    estado            VARCHAR2(20)  DEFAULT 'PENDIENTE_FIRMA'
+                                                  — PENDIENTE_FIRMA|ACTIVO|VENCIDO|CANCELADO|SUSPENDIDO
+    observaciones     VARCHAR2(1000)              — Notas administrativas
+    fecha_registro    TIMESTAMP     DEFAULT SYSTIMESTAMP
+    actualizado_en    TIMESTAMP                   — Actualizado por TRG_CONTRATOS_UPD
+
+  Relaciones:
+    FK_CONT_APARTAMENTO:  id_apartamento -> APARTAMENTOS(id_apartamento) [RESTRICT]
+    FK_CONT_TUTOR:        id_tutor -> TUTORES(id_tutor) ON DELETE SET NULL
+    FK_CONT_REGISTRADO:   id_registrado_por -> USUARIOS(id_usuario) [RESTRICT]
+
+  Indice funcional: UIX_CONT_APT_ACTIVO UNIQUE (CASE WHEN estado='ACTIVO' THEN id_apartamento END)
+
+  Cardinalidad: N ──> 1  (muchos contratos en el tiempo -> un apartamento)
+                N ──> 1  (muchos contratos registrados -> un admin)
+                N ──> 1  (muchos contratos -> un tutor opcional)
+                1 ──< N  (un contrato -> muchas cuotas de arriendo)
+                1 ──< N  (un contrato -> muchos CONTRATO_RESIDENTE)
+  ------
+
+
+----------------------------------------------------------------------
+  TABLA 8: CONTRATO_RESIDENTE (tabla puente)
+----------------------------------------------------------------------
+  Descripcion: Relacion N:M entre CONTRATOS y RESIDENTES.
+               Cada residente tiene un rol en el contrato:
+               ARRENDATARIO (firma el contrato), CODEUDOR (garante),
+               RESIDENTE_MENOR (hijo del arrendatario).
+
+  Atributos:
+    id_contrato_res NUMBER        PK, Identity  — Identificador unico (FK desde VISITAS)
+    id_contrato     NUMBER        NOT NULL, FK  — FK -> CONTRATOS ON DELETE CASCADE
+    id_residente    NUMBER        NOT NULL, FK  — FK -> RESIDENTES
+    rol_en_contrato VARCHAR2(25)  NOT NULL      — ARRENDATARIO|CODEUDOR|RESIDENTE_MENOR|OTRO
+
+  Relaciones:
+    FK_CONTRES_CONTRATO:  id_contrato -> CONTRATOS(id_contrato) ON DELETE CASCADE
+    FK_CONTRES_RESIDENTE: id_residente -> RESIDENTES(id_residente) [RESTRICT]
+
+  Cardinalidad: N ──> 1  (muchos registros -> un contrato)
+                N ──> 1  (muchos registros -> un residente)
+                1 ──< N  (un registro -> muchas visitas autorizadas)
+  ------
+
+
+----------------------------------------------------------------------
+  TABLA 9: CUOTAS_ARRIENDO
+----------------------------------------------------------------------
+  Descripcion: Cuotas mensuales de arriendo. Cada contrato genera una
+               cuota por mes. El trigger TRG_CUOTAS_UPD recalcula
+               automaticamente valor_total = valor_base + valor_mora.
+               Estados: PENDIENTE, PAGADA, VENCIDA, EN_MORA.
+
+  Atributos:
+    id_cuota        NUMBER        PK, Identity  — Identificador unico
+    id_contrato     NUMBER        NOT NULL, FK  — FK -> CONTRATOS ON DELETE CASCADE
+    anio            NUMBER(4)     NOT NULL      — Ano de la cuota (>= 2000)
+    mes             NUMBER(2)     NOT NULL      — Mes de la cuota (1-12)
+    fecha_limite    DATE          NOT NULL      — Fecha limite de pago
+    valor_base      NUMBER(12,2)  NOT NULL      — Canon base (> 0)
+    valor_mora      NUMBER(12,2)  DEFAULT 0     — Mora acumulada
+    valor_total     NUMBER(12,2)  NOT NULL      — valor_base + valor_mora (recalculado por trigger)
+    estado          VARCHAR2(15)  DEFAULT 'PENDIENTE' — PENDIENTE|PAGADA|VENCIDA|EN_MORA
+    fecha_generacion TIMESTAMP    DEFAULT SYSTIMESTAMP
+    actualizado_en  TIMESTAMP                   — Actualizado por TRG_CUOTAS_UPD
+
+  Relaciones:
+    FK_CUOTA_CONTRATO: id_contrato -> CONTRATOS(id_contrato) ON DELETE CASCADE
+
+  Cardinalidad: N ──> 1  (muchas cuotas -> un contrato)
+                1 ──< N  (una cuota -> muchos pagos parciales)
+                1 ──< N  (una cuota -> muchas alertas de pago)
+  ------
+
+
+----------------------------------------------------------------------
+  TABLA 10: PAGOS
+----------------------------------------------------------------------
+  Descripcion: Transacciones de pago. Una cuota puede tener multiples
+               pagos (abonos parciales). Los pagos son inmutables:
+               una vez registrados no se modifican ni eliminan.
+
+  Atributos:
+    id_pago           NUMBER        PK, Identity  — Identificador unico
+    id_cuota          NUMBER        NOT NULL, FK  — FK -> CUOTAS_ARRIENDO
+    id_registrado_por NUMBER        NOT NULL, FK  — FK -> USUARIOS
+    fecha_pago        DATE          NOT NULL      — Fecha efectiva del pago
+    valor_pagado      NUMBER(12,2)  NOT NULL      — Monto pagado en COP
+    metodo_pago       VARCHAR2(20)  NOT NULL      — EFECTIVO|TRANSFERENCIA|CHEQUE|TARJETA|CONSIGNACION|OTRO
+    comprobante_url   VARCHAR2(2000)              — URL al soporte digital
+    referencia        VARCHAR2(200)               — Numero de transaccion
+    notas             VARCHAR2(500)               — Observaciones
+    fecha_registro    TIMESTAMP     DEFAULT SYSTIMESTAMP
+
+  Relaciones:
+    FK_PAGO_CUOTA:       id_cuota -> CUOTAS_ARRIENDO(id_cuota) [RESTRICT]
+    FK_PAGO_REGISTRADO:  id_registrado_por -> USUARIOS(id_usuario) [RESTRICT]
+
+  Cardinalidad: N ──> 1  (muchos pagos -> una cuota)
+                N ──> 1  (muchos pagos registrados -> un usuario)
+  ------
+
+
+----------------------------------------------------------------------
+  TABLA 11: ALERTAS_PAGO
+----------------------------------------------------------------------
+  Descripcion: Historial de notificaciones enviadas sobre cuotas.
+               El indice unico funcional UIX_ALERTA_CUOTA_DIA evita
+               duplicados diarios del mismo tipo para la misma cuota.
+
+  Atributos:
+    id_alerta   NUMBER        PK, Identity  — Identificador unico
+    id_cuota    NUMBER        NOT NULL, FK  — FK -> CUOTAS_ARRIENDO ON DELETE CASCADE
+    tipo_alerta VARCHAR2(25)  NOT NULL      — PROXIMO_VENCIMIENTO|VENCIDA|EN_MORA
+    canal       VARCHAR2(20)  DEFAULT 'SISTEMA' — SISTEMA|EMAIL|SMS|WHATSAPP
+    leida       NUMBER(1)     DEFAULT 0     — 0=no leida | 1=leida
+    enviada_en  TIMESTAMP     DEFAULT SYSTIMESTAMP
+    leida_en    TIMESTAMP                   — NOT NULL cuando leida=1
+
+  Relaciones:
+    FK_ALERTA_CUOTA: id_cuota -> CUOTAS_ARRIENDO(id_cuota) ON DELETE CASCADE
+
+  Cardinalidad: N ──> 1  (muchas alertas -> una cuota)
+  ------
+
+
+----------------------------------------------------------------------
+  TABLA 12: VISITANTES
+----------------------------------------------------------------------
+  Descripcion: Personas externas que visitan el edificio. El registro
+               es reutilizable — si la misma persona visita varias
+               veces, no se duplica. Unicidad por (tipo_doc, num_doc).
+
+  Atributos:
+    id_visitante      NUMBER        PK, Identity  — Identificador unico
+    id_tipo_doc       NUMBER        NOT NULL, FK  — FK -> TIPOS_DOCUMENTO
+    numero_documento  VARCHAR2(20)  NOT NULL      — Numero de identidad
+    nombres           VARCHAR2(100) NOT NULL      — Nombres del visitante
+    apellidos         VARCHAR2(100) NOT NULL      — Apellidos del visitante
+    telefono          VARCHAR2(20)                — Telefono de contacto
+    email             VARCHAR2(254)               — Correo para envio del QR
+    activo            NUMBER(1)     DEFAULT 1     — 1=activo | 0=soft-delete
+    foto_url          VARCHAR2(2000)              — URL de la foto del visitante
+    doc_pdf_url       VARCHAR2(2000)              — URL del documento escaneado
+    fecha_registro    TIMESTAMP     DEFAULT SYSTIMESTAMP
+    actualizado_en    TIMESTAMP                   — Actualizado por TRG_VISITANTES_UPD
+
+  Relaciones:
+    FK_VIS_TIPO_DOC: id_tipo_doc -> TIPOS_DOCUMENTO(id_tipo_doc) [RESTRICT]
+
+  Cardinalidad: N ──> 1  (muchos visitantes -> un tipo de documento)
+                1 ──< N  (un visitante -> muchas visitas en el tiempo)
+                1 ──< N  (un visitante -> muchos FRECUENTES_RESIDENTE)
+  ------
+
+
+----------------------------------------------------------------------
+  TABLA 13: VISITAS
+----------------------------------------------------------------------
+  Descripcion: Autorizacion de visita registrada por el residente.
+               Es la base del QR de acceso. El trigger
+               TRG_VIS_VALIDAR_RESIDENTE verifica que el residente
+               autorizante coincida con el CONTRATO_RESIDENTE.
+
+  Atributos:
+    id_visita           NUMBER        PK, Identity  — Identificador unico
+    id_contrato_res     NUMBER        NOT NULL, FK  — FK -> CONTRATO_RESIDENTE
+    id_residente        NUMBER        NOT NULL, FK  — FK -> RESIDENTES (desnormalizacion controlada)
+    tiempo_validez_min  NUMBER(3)     DEFAULT 30    — Minutos de validez del QR (5-60)
+    cantidad_personas   NUMBER(3)     DEFAULT 1     — Total del grupo (1-99)
+    notas               VARCHAR2(500)               — Notas de la visita
+    estado              VARCHAR2(15)  DEFAULT 'PENDIENTE' — PENDIENTE|ACTIVA|FINALIZADA|CANCELADA|EXPIRADA
+    fecha_registro      TIMESTAMP     DEFAULT SYSTIMESTAMP
+    actualizado_en      TIMESTAMP                   — Actualizado por TRG_VISITAS_UPD
+
+  Relaciones:
+    FK_VIS_CONTRATO_RES: id_contrato_res -> CONTRATO_RESIDENTE(id_contrato_res) [RESTRICT]
+    FK_VIS_RESIDENTE:    id_residente -> RESIDENTES(id_residente) [RESTRICT]
+
+  Cardinalidad: N ──> 1  (muchas visitas -> un CONTRATO_RESIDENTE)
+                N ──> 1  (muchas visitas autorizadas -> un residente)
+                1 ── 1  (una visita -> un QR_ACCESOS)
+                1 ──< N  (una visita -> muchos VEHICULOS_VISITA)
+                1 ──< N  (una visita -> muchos REGISTRO_VISITA)
+                1 ── 1  (una visita -> un REGISTROS_ACCESO)
+  ------
+
+
+----------------------------------------------------------------------
+  TABLA 14: QR_ACCESOS
+----------------------------------------------------------------------
+  Descripcion: Token QR de un solo uso por visita. Relacion 1:1 con
+               VISITAS. El codigo QR es un UUID v4 unico global.
+               Solo porteros pueden marcar como usado.
+
+  Atributos:
+    id_qr               NUMBER        PK, Identity  — Identificador unico
+    id_visita           NUMBER        NOT NULL, FK, UQ — FK -> VISITAS ON DELETE CASCADE
+    id_vigilante_uso    NUMBER        FK            — FK -> USUARIOS ON DELETE SET NULL
+    codigo_qr           VARCHAR2(255) NOT NULL, UQ  — UUID v4, unico global
+    fecha_generacion    TIMESTAMP     DEFAULT SYSTIMESTAMP
+    fecha_expiracion    TIMESTAMP     NOT NULL      — Debe ser > fecha_generacion
+    usado               NUMBER(1)     DEFAULT 0     — 0=disponible | 1=consumido
+    fecha_uso           TIMESTAMP                   — NOT NULL cuando usado=1
+
+  Relaciones:
+    FK_QR_VISITA:      id_visita -> VISITAS(id_visita) ON DELETE CASCADE
+    FK_QR_VIGILANTE:   id_vigilante_uso -> USUARIOS(id_usuario) ON DELETE SET NULL
+
+  Cardinalidad: 1 ──> 1  (un QR -> una visita)
+               N ──> 1  (muchos QR escaneados -> un portero)
+  ------
+
+
+----------------------------------------------------------------------
+  TABLA 15: VEHICULOS_VISITA
+----------------------------------------------------------------------
+  Descripcion: Vehiculos asociados a una visita. Una visita puede
+               tener 0 (todos a pie) o varios vehiculos. Al registrar
+               la salida, TRG_ACCESO_SALIDA registra hora_salida
+               y libera el parqueadero.
+
+  Atributos:
+    id_vehiculo_visita  NUMBER        PK, Identity  — Identificador unico
+    id_visita           NUMBER        NOT NULL, FK  — FK -> VISITAS ON DELETE CASCADE
+    id_parqueadero      NUMBER        FK            — FK -> PARQUEADEROS ON DELETE SET NULL
+    placa               VARCHAR2(10)  NOT NULL      — Placa en mayusculas
+    tipo                VARCHAR2(15)  NOT NULL      — VEHICULO|MOTO|BICICLETA|OTRO
+    descripcion_tipo    VARCHAR2(60)                — Obligatorio si tipo=OTRO
+    color               VARCHAR2(60)                — Color del vehiculo
+    marca               VARCHAR2(100)               — Marca del vehiculo
+    hora_entrada        TIMESTAMP                   — Hora de ingreso
+    hora_salida         TIMESTAMP                   — NULL = aun dentro
+    actualizado_en      TIMESTAMP                   — Actualizado por TRG_VEHICULOS_UPD
+
+  Relaciones:
+    FK_VEH_VISITA:       id_visita -> VISITAS(id_visita) ON DELETE CASCADE
+    FK_VEH_PARQUEADERO:  id_parqueadero -> PARQUEADEROS(id_parqueadero) ON DELETE SET NULL
+
+  Cardinalidad: N ──> 1  (muchos vehiculos -> una visita)
+                N ──> 1  (muchos vehiculos en el tiempo -> un parqueadero)
+                1 ──< N  (un vehiculo -> muchos REGISTRO_VISITA donde es el vehiculo)
+  ------
+
+
+----------------------------------------------------------------------
+  TABLA 16: REGISTRO_VISITA (tabla puente)
+----------------------------------------------------------------------
+  Descripcion: Relacion N:M reutilizable entre VISITAS y VISITANTES.
+               id_vehiculo_visita es NULL si el visitante llego a pie.
+               es_titular=1 para el visitante principal del grupo.
+
+  Atributos:
+    id_registro_visita  NUMBER        PK, Identity  — Identificador unico
+    id_visita           NUMBER        NOT NULL, FK  — FK -> VISITAS ON DELETE CASCADE
+    id_visitante        NUMBER        NOT NULL, FK  — FK -> VISITANTES
+    id_vehiculo_visita  NUMBER        FK            — FK -> VEHICULOS_VISITA ON DELETE SET NULL
+    es_titular          NUMBER(1)     DEFAULT 0     — 1=visitante principal
+
+  Relaciones:
+    FK_REGVIS_VISITA:     id_visita -> VISITAS(id_visita) ON DELETE CASCADE
+    FK_REGVIS_VISITANTE:  id_visitante -> VISITANTES(id_visitante) [RESTRICT]
+    FK_REGVIS_VEHICULO:   id_vehiculo_visita -> VEHICULOS_VISITA(id_vehiculo_visita) ON DELETE SET NULL
+
+  Cardinalidad: N ──> 1  (muchos registros -> una visita)
+                N ──> 1  (muchos registros -> un visitante)
+                N ──> 1  (muchos registros -> un vehiculo)
+  ------
+
+
+----------------------------------------------------------------------
+  TABLA 17: FRECUENTES_RESIDENTE
+----------------------------------------------------------------------
+  Descripcion: Visitantes frecuentes por residente. Auto-poblado por
+               TRG_AUTO_FRECUENTE cuando se registra una visita.
+               Soft-delete con activo=0 para ocultar sin perder el
+               historial.
+
+  Atributos:
+    id_frecuente    NUMBER        PK, Identity  — Identificador unico
+    id_residente    NUMBER        NOT NULL, FK  — FK -> RESIDENTES ON DELETE CASCADE
+    id_visitante    NUMBER        NOT NULL, FK  — FK -> VISITANTES ON DELETE CASCADE
+    activo          NUMBER(1)     DEFAULT 1     — 1=visible | 0=oculto
+    fecha_registro  TIMESTAMP     DEFAULT SYSTIMESTAMP
+    actualizado_en  TIMESTAMP                   — Actualizado por TRG_FRECUENTES_UPD
+
+  Relaciones:
+    FK_FREC_RESIDENTE:  id_residente -> RESIDENTES(id_residente) ON DELETE CASCADE
+    FK_FREC_VISITANTE:  id_visitante -> VISITANTES(id_visitante) ON DELETE CASCADE
+
+  Cardinalidad: N ──> 1  (muchos frecuentes -> un residente)
+                N ──> 1  (muchos frecuentes -> un visitante)
+  ------
+
+
+----------------------------------------------------------------------
+  TABLA 18: REGISTROS_ACCESO
+----------------------------------------------------------------------
+  Descripcion: Registro de entrada y salida fisica del visitante.
+               Relacion 1:1 con VISITAS. Separado del QR para permitir
+               el registro de entrada incluso si el QR fue validado
+               antes (por ejemplo, pre-registro).
+
+  Atributos:
+    id_acceso       NUMBER        PK, Identity  — Identificador unico
+    id_visita       NUMBER        NOT NULL, FK, UQ — FK -> VISITAS
+    id_vigilante    NUMBER        NOT NULL, FK  — FK -> USUARIOS (portero)
+    hora_entrada    TIMESTAMP     DEFAULT SYSTIMESTAMP — Momento del ingreso
+    hora_salida     TIMESTAMP                   — NULL = aun dentro del edificio
+    observaciones   VARCHAR2(500)               — Notas del portero
+    fecha_registro  TIMESTAMP     DEFAULT SYSTIMESTAMP
+    actualizado_en  TIMESTAMP                   — Actualizado por TRG_ACCESO_UPD
+
+  Relaciones:
+    FK_ACCESO_VISITA:     id_visita -> VISITAS(id_visita) [RESTRICT]
+    FK_ACCESO_VIGILANTE:  id_vigilante -> USUARIOS(id_usuario) [RESTRICT]
+
+  Cardinalidad: 1 ──> 1  (un registro de acceso -> una visita)
+                N ──> 1  (muchos registros de acceso -> un portero)
+
+
+==============================================================================
+  3. EXPLICACION DETALLADA DE CADA RELACION
+==============================================================================
+
+
+  RELACION 1: TIPOS_DOCUMENTO ── RESIDENTES
+  ────────────────────────────────────────────────────────────────────────────
+  Tipo: 1 ──< N (uno a muchos)
+  Como funciona: RESIDENTES.id_tipo_doc apunta a TIPOS_DOCUMENTO.id_tipo_doc
+  Por que es la mejor manera:
+    Los tipos de documento (CC, TI, CE, etc.) son un catalogo fijo
+    determinado por ley colombiana. Normalizarlos en una tabla separada
+    evita valores invalidos (ej. 'cc' en vez de 'CC'), permite agregar
+    nuevos tipos (PEP para venezolanos) sin cambiar codigo, y evita
+    repetir strings en cada fila de RESIDENTES. La FK con RESTRICT
+    impide eliminar un tipo que este en uso.
+  Tabla puente: No aplica (relacion directa 1:N)
+
+
+  RELACION 2: TIPOS_DOCUMENTO ── TUTORES
+  ────────────────────────────────────────────────────────────────────────────
+  Tipo: 1 ──< N (uno a muchos)
+  Como funciona: TUTORES.id_tipo_doc apunta a TIPOS_DOCUMENTO.id_tipo_doc
+  Por que es la mejor manera:
+    Misma logica que la Relacion 1. El tutor tambien tiene un documento
+    de identidad que debe ser validado. Reutiliza el mismo catalogo
+    en lugar de crear uno separado para tutores.
+
+
+  RELACION 3: TIPOS_DOCUMENTO ── VISITANTES
+  ────────────────────────────────────────────────────────────────────────────
+  Tipo: 1 ──< N (uno a muchos)
+  Como funciona: VISITANTES.id_tipo_doc apunta a TIPOS_DOCUMENTO.id_tipo_doc
+  Por que es la mejor manera:
+    Los visitantes extranjeros pueden tener CE o Pasaporte. Tener el
+    catalogo centralizado asegura consistencia y permite que la interfaz
+    genere un <select> con opciones automaticamente.
+
+
+  RELACION 4: APARTAMENTOS ── PARQUEADEROS (fijos)
+  ────────────────────────────────────────────────────────────────────────────
+  Tipo: 1 ──< N (uno a muchos, pero con UQ en id_apartamento)
+  Como funciona: PARQUEADEROS.id_apartamento apunta a APARTAMENTOS.id_apartamento.
+                 La UQ en id_apartamento garantiza maximo 1 parqueadero fijo
+                 por apartamento.
+  Por que es la mejor manera:
+    La relacion es 1:1 logica (cada apto tiene derecho a 1 parqueadero
+    fijo), pero se implementa como 1:N con UNIQUE porque algunos
+    parqueaderos son rotativos (id_apartamento=NULL). Usar una FK directa
+    con UNIQUE es mas simple que una tabla intermedia. ON DELETE SET NULL
+    permite liberar el parqueadero si se elimina el apartamento.
+  Tabla puente: No aplica (FK directa con UNIQUE = 1:1 logico)
+
+
+  RELACION 5: APARTAMENTOS ── CONTRATOS
+  ────────────────────────────────────────────────────────────────────────────
+  Tipo: 1 ──< N (uno a muchos en el tiempo)
+  Como funciona: CONTRATOS.id_apartamento apunta a APARTAMENTOS.id_apartamento
+  Por que es la mejor manera:
+    Un apartamento puede tener MULTIPLES contratos a lo largo del tiempo
+    (cuando expira uno, se firma otro). El indice funcional
+    UIX_CONT_APT_ACTIVO garantiza que solo UN contrato este ACTIVO
+    por apartamento, permitiendo historico de contratos vencidos/
+    cancelados. ON DELETE RESTRICT evita eliminar un apartamento
+    con contratos asociados.
+  Tabla puente: No (relacion directa 1:N, con restriccion de 1 activo)
+
+
+  RELACION 6: RESIDENTES ── TUTORES (menor de edad)
+  ────────────────────────────────────────────────────────────────────────────
+  Tipo: 1 ──< N (uno a muchos, un menor -> varios tutores posibles)
+  Como funciona: TUTORES.id_residente_menor apunta a RESIDENTES.id_residente
+  Por que es la mejor manera:
+    Separar TUTORES de RESIDENTES evita contaminar la entidad RESIDENTES
+    con campos opcionales de tutoria. Ademas, un menor podria tener
+    varios tutores (padre y madre). ON DELETE CASCADE elimina los
+    tutores si se elimina el residente menor. Validar con CHECK que
+    el residente sea menor (es_menor_edad=1) no se hace en BD porque
+    el trigger TRG_VIS_VALIDAR_RESIDENTE no aplica aqui — se maneja
+    en la capa de aplicacion.
+  Tabla puente: No (FK directa 1:N)
+
+
+  RELACION 7: RESIDENTES ── USUARIOS
+  ────────────────────────────────────────────────────────────────────────────
+  Tipo: 1 ── 1 (uno a uno, opcional)
+  Como funciona: USUARIOS.id_residente apunta a RESIDENTES.id_residente
+  Por que es la mejor manera:
+    No todos los residentes tienen cuenta (menores de edad, por ejemplo).
+    La FK permite NULL. La UQ en id_residente garantiza que un residente
+    no pueda tener dos cuentas. ON DELETE SET NULL evita eliminar
+    el usuario si se elimina el residente (el usuario queda huerfano
+    pero la auditoria de sus acciones se conserva).
+  Tabla puente: No (FK directa con UNIQUE = 1:1 opcional)
+
+
+  RELACION 8: RESIDENTES ── VISITAS (autorizante)
+  ────────────────────────────────────────────────────────────────────────────
+  Tipo: 1 ──< N (uno a muchas visitas autorizadas)
+  Como funciona: VISITAS.id_residente apunta a RESIDENTES.id_residente
+  Por que es la mejor manera:
+    Desnormalizacion controlada: id_residente en VISITAS es redundante
+    porque ya esta en CONTRATO_RESIDENTE -> CONTRATOS -> VISITAS, pero
+    se incluye para evitar joins costosos en la validacion del QR.
+    El trigger TRG_VIS_VALIDAR_RESIDENTE verifica que coincida con
+    el CONTRATO_RESIDENTE referenciado, garantizando integridad.
+  Tabla puente: No (FK directa con validacion via trigger)
+
+
+  RELACION 9: RESIDENTES ── FRECUENTES_RESIDENTE
+  ────────────────────────────────────────────────────────────────────────────
+  Tipo: 1 ──< N (uno a muchos visitantes frecuentes)
+  Como funciona: FRECUENTES_RESIDENTE.id_residente apunta a RESIDENTES.id_residente
+  Por que es la mejor manera:
+    Tabla puente entre RESIDENTES y VISITANTES. Se necesita una tabla
+    separada porque la relacion es N:M (un residente tiene muchos
+    frecuentes, un visitante puede ser frecuente de varios residentes).
+    ON DELETE CASCADE en ambas FKs asegura limpieza automatica.
+  Tabla puente: Esta TABLA ES la tabla puente
+
+
+  RELACION 10: TUTORES ── CONTRATOS
+  ────────────────────────────────────────────────────────────────────────────
+  Tipo: 1 ──< N (un tutor -> muchos contratos como tutor asociado)
+  Como funciona: CONTRATOS.id_tutor apunta a TUTORES.id_tutor
+  Por que es la mejor manera:
+    Cuando un menor vive en un apartamento, el contrato puede requerir
+    la firma del tutor legal. La FK permite NULL porque no todos los
+    contratos involucran menores. ON DELETE SET NULL preserva el
+    contrato si se elimina el registro del tutor.
+  Tabla puente: No (FK directa 1:N, opcional)
+
+
+  RELACION 11: USUARIOS ── CONTRATOS (registrado por)
+  ────────────────────────────────────────────────────────────────────────────
+  Tipo: 1 ──< N (un admin registra muchos contratos)
+  Como funciona: CONTRATOS.id_registrado_por apunta a USUARIOS.id_usuario
+  Por que es la mejor manera:
+    Pista de auditoria: quien creo el contrato. ON DELETE RESTRICT
+    impide eliminar un usuario que haya registrado contratos.
+  Tabla puente: No (FK directa 1:N)
+
+
+  RELACION 12: USUARIOS ── PAGOS (registrado por)
+  ────────────────────────────────────────────────────────────────────────────
+  Tipo: 1 ──< N (un admin registra muchos pagos)
+  Como funciona: PAGOS.id_registrado_por apunta a USUARIOS.id_usuario
+  Por que es la mejor manera:
+    Pista de auditoria para transacciones financieras. RESTRICT
+    evita eliminar usuarios con pagos registrados.
+
+
+  RELACION 13: USUARIOS ── QR_ACCESOS (vigilante que uso el QR)
+  ────────────────────────────────────────────────────────────────────────────
+  Tipo: 1 ──< N (un portero escanea muchos QR)
+  Como funciona: QR_ACCESOS.id_vigilante_uso apunta a USUARIOS.id_usuario
+  Por que es la mejor manera:
+    Permite saber que portero proceso cada QR. SET NULL porque
+    si se elimina el usuario portero, el registro del QR debe
+    conservarse para auditoria.
+  Tabla puente: No (FK directa 1:N, opcional)
+
+
+  RELACION 14: USUARIOS ── REGISTROS_ACCESO (vigilante)
+  ────────────────────────────────────────────────────────────────────────────
+  Tipo: 1 ──< N (un portero registra muchos accesos)
+  Como funciona: REGISTROS_ACCESO.id_vigilante apunta a USUARIOS.id_usuario
+  Por que es la mejor manera:
+    Quien autorizo el ingreso fisico. RESTRICT evita eliminar
+    porteros con accesos registrados.
+
+
+  RELACION 15: CONTRATOS ── CONTRATO_RESIDENTE
+  ────────────────────────────────────────────────────────────────────────────
+  Tipo: 1 ──< N
+  Como funciona: CONTRATO_RESIDENTE.id_contrato apunta a CONTRATOS.id_contrato
+  Por que es la mejor manera:
+    Un contrato puede tener MULTIPLES residentes (arrendatario +
+    codeudor + menores). ON DELETE CASCADE: si se elimina el
+    contrato, se eliminan todas las asociaciones.
+  Tabla puente: Esta TABLA ES parte de la tabla puente CONTRATO_RESIDENTE
+
+
+  RELACION 16: RESIDENTES ── CONTRATO_RESIDENTE
+  ────────────────────────────────────────────────────────────────────────────
+  Tipo: 1 ──< N
+  Como funciona: CONTRATO_RESIDENTE.id_residente apunta a RESIDENTES.id_residente
+  Por que es la mejor manera:
+    Un residente puede estar en MULTIPLES contratos (como arrendatario
+    de uno y codeudor de otro). RESTRICT evita eliminar un residente
+    con contratos activos.
+  Tabla puente: Esta TABLA ES parte de la tabla puente CONTRATO_RESIDENTE
+
+
+  RELACION 17: CONTRATO_RESIDENTE ── VISITAS
+  ────────────────────────────────────────────────────────────────────────────
+  Tipo: 1 ──< N
+  Como funciona: VISITAS.id_contrato_res apunta a CONTRATO_RESIDENTE.id_contrato_res
+  Por que es la mejor manera:
+    Cada visita se asocia al CONTRATO_RESIDENTE especifico que da
+    contexto legal a la visita. RESTRICT evita eliminar un vinculo
+    contrato-residente que tenga visitas asociadas.
+  Tabla puente: No (FK directa desde VISITAS a la tabla puente anterior)
+
+
+  RELACION 18: CONTRATOS ── CUOTAS_ARRIENDO
+  ────────────────────────────────────────────────────────────────────────────
+  Tipo: 1 ──< N
+  Como funciona: CUOTAS_ARRIENDO.id_contrato apunta a CONTRATOS.id_contrato
+  Por que es la mejor manera:
+    Cada contrato genera una cuota por mes de vigencia. ON DELETE
+    CASCADE elimina las cuotas si se anula el contrato.
+
+
+  RELACION 19: CUOTAS_ARRIENDO ── PAGOS
+  ────────────────────────────────────────────────────────────────────────────
+  Tipo: 1 ──< N (una cuota -> varios pagos parciales)
+  Como funciona: PAGOS.id_cuota apunta a CUOTAS_ARRIENDO.id_cuota
+  Por que es la mejor manera:
+    Soporta abonos parciales (el residente paga en dos cuotas).
+    RESTRICT evita eliminar una cuota con pagos registrados.
+
+
+  RELACION 20: CUOTAS_ARRIENDO ── ALERTAS_PAGO
+  ────────────────────────────────────────────────────────────────────────────
+  Tipo: 1 ──< N
+  Como funciona: ALERTAS_PAGO.id_cuota apunta a CUOTAS_ARRIENDO.id_cuota
+  Por que es la mejor manera:
+    Una cuota puede generar multiples alertas (proximo vencimiento,
+    vencida, en mora). CASCADE elimina alertas si se elimina la cuota.
+
+
+  RELACION 21: VISITAS ── QR_ACCESOS
+  ────────────────────────────────────────────────────────────────────────────
+  Tipo: 1 ── 1
+  Como funciona: QR_ACCESOS.id_visita apunta a VISITAS.id_visita, con UNIQUE
+  Por que es la mejor manera:
+    Cada visita genera EXACTAMENTE un QR. La UQ en id_visita mas la
+    FK garantizan la relacion 1:1. ON DELETE CASCADE elimina el QR
+    si se cancela la visita. El token QR es unico globalmente (UQ_QR_CODIGO).
+
+
+  RELACION 22: VISITAS ── VEHICULOS_VISITA
+  ────────────────────────────────────────────────────────────────────────────
+  Tipo: 1 ──< N (una visita -> varios vehiculos)
+  Como funciona: VEHICULOS_VISITA.id_visita apunta a VISITAS.id_visita
+  Por que es la mejor manera:
+    Una visita puede incluir multiples vehiculos (ej. dos amigos
+    llegan en carros separados). CASCADE elimina los vehiculos
+    si se elimina la visita.
+
+
+  RELACION 23: VISITAS ── REGISTRO_VISITA
+  ────────────────────────────────────────────────────────────────────────────
+  Tipo: 1 ──< N (una visita -> muchos visitantes)
+  Como funciona: REGISTRO_VISITA.id_visita apunta a VISITAS.id_visita
+  Por que es la mejor manera:
+    Tabla puente N:M entre VISITAS y VISITANTES. CASCADE elimina
+    los registros si se elimina la visita.
+
+
+  RELACION 24: VISITANTES ── REGISTRO_VISITA
+  ────────────────────────────────────────────────────────────────────────────
+  Tipo: 1 ──< N (un visitante -> muchas visitas en el tiempo)
+  Como funciona: REGISTRO_VISITA.id_visitante apunta a VISITANTES.id_visitante
+  Por que es la mejor manera:
+    Un visitante reutilizable puede visitar muchas veces. RESTRICT
+    evita eliminar un visitante con visitas registradas (mejor
+    soft-delete con activo=0).
+
+
+  RELACION 25: VEHICULOS_VISITA ── REGISTRO_VISITA
+  ────────────────────────────────────────────────────────────────────────────
+  Tipo: 1 ──< N (un vehiculo -> varios registros como transporte de grupo)
+  Como funciona: REGISTRO_VISITA.id_vehiculo_visita apunta a VEHICULOS_VISITA.id_vehiculo_visita
+  Por que es la mejor manera:
+    Permite especificar en que vehiculo llego cada visitante del grupo.
+    SET NULL: si se elimina el vehiculo, el registro del visitante
+    se conserva pero sin vehiculo asociado.
+
+
+  RELACION 26: PARQUEADEROS ── VEHICULOS_VISITA
+  ────────────────────────────────────────────────────────────────────────────
+  Tipo: 1 ──< N (un parqueadero -> muchos vehiculos de visita en el tiempo)
+  Como funciona: VEHICULOS_VISITA.id_parqueadero apunta a PARQUEADEROS.id_parqueadero
+  Por que es la mejor manera:
+    Asigna un parqueadero especifico al vehiculo de la visita.
+    SET NULL: si se elimina el parqueadero (en mantenimiento),
+    el registro del vehiculo se conserva.
+
+
+  RELACION 27: VISITAS ── REGISTROS_ACCESO
+  ────────────────────────────────────────────────────────────────────────────
+  Tipo: 1 ── 1 (una visita -> un registro de acceso)
+  Como funciona: REGISTROS_ACCESO.id_visita apunta a VISITAS.id_visita, con UNIQUE
+  Por que es la mejor manera:
+    Cada visita tiene exactamente un registro de entrada/salida.
+    Separado de QR_ACCESOS para permitir registrar entrada incluso
+    si el QR fue pre-validado. RESTRICT evita eliminar una visita
+    con acceso registrado.
+
+
+  RELACION 28: VISITANTES ── FRECUENTES_RESIDENTE (por la otra punta)
+  ────────────────────────────────────────────────────────────────────────────
+  Tipo: 1 ──< N (un visitante -> muchos residentes que lo tienen como frecuente)
+  Como funciona: FRECUENTES_RESIDENTE.id_visitante apunta a VISITANTES.id_visitante
+  Por que es la mejor manera:
+    Un visitante puede ser frecuente de MULTIPLES residentes
+    (ej. el hijo visita a ambos padres en apartamentos distintos).
+    CASCADE elimina los frecuentes si se elimina el visitante.
+
+
+==============================================================================
+  4. CARDINALIDAD ENTRE ENTIDADES (resumen grafico)
+==============================================================================
+
+  TIPOS_DOCUMENTO  1 ──< N  RESIDENTES
+  TIPOS_DOCUMENTO  1 ──< N  TUTORES
+  TIPOS_DOCUMENTO  1 ──< N  VISITANTES
+  APARTAMENTOS     1 ──< N  PARQUEADEROS (1:1 logico con UNIQUE)
+  APARTAMENTOS     1 ──< N  CONTRATOS (1 ACTIVO garantizado por indice funcional)
+  RESIDENTES       1 ──< N  TUTORES (un menor -> varios tutores)
+  RESIDENTES       1 ── 1  USUARIOS (opcional)
+  RESIDENTES       1 ──< N  VISITAS (como autorizante)
+  RESIDENTES       1 ──< N  FRECUENTES_RESIDENTE
+  RESIDENTES       1 ──< N  CONTRATO_RESIDENTE
+  TUTORES          1 ──< N  CONTRATOS (opcional)
+  USUARIOS         1 ──< N  CONTRATOS (como registrador)
+  USUARIOS         1 ──< N  PAGOS (como registrador)
+  USUARIOS         1 ──< N  QR_ACCESOS (como vigilante)
+  USUARIOS         1 ──< N  REGISTROS_ACCESO (como vigilante)
+  CONTRATOS        1 ──< N  CONTRATO_RESIDENTE
+  CONTRATOS        1 ──< N  CUOTAS_ARRIENDO
+  CONTRATO_RESIDENTE 1 ──< N VISITAS
+  CUOTAS_ARRIENDO  1 ──< N  PAGOS
+  CUOTAS_ARRIENDO  1 ──< N  ALERTAS_PAGO
+  VISITAS          1 ── 1  QR_ACCESOS
+  VISITAS          1 ──< N  VEHICULOS_VISITA
+  VISITAS          1 ──< N  REGISTRO_VISITA
+  VISITAS          1 ── 1  REGISTROS_ACCESO
+  VISITANTES       1 ──< N  REGISTRO_VISITA
+  VISITANTES       1 ──< N  FRECUENTES_RESIDENTE
+  VEHICULOS_VISITA 1 ──< N  REGISTRO_VISITA
+  PARQUEADEROS     1 ──< N  VEHICULOS_VISITA
+
+
+==============================================================================
+  5. VISTAS DEL SISTEMA
+==============================================================================
+
+  VW_RESIDENTE_APARTAMENTO
+    Descripcion: Residentes activos con su apartamento actual (contrato ACTIVO).
+    Uso: Panel de administracion para ver quien vive donde.
+    Tablas involucradas: RESIDENTES, TIPOS_DOCUMENTO, CONTRATO_RESIDENTE,
+                         CONTRATOS, APARTAMENTOS
+
+  VW_VISITAS_ACTIVAS
+    Descripcion: Dashboard del portero: visitas con estado=ACTIVA.
+    Uso: Muestra en tiempo real quienes estan dentro del edificio.
+    Tablas involucradas: VISITAS, CONTRATO_RESIDENTE, CONTRATOS,
+                         APARTAMENTOS, RESIDENTES, REGISTROS_ACCESO,
+                         USUARIOS, REGISTRO_VISITA, VEHICULOS_VISITA
+
+  VW_CARTERA_PENDIENTE
+    Descripcion: Cuotas pendientes/vencidas/en mora con saldo real.
+    Uso: Modulo de cartera para saber quien debe y cuanto.
+    Tablas involucradas: CUOTAS_ARRIENDO, CONTRATOS, APARTAMENTOS,
+                         CONTRATO_RESIDENTE, RESIDENTES, PAGOS
+
+  VW_PARQUEADEROS_VISITANTES
+    Descripcion: Disponibilidad de parqueaderos rotativos en tiempo real.
+    Uso: El portero ve que parqueaderos estan libres para asignar.
+    Tablas involucradas: PARQUEADEROS, VEHICULOS_VISITA, VISITAS,
+                         REGISTROS_ACCESO
+
+  VW_VISITANTES_FRECUENTES
+    Descripcion: Panel de visitantes frecuentes por residente.
+    Uso: El residente ve su lista de frecuentes con datos del ultimo vehiculo.
+    Tablas involucradas: FRECUENTES_RESIDENTE, VISITANTES, TIPOS_DOCUMENTO,
+                         REGISTRO_VISITA, VISITAS, VEHICULOS_VISITA
+
+
+==============================================================================
+  6. TRIGGERS PRINCIPALES
+==============================================================================
+
+  TRG_CONT_SYNC_APARTAMENTO
+    Evento: AFTER UPDATE OF estado ON CONTRATOS
+    Tipo: FOR EACH ROW
+    Que hace: Cuando un contrato pasa a ACTIVO, marca el apto como OCUPADO.
+              Cuando pasa de ACTIVO a VENCIDO/CANCELADO, marca el apto
+              como DISPONIBLE.
+    Por que: Mantiene sincronizado el estado del apartamento sin
+             codigo Java. El administrador solo cambia el estado del
+             contrato y el trigger se encarga del resto.
+
+  TRG_QR_USAR
+    Evento: AFTER UPDATE OF usado ON QR_ACCESOS (usado 0->1)
+    Tipo: FOR EACH ROW
+    Que hace: Cambia la visita asociada de PENDIENTE a ACTIVA.
+    Por que: Cuando el portero escanea el QR, la visita se activa
+             automaticamente. No requiere logica en Java.
+
+  TRG_ACCESO_SALIDA
+    Evento: AFTER UPDATE OF hora_salida ON REGISTROS_ACCESO (NULL->fecha)
+    Tipo: FOR EACH ROW
+    Que hace: Marca la visita como FINALIZADA, libera los parqueaderos
+              ocupados (estado = DISPONIBLE), registra hora_salida
+              en todos los VEHICULOS_VISITA de esa visita.
+    Por que: Un solo UPDATE de hora_salida desencadena toda la
+             limpieza necesaria al salir el visitante.
+
+  TRG_AUTO_FRECUENTE
+    Evento: AFTER INSERT ON REGISTRO_VISITA
+    Tipo: FOR EACH ROW
+    Que hace: Crea automaticamente el par (residente, visitante) en
+              FRECUENTES_RESIDENTE. Si ya existe (UNIQUE), lo reactiva
+              (activo=1) en vez de duplicarlo.
+    Por que: El residente no tiene que agregar manualmente a sus
+             frecuentes — el sistema los aprende de las visitas reales.
+
+  TRG_CUOTAS_UPD
+    Evento: BEFORE INSERT OR UPDATE ON CUOTAS_ARRIENDO
+    Tipo: FOR EACH ROW
+    Que hace: Recalcula valor_total = valor_base + valor_mora
+    Por que: Asegura integridad referencial del valor total. El
+             trigger TRG_CUOTAS_UPD_CTR tambien verifica que el total
+             no exceda el canon mensual del contrato.
+
+  TRG_VIS_VALIDAR_RESIDENTE
+    Evento: BEFORE INSERT OR UPDATE OF id_residente, id_contrato_res ON VISITAS
+    Tipo: FOR EACH ROW
+    Que hace: Verifica que el residente autorizante coincida con el
+              residente del CONTRATO_RESIDENTE referenciado.
+    Por que: Previene que un residente autorice visitas para el
+             contrato de otro residente (seguridad).
+
+
+==============================================================================
+  7. STORED PROCEDURES
+==============================================================================
+
+  SP_VALIDAR_QR
+    Proposito: Validacion atomica del QR escaneado por el portero.
+               Usa FOR UPDATE para evitar race conditions (TOCTOU).
+    Parametros:
+      IN  p_codigo_qr      VARCHAR2  — Codigo QR escaneado
+      IN  p_id_vigilante    NUMBER    — ID del portero
+      OUT p_valido          NUMBER    — 1=valido | 0=rechazado
+      OUT p_mensaje         VARCHAR2  — Mensaje descriptivo
+      OUT p_cursor          SYS_REFCURSOR — Datos completos de la visita
+    Flujo:
+      1. Busca QR con FOR UPDATE (bloquea fila)
+      2. Si no existe -> rechazado
+      3. Si expirado -> marca como usado y visita EXPIRADA
+      4. Si ya usado -> rechazado
+      5. Si valido -> marca usado, crea REGISTROS_ACCESO, COMMIT
+
+  SP_LIBERAR_VISITA_FRECUENTE
+    Proposito: Creacion rapida de visita para frecuentes pre-registrados.
+    Parametros:
+      IN  p_id_visitante      NUMBER  — Visitante frecuente
+      IN  p_id_contrato_res   NUMBER  — Contrato-residente autorizante
+      IN  p_id_residente      NUMBER  — Residente (validacion)
+      IN  p_cantidad_personas NUMBER  — Total del grupo
+      IN  p_tiempo_validez    NUMBER  — Minutos de validez (5-60)
+      IN  p_tipo_vehiculo     VARCHAR2 — NULL=a pie | VEHICULO|MOTO|...
+      IN  p_placa             VARCHAR2 — Placa (NULL si a pie)
+      IN  p_descripcion_tipo  VARCHAR2 — Requerido si tipo=OTRO
+      IN  p_notas             VARCHAR2 — Notas opcionales
+      OUT p_id_visita         NUMBER  — Visita creada
+      OUT p_codigo_qr         VARCHAR2 — QR generado
+      OUT p_fecha_expiracion  TIMESTAMP — Expiracion del QR
+      OUT p_mensaje           VARCHAR2 — Mensaje resultado
+    Flujo:
+      1. Verifica que el visitante sea frecuente activo del residente
+      2. Verifica que el contrato del residente este ACTIVO
+      3. Crea VISITA + REGISTRO_VISITA + QR_ACCESOS
+      4. Si hay vehiculo, crea VEHICULOS_VISITA
+      5. COMMIT
+
+==============================================================================
+  FIN DEL DOCUMENTO
+==============================================================================

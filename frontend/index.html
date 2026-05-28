@@ -1,0 +1,925 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SAED — Sistema de Administración Residencial</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "surface": "#FFFFFF",
+            "surface-dim": "#dadada",
+            "surface-bright": "#f9f9f9",
+            "surface-container-lowest": "#ffffff",
+            "surface-container-low": "#f3f3f3",
+            "surface-container": "#eeeeee",
+            "surface-container-high": "#e8e8e8",
+            "surface-container-highest": "#e2e2e2",
+            "on-surface": "#1b1b1b",
+            "on-surface-variant": "#4c4546",
+            "outline-variant": "#cfc4c5",
+            "primary": "#0F2044",
+            "on-primary": "#ffffff",
+            "primary-container": "#1b1b1b",
+            "on-primary-container": "#848484",
+            "on-secondary": "#ffffff",
+            "secondary": "#5d5f5f",
+            "secondary-container": "#dfe0e0",
+            "on-secondary-container": "#616363",
+            "background": "#EEF2F8",
+            "on-background": "#0F172A",
+            "error": "#ba1a1a",
+            "on-error": "#ffffff",
+            "error-container": "#ffdad6",
+            "on-error-container": "#93000a",
+            "accent-green": "#065F46",
+            "accent-green-bg": "#D1FAE5",
+            "warn-amber": "#92400E",
+            "warn-amber-bg": "#FEF3C7"
+          },
+          borderRadius: {
+            "xl": "0.75rem",
+            "2xl": "1.5rem",
+            "full": "9999px"
+          },
+          spacing: {
+            "stack-gap": "24px",
+            "pill-padding-y": "8px",
+            "sidebar-width": "72px",
+            "grid-gutter": "24px",
+            "container-padding": "32px",
+            "pill-padding-x": "16px"
+          },
+          fontFamily: {
+            "sans": ["Plus Jakarta Sans", "DM Sans", "system-ui", "sans-serif"]
+          },
+          fontSize: {
+            "headline-lg": ["32px", { lineHeight: "40px", letterSpacing: "-0.01em", fontWeight: "700" }],
+            "headline-md": ["24px", { lineHeight: "32px", fontWeight: "600" }],
+            "body-lg": ["18px", { lineHeight: "28px", fontWeight: "400" }],
+            "display-bold": ["48px", { lineHeight: "56px", letterSpacing: "-0.02em", fontWeight: "700" }],
+            "label-caps": ["12px", { lineHeight: "16px", letterSpacing: "0.05em", fontWeight: "700" }],
+            "body-md": ["16px", { lineHeight: "24px", fontWeight: "400" }],
+            "stat-number": ["36px", { lineHeight: "44px", fontWeight: "700" }],
+            "label-pill": ["13px", { lineHeight: "18px", fontWeight: "600" }]
+          },
+          boxShadow: {
+            "soft": "0px 4px 20px rgba(0, 0, 0, 0.03)"
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="stylesheet" href="css/style.css?v=3">
+</head>
+<body>
+  <div id="app"></div>
+  <div id="toast-container" class="toast-container" role="alert" aria-live="polite"></div>
+
+  <!-- Login Page Template -->
+  <template id="tpl-login">
+    <div class="login-page">
+      <div class="login-container">
+        <main class="login-main">
+          <div class="login-card">
+            <div class="login-header">
+              <div class="login-logo">
+                <img alt="SAED Logo" src="imagenes/magnific__logomark-representing-apartment-building-managemen__15461.png" style="width:64px;height:64px;object-fit:contain;">
+              </div>
+              <h1>SAED</h1>
+              <p class="login-subtitle">Acceso seguro a tu edificio</p>
+            </div>
+
+            <form id="login-form" class="login-form">
+              <div class="floating-input">
+                <input type="text" id="login-username" class="floating-input-field" placeholder="Usuario" required autocomplete="username">
+                <label class="floating-label" for="login-username">Usuario</label>
+              </div>
+
+              <div class="floating-input">
+                <input type="password" id="login-password" class="floating-input-field" placeholder="Contraseña" required autocomplete="current-password">
+                <label class="floating-label" for="login-password">Contraseña</label>
+                <button type="button" class="password-toggle" onclick="togglePasswordVisibility()" tabindex="-1" aria-label="Mostrar contraseña">
+                  <span class="material-symbols-outlined" id="visibility-icon">visibility_off</span>
+                </button>
+              </div>
+
+              <div class="login-options">
+                <label class="checkbox-label">
+                  <input type="checkbox" id="login-remember">
+                  <span>Recordarme</span>
+                </label>
+                <a href="#" class="forgot-link" id="forgot-link">¿Olvidaste tu contraseña?</a>
+              </div>
+
+              <button type="submit" class="login-btn">
+                Iniciar Sesión
+                <span class="material-symbols-outlined">arrow_forward</span>
+              </button>
+            </form>
+          </div>
+          <p class="login-footer">&copy; <span id="footer-year"></span> SAED Residential. All rights reserved.</p>
+        </main>
+        <aside class="login-hero">
+          <div class="hero-gallery" id="hero-gallery">
+            <div class="hero-track" id="hero-track">
+              <div class="hero-slide"></div>
+              <div class="hero-slide"></div>
+              <div class="hero-slide"></div>
+              <div class="hero-slide"></div>
+              <div class="hero-slide"></div>
+              <div class="hero-slide"></div>
+            </div>
+          </div>
+          <div class="hero-dots" id="hero-dots"></div>
+          <p class="hero-slogan">SAED — Seguridad, organización y confianza</p>
+        </aside>
+      </div>
+    </div>
+  </template>
+
+  <!-- App Shell Template -->
+  <template id="tpl-shell">
+    <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
+    <aside class="sidebar-desktop" id="sidebar">
+      <div class="sidebar-logo-area">
+        <div class="sidebar-logo-icon">
+          <img src="imagenes/magnific__logomark-representing-apartment-building-managemen__15461.png" alt="SAED" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+          <span style="display:none;align-items:center;justify-content:center;width:34px;height:34px;background:rgba(255,255,255,0.15);border-radius:8px;font-weight:800;color:white;font-size:16px">S</span>
+        </div>
+        <div class="sidebar-logo-text">
+          <span>SAED</span>
+          <small>Administración Residencial</small>
+        </div>
+      </div>
+      <div class="sidebar-nav-area">
+        <nav id="sidebar-nav"></nav>
+      </div>
+      <div class="sidebar-bottom">
+        <button class="sidebar-btn" onclick="Auth.logout();toggleSidebar();Router.navigate('login')" title="Cerrar Sesión">
+          <span class="material-symbols-outlined">logout</span>
+          <span class="sidebar-label">Cerrar Sesión</span>
+        </button>
+      </div>
+    </aside>
+    <div style="margin-left:var(--sidebar-width);flex:1;display:flex;flex-direction:column;height:100%;overflow:hidden;min-width:0;">
+      <header class="topbar flex items-center justify-between pl-container-padding pr-container-padding w-full h-20 bg-transparent z-10 sticky top-0">
+        <div class="flex items-center gap-4 topbar-left">
+          <button class="hamburger-btn" onclick="toggleSidebar()" aria-label="Abrir menú" style="display:none">
+              <span class="material-symbols-outlined" style="font-size:22px">menu</span>
+            </button>
+          <img src="imagenes/logo.png" alt="SAED" style="width:28px;height:28px;object-fit:contain;margin-right:10px;">
+          <h1 class="page-title text-headline-md font-headline-md text-on-background" id="page-title">Dashboard</h1>
+        </div>
+        <div class="topbar-right flex items-center gap-4">
+          <div class="user-info flex items-center gap-3">
+            <span class="w-9 h-9 rounded-full bg-primary text-on-primary flex items-center justify-center text-sm font-bold user-avatar" id="topbar-avatar">U</span>
+            <span class="text-body-md font-body-md text-on-surface user-name" id="topbar-user"></span>
+            <span class="badge-role text-label-caps font-label-caps text-on-surface-variant uppercase px-3 py-1 rounded-full bg-surface-container" id="topbar-role"></span>
+          </div>
+        </div>
+      </header>
+      <div class="content-area p-container-padding pt-6 w-full max-w-[1600px] mx-auto flex-1 overflow-y-auto" id="content-area"></div>
+    </div>
+  </template>
+
+  <!-- Page: Dashboard -->
+  <template id="tpl-dashboard">
+    <div style="display:flex;flex-direction:column;gap:20px">
+
+      <!-- ── STAT CARDS ── -->
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px">
+
+        <div class="stat-card" style="cursor:default">
+          <div class="stat-icon primary"><span class="material-symbols-outlined">groups</span></div>
+          <div class="stat-body">
+            <div class="stat-value" id="stat-residentes">—</div>
+            <div class="stat-label">Residentes</div>
+          </div>
+          <div class="stat-badge"><span class="material-symbols-outlined">groups</span></div>
+        </div>
+
+        <div class="stat-card" style="cursor:default">
+          <div class="stat-icon blue"><span class="material-symbols-outlined">domain</span></div>
+          <div class="stat-body">
+            <div class="stat-value" id="stat-apartamentos">—</div>
+            <div class="stat-label">Apartamentos</div>
+          </div>
+          <div class="stat-badge"><span class="material-symbols-outlined">domain</span></div>
+        </div>
+
+        <div class="stat-card" style="cursor:default">
+          <div class="stat-icon green"><span class="material-symbols-outlined">description</span></div>
+          <div class="stat-body">
+            <div class="stat-value" id="stat-contratos">—</div>
+            <div class="stat-label">Contratos Activos</div>
+          </div>
+          <div class="stat-badge"><span class="material-symbols-outlined">description</span></div>
+        </div>
+
+      </div>
+
+      <!-- ── MULTAS + COBROS ── -->
+      <div style="display:grid;grid-template-columns:1fr 360px;gap:16px;align-items:start">
+
+        <!-- Multas Pendientes -->
+        <div class="card" style="margin-bottom:0">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:8px">
+            <div style="display:flex;align-items:center;gap:10px">
+              <div style="width:36px;height:36px;border-radius:8px;background:var(--warn-50);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                <span class="material-symbols-outlined" style="font-size:18px;color:var(--warn-600)">gavel</span>
+              </div>
+              <div>
+                <div style="font-size:15px;font-weight:700;color:var(--text)">Multas Pendientes</div>
+                <div style="font-size:12px;color:var(--text-muted);margin-top:1px" id="dash-multas-count"></div>
+              </div>
+            </div>
+            <button class="btn btn-outline btn-sm" onclick="Dash.notificarTodas()" id="btn-notificar-todas">
+              <span class="material-symbols-outlined" style="font-size:14px">notifications</span>
+              Notificar todos
+            </button>
+          </div>
+          <div id="dash-multas-content">
+            <p class="text-muted text-sm">Cargando...</p>
+          </div>
+        </div>
+
+        <!-- Próximos Cobros -->
+        <div class="card" style="margin-bottom:0">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px">
+            <div style="width:36px;height:36px;border-radius:8px;background:var(--success-50);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+              <span class="material-symbols-outlined" style="font-size:18px;color:var(--success-600)">payments</span>
+            </div>
+            <div>
+              <div style="font-size:15px;font-weight:700;color:var(--text)">Próximos Cobros</div>
+              <div style="font-size:12px;color:var(--text-muted);margin-top:1px">Contratos activos</div>
+            </div>
+          </div>
+          <div id="dash-proximos-cobros" style="display:flex;flex-direction:column;gap:6px;max-height:400px;overflow-y:auto">
+            <p class="text-muted text-sm">Cargando...</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </template>
+  <template id="tpl-residentes">
+    <div class="table-container">
+      <div class="table-toolbar">
+        <div class="actions">
+          <button class="btn btn-accent btn-sm" onclick="Residentes.mostrarFormulario()">+ Nuevo Residente</button>
+        </div>
+      </div>
+      <table class="data-table" id="tbl-residentes">
+        <thead>
+          <tr>
+            <th>ID</th><th>Nombres</th><th>Apellidos</th><th>Documento</th><th>Edad</th><th>Apto</th><th>Telefono</th><th>Email</th><th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="tbody-residentes"></tbody>
+      </table>
+      <div id="pagination-residentes"></div>
+      <div id="residentes-empty" class="empty-state hidden"><div class="empty-icon"><span class="material-symbols-outlined" style="font-size:48px">people</span></div><div class="empty-title">No hay residentes registrados</div></div>
+    </div>
+  </template>
+
+  <!-- Page: Apartamentos -->
+  <template id="tpl-apartamentos">
+    <div class="table-container">
+      <div class="table-toolbar">
+        <div class="actions">
+          <button class="btn btn-accent btn-sm" onclick="Apartamentos.mostrarFormulario()">+ Nuevo Apartamento</button>
+        </div>
+      </div>
+      <table class="data-table" id="tbl-apartamentos">
+        <thead>
+          <tr>
+            <th>ID</th><th>Numero</th><th>Piso</th><th>Tipo</th><th>Area m&sup2;</th><th>Estado</th><th>Residentes</th><th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="tbody-apartamentos"></tbody>
+      </table>
+      <div id="pagination-apartamentos"></div>
+    </div>
+  </template>
+
+  <!-- Page: Contratos -->
+  <template id="tpl-contratos">
+    <div class="table-container">
+      <div class="table-toolbar">
+        <div class="filters">
+          <select id="con-filtro-estado" class="form-control filter-select" onchange="Contratos.cargar()">
+            <option value="">Todos los estados</option>
+            <option value="ACTIVO">Activo</option>
+            <option value="SUSPENDIDO">Suspendido</option>
+            <option value="VENCIDO">Vencido</option>
+            <option value="PENDIENTE_FIRMA">Pendiente Firma</option>
+          </select>
+        </div>
+        <div class="actions">
+          <button class="btn btn-accent btn-sm" onclick="Contratos.mostrarFormulario()">+ Nuevo Contrato</button>
+        </div>
+      </div>
+      <table class="data-table" id="tbl-contratos">
+        <thead>
+          <tr>
+            <th>ID</th><th>Apartamento</th><th>Arrendatario</th><th>Inicio</th><th>Fin</th><th>Tipo</th><th>Valor Mensual</th><th>Estado</th><th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="tbody-contratos"></tbody>
+      </table>
+      <div id="pagination-contratos"></div>
+    </div>
+  </template>
+
+  <!-- Page: Pagos -->
+  <template id="tpl-pagos">
+    <!-- KPI strip -->
+    <div class="card-grid mb-16">
+      <div class="stat-card">
+        <div class="stat-icon yellow"><span class="material-symbols-outlined">receipt_long</span></div>
+        <div class="stat-body">
+          <div class="stat-value" id="pagos-kpi-cuotas" style="color:var(--warning)">$0</div>
+          <div class="stat-label">Cuotas pendientes</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon red"><span class="material-symbols-outlined">gavel</span></div>
+        <div class="stat-body">
+          <div class="stat-value" id="pagos-kpi-multas" style="color:var(--danger)">$0</div>
+          <div class="stat-label">Multas pendientes</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon blue"><span class="material-symbols-outlined">apartment</span></div>
+        <div class="stat-body">
+          <div class="stat-value" id="pagos-kpi-aptos">0 aptos</div>
+          <div class="stat-label">Con saldo pendiente</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tabla de apartamentos -->
+    <div class="table-container">
+      <div class="table-toolbar">
+        <span>Apartamentos con saldos pendientes</span>
+        <div class="actions">
+          <button class="btn btn-outline btn-sm" onclick="Pagos.cargar()">
+            <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle">refresh</span>
+            Actualizar
+          </button>
+        </div>
+      </div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Apartamento</th>
+            <th>Residente</th>
+            <th>Cuotas pendientes</th>
+            <th>Multas pendientes</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="tbody-pagos-res"></tbody>
+      </table>
+    </div>
+  </template>
+
+  <!-- Page: Visitas -->
+  <template id="tpl-visitas">
+    <div class="tabs" id="visitas-tabs" role="tablist">
+      <div class="tab active" role="tab" aria-selected="true" data-tab="tab-visita-nueva" onclick="Visitas.cambiarTab('tab-visita-nueva')">Registrar Visita</div>
+      <div class="tab" role="tab" aria-selected="false" data-tab="tab-visita-frecuente" onclick="Visitas.cambiarTab('tab-visita-frecuente')">Visita Rapida (Frecuentes)</div>
+    </div>
+    <div class="tab-content active" id="tab-visita-nueva" role="tabpanel"></div>
+    <div class="tab-content" id="tab-visita-frecuente" role="tabpanel"></div>
+  </template>
+
+  <!-- Page: Parqueaderos -->
+  <template id="tpl-parqueaderos">
+    <div class="table-container">
+      <div class="table-toolbar">
+        <div class="filters">
+          <select id="parq-filtro-estado" class="form-control filter-select" onchange="Parqueaderos.aplicarFiltros()">
+            <option value="">Todos los Estados</option>
+            <option value="DISPONIBLE">Disponible</option>
+            <option value="OCUPADO">Ocupado</option>
+            <option value="EN_MANTENIMIENTO">Mantenimiento</option>
+          </select>
+          <select id="parq-filtro-tipo" class="form-control filter-select" onchange="Parqueaderos.aplicarFiltros()">
+            <option value="">Todos los Tipos</option>
+            <option value="VEHICULO">Vehiculo</option>
+            <option value="MOTO">Moto</option>
+            <option value="BICICLETA">Bicicleta</option>
+
+          </select>
+        </div>
+        <div class="actions">
+          <button class="btn btn-accent btn-sm" onclick="Parqueaderos.mostrarFormulario()">+ Nuevo Parqueadero</button>
+        </div>
+      </div>
+      <table class="data-table" id="tbl-parqueaderos">
+        <thead><tr><th>ID</th><th>Codigo</th><th>Tipo</th><th>Visitante</th><th>Estado</th><th>Apartamento</th><th>Propietario</th><th>Acciones</th></tr></thead>
+        <tbody id="tbody-parqueaderos"></tbody>
+      </table>
+      <div id="pagination-parqueaderos"></div>
+    </div>
+  </template>
+
+  <!-- Page: Usuarios -->
+  <template id="tpl-usuarios">
+    <div class="table-container">
+      <div class="table-toolbar">
+        <div class="filters">
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+            <input type="checkbox" id="usr-filtrar-residentes" onchange="Usuarios.cargar()">
+            <span>Ocultar no residentes</span>
+          </label>
+        </div>
+        <div class="actions">
+          <button class="btn btn-accent btn-sm" onclick="Usuarios.mostrarFormulario()">+ Nuevo Usuario</button>
+        </div>
+      </div>
+      <table class="data-table" id="tbl-usuarios">
+        <thead><tr><th>ID</th><th>Username</th><th>Rol</th><th>Residente</th><th>Apto</th><th>Activo</th><th>Ultimo Login</th><th>Acciones</th></tr></thead>
+        <tbody id="tbody-usuarios"></tbody>
+      </table>
+      <div id="pagination-usuarios"></div>
+    </div>
+  </template>
+
+  <!-- Page: Alertas -->
+  <template id="tpl-alertas">
+    <div class="table-container">
+      <div class="table-toolbar">
+        <div class="filters">
+          <label><input type="checkbox" id="alerta-solo-no-leidas" onchange="Alertas.cargar()"> Solo no leidas</label>
+        </div>
+        <div class="actions">
+          <button class="btn btn-primary btn-sm" onclick="Alertas.marcarLeida()">Marcar como Leida</button>
+        </div>
+      </div>
+      <table class="data-table" id="tbl-alertas">
+        <thead><tr><th>ID</th><th>Tipo</th><th>Apartamento</th><th>Residente</th><th>Periodo</th><th>Estado Cuota</th><th>Canal</th><th>Leida</th><th>Enviada</th></tr></thead>
+        <tbody id="tbody-alertas"></tbody>
+      </table>
+      <div id="pagination-alertas"></div>
+    </div>
+  </template>
+
+  <!-- Page: Escanner QR -->
+  <template id="tpl-escanner-qr">
+    <div class="tabs" id="qr-tabs" role="tablist">
+      <div class="tab active" role="tab" aria-selected="true" data-tab="tab-qr-validar" onclick="EscannerQR.cambiarTab('tab-qr-validar')">Validar Entrada</div>
+      <div class="tab" role="tab" aria-selected="false" data-tab="tab-qr-parqueaderos" onclick="EscannerQR.cambiarTab('tab-qr-parqueaderos')">Parqueaderos</div>
+    </div>
+    <div class="tab-content active" id="tab-qr-validar" role="tabpanel"></div>
+    <div class="tab-content" id="tab-qr-parqueaderos" role="tabpanel"></div>
+  </template>
+
+  <!-- Page: Residente Dashboard -->
+  <template id="tpl-residente-dashboard">
+    <div class="card-grid-4" id="res-kpis">
+      <div class="stat-card">
+        <div class="stat-icon blue"><span class="material-symbols-outlined">apartment</span></div>
+        <div class="stat-body"><div class="stat-value" id="res-kpi-apartamento" style="font-size:24px">-</div><div class="stat-label">Apartamento</div></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon amber"><span class="material-symbols-outlined">description</span></div>
+        <div class="stat-body"><div class="stat-value" id="res-kpi-contrato" style="font-size:16px">-</div><div class="stat-label">Estado Contrato</div></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon green"><span class="material-symbols-outlined">payments</span></div>
+        <div class="stat-body"><div class="stat-value" id="res-kpi-cuotas-arriendo" style="font-size:24px">-</div><div class="stat-label">Cuotas de Arriendo</div></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon red"><span class="material-symbols-outlined">gavel</span></div>
+        <div class="stat-body"><div class="stat-value" id="res-kpi-multas" style="font-size:24px">-</div><div class="stat-label">Multas Pendientes</div></div>
+      </div>
+    </div>
+    <div style="display:flex;gap:16px;align-items:flex-start">
+      <div style="display:flex;flex-direction:column;gap:2px;min-width:160px;background:var(--card-bg,#fff);border:1px solid var(--border);border-radius:12px;padding:8px" class="res-side-tabs" id="res-dash-tabs">
+        <div class="tab side-tab active" role="tab" aria-selected="true" data-tab="res-tab-resumen" onclick="ResidenteDash.cambiarTab('res-tab-resumen')">Resumen</div>
+        <div class="tab side-tab" role="tab" aria-selected="false" data-tab="res-tab-perfil" onclick="ResidenteDash.cambiarTab('res-tab-perfil')">Editar Perfil</div>
+        <div class="tab side-tab" role="tab" aria-selected="false" data-tab="res-tab-apartamento" onclick="ResidenteDash.cambiarTab('res-tab-apartamento')">Mi Apartamento</div>
+        <div class="tab side-tab" role="tab" aria-selected="false" data-tab="res-tab-cuotas" onclick="ResidenteDash.cambiarTab('res-tab-cuotas')">Cuotas</div>
+        <div class="tab side-tab" role="tab" aria-selected="false" data-tab="res-tab-frecuentes" onclick="ResidenteDash.cambiarTab('res-tab-frecuentes')">Frecuentes</div>
+        <div class="tab side-tab" role="tab" aria-selected="false" data-tab="res-tab-buzon" onclick="ResidenteDash.cambiarTab('res-tab-buzon')" style="position:relative">Buz&oacute;n<span class="buz-badge hidden" id="buzon-badge">0</span></div>
+        <div class="tab side-tab" role="tab" aria-selected="false" data-tab="res-tab-nueva-visita" onclick="ResidenteDash.cambiarTab('res-tab-nueva-visita')">Nueva Visita</div>
+        <div class="tab side-tab" role="tab" aria-selected="false" data-tab="res-tab-quejas" onclick="ResidenteDash.cambiarTab('res-tab-quejas')">Solicitudes</div>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div class="tab-content active" id="res-tab-resumen" role="tabpanel"></div>
+        <div class="tab-content" id="res-tab-perfil" role="tabpanel"></div>
+        <div class="tab-content" id="res-tab-apartamento" role="tabpanel"></div>
+        <div class="tab-content" id="res-tab-cuotas" role="tabpanel"></div>
+        <div class="tab-content" id="res-tab-frecuentes" role="tabpanel"></div>
+        <div class="tab-content" id="res-tab-buzon" role="tabpanel"></div>
+        <div class="tab-content" id="res-tab-nueva-visita" role="tabpanel"></div>
+        <div class="tab-content" id="res-tab-quejas" role="tabpanel">
+          <div class="card">
+            <div class="card-title">Nueva Queja o Sugerencia</div>
+            <form id="form-nueva-queja" style="display:flex;flex-direction:column;gap:16px">
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Tipo <span class="required">*</span></label>
+                  <select id="queja-tipo" class="form-control" required>
+                    <option value="QUEJA">Queja</option>
+                    <option value="SUGERENCIA">Sugerencia</option>
+                    <option value="APELACION">Apelación</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Categoría <span class="required">*</span></label>
+                  <select id="queja-categoria" class="form-control" required>
+                    <option value="LIMPIEZA">Limpieza</option>
+                    <option value="SEGURIDAD">Seguridad</option>
+                    <option value="MANTENIMIENTO">Mantenimiento</option>
+                    <option value="CONVIVENCIA">Convivencia</option>
+                    <option value="ZONAS_COMUNES">Zonas Comunes</option>
+                    <option value="OTRO">Otro</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-group">
+                <label>Título <span class="required">*</span></label>
+                <input type="text" id="queja-titulo" class="form-control" maxlength="200" required>
+              </div>
+              <div class="form-group">
+                <label>Descripción <span class="required">*</span></label>
+                <textarea id="queja-descripcion" class="form-control" rows="4" required></textarea>
+              </div>
+              <div class="form-group">
+                <label>Foto de Evidencia (Opcional)</label>
+                <div style="display:flex;flex-direction:column;gap:12px">
+                  <video id="queja-video" autoplay playsinline style="width:100%;max-width:400px;border-radius:8px;border:1px solid var(--border)" class="hidden"></video>
+                  <canvas id="queja-canvas" class="hidden"></canvas>
+                  <div id="queja-foto-preview" class="hidden" style="margin-top:8px">
+                    <img id="queja-foto-img" src="" alt="Preview" style="max-width:300px;max-height:200px;border-radius:8px;border:1px solid var(--border)">
+                  </div>
+                  <div style="display:flex;gap:8px">
+                    <button type="button" id="queja-btn-camara" class="btn btn-outline btn-sm" onclick="QuejasResidente.abrirCamara()">
+                      <span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle">photo_camera</span> Abrir Cámara
+                    </button>
+                    <button type="button" id="queja-btn-capturar" class="btn btn-primary btn-sm hidden" onclick="QuejasResidente.capturar()">
+                      <span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle">camera</span> Capturar
+                    </button>
+                    <button type="button" id="queja-btn-retomar" class="btn btn-outline btn-sm hidden" onclick="QuejasResidente.retomar()">
+                      <span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle">refresh</span> Retomar
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div style="text-align:right">
+                <button type="submit" class="btn btn-primary">Enviar</button>
+              </div>
+            </form>
+          </div>
+          <div class="card" style="margin-top:20px">
+            <div class="card-title">Mis Quejas y Sugerencias</div>
+            <div id="quejas-historial"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- Page: Avisos (Admin) -->
+  <template id="tpl-avisos">
+    <div class="card mb-16">
+      <div class="card-title">Nuevo Aviso General</div>
+      <form id="form-aviso" class="form-grid-2" onsubmit="return Avisos.enviar(event)">
+        <div class="field-group" style="grid-column:1/-1">
+          <label>Apartamentos <span class="field-optional">(ninguno = todos)</span></label>
+          <div id="aviso-apartamentos-container" class="multi-select" tabindex="0">
+            <div class="multi-select-trigger" onclick="Avisos.toggleDropdown(event)">
+              <span id="aviso-apt-label">Todos los apartamentos</span>
+              <span class="material-symbols-outlined" style="font-size:18px;color:var(--text-muted)">arrow_drop_down</span>
+            </div>
+            <div class="multi-select-dropdown hidden" id="aviso-apt-dropdown">
+              <div class="multi-select-option selected" data-value="" onclick="Avisos.seleccionarTodos(this)">-- Todos los apartamentos --</div>
+            </div>
+          </div>
+        </div>
+        <div class="field-group" style="grid-column:1/-1">
+          <label>Título</label>
+          <span class="field-error" id="err-aviso-titulo"></span>
+          <input type="text" id="aviso-titulo" class="form-control" placeholder="Título del aviso" required>
+        </div>
+        <div class="field-group" style="grid-column:1/-1">
+          <label>Mensaje</label>
+          <span class="field-error" id="err-aviso-cuerpo"></span>
+          <textarea id="aviso-cuerpo" class="form-control" rows="4" placeholder="Contenido del aviso" required></textarea>
+        </div>
+        <div style="grid-column:1/-1">
+          <button type="submit" class="btn btn-accent">Enviar Aviso</button>
+        </div>
+      </form>
+    </div>
+    <div class="card">
+      <div class="card-title">Avisos Enviados</div>
+      <div class="table-container">
+        <table class="data-table" id="tbl-avisos">
+          <thead>
+            <tr>
+              <th>ID</th><th>Apartamento</th><th>Título</th><th>Mensaje</th><th>Fecha</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-avisos"></tbody>
+        </table>
+        <div id="avisos-empty" class="empty-state hidden">
+          <div class="empty-icon"><span class="material-symbols-outlined" style="font-size:48px">campaign</span></div>
+          <div class="empty-title">No hay avisos enviados</div>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- Page: Portero Dashboard -->
+  <template id="tpl-portero-dashboard">
+    <!-- Stats principales - Grid compacto -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px" id="portero-stats">
+      <div class="stat-card" onclick="PorteroDash.mostrarVisitasHoy()" style="cursor:pointer" title="Haz clic para ver detalles">
+        <div class="stat-icon amber"><span class="material-symbols-outlined">today</span></div>
+        <div class="stat-body">
+          <div class="stat-value" id="por-visitas-hoy">-</div>
+          <div class="stat-label">Visitas Hoy</div>
+        </div>
+      </div>
+      <div class="stat-card" onclick="PorteroDash.mostrarRegistrarSalida()" style="cursor:pointer" title="Haz clic para registrar salidas">
+        <div class="stat-icon cyan"><span class="material-symbols-outlined">how_to_reg</span></div>
+        <div class="stat-body">
+          <div class="stat-value" id="por-visitas-activas">-</div>
+          <div class="stat-label">Visitas Activas</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon green"><span class="material-symbols-outlined">local_parking</span></div>
+        <div class="stat-body">
+          <div class="stat-value" id="por-parq-disponibles">-</div>
+          <div class="stat-label">Parqueaderos Visitantes</div>
+        </div>
+      </div>
+      <div class="stat-card" onclick="PorteroDash.mostrarPaquetesPendientes()" style="cursor:pointer" title="Haz clic para ver detalles">
+        <div class="stat-icon orange"><span class="material-symbols-outlined">inventory_2</span></div>
+        <div class="stat-body">
+          <div class="stat-value" id="por-paquetes-pendientes">-</div>
+          <div class="stat-label">Paquetes Pendientes</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Accesos Rápidos - Grid 3 columnas -->
+    <div class="card" style="padding:24px;margin-bottom:0">
+      <div class="card-title" style="margin-bottom:16px">
+        <span class="material-symbols-outlined">dashboard</span>
+        Accesos Rápidos
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px">
+        <button class="card action-card" onclick="Router.navigate('visitas')" style="min-height:100px">
+          <div class="action-card-icon"><span class="material-symbols-outlined">edit_note</span></div>
+          <div class="action-card-label">Registrar Visita</div>
+        </button>
+        <button class="card action-card" onclick="Router.navigate('paquetes')" style="min-height:100px">
+          <div class="action-card-icon"><span class="material-symbols-outlined">inventory_2</span></div>
+          <div class="action-card-label">Registrar Paquete</div>
+        </button>
+        <button class="card action-card" onclick="Router.navigate('parqueaderos')" style="min-height:100px">
+          <div class="action-card-icon"><span class="material-symbols-outlined">local_parking</span></div>
+          <div class="action-card-label">Gestionar Parqueaderos</div>
+        </button>
+        <button class="card action-card" onclick="PorteroDash.mostrarModalRuido()" style="min-height:100px">
+          <div class="action-card-icon"><span class="material-symbols-outlined">volume_up</span></div>
+          <div class="action-card-label">Aviso de Ruido</div>
+        </button>
+        <button class="card action-card" onclick="PorteroDash.mostrarModalRuidoConTipo('RUIDO')" style="min-height:100px">
+          <div class="action-card-icon"><span class="material-symbols-outlined">gavel</span></div>
+          <div class="action-card-label">Multa por Ruido</div>
+        </button>
+        <button class="card action-card" onclick="PorteroDash.mostrarModalRuidoConTipo('PARQUEADERO')" style="min-height:100px">
+          <div class="action-card-icon"><span class="material-symbols-outlined">directions_car</span></div>
+          <div class="action-card-label">Multa Parqueadero</div>
+        </button>
+      </div>
+    </div>
+  </template>
+
+  <!-- Page: Paquetes (Portero) -->
+  <template id="tpl-paquetes">
+    <div class="card-grid" style="grid-template-columns:1fr 1fr">
+      <div class="card">
+        <div class="card-title">Notificar Paquete o Domicilio</div>
+        <form id="form-paquete">
+          <div class="form-group">
+            <label>Apartamento</label>
+            <select id="paq-residente" class="form-control">
+              <option value="">Seleccione...</option>
+            </select>
+            <span class="field-error" id="paq-residente-error"></span>
+          </div>
+          <div class="form-group">
+            <label>Foto del Paquete</label>
+            <div id="paq-camera-view">
+              <video id="paq-video" autoplay playsinline muted style="width:100%;max-height:240px;border-radius:8px;background:#000;object-fit:contain"></video>
+              <canvas id="paq-canvas" hidden></canvas>
+              <div id="paq-foto-preview" class="hidden" style="margin-top:8px;position:relative;display:inline-block">
+                <img id="paq-foto-img" style="max-width:240px;max-height:180px;border-radius:8px;border:1px solid var(--border-color)">
+              </div>
+              <div style="display:flex;gap:8px;margin-top:8px;justify-content:center">
+                <button type="button" class="btn btn-primary" id="paq-btn-camara" onclick="Paquetes.abrirCamara()">Abrir Camara</button>
+                <button type="button" class="btn btn-accent hidden" id="paq-btn-capturar" onclick="Paquetes.capturar()">Capturar Foto</button>
+                <button type="button" class="btn btn-outline hidden" id="paq-btn-retomar" onclick="Paquetes.retomar()">Repetir</button>
+              </div>
+            </div>
+          </div>
+          <div class="mt-16">
+            <button type="submit" class="btn btn-primary" id="btn-registrar-paquete">Notificar Llegada</button>
+          </div>
+        </form>
+      </div>
+      <div class="card">
+        <div class="card-title">Ultimos Paquetes Registrados</div>
+        <div id="paq-lista" class="mt-8"><p style="color:var(--text-secondary)">Seleccione un apartamento para ver sus paquetes</p></div>
+      </div>
+    </div>
+  </template>
+
+  <!-- Page: Solicitudes Admin -->
+  <template id="tpl-quejas-admin">
+    <div class="page-header">
+      <h2>Solicitudes</h2>
+    </div>
+
+    <!-- Estadísticas -->
+    <div class="card-grid">
+      <div class="stat-card">
+        <div class="stat-icon purple"><span class="material-symbols-outlined">analytics</span></div>
+        <div class="stat-body"><div class="stat-value" id="stat-total">0</div><div class="stat-label">Total</div></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon amber"><span class="material-symbols-outlined">pending</span></div>
+        <div class="stat-body"><div class="stat-value" id="stat-pendientes">0</div><div class="stat-label">Pendientes</div></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon blue"><span class="material-symbols-outlined">visibility</span></div>
+        <div class="stat-body"><div class="stat-value" id="stat-revision">0</div><div class="stat-label">En Revisión</div></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon green"><span class="material-symbols-outlined">check_circle</span></div>
+        <div class="stat-body"><div class="stat-value" id="stat-resueltas">0</div><div class="stat-label">Resueltas</div></div>
+      </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="card mt-16">
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+        <label style="font-size:13px;color:var(--text-secondary)">Filtrar:</label>
+        <select id="filtro-tipo" class="form-control" style="width:auto">
+          <option value="TODAS">Todos los tipos</option>
+          <option value="QUEJA">Quejas</option>
+          <option value="SUGERENCIA">Sugerencias</option>
+          <option value="APELACION">Apelaciones</option>
+        </select>
+        <select id="filtro-estado" class="form-control" style="width:auto">
+          <option value="TODAS">Todos los estados</option>
+          <option value="PENDIENTE">Pendientes</option>
+          <option value="EN_REVISION">En Revisión</option>
+          <option value="RESUELTA">Resueltas</option>
+          <option value="CERRADA">Cerradas</option>
+        </select>
+        <select id="filtro-prioridad" class="form-control" style="width:auto">
+          <option value="TODAS">Todas las prioridades</option>
+          <option value="ALTA">Alta</option>
+          <option value="MEDIA">Media</option>
+          <option value="BAJA">Baja</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Tabla -->
+    <div class="card mt-16">
+      <div class="table-container">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Tipo</th>
+              <th>Apartamento</th>
+              <th>Residente</th>
+              <th>Título</th>
+              <th>Categoría</th>
+              <th>Estado</th>
+              <th>Prioridad</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="tabla-quejas-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Modal Detalle -->
+    <div id="modal-detalle-queja" class="modal-overlay">
+      <div class="modal">
+        <div class="modal-header">
+          <h3>Detalle de la Solicitud</h3>
+          <button class="modal-close" id="btn-cerrar-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+            <div><strong>Tipo:</strong> <span id="detalle-tipo"></span></div>
+            <div><strong>Apartamento:</strong> <span id="detalle-apartamento"></span></div>
+            <div><strong>Residente:</strong> <span id="detalle-residente"></span></div>
+            <div><strong>Fecha:</strong> <span id="detalle-fecha"></span></div>
+            <div><strong>Categoría:</strong> <span id="detalle-categoria"></span></div>
+          </div>
+
+          <div id="detalle-multa-info" class="hidden" style="background:#FFF3CD;padding:12px;border-radius:8px;margin-bottom:16px"></div>
+
+          <div style="margin-bottom:16px">
+            <strong>Título:</strong>
+            <div id="detalle-titulo" style="margin-top:4px;color:var(--text-secondary)"></div>
+          </div>
+
+          <div style="margin-bottom:16px">
+            <strong>Descripción:</strong>
+            <div id="detalle-descripcion" style="margin-top:4px;color:var(--text-secondary);white-space:pre-wrap"></div>
+          </div>
+
+          <div id="detalle-foto-container" class="hidden" style="margin-bottom:16px">
+            <strong>Foto:</strong>
+            <div style="margin-top:8px"></div>
+          </div>
+
+          <div id="respuesta-actual" class="hidden" style="margin-bottom:16px"></div>
+
+          <form id="form-respuesta-queja">
+            <div class="form-group">
+              <label>Estado</label>
+              <select id="modal-estado" class="form-control">
+                <option value="PENDIENTE">Pendiente</option>
+                <option value="EN_REVISION">En Revisión</option>
+                <option value="RESUELTA">Resuelta</option>
+                <option value="CERRADA">Cerrada</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Prioridad</label>
+              <select id="modal-prioridad" class="form-control">
+                <option value="ALTA">Alta</option>
+                <option value="MEDIA">Media</option>
+                <option value="BAJA">Baja</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Respuesta al Residente (opcional)</label>
+              <textarea id="modal-respuesta" class="form-control" rows="4" placeholder="Escribe tu respuesta aquí..."></textarea>
+              <span class="field-error" id="modal-respuesta-error"></span>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" id="btn-cancelar-modal">Cancelar</button>
+          <button type="button" class="btn btn-primary" id="btn-guardar-respuesta">Guardar Cambios</button>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+  <script>if(typeof pdfjsLib!=='undefined'){pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js'}</script>
+  <script src="js/utils.js?v=3"></script>
+  <script src="js/auth.js?v=2"></script>
+  <script src="js/api.js?v=2"></script>
+  <script src="js/router.js?v=2"></script>
+  <script src="js/pages/login.js?v=2"></script>
+  <script src="js/pages/residentes.js"></script>
+  <script src="js/pages/apartamentos.js"></script>
+  <script src="js/pages/contratos.js"></script>
+  <script src="js/pages/pagos.js"></script>
+  <script src="js/pages/visitas.js"></script>
+  <script src="js/pages/historial-visitas.js?v=2"></script>
+  <script src="js/pages/parqueaderos.js?v=4"></script>
+  <script src="js/pages/usuarios.js?v=2"></script>
+  <script src="js/pages/alertas.js?v=2"></script>
+  <script src="js/pages/avisos.js?v=2"></script>
+  <script src="js/pages/escanner-qr.js?v=2"></script>
+  <script src="js/pages/residente-dashboard.js?v=4"></script>
+  <script src="js/pages/quejas-residente.js?v=2"></script>
+  <script src="js/pages/portero-dashboard.js?v=2"></script>
+  <script src="js/pages/paquetes.js?v=2"></script>
+  <script src="js/pages/paquetes-admin.js?v=1"></script>
+  <script src="js/pages/quejas-admin.js?v=2"></script>
+  <script src="js/pages/app.js?v=2"></script>
+  <script>document.getElementById('footer-year').textContent = new Date().getFullYear();</script>
+</body>
+</html>

@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.edificio.admin.view.controladores.PagoController"
+      styleClass="vista-container">
+
+    <Label text="Gestión de Pagos" styleClass="titulo-vista"/>
+
+    <!-- Filtro -->
+    <HBox spacing="10" styleClass="barra-herramientas" alignment="CENTER_LEFT">
+        <Label text="Filtrar por contrato:" styleClass="label-formulario"/>
+        <ComboBox fx:id="cmbContrato" prefWidth="200" styleClass="combobox"/>
+        <Button text="Filtrar"        onAction="#filtrarPorContrato" styleClass="boton-accion"/>
+        <Button text="Ver Pendientes" onAction="#verPendientes"      styleClass="boton-accion"/>
+    </HBox>
+
+    <!-- Tablas: cuotas arriba, pagos abajo -->
+    <VBox spacing="5" VBox.vgrow="ALWAYS">
+        <Label text="Cuotas" styleClass="subtitulo"/>
+        <TableView fx:id="tablaCuotas" prefHeight="200" styleClass="tabla">
+            <columns>
+                <TableColumn fx:id="colIdCuota"    text="ID"        prefWidth="50"/>
+                <TableColumn fx:id="colContrato"   text="Contrato"  prefWidth="70"/>
+                <TableColumn fx:id="colAnio"       text="Año"       prefWidth="60"/>
+                <TableColumn fx:id="colMes"        text="Mes"       prefWidth="50"/>
+                <TableColumn fx:id="colFechaLimite" text="Límite"   prefWidth="100"/>
+                <TableColumn fx:id="colValorTotal" text="Total $"   prefWidth="100"/>
+                <TableColumn fx:id="colEstadoCuota" text="Estado"   prefWidth="100"/>
+            </columns>
+        </TableView>
+
+        <Label text="Pagos de la cuota seleccionada" styleClass="subtitulo"/>
+        <TableView fx:id="tablaPagos" prefHeight="150" styleClass="tabla">
+            <columns>
+                <TableColumn fx:id="colIdPago"     text="ID"        prefWidth="50"/>
+                <TableColumn fx:id="colFechaPago"  text="Fecha"     prefWidth="100"/>
+                <TableColumn fx:id="colValorPagado" text="Valor $"  prefWidth="100"/>
+                <TableColumn fx:id="colMetodo"     text="Método"    prefWidth="100"/>
+                <TableColumn fx:id="colReferencia" text="Referencia" prefWidth="120"/>
+            </columns>
+        </TableView>
+
+        <HBox spacing="15" alignment="CENTER_LEFT">
+            <Label text="Pendientes:" styleClass="label-formulario"/>
+            <Label fx:id="lblTotalPendientes" text="$0" styleClass="valor-destacado"/>
+            <Label text="   Pagadas:" styleClass="label-formulario"/>
+            <Label fx:id="lblTotalPagados" text="$0" styleClass="valor-destacado"/>
+        </HBox>
+    </VBox>
+
+    <!-- Formulario registro pago -->
+    <TitledPane text="Registrar Pago" animated="false">
+        <HBox spacing="15">
+            <padding><Insets top="10" bottom="10" left="10" right="10"/></padding>
+            <VBox spacing="8" prefWidth="200">
+                <Label text="Fecha Pago:" styleClass="label-formulario"/>
+                <DatePicker fx:id="dpFechaPago" maxWidth="Infinity" styleClass="datepicker"/>
+                <Label text="Valor ($):" styleClass="label-formulario"/>
+                <TextField fx:id="txtValorPagado" styleClass="campo-texto"/>
+            </VBox>
+            <VBox spacing="8" prefWidth="200">
+                <Label text="Método:" styleClass="label-formulario"/>
+                <ComboBox fx:id="cmbMetodo" maxWidth="Infinity" styleClass="combobox"/>
+                <Label text="Referencia:" styleClass="label-formulario"/>
+                <TextField fx:id="txtReferencia" styleClass="campo-texto"/>
+            </VBox>
+            <VBox spacing="8" HBox.hgrow="ALWAYS">
+                <Label text="Notas:" styleClass="label-formulario"/>
+                <TextArea fx:id="txtNotasPago" prefRowCount="3" styleClass="textarea"/>
+                <HBox spacing="10">
+                    <Button text="Registrar Pago" onAction="#registrarPago"       styleClass="boton-principal"/>
+                    <Button text="Limpiar"         onAction="#limpiarFormularioPago" styleClass="boton-accion"/>
+                </HBox>
+            </VBox>
+        </HBox>
+    </TitledPane>
+</VBox>

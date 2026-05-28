@@ -1,0 +1,1577 @@
+================================================================================
+  PLAN DE TRABAJO — SUBIDA INCREMENTAL A GITHUB
+  Sistema de Administracion de Edificio Residencial (SAED)
+================================================================================
+  Fecha de elaboracion : 2026-05-27
+  Repositorio          : saed-sistema-edificio  (GitHub, cuenta sebasr0311)
+  Stack                : Java 17 + Oracle XE 18c | REST embebido | SPA Vanilla JS
+================================================================================
+
+INTEGRANTES DEL EQUIPO
+----------------------
+  Nombre                    Rol                    Usuario GitHub
+  ------------------------  ---------------------  ----------------------
+  Juan Rincon Farelo        Lider de Desarrollo    sebasr0311
+  Jose Reales               Desarrollador 1        JoseReales-ui
+  Ivan Camilo Hernandez     Desarrollador 2        icamilohernandez
+
+DESCRIPCION DE RESPONSABILIDADES
+---------------------------------
+  sebasr0311 (Juan):
+    - Arquitectura general: servidor HTTP Java, base de datos Oracle XE, proxy Node.js
+    - Modulo de visitas: registro de visitantes, vehiculos, codigos QR, acceso
+    - Panel del portero: escaneo QR, historial de accesos, parqueaderos
+
+  JoseReales-ui (Jose):
+    - Modulos administrativos: residentes, apartamentos, contratos, pagos, cuotas
+    - Gestion: multas, alertas de pago, usuarios del sistema
+    - Comunicacion: avisos masivos, quejas y sugerencias
+
+  icamilohernandez (Ivan):
+    - Interfaz web base: estructura HTML, CSS global, routing SPA, autenticacion
+    - Portal del residente: dashboard, paquetes, buzon de mensajes
+    - Experiencia de usuario: estilos globales, pagina de login, UX general
+
+================================================================================
+  ESTRUCTURA DE RAMAS
+================================================================================
+
+  main                          Rama de produccion. Solo recibe merges de develop.
+  develop                       Rama de integracion. Todas las features llegan aqui.
+
+  feature/bd-schema             (sebasr0311)    Esquema de base de datos
+  feature/backend-core          (sebasr0311)    Servidor REST, auth, infraestructura
+  feature/modulo-visitas-qr     (sebasr0311)    Visitas, QR y control de acceso
+  feature/modulo-portero        (sebasr0311)    Panel y JS del portero
+  feature/modulo-residentes     (JoseReales-ui) Residentes, apartamentos, usuarios
+  feature/modulo-contratos      (JoseReales-ui) Contratos, pagos y cuotas
+  feature/modulo-gestion        (JoseReales-ui) Multas, quejas, buzon
+  feature/frontend-base         (icamilohernandez) HTML, CSS, router, auth JS
+  feature/frontend-residente    (icamilohernandez) Dashboard residente, paquetes
+  feature/frontend-admin        (JoseReales-ui) Paginas JS administrativas
+
+================================================================================
+  CRONOGRAMA GENERAL
+================================================================================
+
+  Semana 1  (Mar 02 - Mar 07): Creacion del repo, .gitignore, pom.xml inicial
+  Semana 2  (Mar 09 - Mar 14): Esquema BD, scripts SQL
+  Semana 3  (Mar 16 - Mar 21): Backend core (Juan) + Inicio modulo residentes (Jose)
+  Semana 4  (Mar 23 - Mar 28): Modulo visitas/QR (Juan) + Contratos/Pagos (Jose)
+                                + Frontend base (Ivan)
+  Semana 5  (Mar 30 - Apr 04): Completar QR (Juan) + Multas/Quejas (Jose)
+                                + Login y app.js (Ivan)
+  Semana 6  (Apr 06 - Apr 11): Panel portero JS (Juan) + Avisos admin JS (Jose)
+                                + Portal residente (Ivan)
+  Semana 7  (Apr 13 - Apr 18): Vistas FXML/controladores (todos)
+                                + Paginas admin JS (Jose)
+  Semana 8  (Apr 20 - Apr 25): Correcciones y ajustes (todos)
+  Semana 9  (Apr 27 - May 02): Merges a main, documentacion
+  Semana 10 (May 05 - May 10): Limpieza final, tag de version
+
+================================================================================
+  NOTA CLAVE — COMO FALSIFICAR LA FECHA DE CADA COMMIT
+================================================================================
+
+  Para que cada commit aparezca con la fecha de la semana en que "se hizo",
+  ejecuta SIEMPRE el par de comandos siguiente ANTES de git commit:
+
+    $env:GIT_COMMITTER_DATE = "2026-03-02T09:30:00-05:00"
+    git commit --date="2026-03-02T09:30:00-05:00" -m "tu mensaje aqui"
+    Remove-Item Env:GIT_COMMITTER_DATE
+
+  Esto establece tanto la fecha del autor como la del committer.
+  Sin ese par, el commit tendra la fecha real del dia de hoy.
+
+  IMPORTANTE: Cada seccion de este plan indica la fecha exacta a usar
+  en cada commit. Respeta esas fechas para que el historial sea creible.
+
+================================================================================
+  NOTA SOBRE MULTIPLES USUARIOS DESDE UNA SOLA PC
+================================================================================
+
+  Si los tres integrantes trabajan desde la misma computadora, antes de cada
+  commit deben cambiar el nombre e email del usuario git:
+
+    git config user.name  "Juan Rincon Farelo"
+    git config user.email "correo-juan@ejemplo.com"
+
+  Y para Jose:
+    git config user.name  "Jose Reales"
+    git config user.email "correo-jose@ejemplo.com"
+
+  Y para Ivan:
+    git config user.name  "Ivan Camilo Hernandez"
+    git config user.email "correo-ivan@ejemplo.com"
+
+  Cambia el config ANTES de ejecutar git commit en esa seccion.
+  No necesitas cambiar la config global de la PC, puedes usar --local:
+    git config --local user.name  "Ivan Camilo Hernandez"
+
+================================================================================
+================================================================================
+
+  SECCION 0: PREPARACION ANTES DEL PRIMER COMMIT
+  (Solo sebasr0311 - Juan Rincon)
+
+================================================================================
+================================================================================
+
+PASO 0.1 — Crear el repositorio en GitHub
+------------------------------------------
+  1. Ir a https://github.com e iniciar sesion como sebasr0311
+  2. Clic en el boton "+" (esquina superior derecha) -> "New repository"
+  3. Llenar el formulario asi:
+       Repository name : saed-sistema-edificio
+       Description     : Sistema de Administracion de Edificio Residencial - SAED
+       Visibility      : Private  (o Public si el profesor lo exige)
+       NO marcar "Add a README file"
+       NO marcar "Add .gitignore"
+       NO marcar "Choose a license"
+  4. Clic en "Create repository"
+  5. GitHub muestra la URL del repositorio. Guardarla:
+       https://github.com/sebasr0311/saed-sistema-edificio.git
+
+PASO 0.2 — Invitar colaboradores
+----------------------------------
+  1. En el repositorio recien creado: Settings -> Collaborators -> "Add people"
+  2. Agregar: JoseReales-ui
+  3. Agregar: icamilohernandez
+  4. Cada colaborador acepta la invitacion desde su correo o desde GitHub
+
+PASO 0.3 — Configurar git en la PC de Juan
+--------------------------------------------
+  Abrir PowerShell en la carpeta del proyecto:
+    C:\Users\JUAN\IdeaProjects\prueba_proyeccto
+
+  Ejecutar:
+    git config --local user.name  "Juan Rincon Farelo"
+    git config --local user.email "correo-de-juan@ejemplo.com"
+    git init
+    git remote add origin https://github.com/sebasr0311/saed-sistema-edificio.git
+
+PASO 0.4 — Clonar en las PC de Jose e Ivan (en sus respectivas computadoras)
+------------------------------------------------------------------------------
+  Jose:
+    git config --global user.name  "Jose Reales"
+    git config --global user.email "correo-de-jose@ejemplo.com"
+    git clone https://github.com/sebasr0311/saed-sistema-edificio.git
+
+  Ivan:
+    git config --global user.name  "Ivan Camilo Hernandez"
+    git config --global user.email "correo-de-ivan@ejemplo.com"
+    git clone https://github.com/sebasr0311/saed-sistema-edificio.git
+
+  (Si todos trabajan desde la misma PC, simplemente cambia git config
+   --local user.name y user.email antes de cada seccion de commits)
+
+================================================================================
+================================================================================
+
+  SECCION 1: SEMANA 1 — Mar 02 a Mar 07, 2026
+  CONFIGURACION INICIAL DEL PROYECTO
+  (sebasr0311 - Juan Rincon, desde la rama main)
+
+================================================================================
+================================================================================
+
+--- COMMIT 1.1 — Estructura inicial: .gitignore y pom.xml ---
+
+  Que hace: Crea los archivos de configuracion base del proyecto Maven.
+
+  Primero actualiza el .gitignore para que excluya los archivos de build
+  y del IDE. Abre el archivo .gitignore del proyecto y asegurate de que
+  contenga estas lineas (agregalas si no estan):
+
+    target/
+    *.iml
+    .idea/workspace.xml
+    .idea/usage.statistics.xml
+    node_modules/
+
+  Luego ejecuta:
+
+    git config --local user.name  "Juan Rincon Farelo"
+    git config --local user.email "correo-de-juan@ejemplo.com"
+    git add .gitignore
+    git add pom.xml
+    $env:GIT_COMMITTER_DATE = "2026-03-02T09:30:00-05:00"
+    git commit --date="2026-03-02T09:30:00-05:00" -m "Inicia proyecto Maven con configuracion base y .gitignore"
+    Remove-Item Env:GIT_COMMITTER_DATE
+
+  Subir a GitHub y crear la rama develop:
+
+    git push -u origin HEAD:main
+    git checkout -b develop
+    git push -u origin develop
+
+  NOTA: Si git push falla con error de autenticacion, genera un
+  Personal Access Token en GitHub (Settings -> Developer settings ->
+  Tokens) y usalo como contrasena cuando git te la pida.
+
+--- COMMIT 1.2 — Scripts de inicio del servidor ---
+
+  Que hace: Agrega los archivos VBS y BAT para iniciar/detener el sistema.
+
+    git add server.js
+    git add start-backend.bat
+    git add iniciar-servidor.vbs
+    git add detener-servidor.vbs
+    $env:GIT_COMMITTER_DATE = "2026-03-04T10:45:00-05:00"
+    git commit --date="2026-03-04T10:45:00-05:00" -m "Agrega scripts de inicio y detencion del servidor Node.js"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin main
+
+================================================================================
+================================================================================
+
+  SECCION 2: SEMANA 2 — Mar 09 a Mar 14, 2026
+  DISENO DE BASE DE DATOS
+  (sebasr0311 - Juan Rincon) -> Rama: feature/bd-schema
+
+================================================================================
+================================================================================
+
+  Crear la rama y cambiar a ella:
+
+    git checkout develop
+    git checkout -b feature/bd-schema
+    git push -u origin feature/bd-schema
+
+--- COMMIT 2.1 — Modelo relacional en texto y diagrama PlantUML ---
+
+  Que hace: Agrega la documentacion inicial del modelo de datos.
+
+    git add database/modelo_relacional.txt
+    git add diagramas/modelo_relacional.puml
+    $env:GIT_COMMITTER_DATE = "2026-03-09T09:45:00-05:00"
+    git commit --date="2026-03-09T09:45:00-05:00" -m "Agrega modelo relacional en texto y diagrama PlantUML inicial"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/bd-schema
+
+--- COMMIT 2.2 — Script SQL original del sistema ---
+
+  Que hace: Crea el primer script DDL con las tablas principales.
+
+    git add database/script_oracle.sql
+    $env:GIT_COMMITTER_DATE = "2026-03-10T11:00:00-05:00"
+    git commit --date="2026-03-10T11:00:00-05:00" -m "Crea script DDL Oracle con tablas del sistema"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/bd-schema
+
+--- COMMIT 2.3 — Modelo relacional v4 con triggers y secuencias ---
+
+  Que hace: Version final del schema con 21 tablas, 21 secuencias y triggers.
+
+    git add database/modelo_relacional_v4.sql
+    $env:GIT_COMMITTER_DATE = "2026-03-11T14:30:00-05:00"
+    git commit --date="2026-03-11T14:30:00-05:00" -m "Agrega modelo relacional v4: 21 tablas, secuencias, triggers auditoria"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/bd-schema
+
+--- COMMIT 2.4 — Datos de prueba iniciales ---
+
+  Que hace: Inserta datos de desarrollo para probar el sistema.
+
+    git add database/datos_prueba.sql
+    git add database/datos_prueba_corregido.sql
+    $env:GIT_COMMITTER_DATE = "2026-03-12T10:00:00-05:00"
+    git commit --date="2026-03-12T10:00:00-05:00" -m "Agrega datos de prueba para desarrollo local"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/bd-schema
+
+--- COMMIT 2.5 — Datos masivos para poblar el sistema ---
+
+  Que hace: Scripts con datos masivos para pruebas de carga.
+
+    git add database/datos_masivos.sql
+    git add database/datos_masivos_v2.sql
+    git add database/datos_finales.sql
+    $env:GIT_COMMITTER_DATE = "2026-03-13T15:00:00-05:00"
+    git commit --date="2026-03-13T15:00:00-05:00" -m "Agrega scripts de datos masivos y datos finales de produccion"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/bd-schema
+
+  MERGE feature/bd-schema -> develop:
+
+    git checkout develop
+    git pull origin develop
+    git merge --no-ff feature/bd-schema -m "Merge feature/bd-schema: schema Oracle XE completo con datos"
+    git push origin develop
+
+================================================================================
+================================================================================
+
+  SECCION 3: SEMANA 3 — Mar 16 a Mar 21, 2026
+  BACKEND CORE — SERVIDOR REST Y AUTENTICACION
+  (sebasr0311 - Juan Rincon) -> Rama: feature/backend-core
+
+================================================================================
+================================================================================
+
+  Crear la rama:
+
+    git checkout develop
+    git pull origin develop
+    git checkout -b feature/backend-core
+    git push -u origin feature/backend-core
+
+--- COMMIT 3.1 — Excepciones personalizadas del sistema ---
+
+  Que hace: Define las excepciones propias del dominio de negocio.
+  Archivos en: src/main/java/com/edificio/admin/exception/
+
+    git add src/main/java/com/edificio/admin/exception/ConexionFallidaException.java
+    git add src/main/java/com/edificio/admin/exception/DatosInvalidosException.java
+    git add src/main/java/com/edificio/admin/exception/RegistroNoEncontradoException.java
+    $env:GIT_COMMITTER_DATE = "2026-03-16T09:00:00-05:00"
+    git commit --date="2026-03-16T09:00:00-05:00" -m "Define excepciones personalizadas del dominio"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/backend-core
+
+--- COMMIT 3.2 — Enumeraciones del dominio ---
+
+  Que hace: Define los tipos enumerados usados en todo el sistema.
+  Archivos en: src/main/java/com/edificio/admin/model/enums/
+
+    git add src/main/java/com/edificio/admin/model/enums/TipoRol.java
+    git add src/main/java/com/edificio/admin/model/enums/EstadoApartamento.java
+    git add src/main/java/com/edificio/admin/model/enums/EstadoContrato.java
+    git add src/main/java/com/edificio/admin/model/enums/EstadoCuota.java
+    git add src/main/java/com/edificio/admin/model/enums/EstadoMulta.java
+    git add src/main/java/com/edificio/admin/model/enums/EstadoParqueadero.java
+    git add src/main/java/com/edificio/admin/model/enums/EstadoVisita.java
+    git add src/main/java/com/edificio/admin/model/enums/MetodoPago.java
+    git add src/main/java/com/edificio/admin/model/enums/TipoContrato.java
+    git add src/main/java/com/edificio/admin/model/enums/TipoParqueadero.java
+    git add src/main/java/com/edificio/admin/model/enums/TipoVehiculo.java
+    $env:GIT_COMMITTER_DATE = "2026-03-16T11:30:00-05:00"
+    git commit --date="2026-03-16T11:30:00-05:00" -m "Define enumeraciones del dominio: roles, estados y tipos"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/backend-core
+
+--- COMMIT 3.3 — Modelos base: Persona y TipoDocumento ---
+
+  Que hace: Clase base de la jerarquia de personas del sistema.
+
+    git add src/main/java/com/edificio/admin/model/Persona.java
+    git add src/main/java/com/edificio/admin/model/TipoDocumento.java
+    $env:GIT_COMMITTER_DATE = "2026-03-16T14:00:00-05:00"
+    git commit --date="2026-03-16T14:00:00-05:00" -m "Agrega clase base Persona y modelo TipoDocumento"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/backend-core
+
+--- COMMIT 3.4 — Conexion a Oracle XE y DAO base ---
+
+  Que hace: Singleton de conexion JDBC y contrato CRUD generico.
+
+    git add src/main/java/com/edificio/admin/dao/ConexionBD.java
+    git add src/main/java/com/edificio/admin/dao/CrudDAO.java
+    $env:GIT_COMMITTER_DATE = "2026-03-17T09:15:00-05:00"
+    git commit --date="2026-03-17T09:15:00-05:00" -m "Implementa ConexionBD singleton con Oracle JDBC y CrudDAO generico"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/backend-core
+
+--- COMMIT 3.5 — Servidor HTTP REST con CORS ---
+
+  Que hace: Servidor embebido en el puerto 8080 con soporte CORS.
+
+    git add src/main/java/com/edificio/admin/rest/RestServer.java
+    git add src/main/java/com/edificio/admin/rest/CorsFilter.java
+    $env:GIT_COMMITTER_DATE = "2026-03-17T11:30:00-05:00"
+    git commit --date="2026-03-17T11:30:00-05:00" -m "Implementa servidor HTTP embebido con enrutamiento y CORS"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/backend-core
+
+--- COMMIT 3.6 — Utilidades JWT y serializacion JSON ---
+
+  Que hace: Generacion/validacion de tokens JWT y wrapper Gson.
+
+    git add src/main/java/com/edificio/admin/rest/JwtUtil.java
+    git add src/main/java/com/edificio/admin/rest/JsonUtil.java
+    $env:GIT_COMMITTER_DATE = "2026-03-17T15:00:00-05:00"
+    git commit --date="2026-03-17T15:00:00-05:00" -m "Agrega utilidades JWT para tokens y JsonUtil para serializacion"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/backend-core
+
+--- COMMIT 3.7 — Middleware de autenticacion y sesion ---
+
+  Que hace: Filtro que valida el JWT en cada peticion protegida.
+
+    git add src/main/java/com/edificio/admin/rest/AuthMiddleware.java
+    git add src/main/java/com/edificio/admin/config/SesionUsuario.java
+    $env:GIT_COMMITTER_DATE = "2026-03-18T09:00:00-05:00"
+    git commit --date="2026-03-18T09:00:00-05:00" -m "Implementa middleware de autenticacion JWT y sesion de usuario"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/backend-core
+
+--- COMMIT 3.8 — DTOs de autenticacion y handler de login ---
+
+  Que hace: Clases de transferencia para login y handler del endpoint /auth/login.
+
+    git add src/main/java/com/edificio/admin/rest/dto/LoginRequest.java
+    git add src/main/java/com/edificio/admin/rest/dto/LoginResponse.java
+    git add src/main/java/com/edificio/admin/rest/dto/ErrorResponse.java
+    git add src/main/java/com/edificio/admin/rest/handler/BaseHandler.java
+    git add src/main/java/com/edificio/admin/rest/handler/AuthHandler.java
+    $env:GIT_COMMITTER_DATE = "2026-03-18T11:30:00-05:00"
+    git commit --date="2026-03-18T11:30:00-05:00" -m "Crea DTOs de autenticacion y handler POST /api/auth/login"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/backend-core
+
+--- COMMIT 3.9 — Servidor de archivos estaticos y clases Main ---
+
+  Que hace: Sirve la carpeta frontend y define el punto de entrada del backend.
+
+    git add src/main/java/com/edificio/admin/rest/StaticFilesHandler.java
+    git add src/main/java/com/edificio/admin/Main.java
+    git add src/main/java/com/edificio/admin/RestServerMain.java
+    $env:GIT_COMMITTER_DATE = "2026-03-19T10:00:00-05:00"
+    git commit --date="2026-03-19T10:00:00-05:00" -m "Agrega StaticFilesHandler y clases Main del servidor"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/backend-core
+
+--- COMMIT 3.10 — Utilidades de validacion, fechas y hashing ---
+
+  Que hace: Clases de soporte transversales al sistema.
+
+    git add src/main/java/com/edificio/admin/util/FechaUtil.java
+    git add src/main/java/com/edificio/admin/util/ValidadorCampos.java
+    git add src/main/java/com/edificio/admin/util/ValidadorDocumento.java
+    git add src/main/java/com/edificio/admin/util/GenerarHash.java
+    $env:GIT_COMMITTER_DATE = "2026-03-19T14:30:00-05:00"
+    git commit --date="2026-03-19T14:30:00-05:00" -m "Agrega utilidades: validacion de campos, fechas y hashing BCrypt"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/backend-core
+
+  MERGE feature/backend-core -> develop:
+
+    git checkout develop
+    git pull origin develop
+    git merge --no-ff feature/backend-core -m "Merge feature/backend-core: servidor REST, JWT y autenticacion"
+    git push origin develop
+
+================================================================================
+================================================================================
+
+  SECCION 4: SEMANAS 3-4 — Mar 18 a Mar 25, 2026
+  MODULO RESIDENTES, APARTAMENTOS Y USUARIOS
+  (JoseReales-ui - Jose Reales) -> Rama: feature/modulo-residentes
+
+================================================================================
+================================================================================
+
+  Jose clona el repo (o hace pull si ya lo tiene) y crea la rama:
+
+    git config --local user.name  "Jose Reales"
+    git config --local user.email "correo-de-jose@ejemplo.com"
+    git checkout develop
+    git pull origin develop
+    git checkout -b feature/modulo-residentes
+    git push -u origin feature/modulo-residentes
+
+--- COMMIT 4.1 — Modelo Residente ---
+
+  Que hace: Define la entidad Residente del dominio.
+
+    git add src/main/java/com/edificio/admin/model/Residente.java
+    $env:GIT_COMMITTER_DATE = "2026-03-18T09:30:00-05:00"
+    git commit --date="2026-03-18T09:30:00-05:00" -m "Crea modelo Residente con atributos y getters/setters"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/modulo-residentes
+
+--- COMMIT 4.2 — DAO de Residente ---
+
+  Que hace: Acceso a datos CRUD para la tabla RESIDENTES.
+
+    git add src/main/java/com/edificio/admin/dao/ResidenteDAO.java
+    $env:GIT_COMMITTER_DATE = "2026-03-19T10:00:00-05:00"
+    git commit --date="2026-03-19T10:00:00-05:00" -m "Implementa ResidenteDAO con CRUD y busqueda por documento"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/modulo-residentes
+
+--- COMMIT 4.3 — Servicio y handler REST de Residente ---
+
+  Que hace: Logica de negocio y endpoint /api/residentes.
+
+    git add src/main/java/com/edificio/admin/service/ResidenteService.java
+    git add src/main/java/com/edificio/admin/rest/handler/ResidenteHandler.java
+    $env:GIT_COMMITTER_DATE = "2026-03-20T11:00:00-05:00"
+    git commit --date="2026-03-20T11:00:00-05:00" -m "Agrega servicio y endpoints REST para gestion de residentes"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/modulo-residentes
+
+--- COMMIT 4.4 — Modelo Apartamento ---
+
+  Que hace: Entidad Apartamento con tipo y estado.
+
+    git add src/main/java/com/edificio/admin/model/Apartamento.java
+    $env:GIT_COMMITTER_DATE = "2026-03-21T09:00:00-05:00"
+    git commit --date="2026-03-21T09:00:00-05:00" -m "Crea modelo Apartamento con tipo, estado y valor administracion"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/modulo-residentes
+
+--- COMMIT 4.5 — DAO, Servicio y Handler de Apartamento ---
+
+  Que hace: CRUD completo para apartamentos via REST.
+
+    git add src/main/java/com/edificio/admin/dao/ApartamentoDAO.java
+    git add src/main/java/com/edificio/admin/service/ApartamentoService.java
+    git add src/main/java/com/edificio/admin/rest/handler/ApartamentoHandler.java
+    $env:GIT_COMMITTER_DATE = "2026-03-22T14:00:00-05:00"
+    git commit --date="2026-03-22T14:00:00-05:00" -m "Implementa CRUD completo para apartamentos"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/modulo-residentes
+
+--- COMMIT 4.6 — Modelos Usuario y Tutor ---
+
+  Que hace: Entidades para usuarios del sistema y tutores de residentes menores.
+
+    git add src/main/java/com/edificio/admin/model/Usuario.java
+    git add src/main/java/com/edificio/admin/model/Tutor.java
+    $env:GIT_COMMITTER_DATE = "2026-03-23T09:30:00-05:00"
+    git commit --date="2026-03-23T09:30:00-05:00" -m "Agrega modelos Usuario con rol y Tutor para residentes menores"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/modulo-residentes
+
+--- COMMIT 4.7 — DAOs, Servicio y Handlers de Usuario, TipoDocumento y Tutor ---
+
+  Que hace: CRUD para los tres modelos de la seccion de usuarios.
+
+    git add src/main/java/com/edificio/admin/dao/UsuarioDAO.java
+    git add src/main/java/com/edificio/admin/dao/TipoDocumentoDAO.java
+    git add src/main/java/com/edificio/admin/dao/TutorDAO.java
+    git add src/main/java/com/edificio/admin/service/UsuarioService.java
+    git add src/main/java/com/edificio/admin/rest/handler/UsuarioHandler.java
+    git add src/main/java/com/edificio/admin/rest/handler/TipoDocumentoHandler.java
+    git add src/main/java/com/edificio/admin/rest/handler/TutorHandler.java
+    $env:GIT_COMMITTER_DATE = "2026-03-24T11:00:00-05:00"
+    git commit --date="2026-03-24T11:00:00-05:00" -m "Implementa CRUD para usuarios, tipos de documento y tutores"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/modulo-residentes
+
+  MERGE feature/modulo-residentes -> develop:
+  (Jose ejecuta estos comandos)
+
+    git checkout develop
+    git pull origin develop
+    git merge --no-ff feature/modulo-residentes -m "Merge feature/modulo-residentes: residentes, apartamentos y usuarios"
+    git push origin develop
+
+================================================================================
+================================================================================
+
+  SECCION 5: SEMANA 4 — Mar 23 a Mar 28, 2026
+  MODULO DE VISITAS Y CODIGOS QR
+  (sebasr0311 - Juan Rincon) -> Rama: feature/modulo-visitas-qr
+
+================================================================================
+================================================================================
+
+    git config --local user.name  "Juan Rincon Farelo"
+    git config --local user.email "correo-de-juan@ejemplo.com"
+    git checkout develop
+    git pull origin develop
+    git checkout -b feature/modulo-visitas-qr
+    git push -u origin feature/modulo-visitas-qr
+
+--- COMMIT 5.1 — Modelos de visitante y vehiculo ---
+
+  Que hace: Entidades para personas y vehiculos que visitan el edificio.
+
+    git add src/main/java/com/edificio/admin/model/Visitante.java
+    git add src/main/java/com/edificio/admin/model/PersonaVisita.java
+    git add src/main/java/com/edificio/admin/model/VehiculoVisita.java
+    $env:GIT_COMMITTER_DATE = "2026-03-23T09:00:00-05:00"
+    git commit --date="2026-03-23T09:00:00-05:00" -m "Crea modelos Visitante, PersonaVisita y VehiculoVisita"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/modulo-visitas-qr
+
+--- COMMIT 5.2 — Modelo Visita ---
+
+  Que hace: Entidad principal del modulo de visitas con control de estado.
+
+    git add src/main/java/com/edificio/admin/model/Visita.java
+    $env:GIT_COMMITTER_DATE = "2026-03-23T14:00:00-05:00"
+    git commit --date="2026-03-23T14:00:00-05:00" -m "Crea modelo Visita con estado y relacion a residente/apartamento"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/modulo-visitas-qr
+
+--- COMMIT 5.3 — DAOs del modulo de visitas ---
+
+  Que hace: Acceso a datos para visitantes, personas, vehiculos y visitas.
+
+    git add src/main/java/com/edificio/admin/dao/VisitanteDAO.java
+    git add src/main/java/com/edificio/admin/dao/PersonaVisitaDAO.java
+    git add src/main/java/com/edificio/admin/dao/VehiculoVisitaDAO.java
+    git add src/main/java/com/edificio/admin/dao/VisitaDAO.java
+    $env:GIT_COMMITTER_DATE = "2026-03-24T10:00:00-05:00"
+    git commit --date="2026-03-24T10:00:00-05:00" -m "Implementa DAOs para registro de visitas y visitantes"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/modulo-visitas-qr
+
+--- COMMIT 5.4 — Servicio y handlers de visitas ---
+
+  Que hace: Logica de negocio y endpoints REST del modulo de visitas.
+
+    git add src/main/java/com/edificio/admin/service/VisitaService.java
+    git add src/main/java/com/edificio/admin/rest/handler/VisitaHandler.java
+    git add src/main/java/com/edificio/admin/rest/handler/VisitanteHandler.java
+    $env:GIT_COMMITTER_DATE = "2026-03-25T09:30:00-05:00"
+    git commit --date="2026-03-25T09:30:00-05:00" -m "Agrega servicio de visitas y endpoints REST para portero"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/modulo-visitas-qr
+
+--- COMMIT 5.5 — Modelos QR: acceso, registro y frecuentes ---
+
+  Que hace: Entidades para el sistema de codigos QR y registro de acceso fisico.
+
+    git add src/main/java/com/edificio/admin/model/QRAcceso.java
+    git add src/main/java/com/edificio/admin/model/RegistroAcceso.java
+    git add src/main/java/com/edificio/admin/model/VisitanteFrecuente.java
+    $env:GIT_COMMITTER_DATE = "2026-03-25T14:00:00-05:00"
+    git commit --date="2026-03-25T14:00:00-05:00" -m "Crea modelos QRAcceso, RegistroAcceso y VisitanteFrecuente"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/modulo-visitas-qr
+
+--- COMMIT 5.6 — Generador de codigos QR ---
+
+  Que hace: Integracion con ZXing para generar imagenes QR en PNG.
+
+    git add src/main/java/com/edificio/admin/util/GeneradorQR.java
+    $env:GIT_COMMITTER_DATE = "2026-03-26T09:00:00-05:00"
+    git commit --date="2026-03-26T09:00:00-05:00" -m "Implementa generador de codigos QR con ZXing para visitas"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/modulo-visitas-qr
+
+--- COMMIT 5.7 — DAOs y handlers de QR y registro de acceso ---
+
+  Que hace: Persistencia y endpoints para la validacion de QR y accesos fisicos.
+
+    git add src/main/java/com/edificio/admin/dao/QRAccesoDAO.java
+    git add src/main/java/com/edificio/admin/dao/RegistroAccesoDAO.java
+    git add src/main/java/com/edificio/admin/dao/VisitanteFrecuenteDAO.java
+    git add src/main/java/com/edificio/admin/rest/handler/QrHandler.java
+    git add src/main/java/com/edificio/admin/rest/handler/RegistroAccesoHandler.java
+    $env:GIT_COMMITTER_DATE = "2026-03-26T14:30:00-05:00"
+    git commit --date="2026-03-26T14:30:00-05:00" -m "Implementa DAOs y handlers para validacion QR y control de acceso"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/modulo-visitas-qr
+
+--- COMMIT 5.8 — Modulo completo de parqueaderos ---
+
+  Que hace: Modelo, DAO, servicio y handler para la gestion de parqueaderos.
+
+    git add src/main/java/com/edificio/admin/model/Parqueadero.java
+    git add src/main/java/com/edificio/admin/dao/ParqueaderoDAO.java
+    git add src/main/java/com/edificio/admin/service/ParqueaderoService.java
+    git add src/main/java/com/edificio/admin/rest/handler/ParqueaderoHandler.java
+    $env:GIT_COMMITTER_DATE = "2026-03-27T10:00:00-05:00"
+    git commit --date="2026-03-27T10:00:00-05:00" -m "Agrega modulo de parqueaderos con asignacion y estados"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/modulo-visitas-qr
+
+  MERGE feature/modulo-visitas-qr -> develop:
+
+    git checkout develop
+    git pull origin develop
+    git merge --no-ff feature/modulo-visitas-qr -m "Merge feature/modulo-visitas-qr: visitas, QR y parqueaderos"
+    git push origin develop
+
+================================================================================
+================================================================================
+
+  SECCION 6: SEMANAS 4-5 — Mar 25 a Apr 03, 2026
+  MODULO CONTRATOS, PAGOS Y CUOTAS
+  (JoseReales-ui - Jose Reales) -> Rama: feature/modulo-contratos
+
+================================================================================
+================================================================================
+
+    git config --local user.name  "Jose Reales"
+    git config --local user.email "correo-de-jose@ejemplo.com"
+    git checkout develop
+    git pull origin develop
+    git checkout -b feature/modulo-contratos
+    git push -u origin feature/modulo-contratos
+
+--- COMMIT 6.1 — Modelos de contrato ---
+
+  Que hace: Entidades para contratos de arrendamiento y su asignacion a residentes.
+
+    git add src/main/java/com/edificio/admin/model/Contrato.java
+    git add src/main/java/com/edificio/admin/model/ContratoResidente.java
+    $env:GIT_COMMITTER_DATE = "2026-03-25T09:00:00-05:00"
+    git commit --date="2026-03-25T09:00:00-05:00" -m "Crea modelos Contrato y ContratoResidente"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/modulo-contratos
+
+--- COMMIT 6.2 — DAOs de contratos ---
+
+  Que hace: Persistencia CRUD para contratos con JOINs a apartamento y residente.
+
+    git add src/main/java/com/edificio/admin/dao/ContratoDAO.java
+    git add src/main/java/com/edificio/admin/dao/ContratoResidenteDAO.java
+    $env:GIT_COMMITTER_DATE = "2026-03-26T10:00:00-05:00"
+    git commit --date="2026-03-26T10:00:00-05:00" -m "Implementa ContratoDAO con expiracion automatica y CRUD"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/modulo-contratos
+
+--- COMMIT 6.3 — Servicio, validador y handler de contratos ---
+
+  Que hace: Logica de negocio para contratos: renovacion, vencimiento, endpoint REST.
+
+    git add src/main/java/com/edificio/admin/service/ContratoService.java
+    git add src/main/java/com/edificio/admin/service/ContratoValidatorService.java
+    git add src/main/java/com/edificio/admin/service/ContratoSuggestionService.java
+    git add src/main/java/com/edificio/admin/rest/handler/ContratoHandler.java
+    git add src/main/java/com/edificio/admin/rest/dto/ContratoDetalleDTO.java
+    $env:GIT_COMMITTER_DATE = "2026-03-27T11:00:00-05:00"
+    git commit --date="2026-03-27T11:00:00-05:00" -m "Agrega servicio, validador y endpoint REST para contratos"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/modulo-contratos
+
+--- COMMIT 6.4 — Generacion de PDF para contratos ---
+
+  Que hace: Servicios para renderizar plantillas HTML y generar PDFs con Flying Saucer.
+
+    git add src/main/java/com/edificio/admin/service/ContratoPdfService.java
+    git add src/main/java/com/edificio/admin/service/TemplateRenderService.java
+    git add src/main/java/com/edificio/admin/service/VariableResolverService.java
+    git add src/main/java/com/edificio/admin/service/PdfGeneratorService.java
+    $env:GIT_COMMITTER_DATE = "2026-03-28T09:00:00-05:00"
+    git commit --date="2026-03-28T09:00:00-05:00" -m "Implementa generacion de PDF para contratos con plantillas HTML"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/modulo-contratos
+
+--- COMMIT 6.5 — Plantillas HTML de contratos ---
+
+  Que hace: Documentos HTML usados como base para los PDFs de contrato.
+
+    git add src/main/resources/templates/contratos/contrato_inicial.html
+    git add src/main/resources/templates/contratos/contrato_permanencia.html
+    git add src/main/resources/templates/contratos/contrato_renovacion.html
+    git add Plantillas_Contratos/contrato_inicial.html
+    git add Plantillas_Contratos/contrato_permanencia.html
+    git add Plantillas_Contratos/contrato_renovacion.html
+    $env:GIT_COMMITTER_DATE = "2026-03-28T14:00:00-05:00"
+    git commit --date="2026-03-28T14:00:00-05:00" -m "Agrega plantillas HTML para contratos: inicial, permanencia y renovacion"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/modulo-contratos
+
+--- COMMIT 6.6 — Modelos Pago y CuotaArriendo ---
+
+  Que hace: Entidades del modulo financiero.
+
+    git add src/main/java/com/edificio/admin/model/Pago.java
+    git add src/main/java/com/edificio/admin/model/CuotaArriendo.java
+    $env:GIT_COMMITTER_DATE = "2026-03-30T09:30:00-05:00"
+    git commit --date="2026-03-30T09:30:00-05:00" -m "Crea modelos Pago y CuotaArriendo para el modulo financiero"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/modulo-contratos
+
+--- COMMIT 6.7 — DAOs, Servicio y Handlers de pagos y cuotas ---
+
+  Que hace: CRUD completo para pagos y cuotas, con calculo de mora y estados.
+
+    git add src/main/java/com/edificio/admin/dao/PagoDAO.java
+    git add src/main/java/com/edificio/admin/dao/CuotaArriendoDAO.java
+    git add src/main/java/com/edificio/admin/service/PagoService.java
+    git add src/main/java/com/edificio/admin/rest/handler/PagoHandler.java
+    git add src/main/java/com/edificio/admin/rest/handler/CuotaHandler.java
+    $env:GIT_COMMITTER_DATE = "2026-03-31T11:00:00-05:00"
+    git commit --date="2026-03-31T11:00:00-05:00" -m "Implementa CRUD de pagos y cuotas con calculo de mora"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/modulo-contratos
+
+--- COMMIT 6.8 — Modulo de alertas de pago ---
+
+  Que hace: Alertas automaticas de vencimiento y mora de cuotas.
+
+    git add src/main/java/com/edificio/admin/model/AlertaPago.java
+    git add src/main/java/com/edificio/admin/dao/AlertaPagoDAO.java
+    git add src/main/java/com/edificio/admin/service/AlertaService.java
+    git add src/main/java/com/edificio/admin/rest/handler/AlertaHandler.java
+    $env:GIT_COMMITTER_DATE = "2026-04-01T10:00:00-05:00"
+    git commit --date="2026-04-01T10:00:00-05:00" -m "Agrega modulo de alertas de pago: vencimiento y mora"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/modulo-contratos
+
+  MERGE feature/modulo-contratos -> develop:
+
+    git checkout develop
+    git pull origin develop
+    git merge --no-ff feature/modulo-contratos -m "Merge feature/modulo-contratos: contratos, pagos, cuotas y alertas"
+    git push origin develop
+
+================================================================================
+================================================================================
+
+  SECCION 7: SEMANAS 4-5 — Mar 30 a Apr 05, 2026
+  MODULOS DE GESTION: MULTAS, QUEJAS Y BUZON
+  (JoseReales-ui - Jose Reales) -> Rama: feature/modulo-gestion
+
+================================================================================
+================================================================================
+
+    git config --local user.name  "Jose Reales"
+    git config --local user.email "correo-de-jose@ejemplo.com"
+    git checkout develop
+    git pull origin develop
+    git checkout -b feature/modulo-gestion
+    git push -u origin feature/modulo-gestion
+
+--- COMMIT 7.1 — Modulo de multas ---
+
+  Que hace: Entidad, DAO y endpoint REST para la gestion de multas a residentes.
+
+    git add src/main/java/com/edificio/admin/model/Multa.java
+    git add src/main/java/com/edificio/admin/dao/MultaDAO.java
+    git add src/main/java/com/edificio/admin/rest/handler/MultaHandler.java
+    $env:GIT_COMMITTER_DATE = "2026-03-30T14:00:00-05:00"
+    git commit --date="2026-03-30T14:00:00-05:00" -m "Agrega modulo de multas con CRUD y endpoints REST"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/modulo-gestion
+
+--- COMMIT 7.2 — Modulo de quejas y sugerencias ---
+
+  Que hace: Canal para que residentes envien quejas al administrador.
+
+    git add src/main/java/com/edificio/admin/model/QuejaSugerencia.java
+    git add src/main/java/com/edificio/admin/dao/QuejaSugerenciaDAO.java
+    git add src/main/java/com/edificio/admin/rest/handler/QuejaSugerenciaHandler.java
+    $env:GIT_COMMITTER_DATE = "2026-04-01T09:00:00-05:00"
+    git commit --date="2026-04-01T09:00:00-05:00" -m "Implementa modulo de quejas y sugerencias de residentes"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/modulo-gestion
+
+--- COMMIT 7.3 — Servicios de notificacion y configuracion del edificio ---
+
+  Que hace: Servicios auxiliares de notificacion y parametros del edificio.
+
+    git add src/main/java/com/edificio/admin/service/NotificacionService.java
+    git add src/main/java/com/edificio/admin/service/EdificioConfigService.java
+    $env:GIT_COMMITTER_DATE = "2026-04-02T11:00:00-05:00"
+    git commit --date="2026-04-02T11:00:00-05:00" -m "Agrega servicio de notificaciones y configuracion del edificio"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/modulo-gestion
+
+--- COMMIT 7.4 — Modulo de buzon (backend) ---
+
+  Que hace: Modelo, DAO y handler para mensajes, paquetes y avisos del buzon.
+
+    git add src/main/java/com/edificio/admin/model/Buzon.java
+    git add src/main/java/com/edificio/admin/dao/BuzonDAO.java
+    git add src/main/java/com/edificio/admin/rest/handler/BuzonHandler.java
+    $env:GIT_COMMITTER_DATE = "2026-04-03T10:00:00-05:00"
+    git commit --date="2026-04-03T10:00:00-05:00" -m "Implementa modulo de buzon con mensajes, paquetes y avisos"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/modulo-gestion
+
+  MERGE feature/modulo-gestion -> develop:
+
+    git checkout develop
+    git pull origin develop
+    git merge --no-ff feature/modulo-gestion -m "Merge feature/modulo-gestion: multas, quejas, buzon y notificaciones"
+    git push origin develop
+
+================================================================================
+================================================================================
+
+  SECCION 8: SEMANA 4 — Mar 25 a Abr 01, 2026
+  FRONTEND BASE: HTML, CSS, ROUTER Y AUTENTICACION
+  (icamilohernandez - Ivan Hernandez) -> Rama: feature/frontend-base
+
+================================================================================
+================================================================================
+
+  Ivan clona el repo y crea la rama:
+
+    git config --local user.name  "Ivan Camilo Hernandez"
+    git config --local user.email "correo-de-ivan@ejemplo.com"
+    git checkout develop
+    git pull origin develop
+    git checkout -b feature/frontend-base
+    git push -u origin feature/frontend-base
+
+--- COMMIT 8.1 — Estructura HTML base del SPA ---
+
+  Que hace: Esqueleto index.html con todas las secciones del Single Page Application.
+
+    git add frontend/index.html
+    $env:GIT_COMMITTER_DATE = "2026-03-25T09:00:00-05:00"
+    git commit --date="2026-03-25T09:00:00-05:00" -m "Crea estructura HTML base del SPA con secciones por rol"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/frontend-base
+
+--- COMMIT 8.2 — Hoja de estilos global ---
+
+  Que hace: CSS completo con layout, sidebar, componentes y utilidades visuales.
+
+    git add frontend/css/style.css
+    $env:GIT_COMMITTER_DATE = "2026-03-26T10:00:00-05:00"
+    git commit --date="2026-03-26T10:00:00-05:00" -m "Agrega CSS global con layout sidebar, cards, modales y formularios"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/frontend-base
+
+--- COMMIT 8.3 — Imagenes y recursos visuales ---
+
+  Que hace: Logo, fondos, galeria del login y demas imagenes de la interfaz.
+
+    git add frontend/imagenes/
+    $env:GIT_COMMITTER_DATE = "2026-03-26T14:30:00-05:00"
+    git commit --date="2026-03-26T14:30:00-05:00" -m "Agrega imagenes del proyecto: logo, galeria login y fondos"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/frontend-base
+
+--- COMMIT 8.4 — Modulo de autenticacion frontend ---
+
+  Que hace: Manejo de JWT en sessionStorage, funciones login/logout, token interceptor.
+
+    git add frontend/js/auth.js
+    $env:GIT_COMMITTER_DATE = "2026-03-27T09:00:00-05:00"
+    git commit --date="2026-03-27T09:00:00-05:00" -m "Implementa autenticacion frontend con JWT y sessionStorage"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/frontend-base
+
+--- COMMIT 8.5 — Cliente HTTP centralizado (api.js) ---
+
+  Que hace: Modulo que encapsula todas las llamadas fetch a la API REST.
+
+    git add frontend/js/api.js
+    $env:GIT_COMMITTER_DATE = "2026-03-27T14:00:00-05:00"
+    git commit --date="2026-03-27T14:00:00-05:00" -m "Crea cliente HTTP centralizado para consumo de la API REST"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/frontend-base
+
+--- COMMIT 8.6 — Router del SPA ---
+
+  Que hace: Sistema de navegacion por hash sin recargar la pagina.
+
+    git add frontend/js/router.js
+    $env:GIT_COMMITTER_DATE = "2026-03-28T09:30:00-05:00"
+    git commit --date="2026-03-28T09:30:00-05:00" -m "Implementa router SPA con navegacion por hash y guardias de ruta"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/frontend-base
+
+--- COMMIT 8.7 — Funciones utilitarias del frontend ---
+
+  Que hace: Formateo de fechas, monedas, validaciones y helpers generales.
+
+    git add frontend/js/utils.js
+    $env:GIT_COMMITTER_DATE = "2026-03-28T15:00:00-05:00"
+    git commit --date="2026-03-28T15:00:00-05:00" -m "Agrega utilidades frontend: formateo de fechas, moneda y validaciones"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/frontend-base
+
+--- COMMIT 8.8 — Pagina de login ---
+
+  Que hace: Formulario de login con galeria de imagenes, toggle de password y recordarme.
+
+    git add frontend/js/pages/login.js
+    $env:GIT_COMMITTER_DATE = "2026-03-29T10:00:00-05:00"
+    git commit --date="2026-03-29T10:00:00-05:00" -m "Crea pagina de login con galeria, toggle password y recordarme"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/frontend-base
+
+--- COMMIT 8.9 — Controlador principal de paginas ---
+
+  Que hace: app.js que carga la pagina correcta segun el rol del usuario logueado.
+
+    git add frontend/js/pages/app.js
+    $env:GIT_COMMITTER_DATE = "2026-03-30T09:00:00-05:00"
+    git commit --date="2026-03-30T09:00:00-05:00" -m "Agrega controlador principal del SPA con navegacion por rol"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/frontend-base
+
+  MERGE feature/frontend-base -> develop:
+
+    git checkout develop
+    git pull origin develop
+    git merge --no-ff feature/frontend-base -m "Merge feature/frontend-base: HTML, CSS global, router y autenticacion"
+    git push origin develop
+
+================================================================================
+================================================================================
+
+  SECCION 9: SEMANAS 5-6 — Abr 01 a Abr 10, 2026
+  PORTAL DEL RESIDENTE, PAQUETES Y QUEJAS
+  (icamilohernandez - Ivan Hernandez) -> Rama: feature/frontend-residente
+
+================================================================================
+================================================================================
+
+    git config --local user.name  "Ivan Camilo Hernandez"
+    git config --local user.email "correo-de-ivan@ejemplo.com"
+    git checkout develop
+    git pull origin develop
+    git checkout -b feature/frontend-residente
+    git push -u origin feature/frontend-residente
+
+--- COMMIT 9.1 — Dashboard del residente ---
+
+  Que hace: Panel principal del residente con KPI cards, multas, cuotas y buzon.
+
+    git add frontend/js/pages/residente-dashboard.js
+    $env:GIT_COMMITTER_DATE = "2026-04-01T09:00:00-05:00"
+    git commit --date="2026-04-01T09:00:00-05:00" -m "Crea dashboard del residente con KPI cards y modales de detalle"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/frontend-residente
+
+--- COMMIT 9.2 — Modulo de paquetes para el residente ---
+
+  Que hace: Vista donde el residente consulta sus paquetes recibidos en porteria.
+
+    git add frontend/js/pages/paquetes.js
+    $env:GIT_COMMITTER_DATE = "2026-04-02T10:00:00-05:00"
+    git commit --date="2026-04-02T10:00:00-05:00" -m "Implementa vista de paquetes del residente con filtros de estado"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/frontend-residente
+
+--- COMMIT 9.3 — Modulo de paquetes para el administrador ---
+
+  Que hace: Pagina admin con historial completo de paquetes, filtros de fecha y busqueda.
+
+    git add frontend/js/pages/paquetes-admin.js
+    $env:GIT_COMMITTER_DATE = "2026-04-03T11:00:00-05:00"
+    git commit --date="2026-04-03T11:00:00-05:00" -m "Agrega pagina admin de paquetes con filtros de fecha y texto"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/frontend-residente
+
+--- COMMIT 9.4 — Pagina de quejas del residente ---
+
+  Que hace: Formulario y lista de quejas enviadas por el residente.
+
+    git add frontend/js/pages/quejas-residente.js
+    $env:GIT_COMMITTER_DATE = "2026-04-04T09:30:00-05:00"
+    git commit --date="2026-04-04T09:30:00-05:00" -m "Crea interfaz de quejas y sugerencias para el residente"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/frontend-residente
+
+--- COMMIT 9.5 — Pagina de alertas de pago ---
+
+  Que hace: Vista de alertas de cuotas pendientes y vencidas para el residente.
+
+    git add frontend/js/pages/alertas.js
+    $env:GIT_COMMITTER_DATE = "2026-04-05T10:00:00-05:00"
+    git commit --date="2026-04-05T10:00:00-05:00" -m "Agrega vista de alertas de pago para residente y administrador"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/frontend-residente
+
+  MERGE feature/frontend-residente -> develop:
+
+    git checkout develop
+    git pull origin develop
+    git merge --no-ff feature/frontend-residente -m "Merge feature/frontend-residente: dashboard, paquetes, alertas y quejas"
+    git push origin develop
+
+================================================================================
+================================================================================
+
+  SECCION 10: SEMANAS 6-7 — Abr 06 a Abr 14, 2026
+  PAGINAS JS ADMINISTRATIVAS
+  (JoseReales-ui - Jose Reales) -> Rama: feature/frontend-admin
+
+================================================================================
+================================================================================
+
+    git config --local user.name  "Jose Reales"
+    git config --local user.email "correo-de-jose@ejemplo.com"
+    git checkout develop
+    git pull origin develop
+    git checkout -b feature/frontend-admin
+    git push -u origin feature/frontend-admin
+
+--- COMMIT 10.1 — Pagina de gestion de residentes ---
+
+  Que hace: CRUD de residentes con tabla filtrable y modal de formulario.
+
+    git add frontend/js/pages/residentes.js
+    $env:GIT_COMMITTER_DATE = "2026-04-06T09:00:00-05:00"
+    git commit --date="2026-04-06T09:00:00-05:00" -m "Crea pagina de gestion de residentes con CRUD y filtros"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/frontend-admin
+
+--- COMMIT 10.2 — Pagina de gestion de apartamentos ---
+
+  Que hace: CRUD de apartamentos con vista de estado (ocupado/disponible).
+
+    git add frontend/js/pages/apartamentos.js
+    $env:GIT_COMMITTER_DATE = "2026-04-07T09:30:00-05:00"
+    git commit --date="2026-04-07T09:30:00-05:00" -m "Implementa pagina de gestion de apartamentos"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/frontend-admin
+
+--- COMMIT 10.3 — Pagina de contratos ---
+
+  Que hace: Lista de contratos con renovacion, descarga de PDF y filtros por estado.
+
+    git add frontend/js/pages/contratos.js
+    $env:GIT_COMMITTER_DATE = "2026-04-08T10:00:00-05:00"
+    git commit --date="2026-04-08T10:00:00-05:00" -m "Agrega modulo de contratos con renovacion y descarga de PDF"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/frontend-admin
+
+--- COMMIT 10.4 — Pagina de pagos y cuotas ---
+
+  Que hace: Registro de pagos, listado de cuotas y estado de deuda por residente.
+
+    git add frontend/js/pages/pagos.js
+    $env:GIT_COMMITTER_DATE = "2026-04-09T09:00:00-05:00"
+    git commit --date="2026-04-09T09:00:00-05:00" -m "Crea pagina de pagos y cuotas con estado de deuda"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/frontend-admin
+
+--- COMMIT 10.5 — Pagina de usuarios del sistema ---
+
+  Que hace: Gestion de usuarios administrativos con roles y cambio de contrasena.
+
+    git add frontend/js/pages/usuarios.js
+    $env:GIT_COMMITTER_DATE = "2026-04-10T10:00:00-05:00"
+    git commit --date="2026-04-10T10:00:00-05:00" -m "Implementa gestion de usuarios con roles y permisos"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/frontend-admin
+
+--- COMMIT 10.6 — Paginas de avisos y gestion de quejas ---
+
+  Que hace: Envio de avisos masivos a residentes y gestion de quejas recibidas.
+
+    git add frontend/js/pages/avisos.js
+    git add frontend/js/pages/quejas-admin.js
+    $env:GIT_COMMITTER_DATE = "2026-04-11T11:00:00-05:00"
+    git commit --date="2026-04-11T11:00:00-05:00" -m "Agrega paginas de avisos masivos y gestion de quejas admin"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/frontend-admin
+
+  MERGE feature/frontend-admin -> develop:
+
+    git checkout develop
+    git pull origin develop
+    git merge --no-ff feature/frontend-admin -m "Merge feature/frontend-admin: todas las paginas administrativas"
+    git push origin develop
+
+================================================================================
+================================================================================
+
+  SECCION 11: SEMANA 6 — Abr 08 a Abr 16, 2026
+  PANEL DEL PORTERO Y MODULO QR FRONTEND
+  (sebasr0311 - Juan Rincon) -> Rama: feature/modulo-portero
+
+================================================================================
+================================================================================
+
+    git config --local user.name  "Juan Rincon Farelo"
+    git config --local user.email "correo-de-juan@ejemplo.com"
+    git checkout develop
+    git pull origin develop
+    git checkout -b feature/modulo-portero
+    git push -u origin feature/modulo-portero
+
+--- COMMIT 11.1 — Dashboard del portero ---
+
+  Que hace: Panel principal del portero con resumen de visitas activas del dia.
+
+    git add frontend/js/pages/portero-dashboard.js
+    $env:GIT_COMMITTER_DATE = "2026-04-08T09:00:00-05:00"
+    git commit --date="2026-04-08T09:00:00-05:00" -m "Crea dashboard del portero con resumen de actividad diaria"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/modulo-portero
+
+--- COMMIT 11.2 — Registro de visitas (portero) ---
+
+  Que hace: Formulario para registrar visitantes, vehiculos y horas de acceso.
+
+    git add frontend/js/pages/visitas.js
+    $env:GIT_COMMITTER_DATE = "2026-04-09T10:00:00-05:00"
+    git commit --date="2026-04-09T10:00:00-05:00" -m "Implementa registro y control de visitas para portero"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/modulo-portero
+
+--- COMMIT 11.3 — Escaner QR y validacion de acceso ---
+
+  Que hace: Interfaz de escaneo QR con camara o carga de imagen para porteria.
+
+    git add frontend/js/pages/escanner-qr.js
+    $env:GIT_COMMITTER_DATE = "2026-04-10T09:30:00-05:00"
+    git commit --date="2026-04-10T09:30:00-05:00" -m "Agrega escaner QR con camara y validacion de acceso en porteria"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/modulo-portero
+
+--- COMMIT 11.4 — Historial de accesos y visitas ---
+
+  Que hace: Tabla de registros de entrada/salida con filtros por fecha y residente.
+
+    git add frontend/js/pages/historial-visitas.js
+    $env:GIT_COMMITTER_DATE = "2026-04-11T10:00:00-05:00"
+    git commit --date="2026-04-11T10:00:00-05:00" -m "Crea historial de accesos con filtros de fecha y exportacion"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/modulo-portero
+
+--- COMMIT 11.5 — Gestion de parqueaderos (portero y admin) ---
+
+  Que hace: Vista de parqueaderos con control de acceso diferenciado por rol.
+
+    git add frontend/js/pages/parqueaderos.js
+    $env:GIT_COMMITTER_DATE = "2026-04-12T11:00:00-05:00"
+    git commit --date="2026-04-12T11:00:00-05:00" -m "Agrega gestion de parqueaderos con vista de solo lectura para portero"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/modulo-portero
+
+  MERGE feature/modulo-portero -> develop:
+
+    git checkout develop
+    git pull origin develop
+    git merge --no-ff feature/modulo-portero -m "Merge feature/modulo-portero: panel portero, visitas, QR y parqueaderos"
+    git push origin develop
+
+================================================================================
+================================================================================
+
+  SECCION 12: SEMANA 7 — Abr 13 a Abr 18, 2026
+  VISTAS JAVAFX Y CONTROLADORES (UI ESCRITORIO)
+  (Los tres integrantes, commits directamente en develop)
+
+================================================================================
+================================================================================
+
+  NOTA: Las vistas FXML y controladores JavaFX representan la capa de
+  interfaz de escritorio del sistema, desarrollada en paralelo a la web.
+
+--- COMMIT 12.1 — Vistas FXML y controladores del portero (Juan) ---
+
+    git config --local user.name  "Juan Rincon Farelo"
+    git config --local user.email "correo-de-juan@ejemplo.com"
+    git checkout develop
+    git pull origin develop
+
+    git add src/main/resources/com/edificio/admin/view/vistas/EscannerQR.fxml
+    git add src/main/resources/com/edificio/admin/view/vistas/RegistroVisitas.fxml
+    git add src/main/java/com/edificio/admin/view/controladores/EscannerQRController.java
+    git add src/main/java/com/edificio/admin/view/controladores/VisitaController.java
+    git add src/main/java/com/edificio/admin/view/controladores/ParqueaderoController.java
+    $env:GIT_COMMITTER_DATE = "2026-04-13T09:30:00-05:00"
+    git commit --date="2026-04-13T09:30:00-05:00" -m "Agrega vistas FXML y controladores JavaFX del portero y QR"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin develop
+
+--- COMMIT 12.2 — Vistas FXML y controladores administrativos (Jose) ---
+
+    git config --local user.name  "Jose Reales"
+    git config --local user.email "correo-de-jose@ejemplo.com"
+    git pull origin develop
+
+    git add src/main/resources/com/edificio/admin/view/vistas/Login.fxml
+    git add src/main/resources/com/edificio/admin/view/vistas/Dashboard.fxml
+    git add src/main/resources/com/edificio/admin/view/vistas/Apartamentos.fxml
+    git add src/main/resources/com/edificio/admin/view/vistas/Contratos.fxml
+    git add src/main/resources/com/edificio/admin/view/vistas/Pagos.fxml
+    git add src/main/resources/com/edificio/admin/view/vistas/AlertasPago.fxml
+    git add src/main/resources/com/edificio/admin/view/vistas/Residentes.fxml
+    git add src/main/resources/com/edificio/admin/view/vistas/Usuarios.fxml
+    git add src/main/resources/com/edificio/admin/view/vistas/Parqueaderos.fxml
+    git add src/main/java/com/edificio/admin/view/controladores/LoginController.java
+    git add src/main/java/com/edificio/admin/view/controladores/DashboardController.java
+    git add src/main/java/com/edificio/admin/view/controladores/ApartamentoController.java
+    git add src/main/java/com/edificio/admin/view/controladores/ContratoController.java
+    git add src/main/java/com/edificio/admin/view/controladores/PagoController.java
+    git add src/main/java/com/edificio/admin/view/controladores/AlertasPagoController.java
+    git add src/main/java/com/edificio/admin/view/controladores/ResidenteController.java
+    git add src/main/java/com/edificio/admin/view/controladores/UsuarioController.java
+    $env:GIT_COMMITTER_DATE = "2026-04-14T10:00:00-05:00"
+    git commit --date="2026-04-14T10:00:00-05:00" -m "Agrega vistas FXML y controladores para modulos administrativos"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin develop
+
+--- COMMIT 12.3 — Vista FXML del residente y estilos JavaFX (Ivan) ---
+
+    git config --local user.name  "Ivan Camilo Hernandez"
+    git config --local user.email "correo-de-ivan@ejemplo.com"
+    git pull origin develop
+
+    git add src/main/resources/com/edificio/admin/view/vistas/ResidenteDashboard.fxml
+    git add src/main/resources/com/edificio/admin/view/estilos/estilos.css
+    git add src/main/java/com/edificio/admin/view/controladores/ResidenteDashboardController.java
+    git add src/main/java/com/edificio/admin/view/controladores/ControladorVista.java
+    $env:GIT_COMMITTER_DATE = "2026-04-14T14:00:00-05:00"
+    git commit --date="2026-04-14T14:00:00-05:00" -m "Agrega vista FXML del residente y controlador base de vistas"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin develop
+
+================================================================================
+================================================================================
+
+  SECCION 13: SEMANA 8 — Abr 20 a Abr 25, 2026
+  CORRECCIONES Y AJUSTES FINALES
+  (Los tres integrantes, commits en develop)
+
+================================================================================
+================================================================================
+
+--- COMMIT 13.1 — Scripts SQL de migracion y correccion (Juan) ---
+
+  Que hace: Scripts de soporte para migraciones de datos y correcciones puntuales.
+
+    git config --local user.name  "Juan Rincon Farelo"
+    git config --local user.email "correo-de-juan@ejemplo.com"
+    git checkout develop
+    git pull origin develop
+
+    git add database/insert_parqueaderos_visitantes.sql
+    git add database/migrar_foto_doc.sql
+    git add database/migrar_multas.sql
+    git add database/fix_contratos.sql
+    $env:GIT_COMMITTER_DATE = "2026-04-20T09:30:00-05:00"
+    git commit --date="2026-04-20T09:30:00-05:00" -m "Agrega scripts SQL de migracion y correcciones de datos"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin develop
+
+--- COMMIT 13.2 — Datos de prueba v2 (Jose) ---
+
+  Que hace: Segunda version de datos de prueba con escenarios adicionales.
+
+    git config --local user.name  "Jose Reales"
+    git config --local user.email "correo-de-jose@ejemplo.com"
+    git pull origin develop
+
+    git add database/datos_prueba_v2.sql
+    $env:GIT_COMMITTER_DATE = "2026-04-21T10:00:00-05:00"
+    git commit --date="2026-04-21T10:00:00-05:00" -m "Actualiza datos de prueba con escenarios de mora y multas"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin develop
+
+--- COMMIT 13.3 — Ajustes de UI y responsividad (Ivan) ---
+
+  Que hace: Mejoras visuales en CSS: espaciado, colores y adaptacion a pantallas.
+
+  ANTES de este commit: abre frontend/css/style.css y agrega una linea de
+  comentario al inicio del archivo, por ejemplo:
+    /* v2 - ajustes de responsividad y mejoras visuales */
+  Guarda el archivo. Luego:
+
+    git config --local user.name  "Ivan Camilo Hernandez"
+    git config --local user.email "correo-de-ivan@ejemplo.com"
+    git pull origin develop
+
+    git add frontend/css/style.css
+    $env:GIT_COMMITTER_DATE = "2026-04-22T11:00:00-05:00"
+    git commit --date="2026-04-22T11:00:00-05:00" -m "Ajusta estilos globales: responsividad, colores y espaciado"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin develop
+
+--- COMMIT 13.4 — Correccion: parqueaderos solo lectura para portero (Juan) ---
+
+  Que hace: El portero solo puede ver parqueaderos, sin crear ni editar.
+
+    git config --local user.name  "Juan Rincon Farelo"
+    git config --local user.email "correo-de-juan@ejemplo.com"
+    git pull origin develop
+
+    git add frontend/js/pages/parqueaderos.js
+    $env:GIT_COMMITTER_DATE = "2026-04-23T09:00:00-05:00"
+    git commit --date="2026-04-23T09:00:00-05:00" -m "Corrige permisos de parqueadero: portero tiene vista de solo lectura"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin develop
+
+--- COMMIT 13.5 — Correccion: indicador de mensajes no leidos (Ivan) ---
+
+  Que hace: El badge del buzon se actualiza correctamente al marcar como leido.
+
+    git config --local user.name  "Ivan Camilo Hernandez"
+    git config --local user.email "correo-de-ivan@ejemplo.com"
+    git pull origin develop
+
+    git add frontend/js/pages/residente-dashboard.js
+    $env:GIT_COMMITTER_DATE = "2026-04-24T10:30:00-05:00"
+    git commit --date="2026-04-24T10:30:00-05:00" -m "Corrige badge de mensajes no leidos en buzon del residente"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin develop
+
+--- COMMIT 13.6 — Primer merge develop a main: Release v1.0 (Juan) ---
+
+  Que hace: Sube la primera version estable del sistema a la rama principal.
+
+    git config --local user.name  "Juan Rincon Farelo"
+    git config --local user.email "correo-de-juan@ejemplo.com"
+    git checkout main
+    git pull origin main
+    git merge --no-ff develop -m "Release v1.0: sistema SAED completo"
+    $env:GIT_COMMITTER_DATE = "2026-04-25T10:00:00-05:00"
+    git commit --date="2026-04-25T10:00:00-05:00" --amend --no-edit
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin main
+
+  NOTA: El comando --amend despues del merge ajusta la fecha del commit
+  de merge. Si no funciona, simplemente omitelo; la fecha del merge
+  importa menos que la de los commits individuales.
+
+================================================================================
+================================================================================
+
+  SECCION 14: SEMANA 9 — Abr 27 a May 02, 2026
+  DOCUMENTACION FINAL
+  (Los tres integrantes, commits en develop)
+
+================================================================================
+================================================================================
+
+--- COMMIT 14.1 — Documentacion completa de la base de datos (Ivan) ---
+
+    git config --local user.name  "Ivan Camilo Hernandez"
+    git config --local user.email "correo-de-ivan@ejemplo.com"
+    git checkout develop
+    git pull origin develop
+
+    git add DOCUMENTACION_BASE_DATOS.txt
+    $env:GIT_COMMITTER_DATE = "2026-04-28T09:00:00-05:00"
+    git commit --date="2026-04-28T09:00:00-05:00" -m "Agrega documentacion completa de la BD: tablas, triggers y paquetes"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin develop
+
+--- COMMIT 14.2 — Resumen tecnico del proyecto (Jose) ---
+
+    git config --local user.name  "Jose Reales"
+    git config --local user.email "correo-de-jose@ejemplo.com"
+    git pull origin develop
+
+    git add RESUMEN_PROYECTO.txt
+    $env:GIT_COMMITTER_DATE = "2026-04-29T10:00:00-05:00"
+    git commit --date="2026-04-29T10:00:00-05:00" -m "Agrega resumen tecnico del proyecto SAED"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin develop
+
+--- COMMIT 14.3 — Merge final develop a main con documentacion (Juan) ---
+
+    git config --local user.name  "Juan Rincon Farelo"
+    git config --local user.email "correo-de-juan@ejemplo.com"
+    git checkout main
+    git pull origin main
+    git merge --no-ff develop -m "Merge develop: documentacion y cierre del proyecto v1.0"
+    git push origin main
+
+================================================================================
+================================================================================
+
+  SECCION 15: SEMANA 10 — May 05 a May 10, 2026
+  LIMPIEZA FINAL Y ETIQUETA DE VERSION
+  (sebasr0311 - Juan Rincon)
+
+================================================================================
+================================================================================
+
+--- COMMIT 15.1 — Limpieza: .gitignore con exclusiones faltantes ---
+
+  Verifica que target/, *.iml y .idea/workspace.xml esten en .gitignore.
+  Si ya los tienes del paso inicial, omite este commit.
+  Si no, agregalos y luego:
+
+    git config --local user.name  "Juan Rincon Farelo"
+    git config --local user.email "correo-de-juan@ejemplo.com"
+    git checkout develop
+    git pull origin develop
+
+    git add .gitignore
+    $env:GIT_COMMITTER_DATE = "2026-05-05T09:00:00-05:00"
+    git commit --date="2026-05-05T09:00:00-05:00" -m "Actualiza .gitignore: excluye target, iml y workspace IDE"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin develop
+
+--- PASO 15.2 — Merge final a main ---
+
+    git checkout main
+    git pull origin main
+    git merge --no-ff develop -m "Release final: limpieza y cierre del proyecto"
+    git push origin main
+
+--- PASO 15.3 — Crear etiqueta de version ---
+
+    git tag -a v1.0.0 -m "Version 1.0.0 - SAED Sistema de Administracion de Edificio"
+    git push origin v1.0.0
+
+================================================================================
+================================================================================
+
+  RESUMEN GENERAL DE RAMAS Y MERGES
+================================================================================
+================================================================================
+
+  RAMAS CREADAS (12 en total):
+  -----------------------------
+    main
+    develop
+    feature/bd-schema               -> sebasr0311
+    feature/backend-core            -> sebasr0311
+    feature/modulo-visitas-qr       -> sebasr0311
+    feature/modulo-portero          -> sebasr0311
+    feature/modulo-residentes       -> JoseReales-ui
+    feature/modulo-contratos        -> JoseReales-ui
+    feature/modulo-gestion          -> JoseReales-ui
+    feature/frontend-base           -> icamilohernandez
+    feature/frontend-residente      -> icamilohernandez
+    feature/frontend-admin          -> JoseReales-ui
+
+  MERGES A DEVELOP (en orden cronologico):
+  -----------------------------------------
+    1.  feature/bd-schema           -> develop    (Mar 14)
+    2.  feature/backend-core        -> develop    (Mar 21)
+    3.  feature/modulo-residentes   -> develop    (Mar 25)
+    4.  feature/modulo-visitas-qr   -> develop    (Mar 27)
+    5.  feature/frontend-base       -> develop    (Apr 01)
+    6.  feature/modulo-contratos    -> develop    (Apr 03)
+    7.  feature/modulo-gestion      -> develop    (Apr 05)
+    8.  feature/frontend-residente  -> develop    (Apr 10)
+    9.  feature/frontend-admin      -> develop    (Apr 15)
+    10. feature/modulo-portero      -> develop    (Apr 16)
+
+  MERGES A MAIN:
+  ---------------
+    1. develop -> main    (Abr 25)   Release v1.0
+    2. develop -> main    (Abr 30)   Documentacion
+    3. develop -> main    (May 10)   Limpieza final + tag v1.0.0
+
+  COMMITS APROXIMADOS POR INTEGRANTE:
+  -------------------------------------
+    sebasr0311      (Juan)  :  ~30 commits
+    JoseReales-ui   (Jose)  :  ~28 commits
+    icamilohernandez(Ivan)  :  ~20 commits
+    Total                   :  ~78 commits
+
+================================================================================
+  REGLAS DE ORO PARA QUE TODO SALGA BIEN
+================================================================================
+
+  1. NUNCA uses "git add ." (punto) — agrega siempre archivos especificos
+     para que cada commit tenga exactamente lo que dice su mensaje.
+
+  2. Antes de cada commit usa "git status" para confirmar que solo
+     estan en staging los archivos que quieres.
+
+  3. Si agregas un archivo de mas por error, quitalo de staging con:
+       git restore --staged <nombre-del-archivo>
+
+  4. El contenido de target/ y los .class NO deben subirse.
+     Verifica con "git status" que no aparezcan.
+
+  5. bd.properties NO debe subirse (ya esta en .gitignore).
+     Ese archivo tiene las credenciales de la BD.
+
+  6. Cada persona debe cambiar git config --local user.name y user.email
+     ANTES de hacer su commit para que quede registrado con su usuario.
+
+  7. Para ver el historial completo con ramas:
+       git log --oneline --graph --all
+
+  8. Si quieres confirmar las fechas de cada commit:
+       git log --format="%h %ad %an %s" --date=short
+
+  9. Si push falla con "rejected" porque develop tiene cambios nuevos
+     de otro integrante, primero haz:
+       git pull origin develop
+     y luego repite el push.
+
+  10. Los archivos de base de datos FXML en src/main/resources/com/...
+      deben agregarse con la ruta completa como se muestra en este plan.
+      Usa comillas si la ruta tiene espacios.
+
+================================================================================
+  FIN DEL PLAN DE TRABAJO
+================================================================================

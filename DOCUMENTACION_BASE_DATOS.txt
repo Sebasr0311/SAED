@@ -1,0 +1,1682 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║   SISTEMA DE ADMINISTRACIÓN RESIDENCIAL — EDIFICIO (SAED)                  ║
+║   DOCUMENTACIÓN COMPLETA DE LA BASE DE DATOS                               ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║  Asignatura : Programación de Computadores III (SS462)                     ║
+║  Docente    : Ing. Esp. Alfredo Bautista                                   ║
+║  Fecha      : Mayo 2026                                                    ║
+║  Motor      : Oracle Database XE 18c  (servicio: xepdb1)                  ║
+║  Esquema    : RESIDENCIAL                                                  ║
+║  Versión    : modelo_relacional_v4.sql  v5.0                               ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+ÍNDICE
+======
+  1.  Arquitectura general y conexión Java → Oracle
+  2.  Tablas (21)
+  3.  Secuencias (21)
+  4.  Índices (~42)
+  5.  Triggers (17)
+  6.  Procedimientos almacenados — SP_VALIDAR_QR, SP_LIBERAR_VISITA_FRECUENTE
+  7.  Funciones autónomas — FN_SALDO_CUOTA, FN_CALCULAR_MORA, FN_MINUTOS_RESTANTES_QR
+  8.  Paquetes PL/SQL — PKG_PAGOS, PKG_VISITAS, PKG_RESIDENTES
+  9.  Vistas operativas (5)
+  10. Cómo Java invoca los objetos de base de datos
+  11. Flujo end-to-end: ciclo de vida de un contrato
+  12. Resumen de cardinalidades
+
+
+══════════════════════════════════════════════════════════════════════════════
+1.  ARQUITECTURA GENERAL Y CONEXIÓN JAVA → ORACLE
+══════════════════════════════════════════════════════════════════════════════
+
+El sistema utiliza una arquitectura de tres capas:
+
+  Frontend  ─── HTTP/JSON ───►  Backend Java  ──── JDBC ────►  Oracle XE 18c
+  (SPA HTML/JS)                 (HTTP puro,                     xepdb1
+                                 sin framework)                  esquema RESIDENCIAL
+
+Clase de conexión: com.edificio.admin.dao.ConexionBD
+------------------------------------------------------
+  • Patrón Singleton: una sola instancia de Connection durante toda la vida
+    de la JVM.  Método de acceso: ConexionBD.getInstancia().getConexion()
+  • Lee parámetros desde /src/main/resources/bd.properties (classpath).
+    Si el archivo no existe, usa credenciales hardcoded de respaldo:
+      URL      : jdbc:oracle:thin:@localhost:1521/xepdb1
+      Usuario  : RESIDENCIAL
+      Contraseña: Residencial2024#
+  • Driver JDBC: ojdbc11 (ojdbc 12.x compatible con Java 11).
+    No requiere Class.forName() porque ojdbc11 registra el driver
+    automáticamente mediante el mecanismo SPI de Java (ServiceLoader).
+  • Todos los DAOs obtienen la conexión con:
+        private Connection conn() {
+            return ConexionBD.getInstancia().getConexion();
+        }
+
+Patrón DAO utilizado en todos los módulos:
+------------------------------------------
+  • Interfaz CrudDAO<T> con: findAll(), findById(Integer), insert(T),
+    update(T), delete(Integer).
+  • Inserciones: PreparedStatement o CallableStatement con bloque PL/SQL
+    anónimo para obtener el ID generado:
+        "BEGIN INSERT INTO TABLA (...) VALUES (?) RETURNING id INTO ?; END;"
+  • Actualizaciones: PreparedStatement estándar.
+  • Eliminaciones: soft-delete (activo=0 o estado='CANCELADA') en
+    la mayoría de entidades; solo QUEJAS_SUGERENCIAS y dependientes
+    usan CASCADE real.
+  • Llamadas a procedimientos/paquetes: CallableStatement con {call ...}
+    o bloques PL/SQL anónimos.
+
+Roles de usuario en el sistema:
+---------------------------------
+  ADMINISTRADOR → acceso completo a todas las páginas y APIs.
+  PORTERO       → gestiona visitas, accesos, multas, paquetes.
+                  Sólo lectura en parqueaderos.
+  RESIDENTE     → ve su propio dashboard, solicita visitas, ve buzon/multas.
+
+Autenticación:
+  • JWT firmado (JwtUtil.java), almacenado en sessionStorage del navegador
+    bajo la clave "auth_token".
+  • AuthMiddleware.java verifica el token en cada petición HTTP.
+
+
+══════════════════════════════════════════════════════════════════════════════
+2.  TABLAS
+══════════════════════════════════════════════════════════════════════════════
+
+NOTA: el script v5.0 contiene 21 tablas (el comentario de resumen en el
+propio script omite por error la tabla BUZON, que sí existe y tiene su
+CREATE TABLE y su secuencia SEC_BUZON).  El esquema en producción tiene 20
+tablas porque QUEJAS_SUGERENCIAS fue creada en v5.0 y la BD en producción
+fue inicializada con una versión anterior.
+
+──────────────────────────────────────────────────────────────────────────────
+TABLA 1: TIPOS_DOCUMENTO
+──────────────────────────────────────────────────────────────────────────────
+Propósito:
+  Catálogo normalizado de tipos de documento de identidad válidos en
+  Colombia.  Evita inconsistencias como 'cc', 'C.C.' o 'Cedula'.
+  Es compartida por RESIDENTES, TUTORES y VISITANTES.
+
+Columnas:
+  id_tipo_doc   NUMBER           PK. Generado por SEC_TIPOS_DOCUMENTO.NEXTVAL.
+  codigo        VARCHAR2(10 CHAR) NOT NULL, UNIQUE. Código corto: CC, TI, CE,
+                                  PP, PEP, RC, NIT. Case-sensitive.
+  descripcion   VARCHAR2(80 CHAR) NOT NULL. Nombre completo del tipo.
+  activo        NUMBER(1)         DEFAULT 1. 0 = tipo descontinuado.
+                                  CHECK (activo IN (0,1)).
+
+Constraints:
+  PK_TIPODOC          → id_tipo_doc
+  UQ_TIPODOC_CODIGO   → codigo
+  CHK_TIPODOC_ACTIVO  → activo IN (0,1)
+
+Relaciones (esta tabla como referenciada):
+  RESIDENTES.id_tipo_doc  → FK RESTRICT  (1 tipo : N residentes)
+  TUTORES.id_tipo_doc     → FK RESTRICT  (1 tipo : N tutores)
+  VISITANTES.id_tipo_doc  → FK RESTRICT  (1 tipo : N visitantes)
+
+Datos semilla: CC, TI, CE, PP, PEP, RC, NIT (7 filas).
+
+Justificación de tamaños:
+  codigo VARCHAR2(10 CHAR): los tipos colombianos tienen máx 3 chars (PEP).
+  descripcion VARCHAR2(80 CHAR): suficiente para "Permiso Especial de
+  Permanencia" (33 chars). Margen amplio para futuros tipos.
+
+──────────────────────────────────────────────────────────────────────────────
+TABLA 2: APARTAMENTOS
+──────────────────────────────────────────────────────────────────────────────
+Propósito:
+  Unidades habitacionales del edificio. Solo se arriendan, nunca se venden.
+  El estado (DISPONIBLE / OCUPADO) es sincronizado automáticamente por el
+  trigger TRG_CONT_SYNC_APARTAMENTO cuando un contrato cambia de estado.
+
+Columnas:
+  id_apartamento   NUMBER           PK. Generado por SEC_APARTAMENTOS.NEXTVAL.
+  numero           VARCHAR2(20 CHAR) NOT NULL, UNIQUE. Identificador visible:
+                                     101, 202B, PH-1. Único en el edificio.
+  piso             NUMBER(3)         NOT NULL. CHECK (piso >= 1).
+  tipo             VARCHAR2(20 CHAR) NOT NULL. CHECK: ESTUDIO | 1_HAB |
+                                     2_HAB | 3_HAB | PENTHOUSE | OTRO.
+  area_m2          NUMBER(6,2)       Nullable. CHECK (area_m2 > 0 OR NULL).
+  capacidad_maxima NUMBER(3)         DEFAULT 4. CHECK (> 0). Máx residentes.
+  administracion   NUMBER(12,2)      Nullable. Cuota de administración mensual
+                                     (COP). Valores: ESTUDIO=120000,
+                                     1_HAB=150000, 2_HAB=180000,
+                                     3_HAB=210000, PENTHOUSE=250000.
+  estado           VARCHAR2(20 CHAR) DEFAULT 'DISPONIBLE'. CHECK: DISPONIBLE |
+                                     OCUPADO | EN_MANTENIMIENTO. Actualizado
+                                     por TRG_CONT_SYNC_APARTAMENTO.
+  activo           NUMBER(1)         DEFAULT 1. Soft-delete. CHECK (0,1).
+  fecha_registro   TIMESTAMP         DEFAULT SYSTIMESTAMP. Inmutable.
+  actualizado_en   TIMESTAMP         Mantenido por TRG_APARTAMENTOS_UPD.
+
+Constraints:
+  PK_APT            → id_apartamento
+  UQ_APT_NUMERO     → numero
+  CHK_APT_TIPO      → tipo IN (ESTUDIO, 1_HAB, 2_HAB, 3_HAB, PENTHOUSE, OTRO)
+  CHK_APT_ESTADO    → estado IN (DISPONIBLE, OCUPADO, EN_MANTENIMIENTO)
+  CHK_APT_ACTIVO    → activo IN (0,1)
+  CHK_APT_PISO      → piso >= 1
+  CHK_APT_AREA      → area_m2 IS NULL OR area_m2 > 0
+  CHK_APT_CAPACIDAD → capacidad_maxima > 0
+
+Relaciones (esta tabla como referenciada):
+  PARQUEADEROS.id_apartamento       → FK ON DELETE SET NULL  (1:1 opt.)
+  CONTRATOS.id_apartamento          → FK RESTRICT            (1:N)
+  MULTAS.id_apartamento             → FK RESTRICT            (1:N)
+  QUEJAS_SUGERENCIAS.id_apartamento → FK ON DELETE CASCADE   (1:N)
+  BUZON.id_apartamento              → FK ON DELETE CASCADE   (1:N)
+
+Estado actual en producción: 16 apartamentos (14 OCUPADO, 2 DISPONIBLE).
+
+Justificación de tamaños:
+  numero VARCHAR2(20 CHAR): cubre formatos como "PENTHOUSE-1A" (12 chars).
+  tipo VARCHAR2(20 CHAR): el valor más largo es "EN_MANTENIMIENTO" (16 chars)
+  en el campo estado; para tipo el más largo es "PENTHOUSE" (9 chars).
+
+──────────────────────────────────────────────────────────────────────────────
+TABLA 3: PARQUEADEROS
+──────────────────────────────────────────────────────────────────────────────
+Propósito:
+  Espacios de parqueo del edificio.  Dos categorías:
+  - Fijo (es_visitante=0): asignado permanentemente a un apartamento.
+    La constraint UQ_PARQ_APARTAMENTO garantiza que un apartamento
+    solo puede tener UN puesto fijo (cardinalidad 1:1 explícita).
+  - Rotativo (es_visitante=1, id_apartamento NULL): disponible para
+    visitantes en turnos.
+
+Columnas:
+  id_parqueadero NUMBER           PK. Generado por SEC_PARQUEADEROS.NEXTVAL.
+  codigo         VARCHAR2(20 CHAR) NOT NULL, UNIQUE. P-01, M-03, B-01.
+  tipo           VARCHAR2(15 CHAR) NOT NULL. CHECK: VEHICULO | MOTO | BICICLETA.
+  estado         VARCHAR2(20 CHAR) DEFAULT 'DISPONIBLE'. CHECK: DISPONIBLE |
+                                   OCUPADO | EN_MANTENIMIENTO.
+  es_visitante   NUMBER(1)         DEFAULT 0. 0=fijo | 1=rotativo.
+  id_apartamento NUMBER            Nullable. FK → APARTAMENTOS (ON DELETE SET NULL).
+                                   UNIQUE: garantiza 1:1 con apartamento.
+  fecha_registro TIMESTAMP         DEFAULT SYSTIMESTAMP.
+  actualizado_en TIMESTAMP         Mantenido por TRG_PARQUEADEROS_UPD.
+
+Constraints:
+  PK_PARQ              → id_parqueadero
+  UQ_PARQ_CODIGO       → codigo
+  UQ_PARQ_APARTAMENTO  → id_apartamento (permite múltiples NULLs)
+  FK_PARQ_APARTAMENTO  → APARTAMENTOS(id_apartamento) ON DELETE SET NULL
+  CHK_PARQ_TIPO        → tipo IN (VEHICULO, MOTO, BICICLETA)
+  CHK_PARQ_ESTADO      → estado IN (DISPONIBLE, OCUPADO, EN_MANTENIMIENTO)
+  CHK_PARQ_ES_VISITANTE→ es_visitante IN (0,1)
+  CHK_PARQ_EXCLUSIVIDAD→ NOT (id_apartamento IS NOT NULL AND es_visitante=1)
+                         Un puesto no puede ser fijo Y rotativo a la vez.
+
+Relaciones (esta tabla como referenciada):
+  VEHICULOS_VISITA.id_parqueadero → FK ON DELETE SET NULL (1:N opt.)
+
+Cardinalidad con APARTAMENTOS: 0 o 1 puesto fijo por apartamento (UQ).
+
+──────────────────────────────────────────────────────────────────────────────
+TABLA 4: RESIDENTES
+──────────────────────────────────────────────────────────────────────────────
+Propósito:
+  Personas que habitan el edificio.  NO tiene columna id_apartamento; la
+  relación residente-apartamento se establece mediante el camino:
+    RESIDENTES → CONTRATO_RESIDENTE → CONTRATOS → APARTAMENTOS
+  NO tiene id_tutor_legal (esa lógica está en la tabla TUTORES independiente,
+  creada en v4.0 para reemplazar la antigua autorreferencia).
+
+Columnas:
+  id_residente     NUMBER           PK. Generado por SEC_RESIDENTES.NEXTVAL.
+  id_tipo_doc      NUMBER           NOT NULL. FK → TIPOS_DOCUMENTO.
+  numero_documento VARCHAR2(20 CHAR) NOT NULL. UNIQUE con id_tipo_doc.
+  nombres          VARCHAR2(100 CHAR) NOT NULL. Primer y segundo nombre.
+                                     CHECK (TRIM(nombres) IS NOT NULL).
+  apellidos        VARCHAR2(100 CHAR) NOT NULL. Primer y segundo apellido.
+                                     CHECK (TRIM(apellidos) IS NOT NULL).
+  fecha_nacimiento DATE              NOT NULL.
+  telefono         VARCHAR2(20 CHAR) Nullable.
+  email            VARCHAR2(254 CHAR) Nullable, UNIQUE. RFC 5321: máx 254 chars.
+  foto_url         VARCHAR2(2000 CHAR) Nullable. URL a la foto del residente.
+  doc_pdf_url      VARCHAR2(2000 CHAR) Nullable. URL al documento escaneado.
+  fecha_ingreso    DATE              DEFAULT SYSDATE.
+  es_menor_edad    NUMBER(1)         DEFAULT 0. 1 = menor de 18 años.
+  activo           NUMBER(1)         DEFAULT 1. Soft-delete.
+  fecha_registro   TIMESTAMP         DEFAULT SYSTIMESTAMP. Inmutable.
+  actualizado_en   TIMESTAMP         Mantenido por TRG_RESIDENTES_UPD.
+
+Constraints:
+  PK_RES               → id_residente
+  UQ_RES_DOCUMENTO     → (id_tipo_doc, numero_documento)
+  UQ_RES_EMAIL         → email (Oracle permite múltiples NULLs en UNIQUE)
+  FK_RES_TIPO_DOC      → TIPOS_DOCUMENTO(id_tipo_doc) RESTRICT
+  CHK_RES_MENOR        → es_menor_edad IN (0,1)
+  CHK_RES_ACTIVO       → activo IN (0,1)
+  CHK_RES_NOMBRES_NN   → TRIM(nombres) IS NOT NULL
+  CHK_RES_APELLIDOS_NN → TRIM(apellidos) IS NOT NULL
+
+Relaciones (esta tabla como referenciada):
+  TUTORES.id_residente_menor         → FK ON DELETE CASCADE  (1:N)
+  USUARIOS.id_residente              → FK ON DELETE SET NULL (1:1 opt.)
+  CONTRATO_RESIDENTE.id_residente    → FK RESTRICT           (1:N)
+  VISITAS.id_residente               → FK RESTRICT           (1:N)
+  FRECUENTES_RESIDENTE.id_residente  → FK ON DELETE CASCADE  (1:N)
+
+Notas del backend:
+  ResidenteDAO.findAll() y findById() obtienen id_apartamento y
+  numero_apartamento mediante subqueries correlacionadas sobre
+  CONTRATO_RESIDENTE→CONTRATOS→APARTAMENTOS.
+  ResidenteDAO.insert() usa RETURNING id_residente INTO ? vía CallableStatement.
+  Soft-delete: ResidenteDAO.delete() hace UPDATE activo=0.
+
+Justificación VARCHAR2(100 CHAR):
+  Nombres colombianos de 4 palabras llegan a ~60 chars. El sufijo CHAR
+  (no BYTE) garantiza que caracteres UTF-8 multibyte (acentos, ñ) no
+  truncan el campo visualmente.
+
+──────────────────────────────────────────────────────────────────────────────
+TABLA 5: TUTORES
+──────────────────────────────────────────────────────────────────────────────
+Propósito:
+  Responsables legales de residentes menores de edad.  Reemplaza la antigua
+  columna autorreferencial RESIDENTES.id_tutor_legal (v3).  La separación
+  en tabla independiente (v4.0) permite almacenar el documento del tutor,
+  su parentesco y ligar múltiples contratos al mismo tutor.
+  Los tutores NO tienen usuario de sistema (no son USUARIOS).
+
+Columnas:
+  id_tutor           NUMBER           PK. Generado por SEC_TUTORES.NEXTVAL.
+  id_residente_menor NUMBER           NOT NULL. FK → RESIDENTES ON DELETE CASCADE.
+  id_tipo_doc        NUMBER           NOT NULL. FK → TIPOS_DOCUMENTO.
+  numero_documento   VARCHAR2(20 CHAR) NOT NULL. UNIQUE con id_tipo_doc.
+  nombres            VARCHAR2(100 CHAR) NOT NULL.
+  apellidos          VARCHAR2(100 CHAR) NOT NULL.
+  telefono           VARCHAR2(20 CHAR) Nullable.
+  email              VARCHAR2(254 CHAR) Nullable.
+  parentesco         VARCHAR2(30 CHAR) NOT NULL. CHECK: PADRE | MADRE |
+                                       ABUELO | ABUELA | TIO | TIA |
+                                       HERMANO | HERMANA | TUTOR_LEGAL | OTRO.
+  doc_pdf_url        VARCHAR2(2000 CHAR) Nullable.
+  fecha_registro     TIMESTAMP         DEFAULT SYSTIMESTAMP.
+  actualizado_en     TIMESTAMP         Mantenido por TRG_TUTORES_UPD.
+
+Constraints:
+  PK_TUT              → id_tutor
+  UQ_TUTOR_DOC        → (id_tipo_doc, numero_documento)
+  FK_TUTOR_RESIDENTE  → RESIDENTES(id_residente) ON DELETE CASCADE
+  FK_TUTOR_TIPO_DOC   → TIPOS_DOCUMENTO(id_tipo_doc) RESTRICT
+  CHK_TUTOR_PARENTESCO→ parentesco IN (PADRE, MADRE, ...)
+
+Relaciones (esta tabla como referenciada):
+  CONTRATOS.id_tutor → FK ON DELETE SET NULL (1:N opcional)
+
+Cardinalidad:
+  1 residente menor → 1 tutor (la práctica usual). El modelo permite N
+  tutores por menor (no tiene UQ en id_residente_menor) pero en la lógica
+  de negocio se maneja 1:1.
+
+──────────────────────────────────────────────────────────────────────────────
+TABLA 6: USUARIOS
+──────────────────────────────────────────────────────────────────────────────
+Propósito:
+  Cuentas de acceso al sistema. Tres roles: ADMINISTRADOR, PORTERO,
+  RESIDENTE.  id_residente es nullable para que porteros y admins que no
+  tienen apartamento puedan existir como usuarios sin residentes asociados.
+
+Columnas:
+  id_usuario    NUMBER           PK. Generado por SEC_USUARIOS.NEXTVAL.
+  id_residente  NUMBER           Nullable. FK → RESIDENTES ON DELETE SET NULL.
+                                 UNIQUE: máximo 1 cuenta por residente.
+  username      VARCHAR2(50 CHAR) NOT NULL, UNIQUE.
+                                 CHECK (username = LOWER(TRIM(username))).
+                                 CHECK (LENGTH(TRIM(username)) >= 4).
+                                 Siempre en minúsculas, mínimo 4 chars.
+  password_hash VARCHAR2(255 CHAR) NOT NULL. BCrypt factor >= 12.
+  rol           VARCHAR2(20 CHAR) NOT NULL. CHECK: ADMINISTRADOR | PORTERO |
+                                 RESIDENTE.
+  activo        NUMBER(1)         DEFAULT 1. Soft-delete.
+  ultimo_login  TIMESTAMP         Nullable. Actualizado en cada login.
+  fecha_registro TIMESTAMP        DEFAULT SYSTIMESTAMP.
+  actualizado_en TIMESTAMP        Mantenido por TRG_USUARIOS_UPD.
+
+Constraints:
+  PK_USR           → id_usuario
+  UQ_USR_USERNAME  → username
+  UQ_USR_RESIDENTE → id_residente (NULLs no compiten en UNIQUE de Oracle)
+  FK_USR_RESIDENTE → RESIDENTES(id_residente) ON DELETE SET NULL
+  CHK_USR_ROL      → rol IN (ADMINISTRADOR, PORTERO, RESIDENTE)
+  CHK_USR_ACTIVO   → activo IN (0,1)
+  CHK_USR_USERNAME → username = LOWER(TRIM(username))
+  CHK_USR_USERNAME_LEN → LENGTH(TRIM(username)) >= 4
+
+Relaciones (esta tabla como referenciada):
+  CONTRATOS.id_registrado_por       → FK RESTRICT  (auditoría creación)
+  PAGOS.id_registrado_por           → FK RESTRICT  (auditoría pago)
+  QR_ACCESOS.id_vigilante_uso       → FK ON DELETE SET NULL
+  REGISTROS_ACCESO.id_vigilante     → FK RESTRICT
+  MULTAS.creado_por                 → FK RESTRICT
+  QUEJAS_SUGERENCIAS.creado_por     → FK RESTRICT
+  QUEJAS_SUGERENCIAS.respondido_por → FK RESTRICT
+
+──────────────────────────────────────────────────────────────────────────────
+TABLA 7: CONTRATOS
+──────────────────────────────────────────────────────────────────────────────
+Propósito:
+  Contratos de arrendamiento. Un apartamento puede tener solo UN contrato
+  ACTIVO simultáneamente (UIX_CONT_APT_ACTIVO). Los firmantes van en la
+  tabla puente CONTRATO_RESIDENTE (N:M). El tutor solo se vincula si hay
+  un residente menor de edad.
+
+Columnas:
+  id_contrato        NUMBER           PK. Generado por SEC_CONTRATOS.NEXTVAL.
+  id_apartamento     NUMBER           NOT NULL. FK → APARTAMENTOS RESTRICT.
+  id_tutor           NUMBER           Nullable. FK → TUTORES ON DELETE SET NULL.
+  id_registrado_por  NUMBER           NOT NULL. FK → USUARIOS RESTRICT. Auditoría.
+  fecha_inicio       DATE             NOT NULL.
+  fecha_fin          DATE             Nullable. NULL = término indefinido.
+  valor_mensual      NUMBER(12,2)     NOT NULL. CHECK (> 0). Canon mensual COP.
+  dia_pago           NUMBER(2)        DEFAULT 5. CHECK BETWEEN 1 AND 28.
+  dias_gracia        NUMBER(2)        DEFAULT 5. CHECK (>= 0). Días sin mora.
+  porcentaje_mora    NUMBER(5,2)      DEFAULT 1.5. CHECK (0..100). % mensual.
+  tipo_contrato      VARCHAR2(20 CHAR) DEFAULT 'INICIAL'. CHECK: INICIAL |
+                                       RENOVACION | PERMANENCIA.
+  contrato_pdf_url   VARCHAR2(2000 CHAR) Nullable. URL al PDF firmado.
+  estado             VARCHAR2(20 CHAR) DEFAULT 'PENDIENTE_FIRMA'. CHECK:
+                                       PENDIENTE_FIRMA | ACTIVO | VENCIDO |
+                                       CANCELADO | SUSPENDIDO.
+  observaciones      VARCHAR2(1000 CHAR) Nullable. Notas administrativas.
+  fecha_registro     TIMESTAMP         DEFAULT SYSTIMESTAMP.
+  actualizado_en     TIMESTAMP         Mantenido por TRG_CONTRATOS_UPD.
+
+Constraints:
+  PK_CONT                → id_contrato
+  FK_CONT_APARTAMENTO    → APARTAMENTOS(id_apartamento) RESTRICT
+  FK_CONT_TUTOR          → TUTORES(id_tutor) ON DELETE SET NULL
+  FK_CONT_REGISTRADO     → USUARIOS(id_usuario) RESTRICT
+  CHK_CONT_FECHAS        → fecha_fin IS NULL OR fecha_fin > fecha_inicio
+  CHK_CONT_VALOR         → valor_mensual > 0
+  CHK_CONT_DIA_PAGO      → dia_pago BETWEEN 1 AND 28
+  CHK_CONT_GRACIA        → dias_gracia >= 0
+  CHK_CONT_MORA          → porcentaje_mora >= 0
+  CHK_CONT_MORA_MAX      → porcentaje_mora <= 100
+  CHK_CONT_TIPO_CONTRATO → tipo_contrato IN (INICIAL, RENOVACION, PERMANENCIA)
+  CHK_CONT_ESTADO        → estado IN (PENDIENTE_FIRMA, ACTIVO, VENCIDO, ...)
+
+Índice funcional especial:
+  UIX_CONT_APT_ACTIVO: UNIQUE sobre
+    CASE WHEN estado='ACTIVO' THEN id_apartamento ELSE NULL END
+  Solo los contratos ACTIVOS generan un valor no-NULL en este índice, por
+  lo que Oracle garantiza que no pueden coexistir dos contratos ACTIVO
+  para el mismo apartamento.  Los contratos en otros estados no compiten.
+
+Relaciones (esta tabla como referenciada):
+  CONTRATO_RESIDENTE.id_contrato → FK ON DELETE CASCADE (1:N)
+  CUOTAS_ARRIENDO.id_contrato    → FK ON DELETE CASCADE (1:N)
+
+Notas del backend:
+  ContratoDAO.expiracionAutomatica() ejecuta:
+    UPDATE CONTRATOS SET estado='VENCIDO' WHERE estado='ACTIVO'
+    AND fecha_fin IS NOT NULL AND fecha_fin < SYSDATE
+  Esto se llama desde ContratoService.listarTodos() en cada carga.
+  La renovación crea un NUEVO contrato (RENOVACION) en lugar de
+  modificar el existente; el contrato anterior queda en estado VENCIDO.
+
+──────────────────────────────────────────────────────────────────────────────
+TABLA 8: CONTRATO_RESIDENTE  (tabla puente N:M)
+──────────────────────────────────────────────────────────────────────────────
+Propósito:
+  Relaciona contratos con residentes con un rol específico.
+  Un contrato puede tener varios residentes (ARRENDATARIO, CODEUDOR,
+  RESIDENTE_MENOR). Un residente puede aparecer en varios contratos
+  históricos (renovaciones). Esta tabla reemplaza la antigua columna
+  CONTRATOS.id_residente (eliminada en v4.0).
+  CRÍTICO: VISITAS se conecta con esta tabla (no directamente con
+  CONTRATOS) para garantizar que el residente tiene relación vigente.
+
+Columnas:
+  id_contrato_res NUMBER           PK. Generado por SEC_CONTRATO_RESIDENTE.
+  id_contrato     NUMBER           NOT NULL. FK → CONTRATOS ON DELETE CASCADE.
+  id_residente    NUMBER           NOT NULL. FK → RESIDENTES RESTRICT.
+  rol_en_contrato VARCHAR2(25 CHAR) DEFAULT 'ARRENDATARIO'. CHECK:
+                                   ARRENDATARIO | CODEUDOR |
+                                   RESIDENTE_MENOR | OTRO.
+
+Constraints:
+  PK_CONTRES        → id_contrato_res
+  UQ_CONTRES        → (id_contrato, id_residente)
+  FK_CONTRES_CONTRATO  → CONTRATOS(id_contrato) ON DELETE CASCADE
+  FK_CONTRES_RESIDENTE → RESIDENTES(id_residente) RESTRICT
+  CHK_CONTRES_ROL      → rol_en_contrato IN (ARRENDATARIO, CODEUDOR, ...)
+
+Relaciones (esta tabla como referenciada):
+  VISITAS.id_contrato_res → FK RESTRICT (1:N)
+
+Cardinalidad:
+  1 contrato : N residentes (N ≥ 1)
+  1 residente : N contratos históricos (N ≥ 0)
+
+──────────────────────────────────────────────────────────────────────────────
+TABLA 9: CUOTAS_ARRIENDO
+──────────────────────────────────────────────────────────────────────────────
+Propósito:
+  Cada fila representa 1 mes de cobro de 1 contrato.  Separar la cuota
+  del pago permite registrar abonos parciales, calcular mora precisa y
+  generar alertas granulares por cuota.
+
+Columnas:
+  id_cuota         NUMBER           PK. Generado por SEC_CUOTAS_ARRIENDO.
+  id_contrato      NUMBER           NOT NULL. FK → CONTRATOS CASCADE.
+  anio             NUMBER(4)        NOT NULL. CHECK (>= 2000).
+  mes              NUMBER(2)        NOT NULL. CHECK BETWEEN 1 AND 12.
+  fecha_limite     DATE             NOT NULL. Día de pago del mes/año.
+  valor_base       NUMBER(12,2)     NOT NULL. CHECK (> 0). Canon base.
+  valor_mora       NUMBER(12,2)     DEFAULT 0. CHECK (>= 0).
+  valor_total      NUMBER(12,2)     NOT NULL. = valor_base + valor_mora.
+                                   CHECK y recalculado por TRG_CUOTAS_UPD.
+  estado           VARCHAR2(15 CHAR) DEFAULT 'PENDIENTE'. CHECK: PENDIENTE |
+                                   PAGADA | VENCIDA | EN_MORA.
+  fecha_generacion TIMESTAMP        DEFAULT SYSTIMESTAMP.
+  actualizado_en   TIMESTAMP        Mantenido por TRG_CUOTAS_UPD.
+
+Constraints:
+  PK_CUOTA           → id_cuota
+  FK_CUOTA_CONTRATO  → CONTRATOS(id_contrato) ON DELETE CASCADE
+  UQ_CUOTA_PERIODO   → (id_contrato, anio, mes) — unicidad mensual
+  CHK_CUOTA_MES      → mes BETWEEN 1 AND 12
+  CHK_CUOTA_ANIO     → anio >= 2000
+  CHK_CUOTA_VALOR_BASE → valor_base > 0
+  CHK_CUOTA_MORA     → valor_mora >= 0
+  CHK_CUOTA_TOTAL    → valor_total = valor_base + valor_mora
+
+Relaciones (esta tabla como referenciada):
+  PAGOS.id_cuota       → FK RESTRICT (1:N — abonos múltiples)
+  ALERTAS_PAGO.id_cuota → FK CASCADE (1:N)
+
+──────────────────────────────────────────────────────────────────────────────
+TABLA 10: PAGOS
+──────────────────────────────────────────────────────────────────────────────
+Propósito:
+  Registro de transacciones de pago. Una cuota puede tener múltiples pagos
+  (abonos parciales). Los pagos son INMUTABLES una vez registrados
+  (PagoDAO.update() lanza UnsupportedOperationException;
+   PagoDAO.delete() también).
+
+Columnas:
+  id_pago          NUMBER           PK. Generado por SEC_PAGOS.NEXTVAL.
+  id_cuota         NUMBER           NOT NULL. FK → CUOTAS_ARRIENDO RESTRICT.
+  id_registrado_por NUMBER          NOT NULL. FK → USUARIOS RESTRICT.
+  fecha_pago       DATE             DEFAULT SYSDATE.
+  valor_pagado     NUMBER(12,2)     NOT NULL. CHECK (> 0).
+  metodo_pago      VARCHAR2(20 CHAR) NOT NULL. CHECK: EFECTIVO |
+                                    TRANSFERENCIA | CHEQUE | TARJETA |
+                                    CONSIGNACION | OTRO.
+  comprobante_url  VARCHAR2(2000 CHAR) Nullable. URL al soporte.
+  referencia       VARCHAR2(200 CHAR) Nullable. Número de transacción.
+  notas            VARCHAR2(500 CHAR) Nullable.
+  fecha_registro   TIMESTAMP         DEFAULT SYSTIMESTAMP. Inmutable.
+
+Constraints:
+  PK_PAGO          → id_pago
+  FK_PAGO_CUOTA    → CUOTAS_ARRIENDO(id_cuota) RESTRICT
+  FK_PAGO_REGISTRADO → USUARIOS(id_usuario) RESTRICT
+  CHK_PAGO_VALOR   → valor_pagado > 0
+  CHK_PAGO_METODO  → metodo_pago IN (EFECTIVO, TRANSFERENCIA, ...)
+
+──────────────────────────────────────────────────────────────────────────────
+TABLA 11: ALERTAS_PAGO
+──────────────────────────────────────────────────────────────────────────────
+Propósito:
+  Historial auditable de notificaciones enviadas sobre cuotas.
+  El índice funcional UIX_ALERTA_CUOTA_DIA evita enviar la misma alerta
+  más de una vez al día por cuota (Oracle no permite TRUNC() en UNIQUE
+  constraint estándar, por eso se usa un índice funcional en §6).
+
+Columnas:
+  id_alerta   NUMBER           PK. Generado por SEC_ALERTAS_PAGO.NEXTVAL.
+  id_cuota    NUMBER           NOT NULL. FK → CUOTAS_ARRIENDO CASCADE.
+  tipo_alerta VARCHAR2(25 CHAR) NOT NULL. CHECK: PROXIMO_VENCIMIENTO |
+                                VENCIDA | EN_MORA.
+  canal       VARCHAR2(20 CHAR) DEFAULT 'SISTEMA'. CHECK: SISTEMA | EMAIL |
+                                SMS | WHATSAPP.
+  leida       NUMBER(1)         DEFAULT 0. CHECK (0,1).
+  enviada_en  TIMESTAMP         DEFAULT SYSTIMESTAMP. Usada por UIX.
+  leida_en    TIMESTAMP         Nullable.
+              CHECK: (leida=0 AND leida_en IS NULL) OR
+                     (leida=1 AND leida_en IS NOT NULL).
+
+Constraints:
+  PK_ALERTA          → id_alerta
+  FK_ALERTA_CUOTA    → CUOTAS_ARRIENDO(id_cuota) ON DELETE CASCADE
+  CHK_ALERTA_TIPO    → tipo_alerta IN (PROXIMO_VENCIMIENTO, VENCIDA, EN_MORA)
+  CHK_ALERTA_CANAL   → canal IN (SISTEMA, EMAIL, SMS, WHATSAPP)
+  CHK_ALERTA_LEIDA   → leida IN (0,1)
+  CHK_ALERTA_LEIDA_EN → (leida=0 ↔ leida_en IS NULL)
+
+Índice funcional (en §6):
+  UIX_ALERTA_CUOTA_DIA: UNIQUE (id_cuota, tipo_alerta, canal, TRUNC(enviada_en))
+
+──────────────────────────────────────────────────────────────────────────────
+TABLA 12: MULTAS  (nueva en v4.3)
+──────────────────────────────────────────────────────────────────────────────
+Propósito:
+  Sanciones económicas por infracciones de convivencia: RUIDO o uso
+  indebido del PARQUEADERO. Las multas son creadas por el portero.
+  Para RUIDO puede vincularse al aviso de buzon (id_mensaje FK a BUZON).
+  Para PARQUEADERO se almacena foto de evidencia en Base64 (CLOB).
+
+Columnas:
+  id_multa       NUMBER           PK. Generado por SEC_MULTAS.NEXTVAL.
+  id_apartamento NUMBER           NOT NULL. FK → APARTAMENTOS RESTRICT.
+  id_mensaje     NUMBER           Nullable. FK → BUZON ON DELETE SET NULL.
+                                  Solo para RUIDO: vincula el aviso de ruido.
+  tipo           VARCHAR2(20 CHAR) NOT NULL. CHECK: RUIDO | PARQUEADERO.
+  monto          NUMBER(12,2)     NOT NULL. CHECK (> 0).
+  estado         VARCHAR2(20 CHAR) DEFAULT 'PENDIENTE'. CHECK: PENDIENTE |
+                                  PAGADA | ANULADA.
+  descripcion    VARCHAR2(2000 CHAR) Nullable.
+  foto_evidencia CLOB              Nullable. Base64. Solo PARQUEADERO.
+  fecha_creacion TIMESTAMP         DEFAULT SYSTIMESTAMP.
+  fecha_pago     TIMESTAMP         Nullable. Se llena al pagar.
+  creado_por     NUMBER            NOT NULL. FK → USUARIOS RESTRICT.
+
+Constraints:
+  PK_MULTA           → id_multa
+  CHK_MULTA_TIPO     → tipo IN (RUIDO, PARQUEADERO)
+  CHK_MULTA_ESTADO   → estado IN (PENDIENTE, PAGADA, ANULADA)
+  CHK_MULTA_MONTO    → monto > 0
+  FK_MULTA_APARTAMENTO → APARTAMENTOS(id_apartamento) RESTRICT
+  FK_MULTA_CREADOR   → USUARIOS(id_usuario) RESTRICT
+  FK_MULTA_MENSAJE   → BUZON(id_mensaje) ON DELETE SET NULL
+                       (definida como ALTER TABLE en §6 porque BUZON
+                        se crea después de MULTAS)
+
+Relaciones (esta tabla como referenciada):
+  QUEJAS_SUGERENCIAS.id_multa → FK ON DELETE CASCADE (1:N)
+
+──────────────────────────────────────────────────────────────────────────────
+TABLA 13: VISITAS
+──────────────────────────────────────────────────────────────────────────────
+Propósito:
+  Autorización de visita registrada por el residente. Es la entidad
+  central del módulo de control de acceso. Genera un QR de acceso (1:1
+  con QR_ACCESOS) y registra el grupo de visitantes (N:M con VISITANTES
+  via REGISTRO_VISITA).
+  CRÍTICO: se conecta con CONTRATO_RESIDENTE (no directamente con
+  CONTRATOS) para garantizar que el residente tiene relación activa.
+  La columna id_residente es una desnormalización controlada de
+  CONTRATO_RESIDENTE.id_residente, validada por TRG_VIS_VALIDAR_RESIDENTE.
+
+Columnas:
+  id_visita          NUMBER           PK. Generado por SEC_VISITAS.NEXTVAL.
+  id_contrato_res    NUMBER           NOT NULL. FK → CONTRATO_RESIDENTE RESTRICT.
+  id_residente       NUMBER           NOT NULL. FK → RESIDENTES RESTRICT.
+                                      Desnormalización controlada.
+  tiempo_validez_min NUMBER(3)        DEFAULT 30. CHECK BETWEEN 5 AND 60.
+  cantidad_personas  NUMBER(3)        DEFAULT 1. CHECK BETWEEN 1 AND 99.
+  notas              VARCHAR2(500 CHAR) Nullable.
+  estado             VARCHAR2(15 CHAR) DEFAULT 'PENDIENTE'. CHECK: PENDIENTE |
+                                      ACTIVA | FINALIZADA | CANCELADA | EXPIRADA.
+  fecha_registro     TIMESTAMP         DEFAULT SYSTIMESTAMP.
+  actualizado_en     TIMESTAMP         Mantenido por TRG_VISITAS_UPD.
+
+Ciclo de vida del estado:
+  PENDIENTE → (QR escaneado) → ACTIVA → (hora_salida registrada) → FINALIZADA
+  PENDIENTE → (QR expirado)  → EXPIRADA
+  PENDIENTE → (residente cancela) → CANCELADA
+
+Constraints:
+  PK_VIS              → id_visita
+  FK_VIS_CONTRATO_RES → CONTRATO_RESIDENTE(id_contrato_res) RESTRICT
+  FK_VIS_RESIDENTE    → RESIDENTES(id_residente) RESTRICT
+  CHK_VIS_TIEMPO      → tiempo_validez_min BETWEEN 5 AND 60
+  CHK_VIS_CANTIDAD    → cantidad_personas BETWEEN 1 AND 99
+  CHK_VIS_ESTADO      → estado IN (PENDIENTE, ACTIVA, FINALIZADA, ...)
+
+Relaciones (esta tabla como referenciada):
+  QR_ACCESOS.id_visita        → FK CASCADE  (1:1)
+  VEHICULOS_VISITA.id_visita  → FK CASCADE  (1:N)
+  REGISTRO_VISITA.id_visita   → FK CASCADE  (1:N)
+  REGISTROS_ACCESO.id_visita  → FK RESTRICT (1:1)
+  BUZON.id_visita             → FK CASCADE  (1:N opt.)
+
+──────────────────────────────────────────────────────────────────────────────
+TABLA 14: QR_ACCESOS
+──────────────────────────────────────────────────────────────────────────────
+Propósito:
+  Token QR de un solo uso por visita (1:1 con VISITAS, garantizado por
+  UQ_QR_VISITA). El código QR es un UUID v4 generado por Oracle:
+    LOWER(RAWTOHEX(SYS_GUID()))
+  Una vez marcado como usado (usado=1), el estado es irreversible.
+  El trigger TRG_QR_USAR actualiza automáticamente VISITAS.estado a 'ACTIVA'.
+
+Columnas:
+  id_qr            NUMBER           PK. Generado por SEC_QR_ACCESOS.NEXTVAL.
+  id_visita        NUMBER           NOT NULL. FK → VISITAS CASCADE. UNIQUE (1:1).
+  id_vigilante_uso NUMBER           Nullable. FK → USUARIOS ON DELETE SET NULL.
+                                   Portero que escaneó. NULL hasta el escaneo.
+  codigo_qr        VARCHAR2(255 CHAR) NOT NULL, UNIQUE. UUID hex de Oracle.
+  fecha_generacion TIMESTAMP         DEFAULT SYSTIMESTAMP.
+  fecha_expiracion TIMESTAMP         NOT NULL.
+                   CHECK (fecha_expiracion > fecha_generacion).
+  usado            NUMBER(1)         DEFAULT 0. 0=disponible, 1=consumido.
+  fecha_uso        TIMESTAMP         Nullable.
+                   CHECK: (usado=0 ↔ fecha_uso IS NULL).
+
+Constraints:
+  PK_QR              → id_qr
+  UQ_QR_VISITA       → id_visita  (garantiza 1:1 con VISITAS)
+  UQ_QR_CODIGO       → codigo_qr
+  FK_QR_VISITA       → VISITAS(id_visita) ON DELETE CASCADE
+  FK_QR_VIGILANTE    → USUARIOS(id_usuario) ON DELETE SET NULL
+  CHK_QR_EXPIRACION  → fecha_expiracion > fecha_generacion
+  CHK_QR_USADO       → usado IN (0,1)
+  CHK_QR_FECHA_USO   → (usado=0 ↔ fecha_uso IS NULL)
+
+Nota: QRAccesoDAO.delete() lanza UnsupportedOperationException.
+Los QR no se eliminan; son trazabilidad permanente de accesos.
+
+──────────────────────────────────────────────────────────────────────────────
+TABLA 15: VISITANTES
+──────────────────────────────────────────────────────────────────────────────
+Propósito:
+  Personas externas que visitan el edificio. Registro reutilizable: si la
+  misma persona visita varias veces, su registro se reutiliza en lugar de
+  duplicarse. Reemplaza la antigua PERSONAS_VISITA (que duplicaba al
+  visitante por visita). foto_doc (CLOB) almacena la foto del documento
+  de identidad en Base64 para verificación del portero al escanear el QR.
+
+Columnas:
+  id_visitante     NUMBER           PK. Generado por SEC_VISITANTES.NEXTVAL.
+  id_tipo_doc      NUMBER           NOT NULL. FK → TIPOS_DOCUMENTO RESTRICT.
+  numero_documento VARCHAR2(20 CHAR) NOT NULL. UNIQUE con id_tipo_doc.
+  nombres          VARCHAR2(100 CHAR) NOT NULL.
+  apellidos        VARCHAR2(100 CHAR) NOT NULL.
+  telefono         VARCHAR2(20 CHAR) Nullable.
+  email            VARCHAR2(254 CHAR) Nullable, UNIQUE.
+  activo           NUMBER(1)         DEFAULT 1. Soft-delete.
+  foto_url         VARCHAR2(2000 CHAR) Nullable.
+  doc_pdf_url      VARCHAR2(2000 CHAR) Nullable.
+  foto_doc         CLOB              Nullable. Base64 del documento.
+  fecha_registro   TIMESTAMP         DEFAULT SYSTIMESTAMP.
+  actualizado_en   TIMESTAMP         Mantenido por TRG_VISITANTES_UPD.
+
+Constraints:
+  PK_VISIT        → id_visitante
+  UQ_VIS_DOCUMENTO → (id_tipo_doc, numero_documento)
+  UQ_VIS_EMAIL    → email
+  FK_VIS_TIPO_DOC → TIPOS_DOCUMENTO(id_tipo_doc) RESTRICT
+  CHK_VIS_ACTIVO  → activo IN (0,1)
+
+Relaciones (esta tabla como referenciada):
+  REGISTRO_VISITA.id_visitante       → FK RESTRICT  (1:N)
+  FRECUENTES_RESIDENTE.id_visitante  → FK CASCADE   (1:N)
+
+──────────────────────────────────────────────────────────────────────────────
+TABLA 16: VEHICULOS_VISITA
+──────────────────────────────────────────────────────────────────────────────
+Propósito:
+  Vehículos asociados a una visita. Una visita puede tener 0 (todos
+  llegaron a pie) o N vehículos. El parqueadero se asigna al llegar y se
+  libera automáticamente cuando el trigger TRG_ACCESO_SALIDA detecta que
+  se registró la hora_salida en REGISTROS_ACCESO.
+
+Columnas:
+  id_vehiculo_visita NUMBER          PK. Generado por SEC_VEHICULOS_VISITA.
+  id_visita          NUMBER          NOT NULL. FK → VISITAS CASCADE.
+  id_parqueadero     NUMBER          Nullable. FK → PARQUEADEROS ON DELETE SET NULL.
+  placa              VARCHAR2(10 CHAR) NOT NULL. CHECK (placa = UPPER(TRIM(placa))).
+  tipo               VARCHAR2(15 CHAR) NOT NULL. CHECK: VEHICULO | MOTO |
+                                      BICICLETA | OTRO.
+  descripcion_tipo   VARCHAR2(60 CHAR) Nullable. Obligatorio si tipo='OTRO'.
+                                      CHECK (tipo != 'OTRO' OR descripcion_tipo IS NOT NULL).
+  color              VARCHAR2(60 CHAR) Nullable.
+  marca              VARCHAR2(100 CHAR) Nullable.
+  hora_entrada       TIMESTAMP         DEFAULT SYSTIMESTAMP. Nullable.
+  hora_salida        TIMESTAMP         Nullable. Actualizado por TRG_ACCESO_SALIDA.
+  actualizado_en     TIMESTAMP         Mantenido por TRG_VEHICULOS_UPD.
+
+Constraints:
+  PK_VEH             → id_vehiculo_visita
+  UQ_VEH_PLACA_VISITA → (id_visita, placa)
+  FK_VEH_VISITA      → VISITAS(id_visita) CASCADE
+  FK_VEH_PARQUEADERO → PARQUEADEROS(id_parqueadero) ON DELETE SET NULL
+  CHK_VEH_TIPO       → tipo IN (VEHICULO, MOTO, BICICLETA, OTRO)
+  CHK_VEH_PLACA_FMT  → placa = UPPER(TRIM(placa))
+  CHK_VEH_HORAS      → hora_salida IS NULL OR hora_salida > hora_entrada
+  CHK_VEH_DESC_TIPO  → tipo != 'OTRO' OR descripcion_tipo IS NOT NULL
+
+Relaciones (esta tabla como referenciada):
+  REGISTRO_VISITA.id_vehiculo_visita → FK ON DELETE SET NULL (1:N opt.)
+
+──────────────────────────────────────────────────────────────────────────────
+TABLA 17: REGISTRO_VISITA  (tabla puente N:M)
+──────────────────────────────────────────────────────────────────────────────
+Propósito:
+  Conecta VISITAS con VISITANTES en una relación N:M reutilizable.
+  Un visitante puede aparecer en muchas visitas; una visita tiene N
+  visitantes. id_vehiculo_visita nullable modela que un visitante puede
+  llegar a pie (NULL) o indicar en qué vehículo viajó.
+  es_titular=1 identifica al visitante principal portador del QR.
+
+Columnas:
+  id_registro_visita NUMBER           PK. Generado por SEC_REGISTRO_VISITA.
+  id_visita          NUMBER           NOT NULL. FK → VISITAS CASCADE.
+  id_visitante       NUMBER           NOT NULL. FK → VISITANTES RESTRICT.
+  id_vehiculo_visita NUMBER           Nullable. FK → VEHICULOS_VISITA SET NULL.
+  es_titular         NUMBER(1)        DEFAULT 0. CHECK (0,1).
+
+Constraints:
+  PK_REGVIS       → id_registro_visita
+  UQ_REGVIS_VIS_VIT → (id_visita, id_visitante)  — 1 visitante por visita
+  FK_REGVIS_VISITA   → VISITAS(id_visita) CASCADE
+  FK_REGVIS_VISITANTE → VISITANTES(id_visitante) RESTRICT
+  FK_REGVIS_VEHICULO → VEHICULOS_VISITA(id_vehiculo_visita) SET NULL
+  CHK_REGVIS_TITULAR → es_titular IN (0,1)
+
+Índice funcional:
+  UIX_REGVIS_TITULAR: UNIQUE (CASE WHEN es_titular=1 THEN id_visita ELSE NULL END)
+  Garantiza que hay exactamente 1 titular por visita.
+
+Nota: el trigger TRG_AUTO_FRECUENTE se activa AFTER INSERT en esta tabla
+para actualizar FRECUENTES_RESIDENTE automáticamente.
+
+──────────────────────────────────────────────────────────────────────────────
+TABLA 18: FRECUENTES_RESIDENTE
+──────────────────────────────────────────────────────────────────────────────
+Propósito:
+  Lista de visitantes frecuentes por residente. Se popula automáticamente
+  por TRG_AUTO_FRECUENTE al crear el primer REGISTRO_VISITA de un par
+  (residente, visitante). El residente puede "ocultar" un frecuente con
+  activo=0. Si el visitante regresa, el trigger lo reactiva.
+
+Columnas:
+  id_frecuente   NUMBER           PK. Generado por SEC_FRECUENTES_RESIDENTE.
+  id_residente   NUMBER           NOT NULL. FK → RESIDENTES CASCADE.
+  id_visitante   NUMBER           NOT NULL. FK → VISITANTES CASCADE.
+  activo         NUMBER(1)        DEFAULT 1. Soft-delete.
+  fecha_registro TIMESTAMP        DEFAULT SYSTIMESTAMP.
+  actualizado_en TIMESTAMP        Mantenido por TRG_FRECUENTES_UPD.
+
+Constraints:
+  PK_FREC         → id_frecuente
+  UQ_FREC_RES_VIS → (id_residente, id_visitante)
+  FK_FREC_RESIDENTE → RESIDENTES(id_residente) CASCADE
+  FK_FREC_VISITANTE → VISITANTES(id_visitante) CASCADE
+  CHK_FREC_ACTIVO   → activo IN (0,1)
+
+──────────────────────────────────────────────────────────────────────────────
+TABLA 19: REGISTROS_ACCESO
+──────────────────────────────────────────────────────────────────────────────
+Propósito:
+  Registro físico de entrada/salida del visitante. Relación 1:1 con
+  VISITAS (UQ_ACCESO_VISITA). Separado de QR_ACCESOS porque tienen ciclos
+  de vida distintos: QR_ACCESOS es el token de validación (irreversible);
+  REGISTROS_ACCESO es la presencia física (hora_salida es actualizable).
+  Al actualizar hora_salida dispara TRG_ACCESO_SALIDA.
+
+Columnas:
+  id_acceso      NUMBER           PK. Generado por SEC_REGISTROS_ACCESO.
+  id_visita      NUMBER           NOT NULL. FK → VISITAS RESTRICT. UNIQUE (1:1).
+  id_vigilante   NUMBER           NOT NULL. FK → USUARIOS RESTRICT.
+  hora_entrada   TIMESTAMP        DEFAULT SYSTIMESTAMP. Inmutable.
+  hora_salida    TIMESTAMP        Nullable. Al llenarse: TRG_ACCESO_SALIDA.
+  observaciones  VARCHAR2(500 CHAR) Nullable.
+  fecha_registro TIMESTAMP        DEFAULT SYSTIMESTAMP.
+  actualizado_en TIMESTAMP        Mantenido por TRG_ACCESO_UPD.
+
+Constraints:
+  PK_ACCESO         → id_acceso
+  UQ_ACCESO_VISITA  → id_visita  (garantiza 1:1)
+  FK_ACCESO_VISITA  → VISITAS(id_visita) RESTRICT
+  FK_ACCESO_VIGILANTE → USUARIOS(id_usuario) RESTRICT
+  CHK_ACCESO_HORAS  → hora_salida IS NULL OR hora_salida > hora_entrada
+
+──────────────────────────────────────────────────────────────────────────────
+TABLA 20: BUZON
+──────────────────────────────────────────────────────────────────────────────
+Propósito:
+  Buzón unificado de notificaciones para residentes. Tipos de mensaje:
+  - PAQUETE        : aviso de paquete/domicilio en portería.
+  - AVISO          : comunicado general del administrador.
+  - CONFIRMAR_VISITA: solicitud de confirmación de visita (con foto).
+  - QUEJA_RUIDO    : queja de ruido que puede originar una multa.
+  id_apartamento NULL indica aviso general para todos los residentes.
+
+Columnas:
+  id_mensaje    NUMBER           PK. Generado por SEC_BUZON.NEXTVAL.
+  id_apartamento NUMBER          Nullable. FK → APARTAMENTOS CASCADE.
+  id_visita     NUMBER           Nullable. FK → VISITAS CASCADE.
+  tipo          VARCHAR2(20 CHAR) NOT NULL. CHECK: PAQUETE | AVISO |
+                                 CONFIRMAR_VISITA | QUEJA_RUIDO.
+  titulo        VARCHAR2(200 CHAR) NOT NULL.
+  cuerpo        VARCHAR2(2000 CHAR) Nullable.
+  foto_captura  CLOB             Nullable. Base64. Para CONFIRMAR_VISITA.
+  leido         NUMBER(1)        DEFAULT 0. CHECK (0,1).
+  leido_en      TIMESTAMP        Nullable. CHECK (leido=0↔leido_en IS NULL).
+  entregado     NUMBER(1)        DEFAULT 0. Solo PAQUETE: paquete retirado.
+  entregado_en  TIMESTAMP        Nullable.
+  confirmado    NUMBER(1)        Nullable. Solo CONFIRMAR_VISITA:
+                                 1=aceptado, 0=rechazado, NULL=pendiente.
+  confirmado_en TIMESTAMP        Nullable.
+  creado_por    NUMBER           NOT NULL. FK → USUARIOS RESTRICT.
+  fecha_creacion TIMESTAMP       DEFAULT SYSTIMESTAMP.
+
+Constraints:
+  PK_BUZON              → id_mensaje
+  CHK_BUZON_TIPO        → tipo IN (PAQUETE, AVISO, CONFIRMAR_VISITA, QUEJA_RUIDO)
+  CHK_BUZON_LEIDO       → leido IN (0,1)
+  CHK_BUZON_ENTREGADO   → entregado IN (0,1)
+  CHK_BUZON_CONFIRMADO  → confirmado IN (0,1) OR confirmado IS NULL
+  CHK_BUZON_LEIDO_EN    → (leido=0↔leido_en IS NULL)
+  CHK_BUZON_ENTREGADO_EN → (entregado=0↔entregado_en IS NULL)
+  CHK_BUZON_CONFIRMADO_EN → (confirmado IS NULL↔confirmado_en IS NULL)
+  FK_BUZON_APARTAMENTO  → APARTAMENTOS(id_apartamento) CASCADE
+  FK_BUZON_VISITA       → VISITAS(id_visita) CASCADE
+  FK_BUZON_CREADOR      → USUARIOS(id_usuario)
+
+Relaciones (esta tabla como referenciada):
+  MULTAS.id_mensaje → FK ON DELETE SET NULL (1:1 opt. — solo RUIDO)
+
+Nota: FK_MULTA_MENSAJE (MULTAS→BUZON) es un ALTER TABLE agregado DESPUÉS
+de la creación de BUZON (§6) porque MULTAS se crea en §4.5, antes de que
+BUZON exista en §5. Declarar la FK dentro del CREATE TABLE de MULTAS
+causaría ORA-00942 (tabla no encontrada).
+
+──────────────────────────────────────────────────────────────────────────────
+TABLA 21: QUEJAS_SUGERENCIAS  (nueva en v5.0)
+──────────────────────────────────────────────────────────────────────────────
+Propósito:
+  Sistema de quejas, sugerencias y apelaciones de multas por parte de
+  residentes. Para tipo=APELACION se vincula a una multa específica mediante
+  id_multa. Un administrador puede responder con respuesta_admin y cambiar
+  el estado a RESUELTA o CERRADA.
+
+Columnas:
+  id_queja        NUMBER           PK. Generado por SEQ_QUEJAS_SUGERENCIAS.
+  id_apartamento  NUMBER           NOT NULL. FK → APARTAMENTOS CASCADE.
+  id_multa        NUMBER           Nullable. FK → MULTAS CASCADE.
+  tipo            VARCHAR2(15)     NOT NULL. CHECK: QUEJA | SUGERENCIA | APELACION.
+  categoria       VARCHAR2(30)     Nullable. CHECK: LIMPIEZA | SEGURIDAD |
+                                   MANTENIMIENTO | CONVIVENCIA | ZONAS_COMUNES | OTRO.
+  titulo          VARCHAR2(200)    NOT NULL.
+  descripcion     VARCHAR2(2000)   NOT NULL.
+  foto_evidencia  CLOB             Nullable. Base64.
+  estado          VARCHAR2(20)     DEFAULT 'PENDIENTE'. CHECK: PENDIENTE |
+                                   EN_REVISION | RESUELTA | CERRADA.
+  respuesta_admin VARCHAR2(2000)   Nullable.
+  prioridad       VARCHAR2(10)     DEFAULT 'MEDIA'. CHECK: BAJA | MEDIA | ALTA.
+  fecha_creacion  TIMESTAMP        DEFAULT SYSTIMESTAMP.
+  fecha_respuesta TIMESTAMP        Nullable.
+  creado_por      NUMBER           NOT NULL. FK → USUARIOS RESTRICT.
+  respondido_por  NUMBER           Nullable. FK → USUARIOS RESTRICT.
+
+Constraints:
+  PK_QUEJA           → id_queja
+  CHK_QUEJA_TIPO     → tipo IN (QUEJA, SUGERENCIA, APELACION)
+  CHK_QUEJA_ESTADO   → estado IN (PENDIENTE, EN_REVISION, RESUELTA, CERRADA)
+  CHK_QUEJA_PRIORIDAD → prioridad IN (BAJA, MEDIA, ALTA)
+  CHK_QUEJA_CATEGORIA → categoria IN (LIMPIEZA, SEGURIDAD, ...)
+  CHK_QUEJA_RESPUESTA → (respuesta_admin IS NULL ↔ respondido_por IS NULL
+                          ↔ fecha_respuesta IS NULL)
+  FK_QUEJA_APARTAMENTO → APARTAMENTOS CASCADE
+  FK_QUEJA_MULTA      → MULTAS CASCADE
+  FK_QUEJA_CREADOR    → USUARIOS RESTRICT
+  FK_QUEJA_RESPONDEDOR → USUARIOS RESTRICT
+
+
+══════════════════════════════════════════════════════════════════════════════
+3.  SECUENCIAS (21)
+══════════════════════════════════════════════════════════════════════════════
+
+Todas las secuencias se definen con:
+  START WITH 1  INCREMENT BY 1  NOCACHE  ORDER
+
+NOCACHE: sin caché de valores pre-asignados. Garantiza que no hay huecos
+en los IDs si la BD se reinicia (relevante en demos y desarrollo).
+ORDER: garantiza orden de emisión en RAC (Real Application Clusters).
+En XE single-node no tiene efecto práctico pero es buena práctica.
+
+Cada tabla tiene su propia secuencia asignada como DEFAULT en la columna PK:
+
+  SEC_TIPOS_DOCUMENTO      → TIPOS_DOCUMENTO.id_tipo_doc
+  SEC_APARTAMENTOS         → APARTAMENTOS.id_apartamento
+  SEC_PARQUEADEROS         → PARQUEADEROS.id_parqueadero
+  SEC_RESIDENTES           → RESIDENTES.id_residente
+  SEC_TUTORES              → TUTORES.id_tutor
+  SEC_USUARIOS             → USUARIOS.id_usuario
+  SEC_CONTRATOS            → CONTRATOS.id_contrato
+  SEC_CONTRATO_RESIDENTE   → CONTRATO_RESIDENTE.id_contrato_res
+  SEC_CUOTAS_ARRIENDO      → CUOTAS_ARRIENDO.id_cuota
+  SEC_PAGOS                → PAGOS.id_pago
+  SEC_ALERTAS_PAGO         → ALERTAS_PAGO.id_alerta
+  SEC_MULTAS               → MULTAS.id_multa
+  SEC_VISITAS              → VISITAS.id_visita
+  SEC_QR_ACCESOS           → QR_ACCESOS.id_qr
+  SEC_VISITANTES           → VISITANTES.id_visitante
+  SEC_VEHICULOS_VISITA     → VEHICULOS_VISITA.id_vehiculo_visita
+  SEC_REGISTRO_VISITA      → REGISTRO_VISITA.id_registro_visita
+  SEC_FRECUENTES_RESIDENTE → FRECUENTES_RESIDENTE.id_frecuente
+  SEC_REGISTROS_ACCESO     → REGISTROS_ACCESO.id_acceso
+  SEC_BUZON                → BUZON.id_mensaje
+  SEQ_QUEJAS_SUGERENCIAS   → QUEJAS_SUGERENCIAS.id_queja
+
+Nota: SEC_TIPOS_DOCUMENTO existe en el script pero NO en la BD en
+producción (la BD fue inicializada desde una versión anterior del script
+donde la PK de TIPOS_DOCUMENTO era manual). El tipo de dato NUMBER con
+DEFAULT SEC_TIPOS_DOCUMENTO.NEXTVAL fue agregado en v3.0.
+
+
+══════════════════════════════════════════════════════════════════════════════
+4.  ÍNDICES
+══════════════════════════════════════════════════════════════════════════════
+
+El script crea aproximadamente 42 índices en total, clasificados en:
+
+A) ÍNDICES IMPLÍCITOS POR UNIQUE CONSTRAINTS (~18)
+   Oracle crea automáticamente un índice B-Tree para cada constraint UNIQUE:
+   TIPOS_DOCUMENTO.codigo, APARTAMENTOS.numero, PARQUEADEROS.codigo,
+   PARQUEADEROS.id_apartamento, RESIDENTES(id_tipo_doc, numero_documento),
+   RESIDENTES.email, TUTORES(id_tipo_doc, numero_documento),
+   USUARIOS.username, USUARIOS.id_residente,
+   CONTRATOS: UIX_CONT_APT_ACTIVO (funcional, ver abajo),
+   CONTRATO_RESIDENTE(id_contrato, id_residente),
+   CUOTAS_ARRIENDO(id_contrato, anio, mes),
+   QR_ACCESOS.id_visita, QR_ACCESOS.codigo_qr,
+   VISITANTES(id_tipo_doc, numero_documento), VISITANTES.email,
+   VEHICULOS_VISITA(id_visita, placa),
+   REGISTRO_VISITA(id_visita, id_visitante),
+   REGISTROS_ACCESO.id_visita,
+   FRECUENTES_RESIDENTE(id_residente, id_visitante)
+
+B) ÍNDICES FUNCIONALES ÚNICOS (2)
+   UIX_CONT_APT_ACTIVO:
+     UNIQUE ON CONTRATOS (CASE WHEN estado='ACTIVO' THEN id_apartamento ELSE NULL END)
+     Garantiza exactamente 1 contrato ACTIVO por apartamento.
+     Los contratos no-ACTIVOS evalúan a NULL y no generan colisión.
+
+   UIX_ALERTA_CUOTA_DIA:
+     UNIQUE ON ALERTAS_PAGO (id_cuota, tipo_alerta, canal, TRUNC(enviada_en))
+     Evita enviar la misma alerta dos veces el mismo día para la misma
+     cuota y canal. Oracle no permite TRUNC() en UNIQUE constraint
+     estándar (ORA-02296), por eso se usa un índice funcional.
+
+   UIX_REGVIS_TITULAR:
+     UNIQUE ON REGISTRO_VISITA (CASE WHEN es_titular=1 THEN id_visita ELSE NULL END)
+     Garantiza exactamente 1 visitante titular por visita.
+
+C) ÍNDICES EXPLÍCITOS (~22)
+   Se crean para columnas de FK y búsquedas frecuentes:
+   IDX_PARQ_TIPO_ESTADO, IDX_RES_TIPO_DOC, IDX_RES_ACTIVO,
+   IDX_TUTOR_RESIDENTE, IDX_TUTOR_TIPO_DOC, IDX_USR_ROL,
+   IDX_CONT_APARTAMENTO, IDX_CONT_TUTOR, IDX_CONT_ESTADO,
+   IDX_CONT_FECHA_FIN, IDX_CONTRES_CONTRATO, IDX_CONTRES_RESIDENTE,
+   IDX_CUOTA_CONTRATO, IDX_CUOTA_ESTADO, IDX_CUOTA_FECHA_LIM,
+   IDX_PAGO_CUOTA, IDX_PAGO_FECHA, IDX_PAGO_REGISTRADO,
+   IDX_ALERTA_CUOTA, IDX_ALERTA_LEIDA, IDX_VIS_CONTRATO_RES,
+   IDX_VIS_RESIDENTE, IDX_VIS_ESTADO, IDX_QR_EXPIRACION,
+   IDX_VISITANTES_TIPO_DOC, IDX_VISITANTES_DOC, IDX_VISITANTES_ACTIVO,
+   IDX_VEH_VISITA, IDX_VEH_PARQUEADERO, IDX_VEH_PLACA,
+   IDX_REGVIS_VISITA, IDX_REGVIS_VISITANTE, IDX_REGVIS_VEHICULO,
+   IDX_FREC_VISITANTE, IDX_FREC_ACTIVO (residente, activo),
+   IDX_ACCESO_VIGILANTE, IDX_ACCESO_ENTRADA,
+   IDX_BUZON_APARTAMENTO, IDX_BUZON_VISITA, IDX_BUZON_TIPO,
+   IDX_BUZON_PENDIENTES (id_apartamento, leido, fecha_creacion),
+   IDX_BUZON_CONFIRMAR (id_visita, confirmado),
+   IX_MULTAS_APARTAMENTO, IX_MULTAS_ESTADO,
+   IDX_QUEJA_APARTAMENTO, IDX_QUEJA_MULTA, IDX_QUEJA_ESTADO,
+   IDX_QUEJA_TIPO, IDX_QUEJA_CREADOR, IDX_QUEJA_PENDIENTES,
+   IDX_QUEJA_PENDIENTES (estado, prioridad, fecha_creacion DESC)
+
+
+══════════════════════════════════════════════════════════════════════════════
+5.  TRIGGERS (17)
+══════════════════════════════════════════════════════════════════════════════
+
+Los triggers se dividen en dos categorías:
+  A) Auditoría de timestamp (13 triggers _UPD)
+  B) Lógica de negocio (4 triggers de comportamiento)
+
+──────────────────────────────────────────────────────────
+A) TRIGGERS DE AUDITORÍA — 13 triggers (patrón _UPD)
+──────────────────────────────────────────────────────────
+Patrón: BEFORE UPDATE ON <tabla> FOR EACH ROW
+          :NEW.actualizado_en := SYSTIMESTAMP;
+
+Aplica a:
+  7.1  TRG_RESIDENTES_UPD    → RESIDENTES.actualizado_en
+  7.2  TRG_CONTRATOS_UPD     → CONTRATOS.actualizado_en
+  7.3  TRG_CUOTAS_UPD        → CUOTAS_ARRIENDO.actualizado_en
+                               (además recalcula valor_total en INSERT y UPDATE)
+  7.4  TRG_VISITAS_UPD       → VISITAS.actualizado_en
+  7.5  TRG_ACCESO_UPD        → REGISTROS_ACCESO.actualizado_en
+  7.9  TRG_APARTAMENTOS_UPD  → APARTAMENTOS.actualizado_en
+  7.10 TRG_PARQUEADEROS_UPD  → PARQUEADEROS.actualizado_en
+  7.11 TRG_TUTORES_UPD       → TUTORES.actualizado_en
+  7.12 TRG_USUARIOS_UPD      → USUARIOS.actualizado_en
+  7.13 TRG_VISITANTES_UPD    → VISITANTES.actualizado_en
+  7.14 TRG_VEHICULOS_UPD     → VEHICULOS_VISITA.actualizado_en
+  7.16 TRG_FRECUENTES_UPD    → FRECUENTES_RESIDENTE.actualizado_en
+  (TRG_CUOTAS_UPD es BEFORE INSERT OR UPDATE — además recalcula valor_total)
+
+TRG_CUOTAS_UPD (detalle especial):
+  BEFORE INSERT OR UPDATE ON CUOTAS_ARRIENDO FOR EACH ROW
+  En UPDATE: :NEW.actualizado_en := SYSTIMESTAMP;
+  Siempre: :NEW.valor_total := :NEW.valor_base + :NEW.valor_mora;
+  Garantiza consistencia con CHK_CUOTA_TOTAL incluso si el código Java
+  olvida calcular el total.
+
+──────────────────────────────────────────────────────────
+B) TRIGGERS DE LÓGICA DE NEGOCIO — 4 triggers
+──────────────────────────────────────────────────────────
+
+7.6  TRG_CONT_SYNC_APARTAMENTO
+  AFTER UPDATE OF estado ON CONTRATOS FOR EACH ROW
+  Sincroniza el estado del apartamento con el del contrato:
+  - Contrato pasa a ACTIVO   → APARTAMENTOS.estado = 'OCUPADO'
+  - Contrato pasa a VENCIDO o CANCELADO (desde ACTIVO)
+                             → APARTAMENTOS.estado = 'DISPONIBLE'
+  Esto garantiza que APARTAMENTOS.estado siempre refleja si el apartamento
+  tiene un contrato vigente, sin necesidad de consultas adicionales.
+
+7.7  TRG_QR_USAR
+  AFTER UPDATE OF usado ON QR_ACCESOS FOR EACH ROW
+  WHEN (NEW.usado = 1 AND OLD.usado = 0)
+  Cuando se marca un QR como usado por primera vez:
+    UPDATE VISITAS SET estado = 'ACTIVA' WHERE id_visita = :NEW.id_visita;
+  Esto activa la visita automáticamente al escanear el QR.
+
+7.8  TRG_ACCESO_SALIDA
+  AFTER UPDATE OF hora_salida ON REGISTROS_ACCESO FOR EACH ROW
+  WHEN (NEW.hora_salida IS NOT NULL AND OLD.hora_salida IS NULL)
+  Cuando se registra la salida del visitante:
+  1. UPDATE VISITAS SET estado = 'FINALIZADA' → cierra la visita.
+  2. UPDATE PARQUEADEROS SET estado = 'DISPONIBLE' → libera puestos ocupados
+     por vehículos de esa visita.
+  3. UPDATE VEHICULOS_VISITA SET hora_salida = :NEW.hora_salida → registra
+     la hora de salida en todos los vehículos de la visita.
+
+7.15 TRG_AUTO_FRECUENTE
+  AFTER INSERT ON REGISTRO_VISITA FOR EACH ROW
+  Al insertar un nuevo integrante en una visita:
+  1. Obtiene el id_residente de la VISITA asociada.
+  2. Intenta INSERT en FRECUENTES_RESIDENTE (id_residente, id_visitante).
+  3. Si el par ya existe (DUP_VAL_ON_INDEX):
+     - Si activo=0 (el residente lo había ocultado), lo reactiva: activo=1.
+     - Si activo=1, no hace nada.
+  Resultado: los visitantes se agregan automáticamente a la lista de
+  frecuentes del residente en la primera visita.
+
+7.17 TRG_VIS_VALIDAR_RESIDENTE
+  BEFORE INSERT OR UPDATE OF id_residente, id_contrato_res ON VISITAS FOR EACH ROW
+  Valida la coherencia de la desnormalización controlada:
+  Verifica que el id_residente coincide con el id_residente del
+  CONTRATO_RESIDENTE referenciado. Si no coinciden, lanza:
+    RAISE_APPLICATION_ERROR(-20001, 'VISITAS.id_residente (...) no coincide...')
+  Previene que un residente "se cuele" en la visita de otro residente.
+
+
+══════════════════════════════════════════════════════════════════════════════
+6.  PROCEDIMIENTOS ALMACENADOS
+══════════════════════════════════════════════════════════════════════════════
+
+──────────────────────────────────────────────────────────────────────────────
+SP_VALIDAR_QR
+──────────────────────────────────────────────────────────────────────────────
+Firma:
+  SP_VALIDAR_QR(p_codigo_qr IN VARCHAR2, p_id_vigilante IN NUMBER,
+                p_valido OUT NUMBER, p_mensaje OUT VARCHAR2,
+                p_cursor OUT SYS_REFCURSOR)
+
+Propósito:
+  Validación atómica de un QR escaneado por el portero.  Usa SELECT ... FOR
+  UPDATE para bloquear la fila del QR y prevenir la condición de carrera
+  TOCTOU (Time-Of-Check Time-Of-Use) cuando dos porteros escanean el mismo
+  código simultáneamente.
+
+Lógica paso a paso:
+  1. SELECT id_qr, id_visita, usado, fecha_expiracion FROM QR_ACCESOS
+     WHERE codigo_qr = p_codigo_qr FOR UPDATE.
+     Si no existe → p_valido=0, p_mensaje='QR no encontrado'.
+  2. Si SYSTIMESTAMP > fecha_expiracion → marca QR como vencido,
+     VISITAS.estado = 'EXPIRADA', COMMIT, p_valido=0.
+  3. Si usado=1 → p_valido=0, p_mensaje='QR ya fue utilizado'.
+  4. QR válido:
+     - UPDATE QR_ACCESOS SET usado=1, fecha_uso=SYSTIMESTAMP,
+       id_vigilante_uso=p_id_vigilante.
+     - INSERT INTO REGISTROS_ACCESO(id_visita, id_vigilante, hora_entrada).
+     - COMMIT.
+     - OPEN p_cursor con datos: nombre del residente, apartamento, lista
+       de visitantes (LISTAGG), lista de vehículos (LISTAGG).
+     - p_valido=1, p_mensaje='Acceso autorizado'.
+  EXCEPTION WHEN OTHERS → ROLLBACK, p_valido=0.
+
+Nota de integración Java:
+  VisitaService llama SP_VALIDAR_QR via CallableStatement:
+    {call SP_VALIDAR_QR(?,?,?,?,?)}
+  El parámetro 3 (p_valido) es OUT NUMBER,
+  el parámetro 4 (p_mensaje) es OUT VARCHAR2,
+  el parámetro 5 (p_cursor) es OUT OracleTypes.CURSOR.
+
+──────────────────────────────────────────────────────────────────────────────
+SP_LIBERAR_VISITA_FRECUENTE
+──────────────────────────────────────────────────────────────────────────────
+Firma:
+  SP_LIBERAR_VISITA_FRECUENTE(
+    p_id_visitante IN, p_id_contrato_res IN, p_id_residente IN,
+    p_cantidad_personas IN, p_tiempo_validez IN,
+    p_tipo_vehiculo IN, p_placa IN, p_descripcion_tipo IN, p_notas IN,
+    p_id_visita OUT, p_codigo_qr OUT VARCHAR2,
+    p_fecha_expiracion OUT TIMESTAMP, p_mensaje OUT VARCHAR2)
+
+Propósito:
+  Registro rápido de visita para un visitante frecuente ya registrado.
+  Crea en una sola transacción: VISITAS + REGISTRO_VISITA +
+  VEHICULOS_VISITA (si hay vehículo) + QR_ACCESOS.
+
+Lógica paso a paso:
+  1. Verifica que el visitante sea frecuente ACTIVO del residente.
+  2. Verifica que el residente tiene un contrato ACTIVO.
+  3. Valida p_tiempo_validez BETWEEN 5 AND 60.
+  4. Valida descripcion_tipo cuando tipo='OTRO'.
+  5. INSERT INTO VISITAS ... RETURNING id_visita INTO v_id_visita.
+  6. INSERT INTO REGISTRO_VISITA (titular, TRG_AUTO_FRECUENTE se activa).
+  7. Si hay vehículo: INSERT INTO VEHICULOS_VISITA.
+  8. Genera QR: v_codigo_qr := LOWER(RAWTOHEX(SYS_GUID())).
+     v_fecha_exp := SYSTIMESTAMP + NUMTODSINTERVAL(p_tiempo_validez, 'MINUTE').
+     INSERT INTO QR_ACCESOS.
+  9. COMMIT.
+
+
+══════════════════════════════════════════════════════════════════════════════
+7.  FUNCIONES AUTÓNOMAS
+══════════════════════════════════════════════════════════════════════════════
+
+Las funciones autónomas (standalone) son utilizables directamente en
+sentencias SQL (SELECT, WHERE, expresiones de columna).  Sus equivalentes
+también existen encapsulados dentro de los paquetes PKG_PAGOS y PKG_VISITAS.
+
+──────────────────────────────────────────────────────────────────────────────
+FN_SALDO_CUOTA(p_id_cuota IN NUMBER) RETURN NUMBER
+──────────────────────────────────────────────────────────────────────────────
+Propósito:
+  Retorna el saldo pendiente de una cuota:
+    valor_total − SUM(PAGOS.valor_pagado)
+  Retorna NULL si la cuota no existe; 0 si ya está completamente pagada.
+  GREATEST(..., 0) evita saldos negativos por abonos excesivos.
+
+Uso típico en SQL:
+  SELECT id_cuota, FN_SALDO_CUOTA(id_cuota) AS saldo
+  FROM CUOTAS_ARRIENDO WHERE estado != 'PAGADA';
+
+──────────────────────────────────────────────────────────────────────────────
+FN_CALCULAR_MORA(p_id_cuota IN NUMBER, p_fecha IN DATE DEFAULT SYSDATE)
+RETURN NUMBER
+──────────────────────────────────────────────────────────────────────────────
+Propósito:
+  Calcula la mora aplicable a una cuota en la fecha indicada.
+  Fórmula:
+    mora = valor_base × (porcentaje_mora/100) × (dias_vencidos/30)
+  donde dias_vencidos = MAX(0, p_fecha − (fecha_limite + dias_gracia))
+  La mora es proporcional a los días vencidos. No aplica mora durante el
+  periodo de gracia del contrato. Retorna 0 si la cuota está dentro del
+  plazo o período de gracia. Retorna NULL si la cuota no existe.
+
+Ejemplo:
+  Si valor_base=1.500.000, porcentaje_mora=1.5%, dias_gracia=5,
+  fecha_limite=01-MAY, fecha_actual=20-MAY (14 días vencidos):
+    mora = 1.500.000 × 0.015 × (14/30) = 10.500 COP
+
+──────────────────────────────────────────────────────────────────────────────
+FN_MINUTOS_RESTANTES_QR(p_codigo_qr IN VARCHAR2) RETURN NUMBER
+──────────────────────────────────────────────────────────────────────────────
+Propósito:
+  Retorna los minutos restantes de vigencia de un QR.
+  Valor negativo indica que ya expiró. NULL si el código no existe.
+  Usa cast a DATE para la resta (CAST(TIMESTAMP AS DATE)) y multiplica
+  por 1440 (minutos/día).
+
+Uso típico:
+  SELECT codigo_qr, FN_MINUTOS_RESTANTES_QR(codigo_qr) AS min_restantes
+  FROM QR_ACCESOS WHERE usado = 0;
+
+
+══════════════════════════════════════════════════════════════════════════════
+8.  PAQUETES PL/SQL
+══════════════════════════════════════════════════════════════════════════════
+
+¿POR QUÉ PAQUETES CON SPEC Y BODY?
+───────────────────────────────────
+En Oracle PL/SQL un paquete se compila en dos partes separadas:
+
+  PACKAGE SPEC (especificación):
+    Es la "interfaz pública" del paquete. Declara las signaturas de
+    funciones, procedimientos, tipos y constantes que son visibles desde
+    fuera del paquete. Se compila independientemente del BODY.
+    Cambiar solo el BODY no invalida dependencias externas.
+
+  PACKAGE BODY (cuerpo):
+    Contiene la implementación completa de todo lo declarado en el SPEC.
+    Si el BODY tiene un error de compilación, el SPEC sigue válido;
+    las dependencias externas no se rompen hasta que el BODY se corrija.
+
+Ventajas sobre funciones/procedimientos standalone:
+  • Sobrecarga de subprogramas (mismo nombre, distintos parámetros).
+  • Variables de estado de sesión (variables de paquete persistentes en
+    la sesión).
+  • Compilación incremental: cambiar el BODY no requiere recompilar quien
+    llama al paquete.
+  • Encapsulamiento: procedimientos auxiliares declarados solo en el BODY
+    son privados y no visibles desde fuera.
+  • Agrupamiento lógico de funcionalidad relacionada.
+
+En el script se definen 3 paquetes:
+
+──────────────────────────────────────────────────────────────────────────────
+PKG_PAGOS  — Gestión de pagos y mora
+──────────────────────────────────────────────────────────────────────────────
+
+SPEC declara:
+  FUNCTION  FN_SALDO_CUOTA(p_id_cuota NUMBER) RETURN NUMBER;
+  FUNCTION  FN_CALCULAR_MORA(p_id_cuota NUMBER, p_fecha DATE DEFAULT SYSDATE)
+            RETURN NUMBER;
+  PROCEDURE SP_REGISTRAR_PAGO(p_id_cuota, p_id_usuario, p_valor_pagado,
+              p_metodo_pago, p_referencia, p_notas IN; p_id_pago, p_mensaje OUT);
+  PROCEDURE SP_APLICAR_MORA(p_id_contrato IN; p_cuotas_upd OUT; p_mensaje OUT);
+
+BODY implementa:
+
+  FN_SALDO_CUOTA y FN_CALCULAR_MORA:
+    Idénticas a las funciones autónomas del mismo nombre (reutilizan lógica).
+
+  SP_REGISTRAR_PAGO:
+    1. Verifica que la cuota no esté en estado PAGADA.
+    2. Verifica p_valor_pagado > 0.
+    3. INSERT INTO PAGOS con los parámetros.
+    4. Llama a FN_SALDO_CUOTA para ver si quedó saldo = 0.
+    5. Si saldo <= 0: UPDATE CUOTAS_ARRIENDO SET estado='PAGADA'.
+    6. COMMIT.
+    7. p_mensaje indica si fue pago total o abono con saldo pendiente.
+    EXCEPTION: ROLLBACK en OTHERS.
+
+  SP_APLICAR_MORA:
+    1. Itera sobre todas las cuotas de p_id_contrato con estado
+       PENDIENTE, VENCIDA o EN_MORA cuya fecha_limite < SYSDATE.
+    2. Para cada cuota: calcula mora con FN_CALCULAR_MORA.
+    3. Si mora > 0: UPDATE CUOTAS_ARRIENDO SET valor_mora, valor_total,
+       estado='EN_MORA'.
+    4. COMMIT. Retorna cuenta de cuotas actualizadas en p_cuotas_upd.
+
+──────────────────────────────────────────────────────────────────────────────
+PKG_VISITAS  — Gestión del ciclo de vida de visitas y QR
+──────────────────────────────────────────────────────────────────────────────
+
+SPEC declara:
+  FUNCTION  FN_TIENE_QR_ACTIVO(p_id_visitante NUMBER, p_id_residente NUMBER)
+            RETURN NUMBER;  -- 1=sí tiene, 0=no tiene
+  FUNCTION  FN_MINUTOS_RESTANTES_QR(p_codigo_qr VARCHAR2) RETURN NUMBER;
+  PROCEDURE SP_CANCELAR_VISITA(p_id_visita IN NUMBER; p_mensaje OUT VARCHAR2);
+  PROCEDURE SP_GENERAR_QR_VISITA(p_id_visita IN, p_tiempo_min IN;
+              p_codigo_qr OUT, p_expiracion OUT TIMESTAMP, p_mensaje OUT);
+
+BODY implementa:
+
+  FN_TIENE_QR_ACTIVO:
+    COUNT en QR_ACCESOS JOIN VISITAS JOIN REGISTRO_VISITA donde
+    id_visitante = p_id_visitante AND id_residente = p_id_residente
+    AND usado=0 AND fecha_expiracion > SYSTIMESTAMP.
+    Retorna 1 si hay al menos un QR activo; 0 si no.
+
+  FN_MINUTOS_RESTANTES_QR:
+    Idéntica a la función autónoma.
+
+  SP_CANCELAR_VISITA:
+    1. Verifica que estado = 'PENDIENTE' (solo se cancelan pendientes).
+    2. UPDATE VISITAS SET estado='CANCELADA'.
+    3. UPDATE QR_ACCESOS SET usado=1, fecha_uso=SYSTIMESTAMP
+       WHERE id_visita=p_id_visita AND usado=0 (invalida el QR).
+    4. COMMIT.
+
+  SP_GENERAR_QR_VISITA:
+    1. Verifica estado='PENDIENTE'.
+    2. Verifica que no exista ya un QR activo (no usado, no expirado).
+    3. Valida p_tiempo_min BETWEEN 5 AND 60.
+    4. Genera: p_codigo_qr := LOWER(RAWTOHEX(SYS_GUID())).
+    5. p_expiracion := SYSTIMESTAMP + NUMTODSINTERVAL(p_tiempo_min, 'MINUTE').
+    6. INSERT INTO QR_ACCESOS. COMMIT.
+
+──────────────────────────────────────────────────────────────────────────────
+PKG_RESIDENTES  — Gestión de residentes y contratos
+──────────────────────────────────────────────────────────────────────────────
+
+SPEC declara:
+  FUNCTION  FN_TIENE_CONTRATO_ACTIVO(p_id_residente NUMBER) RETURN NUMBER;
+  FUNCTION  FN_APARTAMENTO_ACTUAL(p_id_residente NUMBER) RETURN VARCHAR2;
+  PROCEDURE SP_DESACTIVAR_RESIDENTE(p_id_residente IN; p_mensaje OUT);
+  PROCEDURE SP_ACTIVAR_RESIDENTE(p_id_residente IN; p_mensaje OUT);
+
+BODY implementa:
+
+  FN_TIENE_CONTRATO_ACTIVO:
+    COUNT en CONTRATO_RESIDENTE JOIN CONTRATOS
+    WHERE id_residente=p_id_residente AND estado='ACTIVO'.
+    Retorna 1 si tiene contrato activo; 0 si no.
+
+  FN_APARTAMENTO_ACTUAL:
+    SELECT a.numero INTO v_numero
+    FROM CONTRATO_RESIDENTE JOIN CONTRATOS JOIN APARTAMENTOS
+    WHERE id_residente=p_id_residente AND estado='ACTIVO' AND ROWNUM=1.
+    Retorna el número del apartamento (ej: "101") o NULL si sin contrato.
+
+  SP_DESACTIVAR_RESIDENTE:
+    1. Verifica que el residente existe y está activo.
+    2. Verifica FN_TIENE_CONTRATO_ACTIVO = 0 (no puede desactivarse
+       si tiene contrato vigente).
+    3. UPDATE RESIDENTES SET activo=0. COMMIT.
+
+  SP_ACTIVAR_RESIDENTE:
+    1. Verifica que el residente existe y está inactivo.
+    2. UPDATE RESIDENTES SET activo=1. COMMIT.
+
+
+══════════════════════════════════════════════════════════════════════════════
+9.  VISTAS OPERATIVAS (5)
+══════════════════════════════════════════════════════════════════════════════
+
+──────────────────────────────────────────────────────────────────────────────
+VW_RESIDENTE_APARTAMENTO
+──────────────────────────────────────────────────────────────────────────────
+Propósito:
+  Proporciona la relación residente↔apartamento sin que RESIDENTES tenga
+  columna id_apartamento.  Usa CONTRATO_RESIDENTE como puente.
+  Filtro: contratos.estado='ACTIVO' AND residentes.activo=1.
+  Un residente con dos roles en el mismo contrato puede aparecer dos veces
+  (rol diferente por fila).
+
+Columnas clave:
+  id_residente, nombre_completo, documento (codigo-numero),
+  telefono, email, es_menor_edad, rol_en_contrato,
+  id_apartamento, numero_apartamento, piso, tipo_apartamento,
+  id_contrato, fecha_inicio, fecha_fin, valor_mensual, estado_contrato.
+
+──────────────────────────────────────────────────────────────────────────────
+VW_VISITAS_ACTIVAS
+──────────────────────────────────────────────────────────────────────────────
+Propósito:
+  Dashboard del portero: muestra todas las visitas con estado=ACTIVA
+  (dentro del edificio en este momento).
+  Usa REGISTRO_VISITA (no la antigua PERSONAS_VISITA) para contar visitantes.
+  La ruta al apartamento va por CONTRATO_RESIDENTE → CONTRATOS.
+
+Columnas clave:
+  id_visita, numero_apartamento, residente (nombre),
+  hora_entrada, tiempo_validez_min, cantidad_personas, notas,
+  total_visitantes (COUNT DISTINCT), total_vehiculos (COUNT DISTINCT),
+  portero_entrada (username del portero).
+
+──────────────────────────────────────────────────────────────────────────────
+VW_CARTERA_PENDIENTE
+──────────────────────────────────────────────────────────────────────────────
+Propósito:
+  Módulo de cartera. Lista cuotas en estado PENDIENTE, VENCIDA o EN_MORA
+  con el saldo real (descontando abonos parciales ya registrados en PAGOS).
+  El residente mostrado es el ARRENDATARIO (rol_en_contrato='ARRENDATARIO').
+  Ordenada por fecha_limite ASC (más urgentes primero).
+
+Columnas clave:
+  id_contrato, numero_apartamento, residente (nombre), correo_residente,
+  telefono, id_cuota, anio, mes, fecha_limite,
+  valor_base, valor_mora, valor_total,
+  total_pagado (SUM de pagos), saldo_pendiente (calculado),
+  dias_vencimiento (negativo = ya vencida), estado.
+
+──────────────────────────────────────────────────────────────────────────────
+VW_PARQUEADEROS_VISITANTES
+──────────────────────────────────────────────────────────────────────────────
+Propósito:
+  Disponibilidad en tiempo real de parqueaderos rotativos (es_visitante=1).
+  placa_actual NULL = puesto libre.
+  Muestra solo vehículos de visitas en estado ACTIVA con hora_salida IS NULL.
+
+Columnas clave:
+  id_parqueadero, codigo, tipo, estado,
+  placa_actual (NULL=libre), tipo_vehiculo_actual,
+  visita_activa (id_visita), desde (hora_entrada).
+
+──────────────────────────────────────────────────────────────────────────────
+VW_VISITANTES_FRECUENTES
+──────────────────────────────────────────────────────────────────────────────
+Propósito:
+  Panel de visitantes frecuentes por residente.  Incluye estadísticas de
+  visitas históricas y datos del último vehículo utilizado (para pre-poblar
+  el formulario rápido de SP_LIBERAR_VISITA_FRECUENTE).
+  Filtrar activo=1 para el panel principal; activo=0 para "frecuentes ocultos".
+
+Columnas clave:
+  id_frecuente, id_residente, id_visitante,
+  nombre_visitante, documento,
+  total_visitas (COUNT DISTINCT), ultima_visita (MAX fecha_registro),
+  ultima_placa, ultimo_tipo_vehiculo, ultima_descripcion_tipo
+  (todos con KEEP(DENSE_RANK LAST ORDER BY fecha_registro)),
+  activo.
+
+
+══════════════════════════════════════════════════════════════════════════════
+10. CÓMO JAVA INVOCA LOS OBJETOS DE BASE DE DATOS
+══════════════════════════════════════════════════════════════════════════════
+
+A) INSERT CON ID GENERADO POR SECUENCIA (PreparedStatement + RETURNING)
+──────────────────────────────────────────────────────────────────────────────
+Todas las inserciones usan un bloque PL/SQL anónimo para capturar el ID
+generado por la secuencia sin necesidad de una consulta SELECT adicional:
+
+  String sql = "BEGIN INSERT INTO RESIDENTES "
+             + "  (id_tipo_doc, numero_documento, nombres, ...) "
+             + "VALUES (?, ?, ?, ...) "
+             + "RETURNING id_residente INTO ?; END;";
+  try (CallableStatement cs = conn().prepareCall(sql)) {
+      cs.setInt(1, r.getIdTipoDoc());
+      ...
+      cs.registerOutParameter(9, Types.NUMERIC);
+      cs.executeUpdate();
+      int nuevoId = cs.getInt(9);
+  }
+
+Este patrón se usa en: ResidenteDAO, ContratoDAO, CuotaArriendoDAO,
+VisitaDAO, QRAccesoDAO, PagoDAO y todos los demás DAOs.
+
+B) LLAMADA A PROCEDIMIENTO ALMACENADO (SP_VALIDAR_QR)
+──────────────────────────────────────────────────────────────────────────────
+VisitaService (o VisitaController) llama al procedimiento de validación:
+
+  String sql = "{call SP_VALIDAR_QR(?,?,?,?,?)}";
+  try (CallableStatement cs = conn().prepareCall(sql)) {
+      cs.setString(1, codigoQr);             // IN  p_codigo_qr
+      cs.setInt(2, idVigilante);             // IN  p_id_vigilante
+      cs.registerOutParameter(3, Types.NUMERIC);    // OUT p_valido
+      cs.registerOutParameter(4, Types.VARCHAR);    // OUT p_mensaje
+      cs.registerOutParameter(5, OracleTypes.CURSOR); // OUT p_cursor
+      cs.execute();
+      int valido = cs.getInt(3);
+      String mensaje = cs.getString(4);
+      ResultSet rs = (ResultSet) cs.getObject(5);  // SYS_REFCURSOR
+      while (rs.next()) {
+          // leer datos del visitante, apartamento, etc.
+      }
+  }
+
+C) LLAMADA A PAQUETE (PKG_PAGOS.SP_REGISTRAR_PAGO)
+──────────────────────────────────────────────────────────────────────────────
+La llamada a un subprograma de paquete usa la sintaxis NOMBRE_PAQUETE.NOMBRE:
+
+  String sql = "{call PKG_PAGOS.SP_REGISTRAR_PAGO(?,?,?,?,?,?,?,?)}";
+  try (CallableStatement cs = conn().prepareCall(sql)) {
+      cs.setInt(1, idCuota);
+      cs.setInt(2, idUsuario);
+      cs.setBigDecimal(3, valorPagado);
+      cs.setString(4, metodoPago);
+      cs.setString(5, referencia);
+      cs.setString(6, notas);
+      cs.registerOutParameter(7, Types.NUMERIC);   // OUT p_id_pago
+      cs.registerOutParameter(8, Types.VARCHAR);   // OUT p_mensaje
+      cs.execute();
+      int idPago = cs.getInt(7);
+      String msg = cs.getString(8);
+  }
+
+D) FUNCIÓN EN CONSULTA SQL
+──────────────────────────────────────────────────────────────────────────────
+Las funciones autónomas y de paquete se usan directamente en SQL:
+
+  String sql = "SELECT id_cuota, FN_SALDO_CUOTA(id_cuota) AS saldo "
+             + "FROM CUOTAS_ARRIENDO WHERE id_contrato = ?";
+
+  String sql = "SELECT PKG_VISITAS.FN_TIENE_QR_ACTIVO(?,?) FROM DUAL";
+  try (PreparedStatement ps = conn().prepareStatement(sql)) {
+      ps.setInt(1, idVisitante);
+      ps.setInt(2, idResidente);
+      ResultSet rs = ps.executeQuery();
+      if (rs.next()) boolean tieneQR = rs.getInt(1) == 1;
+  }
+
+E) UPDATE CON SOFT-DELETE
+──────────────────────────────────────────────────────────────────────────────
+La mayoría de "eliminaciones" son soft-delete vía UPDATE:
+  ResidenteDAO.delete():  UPDATE RESIDENTES SET activo = 0 WHERE ...
+  VisitaDAO.delete():     UPDATE VISITAS SET estado = 'CANCELADA' WHERE ...
+  CuotaArriendoDAO.delete(): UPDATE CUOTAS_ARRIENDO SET estado = 'ANULADA' WHERE ...
+  PagoDAO.delete():       lanza UnsupportedOperationException (inmutable)
+  QRAccesoDAO.delete():   lanza UnsupportedOperationException (trazabilidad)
+
+
+══════════════════════════════════════════════════════════════════════════════
+11. FLUJO END-TO-END: CICLO DE VIDA DE UN CONTRATO
+══════════════════════════════════════════════════════════════════════════════
+
+Este ejemplo ilustra cómo interactúan la base de datos, el backend Java
+y el frontend para el módulo de contratos.
+
+PASO 1 — Listado de contratos (página contratos.js)
+─────────────────────────────────────────────────────
+  Frontend: contratos.js hace GET /api/contratos
+  Backend:  ContratoHandler → ContratoService.listarTodos()
+              1. ContratoDAO.expiracionAutomatica():
+                 UPDATE CONTRATOS SET estado='VENCIDO'
+                 WHERE estado='ACTIVO' AND fecha_fin IS NOT NULL
+                   AND fecha_fin < SYSDATE
+              2. ContratoDAO.findAll():
+                 SELECT c.*, a.numero, r.nombres || ' ' || r.apellidos
+                 FROM CONTRATOS c
+                 JOIN APARTAMENTOS a ON ...
+                 LEFT JOIN CONTRATO_RESIDENTE cr ON cr.rol='ARRENDATARIO'
+                 LEFT JOIN RESIDENTES r ON ...
+                 ORDER BY c.fecha_registro DESC
+  Frontend: contratos.js filtra contratos DISPONIBLE para el selector de
+            nuevo contrato y muestra la tabla con badges por estado.
+
+PASO 2 — Creación de contrato
+──────────────────────────────
+  Frontend: formulario rellena id_apartamento, id_residente, fechas, valor.
+            POST /api/contratos con JSON.
+  Backend:  ContratoHandler → ContratoService.crear()
+              1. Validaciones de negocio.
+              2. ContratoDAO.insert():
+                 BEGIN INSERT INTO CONTRATOS(...) VALUES(...)
+                 RETURNING id_contrato INTO ?; END;
+              3. ContratoResidenteDAO.insert():
+                 Vincula el residente como ARRENDATARIO.
+              4. Si hay fechas: CuotaArriendoDAO.insert() para cada mes.
+  BD:       TRG_CUOTAS_UPD recalcula valor_total en cada INSERT de cuota.
+  Frontend: recarga la tabla; contratos.js muestra el nuevo contrato.
+
+PASO 3 — Contrato pasa a ACTIVO
+────────────────────────────────
+  Frontend: admin hace clic en "Activar" contrato. PATCH /api/contratos/{id}
+  Backend:  ContratoDAO.update() → UPDATE CONTRATOS SET estado='ACTIVO'
+  BD:       TRG_CONT_SYNC_APARTAMENTO se dispara:
+              UPDATE APARTAMENTOS SET estado='OCUPADO'
+              WHERE id_apartamento = :NEW.id_apartamento;
+  TRG_CONTRATOS_UPD también actualiza actualizado_en.
+
+PASO 4 — Vencimiento automático
+─────────────────────────────────
+  Al hacer GET /api/contratos en cualquier siguiente carga:
+  ContratoDAO.expiracionAutomatica() detecta contratos ACTIVO con
+  fecha_fin < SYSDATE y los marca VENCIDO.
+  TRG_CONT_SYNC_APARTAMENTO se dispara:
+    UPDATE APARTAMENTOS SET estado='DISPONIBLE'
+    WHERE id_apartamento = ...;
+
+PASO 5 — Renovación
+─────────────────────
+  Frontend: modal de renovación en contratos.js. POST /api/contratos/{id}/renovar
+  Backend:  ContratoService.renovar():
+              1. Marca el contrato actual como VENCIDO.
+              2. ContratoDAO.insert() crea un NUEVO contrato con
+                 tipo_contrato='RENOVACION', estado='PENDIENTE_FIRMA'.
+              3. ContratoResidenteDAO copia la vinculación.
+  El contrato anterior queda en historial (VENCIDO). El nuevo contrato
+  pasa por el mismo ciclo PENDIENTE_FIRMA → ACTIVO.
+  BD: El índice UIX_CONT_APT_ACTIVO garantiza que nunca habrá dos
+  contratos ACTIVO para el mismo apartamento.
+
+PASO 6 — Registro de cuota y pago
+────────────────────────────────────
+  Backend:  CuotaArriendoDAO.insert() crea la cuota mensual.
+            TRG_CUOTAS_UPD recalcula valor_total.
+            PagoDAO.insert() registra el pago:
+              BEGIN INSERT INTO PAGOS(...) RETURNING id_pago INTO ?; END;
+            o vía paquete:
+              PKG_PAGOS.SP_REGISTRAR_PAGO() verifica saldo,
+              inserta PAGOS, actualiza estado='PAGADA' si saldo=0.
+
+
+══════════════════════════════════════════════════════════════════════════════
+12. RESUMEN DE CARDINALIDADES
+══════════════════════════════════════════════════════════════════════════════
+
+Notación: A 1─N B = "1 fila de A puede tener N filas de B"
+          A 1─1 B = "exactamente 1 fila de A corresponde a 1 fila de B"
+          A 0..1─N B = "opcional en A, múltiple en B"
+
+  TIPOS_DOCUMENTO     1 ─── N   RESIDENTES
+  TIPOS_DOCUMENTO     1 ─── N   TUTORES
+  TIPOS_DOCUMENTO     1 ─── N   VISITANTES
+  APARTAMENTOS        1 ─── 0..1 PARQUEADEROS      (UQ: 1:1 fijo max)
+  APARTAMENTOS        1 ─── N   CONTRATOS
+  APARTAMENTOS        1 ─── N   MULTAS
+  APARTAMENTOS        1 ─── N   BUZON
+  APARTAMENTOS        1 ─── N   QUEJAS_SUGERENCIAS
+  RESIDENTES          1 ─── 0..1 TUTORES           (por menor)
+  RESIDENTES          1 ─── 0..1 USUARIOS          (UQ: 1:1 max)
+  RESIDENTES          1 ─── N   CONTRATO_RESIDENTE
+  RESIDENTES          1 ─── N   VISITAS
+  RESIDENTES          1 ─── N   FRECUENTES_RESIDENTE
+  TUTORES             1 ─── N   CONTRATOS          (firma)
+  USUARIOS            1 ─── N   CONTRATOS          (crea)
+  USUARIOS            1 ─── N   PAGOS              (registra)
+  USUARIOS            1 ─── N   MULTAS             (crea)
+  CONTRATOS           1 ─── N   CONTRATO_RESIDENTE
+  CONTRATOS           1 ─── N   CUOTAS_ARRIENDO
+  CONTRATO_RESIDENTE  1 ─── N   VISITAS
+  CUOTAS_ARRIENDO     1 ─── N   PAGOS
+  CUOTAS_ARRIENDO     1 ─── N   ALERTAS_PAGO
+  MULTAS              1 ─── N   QUEJAS_SUGERENCIAS
+  BUZON               1 ─── 0..1 MULTAS            (FK_MULTA_MENSAJE)
+  VISITAS             1 ─── 1   QR_ACCESOS         (UQ)
+  VISITAS             1 ─── N   VEHICULOS_VISITA
+  VISITAS             1 ─── N   REGISTRO_VISITA
+  VISITAS             1 ─── 1   REGISTROS_ACCESO   (UQ)
+  VISITAS             1 ─── N   BUZON
+  VISITANTES          1 ─── N   REGISTRO_VISITA
+  VISITANTES          1 ─── N   FRECUENTES_RESIDENTE
+  VEHICULOS_VISITA    1 ─── N   REGISTRO_VISITA    (nullable)
+  PARQUEADEROS        1 ─── N   VEHICULOS_VISITA   (nullable)
+
+Relaciones N:M implementadas con tablas puente:
+  CONTRATOS  ←→  RESIDENTES     via CONTRATO_RESIDENTE
+  VISITAS    ←→  VISITANTES     via REGISTRO_VISITA
+  (VISITANTES conectados a RESIDENTES indirectamente via
+   FRECUENTES_RESIDENTE + VISITAS)
+
+══════════════════════════════════════════════════════════════════════════════
+FIN DEL DOCUMENTO
+Sistema de Administración Residencial — SAED  v5.0
+══════════════════════════════════════════════════════════════════════════════

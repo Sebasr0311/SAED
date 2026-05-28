@@ -1,0 +1,313 @@
+================================================================================
+  PLAN DE TRABAJO — SISTEMA DE ADMINISTRACION RESIDENCIAL
+  Estrategia de entregas para GitHub Projects (Milestones + Issues)
+================================================================================
+
+  Repositorio: admin-residencial
+  Stack: Java 17 + Oracle 18c+ | REST API embebida | Web SPA (vanilla JS) | JavaFX
+  Ultima actualizacion: 2026-05-17
+
+
+INDICE DE MILESTONES
+--------------------
+  M1  Fundacion        — BD + backend basico
+  M2  API REST          — Endpoints funcionales
+  M3  Frontend Web      — SPA operativa
+  M4  Seguridad         — Autenticacion + autorizacion
+  M5  QR y Accesos      — Sistema de visitas con QR
+  M6  Pagos y Alertas   — Modulo financiero
+  M7  JavaFX Desktop    — GUI alternativa
+  M8  Despliegue y Docs — Puesta en produccion
+
+
+================================================================================
+  MILESTONE 1: FUNDACION — Base de datos + backend basico
+================================================================================
+  Objetivo: Esquema de BD listo, conexion estable, modelo de datos completo.
+
+  Issues:
+    M1-I01  Crear script DDL (script_oracle.sql) con 18 tablas
+            - TiposDocumento, Apartamentos, Parqueaderos, Residentes, Tutores
+            - Usuarios, Contratos, Contrato_Residente, Cuotas_Arriendo
+            - Pagos, Alertas_Pago, Visitantes, Visitas, QR_Accesos
+            - Vehiculos_Visita, Registro_Visita, Frecuentes_Residente, Registros_Acceso
+    M1-I02  Definir tipos enumerados en Java (EstadoContrato, EstadoCuota, TipoRol, etc.)
+    M1-I03  Implementar ConexionBD singleton con Oracle JDBC (11g+)
+    M1-I04  Crear modelo_relacional.txt con documentacion completa del esquema
+    M1-I05  Crear diagrama PlantUML del modelo relacional
+    M1-I06  Insertar datos de prueba (datos_prueba.sql) — 16 aptos, 21 parqueaderos,
+            17 residentes, 12 contratos, 36 cuotas, 24 pagos, 8 visitantes, 5 visitas
+    M1-I07  Implementar DAOs basicos (CRUD para todas las entidades)
+    M1-I08  Configurar conexion mediante bd.properties (excluido de VCS)
+
+  Criterios de aceptacion:
+    - Las 18 tablas existen en Oracle
+    - Los datos de prueba se insertan sin errores
+    - ConexionBD.getConexion() retorna conexion valida
+    - Todos los DAOs tienen findByID y findAll funcionales
+
+
+================================================================================
+  MILESTONE 2: API REST — Endpoints funcionales
+================================================================================
+  Objetivo: REST API completa usando com.sun.net.httpserver embebido.
+
+  Issues:
+    M2-I01  Implementar RestServer (puerto 8080) con enrutamiento
+    M2-I02  Crear JsonUtil para serializacion Gson
+    M2-I03  Implementar CorsFilter (permisos CORS para frontend)
+    M2-I04  Handler: AuthHandler (login JWT)
+    M2-I05  Handler: ApartamentoHandler CRUD
+    M2-I06  Handler: ResidenteHandler CRUD + busqueda por documento
+    M2-I07  Handler: ContratoHandler CRUD + filtros por apto/estado
+    M2-I08  Handler: CuotaHandler CRUD + cuotas pendientes/vencidas
+    M2-I09  Handler: PagoHandler CRUD + pagos por cuota
+    M2-I10  Handler: ParqueaderoHandler CRUD
+    M2-I11  Handler: UsuarioHandler CRUD
+    M2-I12  Handler: VisitaHandler CRUD
+    M2-I13  Handler: QrHandler — generar QR, validar QR, marcar usado
+    M2-I14  Handler: RegistroAccesoHandler — entrada/salida
+    M2-I15  Handler: AlertaHandler — listar/marcar leidas
+    M2-I16  Handler: TipoDocumentoHandler
+    M2-I17  Implementar StaticFilesHandler para servir uploads
+    M2-I18  Endpoint upload de archivos (fotos, documentos PDF)
+
+  Criterios de aceptacion:
+    - Todos los endpoints responden con JSON
+    - CRUD completo para cada entidad
+    - Manejo de errores con HTTP status codes apropiados
+    - Pruebas con curl/Postman pasan sin errores
+
+
+================================================================================
+  MILESTONE 3: FRONTEND WEB — SPA operativa
+================================================================================
+  Objetivo: Single Page Application funcional con todas las vistas de administracion.
+
+  Issues:
+    M3-I01  Configurar server.js (Node proxy: puerto 3000 -> API 8080)
+    M3-I02  Crear index.html con templates para todas las vistas
+    M3-I03  Implementar router.js (SPA routing por hash)
+    M3-I04  Implementar api.js (cliente HTTP con fetch)
+    M3-I05  Implementar auth.js (login, JWT storage, token interceptor)
+    M3-I06  Pagina: Login (login.js)
+    M3-I07  Pagina: Dashboard administrador
+    M3-I08  Pagina: Gestion de Apartamentos (apartamentos.js)
+    M3-I09  Pagina: Gestion de Residentes (residentes.js)
+    M3-I10  Pagina: Gestion de Contratos (contratos.js)
+            - Mostrar numeroApartamento y nombreResidente via JOIN
+    M3-I11  Pagina: Gestion de Pagos (pagos.js)
+            - Mostrar apto y residente en lista de cuotas
+            - Filtro de contratos con formato "Apto NNN - Nombre"
+    M3-I12  Pagina: Gestion de Parqueaderos (parqueaderos.js)
+    M3-I13  Pagina: Gestion de Usuarios (usuarios.js)
+    M3-I14  Pagina: Gestion de Visitas (visitas.js)
+            - Campo de carga de documento para visitante
+    M3-I15  Pagina: Alertas (alertas.js)
+    M3-I16  Dashboard de Residente (residente-dashboard.js)
+            - Subida de documentos con accept .pdf,.jpg,.jpeg,.png,.gif
+    M3-I17  Dashboard de Portero (portero-dashboard.js)
+    M3-I18  Pagina: Escaner QR (escanner-qr.js)
+            - Fallback <embed> para PDF cuando pdfjsLib no esta disponible
+    M3-I19  Diseno responsivo con style.css
+
+  Criterios de aceptacion:
+    - Navegacion entre todas las vistas funciona sin recargar
+    - CRUD desde el frontend contra la API real
+    - Los datos de contratos y cuotas muestran info desnormalizada
+    - Subida y visualizacion de PDFs funcional
+
+
+================================================================================
+  MILESTONE 4: SEGURIDAD — Autenticacion + autorizacion
+================================================================================
+  Objetivo: JWT, roles, proteccion de endpoints.
+
+  Issues:
+    M4-I01  Implementar JwtUtil (generacion/validacion de tokens)
+    M4-I02  Implementar AuthMiddleware (filtro JWT en requests)
+    M4-I03  Endpoint POST /api/auth/login con validacion BCrypt
+    M4-I04  Roles: ADMINISTRADOR, PORTERO, RESIDENTE con permisos diferenciados
+    M4-I05  Proteger endpoints segun rol (middleware por ruta)
+    M4-I06  Hash de contraseñas con BCrypt (factor >= 12)
+    M4-I07  SesionUsuario — almacenar usuario autenticado en memoria
+    M4-I08  Renovacion de token (refresh)
+
+  Criterios de aceptacion:
+    - Sin token valido, todas las rutas /api/* devuelven 401
+    - Cada rol solo accede a sus endpoints autorizados
+    - Passwords almacenadas como hash BCrypt
+
+
+================================================================================
+  MILESTONE 5: QR Y ACCESOS — Sistema de visitas con QR
+================================================================================
+  Objetivo: Flujo completo residente genera QR -> portero escanea -> acceso.
+
+  Issues:
+    M5-I01  Integrar ZXing (GeneradorQR.java) para crear QR en PNG
+    M5-I02  Flujo residente: crear visita + generar QR
+    M5-I03  Flujo portero: escanear QR (camara o subir imagen)
+    M5-I04  Validar QR: verificar expiracion, no usado, visita activa
+    M5-I05  TOCTOU: UPDATE atomico marca QR como usado (usado=0 -> usado=1)
+    M5-I06  Registrar acceso fisico (hora entrada) al validar QR
+    M5-I07  Registrar salida del visitante (hora_salida)
+    M5-I08  1:1 QR_ACCESOS -> VISITAS garantizado por UNIQUE
+    M5-I09  Tiempo de validez configurable (5-60 min) por visita
+    M5-I10  Almacenar documento del visitante con key doc_visitante_<id>
+           + doc_<qr> para persistencia entre renovaciones
+
+  Criterios de aceptacion:
+    - Residente genera QR valido desde su dashboard
+    - Portero escanea QR y marca como usado (1 solo uso)
+    - QR expirado es rechazado
+    - Se registra entrada y salida en REGISTROS_ACCESO
+
+
+================================================================================
+  MILESTONE 6: PAGOS Y ALERTAS — Modulo financiero
+================================================================================
+  Objetivo: Gestion de cuotas, pagos parciales, alertas de vencimiento.
+
+  Issues:
+    M6-I01  Generacion automatica de cuotas al activar contrato (via servicio)
+    M6-I02  CRUD de cuotas con estados: PENDIENTE, PAGADA, VENCIDA, EN_MORA
+    M6-I03  Soporte de pagos parciales (varios pagos por cuota)
+    M6-I04  Calculo automatico de mora (porcentaje_mora del contrato)
+    M6-I05  Trigger BD: TRG_CUOTAS_UPD recalcula valor_total
+    M6-I06  Alertas de pago: generar alerta al crear cuota
+    M6-I07  Alertas de vencimiento: PROXIMO_VENCIMIENTO, VENCIDA, EN_MORA
+    M6-I08  Indice unico funcional evita alertas duplicadas por dia
+    M6-I09  NotificacionService (email/sms/whatsapp — placeholder)
+
+  Criterios de aceptacion:
+    - Crear contrato genera cuotas automaticamente
+    - Pagar parcialmente una cuota actualiza su estado correctamente
+    - Alertas se generan sin duplicados diarios
+
+
+================================================================================
+  MILESTONE 7: JAVAFX DESKTOP — GUI alternativa
+================================================================================
+  Objetivo: Aplicacion de escritorio con las mismas funcionalidades que la web.
+
+  Issues:
+    M7-I01  Configurar JavaFX con Maven (javafx-maven-plugin)
+    M7-I02  Implementar LoginController + Login.fxml
+    M7-I03  Vista Dashboard (DashboardController + Dashboard.fxml)
+    M7-I04  Vista Apartamentos (ApartamentoController + Apartamentos.fxml)
+    M7-I05  Vista Residentes (ResidenteController + Residentes.fxml)
+    M7-I06  Vista Contratos (ContratoController + Contratos.fxml)
+    M7-I07  Vista Pagos (PagoController + Pagos.fxml)
+    M7-I08  Vista Parqueaderos (ParqueaderoController + Parqueaderos.fxml)
+    M7-I09  Vista Usuarios (UsuarioController + Usuarios.fxml)
+    M7-I10  Vista RegistroVisitas (VisitaController + RegistroVisitas.fxml)
+    M7-I11  Vista EscannerQR (EscannerQRController + EscannerQR.fxml)
+    M7-I12  Vista ResidenteDashboard (ResidenteDashboardController + .fxml)
+    M7-I13  Vista AlertasPago (AlertasPagoController + AlertasPago.fxml)
+
+  Criterios de aceptacion:
+    - Las 12 vistas cargan sin errores
+    - CRUD desde JavaFX contra la BD (no via API)
+    - Login con JWT + BCrypt
+
+
+================================================================================
+  MILESTONE 8: DESPLIEGUE Y DOCUMENTACION — Puesta en produccion
+================================================================================
+  Objetivo: Documentacion completa, scripts de deploy, plan de GitHub.
+
+  Issues:
+    M8-I01  Documentar plan de trabajo (este archivo) para GitHub Projects
+    M8-I02  Crear README.md con instrucciones de instalacion y uso
+    M8-I03  Scripts de inicio/parada (iniciar-servidor.vbs, detener-servidor.vbs)
+    M8-I04  Configurar .gitignore para excluir bd.properties, target/, .idea/
+    M8-I05  Migrar credenciales de bd.properties a variables de entorno
+    M8-I06  Pool de conexiones en lugar de singleton (HikariCP o similar)
+    M8-I07  Pruebas de integracion Backend + Frontend + BD
+    M8-I08  Verificar que todos los MIME types esten configurados (PDF, imagenes)
+    M8-I09  Auditoria de seguridad: revisar credenciales hardcodeadas
+    M8-I10  ALTER TABLE APARTAMENTOS ADD activo NUMBER(1) DEFAULT 1 NOT NULL
+    M8-I11  Verificar compilacion con JDK compatible (javac sin errores de modulo)
+
+  Criterios de aceptacion:
+    - README documenta instalacion completa
+    - Scripts de deploy funcionales en Windows
+    - Sin credenciales hardcodeadas en el codigo
+    - Compilacion exitosa con Maven
+
+
+================================================================================
+  DEPENDENCIAS ENTRE MILESTONES
+================================================================================
+  M1 (Fundacion) es prerequisito de todo lo demas.
+  M2 (API REST) es prerequisito de M3 (Frontend Web).
+  M4 (Seguridad) puede ejecutarse en paralelo con M3.
+  M5 (QR y Accesos) depende de M2 + M3 + M4.
+  M6 (Pagos y Alertas) depende de M2 + M3.
+  M7 (JavaFX) puede ejecutarse en paralelo con M3..M6.
+  M8 (Despliegue) depende de M1..M7.
+
+
+================================================================================
+  ETIQUETAS SUGERIDAS PARA GITHUB ISSUES
+================================================================================
+  tipo:bug              — Error en funcionalidad existente
+  tipo:mejora           — Mejora o refactor
+  tipo:feature           — Nueva funcionalidad
+  tipo:documentacion     — Documentacion
+  tipo:seguridad         — Parche de seguridad
+  prioridad:alta         — Bloqueante o critico
+  prioridad:media        — Importante pero no urgente
+  prioridad:baja         — Nice to have
+  area:backend           — Java / API
+  area:frontend          — Web SPA
+  area:javafx            — Desktop GUI
+  area:bd                — Base de datos
+  area:devops            — Despliegue / CI
+  estado:bloqueado       — Depende de otro issue
+  estado:en-progreso     — En desarrollo
+  estado:revision        — Esperando revision
+
+
+================================================================================
+  FLUJO DE TRABAJO RECOMENDADO (Git Flow simplificado)
+================================================================================
+  Rama principal:
+    main          — Codigo estable en produccion
+
+  Ramas de desarrollo:
+    develop       — Integracion de cambios
+    feature/*     — Nuevas funcionalidades (ej. feature/pagos-parciales)
+    fix/*         — Correccion de bugs (ej. fix/qr-toctou)
+    docs/*        — Documentacion (ej. docs/modelo-relacional)
+
+  Proceso:
+    1. Crear issue en GitHub Projects
+    2. Crear rama desde develop: feature/nombre-corto
+    3. Desarrollar y hacer commits individuales por cambio
+    4. Abrir Pull Request a develop
+    5. Revisar y mergear
+    6. Al alcanzar un hito, mergear develop a main
+
+
+================================================================================
+  COMMITS RECOMENDADOS POR CAMBIO (no agrupar)
+================================================================================
+  Cada cambio debe tener su propio commit con mensaje descriptivo:
+
+  Formato: tipo(area): mensaje en espanol imperativo
+
+  Ejemplos:
+    feat(bd): agregar tabla ALERTAS_PAGO con FK a CUOTAS_ARRIENDO
+    feat(api): implementar endpoint POST /api/pagos con validacion
+    feat(frontend): agregar columna Arrendatario en tabla contratos
+    fix(backend): corregir TOCTOU en marcado de QR como usado
+    fix(frontend): mostrar fallback embed para PDF en escaner QR
+    refactor(dao): extraer metodo findByContrato en CuotaArriendoDAO
+    docs: agregar modelo relacional con 18 tablas y 28 relaciones
+
+
+================================================================================
+  FIN DEL PLAN DE TRABAJO
+================================================================================

@@ -1,0 +1,577 @@
+================================================================================
+        SAED - SISTEMA DE ADMINISTRACION DE EDIFICIO RESIDENCIAL
+              RESUMEN TECNICO COMPLETO DEL PROYECTO
+================================================================================
+
+INDICE
+------
+1. Vision General del Proyecto
+2. Arquitectura y Stack Tecnologico
+3. Bibliotecas y Dependencias Externas
+4. Sistema de Autenticacion y Roles
+5. Modulo de Visitas y Codigos QR
+6. Modulo de Contratos (explicacion completa)
+7. Modulo de Reportes y Exportacion a Excel
+8. Notificaciones: Email, Telegram y SMS
+9. Endpoints REST de la API (resumen completo)
+10. Estructura de Base de Datos Oracle XE
+
+
+================================================================================
+1. VISION GENERAL DEL PROYECTO
+================================================================================
+
+SAED es una aplicacion web de pagina unica (SPA) para la administracion integral
+de un edificio residencial. Permite gestionar residentes, apartamentos, contratos,
+pagos, visitas con codigo QR, parqueaderos, paquetes de porteria, multas, avisos
+y solicitudes, todo desde una sola interfaz accesible segun el rol del usuario.
+
+Roles del sistema:
+  - ADMINISTRADOR : acceso total a todos los modulos
+  - PORTERO       : control de acceso, visitas, paquetes, parqueaderos (lectura)
+  - RESIDENTE     : portal personal, cuotas, visitas propias, buzon, multas
+
+Servidores en ejecucion:
+  - Servidor Node.js  (puerto 3000): sirve el frontend estatico y actua como proxy
+    inverso hacia el backend Java
+  - Servidor Java     (puerto 8080): API REST con sun.net.httpserver (JDK nativo)
+  - Base de datos     Oracle XE 18c: esquema RESIDENCIAL, servicio xepdb1
+
+
+================================================================================
+2. ARQUITECTURA Y STACK TECNOLOGICO
+================================================================================
+
+FRONTEND
+--------
+  - HTML5 / CSS3 / JavaScript vanilla (sin framework)
+  - Arquitectura SPA: una sola pagina (index.html), navegacion por Router.js
+  - Cada modulo es un archivo JS independiente en frontend/js/pages/
+  - Comunicacion con API via fetch() envolviendo el modulo API.js
+  - Tokens JWT almacenados en sessionStorage bajo la clave "auth_token"
+  - Acceso al token: Auth.getToken()
+
+BACKEND
+-------
+  - Java 17 con servidor HTTP nativo (com.sun.net.httpserver)
+  - Sin Spring, sin Jakarta EE; todo implementado manualmente
+  - JDBC directo con Oracle JDBC (ojdbc11 23.3.0)
+  - Patron DAO para acceso a datos
+  - Patron Service para logica de negocio
+  - Handlers REST en src/main/java/com/edificio/admin/rest/handler/
+
+PROXY NODE.JS (server.js)
+-------------------------
+  - Sin dependencias npm (solo modulos nativos: http, fs, path)
+  - Puerto 3000: sirve archivos estaticos del frontend
+  - Reenvio de peticiones /api/* al backend en puerto 8080
+  - Propaga el JWT desde query string o header Authorization
+  - Maneja nombres de archivo con espacios usando decodeURIComponent()
+
+BASE DE DATOS
+-------------
+  - Oracle XE 18c, esquema RESIDENCIAL
+  - 19 tablas, secuencias y triggers de auditoria
+  - Archivo de referencia: database/modelo_relacional_v4.sql
+
+
+================================================================================
+3. BIBLIOTECAS Y DEPENDENCIAS EXTERNAS
+================================================================================
+
+BACKEND (pom.xml)
+-----------------
+  Biblioteca              | Coordenadas Maven                          | Version
+  ------------------------|--------------------------------------------|---------
+  Oracle JDBC             | com.oracle.database.jdbc:ojdbc11           | 23.3.0.23.09
+  BCrypt (contrasenas)    | org.mindrot:jbcrypt                        | 0.4
+  Gson (JSON)             | com.google.code.gson:gson                  | 2.10.1
+  ZXing Core (QR)         | com.google.zxing:core                      | 3.5.2
+  ZXing JavaSE (QR)       | com.google.zxing:javase                    | 3.5.2
+  Flying Saucer / XHTML   | com.openhtmltopdf / org.xhtmlrenderer      | (PDF)
+  JDK HTTP Server         | com.sun.net.httpserver                     | JDK 17 nativo
+
+FRONTEND (CDN en index.html)
+----------------------------
+  Biblioteca              | Fuente / CDN
+  ------------------------|-----------------------------------------------------
+  Tailwind CSS            | https://cdn.tailwindcss.com?plugins=forms,container-queries
+  Google Fonts            | Plus Jakarta Sans, JetBrains Mono
+  Material Symbols        | https://fonts.googleapis.com (iconos outlined)
+  QRCode.js               | CDN - genera imagenes QR en el navegador (canvas)
+  jsQR                    | CDN - decodifica QR desde ImageData del canvas
+
+APIs EXTERNAS USADAS
+--------------------
+  API / Servicio          | Usado? | Detalle
+  ------------------------|--------|--------------------------------------------
+  Oracle DB (JDBC local)  | SI     | Conexion directa jdbc:oracle:thin al esquema RESIDENCIAL
+  SendGrid / SES          | NO     | Email abre cliente de correo local via mailto:
+  Twilio / Vonage (SMS)   | NO     | SMS copia texto al portapapeles del sistema
+  Telegram Bot API        | NO     | Telegram abre enlace t.me/share en el navegador
+  AWS / Firebase / Azure  | NO     | Ningun servicio en la nube
+  Google Maps / Geoloc.   | NO     | No usado
+
+
+================================================================================
+4. SISTEMA DE AUTENTICACION Y ROLES
+================================================================================
+
+  - Endpoint de login: POST /api/auth/login
+    Body: { "username": "...", "password": "..." }
+    Respuesta: { "token": "JWT...", "rol": "ADMINISTRADOR|PORTERO|RESIDENTE", ... }
+
+  - El token JWT se guarda en sessionStorage["auth_token"]
+  - Cada peticion a /api/* incluye el header: Authorization: Bearer <token>
+  - El backend valida el token en cada handler y extrae el rol desde los claims
+  - Las operaciones de escritura (POST, PUT, DELETE) verifican que el rol sea
+    ADMINISTRADOR antes de ejecutar la operacion
+
+  - Contrasenas almacenadas con BCrypt (jbcrypt 0.4), nunca en texto plano
+
+
+================================================================================
+5. MODULO DE VISITAS Y CODIGOS QR
+================================================================================
+
+FLUJO COMPLETO DE VISITAS
+--------------------------
+
+  1. RESIDENTE o ADMINISTRADOR registra una visita:
+       POST /api/visitas
+       Body: { idResidente, nombreVisitante, docVisitante, fechaVisita, ... }
+
+  2. El backend (VisitaService.java) crea el registro en la tabla VISITAS y
+     genera automaticamente un codigo QR unico.
+
+GENERACION DEL CODIGO QR (backend - GeneradorQR.java)
+------------------------------------------------------
+  Biblioteca: Google ZXing 3.5.2 (com.google.zxing:core + :javase)
+
+  Tipos de codigos generados:
+    - QR general       : "QR-" + UUID(8 chars) + "-" + content.hashCode()
+    - Acceso temporal  : "ACC-" + identificacion + "-" + timestamp
+    - Invitacion       : "INV-" + doc + "-" + apt + "-" + timestamp
+
+  Proceso tecnico:
+    1. QRCodeWriter.encode(texto, BarcodeFormat.QR_CODE, 300, 300, hints)
+       hints: charset=UTF-8, margen=1
+    2. Se obtiene una BitMatrix de 300x300 pixeles
+    3. MatrixToImageWriter convierte la BitMatrix a imagen PNG en base64
+    4. El codigo QR (texto) se guarda en la tabla QR_ACCESOS
+
+  Tabla DB: QR_ACCESOS
+    Columnas: id_qr, id_visita, codigo_qr, fecha_expiracion, usado,
+              fecha_uso, id_vigilante_uso
+
+VISUALIZACION DEL QR (frontend - visitas.js / residente-dashboard.js)
+----------------------------------------------------------------------
+  Biblioteca: QRCode.js (CDN)
+  Uso: new QRCode(elemento, { text: codigoQr, width: 220, height: 220 })
+  El codigo recibido del backend se renderiza como imagen QR en el navegador.
+
+ESCANEO Y VALIDACION DEL QR (frontend - escanner-qr.js)
+--------------------------------------------------------
+  Biblioteca: jsQR (CDN)
+
+  Dos modos de escaneo:
+    a) Camara en vivo:
+       - getUserMedia() abre la camara del dispositivo
+       - Captura frames con <video> + <canvas>
+       - requestAnimationFrame() ejecuta jsQR(imageData, width, height) en bucle
+       - Cuando jsQR detecta un QR, retorna el texto decodificado
+
+    b) Subir imagen:
+       - <input type="file"> acepta imagenes
+       - Se dibuja en un canvas y se decodifica con jsQR
+
+  Validacion del QR:
+    - Al detectar el codigo: POST /api/qr/validar { codigoQr: "..." }
+    - El handler (QrHandler.java) busca el codigo en QR_ACCESOS
+    - Llama al procedimiento almacenado Oracle: SP_VALIDAR_QR
+    - El SP verifica: existencia, no usado, no expirado y registra el uso atomicamente
+    - Respuesta: { valido: true/false, mensaje, datosVisita }
+
+
+================================================================================
+6. MODULO DE CONTRATOS (EXPLICACION COMPLETA)
+================================================================================
+
+ESTRUCTURA DE LA BASE DE DATOS
+--------------------------------
+
+Tabla CONTRATOS (columnas principales):
+  id_contrato        NUMBER PK  (secuencia SEC_CONTRATOS)
+  id_apartamento     NUMBER FK  -> APARTAMENTOS (obligatorio)
+  id_tutor           NUMBER FK  -> TUTORES (solo si el residente es menor de edad)
+  id_registrado_por  NUMBER FK  -> USUARIOS (admin que creo el contrato)
+  fecha_inicio       DATE       (obligatorio)
+  fecha_fin          DATE       (NULL = contrato indefinido / PERMANENCIA)
+  valor_mensual      NUMBER(12,2) (canon de arriendo en COP, debe ser > 0)
+  dia_pago           NUMBER(2)  DEFAULT 5  (dia del mes en que vence el pago)
+  dias_gracia        NUMBER(2)  DEFAULT 5  (dias antes de aplicar mora)
+  porcentaje_mora    NUMBER(5,2) DEFAULT 1.5 (% mensual sobre saldo vencido)
+  tipo_contrato      VARCHAR2   INICIAL | RENOVACION | PERMANENCIA
+  contrato_pdf_url   VARCHAR2   (URL del PDF firmado, puede ser nulo)
+  estado             VARCHAR2   PENDIENTE_FIRMA | ACTIVO | VENCIDO | CANCELADO | SUSPENDIDO
+  observaciones      VARCHAR2   (notas del administrador)
+  fecha_registro     TIMESTAMP  DEFAULT SYSTIMESTAMP
+  actualizado_en     TIMESTAMP  (mantenido por trigger TRG_CONTRATOS_UPD)
+
+  Restriccion UNICA a nivel DB:
+    CREATE UNIQUE INDEX UIX_CONT_APT_ACTIVO ON CONTRATOS (
+        CASE WHEN estado = 'ACTIVO' THEN id_apartamento ELSE NULL END
+    );
+    -> Solo puede existir UN contrato ACTIVO por apartamento a la vez.
+
+Tabla CONTRATO_RESIDENTE (tabla puente N:M):
+  id_contrato_res    NUMBER PK
+  id_contrato        NUMBER FK -> CONTRATOS (ON DELETE CASCADE)
+  id_residente       NUMBER FK -> RESIDENTES
+  rol_en_contrato    VARCHAR2   ARRENDATARIO | CODEUDOR | RESIDENTE_MENOR | OTRO
+
+  Un contrato puede tener multiples personas vinculadas con distintos roles.
+  La consulta de "residente del contrato" filtra siempre por rol = 'ARRENDATARIO'.
+
+AUTOCOMPLETADO DEL FORMULARIO (frontend - contratos.js)
+--------------------------------------------------------
+
+El formulario de nuevo contrato tiene tres mecanismos de autocompletado:
+
+  1. SUGERENCIA DE TIPO DE CONTRATO (al seleccionar apartamento)
+     - onchange del select de apartamento llama a Contratos.sugerirTipo()
+     - Hace GET /api/contratos/sugerir-tipo/{idApartamento}
+     - El backend (ContratoSuggestionService.java) revisa el historial del apartamento:
+         0 contratos exitosos previos -> sugiere INICIAL  (3 meses)
+         1 contrato exitoso previo    -> sugiere RENOVACION (6 meses)
+         2 o mas contratos exitosos   -> sugiere PERMANENCIA (sin fecha fin)
+     - El tipo sugerido se aplica automaticamente al dropdown
+     - Se muestra una etiqueta visible: "Tipo sugerido: INICIAL" (por ejemplo)
+
+  2. CALCULO AUTOMATICO DE FECHA FIN (al cambiar tipo o fecha inicio)
+     - La funcion calcularFechaFin() se ejecuta en cada cambio
+     - Logica segun tipo de contrato:
+         INICIAL     -> fecha_fin = fecha_inicio + 3 meses  (campo habilitado)
+         RENOVACION  -> fecha_fin = fecha_inicio + 6 meses  (campo habilitado)
+         PERMANENCIA -> fecha_fin = vacio, campo DESHABILITADO
+                        placeholder: "Sin fecha de vencimiento"
+     - El calculo es en JavaScript puro: new Date().setMonth(m + meses)
+
+  3. AUTOCOMPLETADO DE TUTOR (si el residente es menor de edad)
+     - onchange del select de residente llama a Contratos.chequearResidenteMenor()
+     - Hace GET /api/residentes/{id} para obtener datos completos del residente
+     - Si residente.esMenorEdad === true y tiene tutor asignado:
+         * Se muestra un panel "Informacion del Tutor" (antes oculto)
+         * Se autocompleta: nombre completo, parentesco, numero de documento
+         * El idTutor se guarda para enviarse con el formulario al guardar
+
+  Adicionalmente, al abrir el formulario:
+  - GET /api/apartamentos filtra automaticamente los que tengan estado != 'OCUPADO'
+  - GET /api/residentes carga todos los residentes en el dropdown
+  Solo se muestran apartamentos disponibles para evitar conflictos de contrato.
+
+CICLO DE VIDA DEL CONTRATO
+---------------------------
+
+  Estado inicial al crear: PENDIENTE_FIRMA
+
+  Transiciones permitidas:
+    PENDIENTE_FIRMA -> ACTIVO      (admin hace clic en "Activar")
+    ACTIVO          -> CANCELADO   (admin hace clic en "Cancelar")
+    ACTIVO          -> VENCIDO     (automatico por fecha_fin o por proceso batch)
+    ACTIVO          -> SUSPENDIDO  (accion administrativa especial)
+    VENCIDO         -> ACTIVO      (admin hace clic en "Renovar", con nuevas fechas)
+    Cualquier estado -> CANCELADO  (soft-delete, nunca se borra fisicamente)
+
+  Sincronizacion con el apartamento (ContratoService.java):
+    - Al ACTIVAR  un contrato -> apartamento.estado = OCUPADO
+    - Al CANCELAR un contrato -> apartamento.estado = DISPONIBLE
+    - Al RENOVAR  un contrato -> apartamento.estado = OCUPADO
+
+VALIDACIONES (doble capa: frontend + backend)
+---------------------------------------------
+
+  Frontend (contratos.js):
+    - Apartamento obligatorio
+    - Residente obligatorio
+    - Fecha de inicio obligatoria
+    - Fecha de inicio no puede ser anterior a hoy
+    - Valor mensual obligatorio y mayor a 0
+    - Si tipo != PERMANENCIA: fecha_fin debe ser posterior a fecha_inicio
+
+  Backend (ContratoService.validar + ContratoValidatorService):
+    - Apartamento debe existir en DB
+    - Apartamento no puede estar en estado OCUPADO
+    - Fecha de inicio no puede ser anterior a hoy
+    - Valor mensual debe ser > 0
+    - Fecha fin (si no es PERMANENCIA) debe ser posterior a fecha inicio
+
+ENDPOINTS REST DE CONTRATOS
+----------------------------
+
+  GET  /api/contratos                              Lista todos los contratos
+  GET  /api/contratos/{id}                         Obtiene un contrato por ID
+  GET  /api/contratos/sugerir-tipo/{idApartamento} Sugiere tipo segun historial
+  GET  /api/contratos/{id}/pdf                     Descarga PDF binario del contrato
+  POST /api/contratos                              Crea nuevo contrato (solo ADMIN)
+       Body: { idApartamento, idResidente, idTutor?, tipoContrato?,
+               fechaInicio, fechaFin?, valorMensual, notas? }
+  POST /api/contratos/{id}/activar                 Activa contrato (solo ADMIN)
+  POST /api/contratos/{id}/cancelar                Cancela contrato (solo ADMIN)
+  POST /api/contratos/{id}/renovar                 Renueva contrato (solo ADMIN)
+       Body: { fechaInicio, fechaFin }
+  DELETE /api/contratos/{id}                       Cancela contrato (soft-delete)
+
+GENERACION DE PDF DEL CONTRATO
+-------------------------------
+
+  Flujo:
+    1. Frontend llama GET /api/contratos/{id}/pdf con JWT en el header
+    2. ContratoHandler invoca ContratoService.obtenerDetalleParaPDF(id)
+    3. Se carga un DTO con 52 campos: datos del residente, apartamento,
+       parqueadero asignado, tutor (si aplica), terminos financieros,
+       datos del edificio y configuracion segun tipo de contrato
+    4. TemplateRenderService elige la plantilla HTML segun tipo:
+         - contrato_inicial.html      (INICIAL, incluye clausula de prueba)
+         - contrato_renovacion.html   (RENOVACION)
+         - contrato_permanencia.html  (PERMANENCIA, sin fecha de fin)
+    5. Se reemplazan marcadores {{variable}} con los valores reales del DTO
+    6. Flying Saucer/OpenHTMLtoPDF convierte el XHTML a bytes PDF
+    7. El backend responde con Content-Type: application/pdf
+    8. El frontend crea un Blob, genera una URL temporal y fuerza la descarga:
+       contrato_{id}.pdf
+
+  Nota tecnica: las plantillas NO usan display:flex ni display:grid
+  por incompatibilidad con Flying Saucer 1.0.10. Se usa layout de tabla CSS.
+
+  Informacion del tutor aparece en el PDF unicamente si el residente
+  es menor de edad (seccion de firma del tutor legal).
+
+
+================================================================================
+7. MODULO DE REPORTES Y EXPORTACION A EXCEL
+================================================================================
+
+  Modulo: Historial de Visitas (frontend/js/pages/historial-visitas.js)
+  Funcion: exportarExcel() (lineas aproximadas 270-310)
+
+  IMPORTANTE: No se usa ninguna biblioteca externa (no SheetJS, no ExcelJS).
+  La exportacion se hace con HTML puro que Excel puede abrir.
+
+  Proceso tecnico:
+    1. Se construye un string HTML con encabezado de hoja de calculo Microsoft:
+         xmlns:x="urn:schemas-microsoft-com:office:excel"
+         <!--[if gte mso 9]><xml><x:ExcelWorkbook>...</xml><![endif]-->
+    2. Se genera una tabla HTML con los registros filtrados actualmente visibles
+       (respeta los filtros de fecha y texto aplicados en pantalla)
+    3. Columnas incluidas: Fecha, Apartamento, Residente, Visitante, Documento,
+       Vehiculo, Placa, Hora Entrada, Hora Salida, Estado
+    4. new Blob([htmlExcel], { type: 'application/vnd.ms-excel' })
+    5. URL.createObjectURL(blob) -> se hace clic programatico en un <a>
+    6. Archivo descargado: historial-visitas.xls
+
+  Los filtros disponibles antes de exportar:
+    - Rango de fechas (fecha inicio / fecha fin)
+    - Busqueda por texto libre (nombre visitante, residente, apartamento, placa)
+    - La exportacion refleja exactamente lo que se ve en pantalla
+
+
+================================================================================
+8. NOTIFICACIONES: EMAIL, TELEGRAM Y SMS
+================================================================================
+
+  Implementacion: NotificacionService.java
+  Bibliotecas usadas: NINGUNA externa. Solo java.awt.Desktop y java.awt.Toolkit (JDK 17)
+  No hay integracion con Twilio, SendGrid, Firebase, AWS SNS ni ninguna API cloud.
+
+  EMAIL
+  -----
+    Metodo: compartirPorCorreo()
+    Mecanismo:
+      1. Se construye una URI con esquema mailto:
+         "mailto:" + destinatario + "?subject=" + asuntoEncoded + "&body=" + cuerpoEncoded
+      2. Desktop.getDesktop().mail(uri) -> abre el cliente de correo local del SO
+         (Outlook, Thunderbird, etc.)
+      3. El usuario ve el correo prellenado y hace clic en Enviar manualmente
+    Limitacion: requiere que el SO tenga un cliente de correo configurado.
+    No envio automatico ni en segundo plano.
+
+  TELEGRAM
+  --------
+    Metodo: compartirPorTelegram()
+    Mecanismo:
+      1. Se construye la URL del boton de compartir oficial de Telegram:
+         "https://t.me/share/url?url=" + urlEncoded + "&text=" + textoEncoded
+      2. Desktop.getDesktop().browse(uri) -> abre Telegram Desktop o el navegador
+      3. Telegram muestra el dialogo de reenvio con el texto prellenado
+    No se usa el Bot API ni ningun token de bot. Es el enlace publico de compartir.
+
+  SMS
+  ---
+    Metodo: compartirPorSMS()
+    Mecanismo:
+      1. Se copia el codigo QR (o el texto del mensaje) al portapapeles del sistema:
+         Toolkit.getDefaultToolkit().getSystemClipboard()
+             .setContents(new StringSelection(codigoQR), null)
+      2. Se muestra al portero el numero de telefono del residente en pantalla
+      3. El portero abre manualmente su app de mensajes y pega el codigo
+    Limitacion: NO es envio automatico de SMS. Es un flujo asistido manualmente.
+    No hay ninguna integracion con operadoras ni APIs de mensajeria.
+
+  RESUMEN DE LIMITACIONES
+  -----------------------
+  Los tres mecanismos de "compartir" son flujos asistidos que dependen de
+  accion manual del operador. No existe envio automatico de ninguna notificacion
+  a traves de servicios externos. Esto es una decision de diseno intencional
+  para evitar costos de APIs externas en el entorno academico del proyecto.
+
+
+================================================================================
+9. ENDPOINTS REST DE LA API (RESUMEN COMPLETO)
+================================================================================
+
+  Prefijo base: /api  (proxy Node.js reenvía /api/* al backend Java en :8080)
+
+  AUTENTICACION
+    POST   /api/auth/login           Inicio de sesion, retorna JWT
+
+  RESIDENTES
+    GET    /api/residentes           Lista todos los residentes
+    GET    /api/residentes/{id}      Obtiene residente por ID (incluye tutor si es menor)
+    POST   /api/residentes           Crea residente (ADMIN)
+    PUT    /api/residentes/{id}      Actualiza residente (ADMIN)
+    DELETE /api/residentes/{id}      Elimina residente (ADMIN)
+
+  APARTAMENTOS
+    GET    /api/apartamentos         Lista todos los apartamentos
+    GET    /api/apartamentos/{id}    Obtiene apartamento por ID
+    POST   /api/apartamentos         Crea apartamento (ADMIN)
+    PUT    /api/apartamentos/{id}    Actualiza apartamento (ADMIN)
+    DELETE /api/apartamentos/{id}    Elimina apartamento (ADMIN)
+
+  CONTRATOS
+    GET    /api/contratos                              Lista contratos (JOIN residente+apto)
+    GET    /api/contratos/{id}                         Obtiene contrato por ID
+    GET    /api/contratos/sugerir-tipo/{idApartamento} Sugerencia de tipo segun historial
+    GET    /api/contratos/{id}/pdf                     Descarga PDF del contrato
+    POST   /api/contratos                              Crea contrato (ADMIN)
+    POST   /api/contratos/{id}/activar                 Activa contrato (ADMIN)
+    POST   /api/contratos/{id}/cancelar                Cancela contrato (ADMIN)
+    POST   /api/contratos/{id}/renovar                 Renueva contrato vencido (ADMIN)
+    DELETE /api/contratos/{id}                         Soft-delete = cancelar (ADMIN)
+
+  PAGOS
+    GET    /api/pagos                Lista pagos (con filtros opcionales)
+    GET    /api/pagos/{id}           Obtiene pago por ID
+    POST   /api/pagos                Registra pago (ADMIN)
+    PUT    /api/pagos/{id}           Actualiza pago (ADMIN)
+    DELETE /api/pagos/{id}           Elimina pago (ADMIN)
+
+  VISITAS
+    GET    /api/visitas              Lista visitas (con filtros de fecha, etc.)
+    GET    /api/visitas/{id}         Obtiene visita por ID
+    POST   /api/visitas              Registra nueva visita + genera QR
+    PUT    /api/visitas/{id}         Actualiza visita
+    DELETE /api/visitas/{id}         Elimina visita
+
+  CODIGOS QR
+    POST   /api/qr/validar           Valida un codigo QR escaneado
+                                     Body: { codigoQr: "ACC-..." }
+                                     Llama al SP Oracle SP_VALIDAR_QR
+
+  PARQUEADEROS
+    GET    /api/parqueaderos         Lista parqueaderos
+    GET    /api/parqueaderos/{id}    Obtiene parqueadero por ID
+    POST   /api/parqueaderos         Crea parqueadero (ADMIN)
+    PUT    /api/parqueaderos/{id}    Actualiza parqueadero (ADMIN)
+    DELETE /api/parqueaderos/{id}    Elimina parqueadero (ADMIN)
+
+  USUARIOS
+    GET    /api/usuarios             Lista usuarios del sistema (ADMIN)
+    POST   /api/usuarios             Crea usuario (ADMIN)
+    PUT    /api/usuarios/{id}        Actualiza usuario (ADMIN)
+    DELETE /api/usuarios/{id}        Elimina usuario (ADMIN)
+
+  BUZON / MENSAJES
+    GET    /api/buzon                Lista mensajes del buzon del residente logueado
+    POST   /api/buzon/leido/{id}     Marca mensaje como leido
+    GET    /api/buzon/paquetes       PORTERO: paquetes pendientes | ADMIN: todos con nombre
+    POST   /api/buzon/paquetes       Registra nuevo paquete (PORTERO)
+
+  AVISOS
+    GET    /api/avisos               Lista avisos
+    POST   /api/avisos               Crea aviso masivo (ADMIN)
+
+  QUEJAS / SOLICITUDES
+    GET    /api/quejas               Lista quejas (ADMIN: todas; RESIDENTE: las propias)
+    POST   /api/quejas               Crea queja o apelacion (RESIDENTE)
+    PUT    /api/quejas/{id}          Responde/gestiona queja (ADMIN)
+
+  MULTAS
+    GET    /api/multas               Lista multas (ADMIN: todas; RESIDENTE: las propias)
+    GET    /api/multas/{id}          Obtiene detalle de multa (incluye foto, hora aviso)
+    POST   /api/multas               Genera multa (PORTERO/ADMIN)
+    PUT    /api/multas/{id}          Actualiza estado multa (ADMIN)
+    POST   /api/multas/{id}/notificar Notifica multa al residente
+
+  ALERTAS
+    GET    /api/alertas              Lista alertas activas del sistema
+
+  DASHBOARD
+    GET    /api/dashboard/stats      Estadisticas generales (ADMIN)
+
+
+================================================================================
+10. ESTRUCTURA DE BASE DE DATOS ORACLE XE
+================================================================================
+
+  Esquema: RESIDENCIAL | Servicio: xepdb1 | Password: Residencial2024#
+  Archivo de referencia canonico: database/modelo_relacional_v4.sql (version 4.3)
+
+  TABLAS PRINCIPALES (19 en total):
+
+  USUARIOS            id_usuario, username, password_hash, rol, activo
+  RESIDENTES          id_residente, nombres, apellidos, numero_documento,
+                      tipo_documento, email, telefono, fecha_nacimiento,
+                      es_menor_edad, id_tutor_fk, id_usuario_fk
+  TUTORES             id_tutor, nombres, apellidos, numero_documento,
+                      parentesco, telefono, email
+  APARTAMENTOS        id_apartamento, numero, piso, tipo, area,
+                      capacidad_maxima, estado, administracion
+  CONTRATOS           (ver seccion 6 para detalle completo)
+  CONTRATO_RESIDENTE  id_contrato_res, id_contrato, id_residente, rol_en_contrato
+  PAGOS               id_pago, id_contrato, fecha_pago, valor, tipo_pago,
+                      concepto, referencia, estado
+  PARQUEADEROS        id_parqueadero, numero, tipo, estado, id_apartamento_fk
+  VISITAS             id_visita, id_residente, nombre_visitante, doc_visitante,
+                      tiene_vehiculo, placa, fecha_visita, hora_entrada,
+                      hora_salida, estado, id_portero
+  QR_ACCESOS          id_qr, id_visita, codigo_qr, fecha_expiracion,
+                      usado, fecha_uso, id_vigilante_uso
+  BUZON               id_buzon, id_residente, tipo (AVISO/PAQUETE/QUEJA_RUIDO),
+                      asunto, mensaje, leido, fecha_creacion
+  PAQUETES            id_paquete, id_residente, descripcion, fecha_recepcion,
+                      entregado, fecha_entrega, id_portero
+  MULTAS              id_multa, id_residente, tipo (PARQUEADERO/RUIDO), monto,
+                      descripcion, estado, fecha_creacion, id_portero,
+                      id_buzon_aviso_fk, foto_evidencia
+  AVISOS              id_aviso, asunto, mensaje, fecha_creacion, id_usuario_creador
+  QUEJAS              id_queja, id_residente, tipo, descripcion, estado,
+                      respuesta, fecha_creacion, fecha_respuesta
+  ALERTAS             id_alerta, tipo, mensaje, nivel, resuelta, fecha_creacion
+  VISITANTES_FREC     id_visitante_frec, id_residente, nombre, documento,
+                      telefono, activo
+  SEC_* (secuencias)  Una secuencia Oracle por cada tabla con PK autogenerada
+  TRG_* (triggers)    Triggers de auditoria para actualizado_en en tablas clave
+
+  PROCEDIMIENTO ALMACENADO:
+    SP_VALIDAR_QR(p_codigo_qr, p_id_portero, p_valido OUT, p_mensaje OUT)
+    -> Ejecuta validacion atomica del QR: verifica existencia, estado "no usado",
+       no vencimiento, y registra el uso en una sola transaccion Oracle.
+
+
+================================================================================
+FIN DEL DOCUMENTO
+Generado el: 27/05/2026
+Proyecto: SAED v4.3
+================================================================================

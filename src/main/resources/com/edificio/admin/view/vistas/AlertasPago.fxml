@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.edificio.admin.view.controladores.AlertasPagoController"
+      styleClass="vista-container">
+
+    <Label text="Alertas de Pago" styleClass="titulo-vista"/>
+
+    <HBox spacing="10" styleClass="barra-herramientas" alignment="CENTER_LEFT">
+        <CheckBox fx:id="chkSoloNoLeidas" text="Solo no leídas"
+                  onAction="#filtrarAlertas" styleClass="checkbox" selected="false"/>
+        <Button text="Marcar como leída" onAction="#marcarLeida"  styleClass="boton-accion"/>
+        <Button text="Refrescar"         onAction="#refrescar"    styleClass="boton-accion"/>
+    </HBox>
+
+    <TableView fx:id="tablaAlertas" VBox.vgrow="ALWAYS" styleClass="tabla">
+        <columns>
+            <TableColumn fx:id="colAlertaId"     text="ID"          prefWidth="55"/>
+            <TableColumn fx:id="colAlertaTipo"   text="Tipo"        prefWidth="185"/>
+            <TableColumn fx:id="colAlertaApto"   text="Apto"        prefWidth="65"/>
+            <TableColumn fx:id="colAlertaRes"    text="Residente"   prefWidth="175"/>
+            <TableColumn fx:id="colAlertaPeriodo" text="Período"    prefWidth="80"/>
+            <TableColumn fx:id="colAlertaEstado" text="Estado Cuota" prefWidth="100"/>
+            <TableColumn fx:id="colAlertaCanal"  text="Canal"       prefWidth="90"/>
+            <TableColumn fx:id="colAlertaLeida"  text="Leída"       prefWidth="60"/>
+            <TableColumn fx:id="colAlertaEnvio"  text="Enviada en"  prefWidth="145"/>
+        </columns>
+        <columnResizePolicy>
+            <TableView fx:constant="CONSTRAINED_RESIZE_POLICY"/>
+        </columnResizePolicy>
+    </TableView>
+
+</VBox>

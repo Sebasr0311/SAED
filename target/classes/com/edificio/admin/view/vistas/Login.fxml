@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.edificio.admin.view.controladores.LoginController"
+            styleClass="login-container">
+
+    <center>
+        <VBox alignment="CENTER" spacing="20">
+            <padding>
+                <Insets top="50" bottom="50" left="50" right="50"/>
+            </padding>
+
+            <Label text="Sistema de Administración Residencial" styleClass="login-titulo"/>
+
+            <VBox spacing="15">
+                <Label text="Usuario:" styleClass="label-formulario"/>
+                <TextField fx:id="txtUsuario" promptText="Ingrese su usuario"
+                           styleClass="campo-texto"/>
+
+                <Label text="Contraseña:" styleClass="label-formulario"/>
+                <PasswordField fx:id="txtContrasena" promptText="Ingrese su contraseña"
+                               styleClass="campo-texto"/>
+
+                <Button text="Iniciar Sesión" onAction="#iniciarSesion"
+                        styleClass="boton-principal" maxWidth="Infinity"/>
+
+                <Hyperlink text="¿Olvidó su contraseña?" onAction="#recuperarContrasena"
+                           styleClass="link-recuperar"/>
+            </VBox>
+        </VBox>
+    </center>
+</BorderPane>
