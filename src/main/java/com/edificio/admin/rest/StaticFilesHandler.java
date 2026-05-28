@@ -3,6 +3,7 @@ package com.edificio.admin.rest;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -45,9 +46,12 @@ public class StaticFilesHandler implements HttpHandler {
             // fallback a index.html para SPA routing
             file = baseDir.resolve("index.html");
             if (!Files.exists(file)) {
-                String resp = "404 Not Found";
-                exchange.sendResponseHeaders(404, resp.length());
-                exchange.getResponseBody().write(resp.getBytes());
+                // Si no hay frontend (Railway), responder mensaje simple
+                String resp = "Backend REST funcionando";
+                byte[] bytes = resp.getBytes(StandardCharsets.UTF_8);
+                exchange.getResponseHeaders().set("Content-Type", "text/plain; charset=utf-8");
+                exchange.sendResponseHeaders(200, bytes.length);
+                exchange.getResponseBody().write(bytes);
                 exchange.getResponseBody().close();
                 return;
             }

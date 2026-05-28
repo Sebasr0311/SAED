@@ -39,6 +39,15 @@ public class RestServer {
             addContext("/api/multas", new MultaHandler());
             addContext("/api/quejas", new QuejaSugerenciaHandler());
 
+            // Health check para Railway
+            server.createContext("/health", exchange -> {
+                String resp = "{\"status\":\"ok\"}";
+                exchange.getResponseHeaders().set("Content-Type", "application/json");
+                exchange.sendResponseHeaders(200, resp.length());
+                exchange.getResponseBody().write(resp.getBytes());
+                exchange.getResponseBody().close();
+            });
+
             // Servir archivos estáticos del frontend
             String frontendDir = System.getProperty("frontend.dir", "frontend");
             server.createContext("/", new StaticFilesHandler(frontendDir));
