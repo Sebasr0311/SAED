@@ -58,11 +58,22 @@ public class RunSchemaFinal {
             return;
         }
 
+        boolean resetData = false;
+        for (String a : args) {
+            if (a.equals("--reset-data")) resetData = true;
+        }
+
         String url = "jdbc:oracle:thin:@residencial_high";
         System.out.println("Connecting to " + url + " as RESIDENCIAL...");
         try (Connection conn = DriverManager.getConnection(url, "RESIDENCIAL", "Administrador2026")) {
             System.out.println("Connected!");
             conn.setAutoCommit(true);
+
+            if (resetData) {
+                System.out.println("Resetting data...");
+                resetAllData(conn);
+                System.out.println("Data reset complete.");
+            }
 
             int ok = 0, fail = 0, skip = 0;
 
@@ -109,6 +120,42 @@ public class RunSchemaFinal {
             }
             System.out.println("\n=== RESULT ===");
             System.out.println("OK=" + ok + " FAIL=" + fail + " SKIP=" + skip + " TOTAL=" + statements.size());
+        }
+    }
+
+    static void resetAllData(Connection conn) throws Exception {
+        String[] tablesInOrder = {
+            "QUEJAS_SUGERENCIAS",
+            "REGISTROS_ACCESO",
+            "FRECUENTES_RESIDENTE",
+            "REGISTRO_VISITA",
+            "VEHICULOS_VISITA",
+            "VISITANTES",
+            "QR_ACCESOS",
+            "ALERTAS_PAGO",
+            "PAGOS",
+            "CUOTAS_ARRIENDO",
+            "CONTRATO_RESIDENTE"
+        };
+        try (Statement s = conn.createStatement()) {
+            // MULTAS: null out FK to BUZON first
+            try { s.execute("UPDATE MULTAS SET id_mensaje = NULL WHERE id_mensaje IS NOT NULL"); } catch (Exception e) {}
+            for (String t : tablesInOrder) {
+                try { s.execute("DELETE FROM " + t); } catch (Exception e) {
+                    System.err.println("  WARN deleting " + t + ": " + e.getMessage());
+                }
+            }
+            // Remaining tables in order
+            String[] remaining = {
+                "MULTAS", "BUZON", "VISITAS", "CONTRATOS",
+                "USUARIOS", "TUTORES", "RESIDENTES",
+                "PARQUEADEROS", "APARTAMENTOS", "TIPOS_DOCUMENTO"
+            };
+            for (String t : remaining) {
+                try { s.execute("DELETE FROM " + t); } catch (Exception e) {
+                    System.err.println("  WARN deleting " + t + ": " + e.getMessage());
+                }
+            }
         }
     }
 
