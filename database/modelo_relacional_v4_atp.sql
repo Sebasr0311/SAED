@@ -388,9 +388,9 @@ COMMENT ON COLUMN TIPOS_DOCUMENTO.codigo     IS 'C?digo corto ?nico: CC, TI, CE,
 COMMENT ON COLUMN TIPOS_DOCUMENTO.activo     IS '0 = tipo descontinuado (no usar en nuevos registros).';
 
 -- Seed del cat?logo
-INSERT INTO TIPOS_DOCUMENTO (codigo, descripcion) VALUES ('CC',  'C?dula de Ciudadan?a');
+INSERT INTO TIPOS_DOCUMENTO (codigo, descripcion) VALUES ('CC',  'Cédula de Ciudadanía');
 INSERT INTO TIPOS_DOCUMENTO (codigo, descripcion) VALUES ('TI',  'Tarjeta de Identidad');
-INSERT INTO TIPOS_DOCUMENTO (codigo, descripcion) VALUES ('CE',  'C?dula de Extranjer?a');
+INSERT INTO TIPOS_DOCUMENTO (codigo, descripcion) VALUES ('CE',  'Cédula de Extranjería');
 INSERT INTO TIPOS_DOCUMENTO (codigo, descripcion) VALUES ('PP',  'Pasaporte');
 INSERT INTO TIPOS_DOCUMENTO (codigo, descripcion) VALUES ('PEP', 'Permiso Especial de Permanencia');
 INSERT INTO TIPOS_DOCUMENTO (codigo, descripcion) VALUES ('RC',  'Registro Civil');
