@@ -30,7 +30,7 @@ public class RunSchemaFinal {
 
         String sql = Files.readString(Paths.get(sqlFile));
         System.out.println("Running: " + sqlFile);
-        sql = sql.replaceAll("[^\\x20-\\x7E\\n\\r\\t]", " ");
+        sql = sql.replaceAll("[^\\x20-\\x7E\\xA0-\\xFF\\n\\r\\t]", " ");
         sql = sql.replaceAll("(?mi)^\\s*SET\\s+.*(\n|$)", "");
         sql = sql.replaceAll("(?mi)^\\s*SPOOL\\s+.*(\n|$)", "");
         sql = sql.replaceAll("(?mi)^\\s*PROMPT\\s+.*(\n|$)", "");
