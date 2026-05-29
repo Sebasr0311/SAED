@@ -331,6 +331,32 @@ input, button, select, textarea { font-family: inherit; }
   max-height: 0 !important;
 }
 
+/* Colapsado: eliminar gap y ocultar label/arrow del layout */
+.sidebar-desktop:not(:hover) .sidebar-group-btn {
+  gap: 0;
+}
+.sidebar-desktop:not(:hover) .sidebar-label,
+.sidebar-desktop:not(:hover) .sidebar-arrow {
+  display: none;
+}
+/* Colapsado: ocultar indicador activo */
+.sidebar-desktop:not(:hover) .sidebar-item-btn.active::after {
+  opacity: 0;
+}
+.sidebar-desktop:not(:hover) .sidebar-item-btn.active {
+  background: transparent !important;
+  color: rgba(255,255,255,0.5) !important;
+}
+.sidebar-desktop:not(:hover) .sidebar-item.active {
+  background: transparent;
+  color: rgba(255,255,255,0.4);
+}
+/* Colapsado: ocultar resaltado blanco del hover */
+.sidebar-desktop:not(:hover) .sidebar-group-btn:hover {
+  background: transparent;
+  color: rgba(255,255,255,0.5);
+}
+
 /* Sub-item */
 .sidebar-item {
   display: flex;

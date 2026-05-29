@@ -8,10 +8,17 @@ public class RunSchemaFinal {
 
     static final String WALLET_ZIP =
         "C:\\Users\\JUAN\\IdeaProjects\\prueba_proyeccto\\src\\main\\resources\\wallet.zip";
-    static final String SQL_FILE =
+    static final String SQL_DEFAULT =
         "C:\\Users\\JUAN\\IdeaProjects\\prueba_proyeccto\\database\\modelo_relacional_v4_atp.sql";
 
     public static void main(String[] args) throws Exception {
+        String sqlFile = SQL_DEFAULT;
+        for (int i = 0; i < args.length; i++) {
+            if (args[i].equals("--file") && i + 1 < args.length) {
+                sqlFile = args[++i];
+            }
+        }
+
         Path walletDir = Paths.get(System.getProperty("java.io.tmpdir"), "saed-schema-final");
         deleteDir(walletDir);
         extractWallet(walletDir);
@@ -21,7 +28,8 @@ public class RunSchemaFinal {
         System.setProperty("oracle.net.wallet_location",
             "(SOURCE=(METHOD=FILE)(METHOD_DATA=(DIRECTORY=" + tnsAdmin + "/network/admin)))");
 
-        String sql = Files.readString(Paths.get(SQL_FILE));
+        String sql = Files.readString(Paths.get(sqlFile));
+        System.out.println("Running: " + sqlFile);
         sql = sql.replaceAll("[^\\x20-\\x7E\\n\\r\\t]", " ");
         sql = sql.replaceAll("(?mi)^\\s*SET\\s+.*(\n|$)", "");
         sql = sql.replaceAll("(?mi)^\\s*SPOOL\\s+.*(\n|$)", "");

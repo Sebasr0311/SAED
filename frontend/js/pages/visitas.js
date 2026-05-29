@@ -61,8 +61,9 @@ const Visitas = (() => {
   async function cargarResidentes() {
     try {
       var r = await API.get('/residentes');
-      r.sort(function(a, b) { return (parseInt(a.numeroApartamento, 10) || 0) - (parseInt(b.numeroApartamento, 10) || 0); });
       var select = document.getElementById('vis-residente');
+      if (!select) return;
+      r.sort(function(a, b) { return (parseInt(a.numeroApartamento, 10) || 0) - (parseInt(b.numeroApartamento, 10) || 0); });
       select.innerHTML = '<option value="">Seleccione...</option>';
       (r || []).forEach(function(res) {
         var opt = document.createElement('option');
@@ -77,8 +78,9 @@ const Visitas = (() => {
   async function cargarResidentesFrec() {
     try {
       var r = await API.get('/residentes');
-      r.sort(function(a, b) { return (parseInt(a.numeroApartamento, 10) || 0) - (parseInt(b.numeroApartamento, 10) || 0); });
       var select = document.getElementById('vis-frec-residente');
+      if (!select) return;
+      r.sort(function(a, b) { return (parseInt(a.numeroApartamento, 10) || 0) - (parseInt(b.numeroApartamento, 10) || 0); });
       select.innerHTML = '<option value="">Seleccione...</option>';
       (r || []).forEach(function(res) {
         var opt = document.createElement('option');
@@ -94,6 +96,7 @@ const Visitas = (() => {
     try {
       var t = await API.get('/tipos-documento');
       var select = document.getElementById('vis-tipo-doc');
+      if (!select) return;
       select.innerHTML = '<option value="">Seleccione...</option>';
       t.forEach(function(tipo) {
         var opt = document.createElement('option');

@@ -90,9 +90,10 @@ const Paquetes = (() => {
   async function cargarResidentes() {
     try {
       residentes = await API.get('/residentes');
+      var select = document.getElementById('paq-residente');
+      if (!select) return;
       residentes = residentes || [];
       residentes.sort(function(a, b) { return (parseInt(a.numeroApartamento, 10) || 0) - (parseInt(b.numeroApartamento, 10) || 0); });
-      var select = document.getElementById('paq-residente');
       select.innerHTML = '<option value="">Seleccione...</option>';
       (residentes || []).forEach(function(r) {
         var opt = document.createElement('option');

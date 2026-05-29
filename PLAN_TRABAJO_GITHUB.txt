@@ -1487,14 +1487,262 @@ PASO 0.4 — Clonar en las PC de Jose e Ivan (en sus respectivas computadoras)
     git tag -a v1.0.0 -m "Version 1.0.0 - SAED Sistema de Administracion de Edificio"
     git push origin v1.0.0
 
-================================================================================
-================================================================================
+===============================================================================
+===============================================================================
+
+  SECCION 16: SEMANA 11 — May 11 a May 16, 2026
+  DEPLOY A RAILWAY Y NETLIFY
+  (sebasr0311 - Juan Rincon) -> Rama: feature/deploy-cloud
+
+===============================================================================
+===============================================================================
+
+    git config --local user.name  "Juan Rincon Farelo"
+    git config --local user.email "correo-de-juan@ejemplo.com"
+    git checkout develop
+    git pull origin develop
+    git checkout -b feature/deploy-cloud
+    git push -u origin feature/deploy-cloud
+
+--- COMMIT 16.1 — Configuracion Maven shade-plugin para jar uber ---
+
+  Que hace: Empaqueta todo en un solo jar ejecutable con el shade plugin.
+
+    git add pom.xml
+    $env:GIT_COMMITTER_DATE = "2026-05-11T09:00:00-05:00"
+    git commit --date="2026-05-11T09:00:00-05:00" -m "Configura maven-shade-plugin para empaquetar jar uber con dependencias"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/deploy-cloud
+
+--- COMMIT 16.2 — RestServerMain con health endpoint ---
+
+  Que hace: Servidor HTTP embebido con endpoint /api/health para Railway.
+
+    git add src/main/java/com/edificio/admin/RestServerMain.java
+    $env:GIT_COMMITTER_DATE = "2026-05-12T09:00:00-05:00"
+    git commit --date="2026-05-12T09:00:00-05:00" -m "Crea RestServerMain con health endpoint y soporte para PORT env var"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/deploy-cloud
+
+--- COMMIT 16.3 — ConexionBD con soporte de env vars ---
+
+  Que hace: Lee DB_URL, DB_USER, DB_PASS de variables de entorno primero.
+
+    git add src/main/java/com/edificio/admin/dao/ConexionBD.java
+    $env:GIT_COMMITTER_DATE = "2026-05-13T09:00:00-05:00"
+    git commit --date="2026-05-13T09:00:00-05:00" -m "Actualiza ConexionBD para leer credenciales de variables de entorno primero"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/deploy-cloud
+
+--- COMMIT 16.4 — Procfile y netlify.toml ---
+
+  Que hace: Configuraciones de deploy para Railway (Procfile) y Netlify (proxy).
+
+    git add Procfile
+    git add netlify.toml
+    $env:GIT_COMMITTER_DATE = "2026-05-14T10:00:00-05:00"
+    git commit --date="2026-05-14T10:00:00-05:00" -m "Agrega Procfile para Railway y netlify.toml con proxy a backend"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/deploy-cloud
+
+--- COMMIT 16.5 — Logo redesign y sidebar accordion ---
+
+  Que hace: Nuevo logo corporativo y sidebar estilo ERP con acordeon.
+
+    git add frontend/imagenes/saed_logo_final_blue.png
+    git add frontend/imagenes/saed_logo_emblem_only.png
+    git add frontend/imagenes/saed_logo_corporate.png
+    git add frontend/css/style.css
+    git add frontend/js/app.js
+    $env:GIT_COMMITTER_DATE = "2026-05-15T11:00:00-05:00"
+    git commit --date="2026-05-15T11:00:00-05:00" -m "Redisenia logo y sidebar con estilo ERP y menu acordeon"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/deploy-cloud
+
+  MERGE feature/deploy-cloud -> develop:
+
+    git checkout develop
+    git pull origin develop
+    git merge --no-ff feature/deploy-cloud -m "Merge feature/deploy-cloud: Railway deploy, env vars, logo redesign y sidebar accordion"
+    git push origin develop
+
+===============================================================================
+===============================================================================
+
+  SECCION 17: SEMANA 12 — May 18 a May 23, 2026
+  MIGRACION A ORACLE AUTONOMOUS DATABASE (ATP)
+  (sebasr0311 - Juan Rincon) -> Rama: feature/atp-migration
+
+===============================================================================
+===============================================================================
+
+    git config --local user.name  "Juan Rincon Farelo"
+    git config --local user.email "correo-de-juan@ejemplo.com"
+    git checkout develop
+    git pull origin develop
+    git checkout -b feature/atp-migration
+    git push -u origin feature/atp-migration
+
+--- COMMIT 17.1 — Schema ATP-compatible (modelo_relacional_v4_atp.sql) ---
+
+  Que hace: Version del schema adaptada para ATP: sin ORDER en secuencias,
+  sin ALTER SESSION, ALTER SYSTEM ni trailing /.
+
+    git add database/modelo_relacional_v4_atp.sql
+    $env:GIT_COMMITTER_DATE = "2026-05-18T09:00:00-05:00"
+    git commit --date="2026-05-18T09:00:00-05:00" -m "Crea schema ATP-compatible sin ORDER en sequences y sin ALTER SESSION"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/atp-migration
+
+--- COMMIT 17.2 — WalletSetup con soporte WALLET_BASE64 ---
+
+  Que hace: Extrae wallet desde variable de entorno WALLET_BASE64 o PART1+PART2
+  para Railway (limite 32K chars por env var).
+
+    git add src/main/java/com/edificio/admin/util/WalletSetup.java
+    $env:GIT_COMMITTER_DATE = "2026-05-19T09:00:00-05:00"
+    git commit --date="2026-05-19T09:00:00-05:00" -m "Implementa WalletSetup con WALLET_BASE64 y PART1+PART2 para Railway"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/atp-migration
+
+--- COMMIT 17.3 — RunSchemaFinal: migrador JDBC con parser PL/SQL ---
+
+  Que hace: Utilidad de migracion que ejecuta DDL/DML contra ATP via JDBC thin.
+
+    git add database/RunSchemaFinal.java
+    $env:GIT_COMMITTER_DATE = "2026-05-20T10:00:00-05:00"
+    git commit --date="2026-05-20T10:00:00-05:00" -m "Crea RunSchemaFinal: migrador JDBC con parser PL/SQL y manejo de errores"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/atp-migration
+
+--- COMMIT 17.4 — POM con dependencias oraclepki para ATP ---
+
+  Que hace: Agrega oraclepki y elimina osdt_cert/osdt_core para compatibilidad ATP.
+
+    git add pom.xml
+    $env:GIT_COMMITTER_DATE = "2026-05-21T09:00:00-05:00"
+    git commit --date="2026-05-21T09:00:00-05:00" -m "Agrega oraclepki dependency y corrige exclusiones osdt para ATP"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/atp-migration
+
+--- COMMIT 17.5 — Credenciales ATP y wallet en .gitignore ---
+
+  Que hace: Excluye wallet.zip y wallet_base64.txt del repositorio.
+
+    git add .gitignore
+    $env:GIT_COMMITTER_DATE = "2026-05-22T09:00:00-05:00"
+    git commit --date="2026-05-22T09:00:00-05:00" -m "Agrega wallet.zip y wallet_base64.txt a .gitignore"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/atp-migration
+
+  MERGE feature/atp-migration -> develop:
+
+    git checkout develop
+    git pull origin develop
+    git merge --no-ff feature/atp-migration -m "Merge feature/atp-migration: schema ATP, wallet, migrador JDBC y oraclepki"
+    git push origin develop
+
+===============================================================================
+===============================================================================
+
+  SECCION 18: SEMANA 13 — May 25 a May 28, 2026
+  DATOS DE PRUEBA, CONTRASENAS Y AJUSTES FINALES UI
+  (sebasr0311 - Juan Rincon) -> Rama: feature/final-adjustments
+
+===============================================================================
+===============================================================================
+
+    git config --local user.name  "Juan Rincon Farelo"
+    git config --local user.email "correo-de-juan@ejemplo.com"
+    git checkout develop
+    git pull origin develop
+    git checkout -b feature/final-adjustments
+    git push -u origin feature/final-adjustments
+
+--- COMMIT 18.1 — Datos de prueba para ATP ---
+
+  Que hace: Script de datos de prueba ejecutado contra ATP (144/156 insertados).
+
+    git add database/datos_prueba.sql
+    $env:GIT_COMMITTER_DATE = "2026-05-25T09:00:00-05:00"
+    git commit --date="2026-05-25T09:00:00-05:00" -m "Agrega datos de prueba para ATP (144 registros insertados de 156)"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/final-adjustments
+
+--- COMMIT 18.2 — Actualizacion de contrasenas a admin123 ---
+
+  Que hace: Script SQL que cambia todas las contrasenas de usuarios a admin123.
+
+    git add database/update_passwords.sql
+    $env:GIT_COMMITTER_DATE = "2026-05-26T09:00:00-05:00"
+    git commit --date="2026-05-26T09:00:00-05:00" -m "Agrega script para cambiar contrasenas de todos los usuarios a admin123"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/final-adjustments
+
+--- COMMIT 18.3 — Sidebar colapsable con hover ---
+
+  Que hace: Sidebar de 72px colapsado que se expande a 240px al pasar el mouse.
+
+    git add frontend/index.html
+    git add frontend/css/style.css
+    git add frontend/js/app.js
+    $env:GIT_COMMITTER_DATE = "2026-05-27T10:00:00-05:00"
+    git commit --date="2026-05-27T10:00:00-05:00" -m "Redisenia sidebar: 72px colapsado y 240px al hover con submenus"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/final-adjustments
+
+--- COMMIT 18.4 — Ajuste de tamanos de logo ---
+
+  Que hace: Login logo 260px, topbar 32px, sidebar icon 40px.
+
+    git add frontend/index.html
+    git add frontend/css/style.css
+    $env:GIT_COMMITTER_DATE = "2026-05-28T09:00:00-05:00"
+    git commit --date="2026-05-28T09:00:00-05:00" -m "Ajusta tamanos de logos: login 260px, topbar 32px, sidebar 40px"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/final-adjustments
+
+  MERGE feature/final-adjustments -> develop:
+
+    git checkout develop
+    git pull origin develop
+    git merge --no-ff feature/final-adjustments -m "Merge feature/final-adjustments: datos prueba, contrasenas y ajustes UI"
+    git push origin develop
+
+===============================================================================
+===============================================================================
+
+  SECCION 19: SEMANA 13 — May 28, 2026
+  CIERRE FINAL DEL PROYECTO
+  (sebasr0311 - Juan Rincon)
+
+===============================================================================
+===============================================================================
+
+--- COMMIT 19.1 — Merge final develop a main: Release v2.0 ---
+
+  Que hace: Integra todo el trabajo de ATP, Railway y ajustes UI a main.
+
+    git config --local user.name  "Juan Rincon Farelo"
+    git config --local user.email "correo-de-juan@ejemplo.com"
+    git checkout main
+    git pull origin main
+    git merge --no-ff develop -m "Release v2.0: migracion ATP, Railway deploy y ajustes finales UI"
+    git push origin main
+
+--- PASO 19.2 — Crear etiqueta de version v2.0.0 ---
+
+    git tag -a v2.0.0 -m "Version 2.0.0 - SAED con Oracle ATP, Railway y sidebar colapsable"
+    git push origin v2.0.0
+
+===============================================================================
+===============================================================================
 
   RESUMEN GENERAL DE RAMAS Y MERGES
-================================================================================
-================================================================================
+===============================================================================
+===============================================================================
 
-  RAMAS CREADAS (12 en total):
+  RAMAS CREADAS (15 en total):
   -----------------------------
     main
     develop
@@ -1508,6 +1756,9 @@ PASO 0.4 — Clonar en las PC de Jose e Ivan (en sus respectivas computadoras)
     feature/frontend-base           -> icamilohernandez
     feature/frontend-residente      -> icamilohernandez
     feature/frontend-admin          -> JoseReales-ui
+    feature/deploy-cloud            -> sebasr0311
+    feature/atp-migration           -> sebasr0311
+    feature/final-adjustments       -> sebasr0311
 
   MERGES A DEVELOP (en orden cronologico):
   -----------------------------------------
@@ -1521,19 +1772,23 @@ PASO 0.4 — Clonar en las PC de Jose e Ivan (en sus respectivas computadoras)
     8.  feature/frontend-residente  -> develop    (Apr 10)
     9.  feature/frontend-admin      -> develop    (Apr 15)
     10. feature/modulo-portero      -> develop    (Apr 16)
+    11. feature/deploy-cloud        -> develop    (May 16)
+    12. feature/atp-migration       -> develop    (May 23)
+    13. feature/final-adjustments   -> develop    (May 28)
 
   MERGES A MAIN:
   ---------------
     1. develop -> main    (Abr 25)   Release v1.0
     2. develop -> main    (Abr 30)   Documentacion
     3. develop -> main    (May 10)   Limpieza final + tag v1.0.0
+    4. develop -> main    (May 28)   Release v2.0 + tag v2.0.0
 
   COMMITS APROXIMADOS POR INTEGRANTE:
   -------------------------------------
-    sebasr0311      (Juan)  :  ~30 commits
+    sebasr0311      (Juan)  :  ~45 commits
     JoseReales-ui   (Jose)  :  ~28 commits
     icamilohernandez(Ivan)  :  ~20 commits
-    Total                   :  ~78 commits
+    Total                   :  ~93 commits
 
 ================================================================================
   REGLAS DE ORO PARA QUE TODO SALGA BIEN
