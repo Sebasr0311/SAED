@@ -12,7 +12,7 @@ public abstract class BaseHandler {
 
     protected void sendJson(HttpExchange exchange, int code, Object obj) throws IOException {
         byte[] bytes = JsonUtil.toJson(obj).getBytes("UTF-8");
-        exchange.getResponseHeaders().set("Content-Type", "application/json");
+        exchange.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
         exchange.sendResponseHeaders(code, bytes.length);
         exchange.getResponseBody().write(bytes);
         exchange.getResponseBody().close();

@@ -42,7 +42,7 @@ public class AuthMiddleware {
         try {
             String json = JsonUtil.toJson(new ErrorResponse(msg));
             byte[] bytes = json.getBytes("UTF-8");
-            exchange.getResponseHeaders().set("Content-Type", "application/json");
+            exchange.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
             exchange.sendResponseHeaders(401, bytes.length);
             exchange.getResponseBody().write(bytes);
             exchange.getResponseBody().close();

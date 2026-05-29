@@ -42,9 +42,9 @@ public class RestServer {
             // Health check para Railway
             server.createContext("/health", exchange -> {
                 String resp = "{\"status\":\"ok\"}";
-                exchange.getResponseHeaders().set("Content-Type", "application/json");
+                exchange.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
                 exchange.sendResponseHeaders(200, resp.length());
-                exchange.getResponseBody().write(resp.getBytes());
+                exchange.getResponseBody().write(resp.getBytes("UTF-8"));
                 exchange.getResponseBody().close();
             });
 
