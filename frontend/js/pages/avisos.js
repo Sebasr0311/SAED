@@ -4,6 +4,7 @@ const Avisos = (() => {
   async function cargarApartamentos() {
     try {
       var apts = await API.get('/apartamentos');
+      apts = apts.filter(function(a) { return a.estado !== 'DISPONIBLE'; });
       
       // Ordenar apartamentos por número
       apts.sort(function(a, b) {

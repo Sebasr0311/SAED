@@ -61,7 +61,7 @@ const Parqueaderos = (() => {
 
   async function mostrarFormulario(p) {
     if (esPortero()) return;
-    try { _apartamentos = await API.get('/apartamentos'); } catch (e) { _apartamentos = []; }
+    try { _apartamentos = (await API.get('/apartamentos')).filter(function(a) { return a.estado !== 'DISPONIBLE'; }); } catch (e) { _apartamentos = []; }
     editingId = p ? p.idParqueadero : null;
     const isEdit = !!editingId;
     var aptOptions = '<option value="">-- Seleccione --</option>';

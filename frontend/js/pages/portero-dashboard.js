@@ -376,6 +376,7 @@ const PorteroDash = (() => {
     if (!sel) return;
     try {
       var apts = await API.get('/apartamentos');
+      apts = apts.filter(function(a) { return a.estado !== 'DISPONIBLE'; });
       sel.innerHTML = '<option value="">Seleccione un apartamento</option>' +
         apts.map(function(a) { return '<option value="' + a.idApartamento + '">' + Utils.escapeHtml(a.numero || 'Apto #' + a.idApartamento) + '</option>'; }).join('');
     } catch (e) {
