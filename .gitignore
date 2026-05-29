@@ -50,6 +50,9 @@ node_modules/
 ### Windows ###
 Thumbs.db
 
+### Vercel ###
+.vercel/
+
 ### Credenciales — NO versionar ###
 src/main/resources/bd.properties
 src/main/resources/wallet.zip
