@@ -39,8 +39,13 @@ public class ResidenteHandler extends BaseHandler implements HttpHandler {
             if ("GET".equalsIgnoreCase(method) && parts.length == 3) {
                 String query = exchange.getRequestURI().getQuery();
                 String idApartamentoStr = query != null ? JsonUtil.extraerValor(query, "idApartamento") : null;
+                String conUsuarioStr = query != null ? JsonUtil.extraerValor(query, "conUsuario") : null;
                 
-                if (idApartamentoStr != null) {
+                if ("true".equals(conUsuarioStr)) {
+                    // Solo residentes con cuenta de usuario (uno por apartamento)
+                    List<Residente> list = service.listarConUsuario();
+                    sendJson(exchange, 200, list);
+                } else if (idApartamentoStr != null) {
                     // Filtrar por apartamento
                     int idApartamento = Integer.parseInt(idApartamentoStr);
                     List<Residente> list = service.listarTodos();

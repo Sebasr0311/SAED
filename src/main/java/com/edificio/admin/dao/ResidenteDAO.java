@@ -64,6 +64,31 @@ public class ResidenteDAO implements CrudDAO<Residente> {
         }
     }
 
+    /** Solo residentes que tienen cuenta de usuario (uno por apartamento). */
+    public List<Residente> findAllConUsuario() throws SQLException {
+        List<Residente> lista = new ArrayList<>();
+        String sql = "SELECT r.id_residente, r.id_tipo_doc, r.numero_documento, r.nombres, r.apellidos, "
+                   + "       r.email, r.telefono, r.fecha_nacimiento, r.es_menor_edad, r.activo, "
+                   + "       r.fecha_registro, r.actualizado_en, "
+                   + "       (SELECT a2.id_apartamento FROM CONTRATO_RESIDENTE cr2 "
+                   + "         JOIN CONTRATOS c2 ON c2.id_contrato = cr2.id_contrato "
+                   + "         JOIN APARTAMENTOS a2 ON a2.id_apartamento = c2.id_apartamento "
+                   + "        WHERE cr2.id_residente = r.id_residente AND ROWNUM = 1) AS id_apartamento, "
+                   + "       (SELECT a2.numero FROM CONTRATO_RESIDENTE cr2 "
+                   + "         JOIN CONTRATOS c2 ON c2.id_contrato = cr2.id_contrato "
+                   + "         JOIN APARTAMENTOS a2 ON a2.id_apartamento = c2.id_apartamento "
+                   + "        WHERE cr2.id_residente = r.id_residente AND ROWNUM = 1) AS numero_apartamento "
+                   + "FROM   RESIDENTES r "
+                   + "WHERE  r.activo = 1 "
+                   + "  AND  EXISTS (SELECT 1 FROM USUARIOS u WHERE u.id_residente = r.id_residente) "
+                   + "ORDER  BY r.apellidos, r.nombres";
+        try (PreparedStatement ps = conn().prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) { lista.add(mapear(rs)); }
+        }
+        return lista;
+    }
+
     /** Busca todos los residentes asociados a un contrato (via CONTRATO_RESIDENTE). */
     public List<Residente> findByContrato(Integer idContrato) throws SQLException {
         List<Residente> lista = new ArrayList<>();

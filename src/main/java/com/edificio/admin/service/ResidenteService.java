@@ -29,6 +29,10 @@ public class ResidenteService {
         return residenteDAO.findAll();
     }
 
+    public List<Residente> listarConUsuario() throws SQLException {
+        return residenteDAO.findAllConUsuario();
+    }
+
     public Residente buscarPorId(Integer id) throws SQLException {
         validarId(id);
         Residente r = residenteDAO.findById(id);
