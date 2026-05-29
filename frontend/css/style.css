@@ -215,7 +215,7 @@ input, button, select, textarea { font-family: inherit; }
   flex-shrink: 0;
 }
 .sidebar-logo-icon img {
-  width: 32px; height: 32px;
+  width: 40px; height: 40px;
   object-fit: contain;
 }
 .sidebar-logo-text {
@@ -324,6 +324,11 @@ input, button, select, textarea { font-family: inherit; }
 }
 .sidebar-group.group-open .sidebar-submenu {
   max-height: 300px; /* suficiente para items */
+}
+
+/* Cuando el sidebar NO está en hover, cerrar todos los submenus */
+.sidebar-desktop:not(:hover) .sidebar-submenu {
+  max-height: 0 !important;
 }
 
 /* Sub-item */
