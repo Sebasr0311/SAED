@@ -19,6 +19,8 @@ public class MultaHandler extends BaseHandler implements HttpHandler {
 
     private final MultaDAO multaDAO = new MultaDAO();
     private final BuzonDAO buzonDAO = new BuzonDAO();
+    private final ContratoDAO contratoDAO = new ContratoDAO();
+    private final ContratoResidenteDAO contratoResidenteDAO = new ContratoResidenteDAO();
 
     @Override
     public void handle(HttpExchange exchange) throws IOException {
@@ -43,9 +45,19 @@ public class MultaHandler extends BaseHandler implements HttpHandler {
                     throw new Exception("Tipo de multa invalido. Use RUIDO o PARQUEADERO");
                 Object aptObj = data.get("idApartamento");
                 if (aptObj == null) throw new Exception("idApartamento requerido");
+                int idApartamento = ((Number) aptObj).intValue();
+
+                // Validar que el apartamento tenga al menos un residente
+                Contrato cActivo = contratoDAO.findActivoByApartamento(idApartamento);
+                if (cActivo == null)
+                    throw new Exception("El apartamento no tiene un contrato activo. No se puede generar la multa.");
+                List<ContratoResidente> residentes = contratoResidenteDAO.findByContrato(cActivo.getIdContrato());
+                if (residentes == null || residentes.isEmpty())
+                    throw new Exception("El apartamento no tiene residentes asignados. No se puede generar la multa.");
+
                 BigDecimal monto = "RUIDO".equals(tipo) ? MONTO_RUIDO : MONTO_PARQUEADERO;
                 Multa m = new Multa();
-                m.setIdApartamento(((Number) aptObj).intValue());
+                m.setIdApartamento(idApartamento);
                 m.setTipo(tipo);
                 m.setMonto(monto);
                 m.setEstado(EstadoMulta.PENDIENTE);
