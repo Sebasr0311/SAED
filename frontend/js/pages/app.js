@@ -290,6 +290,11 @@ function buildSidebar() {
 
     if (Auth.isAuthenticated()) {
       buildSidebar();
+      document.getElementById('sidebar').addEventListener('mouseleave', function() {
+        document.querySelectorAll('.sidebar-group.group-open').forEach(function(g) {
+          g.classList.remove('group-open');
+        });
+      });
       const user = Auth.getCurrentUser();
       if (user.rol === 'RESIDENTE') Router.navigate('residente-dashboard');
       else if (user.rol === 'PORTERO') Router.navigate('portero-dashboard');

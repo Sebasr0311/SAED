@@ -1702,11 +1702,31 @@ PASO 0.4 — Clonar en las PC de Jose e Ivan (en sus respectivas computadoras)
     Remove-Item Env:GIT_COMMITTER_DATE
     git push origin feature/final-adjustments
 
+--- COMMIT 18.5 — Fix parser RunSchemaFinal: regex SET y comentarios bloque ---
+
+  Que hace: Corre dos bugs en RunSchemaFinal.java:
+    1. Regex SET (`(?mi)^\\s*SET\\s+.*(\n|$)(?!.*=)`) solo elimina comandos SQL*Plus
+       (SET DEFINE OFF, SET SQLBLANKLINES ON) y ya no mutila clausulas SET en
+       UPDATE ... SET columna = valor.
+    2. Nuevo filtro `(?s)/\\*.*?\\*/` elimina comentarios bloque /* */ antes del
+       parseo, evitando que su contenido se ejecute como SQL.
+
+  Impacto: datos_prueba.sql pasa de 147/156 a 150/150 (0 fallos). Los 9 fallos
+  anteriores se reducen a 0: los 2 UPDATE ahora conservan su SET, las 5 inserciones
+  a REGISTRO_VISITA funcionan (TRG_AUTO_FRECUENTE reactivado), y los 2 trailing
+  /* */ / * desaparecen.
+
+    git add database/RunSchemaFinal.java
+    $env:GIT_COMMITTER_DATE = "2026-05-28T10:00:00-05:00"
+    git commit --date="2026-05-28T10:00:00-05:00" -m "Corrige RunSchemaFinal: regex SET solo SQL*Plus y filtra comentarios bloque"
+    Remove-Item Env:GIT_COMMITTER_DATE
+    git push origin feature/final-adjustments
+
   MERGE feature/final-adjustments -> develop:
 
     git checkout develop
     git pull origin develop
-    git merge --no-ff feature/final-adjustments -m "Merge feature/final-adjustments: datos prueba, contrasenas y ajustes UI"
+    git merge --no-ff feature/final-adjustments -m "Merge feature/final-adjustments: datos prueba, contrasenas, ajustes UI y fix parser"
     git push origin develop
 
 ===============================================================================
@@ -1785,10 +1805,16 @@ PASO 0.4 — Clonar en las PC de Jose e Ivan (en sus respectivas computadoras)
 
   COMMITS APROXIMADOS POR INTEGRANTE:
   -------------------------------------
-    sebasr0311      (Juan)  :  ~45 commits
+    sebasr0311      (Juan)  :  ~46 commits
     JoseReales-ui   (Jose)  :  ~28 commits
     icamilohernandez(Ivan)  :  ~20 commits
-    Total                   :  ~93 commits
+    Total                   :  ~94 commits
+
+  ESTADO DEL MIGRADOR (RunSchemaFinal):
+  --------------------------------------
+    Schema (modelo_relacional_v4_atp.sql): OK=362 FAIL=0
+    Datos  (datos_prueba.sql):             OK=150 FAIL=0
+    Passwords (update_passwords.sql):       OK=16  FAIL=0
 
 ================================================================================
   REGLAS DE ORO PARA QUE TODO SALGA BIEN

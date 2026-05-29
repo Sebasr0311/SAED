@@ -1823,6 +1823,7 @@ BEGIN
         WHEN DUP_VAL_ON_INDEX THEN
             -- Par ya registrado; si estaba oculto, lo reactiva
             UPDATE FRECUENTES_RESIDENTE
+               SET activo = 1
              WHERE id_residente = v_id_residente
                AND id_visitante = :NEW.id_visitante
                AND activo       = 0;
