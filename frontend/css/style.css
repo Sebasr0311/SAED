@@ -115,8 +115,8 @@
   --shadow-lg: 0 12px 40px rgba(15,23,42,0.12), 0 0 0 1px rgba(15,23,42,0.04);
   --shadow-xl: 0 24px 64px rgba(15,23,42,0.16);
 
-  /* Sidebar — fixed 240px (accordion ERP style) */
-  --sidebar-width:      240px;
+  /* Sidebar — collapsed 72px, expands on hover */
+  --sidebar-width:      72px;
   --sidebar-width-open: 240px;
   --sidebar-bg:         var(--navy-900);
   --topbar-height:      64px;
@@ -165,15 +165,38 @@ input, button, select, textarea { font-family: inherit; }
   position: fixed;
   top: 0; left: 0;
   height: 100%;
-  width: var(--sidebar-width-open);
+  width: var(--sidebar-width);
   background: var(--sidebar-bg);
   display: flex;
   flex-direction: column;
   z-index: 100;
-  transition: transform var(--transition-slow);
+  transition: width var(--transition-slow), transform var(--transition-slow);
   box-shadow: 2px 0 24px rgba(10,22,40,0.22);
   flex-shrink: 0;
+  overflow: hidden;
 }
+.sidebar-desktop:hover {
+  width: var(--sidebar-width-open);
+}
+
+/* Hide labels/arrows when collapsed, show on hover */
+.sidebar-label,
+.sidebar-arrow,
+.sidebar-logo-text {
+  opacity: 0;
+  white-space: nowrap;
+  transition: opacity var(--transition);
+}
+.sidebar-desktop:hover .sidebar-label,
+.sidebar-desktop:hover .sidebar-arrow,
+.sidebar-desktop:hover .sidebar-logo-text {
+  opacity: 1;
+}
+/* Keep logout always visible */
+.sidebar-bottom .sidebar-group-btn .sidebar-label { opacity: 0; }
+.sidebar-desktop:hover .sidebar-bottom .sidebar-group-btn .sidebar-label { opacity: 1; }
+.sidebar-bottom .sidebar-group-btn { justify-content: center; }
+.sidebar-desktop:hover .sidebar-bottom .sidebar-group-btn { justify-content: flex-start; }
 
 /* Logo area — modern compact */
 .sidebar-logo-area {
@@ -228,6 +251,7 @@ input, button, select, textarea { font-family: inherit; }
 .sidebar-group-btn {
   display: flex;
   align-items: center;
+  justify-content: center;
   width: 100%;
   padding: 0 12px;
   height: 40px;
@@ -242,6 +266,9 @@ input, button, select, textarea { font-family: inherit; }
   font-size: 13px;
   font-weight: 500;
   text-align: left;
+}
+.sidebar-desktop:hover .sidebar-group-btn {
+  justify-content: flex-start;
 }
 .sidebar-group-btn:hover {
   background: rgba(255,255,255,0.06);
@@ -347,9 +374,17 @@ input, button, select, textarea { font-family: inherit; }
     transform: translateX(-100%);
     width: 260px;
   }
+  .sidebar-desktop:hover {
+    width: 260px;
+  }
   .sidebar-desktop.open {
     transform: translateX(0);
     box-shadow: 4px 0 32px rgba(0,0,0,0.3);
+  }
+  .sidebar-desktop.open .sidebar-label,
+  .sidebar-desktop.open .sidebar-arrow,
+  .sidebar-desktop.open .sidebar-logo-text {
+    opacity: 1;
   }
   .hamburger-btn { display: flex !important; }
 }
@@ -1473,10 +1508,16 @@ textarea:focus:not(:focus-visible) { outline: none; }
     box-shadow: 4px 0 40px rgba(10,22,40,0.3);
     position: fixed;
   }
+  .sidebar-desktop:hover { width: 280px; }
   .sidebar-desktop.open { transform: translateX(0); }
   /* When open on mobile, show all labels immediately */
-  .sidebar-desktop.open .sidebar-label { opacity: 1; transform: translateX(0); pointer-events: auto; }
-  .sidebar-desktop.open .sidebar-logo-text { opacity: 1; transform: translateX(0); pointer-events: auto; }
+  .sidebar-desktop.open .sidebar-label,
+  .sidebar-desktop.open .sidebar-arrow,
+  .sidebar-desktop.open .sidebar-logo-text {
+    opacity: 1;
+    transform: translateX(0);
+    pointer-events: auto;
+  }
 
   .hamburger-btn { display: flex !important; }
 
