@@ -1758,6 +1758,112 @@ PASO 0.4 — Clonar en las PC de Jose e Ivan (en sus respectivas computadoras)
 ===============================================================================
 ===============================================================================
 
+  SECCION 20: MAYO 28, 2026
+  FIXES POST-v2.0: CHARSET, VALIDACIONES Y FILTROS UI
+  (sebasr0311 - Juan Rincon) -> Commits directos a main
+
+===============================================================================
+===============================================================================
+
+  Contexto: Una vez en produccion (Railway + ATP + Netlify), se detectaron
+  varios bugs y mejoras necesarias. Todos los commits se hicieron directo
+  a main (sin rama feature) por ser correcciones puntuales.
+
+--- COMMIT 20.1 — Charset UTF-8 en respuestas JSON del backend ---
+
+  Que hace: Agrega charset=utf-8 al Content-Type de todas las respuestas
+  REST para que caracteres acentuados (Cédula, Ciudadanía, etc.) se
+  rendericen correctamente en el navegador.
+
+  Archivos modificados:
+    src/main/java/com/edificio/admin/rest/handler/BaseHandler.java
+      application/json -> application/json; charset=utf-8
+
+    src/main/java/com/edificio/admin/rest/AuthMiddleware.java
+      application/json -> application/json; charset=utf-8
+
+    src/main/java/com/edificio/admin/rest/RestServer.java
+      application/json -> application/json; charset=utf-8
+      getBytes() -> getBytes("UTF-8")
+
+--- COMMIT 20.2 — Filtro conUsuario=true en residentes ---
+
+  Que hace: Agrega endpoint GET /residentes?conUsuario=true que retorna
+  solo residentes con cuenta de usuario (EXISTS USUARIOS), limitando a
+  1 persona por apartamento. Se usa en dropdowns operativos.
+
+  Archivos nuevos:
+    ResidenteDAO.findAllConUsuario()   -> query con EXISTS (SELECT 1 FROM USUARIOS ...)
+    ResidenteService.listarConUsuario()
+
+  Archivos modificados:
+    ResidenteHandler.java -> lee query param ?conUsuario=true
+
+--- COMMIT 20.3 — Fix TIPOS_DOCUMENTO con acentos ---
+
+  Que hace: Corrige caracteres mal codificados en los nombres de tipos
+  de documento: C?dula de Ciudadan?a -> Cédula de Ciudadanía,
+  C?dula de Extranjer?a -> Cédula de Extranjería.
+
+  Archivos modificados:
+    database/modelo_relacional_v4_atp.sql
+    database/datos_prueba.sql
+
+--- COMMIT 20.4 — Visita rapida solo muestra residentes con usuario ---
+
+  Que hace: visitas.js ahora usa /residentes?conUsuario=true en el
+  dropdown de visita rapida, mostrando solo 1 residente por apartamento.
+
+  Archivos modificados:
+    frontend/js/pages/visitas.js (cargarResidentesFrec)
+
+--- COMMIT 20.5 — Validacion de apartamento OCUPADO en MultaHandler ---
+
+  Que hace: Antes de generar una multa (RUIDO o PARQUEADERO), valida
+  que el apartamento tenga un contrato activo y al menos un residente
+  asignado. Rechaza con mensaje claro si no.
+
+  Archivos modificados:
+    src/main/java/com/edificio/admin/rest/handler/MultaHandler.java
+
+--- COMMIT 20.6 — Validacion de apartamento OCUPADO en BuzonHandler ---
+
+  Que hace: Misma validacion que MultaHandler para los endpoints:
+    POST /buzon/paquete  -> rechaza si apt no tiene contrato activo
+    POST /buzon/aviso-ruido -> rechaza si apt no tiene residentes
+  Se deja sin validar POST /buzon/aviso (admin puede notificar a cualquier apt).
+
+  Archivos modificados:
+    src/main/java/com/edificio/admin/rest/handler/BuzonHandler.java
+
+--- COMMIT 20.7 — Filtro DISPONIBLE en dropdowns de apartamentos ---
+
+  Que hace: Los apartamentos con estado DISPONIBLE ya no aparecen en
+  los dropdowns operativos donde no tienen sentido:
+    - portero-dashboard.js: selector de apt para aviso ruido y multa parqueadero
+    - avisos.js: multi-select de apartamentos para enviar avisos
+    - parqueaderos.js: selector de apt para asignar parqueadero residente
+
+  Filtro: a.estado !== 'DISPONIBLE'
+
+  Archivos modificados:
+    frontend/js/pages/portero-dashboard.js
+    frontend/js/pages/avisos.js
+    frontend/js/pages/parqueaderos.js
+
+--- COMMIT 20.8 — Dropdowns de residentes usan conUsuario=true ---
+
+  Que hace: paquetes.js y visitas.js (nueva visita) cambian de
+  API.get('/residentes') a API.get('/residentes?conUsuario=true')
+  para evitar mostrar 2+ personas por apartamento.
+
+  Archivos modificados:
+    frontend/js/pages/paquetes.js
+    frontend/js/pages/visitas.js
+
+===============================================================================
+===============================================================================
+
   RESUMEN GENERAL DE RAMAS Y MERGES
 ===============================================================================
 ===============================================================================
@@ -1796,19 +1902,21 @@ PASO 0.4 — Clonar en las PC de Jose e Ivan (en sus respectivas computadoras)
     12. feature/atp-migration       -> develop    (May 23)
     13. feature/final-adjustments   -> develop    (May 28)
 
-  MERGES A MAIN:
-  ---------------
-    1. develop -> main    (Abr 25)   Release v1.0
-    2. develop -> main    (Abr 30)   Documentacion
-    3. develop -> main    (May 10)   Limpieza final + tag v1.0.0
-    4. develop -> main    (May 28)   Release v2.0 + tag v2.0.0
+   MERGES A MAIN:
+   ---------------
+     1. develop -> main    (Abr 25)   Release v1.0
+     2. develop -> main    (Abr 30)   Documentacion
+     3. develop -> main    (May 10)   Limpieza final + tag v1.0.0
+     4. develop -> main    (May 28)   Release v2.0 + tag v2.0.0
+     5. main direct        (May 28)   Commits posteriores a v2.0: charset, resident filter,
+                                       multa/buzon validation, DISPONIBLE filter
 
-  COMMITS APROXIMADOS POR INTEGRANTE:
-  -------------------------------------
-    sebasr0311      (Juan)  :  ~46 commits
-    JoseReales-ui   (Jose)  :  ~28 commits
-    icamilohernandez(Ivan)  :  ~20 commits
-    Total                   :  ~94 commits
+   COMMITS APROXIMADOS POR INTEGRANTE:
+   -------------------------------------
+     sebasr0311      (Juan)  :  ~49 commits
+     JoseReales-ui   (Jose)  :  ~28 commits
+     icamilohernandez(Ivan)  :  ~20 commits
+     Total                   :  ~97 commits
 
   ESTADO DEL MIGRADOR (RunSchemaFinal):
   --------------------------------------
