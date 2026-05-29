@@ -1,4 +1,3 @@
-```gitignore
 ### IntelliJ IDEA ###
 .idea/
 *.iml
@@ -53,4 +52,5 @@ Thumbs.db
 
 ### Credenciales — NO versionar ###
 src/main/resources/bd.properties
-```
+src/main/resources/wallet.zip
+database/wallet_base64.txt

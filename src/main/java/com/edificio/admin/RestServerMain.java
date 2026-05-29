@@ -1,14 +1,18 @@
-package com.edificio.admin; 
+package com.edificio.admin;
 
 import com.edificio.admin.rest.RestServer;
+import com.edificio.admin.util.WalletSetup;
 
 /**
  * Punto de entrada solo para el backend REST (sin ventana JavaFX).
- * Lee el puerto de la variable de entorno PORT (Railway) o usa 8080 por defecto.
+ * Lee el puerto de PORT (Railway) o 8080 por defecto.
+ * Inicializa wallet Oracle ATP si existe wallet.zip en classpath.
  */
 public class RestServerMain {
 
     public static void main(String[] args) {
+        WalletSetup.init();
+
         String portEnv = System.getenv("PORT");
         int port;
         try {
