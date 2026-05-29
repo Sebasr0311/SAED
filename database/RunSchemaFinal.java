@@ -52,15 +52,15 @@ public class RunSchemaFinal {
         System.out.println("Tables=" + tables + " Triggers=" + triggers +
             " Procs=" + procs + " Funcs=" + funcs + " Packages=" + pkgs + " Other=" + others);
 
-        boolean execute = args.length > 0 && args[0].equals("--execute");
+        boolean execute = false;
+        boolean resetData = false;
+        for (String a : args) {
+            if (a.equals("--execute")) execute = true;
+            if (a.equals("--reset-data")) resetData = true;
+        }
         if (!execute) {
             System.out.println("(Pass --execute to run against ATP)");
             return;
-        }
-
-        boolean resetData = false;
-        for (String a : args) {
-            if (a.equals("--reset-data")) resetData = true;
         }
 
         String url = "jdbc:oracle:thin:@residencial_high";
@@ -124,34 +124,34 @@ public class RunSchemaFinal {
     }
 
     static void resetAllData(Connection conn) throws Exception {
-        String[] tablesInOrder = {
-            "QUEJAS_SUGERENCIAS",
-            "REGISTROS_ACCESO",
-            "FRECUENTES_RESIDENTE",
-            "REGISTRO_VISITA",
-            "VEHICULOS_VISITA",
-            "VISITANTES",
-            "QR_ACCESOS",
-            "ALERTAS_PAGO",
-            "PAGOS",
-            "CUOTAS_ARRIENDO",
-            "CONTRATO_RESIDENTE"
-        };
         try (Statement s = conn.createStatement()) {
             // MULTAS: null out FK to BUZON first
             try { s.execute("UPDATE MULTAS SET id_mensaje = NULL WHERE id_mensaje IS NOT NULL"); } catch (Exception e) {}
-            for (String t : tablesInOrder) {
-                try { s.execute("DELETE FROM " + t); } catch (Exception e) {
-                    System.err.println("  WARN deleting " + t + ": " + e.getMessage());
-                }
-            }
-            // Remaining tables in order
-            String[] remaining = {
-                "MULTAS", "BUZON", "VISITAS", "CONTRATOS",
-                "USUARIOS", "TUTORES", "RESIDENTES",
-                "PARQUEADEROS", "APARTAMENTOS", "TIPOS_DOCUMENTO"
+            // Delete in FK-safe order (children before parents)
+            String[] deleteOrder = {
+                "QUEJAS_SUGERENCIAS",
+                "REGISTROS_ACCESO",
+                "FRECUENTES_RESIDENTE",
+                "REGISTRO_VISITA",
+                "VEHICULOS_VISITA",
+                "VISITANTES",
+                "QR_ACCESOS",
+                "BUZON",
+                "ALERTAS_PAGO",
+                "PAGOS",
+                "CUOTAS_ARRIENDO",
+                "MULTAS",
+                "VISITAS",
+                "CONTRATO_RESIDENTE",
+                "CONTRATOS",
+                "USUARIOS",
+                "TUTORES",
+                "RESIDENTES",
+                "PARQUEADEROS",
+                "APARTAMENTOS",
+                "TIPOS_DOCUMENTO"
             };
-            for (String t : remaining) {
+            for (String t : deleteOrder) {
                 try { s.execute("DELETE FROM " + t); } catch (Exception e) {
                     System.err.println("  WARN deleting " + t + ": " + e.getMessage());
                 }
