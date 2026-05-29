@@ -20,6 +20,8 @@ public class WalletSetup {
     private static final String WALLET_DIR  = "saed-oracle-wallet";
     private static final String PROP_EXTRACTED = "saed.wallet.extracted";
     private static final String ENV_WALLET_B64 = "WALLET_BASE64";
+    private static final String ENV_WALLET_P1  = "WALLET_BASE64_PART1";
+    private static final String ENV_WALLET_P2  = "WALLET_BASE64_PART2";
 
     public static void init() {
         // 1. TNS_ADMIN ya configurado externamente
@@ -45,8 +47,15 @@ public class WalletSetup {
 
         Path targetDir = Paths.get(System.getProperty("java.io.tmpdir"), WALLET_DIR);
 
-        // 3. WALLET_BASE64 env var (Railway — wallet como base64 en variable de entorno)
+        // 3. WALLET_BASE64 env var (completo o partido en 2 para Railway)
         String walletB64 = getenv(ENV_WALLET_B64);
+        if (walletB64 == null || walletB64.isEmpty()) {
+            String p1 = getenv(ENV_WALLET_P1);
+            String p2 = getenv(ENV_WALLET_P2);
+            if (p1 != null && p2 != null && !p1.isEmpty() && !p2.isEmpty()) {
+                walletB64 = p1 + p2;
+            }
+        }
         if (walletB64 != null && !walletB64.isEmpty()) {
             try {
                 byte[] zipBytes = java.util.Base64.getDecoder().decode(walletB64);
