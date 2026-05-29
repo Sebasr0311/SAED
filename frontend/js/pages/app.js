@@ -5,46 +5,169 @@ function toggleSidebar(force) {
   sidebar.classList.toggle('open', isOpen);
   if (overlay) overlay.classList.toggle('show', isOpen);
 }
+
+function toggleGroup(btn) {
+  var group = btn.closest('.sidebar-group');
+  if (!group) return;
+  var wasOpen = group.classList.contains('group-open');
+  // Cerrar todos los demás grupos
+  document.querySelectorAll('.sidebar-group.group-open').forEach(function(g) {
+    g.classList.remove('group-open');
+  });
+  // Abrir solo este si no estaba abierto
+  if (!wasOpen) group.classList.add('group-open');
+}
+
 function buildSidebar() {
   const user = Auth.getCurrentUser();
   if (!user) return;
   const role = user.rol;
-  const NAV_ITEMS = {
+
+  // Definición de grupos con sus items
+  var GROUPS = {
     ADMINISTRADOR: [
-      { page: 'dashboard', icon: 'dashboard', label: 'Dashboard' },
-      { page: 'residentes', icon: 'groups', label: 'Residentes' },
-      { page: 'apartamentos', icon: 'domain', label: 'Apartamentos' },
-      { page: 'contratos', icon: 'description', label: 'Contratos' },
-      { page: 'pagos', icon: 'payments', label: 'Pagos' },
-      { page: 'visitas', icon: 'how_to_reg', label: 'Visitas' },
-      { page: 'historial-visitas', icon: 'history', label: 'Historial Visitas' },
-      { page: 'parqueaderos', icon: 'local_parking', label: 'Parqueaderos' },
-      { page: 'usuarios', icon: 'manage_accounts', label: 'Usuarios' },
-      { page: 'alertas', icon: 'notifications', label: 'Alertas' },
-      { page: 'avisos', icon: 'campaign', label: 'Avisos' },
-      { page: 'quejas-admin', icon: 'feedback', label: 'Solicitudes' },
-      { page: 'paquetes-admin', icon: 'inventory_2', label: 'Paquetes' },
-      { page: 'escanner-qr', icon: 'qr_code_scanner', label: 'Escaner QR' }
+      {
+        icon: 'dashboard',
+        label: 'Dashboard',
+        items: [
+          { page: 'dashboard', label: 'Dashboard' }
+        ]
+      },
+      {
+        icon: 'apartment',
+        label: 'Gestión Residencial',
+        items: [
+          { page: 'residentes', label: 'Residentes' },
+          { page: 'apartamentos', label: 'Apartamentos' },
+          { page: 'contratos', label: 'Contratos' },
+          { page: 'usuarios', label: 'Usuarios' }
+        ]
+      },
+      {
+        icon: 'account_balance',
+        label: 'Finanzas',
+        items: [
+          { page: 'pagos', label: 'Pagos' },
+          { page: 'alertas', label: 'Alertas' },
+          { page: 'avisos', label: 'Avisos' }
+        ]
+      },
+      {
+        icon: 'security',
+        label: 'Control de Acceso',
+        items: [
+          { page: 'visitas', label: 'Visitas' },
+          { page: 'historial-visitas', label: 'Historial Visitas' },
+          { page: 'escanner-qr', label: 'Escáner QR' },
+          { page: 'paquetes-admin', label: 'Paquetes' }
+        ]
+      },
+      {
+        icon: 'local_parking',
+        label: 'Parqueaderos',
+        items: [
+          { page: 'parqueaderos', label: 'Parqueaderos' }
+        ]
+      },
+      {
+        icon: 'settings',
+        label: 'Administración',
+        items: [
+          { page: 'quejas-admin', label: 'Solicitudes' }
+        ]
+      }
     ],
     PORTERO: [
-      { page: 'portero-dashboard', icon: 'admin_panel_settings', label: 'Panel' },
-      { page: 'visitas', icon: 'how_to_reg', label: 'Visitas' },
-      { page: 'escanner-qr', icon: 'qr_code_scanner', label: 'Escaner QR' },
-      { page: 'parqueaderos', icon: 'local_parking', label: 'Parqueaderos' },
-      { page: 'paquetes', icon: 'inventory_2', label: 'Paquetes' }
+      {
+        icon: 'admin_panel_settings',
+        label: 'Panel',
+        items: [
+          { page: 'portero-dashboard', label: 'Panel' }
+        ]
+      },
+      {
+        icon: 'how_to_reg',
+        label: 'Visitas',
+        items: [
+          { page: 'visitas', label: 'Visitas' }
+        ]
+      },
+      {
+        icon: 'qr_code_scanner',
+        label: 'Control de Acceso',
+        items: [
+          { page: 'escanner-qr', label: 'Escáner QR' },
+          { page: 'paquetes', label: 'Paquetes' }
+        ]
+      },
+      {
+        icon: 'local_parking',
+        label: 'Parqueaderos',
+        items: [
+          { page: 'parqueaderos', label: 'Parqueaderos' }
+        ]
+      }
     ],
     RESIDENTE: [
-      { page: 'residente-dashboard', icon: 'home', label: 'Mi Portal' }
+      {
+        icon: 'home',
+        label: 'Mi Portal',
+        items: [
+          { page: 'residente-dashboard', label: 'Mi Portal' }
+        ]
+      }
     ]
   };
-  const items = NAV_ITEMS[role] || NAV_ITEMS.RESIDENTE;
-  const nav = document.getElementById('sidebar-nav');
-  nav.innerHTML = items.map(item =>
-    `<button class="sidebar-btn" data-page="${item.page}" onclick="Router.navigate('${item.page}')" title="${item.label}">
-      <span class="material-symbols-outlined">${item.icon}</span>
-      <span class="sidebar-label">${item.label}</span>
-    </button>`
-  ).join('');
+
+  var groups = GROUPS[role] || GROUPS.RESIDENTE;
+  var nav = document.getElementById('sidebar-nav');
+  var currentPage = Router.getCurrentPage ? Router.getCurrentPage() : '';
+
+  // Construir HTML de los grupos
+  var html = '';
+  groups.forEach(function(g, idx) {
+    var isSingle = g.items.length === 1;
+    html += '<div class="sidebar-group"' + (isSingle ? ' data-single="true"' : '') + '>';
+
+    if (isSingle) {
+      // Item único sin accordion
+      var item = g.items[0];
+      var active = currentPage === item.page ? ' active' : '';
+      html += '<button class="sidebar-group-btn sidebar-item-btn' + active + '" data-page="' + item.page + '" onclick="Router.navigate(\'' + item.page + '\');event.stopPropagation()">' +
+        '<span class="material-symbols-outlined group-icon">' + g.icon + '</span>' +
+        '<span class="sidebar-label">' + item.label + '</span>' +
+        '</button>';
+    } else {
+      // Grupo con accordion
+      html += '<button class="sidebar-group-btn" onclick="toggleGroup(this)">' +
+        '<span class="material-symbols-outlined group-icon">' + g.icon + '</span>' +
+        '<span class="sidebar-label">' + g.label + '</span>' +
+        '<span class="sidebar-arrow material-symbols-outlined">chevron_right</span>' +
+        '</button>' +
+        '<div class="sidebar-submenu">';
+      g.items.forEach(function(item) {
+        var active = currentPage === item.page ? ' active' : '';
+        html += '<button class="sidebar-item' + active + '" data-page="' + item.page + '" onclick="Router.navigate(\'' + item.page + '\')">' +
+          '<span class="sidebar-label">' + item.label + '</span>' +
+          '</button>';
+      });
+      html += '</div>';
+    }
+
+    html += '</div>';
+  });
+
+  nav.innerHTML = html;
+
+  // Auto-abrir grupo del item activo
+  if (currentPage) {
+    var activeItem = nav.querySelector('.sidebar-item.active, .sidebar-item-btn.active');
+    if (activeItem) {
+      var group = activeItem.closest('.sidebar-group');
+      if (group) group.classList.add('group-open');
+    }
+  }
+
   var userEl = document.getElementById('topbar-user');
   if (userEl) userEl.textContent = user.username;
   var roleEl = document.getElementById('topbar-role');

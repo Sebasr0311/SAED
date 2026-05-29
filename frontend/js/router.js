@@ -45,11 +45,18 @@ const Router = (() => {
   }
 
   function updateSidebar(current) {
-    document.querySelectorAll('.sidebar-btn').forEach(el => {
-      var active = el.dataset.page === current;
-      el.classList.toggle('opacity-100', active);
-      el.classList.toggle('opacity-60', !active);
-      el.classList.toggle('sidebar-active', active);
+    // Quitar active de todos
+    document.querySelectorAll('.sidebar-item, .sidebar-item-btn').forEach(el => {
+      el.classList.remove('active');
+    });
+    // Marcar el activo
+    document.querySelectorAll('.sidebar-item[data-page="' + current + '"], .sidebar-item-btn[data-page="' + current + '"]').forEach(el => {
+      el.classList.add('active');
+    });
+    // Auto-abrir grupo contenedor
+    document.querySelectorAll('.sidebar-item.active').forEach(el => {
+      var group = el.closest('.sidebar-group');
+      if (group) group.classList.add('group-open');
     });
   }
 
