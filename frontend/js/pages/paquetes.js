@@ -89,7 +89,7 @@ const Paquetes = (() => {
 
   async function cargarResidentes() {
     try {
-      residentes = await API.get('/residentes');
+      residentes = await API.get('/residentes?conUsuario=true');
       var select = document.getElementById('paq-residente');
       if (!select) return;
       residentes = residentes || [];

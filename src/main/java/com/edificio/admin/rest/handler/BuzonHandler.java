@@ -13,6 +13,8 @@ import java.util.*;
 public class BuzonHandler extends BaseHandler implements HttpHandler {
 
     private final BuzonDAO buzonDAO = new BuzonDAO();
+    private final ContratoDAO contratoDAO = new ContratoDAO();
+    private final ContratoResidenteDAO contratoResidenteDAO = new ContratoResidenteDAO();
 
     @Override
     public void handle(HttpExchange exchange) throws IOException {
@@ -101,7 +103,14 @@ public class BuzonHandler extends BaseHandler implements HttpHandler {
                 Buzon b = new Buzon();
                 Object aptId = data.get("idApartamento");
                 if (aptId == null) throw new Exception("idApartamento requerido");
-                b.setIdApartamento(((Number) aptId).intValue());
+                int idApartamento = ((Number) aptId).intValue();
+                Contrato cActivo = contratoDAO.findActivoByApartamento(idApartamento);
+                if (cActivo == null)
+                    throw new Exception("El apartamento no tiene un contrato activo. No se pueden registrar paquetes.");
+                List<ContratoResidente> residentes = contratoResidenteDAO.findByContrato(cActivo.getIdContrato());
+                if (residentes == null || residentes.isEmpty())
+                    throw new Exception("El apartamento no tiene residentes asignados. No se pueden registrar paquetes.");
+                b.setIdApartamento(idApartamento);
                 b.setTipo("PAQUETE");
                 b.setTitulo((String) data.get("titulo"));
                 b.setCuerpo((String) data.get("cuerpo"));
@@ -118,7 +127,14 @@ public class BuzonHandler extends BaseHandler implements HttpHandler {
                 Buzon b = new Buzon();
                 Object aptId = data.get("idApartamento");
                 if (aptId == null) throw new Exception("idApartamento requerido");
-                b.setIdApartamento(((Number) aptId).intValue());
+                int idApartamento = ((Number) aptId).intValue();
+                Contrato cActivo = contratoDAO.findActivoByApartamento(idApartamento);
+                if (cActivo == null)
+                    throw new Exception("El apartamento no tiene un contrato activo. No se pueden enviar avisos de ruido.");
+                List<ContratoResidente> residentes = contratoResidenteDAO.findByContrato(cActivo.getIdContrato());
+                if (residentes == null || residentes.isEmpty())
+                    throw new Exception("El apartamento no tiene residentes asignados. No se pueden enviar avisos de ruido.");
+                b.setIdApartamento(idApartamento);
                 b.setTipo("QUEJA_RUIDO");
                 b.setTitulo("Aviso de Ruido");
                 b.setCuerpo((String) data.get("cuerpo"));

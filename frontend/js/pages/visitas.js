@@ -60,7 +60,7 @@ const Visitas = (() => {
 
   async function cargarResidentes() {
     try {
-      var r = await API.get('/residentes');
+      var r = await API.get('/residentes?conUsuario=true');
       var select = document.getElementById('vis-residente');
       if (!select) return;
       r.sort(function(a, b) { return (parseInt(a.numeroApartamento, 10) || 0) - (parseInt(b.numeroApartamento, 10) || 0); });
