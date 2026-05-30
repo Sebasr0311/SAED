@@ -223,19 +223,25 @@ public class QRAccesoDAO implements CrudDAO<QRAcceso> {
      * El codigo_qr debe generarse en Oracle; desde Java solo se almacena.
      */
     @Override
-    public Integer insert(QRAcceso q) throws SQLException {
+    public Integer insert(Integer idVisita, String codigoQr, int tiempoValidezMin) throws SQLException {
         String sql = "BEGIN INSERT INTO QR_ACCESOS "
                    + "  (id_visita, codigo_qr, fecha_generacion, fecha_expiracion, usado) "
-                   + "VALUES (?, ?, CURRENT_TIMESTAMP, ?, 0) "
+                   + "VALUES (?, ?, CURRENT_TIMESTAMP, "
+                   + "        CURRENT_TIMESTAMP + NUMTODSINTERVAL(?, 'MINUTE'), 0) "
                    + "RETURNING id_qr INTO ?; END;";
         try (CallableStatement cs = conn().prepareCall(sql)) {
-            cs.setInt(1, q.getIdVisita());
-            cs.setString(2, q.getCodigoQr());
-            cs.setTimestamp(3, Timestamp.valueOf(q.getFechaExpiracion()));
+            cs.setInt(1, idVisita);
+            cs.setString(2, codigoQr);
+            cs.setInt(3, tiempoValidezMin);
             cs.registerOutParameter(4, Types.NUMERIC);
             cs.executeUpdate();
             return cs.getInt(4);
         }
+    }
+
+    /** @deprecated Usar {@link #insert(Integer, String, int)} para evitar desfase horario. */
+    public Integer insert(QRAcceso q) throws SQLException {
+        return insert(q.getIdVisita(), q.getCodigoQr(), 60);
     }
 
     /** Actualiza estado de uso (normalmente via SP_VALIDAR_QR en Oracle). */

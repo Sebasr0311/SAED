@@ -104,21 +104,29 @@ public class RegistroAccesoDAO {
      * Inserta un nuevo registro de acceso.
      */
     public Integer insert(RegistroAcceso ra) throws SQLException {
-        String sql = "BEGIN INSERT INTO REGISTROS_ACCESO "
-                   + "  (id_visita, id_vigilante, hora_entrada, observaciones) "
-                   + "VALUES (?, ?, ?, ?) "
-                   + "RETURNING id_acceso INTO ?; END;";
+        String sql;
+        if (ra.getHoraEntrada() != null) {
+            sql = "BEGIN INSERT INTO REGISTROS_ACCESO "
+                + "  (id_visita, id_vigilante, hora_entrada, observaciones) "
+                + "VALUES (?, ?, ?, ?) "
+                + "RETURNING id_acceso INTO ?; END;";
+        } else {
+            sql = "BEGIN INSERT INTO REGISTROS_ACCESO "
+                + "  (id_visita, id_vigilante, hora_entrada, observaciones) "
+                + "VALUES (?, ?, CURRENT_TIMESTAMP, ?) "
+                + "RETURNING id_acceso INTO ?; END;";
+        }
         try (CallableStatement cs = conn().prepareCall(sql)) {
             cs.setInt(1, ra.getIdVisita());
             cs.setInt(2, ra.getIdVigilante());
             if (ra.getHoraEntrada() != null)
                 cs.setTimestamp(3, Timestamp.valueOf(ra.getHoraEntrada()));
-            else
-                cs.setNull(3, Types.TIMESTAMP);
-            cs.setString(4, ra.getObservaciones());
-            cs.registerOutParameter(5, Types.NUMERIC);
+            int obsIdx = ra.getHoraEntrada() != null ? 4 : 3;
+            cs.setString(obsIdx, ra.getObservaciones());
+            int outIdx = ra.getHoraEntrada() != null ? 5 : 4;
+            cs.registerOutParameter(outIdx, Types.NUMERIC);
             cs.executeUpdate();
-            return cs.getInt(5);
+            return cs.getInt(outIdx);
         }
     }
 

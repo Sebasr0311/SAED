@@ -8,7 +8,6 @@ import com.edificio.admin.model.enums.EstadoVisita;
 
 import java.sql.Connection;
 import java.sql.SQLException;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -107,16 +106,10 @@ public class VisitaService {
                     vehiculo.setIdVehiculoVisita(idVeh);
                 }
 
-                // 4. INSERT QR_ACCESOS
+                // 4. INSERT QR_ACCESOS (fechas con CURRENT_TIMESTAMP de la BD)
                 String codigoQr = UUID.randomUUID().toString().replace("-", "");
-                LocalDateTime expiracion = LocalDateTime.now()
-                        .plusMinutes(visita.getTiempoValidezMin());
-
-                QRAcceso qr = new QRAcceso();
-                qr.setIdVisita(idVisita);
-                qr.setCodigoQr(codigoQr);
-                qr.setFechaExpiracion(expiracion);
-                qrAccesoDAO.insert(qr);
+                int validezMin = visita.getTiempoValidezMin() > 0 ? visita.getTiempoValidezMin() : 60;
+                qrAccesoDAO.insert(idVisita, codigoQr, validezMin);
 
                 conn.commit();
                 return codigoQr;

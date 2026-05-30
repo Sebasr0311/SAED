@@ -9,7 +9,6 @@ import com.edificio.admin.model.enums.TipoVehiculo;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import java.io.*;
-import java.time.LocalDateTime;
 import java.util.*;
 
 public class QrHandler extends BaseHandler implements HttpHandler {
@@ -102,7 +101,7 @@ public class QrHandler extends BaseHandler implements HttpHandler {
                 RegistroAcceso ra = new RegistroAcceso();
                 ra.setIdVisita(qr.getIdVisita());
                 ra.setIdVigilante(idVigilante);
-                ra.setHoraEntrada(LocalDateTime.now());
+                // No setear horaEntrada — el DAO usa CURRENT_TIMESTAMP de la BD
                 Integer id = registroDAO.insert(ra);
 
                 String parqAsignado = null;
