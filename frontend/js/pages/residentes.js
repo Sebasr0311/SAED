@@ -157,12 +157,14 @@ const Residentes = (() => {
           <div class="form-row">
             <div class="form-group">
               <label>Tel\u00e9fono</label>
-              <input type="text" id="tutor-telefono" class="form-control" value="${tutor ? tutor.telefono || '' : ''}">
-            </div>
-            <div class="form-group">
-              <label>Email</label>
-              <input type="email" id="tutor-email" class="form-control" value="${tutor ? tutor.email || '' : ''}">
-            </div>
+            <input type="text" id="tutor-telefono" class="form-control" value="${tutor ? tutor.telefono || '' : ''}">
+            <span class="field-error" id="tutor-telefono-error"></span>
+          </div>
+          <div class="form-group">
+            <label>Email</label>
+            <input type="email" id="tutor-email" class="form-control" value="${tutor ? tutor.email || '' : ''}">
+            <span class="field-error" id="tutor-email-error"></span>
+          </div>
           </div>
           <div class="form-row">
             <div class="form-group">
@@ -273,6 +275,9 @@ const Residentes = (() => {
     // Filtros para teléfono (tutor)
     Utils.soloNumeros('tutor-telefono', 10);
     Utils.validarTelefonoTiempoReal('tutor-telefono');
+    
+    // Validación email del tutor en tiempo real
+    Utils.validarEmailTiempoReal('tutor-email');
   }
   
   function aplicarFiltroDocumento(input, tipoDocCodigo) {
@@ -461,6 +466,8 @@ const Residentes = (() => {
       
       if (!Utils.valNombre(document.getElementById('tutor-nombres').value, 'tutor-nombres', 'El nombre del tutor')) return;
       if (!Utils.valApellido(document.getElementById('tutor-apellidos').value, 'tutor-apellidos', 'El apellido del tutor')) return;
+      if (!Utils.valTelefono(document.getElementById('tutor-telefono').value, 'tutor-telefono')) return;
+      if (!Utils.valEmail(document.getElementById('tutor-email').value, 'tutor-email')) return;
       if (!Utils.valSelect(document.getElementById('tutor-parentesco').value, 'tutor-parentesco', 'Seleccione el parentesco')) return;
     }
 

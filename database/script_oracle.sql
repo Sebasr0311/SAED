@@ -1103,7 +1103,7 @@ CREATE TABLE VEHICULOS_VISITA (
     descripcion_tipo   VARCHAR2(60  CHAR),             -- obligatorio cuando tipo = 'OTRO'
     color              VARCHAR2(60  CHAR),
     marca              VARCHAR2(100 CHAR),
-    hora_entrada       TIMESTAMP           DEFAULT SYSTIMESTAMP,
+    hora_entrada       TIMESTAMP           DEFAULT CURRENT_TIMESTAMP,
     hora_salida        TIMESTAMP,
     actualizado_en  TIMESTAMP,
 
@@ -1235,10 +1235,10 @@ CREATE TABLE REGISTROS_ACCESO (
                                         CONSTRAINT PK_ACCESO PRIMARY KEY,
     id_visita       NUMBER              NOT NULL,
     id_vigilante    NUMBER              NOT NULL,
-    hora_entrada    TIMESTAMP           DEFAULT SYSTIMESTAMP NOT NULL,
+    hora_entrada    TIMESTAMP           DEFAULT CURRENT_TIMESTAMP NOT NULL,
     hora_salida     TIMESTAMP,
     observaciones   VARCHAR2(500 CHAR),
-    fecha_registro  TIMESTAMP           DEFAULT SYSTIMESTAMP NOT NULL,
+    fecha_registro  TIMESTAMP           DEFAULT CURRENT_TIMESTAMP NOT NULL,
     actualizado_en  TIMESTAMP,
 
     CONSTRAINT UQ_ACCESO_VISITA
