@@ -201,6 +201,10 @@ const Apartamentos = (() => {
               '</div></div>';
           }
           
+          html += '<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border-subtle);display:flex;gap:8px">' +
+            '<button class="btn btn-danger btn-sm" onclick="Apartamentos.removerResidente(' + idApartamento + ',' + r.id + ')" title="Quitar residente">' +
+            '<span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle">person_remove</span> Quitar</button></div>';
+
           html += '</div>';
         });
       }
@@ -217,7 +221,18 @@ const Apartamentos = (() => {
     }
   }
 
-  return { cargar, render, mostrarFormulario, guardar, editar, eliminar, verDescripcion, goToPage };
+  async function removerResidente(idApartamento, idResidente) {
+    if (!(await Utils.showConfirm('¿Está seguro de eliminar este residente del apartamento?'))) return;
+    try {
+      await API.del('/apartamentos/' + idApartamento + '/residentes/' + idResidente);
+      Utils.showToast('Residente eliminado del apartamento', 'success');
+      var overlay = document.getElementById('modal-descripcion-apartamento');
+      if (overlay) overlay.remove();
+      cargar();
+    } catch (e) { Utils.showToast(e.message, 'error'); }
+  }
+
+  return { cargar, render, mostrarFormulario, guardar, editar, eliminar, verDescripcion, removerResidente, goToPage };
 })();
 
 Router.register('apartamentos', {

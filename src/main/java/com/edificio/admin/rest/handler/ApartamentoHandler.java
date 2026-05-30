@@ -3,6 +3,7 @@ package com.edificio.admin.rest.handler;
 import com.edificio.admin.rest.*;
 import com.edificio.admin.rest.dto.ErrorResponse;
 import com.edificio.admin.service.ApartamentoService;
+import com.edificio.admin.service.ContratoService;
 import com.edificio.admin.dao.ResidenteDAO;
 import com.edificio.admin.model.Apartamento;
 import com.edificio.admin.model.Residente;
@@ -14,6 +15,7 @@ import java.util.*;
 public class ApartamentoHandler extends BaseHandler implements HttpHandler {
 
     private final ApartamentoService service = new ApartamentoService();
+    private final ContratoService contratoService = new ContratoService();
     private final ResidenteDAO residenteDAO = new ResidenteDAO();
 
     @Override
@@ -78,14 +80,16 @@ public class ApartamentoHandler extends BaseHandler implements HttpHandler {
                 a.setIdApartamento(Integer.parseInt(parts[3]));
                 service.actualizar(a);
                 sendJson(exchange, 200, Map.of("mensaje", "Apartamento actualizado"));
-            } else if ("DELETE".equalsIgnoreCase(method) && parts.length == 4) {
+            } else if ("DELETE".equalsIgnoreCase(method) && parts.length == 6 && "residentes".equals(parts[4])) {
                 if (!AuthMiddleware.hasRole(claims, "ADMINISTRADOR")) {
                     sendJson(exchange, 403, new ErrorResponse("Se requieren permisos de administrador"));
                     return;
                 }
-                service.desactivar(Integer.parseInt(parts[3]));
-                sendJson(exchange, 200, Map.of("mensaje", "Apartamento eliminado"));
-            } else {
+                int idApartamento = Integer.parseInt(parts[3]);
+                int idResidente = Integer.parseInt(parts[5]);
+                contratoService.removerResidente(idApartamento, idResidente);
+                sendJson(exchange, 200, Map.of("mensaje", "Residente eliminado del apartamento"));
+            } else if ("DELETE".equalsIgnoreCase(method) && parts.length == 4) {
                 sendJson(exchange, 405, new ErrorResponse("Metodo no permitido"));
             }
         } catch (Exception e) {

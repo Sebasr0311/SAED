@@ -236,6 +236,51 @@ public class ContratoService {
         contratoDAO.update(contrato);
     }
 
+    public void removerResidente(Integer idApartamento, Integer idResidente) throws SQLException {
+        validarId(idResidente);
+        if (idApartamento == null || idApartamento <= 0)
+            throw new DatosInvalidosException("ID de apartamento inv\u00e1lido.");
+        Contrato contrato = contratoDAO.findActivoByApartamento(idApartamento);
+        if (contrato == null)
+            throw new DatosInvalidosException("El apartamento no tiene un contrato activo.");
+        List<ContratoResidente> relaciones = contratoResidenteDAO.findByContrato(contrato.getIdContrato());
+        if (relaciones == null || relaciones.isEmpty())
+            throw new DatosInvalidosException("El apartamento no tiene residentes registrados.");
+        ContratoResidente target = null;
+        for (ContratoResidente cr : relaciones) {
+            if (cr.getIdResidente().equals(idResidente)) {
+                target = cr;
+                break;
+            }
+        }
+        if (target == null)
+            throw new DatosInvalidosException("El residente no pertenece a este apartamento.");
+        // No permitir eliminar el único ARRENDATARIO
+        if ("ARRENDATARIO".equals(target.getRolEnContrato())) {
+            boolean otroArrrendatario = false;
+            for (ContratoResidente cr : relaciones) {
+                if (!cr.getIdResidente().equals(idResidente) && "ARRENDATARIO".equals(cr.getRolEnContrato())) {
+                    otroArrrendatario = true;
+                    break;
+                }
+            }
+            if (!otroArrrendatario)
+                throw new DatosInvalidosException("No se puede eliminar el \u00fanico arrendatario del contrato.");
+        }
+        contratoResidenteDAO.delete(target.getIdContratoRes());
+        // Si no quedan residentes en el contrato, marcar apto como DISPONIBLE
+        List<ContratoResidente> restantes = contratoResidenteDAO.findByContrato(contrato.getIdContrato());
+        if (restantes == null || restantes.isEmpty()) {
+            contrato.setEstado(EstadoContrato.CANCELADO);
+            contratoDAO.update(contrato);
+            Apartamento apto = apartamentoDAO.findById(idApartamento);
+            if (apto != null) {
+                apto.setEstado(EstadoApartamento.DISPONIBLE);
+                apartamentoDAO.update(apto);
+            }
+        }
+    }
+
     public void agregarResidente(Integer idContrato, Integer idResidente,
                                   String rolEnContrato) throws SQLException {
         validarId(idContrato);
