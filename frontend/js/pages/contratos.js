@@ -381,7 +381,7 @@ const Contratos = (() => {
   async function descargarPDF(id) {
     var token = Auth.getToken();
     if (!token) { Utils.showToast('Sesión expirada, inicia sesión de nuevo', 'error'); return; }
-    var base = location.protocol === 'file:' ? 'http://localhost:8080/api' : '/api';
+    var base = window._API_BASE_URL || '/api';
     try {
       var response = await fetch(base + '/contratos/' + id + '/pdf', {
         headers: { 'Authorization': 'Bearer ' + token }

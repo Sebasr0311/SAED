@@ -2492,11 +2492,11 @@ CREATE OR REPLACE PACKAGE BODY PKG_VISITAS AS
             RETURN;
         END IF;
 
-        UPDATE VISITAS
+        UPDATE VISITAS SET estado = 'CANCELADA'
          WHERE id_visita = p_id_visita;
 
         -- Invalidar QR asociado si a?n no fue usado
-        UPDATE QR_ACCESOS
+        UPDATE QR_ACCESOS SET usado = 1
          WHERE id_visita = p_id_visita AND usado = 0;
 
         COMMIT;
@@ -2549,8 +2549,8 @@ CREATE OR REPLACE PACKAGE BODY PKG_VISITAS AS
         p_codigo_qr  := LOWER(RAWTOHEX(SYS_GUID()));
         p_expiracion := CURRENT_TIMESTAMP + NUMTODSINTERVAL(p_tiempo_min, 'MINUTE');
 
-        INSERT INTO QR_ACCESOS (id_visita, codigo_qr, fecha_expiracion, usado)
-        VALUES (p_id_visita, p_codigo_qr, p_expiracion, 0);
+        INSERT INTO QR_ACCESOS (id_visita, codigo_qr, fecha_generacion, fecha_expiracion, usado)
+        VALUES (p_id_visita, p_codigo_qr, CURRENT_TIMESTAMP, p_expiracion, 0);
 
         COMMIT;
         p_mensaje := 'QR generado. Vigencia: ' || p_tiempo_min || ' minuto(s).';
