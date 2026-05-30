@@ -1719,11 +1719,11 @@ CREATE OR REPLACE TRIGGER TRG_ACCESO_SALIDA
     WHEN (NEW.hora_salida IS NOT NULL AND OLD.hora_salida IS NULL)
 BEGIN
     -- Cerrar la visita
-    UPDATE VISITAS
+    UPDATE VISITAS SET estado = 'FINALIZADA'
      WHERE id_visita = :NEW.id_visita;
 
     -- Liberar parqueaderos ocupados por esa visita
-    UPDATE PARQUEADEROS
+    UPDATE PARQUEADEROS SET estado = 'DISPONIBLE', id_apartamento = NULL
      WHERE id_parqueadero IN (
          SELECT id_parqueadero
            FROM VEHICULOS_VISITA
@@ -1732,7 +1732,7 @@ BEGIN
      );
 
     -- Registrar hora de salida en los veh?culos de la visita
-    UPDATE VEHICULOS_VISITA
+    UPDATE VEHICULOS_VISITA SET hora_salida = CURRENT_TIMESTAMP
      WHERE id_visita = :NEW.id_visita;
 END TRG_ACCESO_SALIDA;
 
