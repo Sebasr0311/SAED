@@ -1682,12 +1682,12 @@ CREATE OR REPLACE TRIGGER TRG_CONT_SYNC_APARTAMENTO
     FOR EACH ROW
 BEGIN
     IF :NEW.estado = 'ACTIVO' AND :OLD.estado != 'ACTIVO' THEN
-        UPDATE APARTAMENTOS
+        UPDATE APARTAMENTOS SET estado = 'OCUPADO'
          WHERE id_apartamento = :NEW.id_apartamento;
 
     ELSIF :NEW.estado IN ('VENCIDO','CANCELADO')
       AND :OLD.estado = 'ACTIVO' THEN
-        UPDATE APARTAMENTOS
+        UPDATE APARTAMENTOS SET estado = 'DISPONIBLE'
          WHERE id_apartamento = :NEW.id_apartamento;
     END IF;
 END TRG_CONT_SYNC_APARTAMENTO;
