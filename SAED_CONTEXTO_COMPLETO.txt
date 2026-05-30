@@ -1,0 +1,685 @@
+================================================================================
+  SAED - SISTEMA DE ADMINISTRACIÓN DE EDIFICIO RESIDENCIAL
+  CONTEXTO COMPLETO DEL PROYECTO
+================================================================================
+
+================================================================================
+  1. DATOS GENERALES
+================================================================================
+
+  Nombre del proyecto: SAED (Sistema de Administración de Edificio Residencial)
+  Stack tecnológico:   Java 17 + Oracle XE 18c / Oracle ATP
+                       Servidor REST embebido (com.sun.net.httpserver)
+                       SPA Vanilla JS (sin frameworks)
+                       Maven, JDBC, JWT, BCrypt, ZXing, Flying Saucer, Gson
+  Repositorio activo:  https://github.com/Sebasr0311/sistema-administracion-edificios
+  Repositorio local:   https://github.com/Sebasr0311/prueba_proyecto
+  Frontend (GitHub Pages): https://sebasr0311.github.io/sistema-administracion-edificios/
+  Backend (Railway):       https://sistema-administracion-edificios-production.up.railway.app
+  Total commits: ~90 (Sebastián: 49, José: 28, Iván: 13)
+
+
+================================================================================
+  2. EQUIPO DE DESARROLLO
+================================================================================
+
+  2.1 SEBASTIÁN RINCÓN — Líder de Desarrollo
+      GitHub: Sebasr0311
+      Email:  juansebastianrincon@unicesar.edu.co
+      Commits: ~49
+      Rol:    Arquitectura general, servidor REST, base de datos, módulo de
+              visitas/QR, panel del portero, deploy en la nube, migración ATP.
+
+      Ramas a su cargo:
+        - feature/bd-schema
+        - feature/backend-core
+        - feature/modulo-visitas-qr
+        - feature/modulo-portero
+        - feature/deploy-cloud
+        - feature/atp-migration
+        - feature/final-adjustments
+
+  2.2 JOSÉ REALES (JoseReales-ui) — Desarrollador 1
+      GitHub: JoseReales-ui
+      Email:  jdaviddejesusreales@unicesar.edu.co
+      Commits: ~28
+      Rol:    Módulos administrativos: residentes, apartamentos, contratos,
+              pagos, cuotas, multas, quejas/buzón, usuarios, avisos masivos,
+              páginas JS administrativas.
+
+      Ramas a su cargo:
+        - feature/modulo-residentes
+        - feature/modulo-contratos
+        - feature/modulo-gestion
+        - feature/frontend-admin
+
+  2.3 IVÁN CAMILO HERNÁNDEZ (icamilohernandez) — Desarrollador 2
+      GitHub: icamilohernandez
+      Email:  icamilohernandez@unicesar.edu.co
+      Commits: ~13
+      Rol:    Frontend base (HTML, CSS, router, auth), portal del residente
+              (dashboard, paquetes, quejas, alertas), UX, estilos globales.
+
+      Ramas a su cargo:
+        - feature/frontend-base
+        - feature/frontend-residente
+
+
+================================================================================
+  3. ARQUITECTURA DEL SISTEMA
+================================================================================
+
+  3.1 BACKEND (Java 17, REST embebido)
+
+      Entrada principal: com.edificio.admin.RestServerMain
+        - Inicializa WalletSetup (para conexión ATP)
+        - Inicia RestServer en puerto 8080 (o PORT env var en Railway)
+        - Health check en GET /health
+
+      Servidor HTTP: com.sun.net.httpserver.HttpServer
+        - Pool de 4 hilos
+        - Filtro CORS en todas las rutas
+        - 20 contextos API bajo /api/ (Auth, Usuarios, Residentes, etc.)
+        - Sirve frontend estático desde /frontend/
+
+      Capa de datos: ConexionBD (Singleton JDBC)
+        - Prioridad 1: variables de entorno DB_URL, DB_USER, DB_PASS
+        - Prioridad 2: bd.properties en classpath
+        - Prioridad 3: valores por defecto (localhost:1521/xepdb1,
+                        RESIDENCIAL / Residencial2024#)
+
+      Autenticación: JWT con HMAC-SHA256
+        - Login: POST /api/auth/login → devuelve token + usuario
+        - Token en header Authorization: Bearer <token>
+        - Válido por 8 horas
+        - AuthMiddleware valida en cada request
+
+      Wallet Oracle ATP (WalletSetup):
+        - Orden: TNS_ADMIN > cache previa > WALLET_BASE64 env var
+          > WALLET_BASE64_PART1+PART2 > wallet.zip classpath
+        - Extrae wallet a ${java.io.tmpdir}/saed-oracle-wallet/
+        - Corrige sqlnet.ora (?/network/admin → ruta absoluta)
+
+  3.2 FRONTEND (SPA Vanilla JS)
+
+      Sin frameworks. Arquitectura modular con IIFE (Inmediatly Invoked
+      Function Expression). Cada página es un módulo que se registra en
+      el Router.
+
+      Módulos base (creados por Iván):
+        - auth.js       → Manejo de JWT en sessionStorage (clave auth_token)
+        - api.js        → Cliente HTTP con timeout 30s, Bearer token auto
+        - router.js     → Navegación por hash (#/ruta), guardias de ruta
+        - utils.js      → Utilidades: fechas, moneda, validaciones, toast,
+                          modales, paginador, gráficas (Canvas donut/bar)
+
+      Páginas JS (19 archivos en frontend/js/pages/):
+        - login.js               → Login con galería rotativa
+        - app.js                 → Sidebar colapsable + submenús
+        - residentes.js          → CRUD residentes (José)
+        - apartamentos.js        → CRUD apartamentos (José)
+        - contratos.js           → CRUD contratos + PDF (José)
+        - pagos.js               → Pagos y cuotas (José)
+        - usuarios.js            → CRUD usuarios (José)
+        - alertas.js             → Alertas de pago (Iván)
+        - avisos.js              → Avisos masivos admin (José)
+        - quejas-admin.js        → Gestión de quejas admin (José)
+        - quejas-residente.js    → Quejas residente (Iván)
+        - residente-dashboard.js → Portal residente (Iván + modal buzon)
+        - portero-dashboard.js   → Panel del portero (Sebastián)
+        - visitas.js             → Registrar visitas (Sebastián)
+        - historial-visitas.js   → Historial visitas (Sebastián)
+        - escanner-qr.js         → Escáner QR (Sebastián)
+        - parqueaderos.js        → Gestión parqueaderos (Sebastián)
+        - paquetes.js            → Paquetes portero (Iván)
+        - paquetes-admin.js      → Paquetes admin (Iván)
+
+      Templates HTML (19 en index.html):
+        - tpl-login, tpl-shell, tpl-dashboard, tpl-residentes,
+          tpl-apartamentos, tpl-contratos, tpl-pagos, tpl-visitas,
+          tpl-parqueaderos, tpl-usuarios, tpl-alertas, tpl-escanner-qr,
+          tpl-residente-dashboard, tpl-avisos, tpl-portero-dashboard,
+          tpl-paquetes, tpl-quejas-admin
+
+  3.3 BASE DE DATOS (Oracle 18c XE / Oracle ATP)
+
+      21 tablas en orden de creación:
+        1.  TIPOS_DOCUMENTO      → Catálogo (CC, CE, NIT, PASAPORTE, TI)
+        2.  APARTAMENTOS         → Unidades residenciales
+        3.  PARQUEADEROS         → Parqueaderos (vehículo/moto/bicicleta)
+        4.  RESIDENTES           → Personas que habitan el edificio
+        5.  TUTORES              → Tutores de residentes menores
+        6.  USUARIOS             → Cuentas del sistema (login)
+        7.  CONTRATOS            → Contratos de arrendamiento
+        8.  CONTRATO_RESIDENTE   → Asociación contrato-residente
+        9.  CUOTAS_ARRIENDO      → Cuotas mensuales
+        10. PAGOS                → Pagos de cuotas
+        11. ALERTAS_PAGO         → Alertas de vencimiento/mora
+        12. MULTAS               → Multas (RUIDO/PARQUEADERO)
+        13. VISITAS              → Visitas programadas
+        14. QR_ACCESOS           → Códigos QR de visitas
+        15. VISITANTES           → Personas que visitan
+        16. VEHICULOS_VISITA     → Vehículos asociados a visitas
+        17. REGISTRO_VISITA      → Registro visitante-visita
+        18. FRECUENTES_RESIDENTE → Visitantes frecuentes
+        19. REGISTROS_ACCESO     → Log de entrada/salida
+        20. BUZON                → Buzón de mensajes (notificaciones)
+        21. QUEJAS_SUGERENCIAS   → Quejas y solicitudes
+
+      21 secuencias: SEC_TIPOS_DOCUMENTO, SEC_APARTAMENTOS, SEC_PARQUEADEROS,
+      SEC_RESIDENTES, SEC_TUTORES, SEC_USUARIOS, SEC_CONTRATOS,
+      SEC_CONTRATO_RESIDENTE, SEC_CUOTAS_ARRIENDO, SEC_PAGOS,
+      SEC_ALERTAS_PAGO, SEC_MULTAS, SEC_VISITAS, SEC_QR_ACCESOS,
+      SEC_VISITANTES, SEC_VEHICULOS_VISITA, SEC_REGISTRO_VISITA,
+      SEC_FRECUENTES_RESIDENTE, SEC_REGISTROS_ACCESO, SEC_BUZON,
+      SEQ_QUEJAS_SUGERENCIAS
+
+
+================================================================================
+  4. API REST — ENDPOINTS COMPLETOS
+================================================================================
+
+  Leyenda: [A] ADMINISTRADOR, [P] PORTERO, [R] RESIDENTE, [*] Autenticado
+
+  Autenticación:
+    POST   /api/auth/login                          → Login (público)
+
+  Usuarios:
+    GET    /api/usuarios                            [A] Listar
+    GET    /api/usuarios/{id}                       [A] Buscar por ID
+    POST   /api/usuarios                            [A] Crear
+    PUT    /api/usuarios/{id}                       [A] Actualizar
+    DELETE /api/usuarios/{id}                       [A] Eliminar
+
+  Residentes:
+    GET    /api/residentes                          [A] Listar
+    GET    /api/residentes?conUsuario=true           [A] Solo con cuenta
+    GET    /api/residentes/{id}                     [*] Buscar
+    GET    /api/residentes/{id}/dashboard           [R] Dashboard
+    GET    /api/residentes/{id}/frecuentes          [R] Frecuentes
+    POST   /api/residentes                          [A] Crear
+    PUT    /api/residentes/{id}                     [A] Actualizar
+    DELETE /api/residentes/{id}                     [A] Eliminar
+
+  Apartamentos:
+    GET    /api/apartamentos                        [A] Listar
+    GET    /api/apartamentos/{id}                   [A] Buscar
+    POST   /api/apartamentos                        [A] Crear
+    PUT    /api/apartamentos/{id}                   [A] Actualizar
+    DELETE /api/apartamentos/{id}                   [A] Eliminar
+
+  Contratos:
+    GET    /api/contratos                           [A] Listar
+    GET    /api/contratos/{id}                      [A] Buscar
+    GET    /api/contratos/{id}/pdf                  [A] Descargar PDF
+    POST   /api/contratos                           [A] Crear
+    PUT    /api/contratos/{id}                      [A] Actualizar
+    DELETE /api/contratos/{id}                      [A] Eliminar
+
+  Cuotas:
+    GET    /api/cuotas                              [*] Listar
+    GET    /api/cuotas/{id}                         [*] Buscar
+
+  Pagos:
+    GET    /api/pagos                               [*] Listar
+    POST   /api/pagos                               [A] Registrar
+
+  Visitas:
+    GET    /api/visitas                             [*] Listar
+    POST   /api/visitas                             [P] Crear
+    PUT    /api/visitas/{id}/salida                 [P] Registrar salida
+
+  Parqueaderos:
+    GET    /api/parqueaderos                        [*] Listar
+    POST   /api/parqueaderos                        [A] Crear
+    PUT    /api/parqueaderos/{id}                   [A/P] Actualizar
+    DELETE /api/parqueaderos/{id}                   [A] Eliminar
+
+  Multas:
+    GET    /api/multas/todas                        [A] Todas
+    GET    /api/multas?apartamento={id}             [*] Por apartamento
+    GET    /api/multas/{id}                         [*] Detalle
+    POST   /api/multas/generar                      [P/A] Generar
+    PUT    /api/multas/{id}/pagar                   [R/A] Pagar
+    PUT    /api/multas/{id}/anular                  [A] Anular
+    POST   /api/multas/notificar-todas              [A] Notificar todas
+    POST   /api/multas/{id}/notificar               [A] Notificar una
+
+  Buzón:
+    GET    /api/buzon                               [*] Mensajes
+    GET    /api/buzon/pendientes                    [*] Pendientes
+    GET    /api/buzon/confirmar-pendiente           [*] Confirmar pend.
+    GET    /api/buzon/paquetes-pendientes           [P] Paq. pendientes
+    GET    /api/buzon/paquetes                      [*] Paquetes
+    GET    /api/buzon/quejas-ruido-pendientes       [P] Ruido pendientes
+    GET    /api/buzon/avisos                        [A] Avisos
+    POST   /api/buzon/paquete                       [P] Registrar paquete
+    POST   /api/buzon/aviso-ruido                   [P] Aviso de ruido
+    POST   /api/buzon/aviso                         [A] Aviso masivo
+    POST   /api/buzon/confirmar                     [R] Confirmar visita
+    PUT    /api/buzon/{id}/leido                    [*] Marcar leído
+    PUT    /api/buzon/{id}/entregado                [*] Marcar entregado
+    PUT    /api/buzon/vaciar                        [R] Vaciar buzón
+    PUT    /api/buzon/vaciar-multi                  [R] Vaciar múltiples
+
+  Quejas:
+    GET    /api/quejas                              [*] Listar
+    POST   /api/quejas                              [R] Crear
+    PUT    /api/quejas/{id}                         [A] Responder
+
+  Tipos Documento:
+    GET    /api/tipos-documento                     [*] Listar
+
+  Visitantes:
+    GET    /api/visitantes                          [*] Listar
+    POST   /api/visitantes                          [P] Crear
+
+  QR:
+    GET    /api/qr                                  [*] Listar
+    POST   /api/qr/validar                          [P] Validar QR
+
+  Registros Acceso:
+    GET    /api/registros-acceso                    [*] Listar
+
+  Alertas:
+    GET    /api/alertas                             [*] Listar
+    PUT    /api/alertas/{id}/leida                  [*] Marcar leída
+
+  Tutores:
+    GET    /api/tutores                             [*] Listar
+    POST   /api/tutores                             [A] Crear
+
+  Health:
+    GET    /health                                  → {status:"ok"} (público)
+
+
+================================================================================
+  5. MODELO DE DATOS — TABLAS Y RELACIONES
+================================================================================
+
+  5.1 TIPOS_DOCUMENTO
+      id_tipo_doc (PK), codigo, descripcion, activo
+
+  5.2 APARTAMENTOS
+      id_apartamento (PK), numero, piso, tipo (ESTUDIO/1_HAB/2_HAB/3_HAB/
+        PENTHOUSE), area_m2, capacidad_maxima, estado (DISPONIBLE/OCUPADO/
+        EN_MANTENIMIENTO), activo, fecha_registro, actualizado_en
+
+  5.3 PARQUEADEROS
+      id_parqueadero (PK), codigo, tipo (VEHICULO/MOTO/BICICLETA),
+        es_visitante (0/1), estado (DISPONIBLE/OCUPADO/EN_MANTENIMIENTO),
+        id_apartamento (FK → APARTAMENTOS), fecha_registro, actualizado_en
+
+  5.4 RESIDENTES
+      id_residente (PK), id_tipo_doc (FK → TIPOS_DOCUMENTO),
+        numero_documento, nombres, apellidos, fecha_nacimiento,
+        telefono, email, foto_url, doc_pdf_url, fecha_ingreso,
+        es_menor_edad (0/1), activo, fecha_registro, actualizado_en
+
+  5.5 TUTORES
+      id_tutor (PK), id_residente_menor (FK → RESIDENTES),
+        id_tipo_doc (FK → TIPOS_DOCUMENTO), numero_documento,
+        nombres, apellidos, telefono, parentesco, direccion,
+        activo, fecha_registro, actualizado_en
+
+  5.6 USUARIOS
+      id_usuario (PK), id_residente (FK → RESIDENTES, nullable),
+        username (unique), password_hash (BCrypt), rol
+        (ADMINISTRADOR/PORTERO/RESIDENTE), activo, ultimo_login,
+        fecha_registro, actualizado_en
+
+  5.7 CONTRATOS
+      id_contrato (PK), id_apartamento (FK → APARTAMENTOS),
+        id_tutor (FK → TUTORES, nullable), id_registrado_por
+        (FK → USUARIOS), fecha_inicio, fecha_fin, tipo_contrato
+        (INICIAL/RENOVACION/PERMANENCIA), valor_canon,
+        dia_cobro, estado (ACTIVO/SUSPENDIDO/VENCIDO/PENDIENTE_FIRMA),
+        fecha_registro, actualizado_en
+
+  5.8 CONTRATO_RESIDENTE
+      id_contrato_res (PK), id_contrato (FK → CONTRATOS),
+        id_residente (FK → RESIDENTES), rol_en_contrato
+        (ARRENDATARIO/CONYUGE/HIJO/OTRO)
+
+  5.9 CUOTAS_ARRIENDO
+      id_cuota (PK), id_contrato (FK → CONTRATOS),
+        anio, mes, tipo_cuota (ARRIENDO/ADMINISTRACION),
+        valor_base, valor_mora, valor_total, fecha_vencimiento,
+        estado (PENDIENTE/PAGADA/VENCIDA/MORA/ANULADA),
+        fecha_registro, actualizado_en
+
+  5.10 PAGOS
+      id_pago (PK), id_cuota (FK → CUOTAS_ARRIENDO),
+        id_registrado_por (FK → USUARIOS), fecha_pago,
+        valor_pagado, metodo_pago (EFECTIVO/TRANSFERENCIA/
+        CONSIGNACION/BANCO), fecha_registro
+
+  5.11 ALERTAS_PAGO
+      id_alerta (PK), id_cuota (FK → CUOTAS_ARRIENDO),
+        tipo_alerta (VENCIMIENTO_PROXIMO/MORA), canal
+        (EMAIL/SMS/TELEGRAM/BUZON), leida (0/1),
+        fecha_envio, fecha_registro
+
+  5.12 MULTAS
+      id_multa (PK), id_apartamento (FK → APARTAMENTOS),
+        id_mensaje (FK → BUZON, nullable), tipo (RUIDO/PARQUEADERO),
+        monto, estado (PENDIENTE/PAGADA/ANULADA), descripcion,
+        foto_evidencia (CLOB), creado_por (FK → USUARIOS),
+        fecha_creacion, fecha_pago, registrado_pago_por
+        (FK → USUARIOS, nullable), metodo_pago (nullable)
+
+  5.13 VISITAS
+      id_visita (PK), id_contrato_res (FK → CONTRATO_RESIDENTE),
+        id_residente (FK → RESIDENTES), fecha_visita,
+        tiempo_validez_min, cantidad_personas, estado
+        (PROGRAMADA/ACTIVA/FINALIZADA/CANCELADA),
+        fecha_registro, actualizado_en
+
+  5.14 QR_ACCESOS
+      id_qr (PK), id_visita (FK → VISITAS),
+        id_vigilante_uso (FK → USUARIOS, nullable),
+        codigo_qr, fecha_generacion, fecha_expiracion,
+        usado (0/1), fecha_uso
+
+  5.15 VISITANTES
+      id_visitante (PK), id_tipo_doc (FK → TIPOS_DOCUMENTO),
+        numero_documento, nombres, apellidos, telefono,
+        foto_url, activo, fecha_registro, actualizado_en
+
+  5.16 VEHICULOS_VISITA
+      id_vehiculo_visita (PK), id_visita (FK → VISITAS),
+        id_parqueadero (FK → PARQUEADEROS, nullable),
+        placa, tipo (CARRO/MOTO/BICICLETA/OTRO)
+
+  5.17 REGISTRO_VISITA
+      id_registro_visita (PK), id_visita (FK → VISITAS),
+        id_visitante (FK → VISITANTES),
+        id_vehiculo_visita (FK → VEHICULOS_VISITA, nullable),
+        es_titular (0/1)
+
+  5.18 FRECUENTES_RESIDENTE
+      id_frecuente (PK), id_residente (FK → RESIDENTES),
+        id_visitante (FK → VISITANTES), activo (0/1),
+        fecha_registro — UNIQUE(id_residente, id_visitante)
+
+  5.19 REGISTROS_ACCESO
+      id_acceso (PK), id_visita (FK → VISITAS),
+        id_vigilante (FK → USUARIOS), hora_entrada (TIMESTAMP),
+        hora_salida (TIMESTAMP, nullable)
+
+  5.20 BUZON
+      id_mensaje (PK, DEFAULT SEC_BUZON.NEXTVAL),
+        id_apartamento (FK → APARTAMENTOS, nullable),
+        id_visita (FK → VISITAS, nullable),
+        tipo (PAQUETE/AVISO/CONFIRMAR_VISITA/QUEJA_RUIDO),
+        titulo, cuerpo (VARCHAR2 2000), foto_captura (CLOB),
+        leido (0/1), leido_en (TIMESTAMP),
+        entregado (0/1), entregado_en (TIMESTAMP),
+        confirmado (0/1/null), confirmado_en (TIMESTAMP),
+        creado_por (FK → USUARIOS),
+        fecha_creacion (TIMESTAMP DEFAULT SYSTIMESTAMP)
+
+  5.21 QUEJAS_SUGERENCIAS
+      id_queja (PK), id_apartamento (FK → APARTAMENTOS),
+        id_multa (FK → MULTAS, nullable),
+        tipo (QUEJA/SUGERENCIA/APELACION),
+        categoria (LIMPIEZA/SEGURIDAD/MANTENIMIENTO/
+          CONVIVENCIA/ZONAS_COMUNES/OTRO),
+        titulo, descripcion, foto_evidencia (CLOB),
+        estado (PENDIENTE/EN_REVISION/RESUELTA/CERRADA),
+        prioridad (ALTA/MEDIA/BAJA),
+        creado_por (FK → USUARIOS), fecha_creacion,
+        respuesta, respondido_por (FK → USUARIOS, nullable),
+        fecha_respuesta
+
+
+================================================================================
+  6. USUARIOS DE PRUEBA
+================================================================================
+
+  Todos con contraseña: admin123
+
+  Usuario            | Rol            | Residente                | Apt
+  -------------------|----------------|--------------------------|-----
+  admin              | ADMINISTRADOR  | —                        | —
+  portero1           | PORTERO        | —                        | —
+  portero2           | PORTERO        | —                        | —
+  portero3           | PORTERO        | —                        | —
+  carlos.perez       | RESIDENTE      | Carlos Andrés Pérez R.   | 201
+  jhon.martinez      | RESIDENTE      | Jhon Sebastián Martínez L.| 202
+  santiago.molina    | RESIDENTE      | Santiago Molina Rojas    | 203
+  rosa.gil           | RESIDENTE      | Rosa Elena Gil de Castro | 204
+  pedro.soto         | RESIDENTE      | Pedro Antonio Soto V.    | 301
+  andres.ramirez     | RESIDENTE      | Andrés Felipe Ramírez O. | 302
+  jorge.cardenas     | RESIDENTE      | Jorge Alberto Cardenas L.| 303
+  oscar.duarte       | RESIDENTE      | Oscar Mauricio Duarte R. | 304
+  daniel.castro      | RESIDENTE      | Daniel Castro Medina     | 401
+  fernando.vargas    | RESIDENTE      | Fernando Vargas Uribe    | 402
+  martha.lopez       | RESIDENTE      | Martha Cecilia López R.  | 403
+  ricardo.moreno     | RESIDENTE      | Ricardo Antonio Moreno J.| 404
+  gabriel.torres     | RESIDENTE      | Gabriel Torres Pabón     | 501
+  hector.mendoza     | RESIDENTE      | Héctor Mendoza Salazar   | 502
+
+  Apartamentos OCUPADOS: 201, 202, 203, 204, 301, 302, 303, 304,
+                          401, 402, 403, 404, 501, 502
+  Apartamentos DISPONIBLE: 502, 503, 504 (sin residentes)
+
+
+================================================================================
+  7. INFRAESTRUCTURA Y DESPLIEGUE
+================================================================================
+
+  7.1 BACKEND — Railway (sistema-administracion-edificios)
+      URL: https://sistema-administracion-edificios-production.up.railway.app
+      Build: mvn package -DskipTests -q (railway.json)
+      Start: java -jar target/admin-residencial-1.0-SNAPSHOT.jar (Procfile)
+      Puerto: 8080 (o PORT env var)
+      Variables de entorno requeridas:
+        - DB_URL:     jdbc:oracle:thin:@residencial_high
+        - DB_USER:    RESIDENCIAL
+        - DB_PASS:    Administrador2026
+        - WALLET_BASE64_PART1: primera mitad del wallet.zip en base64
+        - WALLET_BASE64_PART2: segunda mitad del wallet.zip en base64
+
+  7.2 FRONTEND — GitHub Pages
+      URL: https://sebasr0311.github.io/sistema-administracion-edificios/
+      Deploy automático: .github/workflows/deploy-pages.yml
+        - Se activa en push a main
+        - Publica frontend/ como GitHub Pages
+        - index.html: si hostname incluye 'github.io', usa _API_BASE_URL
+          directo al backend Railway; si local, usa localhost:8080/api
+
+  7.3 BASE DE DATOS — Oracle ATP (Oracle Cloud)
+      TNS: residencial_high (adb.sa-bogota-1.oraclecloud.com:1522 TCPS)
+      Esquema: RESIDENCIAL / Administrador2026
+      Wallet: extraída vía WALLET_BASE64_PART1+PART2 (33792 chars)
+      ATP Admin: Database Actions web (https://...oraclecloud.com/database/)
+        - ADMIN password: Residencia2026#
+        - Para grants especiales (CREATE VIEW, etc.) usar ADMIN via IAM
+
+
+================================================================================
+  8. REGLAS DE NEGOCIO Y VALIDACIONES IMPORTANTES
+================================================================================
+
+  8.1 APARTAMENTOS
+      - Un apartamento solo puede tener UN contrato ACTIVO a la vez
+      - Estados: DISPONIBLE, OCUPADO, EN_MANTENIMIENTO
+      - Si el estado es DISPONIBLE → no hay residentes asociados
+      - Los dropdowns operativos filtran DISPONIBLE (no se pueden
+        seleccionar apts sin residentes)
+
+  8.2 RESIDENTES
+      - Solo se da UN usuario por apartamento
+      - Los dropdowns de residentes para crear visitas/paquetes/multas
+        solo muestran residentes CON cuenta activa (?conUsuario=true)
+      - Para generar multas, quejas por ruido, avisos o registrar
+        paquetes: el apartamento DEBE tener contrato ACTIVO y residentes
+
+  8.3 MULTAS
+      - Tipos: RUIDO ($100,000) y PARQUEADERO ($50,000)
+      - foto_evidencia solo para tipo PARQUEADERO
+      - RUIDO muestra aviso datetime + tiempo transcurrido
+      - Las multas se notifican al residente vía buzón
+      - id_mensaje en MULTAS apunta al mensaje de BUZON (queja de ruido)
+
+  8.4 BUZÓN
+      - Tipos de mensaje: PAQUETE, AVISO, CONFIRMAR_VISITA, QUEJA_RUIDO
+      - PORTERO puede registrar PAQUETES y AVISOS_RUIDO
+      - ADMIN puede enviar AVISOS a uno o todos los apartamentos
+      - RESIDENTE puede confirmar/rechazar visitas, ver mensajes
+      - Solo se muestran mensajes no leídos (según tipo)
+
+  8.5 PORTERO
+      - Rol read-only en parqueaderos (no puede crear/editar/eliminar)
+      - Puede registrar visitas, paquetes, avisos de ruido y multas
+      - Puede escanear QR para validar entrada
+
+  8.6 CONTRATOS
+      - Generación automática de cuotas al crear contrato
+      - Cálculo de mora diaria
+      - Estados: ACTIVO, SUSPENDIDO, VENCIDO, PENDIENTE_FIRMA
+      - PDF generado con Flying Saucer (sin display:flex/grid)
+
+  8.7 PDF
+      - No usar display:flex ni display:grid (Flying Saucer 1.0.10)
+      - Usar tablas HTML para layout
+      - Plantillas en src/main/resources/templates/contratos/
+
+
+================================================================================
+  9. ARCHIVOS RELEVANTES DEL PROYECTO
+================================================================================
+
+  9.1 RAÍZ DEL PROYECTO
+      pom.xml                  → Configuración Maven, dependencias, plugins
+      Procfile                 → Railway: comando de inicio
+      setup.bat                → Script de configuración local (crear BD +
+                                 schema + datos + build)
+      iniciar.bat              → Script para arrancar backend local
+      railway.json             → Railway: build command
+
+  9.2 database/
+      modelo_relacional_v4_atp.sql → DDL completo + datos iniciales (ATP)
+      datos_prueba_v2.sql         → Datos de prueba
+      eliminar_test_data.sql      → Script para limpiar datos test
+      RunSchemaFinal.java         → Migrador JDBC para ATP
+      MigrarDatosLocalToATP.java  → Migra datos de XE local a ATP
+      migrar.bat                  → Script para ejecutar migración
+
+  9.3 src/main/java/com/edificio/admin
+      Main.java                      → Entry point JavaFX
+      RestServerMain.java            → Entry point REST server (Railway)
+      rest/RestServer.java           → Servidor HTTP embebido
+      rest/CorsFilter.java           → Filtro CORS
+      rest/JwtUtil.java              → Generación/validación JWT
+      rest/JsonUtil.java             → Wrapper Gson
+      rest/AuthMiddleware.java       → Middleware de autenticación
+      rest/BaseHandler.java          → Base class handlers
+      rest/handler/AuthHandler.java  → POST /api/auth/login
+      rest/handler/*Handler.java     → 18 handlers REST
+      rest/StaticFilesHandler.java   → Sirve frontend estático
+      dao/ConexionBD.java            → Singleton conexión JDBC
+      dao/*DAO.java                  → 18 DAOs
+      service/*Service.java          → Lógica de negocio
+      util/WalletSetup.java          → Inicialización wallet ATP
+      model/*.java                   → Modelos/entidades
+
+  9.4 frontend/
+      index.html                   → SPA completa (19 templates)
+      css/style.css                → Estilos globales + sidebar + modales
+      imagenes/                    → Logos SAED
+      js/
+        api.js                     → Cliente HTTP
+        auth.js                    → Autenticación JWT
+        router.js                  → Router SPA
+        utils.js                   → Utilidades
+        pages/
+          app.js                   → Sidebar + submenús
+          login.js                 → Login
+          residente-dashboard.js   → Portal residente
+          portero-dashboard.js     → Panel portero
+          residentes.js            → CRUD residentes
+          apartamentos.js          → CRUD apartamentos
+          contratos.js             → CRUD contratos
+          pagos.js                 → Pagos
+          usuarios.js              → CRUD usuarios
+          visitas.js               → Registrar visitas
+          historial-visitas.js     → Historial
+          parqueaderos.js          → Gestión parqueaderos
+          escanner-qr.js           → Escáner QR
+          avisos.js                → Avisos masivos
+          alertas.js               → Alertas de pago
+          quejas-admin.js          → Gestión quejas admin
+          quejas-residente.js      → Quejas residente
+          paquetes.js              → Paquetes portero
+          paquetes-admin.js        → Paquetes admin
+
+
+================================================================================
+  10. FLUJO DE TRABAJO (GIT)
+================================================================================
+
+    Ramas principales:
+      main      → Producción (GitHub Pages + Railway)
+      develop   → Integración (no creada actualmente)
+
+    Ramas feature (por desarrollador):
+
+      SEBASTIÁN:
+        feature/bd-schema
+        feature/backend-core
+        feature/modulo-visitas-qr
+        feature/modulo-portero
+        feature/deploy-cloud
+        feature/atp-migration
+        feature/final-adjustments
+
+      JOSÉ:
+        feature/modulo-residentes
+        feature/modulo-contratos
+        feature/modulo-gestion
+        feature/frontend-admin
+
+      IVÁN:
+        feature/frontend-base
+        feature/frontend-residente
+
+    Releases:
+      v1.0  → Abr 25 (develop → main)
+      v2.0  → May 28 (develop → main, tag v2.0.0)
+      Post  → May 28+ (fixes directo a main)
+
+
+================================================================================
+  11. HISTORIAL DE CAMBIOS RECIENTES (Post-v2.0)
+================================================================================
+
+    - Migración de datos desde Oracle XE local a ATP (MigrarDatosLocalToATP)
+    - Fix conexión BD: auth_token, _API_BASE_URL, wallet, etc.
+    - Fix _API_BASE_URL para nuevo proyecto Railway
+    - Fix AuthHandler: printStackTrace para errores BD
+    - GenHash.java eliminado del tracking y agregado a .gitignore
+    - BUZON detail modal con overlay oscuro + info multa
+    - Setup script (setup.bat) para desarrollo local
+    - Limpieza de archivos temporales
+
+
+================================================================================
+  12. PROBLEMAS CONOCIDOS / PENDIENTES
+================================================================================
+
+    - FRECUENTES_RESIDENTE: migración falla con ORA-00001 por UNIQUE
+      constraint (id_residente, id_visitante) — solo 1 fila local
+    - Railway deploy necesita recrearse tras cada cambio (push + redeploy)
+    - GitHub Actions deploy ~1-2 min después de push a main
+    - Las ramas feature/* existen en el repositorio local pero develop
+      no está creada actualmente (todo va directo a main)
+    - Al migrar datos de local a ATP, ejecutar:
+        database\migrar.bat
+      (requiere Oracle XE corriendo localmente)
+
+
+================================================================================
+  FIN DEL DOCUMENTO
+================================================================================
