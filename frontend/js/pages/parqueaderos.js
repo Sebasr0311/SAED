@@ -13,6 +13,12 @@ const Parqueaderos = (() => {
   const TIPOS = ['VEHICULO', 'MOTO', 'BICICLETA'];
   const ESTADOS = ['DISPONIBLE', 'OCUPADO', 'EN_MANTENIMIENTO'];
 
+  function prefijoParq(tipo, esVisitante) {
+    if (tipo === 'MOTO') return 'M';
+    if (tipo === 'BICICLETA') return 'B';
+    return esVisitante ? 'V' : 'P';
+  }
+
   function goToPage(page) {
     if (page < 1 || page > Math.ceil(data.length / PAGE_SIZE)) return;
     currentPage = page;
@@ -61,7 +67,18 @@ const Parqueaderos = (() => {
 
   async function mostrarFormulario(p) {
     if (esPortero()) return;
-    try { _apartamentos = (await API.get('/apartamentos')).filter(function(a) { return a.estado !== 'DISPONIBLE'; }); } catch (e) { _apartamentos = []; }
+    try {
+      var todosApts = await API.get('/apartamentos');
+      var todosParqs = await API.get('/parqueaderos');
+      var aptsConParq = {};
+      todosParqs.forEach(function(parq) {
+        if (parq.idApartamento) aptsConParq[parq.idApartamento] = true;
+      });
+      if (p && p.idApartamento) delete aptsConParq[p.idApartamento];
+      _apartamentos = todosApts.filter(function(a) {
+        return a.estado !== 'DISPONIBLE' && !aptsConParq[a.idApartamento];
+      });
+    } catch (e) { _apartamentos = []; }
     editingId = p ? p.idParqueadero : null;
     const isEdit = !!editingId;
     var aptOptions = '<option value="">-- Seleccione --</option>';
@@ -75,10 +92,14 @@ const Parqueaderos = (() => {
     var estadoSection = isEdit
       ? '<div class="form-group"><label>Estado</label><select id="parq-estado" class="form-control">' + ESTADOS.map(function(e) { return '<option value="' + e + '" ' + (p && p.estado === e ? 'selected' : '') + '>' + e.replace(/_/g, ' ') + '</option>'; }).join('') + '</select></div>'
       : '';
+    var codigoHtml = isEdit
+      ? '<div class="form-group"><label>C\u00f3digo</label><input type="text" id="parq-codigo" class="form-control" value="' + (p.codigo || '') + '" readonly><span class="field-error" id="parq-codigo-error"></span></div>'
+      : '<div class="form-group"><label>N\u00famero</label><div style="display:flex;align-items:center;gap:6px"><span id="parq-prefijo" style="font-weight:bold;font-size:1.1em">P</span><input type="number" id="parq-numero" class="form-control" min="1" placeholder="Ej: 1" style="flex:1"><span class="field-error" id="parq-numero-error"></span></div><input type="hidden" id="parq-codigo"></div>';
+
     Utils.modal(isEdit ? 'Editar Parqueadero' : 'Nuevo Parqueadero',
       '<form id="form-parq">' +
         '<div class="form-row">' +
-          '<div class="form-group"><label>C\u00f3digo</label><input type="text" id="parq-codigo" class="form-control" value="' + (p ? p.codigo || '' : '') + '" maxlength="20"><span class="field-error" id="parq-codigo-error"></span></div>' +
+          codigoHtml +
           '<div class="form-group"><label>Tipo</label><select id="parq-tipo" class="form-control">' + TIPOS.map(function(t) { return '<option value="' + t + '" ' + (p && p.tipo === t ? 'selected' : '') + '>' + t + '</option>'; }).join('') + '</select><span class="field-error" id="parq-tipo-error"></span></div>' +
         '</div>' +
         '<div class="form-row">' +
@@ -96,7 +117,20 @@ const Parqueaderos = (() => {
       '</form>',
       '<button class="btn btn-outline" onclick="this.closest(\'.modal-overlay\').remove()">Cancelar</button>' +
       '<button class="btn btn-primary" id="btn-guardar-parq" onclick="Parqueaderos.guardar()">' + (isEdit ? 'Actualizar' : 'Guardar') + '</button>');
-    if (!isEdit) document.getElementById('parq-estado') && (document.getElementById('parq-estado').value = 'DISPONIBLE');
+    if (!isEdit) {
+      document.getElementById('parq-estado') && (document.getElementById('parq-estado').value = 'DISPONIBLE');
+      function actualizarPrefijo() {
+        var tipo = document.getElementById('parq-tipo').value;
+        var uso = document.querySelector('input[name="parq-uso"]:checked');
+        var esVisitante = uso ? uso.value === 'visitante' : true;
+        document.getElementById('parq-prefijo').textContent = Parqueaderos.prefijoParq(tipo, esVisitante);
+      }
+      document.getElementById('parq-tipo').addEventListener('change', actualizarPrefijo);
+      document.querySelectorAll('input[name="parq-uso"]').forEach(function(el) {
+        el.addEventListener('change', actualizarPrefijo);
+      });
+      actualizarPrefijo();
+    }
   }
 
   function toggleUso() {
@@ -109,7 +143,18 @@ const Parqueaderos = (() => {
   async function guardar() {
     if (esPortero()) return;
     Utils.limpiarErrores('form-parq');
-    if (!Utils.valRequerido(document.getElementById('parq-codigo').value, 'parq-codigo', 'El c\u00f3digo')) return;
+    var codigo;
+    if (editingId) {
+      codigo = document.getElementById('parq-codigo').value.trim();
+      if (!codigo) { Utils.mostrarError('parq-codigo', 'El c\u00f3digo es obligatorio'); return; }
+    } else {
+      var numero = document.getElementById('parq-numero').value;
+      if (!numero) { Utils.mostrarError('parq-numero', 'Ingrese el n\u00famero del parqueadero'); return; }
+      var tipo = document.getElementById('parq-tipo').value;
+      var uso = document.querySelector('input[name="parq-uso"]:checked');
+      var esVisitante = uso ? uso.value === 'visitante' : true;
+      codigo = prefijoParq(tipo, esVisitante) + numero;
+    }
     if (!Utils.valSelect(document.getElementById('parq-tipo').value, 'parq-tipo', 'Seleccione el tipo')) return;
     var esVisitante = true;
     var residente = document.querySelector('input[name="parq-uso"]:checked');
@@ -119,7 +164,7 @@ const Parqueaderos = (() => {
       if (!aptId) { Utils.mostrarError('parq-apt', 'Debe seleccionar un apartamento'); return; }
     }
     const d = {
-      codigo: document.getElementById('parq-codigo').value.trim(),
+      codigo: codigo,
       tipo: document.getElementById('parq-tipo').value,
       esVisitante: esVisitante,
       idApartamento: esVisitante ? null : parseInt(document.getElementById('parq-apartamento').value)
@@ -153,7 +198,7 @@ const Parqueaderos = (() => {
     catch (e) { Utils.showToast(e.message, 'error'); }
   }
 
-  return { cargar, render, aplicarFiltros, mostrarFormulario, guardar, editar, eliminar, goToPage, toggleUso, esPortero };
+  return { cargar, render, aplicarFiltros, mostrarFormulario, guardar, editar, eliminar, goToPage, toggleUso, esPortero, prefijoParq };
 })();
 
 Router.register('parqueaderos', {

@@ -61,6 +61,17 @@ public class ParqueaderoService {
             throw new DatosInvalidosException("El codigo del parqueadero es obligatorio.");
         if (p.getTipo() == null)
             throw new DatosInvalidosException("El tipo de parqueadero es obligatorio.");
+        if (p.getIdApartamento() != null && !p.isEsVisitante()) {
+            try {
+                java.util.List<Parqueadero> existentes = parqueaderoDAO.findByApartamento(p.getIdApartamento());
+                for (Parqueadero ep : existentes) {
+                    if (!ep.getIdParqueadero().equals(p.getIdParqueadero()))
+                        throw new DatosInvalidosException("El apartamento ya tiene un parqueadero asignado.");
+                }
+            } catch (SQLException e) {
+                throw new RuntimeException("Error al validar disponibilidad del apartamento.", e);
+            }
+        }
     }
 
     private void validarId(Integer id) {

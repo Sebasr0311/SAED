@@ -31,11 +31,26 @@ public class VisitanteFrecuenteDAO {
     public List<VisitanteFrecuente> findByResidente(int idResidente) throws SQLException {
         List<VisitanteFrecuente> lista = new ArrayList<>();
         String sql =
-            "SELECT id_frecuente, id_residente, id_visitante, "
-          + "       nombre_visitante, documento, total_visitas, ultima_visita, "
-          + "       ultima_placa, ultimo_tipo_vehiculo, ultima_descripcion_tipo, activo "
-          + "FROM   VW_VISITANTES_FRECUENTES "
-          + "WHERE  id_residente = ? AND activo = 1 "
+            "SELECT fr.id_frecuente, fr.id_residente, vi.id_visitante, "
+          + "       (vi.nombres || ' ' || vi.apellidos) AS nombre_visitante, "
+          + "       (td.codigo || '-' || vi.numero_documento) AS documento, "
+          + "       COUNT(DISTINCT rv.id_visita) AS total_visitas, "
+          + "       MAX(vis.fecha_registro) AS ultima_visita, "
+          + "       MAX(veh.placa) KEEP (DENSE_RANK LAST ORDER BY vis.fecha_registro NULLS FIRST) AS ultima_placa, "
+          + "       MAX(veh.tipo) KEEP (DENSE_RANK LAST ORDER BY vis.fecha_registro NULLS FIRST) AS ultimo_tipo_vehiculo, "
+          + "       MAX(veh.descripcion_tipo) KEEP (DENSE_RANK LAST ORDER BY vis.fecha_registro NULLS FIRST) AS ultima_descripcion_tipo, "
+          + "       fr.activo "
+          + "FROM   FRECUENTES_RESIDENTE  fr "
+          + "JOIN   VISITANTES            vi  ON vi.id_visitante  = fr.id_visitante "
+          + "JOIN   TIPOS_DOCUMENTO       td  ON td.id_tipo_doc   = vi.id_tipo_doc "
+          + "LEFT JOIN REGISTRO_VISITA  rv  ON rv.id_visitante  = fr.id_visitante "
+          + "LEFT JOIN VISITAS          vis ON vis.id_visita     = rv.id_visita "
+          + "                               AND vis.id_residente = fr.id_residente "
+          + "LEFT JOIN VEHICULOS_VISITA veh ON veh.id_visita     = vis.id_visita "
+          + "                               AND rv.id_vehiculo_visita = veh.id_vehiculo_visita "
+          + "WHERE  fr.id_residente = ? AND fr.activo = 1 "
+          + "GROUP BY fr.id_frecuente, fr.id_residente, vi.id_visitante, "
+          + "         vi.nombres, vi.apellidos, td.codigo, vi.numero_documento, fr.activo "
           + "ORDER  BY ultima_visita DESC NULLS LAST";
         try (PreparedStatement ps = conn().prepareStatement(sql)) {
             ps.setInt(1, idResidente);
@@ -165,11 +180,26 @@ public class VisitanteFrecuenteDAO {
     public List<VisitanteFrecuente> findOcultosByResidente(int idResidente) throws SQLException {
         List<VisitanteFrecuente> lista = new ArrayList<>();
         String sql =
-            "SELECT id_frecuente, id_residente, id_visitante, "
-          + "       nombre_visitante, documento, total_visitas, ultima_visita, "
-          + "       ultima_placa, ultimo_tipo_vehiculo, ultima_descripcion_tipo, activo "
-          + "FROM   VW_VISITANTES_FRECUENTES "
-          + "WHERE  id_residente = ? AND activo = 0 "
+            "SELECT fr.id_frecuente, fr.id_residente, vi.id_visitante, "
+          + "       (vi.nombres || ' ' || vi.apellidos) AS nombre_visitante, "
+          + "       (td.codigo || '-' || vi.numero_documento) AS documento, "
+          + "       COUNT(DISTINCT rv.id_visita) AS total_visitas, "
+          + "       MAX(vis.fecha_registro) AS ultima_visita, "
+          + "       MAX(veh.placa) KEEP (DENSE_RANK LAST ORDER BY vis.fecha_registro NULLS FIRST) AS ultima_placa, "
+          + "       MAX(veh.tipo) KEEP (DENSE_RANK LAST ORDER BY vis.fecha_registro NULLS FIRST) AS ultimo_tipo_vehiculo, "
+          + "       MAX(veh.descripcion_tipo) KEEP (DENSE_RANK LAST ORDER BY vis.fecha_registro NULLS FIRST) AS ultima_descripcion_tipo, "
+          + "       fr.activo "
+          + "FROM   FRECUENTES_RESIDENTE  fr "
+          + "JOIN   VISITANTES            vi  ON vi.id_visitante  = fr.id_visitante "
+          + "JOIN   TIPOS_DOCUMENTO       td  ON td.id_tipo_doc   = vi.id_tipo_doc "
+          + "LEFT JOIN REGISTRO_VISITA  rv  ON rv.id_visitante  = fr.id_visitante "
+          + "LEFT JOIN VISITAS          vis ON vis.id_visita     = rv.id_visita "
+          + "                               AND vis.id_residente = fr.id_residente "
+          + "LEFT JOIN VEHICULOS_VISITA veh ON veh.id_visita     = vis.id_visita "
+          + "                               AND rv.id_vehiculo_visita = veh.id_vehiculo_visita "
+          + "WHERE  fr.id_residente = ? AND fr.activo = 0 "
+          + "GROUP BY fr.id_frecuente, fr.id_residente, vi.id_visitante, "
+          + "         vi.nombres, vi.apellidos, td.codigo, vi.numero_documento, fr.activo "
           + "ORDER  BY nombre_visitante";
         try (PreparedStatement ps = conn().prepareStatement(sql)) {
             ps.setInt(1, idResidente);
