@@ -17,7 +17,7 @@ const Avisos = (() => {
       apartamentosPorPiso = {};
       apts.forEach(function(a) {
         var piso = Math.floor((parseInt(a.numero) || 0) / 100);
-        if (piso >= 2 && piso <= 5) {
+        if (piso >= 2) {
           if (!apartamentosPorPiso[piso]) apartamentosPorPiso[piso] = [];
           apartamentosPorPiso[piso].push(a);
         }
@@ -40,16 +40,16 @@ const Avisos = (() => {
       dropdown.appendChild(sep1);
       
       // Opciones por piso
-      for (var p = 2; p <= 5; p++) {
-        if (apartamentosPorPiso[p] && apartamentosPorPiso[p].length > 0) {
-          var divPiso = document.createElement('div');
-          divPiso.className = 'multi-select-option multi-select-piso';
-          divPiso.dataset.value = 'piso-' + p;
-          divPiso.dataset.piso = p;
-          divPiso.innerHTML = '<strong>Piso ' + p + '</strong> (' + apartamentosPorPiso[p].length + ' apts)';
-          divPiso.onclick = function() { Avisos.togglePiso(this); };
-          dropdown.appendChild(divPiso);
-        }
+      var pisos = Object.keys(apartamentosPorPiso).map(Number).sort(function(a, b) { return a - b; });
+      for (var i = 0; i < pisos.length; i++) {
+        var p = pisos[i];
+        var divPiso = document.createElement('div');
+        divPiso.className = 'multi-select-option multi-select-piso';
+        divPiso.dataset.value = 'piso-' + p;
+        divPiso.dataset.piso = p;
+        divPiso.innerHTML = '<strong>Piso ' + p + '</strong> (' + apartamentosPorPiso[p].length + ' apts)';
+        divPiso.onclick = function() { Avisos.togglePiso(this); };
+        dropdown.appendChild(divPiso);
       }
       
       // Separador
@@ -58,25 +58,24 @@ const Avisos = (() => {
       dropdown.appendChild(sep2);
       
       // Apartamentos individuales organizados por piso
-      for (var p = 2; p <= 5; p++) {
-        if (apartamentosPorPiso[p] && apartamentosPorPiso[p].length > 0) {
-          // Header del piso
-          var header = document.createElement('div');
-          header.className = 'multi-select-header';
-          header.textContent = 'Piso ' + p;
-          dropdown.appendChild(header);
-          
-          // Apartamentos del piso
-          apartamentosPorPiso[p].forEach(function(a) {
-            var div = document.createElement('div');
-            div.className = 'multi-select-option multi-select-apt';
-            div.dataset.value = a.idApartamento;
-            div.dataset.piso = p;
-            div.textContent = a.numero + (a.tipo ? ' - ' + a.tipo : '');
-            div.onclick = function() { Avisos.toggleApt(this); };
-            dropdown.appendChild(div);
-          });
-        }
+      for (var i = 0; i < pisos.length; i++) {
+        var p = pisos[i];
+        // Header del piso
+        var header = document.createElement('div');
+        header.className = 'multi-select-header';
+        header.textContent = 'Piso ' + p;
+        dropdown.appendChild(header);
+        
+        // Apartamentos del piso
+        apartamentosPorPiso[p].forEach(function(a) {
+          var div = document.createElement('div');
+          div.className = 'multi-select-option multi-select-apt';
+          div.dataset.value = a.idApartamento;
+          div.dataset.piso = p;
+          div.textContent = a.numero + (a.tipo ? ' - ' + a.tipo : '');
+          div.onclick = function() { Avisos.toggleApt(this); };
+          dropdown.appendChild(div);
+        });
       }
     } catch (e) {
       console.error('Error cargando apartamentos', e);
