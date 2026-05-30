@@ -43,6 +43,7 @@ public class AuthHandler extends BaseHandler implements HttpHandler {
         } catch (RegistroNoEncontradoException | DatosInvalidosException e) {
             sendJson(exchange, 401, new com.edificio.admin.rest.dto.ErrorResponse(e.getMessage()));
         } catch (ConexionFallidaException | SQLException e) {
+            e.printStackTrace();
             sendJson(exchange, 500, new com.edificio.admin.rest.dto.ErrorResponse("Error interno del servidor"));
         } catch (Exception e) {
             e.printStackTrace();
