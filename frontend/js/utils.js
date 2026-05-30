@@ -141,52 +141,52 @@ const Utils = (() => {
     // Validación específica por tipo de documento colombiano
     if (tipoDocCodigo) {
       switch(tipoDocCodigo) {
-        case 'CC': // Cédula de Ciudadanía: solo números, 6-10 dígitos
-          if (!/^\d{6,10}$/.test(v)) {
-            mostrarError(inputId, 'Cédula: solo números, entre 6 y 10 dígitos');
+        case 'CC': // Cédula de Ciudadanía: solo números, 7-10 dígitos
+          if (!/^\d{7,10}$/.test(v)) {
+            mostrarError(inputId, 'Cédula: solo números, entre 7 y 10 dígitos');
             return false;
           }
           break;
         
-        case 'TI': // Tarjeta de Identidad: solo números, 10-11 dígitos
-          if (!/^\d{10,11}$/.test(v)) {
-            mostrarError(inputId, 'TI: solo números, entre 10 y 11 dígitos');
+        case 'TI': // Tarjeta de Identidad: solo números, 7-10 dígitos
+          if (!/^\d{7,10}$/.test(v)) {
+            mostrarError(inputId, 'TI: solo números, entre 7 y 10 dígitos');
             return false;
           }
           break;
         
-        case 'CE': // Cédula de Extranjería: solo números, 4-12 dígitos
-          if (!/^\d{4,12}$/.test(v)) {
-            mostrarError(inputId, 'CE: solo números, entre 4 y 12 dígitos');
+        case 'CE': // Cédula de Extranjería: letra mayúscula + 5-11 dígitos
+          if (!/^[A-Za-z]\d{5,11}$/.test(v)) {
+            mostrarError(inputId, 'CE: letra seguida de 5 a 11 dígitos (ej: E123456)');
             return false;
           }
           break;
         
         case 'PP':       // Pasaporte (código interno legado)
-        case 'PASAPORTE': // Pasaporte: alfanumérico, 5-20 caracteres
-          if (!/^[A-Z0-9]{5,20}$/i.test(v)) {
-            mostrarError(inputId, 'Pasaporte: letras y números, entre 5 y 20 caracteres');
+        case 'PASAPORTE': // Pasaporte: alfanumérico, 7-15 caracteres
+          if (!/^[A-Z0-9]{7,15}$/i.test(v)) {
+            mostrarError(inputId, 'Pasaporte: letras y números, entre 7 y 15 caracteres');
             return false;
           }
           break;
         
-        case 'PEP': // Permiso Especial de Permanencia: alfanumérico, mínimo 8 caracteres
-          if (!/^[A-Z0-9-]{8,15}$/i.test(v)) {
+        case 'PEP': // Permiso Especial de Permanencia: alfanumérico, 8-15 caracteres
+          if (!/^[A-Z0-9]{8,15}$/i.test(v)) {
             mostrarError(inputId, 'PEP: alfanumérico, entre 8 y 15 caracteres');
             return false;
           }
           break;
         
-        case 'RC': // Registro Civil: solo números, 10-11 dígitos
-          if (!/^\d{10,11}$/.test(v)) {
-            mostrarError(inputId, 'RC: solo números, entre 10 y 11 dígitos');
+        case 'RC': // Registro Civil: solo números, 7-10 dígitos
+          if (!/^\d{7,10}$/.test(v)) {
+            mostrarError(inputId, 'RC: solo números, entre 7 y 10 dígitos');
             return false;
           }
           break;
         
-        case 'NIT': // NIT: solo números, 9-10 dígitos (sin guión ni DV)
-          if (!/^\d{9,10}$/.test(v)) {
-            mostrarError(inputId, 'NIT: solo números, entre 9 y 10 dígitos');
+        case 'NIT': // NIT: solo números, 9-13 dígitos (sin guión ni DV)
+          if (!/^\d{9,13}$/.test(v)) {
+            mostrarError(inputId, 'NIT: solo números, entre 9 y 13 dígitos');
             return false;
           }
           break;

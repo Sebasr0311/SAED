@@ -825,22 +825,22 @@ const ResidenteDash = (() => {
     if (!input || !tipoDocCodigo) return;
     var nuevoInput = input.cloneNode(true);
     input.parentNode.replaceChild(nuevoInput, input);
-    var esNumerico = ['CC', 'TI', 'CE', 'RC', 'NIT'].indexOf(tipoDocCodigo) >= 0;
+    var esNumerico = ['CC', 'TI', 'RC', 'NIT'].indexOf(tipoDocCodigo) >= 0;
     var pattern = esNumerico ? /[^0-9]/g : (tipoDocCodigo === 'PEP' ? /[^a-zA-Z0-9-]/g : /[^a-zA-Z0-9]/g);
-    var maxLen = { 'CC': 10, 'TI': 11, 'CE': 12, 'RC': 11, 'NIT': 10, 'PP': 20, 'PASAPORTE': 20, 'PEP': 15 }[tipoDocCodigo] || 20;
+    var maxLen = { 'CC': 10, 'TI': 10, 'CE': 12, 'RC': 10, 'NIT': 13, 'PP': 15, 'PASAPORTE': 15, 'PEP': 15 }[tipoDocCodigo] || 20;
     nuevoInput.maxLength = maxLen;
     nuevoInput.addEventListener('input', function(e) {
       var cursorPos = this.selectionStart;
       var valAntes = this.value;
       this.value = this.value.replace(pattern, '');
-      if (['PP', 'PASAPORTE', 'PEP'].indexOf(tipoDocCodigo) >= 0) this.value = this.value.toUpperCase();
+      if (['CE', 'PP', 'PASAPORTE', 'PEP'].indexOf(tipoDocCodigo) >= 0) this.value = this.value.toUpperCase();
       if (this.value !== valAntes && cursorPos > 0) this.setSelectionRange(cursorPos - 1, cursorPos - 1);
     });
     nuevoInput.addEventListener('paste', function(e) {
       e.preventDefault();
       var texto = (e.clipboardData || window.clipboardData).getData('text');
       var limpio = texto.replace(pattern, '');
-      if (['PP', 'PASAPORTE', 'PEP'].indexOf(tipoDocCodigo) >= 0) limpio = limpio.toUpperCase();
+      if (['CE', 'PP', 'PASAPORTE', 'PEP'].indexOf(tipoDocCodigo) >= 0) limpio = limpio.toUpperCase();
       this.value = limpio.substring(0, maxLen);
     });
   }

@@ -287,27 +287,29 @@ const Residentes = (() => {
     var pattern = /[^a-zA-Z0-9-]/g; // Default alfanumérico
     
     // Determinar patrón según tipo de documento
-    var tiposNumericos = ['CC', 'TI', 'CE', 'RC', 'NIT'];
+    var tiposNumericos = ['CC', 'TI', 'RC', 'NIT'];
     if (tiposNumericos.includes(tipoDocCodigo)) {
-      pattern = /[^0-9]/g; // Solo números
+      pattern = /[^0-9]/g;
       if (tipoDocCodigo === 'CC') maxLength = 10;
-      else if (tipoDocCodigo === 'TI') maxLength = 11;
-      else if (tipoDocCodigo === 'CE') maxLength = 12;
-      else if (tipoDocCodigo === 'RC') maxLength = 11;
-      else if (tipoDocCodigo === 'NIT') maxLength = 10;
+      else if (tipoDocCodigo === 'TI') maxLength = 10;
+      else if (tipoDocCodigo === 'RC') maxLength = 10;
+      else if (tipoDocCodigo === 'NIT') maxLength = 13;
+    } else if (tipoDocCodigo === 'CE') {
+      maxLength = 12;
+      pattern = /[^a-zA-Z0-9]/g;
     } else if (tipoDocCodigo === 'PP' || tipoDocCodigo === 'PASAPORTE') {
-      maxLength = 20;
+      maxLength = 15;
       pattern = /[^a-zA-Z0-9]/g;
     } else if (tipoDocCodigo === 'PEP') {
       maxLength = 15;
-      pattern = /[^a-zA-Z0-9-]/g;
+      pattern = /[^a-zA-Z0-9]/g;
     }
     
     input.setAttribute('maxlength', maxLength);
     
     input.addEventListener('input', function(e) {
       var cleaned = e.target.value.replace(pattern, '');
-      if (tipoDocCodigo === 'PP' || tipoDocCodigo === 'PASAPORTE' || tipoDocCodigo === 'PEP') {
+      if (tipoDocCodigo === 'CE' || tipoDocCodigo === 'PP' || tipoDocCodigo === 'PASAPORTE' || tipoDocCodigo === 'PEP') {
         cleaned = cleaned.toUpperCase();
       }
       e.target.value = cleaned;
@@ -317,7 +319,7 @@ const Residentes = (() => {
       e.preventDefault();
       var pastedText = (e.clipboardData || window.clipboardData).getData('text');
       var cleaned = pastedText.replace(pattern, '').substring(0, maxLength);
-      if (tipoDocCodigo === 'PP' || tipoDocCodigo === 'PASAPORTE' || tipoDocCodigo === 'PEP') {
+      if (tipoDocCodigo === 'CE' || tipoDocCodigo === 'PP' || tipoDocCodigo === 'PASAPORTE' || tipoDocCodigo === 'PEP') {
         cleaned = cleaned.toUpperCase();
       }
       e.target.value = cleaned;
