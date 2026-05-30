@@ -25,9 +25,7 @@ public class UsuarioHandler extends BaseHandler implements HttpHandler {
             String[] parts = path.split("/");
 
             if ("GET".equalsIgnoreCase(method) && parts.length == 3) {
-                // Cualquier rol autenticado puede listar usuarios (para selects)
                 List<Usuario> list = service.listarTodos();
-                // No enviar passwordHash por seguridad — Gson serializa todos los getters
                 for (Usuario u : list) u.setPasswordHash(null);
                 sendJson(exchange, 200, list);
             } else if ("GET".equalsIgnoreCase(method) && parts.length == 4) {
@@ -53,6 +51,25 @@ public class UsuarioHandler extends BaseHandler implements HttpHandler {
                 u.setIdUsuario(Integer.parseInt(parts[3]));
                 service.actualizar(u);
                 sendJson(exchange, 200, Map.of("mensaje", "Usuario actualizado"));
+            } else if ("POST".equalsIgnoreCase(method) && parts.length == 5 && "toggle-activo".equals(parts[4])) {
+                if (!AuthMiddleware.hasRole(claims, "ADMINISTRADOR")) {
+                    sendJson(exchange, 403, new ErrorResponse("Se requieren permisos de administrador"));
+                    return;
+                }
+                service.toggleActivo(Integer.parseInt(parts[3]));
+                sendJson(exchange, 200, Map.of("mensaje", "Estado actualizado"));
+            } else if ("DELETE".equalsIgnoreCase(method) && parts.length == 6 && "eliminar".equals(parts[4])) {
+                if (!AuthMiddleware.hasRole(claims, "ADMINISTRADOR")) {
+                    sendJson(exchange, 403, new ErrorResponse("Se requieren permisos de administrador"));
+                    return;
+                }
+                String body = new String(exchange.getRequestBody().readAllBytes(), "UTF-8");
+                @SuppressWarnings("unchecked")
+                Map<String, Object> data = JsonUtil.fromJson(body, Map.class);
+                String adminPassword = (String) data.get("adminPassword");
+                int idAdmin = ((Number) claims.get("idUsuario")).intValue();
+                service.eliminar(Integer.parseInt(parts[3]), idAdmin, adminPassword);
+                sendJson(exchange, 200, Map.of("mensaje", "Usuario eliminado permanentemente"));
             } else if ("DELETE".equalsIgnoreCase(method) && parts.length == 4) {
                 if (!AuthMiddleware.hasRole(claims, "ADMINISTRADOR")) {
                     sendJson(exchange, 403, new ErrorResponse("Se requieren permisos de administrador"));

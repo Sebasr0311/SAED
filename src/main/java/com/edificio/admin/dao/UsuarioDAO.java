@@ -34,8 +34,7 @@ public class UsuarioDAO implements CrudDAO<Usuario> {
                    + "        WHERE cr2.id_residente = u.id_residente AND ROWNUM = 1) AS numero_apartamento "
                    + "FROM   USUARIOS u "
                    + "LEFT JOIN RESIDENTES r ON r.id_residente = u.id_residente "
-                   + "WHERE  u.activo = 1 "
-                   + "ORDER  BY u.username";
+                   + "ORDER  BY u.activo DESC, u.username";
         try (PreparedStatement ps = conn().prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) { lista.add(mapear(rs)); }
@@ -129,13 +128,42 @@ public class UsuarioDAO implements CrudDAO<Usuario> {
         }
     }
 
-    /** Soft-delete: activo = 0. */
+    /** Soft-delete: activo = 0 (desactivar). */
     @Override
     public void delete(Integer id) throws SQLException {
         String sql = "UPDATE USUARIOS SET activo = 0 WHERE id_usuario = ?";
         try (PreparedStatement ps = conn().prepareStatement(sql)) {
             ps.setInt(1, id);
             ps.executeUpdate();
+        }
+    }
+
+    /** Hard-delete: DELETE FROM USUARIOS (eliminacion permanente). */
+    public void hardDelete(Integer id) throws SQLException {
+        String sql = "DELETE FROM USUARIOS WHERE id_usuario = ?";
+        try (PreparedStatement ps = conn().prepareStatement(sql)) {
+            ps.setInt(1, id);
+            ps.executeUpdate();
+        }
+    }
+
+    /** Reactivar: activo = 1. */
+    public void reactivar(Integer id) throws SQLException {
+        String sql = "UPDATE USUARIOS SET activo = 1 WHERE id_usuario = ?";
+        try (PreparedStatement ps = conn().prepareStatement(sql)) {
+            ps.setInt(1, id);
+            ps.executeUpdate();
+        }
+    }
+
+    /** Verifica si un id_residente ya esta asociado a otro usuario activo. */
+    public boolean existsByResidente(Integer idResidente) throws SQLException {
+        String sql = "SELECT COUNT(*) FROM USUARIOS WHERE id_residente = ? AND activo = 1";
+        try (PreparedStatement ps = conn().prepareStatement(sql)) {
+            ps.setInt(1, idResidente);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() && rs.getInt(1) > 0;
+            }
         }
     }
 

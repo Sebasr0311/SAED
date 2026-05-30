@@ -64,11 +64,21 @@ public class ContratoService {
         if (idResidenteArrendatario == null || idResidenteArrendatario <= 0)
             throw new DatosInvalidosException("ID del residente arrendatario es obligatorio.");
 
-        Apartamento apto = apartamentoDAO.findById(contrato.getIdApartamento());
+        Integer idApto = contrato.getIdApartamento();
+        Apartamento apto = apartamentoDAO.findById(idApto);
         if (apto == null)
             throw new DatosInvalidosException("El apartamento no existe.");
         if (apto.getEstado() == EstadoApartamento.OCUPADO)
             throw new DatosInvalidosException("El apartamento ya est\u00e1 ocupado. No se puede crear un nuevo contrato.");
+        // Validar que no exista ya un contrato ACTIVO o PENDIENTE_FIRMA para este apto
+        Contrato existente = contratoDAO.findActivoByApartamento(idApto);
+        if (existente != null)
+            throw new DatosInvalidosException("El apartamento ya tiene un contrato activo.");
+        List<Contrato> todos = contratoDAO.findByApartamento(idApto);
+        for (Contrato ct : todos) {
+            if (ct.getEstado() == EstadoContrato.PENDIENTE_FIRMA)
+                throw new DatosInvalidosException("El apartamento ya tiene un contrato pendiente de firma.");
+        }
 
         contrato.setEstado(EstadoContrato.PENDIENTE_FIRMA);
         Integer idContrato = contratoDAO.insert(contrato);
