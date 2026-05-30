@@ -76,7 +76,7 @@ const Parqueaderos = (() => {
       });
       if (p && p.idApartamento) delete aptsConParq[p.idApartamento];
       _apartamentos = todosApts.filter(function(a) {
-        return a.estado !== 'DISPONIBLE' && !aptsConParq[a.idApartamento];
+        return !aptsConParq[a.idApartamento];
       });
     } catch (e) { _apartamentos = []; }
     editingId = p ? p.idParqueadero : null;
