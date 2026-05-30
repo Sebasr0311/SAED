@@ -10,17 +10,6 @@ import org.mindrot.jbcrypt.BCrypt;
 import java.sql.SQLException;
 import java.util.List;
 
-/**
- * Logica de negocio para USUARIOS.
- *
- * Autenticacion: se recupera el usuario por username y se verifica que
- * el passwordHash en BD coincida con la contrasena ingresada usando BCrypt.
- *
- * Registro / actualizar: el password_hash se almacena como hash BCrypt.
- * Si el valor recibido ya tiene el prefijo BCrypt ($2a$ / $2b$) se asume
- * que viene de la BD y no se re-hashea (util en actualizar cuando no se
- * cambia la contrasena).
- */
 public class UsuarioService {
 
     private final UsuarioDAO usuarioDAO;
@@ -29,12 +18,6 @@ public class UsuarioService {
         this.usuarioDAO = new UsuarioDAO();
     }
 
-    /**
-     * Autentica un usuario.
-     * @return el Usuario autenticado
-     * @throws DatosInvalidosException si los campos estan vacios
-     * @throws RegistroNoEncontradoException si el username no existe o esta inactivo
-     */
     public Usuario autenticar(String username, String contrasenaPlana) throws SQLException {
         if (username == null || username.isBlank())
             throw new DatosInvalidosException("El nombre de usuario es obligatorio.");
@@ -46,7 +29,6 @@ public class UsuarioService {
         if (usuario == null || !usuario.isActivo())
             throw new RegistroNoEncontradoException("Usuario no encontrado o inactivo.");
 
-        // Verificar contrasena con BCrypt
         if (!BCrypt.checkpw(contrasenaPlana, usuario.getPasswordHash()))
             throw new DatosInvalidosException("Contrasena incorrecta.");
 
@@ -70,6 +52,8 @@ public class UsuarioService {
         validar(usuario);
         if (usuarioDAO.findByUsername(usuario.getUsername()) != null)
             throw new DatosInvalidosException("El username '" + usuario.getUsername() + "' ya existe.");
+        if (usuario.getIdResidente() != null && usuarioDAO.existsByResidente(usuario.getIdResidente()))
+            throw new DatosInvalidosException("El residente ya tiene un usuario activo.");
         usuario.setPasswordHash(hashear(usuario.getPasswordHash()));
         return usuarioDAO.insert(usuario);
     }
@@ -79,8 +63,39 @@ public class UsuarioService {
         if (usuario.getUsername() != null)
             usuario.setUsername(usuario.getUsername().toLowerCase().trim());
         validar(usuario);
+        Usuario existente = usuarioDAO.findById(usuario.getIdUsuario());
+        // Verificar idResidente no duplicado (excluyendose a si mismo)
+        if (usuario.getIdResidente() != null && usuarioDAO.existsByResidente(usuario.getIdResidente())) {
+            if (existente.getIdResidente() == null || !existente.getIdResidente().equals(usuario.getIdResidente()))
+                throw new DatosInvalidosException("El residente ya tiene un usuario activo.");
+        }
         usuario.setPasswordHash(hashear(usuario.getPasswordHash()));
         usuarioDAO.update(usuario);
+    }
+
+    public void toggleActivo(Integer id) throws SQLException {
+        validarId(id);
+        Usuario u = usuarioDAO.findById(id);
+        if (u == null) throw new RegistroNoEncontradoException("Usuario no encontrado: " + id);
+        if (u.isActivo()) {
+            usuarioDAO.delete(id); // soft-delete (activo=0)
+        } else {
+            usuarioDAO.reactivar(id); // activo=1
+        }
+    }
+
+    public void eliminar(Integer idEliminar, Integer idAdmin, String adminPassword) throws SQLException {
+        validarId(idEliminar);
+        validarId(idAdmin);
+        if (adminPassword == null || adminPassword.isBlank())
+            throw new DatosInvalidosException("La contrasena del administrador es obligatoria.");
+        Usuario admin = usuarioDAO.findById(idAdmin);
+        if (admin == null) throw new RegistroNoEncontradoException("Administrador no encontrado.");
+        if (!BCrypt.checkpw(adminPassword, admin.getPasswordHash()))
+            throw new DatosInvalidosException("Contrasena de administrador incorrecta.");
+        Usuario u = usuarioDAO.findById(idEliminar);
+        if (u == null) throw new RegistroNoEncontradoException("Usuario no encontrado: " + idEliminar);
+        usuarioDAO.hardDelete(idEliminar);
     }
 
     public void desactivar(Integer id) throws SQLException {
@@ -90,13 +105,9 @@ public class UsuarioService {
 
     // ---- helpers ----
 
-    /**
-     * Hashea el password con BCrypt solo si aun no tiene el prefijo BCrypt.
-     * Permite llamar a actualizar() sin re-hashear un hash que ya viene de la BD.
-     */
     private String hashear(String password) {
         if (password.startsWith("$2a$") || password.startsWith("$2b$")) {
-            return password; // ya es un hash BCrypt
+            return password;
         }
         return BCrypt.hashpw(password, BCrypt.gensalt());
     }

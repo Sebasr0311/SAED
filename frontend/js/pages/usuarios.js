@@ -44,11 +44,11 @@ const Usuarios = (() => {
       <td>${Utils.estadoBadge(u.rol || '')}</td>
       <td>${u.nombreResidente || '-'}</td>
       <td>${u.numeroApartamento || '-'}</td>
-      <td>${u.activo ? 'Si' : 'No'}</td>
+      <td>${u.activo ? Utils.estadoBadge('ACTIVO') : '<span class="badge badge-danger">Inactivo</span>'}</td>
       <td>${Utils.formatDateTime(u.ultimoLogin)}</td>
       <td class="actions-cell">
         <button class="btn btn-primary btn-sm" onclick="Usuarios.editar(${u.idUsuario})">Editar</button>
-        <button class="btn btn-danger btn-sm" onclick="Usuarios.desactivar(${u.idUsuario})">Desactivar</button>
+        <button class="btn btn-danger btn-sm" onclick="Usuarios.confirmarEliminar(${u.idUsuario})">Eliminar</button>
       </td>
     </tr>`).join('');
     if (pag) pag.innerHTML = Utils.paginationHtml(pg, 'Usuarios.goToPage');
@@ -63,15 +63,26 @@ const Usuarios = (() => {
     editingId = u ? u.idUsuario : null;
     const isEdit = !!editingId;
     const ropts = ROLES.map(r => '<option value="' + r + '" ' + (u && u.rol === r ? 'selected' : '') + '>' + r + '</option>').join('');
+    var activo = u ? u.activo : true;
+    var estadoHtml = isEdit
+      ? '<div style="margin-top:16px;padding:12px;background:var(--navy-50);border-radius:8px;border:1px solid var(--border)">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between">' +
+        '<span style="font-weight:600;font-size:14px">Estado: ' + (activo
+          ? '<span class="badge badge-success">Activo</span>'
+          : '<span class="badge badge-danger">Inactivo</span>') + '</span>' +
+        '<button class="btn btn-sm ' + (activo ? 'btn-warn' : 'btn-success') + '" onclick="Usuarios.toggleActivo(' + u.idUsuario + ')" title="' + (activo ? 'Desactivar usuario' : 'Activar usuario') + '">' +
+        (activo ? 'Desactivar' : 'Activar') + '</button>' +
+        '</div></div>'
+      : '';
     Utils.modal(isEdit ? 'Editar Usuario' : 'Nuevo Usuario',
       `<form id="form-usuario">
         <div class="form-group"><label>Username</label><input type="text" id="usr-username" class="form-control" value="${u ? u.username || '' : ''}" maxlength="50"><span class="field-error" id="usr-username-error"></span></div>
-        <div class="form-group"><label>Contrase\u00f1a ${isEdit ? '(dejar vac\u00edo para mantener actual)' : ''}</label><input type="password" id="usr-password" class="form-control" ${isEdit ? '' : ''}><span class="field-error" id="usr-password-error"></span></div>
+        <div class="form-group"><label>Contrase\u00f1a ${isEdit ? '(dejar vac\u00edo para mantener actual)' : ''}</label><input type="password" id="usr-password" class="form-control"><span class="field-error" id="usr-password-error"></span></div>
         <div class="form-row">
           <div class="form-group"><label>Rol</label><select id="usr-rol" class="form-control">${ropts}</select><span class="field-error" id="usr-rol-error"></span></div>
-          <div class="form-group"><label>ID Residente (opcional)</label><input type="number" id="usr-id-residente" class="form-control" value="${u ? u.idResidente || '' : ''}"></div>
+          <div class="form-group"><label>ID Residente</label><input type="number" id="usr-id-residente" class="form-control" value="${u ? u.idResidente || '' : ''}" placeholder="Dejar vac\u00edo para admin/portero"></div>
         </div>
-        <div class="form-group"><label><input type="checkbox" id="usr-activo" ${!u || u.activo ? 'checked' : ''}> Activo</label></div>
+        ${estadoHtml}
       </form>`,
       '<button class="btn btn-outline" onclick="this.closest(\'.modal-overlay\').remove()">Cancelar</button>' +
       '<button class="btn btn-primary" id="btn-guardar-usuario" onclick="Usuarios.guardar()">' + (isEdit ? 'Actualizar' : 'Guardar') + '</button>');
@@ -93,7 +104,7 @@ const Usuarios = (() => {
       passwordHash: document.getElementById('usr-password').value,
       rol: rolVal,
       idResidente: idResidenteVal,
-      activo: document.getElementById('usr-activo').checked
+      activo: true
     };
     var btn = document.getElementById('btn-guardar-usuario');
     if (btn) btn.disabled = true;
@@ -107,6 +118,47 @@ const Usuarios = (() => {
     finally { if (btn) btn.disabled = false; }
   }
 
+  async function toggleActivo(id) {
+    try {
+      await API.post('/usuarios/' + id + '/toggle-activo');
+      Utils.showToast('Estado actualizado', 'success');
+      var overlay = document.querySelector('.modal-overlay');
+      if (overlay) overlay.remove();
+      cargar();
+    } catch (e) { Utils.showToast(e.message, 'error'); }
+  }
+
+  async function confirmarEliminar(id) {
+    Utils.modal('Confirmar Eliminaci\u00f3n',
+      '<form id="form-eliminar-usuario">' +
+      '<p style="margin-bottom:12px;color:var(--danger);font-weight:600">\u00bfEst\u00e1 seguro de eliminar permanentemente este usuario?</p>' +
+      '<p style="margin-bottom:16px;color:var(--text-secondary);font-size:13px">Esta acci\u00f3n elimina el usuario de la base de datos. Para confirmar, ingrese su contrase\u00f1a de administrador.</p>' +
+      '<div class="form-group"><label>Contrase\u00f1a de Administrador</label>' +
+      '<input type="password" id="usr-admin-password" class="form-control" placeholder="Ingrese su contrase\u00f1a...">' +
+      '<span class="field-error" id="usr-admin-password-error"></span></div>' +
+      '</form>',
+      '<button class="btn btn-outline" onclick="this.closest(\'.modal-overlay\').remove()">Cancelar</button>' +
+      '<button class="btn btn-danger" id="btn-eliminar-usuario" onclick="Usuarios.eliminar(' + id + ')">Eliminar Definitivamente</button>'
+    );
+  }
+
+  async function eliminar(id) {
+    var password = document.getElementById('usr-admin-password').value;
+    if (!password) {
+      Utils.mostrarError('usr-admin-password', 'La contrase\u00f1a es obligatoria');
+      return;
+    }
+    var btn = document.getElementById('btn-eliminar-usuario');
+    if (btn) btn.disabled = true;
+    try {
+      await API.del('/usuarios/' + id + '/eliminar', { adminPassword: password });
+      Utils.showToast('Usuario eliminado permanentemente', 'success');
+      document.querySelectorAll('.modal-overlay').forEach(function(el) { el.remove(); });
+      cargar();
+    } catch (e) { Utils.showToast(e.message, 'error'); }
+    finally { if (btn) btn.disabled = false; }
+  }
+
   async function editar(id) {
     try {
       const u = await API.get('/usuarios/' + id);
@@ -115,13 +167,7 @@ const Usuarios = (() => {
     } catch (e) { Utils.showToast(e.message, 'error'); }
   }
 
-  async function desactivar(id) {
-    if (!confirm('Desea desactivar este usuario?')) return;
-    try { await API.del('/usuarios/' + id); Utils.showToast('Usuario desactivado', 'success'); cargar(); }
-    catch (e) { Utils.showToast(e.message, 'error'); }
-  }
-
-  return { cargar, render, mostrarFormulario, guardar, editar, desactivar, goToPage };
+  return { cargar, render, mostrarFormulario, guardar, editar, toggleActivo, confirmarEliminar, eliminar, goToPage };
 })();
 
 Router.register('usuarios', {

@@ -44,6 +44,6 @@ const API = (() => {
     get: function(url) { return request(url); },
     post: function(url, body) { return request(url, { method: 'POST', body: JSON.stringify(body) }); },
     put: function(url, body) { return request(url, { method: 'PUT', body: JSON.stringify(body) }); },
-    del: function(url) { return request(url, { method: 'DELETE' }); }
+    del: function(url, body) { return request(url, { method: 'DELETE', body: body ? JSON.stringify(body) : undefined }); }
   };
 })();
