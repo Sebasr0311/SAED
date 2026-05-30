@@ -2115,8 +2115,8 @@ BEGIN
     v_codigo_qr := LOWER(RAWTOHEX(SYS_GUID()));
     v_fecha_exp := CURRENT_TIMESTAMP + NUMTODSINTERVAL(p_tiempo_validez, 'MINUTE');
 
-    INSERT INTO QR_ACCESOS (id_visita, codigo_qr, fecha_expiracion, usado)
-    VALUES (v_id_visita, v_codigo_qr, v_fecha_exp, 0);
+    INSERT INTO QR_ACCESOS (id_visita, codigo_qr, fecha_generacion, fecha_expiracion, usado)
+    VALUES (v_id_visita, v_codigo_qr, CURRENT_TIMESTAMP, v_fecha_exp, 0);
 
     COMMIT;
 

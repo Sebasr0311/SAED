@@ -225,8 +225,8 @@ public class QRAccesoDAO implements CrudDAO<QRAcceso> {
     @Override
     public Integer insert(QRAcceso q) throws SQLException {
         String sql = "BEGIN INSERT INTO QR_ACCESOS "
-                   + "  (id_visita, codigo_qr, fecha_expiracion, usado) "
-                   + "VALUES (?, ?, ?, 0) "
+                   + "  (id_visita, codigo_qr, fecha_generacion, fecha_expiracion, usado) "
+                   + "VALUES (?, ?, CURRENT_TIMESTAMP, ?, 0) "
                    + "RETURNING id_qr INTO ?; END;";
         try (CallableStatement cs = conn().prepareCall(sql)) {
             cs.setInt(1, q.getIdVisita());
