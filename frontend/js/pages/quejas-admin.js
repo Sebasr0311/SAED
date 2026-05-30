@@ -48,25 +48,36 @@ const QuejasAdmin = (() => {
       var enRevision = quejas.filter(function(q) { return q.estado === 'EN_REVISION'; }).length;
       var resueltas = quejas.filter(function(q) { return q.estado === 'RESUELTA'; }).length;
 
-      document.getElementById('stat-total').textContent = total;
-      document.getElementById('stat-pendientes').textContent = pendientes;
-      document.getElementById('stat-revision').textContent = enRevision;
-      document.getElementById('stat-resueltas').textContent = resueltas;
+      var elTotal = document.getElementById('stat-total');
+      if (elTotal) elTotal.textContent = total;
+      var elPend = document.getElementById('stat-pendientes');
+      if (elPend) elPend.textContent = pendientes;
+      var elRev = document.getElementById('stat-revision');
+      if (elRev) elRev.textContent = enRevision;
+      var elRes = document.getElementById('stat-resueltas');
+      if (elRes) elRes.textContent = resueltas;
     } catch (e) {
       console.error('Error calculando estadísticas', e);
     }
   }
 
   function configurarFiltros() {
-    document.getElementById('filtro-tipo').addEventListener('change', aplicarFiltros);
-    document.getElementById('filtro-estado').addEventListener('change', aplicarFiltros);
-    document.getElementById('filtro-prioridad').addEventListener('change', aplicarFiltros);
+    var elTipo = document.getElementById('filtro-tipo');
+    var elEstado = document.getElementById('filtro-estado');
+    var elPrioridad = document.getElementById('filtro-prioridad');
+    if (elTipo) elTipo.addEventListener('change', aplicarFiltros);
+    if (elEstado) elEstado.addEventListener('change', aplicarFiltros);
+    if (elPrioridad) elPrioridad.addEventListener('change', aplicarFiltros);
   }
 
   function aplicarFiltros() {
-    var tipo = document.getElementById('filtro-tipo').value;
-    var estado = document.getElementById('filtro-estado').value;
-    var prioridad = document.getElementById('filtro-prioridad').value;
+    var selTipo = document.getElementById('filtro-tipo');
+    var selEstado = document.getElementById('filtro-estado');
+    var selPrioridad = document.getElementById('filtro-prioridad');
+    if (!selTipo || !selEstado || !selPrioridad) return;
+    var tipo = selTipo.value;
+    var estado = selEstado.value;
+    var prioridad = selPrioridad.value;
 
     var filtradas = quejas.filter(function(q) {
       if (tipo !== 'TODAS' && q.tipo !== tipo) return false;
