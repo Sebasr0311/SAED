@@ -109,30 +109,7 @@ const Visitas = (() => {
   }
 
   function configurarValidacionDocumento() {
-    var docInput = document.getElementById('vis-documento');
-    var tipoDocSelect = document.getElementById('vis-tipo-doc');
-    
-    if (docInput && tipoDocSelect) {
-      // Al cambiar tipo de documento
-      tipoDocSelect.addEventListener('change', function() {
-        docInput.value = '';
-        docInput.classList.remove('is-invalid');
-        var errorEl = docInput.parentNode.querySelector('.field-error');
-        if (errorEl) errorEl.textContent = '';
-        
-        var tipoDocCodigo = getTipoDocCodigo(tipoDocSelect.value);
-        aplicarFiltroDocumento(docInput, tipoDocCodigo);
-      });
-      
-      // Al perder foco
-      docInput.addEventListener('blur', function() {
-        var tipoDocId = tipoDocSelect.value;
-        if (tipoDocId && docInput.value.trim()) {
-          var tipoDocCodigo = getTipoDocCodigo(tipoDocId);
-          Utils.valDocumento(docInput.value, 'vis-documento', tipoDocCodigo);
-        }
-      });
-    }
+    configurarFiltroDocumento('vis-documento', 'vis-tipo-doc', 'vis-documento');
     
     // Filtros para nombres y apellidos
     Utils.soloLetras('vis-nombres', 25);
@@ -143,54 +120,82 @@ const Visitas = (() => {
     Utils.validarTelefonoTiempoReal('vis-telefono');
   }
   
-  function aplicarFiltroDocumento(input, tipoDocCodigo) {
-    if (!input) return;
-    
-    // Remover listeners previos clonando el elemento
-    var newInput = input.cloneNode(true);
-    input.parentNode.replaceChild(newInput, input);
-    input = newInput;
-    
-    var maxLength = 15;
-    var pattern = /[^a-zA-Z0-9-]/g;
-    
-    var tiposNumericos = ['CC', 'TI', 'RC', 'NIT'];
-    if (tiposNumericos.includes(tipoDocCodigo)) {
-      pattern = /[^0-9]/g;
-      if (tipoDocCodigo === 'CC') maxLength = 10;
-      else if (tipoDocCodigo === 'TI') maxLength = 10;
-      else if (tipoDocCodigo === 'RC') maxLength = 10;
-      else if (tipoDocCodigo === 'NIT') maxLength = 13;
-    } else if (tipoDocCodigo === 'CE') {
-      maxLength = 12;
-      pattern = /[^a-zA-Z0-9]/g;
-    } else if (tipoDocCodigo === 'PP' || tipoDocCodigo === 'PASAPORTE') {
-      maxLength = 15;
-      pattern = /[^a-zA-Z0-9]/g;
-    } else if (tipoDocCodigo === 'PEP') {
-      maxLength = 15;
-      pattern = /[^a-zA-Z0-9]/g;
-    }
-    
-    input.setAttribute('maxlength', maxLength);
-    
-    input.addEventListener('input', function(e) {
-      var cleaned = e.target.value.replace(pattern, '');
-      if (tipoDocCodigo === 'CE' || tipoDocCodigo === 'PP' || tipoDocCodigo === 'PASAPORTE' || tipoDocCodigo === 'PEP') {
-        cleaned = cleaned.toUpperCase();
+  function configurarFiltroDocumento(inputId, selectId) {
+    var input = document.getElementById(inputId);
+    var select = document.getElementById(selectId);
+    if (!input || !select) return;
+
+    function aplicarFiltro() {
+      var codigo = getTipoDocCodigo(select.value);
+      if (!codigo) return;
+      var cfg = getConfigDocumento(codigo);
+      input.maxLength = cfg.maxLength;
+      input.setAttribute('data-filter', cfg.pattern.source);
+      input.setAttribute('data-upper', cfg.uppercase ? '1' : '0');
+      if (input.value) {
+        input.value = input.value.replace(new RegExp(cfg.pattern.source, 'g'), '');
+        if (cfg.uppercase) input.value = input.value.toUpperCase();
       }
+    }
+
+    select.addEventListener('change', function() {
+      input.value = '';
+      input.classList.remove('is-invalid');
+      var errorEl = input.parentNode.querySelector('.field-error');
+      if (errorEl) errorEl.textContent = '';
+      aplicarFiltro();
+    });
+
+    input.addEventListener('input', function(e) {
+      var filterSrc = e.target.getAttribute('data-filter');
+      if (!filterSrc) return;
+      var re = new RegExp(filterSrc, 'g');
+      var cleaned = e.target.value.replace(re, '');
+      if (e.target.getAttribute('data-upper') === '1') cleaned = cleaned.toUpperCase();
       e.target.value = cleaned;
     });
-    
+
     input.addEventListener('paste', function(e) {
       e.preventDefault();
-      var pastedText = (e.clipboardData || window.clipboardData).getData('text');
-      var cleaned = pastedText.replace(pattern, '').substring(0, maxLength);
-      if (tipoDocCodigo === 'CE' || tipoDocCodigo === 'PP' || tipoDocCodigo === 'PASAPORTE' || tipoDocCodigo === 'PEP') {
-        cleaned = cleaned.toUpperCase();
+      var text = (e.clipboardData || window.clipboardData).getData('text');
+      var filterSrc = this.getAttribute('data-filter');
+      if (filterSrc) {
+        var re = new RegExp(filterSrc, 'g');
+        text = text.replace(re, '');
       }
-      e.target.value = cleaned;
+      if (this.getAttribute('data-upper') === '1') text = text.toUpperCase();
+      var max = parseInt(this.maxLength, 10);
+      if (max && max > 0) text = text.substring(0, max);
+      this.value = text;
     });
+
+    input.addEventListener('blur', function() {
+      var tipoDocId = select.value;
+      if (tipoDocId && this.value.trim()) {
+        var tipoDocCodigo = getTipoDocCodigo(tipoDocId);
+        Utils.valDocumento(this.value, inputId, tipoDocCodigo);
+      }
+    });
+
+    aplicarFiltro();
+  }
+
+  function getConfigDocumento(codigo) {
+    var cfg = { maxLength: 15, pattern: /[^a-zA-Z0-9-]/g, uppercase: false };
+    if (['CC', 'TI', 'RC', 'NIT'].indexOf(codigo) >= 0) {
+      cfg.pattern = /[^0-9]/g;
+      if (codigo === 'CC') cfg.maxLength = 10;
+      else if (codigo === 'TI') cfg.maxLength = 10;
+      else if (codigo === 'RC') cfg.maxLength = 10;
+      else if (codigo === 'NIT') cfg.maxLength = 13;
+    } else if (codigo === 'CE') {
+      cfg.maxLength = 12; cfg.pattern = /[^a-zA-Z0-9]/g; cfg.uppercase = true;
+    } else if (codigo === 'PP' || codigo === 'PASAPORTE') {
+      cfg.maxLength = 15; cfg.pattern = /[^a-zA-Z0-9]/g; cfg.uppercase = true;
+    } else if (codigo === 'PEP') {
+      cfg.maxLength = 15; cfg.pattern = /[^a-zA-Z0-9]/g; cfg.uppercase = true;
+    }
+    return cfg;
   }
   
   function getTipoDocCodigo(idTipoDoc) {

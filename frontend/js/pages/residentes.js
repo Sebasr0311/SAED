@@ -208,57 +208,8 @@ const Residentes = (() => {
   }
 
   function configurarValidacionTiempoReal() {
-    // Validación de documento del residente
-    var resDocInput = document.getElementById('res-documento');
-    var resTipoDocSelect = document.getElementById('res-tipo-doc');
-    
-    if (resDocInput && resTipoDocSelect) {
-      // Listener para cambio de tipo de documento
-      resTipoDocSelect.addEventListener('change', function() {
-        // Limpiar campo de documento al cambiar tipo
-        resDocInput.value = '';
-        resDocInput.classList.remove('is-invalid');
-        var errorEl = resDocInput.parentNode.querySelector('.field-error');
-        if (errorEl) errorEl.textContent = '';
-        
-        // Aplicar filtro según tipo
-        var tipoDocCodigo = getTipoDocCodigo(resTipoDocSelect.value);
-        aplicarFiltroDocumento(resDocInput, tipoDocCodigo);
-      });
-      
-      // Validación al perder foco
-      resDocInput.addEventListener('blur', function() {
-        var tipoDocId = resTipoDocSelect.value;
-        if (tipoDocId && resDocInput.value.trim()) {
-          var tipoDocCodigo = getTipoDocCodigo(tipoDocId);
-          Utils.valDocumento(resDocInput.value, 'res-documento', tipoDocCodigo);
-        }
-      });
-    }
-    
-    // Validación de documento del tutor
-    var tutorDocInput = document.getElementById('tutor-documento');
-    var tutorTipoDocSelect = document.getElementById('tutor-tipo-doc');
-    
-    if (tutorDocInput && tutorTipoDocSelect) {
-      tutorTipoDocSelect.addEventListener('change', function() {
-        tutorDocInput.value = '';
-        tutorDocInput.classList.remove('is-invalid');
-        var errorEl = tutorDocInput.parentNode.querySelector('.field-error');
-        if (errorEl) errorEl.textContent = '';
-        
-        var tipoDocCodigo = getTipoDocCodigo(tutorTipoDocSelect.value);
-        aplicarFiltroDocumento(tutorDocInput, tipoDocCodigo);
-      });
-      
-      tutorDocInput.addEventListener('blur', function() {
-        var tipoDocId = tutorTipoDocSelect.value;
-        if (tipoDocId && tutorDocInput.value.trim()) {
-          var tipoDocCodigo = getTipoDocCodigo(tipoDocId);
-          Utils.valDocumento(tutorDocInput.value, 'tutor-documento', tipoDocCodigo);
-        }
-      });
-    }
+    configurarFiltroDocumento('res-documento', 'res-tipo-doc', 'res-tipo-doc');
+    configurarFiltroDocumento('tutor-documento', 'tutor-tipo-doc', 'tutor-tipo-doc');
     
     // Filtros para nombres y apellidos (residente)
     Utils.soloLetras('res-nombres', 25);
@@ -279,56 +230,92 @@ const Residentes = (() => {
     // Validación email del tutor en tiempo real
     Utils.validarEmailTiempoReal('tutor-email');
   }
-  
-  function aplicarFiltroDocumento(input, tipoDocCodigo) {
-    if (!input) return;
-    
-    // Remover listeners previos clonando el elemento
-    var newInput = input.cloneNode(true);
-    input.parentNode.replaceChild(newInput, input);
-    input = newInput;
-    
-    var maxLength = 15; // Default
-    var pattern = /[^a-zA-Z0-9-]/g; // Default alfanumérico
-    
-    // Determinar patrón según tipo de documento
-    var tiposNumericos = ['CC', 'TI', 'RC', 'NIT'];
-    if (tiposNumericos.includes(tipoDocCodigo)) {
-      pattern = /[^0-9]/g;
-      if (tipoDocCodigo === 'CC') maxLength = 10;
-      else if (tipoDocCodigo === 'TI') maxLength = 10;
-      else if (tipoDocCodigo === 'RC') maxLength = 10;
-      else if (tipoDocCodigo === 'NIT') maxLength = 13;
-    } else if (tipoDocCodigo === 'CE') {
-      maxLength = 12;
-      pattern = /[^a-zA-Z0-9]/g;
-    } else if (tipoDocCodigo === 'PP' || tipoDocCodigo === 'PASAPORTE') {
-      maxLength = 15;
-      pattern = /[^a-zA-Z0-9]/g;
-    } else if (tipoDocCodigo === 'PEP') {
-      maxLength = 15;
-      pattern = /[^a-zA-Z0-9]/g;
-    }
-    
-    input.setAttribute('maxlength', maxLength);
-    
-    input.addEventListener('input', function(e) {
-      var cleaned = e.target.value.replace(pattern, '');
-      if (tipoDocCodigo === 'CE' || tipoDocCodigo === 'PP' || tipoDocCodigo === 'PASAPORTE' || tipoDocCodigo === 'PEP') {
-        cleaned = cleaned.toUpperCase();
+
+  function configurarFiltroDocumento(inputId, selectId, errorPrefix) {
+    var input = document.getElementById(inputId);
+    var select = document.getElementById(selectId);
+    if (!input || !select) return;
+
+    function aplicarFiltro() {
+      var codigo = getTipoDocCodigo(select.value);
+      if (!codigo) return;
+      var cfg = getConfigDocumento(codigo);
+      input.maxLength = cfg.maxLength;
+      input.setAttribute('data-filter', cfg.pattern.source);
+      input.setAttribute('data-upper', cfg.uppercase ? '1' : '0');
+      // Limpiar valor actual si no coincide
+      if (input.value) {
+        input.value = input.value.replace(new RegExp(cfg.pattern.source, 'g'), '');
+        if (cfg.uppercase) input.value = input.value.toUpperCase();
       }
+    }
+
+    select.addEventListener('change', function() {
+      input.value = '';
+      input.classList.remove('is-invalid');
+      var errorEl = input.parentNode.querySelector('.field-error');
+      if (errorEl) errorEl.textContent = '';
+      aplicarFiltro();
+    });
+
+    input.addEventListener('input', function(e) {
+      var filterSrc = e.target.getAttribute('data-filter');
+      if (!filterSrc) return;
+      var re = new RegExp(filterSrc, 'g');
+      var cleaned = e.target.value.replace(re, '');
+      if (e.target.getAttribute('data-upper') === '1') cleaned = cleaned.toUpperCase();
       e.target.value = cleaned;
     });
-    
+
     input.addEventListener('paste', function(e) {
       e.preventDefault();
-      var pastedText = (e.clipboardData || window.clipboardData).getData('text');
-      var cleaned = pastedText.replace(pattern, '').substring(0, maxLength);
-      if (tipoDocCodigo === 'CE' || tipoDocCodigo === 'PP' || tipoDocCodigo === 'PASAPORTE' || tipoDocCodigo === 'PEP') {
-        cleaned = cleaned.toUpperCase();
+      var text = (e.clipboardData || window.clipboardData).getData('text');
+      var filterSrc = this.getAttribute('data-filter');
+      if (filterSrc) {
+        var re = new RegExp(filterSrc, 'g');
+        text = text.replace(re, '');
       }
-      e.target.value = cleaned;
+      if (this.getAttribute('data-upper') === '1') text = text.toUpperCase();
+      var max = parseInt(this.maxLength, 10);
+      if (max && max > 0) text = text.substring(0, max);
+      this.value = text;
     });
+
+    input.addEventListener('blur', function() {
+      var tipoDocId = select.value;
+      if (tipoDocId && this.value.trim()) {
+        var tipoDocCodigo = getTipoDocCodigo(tipoDocId);
+        Utils.valDocumento(this.value, inputId, tipoDocCodigo);
+      }
+    });
+
+    // Aplicar filtro inicial si hay un tipo pre-seleccionado o valor existente
+    aplicarFiltro();
+  }
+
+  function getConfigDocumento(codigo) {
+    var cfg = { maxLength: 15, pattern: /[^a-zA-Z0-9-]/g, uppercase: false };
+    if (['CC', 'TI', 'RC', 'NIT'].indexOf(codigo) >= 0) {
+      cfg.pattern = /[^0-9]/g;
+      cfg.uppercase = false;
+      if (codigo === 'CC') cfg.maxLength = 10;
+      else if (codigo === 'TI') cfg.maxLength = 10;
+      else if (codigo === 'RC') cfg.maxLength = 10;
+      else if (codigo === 'NIT') cfg.maxLength = 13;
+    } else if (codigo === 'CE') {
+      cfg.maxLength = 12;
+      cfg.pattern = /[^a-zA-Z0-9]/g;
+      cfg.uppercase = true;
+    } else if (codigo === 'PP' || codigo === 'PASAPORTE') {
+      cfg.maxLength = 15;
+      cfg.pattern = /[^a-zA-Z0-9]/g;
+      cfg.uppercase = true;
+    } else if (codigo === 'PEP') {
+      cfg.maxLength = 15;
+      cfg.pattern = /[^a-zA-Z0-9]/g;
+      cfg.uppercase = true;
+    }
+    return cfg;
   }
   
   function getTipoDocCodigo(idTipoDoc) {

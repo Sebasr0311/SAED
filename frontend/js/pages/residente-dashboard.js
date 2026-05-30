@@ -821,46 +821,89 @@ const ResidenteDash = (() => {
     return null;
   }
 
-  function aplicarFiltroDocumentoVisita(input, tipoDocCodigo) {
-    if (!input || !tipoDocCodigo) return;
-    var nuevoInput = input.cloneNode(true);
-    input.parentNode.replaceChild(nuevoInput, input);
-    var esNumerico = ['CC', 'TI', 'RC', 'NIT'].indexOf(tipoDocCodigo) >= 0;
-    var pattern = esNumerico ? /[^0-9]/g : (tipoDocCodigo === 'PEP' ? /[^a-zA-Z0-9-]/g : /[^a-zA-Z0-9]/g);
-    var maxLen = { 'CC': 10, 'TI': 10, 'CE': 12, 'RC': 10, 'NIT': 13, 'PP': 15, 'PASAPORTE': 15, 'PEP': 15 }[tipoDocCodigo] || 20;
-    nuevoInput.maxLength = maxLen;
-    nuevoInput.addEventListener('input', function(e) {
-      var cursorPos = this.selectionStart;
-      var valAntes = this.value;
-      this.value = this.value.replace(pattern, '');
-      if (['CE', 'PP', 'PASAPORTE', 'PEP'].indexOf(tipoDocCodigo) >= 0) this.value = this.value.toUpperCase();
-      if (this.value !== valAntes && cursorPos > 0) this.setSelectionRange(cursorPos - 1, cursorPos - 1);
-    });
-    nuevoInput.addEventListener('paste', function(e) {
-      e.preventDefault();
-      var texto = (e.clipboardData || window.clipboardData).getData('text');
-      var limpio = texto.replace(pattern, '');
-      if (['CE', 'PP', 'PASAPORTE', 'PEP'].indexOf(tipoDocCodigo) >= 0) limpio = limpio.toUpperCase();
-      this.value = limpio.substring(0, maxLen);
-    });
-  }
-
   function configurarValidacionNuevaVisita() {
-    var tipoDocSelect = document.getElementById('res-vis-tipo-doc');
-    var docInput = document.getElementById('res-vis-documento');
-    if (tipoDocSelect && docInput) {
-      tipoDocSelect.addEventListener('change', function() {
-        docInput.value = '';
-        Utils.limpiarErrores('form-visita-residente');
-        var codigo = getTipoDocCodigo(this.value);
-        if (codigo) aplicarFiltroDocumentoVisita(docInput, codigo);
-      });
-    }
+    configurarFiltroDocumentoVisita('res-vis-documento', 'res-vis-tipo-doc');
     Utils.soloLetras('res-vis-nombres', 20);
     Utils.soloLetras('res-vis-apellidos', 20);
     Utils.soloNumeros('res-vis-telefono', 10);
     Utils.validarTelefonoTiempoReal('res-vis-telefono');
     configurarValidacionPlacaVisita();
+  }
+
+  function configurarFiltroDocumentoVisita(inputId, selectId) {
+    var input = document.getElementById(inputId);
+    var select = document.getElementById(selectId);
+    if (!input || !select) return;
+
+    function aplicarFiltro() {
+      var codigo = getTipoDocCodigo(select.value);
+      if (!codigo) return;
+      var cfg = getConfigDocumento(codigo);
+      input.maxLength = cfg.maxLength;
+      input.setAttribute('data-filter', cfg.pattern.source);
+      input.setAttribute('data-upper', cfg.uppercase ? '1' : '0');
+      if (input.value) {
+        input.value = input.value.replace(new RegExp(cfg.pattern.source, 'g'), '');
+        if (cfg.uppercase) input.value = input.value.toUpperCase();
+      }
+    }
+
+    select.addEventListener('change', function() {
+      input.value = '';
+      Utils.limpiarErrores('form-visita-residente');
+      aplicarFiltro();
+    });
+
+    input.addEventListener('input', function(e) {
+      var filterSrc = e.target.getAttribute('data-filter');
+      if (!filterSrc) return;
+      var re = new RegExp(filterSrc, 'g');
+      var cleaned = e.target.value.replace(re, '');
+      if (e.target.getAttribute('data-upper') === '1') cleaned = cleaned.toUpperCase();
+      e.target.value = cleaned;
+    });
+
+    input.addEventListener('paste', function(e) {
+      e.preventDefault();
+      var text = (e.clipboardData || window.clipboardData).getData('text');
+      var filterSrc = this.getAttribute('data-filter');
+      if (filterSrc) {
+        var re = new RegExp(filterSrc, 'g');
+        text = text.replace(re, '');
+      }
+      if (this.getAttribute('data-upper') === '1') text = text.toUpperCase();
+      var max = parseInt(this.maxLength, 10);
+      if (max && max > 0) text = text.substring(0, max);
+      this.value = text;
+    });
+
+    input.addEventListener('blur', function() {
+      var tipoDocId = select.value;
+      if (tipoDocId && this.value.trim()) {
+        var codigo = getTipoDocCodigo(tipoDocId);
+        Utils.valDocumento(this.value, inputId, codigo);
+      }
+    });
+
+    aplicarFiltro();
+  }
+
+  function getConfigDocumento(codigo) {
+    var cfg = { maxLength: 15, pattern: /[^a-zA-Z0-9-]/g, uppercase: false };
+    if (['CC', 'TI', 'RC', 'NIT'].indexOf(codigo) >= 0) {
+      cfg.pattern = /[^0-9]/g;
+      if (codigo === 'CC') cfg.maxLength = 10;
+      else if (codigo === 'TI') cfg.maxLength = 10;
+      else if (codigo === 'RC') cfg.maxLength = 10;
+      else if (codigo === 'NIT') cfg.maxLength = 13;
+    } else if (codigo === 'CE') {
+      cfg.maxLength = 12; cfg.pattern = /[^a-zA-Z0-9]/g; cfg.uppercase = true;
+    } else if (codigo === 'PP' || codigo === 'PASAPORTE') {
+      cfg.maxLength = 15; cfg.pattern = /[^a-zA-Z0-9]/g; cfg.uppercase = true;
+    } else if (codigo === 'PEP') {
+      cfg.maxLength = 15; cfg.pattern = /[^a-zA-Z0-9]/g; cfg.uppercase = true;
+    }
+    return cfg;
   }
 
   function configurarValidacionPlacaVisita() {
