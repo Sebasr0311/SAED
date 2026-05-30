@@ -57,3 +57,8 @@ Thumbs.db
 src/main/resources/bd.properties
 src/main/resources/wallet.zip
 database/wallet_base64.txt
+
+### Utility scripts — no versionar ###
+GenHash.java
+wallet_part1.txt
+wallet_part2.txt
