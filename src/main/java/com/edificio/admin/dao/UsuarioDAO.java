@@ -85,7 +85,7 @@ public class UsuarioDAO implements CrudDAO<Usuario> {
 
     /** Actualiza el timestamp de ultimo_login al momento actual. */
     public void registrarLogin(Integer idUsuario) throws SQLException {
-        String sql = "UPDATE USUARIOS SET ultimo_login = SYSTIMESTAMP WHERE id_usuario = ?";
+        String sql = "UPDATE USUARIOS SET ultimo_login = CURRENT_TIMESTAMP WHERE id_usuario = ?";
         try (PreparedStatement ps = conn().prepareStatement(sql)) {
             ps.setInt(1, idUsuario);
             ps.executeUpdate();

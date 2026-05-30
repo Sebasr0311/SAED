@@ -134,7 +134,7 @@ public class RegistroAccesoDAO {
      */
     public void registrarSalida(Integer idVisita) throws SQLException {
         String sql = "UPDATE REGISTROS_ACCESO "
-                   + "SET    hora_salida = SYSTIMESTAMP "
+                   + "SET    hora_salida = CURRENT_TIMESTAMP "
                    + "WHERE  id_visita = ? "
                    + "  AND  hora_salida IS NULL"; // evita sobrescribir si ya tiene salida
         try (PreparedStatement ps = conn().prepareStatement(sql)) {
@@ -151,7 +151,7 @@ public class RegistroAccesoDAO {
      */
     public void registrarSalida(Integer idVisita, String observaciones) throws SQLException {
         String sql = "UPDATE REGISTROS_ACCESO "
-                   + "SET    hora_salida   = SYSTIMESTAMP, "
+                   + "SET    hora_salida   = CURRENT_TIMESTAMP, "
                    + "       observaciones = COALESCE(?, observaciones) "
                    + "WHERE  id_visita     = ? "
                    + "  AND  hora_salida IS NULL";

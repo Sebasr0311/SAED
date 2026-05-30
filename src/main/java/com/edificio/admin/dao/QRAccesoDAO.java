@@ -74,7 +74,7 @@ public class QRAccesoDAO implements CrudDAO<QRAcceso> {
 
     /** Marca un QR como usado (actualiza usado, fecha_uso, id_vigilante_uso). */
     public void marcarUsado(Integer idQr) throws SQLException {
-        String sql = "UPDATE QR_ACCESOS SET usado = 1, fecha_uso = SYSTIMESTAMP WHERE id_qr = ?";
+        String sql = "UPDATE QR_ACCESOS SET usado = 1, fecha_uso = CURRENT_TIMESTAMP WHERE id_qr = ?";
         try (PreparedStatement ps = conn().prepareStatement(sql)) {
             ps.setInt(1, idQr);
             ps.executeUpdate();
@@ -112,7 +112,7 @@ public class QRAccesoDAO implements CrudDAO<QRAcceso> {
                    + "JOIN   VISITAS v ON q.id_visita = v.id_visita "
                    + "JOIN   REGISTRO_VISITA rv ON v.id_visita = rv.id_visita AND rv.es_titular = 1 "
                    + "JOIN   VISITANTES vt ON rv.id_visitante = vt.id_visitante "
-                   + "WHERE  v.id_residente = ? AND q.usado = 0 AND q.fecha_expiracion > SYSTIMESTAMP "
+                   + "WHERE  v.id_residente = ? AND q.usado = 0 AND q.fecha_expiracion > CURRENT_TIMESTAMP "
                    + "ORDER  BY q.fecha_expiracion ASC";
         try (PreparedStatement ps = conn().prepareStatement(sql)) {
             ps.setInt(1, idResidente);
@@ -203,7 +203,7 @@ public class QRAccesoDAO implements CrudDAO<QRAcceso> {
                    + "JOIN   VISITAS v ON q.id_visita = v.id_visita "
                    + "JOIN   REGISTRO_VISITA rv ON v.id_visita = rv.id_visita "
                    + "WHERE  rv.id_visitante = ? AND v.id_residente = ? "
-                   + "AND    q.usado = 0 AND q.fecha_expiracion > SYSTIMESTAMP";
+                   + "AND    q.usado = 0 AND q.fecha_expiracion > CURRENT_TIMESTAMP";
         try (PreparedStatement ps = conn().prepareStatement(sql)) {
             ps.setInt(1, idVisitante);
             ps.setInt(2, idResidente);
@@ -219,7 +219,7 @@ public class QRAccesoDAO implements CrudDAO<QRAcceso> {
 
     /**
      * Inserta el codigo QR generado por Oracle (LOWER(RAWTOHEX(SYS_GUID()))).
-     * fecha_expiracion = SYSTIMESTAMP + intervalo(tiempoValidezMin).
+     * fecha_expiracion = CURRENT_TIMESTAMP + intervalo(tiempoValidezMin).
      * El codigo_qr debe generarse en Oracle; desde Java solo se almacena.
      */
     @Override
@@ -264,7 +264,7 @@ public class QRAccesoDAO implements CrudDAO<QRAcceso> {
      */
     public boolean marcarUsado(int idQr, int idVigilante) throws SQLException {
         String sql = "UPDATE QR_ACCESOS "
-                   + "SET    usado = 1, fecha_uso = SYSTIMESTAMP, id_vigilante_uso = ? "
+                   + "SET    usado = 1, fecha_uso = CURRENT_TIMESTAMP, id_vigilante_uso = ? "
                    + "WHERE  id_qr = ? AND usado = 0";
         try (PreparedStatement ps = conn().prepareStatement(sql)) {
             ps.setInt(1, idVigilante);

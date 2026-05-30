@@ -119,6 +119,9 @@ public class ConexionBD {
     private void abrirConexion() {
         try {
             conexion = DriverManager.getConnection(url, usuario, clave);
+            try (var stmt = conexion.createStatement()) {
+                stmt.execute("ALTER SESSION SET TIME_ZONE = 'America/Bogota'");
+            }
             conexion.setAutoCommit(true);
         } catch (SQLException e) {
             throw new ConexionFallidaException(

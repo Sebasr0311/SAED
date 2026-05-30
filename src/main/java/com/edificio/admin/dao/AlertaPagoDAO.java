@@ -15,7 +15,7 @@ import java.util.List;
  * Solo se necesita:
  *   - findAll()             — todas las alertas (con datos de residente/apto/cuota)
  *   - findNoLeidas()        — filtradas a leida = 0
- *   - marcarLeida(idAlerta) — UPDATE leida=1, leida_en=SYSTIMESTAMP
+ *   - marcarLeida(idAlerta) — UPDATE leida=1, leida_en=CURRENT_TIMESTAMP
  */
 public class AlertaPagoDAO {
 
@@ -66,7 +66,7 @@ public class AlertaPagoDAO {
      */
     public void insert(Integer idCuota, TipoAlerta tipoAlerta, Canal canal) throws SQLException {
         String sql = "INSERT INTO ALERTAS_PAGO (id_alerta, id_cuota, tipo_alerta, canal, leida, enviada_en) "
-                   + "VALUES (SEC_ALERTAS_PAGO.NEXTVAL, ?, ?, ?, 0, SYSTIMESTAMP)";
+                   + "VALUES (SEC_ALERTAS_PAGO.NEXTVAL, ?, ?, ?, 0, CURRENT_TIMESTAMP)";
         try (PreparedStatement ps = conn().prepareStatement(sql)) {
             ps.setInt(1, idCuota);
             ps.setString(2, tipoAlerta.name());
@@ -81,7 +81,7 @@ public class AlertaPagoDAO {
      */
     public void marcarLeida(Integer idAlerta) throws SQLException {
         String sql = "UPDATE ALERTAS_PAGO "
-                   + "SET leida = 1, leida_en = SYSTIMESTAMP "
+                   + "SET leida = 1, leida_en = CURRENT_TIMESTAMP "
                    + "WHERE id_alerta = ? AND leida = 0";
         try (PreparedStatement ps = conn().prepareStatement(sql)) {
             ps.setInt(1, idAlerta);

@@ -148,7 +148,7 @@ public class BuzonDAO {
                    + "FROM   BUZON b "
                    + "JOIN   APARTAMENTOS a ON a.id_apartamento = b.id_apartamento "
                    + "WHERE  b.tipo = 'QUEJA_RUIDO' "
-                   + "AND    TRUNC(b.fecha_creacion) = TRUNC(SYSDATE) "
+                   + "AND    TRUNC(b.fecha_creacion) = TRUNC(CURRENT_DATE) "
                    + "AND    NOT EXISTS (SELECT 1 FROM MULTAS m WHERE m.id_mensaje = b.id_mensaje) "
                    + "ORDER  BY b.fecha_creacion DESC";
         try (PreparedStatement ps = conn().prepareStatement(sql);
@@ -165,8 +165,8 @@ public class BuzonDAO {
     public Integer insert(Buzon b) throws SQLException {
         String sql = "INSERT INTO BUZON "
                    + "(id_apartamento, id_visita, tipo, titulo, cuerpo, foto_captura, "
-                   + " creado_por) "
-                   + "VALUES (?, ?, ?, ?, ?, ?, ?)";
+                   + " creado_por, fecha_creacion) "
+                   + "VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)";
         try (PreparedStatement ps = conn().prepareStatement(sql, new String[]{"id_mensaje"})) {
             if (b.getIdApartamento() != null) ps.setInt(1, b.getIdApartamento());
             else ps.setNull(1, Types.NUMERIC);
@@ -187,7 +187,7 @@ public class BuzonDAO {
     }
 
     public void marcarTodoLeidoYEntregado(int idApartamento) throws SQLException {
-        String sql = "UPDATE BUZON SET leido = 1, leido_en = SYSTIMESTAMP, entregado = 1, entregado_en = SYSTIMESTAMP "
+        String sql = "UPDATE BUZON SET leido = 1, leido_en = CURRENT_TIMESTAMP, entregado = 1, entregado_en = CURRENT_TIMESTAMP "
                    + "WHERE id_apartamento = ? AND entregado = 0";
         try (PreparedStatement ps = conn().prepareStatement(sql)) {
             ps.setInt(1, idApartamento);
@@ -197,7 +197,7 @@ public class BuzonDAO {
 
     public void marcarMultiLeidoYEntregado(List<Integer> ids) throws SQLException {
         if (ids == null || ids.isEmpty()) return;
-        String sql = "UPDATE BUZON SET leido = 1, leido_en = SYSTIMESTAMP, entregado = 1, entregado_en = SYSTIMESTAMP "
+        String sql = "UPDATE BUZON SET leido = 1, leido_en = CURRENT_TIMESTAMP, entregado = 1, entregado_en = CURRENT_TIMESTAMP "
                    + "WHERE id_mensaje IN (";
         for (int i = 0; i < ids.size(); i++) sql += (i > 0 ? ",?" : "?");
         sql += ")";
@@ -208,7 +208,7 @@ public class BuzonDAO {
     }
 
     public void marcarLeido(int idMensaje) throws SQLException {
-        String sql = "UPDATE BUZON SET leido = 1, leido_en = SYSTIMESTAMP WHERE id_mensaje = ?";
+        String sql = "UPDATE BUZON SET leido = 1, leido_en = CURRENT_TIMESTAMP WHERE id_mensaje = ?";
         try (PreparedStatement ps = conn().prepareStatement(sql)) {
             ps.setInt(1, idMensaje);
             ps.executeUpdate();
@@ -216,7 +216,7 @@ public class BuzonDAO {
     }
 
     public void marcarEntregado(int idMensaje) throws SQLException {
-        String sql = "UPDATE BUZON SET entregado = 1, entregado_en = SYSTIMESTAMP WHERE id_mensaje = ?";
+        String sql = "UPDATE BUZON SET entregado = 1, entregado_en = CURRENT_TIMESTAMP WHERE id_mensaje = ?";
         try (PreparedStatement ps = conn().prepareStatement(sql)) {
             ps.setInt(1, idMensaje);
             ps.executeUpdate();
@@ -283,7 +283,7 @@ public class BuzonDAO {
     }
 
     public void confirmarVisita(int idMensaje, int confirmado) throws SQLException {
-        String sql = "UPDATE BUZON SET confirmado = ?, confirmado_en = SYSTIMESTAMP, leido = 1, leido_en = SYSTIMESTAMP WHERE id_mensaje = ?";
+        String sql = "UPDATE BUZON SET confirmado = ?, confirmado_en = CURRENT_TIMESTAMP, leido = 1, leido_en = CURRENT_TIMESTAMP WHERE id_mensaje = ?";
         try (PreparedStatement ps = conn().prepareStatement(sql)) {
             ps.setInt(1, confirmado);
             ps.setInt(2, idMensaje);

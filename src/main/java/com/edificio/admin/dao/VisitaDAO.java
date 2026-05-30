@@ -82,7 +82,7 @@ public class VisitaDAO implements CrudDAO<Visita> {
                    + "LEFT JOIN REGISTROS_ACCESO ra ON ra.id_visita     = v.id_visita "
                    + "LEFT JOIN BUZON          b    ON b.id_visita      = v.id_visita AND b.tipo = 'CONFIRMAR_VISITA' "
                    + "WHERE  v.estado = 'ACTIVA' "
-                   + "   OR  (v.estado = 'PENDIENTE' AND q.usado = 0 AND q.fecha_expiracion > SYSTIMESTAMP) "
+                   + "   OR  (v.estado = 'PENDIENTE' AND q.usado = 0 AND q.fecha_expiracion > CURRENT_TIMESTAMP) "
                    + "ORDER  BY v.fecha_registro DESC";
         try (PreparedStatement ps = conn().prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
@@ -102,12 +102,12 @@ public class VisitaDAO implements CrudDAO<Visita> {
 
     /** Marca como EXPIRADA las visitas PENDIENTE cuyo QR ya vencio. */
     private void expirarVencidas() throws SQLException {
-        String sql = "UPDATE VISITAS SET estado = 'EXPIRADA', actualizado_en = SYSTIMESTAMP "
+        String sql = "UPDATE VISITAS SET estado = 'EXPIRADA', actualizado_en = CURRENT_TIMESTAMP "
                    + "WHERE  estado = 'PENDIENTE' "
                    + "AND    EXISTS (SELECT 1 FROM QR_ACCESOS q "
                    + "               WHERE q.id_visita = VISITAS.id_visita "
                    + "                 AND q.usado = 0 "
-                   + "                 AND q.fecha_expiracion <= SYSTIMESTAMP)";
+                   + "                 AND q.fecha_expiracion <= CURRENT_TIMESTAMP)";
         try (PreparedStatement ps = conn().prepareStatement(sql)) {
             ps.executeUpdate();
         }
@@ -152,7 +152,7 @@ public class VisitaDAO implements CrudDAO<Visita> {
                    + "LEFT JOIN APARTAMENTOS   a    ON a.id_apartamento = c.id_apartamento "
                    + "LEFT JOIN REGISTROS_ACCESO ra ON ra.id_visita     = v.id_visita "
                    + "LEFT JOIN BUZON          b    ON b.id_visita      = v.id_visita AND b.tipo = 'CONFIRMAR_VISITA' "
-                   + "WHERE  TRUNC(v.fecha_registro) = TRUNC(SYSDATE) "
+                   + "WHERE  TRUNC(v.fecha_registro) = TRUNC(CURRENT_DATE) "
                    + "AND    v.estado = 'FINALIZADA' "
                    + "ORDER  BY v.fecha_registro DESC";
         try (PreparedStatement ps = conn().prepareStatement(sql);
@@ -232,8 +232,10 @@ public class VisitaDAO implements CrudDAO<Visita> {
     public Integer insert(Visita v) throws SQLException {
         String sql = "BEGIN INSERT INTO VISITAS "
                    + "  (id_contrato_res, id_residente, tiempo_validez_min, "
-                   + "   cantidad_personas, estado, notas) "
-                   + "VALUES (?, ?, ?, ?, ?, ?) "
+                   + "   cantidad_personas, estado, notas, "
+                   + "   fecha_registro, actualizado_en) "
+                   + "VALUES (?, ?, ?, ?, ?, ?, "
+                   + "        CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) "
                    + "RETURNING id_visita INTO ?; END;";
         try (CallableStatement cs = conn().prepareCall(sql)) {
             cs.setInt(1, v.getIdContratoRes());

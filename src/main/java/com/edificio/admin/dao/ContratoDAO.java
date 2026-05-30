@@ -235,7 +235,7 @@ public class ContratoDAO implements CrudDAO<Contrato> {
     public void expiracionAutomatica() throws SQLException {
         // 1. Obtener IDs de apartamentos afectados antes de actualizar
         String sqlSelect = "SELECT id_apartamento FROM CONTRATOS "
-                         + "WHERE estado = 'ACTIVO' AND fecha_fin IS NOT NULL AND fecha_fin < TRUNC(SYSDATE)";
+                         + "WHERE estado = 'ACTIVO' AND fecha_fin IS NOT NULL AND fecha_fin < TRUNC(CURRENT_DATE)";
         List<Integer> aptosAfectados = new ArrayList<>();
         try (PreparedStatement ps = conn().prepareStatement(sqlSelect);
              ResultSet rs = ps.executeQuery()) {
@@ -245,8 +245,8 @@ public class ContratoDAO implements CrudDAO<Contrato> {
         if (aptosAfectados.isEmpty()) return;
 
         // 2. Marcar contratos como VENCIDO
-        String sqlVencer = "UPDATE CONTRATOS SET estado = 'VENCIDO', actualizado_en = SYSDATE "
-                         + "WHERE estado = 'ACTIVO' AND fecha_fin IS NOT NULL AND fecha_fin < TRUNC(SYSDATE)";
+        String sqlVencer = "UPDATE CONTRATOS SET estado = 'VENCIDO', actualizado_en = CURRENT_DATE "
+                         + "WHERE estado = 'ACTIVO' AND fecha_fin IS NOT NULL AND fecha_fin < TRUNC(CURRENT_DATE)";
         try (PreparedStatement ps = conn().prepareStatement(sqlVencer)) {
             ps.executeUpdate();
         }

@@ -115,7 +115,7 @@ public class MultaDAO {
 
     public void pagar(int idMulta, Integer registradoPagoPor,
                       String metodoPago) throws SQLException {
-        String sql = "UPDATE MULTAS SET estado = 'PAGADA', fecha_pago = SYSTIMESTAMP, "
+        String sql = "UPDATE MULTAS SET estado = 'PAGADA', fecha_pago = CURRENT_TIMESTAMP, "
                    + "registrado_pago_por = ?, metodo_pago = ? "
                    + "WHERE id_multa = ?";
         try (PreparedStatement ps = conn().prepareStatement(sql)) {

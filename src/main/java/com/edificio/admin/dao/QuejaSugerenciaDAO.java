@@ -156,7 +156,7 @@ public class QuejaSugerenciaDAO {
 
     public void responder(int idQueja, String respuesta, int respondidoPor) throws SQLException {
         String sql = "UPDATE QUEJAS_SUGERENCIAS SET respuesta_admin = ?, estado = 'RESUELTA', "
-                   + "       fecha_respuesta = SYSTIMESTAMP, respondido_por = ? "
+                   + "       fecha_respuesta = CURRENT_TIMESTAMP, respondido_por = ? "
                    + "WHERE id_queja = ?";
         try (PreparedStatement ps = conn().prepareStatement(sql)) {
             ps.setString(1, respuesta);
