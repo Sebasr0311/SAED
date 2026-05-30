@@ -5,6 +5,7 @@ const ResidenteDash = (() => {
   var _tiposDoc = [];
   var _pollInterval = null;
   var _confirmarPendientes = [];
+  var _buzonMensajes = [];
 
   function $(id) { return document.getElementById(id); }
   function setText(id, v) { var el = $(id); if (el) el.textContent = (v != null ? v : '-'); }
@@ -378,6 +379,7 @@ const ResidenteDash = (() => {
   }
 
   function renderBuzonList(container, mensajes) {
+    _buzonMensajes = mensajes;
     var filtrados = [];
     for (var i = 0; i < mensajes.length; i++) {
       if (mensajes[i].entregado) continue;
@@ -417,7 +419,7 @@ const ResidenteDash = (() => {
         '<div style="display:flex;align-items:flex-start;gap:12px">' +
         '<input type="checkbox" class="chk-mensaje" value="' + m.idMensaje + '" onchange="ResidenteDash.onCheckChange()" style="width:18px;height:18px;margin-top:4px;cursor:pointer;flex-shrink:0">' +
         '<span class="material-symbols-outlined" style="font-size:28px;flex-shrink:0;color:var(--text-secondary);margin-top:2px;cursor:pointer" onclick="ResidenteDash.marcarLeido(' + m.idMensaje + ')">' + iconName + '</span>' +
-        '<div style="flex:1;min-width:0;cursor:pointer" onclick="ResidenteDash.marcarLeido(' + m.idMensaje + ')">' +
+        '<div style="flex:1;min-width:0;cursor:pointer" onclick="ResidenteDash.mostrarDetalleMensaje(' + m.idMensaje + ')">' +
         '<p style="font-weight:600;margin-bottom:2px;font-size:14px">' + Utils.escapeHtml(m.titulo || '') + '</p>' +
         '<p class="text-sm text-muted" style="margin-bottom:4px">' + Utils.escapeHtml(m.cuerpo || '') + '</p>' +
         fotoHtml +
@@ -427,6 +429,115 @@ const ResidenteDash = (() => {
     });
     html += '</div>';
     container.innerHTML = html;
+  }
+
+  function cerrarDetalleMensaje() {
+    var o = document.getElementById('modal-detalle-mensaje');
+    if (o) o.remove();
+  }
+
+  async function mostrarDetalleMensaje(idMensaje) {
+    var m = null;
+    for (var i = 0; i < _buzonMensajes.length; i++) {
+      if (_buzonMensajes[i].idMensaje === idMensaje) { m = _buzonMensajes[i]; break; }
+    }
+    if (!m) return;
+
+    try { await API.put('/buzon/' + idMensaje + '/leido'); actualizarBadgeBuzon(); } catch(e) {}
+
+    if (m.tipo === 'CONFIRMAR_VISITA') {
+      renderBuzon();
+      return;
+    }
+
+    var overlay = document.createElement('div');
+    overlay.id = 'modal-detalle-mensaje';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(10,22,40,0.6);z-index:20000;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px)';
+    overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+
+    var iconMap = { PAQUETE:'inventory_2', QUEJA_RUIDO:'volume_up', AVISO:'notifications', CONFIRMAR_VISITA:'how_to_reg' };
+    var icono = iconMap[m.tipo] || 'notifications';
+
+    var titleMap = { PAQUETE:'Paquete', QUEJA_RUIDO:'Queja por Ruido / Multa', AVISO:'Aviso' };
+    var titulo = titleMap[m.tipo] || 'Mensaje';
+
+    var badgeColor = m.leido ? '#6B7280' : '#065F46';
+
+    var bodyHtml = '';
+
+    if (m.tipo === 'PAQUETE') {
+      bodyHtml += '<div class="detail-row"><strong>Título:</strong> ' + Utils.escapeHtml(m.titulo || '') + '</div>';
+      bodyHtml += '<div class="detail-row"><strong>Mensaje:</strong> ' + Utils.escapeHtml(m.cuerpo || '(sin contenido)') + '</div>';
+      if (m.empresaMensajeria) bodyHtml += '<div class="detail-row"><strong>Empresa:</strong> ' + Utils.escapeHtml(m.empresaMensajeria) + '</div>';
+      if (m.numeroGuia) bodyHtml += '<div class="detail-row"><strong>Guía:</strong> ' + Utils.escapeHtml(m.numeroGuia) + '</div>';
+      bodyHtml += '<div class="detail-row"><strong>Estado:</strong> ' + (m.entregado ? 'Recibido' : 'Pendiente de recoger') + '</div>';
+      bodyHtml += '<div class="detail-row"><strong>Fecha:</strong> ' + Utils.formatDateTime(m.fechaCreacion) + '</div>';
+      if (m.fotoCaptura) {
+        bodyHtml += '<div style="margin-top:12px"><img src="' + m.fotoCaptura + '" style="max-width:100%;max-height:260px;border-radius:8px;border:1px solid var(--border);cursor:pointer" onclick="window.open(\'' + m.fotoCaptura.replace(/'/g, '') + '\')"></div>';
+      }
+      if (!m.entregado) {
+        bodyHtml += '<div style="margin-top:16px;text-align:right"><button class="btn btn-primary btn-sm" onclick="event.stopPropagation();ResidenteDash.marcarEntregado(' + idMensaje + ');cerrarDetalleMensaje()">Marcar como Recibido</button></div>';
+      }
+    } else if (m.tipo === 'QUEJA_RUIDO') {
+      bodyHtml += '<div class="detail-row"><strong>Título:</strong> ' + Utils.escapeHtml(m.titulo || '') + '</div>';
+      bodyHtml += '<div class="detail-row"><strong>Descripción:</strong> ' + Utils.escapeHtml(m.cuerpo || '(sin contenido)') + '</div>';
+      bodyHtml += '<div class="detail-row"><strong>Fecha:</strong> ' + Utils.formatDateTime(m.fechaCreacion) + '</div>';
+      var multaHtml = '<div style="margin-top:16px;padding:16px;background:#FFF3CD;border-radius:8px;border:1px solid #FDE68A"><div style="font-weight:700;margin-bottom:8px;color:#92400E">Información de la Multa asociada</div><div style="color:#78350F;font-size:13px">Cargando...</div></div>';
+      bodyHtml += multaHtml;
+      setTimeout(function() {
+        API.get('/multa?apartamento=' + m.idApartamento).then(function(multas) {
+          var multa = null;
+          for (var j = 0; j < multas.length; j++) {
+            if (multas[j].idMensaje === idMensaje) { multa = multas[j]; break; }
+          }
+          var cont = overlay.querySelector('#multa-info-container');
+          if (!cont) return;
+          if (multa) {
+            var estadoColor = multa.estado === 'PAGADA' ? 'var(--accent)' : multa.estado === 'ANULADA' ? 'var(--text-muted)' : 'var(--danger)';
+            cont.innerHTML =
+              '<div class="detail-row"><strong>Tipo:</strong> ' + (multa.tipo === 'RUIDO' ? 'Ruido' : 'Parqueadero') + '</div>' +
+              '<div class="detail-row"><strong>Monto:</strong> $' + (parseFloat(multa.monto).toLocaleString('es-CO')) + '</div>' +
+              '<div class="detail-row"><strong>Estado:</strong> <span style="color:' + estadoColor + ';font-weight:600">' + multa.estado + '</span></div>' +
+              (multa.descripcion ? '<div class="detail-row"><strong>Descripción:</strong> ' + Utils.escapeHtml(multa.descripcion) + '</div>' : '') +
+              '<div class="detail-row"><strong>Fecha de creación:</strong> ' + Utils.formatDateTime(multa.fechaCreacion) + '</div>' +
+              (multa.fechaPago ? '<div class="detail-row"><strong>Fecha de pago:</strong> ' + Utils.formatDateTime(multa.fechaPago) + '</div>' : '');
+          } else {
+            cont.innerHTML = '<div style="color:#78350F;font-size:13px">No se encontraron detalles adicionales de la multa.</div>';
+          }
+        }).catch(function() {
+          var cont = overlay.querySelector('#multa-info-container');
+          if (cont) cont.innerHTML = '<div style="color:#78350F;font-size:13px">No se pudieron cargar los detalles.</div>';
+        });
+      }, 50);
+    } else {
+      bodyHtml += '<div class="detail-row"><strong>Título:</strong> ' + Utils.escapeHtml(m.titulo || '') + '</div>';
+      bodyHtml += '<div class="detail-row"><strong>Mensaje:</strong> ' + Utils.escapeHtml(m.cuerpo || '(sin contenido)') + '</div>';
+      bodyHtml += '<div class="detail-row"><strong>Fecha:</strong> ' + Utils.formatDateTime(m.fechaCreacion) + '</div>';
+    }
+
+    if (m.numeroApartamento) {
+      bodyHtml += '<div class="detail-row" style="border-top:1px solid var(--border-subtle);padding-top:12px;margin-top:8px"><strong>Apartamento:</strong> ' + Utils.escapeHtml(m.numeroApartamento) + '</div>';
+    }
+
+    overlay.innerHTML =
+      '<div style="background:#fff;border-radius:16px;max-width:520px;width:100%;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.25);animation:fadeUp 0.2s">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid #e5e7eb">' +
+          '<div style="display:flex;align-items:center;gap:10px">' +
+            '<span class="material-symbols-outlined" style="font-size:22px;color:' + badgeColor + '">' + icono + '</span>' +
+            '<span style="font-size:16px;font-weight:700;color:#1F2937">' + titulo + '</span>' +
+          '</div>' +
+          '<button onclick="document.getElementById(\'modal-detalle-mensaje\').remove()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#9CA3AF;padding:4px;border-radius:6px;display:flex;align-items:center;justify-content:center;width:30px;height:30px" onmouseover="this.style.background=\'#F3F4F6\'" onmouseout="this.style.background=\'none\'">&times;</button>' +
+        '</div>' +
+        '<div style="padding:20px 22px">' +
+          bodyHtml +
+        '</div>' +
+        '<div style="padding:14px 22px;border-top:1px solid #e5e7eb;display:flex;justify-content:flex-end;background:#F9FAFB;border-radius:0 0 16px 16px">' +
+          '<button class="btn btn-outline btn-sm" onclick="document.getElementById(\'modal-detalle-mensaje\').remove()">Cerrar</button>' +
+        '</div>' +
+      '</div>';
+
+    document.body.appendChild(overlay);
+    renderBuzon();
   }
 
   async function marcarLeido(idMensaje) {
@@ -970,7 +1081,9 @@ const ResidenteDash = (() => {
     marcarLeido: marcarLeido, marcarEntregado: marcarEntregado, vaciarBuzon: vaciarBuzon,
     toggleSeleccionarTodos: toggleSeleccionarTodos, onCheckChange: onCheckChange,
     eliminarSeleccionados: eliminarSeleccionados,
-    verDetalleMulta: verDetalleMulta
+    verDetalleMulta: verDetalleMulta,
+    mostrarDetalleMensaje: mostrarDetalleMensaje,
+    cerrarDetalleMensaje: cerrarDetalleMensaje
   };
 })();
 

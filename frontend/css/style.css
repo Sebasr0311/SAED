@@ -1125,6 +1125,18 @@ textarea.form-control { resize: vertical; min-height: 88px; }
   display: flex; gap: 12px; padding: 8px 0;
   border-bottom: 1px solid var(--border-subtle);
 }
+.detail-row {
+  padding: 8px 0;
+  border-bottom: 1px solid #f3f4f6;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #374151;
+}
+.detail-row strong {
+  color: #111827;
+  font-weight: 600;
+  margin-right: 6px;
+}
 .info-row:last-child { border-bottom: none; }
 .info-label {
   min-width: 120px; font-size: 11px; font-weight: 700;
