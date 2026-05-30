@@ -64,13 +64,19 @@ public class CuotaArriendoDAO implements CrudDAO<CuotaArriendo> {
         String sql = "SELECT cq.id_cuota, cq.id_contrato, cq.anio, cq.mes, cq.tipo_cuota, cq.fecha_limite, "
                    + "       cq.valor_base, cq.valor_mora, cq.valor_total, cq.estado, cq.actualizado_en, "
                    + "       a.numero AS numero_apartamento, "
-                   + "       r.nombres || ' ' || r.apellidos AS nombre_residente "
+                   + "       r.nombres || ' ' || r.apellidos AS nombre_residente, "
+                   + "       NVL(SUM(p.valor_pagado), 0) AS total_pagado, "
+                   + "       cq.valor_total - NVL(SUM(p.valor_pagado), 0) AS saldo_pendiente "
                    + "FROM   CUOTAS_ARRIENDO cq "
                    + "JOIN   CONTRATOS c ON c.id_contrato = cq.id_contrato "
                    + "JOIN   APARTAMENTOS a ON a.id_apartamento = c.id_apartamento "
                    + "LEFT JOIN CONTRATO_RESIDENTE cr ON cr.id_contrato = c.id_contrato AND cr.rol_en_contrato = 'ARRENDATARIO' "
                    + "LEFT JOIN RESIDENTES r ON r.id_residente = cr.id_residente "
+                   + "LEFT JOIN PAGOS p ON p.id_cuota = cq.id_cuota "
                    + "WHERE  cq.id_contrato = ? "
+                   + "GROUP  BY cq.id_cuota, cq.id_contrato, cq.anio, cq.mes, cq.tipo_cuota, cq.fecha_limite, "
+                   + "          cq.valor_base, cq.valor_mora, cq.valor_total, cq.estado, cq.actualizado_en, "
+                   + "          a.numero, r.nombres, r.apellidos "
                    + "ORDER  BY cq.anio DESC, cq.mes DESC";
         try (PreparedStatement ps = conn().prepareStatement(sql)) {
             ps.setInt(1, idContrato);
@@ -87,13 +93,19 @@ public class CuotaArriendoDAO implements CrudDAO<CuotaArriendo> {
         String sql = "SELECT cq.id_cuota, cq.id_contrato, cq.anio, cq.mes, cq.tipo_cuota, cq.fecha_limite, "
                    + "       cq.valor_base, cq.valor_mora, cq.valor_total, cq.estado, cq.actualizado_en, "
                    + "       a.numero AS numero_apartamento, "
-                   + "       r.nombres || ' ' || r.apellidos AS nombre_residente "
+                   + "       r.nombres || ' ' || r.apellidos AS nombre_residente, "
+                   + "       NVL(SUM(p.valor_pagado), 0) AS total_pagado, "
+                   + "       cq.valor_total - NVL(SUM(p.valor_pagado), 0) AS saldo_pendiente "
                    + "FROM   CUOTAS_ARRIENDO cq "
                    + "JOIN   CONTRATOS c ON c.id_contrato = cq.id_contrato "
                    + "JOIN   APARTAMENTOS a ON a.id_apartamento = c.id_apartamento "
                    + "LEFT JOIN CONTRATO_RESIDENTE cr ON cr.id_contrato = c.id_contrato AND cr.rol_en_contrato = 'ARRENDATARIO' "
                    + "LEFT JOIN RESIDENTES r ON r.id_residente = cr.id_residente "
+                   + "LEFT JOIN PAGOS p ON p.id_cuota = cq.id_cuota "
                    + "WHERE  cq.estado IN ('PENDIENTE','VENCIDA','EN_MORA') "
+                   + "GROUP  BY cq.id_cuota, cq.id_contrato, cq.anio, cq.mes, cq.tipo_cuota, cq.fecha_limite, "
+                   + "          cq.valor_base, cq.valor_mora, cq.valor_total, cq.estado, cq.actualizado_en, "
+                   + "          a.numero, r.nombres, r.apellidos "
                    + "ORDER  BY cq.fecha_limite ASC";
         try (PreparedStatement ps = conn().prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
@@ -171,6 +183,8 @@ public class CuotaArriendoDAO implements CrudDAO<CuotaArriendo> {
         if (ac != null) q.setActualizadoEn(ac.toLocalDateTime());
         try { q.setNumeroApartamento(rs.getString("numero_apartamento")); } catch (SQLException e) { /* columna no disponible */ }
         try { q.setNombreResidente(rs.getString("nombre_residente")); } catch (SQLException e) { /* columna no disponible */ }
+        try { q.setTotalPagado(rs.getBigDecimal("total_pagado")); } catch (SQLException e) { /* columna no disponible */ }
+        try { q.setSaldoPendiente(rs.getBigDecimal("saldo_pendiente")); } catch (SQLException e) { /* columna no disponible */ }
         return q;
     }
 }

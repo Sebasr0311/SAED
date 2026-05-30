@@ -65,7 +65,7 @@ const Pagos = (() => {
     }
 
     tbody.innerHTML = residentes.map(function(r) {
-      var totalCuotas = r.cuotas.reduce(function(s, c) { return s + (c.valorTotal || 0); }, 0);
+      var totalCuotas = r.cuotas.reduce(function(s, c) { return s + (c.saldoPendiente ?? c.valorTotal || 0); }, 0);
       var totalMultas = r.multas.reduce(function(s, m) { return s + (parseFloat(m.monto) || 0); }, 0);
 
       var cBadge = r.cuotas.length
@@ -97,7 +97,7 @@ const Pagos = (() => {
 
   function actualizarKpis() {
     var totalCuotas = residentes.reduce(function(s, r) {
-      return s + r.cuotas.reduce(function(s2, c) { return s2 + (c.valorTotal || 0); }, 0);
+      return s + r.cuotas.reduce(function(s2, c) { return s2 + (c.saldoPendiente ?? c.valorTotal || 0); }, 0);
     }, 0);
     var totalMultas = residentes.reduce(function(s, r) {
       return s + r.multas.reduce(function(s2, m) { return s2 + (parseFloat(m.monto) || 0); }, 0);
@@ -203,7 +203,7 @@ const Pagos = (() => {
     } else {
       html += '<div style="overflow-x:auto">';
       html += '<table class="data-table" style="font-size:13px">';
-      html += '<thead><tr><th>Tipo</th><th>Periodo</th><th>Vencimiento</th><th>Valor</th><th>Estado</th><th></th></tr></thead>';
+      html += '<thead><tr><th>Tipo</th><th>Periodo</th><th>Vencimiento</th><th>Deuda</th><th>Estado</th><th></th></tr></thead>';
       html += '<tbody>';
       // Primero pendientes, luego pagadas, luego anuladas
       var orden = pendientes.concat(pagadas).concat(anuladas);
@@ -211,16 +211,17 @@ const Pagos = (() => {
         var tipoBadge = c.tipoCuota === 'ADMINISTRACION'
           ? '<span class="badge badge-info">Admon</span>'
           : '<span class="badge badge-navy">Arriendo</span>';
+        var deuda = c.saldoPendiente ?? c.valorTotal || 0;
         var btn = (c.estado !== 'PAGADA' && c.estado !== 'ANULADA')
           ? '<button class="btn btn-accent btn-sm" onclick="Pagos.abrirPagoCuota(' +
-              c.idCuota + ',' + (c.valorTotal || 0) + ',\'' + apto.replace(/\\/g, '\\\\').replace(/'/g, "\\'") + '\')">' +
+              c.idCuota + ',' + deuda + ',\'' + apto.replace(/\\/g, '\\\\').replace(/'/g, "\\'") + '\')">' +
               'Registrar Pago</button>'
           : '';
         html += '<tr>' +
           '<td>' + tipoBadge + '</td>' +
           '<td style="white-space:nowrap">' + Utils.escapeHtml(Utils.periodoLabel(c.anio, c.mes)) + '</td>' +
           '<td style="white-space:nowrap">' + Utils.formatDate(c.fechaLimite) + '</td>' +
-          '<td style="white-space:nowrap">' + Utils.formatCurrency(c.valorTotal) + '</td>' +
+          '<td style="white-space:nowrap">' + Utils.formatCurrency(deuda) + '</td>' +
           '<td>' + Utils.estadoBadge(c.estado || 'PENDIENTE') + '</td>' +
           '<td>' + btn + '</td>' +
           '</tr>';

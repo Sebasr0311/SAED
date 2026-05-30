@@ -24,6 +24,8 @@ public class CuotaArriendo {
     private LocalDateTime actualizadoEn;
     private String        numeroApartamento;  // JOIN con CONTRATOS + APARTAMENTOS
     private String        nombreResidente;    // JOIN con CONTRATO_RESIDENTE + RESIDENTES
+    private BigDecimal    totalPagado;        // Suma de pagos registrados (calculado vía LEFT JOIN PAGOS)
+    private BigDecimal    saldoPendiente;     // valorTotal - totalPagado
 
     public CuotaArriendo() {}
 
@@ -67,4 +69,10 @@ public class CuotaArriendo {
 
     public String        getNombreResidente()                    { return nombreResidente; }
     public void          setNombreResidente(String v)            { this.nombreResidente = v; }
+
+    public BigDecimal    getTotalPagado()                        { return totalPagado; }
+    public void          setTotalPagado(BigDecimal v)            { this.totalPagado = v; }
+
+    public BigDecimal    getSaldoPendiente()                     { return saldoPendiente; }
+    public void          setSaldoPendiente(BigDecimal v)         { this.saldoPendiente = v; }
 }
