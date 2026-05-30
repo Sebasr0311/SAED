@@ -66,6 +66,7 @@ public class UsuarioService {
     }
 
     public Integer registrar(Usuario usuario) throws SQLException {
+        usuario.setUsername(usuario.getUsername().toLowerCase().trim());
         validar(usuario);
         if (usuarioDAO.findByUsername(usuario.getUsername()) != null)
             throw new DatosInvalidosException("El username '" + usuario.getUsername() + "' ya existe.");
@@ -75,6 +76,8 @@ public class UsuarioService {
 
     public void actualizar(Usuario usuario) throws SQLException {
         validarId(usuario.getIdUsuario());
+        if (usuario.getUsername() != null)
+            usuario.setUsername(usuario.getUsername().toLowerCase().trim());
         validar(usuario);
         usuario.setPasswordHash(hashear(usuario.getPasswordHash()));
         usuarioDAO.update(usuario);
@@ -107,6 +110,8 @@ public class UsuarioService {
             throw new DatosInvalidosException("El password es obligatorio.");
         if (u.getRol() == null)
             throw new DatosInvalidosException("El rol es obligatorio.");
+        if (u.getIdResidente() != null && u.getRol() != TipoRol.RESIDENTE)
+            throw new DatosInvalidosException("Si se asigna un residente, el rol debe ser RESIDENTE.");
     }
 
     private void validarId(Integer id) {
