@@ -898,6 +898,12 @@
   <script>if(typeof pdfjsLib!=='undefined'){pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js'}</script>
   <script src="js/utils.js?v=3"></script>
   <script src="js/auth.js?v=2"></script>
+  <script>
+    // GitHub Pages: apuntar directo al backend (no hay proxy como Netlify)
+    if (window.location.hostname.includes('github.io')) {
+      window._API_BASE_URL = 'https://pruebaproyecto-production.up.railway.app/api';
+    }
+  </script>
   <script src="js/api.js?v=2"></script>
   <script src="js/router.js?v=2"></script>
   <script src="js/pages/login.js?v=2"></script>
