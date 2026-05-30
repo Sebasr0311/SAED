@@ -94,7 +94,7 @@ const Parqueaderos = (() => {
       : '';
     var codigoHtml = isEdit
       ? '<div class="form-group"><label>C\u00f3digo</label><input type="text" id="parq-codigo" class="form-control" value="' + (p.codigo || '') + '" readonly><span class="field-error" id="parq-codigo-error"></span></div>'
-      : '<div class="form-group"><label>N\u00famero</label><div style="display:flex;align-items:center;gap:6px"><span id="parq-prefijo" style="font-weight:bold;font-size:1.1em">P</span><input type="number" id="parq-numero" class="form-control" min="1" placeholder="Ej: 1" style="flex:1"><span class="field-error" id="parq-numero-error"></span></div><input type="hidden" id="parq-codigo"></div>';
+      : '<div class="form-group"><label>N\u00famero</label><div style="display:flex;align-items:center;gap:6px"><span id="parq-prefijo" style="font-weight:bold;font-size:1.1em">P</span><input type="number" id="parq-numero" class="form-control" min="1" max="999" placeholder="M\u00e1x 3 d\u00edgitos (1-999)" style="flex:1"><span class="field-error" id="parq-numero-error"></span></div><input type="hidden" id="parq-codigo"></div>';
 
     Utils.modal(isEdit ? 'Editar Parqueadero' : 'Nuevo Parqueadero',
       '<form id="form-parq">' +
@@ -150,6 +150,7 @@ const Parqueaderos = (() => {
     } else {
       var numero = document.getElementById('parq-numero').value;
       if (!numero) { Utils.mostrarError('parq-numero', 'Ingrese el n\u00famero del parqueadero'); return; }
+      if (parseInt(numero) > 999) { Utils.mostrarError('parq-numero', 'El n\u00famero no puede tener m\u00e1s de 3 d\u00edgitos'); return; }
       var tipo = document.getElementById('parq-tipo').value;
       var uso = document.querySelector('input[name="parq-uso"]:checked');
       var esVisitante = uso ? uso.value === 'visitante' : true;
