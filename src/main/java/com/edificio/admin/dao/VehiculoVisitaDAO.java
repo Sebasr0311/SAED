@@ -63,8 +63,8 @@ public class VehiculoVisitaDAO implements CrudDAO<VehiculoVisita> {
     @Override
     public Integer insert(VehiculoVisita v) throws SQLException {
         String sql = "BEGIN INSERT INTO VEHICULOS_VISITA "
-                   + "  (id_visita, placa, tipo, descripcion_tipo, id_parqueadero) "
-                   + "VALUES (?, UPPER(TRIM(?)), ?, ?, ?) "
+                   + "  (id_visita, placa, tipo, descripcion_tipo, id_parqueadero, hora_entrada) "
+                   + "VALUES (?, UPPER(TRIM(?)), ?, ?, ?, CURRENT_TIMESTAMP) "
                    + "RETURNING id_vehiculo_visita INTO ?; END;";
         try (CallableStatement cs = conn().prepareCall(sql)) {
             cs.setInt(1, v.getIdVisita());
