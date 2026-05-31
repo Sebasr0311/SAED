@@ -65,7 +65,7 @@ const Pagos = (() => {
     }
 
     tbody.innerHTML = residentes.map(function(r) {
-      var totalCuotas = r.cuotas.reduce(function(s, c) { return s + (c.saldoPendiente ?? c.valorTotal || 0); }, 0);
+      var totalCuotas = r.cuotas.reduce(function(s, c) { return s + ((c.saldoPendiente ?? c.valorTotal) || 0); }, 0);
       var totalMultas = r.multas.reduce(function(s, m) { return s + (parseFloat(m.monto) || 0); }, 0);
 
       var cBadge = r.cuotas.length
@@ -97,7 +97,7 @@ const Pagos = (() => {
 
   function actualizarKpis() {
     var totalCuotas = residentes.reduce(function(s, r) {
-      return s + r.cuotas.reduce(function(s2, c) { return s2 + (c.saldoPendiente ?? c.valorTotal || 0); }, 0);
+      return s + r.cuotas.reduce(function(s2, c) { return s2 + ((c.saldoPendiente ?? c.valorTotal) || 0); }, 0);
     }, 0);
     var totalMultas = residentes.reduce(function(s, r) {
       return s + r.multas.reduce(function(s2, m) { return s2 + (parseFloat(m.monto) || 0); }, 0);
@@ -211,7 +211,7 @@ const Pagos = (() => {
         var tipoBadge = c.tipoCuota === 'ADMINISTRACION'
           ? '<span class="badge badge-info">Admon</span>'
           : '<span class="badge badge-navy">Arriendo</span>';
-        var deuda = c.saldoPendiente ?? c.valorTotal || 0;
+        var deuda = (c.saldoPendiente ?? c.valorTotal) || 0;
         var btn = (c.estado !== 'PAGADA' && c.estado !== 'ANULADA')
           ? '<button class="btn btn-accent btn-sm" onclick="Pagos.abrirPagoCuota(' +
               c.idCuota + ',' + deuda + ',\'' + apto.replace(/\\/g, '\\\\').replace(/'/g, "\\'") + '\')">' +
