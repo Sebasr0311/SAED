@@ -13,6 +13,7 @@ const QuejasAdmin = (() => {
   }
 
   async function init() {
+    document.getElementById('page-title').textContent = 'Solicitudes';
     await cargarQuejas();
     await cargarEstadisticas();
     configurarFiltros();
@@ -29,7 +30,7 @@ const QuejasAdmin = (() => {
   function iniciarAutoRefresh() {
     detenerAutoRefresh();
     _pollInterval = setInterval(function() {
-      cargarQuejas();
+      cargarQuejas(false);
       cargarEstadisticas();
     }, 1500);
   }
@@ -41,10 +42,10 @@ const QuejasAdmin = (() => {
     }
   }
 
-  async function cargarQuejas() {
+  async function cargarQuejas(resetPage) {
     try {
       quejas = await API.get('/quejas/todas');
-      aplicarFiltros();
+      aplicarFiltros(resetPage);
     } catch (e) {
       Utils.showToast('Error al cargar quejas: ' + e.message, 'error');
     }
@@ -74,12 +75,12 @@ const QuejasAdmin = (() => {
     var elTipo = document.getElementById('filtro-tipo');
     var elEstado = document.getElementById('filtro-estado');
     var elPrioridad = document.getElementById('filtro-prioridad');
-    if (elTipo) elTipo.addEventListener('change', aplicarFiltros);
-    if (elEstado) elEstado.addEventListener('change', aplicarFiltros);
-    if (elPrioridad) elPrioridad.addEventListener('change', aplicarFiltros);
+    if (elTipo) elTipo.addEventListener('change', function() { aplicarFiltros(true); });
+    if (elEstado) elEstado.addEventListener('change', function() { aplicarFiltros(true); });
+    if (elPrioridad) elPrioridad.addEventListener('change', function() { aplicarFiltros(true); });
   }
 
-  function aplicarFiltros() {
+  function aplicarFiltros(resetPage) {
     var selTipo = document.getElementById('filtro-tipo');
     var selEstado = document.getElementById('filtro-estado');
     var selPrioridad = document.getElementById('filtro-prioridad');
@@ -95,7 +96,7 @@ const QuejasAdmin = (() => {
       return true;
     });
 
-    currentPage = 1;
+    if (resetPage !== false) currentPage = 1;
     renderizarTabla(_filteredQuejas);
   }
 
