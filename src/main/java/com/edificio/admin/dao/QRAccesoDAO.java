@@ -16,6 +16,8 @@ import java.util.Map;
  * Este DAO solo gestiona la creacion inicial y lectura del registro.
  */
 public class QRAccesoDAO implements CrudDAO<QRAcceso> {
+    private static final ZoneId BOGOTA = ZoneId.of("America/Bogota");
+    private static final DateTimeFormatter ISO_OFFSET = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 
     private Connection conn() {
         return ConexionBD.getInstancia().getConexion();
@@ -123,10 +125,10 @@ public class QRAccesoDAO implements CrudDAO<QRAcceso> {
                     Map<String, Object> m = new HashMap<>();
                     m.put("idQr", rs.getInt("id_qr"));
                     m.put("codigoQr", rs.getString("codigo_qr"));
-                    m.put("fechaExpiracion", rs.getTimestamp("fecha_expiracion").toLocalDateTime().atZone(ZoneId.of("America/Bogota")).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME));
+                    m.put("fechaExpiracion", rs.getTimestamp("fecha_expiracion").toInstant().atZone(BOGOTA).format(ISO_OFFSET));
                     m.put("idVisita", rs.getInt("id_visita"));
                     Timestamp fr = rs.getTimestamp("fecha_registro");
-                    m.put("fechaRegistro", fr != null ? fr.toLocalDateTime().atZone(ZoneId.of("America/Bogota")).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME) : null);
+                    m.put("fechaRegistro", fr != null ? fr.toInstant().atZone(BOGOTA).format(ISO_OFFSET) : null);
                     m.put("cantidadPersonas", rs.getInt("cantidad_personas"));
                     String nom = rs.getString("nombres") != null ? rs.getString("nombres") : "";
                     String ape = rs.getString("apellidos") != null ? rs.getString("apellidos") : "";
@@ -169,10 +171,10 @@ public class QRAccesoDAO implements CrudDAO<QRAcceso> {
                 m.put("idQr", rs.getInt("id_qr"));
                 m.put("codigoQr", rs.getString("codigo_qr"));
                 Timestamp fe = rs.getTimestamp("fecha_expiracion");
-                m.put("fechaExpiracion", fe != null ? fe.toLocalDateTime().atZone(ZoneId.of("America/Bogota")).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME) : null);
+                m.put("fechaExpiracion", fe != null ? fe.toInstant().atZone(BOGOTA).format(ISO_OFFSET) : null);
                 m.put("idVisita", rs.getInt("id_visita"));
                 Timestamp fr = rs.getTimestamp("fecha_registro");
-                m.put("fechaRegistro", fr != null ? fr.toLocalDateTime().atZone(ZoneId.of("America/Bogota")).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME) : null);
+                m.put("fechaRegistro", fr != null ? fr.toInstant().atZone(BOGOTA).format(ISO_OFFSET) : null);
                 m.put("cantidadPersonas", rs.getInt("cantidad_personas"));
                 m.put("notas", rs.getString("notas"));
                 m.put("idResidente", rs.getInt("id_residente"));
