@@ -1,5 +1,6 @@
 const QuejasAdmin = (() => {
   var quejas = [];
+  var _allQuejas = [];
   var quejaActual = null;
   var _pollInterval = null;
   var _filteredQuejas = [];
@@ -45,6 +46,12 @@ const QuejasAdmin = (() => {
   async function cargarQuejas(resetPage) {
     try {
       quejas = await API.get('/quejas/todas');
+      _allQuejas = quejas.slice();
+      var tblContainer = document.querySelector('.table-container');
+      if (tblContainer && !document.getElementById('search-quejas')) {
+        tblContainer.insertAdjacentHTML('beforebegin', Utils.buscadorHtml('search-quejas', 'Buscar por t\u00edtulo, apartamento o residente...'));
+        document.getElementById('search-quejas').addEventListener('input', function() { aplicarFiltros(true); });
+      }
       aplicarFiltros(resetPage);
     } catch (e) {
       Utils.showToast('Error al cargar quejas: ' + e.message, 'error');
@@ -84,15 +91,24 @@ const QuejasAdmin = (() => {
     var selTipo = document.getElementById('filtro-tipo');
     var selEstado = document.getElementById('filtro-estado');
     var selPrioridad = document.getElementById('filtro-prioridad');
+    var searchInput = document.getElementById('search-quejas');
     if (!selTipo || !selEstado || !selPrioridad) return;
     var tipo = selTipo.value;
     var estado = selEstado.value;
     var prioridad = selPrioridad.value;
+    var term = searchInput ? searchInput.value.toLowerCase().trim() : '';
 
     _filteredQuejas = quejas.filter(function(q) {
       if (tipo !== 'TODAS' && q.tipo !== tipo) return false;
       if (estado !== 'TODAS' && q.estado !== estado) return false;
       if (prioridad !== 'TODAS' && q.prioridad !== prioridad) return false;
+      if (term) {
+        var match = (q.titulo || '').toLowerCase().includes(term) ||
+                    (q.descripcion || '').toLowerCase().includes(term) ||
+                    (q.numeroApartamento || '').toLowerCase().includes(term) ||
+                    (q.nombreResidente || '').toLowerCase().includes(term);
+        if (!match) return false;
+      }
       return true;
     });
 

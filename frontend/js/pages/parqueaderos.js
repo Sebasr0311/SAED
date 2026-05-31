@@ -1,5 +1,6 @@
 const Parqueaderos = (() => {
   let data = [];
+  let _allData = [];
   let editingId = null;
   const PAGE_SIZE = 15;
   let currentPage = 1;
@@ -51,8 +52,16 @@ const Parqueaderos = (() => {
   }
 
   async function cargar() {
-    try { data = await API.get('/parqueaderos'); currentPage = 1; render(); }
-    catch (e) { Utils.showAlert('Error', e.message, 'error'); }
+    try {
+      data = await API.get('/parqueaderos');
+      _allData = data.slice();
+      var pagEl = document.getElementById('pagination-parqueaderos');
+      if (pagEl && !document.getElementById('search-parqueaderos')) {
+        pagEl.insertAdjacentHTML('beforebegin', Utils.buscadorHtml('search-parqueaderos', 'Buscar por c\u00f3digo, torre, propietario o estado...'));
+        Utils.crearBuscador('search-parqueaderos', _allData, ['codigo', 'tipo', 'numeroApartamento', 'nombrePropietario', 'estado'], function(f) { data = f; currentPage = 1; render(); });
+      }
+      currentPage = 1; render();
+    } catch (e) { Utils.showAlert('Error', e.message, 'error'); }
   }
 
   async function aplicarFiltros() {
@@ -60,6 +69,18 @@ const Parqueaderos = (() => {
     const tipo = document.getElementById('parq-filtro-tipo').value;
     try {
       data = await API.get('/parqueaderos?estado=' + estado + '&tipo=' + tipo);
+      _allData = data.slice();
+      var searchInput = document.getElementById('search-parqueaderos');
+      if (searchInput && searchInput.value) {
+        var term = searchInput.value.toLowerCase().trim();
+        data = data.filter(function(item) {
+          return ['codigo', 'tipo', 'numeroApartamento', 'nombrePropietario', 'estado'].some(function(field) {
+            var val = item[field];
+            if (val === null || val === undefined) return false;
+            return String(val).toLowerCase().includes(term);
+          });
+        });
+      }
       currentPage = 1;
       render();
     } catch (e) { Utils.showToast(e.message, 'error'); }
