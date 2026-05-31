@@ -318,6 +318,11 @@ const Utils = (() => {
     if (!value) { mostrarError(inputId, (label || 'La fecha') + ' es obligatoria'); return false; }
     var d = new Date(value);
     if (isNaN(d.getTime())) { mostrarError(inputId, 'Fecha inv\u00e1lida'); return false; }
+    var year = d.getFullYear();
+    if (year < 1900 || year > 2100) {
+      mostrarError(inputId, 'Fecha fuera de rango permitido (1900-2100)');
+      return false;
+    }
     return true;
   }
 
@@ -325,41 +330,42 @@ const Utils = (() => {
     opts = opts || {};
     if (!value) { mostrarError(inputId, 'La fecha de nacimiento es obligatoria'); return false; }
     
-    var fecha = new Date(value + 'T00:00:00'); // Agregar hora para evitar problemas de zona horaria
+    var fecha = new Date(value + 'T00:00:00');
     if (isNaN(fecha.getTime())) { mostrarError(inputId, 'Fecha inválida'); return false; }
+    
+    var year = fecha.getFullYear();
+    if (year < 1900) {
+      mostrarError(inputId, 'Fecha de nacimiento no v\u00e1lida (a\u00f1o anterior a 1900)');
+      return false;
+    }
     
     var hoy = new Date();
     hoy.setHours(0, 0, 0, 0);
     
-    // No puede ser fecha futura
     if (fecha > hoy) {
       mostrarError(inputId, 'La fecha de nacimiento no puede ser futura');
       return false;
     }
     
-    // Calcular edad en años
     var edad = hoy.getFullYear() - fecha.getFullYear();
     var mes = hoy.getMonth() - fecha.getMonth();
     if (mes < 0 || (mes === 0 && hoy.getDate() < fecha.getDate())) {
       edad--;
     }
     
-    // Edad máxima razonable (110 años)
     if (edad > 110) {
-      mostrarError(inputId, 'Fecha de nacimiento no válida (edad mayor a 110 años)');
+      mostrarError(inputId, 'Fecha de nacimiento no v\u00e1lida (edad mayor a 110 a\u00f1os)');
       return false;
     }
     
-    // Edad mínima si se especifica (por defecto 0, para residentes 1 año)
     var edadMinima = opts.edadMinima !== undefined ? opts.edadMinima : 0;
     if (edad < edadMinima) {
-      mostrarError(inputId, 'Edad mínima requerida: ' + edadMinima + ' años');
+      mostrarError(inputId, 'Edad m\u00ednima requerida: ' + edadMinima + ' a\u00f1os');
       return false;
     }
     
-    // Edad máxima si se especifica (útil para menores de edad)
     if (opts.edadMaxima !== undefined && edad > opts.edadMaxima) {
-      mostrarError(inputId, 'Edad máxima permitida: ' + opts.edadMaxima + ' años');
+      mostrarError(inputId, 'Edad m\u00e1xima permitida: ' + opts.edadMaxima + ' a\u00f1os');
       return false;
     }
     
