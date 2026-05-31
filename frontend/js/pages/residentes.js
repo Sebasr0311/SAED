@@ -192,7 +192,7 @@ const Residentes = (() => {
 
     var modal = Utils.modal(isEdit ? 'Editar Residente' : 'Nuevo Residente', body,
       '<button class="btn btn-outline" onclick="this.closest(\'.modal-overlay\').remove()">Cancelar</button>' +
-      '<button class="btn btn-primary" id="btn-guardar-residente" onclick="Residentes.guardar()">' + (isEdit ? 'Actualizar' : 'Guardar') + '</button>');
+      '<button class="btn btn-primary" id="btn-guardar-residente" onclick="Residentes.guardar()">' + (isEdit ? 'Actualizar' : 'Guardar') + '</button>', true);
 
     cargarTiposDoc(modal);
     if (r) {
@@ -562,7 +562,7 @@ const Residentes = (() => {
         '</form>';
       var modal = Utils.modal('Asignar Apartamento', body,
         '<button class="btn btn-outline" onclick="this.closest(\'.modal-overlay\').remove()">Cancelar</button>' +
-        '<button class="btn btn-accent" id="btn-asignar" onclick="Residentes.confirmarAsignacion(' + id + ')">Asignar</button>');
+        '<button class="btn btn-accent" id="btn-asignar" onclick="Residentes.confirmarAsignacion(' + id + ')">Asignar</button>', true);
     } catch (e) { Utils.showToast('Error al cargar apartamentos: ' + e.message, 'error'); }
   }
 
