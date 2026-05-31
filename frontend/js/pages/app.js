@@ -222,7 +222,9 @@ function buildSidebar() {
       // Multas Pendientes
       try {
         var multas = await API.get('/multas/todas');
-        Dash._multasPendientes = (multas || []).filter(function(m) { return m.estado === 'PENDIENTE'; });
+        var pendientes = (multas || []).filter(function(m) { return m.estado === 'PENDIENTE'; });
+        Dash._multasPendientes.length = 0;
+        Array.prototype.push.apply(Dash._multasPendientes, pendientes);
         Dash.multasPage = 1;
         var countEl = document.getElementById('dash-multas-count');
         if (countEl) countEl.textContent = Dash._multasPendientes.length + ' pendiente' + (Dash._multasPendientes.length !== 1 ? 's' : '');
