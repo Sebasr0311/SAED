@@ -9,6 +9,7 @@ import com.edificio.admin.model.enums.TipoVehiculo;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import java.io.*;
+import java.time.LocalDateTime;
 import java.util.*;
 
 public class QrHandler extends BaseHandler implements HttpHandler {
