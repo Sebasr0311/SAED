@@ -319,7 +319,7 @@ const Utils = (() => {
 
   function valFecha(value, inputId, label) {
     if (!value) { mostrarError(inputId, (label || 'La fecha') + ' es obligatoria'); return false; }
-    var d = new Date(value);
+    var d = new Date(_fixISO(value));
     if (isNaN(d.getTime())) { mostrarError(inputId, 'Fecha inv\u00e1lida'); return false; }
     var year = d.getFullYear();
     if (year < 1930 || year > 2100) {
@@ -333,7 +333,7 @@ const Utils = (() => {
     opts = opts || {};
     if (!value) { mostrarError(inputId, 'La fecha de nacimiento es obligatoria'); return false; }
     
-    var fecha = new Date(value + 'T00:00:00');
+    var fecha = new Date(_fixISO(value));
     if (isNaN(fecha.getTime())) { mostrarError(inputId, 'Fecha inválida'); return false; }
     
     var year = fecha.getFullYear();
@@ -661,6 +661,15 @@ const Utils = (() => {
     document.body.appendChild(overlay);
   }
 
+  function todayStr() {
+    var d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
+  function dateToStr(d) {
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
   return {
     parseDate, formatDate, formatDateTime, formatTime, formatCurrency,
     showToast, showConfirm, showAlert, loadingSpinner, emptyState,
@@ -673,6 +682,6 @@ const Utils = (() => {
     valRequerido, valSelect, valNumero, valEntero, valFecha, valFechaNacimiento,
     valPlaca, valLongitud, valUsername, valPassword,
     soloNumeros, soloLetras, soloAlfanumerico, validarTelefonoTiempoReal,
-    mostrarFotoGrande
+    mostrarFotoGrande, todayStr, dateToStr
   };
 })();
