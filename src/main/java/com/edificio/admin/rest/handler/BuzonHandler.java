@@ -8,6 +8,8 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import java.io.*;
 import java.sql.*;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 public class BuzonHandler extends BaseHandler implements HttpHandler {
@@ -257,7 +259,7 @@ public class BuzonHandler extends BaseHandler implements HttpHandler {
         m.put("leido", b.isLeido());
         m.put("entregado", b.isEntregado());
         m.put("confirmado", b.getConfirmado());
-        m.put("fechaCreacion", b.getFechaCreacion() != null ? b.getFechaCreacion().toString() : null);
+        m.put("fechaCreacion", b.getFechaCreacion() != null ? b.getFechaCreacion().atZone(ZoneId.of("America/Bogota")).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME) : null);
         m.put("numeroApartamento", b.getNumeroApartamento());
         m.put("nombreResidente", b.getNombreResidente());
         return m;

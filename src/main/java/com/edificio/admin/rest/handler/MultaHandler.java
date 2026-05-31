@@ -10,6 +10,8 @@ import com.sun.net.httpserver.HttpHandler;
 import java.io.*;
 import java.math.BigDecimal;
 import java.sql.SQLException;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 public class MultaHandler extends BaseHandler implements HttpHandler {
@@ -184,8 +186,8 @@ public class MultaHandler extends BaseHandler implements HttpHandler {
         map.put("monto", m.getMonto());
         map.put("estado", m.getEstado().name());
         map.put("descripcion", m.getDescripcion());
-        map.put("fechaCreacion", m.getFechaCreacion() != null ? m.getFechaCreacion().toString() : null);
-        map.put("fechaPago", m.getFechaPago() != null ? m.getFechaPago().toString() : null);
+        map.put("fechaCreacion", m.getFechaCreacion() != null ? m.getFechaCreacion().atZone(ZoneId.of("America/Bogota")).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME) : null);
+        map.put("fechaPago", m.getFechaPago() != null ? m.getFechaPago().atZone(ZoneId.of("America/Bogota")).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME) : null);
         map.put("numeroApartamento", m.getNumeroApartamento());
         map.put("nombreResidente", m.getNombreResidente());
         map.put("registradoPagoPor", m.getRegistradoPagoPor());
@@ -196,7 +198,7 @@ public class MultaHandler extends BaseHandler implements HttpHandler {
     private Map<String, Object> toMapDetalle(Multa m) {
         Map<String, Object> map = toMap(m);
         map.put("nombrePortero", m.getNombrePortero());
-        map.put("fechaAvisoRuido", m.getFechaAvisoRuido() != null ? m.getFechaAvisoRuido().toString() : null);
+        map.put("fechaAvisoRuido", m.getFechaAvisoRuido() != null ? m.getFechaAvisoRuido().atZone(ZoneId.of("America/Bogota")).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME) : null);
         map.put("fotoEvidencia", m.getFotoEvidencia());
         return map;
     }

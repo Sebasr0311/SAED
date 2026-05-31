@@ -8,6 +8,8 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import java.io.*;
 import java.sql.*;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 public class QuejaSugerenciaHandler extends BaseHandler implements HttpHandler {
@@ -199,8 +201,8 @@ public class QuejaSugerenciaHandler extends BaseHandler implements HttpHandler {
         map.put("estado", q.getEstado());
         map.put("respuestaAdmin", q.getRespuestaAdmin());
         map.put("prioridad", q.getPrioridad());
-        map.put("fechaCreacion", q.getFechaCreacion() != null ? q.getFechaCreacion().toString() : null);
-        map.put("fechaRespuesta", q.getFechaRespuesta() != null ? q.getFechaRespuesta().toString() : null);
+        map.put("fechaCreacion", q.getFechaCreacion() != null ? q.getFechaCreacion().atZone(ZoneId.of("America/Bogota")).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME) : null);
+        map.put("fechaRespuesta", q.getFechaRespuesta() != null ? q.getFechaRespuesta().atZone(ZoneId.of("America/Bogota")).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME) : null);
         map.put("creadoPor", q.getCreadoPor());
         map.put("respondidoPor", q.getRespondidoPor());
         map.put("numeroApartamento", q.getNumeroApartamento());
