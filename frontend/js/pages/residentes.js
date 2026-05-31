@@ -120,7 +120,7 @@ const Residentes = (() => {
         <div class="form-row">
           <div class="form-group">
             <label>Fecha de Nacimiento</label>
-            <input type="date" id="res-fecha-nac" class="form-control" value="${r ? r.fechaNacimiento || '' : ''}" min="1930-01-01" max="${new Date().toISOString().split('T')[0]}" onchange="Residentes.chequearEdad()">
+            <input type="date" id="res-fecha-nac" class="form-control" value="${r ? r.fechaNacimiento || '' : ''}" min="1930-01-01" max="${new Date().toISOString().split('T')[0]}" onchange="Residentes.validarFechaNacInput()">
             <span class="field-error" id="res-fecha-nac-error"></span>
           </div>
           <div class="form-group">
@@ -348,13 +348,40 @@ const Residentes = (() => {
     return null;
   }
 
+  function validarFechaNacInput() {
+    var fn = document.getElementById('res-fecha-nac');
+    var errorEl = document.getElementById('res-fecha-nac-error');
+    if (!fn) return;
+    if (!fn.value) { if (errorEl) errorEl.textContent = ''; fn.classList.remove('is-invalid'); return; }
+    var nac = new Date(fn.value + 'T00:00:00');
+    if (isNaN(nac.getTime())) { if (errorEl) errorEl.textContent = 'Fecha inv\u00e1lida'; fn.classList.add('is-invalid'); return; }
+    var year = nac.getFullYear();
+    if (year < 1930) {
+      if (errorEl) errorEl.textContent = 'A\u00f1o anterior a 1930 no permitido';
+      fn.classList.add('is-invalid');
+      fn.value = '';
+      return;
+    }
+    var hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    if (nac > hoy) {
+      if (errorEl) errorEl.textContent = 'La fecha de nacimiento no puede ser futura';
+      fn.classList.add('is-invalid');
+      fn.value = '';
+      return;
+    }
+    if (errorEl) errorEl.textContent = '';
+    fn.classList.remove('is-invalid');
+    chequearEdad();
+  }
+
   function chequearEdad() {
     var fn = document.getElementById('res-fecha-nac');
     var section = document.getElementById('res-tutor-section');
     var desc = document.getElementById('tutor-descripcion');
     if (!fn || !section) return;
     if (!fn.value) { section.classList.add('hidden'); return; }
-    var nac = new Date(fn.value);
+    var nac = new Date(fn.value + 'T00:00:00');
     var hoy = new Date();
     var edad = hoy.getFullYear() - nac.getFullYear();
     var m = hoy.getMonth() - nac.getMonth();
@@ -558,7 +585,7 @@ const Residentes = (() => {
     finally { if (btn) btn.disabled = false; }
   }
 
-  return { cargar, render, mostrarFormulario, guardar, editar, eliminar, asignarApartamento, confirmarAsignacion, goToPage, chequearEdad };
+  return { cargar, render, mostrarFormulario, guardar, editar, eliminar, asignarApartamento, confirmarAsignacion, goToPage, chequearEdad, validarFechaNacInput };
 })();
 
 Router.register('residentes', {
