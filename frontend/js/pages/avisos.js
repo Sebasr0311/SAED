@@ -66,7 +66,29 @@ const Avisos = (() => {
       divTodos.innerHTML = '<strong>Todos los apartamentos</strong>';
       divTodos.onclick = function() { Avisos.seleccionarTodos(this); };
       dropdown.appendChild(divTodos);
-      
+
+      var searchApt = document.createElement('input');
+      searchApt.type = 'text';
+      searchApt.className = 'form-control';
+      searchApt.placeholder = 'Buscar apartamento...';
+      searchApt.style.cssText = 'margin:8px;width:calc(100% - 16px);padding:6px 10px;font-size:13px;box-sizing:border-box';
+      searchApt.addEventListener('click', function(e) { e.stopPropagation(); });
+      searchApt.addEventListener('input', function() {
+        var term = this.value.toLowerCase().trim();
+        var items = dropdown.querySelectorAll('.multi-select-option, .multi-select-header, .multi-select-separator');
+        for (var i = 0; i < items.length; i++) {
+          var el = items[i];
+          if (el === searchApt) continue;
+          if (!term) { el.style.display = ''; continue; }
+          if (el.classList.contains('multi-select-header') || el.classList.contains('multi-select-separator') || el.classList.contains('multi-select-todos')) {
+            el.style.display = el.classList.contains('multi-select-piso') ? 'none' : '';
+            continue;
+          }
+          el.style.display = el.textContent.toLowerCase().includes(term) ? '' : 'none';
+        }
+      });
+      dropdown.appendChild(searchApt);
+
       // Separador
       var sep1 = document.createElement('div');
       sep1.className = 'multi-select-separator';
