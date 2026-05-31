@@ -1,6 +1,14 @@
 const HistorialVisitas = (() => {
   let _visitas = [];
   let _filteredVisitas = [];
+  const PAGE_SIZE = 15;
+  let currentPage = 1;
+
+  function goToPage(page) {
+    if (page < 1 || page > Math.ceil(_filteredVisitas.length / PAGE_SIZE)) return;
+    currentPage = page;
+    renderTabla();
+  }
 
   async function inicializar() {
     renderPage();
@@ -147,7 +155,7 @@ const HistorialVisitas = (() => {
 
       _visitas = await API.get('/visitas/historial?fechaInicio=' + fechaInicio + '&fechaFin=' + fechaFin);
       _filteredVisitas = _visitas;
-
+      currentPage = 1;
       renderTabla();
     } catch (e) {
       console.error('[HistorialVisitas] Error al cargar:', e);
@@ -177,6 +185,7 @@ const HistorialVisitas = (() => {
       });
     }
 
+    currentPage = 1;
     renderTabla();
   }
 
@@ -191,8 +200,10 @@ const HistorialVisitas = (() => {
       return;
     }
 
+    var pg = Utils.paginate(_filteredVisitas, currentPage, PAGE_SIZE);
+
     // Contador de visitas
-    var totalVisitas = _filteredVisitas.length;
+    var totalVisitas = pg.total;
     var visitasActivas = _filteredVisitas.filter(function(v) { return v.estado === 'ACTIVA'; }).length;
     var visitasFinalizadas = _filteredVisitas.filter(function(v) { return v.estado === 'FINALIZADA'; }).length;
 
@@ -230,7 +241,7 @@ const HistorialVisitas = (() => {
           <tbody>
     `;
 
-    _filteredVisitas.forEach(function(v) {
+    pg.items.forEach(function(v) {
       var fechaRegistro = v.fechaRegistro ? Utils.formatDateTime(v.fechaRegistro) : '-';
       var entrada = v.fechaVisita ? Utils.formatTime(v.fechaVisita) : '-';
       var salida = v.fechaSalida ? Utils.formatTime(v.fechaSalida) : '-';
@@ -253,6 +264,7 @@ const HistorialVisitas = (() => {
     });
 
     html += '</tbody></table></div>';
+    html += '<div id="pagination-historial">' + Utils.paginationHtml(pg, 'HistorialVisitas.goToPage') + '</div>';
 
     // Botón de exportar
     html += `
@@ -429,7 +441,8 @@ const HistorialVisitas = (() => {
     cargarVisitas: cargarVisitas,
     filtrarVisitas: filtrarVisitas,
     verDetalleVisita: verDetalleVisita,
-    exportarExcel: exportarExcel
+    exportarExcel: exportarExcel,
+    goToPage: goToPage
   };
 
   if (typeof module !== 'undefined' && module.exports) {

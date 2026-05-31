@@ -1,6 +1,38 @@
 const Avisos = (() => {
   let apartamentosPorPiso = {}; // Mapa de piso -> array de apartamentos
-  
+  let _avisosData = [];
+  const PAGE_SIZE = 15;
+  let currentPage = 1;
+
+  function goToPage(page) {
+    if (page < 1 || page > Math.ceil(_avisosData.length / PAGE_SIZE)) return;
+    currentPage = page;
+    renderTabla();
+  }
+
+  function renderTabla() {
+    var tbody = document.getElementById('tbody-avisos');
+    var empty = document.getElementById('avisos-empty');
+    var pag = document.getElementById('pagination-avisos');
+    if (!tbody) return;
+    if (_avisosData.length === 0) {
+      tbody.innerHTML = '';
+      empty.classList.remove('hidden');
+      if (pag) pag.innerHTML = '';
+      return;
+    }
+    empty.classList.add('hidden');
+    var pg = Utils.paginate(_avisosData, currentPage, PAGE_SIZE);
+    tbody.innerHTML = pg.items.map(function(a) {
+      return '<tr><td>' + a.idMensaje + '</td>'
+        + '<td>' + Utils.escapeHtml(a.numeroApartamento || 'Todos') + '</td>'
+        + '<td>' + Utils.escapeHtml(a.titulo || '') + '</td>'
+        + '<td>' + Utils.escapeHtml(a.cuerpo || '') + '</td>'
+        + '<td>' + (a.fechaCreacion ? a.fechaCreacion.substring(0, 19).replace('T', ' ') : '') + '</td></tr>';
+    }).join('');
+    if (pag) pag.innerHTML = Utils.paginationHtml(pg, 'Avisos.goToPage');
+  }
+
   async function cargarApartamentos() {
     try {
       var apts = await API.get('/apartamentos');
@@ -278,24 +310,9 @@ const Avisos = (() => {
 
   async function cargarAvisos() {
     try {
-      var lista = await API.get('/buzon/avisos');
-      var tbody = document.getElementById('tbody-avisos');
-      var empty = document.getElementById('avisos-empty');
-      tbody.innerHTML = '';
-      if (!lista || lista.length === 0) {
-        empty.classList.remove('hidden');
-        return;
-      }
-      empty.classList.add('hidden');
-      lista.forEach(function(a) {
-        var tr = document.createElement('tr');
-        tr.innerHTML = '<td>' + a.idMensaje + '</td>'
-          + '<td>' + Utils.escapeHtml(a.numeroApartamento || 'Todos') + '</td>'
-          + '<td>' + Utils.escapeHtml(a.titulo || '') + '</td>'
-          + '<td>' + Utils.escapeHtml(a.cuerpo || '') + '</td>'
-          + '<td>' + (a.fechaCreacion ? a.fechaCreacion.substring(0, 19).replace('T', ' ') : '') + '</td>';
-        tbody.appendChild(tr);
-      });
+      _avisosData = await API.get('/buzon/avisos');
+      currentPage = 1;
+      renderTabla();
     } catch (err) {
       console.error('Error cargando avisos', err);
     }
@@ -309,6 +326,7 @@ const Avisos = (() => {
     toggleDropdown: toggleDropdown, 
     toggleApt: toggleApt, 
     togglePiso: togglePiso, 
-    seleccionarTodos: seleccionarTodos 
+    seleccionarTodos: seleccionarTodos,
+    goToPage: goToPage
   };
 })();

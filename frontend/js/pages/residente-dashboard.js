@@ -6,6 +6,63 @@ const ResidenteDash = (() => {
   var _pollInterval = null;
   var _confirmarPendientes = [];
   var _buzonMensajes = [];
+  var _buzonFiltrados = [];
+  const BUZON_PAGE_SIZE = 10;
+  var buzonPage = 1;
+
+  function goToPageBuzon(page) {
+    if (page < 1 || page > Math.ceil(_buzonFiltrados.length / BUZON_PAGE_SIZE)) return;
+    buzonPage = page;
+    _renderBuzonList();
+  }
+
+  function _renderBuzonList() {
+    var container = document.getElementById('res-tab-buzon');
+    if (!container) return;
+    if (!_buzonFiltrados.length) {
+      container.innerHTML = '<div class="card"><div class="card-title">Buz\u00f3n</div>' + Utils.emptyState('No hay mensajes') + '</div>';
+      return;
+    }
+    var pg = Utils.paginate(_buzonFiltrados, buzonPage, BUZON_PAGE_SIZE);
+    var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:4px">' +
+      '<div style="display:flex;align-items:center;gap:8px">' +
+      '<input type="checkbox" id="chk-select-all" onchange="ResidenteDash.toggleSeleccionarTodos(this.checked)" style="width:18px;height:18px;cursor:pointer">' +
+      '<div class="card-title" style="margin-bottom:0">Buz\u00f3n de Mensajes</div></div>' +
+      '<div style="display:flex;gap:4px;flex-wrap:wrap">' +
+      '<button class="btn btn-ghost btn-sm" onclick="ResidenteDash.eliminarSeleccionados()" id="btn-eliminar-selec" disabled style="color:var(--danger);font-size:12px"><span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:2px">delete</span> Eliminar selec.</button>' +
+      '<button class="btn btn-ghost btn-sm" onclick="ResidenteDash.vaciarBuzon()" title="Vaciar buzon" style="color:var(--danger);font-size:12px"><span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:2px">delete_sweep</span> Vaciar todo</button></div></div>';
+    html += '<div id="buzon-lista">';
+    pg.items.forEach(function(m) {
+      var iconName = m.tipo === 'CONFIRMAR_VISITA' ? 'how_to_reg' : m.tipo === 'PAQUETE' ? 'inventory_2' : m.tipo === 'QUEJA_RUIDO' ? 'volume_up' : 'notifications';
+      var estiloLeido = m.leido ? '' : ';border-left:3px solid var(--accent);background:#f0f7ff';
+      var fotoHtml = '';
+      if (m.tipo === 'PAQUETE' && m.fotoCaptura) {
+        fotoHtml = '<div style="margin-top:8px"><img src="' + m.fotoCaptura + '" style="max-width:100%;max-height:160px;border-radius:8px;border:1px solid var(--border);cursor:pointer" onclick="window.open(\'' + m.fotoCaptura.replace(/'/g, '') + '\')"></div>';
+      }
+      var accionBtn = '';
+      if (m.tipo === 'PAQUETE' && !m.entregado) {
+        accionBtn = '<button class="btn btn-sm btn-primary" onclick="event.stopPropagation();ResidenteDash.marcarEntregado(' + m.idMensaje + ')">Recibido</button>';
+      } else if (m.tipo === 'CONFIRMAR_VISITA' && m.confirmado === null) {
+        accionBtn = '<span class="text-sm text-muted" style="font-style:italic">Pendiente de confirmaci\u00f3n en el modal...</span>';
+      } else if (m.tipo === 'CONFIRMAR_VISITA' && m.confirmado !== null) {
+        accionBtn = '<span class="text-sm" style="color:' + (m.confirmado === 1 ? 'var(--accent)' : 'var(--danger)') + '">' + (m.confirmado === 1 ? 'Confirmado' : 'Rechazado') + '</span>';
+      }
+      html += '<div class="card" style="padding:14px;margin-bottom:12px' + estiloLeido + '">' +
+        '<div style="display:flex;align-items:flex-start;gap:12px">' +
+        '<input type="checkbox" class="chk-mensaje" value="' + m.idMensaje + '" onchange="ResidenteDash.onCheckChange()" style="width:18px;height:18px;margin-top:4px;cursor:pointer;flex-shrink:0">' +
+        '<span class="material-symbols-outlined" style="font-size:28px;flex-shrink:0;color:var(--text-secondary);margin-top:2px;cursor:pointer" onclick="ResidenteDash.marcarLeido(' + m.idMensaje + ')">' + iconName + '</span>' +
+        '<div style="flex:1;min-width:0;cursor:pointer" onclick="ResidenteDash.mostrarDetalleMensaje(' + m.idMensaje + ')">' +
+        '<p style="font-weight:600;margin-bottom:2px;font-size:14px">' + Utils.escapeHtml(m.titulo || '') + '</p>' +
+        '<p class="text-sm text-muted" style="margin-bottom:4px">' + Utils.escapeHtml(m.cuerpo || '') + '</p>' +
+        fotoHtml +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">' +
+        '<span class="text-xs text-muted">' + Utils.formatDateTime(m.fechaCreacion) + '</span>' +
+        accionBtn + '</div></div></div></div>';
+    });
+    html += '</div>';
+    html += '<div id="pagination-buzon">' + Utils.paginationHtml(pg, 'ResidenteDash.goToPageBuzon') + '</div>';
+    container.innerHTML = html;
+  }
 
   function $(id) { return document.getElementById(id); }
   function setText(id, v) { var el = $(id); if (el) el.textContent = (v != null ? v : '-'); }
@@ -372,7 +429,18 @@ const ResidenteDash = (() => {
     container.innerHTML = Utils.loadingSpinner();
     try {
       var mensajes = await API.get('/buzon');
-      renderBuzonList(container, mensajes || []);
+      _buzonMensajes = mensajes || [];
+      _buzonFiltrados = [];
+      for (var i = 0; i < _buzonMensajes.length; i++) {
+        var m = _buzonMensajes[i];
+        if (m.entregado) continue;
+        if (m.tipo === 'CONFIRMAR_VISITA' && m.confirmado != null) continue;
+        if (m.tipo === 'QUEJA_RUIDO' && m.leido) continue;
+        if (m.tipo === 'AVISO' && m.leido) continue;
+        _buzonFiltrados.push(m);
+      }
+      buzonPage = 1;
+      _renderBuzonList();
     } catch (e) {
       container.innerHTML = '<p class="text-muted">Error al cargar mensajes</p>';
     }
@@ -380,55 +448,16 @@ const ResidenteDash = (() => {
 
   function renderBuzonList(container, mensajes) {
     _buzonMensajes = mensajes;
-    var filtrados = [];
+    _buzonFiltrados = [];
     for (var i = 0; i < mensajes.length; i++) {
       if (mensajes[i].entregado) continue;
       if (mensajes[i].tipo === 'CONFIRMAR_VISITA' && mensajes[i].confirmado != null) continue;
       if (mensajes[i].tipo === 'QUEJA_RUIDO' && mensajes[i].leido) continue;
       if (mensajes[i].tipo === 'AVISO' && mensajes[i].leido) continue;
-      filtrados.push(mensajes[i]);
+      _buzonFiltrados.push(mensajes[i]);
     }
-    if (!filtrados.length) {
-      container.innerHTML = '<div class="card"><div class="card-title">Buz\u00f3n</div>' + Utils.emptyState('No hay mensajes') + '</div>';
-      return;
-    }
-    var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:4px">' +
-      '<div style="display:flex;align-items:center;gap:8px">' +
-      '<input type="checkbox" id="chk-select-all" onchange="ResidenteDash.toggleSeleccionarTodos(this.checked)" style="width:18px;height:18px;cursor:pointer">' +
-      '<div class="card-title" style="margin-bottom:0">Buz\u00f3n de Mensajes</div></div>' +
-      '<div style="display:flex;gap:4px;flex-wrap:wrap">' +
-      '<button class="btn btn-ghost btn-sm" onclick="ResidenteDash.eliminarSeleccionados()" id="btn-eliminar-selec" disabled style="color:var(--danger);font-size:12px"><span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:2px">delete</span> Eliminar selec.</button>' +
-      '<button class="btn btn-ghost btn-sm" onclick="ResidenteDash.vaciarBuzon()" title="Vaciar buzon" style="color:var(--danger);font-size:12px"><span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;margin-right:2px">delete_sweep</span> Vaciar todo</button></div></div>';
-    html += '<div id="buzon-lista">';
-    filtrados.forEach(function(m) {
-      var iconName = m.tipo === 'CONFIRMAR_VISITA' ? 'how_to_reg' : m.tipo === 'PAQUETE' ? 'inventory_2' : m.tipo === 'QUEJA_RUIDO' ? 'volume_up' : 'notifications';
-      var estiloLeido = m.leido ? '' : ';border-left:3px solid var(--accent);background:#f0f7ff';
-      var fotoHtml = '';
-      if (m.tipo === 'PAQUETE' && m.fotoCaptura) {
-        fotoHtml = '<div style="margin-top:8px"><img src="' + m.fotoCaptura + '" style="max-width:100%;max-height:160px;border-radius:8px;border:1px solid var(--border);cursor:pointer" onclick="window.open(\'' + m.fotoCaptura.replace(/'/g, '') + '\')"></div>';
-      }
-      var accionBtn = '';
-      if (m.tipo === 'PAQUETE' && !m.entregado) {
-        accionBtn = '<button class="btn btn-sm btn-primary" onclick="event.stopPropagation();ResidenteDash.marcarEntregado(' + m.idMensaje + ')">Recibido</button>';
-      } else if (m.tipo === 'CONFIRMAR_VISITA' && m.confirmado === null) {
-        accionBtn = '<span class="text-sm text-muted" style="font-style:italic">Pendiente de confirmaci\u00f3n en el modal...</span>';
-      } else if (m.tipo === 'CONFIRMAR_VISITA' && m.confirmado !== null) {
-        accionBtn = '<span class="text-sm" style="color:' + (m.confirmado === 1 ? 'var(--accent)' : 'var(--danger)') + '">' + (m.confirmado === 1 ? 'Confirmado' : 'Rechazado') + '</span>';
-      }
-      html += '<div class="card" style="padding:14px;margin-bottom:12px' + estiloLeido + '">' +
-        '<div style="display:flex;align-items:flex-start;gap:12px">' +
-        '<input type="checkbox" class="chk-mensaje" value="' + m.idMensaje + '" onchange="ResidenteDash.onCheckChange()" style="width:18px;height:18px;margin-top:4px;cursor:pointer;flex-shrink:0">' +
-        '<span class="material-symbols-outlined" style="font-size:28px;flex-shrink:0;color:var(--text-secondary);margin-top:2px;cursor:pointer" onclick="ResidenteDash.marcarLeido(' + m.idMensaje + ')">' + iconName + '</span>' +
-        '<div style="flex:1;min-width:0;cursor:pointer" onclick="ResidenteDash.mostrarDetalleMensaje(' + m.idMensaje + ')">' +
-        '<p style="font-weight:600;margin-bottom:2px;font-size:14px">' + Utils.escapeHtml(m.titulo || '') + '</p>' +
-        '<p class="text-sm text-muted" style="margin-bottom:4px">' + Utils.escapeHtml(m.cuerpo || '') + '</p>' +
-        fotoHtml +
-        '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">' +
-        '<span class="text-xs text-muted">' + Utils.formatDateTime(m.fechaCreacion) + '</span>' +
-        accionBtn + '</div></div></div></div>';
-    });
-    html += '</div>';
-    container.innerHTML = html;
+    buzonPage = 1;
+    _renderBuzonList();
   }
 
   function cerrarDetalleMensaje() {
@@ -1126,7 +1155,8 @@ const ResidenteDash = (() => {
     eliminarSeleccionados: eliminarSeleccionados,
     verDetalleMulta: verDetalleMulta,
     mostrarDetalleMensaje: mostrarDetalleMensaje,
-    cerrarDetalleMensaje: cerrarDetalleMensaje
+    cerrarDetalleMensaje: cerrarDetalleMensaje,
+    goToPageBuzon: goToPageBuzon
   };
 })();
 
