@@ -43,7 +43,7 @@ const Apartamentos = (() => {
     try {
       data = await API.get('/apartamentos');
       _allData = data.slice();
-      var tblContainer = document.querySelector('#pagination-apartamentos');
+      var tblContainer = document.querySelector('.table-container');
       if (tblContainer && !document.getElementById('search-apartamentos')) {
         tblContainer.insertAdjacentHTML('beforebegin', Utils.buscadorHtml('search-apartamentos', 'Buscar por n\u00famero, piso, torre o estado...'));
         Utils.crearBuscador('search-apartamentos', _allData, ['numero', 'piso', 'torre', 'estado'], function(f) { data = f; currentPage = 1; render(); });

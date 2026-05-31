@@ -506,6 +506,103 @@ const Utils = (() => {
     return h;
   }
 
+  function buscadorHtml(id, placeholder) {
+    return '<div class="search-bar" style="position:relative;margin-bottom:12px">' +
+      '<span class="material-symbols-outlined" style="position:absolute;margin:8px 0 0 12px;color:var(--text-secondary);font-size:20px">search</span>' +
+      '<input type="text" id="' + id + '" class="form-control" style="padding-left:40px" placeholder="' + (placeholder || 'Buscar...') + '">' +
+    '</div>';
+  }
+
+  function crearBuscador(inputId, data, fields, onFilter) {
+    var input = document.getElementById(inputId);
+    if (!input) return;
+    var timeout = null;
+    input.addEventListener('input', function() {
+      clearTimeout(timeout);
+      timeout = setTimeout(function() {
+        var term = input.value.toLowerCase().trim();
+        if (!term) {
+          onFilter(data);
+          return;
+        }
+        var filtered = data.filter(function(item) {
+          return fields.some(function(field) {
+            var val = item[field];
+            if (val === null || val === undefined) return false;
+            return String(val).toLowerCase().includes(term);
+          });
+        });
+        onFilter(filtered);
+      }, 250);
+    });
+  }
+
+  function selectBusqueda(selectId) {
+    var select = document.getElementById(selectId);
+    if (!select) return;
+    var container = document.createElement('div');
+    container.className = 'searchable-select';
+    container.style.cssText = 'position:relative;width:100%';
+    var input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'form-control';
+    input.id = selectId + '-search';
+    input.placeholder = 'Buscar...';
+    select.style.display = 'none';
+    select.parentNode.insertBefore(container, select);
+    container.appendChild(input);
+    container.appendChild(select);
+    var dropdown = document.createElement('div');
+    dropdown.style.cssText = 'position:absolute;top:100%;left:0;right:0;max-height:200px;overflow-y:auto;background:var(--surface);border:1px solid var(--border);border-radius:4px;z-index:1000;display:none';
+    container.appendChild(dropdown);
+    function buildList(filter) {
+      dropdown.innerHTML = '';
+      var found = false;
+      var term = filter ? filter.toLowerCase().trim() : '';
+      Array.from(select.options).forEach(function(opt) {
+        if (!opt.value) return;
+        var text = opt.textContent || opt.innerText;
+        if (term && !text.toLowerCase().includes(term)) return;
+        found = true;
+        var item = document.createElement('div');
+        item.className = 'searchable-select-item';
+        item.style.cssText = 'padding:8px 12px;cursor:pointer;font-size:14px;color:var(--text)';
+        item.textContent = text;
+        item.dataset.value = opt.value;
+        if (opt.value === select.value) item.style.background = 'var(--primary-container)';
+        item.addEventListener('mouseenter', function() { this.style.background = 'var(--surface-hover)'; });
+        item.addEventListener('mouseleave', function() { this.style.background = ''; });
+        item.addEventListener('click', function() {
+          select.value = this.dataset.value;
+          input.value = this.textContent;
+          dropdown.style.display = 'none';
+          select.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+        dropdown.appendChild(item);
+      });
+      if (!found) {
+        var noRes = document.createElement('div');
+        noRes.style.cssText = 'padding:8px 12px;color:var(--text-secondary);font-size:13px';
+        noRes.textContent = 'Sin resultados';
+        dropdown.appendChild(noRes);
+      }
+    }
+    input.addEventListener('focus', function() {
+      buildList(input.value);
+      dropdown.style.display = 'block';
+    });
+    input.addEventListener('blur', function() {
+      setTimeout(function() { dropdown.style.display = 'none'; }, 200);
+    });
+    input.addEventListener('input', function() {
+      buildList(input.value);
+      dropdown.style.display = 'block';
+    });
+    if (select.selectedIndex > 0 && select.options[select.selectedIndex]) {
+      input.value = select.options[select.selectedIndex].textContent;
+    }
+  }
+
   const CHART_COLORS = ['#00F5FF','#FF007F','#7F00FF','#FFD700','#00FF7F','#FF4500','#00BFFF','#FF00FF','#39FF14','#FF1493'];
 
   function drawDonut(canvas, data, options = {}) {
@@ -668,103 +765,6 @@ const Utils = (() => {
 
   function dateToStr(d) {
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-  }
-
-  function buscadorHtml(id, placeholder) {
-    return '<div class="search-bar" style="margin-bottom:12px">' +
-      '<span class="material-symbols-outlined" style="position:absolute;margin:8px 0 0 12px;color:var(--text-secondary);font-size:20px">search</span>' +
-      '<input type="text" id="' + id + '" class="form-control" style="padding-left:40px" placeholder="' + (placeholder || 'Buscar...') + '">' +
-    '</div>';
-  }
-
-  function crearBuscador(inputId, data, fields, onFilter) {
-    var input = document.getElementById(inputId);
-    if (!input) return;
-    var timeout = null;
-    input.addEventListener('input', function() {
-      clearTimeout(timeout);
-      timeout = setTimeout(function() {
-        var term = input.value.toLowerCase().trim();
-        if (!term) {
-          onFilter(data);
-          return;
-        }
-        var filtered = data.filter(function(item) {
-          return fields.some(function(field) {
-            var val = item[field];
-            if (val === null || val === undefined) return false;
-            return String(val).toLowerCase().includes(term);
-          });
-        });
-        onFilter(filtered);
-      }, 250);
-    });
-  }
-
-  function selectBusqueda(selectId) {
-    var select = document.getElementById(selectId);
-    if (!select) return;
-    var container = document.createElement('div');
-    container.className = 'searchable-select';
-    container.style.cssText = 'position:relative;width:100%';
-    var input = document.createElement('input');
-    input.type = 'text';
-    input.className = 'form-control';
-    input.id = selectId + '-search';
-    input.placeholder = 'Buscar...';
-    select.style.display = 'none';
-    select.parentNode.insertBefore(container, select);
-    container.appendChild(input);
-    container.appendChild(select);
-    var dropdown = document.createElement('div');
-    dropdown.style.cssText = 'position:absolute;top:100%;left:0;right:0;max-height:200px;overflow-y:auto;background:var(--surface);border:1px solid var(--border);border-radius:4px;z-index:1000;display:none';
-    container.appendChild(dropdown);
-    function buildList(filter) {
-      dropdown.innerHTML = '';
-      var found = false;
-      var term = filter ? filter.toLowerCase().trim() : '';
-      Array.from(select.options).forEach(function(opt) {
-        if (!opt.value) return;
-        var text = opt.textContent || opt.innerText;
-        if (term && !text.toLowerCase().includes(term)) return;
-        found = true;
-        var item = document.createElement('div');
-        item.className = 'searchable-select-item';
-        item.style.cssText = 'padding:8px 12px;cursor:pointer;font-size:14px;color:var(--text)';
-        item.textContent = text;
-        item.dataset.value = opt.value;
-        if (opt.value === select.value) item.style.background = 'var(--primary-container)';
-        item.addEventListener('mouseenter', function() { this.style.background = 'var(--surface-hover)'; });
-        item.addEventListener('mouseleave', function() { this.style.background = ''; });
-        item.addEventListener('click', function() {
-          select.value = this.dataset.value;
-          input.value = this.textContent;
-          dropdown.style.display = 'none';
-          select.dispatchEvent(new Event('change', { bubbles: true }));
-        });
-        dropdown.appendChild(item);
-      });
-      if (!found) {
-        var noRes = document.createElement('div');
-        noRes.style.cssText = 'padding:8px 12px;color:var(--text-secondary);font-size:13px';
-        noRes.textContent = 'Sin resultados';
-        dropdown.appendChild(noRes);
-      }
-    }
-    input.addEventListener('focus', function() {
-      buildList(input.value);
-      dropdown.style.display = 'block';
-    });
-    input.addEventListener('blur', function() {
-      setTimeout(function() { dropdown.style.display = 'none'; }, 200);
-    });
-    input.addEventListener('input', function() {
-      buildList(input.value);
-      dropdown.style.display = 'block';
-    });
-    if (select.selectedIndex > 0 && select.options[select.selectedIndex]) {
-      input.value = select.options[select.selectedIndex].textContent;
-    }
   }
 
   return {

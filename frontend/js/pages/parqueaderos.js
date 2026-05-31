@@ -55,9 +55,9 @@ const Parqueaderos = (() => {
     try {
       data = await API.get('/parqueaderos');
       _allData = data.slice();
-      var pagEl = document.getElementById('pagination-parqueaderos');
-      if (pagEl && !document.getElementById('search-parqueaderos')) {
-        pagEl.insertAdjacentHTML('beforebegin', Utils.buscadorHtml('search-parqueaderos', 'Buscar por c\u00f3digo, torre, propietario o estado...'));
+      var tblContainer = document.querySelector('.table-container');
+      if (tblContainer && !document.getElementById('search-parqueaderos')) {
+        tblContainer.insertAdjacentHTML('beforebegin', Utils.buscadorHtml('search-parqueaderos', 'Buscar por c\u00f3digo, torre, propietario o estado...'));
         Utils.crearBuscador('search-parqueaderos', _allData, ['codigo', 'tipo', 'numeroApartamento', 'nombrePropietario', 'estado'], function(f) { data = f; currentPage = 1; render(); });
       }
       currentPage = 1; render();
@@ -95,6 +95,7 @@ const Parqueaderos = (() => {
       todosParqs.forEach(function(parq) {
         if (parq.idApartamento) aptsConParq[parq.idApartamento] = true;
       });
+      // Si editando, permitir el mismo apartamento que ya tiene asignado
       if (p && p.idApartamento) delete aptsConParq[p.idApartamento];
       _apartamentos = todosApts.filter(function(a) {
         return !aptsConParq[a.idApartamento];
@@ -140,6 +141,7 @@ const Parqueaderos = (() => {
       '<button class="btn btn-primary" id="btn-guardar-parq" onclick="Parqueaderos.guardar()">' + (isEdit ? 'Actualizar' : 'Guardar') + '</button>');
     if (!isEdit) {
       document.getElementById('parq-estado') && (document.getElementById('parq-estado').value = 'DISPONIBLE');
+      // Auto-actualizar prefijo segun tipo + uso
       function actualizarPrefijo() {
         var tipo = document.getElementById('parq-tipo').value;
         var uso = document.querySelector('input[name="parq-uso"]:checked');
