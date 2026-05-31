@@ -50,7 +50,16 @@ public class ResidenteService {
         validar(residente);
         calcularEdad(residente);
         validarCapacidadApartamento(residente, null);
-        return residenteDAO.insert(residente);
+        try {
+            return residenteDAO.insert(residente);
+        } catch (SQLException e) {
+            if (e.getErrorCode() == 1 || e.getMessage().contains("ORA-00001")) {
+                throw new DatosInvalidosException(
+                    "Ya existe un residente registrado con ese n\u00famero de documento."
+                );
+            }
+            throw e;
+        }
     }
 
     public void actualizar(Residente residente) throws SQLException {
@@ -58,7 +67,16 @@ public class ResidenteService {
         validar(residente);
         calcularEdad(residente);
         validarCapacidadApartamento(residente, residente.getId());
-        residenteDAO.update(residente);
+        try {
+            residenteDAO.update(residente);
+        } catch (SQLException e) {
+            if (e.getErrorCode() == 1 || e.getMessage().contains("ORA-00001")) {
+                throw new DatosInvalidosException(
+                    "Ya existe un residente registrado con ese n\u00famero de documento."
+                );
+            }
+            throw e;
+        }
     }
 
     private void calcularEdad(Residente r) {
