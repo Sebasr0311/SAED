@@ -2,6 +2,14 @@ const QuejasResidente = (() => {
   var quejas = [];
   var stream = null;
   var fotoCapturada = null;
+  const PAGE_SIZE = 10;
+  var currentPage = 1;
+
+  function goToPage(page) {
+    if (page < 1 || page > Math.ceil(quejas.length / PAGE_SIZE)) return;
+    currentPage = page;
+    renderizarHistorial();
+  }
 
   async function init() {
     await cargarQuejas();
@@ -106,9 +114,10 @@ const QuejasResidente = (() => {
       return;
     }
 
+    var pg = Utils.paginate(quejas, currentPage, PAGE_SIZE);
     var html = '<div style="display:flex;flex-direction:column;gap:12px">';
     
-    quejas.forEach(function(q) {
+    pg.items.forEach(function(q) {
       var estadoBadge = getEstadoBadge(q.estado);
       var tipoBadge = getTipoBadge(q.tipo);
       var fecha = Utils.formatDate(q.fechaCreacion);
@@ -144,7 +153,10 @@ const QuejasResidente = (() => {
     });
     
     html += '</div>';
+    html += '<div id="pagination-quejas-residente" style="margin-top:16px"></div>';
     container.innerHTML = html;
+    var pagEl = document.getElementById('pagination-quejas-residente');
+    if (pagEl) pagEl.innerHTML = Utils.paginationHtml(pg, 'QuejasResidente.goToPage');
   }
 
   function getTipoBadge(tipo) {
@@ -233,6 +245,7 @@ const QuejasResidente = (() => {
     apelarMulta: apelarMulta,
     abrirCamara: abrirCamara,
     capturar: capturar,
-    retomar: retomar
+    retomar: retomar,
+    goToPage: goToPage
   };
 })();
