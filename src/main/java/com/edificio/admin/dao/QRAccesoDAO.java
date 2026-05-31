@@ -222,7 +222,6 @@ public class QRAccesoDAO implements CrudDAO<QRAcceso> {
      * fecha_expiracion = CURRENT_TIMESTAMP + intervalo(tiempoValidezMin).
      * El codigo_qr debe generarse en Oracle; desde Java solo se almacena.
      */
-    @Override
     public Integer insert(Integer idVisita, String codigoQr, int tiempoValidezMin) throws SQLException {
         String sql = "BEGIN INSERT INTO QR_ACCESOS "
                    + "  (id_visita, codigo_qr, fecha_generacion, fecha_expiracion, usado) "
