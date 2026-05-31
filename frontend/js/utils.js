@@ -670,6 +670,37 @@ const Utils = (() => {
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
   }
 
+  function buscadorHtml(id, placeholder) {
+    return '<div class="search-bar" style="margin-bottom:12px">' +
+      '<span class="material-symbols-outlined" style="position:absolute;margin:8px 0 0 12px;color:var(--text-secondary);font-size:20px">search</span>' +
+      '<input type="text" id="' + id + '" class="form-control" style="padding-left:40px" placeholder="' + (placeholder || 'Buscar...') + '">' +
+    '</div>';
+  }
+
+  function crearBuscador(inputId, data, fields, onFilter) {
+    var input = document.getElementById(inputId);
+    if (!input) return;
+    var timeout = null;
+    input.addEventListener('input', function() {
+      clearTimeout(timeout);
+      timeout = setTimeout(function() {
+        var term = input.value.toLowerCase().trim();
+        if (!term) {
+          onFilter(data);
+          return;
+        }
+        var filtered = data.filter(function(item) {
+          return fields.some(function(field) {
+            var val = item[field];
+            if (val === null || val === undefined) return false;
+            return String(val).toLowerCase().includes(term);
+          });
+        });
+        onFilter(filtered);
+      }, 250);
+    });
+  }
+
   return {
     parseDate, formatDate, formatDateTime, formatTime, formatCurrency,
     showToast, showConfirm, showAlert, loadingSpinner, emptyState,
@@ -682,6 +713,7 @@ const Utils = (() => {
     valRequerido, valSelect, valNumero, valEntero, valFecha, valFechaNacimiento,
     valPlaca, valLongitud, valUsername, valPassword,
     soloNumeros, soloLetras, soloAlfanumerico, validarTelefonoTiempoReal,
-    mostrarFotoGrande, todayStr, dateToStr
+    mostrarFotoGrande, todayStr, dateToStr,
+    buscadorHtml, crearBuscador
   };
 })();

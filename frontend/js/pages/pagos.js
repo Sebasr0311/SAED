@@ -1,8 +1,9 @@
 const Pagos = (() => {
-  var allCuotasPendientes = [];   // GET /cuotas?pendientes=true
-  var allMultas = [];             // GET /multas/todas  (todos los estados)
-  var residentes = [];            // filas agrupadas por apartamento
-  var currentDetalleApto = null;  // apto que está abierto en el modal de detalle
+  var allCuotasPendientes = [];
+  var allMultas = [];
+  var residentes = [];
+  var _allResidentes = [];
+  var currentDetalleApto = null;
 
   var METODOS = ['EFECTIVO', 'TRANSFERENCIA'];
   const PAGE_SIZE = 15;
@@ -134,6 +135,12 @@ const Pagos = (() => {
       allCuotasPendientes = resultados[0];
       allMultas           = resultados[1];
       residentes = agrupar(allCuotasPendientes, allMultas);
+      _allResidentes = residentes.slice();
+      var pagEl = document.getElementById('pagination-pagos');
+      if (pagEl && !document.getElementById('search-pagos')) {
+        pagEl.insertAdjacentHTML('beforebegin', Utils.buscadorHtml('search-pagos', 'Buscar por apto o residente...'));
+        Utils.crearBuscador('search-pagos', _allResidentes, ['apto', 'residente'], function(f) { residentes = f; currentPage = 1; renderTabla(); });
+      }
       currentPage = 1;
       renderTabla();
     } catch (e) {

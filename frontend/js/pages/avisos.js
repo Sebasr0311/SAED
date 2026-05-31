@@ -1,6 +1,7 @@
 const Avisos = (() => {
-  let apartamentosPorPiso = {}; // Mapa de piso -> array de apartamentos
+  let apartamentosPorPiso = {};
   let _avisosData = [];
+  let _allAvisosData = [];
   const PAGE_SIZE = 15;
   let currentPage = 1;
 
@@ -311,6 +312,12 @@ const Avisos = (() => {
   async function cargarAvisos() {
     try {
       _avisosData = await API.get('/buzon/avisos');
+      _allAvisosData = _avisosData.slice();
+      var pagEl = document.getElementById('pagination-avisos');
+      if (pagEl && !document.getElementById('search-avisos')) {
+        pagEl.insertAdjacentHTML('beforebegin', Utils.buscadorHtml('search-avisos', 'Buscar por asunto o contenido...'));
+        Utils.crearBuscador('search-avisos', _allAvisosData, ['asunto', 'contenido'], function(f) { _avisosData = f; currentPage = 1; renderTabla(); });
+      }
       currentPage = 1;
       renderTabla();
     } catch (err) {

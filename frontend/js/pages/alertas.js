@@ -1,5 +1,6 @@
 const Alertas = (() => {
   let data = [];
+  let _allData = [];
   const PAGE_SIZE = 15;
   let currentPage = 1;
 
@@ -31,6 +32,12 @@ const Alertas = (() => {
     try {
       const soloNoLeidas = document.getElementById('alerta-solo-no-leidas')?.checked;
       data = await API.get('/alertas' + (soloNoLeidas ? '?soloNoLeidas=true' : ''));
+      _allData = data.slice();
+      var tblContainer = document.querySelector('#paginacion-alertas');
+      if (tblContainer && !document.getElementById('search-alertas')) {
+        tblContainer.insertAdjacentHTML('beforebegin', Utils.buscadorHtml('search-alertas', 'Buscar por tipo, apartamento o residente...'));
+        Utils.crearBuscador('search-alertas', _allData, ['tipoAlerta', 'numeroApartamento', 'nombreResidente', 'estadoCuota'], function(f) { data = f; currentPage = 1; render(); });
+      }
       currentPage = 1;
       render();
     } catch (e) { Utils.showToast(e.message, 'error'); }

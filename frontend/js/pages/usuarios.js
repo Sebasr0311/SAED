@@ -1,5 +1,6 @@
 const Usuarios = (() => {
   let data = [];
+  let _allData = [];
   let editingId = null;
   const PAGE_SIZE = 15;
   let currentPage = 1;
@@ -55,8 +56,16 @@ const Usuarios = (() => {
   }
 
   async function cargar() {
-    try { data = await API.get('/usuarios'); currentPage = 1; render(); }
-    catch (e) { Utils.showAlert('Error', e.message, 'error'); }
+    try {
+      data = await API.get('/usuarios');
+      _allData = data.slice();
+      var tblContainer = document.querySelector('#paginacion-usuarios');
+      if (tblContainer && !document.getElementById('search-usuarios')) {
+        tblContainer.insertAdjacentHTML('beforebegin', Utils.buscadorHtml('search-usuarios', 'Buscar por username, rol o nombre...'));
+        Utils.crearBuscador('search-usuarios', _allData, ['username', 'rol', 'nombreResidente'], function(f) { data = f; currentPage = 1; render(); });
+      }
+      currentPage = 1; render();
+    } catch (e) { Utils.showAlert('Error', e.message, 'error'); }
   }
 
   function mostrarFormulario(u) {

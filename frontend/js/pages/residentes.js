@@ -1,5 +1,6 @@
 const Residentes = (() => {
   let data = [];
+  let _allData = [];
   let editingId = null;
   const PAGE_SIZE = 15;
   let currentPage = 1;
@@ -68,6 +69,12 @@ const Residentes = (() => {
     try {
       data = await API.get('/residentes');
       data.sort((a, b) => (parseInt(a.numeroApartamento) || 0) - (parseInt(b.numeroApartamento) || 0));
+      _allData = data.slice();
+      var tblContainer = document.querySelector('.table-container');
+      if (tblContainer && !document.getElementById('search-residentes')) {
+        tblContainer.insertAdjacentHTML('beforebegin', Utils.buscadorHtml('search-residentes', 'Buscar por nombre, documento o apartamento...'));
+        Utils.crearBuscador('search-residentes', _allData, ['nombres', 'apellidos', 'numeroDocumento', 'numeroApartamento'], function(f) { data = f; currentPage = 1; render(); });
+      }
       currentPage = 1;
       render();
     } catch (e) { Utils.showAlert('Error', e.message, 'error'); }

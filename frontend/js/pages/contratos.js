@@ -1,8 +1,9 @@
 const Contratos = (() => {
   let data = [];
+  let _allData = [];
   let editingId = null;
-  let aptsData = [];      // cache de todos los apartamentos para lookups
-  let residentesData = []; // cache de todos los residentes
+  let aptsData = [];
+  let residentesData = [];
   const PAGE_SIZE = 15;
   let currentPage = 1;
 
@@ -52,6 +53,19 @@ const Contratos = (() => {
   async function cargar() {
     try {
       data = await API.get('/contratos');
+      _allData = data.slice();
+      var tblContainer = document.querySelector('#paginacion-contratos');
+      if (tblContainer && !document.getElementById('search-contratos')) {
+        tblContainer.insertAdjacentHTML('beforebegin', Utils.buscadorHtml('search-contratos', 'Buscar por contrato, apartamento o estado...'));
+        Utils.crearBuscador('search-contratos', _allData, ['idContrato', 'numeroApartamento', 'estado'], function(f) {
+          data = f;
+          var filtro = document.getElementById('con-filtro-estado');
+          if (filtro && filtro.value) {
+            data = data.filter(function(c) { return c.estado === filtro.value; });
+          }
+          currentPage = 1; render();
+        });
+      }
       var filtro = document.getElementById('con-filtro-estado');
       if (filtro && filtro.value) {
         data = data.filter(function(c) { return c.estado === filtro.value; });

@@ -1,5 +1,6 @@
 const Apartamentos = (() => {
   let data = [];
+  let _allData = [];
   let editingId = null;
   const PAGE_SIZE = 15;
   let currentPage = 1;
@@ -39,8 +40,16 @@ const Apartamentos = (() => {
   }
 
   async function cargar() {
-    try { data = await API.get('/apartamentos'); currentPage = 1; render(); }
-    catch (e) { Utils.showAlert('Error', e.message, 'error'); }
+    try {
+      data = await API.get('/apartamentos');
+      _allData = data.slice();
+      var tblContainer = document.querySelector('#paginacion-apartamentos');
+      if (tblContainer && !document.getElementById('search-apartamentos')) {
+        tblContainer.insertAdjacentHTML('beforebegin', Utils.buscadorHtml('search-apartamentos', 'Buscar por n\u00famero, piso, torre o estado...'));
+        Utils.crearBuscador('search-apartamentos', _allData, ['numero', 'piso', 'torre', 'estado'], function(f) { data = f; currentPage = 1; render(); });
+      }
+      currentPage = 1; render();
+    } catch (e) { Utils.showAlert('Error', e.message, 'error'); }
   }
 
   function mostrarFormulario(a) {
