@@ -28,7 +28,7 @@ const Avisos = (() => {
         + '<td>' + Utils.escapeHtml(a.numeroApartamento || 'Todos') + '</td>'
         + '<td>' + Utils.escapeHtml(a.titulo || '') + '</td>'
         + '<td>' + Utils.escapeHtml(a.cuerpo || '') + '</td>'
-        + '<td>' + (a.fechaCreacion ? a.fechaCreacion.substring(0, 19).replace('T', ' ') : '') + '</td></tr>';
+        + '<td>' + (a.fechaCreacion || a.fechaEnvio ? Utils.formatDateTime(a.fechaCreacion || a.fechaEnvio) : '') + '</td></tr>';
     }).join('');
     if (pag) pag.innerHTML = Utils.paginationHtml(pg, 'Avisos.goToPage');
   }

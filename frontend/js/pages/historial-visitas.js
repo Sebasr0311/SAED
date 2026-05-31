@@ -18,15 +18,15 @@ const HistorialVisitas = (() => {
   function renderPage() {
     var today = new Date();
     today.setHours(0, 0, 0, 0);
-    var todayStr = today.toISOString().split('T')[0];
+    var todayStr = Utils.todayStr();
     var lastWeek = new Date(today);
     lastWeek.setDate(lastWeek.getDate() - 7);
-    var lastWeekStr = lastWeek.toISOString().split('T')[0];
+    var lastWeekStr = Utils.dateToStr(lastWeek);
     
     // Fecha mínima: 2 años atrás
     var dosAnosAtras = new Date(today);
     dosAnosAtras.setFullYear(dosAnosAtras.getFullYear() - 2);
-    var minDateStr = dosAnosAtras.toISOString().split('T')[0];
+    var minDateStr = Utils.dateToStr(dosAnosAtras);
 
     var html = `
       <div class="card">
@@ -92,11 +92,11 @@ const HistorialVisitas = (() => {
     
     var today = new Date();
     today.setHours(0, 0, 0, 0);
-    var todayStr = today.toISOString().split('T')[0];
+    var todayStr = Utils.todayStr();
     
     var dosAnosAtras = new Date(today);
     dosAnosAtras.setFullYear(dosAnosAtras.getFullYear() - 2);
-    var minDateStr = dosAnosAtras.toISOString().split('T')[0];
+    var minDateStr = Utils.dateToStr(dosAnosAtras);
     
     // Validar que no sean fechas futuras
     if (fechaInicio > todayStr) {

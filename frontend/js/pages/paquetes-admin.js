@@ -20,10 +20,10 @@ const PaquetesAdmin = (() => {
   function renderPage() {
     var today = new Date();
     today.setHours(0, 0, 0, 0);
-    var todayStr = today.toISOString().split('T')[0];
+    var todayStr = Utils.todayStr();
     var lastMonth = new Date(today);
     lastMonth.setDate(lastMonth.getDate() - 30);
-    var lastMonthStr = lastMonth.toISOString().split('T')[0];
+    var lastMonthStr = Utils.dateToStr(lastMonth);
 
     var container = document.getElementById('content-area');
     container.innerHTML = `
@@ -74,9 +74,7 @@ const PaquetesAdmin = (() => {
   }
 
   function configurarFechas() {
-    var today = new Date();
-    today.setHours(0, 0, 0, 0);
-    var todayStr = today.toISOString().split('T')[0];
+    var todayStr = Utils.todayStr();
     document.getElementById('paq-fecha-inicio').max = todayStr;
     document.getElementById('paq-fecha-fin').max = todayStr;
   }
@@ -89,9 +87,7 @@ const PaquetesAdmin = (() => {
 
     if (!fechaInicio || !fechaFin) return true;
 
-    var today = new Date();
-    today.setHours(0, 0, 0, 0);
-    var todayStr = today.toISOString().split('T')[0];
+    var todayStr = Utils.todayStr();
 
     if (fechaInicio > todayStr) {
       Utils.mostrarError('paq-fecha-inicio', 'No se pueden buscar fechas futuras');

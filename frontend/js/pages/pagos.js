@@ -302,10 +302,10 @@ const Pagos = (() => {
     currentDetalleApto = apto;
     document.querySelectorAll('.modal-overlay').forEach(function(el) { el.remove(); });
 
-    var today   = new Date().toISOString().split('T')[0];
+    var today   = Utils.todayStr();
     var minDate = new Date();
     minDate.setMonth(minDate.getMonth() - 1);
-    var minStr  = minDate.toISOString().split('T')[0];
+    var minStr  = Utils.dateToStr(minDate);
 
     Utils.modal(
       'Registrar Pago de Cuota',
@@ -371,10 +371,10 @@ const Pagos = (() => {
     Utils.limpiarErrores('form-pago-cuota');
 
     // ── Fecha de pago ──────────────────────────────────────────────
-    var today   = new Date().toISOString().split('T')[0];
+    var today   = Utils.todayStr();
     var minDate = new Date();
     minDate.setMonth(minDate.getMonth() - 1);
-    var minStr  = minDate.toISOString().split('T')[0];
+    var minStr  = Utils.dateToStr(minDate);
 
     var fecha = document.getElementById('pago-fecha').value;
     if (!fecha) {
