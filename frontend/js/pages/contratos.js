@@ -203,8 +203,11 @@ const Contratos = (() => {
       '<button class="btn btn-primary" id="btn-guardar-contrato" onclick="Contratos.guardar()">Crear Contrato</button>'
     );
 
-    // Calcular fecha fin al abrir (con INICIAL por defecto)
     setTimeout(function() { calcularFechaFin(); }, 80);
+    setTimeout(function() {
+      Utils.selectBusqueda('con-apt');
+      Utils.selectBusqueda('con-residente');
+    }, 150);
   }
 
   // --- Cuando cambia el apartamento: auto-fill valor + sugerir tipo ---
