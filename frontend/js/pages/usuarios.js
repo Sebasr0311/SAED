@@ -59,7 +59,7 @@ const Usuarios = (() => {
     try {
       data = await API.get('/usuarios');
       _allData = data.slice();
-      var tblContainer = document.querySelector('#paginacion-usuarios');
+      var tblContainer = document.querySelector('#pagination-usuarios');
       if (tblContainer && !document.getElementById('search-usuarios')) {
         tblContainer.insertAdjacentHTML('beforebegin', Utils.buscadorHtml('search-usuarios', 'Buscar por username, rol o nombre...'));
         Utils.crearBuscador('search-usuarios', _allData, ['username', 'rol', 'nombreResidente'], function(f) { data = f; currentPage = 1; render(); });
