@@ -319,8 +319,8 @@ const Utils = (() => {
     var d = new Date(value);
     if (isNaN(d.getTime())) { mostrarError(inputId, 'Fecha inv\u00e1lida'); return false; }
     var year = d.getFullYear();
-    if (year < 1900 || year > 2100) {
-      mostrarError(inputId, 'Fecha fuera de rango permitido (1900-2100)');
+    if (year < 1930 || year > 2100) {
+      mostrarError(inputId, 'Fecha fuera de rango permitido (1930-2100)');
       return false;
     }
     return true;
@@ -334,8 +334,8 @@ const Utils = (() => {
     if (isNaN(fecha.getTime())) { mostrarError(inputId, 'Fecha inválida'); return false; }
     
     var year = fecha.getFullYear();
-    if (year < 1900) {
-      mostrarError(inputId, 'Fecha de nacimiento no v\u00e1lida (a\u00f1o anterior a 1900)');
+    if (year < 1930) {
+      mostrarError(inputId, 'Fecha de nacimiento no v\u00e1lida (a\u00f1o anterior a 1930)');
       return false;
     }
     
