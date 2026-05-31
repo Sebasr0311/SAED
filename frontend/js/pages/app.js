@@ -113,7 +113,56 @@ function buildSidebar() {
         icon: 'home',
         label: 'Mi Portal',
         items: [
-          { page: 'residente-dashboard', label: 'Mi Portal' }
+          { page: 'residente-dashboard', label: 'Resumen' }
+        ]
+      },
+      {
+        icon: 'person',
+        label: 'Perfil',
+        items: [
+          { page: 'residente-perfil', label: 'Editar Perfil' }
+        ]
+      },
+      {
+        icon: 'apartment',
+        label: 'Apartamento',
+        items: [
+          { page: 'residente-apartamento', label: 'Mi Apartamento' }
+        ]
+      },
+      {
+        icon: 'payments',
+        label: 'Cuotas',
+        items: [
+          { page: 'residente-cuotas', label: 'Cuotas' }
+        ]
+      },
+      {
+        icon: 'group',
+        label: 'Frecuentes',
+        items: [
+          { page: 'residente-frecuentes', label: 'Frecuentes' }
+        ]
+      },
+      {
+        icon: 'mail',
+        label: 'Buz\u00f3n',
+        items: [
+          { page: 'residente-buzon', label: 'Buz\u00f3n' }
+        ]
+      },
+      {
+        icon: 'person_add',
+        label: 'Visitas',
+        items: [
+          { page: 'residente-visita', label: 'Nueva Visita' }
+        ]
+      },
+      {
+        icon: 'description',
+        label: 'Solicitudes',
+        items: [
+          { page: 'residente-quejas', label: 'Solicitudes' }
         ]
       }
     ]
