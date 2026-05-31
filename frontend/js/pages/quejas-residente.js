@@ -2,7 +2,7 @@ const QuejasResidente = (() => {
   var quejas = [];
   var stream = null;
   var fotoCapturada = null;
-  const PAGE_SIZE = 3;
+  const PAGE_SIZE = 2;
   var currentPage = 1;
 
   function goToPage(page) {
