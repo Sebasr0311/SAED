@@ -136,9 +136,9 @@ const Pagos = (() => {
       allMultas           = resultados[1];
       residentes = agrupar(allCuotasPendientes, allMultas);
       _allResidentes = residentes.slice();
-      var pagEl = document.getElementById('pagination-pagos');
-      if (pagEl && !document.getElementById('search-pagos')) {
-        pagEl.insertAdjacentHTML('beforebegin', Utils.buscadorHtml('search-pagos', 'Buscar por apto o residente...'));
+      var tblContainer = document.querySelector('.table-container');
+      if (tblContainer && !document.getElementById('search-pagos')) {
+        tblContainer.insertAdjacentHTML('beforebegin', Utils.buscadorHtml('search-pagos', 'Buscar por apto o residente...'));
         Utils.crearBuscador('search-pagos', _allResidentes, ['apto', 'residente'], function(f) { residentes = f; currentPage = 1; renderTabla(); });
       }
       currentPage = 1;

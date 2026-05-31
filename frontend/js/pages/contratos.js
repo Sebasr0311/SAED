@@ -54,7 +54,7 @@ const Contratos = (() => {
     try {
       data = await API.get('/contratos');
       _allData = data.slice();
-      var tblContainer = document.querySelector('#pagination-contratos');
+      var tblContainer = document.querySelector('.table-container');
       if (tblContainer && !document.getElementById('search-contratos')) {
         tblContainer.insertAdjacentHTML('beforebegin', Utils.buscadorHtml('search-contratos', 'Buscar por contrato, apartamento o estado...'));
         Utils.crearBuscador('search-contratos', _allData, ['idContrato', 'numeroApartamento', 'estado'], function(f) {

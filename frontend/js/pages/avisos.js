@@ -88,7 +88,7 @@ const Avisos = (() => {
         }
       });
       dropdown.appendChild(searchApt);
-
+      
       // Separador
       var sep1 = document.createElement('div');
       sep1.className = 'multi-select-separator';
@@ -335,9 +335,9 @@ const Avisos = (() => {
     try {
       _avisosData = await API.get('/buzon/avisos');
       _allAvisosData = _avisosData.slice();
-      var pagEl = document.getElementById('pagination-avisos');
-      if (pagEl && !document.getElementById('search-avisos')) {
-        pagEl.insertAdjacentHTML('beforebegin', Utils.buscadorHtml('search-avisos', 'Buscar por asunto o contenido...'));
+      var tblContainer = document.querySelector('.table-container');
+      if (tblContainer && !document.getElementById('search-avisos')) {
+        tblContainer.insertAdjacentHTML('beforebegin', Utils.buscadorHtml('search-avisos', 'Buscar por asunto o contenido...'));
         Utils.crearBuscador('search-avisos', _allAvisosData, ['asunto', 'contenido'], function(f) { _avisosData = f; currentPage = 1; renderTabla(); });
       }
       currentPage = 1;
