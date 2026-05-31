@@ -120,7 +120,7 @@ const Residentes = (() => {
         <div class="form-row">
           <div class="form-group">
             <label>Fecha de Nacimiento</label>
-            <input type="date" id="res-fecha-nac" class="form-control" value="${r ? r.fechaNacimiento || '' : ''}" min="1900-01-01" max="${new Date().toISOString().split('T')[0]}" onchange="Residentes.chequearEdad()">
+            <input type="date" id="res-fecha-nac" class="form-control" value="${r ? r.fechaNacimiento || '' : ''}" min="1930-01-01" max="${new Date().toISOString().split('T')[0]}" onchange="Residentes.chequearEdad()">
             <span class="field-error" id="res-fecha-nac-error"></span>
           </div>
           <div class="form-group">
