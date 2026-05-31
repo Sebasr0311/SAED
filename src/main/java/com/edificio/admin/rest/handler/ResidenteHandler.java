@@ -147,6 +147,41 @@ public class ResidenteHandler extends BaseHandler implements HttpHandler {
                 }
                 
                 sendJson(exchange, 201, Map.of("id", id));
+            } else if ("POST".equalsIgnoreCase(method) && parts.length == 5 && "asignar-apartamento".equals(parts[4])) {
+                int idResidente = Integer.parseInt(parts[3]);
+                String body = new String(exchange.getRequestBody().readAllBytes(), "UTF-8");
+                @SuppressWarnings("unchecked")
+                Map<String, Object> data = JsonUtil.fromJson(body, Map.class);
+                Object aptObj = data.get("idApartamento");
+                if (aptObj == null) throw new Exception("idApartamento requerido");
+                int idApartamento = ((Number) aptObj).intValue();
+                String rol = data.containsKey("rolEnContrato") ? (String) data.get("rolEnContrato") : "OTRO";
+                
+                if (!"ARRENDATARIO".equals(rol) && !"CODEUDOR".equals(rol)
+                    && !"RESIDENTE_MENOR".equals(rol) && !"OTRO".equals(rol))
+                    throw new Exception("Rol invalido: use ARRENDATARIO, CODEUDOR, RESIDENTE_MENOR u OTRO");
+                
+                Contrato c = contratoDAO.findActivoByApartamento(idApartamento);
+                if (c == null) throw new Exception("El apartamento no tiene un contrato activo");
+                
+                Apartamento apt = apartamentoDAO.findById(idApartamento);
+                if (apt == null) throw new Exception("Apartamento no encontrado");
+                int capMax = apt.getCapacidadMaxima() != null ? apt.getCapacidadMaxima() : 2;
+                List<ContratoResidente> actuales = contratoResidenteDAO.findByContrato(c.getIdContrato());
+                if (actuales.size() >= capMax)
+                    throw new Exception("Capacidad maxima alcanzada (" + capMax + " residentes)");
+                
+                List<ContratoResidente> existentes = contratoResidenteDAO.findByResidente(idResidente);
+                if (!existentes.isEmpty())
+                    throw new Exception("El residente ya esta asignado a un contrato activo");
+                
+                ContratoResidente cr = new ContratoResidente();
+                cr.setIdContrato(c.getIdContrato());
+                cr.setIdResidente(idResidente);
+                cr.setRolEnContrato(rol);
+                contratoResidenteDAO.insert(cr);
+                
+                sendJson(exchange, 200, Map.of("mensaje", "Residente asignado al apartamento " + apt.getNumero()));
             } else if ("PUT".equalsIgnoreCase(method) && parts.length == 5 && "perfil".equals(parts[4])) {
                 String body = new String(exchange.getRequestBody().readAllBytes(), "UTF-8");
                 @SuppressWarnings("unchecked")

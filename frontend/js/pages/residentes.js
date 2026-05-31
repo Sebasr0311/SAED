@@ -56,6 +56,7 @@ const Residentes = (() => {
         <td>${r.email || '-'}</td>
         <td class="actions-cell">
           <button class="btn btn-primary btn-sm" onclick="Residentes.editar(${r.id})">Editar</button>
+          ${!r.numeroApartamento ? '<button class="btn btn-accent btn-sm" onclick="Residentes.asignarApartamento(' + r.id + ')">Asignar</button>' : ''}
           <button class="btn btn-danger btn-sm" onclick="Residentes.eliminar(${r.id})">Eliminar</button>
         </td>
       </tr>`;
@@ -514,7 +515,50 @@ const Residentes = (() => {
     } catch (e) { Utils.showToast(e.message, 'error'); }
   }
 
-  return { cargar, render, mostrarFormulario, guardar, editar, eliminar, goToPage, chequearEdad };
+  async function asignarApartamento(id) {
+    try {
+      var apts = await API.get('/apartamentos');
+      var body =
+        '<form id="form-asignar-apt">' +
+        '<div class="form-group"><label>Apartamento</label>' +
+        '<select id="sel-apartamento" class="form-control">' +
+        '<option value="">Seleccione...</option>' +
+        apts.map(function(a) { return '<option value="' + a.idApartamento + '">' + Utils.escapeHtml(a.numero) + ' (Cap. ' + (a.capacidadMaxima || 2) + ')</option>'; }).join('') +
+        '</select><span class="field-error" id="sel-apartamento-error"></span></div>' +
+        '<div class="form-group"><label>Rol en el contrato</label>' +
+        '<select id="sel-rol" class="form-control">' +
+        '<option value="OTRO">Otro</option>' +
+        '<option value="ARRENDATARIO">Arrendatario</option>' +
+        '<option value="CODEUDOR">Codeudor</option>' +
+        '<option value="RESIDENTE_MENOR">Residente Menor</option>' +
+        '</select></div>' +
+        '</form>';
+      var modal = Utils.modal('Asignar Apartamento', body,
+        '<button class="btn btn-outline" onclick="this.closest(\'.modal-overlay\').remove()">Cancelar</button>' +
+        '<button class="btn btn-accent" id="btn-asignar" onclick="Residentes.confirmarAsignacion(' + id + ')">Asignar</button>');
+    } catch (e) { Utils.showToast('Error al cargar apartamentos: ' + e.message, 'error'); }
+  }
+
+  async function confirmarAsignacion(idResidente) {
+    var selApt = document.getElementById('sel-apartamento');
+    var selRol = document.getElementById('sel-rol');
+    if (!selApt || !selApt.value) { Utils.showToast('Seleccione un apartamento', 'warn'); return; }
+    var btn = document.getElementById('btn-asignar');
+    if (btn) btn.disabled = true;
+    try {
+      await API.post('/residentes/' + idResidente + '/asignar-apartamento', {
+        idApartamento: parseInt(selApt.value),
+        rolEnContrato: selRol.value
+      });
+      Utils.showToast('Residente asignado al apartamento', 'success');
+      var overlay = document.querySelector('.modal-overlay');
+      if (overlay) overlay.remove();
+      cargar();
+    } catch (e) { Utils.showToast(e.message, 'error'); }
+    finally { if (btn) btn.disabled = false; }
+  }
+
+  return { cargar, render, mostrarFormulario, guardar, editar, eliminar, asignarApartamento, confirmarAsignacion, goToPage, chequearEdad };
 })();
 
 Router.register('residentes', {
