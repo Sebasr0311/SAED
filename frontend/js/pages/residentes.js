@@ -6,7 +6,7 @@ const Residentes = (() => {
 
   function calcularEdad(fechaNacimiento) {
     if (!fechaNacimiento) return 0;
-    var nac = new Date(fechaNacimiento + 'T00:00:00');
+    var nac = Utils.parseDate(fechaNacimiento);
     var hoy = new Date();
     hoy.setHours(0, 0, 0, 0);
     var edad = hoy.getFullYear() - nac.getFullYear();
@@ -120,7 +120,7 @@ const Residentes = (() => {
         <div class="form-row">
           <div class="form-group">
             <label>Fecha de Nacimiento</label>
-            <input type="date" id="res-fecha-nac" class="form-control" value="${r ? r.fechaNacimiento || '' : ''}" min="1930-01-01" max="${new Date().toISOString().split('T')[0]}" onchange="Residentes.validarFechaNacInput()">
+            <input type="date" id="res-fecha-nac" class="form-control" value="${r ? r.fechaNacimiento || '' : ''}" min="1930-01-01" max="${Utils.todayStr()}" onchange="Residentes.validarFechaNacInput()">
             <span class="field-error" id="res-fecha-nac-error"></span>
           </div>
           <div class="form-group">
@@ -353,7 +353,7 @@ const Residentes = (() => {
     var errorEl = document.getElementById('res-fecha-nac-error');
     if (!fn) return;
     if (!fn.value) { if (errorEl) errorEl.textContent = ''; fn.classList.remove('is-invalid'); return; }
-    var nac = new Date(fn.value + 'T00:00:00');
+    var nac = Utils.parseDate(fn.value);
     if (isNaN(nac.getTime())) { if (errorEl) errorEl.textContent = 'Fecha inv\u00e1lida'; fn.classList.add('is-invalid'); return; }
     var year = nac.getFullYear();
     if (year < 1930) {
@@ -381,7 +381,7 @@ const Residentes = (() => {
     var desc = document.getElementById('tutor-descripcion');
     if (!fn || !section) return;
     if (!fn.value) { section.classList.add('hidden'); return; }
-    var nac = new Date(fn.value + 'T00:00:00');
+    var nac = Utils.parseDate(fn.value);
     var hoy = new Date();
     var edad = hoy.getFullYear() - nac.getFullYear();
     var m = hoy.getMonth() - nac.getMonth();
@@ -460,7 +460,7 @@ const Residentes = (() => {
     var fn = document.getElementById('res-fecha-nac').value;
     var esMenor = false;
     if (fn) {
-      var nac = new Date(fn + 'T00:00:00');
+      var nac = Utils.parseDate(fn);
       var hoy = new Date();
       hoy.setHours(0, 0, 0, 0);
       var edad = hoy.getFullYear() - nac.getFullYear();

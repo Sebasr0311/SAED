@@ -319,7 +319,7 @@ const Dash = (() => {
           + (m.tipo === 'RUIDO' ? 'Ruido' : 'Parqueadero') + ' — ' + Utils.formatCurrency(m.monto)
           + '</span>'
           + '<span style="display:flex;align-items:center;gap:8px">'
-          + '<span style="font-size:11px;color:var(--text-muted)">' + (m.fechaCreacion ? m.fechaCreacion.substring(0, 10) : '-') + '</span>'
+          + '<span style="font-size:11px;color:var(--text-muted)">' + (m.fechaCreacion ? Utils.formatDate(m.fechaCreacion) : '-') + '</span>'
           + '<button class="btn-icon btn-ghost" onclick="event.stopPropagation();Dash.notificarUna(' + m.idMulta + ')" title="Notificar" style="width:28px;height:28px;color:var(--text-muted)">'
           + '<span class="material-symbols-outlined" style="font-size:15px">notifications</span></button>'
           + '</span></div>';

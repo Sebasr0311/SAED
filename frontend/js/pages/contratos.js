@@ -94,8 +94,7 @@ const Contratos = (() => {
       resOpts = '<option value="" disabled>No hay residentes registrados</option>';
     }
 
-    var today = new Date(); today.setHours(0,0,0,0);
-    var todayStr = today.toISOString().split('T')[0];
+    var todayStr = Utils.todayStr();
 
     Utils.modal('Nuevo Contrato',
       '<form id="form-contrato">' +
@@ -279,7 +278,7 @@ const Contratos = (() => {
       var meses = (tipo === 'INICIAL') ? 3 : 6;
       var fin = new Date(inicio);
       fin.setMonth(fin.getMonth() + meses);
-      var finStr = fin.toISOString().split('T')[0];
+      var finStr = Utils.dateToStr(fin);
       finInput.value = finStr;
       finInput.setAttribute('min', finStr);
     }
@@ -342,8 +341,7 @@ const Contratos = (() => {
     if (!Utils.valNumero(document.getElementById('con-valor').value, 'con-valor', { positive: true, label: 'El valor mensual' })) return;
     var fechaInicio = document.getElementById('con-fecha-inicio').value;
     var fechaFin = document.getElementById('con-fecha-fin').value;
-    var today = new Date(); today.setHours(0,0,0,0);
-    var todayStr = today.toISOString().split('T')[0];
+    var todayStr = Utils.todayStr();
     if (fechaInicio < todayStr) { Utils.mostrarError('con-fecha-inicio', 'La fecha de inicio no puede ser anterior a hoy'); return; }
     var tipoContrato = document.getElementById('con-tipo').value;
     if (tipoContrato !== 'PERMANENCIA' && fechaFin && fechaFin < fechaInicio) {
@@ -424,10 +422,10 @@ const Contratos = (() => {
 
   async function mostrarRenovar(id) {
     var today = new Date(); today.setHours(0,0,0,0);
-    var todayStr = today.toISOString().split('T')[0];
+    var todayStr = Utils.todayStr();
     // Fecha fin por defecto: +6 meses (tipo RENOVACION)
     var fin6m = new Date(today); fin6m.setMonth(fin6m.getMonth() + 6);
-    var fin6mStr = fin6m.toISOString().split('T')[0];
+    var fin6mStr = Utils.dateToStr(fin6m);
 
     // Cargar datos del contrato vencido para pre-rellenar
     var contrato = null;
@@ -487,7 +485,7 @@ const Contratos = (() => {
     var inicio = new Date(inicioInput.value + 'T12:00:00');
     var fin = new Date(inicio);
     fin.setMonth(fin.getMonth() + 6);
-    finInput.value = fin.toISOString().split('T')[0];
+    finInput.value = Utils.dateToStr(fin);
   }
 
   async function renovar(id) {
