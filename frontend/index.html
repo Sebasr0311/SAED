@@ -486,7 +486,7 @@
     <div class="tab-content" id="tab-qr-parqueaderos" role="tabpanel"></div>
   </template>
 
-  <!-- Page: Residente Dashboard -->
+  <!-- Page: Residente Dashboard (Resumen) -->
   <template id="tpl-residente-dashboard">
     <div class="card-grid-4" id="res-kpis">
       <div class="stat-card">
@@ -506,89 +506,103 @@
         <div class="stat-body"><div class="stat-value" id="res-kpi-multas" style="font-size:24px">-</div><div class="stat-label">Multas Pendientes</div></div>
       </div>
     </div>
-    <div style="display:flex;gap:16px;align-items:flex-start">
-      <div style="display:flex;flex-direction:column;gap:2px;min-width:160px;background:var(--card-bg,#fff);border:1px solid var(--border);border-radius:12px;padding:8px" class="res-side-tabs" id="res-dash-tabs">
-        <div class="tab side-tab active" role="tab" aria-selected="true" data-tab="res-tab-resumen" onclick="ResidenteDash.cambiarTab('res-tab-resumen')">Resumen</div>
-        <div class="tab side-tab" role="tab" aria-selected="false" data-tab="res-tab-perfil" onclick="ResidenteDash.cambiarTab('res-tab-perfil')">Editar Perfil</div>
-        <div class="tab side-tab" role="tab" aria-selected="false" data-tab="res-tab-apartamento" onclick="ResidenteDash.cambiarTab('res-tab-apartamento')">Mi Apartamento</div>
-        <div class="tab side-tab" role="tab" aria-selected="false" data-tab="res-tab-cuotas" onclick="ResidenteDash.cambiarTab('res-tab-cuotas')">Cuotas</div>
-        <div class="tab side-tab" role="tab" aria-selected="false" data-tab="res-tab-frecuentes" onclick="ResidenteDash.cambiarTab('res-tab-frecuentes')">Frecuentes</div>
-        <div class="tab side-tab" role="tab" aria-selected="false" data-tab="res-tab-buzon" onclick="ResidenteDash.cambiarTab('res-tab-buzon')" style="position:relative">Buz&oacute;n<span class="buz-badge hidden" id="buzon-badge">0</span></div>
-        <div class="tab side-tab" role="tab" aria-selected="false" data-tab="res-tab-nueva-visita" onclick="ResidenteDash.cambiarTab('res-tab-nueva-visita')">Nueva Visita</div>
-        <div class="tab side-tab" role="tab" aria-selected="false" data-tab="res-tab-quejas" onclick="ResidenteDash.cambiarTab('res-tab-quejas')">Solicitudes</div>
+    <div id="res-tab-resumen"></div>
+  </template>
+
+  <!-- Page: Residente Perfil -->
+  <template id="tpl-res-perfil">
+    <div id="res-tab-perfil"></div>
+  </template>
+
+  <!-- Page: Residente Apartamento -->
+  <template id="tpl-res-apartamento">
+    <div id="res-tab-apartamento"></div>
+  </template>
+
+  <!-- Page: Residente Cuotas -->
+  <template id="tpl-res-cuotas">
+    <div id="res-tab-cuotas"></div>
+  </template>
+
+  <!-- Page: Residente Frecuentes -->
+  <template id="tpl-res-frecuentes">
+    <div id="res-tab-frecuentes"></div>
+  </template>
+
+  <!-- Page: Residente Buzon -->
+  <template id="tpl-res-buzon">
+    <div id="res-tab-buzon"></div>
+  </template>
+
+  <!-- Page: Residente Nueva Visita -->
+  <template id="tpl-res-visita">
+    <div id="res-tab-nueva-visita"></div>
+  </template>
+
+  <!-- Page: Residente Solicitudes -->
+  <template id="tpl-res-quejas">
+    <div id="res-tab-quejas">
+      <div class="card">
+        <div class="card-title">Nueva Queja o Sugerencia</div>
+        <form id="form-nueva-queja" style="display:flex;flex-direction:column;gap:16px">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Tipo <span class="required">*</span></label>
+              <select id="queja-tipo" class="form-control" required>
+                <option value="QUEJA">Queja</option>
+                <option value="SUGERENCIA">Sugerencia</option>
+                <option value="APELACION">Apelación</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Categoría <span class="required">*</span></label>
+              <select id="queja-categoria" class="form-control" required>
+                <option value="LIMPIEZA">Limpieza</option>
+                <option value="SEGURIDAD">Seguridad</option>
+                <option value="MANTENIMIENTO">Mantenimiento</option>
+                <option value="CONVIVENCIA">Convivencia</option>
+                <option value="ZONAS_COMUNES">Zonas Comunes</option>
+                <option value="OTRO">Otro</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Título <span class="required">*</span></label>
+            <input type="text" id="queja-titulo" class="form-control" maxlength="200" required>
+          </div>
+          <div class="form-group">
+            <label>Descripción <span class="required">*</span></label>
+            <textarea id="queja-descripcion" class="form-control" rows="4" required></textarea>
+          </div>
+          <div class="form-group">
+            <label>Foto de Evidencia (Opcional)</label>
+            <div style="display:flex;flex-direction:column;gap:12px">
+              <video id="queja-video" autoplay playsinline style="width:100%;max-width:400px;border-radius:8px;border:1px solid var(--border)" class="hidden"></video>
+              <canvas id="queja-canvas" class="hidden"></canvas>
+              <div id="queja-foto-preview" class="hidden" style="margin-top:8px">
+                <img id="queja-foto-img" src="" alt="Preview" style="max-width:300px;max-height:200px;border-radius:8px;border:1px solid var(--border)">
+              </div>
+              <div style="display:flex;gap:8px">
+                <button type="button" id="queja-btn-camara" class="btn btn-outline btn-sm" onclick="QuejasResidente.abrirCamara()">
+                  <span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle">photo_camera</span> Abrir Cámara
+                </button>
+                <button type="button" id="queja-btn-capturar" class="btn btn-primary btn-sm hidden" onclick="QuejasResidente.capturar()">
+                  <span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle">camera</span> Capturar
+                </button>
+                <button type="button" id="queja-btn-retomar" class="btn btn-outline btn-sm hidden" onclick="QuejasResidente.retomar()">
+                  <span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle">refresh</span> Retomar
+                </button>
+              </div>
+            </div>
+          </div>
+          <div style="text-align:right">
+            <button type="submit" class="btn btn-primary">Enviar</button>
+          </div>
+        </form>
       </div>
-      <div style="flex:1;min-width:0">
-        <div class="tab-content active" id="res-tab-resumen" role="tabpanel"></div>
-        <div class="tab-content" id="res-tab-perfil" role="tabpanel"></div>
-        <div class="tab-content" id="res-tab-apartamento" role="tabpanel"></div>
-        <div class="tab-content" id="res-tab-cuotas" role="tabpanel"></div>
-        <div class="tab-content" id="res-tab-frecuentes" role="tabpanel"></div>
-        <div class="tab-content" id="res-tab-buzon" role="tabpanel"></div>
-        <div class="tab-content" id="res-tab-nueva-visita" role="tabpanel"></div>
-        <div class="tab-content" id="res-tab-quejas" role="tabpanel">
-          <div class="card">
-            <div class="card-title">Nueva Queja o Sugerencia</div>
-            <form id="form-nueva-queja" style="display:flex;flex-direction:column;gap:16px">
-              <div class="form-row">
-                <div class="form-group">
-                  <label>Tipo <span class="required">*</span></label>
-                  <select id="queja-tipo" class="form-control" required>
-                    <option value="QUEJA">Queja</option>
-                    <option value="SUGERENCIA">Sugerencia</option>
-                    <option value="APELACION">Apelación</option>
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label>Categoría <span class="required">*</span></label>
-                  <select id="queja-categoria" class="form-control" required>
-                    <option value="LIMPIEZA">Limpieza</option>
-                    <option value="SEGURIDAD">Seguridad</option>
-                    <option value="MANTENIMIENTO">Mantenimiento</option>
-                    <option value="CONVIVENCIA">Convivencia</option>
-                    <option value="ZONAS_COMUNES">Zonas Comunes</option>
-                    <option value="OTRO">Otro</option>
-                  </select>
-                </div>
-              </div>
-              <div class="form-group">
-                <label>Título <span class="required">*</span></label>
-                <input type="text" id="queja-titulo" class="form-control" maxlength="200" required>
-              </div>
-              <div class="form-group">
-                <label>Descripción <span class="required">*</span></label>
-                <textarea id="queja-descripcion" class="form-control" rows="4" required></textarea>
-              </div>
-              <div class="form-group">
-                <label>Foto de Evidencia (Opcional)</label>
-                <div style="display:flex;flex-direction:column;gap:12px">
-                  <video id="queja-video" autoplay playsinline style="width:100%;max-width:400px;border-radius:8px;border:1px solid var(--border)" class="hidden"></video>
-                  <canvas id="queja-canvas" class="hidden"></canvas>
-                  <div id="queja-foto-preview" class="hidden" style="margin-top:8px">
-                    <img id="queja-foto-img" src="" alt="Preview" style="max-width:300px;max-height:200px;border-radius:8px;border:1px solid var(--border)">
-                  </div>
-                  <div style="display:flex;gap:8px">
-                    <button type="button" id="queja-btn-camara" class="btn btn-outline btn-sm" onclick="QuejasResidente.abrirCamara()">
-                      <span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle">photo_camera</span> Abrir Cámara
-                    </button>
-                    <button type="button" id="queja-btn-capturar" class="btn btn-primary btn-sm hidden" onclick="QuejasResidente.capturar()">
-                      <span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle">camera</span> Capturar
-                    </button>
-                    <button type="button" id="queja-btn-retomar" class="btn btn-outline btn-sm hidden" onclick="QuejasResidente.retomar()">
-                      <span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle">refresh</span> Retomar
-                    </button>
-                  </div>
-                </div>
-              </div>
-              <div style="text-align:right">
-                <button type="submit" class="btn btn-primary">Enviar</button>
-              </div>
-            </form>
-          </div>
-          <div class="card" style="margin-top:20px">
-            <div class="card-title">Mis Quejas y Sugerencias</div>
-            <div id="quejas-historial"></div>
-          </div>
-        </div>
+      <div class="card" style="margin-top:20px">
+        <div class="card-title">Mis Quejas y Sugerencias</div>
+        <div id="quejas-historial"></div>
       </div>
     </div>
   </template>
@@ -922,7 +936,7 @@
   <script src="js/pages/alertas.js?v=2"></script>
   <script src="js/pages/avisos.js?v=2"></script>
   <script src="js/pages/escanner-qr.js?v=2"></script>
-  <script src="js/pages/residente-dashboard.js?v=4"></script>
+  <script src="js/pages/residente-dashboard.js?v=5"></script>
   <script src="js/pages/quejas-residente.js?v=2"></script>
   <script src="js/pages/portero-dashboard.js?v=2"></script>
   <script src="js/pages/paquetes.js?v=2"></script>

@@ -86,11 +86,8 @@ const QuejasResidente = (() => {
   }
 
   async function apelarMulta(idMulta) {
-    // Cambiar a tab de quejas
-    var tab = document.querySelector('#res-dash-tabs .tab[data-tab="res-tab-quejas"]');
-    if (tab) tab.click();
+    Router.navigate('residente-quejas');
 
-    // Esperar un poco para que el tab cambie
     setTimeout(function() {
       // Pre-llenar formulario con tipo APELACION
       document.getElementById('queja-tipo').value = 'APELACION';

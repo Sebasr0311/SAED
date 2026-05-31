@@ -68,42 +68,85 @@ const ResidenteDash = (() => {
   function setText(id, v) { var el = $(id); if (el) el.textContent = (v != null ? v : '-'); }
 
   function cambiarTab(tabId) {
-    document.querySelectorAll('#res-dash-tabs .tab').forEach(function(t) { t.classList.remove('active'); });
-    var resContainer = document.getElementById('res-dash-tabs').parentElement;
-    resContainer.querySelectorAll('.tab-content').forEach(function(t) { t.classList.remove('active'); });
-    var tab = document.querySelector('#res-dash-tabs .tab[data-tab="' + tabId.replace(/["\\]/g, '') + '"]');
-    if (tab) tab.classList.add('active');
-    var content = $(tabId);
-    if (content) content.classList.add('active');
-    if (tabId === 'res-tab-resumen') renderResumen();
-    else if (tabId === 'res-tab-perfil') renderPerfilForm();
-    else if (tabId === 'res-tab-apartamento') renderApartamento();
-    else if (tabId === 'res-tab-cuotas') renderCuotasFull();
-    else if (tabId === 'res-tab-frecuentes') renderFrecuentes();
-    else if (tabId === 'res-tab-buzon') renderBuzon();
-    else if (tabId === 'res-tab-nueva-visita') renderNuevaVisita();
-    else if (tabId === 'res-tab-quejas') { QuejasResidente.init(); }
+    var map = {
+      'res-tab-resumen': 'residente-dashboard',
+      'res-tab-perfil': 'residente-perfil',
+      'res-tab-apartamento': 'residente-apartamento',
+      'res-tab-cuotas': 'residente-cuotas',
+      'res-tab-frecuentes': 'residente-frecuentes',
+      'res-tab-buzon': 'residente-buzon',
+      'res-tab-nueva-visita': 'residente-visita',
+      'res-tab-quejas': 'residente-quejas'
+    };
+    var page = map[tabId];
+    if (page) Router.navigate(page);
   }
 
   async function inicializar() {
-    var user = Auth.getCurrentUser();
-    if (!user || !user.idResidente) { Utils.showToast('No hay residente asociado', 'error'); return; }
     try {
-      _residente = await API.get('/residentes/' + user.idResidente);
-      _dashboard = await API.get('/residentes/' + user.idResidente + '/dashboard');
-      _frecs = await API.get('/residentes/' + user.idResidente + '/frecuentes').catch(function() { return []; });
-      _tiposDoc = await API.get('/tipos-documento').catch(function() { return []; });
+      await _ensureLoaded();
       var titleEl = document.getElementById('page-title');
       if (titleEl) titleEl.textContent = 'Mi Portal — Bienvenido, ' + (_residente.nombres || 'Residente');
       renderKPIs();
       renderResumen();
       iniciarPollConfirmacion();
       actualizarBadgeBuzon();
-    } catch (e) { Utils.showToast(e.message, 'error'); }
+    } catch (e) {
+      if (e) Utils.showToast(e.message, 'error');
+    }
   }
+
+  function initSeccion(section) {
+    _ensureLoaded().then(function() {
+      var titles = {
+        perfil: 'Editar Perfil',
+        apartamento: 'Mi Apartamento',
+        cuotas: 'Cuotas',
+        frecuentes: 'Frecuentes',
+        buzon: 'Buz\u00f3n de Mensajes',
+        visita: 'Nueva Visita',
+        quejas: 'Solicitudes'
+      };
+      var titleEl = document.getElementById('page-title');
+      if (titleEl && titles[section]) titleEl.textContent = titles[section];
+      if (section === 'perfil') renderPerfilForm();
+      else if (section === 'apartamento') renderApartamento();
+      else if (section === 'cuotas') renderCuotasFull();
+      else if (section === 'frecuentes') renderFrecuentes();
+      else if (section === 'buzon') renderBuzon();
+      else if (section === 'visita') renderNuevaVisita();
+      else if (section === 'quejas') { actualizarBadgeBuzon(); QuejasResidente.init(); }
+      if (section === 'buzon' || section === 'quejas') iniciarPollConfirmacion();
+    }).catch(function() {});
+  }
+
+  var _loaded = false;
 
   function limpiar() {
     detenerPollConfirmacion();
+  }
+
+  function _ensureLoaded() {
+    if (_loaded) return Promise.resolve();
+    var user = Auth.getCurrentUser();
+    if (!user || !user.idResidente) { Utils.showToast('No hay residente asociado', 'error'); return Promise.reject(); }
+    return API.get('/residentes/' + user.idResidente)
+      .then(function(r) {
+        _residente = r;
+        return API.get('/residentes/' + user.idResidente + '/dashboard');
+      })
+      .then(function(d) {
+        _dashboard = d;
+        return API.get('/residentes/' + user.idResidente + '/frecuentes').catch(function() { return []; });
+      })
+      .then(function(f) {
+        _frecs = f;
+        return API.get('/tipos-documento').catch(function() { return []; });
+      })
+      .then(function(t) {
+        _tiposDoc = t;
+        _loaded = true;
+      });
   }
 
   function iniciarPollConfirmacion() {
@@ -1145,6 +1188,7 @@ const ResidenteDash = (() => {
 
   return {
     inicializar: inicializar, limpiar: limpiar, cambiarTab: cambiarTab, guardarPerfil: guardarPerfil,
+    initSeccion: initSeccion,
     mostrarModalFrecuente: mostrarModalFrecuente, renovarFrecuente: renovarFrecuente,
     ocultarFrecuente: ocultarFrecuente,
     copiarQR: copiarQR, compartirTelegram: compartirTelegram,
@@ -1162,6 +1206,41 @@ const ResidenteDash = (() => {
 
 Router.register('residente-dashboard', {
   html: document.getElementById('tpl-residente-dashboard').innerHTML,
-  js: function() { document.getElementById('page-title').textContent = 'Mi Portal'; ResidenteDash.inicializar(); },
+  js: function() { ResidenteDash.inicializar(); },
+  onLeave: ResidenteDash.limpiar
+});
+Router.register('residente-perfil', {
+  html: document.getElementById('tpl-res-perfil').innerHTML,
+  js: function() { ResidenteDash.initSeccion('perfil'); },
+  onLeave: ResidenteDash.limpiar
+});
+Router.register('residente-apartamento', {
+  html: document.getElementById('tpl-res-apartamento').innerHTML,
+  js: function() { ResidenteDash.initSeccion('apartamento'); },
+  onLeave: ResidenteDash.limpiar
+});
+Router.register('residente-cuotas', {
+  html: document.getElementById('tpl-res-cuotas').innerHTML,
+  js: function() { ResidenteDash.initSeccion('cuotas'); },
+  onLeave: ResidenteDash.limpiar
+});
+Router.register('residente-frecuentes', {
+  html: document.getElementById('tpl-res-frecuentes').innerHTML,
+  js: function() { ResidenteDash.initSeccion('frecuentes'); },
+  onLeave: ResidenteDash.limpiar
+});
+Router.register('residente-buzon', {
+  html: document.getElementById('tpl-res-buzon').innerHTML,
+  js: function() { ResidenteDash.initSeccion('buzon'); },
+  onLeave: ResidenteDash.limpiar
+});
+Router.register('residente-visita', {
+  html: document.getElementById('tpl-res-visita').innerHTML,
+  js: function() { ResidenteDash.initSeccion('visita'); },
+  onLeave: ResidenteDash.limpiar
+});
+Router.register('residente-quejas', {
+  html: document.getElementById('tpl-res-quejas').innerHTML,
+  js: function() { ResidenteDash.initSeccion('quejas'); },
   onLeave: ResidenteDash.limpiar
 });
