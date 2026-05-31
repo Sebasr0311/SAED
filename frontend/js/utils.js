@@ -1,7 +1,10 @@
 const Utils = (() => {
   function _fixISO(dateStr) {
     if (!dateStr || typeof dateStr !== 'string') return dateStr;
-    if (dateStr.indexOf('T') < 0) return dateStr;
+    if (dateStr.indexOf('T') < 0) {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr + 'T00:00:00-05:00';
+      return dateStr;
+    }
     if (dateStr.endsWith('Z') || /[+-]\d{2}:\d{2}/.test(dateStr)) return dateStr;
     return dateStr + '-05:00';
   }
