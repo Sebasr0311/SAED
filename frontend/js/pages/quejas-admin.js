@@ -2,6 +2,15 @@ const QuejasAdmin = (() => {
   var quejas = [];
   var quejaActual = null;
   var _pollInterval = null;
+  var _filteredQuejas = [];
+  const PAGE_SIZE = 15;
+  var currentPage = 1;
+
+  function goToPage(page) {
+    if (page < 1 || page > Math.ceil(_filteredQuejas.length / PAGE_SIZE)) return;
+    currentPage = page;
+    renderizarTabla(_filteredQuejas);
+  }
 
   async function init() {
     await cargarQuejas();
@@ -79,28 +88,32 @@ const QuejasAdmin = (() => {
     var estado = selEstado.value;
     var prioridad = selPrioridad.value;
 
-    var filtradas = quejas.filter(function(q) {
+    _filteredQuejas = quejas.filter(function(q) {
       if (tipo !== 'TODAS' && q.tipo !== tipo) return false;
       if (estado !== 'TODAS' && q.estado !== estado) return false;
       if (prioridad !== 'TODAS' && q.prioridad !== prioridad) return false;
       return true;
     });
 
-    renderizarTabla(filtradas);
+    currentPage = 1;
+    renderizarTabla(_filteredQuejas);
   }
 
   function renderizarTabla(lista) {
     var tbody = document.getElementById('tabla-quejas-body');
+    var pag = document.getElementById('pagination-quejas');
     if (!tbody) return;
 
     tbody.innerHTML = '';
 
     if (lista.length === 0) {
       tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:20px;color:#999;">No hay quejas que mostrar</td></tr>';
+      if (pag) pag.innerHTML = '';
       return;
     }
 
-    lista.forEach(function(q) {
+    var pg = Utils.paginate(lista, currentPage, PAGE_SIZE);
+    pg.items.forEach(function(q) {
       var tr = document.createElement('tr');
       
       var fecha = Utils.formatDate(q.fechaCreacion);
@@ -120,6 +133,7 @@ const QuejasAdmin = (() => {
       
       tbody.appendChild(tr);
     });
+    if (pag) pag.innerHTML = Utils.paginationHtml(pg, 'QuejasAdmin.goToPage');
   }
 
   function getTipoBadge(tipo) {
@@ -246,6 +260,7 @@ const QuejasAdmin = (() => {
     init: init,
     destroy: destroy,
     abrirDetalle: abrirDetalle,
-    cargarQuejas: cargarQuejas
+    cargarQuejas: cargarQuejas,
+    goToPage: goToPage
   };
 })();

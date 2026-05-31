@@ -5,6 +5,14 @@ const Pagos = (() => {
   var currentDetalleApto = null;  // apto que está abierto en el modal de detalle
 
   var METODOS = ['EFECTIVO', 'TRANSFERENCIA'];
+  const PAGE_SIZE = 15;
+  let currentPage = 1;
+
+  function goToPage(page) {
+    if (page < 1 || page > Math.ceil(residentes.length / PAGE_SIZE)) return;
+    currentPage = page;
+    renderTabla();
+  }
 
   // ─────────────────────────────────────────────────────────────────────────
   // Agrupación por apartamento
@@ -55,16 +63,19 @@ const Pagos = (() => {
   // ─────────────────────────────────────────────────────────────────────────
   function renderTabla() {
     var tbody = document.getElementById('tbody-pagos-res');
+    var pag = document.getElementById('pagination-pagos');
     if (!tbody) return;
 
     if (!residentes.length) {
       tbody.innerHTML = '<tr><td colspan="5" class="text-center" ' +
         'style="color:var(--text-secondary);padding:32px">Sin cuotas ni multas pendientes</td></tr>';
+      if (pag) pag.innerHTML = '';
       actualizarKpis();
       return;
     }
 
-    tbody.innerHTML = residentes.map(function(r) {
+    var pg = Utils.paginate(residentes, currentPage, PAGE_SIZE);
+    tbody.innerHTML = pg.items.map(function(r) {
       var totalCuotas = r.cuotas.reduce(function(s, c) { return s + ((c.saldoPendiente ?? c.valorTotal) || 0); }, 0);
       var totalMultas = r.multas.reduce(function(s, m) { return s + (parseFloat(m.monto) || 0); }, 0);
 
@@ -93,6 +104,7 @@ const Pagos = (() => {
     }).join('');
 
     actualizarKpis();
+    if (pag) pag.innerHTML = Utils.paginationHtml(pg, 'Pagos.goToPage');
   }
 
   function actualizarKpis() {
@@ -122,6 +134,7 @@ const Pagos = (() => {
       allCuotasPendientes = resultados[0];
       allMultas           = resultados[1];
       residentes = agrupar(allCuotasPendientes, allMultas);
+      currentPage = 1;
       renderTabla();
     } catch (e) {
       Utils.showToast('Error al cargar pagos: ' + e.message, 'error');
@@ -499,7 +512,8 @@ const Pagos = (() => {
     confirmarPagoCuota: confirmarPagoCuota,
     abrirPagoMulta:     abrirPagoMulta,
     confirmarPagoMulta: confirmarPagoMulta,
-    _toggleRefCuota:    _toggleRefCuota
+    _toggleRefCuota:    _toggleRefCuota,
+    goToPage:           goToPage
   };
 })();
 

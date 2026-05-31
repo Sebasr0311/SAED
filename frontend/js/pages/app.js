@@ -222,47 +222,11 @@ function buildSidebar() {
       // Multas Pendientes
       try {
         var multas = await API.get('/multas/todas');
-        var pendientes = (multas || []).filter(function(m) { return m.estado === 'PENDIENTE'; });
+        Dash._multasPendientes = (multas || []).filter(function(m) { return m.estado === 'PENDIENTE'; });
+        Dash.multasPage = 1;
         var countEl = document.getElementById('dash-multas-count');
-        var contentEl = document.getElementById('dash-multas-content');
-        if (countEl) countEl.textContent = pendientes.length + ' pendiente' + (pendientes.length !== 1 ? 's' : '');
-        if (contentEl) {
-          if (!pendientes.length) {
-            contentEl.innerHTML = '<div class="empty-state" style="padding:32px 16px"><div class="empty-icon"><span class="material-symbols-outlined">gavel</span></div><div class="empty-title">Sin multas pendientes</div></div>';
-          } else {
-            var html = '';
-            var agrupadas = {};
-            pendientes.forEach(function(m) {
-              var key = m.numeroApartamento || m.idApartamento;
-              if (!agrupadas[key]) agrupadas[key] = { apto: key, residente: m.nombreResidente || '', multas: [] };
-              agrupadas[key].multas.push(m);
-            });
-            Object.keys(agrupadas).forEach(function(key) {
-              var g = agrupadas[key];
-              html += '<div style="margin-bottom:0;padding:14px 0;border-bottom:1px solid var(--border-subtle)">'
-                + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">'
-                + '<span style="font-size:13px;font-weight:700;color:var(--text)">Apto ' + Utils.escapeHtml(String(g.apto)) + '</span>'
-                + (g.residente ? '<span style="font-size:12px;color:var(--text-muted);font-weight:400">' + Utils.escapeHtml(g.residente) + '</span>' : '')
-                + '</div>';
-              g.multas.forEach(function(m) {
-                var icono = m.tipo === 'RUIDO' ? 'volume_up' : 'local_parking';
-                var iconColor = m.tipo === 'RUIDO' ? 'var(--warn-500)' : 'var(--navy-500)';
-                html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0 5px 4px;font-size:13px;cursor:pointer;border-radius:4px;transition:all 0.2s" onclick="Dash.verDetalleMulta(' + m.idMulta + ')" onmouseenter="this.style.background=\'var(--navy-50)\'" onmouseleave="this.style.background=\'\'">'
-                  + '<span style="display:flex;align-items:center;gap:6px;color:var(--text-secondary)">'
-                  + '<span class="material-symbols-outlined" style="font-size:15px;color:' + iconColor + '">' + icono + '</span>'
-                  + (m.tipo === 'RUIDO' ? 'Ruido' : 'Parqueadero') + ' — ' + Utils.formatCurrency(m.monto)
-                  + '</span>'
-                  + '<span style="display:flex;align-items:center;gap:8px">'
-                  + '<span style="font-size:11px;color:var(--text-muted)">' + (m.fechaCreacion ? m.fechaCreacion.substring(0, 10) : '-') + '</span>'
-                  + '<button class="btn-icon btn-ghost" onclick="event.stopPropagation();Dash.notificarUna(' + m.idMulta + ')" title="Notificar" style="width:28px;height:28px;color:var(--text-muted)">'
-                  + '<span class="material-symbols-outlined" style="font-size:15px">notifications</span></button>'
-                  + '</span></div>';
-              });
-              html += '</div>';
-            });
-            contentEl.innerHTML = '<div style="margin-top:-14px">' + html + '</div>';
-          }
-        }
+        if (countEl) countEl.textContent = Dash._multasPendientes.length + ' pendiente' + (Dash._multasPendientes.length !== 1 ? 's' : '');
+        Dash.renderMultas();
       } catch(e) {
         var contentEl = document.getElementById('dash-multas-content');
         if (contentEl) contentEl.innerHTML = '<p class="text-muted text-sm">Error al cargar multas</p>';
@@ -310,6 +274,59 @@ function buildSidebar() {
 const Dash = (() => {
   var _loaded = false;
   var _modalOverlay = null;
+  var _multasPendientes = [];
+  const MULTAS_PAGE_SIZE = 10;
+  var multasPage = 1;
+
+  function goToPageMultas(page) {
+    if (page < 1 || page > Math.ceil(_multasPendientes.length / MULTAS_PAGE_SIZE)) return;
+    multasPage = page;
+    renderMultas();
+  }
+
+  function renderMultas() {
+    var contentEl = document.getElementById('dash-multas-content');
+    var pag = document.getElementById('pagination-multas-dash');
+    if (!contentEl) return;
+    if (!_multasPendientes.length) {
+      contentEl.innerHTML = '<div class="empty-state" style="padding:32px 16px"><div class="empty-icon"><span class="material-symbols-outlined">gavel</span></div><div class="empty-title">Sin multas pendientes</div></div>';
+      if (pag) pag.innerHTML = '';
+      return;
+    }
+    var pg = Utils.paginate(_multasPendientes, multasPage, MULTAS_PAGE_SIZE);
+    var html = '';
+    var agrupadas = {};
+    pg.items.forEach(function(m) {
+      var key = m.numeroApartamento || m.idApartamento;
+      if (!agrupadas[key]) agrupadas[key] = { apto: key, residente: m.nombreResidente || '', multas: [] };
+      agrupadas[key].multas.push(m);
+    });
+    Object.keys(agrupadas).forEach(function(key) {
+      var g = agrupadas[key];
+      html += '<div style="margin-bottom:0;padding:14px 0;border-bottom:1px solid var(--border-subtle)">'
+        + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">'
+        + '<span style="font-size:13px;font-weight:700;color:var(--text)">Apto ' + Utils.escapeHtml(String(g.apto)) + '</span>'
+        + (g.residente ? '<span style="font-size:12px;color:var(--text-muted);font-weight:400">' + Utils.escapeHtml(g.residente) + '</span>' : '')
+        + '</div>';
+      g.multas.forEach(function(m) {
+        var icono = m.tipo === 'RUIDO' ? 'volume_up' : 'local_parking';
+        var iconColor = m.tipo === 'RUIDO' ? 'var(--warn-500)' : 'var(--navy-500)';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0 5px 4px;font-size:13px;cursor:pointer;border-radius:4px;transition:all 0.2s" onclick="Dash.verDetalleMulta(' + m.idMulta + ')" onmouseenter="this.style.background=\'var(--navy-50)\'" onmouseleave="this.style.background=\'\'">'
+          + '<span style="display:flex;align-items:center;gap:6px;color:var(--text-secondary)">'
+          + '<span class="material-symbols-outlined" style="font-size:15px;color:' + iconColor + '">' + icono + '</span>'
+          + (m.tipo === 'RUIDO' ? 'Ruido' : 'Parqueadero') + ' — ' + Utils.formatCurrency(m.monto)
+          + '</span>'
+          + '<span style="display:flex;align-items:center;gap:8px">'
+          + '<span style="font-size:11px;color:var(--text-muted)">' + (m.fechaCreacion ? m.fechaCreacion.substring(0, 10) : '-') + '</span>'
+          + '<button class="btn-icon btn-ghost" onclick="event.stopPropagation();Dash.notificarUna(' + m.idMulta + ')" title="Notificar" style="width:28px;height:28px;color:var(--text-muted)">'
+          + '<span class="material-symbols-outlined" style="font-size:15px">notifications</span></button>'
+          + '</span></div>';
+      });
+      html += '</div>';
+    });
+    contentEl.innerHTML = '<div style="margin-top:-14px">' + html + '</div>';
+    if (pag) pag.innerHTML = Utils.paginationHtml(pg, 'Dash.goToPageMultas');
+  }
 
   function toggleDetalles() {
     var btn = document.getElementById('btn-ver-detalles');
@@ -556,5 +573,5 @@ const Dash = (() => {
 
   function _reset() { _loaded = false; _modalData = null; if (_modalOverlay) { _modalOverlay.remove(); _modalOverlay = null; } }
 
-  return { toggleDetalles: toggleDetalles, notificarTodas: notificarTodas, notificarUna: notificarUna, verDetalleContrato: verDetalleContrato, verDetalleMulta: verDetalleMulta, _reset: _reset };
+  return { toggleDetalles: toggleDetalles, notificarTodas: notificarTodas, notificarUna: notificarUna, verDetalleContrato: verDetalleContrato, verDetalleMulta: verDetalleMulta, _reset: _reset, renderMultas: renderMultas, goToPageMultas: goToPageMultas, _multasPendientes: _multasPendientes, multasPage: multasPage };
 })();

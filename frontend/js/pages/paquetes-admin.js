@@ -1,6 +1,14 @@
 const PaquetesAdmin = (() => {
   var _paquetes = [];
   var _paquetesFiltrados = [];
+  const PAGE_SIZE = 15;
+  var currentPage = 1;
+
+  function goToPage(page) {
+    if (page < 1 || page > Math.ceil(_paquetesFiltrados.length / PAGE_SIZE)) return;
+    currentPage = page;
+    renderTabla();
+  }
 
   function inicializar() {
     document.getElementById('page-title').textContent = 'Paquetes';
@@ -131,6 +139,7 @@ const PaquetesAdmin = (() => {
       });
 
       aplicarBusquedaTexto();
+      currentPage = 1;
       renderTabla();
     } catch (e) {
       console.error('[PaquetesAdmin] Error al cargar:', e);
@@ -180,7 +189,8 @@ const PaquetesAdmin = (() => {
       return;
     }
 
-    var total = _paquetesFiltrados.length;
+    var pg = Utils.paginate(_paquetesFiltrados, currentPage, PAGE_SIZE);
+    var total = pg.total;
     var entregados = _paquetesFiltrados.filter(function(p) { return p.entregado; }).length;
     var pendientes = total - entregados;
 
@@ -214,14 +224,15 @@ const PaquetesAdmin = (() => {
           <tbody>
     `;
 
-    _paquetesFiltrados.forEach(function(p, idx) {
+    pg.items.forEach(function(p, idx) {
+      var realIdx = (pg.page - 1) * pg.pageSize + idx;
       var fecha = p.fechaCreacion ? Utils.formatDateTime(p.fechaCreacion) : '-';
       var estado = p.entregado
         ? '<span class="badge badge-success">Entregado</span>'
         : '<span class="badge badge-warning">Pendiente</span>';
 
       html += `
-        <tr onclick="PaquetesAdmin.verDetalle(${idx})" style="cursor:pointer;transition:background 0.2s" onmouseenter="this.style.background='var(--navy-50)'" onmouseleave="this.style.background=''">
+        <tr onclick="PaquetesAdmin.verDetalle(${realIdx})" style="cursor:pointer;transition:background 0.2s" onmouseenter="this.style.background='var(--navy-50)'" onmouseleave="this.style.background=''">
           <td style="white-space:nowrap">${fecha}</td>
           <td style="text-align:center;font-weight:600">${Utils.escapeHtml(p.numeroApartamento || '-')}</td>
           <td>${Utils.escapeHtml(p.nombreResidente || '-')}</td>
@@ -232,6 +243,7 @@ const PaquetesAdmin = (() => {
     });
 
     html += '</tbody></table></div>';
+    html += '<div id="pagination-paquetes-admin">' + Utils.paginationHtml(pg, 'PaquetesAdmin.goToPage') + '</div>';
     resultsEl.innerHTML = html;
   }
 
@@ -284,7 +296,8 @@ const PaquetesAdmin = (() => {
     inicializar: inicializar,
     cargarPaquetes: cargarPaquetes,
     filtrarPaquetes: filtrarPaquetes,
-    verDetalle: verDetalle
+    verDetalle: verDetalle,
+    goToPage: goToPage
   };
 })();
 
