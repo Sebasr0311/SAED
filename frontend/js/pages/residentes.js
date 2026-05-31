@@ -194,12 +194,9 @@ const Residentes = (() => {
       '<button class="btn btn-outline" onclick="this.closest(\'.modal-overlay\').remove()">Cancelar</button>' +
       '<button class="btn btn-primary" id="btn-guardar-residente" onclick="Residentes.guardar()">' + (isEdit ? 'Actualizar' : 'Guardar') + '</button>', true);
 
-    cargarTiposDoc(modal);
-    if (r) {
-      setTimeout(() => document.getElementById('res-tipo-doc').value = r.idTipoDoc || '', 100);
-      if (r.fechaNacimiento) {
-        setTimeout(() => { chequearEdad(); if (r.esMenorEdad) cargarTutorTiposDoc(); }, 200);
-      }
+    cargarTiposDoc(modal, r || null);
+    if (r && r.fechaNacimiento) {
+      setTimeout(() => { chequearEdad(); if (r.esMenorEdad) cargarTutorTiposDoc(); }, 200);
     }
     
     // Event listeners para validación en tiempo real
@@ -252,7 +249,6 @@ const Residentes = (() => {
     }
 
     select.addEventListener('change', function() {
-      input.value = '';
       input.classList.remove('is-invalid');
       var errorEl = input.parentNode.querySelector('.field-error');
       if (errorEl) errorEl.textContent = '';
@@ -401,7 +397,7 @@ const Residentes = (() => {
     }
   }
 
-  async function cargarTiposDoc(modal) {
+  async function cargarTiposDoc(modal, residenteData) {
     try {
       const tipos = await API.get('/tipos-documento');
       const sel = modal.querySelector('#res-tipo-doc');
@@ -414,6 +410,9 @@ const Residentes = (() => {
           opt.setAttribute('data-codigo', t.codigo);
           sel.appendChild(opt);
         });
+        if (residenteData) {
+          sel.value = residenteData.idTipoDoc || '';
+        }
       }
     } catch (e) { /* fallback */ }
   }
