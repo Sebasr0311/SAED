@@ -7,6 +7,8 @@ const EscannerQR = (() => {
   var _currentIdVisita = null;
   var _notificarPollInterval = null;
   var _notificarState = null; // null | 'notifying' | 'waiting' | 'confirmed' | 'rejected'
+  var _parqPage = 1;
+  var PARQ_PAGE_SIZE = 15;
 
   function cambiarTab(tabId) {
     detenerCamara();
@@ -78,7 +80,9 @@ const EscannerQR = (() => {
       '<div class="card"><div class="card-title">Estado de Parqueaderos</div>' +
       '<div class="table-container"><table class="data-table">' +
       '<thead><tr><th>Codigo</th><th>Tipo</th><th>Estado</th><th>Visitante</th></tr></thead>' +
-      '<tbody id="tbody-parq-qr"></tbody></table></div></div>';
+      '<tbody id="tbody-parq-qr"></tbody></table></div>' +
+      '<div id="pagination-parq-qr" style="margin-top:12px"></div></div>';
+    _parqPage = 1;
     cargarParqueaderos();
   }
 
@@ -685,15 +689,33 @@ const EscannerQR = (() => {
     }
   }
 
-  async function cargarParqueaderos() {
+  function goToPageParq(page) {
+    if (page < 1 || page > Math.ceil((_parqsData || []).length / PARQ_PAGE_SIZE)) return;
+    _parqPage = page;
+    renderParqTable();
+  }
+
+  var _parqsData = null;
+
+  function renderParqTable() {
     var tbody = document.getElementById('tbody-parq-qr');
-    if (!tbody) return;
+    var pag = document.getElementById('pagination-parq-qr');
+    if (!tbody || !_parqsData) return;
+    var pg = Utils.paginate(_parqsData, _parqPage, PARQ_PAGE_SIZE);
+    tbody.innerHTML = pg.items.map(function(p) {
+      return '<tr><td>' + Utils.escapeHtml(p.codigo || '') + '</td><td>' + Utils.escapeHtml(p.tipo || '') + '</td><td>' + Utils.estadoBadge(p.estado || 'DISPONIBLE') + '</td><td>' + (p.esVisitante ? 'Si' : 'No') + '</td></tr>';
+    }).join('');
+    if (pag) pag.innerHTML = Utils.paginationHtml(pg, 'EscannerQR.goToPageParq');
+  }
+
+  async function cargarParqueaderos() {
     try {
-      var parqs = await API.get('/parqueaderos');
-      tbody.innerHTML = parqs.map(function(p) {
-        return '<tr><td>' + Utils.escapeHtml(p.codigo || '') + '</td><td>' + Utils.escapeHtml(p.tipo || '') + '</td><td>' + Utils.estadoBadge(p.estado || 'DISPONIBLE') + '</td><td>' + (p.esVisitante ? 'Si' : 'No') + '</td></tr>';
-      }).join('');
-    } catch (e) { tbody.innerHTML = '<tr><td colspan="4">Error al cargar</td></tr>'; }
+      _parqsData = await API.get('/parqueaderos');
+      renderParqTable();
+    } catch (e) {
+      var tbody = document.getElementById('tbody-parq-qr');
+      if (tbody) tbody.innerHTML = '<tr><td colspan="4">Error al cargar</td></tr>';
+    }
   }
 
   function limpiar() {
@@ -709,6 +731,7 @@ const EscannerQR = (() => {
     validarManual: validarManual, reiniciarEscanner: reiniciarEscanner,
     registrarEntrada: registrarEntrada, registrarSalida: registrarSalida,
     cargarIngresados: cargarIngresados, cargarParqueaderos: cargarParqueaderos,
+    goToPageParq: goToPageParq,
     notificarClick: notificarClick, capturarFoto: capturarFoto,
     retomarCaptura: retomarCaptura, confirmarFoto: confirmarFoto,
     detenerCamaraCaptura: detenerCamaraCaptura, limpiar: limpiar
