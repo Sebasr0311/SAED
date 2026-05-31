@@ -162,6 +162,18 @@ public class BuzonDAO {
         return lista;
     }
 
+  public boolean existeAvisoHoy(int idApartamento) throws SQLException {
+        String sql = "SELECT COUNT(*) FROM BUZON "
+                   + "WHERE id_apartamento = ? AND tipo = 'AVISO' "
+                   + "AND TRUNC(fecha_creacion) = TRUNC(CURRENT_TIMESTAMP)";
+        try (PreparedStatement ps = conn().prepareStatement(sql)) {
+            ps.setInt(1, idApartamento);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() && rs.getInt(1) > 0;
+            }
+        }
+    }
+
     public Integer insert(Buzon b) throws SQLException {
         String sql = "INSERT INTO BUZON "
                    + "(id_apartamento, id_visita, tipo, titulo, cuerpo, foto_captura, "

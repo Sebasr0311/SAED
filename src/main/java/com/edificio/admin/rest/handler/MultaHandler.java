@@ -131,16 +131,24 @@ public class MultaHandler extends BaseHandler implements HttpHandler {
             } else if ("POST".equalsIgnoreCase(method) && path.endsWith("/notificar-todas")) {
                 if (!"ADMINISTRADOR".equals(rol)) throw new Exception("Solo administradores");
                 List<Multa> pendientes = multaDAO.findAllConResidente();
+                var yaNotificados = new java.util.HashSet<Integer>();
                 int contador = 0;
                 for (Multa m : pendientes) {
                     if (!"PENDIENTE".equals(m.getEstado().name())) continue;
+                    int idApto = m.getIdApartamento();
+                    if (yaNotificados.contains(idApto)) continue;
+                    if (buzonDAO.existeAvisoHoy(idApto)) {
+                        yaNotificados.add(idApto);
+                        continue;
+                    }
                     Buzon b = new Buzon();
-                    b.setIdApartamento(m.getIdApartamento());
+                    b.setIdApartamento(idApto);
                     b.setTipo("AVISO");
                     b.setTitulo("Multa pendiente - " + ("RUIDO".equals(m.getTipo()) ? "Ruido" : "Parqueadero"));
                     b.setCuerpo("Tiene una multa por $" + m.getMonto() + " COP (" + m.getFechaCreacion().toLocalDate() + "). Por favor paguela a la brevedad.");
                     b.setCreadoPor(((Number) claims.get("idUsuario")).intValue());
                     buzonDAO.insert(b);
+                    yaNotificados.add(idApto);
                     contador++;
                 }
                 sendJson(exchange, 200, Map.of("mensaje", "Notificaciones enviadas a " + contador + " apartamento(s)"));
@@ -153,14 +161,16 @@ public class MultaHandler extends BaseHandler implements HttpHandler {
                 for (Multa m : todas) { if (m.getIdMulta() == idMulta) { multa = m; break; } }
                 if (multa == null) throw new Exception("Multa no encontrada");
                 if (!"PENDIENTE".equals(multa.getEstado().name())) throw new Exception("La multa no esta pendiente");
-                Buzon b = new Buzon();
-                b.setIdApartamento(multa.getIdApartamento());
-                b.setTipo("AVISO");
-                b.setTitulo("Multa pendiente - " + ("RUIDO".equals(multa.getTipo()) ? "Ruido" : "Parqueadero"));
-                b.setCuerpo("Tiene una multa por $" + multa.getMonto() + " COP (" + multa.getFechaCreacion().toLocalDate() + "). Por favor paguela a la brevedad.");
-                b.setCreadoPor(((Number) claims.get("idUsuario")).intValue());
-                buzonDAO.insert(b);
-                sendJson(exchange, 200, Map.of("mensaje", "Notificacion enviada"));
+        Buzon b = new Buzon();
+            b.setIdApartamento(multa.getIdApartamento());
+            b.setTipo("AVISO");
+            b.setTitulo("Multa pendiente - " + ("RUIDO".equals(multa.getTipo()) ? "Ruido" : "Parqueadero"));
+            b.setCuerpo("Tiene una multa por $" + multa.getMonto() + " COP (" + multa.getFechaCreacion().toLocalDate() + "). Por favor paguela a la brevedad.");
+            b.setCreadoPor(((Number) claims.get("idUsuario")).intValue());
+            if (buzonDAO.existeAvisoHoy(multa.getIdApartamento()))
+                throw new Exception("Ya se envi\u00f3 una notificaci\u00f3n hoy para este apartamento. Solo se permite 1 por d\u00eda.");
+            buzonDAO.insert(b);
+            sendJson(exchange, 200, Map.of("mensaje", "Notificacion enviada"));
 
             } else if ("PUT".equalsIgnoreCase(method) && parts.length == 5 && "anular".equals(parts[4])) {
                 if (!"ADMINISTRADOR".equals(rol))
