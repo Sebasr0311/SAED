@@ -1,13 +1,24 @@
 const Utils = (() => {
+  function _fixISO(dateStr) {
+    if (!dateStr || typeof dateStr !== 'string') return dateStr;
+    if (dateStr.indexOf('T') < 0) return dateStr;
+    if (dateStr.endsWith('Z') || /[+-]\d{2}:\d{2}/.test(dateStr)) return dateStr;
+    return dateStr + '-05:00';
+  }
+
+  function parseDate(dateStr) {
+    return new Date(_fixISO(dateStr));
+  }
+
   function formatDate(dateStr) {
     if (!dateStr) return '-';
-    const d = new Date(dateStr);
+    const d = new Date(_fixISO(dateStr));
     return d.toLocaleDateString('es-CO', { year: 'numeric', month: '2-digit', day: '2-digit' });
   }
 
   function formatDateTime(dateStr) {
     if (!dateStr) return '-';
-    const d = new Date(dateStr);
+    const d = new Date(_fixISO(dateStr));
     return d.toLocaleDateString('es-CO', {
       year: 'numeric', month: '2-digit', day: '2-digit',
       hour: '2-digit', minute: '2-digit'
@@ -16,7 +27,7 @@ const Utils = (() => {
 
   function formatTime(dateStr) {
     if (!dateStr) return '-';
-    var d = new Date(dateStr);
+    var d = new Date(_fixISO(dateStr));
     return d.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
   }
 
@@ -640,7 +651,7 @@ const Utils = (() => {
   }
 
   return {
-    formatDate, formatDateTime, formatTime, formatCurrency,
+    parseDate, formatDate, formatDateTime, formatTime, formatCurrency,
     showToast, showConfirm, showAlert, loadingSpinner, emptyState,
     serializeForm, validateRequired, validateEmail, validatePhone, escapeHtml,
     estadoBadge, populateSelect, getSelectedText, modal,

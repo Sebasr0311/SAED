@@ -1086,8 +1086,8 @@ const ResidenteDash = (() => {
         '<div class="form-group"><label>Generada por</label><div class="form-control" style="background:#f9fafb;cursor:default">' + Utils.escapeHtml(m.nombrePortero || 'Sistema') + '</div></div>';
 
       if (m.tipo === 'RUIDO' && m.fechaAvisoRuido) {
-        var fechaAviso = new Date(m.fechaAvisoRuido);
-        var fechaMulta = new Date(m.fechaCreacion);
+        var fechaAviso = Utils.parseDate(m.fechaAvisoRuido);
+        var fechaMulta = Utils.parseDate(m.fechaCreacion);
         var diffMin = Math.round((fechaMulta - fechaAviso) / 60000);
         var tiempoLabel;
         if (diffMin < 0) {

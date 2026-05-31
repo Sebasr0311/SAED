@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 
 public class JsonUtil {
@@ -14,7 +15,7 @@ public class JsonUtil {
             .registerTypeAdapter(LocalDate.class, (com.google.gson.JsonDeserializer<LocalDate>)
                     (src, type, ctx) -> src == null ? null : LocalDate.parse(src.getAsString(), DateTimeFormatter.ISO_LOCAL_DATE))
             .registerTypeAdapter(LocalDateTime.class, (com.google.gson.JsonSerializer<LocalDateTime>)
-                    (src, type, ctx) -> src == null ? null : new com.google.gson.JsonPrimitive(src.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)))
+                    (src, type, ctx) -> src == null ? null : new com.google.gson.JsonPrimitive(src.atZone(ZoneId.of("America/Bogota")).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)))
             .registerTypeAdapter(LocalDateTime.class, (com.google.gson.JsonDeserializer<LocalDateTime>)
                     (src, type, ctx) -> src == null ? null : LocalDateTime.parse(src.getAsString(), DateTimeFormatter.ISO_LOCAL_DATE_TIME))
             .create();
