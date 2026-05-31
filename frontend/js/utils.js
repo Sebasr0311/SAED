@@ -452,7 +452,7 @@ const Utils = (() => {
     return select.options[select.selectedIndex] ? select.options[select.selectedIndex].text : '';
   }
 
-  function modal(title, bodyHtml, footerHtml) {
+  function modal(title, bodyHtml, footerHtml, staticBackdrop) {
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay show';
     overlay.innerHTML = `
@@ -465,7 +465,9 @@ const Utils = (() => {
         ${footerHtml ? '<div class="modal-footer">' + footerHtml + '</div>' : ''}
       </div>`;
     document.body.appendChild(overlay);
-    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+    if (!staticBackdrop) {
+      overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+    }
     return overlay.querySelector('.modal');
   }
 
