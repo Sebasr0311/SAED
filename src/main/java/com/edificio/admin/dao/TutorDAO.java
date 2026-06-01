@@ -24,7 +24,7 @@ public class TutorDAO implements CrudDAO<Tutor> {
     public List<Tutor> findAll() throws SQLException {
         List<Tutor> lista = new ArrayList<>();
         String sql = "SELECT id_tutor, id_residente_menor, id_tipo_doc, numero_documento, "
-                   + "       nombres, apellidos, telefono, email, parentesco, doc_pdf_url, "
+                   + "       nombres, apellidos, telefono, email, parentesco, otro_parentesco, doc_pdf_url, "
                    + "       fecha_registro, actualizado_en "
                    + "FROM   TUTORES ORDER BY apellidos, nombres";
         try (PreparedStatement ps = conn().prepareStatement(sql);
@@ -37,7 +37,7 @@ public class TutorDAO implements CrudDAO<Tutor> {
     @Override
     public Tutor findById(Integer id) throws SQLException {
         String sql = "SELECT id_tutor, id_residente_menor, id_tipo_doc, numero_documento, "
-                   + "       nombres, apellidos, telefono, email, parentesco, doc_pdf_url, "
+                   + "       nombres, apellidos, telefono, email, parentesco, otro_parentesco, doc_pdf_url, "
                    + "       fecha_registro, actualizado_en "
                    + "FROM   TUTORES WHERE id_tutor = ?";
         try (PreparedStatement ps = conn().prepareStatement(sql)) {
@@ -51,7 +51,7 @@ public class TutorDAO implements CrudDAO<Tutor> {
     /** Busca el tutor de un residente menor (relación 1:1 desde la app). */
     public Tutor findByResidenteMenor(Integer idResidenteMenor) throws SQLException {
         String sql = "SELECT id_tutor, id_residente_menor, id_tipo_doc, numero_documento, "
-                   + "       nombres, apellidos, telefono, email, parentesco, doc_pdf_url, "
+                   + "       nombres, apellidos, telefono, email, parentesco, otro_parentesco, doc_pdf_url, "
                    + "       fecha_registro, actualizado_en "
                    + "FROM   TUTORES WHERE id_residente_menor = ?";
         try (PreparedStatement ps = conn().prepareStatement(sql)) {
@@ -66,8 +66,8 @@ public class TutorDAO implements CrudDAO<Tutor> {
     public Integer insert(Tutor t) throws SQLException {
         String sql = "BEGIN INSERT INTO TUTORES "
                    + "  (id_residente_menor, id_tipo_doc, numero_documento, nombres, apellidos, "
-                   + "   telefono, email, parentesco, doc_pdf_url) "
-                   + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) "
+                   + "   telefono, email, parentesco, otro_parentesco, doc_pdf_url) "
+                   + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
                    + "RETURNING id_tutor INTO ?; END;";
         try (CallableStatement cs = conn().prepareCall(sql)) {
             cs.setInt(1, t.getIdResidenteMenor());
@@ -78,8 +78,9 @@ public class TutorDAO implements CrudDAO<Tutor> {
             setNullableString(cs, 6, t.getTelefono());
             setNullableString(cs, 7, t.getEmail());
             cs.setString(8, t.getParentesco().name());
-            setNullableString(cs, 9, t.getDocPdfUrl());
-            cs.registerOutParameter(10, Types.NUMERIC);
+            setNullableString(cs, 9, t.getOtroParentesco());
+            setNullableString(cs, 10, t.getDocPdfUrl());
+            cs.registerOutParameter(11, Types.NUMERIC);
             cs.executeUpdate();
             return cs.getInt(10);
         }
@@ -90,7 +91,7 @@ public class TutorDAO implements CrudDAO<Tutor> {
         String sql = "UPDATE TUTORES "
                    + "SET id_residente_menor = ?, id_tipo_doc = ?, numero_documento = ?, "
                    + "    nombres = ?, apellidos = ?, telefono = ?, email = ?, "
-                   + "    parentesco = ?, doc_pdf_url = ? "
+                   + "    parentesco = ?, otro_parentesco = ?, doc_pdf_url = ? "
                    + "WHERE id_tutor = ?";
         try (PreparedStatement ps = conn().prepareStatement(sql)) {
             ps.setInt(1, t.getIdResidenteMenor());
@@ -101,8 +102,9 @@ public class TutorDAO implements CrudDAO<Tutor> {
             setNullableString(ps, 6, t.getTelefono());
             setNullableString(ps, 7, t.getEmail());
             ps.setString(8, t.getParentesco().name());
-            setNullableString(ps, 9, t.getDocPdfUrl());
-            ps.setInt(10, t.getIdTutor());
+            setNullableString(ps, 9, t.getOtroParentesco());
+            setNullableString(ps, 10, t.getDocPdfUrl());
+            ps.setInt(11, t.getIdTutor());
             ps.executeUpdate();
         }
     }
@@ -131,6 +133,7 @@ public class TutorDAO implements CrudDAO<Tutor> {
         t.setEmail(rs.getString("email"));
         try { t.setParentesco(Parentesco.valueOf(rs.getString("parentesco"))); }
         catch (IllegalArgumentException ignored) {}
+        t.setOtroParentesco(rs.getString("otro_parentesco"));
         t.setDocPdfUrl(rs.getString("doc_pdf_url"));
 
         Timestamp fr = rs.getTimestamp("fecha_registro");
