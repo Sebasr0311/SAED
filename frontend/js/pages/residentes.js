@@ -179,20 +179,24 @@ const Residentes = (() => {
               <label>Parentesco</label>
               <select id="tutor-parentesco" class="form-control">
                 <option value="">Seleccione...</option>
-                <option value="PADRE" ${tutor && tutor.parentesco === 'PADRE' ? 'selected' : ''}>Padre</option>
-                <option value="MADRE" ${tutor && tutor.parentesco === 'MADRE' ? 'selected' : ''}>Madre</option>
-                <option value="ABUELO" ${tutor && tutor.parentesco === 'ABUELO' ? 'selected' : ''}>Abuelo</option>
-                <option value="ABUELA" ${tutor && tutor.parentesco === 'ABUELA' ? 'selected' : ''}>Abuela</option>
-                <option value="TIO" ${tutor && tutor.parentesco === 'TIO' ? 'selected' : ''}>T\u00edo</option>
-                <option value="TIA" ${tutor && tutor.parentesco === 'TIA' ? 'selected' : ''}>T\u00eda</option>
-                <option value="HERMANO" ${tutor && tutor.parentesco === 'HERMANO' ? 'selected' : ''}>Hermano</option>
-                <option value="HERMANA" ${tutor && tutor.parentesco === 'HERMANA' ? 'selected' : ''}>Hermana</option>
-                <option value="TUTOR_LEGAL" ${tutor && tutor.parentesco === 'TUTOR_LEGAL' ? 'selected' : ''}>Tutor Legal</option>
-                <option value="OTRO" ${tutor && tutor.parentesco === 'OTRO' ? 'selected' : ''}>Otro</option>
+                <option value="PADRE" ${tutor && (tutor.parentesco === 'PADRE' || tutor.parentesco === 'Padre') ? 'selected' : ''}>Padre</option>
+                <option value="MADRE" ${tutor && (tutor.parentesco === 'MADRE' || tutor.parentesco === 'Madre') ? 'selected' : ''}>Madre</option>
+                <option value="ABUELO" ${tutor && (tutor.parentesco === 'ABUELO' || tutor.parentesco === 'Abuelo') ? 'selected' : ''}>Abuelo</option>
+                <option value="ABUELA" ${tutor && (tutor.parentesco === 'ABUELA' || tutor.parentesco === 'Abuela') ? 'selected' : ''}>Abuela</option>
+                <option value="TIO" ${tutor && (tutor.parentesco === 'TIO' || tutor.parentesco === 'T\u00edo') ? 'selected' : ''}>T\u00edo</option>
+                <option value="TIA" ${tutor && (tutor.parentesco === 'TIA' || tutor.parentesco === 'T\u00eda') ? 'selected' : ''}>T\u00eda</option>
+                <option value="HERMANO" ${tutor && (tutor.parentesco === 'HERMANO' || tutor.parentesco === 'Hermano') ? 'selected' : ''}>Hermano</option>
+                <option value="HERMANA" ${tutor && (tutor.parentesco === 'HERMANA' || tutor.parentesco === 'Hermana') ? 'selected' : ''}>Hermana</option>
+                <option value="TUTOR_LEGAL" ${tutor && (tutor.parentesco === 'TUTOR_LEGAL' || tutor.parentesco === 'Tutor Legal') ? 'selected' : ''}>Tutor Legal</option>
+                <option value="OTRO" ${tutor && !['PADRE','MADRE','ABUELO','ABUELA','TIO','TIA','HERMANO','HERMANA','TUTOR_LEGAL','Padre','Madre','Abuelo','Abuela','T\u00edo','T\u00eda','Hermano','Hermana','Tutor Legal'].includes(tutor.parentesco) ? 'selected' : ''}>Otro</option>
               </select>
               <span class="field-error" id="tutor-parentesco-error"></span>
             </div>
-            <div class="form-group"></div>
+            <div class="form-group" id="tutor-parentesco-otro-group" style="${tutor && !['PADRE','MADRE','ABUELO','ABUELA','TIO','TIA','HERMANO','HERMANA','TUTOR_LEGAL','Padre','Madre','Abuelo','Abuela','T\u00edo','T\u00eda','Hermano','Hermana','Tutor Legal'].includes(tutor.parentesco) ? '' : 'display:none'}">
+              <label>Especifique parentesco</label>
+              <input type="text" id="tutor-parentesco-otro" class="form-control" value="${tutor && !['PADRE','MADRE','ABUELO','ABUELA','TIO','TIA','HERMANO','HERMANA','TUTOR_LEGAL','Padre','Madre','Abuelo','Abuela','T\u00edo','T\u00eda','Hermano','Hermana','Tutor Legal'].includes(tutor.parentesco) ? Utils.escapeHtml(tutor.otroParentesco || tutor.parentesco || '') : ''}">
+              <span class="field-error" id="tutor-parentesco-otro-error"></span>
+            </div>
           </div>
         </div>
       </form>`;
@@ -234,6 +238,15 @@ const Residentes = (() => {
     
     // Validación email del tutor en tiempo real
     Utils.validarEmailTiempoReal('tutor-email');
+
+    var parentescoSel = document.getElementById('tutor-parentesco');
+    var parentescoOtroGroup = document.getElementById('tutor-parentesco-otro-group');
+    if (parentescoSel && parentescoOtroGroup) {
+      parentescoSel.addEventListener('change', function() {
+        parentescoOtroGroup.style.display = this.value === 'OTRO' ? '' : 'none';
+        if (this.value !== 'OTRO') document.getElementById('tutor-parentesco-otro').value = '';
+      });
+    }
   }
 
   function configurarFiltroDocumento(inputId, selectId, errorPrefix) {
@@ -487,7 +500,12 @@ const Residentes = (() => {
       if (!Utils.valApellido(document.getElementById('tutor-apellidos').value, 'tutor-apellidos', 'El apellido del tutor')) return;
       if (!Utils.valTelefono(document.getElementById('tutor-telefono').value, 'tutor-telefono')) return;
       if (!Utils.valEmail(document.getElementById('tutor-email').value, 'tutor-email')) return;
-      if (!Utils.valSelect(document.getElementById('tutor-parentesco').value, 'tutor-parentesco', 'Seleccione el parentesco')) return;
+      var parentescoVal = document.getElementById('tutor-parentesco').value;
+      if (!Utils.valSelect(parentescoVal, 'tutor-parentesco', 'Seleccione el parentesco')) return;
+      if (parentescoVal === 'OTRO' && !document.getElementById('tutor-parentesco-otro').value.trim()) {
+        Utils.mostrarError('tutor-parentesco-otro', 'Especifique el parentesco');
+        return;
+      }
     }
 
     const payload = {
@@ -509,7 +527,8 @@ const Residentes = (() => {
         apellidos: document.getElementById('tutor-apellidos').value.trim(),
         telefono: document.getElementById('tutor-telefono').value.trim(),
         email: document.getElementById('tutor-email').value.trim(),
-        parentesco: document.getElementById('tutor-parentesco').value
+        parentesco: document.getElementById('tutor-parentesco').value,
+        otroParentesco: (function() { var v = document.getElementById('tutor-parentesco').value; return v === 'OTRO' ? document.getElementById('tutor-parentesco-otro').value.trim() || null : null; })()
       };
     }
     
