@@ -97,6 +97,8 @@ Router.register('login', {
       var username = userField ? userField.value.trim() : '';
       var password = passField ? passField.value : '';
       Utils.limpiarErrores('login-form');
+      var errMsg = document.getElementById('login-error-msg');
+      if (errMsg) { errMsg.classList.add('hidden'); errMsg.textContent = ''; }
       if (!Utils.valUsername(username, 'login-username')) return;
       if (!Utils.valPassword(password, 'login-password', true)) return;
       if (btn) btn.disabled = true;
@@ -112,6 +114,7 @@ Router.register('login', {
         else if (user.rol === 'PORTERO') Router.navigate('portero-dashboard');
         else Router.navigate('dashboard');
       } catch (err) {
+        if (errMsg) { errMsg.textContent = err.message; errMsg.classList.remove('hidden'); }
         Utils.showToast(err.message, 'error');
       } finally {
         if (btn) btn.disabled = false;
