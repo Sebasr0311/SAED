@@ -205,8 +205,8 @@ var Contratos = (() => {
 
     requestAnimationFrame(function() { calcularFechaFin(); });
     requestAnimationFrame(function() {
-      Utils.selectBusqueda('con-apt');
-      Utils.selectBusqueda('con-residente');
+      Utils.selectBusqueda('con-apt', function() { Contratos.onApartamentoChange(); });
+      Utils.selectBusqueda('con-residente', function() { Contratos.chequearResidenteMenor(); });
     });
   }
 
