@@ -187,7 +187,7 @@ var Contratos = (() => {
         // --- Valor mensual ---
         '<div class="form-group">' +
           '<label>Valor Mensual (Canon de Arriendo)</label>' +
-          '<input type="number" id="con-valor" class="form-control" step="1" min="0" placeholder="Se autocompleta al seleccionar apartamento">' +
+          '<input type="text" inputmode="numeric" id="con-valor" class="form-control" placeholder="Se autocompleta al seleccionar apartamento" oninput="Contratos.formatValor(this)">' +
           '<small id="con-valor-helper" style="color:var(--accent);display:none;margin-top:3px;display:block"></small>' +
           '<span class="field-error" id="con-valor-error"></span>' +
         '</div>' +
@@ -243,7 +243,7 @@ var Contratos = (() => {
     if (!aptSel || !valorInput || !aptSel.value) return;
     var apto = aptsData.find(function(a) { return String(a.idApartamento) === String(aptSel.value); });
     if (apto && apto.administracion != null) {
-      valorInput.value = Number(apto.administracion);
+      valorInput.value = String(Number(apto.administracion)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
       if (helper) {
         helper.textContent = 'Valor sugerido seg\u00fan la cuota de administraci\u00f3n del apartamento (' + (apto.tipo || '') + '). Puede ajustarlo.';
         helper.style.display = 'block';
@@ -358,7 +358,8 @@ var Contratos = (() => {
     if (!Utils.valSelect(document.getElementById('con-apt').value, 'con-apt', 'Seleccione el apartamento')) return;
     if (!Utils.valSelect(document.getElementById('con-residente').value, 'con-residente', 'Seleccione el residente')) return;
     if (!Utils.valFecha(document.getElementById('con-fecha-inicio').value, 'con-fecha-inicio', 'La fecha de inicio')) return;
-    if (!Utils.valNumero(document.getElementById('con-valor').value, 'con-valor', { positive: true, label: 'El valor mensual' })) return;
+    var conValorRaw = (document.getElementById('con-valor').value || '').replace(/\./g, '');
+    if (!Utils.valNumero(conValorRaw, 'con-valor', { positive: true, label: 'El valor mensual' })) return;
     var fechaInicio = document.getElementById('con-fecha-inicio').value;
     var fechaFin = document.getElementById('con-fecha-fin').value;
     var todayStr = Utils.todayStr();
@@ -381,7 +382,7 @@ var Contratos = (() => {
       tipoContrato: tipoContrato,
       fechaInicio: fechaInicio,
       fechaFin: fechaFin || null,
-      valorMensual: parseFloat(document.getElementById('con-valor').value),
+      valorMensual: parseFloat((document.getElementById('con-valor').value || '').replace(/\./g, '')),
       notas: document.getElementById('con-notas').value.trim()
     };
     var btn = document.getElementById('btn-guardar-contrato');
@@ -457,7 +458,7 @@ var Contratos = (() => {
       var nombreApt  = contrato.numeroApartamento || ('Apto #' + contrato.idApartamento);
       var nombreRes  = contrato.nombreResidente || '-';
       var valorViejo = contrato.valorMensual ? Utils.formatCurrency(contrato.valorMensual) : '-';
-      valorActual    = contrato.valorMensual ? Number(contrato.valorMensual) : '';
+      valorActual    = contrato.valorMensual ? String(Number(contrato.valorMensual)).replace(/\B(?=(\d{3})+(?!\d))/g, '.') : '';
       infoHtml =
         '<div style="margin-bottom:14px;padding:10px 14px;background:var(--surface-container,#f3f4f6);' +
         'border-radius:8px;border:1px solid var(--border,#e5e7eb);font-size:13px">' +
@@ -485,8 +486,8 @@ var Contratos = (() => {
         '</div>' +
         '<div class="form-group">' +
           '<label>Valor Mensual</label>' +
-          '<input type="number" id="ren-valor" class="form-control" step="1" min="0"' +
-          ' value="' + valorActual + '" placeholder="Monto del arriendo...">' +
+          '<input type="text" inputmode="numeric" id="ren-valor" class="form-control"' +
+          ' value="' + valorActual + '" placeholder="Monto del arriendo..." oninput="Contratos.formatValor(this)">' +
           '<span class="field-error" id="ren-valor-error"></span>' +
         '</div>' +
         '<div class="form-group">' +
@@ -508,6 +509,13 @@ var Contratos = (() => {
     finInput.value = Utils.dateToStr(fin);
   }
 
+  function formatValor(input) {
+    if (!input) return;
+    var raw = input.value.replace(/\./g, '');
+    if (!raw || !/^\d+$/.test(raw)) { input.value = ''; return; }
+    input.value = raw.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  }
+
   async function renovar(id) {
     Utils.limpiarErrores('form-renovar');
     var fechaInicio = document.getElementById('ren-fecha-inicio').value;
@@ -518,7 +526,8 @@ var Contratos = (() => {
       Utils.mostrarError('ren-fecha-fin', 'Debe ser posterior a la fecha de inicio');
       return;
     }
-    if (valorInput && valorInput.value && parseFloat(valorInput.value) <= 0) {
+    var renValorRaw = valorInput ? (valorInput.value || '').replace(/\./g, '') : '';
+    if (renValorRaw && parseFloat(renValorRaw) <= 0) {
       Utils.mostrarError('ren-valor', 'El valor mensual debe ser mayor que 0');
       return;
     }
@@ -527,8 +536,8 @@ var Contratos = (() => {
       fechaFin: fechaFin || null,
       notas: (document.getElementById('ren-notas') || {value: ''}).value.trim() || null
     };
-    if (valorInput && valorInput.value) {
-      payload.valorMensual = parseFloat(valorInput.value);
+    if (renValorRaw) {
+      payload.valorMensual = parseFloat(renValorRaw);
     }
     var btn = document.getElementById('btn-renovar');
     if (btn) btn.disabled = true;
@@ -544,7 +553,7 @@ var Contratos = (() => {
 
   return { cargar, render, mostrarFormulario, guardar, activar, cancelar, eliminar, renovar, mostrarRenovar,
            goToPage, chequearResidenteMenor, actualizarMinFechaFin, sugerirTipo, calcularFechaFin,
-           calcularFechaFinRenovar, descargarPDF, onApartamentoChange, autoFillValorMensual, mostrarInfoApartamento };
+           calcularFechaFinRenovar, formatValor, descargarPDF, onApartamentoChange, autoFillValorMensual, mostrarInfoApartamento };
 })();
 
 Router.register('contratos', {
