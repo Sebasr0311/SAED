@@ -1,4 +1,4 @@
-const Contratos = (() => {
+var Contratos = (() => {
   let data = [];
   let _allData = [];
   let editingId = null;
@@ -203,11 +203,11 @@ const Contratos = (() => {
       '<button class="btn btn-primary" id="btn-guardar-contrato" onclick="Contratos.guardar()">Crear Contrato</button>'
     );
 
-    setTimeout(function() { calcularFechaFin(); }, 80);
-    setTimeout(function() {
+    requestAnimationFrame(function() { calcularFechaFin(); });
+    requestAnimationFrame(function() {
       Utils.selectBusqueda('con-apt');
       Utils.selectBusqueda('con-residente');
-    }, 150);
+    });
   }
 
   // --- Cuando cambia el apartamento: auto-fill valor + sugerir tipo ---
@@ -284,7 +284,10 @@ const Contratos = (() => {
     var finInput = document.getElementById('con-fecha-fin');
     if (!tipoSel || !inicioInput || !finInput) return;
     var tipo = tipoSel.value;
-    var inicio = new Date(inicioInput.value + 'T12:00:00');
+    var fechaVal = inicioInput.value;
+    if (!fechaVal) { finInput.value = ''; finInput.disabled = false; finInput.placeholder = ''; return; }
+    var inicio = new Date(fechaVal + 'T12:00:00');
+    if (isNaN(inicio.getTime())) { finInput.value = ''; finInput.disabled = false; finInput.placeholder = ''; return; }
     if (tipo === 'PERMANENCIA') {
       finInput.value = '';
       finInput.disabled = true;
