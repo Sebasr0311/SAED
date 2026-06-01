@@ -19,6 +19,20 @@ import java.util.List;
  */
 public class AlertaPagoDAO extends BaseDAO {
 
+    private static final String SELECT_BASE =
+        "SELECT a.id_alerta, a.id_cuota, a.tipo_alerta, a.canal, "
+        + "       a.leida, a.enviada_en, a.leida_en, "
+        + "       c.anio, c.mes, c.estado AS estado_cuota, "
+        + "       r.nombres || ' ' || r.apellidos AS nombre_residente, "
+        + "       ap.numero                        AS numero_apartamento "
+        + "FROM   ALERTAS_PAGO    a "
+        + "JOIN   CUOTAS_ARRIENDO c  ON c.id_cuota    = a.id_cuota "
+        + "JOIN   CONTRATOS       ct ON ct.id_contrato = c.id_contrato "
+        + "JOIN   CONTRATO_RESIDENTE cr ON cr.id_contrato = ct.id_contrato "
+        + "                            AND cr.rol_en_contrato = 'ARRENDATARIO' "
+        + "JOIN   RESIDENTES      r  ON r.id_residente = cr.id_residente "
+        + "JOIN   APARTAMENTOS    ap ON ap.id_apartamento = ct.id_apartamento ";
+
     /** Devuelve todas las alertas ordenadas: no leídas primero, luego por fecha desc. */
     public List<AlertaPago> findAll() throws SQLException {
         String sql = SELECT_BASE + "ORDER BY a.leida ASC, a.enviada_en DESC";
