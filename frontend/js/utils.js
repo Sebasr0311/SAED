@@ -537,7 +537,7 @@ const Utils = (() => {
     });
   }
 
-  function selectBusqueda(selectId) {
+  function selectBusqueda(selectId, onChange) {
     var select = document.getElementById(selectId);
     if (!select) return;
     var container = document.createElement('div');
@@ -576,7 +576,11 @@ const Utils = (() => {
           select.value = this.dataset.value;
           input.value = this.textContent;
           dropdown.style.display = 'none';
-          select.dispatchEvent(new Event('change', { bubbles: true }));
+          if (typeof onChange === 'function') {
+            onChange(select.value);
+          } else {
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+          }
         });
         dropdown.appendChild(item);
       });
