@@ -20,9 +20,10 @@ const API = (() => {
       clearTimeout(timer);
 
       if (res.status === 401) {
+        try { var errData = await res.json(); } catch (_) {}
         Auth.logout();
         Router.navigate('login');
-        throw new Error('Sesion expirada');
+        throw new Error(errData && (errData.mensaje || errData.error) || 'Sesion expirada');
       }
 
       var contentType = res.headers.get('content-type') || '';
