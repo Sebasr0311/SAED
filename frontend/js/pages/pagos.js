@@ -14,15 +14,15 @@ const Pagos = (() => {
 
   function cambiarTab(tab) {
     var prefix = 'tab-pagos-';
-    var tabEl = document.querySelector('#content-area .tab[data-tab="' + prefix + tab + '"]');
+    var tabEl = document.querySelector('#pagos-overlay .tab[data-tab="' + prefix + tab + '"]');
     var contentEl = document.getElementById(prefix + tab);
     if (tabEl) {
-      document.querySelectorAll('#content-area .tab').forEach(function(t) { t.classList.remove('active'); t.setAttribute('aria-selected', 'false'); });
+      document.querySelectorAll('#pagos-overlay .tab').forEach(function(t) { t.classList.remove('active'); t.setAttribute('aria-selected', 'false'); });
       tabEl.classList.add('active');
       tabEl.setAttribute('aria-selected', 'true');
     }
     if (contentEl) {
-      document.querySelectorAll('#content-area .tab-content').forEach(function(c) { c.classList.remove('active'); });
+      document.querySelectorAll('#pagos-overlay .tab-content').forEach(function(c) { c.classList.remove('active'); });
       contentEl.classList.add('active');
     }
     if (tab === 'ganancias' && !gananciasData) cargarGanancias();
