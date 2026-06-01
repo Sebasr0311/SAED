@@ -13,14 +13,18 @@ const Pagos = (() => {
   let gananciasPage = 1;
 
   function cambiarTab(tab) {
-    var tabs = document.querySelectorAll('#page-content .tabs .tab');
-    var contents = document.querySelectorAll('#page-content .tabs ~ .tab-content, #page-content .tab-content');
-    tabs.forEach(function(t) { t.classList.remove('active'); t.setAttribute('aria-selected', 'false'); });
-    contents.forEach(function(c) { c.classList.remove('active'); });
-    var tabEl = document.querySelector('#page-content .tab[data-tab="tab-pagos-' + tab + '"]');
-    var contentEl = document.getElementById('tab-pagos-' + tab);
-    if (tabEl) { tabEl.classList.add('active'); tabEl.setAttribute('aria-selected', 'true'); }
-    if (contentEl) contentEl.classList.add('active');
+    var prefix = 'tab-pagos-';
+    var tabEl = document.querySelector('#content-area .tab[data-tab="' + prefix + tab + '"]');
+    var contentEl = document.getElementById(prefix + tab);
+    if (tabEl) {
+      document.querySelectorAll('#content-area .tab').forEach(function(t) { t.classList.remove('active'); t.setAttribute('aria-selected', 'false'); });
+      tabEl.classList.add('active');
+      tabEl.setAttribute('aria-selected', 'true');
+    }
+    if (contentEl) {
+      document.querySelectorAll('#content-area .tab-content').forEach(function(c) { c.classList.remove('active'); });
+      contentEl.classList.add('active');
+    }
     if (tab === 'ganancias' && !gananciasData) cargarGanancias();
   }
 
