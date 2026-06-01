@@ -6,11 +6,7 @@ import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
-public class VisitanteDAO implements CrudDAO<Visitante> {
-
-    private Connection conn() {
-        return ConexionBD.getInstancia().getConexion();
-    }
+public class VisitanteDAO extends BaseDAO implements CrudDAO<Visitante> {
 
     private static final String SELECT_COLS =
         "SELECT id_visitante, id_tipo_doc, numero_documento, "

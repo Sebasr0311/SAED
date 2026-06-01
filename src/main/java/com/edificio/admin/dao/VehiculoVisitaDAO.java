@@ -12,11 +12,7 @@ import java.util.List;
  * La hora de salida y liberacion de parqueadero se gestionan via
  * TRG_ACCESO_SALIDA al actualizar REGISTROS_ACCESO.hora_salida.
  */
-public class VehiculoVisitaDAO implements CrudDAO<VehiculoVisita> {
-
-    private Connection conn() {
-        return ConexionBD.getInstancia().getConexion();
-    }
+public class VehiculoVisitaDAO extends BaseDAO implements CrudDAO<VehiculoVisita> {
 
     @Override
     public List<VehiculoVisita> findAll() throws SQLException {

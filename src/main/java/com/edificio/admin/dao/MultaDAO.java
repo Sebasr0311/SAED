@@ -7,11 +7,7 @@ import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
-public class MultaDAO {
-
-    private Connection conn() {
-        return ConexionBD.getInstancia().getConexion();
-    }
+public class MultaDAO extends BaseDAO {
 
     public List<Multa> findAllConResidente() throws SQLException {
         List<Multa> lista = new ArrayList<>();

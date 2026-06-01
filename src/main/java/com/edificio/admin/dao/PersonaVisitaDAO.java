@@ -11,11 +11,7 @@ import java.util.List;
  * Al insertar un registro, el trigger TRG_AUTO_FRECUENTE actualiza
  * FRECUENTES_RESIDENTE automaticamente.
  */
-public class PersonaVisitaDAO implements CrudDAO<PersonaVisita> {
-
-    private Connection conn() {
-        return ConexionBD.getInstancia().getConexion();
-    }
+public class PersonaVisitaDAO extends BaseDAO implements CrudDAO<PersonaVisita> {
 
     @Override
     public List<PersonaVisita> findAll() throws SQLException {

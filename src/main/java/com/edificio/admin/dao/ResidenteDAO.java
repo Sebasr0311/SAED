@@ -11,11 +11,7 @@ import java.util.List;
  * La vinculacion con apartamentos se hace via CONTRATO_RESIDENTE -> CONTRATOS,
  * no hay FK directa en esta tabla.
  */
-public class ResidenteDAO implements CrudDAO<Residente> {
-
-    private Connection conn() {
-        return ConexionBD.getInstancia().getConexion();
-    }
+public class ResidenteDAO extends BaseDAO implements CrudDAO<Residente> {
 
     @Override
     public List<Residente> findAll() throws SQLException {

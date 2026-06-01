@@ -12,11 +12,7 @@ import java.util.List;
  * La autenticacion compara solo username y activo=1; la verificacion
  * del password_hash (BCrypt) se delega a UsuarioService.
  */
-public class UsuarioDAO implements CrudDAO<Usuario> {
-
-    private Connection conn() {
-        return ConexionBD.getInstancia().getConexion();
-    }
+public class UsuarioDAO extends BaseDAO implements CrudDAO<Usuario> {
 
     @Override
     public List<Usuario> findAll() throws SQLException {
@@ -158,9 +154,24 @@ public class UsuarioDAO implements CrudDAO<Usuario> {
 
     /** Verifica si un id_residente ya esta asociado a otro usuario activo. */
     public boolean existsByResidente(Integer idResidente) throws SQLException {
+        return existsByResidente(idResidente, null);
+    }
+
+    /**
+     * Verifica si un id_residente ya esta asociado a otro usuario activo,
+     * excluyendo opcionalmente un id_usuario (util para actualizaciones
+     * donde el propio usuario no debe contarse).
+     */
+    public boolean existsByResidente(Integer idResidente, Integer excludeIdUsuario) throws SQLException {
         String sql = "SELECT COUNT(*) FROM USUARIOS WHERE id_residente = ? AND activo = 1";
+        if (excludeIdUsuario != null) {
+            sql += " AND id_usuario != ?";
+        }
         try (PreparedStatement ps = conn().prepareStatement(sql)) {
             ps.setInt(1, idResidente);
+            if (excludeIdUsuario != null) {
+                ps.setInt(2, excludeIdUsuario);
+            }
             try (ResultSet rs = ps.executeQuery()) {
                 return rs.next() && rs.getInt(1) > 0;
             }

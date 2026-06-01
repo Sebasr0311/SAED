@@ -5,11 +5,7 @@ import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
-public class BuzonDAO {
-
-    private Connection conn() {
-        return ConexionBD.getInstancia().getConexion();
-    }
+public class BuzonDAO extends BaseDAO {
 
     public List<Buzon> findByApartamento(int idApartamento) throws SQLException {
         List<Buzon> lista = new ArrayList<>();

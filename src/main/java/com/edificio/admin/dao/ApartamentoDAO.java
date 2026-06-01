@@ -13,11 +13,7 @@ import java.util.List;
  * El estado se sincroniza automaticamente por TRG_CONT_SYNC_APARTAMENTO;
  * desde Java solo se actualiza cuando el admin cambia datos fisicos.
  */
-public class ApartamentoDAO implements CrudDAO<Apartamento> {
-
-    private Connection conn() {
-        return ConexionBD.getInstancia().getConexion();
-    }
+public class ApartamentoDAO extends BaseDAO implements CrudDAO<Apartamento> {
 
     @Override
     public List<Apartamento> findAll() throws SQLException {
