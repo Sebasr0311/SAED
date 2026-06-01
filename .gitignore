@@ -8,6 +8,7 @@ out/
 
 ### Maven ###
 target/
+.mvn/wrapper/maven-wrapper.jar
 
 ### Eclipse ###
 .apt_generated
@@ -49,9 +50,6 @@ node_modules/
 
 ### Windows ###
 Thumbs.db
-
-### Vercel ###
-.vercel/
 
 ### Credenciales — NO versionar ###
 src/main/resources/bd.properties
