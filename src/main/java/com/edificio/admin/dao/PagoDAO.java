@@ -6,7 +6,9 @@ import com.edificio.admin.model.enums.MetodoPago;
 import java.math.BigDecimal;
 import java.sql.*;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * DAO para la tabla PAGOS.
@@ -78,6 +80,53 @@ public class PagoDAO extends BaseDAO implements CrudDAO<Pago> {
             cs.executeUpdate();
             return cs.getInt(9);
         }
+    }
+
+    public BigDecimal sumAll() throws SQLException {
+        String sql = "SELECT NVL(SUM(valor_pagado), 0) FROM PAGOS";
+        try (PreparedStatement ps = conn().prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            return rs.next() ? rs.getBigDecimal(1) : BigDecimal.ZERO;
+        }
+    }
+
+    public List<Map<String, Object>> sumByTipoCuota() throws SQLException {
+        List<Map<String, Object>> lista = new ArrayList<>();
+        String sql = "SELECT cq.tipo_cuota, NVL(SUM(p.valor_pagado), 0) AS total "
+                   + "FROM   PAGOS p "
+                   + "JOIN   CUOTAS_ARRIENDO cq ON cq.id_cuota = p.id_cuota "
+                   + "GROUP  BY cq.tipo_cuota";
+        try (PreparedStatement ps = conn().prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                Map<String, Object> m = new HashMap<>();
+                m.put("tipo", rs.getString("tipo_cuota"));
+                m.put("total", rs.getBigDecimal("total"));
+                lista.add(m);
+            }
+        }
+        return lista;
+    }
+
+    public List<Map<String, Object>> monthlyBreakdown() throws SQLException {
+        List<Map<String, Object>> lista = new ArrayList<>();
+        String sql = "SELECT EXTRACT(YEAR FROM p.fecha_pago) AS anio, "
+                   + "       EXTRACT(MONTH FROM p.fecha_pago) AS mes, "
+                   + "       NVL(SUM(p.valor_pagado), 0) AS total "
+                   + "FROM   PAGOS p "
+                   + "GROUP  BY EXTRACT(YEAR FROM p.fecha_pago), EXTRACT(MONTH FROM p.fecha_pago) "
+                   + "ORDER  BY anio DESC, mes DESC";
+        try (PreparedStatement ps = conn().prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                Map<String, Object> m = new HashMap<>();
+                m.put("anio", rs.getInt("anio"));
+                m.put("mes", rs.getInt("mes"));
+                m.put("total", rs.getBigDecimal("total"));
+                lista.add(m);
+            }
+        }
+        return lista;
     }
 
     /** Los pagos no se modifican; este metodo es solo para cumplir la interfaz. */

@@ -1,6 +1,7 @@
 package com.edificio.admin.service;
 
 import com.edificio.admin.dao.CuotaArriendoDAO;
+import com.edificio.admin.dao.MultaDAO;
 import com.edificio.admin.dao.PagoDAO;
 import com.edificio.admin.exception.DatosInvalidosException;
 import com.edificio.admin.exception.RegistroNoEncontradoException;
@@ -10,7 +11,10 @@ import com.edificio.admin.model.enums.EstadoCuota;
 
 import java.math.BigDecimal;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Logica de negocio para CUOTAS_ARRIENDO y PAGOS.
@@ -19,10 +23,12 @@ public class PagoService {
 
     private final CuotaArriendoDAO cuotaDAO;
     private final PagoDAO          pagoDAO;
+    private final MultaDAO         multaDAO;
 
     public PagoService() {
         this.cuotaDAO = new CuotaArriendoDAO();
         this.pagoDAO  = new PagoDAO();
+        this.multaDAO = new MultaDAO();
     }
 
     // ---- Cuotas ----
@@ -87,6 +93,69 @@ public class PagoService {
         }
 
         return idPago;
+    }
+
+    // ---- Resumen de ganancias ----
+
+    public Map<String, Object> obtenerResumenGanancias() throws SQLException {
+        BigDecimal totalCuotas = pagoDAO.sumAll();
+        BigDecimal totalMultas = multaDAO.sumPaid();
+        List<Map<String, Object>> porTipo = pagoDAO.sumByTipoCuota();
+        List<Map<String, Object>> cuotasPorMes = pagoDAO.monthlyBreakdown();
+        List<Map<String, Object>> multasPorMes = multaDAO.monthlyPaidMultas();
+
+        List<Map<String, Object>> porMes = combinarMensual(cuotasPorMes, multasPorMes);
+
+        Map<String, Object> resumen = new HashMap<>();
+        resumen.put("totalIngresos", totalCuotas.add(totalMultas));
+        resumen.put("totalCuotas", totalCuotas);
+        resumen.put("totalMultas", totalMultas);
+        resumen.put("porTipo", porTipo);
+        resumen.put("porMes", porMes);
+        return resumen;
+    }
+
+    private List<Map<String, Object>> combinarMensual(List<Map<String, Object>> cuotas,
+                                                       List<Map<String, Object>> multas) {
+        Map<String, Map<String, Object>> mapa = new HashMap<>();
+
+        for (Map<String, Object> c : cuotas) {
+            String key = c.get("anio") + "-" + c.get("mes");
+            Map<String, Object> m = new HashMap<>();
+            m.put("anio", c.get("anio"));
+            m.put("mes", c.get("mes"));
+            m.put("totalCuotas", c.get("total"));
+            m.put("totalMultas", BigDecimal.ZERO);
+            m.put("total", c.get("total"));
+            mapa.put(key, m);
+        }
+
+        for (Map<String, Object> m : multas) {
+            String key = m.get("anio") + "-" + m.get("mes");
+            Map<String, Object> existing = mapa.get(key);
+            if (existing != null) {
+                existing.put("totalMultas", m.get("total"));
+                BigDecimal totalCuotas = (BigDecimal) existing.get("totalCuotas");
+                BigDecimal totalMultas = (BigDecimal) m.get("total");
+                existing.put("total", totalCuotas.add(totalMultas));
+            } else {
+                Map<String, Object> n = new HashMap<>();
+                n.put("anio", m.get("anio"));
+                n.put("mes", m.get("mes"));
+                n.put("totalCuotas", BigDecimal.ZERO);
+                n.put("totalMultas", m.get("total"));
+                n.put("total", m.get("total"));
+                mapa.put(key, n);
+            }
+        }
+
+        List<Map<String, Object>> resultado = new ArrayList<>(mapa.values());
+        resultado.sort((a, b) -> {
+            int cmp = ((Integer) b.get("anio")).compareTo((Integer) a.get("anio"));
+            if (cmp != 0) return cmp;
+            return ((Integer) b.get("mes")).compareTo((Integer) a.get("mes"));
+        });
+        return resultado;
     }
 
     // ---- validaciones ----

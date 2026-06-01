@@ -5,7 +5,9 @@ import com.edificio.admin.model.enums.EstadoMulta;
 import java.math.BigDecimal;
 import java.sql.*;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class MultaDAO extends BaseDAO {
 
@@ -130,6 +132,36 @@ public class MultaDAO extends BaseDAO {
             ps.setInt(1, idMulta);
             ps.executeUpdate();
         }
+    }
+
+    public BigDecimal sumPaid() throws SQLException {
+        String sql = "SELECT NVL(SUM(monto), 0) FROM MULTAS WHERE estado = 'PAGADA'";
+        try (PreparedStatement ps = conn().prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            return rs.next() ? rs.getBigDecimal(1) : BigDecimal.ZERO;
+        }
+    }
+
+    public List<Map<String, Object>> monthlyPaidMultas() throws SQLException {
+        List<Map<String, Object>> lista = new ArrayList<>();
+        String sql = "SELECT EXTRACT(YEAR FROM fecha_pago) AS anio, "
+                   + "       EXTRACT(MONTH FROM fecha_pago) AS mes, "
+                   + "       NVL(SUM(monto), 0) AS total "
+                   + "FROM   MULTAS "
+                   + "WHERE  estado = 'PAGADA' AND fecha_pago IS NOT NULL "
+                   + "GROUP  BY EXTRACT(YEAR FROM fecha_pago), EXTRACT(MONTH FROM fecha_pago) "
+                   + "ORDER  BY anio DESC, mes DESC";
+        try (PreparedStatement ps = conn().prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                Map<String, Object> m = new HashMap<>();
+                m.put("anio", rs.getInt("anio"));
+                m.put("mes", rs.getInt("mes"));
+                m.put("total", rs.getBigDecimal("total"));
+                lista.add(m);
+            }
+        }
+        return lista;
     }
 
     private Multa mapear(ResultSet rs) throws SQLException {
