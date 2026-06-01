@@ -69,8 +69,8 @@ cd "`dirname \"$PRG\"`/" >/dev/null
 APP_HOME="`pwd -P`"
 cd "$SAVED" >/dev/null
 
-MAVEN_PROJECTBASEDIR=${MAVEN_BASEDIR:-"$APP_HOME"}
-MAVEN_HOME=$APP_HOME/.mvn/wrapper
+MAVEN_PROJECTBASEDIR="${MAVEN_BASEDIR:-"$APP_HOME"}"
+MAVEN_HOME="$APP_HOME/.mvn/wrapper"
 
 # Download and install Maven if not already present
 MAVEN_JAR="$MAVEN_HOME/maven-wrapper.jar"

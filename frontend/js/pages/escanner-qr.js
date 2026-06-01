@@ -667,14 +667,14 @@ const EscannerQR = (() => {
       tbody.innerHTML = visitas.map(function(v) {
         var parq = v.codigoParqueadero ? '<span class="badge badge-activo">' + Utils.escapeHtml(v.codigoParqueadero) + '</span>' : '<span class="text-muted">-</span>';
         return '<tr><td>' + v.idVisita + '</td><td>' + Utils.escapeHtml(v.nombreResidente || '-') + '</td><td>' + Utils.formatDateTime(v.horaEntrada) + '</td><td>' + parq + '</td>' +
-          '<td><button class="btn btn-warn btn-sm" onclick="EscannerQR.registrarSalida(' + v.idAcceso + ')">Registrar Salida</button></td></tr>';
+          '<td><button class="btn btn-warn btn-sm" onclick="EscannerQR.registrarSalida(' + v.idAcceso + ', this)">Registrar Salida</button></td></tr>';
       }).join('');
     } catch (e) { tbody.innerHTML = '<tr><td colspan="5" class="text-center" style="color:var(--text-secondary)">Error al cargar</td></tr>'; }
     actualizarBadgesSalida();
   }
 
-  async function registrarSalida(idAcceso) {
-    var btn = event ? event.target : document.querySelector('button[onclick*="registrarSalida(' + idAcceso + ')"]');
+  async function registrarSalida(idAcceso, el) {
+    var btn = el || (event ? event.target : document.querySelector('button[onclick*="registrarSalida(' + idAcceso + ')"]'));
     if (btn && btn.disabled) return;
     if (btn) btn.disabled = true;
     try {

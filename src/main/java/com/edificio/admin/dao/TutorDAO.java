@@ -78,7 +78,7 @@ public class TutorDAO extends BaseDAO implements CrudDAO<Tutor> {
             setNullableString(cs, 10, t.getDocPdfUrl());
             cs.registerOutParameter(11, Types.NUMERIC);
             cs.executeUpdate();
-            return cs.getInt(10);
+            return cs.getInt(11);
         }
     }
 

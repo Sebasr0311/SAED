@@ -63,7 +63,7 @@ echo location of your Java installation. >&2
 echo.
 goto error
 :OkJHome
-if exist "%JAVA_HOME%\bin\java.exe" goto checkJavac
+if exist "%JAVA_HOME%\bin\java.exe" goto init
 echo.
 echo Error: JAVA_HOME is set to an invalid directory. >&2
 echo JAVA_HOME = "%JAVA_HOME%" >&2
@@ -71,9 +71,10 @@ echo Please set the JAVA_HOME variable in your environment to match the >&2
 echo location of your Java installation. >&2
 echo.
 goto error
-:checkJavac
 
 @REM ==== END VALIDATION ====
+
+:init
 
 set MAVEN_HOME=%~dp0\.mvn\wrapper
 set MAVEN_JAR=%MAVEN_HOME%\maven-wrapper.jar
@@ -87,8 +88,11 @@ if not exist "%MAVEN_JAR%" (
   )
 )
 
+@REM Resolve the project directory without trailing backslash
+for %%i in ("%~dp0.") do set "MAVEN_PROJECTBASEDIR=%%~fi"
+
 @REM Execute Maven
-"%JAVA_HOME%\bin\java.exe" %MAVEN_OPTS% -classpath "%MAVEN_JAR%" "-Dmaven.multiModuleProjectDirectory=%~dp0" org.apache.maven.wrapper.MavenWrapperMain %*
+"%JAVA_HOME%\bin\java.exe" %MAVEN_OPTS% -classpath "%MAVEN_JAR%" "-Dmaven.multiModuleProjectDirectory=%MAVEN_PROJECTBASEDIR%" org.apache.maven.wrapper.MavenWrapperMain %*
 
 :error
 set ERROR_CODE=1

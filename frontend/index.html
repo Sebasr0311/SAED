@@ -480,9 +480,11 @@
   <template id="tpl-escanner-qr">
     <div class="tabs" id="qr-tabs" role="tablist">
       <div class="tab active" role="tab" aria-selected="true" data-tab="tab-qr-validar" onclick="EscannerQR.cambiarTab('tab-qr-validar')">Validar Entrada</div>
+      <div class="tab" role="tab" aria-selected="false" data-tab="tab-qr-salida" onclick="EscannerQR.cambiarTab('tab-qr-salida')">Registrar Salida<span id="badge-visitas-activas" class="badge hidden"></span></div>
       <div class="tab" role="tab" aria-selected="false" data-tab="tab-qr-parqueaderos" onclick="EscannerQR.cambiarTab('tab-qr-parqueaderos')">Parqueaderos</div>
     </div>
     <div class="tab-content active" id="tab-qr-validar" role="tabpanel"></div>
+    <div class="tab-content" id="tab-qr-salida" role="tabpanel"></div>
     <div class="tab-content" id="tab-qr-parqueaderos" role="tabpanel"></div>
   </template>
 

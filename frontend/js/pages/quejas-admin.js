@@ -155,7 +155,8 @@ const QuejasAdmin = (() => {
 
   function getTipoBadge(tipo) {
     var icon = tipo === 'QUEJA' ? '🔴' : (tipo === 'SUGERENCIA' ? '💡' : '⚖️');
-    return '<span class="badge badge-tipo-' + tipo.toLowerCase() + '">' + icon + ' ' + tipo + '</span>';
+    var bg = tipo === 'QUEJA' ? '#FFCDD2' : (tipo === 'SUGERENCIA' ? '#C8E6C9' : '#FFE0B2');
+    return '<span class="badge" style="background:' + bg + '">' + icon + ' ' + tipo + '</span>';
   }
 
   function getEstadoBadge(estado) {
