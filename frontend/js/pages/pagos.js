@@ -4,45 +4,15 @@ const Pagos = (() => {
   var residentes = [];
   var _allResidentes = [];
   var currentDetalleApto = null;
-  var gananciasData = null;
 
   var METODOS = ['EFECTIVO', 'TRANSFERENCIA'];
   const PAGE_SIZE = 15;
-  const GANANCIAS_PAGE_SIZE = 12;
-  const REGISTRADOS_PAGE_SIZE = 6;
   let currentPage = 1;
-  let gananciasPage = 1;
-  let registradosPage = 1;
-  var pagosRegistrados = [];
-  var _allRegistrados = [];
-
-  function cambiarTab(tab) {
-    var prefix = 'tab-pagos-';
-    var tabEl = document.querySelector('#pagos-overlay .tab[data-tab="' + prefix + tab + '"]');
-    var contentEl = document.getElementById(prefix + tab);
-    if (tabEl) {
-      document.querySelectorAll('#pagos-overlay .tab').forEach(function(t) { t.classList.remove('active'); t.setAttribute('aria-selected', 'false'); });
-      tabEl.classList.add('active');
-      tabEl.setAttribute('aria-selected', 'true');
-    }
-    if (contentEl) {
-      document.querySelectorAll('#pagos-overlay .tab-content').forEach(function(c) { c.classList.remove('active'); });
-      contentEl.classList.add('active');
-    }
-    if (tab === 'ganancias' && !gananciasData) cargarGanancias();
-  }
 
   function goToPage(page) {
     if (page < 1 || page > Math.ceil(residentes.length / PAGE_SIZE)) return;
     currentPage = page;
     renderTabla();
-  }
-
-  function goToGananciasPage(page) {
-    var meses = (gananciasData && gananciasData.porMes) || [];
-    if (page < 1 || page > Math.ceil(meses.length / GANANCIAS_PAGE_SIZE)) return;
-    gananciasPage = page;
-    renderGanancias();
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -179,134 +149,6 @@ const Pagos = (() => {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Ganancias
-  // ─────────────────────────────────────────────────────────────────────────
-  async function cargarGanancias() {
-    try {
-      var res = await Promise.all([
-        API.get('/pagos/ganancias'),
-        API.get('/pagos/registrados')
-      ]);
-      gananciasData = res[0];
-      pagosRegistrados = res[1];
-      _allRegistrados = pagosRegistrados.slice();
-      renderGanancias();
-    } catch (e) {
-      Utils.showToast('Error al cargar ganancias: ' + e.message, 'error');
-    }
-  }
-
-  function renderGanancias() {
-    if (!gananciasData) return;
-    var d = gananciasData;
-
-    var elTotal = document.getElementById('ganancias-kpi-total');
-    var elCuotas = document.getElementById('ganancias-kpi-cuotas');
-    var elMultas = document.getElementById('ganancias-kpi-multas');
-    if (elTotal) elTotal.textContent = Utils.formatCurrency(d.totalIngresos);
-    if (elCuotas) elCuotas.textContent = Utils.formatCurrency(d.totalCuotas);
-    if (elMultas) elMultas.textContent = Utils.formatCurrency(d.totalMultas);
-
-    var tipoContainer = document.getElementById('ganancias-por-tipo');
-    if (tipoContainer) {
-      if (d.porTipo && d.porTipo.length) {
-        tipoContainer.innerHTML = d.porTipo.map(function(t) {
-          var label = t.tipo === 'ARRIENDO' ? 'Arriendos cobrados' : 'Administraci\u00f3n cobrada';
-          var color = t.tipo === 'ARRIENDO' ? 'var(--navy-600)' : 'var(--info-600)';
-          return '<div class="stat-card">' +
-            '<div class="stat-body">' +
-              '<div class="stat-value" style="color:' + color + '">' + Utils.formatCurrency(t.total) + '</div>' +
-              '<div class="stat-label">' + label + '</div>' +
-            '</div>' +
-          '</div>';
-        }).join('');
-      } else {
-        tipoContainer.innerHTML = '';
-      }
-    }
-
-    var meses = d.porMes || [];
-    var pg = Utils.paginate(meses, gananciasPage, GANANCIAS_PAGE_SIZE);
-    var tbody = document.getElementById('tbody-ganancias-mes');
-    if (!tbody) return;
-
-    if (!meses.length) {
-      tbody.innerHTML = '<tr><td colspan="4" class="text-center" style="color:var(--text-secondary);padding:32px">Sin ingresos registrados</td></tr>';
-    } else {
-      tbody.innerHTML = pg.items.map(function(m) {
-        var label = Utils.periodoLabel(m.anio, m.mes);
-        return '<tr>' +
-          '<td><strong>' + label + '</strong></td>' +
-          '<td>' + Utils.formatCurrency(m.totalCuotas) + '</td>' +
-          '<td>' + Utils.formatCurrency(m.totalMultas) + '</td>' +
-          '<td><strong>' + Utils.formatCurrency(m.total) + '</strong></td>' +
-          '</tr>';
-      }).join('');
-    }
-
-    var pagEl = document.getElementById('pagination-ganancias');
-    if (pagEl) pagEl.innerHTML = Utils.paginationHtml(pg, 'Pagos.goToGananciasPage');
-
-    var searchReg = document.getElementById('search-registrados');
-    if (searchReg && !searchReg._initialized) {
-      searchReg._initialized = true;
-      searchReg.addEventListener('input', function() {
-        var term = this.value.toLowerCase().trim();
-        if (!term) {
-          pagosRegistrados = _allRegistrados.slice();
-        } else {
-          pagosRegistrados = _allRegistrados.filter(function(p) {
-            return (p.apartamento || '').toLowerCase().includes(term)
-                || (p.residente || '').toLowerCase().includes(term)
-                || (p.descripcion || '').toLowerCase().includes(term)
-                || (p.metodo || '').toLowerCase().includes(term);
-          });
-        }
-        registradosPage = 1;
-        renderPagosRegistrados();
-      });
-    }
-
-    renderPagosRegistrados();
-  }
-
-  function renderPagosRegistrados() {
-    var container = document.getElementById('pagos-registrados-section');
-    var tbody = document.getElementById('tbody-registrados');
-    var pag = document.getElementById('pagination-registrados');
-    if (!tbody || !container) return;
-
-    if (!pagosRegistrados.length) {
-      container.style.display = 'none';
-      return;
-    }
-    container.style.display = 'block';
-
-    var pg = Utils.paginate(pagosRegistrados, registradosPage, REGISTRADOS_PAGE_SIZE);
-    tbody.innerHTML = pg.items.map(function(p) {
-      var tipoLabel = p.tipoPago === 'CUOTA' ? 'Arriendo' : 'Multa';
-      var tipoClass = p.tipoPago === 'CUOTA' ? 'badge-navy' : 'badge-warn';
-      return '<tr>' +
-        '<td><span class="badge ' + tipoClass + '">' + tipoLabel + '</span></td>' +
-        '<td>' + Utils.escapeHtml(p.apartamento || '-') + '</td>' +
-        '<td>' + Utils.escapeHtml(p.residente || '-') + '</td>' +
-        '<td style="white-space:nowrap">' + Utils.formatDate(p.fecha) + '</td>' +
-        '<td style="white-space:nowrap">' + Utils.formatCurrency(p.valor) + '</td>' +
-        '<td style="white-space:nowrap">' + (p.metodo || '-') + '</td>' +
-        '<td>' + Utils.escapeHtml(p.descripcion || '-') + '</td>' +
-        '</tr>';
-    }).join('');
-
-    if (pag) pag.innerHTML = Utils.paginationHtml(pg, 'Pagos.goToRegistradosPage');
-  }
-
-  function goToRegistradosPage(page) {
-    if (page < 1 || page > Math.ceil(pagosRegistrados.length / REGISTRADOS_PAGE_SIZE)) return;
-    registradosPage = page;
-    renderPagosRegistrados();
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────
   // Modal de detalle
   // ─────────────────────────────────────────────────────────────────────────
   async function verDetalle(apto) {
@@ -314,7 +156,6 @@ const Pagos = (() => {
     var fila = residentes.find(function(r) { return r.apto === apto; });
     if (!fila) return;
 
-    // Abrir modal con spinner de carga
     var modalEl = Utils.modal(
       'Apto ' + Utils.escapeHtml(apto) + ' \u2014 ' + Utils.escapeHtml(fila.residente),
       '<div style="text-align:center;padding:40px;color:var(--text-secondary)">' +
@@ -322,24 +163,20 @@ const Pagos = (() => {
         'Cargando\u2026</div>',
       '<button class="btn btn-outline" onclick="this.closest(\'.modal-overlay\').remove()">Cerrar</button>'
     );
-    // Ampliar modal para que quepan las tablas
     if (modalEl) modalEl.style.width = '860px';
 
     try {
-      // Cuotas: traer TODAS (pagadas + pendientes) del contrato activo
       var todasCuotas = [];
       if (fila.idContrato) {
         todasCuotas = await API.get('/cuotas?contrato=' + fila.idContrato);
       }
 
-      // Multas: filtrar desde el cache (ya tenemos todos los estados)
       var todasMultas = allMultas.filter(function(m) {
         var mismoApto = (m.numeroApartamento || '') === apto;
         var mismoId   = fila.idApartamento && m.idApartamento === fila.idApartamento;
         return mismoApto || mismoId;
       });
 
-      // Reemplazar cuerpo del modal
       var bodyEl = document.querySelector('.modal-body');
       if (bodyEl) bodyEl.innerHTML = buildDetalleHtml(apto, todasCuotas, todasMultas);
 
@@ -351,9 +188,6 @@ const Pagos = (() => {
     }
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // HTML del cuerpo del modal de detalle
-  // ─────────────────────────────────────────────────────────────────────────
   function buildDetalleHtml(apto, cuotas, multas) {
     var pagadas   = cuotas.filter(function(c) { return c.estado === 'PAGADA'; });
     var pendientes = cuotas.filter(function(c) { return c.estado !== 'PAGADA' && c.estado !== 'ANULADA'; });
@@ -365,7 +199,6 @@ const Pagos = (() => {
 
     var html = '';
 
-    /* ── CUOTAS ── */
     html += '<div style="margin-bottom:28px">';
     html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">';
     html += '<span style="font-size:14px;font-weight:700;color:var(--text)">Cuotas de Arriendo / Administraci\u00f3n</span>';
@@ -383,7 +216,6 @@ const Pagos = (() => {
       html += '<table class="data-table" style="font-size:13px">';
       html += '<thead><tr><th>Tipo</th><th>Periodo</th><th>Vencimiento</th><th>Deuda</th><th>Estado</th><th></th></tr></thead>';
       html += '<tbody>';
-      // Primero pendientes, luego pagadas, luego anuladas
       var orden = pendientes.concat(pagadas).concat(anuladas);
       orden.forEach(function(c) {
         var tipoBadge = c.tipoCuota === 'ADMINISTRACION'
@@ -408,7 +240,6 @@ const Pagos = (() => {
     }
     html += '</div>';
 
-    /* ── MULTAS ── */
     html += '<div>';
     html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">';
     html += '<span style="font-size:14px;font-weight:700;color:var(--text)">Multas</span>';
@@ -452,9 +283,6 @@ const Pagos = (() => {
     return html;
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Volver al modal de detalle (desde modal de pago → Cancelar)
-  // ─────────────────────────────────────────────────────────────────────────
   function volverAlDetalle() {
     document.querySelectorAll('.modal-overlay').forEach(function(el) { el.remove(); });
     if (currentDetalleApto) verDetalle(currentDetalleApto);
@@ -535,7 +363,6 @@ const Pagos = (() => {
     var btn = document.getElementById('btn-conf-cuota');
     Utils.limpiarErrores('form-pago-cuota');
 
-    // ── Fecha de pago ──────────────────────────────────────────────
     var today   = Utils.todayStr();
     var minDate = new Date();
     minDate.setMonth(minDate.getMonth() - 1);
@@ -555,7 +382,6 @@ const Pagos = (() => {
       return;
     }
 
-    // ── Valor pagado ───────────────────────────────────────────────
     var valorTotal = parseFloat(document.getElementById('pago-valor-total').value) || 0;
     var valorStr   = document.getElementById('pago-valor').value;
     var valorPagado = parseFloat(valorStr);
@@ -568,14 +394,12 @@ const Pagos = (() => {
       return;
     }
 
-    // ── Método de pago ─────────────────────────────────────────────
     var metodoPago = document.getElementById('pago-metodo').value;
     if (!metodoPago) {
       Utils.mostrarError('pago-metodo', 'Seleccione el método de pago');
       return;
     }
 
-    // ── Referencia (solo TRANSFERENCIA) ───────────────────────────
     var referencia = '';
     if (metodoPago === 'TRANSFERENCIA') {
       referencia = (document.getElementById('pago-referencia').value || '').trim();
@@ -670,19 +494,15 @@ const Pagos = (() => {
 
   // ─────────────────────────────────────────────────────────────────────────
   return {
-    cargar:                cargar,
-    cambiarTab:            cambiarTab,
-    verDetalle:            verDetalle,
-    volverAlDetalle:       volverAlDetalle,
-    abrirPagoCuota:        abrirPagoCuota,
-    confirmarPagoCuota:    confirmarPagoCuota,
-    abrirPagoMulta:        abrirPagoMulta,
-    confirmarPagoMulta:    confirmarPagoMulta,
-    _toggleRefCuota:       _toggleRefCuota,
-    goToPage:              goToPage,
-    cargarGanancias:       cargarGanancias,
-    goToGananciasPage:     goToGananciasPage,
-    goToRegistradosPage:   goToRegistradosPage
+    cargar:             cargar,
+    verDetalle:         verDetalle,
+    volverAlDetalle:    volverAlDetalle,
+    abrirPagoCuota:     abrirPagoCuota,
+    confirmarPagoCuota: confirmarPagoCuota,
+    abrirPagoMulta:     abrirPagoMulta,
+    confirmarPagoMulta: confirmarPagoMulta,
+    _toggleRefCuota:    _toggleRefCuota,
+    goToPage:           goToPage
   };
 })();
 
