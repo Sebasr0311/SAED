@@ -11,11 +11,7 @@ import java.util.List;
  * DAO para la tabla VISITAS.
  * La generacion del QR se hace despues de insertar la visita (QRAccesoDAO).
  */
-public class VisitaDAO implements CrudDAO<Visita> {
-
-    private Connection conn() {
-        return ConexionBD.getInstancia().getConexion();
-    }
+public class VisitaDAO extends BaseDAO implements CrudDAO<Visita> {
 
     @Override
     public List<Visita> findAll() throws SQLException {
@@ -232,10 +228,8 @@ public class VisitaDAO implements CrudDAO<Visita> {
     public Integer insert(Visita v) throws SQLException {
         String sql = "BEGIN INSERT INTO VISITAS "
                    + "  (id_contrato_res, id_residente, tiempo_validez_min, "
-                   + "   cantidad_personas, estado, notas, "
-                   + "   fecha_registro, actualizado_en) "
-                   + "VALUES (?, ?, ?, ?, ?, ?, "
-                   + "        CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) "
+                   + "   cantidad_personas, estado, notas, fecha_registro, actualizado_en) "
+                   + "VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) "
                    + "RETURNING id_visita INTO ?; END;";
         try (CallableStatement cs = conn().prepareCall(sql)) {
             cs.setInt(1, v.getIdContratoRes());

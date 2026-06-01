@@ -13,11 +13,7 @@ import java.util.Map;
  * La validacion atomica del QR se delega al procedimiento SP_VALIDAR_QR en Oracle.
  * Este DAO solo gestiona la creacion inicial y lectura del registro.
  */
-public class QRAccesoDAO implements CrudDAO<QRAcceso> {
-
-    private Connection conn() {
-        return ConexionBD.getInstancia().getConexion();
-    }
+public class QRAccesoDAO extends BaseDAO implements CrudDAO<QRAcceso> {
 
     @Override
     public List<QRAcceso> findAll() throws SQLException {

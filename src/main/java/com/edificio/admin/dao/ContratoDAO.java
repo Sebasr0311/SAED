@@ -14,11 +14,7 @@ import java.util.List;
  * El estado del apartamento se sincroniza via TRG_CONT_SYNC_APARTAMENTO;
  * basta con UPDATE de estado aqui.
  */
-public class ContratoDAO implements CrudDAO<Contrato> {
-
-    private Connection conn() {
-        return ConexionBD.getInstancia().getConexion();
-    }
+public class ContratoDAO extends BaseDAO implements CrudDAO<Contrato> {
 
     @Override
     public List<Contrato> findAll() throws SQLException {

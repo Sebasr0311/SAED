@@ -14,10 +14,21 @@ public class JwtUtil {
     private static final long EXPIRATION_HOURS = 8;
 
     static {
-        SecureRandom random = new SecureRandom();
-        byte[] key = new byte[32];
-        random.nextBytes(key);
-        SECRET = Base64.getEncoder().encodeToString(key);
+        String envSecret = getenv("JWT_SECRET");
+        if (envSecret != null && !envSecret.isEmpty()) {
+            SECRET = envSecret;
+            System.out.println("[JwtUtil] Usando JWT_SECRET de variable de entorno");
+        } else {
+            SecureRandom random = new SecureRandom();
+            byte[] key = new byte[32];
+            random.nextBytes(key);
+            SECRET = Base64.getEncoder().encodeToString(key);
+            System.out.println("[JwtUtil] JWT_SECRET no definido, usando clave aleatoria (los tokens expiraran al reiniciar)");
+        }
+    }
+
+    private static String getenv(String key) {
+        try { return System.getenv(key); } catch (Exception e) { return null; }
     }
 
     private static final String HEADER = Base64.getUrlEncoder().withoutPadding()

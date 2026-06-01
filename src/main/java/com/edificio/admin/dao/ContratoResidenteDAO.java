@@ -9,11 +9,7 @@ import java.util.List;
 /**
  * DAO para la tabla CONTRATO_RESIDENTE (union N:M Contratos x Residentes).
  */
-public class ContratoResidenteDAO implements CrudDAO<ContratoResidente> {
-
-    private Connection conn() {
-        return ConexionBD.getInstancia().getConexion();
-    }
+public class ContratoResidenteDAO extends BaseDAO implements CrudDAO<ContratoResidente> {
 
     @Override
     public List<ContratoResidente> findAll() throws SQLException {

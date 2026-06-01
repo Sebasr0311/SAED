@@ -13,11 +13,7 @@ import java.util.List;
  * DAO de solo lectura para la tabla TIPOS_DOCUMENTO.
  * Los tipos de documento son un catálogo mantenido en BD; no se crean desde la app.
  */
-public class TipoDocumentoDAO {
-
-    private Connection conn() {
-        return ConexionBD.getInstancia().getConexion();
-    }
+public class TipoDocumentoDAO extends BaseDAO {
 
     /**
      * Devuelve todos los tipos de documento activos, ordenados por id_tipo_doc.

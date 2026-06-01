@@ -63,11 +63,10 @@ public class UsuarioService {
         if (usuario.getUsername() != null)
             usuario.setUsername(usuario.getUsername().toLowerCase().trim());
         validar(usuario);
-        Usuario existente = usuarioDAO.findById(usuario.getIdUsuario());
         // Verificar idResidente no duplicado (excluyendose a si mismo)
-        if (usuario.getIdResidente() != null && usuarioDAO.existsByResidente(usuario.getIdResidente())) {
-            if (existente.getIdResidente() == null || !existente.getIdResidente().equals(usuario.getIdResidente()))
-                throw new DatosInvalidosException("El residente ya tiene un usuario activo.");
+        if (usuario.getIdResidente() != null
+                && usuarioDAO.existsByResidente(usuario.getIdResidente(), usuario.getIdUsuario())) {
+            throw new DatosInvalidosException("El residente ya tiene un usuario activo.");
         }
         usuario.setPasswordHash(hashear(usuario.getPasswordHash()));
         usuarioDAO.update(usuario);

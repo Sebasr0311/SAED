@@ -12,11 +12,7 @@ import java.util.List;
  * DAO para la tabla CUOTAS_ARRIENDO.
  * Unicidad por (id_contrato, anio, mes, tipo_cuota) garantizada en BD.
  */
-public class CuotaArriendoDAO implements CrudDAO<CuotaArriendo> {
-
-    private Connection conn() {
-        return ConexionBD.getInstancia().getConexion();
-    }
+public class CuotaArriendoDAO extends BaseDAO implements CrudDAO<CuotaArriendo> {
 
     @Override
     public List<CuotaArriendo> findAll() throws SQLException {

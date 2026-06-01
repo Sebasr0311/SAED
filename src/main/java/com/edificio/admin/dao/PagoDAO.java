@@ -12,11 +12,7 @@ import java.util.List;
  * DAO para la tabla PAGOS.
  * Los pagos son inmutables una vez registrados (no hay DELETE fisico).
  */
-public class PagoDAO implements CrudDAO<Pago> {
-
-    private Connection conn() {
-        return ConexionBD.getInstancia().getConexion();
-    }
+public class PagoDAO extends BaseDAO implements CrudDAO<Pago> {
 
     @Override
     public List<Pago> findAll() throws SQLException {

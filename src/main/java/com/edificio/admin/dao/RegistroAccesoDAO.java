@@ -14,11 +14,7 @@ import java.util.List;
  *   · El UPDATE relevante es sólo registrar la hora_salida.
  *   · Los registros nunca se eliminan (historial inmutable de accesos).
  */
-public class RegistroAccesoDAO {
-
-    private Connection conn() {
-        return ConexionBD.getInstancia().getConexion();
-    }
+public class RegistroAccesoDAO extends BaseDAO {
 
     // ── Consultas ──────────────────────────────────────────────────────────────
 

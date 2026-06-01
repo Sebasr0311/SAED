@@ -7,14 +7,13 @@ import com.edificio.admin.model.enums.TipoParqueadero;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.StringJoiner;
 
 /**
-     * DAO para la tabla PARQUEADEROS.
-     * findAll() incluye JOIN con APARTAMENTOS / CONTRATOS / RESIDENTES
-     * para mostrar el apartamento asignado y el residente propietario.
-     */
-    public class ParqueaderoDAO implements CrudDAO<Parqueadero> {
+ * DAO para la tabla PARQUEADEROS.
+ * findAll() incluye JOIN con APARTAMENTOS / CONTRATOS / RESIDENTES
+ * para mostrar el apartamento asignado y el residente propietario.
+ */
+public class ParqueaderoDAO extends BaseDAO implements CrudDAO<Parqueadero> {
 
     /** SQL base con JOIN para obtener apartamento y propietario. */
     private static final String SQL_BASE =
@@ -53,10 +52,6 @@ import java.util.StringJoiner;
             params.add(esVisitante ? 1 : 0);
         }
         return sb.toString();
-    }
-
-    private Connection conn() {
-        return ConexionBD.getInstancia().getConexion();
     }
 
     @Override
@@ -202,7 +197,6 @@ import java.util.StringJoiner;
         p.setEstado(EstadoParqueadero.valueOf(rs.getString("estado")));
         Timestamp ac = rs.getTimestamp("actualizado_en");
         if (ac != null) p.setActualizadoEn(ac.toLocalDateTime());
-        // Campos de JOIN (pueden ser null para rotativos)
         int idApt = rs.getInt("id_apartamento");
         if (!rs.wasNull()) p.setIdApartamento(idApt);
         p.setNumeroApartamento(rs.getString("numero_apartamento"));

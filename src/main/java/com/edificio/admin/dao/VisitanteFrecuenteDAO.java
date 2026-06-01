@@ -14,11 +14,7 @@ import java.util.List;
  * Liberación → SP_LIBERAR_VISITA_FRECUENTE (9 IN / 4 OUT)
  * Ocultar → UPDATE FRECUENTES_RESIDENTE SET activo = 0
  */
-public class VisitanteFrecuenteDAO {
-
-    private Connection conn() {
-        return ConexionBD.getInstancia().getConexion();
-    }
+public class VisitanteFrecuenteDAO extends BaseDAO {
 
     // ------------------------------------------------------------------
     // Consulta principal

@@ -14,11 +14,7 @@ import java.util.List;
  * (UQ_TUTOR_DOC evita duplicados por documento, y la pantalla de Residentes
  * gestiona un único tutor por menor).
  */
-public class TutorDAO implements CrudDAO<Tutor> {
-
-    private Connection conn() {
-        return ConexionBD.getInstancia().getConexion();
-    }
+public class TutorDAO extends BaseDAO implements CrudDAO<Tutor> {
 
     @Override
     public List<Tutor> findAll() throws SQLException {
