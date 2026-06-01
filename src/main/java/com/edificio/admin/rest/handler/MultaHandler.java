@@ -158,7 +158,7 @@ public class MultaHandler extends BaseHandler implements HttpHandler {
                 int idMulta = Integer.parseInt(parts[3]);
                 List<Multa> todas = multaDAO.findAllConResidente();
                 Multa multa = null;
-                for (Multa m : todas) { if (m.getIdMulta() == idMulta) { multa = m; break; } }
+                for (Multa m : todas) { if (idMulta == m.getIdMulta()) { multa = m; break; } }
                 if (multa == null) throw new Exception("Multa no encontrada");
                 if (!"PENDIENTE".equals(multa.getEstado().name())) throw new Exception("La multa no esta pendiente");
         Buzon b = new Buzon();

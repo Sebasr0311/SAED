@@ -51,7 +51,7 @@ public class ResidenteHandler extends BaseHandler implements HttpHandler {
                     List<Residente> list = service.listarTodos();
                     List<Residente> filtered = new ArrayList<>();
                     for (Residente r : list) {
-                        if (r.getIdApartamento() != null && r.getIdApartamento() == idApartamento) {
+                        if (r.getIdApartamento() != null && idApartamento == r.getIdApartamento()) {
                             filtered.add(r);
                         }
                     }

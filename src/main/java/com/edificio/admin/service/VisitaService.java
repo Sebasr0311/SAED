@@ -84,41 +84,38 @@ public class VisitaService {
             throw new DatosInvalidosException("ID del visitante titular es obligatorio.");
 
         Connection conn = ConexionBD.getInstancia().getConexion();
-        // Sincronizar sobre la conexion compartida para evitar interferencia entre hilos
-        synchronized (conn) {
-            conn.setAutoCommit(false);
-            try {
-                // 1. INSERT VISITAS
-                Integer idVisita = visitaDAO.insert(visita);
-                visita.setIdVisita(idVisita);
+        conn.setAutoCommit(false);
+        try {
+            // 1. INSERT VISITAS
+            Integer idVisita = visitaDAO.insert(visita);
+            visita.setIdVisita(idVisita);
 
-                // 2. INSERT REGISTRO_VISITA (titular)
-                PersonaVisita pv = new PersonaVisita();
-                pv.setIdVisita(idVisita);
-                pv.setIdVisitante(idVisitante);
-                pv.setEsTitular(true);
-                personaVisitaDAO.insert(pv);
+            // 2. INSERT REGISTRO_VISITA (titular)
+            PersonaVisita pv = new PersonaVisita();
+            pv.setIdVisita(idVisita);
+            pv.setIdVisitante(idVisitante);
+            pv.setEsTitular(true);
+            personaVisitaDAO.insert(pv);
 
-                // 3. INSERT VEHICULOS_VISITA (opcional)
-                if (vehiculo != null) {
-                    vehiculo.setIdVisita(idVisita);
-                    Integer idVeh = vehiculoVisitaDAO.insert(vehiculo);
-                    vehiculo.setIdVehiculoVisita(idVeh);
-                }
-
-                // 4. INSERT QR_ACCESOS (fechas con CURRENT_TIMESTAMP de la BD)
-                String codigoQr = UUID.randomUUID().toString().replace("-", "");
-                int validezMin = visita.getTiempoValidezMin() > 0 ? visita.getTiempoValidezMin() : 60;
-                qrAccesoDAO.insert(idVisita, codigoQr, validezMin);
-
-                conn.commit();
-                return codigoQr;
-            } catch (SQLException e) {
-                conn.rollback();
-                throw e;
-            } finally {
-                conn.setAutoCommit(true);
+            // 3. INSERT VEHICULOS_VISITA (opcional)
+            if (vehiculo != null) {
+                vehiculo.setIdVisita(idVisita);
+                Integer idVeh = vehiculoVisitaDAO.insert(vehiculo);
+                vehiculo.setIdVehiculoVisita(idVeh);
             }
+
+            // 4. INSERT QR_ACCESOS (fechas con CURRENT_TIMESTAMP de la BD)
+            String codigoQr = UUID.randomUUID().toString().replace("-", "");
+            int validezMin = visita.getTiempoValidezMin() > 0 ? visita.getTiempoValidezMin() : 60;
+            qrAccesoDAO.insert(idVisita, codigoQr, validezMin);
+
+            conn.commit();
+            return codigoQr;
+        } catch (SQLException e) {
+            conn.rollback();
+            throw e;
+        } finally {
+            conn.setAutoCommit(true);
         }
     }
 
