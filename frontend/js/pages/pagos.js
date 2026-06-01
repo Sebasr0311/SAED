@@ -4,15 +4,37 @@ const Pagos = (() => {
   var residentes = [];
   var _allResidentes = [];
   var currentDetalleApto = null;
+  var gananciasData = null;
 
   var METODOS = ['EFECTIVO', 'TRANSFERENCIA'];
   const PAGE_SIZE = 15;
+  const GANANCIAS_PAGE_SIZE = 12;
   let currentPage = 1;
+  let gananciasPage = 1;
+
+  function cambiarTab(tab) {
+    var tabs = document.querySelectorAll('#page-content .tabs .tab');
+    var contents = document.querySelectorAll('#page-content .tabs ~ .tab-content, #page-content .tab-content');
+    tabs.forEach(function(t) { t.classList.remove('active'); t.setAttribute('aria-selected', 'false'); });
+    contents.forEach(function(c) { c.classList.remove('active'); });
+    var tabEl = document.querySelector('#page-content .tab[data-tab="tab-pagos-' + tab + '"]');
+    var contentEl = document.getElementById('tab-pagos-' + tab);
+    if (tabEl) { tabEl.classList.add('active'); tabEl.setAttribute('aria-selected', 'true'); }
+    if (contentEl) contentEl.classList.add('active');
+    if (tab === 'ganancias' && !gananciasData) cargarGanancias();
+  }
 
   function goToPage(page) {
     if (page < 1 || page > Math.ceil(residentes.length / PAGE_SIZE)) return;
     currentPage = page;
     renderTabla();
+  }
+
+  function goToGananciasPage(page) {
+    var meses = (gananciasData && gananciasData.porMes) || [];
+    if (page < 1 || page > Math.ceil(meses.length / GANANCIAS_PAGE_SIZE)) return;
+    gananciasPage = page;
+    renderGanancias();
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -146,6 +168,70 @@ const Pagos = (() => {
     } catch (e) {
       Utils.showToast('Error al cargar pagos: ' + e.message, 'error');
     }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Ganancias
+  // ─────────────────────────────────────────────────────────────────────────
+  async function cargarGanancias() {
+    try {
+      gananciasData = await API.get('/pagos/ganancias');
+      renderGanancias();
+    } catch (e) {
+      Utils.showToast('Error al cargar ganancias: ' + e.message, 'error');
+    }
+  }
+
+  function renderGanancias() {
+    if (!gananciasData) return;
+    var d = gananciasData;
+
+    var elTotal = document.getElementById('ganancias-kpi-total');
+    var elCuotas = document.getElementById('ganancias-kpi-cuotas');
+    var elMultas = document.getElementById('ganancias-kpi-multas');
+    if (elTotal) elTotal.textContent = Utils.formatCurrency(d.totalIngresos);
+    if (elCuotas) elCuotas.textContent = Utils.formatCurrency(d.totalCuotas);
+    if (elMultas) elMultas.textContent = Utils.formatCurrency(d.totalMultas);
+
+    var tipoContainer = document.getElementById('ganancias-por-tipo');
+    if (tipoContainer) {
+      if (d.porTipo && d.porTipo.length) {
+        tipoContainer.innerHTML = d.porTipo.map(function(t) {
+          var label = t.tipo === 'ARRIENDO' ? 'Arriendos cobrados' : 'Administraci\u00f3n cobrada';
+          var color = t.tipo === 'ARRIENDO' ? 'var(--navy-600)' : 'var(--info-600)';
+          return '<div class="stat-card">' +
+            '<div class="stat-body">' +
+              '<div class="stat-value" style="color:' + color + '">' + Utils.formatCurrency(t.total) + '</div>' +
+              '<div class="stat-label">' + label + '</div>' +
+            '</div>' +
+          '</div>';
+        }).join('');
+      } else {
+        tipoContainer.innerHTML = '';
+      }
+    }
+
+    var meses = d.porMes || [];
+    var pg = Utils.paginate(meses, gananciasPage, GANANCIAS_PAGE_SIZE);
+    var tbody = document.getElementById('tbody-ganancias-mes');
+    if (!tbody) return;
+
+    if (!meses.length) {
+      tbody.innerHTML = '<tr><td colspan="4" class="text-center" style="color:var(--text-secondary);padding:32px">Sin ingresos registrados</td></tr>';
+    } else {
+      tbody.innerHTML = pg.items.map(function(m) {
+        var label = Utils.periodoLabel(m.anio, m.mes);
+        return '<tr>' +
+          '<td><strong>' + label + '</strong></td>' +
+          '<td>' + Utils.formatCurrency(m.totalCuotas) + '</td>' +
+          '<td>' + Utils.formatCurrency(m.totalMultas) + '</td>' +
+          '<td><strong>' + Utils.formatCurrency(m.total) + '</strong></td>' +
+          '</tr>';
+      }).join('');
+    }
+
+    var pagEl = document.getElementById('pagination-ganancias');
+    if (pagEl) pagEl.innerHTML = Utils.paginationHtml(pg, 'Pagos.goToGananciasPage');
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -513,6 +599,7 @@ const Pagos = (() => {
   // ─────────────────────────────────────────────────────────────────────────
   return {
     cargar:             cargar,
+    cambiarTab:         cambiarTab,
     verDetalle:         verDetalle,
     volverAlDetalle:    volverAlDetalle,
     abrirPagoCuota:     abrirPagoCuota,
@@ -520,7 +607,9 @@ const Pagos = (() => {
     abrirPagoMulta:     abrirPagoMulta,
     confirmarPagoMulta: confirmarPagoMulta,
     _toggleRefCuota:    _toggleRefCuota,
-    goToPage:           goToPage
+    goToPage:           goToPage,
+    cargarGanancias:    cargarGanancias,
+    goToGananciasPage:  goToGananciasPage
   };
 })();
 

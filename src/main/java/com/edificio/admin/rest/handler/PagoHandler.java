@@ -26,11 +26,18 @@ public class PagoHandler extends BaseHandler implements HttpHandler {
             String path = exchange.getRequestURI().getPath();
             String[] parts = path.split("/");
 
-            if ("GET".equalsIgnoreCase(method) && query != null && query.contains("cuota=")) {
-                Integer idCuota = JsonUtil.extraerInt(query, "cuota");
-                if (idCuota == null) throw new Exception("Par\u00e1metro cuota inv\u00e1lido");
-                List<Pago> list = service.listarPagosPorCuota(idCuota);
-                sendJson(exchange, 200, list);
+            if ("GET".equalsIgnoreCase(method)) {
+                if (query != null && query.contains("cuota=")) {
+                    Integer idCuota = JsonUtil.extraerInt(query, "cuota");
+                    if (idCuota == null) throw new Exception("Par\u00e1metro cuota inv\u00e1lido");
+                    List<Pago> list = service.listarPagosPorCuota(idCuota);
+                    sendJson(exchange, 200, list);
+                } else if (path.contains("/ganancias")) {
+                    Map<String, Object> resumen = service.obtenerResumenGanancias();
+                    sendJson(exchange, 200, resumen);
+                } else {
+                    sendJson(exchange, 400, new ErrorResponse("Par\u00e1metro requerido: cuota="));
+                }
             } else if ("POST".equalsIgnoreCase(method) && parts.length == 3) {
                 if (!AuthMiddleware.hasRole(claims, "ADMINISTRADOR")) {
                     sendJson(exchange, 403, new ErrorResponse("Se requieren permisos de administrador"));
