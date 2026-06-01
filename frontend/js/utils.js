@@ -553,7 +553,7 @@ const Utils = (() => {
     container.appendChild(input);
     container.appendChild(select);
     var dropdown = document.createElement('div');
-    dropdown.style.cssText = 'position:absolute;top:100%;left:0;right:0;max-height:200px;overflow-y:auto;background:var(--surface);border:1px solid var(--border);border-radius:4px;z-index:1000;display:none';
+    dropdown.style.cssText = 'position:absolute;top:100%;left:0;right:0;max-height:200px;overflow-y:auto;background:var(--surface);border:1px solid var(--border);border-radius:4px;z-index:9999;display:none';
     container.appendChild(dropdown);
     function buildList(filter) {
       dropdown.innerHTML = '';
