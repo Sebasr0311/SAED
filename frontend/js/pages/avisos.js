@@ -338,7 +338,7 @@ const Avisos = (() => {
       var tblContainer = document.querySelector('.table-container');
       if (tblContainer && !document.getElementById('search-avisos')) {
         tblContainer.insertAdjacentHTML('beforebegin', Utils.buscadorHtml('search-avisos', 'Buscar por asunto o contenido...'));
-        Utils.crearBuscador('search-avisos', _allAvisosData, ['asunto', 'contenido'], function(f) { _avisosData = f; currentPage = 1; renderTabla(); });
+        Utils.crearBuscador('search-avisos', _allAvisosData, ['titulo', 'cuerpo'], function(f) { _avisosData = f; currentPage = 1; renderTabla(); });
       }
       currentPage = 1;
       renderTabla();

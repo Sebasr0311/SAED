@@ -181,7 +181,7 @@ const ResidenteDash = (() => {
     var overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
     overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:20000;display:flex;align-items:center;justify-content:center;padding:20px';
-    overlay.addEventListener('click', function(e) { if (e.target === overlay) return; });
+    overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
 
     var modal = document.createElement('div');
     modal.style.cssText = 'background:#fff;border-radius:12px;max-width:460px;width:100%;padding:28px;box-shadow:0 8px 32px rgba(0,0,0,0.2)';
@@ -557,7 +557,7 @@ const ResidenteDash = (() => {
       var multaHtml = '<div style="margin-top:16px;padding:16px;background:#FFF3CD;border-radius:8px;border:1px solid #FDE68A"><div style="font-weight:700;margin-bottom:8px;color:#92400E">Información de la Multa asociada</div><div style="color:#78350F;font-size:13px">Cargando...</div></div>';
       bodyHtml += multaHtml;
       setTimeout(function() {
-        API.get('/multa?apartamento=' + m.idApartamento).then(function(multas) {
+        API.get('/multas?apartamento=' + m.idApartamento).then(function(multas) {
           var multa = null;
           for (var j = 0; j < multas.length; j++) {
             if (multas[j].idMensaje === idMensaje) { multa = multas[j]; break; }
