@@ -572,7 +572,7 @@ const Utils = (() => {
         if (opt.value === select.value) item.style.background = 'var(--primary-container)';
         item.addEventListener('mouseenter', function() { this.style.background = 'var(--surface-hover)'; });
         item.addEventListener('mouseleave', function() { this.style.background = ''; });
-        item.addEventListener('click', function() {
+        function seleccionarItem() {
           select.value = this.dataset.value;
           input.value = this.textContent;
           dropdown.style.display = 'none';
@@ -581,6 +581,14 @@ const Utils = (() => {
           } else {
             select.dispatchEvent(new Event('change', { bubbles: true }));
           }
+        }
+        item.addEventListener('mousedown', function(e) {
+          e.preventDefault();
+          seleccionarItem.call(this);
+        });
+        item.addEventListener('touchstart', function(e) {
+          e.preventDefault();
+          seleccionarItem.call(this);
         });
         dropdown.appendChild(item);
       });
