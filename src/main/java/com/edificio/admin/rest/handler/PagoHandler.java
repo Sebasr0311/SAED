@@ -35,6 +35,9 @@ public class PagoHandler extends BaseHandler implements HttpHandler {
                 } else if (path.contains("/ganancias")) {
                     Map<String, Object> resumen = service.obtenerResumenGanancias();
                     sendJson(exchange, 200, resumen);
+                } else if (path.contains("/registrados")) {
+                    List<Map<String, Object>> list = service.listarPagosRegistrados();
+                    sendJson(exchange, 200, list);
                 } else {
                     sendJson(exchange, 400, new ErrorResponse("Par\u00e1metro requerido: cuota="));
                 }

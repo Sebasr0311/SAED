@@ -9,8 +9,12 @@ const Pagos = (() => {
   var METODOS = ['EFECTIVO', 'TRANSFERENCIA'];
   const PAGE_SIZE = 15;
   const GANANCIAS_PAGE_SIZE = 12;
+  const REGISTRADOS_PAGE_SIZE = 6;
   let currentPage = 1;
   let gananciasPage = 1;
+  let registradosPage = 1;
+  var pagosRegistrados = [];
+  var _allRegistrados = [];
 
   function cambiarTab(tab) {
     var prefix = 'tab-pagos-';
@@ -179,7 +183,13 @@ const Pagos = (() => {
   // ─────────────────────────────────────────────────────────────────────────
   async function cargarGanancias() {
     try {
-      gananciasData = await API.get('/pagos/ganancias');
+      var res = await Promise.all([
+        API.get('/pagos/ganancias'),
+        API.get('/pagos/registrados')
+      ]);
+      gananciasData = res[0];
+      pagosRegistrados = res[1];
+      _allRegistrados = pagosRegistrados.slice();
       renderGanancias();
     } catch (e) {
       Utils.showToast('Error al cargar ganancias: ' + e.message, 'error');
@@ -236,6 +246,64 @@ const Pagos = (() => {
 
     var pagEl = document.getElementById('pagination-ganancias');
     if (pagEl) pagEl.innerHTML = Utils.paginationHtml(pg, 'Pagos.goToGananciasPage');
+
+    var searchReg = document.getElementById('search-registrados');
+    if (searchReg && !searchReg._initialized) {
+      searchReg._initialized = true;
+      searchReg.addEventListener('input', function() {
+        var term = this.value.toLowerCase().trim();
+        if (!term) {
+          pagosRegistrados = _allRegistrados.slice();
+        } else {
+          pagosRegistrados = _allRegistrados.filter(function(p) {
+            return (p.apartamento || '').toLowerCase().includes(term)
+                || (p.residente || '').toLowerCase().includes(term)
+                || (p.descripcion || '').toLowerCase().includes(term)
+                || (p.metodo || '').toLowerCase().includes(term);
+          });
+        }
+        registradosPage = 1;
+        renderPagosRegistrados();
+      });
+    }
+
+    renderPagosRegistrados();
+  }
+
+  function renderPagosRegistrados() {
+    var container = document.getElementById('pagos-registrados-section');
+    var tbody = document.getElementById('tbody-registrados');
+    var pag = document.getElementById('pagination-registrados');
+    if (!tbody || !container) return;
+
+    if (!pagosRegistrados.length) {
+      container.style.display = 'none';
+      return;
+    }
+    container.style.display = 'block';
+
+    var pg = Utils.paginate(pagosRegistrados, registradosPage, REGISTRADOS_PAGE_SIZE);
+    tbody.innerHTML = pg.items.map(function(p) {
+      var tipoLabel = p.tipoPago === 'CUOTA' ? 'Arriendo' : 'Multa';
+      var tipoClass = p.tipoPago === 'CUOTA' ? 'badge-navy' : 'badge-warn';
+      return '<tr>' +
+        '<td><span class="badge ' + tipoClass + '">' + tipoLabel + '</span></td>' +
+        '<td>' + Utils.escapeHtml(p.apartamento || '-') + '</td>' +
+        '<td>' + Utils.escapeHtml(p.residente || '-') + '</td>' +
+        '<td style="white-space:nowrap">' + Utils.formatDate(p.fecha) + '</td>' +
+        '<td style="white-space:nowrap">' + Utils.formatCurrency(p.valor) + '</td>' +
+        '<td style="white-space:nowrap">' + (p.metodo || '-') + '</td>' +
+        '<td>' + Utils.escapeHtml(p.descripcion || '-') + '</td>' +
+        '</tr>';
+    }).join('');
+
+    if (pag) pag.innerHTML = Utils.paginationHtml(pg, 'Pagos.goToRegistradosPage');
+  }
+
+  function goToRegistradosPage(page) {
+    if (page < 1 || page > Math.ceil(pagosRegistrados.length / REGISTRADOS_PAGE_SIZE)) return;
+    registradosPage = page;
+    renderPagosRegistrados();
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -602,18 +670,19 @@ const Pagos = (() => {
 
   // ─────────────────────────────────────────────────────────────────────────
   return {
-    cargar:             cargar,
-    cambiarTab:         cambiarTab,
-    verDetalle:         verDetalle,
-    volverAlDetalle:    volverAlDetalle,
-    abrirPagoCuota:     abrirPagoCuota,
-    confirmarPagoCuota: confirmarPagoCuota,
-    abrirPagoMulta:     abrirPagoMulta,
-    confirmarPagoMulta: confirmarPagoMulta,
-    _toggleRefCuota:    _toggleRefCuota,
-    goToPage:           goToPage,
-    cargarGanancias:    cargarGanancias,
-    goToGananciasPage:  goToGananciasPage
+    cargar:                cargar,
+    cambiarTab:            cambiarTab,
+    verDetalle:            verDetalle,
+    volverAlDetalle:       volverAlDetalle,
+    abrirPagoCuota:        abrirPagoCuota,
+    confirmarPagoCuota:    confirmarPagoCuota,
+    abrirPagoMulta:        abrirPagoMulta,
+    confirmarPagoMulta:    confirmarPagoMulta,
+    _toggleRefCuota:       _toggleRefCuota,
+    goToPage:              goToPage,
+    cargarGanancias:       cargarGanancias,
+    goToGananciasPage:     goToGananciasPage,
+    goToRegistradosPage:   goToRegistradosPage
   };
 })();
 

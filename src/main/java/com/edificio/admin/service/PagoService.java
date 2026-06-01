@@ -95,6 +95,10 @@ public class PagoService {
         return idPago;
     }
 
+    public List<Map<String, Object>> listarPagosRegistrados() throws SQLException {
+        return pagoDAO.findAllRegistrados();
+    }
+
     // ---- Resumen de ganancias ----
 
     public Map<String, Object> obtenerResumenGanancias() throws SQLException {
