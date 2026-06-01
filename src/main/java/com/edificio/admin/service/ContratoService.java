@@ -11,6 +11,7 @@ import com.edificio.admin.model.enums.TipoContrato;
 import com.edificio.admin.rest.dto.ContratoDetalleDTO;
 
 import java.math.BigDecimal;
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
@@ -80,38 +81,60 @@ public class ContratoService {
                 throw new DatosInvalidosException("El apartamento ya tiene un contrato pendiente de firma.");
         }
 
-        contrato.setEstado(EstadoContrato.PENDIENTE_FIRMA);
-        Integer idContrato = contratoDAO.insert(contrato);
+        Connection conn = ConexionBD.getInstancia().getConexion();
+        conn.setAutoCommit(false);
+        try {
+            contrato.setEstado(EstadoContrato.PENDIENTE_FIRMA);
+            Integer idContrato = contratoDAO.insert(contrato);
 
-        ContratoResidente cr = new ContratoResidente(null, idContrato,
-                idResidenteArrendatario, "ARRENDATARIO");
-        contratoResidenteDAO.insert(cr);
+            ContratoResidente cr = new ContratoResidente(null, idContrato,
+                    idResidenteArrendatario, "ARRENDATARIO");
+            contratoResidenteDAO.insert(cr);
 
-        return idContrato;
+            conn.commit();
+            return idContrato;
+        } catch (SQLException e) {
+            conn.rollback();
+            throw e;
+        } finally {
+            conn.setAutoCommit(true);
+        }
     }
 
     public void activar(Integer idContrato) throws SQLException {
         Contrato c = buscarPorId(idContrato);
         Integer idApartamento = c.getIdApartamento();
         c.setEstado(EstadoContrato.ACTIVO);
-        contratoDAO.update(c);
 
-        Apartamento a = null;
-        if (idApartamento != null) {
-            a = apartamentoDAO.findById(idApartamento);
-            if (a != null) {
-                a.setEstado(EstadoApartamento.OCUPADO);
-                apartamentoDAO.update(a);
-            }
-        }
-
-        // Generar cuotas del primer mes (ARRIENDO + ADMINISTRACION)
+        Connection conn = ConexionBD.getInstancia().getConexion();
+        conn.setAutoCommit(false);
         try {
-            generarCuotasIniciales(c, a);
-        } catch (Exception e) {
-            // No interrumpir la activación si la cuota ya existe o falla
-            System.err.println("[ContratoService] Aviso: no se generaron cuotas iniciales para contrato "
-                    + idContrato + ": " + e.getMessage());
+            contratoDAO.update(c);
+
+            Apartamento a = null;
+            if (idApartamento != null) {
+                a = apartamentoDAO.findById(idApartamento);
+                if (a != null) {
+                    a.setEstado(EstadoApartamento.OCUPADO);
+                    apartamentoDAO.update(a);
+                }
+            }
+
+            // Generar cuotas del primer mes (ARRIENDO + ADMINISTRACION)
+            try {
+                generarCuotasIniciales(c, a);
+            } catch (Exception e) {
+                // No interrumpir la activación si la cuota ya existe o falla
+                System.err.println("[ContratoService] Aviso: no se generaron cuotas iniciales para contrato "
+                        + idContrato + ": " + e.getMessage());
+            }
+
+            conn.commit();
+        } catch (SQLException e) {
+            conn.rollback();
+            throw e;
+        } finally {
+            conn.setAutoCommit(true);
         }
     }
 
@@ -229,14 +252,26 @@ public class ContratoService {
 
         Integer idApartamento = c.getIdApartamento();
         c.setEstado(EstadoContrato.CANCELADO);
-        contratoDAO.update(c);
 
-        if (idApartamento != null) {
-            Apartamento a = apartamentoDAO.findById(idApartamento);
-            if (a != null) {
-                a.setEstado(EstadoApartamento.DISPONIBLE);
-                apartamentoDAO.update(a);
+        Connection conn = ConexionBD.getInstancia().getConexion();
+        conn.setAutoCommit(false);
+        try {
+            contratoDAO.update(c);
+
+            if (idApartamento != null) {
+                Apartamento a = apartamentoDAO.findById(idApartamento);
+                if (a != null) {
+                    a.setEstado(EstadoApartamento.DISPONIBLE);
+                    apartamentoDAO.update(a);
+                }
             }
+
+            conn.commit();
+        } catch (SQLException e) {
+            conn.rollback();
+            throw e;
+        } finally {
+            conn.setAutoCommit(true);
         }
     }
 
@@ -277,17 +312,28 @@ public class ContratoService {
             if (!otroArrrendatario)
                 throw new DatosInvalidosException("No se puede eliminar el \u00fanico arrendatario del contrato.");
         }
-        contratoResidenteDAO.delete(target.getIdContratoRes());
-        // Si no quedan residentes en el contrato, marcar apto como DISPONIBLE
-        List<ContratoResidente> restantes = contratoResidenteDAO.findByContrato(contrato.getIdContrato());
-        if (restantes == null || restantes.isEmpty()) {
-            contrato.setEstado(EstadoContrato.CANCELADO);
-            contratoDAO.update(contrato);
-            Apartamento apto = apartamentoDAO.findById(idApartamento);
-            if (apto != null) {
-                apto.setEstado(EstadoApartamento.DISPONIBLE);
-                apartamentoDAO.update(apto);
+        Connection conn = ConexionBD.getInstancia().getConexion();
+        conn.setAutoCommit(false);
+        try {
+            contratoResidenteDAO.delete(target.getIdContratoRes());
+            // Si no quedan residentes en el contrato, marcar apto como DISPONIBLE
+            List<ContratoResidente> restantes = contratoResidenteDAO.findByContrato(contrato.getIdContrato());
+            if (restantes == null || restantes.isEmpty()) {
+                contrato.setEstado(EstadoContrato.CANCELADO);
+                contratoDAO.update(contrato);
+                Apartamento apto = apartamentoDAO.findById(idApartamento);
+                if (apto != null) {
+                    apto.setEstado(EstadoApartamento.DISPONIBLE);
+                    apartamentoDAO.update(apto);
+                }
             }
+
+            conn.commit();
+        } catch (SQLException e) {
+            conn.rollback();
+            throw e;
+        } finally {
+            conn.setAutoCommit(true);
         }
     }
 

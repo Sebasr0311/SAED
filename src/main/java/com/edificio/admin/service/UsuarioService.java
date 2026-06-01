@@ -60,15 +60,39 @@ public class UsuarioService {
 
     public void actualizar(Usuario usuario) throws SQLException {
         validarId(usuario.getIdUsuario());
-        if (usuario.getUsername() != null)
+
+        // Cargar existente para mantener campos no enviados (#10)
+        Usuario existente = usuarioDAO.findById(usuario.getIdUsuario());
+        if (existente == null)
+            throw new RegistroNoEncontradoException("Usuario no encontrado: " + usuario.getIdUsuario());
+
+        if (usuario.getUsername() != null) {
             usuario.setUsername(usuario.getUsername().toLowerCase().trim());
+        } else {
+            usuario.setUsername(existente.getUsername());
+        }
+
+        if (usuario.getPasswordHash() != null && !usuario.getPasswordHash().isBlank()) {
+            usuario.setPasswordHash(hashear(usuario.getPasswordHash()));
+        } else {
+            usuario.setPasswordHash(existente.getPasswordHash());
+        }
+
+        if (usuario.getRol() == null) {
+            usuario.setRol(existente.getRol());
+        }
+
+        if (usuario.getIdResidente() == null) {
+            usuario.setIdResidente(existente.getIdResidente());
+        }
+
         validar(usuario);
         // Verificar idResidente no duplicado (excluyendose a si mismo)
         if (usuario.getIdResidente() != null
                 && usuarioDAO.existsByResidente(usuario.getIdResidente(), usuario.getIdUsuario())) {
             throw new DatosInvalidosException("El residente ya tiene un usuario activo.");
         }
-        usuario.setPasswordHash(hashear(usuario.getPasswordHash()));
+
         usuarioDAO.update(usuario);
     }
 
