@@ -344,159 +344,53 @@
 
   <!-- Page: Pagos -->
   <template id="tpl-pagos">
-    <div id="pagos-overlay" style="position:fixed;inset:0;z-index:999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);animation:fadeIn 0.2s ease">
-      <div style="background:var(--surface);border-radius:var(--radius-lg);width:95%;max-width:1100px;max-height:92vh;display:flex;flex-direction:column;box-shadow:0 25px 80px rgba(0,0,0,0.3);animation:slideUp 0.25s ease">
-        <!-- Header -->
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 24px 0 24px">
-          <h2 style="font-size:20px;font-weight:700;margin:0">Pagos</h2>
-          <button class="btn btn-icon btn-sm" onclick="Router.navigate('dashboard')" title="Cerrar" style="background:none;border:none;cursor:pointer;padding:6px;border-radius:8px;color:var(--text-secondary)">
-            <span class="material-symbols-outlined" style="font-size:22px">close</span>
-          </button>
-        </div>
-
-        <!-- Tabs -->
-        <div class="tabs" style="padding:0 24px;margin-top:16px;flex-shrink:0" role="tablist">
-          <div class="tab active" role="tab" aria-selected="true" data-tab="tab-pagos-pendientes" onclick="Pagos.cambiarTab('pendientes')">Pendientes</div>
-          <div class="tab" role="tab" aria-selected="false" data-tab="tab-pagos-ganancias" onclick="Pagos.cambiarTab('ganancias')">Ganancias</div>
-        </div>
-
-        <!-- Body (scrollable) -->
-        <div style="padding:16px 24px 24px;overflow-y:auto;flex:1">
-
-          <!-- Tab: Pendientes -->
-          <div class="tab-content active" id="tab-pagos-pendientes" role="tabpanel">
-            <div class="card-grid mb-16">
-              <div class="stat-card">
-                <div class="stat-icon yellow"><span class="material-symbols-outlined">receipt_long</span></div>
-                <div class="stat-body">
-                  <div class="stat-value" id="pagos-kpi-cuotas" style="color:var(--warning)">$0</div>
-                  <div class="stat-label">Cuotas pendientes</div>
-                </div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-icon red"><span class="material-symbols-outlined">gavel</span></div>
-                <div class="stat-body">
-                  <div class="stat-value" id="pagos-kpi-multas" style="color:var(--danger)">$0</div>
-                  <div class="stat-label">Multas pendientes</div>
-                </div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-icon blue"><span class="material-symbols-outlined">apartment</span></div>
-                <div class="stat-body">
-                  <div class="stat-value" id="pagos-kpi-aptos">0 aptos</div>
-                  <div class="stat-label">Con saldo pendiente</div>
-                </div>
-              </div>
-            </div>
-
-            <div class="table-container">
-              <div class="table-toolbar">
-                <span>Apartamentos con saldos pendientes</span>
-                <div class="actions">
-                  <button class="btn btn-outline btn-sm" onclick="Pagos.cargar()">
-                    <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle">refresh</span>
-                    Actualizar
-                  </button>
-                </div>
-              </div>
-              <table class="data-table">
-                <thead>
-                  <tr>
-                    <th>Apartamento</th>
-                    <th>Residente</th>
-                    <th>Cuotas pendientes</th>
-                    <th>Multas pendientes</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody id="tbody-pagos-res"></tbody>
-              </table>
-              <div id="pagination-pagos"></div>
-            </div>
-          </div>
-
-          <!-- Tab: Ganancias -->
-          <div class="tab-content" id="tab-pagos-ganancias" role="tabpanel">
-            <div class="card-grid mb-16">
-              <div class="stat-card">
-                <div class="stat-icon green"><span class="material-symbols-outlined">payments</span></div>
-                <div class="stat-body">
-                  <div class="stat-value" id="ganancias-kpi-total" style="color:var(--success-600)">$0</div>
-                  <div class="stat-label">Total ingresos</div>
-                </div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-icon primary"><span class="material-symbols-outlined">receipt_long</span></div>
-                <div class="stat-body">
-                  <div class="stat-value" id="ganancias-kpi-cuotas" style="color:var(--navy-600)">$0</div>
-                  <div class="stat-label">De cuotas cobradas</div>
-                </div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-icon orange"><span class="material-symbols-outlined">gavel</span></div>
-                <div class="stat-body">
-                  <div class="stat-value" id="ganancias-kpi-multas" style="color:var(--amber-600)">$0</div>
-                  <div class="stat-label">De multas cobradas</div>
-                </div>
-              </div>
-            </div>
-
-            <div class="card-grid mb-16" id="ganancias-por-tipo" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))"></div>
-
-            <div class="table-container">
-              <div class="table-toolbar">
-                <span>Ingresos por mes</span>
-                <div class="actions">
-                  <button class="btn btn-outline btn-sm" onclick="Pagos.cargarGanancias()">
-                    <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle">refresh</span>
-                    Actualizar
-                  </button>
-                </div>
-              </div>
-              <table class="data-table">
-                <thead>
-                  <tr>
-                    <th>Periodo</th>
-                    <th>Cuotas cobradas</th>
-                    <th>Multas cobradas</th>
-                    <th>Total del mes</th>
-                  </tr>
-                </thead>
-                <tbody id="tbody-ganancias-mes"></tbody>
-              </table>
-              <div id="pagination-ganancias"></div>
-            </div>
-
-            <!-- Pagos registrados (individuales) -->
-            <div id="pagos-registrados-section" style="margin-top:24px">
-              <div class="table-container">
-                <div class="table-toolbar">
-                  <span>Pagos registrados</span>
-                  <div class="actions">
-                    <input type="text" id="search-registrados" class="form-control" placeholder="Buscar por apto, residente o tipo..." style="width:240px;font-size:13px;padding:6px 10px">
-                  </div>
-                </div>
-                <table class="data-table" style="font-size:13px">
-                  <thead>
-                    <tr>
-                      <th>Tipo</th>
-                      <th>Apartamento</th>
-                      <th>Residente</th>
-                      <th>Fecha</th>
-                      <th>Valor</th>
-                      <th>M&eacute;todo</th>
-                      <th>Detalle</th>
-                    </tr>
-                  </thead>
-                  <tbody id="tbody-registrados"></tbody>
-                </table>
-                <div id="pagination-registrados"></div>
-              </div>
-            </div>
-          </div>
-
+    <div class="card-grid mb-16">
+      <div class="stat-card">
+        <div class="stat-icon yellow"><span class="material-symbols-outlined">receipt_long</span></div>
+        <div class="stat-body">
+          <div class="stat-value" id="pagos-kpi-cuotas" style="color:var(--warning)">$0</div>
+          <div class="stat-label">Cuotas pendientes</div>
         </div>
       </div>
+      <div class="stat-card">
+        <div class="stat-icon red"><span class="material-symbols-outlined">gavel</span></div>
+        <div class="stat-body">
+          <div class="stat-value" id="pagos-kpi-multas" style="color:var(--danger)">$0</div>
+          <div class="stat-label">Multas pendientes</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon blue"><span class="material-symbols-outlined">apartment</span></div>
+        <div class="stat-body">
+          <div class="stat-value" id="pagos-kpi-aptos">0 aptos</div>
+          <div class="stat-label">Con saldo pendiente</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="table-container">
+      <div class="table-toolbar">
+        <span>Apartamentos con saldos pendientes</span>
+        <div class="actions">
+          <button class="btn btn-outline btn-sm" onclick="Pagos.cargar()">
+            <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle">refresh</span>
+            Actualizar
+          </button>
+        </div>
+      </div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Apartamento</th>
+            <th>Residente</th>
+            <th>Cuotas pendientes</th>
+            <th>Multas pendientes</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="tbody-pagos-res"></tbody>
+      </table>
+      <div id="pagination-pagos"></div>
     </div>
   </template>
 
