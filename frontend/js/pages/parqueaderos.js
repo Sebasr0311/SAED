@@ -217,7 +217,7 @@ const Parqueaderos = (() => {
   }
 
   async function eliminar(id) {
-    if (!(await Utils.showConfirm('Desea eliminar este parqueadero?'))) return;
+    if (!(await Utils.confirmarConPassword('\u00bfEst\u00e1 seguro de eliminar este parqueadero? Esta acci\u00f3n es permanente y no se puede deshacer.'))) return;
     try { await API.del('/parqueaderos/' + id); Utils.showToast('Parqueadero eliminado', 'success'); cargar(); }
     catch (e) { Utils.showToast(e.message, 'error'); }
   }
