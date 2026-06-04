@@ -28,6 +28,7 @@ public class Tutor {
     private String        telefono;
     private String        email;
     private Parentesco    parentesco;
+    private String        otroParentesco;      // solo si parentesco == OTRO
     private String        docPdfUrl;           // ruta/URL al documento escaneado (opcional)
     private LocalDateTime fechaRegistro;
     private LocalDateTime actualizadoEn;
@@ -62,6 +63,9 @@ public class Tutor {
 
     public Parentesco getParentesco()                    { return parentesco; }
     public void       setParentesco(Parentesco v)        { this.parentesco = v; }
+
+    public String     getOtroParentesco()                { return otroParentesco; }
+    public void       setOtroParentesco(String v)        { this.otroParentesco = v; }
 
     public String     getDocPdfUrl()                     { return docPdfUrl; }
     public void       setDocPdfUrl(String v)             { this.docPdfUrl = v; }
