@@ -73,23 +73,17 @@ public class EmailService {
                                            Residente residente,
                                            Contrato contrato,
                                            Apartamento apto,
-                                           LocalDate fechaVencimientoAnterior) {
+                                           LocalDate fechaVencimientoAnterior) throws Exception {
         if (destinatario == null || destinatario.isBlank()) return;
 
-        try {
-            TipoContrato tipo = contrato.getTipoContrato() != null
-                ? contrato.getTipoContrato() : TipoContrato.INICIAL;
+        TipoContrato tipo = contrato.getTipoContrato() != null
+            ? contrato.getTipoContrato() : TipoContrato.INICIAL;
 
-            String html = cargarPlantilla(tipo);
-            html = renderizar(html, residente, contrato, apto, fechaVencimientoAnterior);
+        String html = cargarPlantilla(tipo);
+        html = renderizar(html, residente, contrato, apto, fechaVencimientoAnterior);
 
-            String asunto = construirAsunto(tipo, apto);
-            enviar(destinatario, asunto, html);
-
-        } catch (Exception e) {
-            System.err.println("[EmailService] Error enviando correo a "
-                + destinatario + ": " + e.getMessage());
-        }
+        String asunto = construirAsunto(tipo, apto);
+        enviar(destinatario, asunto, html);
     }
 
     // ── privado: plantilla ────────────────────────────────────────────────────
