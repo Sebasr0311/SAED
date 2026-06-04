@@ -1,0 +1,11 @@
+# Nixpacks build configuration for Railway
+# Installs JDK 17 + Maven explicitly so JAVA_HOME is set before mvn runs.
+
+[phases.setup]
+nixPkgs = ["jdk17", "maven"]
+
+[phases.build]
+cmds = ["mvn -B -DskipTests package -q"]
+
+[start]
+cmd = "java -jar target/admin-residencial-1.0-SNAPSHOT.jar"
