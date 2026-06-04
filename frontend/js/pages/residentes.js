@@ -373,7 +373,6 @@ const Residentes = (() => {
     if (year < 1930) {
       if (errorEl) errorEl.textContent = 'A\u00f1o anterior a 1930 no permitido';
       fn.classList.add('is-invalid');
-      fn.value = '';
       return;
     }
     var hoy = new Date();
@@ -381,7 +380,6 @@ const Residentes = (() => {
     if (nac > hoy) {
       if (errorEl) errorEl.textContent = 'La fecha de nacimiento no puede ser futura';
       fn.classList.add('is-invalid');
-      fn.value = '';
       return;
     }
     if (errorEl) errorEl.textContent = '';
