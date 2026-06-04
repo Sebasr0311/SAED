@@ -427,7 +427,7 @@ var Contratos = (() => {
       } else if (res.emailStatus === 'sin_email') {
         Utils.showToast('El residente no tiene correo electrónico registrado', 'warning');
       } else if (res.emailStatus === 'error') {
-        Utils.showToast('Contrato creado pero no se pudo enviar el correo: ' + (res.emailMensaje || ''), 'error');
+        Utils.showToast('Contrato creado. No se pudo enviar el correo: ' + (res.emailMensaje || '') + '. Puede reenviarlo desde la tabla.', 'warning');
       }
       var overlay = document.querySelector('.modal-overlay');
       if (overlay) overlay.remove();
@@ -598,7 +598,7 @@ var Contratos = (() => {
       } else if (res.emailStatus === 'sin_email') {
         Utils.showToast('El residente no tiene correo electrónico registrado', 'warning');
       } else if (res.emailStatus === 'error') {
-        Utils.showToast('Renovación creada pero no se pudo enviar el correo: ' + (res.emailMensaje || ''), 'error');
+        Utils.showToast('Renovación creada. No se pudo enviar el correo: ' + (res.emailMensaje || '') + '. Puede reenviarlo desde la tabla.', 'warning');
       }
       var overlay = document.querySelector('.modal-overlay');
       if (overlay) overlay.remove();
