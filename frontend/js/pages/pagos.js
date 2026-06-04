@@ -509,6 +509,7 @@ const Pagos = (() => {
     abrirPagoMulta:     abrirPagoMulta,
     confirmarPagoMulta: confirmarPagoMulta,
     _toggleRefCuota:    _toggleRefCuota,
+    _formatPagoValor:   _formatPagoValor,
     goToPage:           goToPage
   };
 })();

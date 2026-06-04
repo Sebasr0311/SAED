@@ -52,12 +52,22 @@ public class BuzonHandler extends BaseHandler implements HttpHandler {
                 Buzon b = buzonDAO.findByVisitaAndPendiente(idVisita);
                 if (b == null) {
                     Buzon existente = buzonDAO.findByVisita(idVisita);
-                    if (existente != null)
-                        sendJson(exchange, 200, Map.of("confirmado", existente.getConfirmado(), "idMensaje", existente.getIdMensaje()));
-                    else
-                        sendJson(exchange, 200, Map.of("confirmado", null));
+                    if (existente != null) {
+                        // Map.of no admite null — usar HashMap para permitir confirmado=null
+                        Map<String, Object> r = new HashMap<>();
+                        r.put("confirmado", existente.getConfirmado());
+                        r.put("idMensaje", existente.getIdMensaje());
+                        sendJson(exchange, 200, r);
+                    } else {
+                        Map<String, Object> r = new HashMap<>();
+                        r.put("confirmado", null);
+                        sendJson(exchange, 200, r);
+                    }
                 } else {
-                    sendJson(exchange, 200, Map.of("confirmado", null, "idMensaje", b.getIdMensaje()));
+                    Map<String, Object> r = new HashMap<>();
+                    r.put("confirmado", null);
+                    r.put("idMensaje", b.getIdMensaje());
+                    sendJson(exchange, 200, r);
                 }
 
             } else if ("GET".equalsIgnoreCase(method) && path.endsWith("/paquetes-pendientes")) {

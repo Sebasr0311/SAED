@@ -92,6 +92,21 @@ public class ContratoService {
             contratoResidenteDAO.insert(cr);
 
             conn.commit();
+
+            // Notificar al residente por correo (best-effort: nunca interrumpe el flujo)
+            try {
+                ResidenteDAO resDAO = new ResidenteDAO();
+                Residente res = resDAO.findById(idResidenteArrendatario);
+                if (res != null) {
+                    String email     = res.getEmail();
+                    String nombre    = res.getNombres() + " " + res.getApellidos();
+                    String numApto   = apto != null ? apto.getNumero() : String.valueOf(idApto);
+                    EmailService.enviarEmailContrato(email, nombre, idContrato, numApto);
+                }
+            } catch (Exception ex) {
+                System.err.println("[ContratoService] No se pudo enviar email al residente: " + ex.getMessage());
+            }
+
             return idContrato;
         } catch (SQLException e) {
             conn.rollback();

@@ -101,6 +101,13 @@
             <version>1.16.1</version>
         </dependency>
 
+        <!-- JavaMail (Gmail SMTP) -->
+        <dependency>
+            <groupId>com.sun.mail</groupId>
+            <artifactId>javax.mail</artifactId>
+            <version>1.6.2</version>
+        </dependency>
+
     </dependencies>
 
     <build>
