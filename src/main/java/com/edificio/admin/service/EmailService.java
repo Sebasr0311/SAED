@@ -10,7 +10,6 @@ import javax.mail.internet.*;
 import java.io.InputStream;
 import java.math.BigDecimal;
 import java.net.URI;
-import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -19,6 +18,7 @@ import java.text.NumberFormat;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.Base64;
 import java.util.Locale;
 import java.util.Properties;
 import java.util.regex.Matcher;
@@ -61,6 +61,17 @@ public class EmailService {
                                            Contrato contrato,
                                            Apartamento apto,
                                            LocalDate fechaVencimientoAnterior) throws Exception {
+        enviarEmailContrato(destinatario, residente, contrato, apto,
+            fechaVencimientoAnterior, null, null);
+    }
+
+    public static void enviarEmailContrato(String destinatario,
+                                           Residente residente,
+                                           Contrato contrato,
+                                           Apartamento apto,
+                                           LocalDate fechaVencimientoAnterior,
+                                           byte[] pdfAdjunto,
+                                           String pdfNombre) throws Exception {
         if (destinatario == null || destinatario.isBlank()) return;
 
         TipoContrato tipo = contrato.getTipoContrato() != null
@@ -73,15 +84,15 @@ public class EmailService {
 
         // 1) Intentar SMTP directo
         try {
-            enviarViaSMTP(destinatario, asunto, html);
+            enviarViaSMTP(destinatario, asunto, html, pdfAdjunto, pdfNombre);
             return;
         } catch (Exception e) {
             System.err.println("[EmailService] SMTP fallo: " + e.getMessage());
         }
 
-        // 2) Fallback: SendGrid via HTTPS (puerto 443, no bloqueado por Railway)
+        // 2) Fallback: SendGrid via HTTPS
         if (SENDGRID_API_KEY != null && !SENDGRID_API_KEY.isBlank()) {
-            enviarViaSendGrid(destinatario, asunto, html);
+            enviarViaSendGrid(destinatario, asunto, html, pdfAdjunto, pdfNombre);
         } else {
             throw new Exception("No se pudo enviar el correo (SMTP bloqueado y SENDGRID_API_KEY no configurada). "
                 + "Agrega el plugin SendGrid en Railway o configura SENDGRID_API_KEY.");
@@ -181,7 +192,9 @@ public class EmailService {
 
     private static void enviarViaSMTP(String destinatario,
                                       String asunto,
-                                      String htmlBody) throws Exception {
+                                      String htmlBody,
+                                      byte[] pdfAdjunto,
+                                      String pdfNombre) throws Exception {
         Properties props = new Properties();
         props.put("mail.smtp.auth",               "true");
         props.put("mail.smtp.host",               "smtp.gmail.com");
@@ -210,10 +223,22 @@ public class EmailService {
         MimeBodyPart htmlPart = new MimeBodyPart();
         htmlPart.setContent(htmlBody, "text/html; charset=UTF-8");
 
-        Multipart multipart = new MimeMultipart("alternative");
-        multipart.addBodyPart(htmlPart);
-        msg.setContent(multipart);
+        Multipart multipart;
+        if (pdfAdjunto != null && pdfNombre != null) {
+            multipart = new MimeMultipart("mixed");
+            multipart.addBodyPart(htmlPart);
 
+            MimeBodyPart pdfPart = new MimeBodyPart();
+            pdfPart.setFileName(pdfNombre);
+            pdfPart.setContent(pdfAdjunto, "application/pdf");
+            pdfPart.setHeader("Content-Transfer-Encoding", "base64");
+            multipart.addBodyPart(pdfPart);
+        } else {
+            multipart = new MimeMultipart("alternative");
+            multipart.addBodyPart(htmlPart);
+        }
+
+        msg.setContent(multipart);
         Transport.send(msg);
         System.out.println("[EmailService] Correo enviado por SMTP a " + destinatario);
     }
@@ -222,22 +247,35 @@ public class EmailService {
 
     private static void enviarViaSendGrid(String destinatario,
                                           String asunto,
-                                          String htmlBody) throws Exception {
+                                          String htmlBody,
+                                          byte[] pdfAdjunto,
+                                          String pdfNombre) throws Exception {
         HttpClient client = HttpClient.newHttpClient();
 
-        String json = "{\"personalizations\":[{\"to\":[{\"email\":\""
-            + jsonEscape(destinatario) + "\"}]}],"
-            + "\"from\":{\"email\":\"" + jsonEscape(GMAIL_FROM)
-            + "\",\"name\":\"Administración · Torres del Horizonte\"},"
-            + "\"subject\":\"" + jsonEscape(asunto) + "\","
-            + "\"content\":[{\"type\":\"text/html\",\"value\":\""
-            + jsonEscape(htmlBody) + "\"}]}";
+        StringBuilder json = new StringBuilder();
+        json.append("{\"personalizations\":[{\"to\":[{\"email\":\"")
+            .append(jsonEscape(destinatario)).append("\"}]}],")
+            .append("\"from\":{\"email\":\"").append(jsonEscape(GMAIL_FROM))
+            .append("\",\"name\":\"Administración · Torres del Horizonte\"},"
+            + "\"subject\":\"").append(jsonEscape(asunto)).append("\",")
+            .append("\"content\":[{\"type\":\"text/html\",\"value\":\"")
+            .append(jsonEscape(htmlBody)).append("\"}]");
+
+        if (pdfAdjunto != null && pdfNombre != null) {
+            String b64 = Base64.getEncoder().encodeToString(pdfAdjunto);
+            json.append(",\"attachments\":[{\"content\":\"")
+                .append(b64)
+                .append("\",\"type\":\"application/pdf\",\"filename\":\"")
+                .append(jsonEscape(pdfNombre)).append("\"}]");
+        }
+
+        json.append("}");
 
         HttpRequest request = HttpRequest.newBuilder()
             .uri(URI.create("https://api.sendgrid.com/v3/mail/send"))
             .header("Authorization", "Bearer " + SENDGRID_API_KEY)
             .header("Content-Type", "application/json")
-            .POST(HttpRequest.BodyPublishers.ofString(json))
+            .POST(HttpRequest.BodyPublishers.ofString(json.toString()))
             .timeout(Duration.ofSeconds(30))
             .build();
 
@@ -246,7 +284,8 @@ public class EmailService {
 
         int status = response.statusCode();
         if (status >= 200 && status < 300) {
-            System.out.println("[EmailService] Correo enviado por SendGrid a " + destinatario);
+            System.out.println("[EmailService] Correo enviado por SendGrid a " + destinatario
+                + (pdfAdjunto != null ? " (con PDF adjunto)" : ""));
         } else {
             throw new Exception("SendGrid respondió con estado " + status
                 + ": " + response.body());

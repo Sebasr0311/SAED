@@ -120,8 +120,20 @@ public class ContratoService {
                         }
                     }
                     try {
+                        byte[] pdfBytes = null;
+                        String pdfNombre = null;
+                        try {
+                            ContratoPdfService pdfService = new ContratoPdfService();
+                            ContratoDetalleDTO detalle = obtenerDetalleParaPDF(idContrato);
+                            pdfBytes = pdfService.generarPdf(detalle);
+                            pdfNombre = "contrato_" + idContrato + ".pdf";
+                        } catch (Exception ex) {
+                            System.err.println("[ContratoService] No se pudo generar PDF adjunto: " + ex.getMessage());
+                        }
+
                         EmailService.enviarEmailContrato(
-                            res.getEmail(), res, contrato, apto, fechaVencAnterior);
+                            res.getEmail(), res, contrato, apto,
+                            fechaVencAnterior, pdfBytes, pdfNombre);
                         result.put("emailStatus", "enviado");
                         result.put("emailMensaje", "Correo enviado a " + res.getEmail());
                     } catch (Exception ex) {
@@ -361,7 +373,20 @@ public class ContratoService {
         }
 
         try {
-            EmailService.enviarEmailContrato(res.getEmail(), res, contrato, apto, fechaVencAnterior);
+            byte[] pdfBytes = null;
+            String pdfNombre = null;
+            try {
+                ContratoPdfService pdfService = new ContratoPdfService();
+                ContratoDetalleDTO detalle = obtenerDetalleParaPDF(idContrato);
+                pdfBytes = pdfService.generarPdf(detalle);
+                pdfNombre = "contrato_" + idContrato + ".pdf";
+            } catch (Exception ex) {
+                System.err.println("[ContratoService] No se pudo generar PDF adjunto: " + ex.getMessage());
+            }
+
+            EmailService.enviarEmailContrato(
+                res.getEmail(), res, contrato, apto,
+                fechaVencAnterior, pdfBytes, pdfNombre);
         } catch (Exception ex) {
             throw new RuntimeException("No se pudo enviar el correo: " + ex.getMessage());
         }
