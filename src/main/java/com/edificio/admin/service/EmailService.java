@@ -193,7 +193,7 @@ public class EmailService {
 
     private static void enviar(String destinatario,
                                 String asunto,
-                                String htmlBody) throws MessagingException {
+                                String htmlBody) throws Exception {
         Properties props = new Properties();
         props.put("mail.smtp.auth",               "true");
         props.put("mail.smtp.starttls.enable",    "true");
