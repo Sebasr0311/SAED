@@ -217,8 +217,8 @@ const Apartamentos = (() => {
 
   async function guardar() {
     Utils.limpiarErrores('form-apartamento');
-    if (!Utils.valRequerido(document.getElementById('apt-numero').value, 'apt-numero', 'El número')) return;
-    if (!Utils.valEntero(document.getElementById('apt-piso').value, 'apt-piso', { min: 0 })) return;
+    if (!Utils.valSelect(document.getElementById('apt-piso').value, 'apt-piso', 'Seleccione el piso')) return;
+    if (!Utils.valSelect(document.getElementById('apt-apt').value, 'apt-apt', 'Seleccione el n\u00famero del apartamento')) return;
     if (!Utils.valSelect(document.getElementById('apt-tipo').value, 'apt-tipo', 'Seleccione el tipo')) return;
     if (!Utils.valNumero(document.getElementById('apt-area').value, 'apt-area', { positive: true, label: 'El área' })) return;
     
@@ -227,9 +227,19 @@ const Apartamentos = (() => {
     const maxCapacidad = capacidadesPorTipo[tipo] || 8;
     
     if (!Utils.valEntero(document.getElementById('apt-capacidad').value, 'apt-capacidad', { min: 1, max: maxCapacidad, label: 'La capacidad máxima' })) return;
+
+    var numero = document.getElementById('apt-numero').value.trim();
+    // Validar que no exista ya un apartamento con el mismo numero
+    var duplicado = data.some(function(a) {
+      return a.numero === numero && (!editingId || a.idApartamento !== editingId);
+    });
+    if (duplicado) {
+      Utils.mostrarError('apt-numero', 'Ya existe un apartamento con el n\u00famero ' + numero);
+      return;
+    }
     
     const d = {
-      numero: document.getElementById('apt-numero').value.trim(),
+      numero: numero,
       piso: parseInt(document.getElementById('apt-piso').value),
       tipo: document.getElementById('apt-tipo').value,
       areaM2: parseFloat(document.getElementById('apt-area').value),
