@@ -6,6 +6,7 @@ import com.edificio.admin.dao.*;
 import com.edificio.admin.model.*;
 import com.edificio.admin.model.enums.EstadoParqueadero;
 import com.edificio.admin.model.enums.TipoVehiculo;
+import com.edificio.admin.service.EmailService;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import java.io.*;
@@ -74,6 +75,20 @@ public class QrHandler extends BaseHandler implements HttpHandler {
                 Integer idMensaje = buzonDAO.insert(b);
 
                 sendJson(exchange, 200, Map.of("idMensaje", idMensaje, "idVisita", qr.getIdVisita()));
+
+            } else if ("POST".equalsIgnoreCase(method) && parts.length == 4 && "enviar-correo".equals(parts[3])) {
+                String body2 = new String(exchange.getRequestBody().readAllBytes(), "UTF-8");
+                @SuppressWarnings("unchecked")
+                Map<String, Object> data2 = JsonUtil.fromJson(body2, Map.class);
+                String codigoQr2 = (String) data2.get("codigoQr");
+                String emailDest = (String) data2.get("emailDestinatario");
+                String nombreVis = (String) data2.get("nombreVisitante");
+                if (codigoQr2 == null || codigoQr2.isBlank())
+                    throw new Exception("codigoQr es obligatorio");
+                if (emailDest == null || emailDest.isBlank())
+                    throw new Exception("emailDestinatario es obligatorio");
+                EmailService.enviarCorreoQR(emailDest, codigoQr2, nombreVis);
+                sendJson(exchange, 200, Map.of("mensaje", "Correo enviado a " + emailDest));
 
             } else if ("POST".equalsIgnoreCase(method) && parts.length == 4 && "entrada".equals(parts[3])) {
                 String body = new String(exchange.getRequestBody().readAllBytes(), "UTF-8");
