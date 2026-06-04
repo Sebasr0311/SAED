@@ -22,11 +22,12 @@ const HistorialVisitas = (() => {
     var lastWeek = new Date(today);
     lastWeek.setDate(lastWeek.getDate() - 7);
     var lastWeekStr = Utils.dateToStr(lastWeek);
-    
-    // Fecha mínima: 2 años atrás
-    var dosAnosAtras = new Date(today);
-    dosAnosAtras.setFullYear(dosAnosAtras.getFullYear() - 2);
-    var minDateStr = Utils.dateToStr(dosAnosAtras);
+
+    // Fecha mínima: 1 de enero del año actual
+    var minDateStr = today.getFullYear() + '-01-01';
+
+    // Si la semana pasada es anterior al inicio del año, usar el inicio del año como defecto
+    if (lastWeekStr < minDateStr) lastWeekStr = minDateStr;
 
     var html = `
       <div class="card">
@@ -93,11 +94,10 @@ const HistorialVisitas = (() => {
     var today = new Date();
     today.setHours(0, 0, 0, 0);
     var todayStr = Utils.todayStr();
-    
-    var dosAnosAtras = new Date(today);
-    dosAnosAtras.setFullYear(dosAnosAtras.getFullYear() - 2);
-    var minDateStr = Utils.dateToStr(dosAnosAtras);
-    
+
+    // Fecha mínima: 1 de enero del año actual
+    var minDateStr = today.getFullYear() + '-01-01';
+
     // Validar que no sean fechas futuras
     if (fechaInicio > todayStr) {
       Utils.mostrarError('hist-fecha-inicio', 'No se pueden buscar fechas futuras');
@@ -109,15 +109,15 @@ const HistorialVisitas = (() => {
       fechaFinInput.value = todayStr;
       return false;
     }
-    
-    // Validar que no sean fechas muy antiguas (más de 2 años)
+
+    // Validar que no sean anteriores al inicio del año actual
     if (fechaInicio < minDateStr) {
-      Utils.mostrarError('hist-fecha-inicio', 'No se pueden buscar fechas de más de 2 años atrás');
+      Utils.mostrarError('hist-fecha-inicio', 'No se pueden buscar fechas anteriores a este año');
       fechaInicioInput.value = minDateStr;
       return false;
     }
     if (fechaFin < minDateStr) {
-      Utils.mostrarError('hist-fecha-fin', 'No se pueden buscar fechas de más de 2 años atrás');
+      Utils.mostrarError('hist-fecha-fin', 'No se pueden buscar fechas anteriores a este año');
       fechaFinInput.value = minDateStr;
       return false;
     }
