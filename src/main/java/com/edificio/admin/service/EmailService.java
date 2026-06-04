@@ -292,6 +292,58 @@ public class EmailService {
         }
     }
 
+    // ── público: envío de QR por correo ───────────────────────────────────────
+
+    public static void enviarCorreoQR(String destinatario,
+                                      String codigoQr,
+                                      String nombreVisitante) throws Exception {
+        if (destinatario == null || destinatario.isBlank()) return;
+
+        String imgUrl = "https://api.qrserver.com/v1/create-qr-code/?size=300x300&data="
+            + java.net.URLEncoder.encode(codigoQr, "UTF-8");
+        String safeNombre = (nombreVisitante != null) ? nombreVisitante : "tu visita";
+
+        String html = "<!DOCTYPE html><html><head><meta charset=\"UTF-8\">"
+            + "<style>"
+            + "body{margin:0;padding:0;background:#f4f4f4;font-family:Arial,sans-serif}"
+            + ".wrapper{max-width:560px;margin:30px auto;background:#fff;border:1px solid #e0e0e0;border-radius:8px;overflow:hidden}"
+            + ".header{background:#0D1B2A;padding:24px;text-align:center}"
+            + ".header h2{color:#fff;margin:0;font-size:20px}"
+            + ".header p{color:#B8933E;margin:4px 0 0;font-size:12px;text-transform:uppercase;letter-spacing:2px}"
+            + ".body{padding:32px;text-align:center;font-size:14px;color:#333}"
+            + ".qr-img{margin:16px 0;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.12)}"
+            + ".codigo{font-family:monospace;font-size:13px;color:#666;word-break:break-all;margin:8px 0 16px}"
+            + ".footer{background:#f8f5ee;padding:20px 32px;text-align:center;font-size:12px;color:#666}"
+            + ".footer strong{color:#0D1B2A}"
+            + "</style></head><body>"
+            + "<div class=\"wrapper\">"
+            + "<div class=\"header\"><h2>Torres del Horizonte</h2><p>C\u00f3digo QR de Acceso</p></div>"
+            + "<div class=\"body\">"
+            + "<p>Hola,</p>"
+            + "<p>Has recibido un c\u00f3digo QR de acceso para <strong>" + jsonEscape(safeNombre) + "</strong>.</p>"
+            + "<p>Pres\u00e9ntalo en la entrada del edificio para ingresar.</p>"
+            + "<img src=\"" + imgUrl + "\" alt=\"QR\" class=\"qr-img\" width=\"250\">"
+            + "<p class=\"codigo\">C\u00f3digo: <strong>" + jsonEscape(codigoQr) + "</strong></p>"
+            + "</div>"
+            + "<div class=\"footer\">"
+            + "<strong>SAED \u00b7 Torres del Horizonte</strong><br>"
+            + "Este es un mensaje generado autom\u00e1ticamente por el sistema de administraci\u00f3n."
+            + "</div></div></body></html>";
+
+        try {
+            enviarViaSMTP(destinatario, "C\u00f3digo QR de Acceso \u00b7 Torres del Horizonte", html, null, null);
+            return;
+        } catch (Exception e) {
+            System.err.println("[EmailService] SMTP QR fallo: " + e.getMessage());
+        }
+
+        if (SENDGRID_API_KEY != null && !SENDGRID_API_KEY.isBlank()) {
+            enviarViaSendGrid(destinatario, "C\u00f3digo QR de Acceso \u00b7 Torres del Horizonte", html, null, null);
+        } else {
+            throw new Exception("No se pudo enviar el correo (SMTP bloqueado y SENDGRID_API_KEY no configurada).");
+        }
+    }
+
     private static String jsonEscape(String s) {
         if (s == null) return "";
         return s.replace("\\", "\\\\")

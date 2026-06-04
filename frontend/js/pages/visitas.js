@@ -431,7 +431,16 @@ const Visitas = (() => {
   }
 
   function compartirCorreo(qr, email) {
-    window.open('mailto:' + email + '?subject=Codigo QR de Acceso&body=Su codigo QR es: ' + qr);
+    Utils.showToast('Enviando correo...', 'info');
+    API.post('/qr/enviar-correo', {
+      codigoQr: qr,
+      emailDestinatario: email,
+      nombreVisitante: ''
+    }).then(function() {
+      Utils.showToast('Correo enviado a ' + email, 'success');
+    }).catch(function(e) {
+      Utils.showToast('Error al enviar correo: ' + e.message, 'error');
+    });
   }
 
   function compartirTelegram(qr) {
