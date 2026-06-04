@@ -84,6 +84,15 @@ var Contratos = (() => {
     try { aptsData = await API.get('/apartamentos'); } catch(e) {}
     try { residentesData = await API.get('/residentes'); } catch(e) {}
 
+    // Excluir apartamentos que ya tienen un contrato PENDIENTE_FIRMA
+    try {
+      var todosContratos = await API.get('/contratos');
+      var aptosPendientes = (todosContratos || [])
+        .filter(function(c) { return c.estado === 'PENDIENTE_FIRMA'; })
+        .map(function(c) { return c.idApartamento; });
+      aptsData = aptsData.filter(function(a) { return !aptosPendientes.includes(a.idApartamento); });
+    } catch(e) {}
+
     // Solo apartamentos DISPONIBLES para nuevo contrato
     var aptsDisponibles = aptsData.filter(function(a) { return a.estado === 'DISPONIBLE'; });
     var aptOpts = aptsDisponibles.map(function(a) {

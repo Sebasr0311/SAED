@@ -209,6 +209,17 @@ const Utils = (() => {
     input.classList.add('is-invalid');
     var errorEl = input.parentNode.querySelector('.field-error');
     if (errorEl) errorEl.textContent = mensaje;
+
+    if (!input.dataset.errorAutoClear) {
+      input.dataset.errorAutoClear = '1';
+      input.addEventListener('input', function autoClear() {
+        input.classList.remove('is-invalid');
+        var el = input.parentNode.querySelector('.field-error');
+        if (el) el.textContent = '';
+        input.removeEventListener('input', autoClear);
+        delete input.dataset.errorAutoClear;
+      });
+    }
   }
 
   function valNombre(value, inputId, label) {
