@@ -27,9 +27,20 @@ import java.util.regex.Matcher;
  */
 public class EmailService {
 
-    private static final String GMAIL_USER     = "gestion.residencias.upc@gmail.com";
-    private static final String GMAIL_PASSWORD = "Residencial2026";
-    private static final String GMAIL_FROM     = "gestion.residencias.upc@gmail.com";
+    private static final String GMAIL_USER;
+    private static final String GMAIL_PASSWORD;
+    private static final String GMAIL_FROM;
+
+    static {
+        GMAIL_USER     = System.getenv("GMAIL_USER") != null
+            ? System.getenv("GMAIL_USER") : "gestion.residencias.upc@gmail.com";
+        GMAIL_PASSWORD = System.getenv("GMAIL_APP_PASSWORD") != null
+            ? System.getenv("GMAIL_APP_PASSWORD")
+            : (System.getenv("GMAIL_PASSWORD") != null
+                ? System.getenv("GMAIL_PASSWORD") : "Residencial2026");
+        GMAIL_FROM     = System.getenv("GMAIL_FROM") != null
+            ? System.getenv("GMAIL_FROM") : GMAIL_USER;
+    }
 
     private static final String TEMPLATE_PATH  = "/templates/correos/";
 
@@ -209,6 +220,7 @@ public class EmailService {
                 return new PasswordAuthentication(GMAIL_USER, GMAIL_PASSWORD);
             }
         });
+        session.setDebug(true);
 
         Message msg = new MimeMessage(session);
         msg.setFrom(new InternetAddress(GMAIL_FROM,

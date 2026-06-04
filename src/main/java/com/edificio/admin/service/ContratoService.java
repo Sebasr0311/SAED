@@ -16,6 +16,8 @@ import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 
 public class ContratoService {
 
@@ -61,10 +63,10 @@ public class ContratoService {
 
     public Integer crearContrato(Contrato contrato, Integer idResidenteArrendatario)
             throws SQLException {
-        return crearContrato(contrato, idResidenteArrendatario, true);
+        return (Integer) crearContrato(contrato, idResidenteArrendatario, true).get("id");
     }
 
-    public Integer crearContrato(Contrato contrato, Integer idResidenteArrendatario, boolean enviarCorreo)
+    public Map<String, Object> crearContrato(Contrato contrato, Integer idResidenteArrendatario, boolean enviarCorreo)
             throws SQLException {
         validar(contrato);
         if (idResidenteArrendatario == null || idResidenteArrendatario <= 0)
@@ -98,30 +100,44 @@ public class ContratoService {
 
             conn.commit();
 
+            Map<String, Object> result = new HashMap<>();
+            result.put("id", idContrato);
+
             if (enviarCorreo) {
-                // Notificar al residente por correo (best-effort: nunca interrumpe el flujo)
-                try {
-                    ResidenteDAO resDAO = new ResidenteDAO();
-                    Residente res = resDAO.findById(idResidenteArrendatario);
-                    if (res != null && res.getEmail() != null && !res.getEmail().isBlank()) {
-                        // Para RENOVACION: buscar fecha fin del contrato anterior (ya en memoria: todos)
-                        LocalDate fechaVencAnterior = null;
-                        if (contrato.getTipoContrato() == TipoContrato.RENOVACION) {
-                            for (Contrato ct : todos) {
-                                if (ct.getEstado() == EstadoContrato.VENCIDO) {
-                                    fechaVencAnterior = ct.getFechaFin();
-                                    break;
-                                }
+                ResidenteDAO resDAO = new ResidenteDAO();
+                Residente res = resDAO.findById(idResidenteArrendatario);
+                if (res == null || res.getEmail() == null || res.getEmail().isBlank()) {
+                    result.put("emailStatus", "sin_email");
+                    result.put("emailMensaje", "El residente no tiene correo electr\u00f3nico registrado");
+                } else {
+                    LocalDate fechaVencAnterior = null;
+                    if (contrato.getTipoContrato() == TipoContrato.RENOVACION) {
+                        for (Contrato ct : todos) {
+                            if (ct.getEstado() == EstadoContrato.VENCIDO) {
+                                fechaVencAnterior = ct.getFechaFin();
+                                break;
                             }
                         }
-                        EmailService.enviarEmailContrato(res.getEmail(), res, contrato, apto, fechaVencAnterior);
                     }
-                } catch (Exception ex) {
-                    System.err.println("[ContratoService] No se pudo enviar email al residente: " + ex.getMessage());
+                    try {
+                        EmailService.enviarEmailContrato(
+                            res.getEmail(), res, contrato, apto, fechaVencAnterior);
+                        result.put("emailStatus", "enviado");
+                        result.put("emailMensaje", "Correo enviado a " + res.getEmail());
+                    } catch (Exception ex) {
+                        System.err.println("[ContratoService] Error enviando email a "
+                            + res.getEmail() + ": " + ex.getMessage());
+                        ex.printStackTrace();
+                        result.put("emailStatus", "error");
+                        result.put("emailMensaje", "Error al enviar correo: " + ex.getMessage());
+                    }
                 }
+            } else {
+                result.put("emailStatus", "no_solicitado");
+                result.put("emailMensaje", "No se solicit\u00f3 env\u00edo de correo");
             }
 
-            return idContrato;
+            return result;
         } catch (SQLException e) {
             conn.rollback();
             throw e;
@@ -233,7 +249,7 @@ public class ContratoService {
      * @param notas              Observaciones opcionales
      * @return ID del nuevo contrato creado
      */
-    public Integer renovar(Integer idContratoVencido,
+    public Map<String, Object> renovar(Integer idContratoVencido,
                            java.time.LocalDate nuevaFechaInicio,
                            java.time.LocalDate nuevaFechaFin,
                            java.math.BigDecimal nuevoValor,
@@ -271,7 +287,13 @@ public class ContratoService {
         nuevo.setEstado(EstadoContrato.PENDIENTE_FIRMA);
         nuevo.setNotas(notas);
 
-        return crearContrato(nuevo, idResidente);
+        Map<String, Object> result = crearContrato(nuevo, idResidente, true);
+        // renovar siempre intenta enviar correo
+        Object emailStatus = result.get("emailStatus");
+        if ("enviado".equals(emailStatus)) {
+            result.putIfAbsent("emailMensaje", "Correo de notificaci\u00f3n enviado al residente");
+        }
+        return result;
     }
 
     public void cancelar(Integer idContrato) throws SQLException {
