@@ -1,7 +1,7 @@
 const HistorialVisitas = (() => {
   let _visitas = [];
   let _filteredVisitas = [];
-  const PAGE_SIZE = 15;
+  const PAGE_SIZE = 10;
   let currentPage = 1;
 
   function goToPage(page) {
