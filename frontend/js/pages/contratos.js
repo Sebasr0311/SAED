@@ -198,6 +198,16 @@ var Contratos = (() => {
           '<textarea id="con-notas" class="form-control" maxlength="1000" rows="3" placeholder="Observaciones adicionales..."></textarea>' +
         '</div>' +
 
+        // --- Envío de correo ---
+        '<div class="form-group" style="margin-top:8px">' +
+          '<label style="display:flex;align-items:center;gap:8px;font-weight:400;cursor:pointer">' +
+            '<input type="checkbox" id="con-enviar-correo" checked style="width:18px;height:18px;cursor:pointer">' +
+            '<span>Enviar correo de notificaci\u00f3n al residente</span>' +
+          '</label>' +
+          '<small style="color:var(--text-secondary);display:block;margin-top:4px;padding-left:26px">' +
+            'Se enviar\u00e1 un correo con los detalles del contrato al email registrado del residente.</small>' +
+        '</div>' +
+
       '</form>',
       '<button class="btn btn-outline" onclick="this.closest(\'.modal-overlay\').remove()">Cancelar</button>' +
       '<button class="btn btn-primary" id="btn-guardar-contrato" onclick="Contratos.guardar()">Crear Contrato</button>'
@@ -375,6 +385,7 @@ var Contratos = (() => {
       var r = await API.get('/residentes/' + idResidente);
       if (r.esMenorEdad && r.tutor && r.tutor.idTutor) idTutor = r.tutor.idTutor;
     } catch(e) {}
+    var envCorreo = document.getElementById('con-enviar-correo');
     const d = {
       idApartamento: parseInt(document.getElementById('con-apt').value),
       idResidente: idResidente,
@@ -383,7 +394,8 @@ var Contratos = (() => {
       fechaInicio: fechaInicio,
       fechaFin: fechaFin || null,
       valorMensual: parseFloat((document.getElementById('con-valor').value || '').replace(/\./g, '')),
-      notas: document.getElementById('con-notas').value.trim()
+      notas: document.getElementById('con-notas').value.trim(),
+      enviarCorreo: envCorreo ? envCorreo.checked : true
     };
     var btn = document.getElementById('btn-guardar-contrato');
     if (btn) btn.disabled = true;

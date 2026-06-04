@@ -89,7 +89,8 @@ public class ContratoHandler extends BaseHandler implements HttpHandler {
                 Object idRes = data.get("idResidente");
                 if (idRes == null) throw new Exception("idResidente es obligatorio");
                 Integer idResidente = ((Number) idRes).intValue();
-                Integer id = service.crearContrato(c, idResidente);
+                boolean enviarCorreo = data.get("enviarCorreo") != null && Boolean.parseBoolean(data.get("enviarCorreo").toString());
+                Integer id = service.crearContrato(c, idResidente, enviarCorreo);
                 sendJson(exchange, 201, Map.of("id", id));
             } else if ("POST".equalsIgnoreCase(method) && parts.length == 5 && "activar".equals(parts[4])) {
                 if (!AuthMiddleware.hasRole(claims, "ADMINISTRADOR")) {

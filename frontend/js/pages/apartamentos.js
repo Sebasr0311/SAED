@@ -52,64 +52,167 @@ const Apartamentos = (() => {
     } catch (e) { Utils.showAlert('Error', e.message, 'error'); }
   }
 
+  var AREAS_POR_TIPO = {
+    'ESTUDIO': 35, '1HAB': 50, '2HAB': 70, '3HAB': 90, 'PENTHOUSE': 120, 'OTRO': ''
+  };
+
+  var CAPACIDADES_POR_TIPO = {
+    'ESTUDIO': 2, '1HAB': 3, '2HAB': 5, '3HAB': 7, 'PENTHOUSE': 8, 'OTRO': 2
+  };
+
+  function generarPisosOpts(selected) {
+    var opts = '';
+    for (var i = 1; i <= 15; i++) {
+      opts += '<option value="' + i + '"' + (selected == i ? ' selected' : '') + '>Piso ' + i + '</option>';
+    }
+    return opts;
+  }
+
+  function generarAptOpts(piso, selected) {
+    var opts = '';
+    for (var i = 1; i <= 4; i++) {
+      var val = String(i).padStart(2, '0');
+      var fullNum = String(piso) + val;
+      opts += '<option value="' + val + '"'
+        + (selected == val ? ' selected' : '')
+        + '>' + fullNum + '</option>';
+    }
+    return opts;
+  }
+
+  function actualizarNumeroApt() {
+    var piso = document.getElementById('apt-piso');
+    var apt = document.getElementById('apt-apt');
+    var numero = document.getElementById('apt-numero');
+    if (!piso || !apt || !numero) return;
+    if (piso.value && apt.value) {
+      numero.value = piso.value + String(apt.value);
+    } else {
+      numero.value = '';
+    }
+  }
+
+  function rellenarPisosApt(pisoVal, aptVal) {
+    var aptSel = document.getElementById('apt-apt');
+    if (!aptSel) return;
+    aptSel.innerHTML = '<option value="">Apto...</option>' + generarAptOpts(pisoVal || 1, aptVal || '');
+    actualizarNumeroApt();
+  }
+
   function mostrarFormulario(a) {
     editingId = a ? a.idApartamento : null;
     const isEdit = !!editingId;
     const tiposOpts = TIPOS.map(t => `<option value="${t}" ${a && a.tipo === t ? 'selected' : ''}>${t}</option>`).join('');
-    var modal = Utils.modal(isEdit ? 'Editar Apartamento' : 'Nuevo Apartamento',
-      `<form id="form-apartamento">
-        <div class="form-row">
-          <div class="form-group"><label>Número</label><input type="text" id="apt-numero" class="form-control" value="${a ? a.numero || '' : ''}"><span class="field-error" id="apt-numero-error"></span></div>
-          <div class="form-group"><label>Piso</label><input type="number" id="apt-piso" class="form-control" value="${a ? a.piso || '' : ''}"><span class="field-error" id="apt-piso-error"></span></div>
-        </div>
-        <div class="form-row">
-          <div class="form-group"><label>Tipo</label><select id="apt-tipo" class="form-control">${tiposOpts}</select><span class="field-error" id="apt-tipo-error"></span></div>
-          <div class="form-group"><label>Área (m²)</label><input type="number" id="apt-area" class="form-control" step="0.01" value="${a ? a.areaM2 || '' : ''}"><span class="field-error" id="apt-area-error"></span></div>
-        </div>
-        <div class="form-row">
-          <div class="form-group"><label>Capacidad Máxima de Residentes</label><input type="number" id="apt-capacidad" class="form-control" min="1" max="8" value="${a ? a.capacidadMaxima || 2 : 2}"><span class="field-error" id="apt-capacidad-error"></span><small class="text-muted" id="apt-capacidad-hint">Capacidad recomendada según tipo de apartamento</small></div>
-          <div class="form-group"><label>Estado</label><select id="apt-estado" class="form-control">
-            <option value="DISPONIBLE" ${a && a.estado === 'DISPONIBLE' ? 'selected' : ''}>Disponible</option>
-            <option value="OCUPADO" ${a && a.estado === 'OCUPADO' ? 'selected' : ''}>Ocupado</option>
-            <option value="EN_MANTENIMIENTO" ${a && a.estado === 'EN_MANTENIMIENTO' ? 'selected' : ''}>Mantenimiento</option>
-          </select><span class="field-error" id="apt-estado-error"></span></div>
-        </div>
-      </form>`,
+
+    // For edit mode, parse existing numero into piso + apt
+    var pisoInicial = a ? (a.piso || 1) : 1;
+    var aptInicial = '';
+    if (a && a.numero) {
+      var numStr = String(a.numero);
+      aptInicial = numStr.length >= 2 ? numStr.slice(-2) : numStr;
+    }
+
+    Utils.modal(isEdit ? 'Editar Apartamento' : 'Nuevo Apartamento',
+      '<form id="form-apartamento">' +
+        '<div class="form-row">' +
+          '<div class="form-group" style="flex:1">' +
+            '<label>Piso</label>' +
+            '<select id="apt-piso" class="form-control" onchange="Apartamentos.onPisoChange()">' +
+              '<option value="">Seleccione piso...</option>' +
+              generarPisosOpts(isEdit ? pisoInicial : null) +
+            '</select>' +
+            '<span class="field-error" id="apt-piso-error"></span>' +
+          '</div>' +
+          '<div class="form-group" style="flex:1">' +
+            '<label>Apartamento</label>' +
+            '<select id="apt-apt" class="form-control" onchange="Apartamentos.onAptChange()">' +
+              (isEdit ? generarAptOpts(pisoInicial, aptInicial) : '<option value="">Primero seleccione piso...</option>') +
+            '</select>' +
+            '<input type="hidden" id="apt-numero" value="' + (a ? a.numero || '' : '') + '">' +
+            '<span class="field-error" id="apt-numero-error"></span>' +
+          '</div>' +
+        '</div>' +
+        '<div class="form-row">' +
+          '<div class="form-group" style="flex:1">' +
+            '<label>Tipo</label>' +
+            '<select id="apt-tipo" class="form-control" onchange="Apartamentos.onTipoChange()">' +
+              '<option value="">Seleccione tipo...</option>' +
+              tiposOpts +
+            '</select>' +
+            '<span class="field-error" id="apt-tipo-error"></span>' +
+          '</div>' +
+          '<div class="form-group" style="flex:1">' +
+            '<label>Area (m²)</label>' +
+            '<input type="number" id="apt-area" class="form-control" step="0.01" value="' + (a ? a.areaM2 || '' : '') + '">' +
+            '<span class="field-error" id="apt-area-error"></span>' +
+          '</div>' +
+        '</div>' +
+        '<div class="form-row">' +
+          '<div class="form-group" style="flex:1">' +
+            '<label>Capacidad Maxima de Residentes</label>' +
+            '<input type="number" id="apt-capacidad" class="form-control" min="1" max="8" value="' + (a ? a.capacidadMaxima || 2 : 2) + '">' +
+            '<span class="field-error" id="apt-capacidad-error"></span>' +
+            '<small class="text-muted" id="apt-capacidad-hint">Capacidad recomendada segun tipo de apartamento</small>' +
+          '</div>' +
+          '<div class="form-group" style="flex:1">' +
+            '<label>Estado</label>' +
+            '<select id="apt-estado" class="form-control">' +
+              '<option value="DISPONIBLE"' + (a && a.estado === 'DISPONIBLE' ? ' selected' : '') + '>Disponible</option>' +
+              '<option value="OCUPADO"' + (a && a.estado === 'OCUPADO' ? ' selected' : '') + '>Ocupado</option>' +
+              '<option value="EN_MANTENIMIENTO"' + (a && a.estado === 'EN_MANTENIMIENTO' ? ' selected' : '') + '>Mantenimiento</option>' +
+            '</select>' +
+            '<span class="field-error" id="apt-estado-error"></span>' +
+          '</div>' +
+        '</div>' +
+      '</form>',
       '<button class="btn btn-outline" onclick="this.closest(\'.modal-overlay\').remove()">Cancelar</button>' +
       '<button class="btn btn-primary" id="btn-guardar-apartamento" onclick="Apartamentos.guardar()">' + (isEdit ? 'Actualizar' : 'Guardar') + '</button>');
-    
-    // Agregar listener para autocompletar capacidad según tipo
-    setTimeout(() => {
-      const tipoSelect = document.getElementById('apt-tipo');
-      const capacidadInput = document.getElementById('apt-capacidad');
-      const capacidadHint = document.getElementById('apt-capacidad-hint');
-      
-      const capacidadesPorTipo = {
-        'ESTUDIO': 2,
-        '1HAB': 3,
-        '2HAB': 5,
-        '3HAB': 7,
-        'PENTHOUSE': 8,
-        'OTRO': 2
-      };
-      
-      function actualizarCapacidad() {
-        const tipo = tipoSelect.value;
-        const capacidadRecomendada = capacidadesPorTipo[tipo] || 2;
-        if (!isEdit || !a) {
-          capacidadInput.value = capacidadRecomendada;
-        }
-        capacidadInput.max = capacidadRecomendada;
-        capacidadHint.textContent = `Capacidad máxima permitida: ${capacidadRecomendada} personas`;
-        capacidadHint.style.color = 'var(--primary)';
-        capacidadHint.style.fontWeight = '500';
-      }
-      
-      if (tipoSelect && capacidadInput) {
-        tipoSelect.addEventListener('change', actualizarCapacidad);
-        actualizarCapacidad(); // Ejecutar al cargar
-      }
-    }, 100);
+
+    if (!isEdit && pisoInicial) {
+      // For new, set default piso=1 and populate apt options
+      var pisoSel = document.getElementById('apt-piso');
+      if (pisoSel) { pisoSel.value = '1'; rellenarPisosApt(1); }
+    }
+    // For edit mode, also trigger area/capacidad auto-fill
+    setTimeout(function() {
+      var tipoSel = document.getElementById('apt-tipo');
+      if (tipoSel && a && a.tipo) tipoSel.value = a.tipo;
+      actualizarAreaCapacidad();
+    }, 50);
+  }
+
+  function onPisoChange() {
+    var piso = document.getElementById('apt-piso');
+    if (!piso || !piso.value) return;
+    rellenarPisosApt(parseInt(piso.value));
+  }
+
+  function onAptChange() {
+    actualizarNumeroApt();
+  }
+
+  function onTipoChange() {
+    actualizarAreaCapacidad();
+  }
+
+  function actualizarAreaCapacidad() {
+    var tipo = document.getElementById('apt-tipo');
+    var area = document.getElementById('apt-area');
+    var cap = document.getElementById('apt-capacidad');
+    var hint = document.getElementById('apt-capacidad-hint');
+    if (!tipo || !area || !cap || !hint) return;
+    var t = tipo.value;
+    // Auto-fill area unless editing
+    if (!editingId && AREAS_POR_TIPO[t] !== undefined) {
+      area.value = AREAS_POR_TIPO[t];
+    }
+    // Auto-fill capacity
+    var capRec = CAPACIDADES_POR_TIPO[t] || 2;
+    if (!editingId) cap.value = capRec;
+    cap.max = capRec;
+    hint.textContent = 'Capacidad maxima permitida: ' + capRec + ' personas';
+    hint.style.color = 'var(--primary)';
+    hint.style.fontWeight = '500';
   }
 
   async function guardar() {
@@ -241,7 +344,8 @@ const Apartamentos = (() => {
     } catch (e) { Utils.showToast(e.message, 'error'); }
   }
 
-  return { cargar, render, mostrarFormulario, guardar, editar, eliminar, verDescripcion, removerResidente, goToPage };
+  return { cargar, render, mostrarFormulario, guardar, editar, eliminar, verDescripcion, removerResidente, goToPage,
+           onPisoChange, onAptChange, onTipoChange };
 })();
 
 Router.register('apartamentos', {
