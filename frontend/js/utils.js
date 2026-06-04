@@ -2,11 +2,14 @@ const Utils = (() => {
   function _fixISO(dateStr) {
     if (!dateStr || typeof dateStr !== 'string') return dateStr;
     if (dateStr.indexOf('T') < 0) {
-      if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr + 'T00:00:00-05:00';
+      // Fechas solas (yyyy-mm-dd): sin offset → el navegador las trata como hora local
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr + 'T00:00:00';
       return dateStr;
     }
     if (dateStr.endsWith('Z') || /[+-]\d{2}:\d{2}/.test(dateStr)) return dateStr;
-    return dateStr + '-05:00';
+    // El servidor (Oracle ATP / Railway) opera en UTC y envía timestamps sin offset.
+    // Tratarlos como UTC evita que aparezcan 5 horas adelantados en Colombia (UTC-5).
+    return dateStr + 'Z';
   }
 
   function parseDate(dateStr) {
