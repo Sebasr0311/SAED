@@ -48,6 +48,7 @@ function buildSidebar() {
         label: 'Finanzas',
         items: [
           { page: 'pagos', label: 'Pagos' },
+          { page: 'ganancias', label: 'Ganancias' },
           { page: 'alertas', label: 'Alertas' },
           { page: 'avisos', label: 'Avisos' }
         ]
