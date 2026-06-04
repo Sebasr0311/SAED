@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8"/>
+  <style>
+    body { margin: 0; padding: 0; background-color: #f4f4f4; font-family: Arial, sans-serif; }
+    .wrapper { max-width: 620px; margin: 30px auto; background-color: #ffffff; border: 1px solid #e0e0e0; }
+    .header { background-color: #0D1B2A; padding: 24px 32px; }
+    .header-brand { color: #ffffff; font-size: 18px; font-weight: bold; letter-spacing: 1px; text-transform: uppercase; margin: 0; }
+    .header-sub { color: #B8933E; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; margin: 4px 0 0; }
+    .badge { display: inline-block; margin-top: 12px; background-color: #7A5200; color: #ffffff; font-size: 10px; font-weight: bold; letter-spacing: 1px; text-transform: uppercase; padding: 4px 12px; }
+    .body { padding: 32px; color: #1a1a1a; font-size: 14px; line-height: 1.8; }
+    .body p { margin: 0 0 16px; }
+    .canon-box { background-color: #fff8ee; border-left: 4px solid #B8933E; padding: 14px 18px; margin: 16px 0; font-size: 13px; }
+    .canon-value { font-size: 20px; font-weight: bold; color: #0D1B2A; }
+    .steps { margin: 16px 0; padding: 0; }
+    .steps li { margin-bottom: 10px; }
+    .sub-list { margin-top: 8px; padding-left: 20px; list-style: none; }
+    .sub-list li::before { content: "• "; color: #B8933E; font-weight: bold; }
+    .alert-box { background-color: #fff3cd; border-left: 4px solid #e6a817; padding: 12px 16px; margin: 16px 0; font-size: 13px; color: #7a5200; }
+    .highlight { font-weight: bold; color: #0D1B2A; }
+    .footer { background-color: #f8f5ee; border-top: 3px solid #0D1B2A; padding: 20px 32px; font-size: 12px; color: #555555; line-height: 1.7; }
+    .footer-brand { font-weight: bold; color: #0D1B2A; font-size: 13px; }
+    .footer-divider { border: none; border-top: 1px solid #ddd; margin: 10px 0; }
+    .footer-note { font-size: 11px; color: #999999; margin-top: 8px; }
+  </style>
+</head>
+<body>
+<div class="wrapper">
+
+  <!-- ENCABEZADO -->
+  <div class="header">
+    <p class="header-brand">Torres del Horizonte</p>
+    <p class="header-sub">Administrado por SAED</p>
+    <span class="badge">Renovación de Contrato · 6 meses</span>
+  </div>
+
+  <!-- CUERPO -->
+  <div class="body">
+    <p>Estimado/a <span class="highlight" th:text="${nombreResidente}">Nombre del Residente</span>,</p>
+
+    <p>Reciba un cordial saludo de parte del equipo administrativo de <strong>SAED</strong>, administradores del Conjunto Residencial Torres del Horizonte.</p>
+
+    <p>Su contrato de arrendamiento actual se encuentra próximo a su fecha de vencimiento
+      (<strong><span th:text="${fechaVencimiento}">DD/MM/AAAA</span></strong>).
+      Nos complace informarle que hemos preparado la <strong>renovación de su contrato (6 meses)</strong>,
+      correspondiente al <strong>Apto. <span th:text="${numeroApartamento}">XX</span>, Piso <span th:text="${piso}">X</span></strong>.
+    </p>
+
+    <div class="canon-box">
+      <strong>Nuevo canon de arrendamiento:</strong><br/>
+      <span class="canon-value">$ <span th:text="${nuevoCanon}">0</span> COP</span>
+      <span style="font-size:12px; color:#888;"> / mes</span><br/>
+      <span style="font-size:12px; color:#555;">Vigente a partir del <span th:text="${fechaInicioRenovacion}">DD/MM/AAAA</span></span>
+    </div>
+
+    <p>Le solicitamos:</p>
+    <ol class="steps">
+      <li>Revisar las condiciones de renovación y confirmar que el nuevo canon y sus datos sean correctos.</li>
+      <li>Firmarlo en la sección de firmas de aceptación.</li>
+      <li>Devolver el documento firmado <strong>antes del vencimiento del contrato vigente</strong>, por cualquiera de estos medios:
+        <ul class="sub-list">
+          <li><strong>Físicamente:</strong> en la portería del edificio (Cra 12 # 45-67, Montería, Córdoba).</li>
+          <li><strong>Digitalmente:</strong> respondiendo a este correo con el documento escaneado.</li>
+        </ul>
+      </li>
+    </ol>
+
+    <p>Plazo máximo para devolución: <strong><span th:text="${diasHabiles}">5</span> días hábiles</strong>.</p>
+
+    <div class="alert-box">
+      Si decide <strong>no renovar</strong> su contrato, le solicitamos comunicarlo por este mismo medio a la mayor brevedad posible para coordinar el proceso de entrega del inmueble.
+    </div>
+
+    <p>Quedamos atentos a sus inquietudes.</p>
+
+    <p>Cordialmente,</p>
+    <p>
+      <strong>Área Administrativa</strong><br/>
+      SAED – Administración Torres del Horizonte
+    </p>
+  </div>
+
+  <!-- PIE -->
+  <div class="footer">
+    <span class="footer-brand">SAED · Torres del Horizonte</span><br/>
+    Cra 12 # 45-67, Montería, Córdoba &nbsp;·&nbsp; NIT 900.456.789-1<br/>
+    <span th:text="${telefonoAdministracion}">Tel: (000) 000-0000</span>
+    &nbsp;·&nbsp;
+    <span th:text="${correoAdministracion}">administracion@saed.com.co</span>
+    <hr class="footer-divider"/>
+    <p class="footer-note">Este correo es generado automáticamente por el sistema de administración de Torres del Horizonte. Por favor no responda a esta dirección si desea comunicarse con la administración; use el correo indicado arriba.</p>
+  </div>
+
+</div>
+</body>
+</html>

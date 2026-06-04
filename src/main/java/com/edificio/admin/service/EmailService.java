@@ -1,12 +1,29 @@
 package com.edificio.admin.service;
 
+import com.edificio.admin.model.Apartamento;
+import com.edificio.admin.model.Contrato;
+import com.edificio.admin.model.Residente;
+import com.edificio.admin.model.enums.TipoContrato;
+
 import javax.mail.*;
 import javax.mail.internet.*;
+import java.io.InputStream;
+import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.text.NumberFormat;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.Locale;
 import java.util.Properties;
+import java.util.regex.Matcher;
 
 /**
  * Servicio de correo electrónico via Gmail SMTP.
- * Usado actualmente para notificar al residente cuando se crea un contrato.
+ *
+ * Carga las plantillas HTML de /templates/correos/ del classpath,
+ * sustituye las variables th:text="${varName}" y envía el mensaje como HTML.
+ * Todas las operaciones son best-effort: las excepciones se swallean para
+ * nunca interrumpir el flujo principal de negocio.
  */
 public class EmailService {
 
@@ -14,23 +31,172 @@ public class EmailService {
     private static final String GMAIL_PASSWORD = "Residencial2026";
     private static final String GMAIL_FROM     = "gestion.residencias.upc@gmail.com";
 
+    private static final String TEMPLATE_PATH  = "/templates/correos/";
+
+    /** Formato de fecha para el correo: 31/12/2025 */
+    private static final DateTimeFormatter DATE_FMT =
+        DateTimeFormatter.ofPattern("dd/MM/yyyy");
+
+    /** Formato numérico colombiano: 1.200.000 (sin símbolo de moneda) */
+    private static final NumberFormat NUMBER_FMT;
+    static {
+        NUMBER_FMT = NumberFormat.getNumberInstance(new Locale("es", "CO"));
+        NUMBER_FMT.setMaximumFractionDigits(0);
+        NUMBER_FMT.setMinimumFractionDigits(0);
+    }
+
+    // ── API pública ───────────────────────────────────────────────────────────
+
     /**
-     * Envía un correo de bienvenida al residente cuando se le asigna un contrato.
+     * Envía un correo HTML al residente cuando se crea un contrato.
+     * Selecciona la plantilla según TipoContrato.
      *
-     * @param destinatario      Email del residente (puede ser null/vacío → método no hace nada)
-     * @param nombreResidente   Nombre completo del residente
-     * @param idContrato        ID del contrato recién creado
-     * @param numeroApartamento Número del apartamento
+     * @param destinatario            Email del residente (null/vacío → no hace nada)
+     * @param residente               Objeto Residente (nombre para el saludo)
+     * @param contrato                Contrato recién creado (tipo, valor, fechas)
+     * @param apto                    Apartamento del contrato (número, piso)
+     * @param fechaVencimientoAnterior Fecha fin del contrato previo; solo aplica
+     *                                para RENOVACION; pasar null en otros casos
      */
     public static void enviarEmailContrato(String destinatario,
-                                           String nombreResidente,
-                                           int    idContrato,
-                                           String numeroApartamento) {
+                                           Residente residente,
+                                           Contrato contrato,
+                                           Apartamento apto,
+                                           LocalDate fechaVencimientoAnterior) {
         if (destinatario == null || destinatario.isBlank()) return;
 
+        try {
+            TipoContrato tipo = contrato.getTipoContrato() != null
+                ? contrato.getTipoContrato() : TipoContrato.INICIAL;
+
+            String html = cargarPlantilla(tipo);
+            html = renderizar(html, residente, contrato, apto, fechaVencimientoAnterior);
+
+            String asunto = construirAsunto(tipo, apto);
+            enviar(destinatario, asunto, html);
+
+        } catch (Exception e) {
+            System.err.println("[EmailService] Error enviando correo a "
+                + destinatario + ": " + e.getMessage());
+        }
+    }
+
+    // ── privado: plantilla ────────────────────────────────────────────────────
+
+    private static String cargarPlantilla(TipoContrato tipo) throws Exception {
+        String file = switch (tipo) {
+            case PERMANENCIA -> "correo_contrato_permanencia.html";
+            case RENOVACION  -> "correo_contrato_renovacion.html";
+            default          -> "correo_contrato_inicial.html";
+        };
+
+        InputStream is = EmailService.class.getResourceAsStream(TEMPLATE_PATH + file);
+        if (is == null) {
+            is = Thread.currentThread().getContextClassLoader()
+                    .getResourceAsStream(TEMPLATE_PATH + file);
+        }
+        if (is == null) {
+            throw new Exception("Plantilla de correo no encontrada: " + file);
+        }
+        byte[] bytes = is.readAllBytes();
+        is.close();
+        return new String(bytes, StandardCharsets.UTF_8);
+    }
+
+    // ── privado: sustitución de variables ────────────────────────────────────
+
+    /**
+     * Sustituye cada ocurrencia de:
+     *   th:text="${varName}">FallbackContent<
+     * por:
+     *   >valorReal<
+     *
+     * El atributo xmlns:th no molesta a los clientes de correo (lo ignoran).
+     * Al final se eliminan todos los atributos th:* residuales.
+     */
+    private static String renderizar(String html,
+                                     Residente res,
+                                     Contrato contrato,
+                                     Apartamento apto,
+                                     LocalDate fechaVencimientoAnterior) {
+        // Variables comunes a todas las plantillas
+        String nombre = (res != null)
+            ? (safeStr(res.getNombres()) + " " + safeStr(res.getApellidos())).trim()
+            : "Residente";
+        String numApto = (apto != null) ? safeStr(apto.getNumero()) : "-";
+        String piso    = (apto != null && apto.getPiso() != null)
+            ? String.valueOf(apto.getPiso()) : "-";
+
+        html = replaceVar(html, "nombreResidente",        nombre);
+        html = replaceVar(html, "numeroApartamento",      numApto);
+        html = replaceVar(html, "piso",                   piso);
+        html = replaceVar(html, "diasHabiles",            "5");
+        html = replaceVar(html, "telefonoAdministracion",
+                          EdificioConfigService.getTelefonoAdministracion());
+        html = replaceVar(html, "correoAdministracion",
+                          EdificioConfigService.getCorreoAdministracion());
+
+        // Variables exclusivas de RENOVACION
+        if (contrato.getTipoContrato() == TipoContrato.RENOVACION) {
+            String fechaVenc = (fechaVencimientoAnterior != null)
+                ? fechaVencimientoAnterior.format(DATE_FMT) : "-";
+            String canon = (contrato.getValorMensual() != null)
+                ? NUMBER_FMT.format(contrato.getValorMensual()) : "0";
+            String fechaInicio = (contrato.getFechaInicio() != null)
+                ? contrato.getFechaInicio().format(DATE_FMT) : "-";
+
+            html = replaceVar(html, "fechaVencimiento",      fechaVenc);
+            html = replaceVar(html, "nuevoCanon",            canon);
+            html = replaceVar(html, "fechaInicioRenovacion", fechaInicio);
+        }
+
+        // Eliminar atributos Thymeleaf residuales y la declaración xmlns:th
+        html = html.replaceAll("\\s+th:text=\"[^\"]*\"", "");
+        html = html.replaceAll("\\s+xmlns:th=\"[^\"]*\"", "");
+
+        return html;
+    }
+
+    /**
+     * Reemplaza:  th:text="${varName}">FallbackText<
+     * con:        >value<
+     *
+     * Usa Matcher.quoteReplacement para escapar $ y \ en el valor.
+     * El patrón [^<]* captura el contenido de fallback (puede ser vacío o tener texto).
+     */
+    private static String replaceVar(String html, String varName, String value) {
+        String safe = (value != null) ? value : "";
+        return html.replaceAll(
+            "th:text=\"\\$\\{" + varName + "\\}\">[^<]*<",
+            ">" + Matcher.quoteReplacement(safe) + "<"
+        );
+    }
+
+    private static String safeStr(String s) {
+        return (s != null) ? s : "";
+    }
+
+    // ── privado: asunto ───────────────────────────────────────────────────────
+
+    private static String construirAsunto(TipoContrato tipo, Apartamento apto) {
+        String tipoLabel = switch (tipo) {
+            case PERMANENCIA -> "Contrato de Permanencia";
+            case RENOVACION  -> "Renovación de Contrato";
+            default          -> "Contrato de Arrendamiento";
+        };
+        String numApto = (apto != null && apto.getNumero() != null)
+            ? " — Apto. " + apto.getNumero() : "";
+        return tipoLabel + numApto + " · Torres del Horizonte";
+    }
+
+    // ── privado: envío SMTP ───────────────────────────────────────────────────
+
+    private static void enviar(String destinatario,
+                                String asunto,
+                                String htmlBody) throws MessagingException {
         Properties props = new Properties();
         props.put("mail.smtp.auth",               "true");
-        props.put("mail.smtp.starttls.enable",     "true");
+        props.put("mail.smtp.starttls.enable",    "true");
         props.put("mail.smtp.host",               "smtp.gmail.com");
         props.put("mail.smtp.port",               "587");
         props.put("mail.smtp.ssl.trust",          "smtp.gmail.com");
@@ -44,32 +210,22 @@ public class EmailService {
             }
         });
 
-        try {
-            Message message = new MimeMessage(session);
-            message.setFrom(new InternetAddress(GMAIL_FROM, "Administración Residencias UPC", "UTF-8"));
-            message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(destinatario));
-            message.setSubject("Contrato de Arrendamiento - Apartamento " + numeroApartamento);
+        Message msg = new MimeMessage(session);
+        msg.setFrom(new InternetAddress(GMAIL_FROM,
+            "Administración · Torres del Horizonte", "UTF-8"));
+        msg.setRecipients(Message.RecipientType.TO, InternetAddress.parse(destinatario));
+        msg.setSubject(MimeUtility.encodeText(asunto, "UTF-8", "Q"));
 
-            String body =
-                "Estimado/a " + nombreResidente + ",\n\n" +
-                "Le informamos que se ha generado el Contrato #" + idContrato + " de arrendamiento " +
-                "a su nombre para el Apartamento " + numeroApartamento + ".\n\n" +
-                "El contrato se encuentra actualmente en estado PENDIENTE DE FIRMA. " +
-                "Por favor comuníquese con la administración del edificio para coordinar " +
-                "la revisión y firma del documento.\n\n" +
-                "Si tiene alguna duda, responda a este correo o contáctenos directamente.\n\n" +
-                "Atentamente,\n" +
-                "Administración de Residencias UPC\n" +
-                GMAIL_FROM;
+        // Parte HTML
+        MimeBodyPart htmlPart = new MimeBodyPart();
+        htmlPart.setContent(htmlBody, "text/html; charset=UTF-8");
 
-            message.setText(body, "UTF-8");
-            Transport.send(message);
-            System.out.println("[EmailService] Correo enviado a " + destinatario +
-                               " (contrato #" + idContrato + ", apto " + numeroApartamento + ")");
-        } catch (Exception e) {
-            // No interrumpir el flujo principal si el correo falla
-            System.err.println("[EmailService] Error enviando correo a " + destinatario +
-                               ": " + e.getMessage());
-        }
+        Multipart multipart = new MimeMultipart("alternative");
+        multipart.addBodyPart(htmlPart);
+        msg.setContent(multipart);
+
+        Transport.send(msg);
+        System.out.println("[EmailService] Correo enviado a " + destinatario
+            + " — " + asunto);
     }
 }

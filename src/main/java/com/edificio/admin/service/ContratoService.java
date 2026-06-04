@@ -97,11 +97,18 @@ public class ContratoService {
             try {
                 ResidenteDAO resDAO = new ResidenteDAO();
                 Residente res = resDAO.findById(idResidenteArrendatario);
-                if (res != null) {
-                    String email     = res.getEmail();
-                    String nombre    = res.getNombres() + " " + res.getApellidos();
-                    String numApto   = apto != null ? apto.getNumero() : String.valueOf(idApto);
-                    EmailService.enviarEmailContrato(email, nombre, idContrato, numApto);
+                if (res != null && res.getEmail() != null && !res.getEmail().isBlank()) {
+                    // Para RENOVACION: buscar fecha fin del contrato anterior (ya en memoria: todos)
+                    LocalDate fechaVencAnterior = null;
+                    if (contrato.getTipoContrato() == TipoContrato.RENOVACION) {
+                        for (Contrato ct : todos) {
+                            if (ct.getEstado() == EstadoContrato.VENCIDO) {
+                                fechaVencAnterior = ct.getFechaFin();
+                                break;
+                            }
+                        }
+                    }
+                    EmailService.enviarEmailContrato(res.getEmail(), res, contrato, apto, fechaVencAnterior);
                 }
             } catch (Exception ex) {
                 System.err.println("[ContratoService] No se pudo enviar email al residente: " + ex.getMessage());
