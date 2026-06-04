@@ -19,13 +19,16 @@ const Utils = (() => {
   function formatDate(dateStr) {
     if (!dateStr) return '-';
     const d = new Date(_fixISO(dateStr));
-    return d.toLocaleDateString('es-CO', { year: 'numeric', month: '2-digit', day: '2-digit' });
+    return d.toLocaleDateString('es-CO', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' });
   }
+
+  var TZ = 'America/Bogota';
 
   function formatDateTime(dateStr) {
     if (!dateStr) return '-';
     const d = new Date(_fixISO(dateStr));
     return d.toLocaleDateString('es-CO', {
+      timeZone: TZ,
       year: 'numeric', month: '2-digit', day: '2-digit',
       hour: '2-digit', minute: '2-digit'
     });
@@ -34,7 +37,10 @@ const Utils = (() => {
   function formatTime(dateStr) {
     if (!dateStr) return '-';
     var d = new Date(_fixISO(dateStr));
-    return d.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
+    return d.toLocaleTimeString('es-CO', {
+      timeZone: TZ,
+      hour: '2-digit', minute: '2-digit'
+    });
   }
 
   function formatCurrency(value) {
@@ -846,8 +852,10 @@ const Utils = (() => {
   }
 
   function todayStr() {
-    var d = new Date();
-    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    var parts = new Intl.DateTimeFormat('es-CO', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date());
+    var y, m, d;
+    parts.forEach(function(p) { if (p.type === 'year') y = p.value; else if (p.type === 'month') m = p.value; else if (p.type === 'day') d = p.value; });
+    return y + '-' + m + '-' + d;
   }
 
   function dateToStr(d) {
