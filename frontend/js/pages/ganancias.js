@@ -336,33 +336,58 @@ const Ganancias = (() => {
     var ff = ((document.getElementById('gan-fecha-fin')    || {}).value || Utils.todayStr()).trim();
 
     try {
+      var total = _pagosFiltrados.reduce(function(s, p) { return s + (parseFloat(p.valor) || 0); }, 0);
+
       var xls =
         '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">' +
         '<head><meta charset="UTF-8"><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>' +
         '<x:Name>Ganancias</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>' +
         '</x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->' +
-        '<style>td,th{padding:6px 10px;border:1px solid #ccc;font-size:12px;font-family:Arial}' +
-        'th{background:#0F2044;color:#fff;font-weight:700}tr:nth-child(even){background:#f5f5f5}</style>' +
-        '</head><body><table>' +
+        '<style>' +
+        'table{width:100%;border-collapse:collapse;font-family:Calibri,Arial,sans-serif;font-size:14px}' +
+        'td,th{padding:8px 12px;border:1px solid #d0d0d0;vertical-align:middle}' +
+        'th{background:#0F2044;color:#ffffff;font-weight:700;font-size:15px;text-align:left}' +
+        'tr:nth-child(even){background:#f0f4fa}' +
+        'tr:hover{background:#dce6f0}' +
+        '.total-row td{font-weight:700;background:#e8edf5;border-top:2px solid #0F2044;font-size:15px}' +
+        '.col-num{width:50px;text-align:center}' +
+        '.col-fecha{width:110px}' +
+        '.col-tipo{width:100px}' +
+        '.col-apto{width:110px}' +
+        '.col-residente{width:180px}' +
+        '.col-metodo{width:100px}' +
+        '.col-valor{width:130px;text-align:right;font-variant-numeric:tabular-nums}' +
+        '</style>' +
+        '</head><body>' +
+        '<table>' +
         '<thead><tr>' +
-        '<th>#</th><th>Fecha</th><th>Tipo</th><th>Apartamento</th><th>Residente</th>' +
-        '<th>Descripción</th><th>Método</th><th>Valor</th>' +
+        '<th class="col-num">#</th>' +
+        '<th class="col-fecha">Fecha</th>' +
+        '<th class="col-tipo">Tipo</th>' +
+        '<th class="col-apto">Apartamento</th>' +
+        '<th class="col-residente">Residente</th>' +
+        '<th>Descripción</th>' +
+        '<th class="col-metodo">Método</th>' +
+        '<th class="col-valor">Valor</th>' +
         '</tr></thead><tbody>';
 
       _pagosFiltrados.forEach(function(p) {
         xls += '<tr>' +
-          '<td>' + Utils.escapeHtml(String(p.id || '')) + '</td>' +
-          '<td>' + Utils.escapeHtml(p.fecha || '') + '</td>' +
-          '<td>' + Utils.escapeHtml(p.tipoPago || '') + '</td>' +
-          '<td>' + Utils.escapeHtml(p.apartamento || '') + '</td>' +
-          '<td>' + Utils.escapeHtml(p.residente || '') + '</td>' +
+          '<td class="col-num">' + Utils.escapeHtml(String(p.id || '')) + '</td>' +
+          '<td class="col-fecha">' + Utils.escapeHtml(p.fecha || '') + '</td>' +
+          '<td class="col-tipo">' + Utils.escapeHtml(p.tipoPago || '') + '</td>' +
+          '<td class="col-apto">' + Utils.escapeHtml(p.apartamento || '') + '</td>' +
+          '<td class="col-residente">' + Utils.escapeHtml(p.residente || '') + '</td>' +
           '<td>' + Utils.escapeHtml(p.descripcion || '') + '</td>' +
-          '<td>' + Utils.escapeHtml(p.metodo || '') + '</td>' +
-          '<td>' + (parseFloat(p.valor) || 0).toFixed(2) + '</td>' +
+          '<td class="col-metodo">' + Utils.escapeHtml(p.metodo || '') + '</td>' +
+          '<td class="col-valor">$' + Number(p.valor || 0).toLocaleString('es-CO', { minimumFractionDigits: 0 }) + '</td>' +
           '</tr>';
       });
 
-      xls += '</tbody></table></body></html>';
+      xls += '</tbody><tfoot><tr class="total-row">' +
+        '<td colspan="7" style="text-align:right">Total</td>' +
+        '<td class="col-valor">$' + Number(total).toLocaleString('es-CO', { minimumFractionDigits: 0 }) + '</td>' +
+        '</tr></tfoot></table></body></html>';
 
       var blob    = new Blob([xls], { type: 'application/vnd.ms-excel' });
       var link    = document.createElement('a');
