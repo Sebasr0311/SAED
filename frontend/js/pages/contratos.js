@@ -31,7 +31,9 @@ var Contratos = (() => {
         <div class="btn-group">
         ${c.estado === 'ACTIVO' || c.estado === 'PENDIENTE_FIRMA'
           ? `<button class="btn btn-icon btn-sm btn-outline" onclick="Contratos.descargarPDF(${c.idContrato})" title="Descargar PDF">
-              <span class="material-symbols-outlined">download</span></button>` : ''}
+              <span class="material-symbols-outlined">download</span></button>
+             <button class="btn btn-icon btn-sm btn-outline" onclick="Contratos.reenviarCorreo(${c.idContrato})" title="Reenviar correo">
+              <span class="material-symbols-outlined">mail</span></button>` : ''}
         ${c.estado === 'PENDIENTE_FIRMA' ? `<button class="btn btn-primary btn-sm" onclick="Contratos.activar(${c.idContrato})">Activar</button>` : ''}
         ${c.estado === 'ACTIVO' ? `<button class="btn btn-warn btn-sm" onclick="Contratos.cancelar(${c.idContrato})">Cancelar</button>` : ''}
         ${c.estado === 'VENCIDO' ? `<button class="btn btn-primary btn-sm" onclick="Contratos.mostrarRenovar(${c.idContrato})">Renovar</button>` : ''}
@@ -453,6 +455,16 @@ var Contratos = (() => {
     }
   }
 
+  async function reenviarCorreo(id) {
+    if (!(await Utils.showConfirm('¿Desea reenviar el correo de notificación del contrato #' + id + ' al residente?'))) return;
+    try {
+      await API.post('/contratos/' + id + '/reenviar-correo');
+      Utils.showToast('Correo reenviado exitosamente', 'success');
+    } catch (e) {
+      Utils.showToast(e.message, 'error');
+    }
+  }
+
   async function activar(id) {
     if (!(await Utils.showConfirm('Desea activar este contrato?'))) return;
     try { await API.post('/contratos/' + id + '/activar'); Utils.showToast('Contrato activado', 'success'); cargar(); }
@@ -583,7 +595,8 @@ var Contratos = (() => {
 
   return { cargar, render, mostrarFormulario, guardar, activar, cancelar, eliminar, renovar, mostrarRenovar,
            goToPage, chequearResidenteMenor, actualizarMinFechaFin, sugerirTipo, calcularFechaFin,
-           calcularFechaFinRenovar, formatValor, descargarPDF, onApartamentoChange, autoFillValorMensual, mostrarInfoApartamento };
+           calcularFechaFinRenovar, formatValor, descargarPDF, reenviarCorreo,
+           onApartamentoChange, autoFillValorMensual, mostrarInfoApartamento };
 })();
 
 Router.register('contratos', {
