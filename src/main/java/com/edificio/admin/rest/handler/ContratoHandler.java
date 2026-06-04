@@ -90,8 +90,8 @@ public class ContratoHandler extends BaseHandler implements HttpHandler {
                 if (idRes == null) throw new Exception("idResidente es obligatorio");
                 Integer idResidente = ((Number) idRes).intValue();
                 boolean enviarCorreo = data.get("enviarCorreo") != null && Boolean.parseBoolean(data.get("enviarCorreo").toString());
-                Integer id = service.crearContrato(c, idResidente, enviarCorreo);
-                sendJson(exchange, 201, Map.of("id", id));
+                Map<String, Object> result = service.crearContrato(c, idResidente, enviarCorreo);
+                sendJson(exchange, 201, result);
             } else if ("POST".equalsIgnoreCase(method) && parts.length == 5 && "activar".equals(parts[4])) {
                 if (!AuthMiddleware.hasRole(claims, "ADMINISTRADOR")) {
                     sendJson(exchange, 403, new ErrorResponse("Se requieren permisos de administrador"));
@@ -122,13 +122,14 @@ public class ContratoHandler extends BaseHandler implements HttpHandler {
                 Object valorObj = data.get("valorMensual");
                 java.math.BigDecimal nuevoValor = valorObj != null
                         ? new java.math.BigDecimal(valorObj.toString()) : null;
-                Integer nuevoId = service.renovar(
+                Map<String, Object> renResult = service.renovar(
                         id,
                         java.time.LocalDate.parse(fechaInicioR),
                         (fechaFinR != null && !fechaFinR.isEmpty()) ? java.time.LocalDate.parse(fechaFinR) : null,
                         nuevoValor,
                         (String) data.get("notas"));
-                sendJson(exchange, 201, Map.of("id", nuevoId, "mensaje", "Contrato de renovacion creado"));
+                renResult.put("mensaje", "Contrato de renovacion creado");
+                sendJson(exchange, 201, renResult);
             } else if ("POST".equalsIgnoreCase(method) && parts.length == 5 && "reenviar-correo".equals(parts[4])) {
                 if (!AuthMiddleware.hasRole(claims, "ADMINISTRADOR")) {
                     sendJson(exchange, 403, new ErrorResponse("Se requieren permisos de administrador"));

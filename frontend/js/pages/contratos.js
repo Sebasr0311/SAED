@@ -420,8 +420,15 @@ var Contratos = (() => {
     var btn = document.getElementById('btn-guardar-contrato');
     if (btn) btn.disabled = true;
     try {
-      await API.post('/contratos', d);
+      var res = await API.post('/contratos', d);
       Utils.showToast('Contrato creado', 'success');
+      if (res.emailStatus === 'enviado') {
+        Utils.showToast('Correo de notificación enviado al residente', 'success');
+      } else if (res.emailStatus === 'sin_email') {
+        Utils.showToast('El residente no tiene correo electrónico registrado', 'warning');
+      } else if (res.emailStatus === 'error') {
+        Utils.showToast('Contrato creado pero no se pudo enviar el correo: ' + (res.emailMensaje || ''), 'error');
+      }
       var overlay = document.querySelector('.modal-overlay');
       if (overlay) overlay.remove();
       cargar();
@@ -584,8 +591,15 @@ var Contratos = (() => {
     var btn = document.getElementById('btn-renovar');
     if (btn) btn.disabled = true;
     try {
-      await API.post('/contratos/' + id + '/renovar', payload);
+      var res = await API.post('/contratos/' + id + '/renovar', payload);
       Utils.showToast('Renovaci\u00f3n creada exitosamente', 'success');
+      if (res.emailStatus === 'enviado') {
+        Utils.showToast('Correo de notificación enviado al residente', 'success');
+      } else if (res.emailStatus === 'sin_email') {
+        Utils.showToast('El residente no tiene correo electrónico registrado', 'warning');
+      } else if (res.emailStatus === 'error') {
+        Utils.showToast('Renovación creada pero no se pudo enviar el correo: ' + (res.emailMensaje || ''), 'error');
+      }
       var overlay = document.querySelector('.modal-overlay');
       if (overlay) overlay.remove();
       cargar();
