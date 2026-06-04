@@ -9,27 +9,26 @@ import javax.mail.*;
 import javax.mail.internet.*;
 import java.io.InputStream;
 import java.math.BigDecimal;
+import java.net.URI;
+import java.net.URLEncoder;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.text.NumberFormat;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 import java.util.Properties;
 import java.util.regex.Matcher;
 
-/**
- * Servicio de correo electrónico via Gmail SMTP.
- *
- * Carga las plantillas HTML de /templates/correos/ del classpath,
- * sustituye las variables th:text="${varName}" y envía el mensaje como HTML.
- * Todas las operaciones son best-effort: las excepciones se swallean para
- * nunca interrumpir el flujo principal de negocio.
- */
 public class EmailService {
 
     private static final String GMAIL_USER;
     private static final String GMAIL_PASSWORD;
     private static final String GMAIL_FROM;
+    private static final String SENDGRID_API_KEY;
 
     static {
         GMAIL_USER     = System.getenv("GMAIL_USER") != null
@@ -40,15 +39,14 @@ public class EmailService {
                 ? System.getenv("GMAIL_PASSWORD") : "Residencial2026");
         GMAIL_FROM     = System.getenv("GMAIL_FROM") != null
             ? System.getenv("GMAIL_FROM") : GMAIL_USER;
+        SENDGRID_API_KEY = System.getenv("SENDGRID_API_KEY");
     }
 
     private static final String TEMPLATE_PATH  = "/templates/correos/";
 
-    /** Formato de fecha para el correo: 31/12/2025 */
     private static final DateTimeFormatter DATE_FMT =
         DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
-    /** Formato numérico colombiano: 1.200.000 (sin símbolo de moneda) */
     private static final NumberFormat NUMBER_FMT;
     static {
         NUMBER_FMT = NumberFormat.getNumberInstance(new Locale("es", "CO"));
@@ -58,17 +56,6 @@ public class EmailService {
 
     // ── API pública ───────────────────────────────────────────────────────────
 
-    /**
-     * Envía un correo HTML al residente cuando se crea un contrato.
-     * Selecciona la plantilla según TipoContrato.
-     *
-     * @param destinatario            Email del residente (null/vacío → no hace nada)
-     * @param residente               Objeto Residente (nombre para el saludo)
-     * @param contrato                Contrato recién creado (tipo, valor, fechas)
-     * @param apto                    Apartamento del contrato (número, piso)
-     * @param fechaVencimientoAnterior Fecha fin del contrato previo; solo aplica
-     *                                para RENOVACION; pasar null en otros casos
-     */
     public static void enviarEmailContrato(String destinatario,
                                            Residente residente,
                                            Contrato contrato,
@@ -83,7 +70,22 @@ public class EmailService {
         html = renderizar(html, residente, contrato, apto, fechaVencimientoAnterior);
 
         String asunto = construirAsunto(tipo, apto);
-        enviar(destinatario, asunto, html);
+
+        // 1) Intentar SMTP directo
+        try {
+            enviarViaSMTP(destinatario, asunto, html);
+            return;
+        } catch (Exception e) {
+            System.err.println("[EmailService] SMTP fallo: " + e.getMessage());
+        }
+
+        // 2) Fallback: SendGrid via HTTPS (puerto 443, no bloqueado por Railway)
+        if (SENDGRID_API_KEY != null && !SENDGRID_API_KEY.isBlank()) {
+            enviarViaSendGrid(destinatario, asunto, html);
+        } else {
+            throw new Exception("No se pudo enviar el correo (SMTP bloqueado y SENDGRID_API_KEY no configurada). "
+                + "Agrega el plugin SendGrid en Railway o configura SENDGRID_API_KEY.");
+        }
     }
 
     // ── privado: plantilla ────────────────────────────────────────────────────
@@ -110,21 +112,11 @@ public class EmailService {
 
     // ── privado: sustitución de variables ────────────────────────────────────
 
-    /**
-     * Sustituye cada ocurrencia de:
-     *   th:text="${varName}">FallbackContent<
-     * por:
-     *   >valorReal<
-     *
-     * El atributo xmlns:th no molesta a los clientes de correo (lo ignoran).
-     * Al final se eliminan todos los atributos th:* residuales.
-     */
     private static String renderizar(String html,
                                      Residente res,
                                      Contrato contrato,
                                      Apartamento apto,
                                      LocalDate fechaVencimientoAnterior) {
-        // Variables comunes a todas las plantillas
         String nombre = (res != null)
             ? (safeStr(res.getNombres()) + " " + safeStr(res.getApellidos())).trim()
             : "Residente";
@@ -141,7 +133,6 @@ public class EmailService {
         html = replaceVar(html, "correoAdministracion",
                           EdificioConfigService.getCorreoAdministracion());
 
-        // Variables exclusivas de RENOVACION
         if (contrato.getTipoContrato() == TipoContrato.RENOVACION) {
             String fechaVenc = (fechaVencimientoAnterior != null)
                 ? fechaVencimientoAnterior.format(DATE_FMT) : "-";
@@ -155,20 +146,12 @@ public class EmailService {
             html = replaceVar(html, "fechaInicioRenovacion", fechaInicio);
         }
 
-        // Eliminar atributos Thymeleaf residuales y la declaración xmlns:th
         html = html.replaceAll("\\s+th:text=\"[^\"]*\"", "");
         html = html.replaceAll("\\s+xmlns:th=\"[^\"]*\"", "");
 
         return html;
     }
 
-    /**
-     * Reemplaza:  th:text="${varName}">FallbackText<
-     * con:        >value<
-     *
-     * Usa Matcher.quoteReplacement para escapar $ y \ en el valor.
-     * El patrón [^<]* captura el contenido de fallback (puede ser vacío o tener texto).
-     */
     private static String replaceVar(String html, String varName, String value) {
         String safe = (value != null) ? value : "";
         return html.replaceAll(
@@ -196,9 +179,9 @@ public class EmailService {
 
     // ── privado: envío SMTP ───────────────────────────────────────────────────
 
-    private static void enviar(String destinatario,
-                                String asunto,
-                                String htmlBody) throws Exception {
+    private static void enviarViaSMTP(String destinatario,
+                                      String asunto,
+                                      String htmlBody) throws Exception {
         Properties props = new Properties();
         props.put("mail.smtp.auth",               "true");
         props.put("mail.smtp.host",               "smtp.gmail.com");
@@ -224,7 +207,6 @@ public class EmailService {
         msg.setRecipients(Message.RecipientType.TO, InternetAddress.parse(destinatario));
         msg.setSubject(MimeUtility.encodeText(asunto, "UTF-8", "Q"));
 
-        // Parte HTML
         MimeBodyPart htmlPart = new MimeBodyPart();
         htmlPart.setContent(htmlBody, "text/html; charset=UTF-8");
 
@@ -233,7 +215,50 @@ public class EmailService {
         msg.setContent(multipart);
 
         Transport.send(msg);
-        System.out.println("[EmailService] Correo enviado a " + destinatario
-            + " — " + asunto);
+        System.out.println("[EmailService] Correo enviado por SMTP a " + destinatario);
+    }
+
+    // ── privado: envío SendGrid (HTTPS) ───────────────────────────────────────
+
+    private static void enviarViaSendGrid(String destinatario,
+                                          String asunto,
+                                          String htmlBody) throws Exception {
+        HttpClient client = HttpClient.newHttpClient();
+
+        String json = "{\"personalizations\":[{\"to\":[{\"email\":\""
+            + jsonEscape(destinatario) + "\"}]}],"
+            + "\"from\":{\"email\":\"" + jsonEscape(GMAIL_FROM)
+            + "\",\"name\":\"Administración · Torres del Horizonte\"},"
+            + "\"subject\":\"" + jsonEscape(asunto) + "\","
+            + "\"content\":[{\"type\":\"text/html\",\"value\":\""
+            + jsonEscape(htmlBody) + "\"}]}";
+
+        HttpRequest request = HttpRequest.newBuilder()
+            .uri(URI.create("https://api.sendgrid.com/v3/mail/send"))
+            .header("Authorization", "Bearer " + SENDGRID_API_KEY)
+            .header("Content-Type", "application/json")
+            .POST(HttpRequest.BodyPublishers.ofString(json))
+            .timeout(Duration.ofSeconds(30))
+            .build();
+
+        HttpResponse<String> response = client.send(request,
+            HttpResponse.BodyHandlers.ofString());
+
+        int status = response.statusCode();
+        if (status >= 200 && status < 300) {
+            System.out.println("[EmailService] Correo enviado por SendGrid a " + destinatario);
+        } else {
+            throw new Exception("SendGrid respondió con estado " + status
+                + ": " + response.body());
+        }
+    }
+
+    private static String jsonEscape(String s) {
+        if (s == null) return "";
+        return s.replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\n", "\\n")
+                .replace("\r", "\\r")
+                .replace("\t", "\\t");
     }
 }
