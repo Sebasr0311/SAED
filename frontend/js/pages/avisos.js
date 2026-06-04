@@ -37,8 +37,8 @@ const Avisos = (() => {
   async function cargarApartamentos() {
     try {
       var apts = await API.get('/apartamentos');
-      // Se incluyen todos los apartamentos sin importar estado,
-      // para que los recién creados aparezcan de inmediato en el selector.
+      // Solo apartamentos ocupados (excluir DISPONIBLE): los nuevos aún no tienen residente
+      apts = apts.filter(function(a) { return a.estado !== 'DISPONIBLE'; });
       
       // Ordenar apartamentos por número
       apts.sort(function(a, b) {
