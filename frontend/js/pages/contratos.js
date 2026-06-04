@@ -252,14 +252,32 @@ var Contratos = (() => {
     var helper = document.getElementById('con-valor-helper');
     if (!aptSel || !valorInput || !aptSel.value) return;
     var apto = aptsData.find(function(a) { return String(a.idApartamento) === String(aptSel.value); });
-    if (apto && apto.administracion != null) {
-      valorInput.value = String(Number(apto.administracion)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    if (!apto) return;
+
+    var VALOR_POR_TIPO = {
+      'ESTUDIO': 800000, '1HAB': 1200000, '2HAB': 1600000,
+      '3HAB': 2200000, 'PENTHOUSE': 3000000, 'OTRO': 1000000
+    };
+
+    var valorSugerido = apto.administracion != null
+      ? Number(apto.administracion)
+      : (VALOR_POR_TIPO[apto.tipo] || null);
+
+    if (valorSugerido != null) {
+      valorInput.value = String(valorSugerido).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
       if (helper) {
-        helper.textContent = 'Valor sugerido seg\u00fan la cuota de administraci\u00f3n del apartamento (' + (apto.tipo || '') + '). Puede ajustarlo.';
+        var origen = apto.administracion != null
+          ? 'cuota de administraci\u00f3n del apartamento'
+          : 'tipo de apartamento (' + (apto.tipo || '') + ')';
+        helper.textContent = 'Valor sugerido seg\u00fan ' + origen + '. Puede ajustarlo.';
         helper.style.display = 'block';
       }
     } else {
-      if (helper) helper.style.display = 'none';
+      if (helper) {
+        helper.textContent = 'Ingrese el valor del canon de arriendo';
+        helper.style.display = 'block';
+      }
+      valorInput.value = '';
     }
   }
 
