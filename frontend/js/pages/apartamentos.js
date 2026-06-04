@@ -151,7 +151,7 @@ const Apartamentos = (() => {
   }
 
   async function eliminar(id) {
-    if (!(await Utils.showConfirm('Desea eliminar este apartamento?'))) return;
+    if (!(await Utils.confirmarConPassword('\u00bfEst\u00e1 seguro de eliminar este apartamento? Esta acci\u00f3n es permanente y no se puede deshacer.'))) return;
     try { await API.del('/apartamentos/' + id); Utils.showToast('Apartamento eliminado', 'success'); cargar(); }
     catch (e) { Utils.showToast(e.message, 'error'); }
   }

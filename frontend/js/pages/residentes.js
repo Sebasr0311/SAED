@@ -557,7 +557,7 @@ const Residentes = (() => {
   }
 
   async function eliminar(id) {
-    if (!(await Utils.showConfirm('Desea desactivar este residente?'))) return;
+    if (!(await Utils.confirmarConPassword('\u00bfEst\u00e1 seguro de desactivar este residente? Se eliminar\u00e1 su acceso al sistema.'))) return;
     try {
       await API.del('/residentes/' + id);
       Utils.showToast('Residente desactivado', 'success');

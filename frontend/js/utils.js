@@ -70,6 +70,78 @@ const Utils = (() => {
     });
   }
 
+  /**
+   * Muestra un modal que pide la contraseña del administrador antes de continuar.
+   * Llama a POST /api/auth/verify-password; si es correcta, resuelve true.
+   * Si el usuario cancela o la contraseña es incorrecta, nunca resuelve true.
+   * @param {string} descripcion  Texto de advertencia que describe la acción peligrosa.
+   * @returns {Promise<boolean>}
+   */
+  function confirmarConPassword(descripcion) {
+    return new Promise(function(resolve) {
+      var user = Auth.getCurrentUser();
+      if (!user) { resolve(false); return; }
+
+      var overlay = document.createElement('div');
+      overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(10,22,40,0.6);backdrop-filter:blur(4px);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+
+      var box = document.createElement('div');
+      box.style.cssText = 'background:#fff;border-radius:16px;padding:28px;max-width:420px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.25)';
+      box.innerHTML =
+        '<div style="display:flex;align-items:center;gap:12px;margin-bottom:18px">' +
+        '<div style="width:44px;height:44px;border-radius:12px;background:var(--danger,#dc2626);display:flex;align-items:center;justify-content:center;flex-shrink:0">' +
+        '<span class="material-symbols-outlined" style="font-size:24px;color:#fff">lock</span></div>' +
+        '<div><h3 style="margin:0;font-size:17px;font-weight:700;color:var(--text,#1e293b)">Confirmar acción</h3>' +
+        '<p style="margin:3px 0 0;font-size:13px;color:var(--text-secondary,#64748b)">Se requiere verificación de identidad</p></div></div>' +
+        '<p style="margin:0 0 20px;font-size:14px;color:var(--danger,#dc2626);font-weight:500;line-height:1.5;padding:12px 14px;background:#fef2f2;border-radius:8px;border-left:3px solid var(--danger,#dc2626)">' +
+        escapeHtml(descripcion) + '</p>' +
+        '<div class="form-group" style="margin-bottom:4px">' +
+        '<label style="font-size:13px;font-weight:600;color:var(--text,#1e293b);display:block;margin-bottom:6px">Contraseña de administrador</label>' +
+        '<input type="password" id="dlg-confirm-pwd" class="form-control" placeholder="Ingrese su contraseña..." autocomplete="current-password">' +
+        '<span id="dlg-confirm-pwd-error" style="display:block;font-size:12px;color:var(--danger,#dc2626);margin-top:4px;min-height:18px"></span>' +
+        '</div>' +
+        '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px">' +
+        '<button id="dlg-confirm-cancel" class="btn btn-outline" style="min-width:90px">Cancelar</button>' +
+        '<button id="dlg-confirm-ok" class="btn btn-danger" style="min-width:130px">Confirmar</button>' +
+        '</div>';
+
+      overlay.appendChild(box);
+      document.body.appendChild(overlay);
+
+      var input = document.getElementById('dlg-confirm-pwd');
+      var btn = document.getElementById('dlg-confirm-ok');
+      var errorEl = document.getElementById('dlg-confirm-pwd-error');
+
+      setTimeout(function() { if (input) input.focus(); }, 80);
+
+      function cancelar() { overlay.remove(); resolve(false); }
+
+      async function confirmar() {
+        var pwd = input.value;
+        if (!pwd) { errorEl.textContent = 'La contraseña es obligatoria'; input.focus(); return; }
+        btn.disabled = true;
+        btn.textContent = 'Verificando...';
+        errorEl.textContent = '';
+        try {
+          await API.post('/auth/verify-password', { password: pwd });
+          overlay.remove();
+          resolve(true);
+        } catch (e) {
+          btn.disabled = false;
+          btn.textContent = 'Confirmar';
+          errorEl.textContent = 'Contraseña incorrecta. Inténtelo de nuevo.';
+          input.value = '';
+          input.focus();
+        }
+      }
+
+      document.getElementById('dlg-confirm-cancel').addEventListener('click', cancelar);
+      overlay.addEventListener('click', function(e) { if (e.target === overlay) cancelar(); });
+      btn.addEventListener('click', confirmar);
+      input.addEventListener('keydown', function(e) { if (e.key === 'Enter' && !btn.disabled) confirmar(); });
+    });
+  }
+
   function showAlert(title, message, type) {
     showToast(message || title, type);
   }
@@ -784,7 +856,7 @@ const Utils = (() => {
 
   return {
     parseDate, formatDate, formatDateTime, formatTime, formatCurrency,
-    showToast, showConfirm, showAlert, loadingSpinner, emptyState,
+    showToast, showConfirm, showAlert, confirmarConPassword, loadingSpinner, emptyState,
     serializeForm, validateRequired, validateEmail, validatePhone, escapeHtml,
     estadoBadge, populateSelect, getSelectedText, modal,
     monthName, periodoLabel, paginate, paginationHtml,
