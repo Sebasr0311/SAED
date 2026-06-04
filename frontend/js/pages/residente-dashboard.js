@@ -839,29 +839,16 @@ const ResidenteDash = (() => {
   }
 
   function compartirCorreo(codigoQr, nombre, email) {
-    if (email) {
-      Utils.showToast('Enviando correo...', 'info');
-      API.post('/qr/enviar-correo', {
-        codigoQr: codigoQr,
-        emailDestinatario: email,
-        nombreVisitante: nombre || ''
-      }).then(function() {
-        Utils.showToast('Correo enviado a ' + email, 'success');
-      }).catch(function(e) {
-        Utils.showToast('Error al enviar correo: ' + e.message, 'error');
-      });
-    } else {
-      var imgUrl = qrImageUrl(codigoQr);
-      var subject = encodeURIComponent('C\u00f3digo QR de Acceso');
-      var body = encodeURIComponent(
-        'Hola,\n\n' +
-        'Has recibido un c\u00f3digo QR de acceso' + (nombre ? ' para ' + nombre : '') + '.\n\n' +
-        'C\u00f3digo: ' + codigoQr + '\n\n' +
-        'O abre esta imagen para escanear:\n' + imgUrl + '\n\n' +
-        'Pres\u00e9ntala en la entrada del edificio.'
-      );
-      window.open('mailto:?subject=' + subject + '&body=' + body);
-    }
+    var imgUrl = qrImageUrl(codigoQr);
+    var subject = encodeURIComponent('C\u00f3digo QR de Acceso');
+    var body = encodeURIComponent(
+      'Hola,\n\n' +
+      'Has recibido un c\u00f3digo QR de acceso' + (nombre ? ' para ' + nombre : '') + '.\n\n' +
+      'C\u00f3digo: ' + codigoQr + '\n\n' +
+      'O abre esta imagen para escanear:\n' + imgUrl + '\n\n' +
+      'Pres\u00e9ntala en la entrada del edificio.'
+    );
+    window.open(email ? 'mailto:' + email + '?subject=' + subject + '&body=' + body : 'mailto:?subject=' + subject + '&body=' + body);
   }
 
   function shareButtonsHtml(codigoQr, nombre, telefono, email) {
