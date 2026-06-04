@@ -10,10 +10,13 @@ const Paquetes = (() => {
     if (!idRes) { container.innerHTML = '<p style="color:var(--text-secondary)">Seleccione un apartamento para ver sus paquetes</p>'; return; }
     var res = residentes.find(function(r) { return r.id == idRes; });
     var aptId = res && res.idApartamento;
+    var aptNum = res && res.numeroApartamento; // número de apartamento del residente seleccionado
     if (!aptId) { container.innerHTML = '<p style="color:var(--text-secondary)">El residente no tiene apartamento asignado</p>'; return; }
     container.innerHTML = Utils.loadingSpinner();
     API.get('/buzon?idApartamento=' + aptId).then(function(msgs) {
       var paquetes = (msgs || []).filter(function(m) { return m.tipo === 'PAQUETE'; });
+      // El endpoint /buzon no incluye numeroApartamento; lo completamos con el dato ya conocido
+      paquetes.forEach(function(p) { if (!p.numeroApartamento) p.numeroApartamento = aptNum; });
       _paquetesHistoricos = paquetes; // Guardar para uso posterior
       if (!paquetes.length) { container.innerHTML = Utils.emptyState('Sin paquetes registrados'); return; }
       container.innerHTML = '<div style="display:flex;flex-direction:column;gap:8px">' + paquetes.map(function(p, idx) {

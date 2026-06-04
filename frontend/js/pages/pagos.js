@@ -314,7 +314,7 @@ const Pagos = (() => {
           '</div>' +
           '<div class="form-group">' +
             '<label>Valor Pagado</label>' +
-            '<input type="number" id="pago-valor" class="form-control" step="100" min="1" max="' + valorTotal + '">' +
+            '<input type="text" inputmode="numeric" id="pago-valor" class="form-control" placeholder="0" oninput="Pagos._formatPagoValor(this)">' +
             '<span class="field-error" id="pago-valor-error"></span>' +
           '</div>' +
         '</div>' +
@@ -343,6 +343,13 @@ const Pagos = (() => {
       '<button class="btn btn-outline" onclick="Pagos.volverAlDetalle()">Cancelar</button>' +
       '<button class="btn btn-primary" onclick="Pagos.confirmarPagoCuota()" id="btn-conf-cuota">Registrar Pago</button>'
     );
+  }
+
+  function _formatPagoValor(input) {
+    if (!input) return;
+    var raw = input.value.replace(/\./g, '').replace(/[^0-9]/g, '');
+    if (!raw) { input.value = ''; return; }
+    input.value = raw.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
   }
 
   function _toggleRefCuota() {
@@ -383,7 +390,7 @@ const Pagos = (() => {
     }
 
     var valorTotal = parseFloat(document.getElementById('pago-valor-total').value) || 0;
-    var valorStr   = document.getElementById('pago-valor').value;
+    var valorStr   = (document.getElementById('pago-valor').value || '').replace(/\./g, '');
     var valorPagado = parseFloat(valorStr);
     if (!valorStr || isNaN(valorPagado) || valorPagado <= 0) {
       Utils.mostrarError('pago-valor', 'Ingrese un valor mayor a cero');
