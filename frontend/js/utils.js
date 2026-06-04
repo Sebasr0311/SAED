@@ -840,6 +840,22 @@ const Utils = (() => {
     });
   }
 
+  function validarEmailTiempoReal(inputId) {
+    var input = document.getElementById(inputId);
+    if (!input) return;
+    input.addEventListener('input', function(e) {
+      var v = e.target.value;
+      if (v.length > 0 && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) {
+        input.classList.add('is-invalid');
+      } else {
+        input.classList.remove('is-invalid');
+      }
+    });
+    input.addEventListener('blur', function(e) {
+      Utils.valEmail(e.target.value, inputId);
+    });
+  }
+
   function mostrarFotoGrande(src) {
     var overlay = document.createElement('div');
     overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:25000;display:flex;align-items:center;justify-content:center;padding:24px;cursor:pointer';
@@ -873,7 +889,7 @@ const Utils = (() => {
     valNombre, valApellido, valDocumento, valTelefono, valEmail,
     valRequerido, valSelect, valNumero, valEntero, valFecha, valFechaNacimiento,
     valPlaca, valLongitud, valUsername, valPassword,
-    soloNumeros, soloLetras, soloAlfanumerico, validarTelefonoTiempoReal,
+    soloNumeros, soloLetras, soloAlfanumerico, validarTelefonoTiempoReal, validarEmailTiempoReal,
     mostrarFotoGrande, todayStr, dateToStr,
     buscadorHtml, crearBuscador, selectBusqueda
   };
