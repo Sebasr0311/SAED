@@ -129,6 +129,13 @@ public class ContratoHandler extends BaseHandler implements HttpHandler {
                         nuevoValor,
                         (String) data.get("notas"));
                 sendJson(exchange, 201, Map.of("id", nuevoId, "mensaje", "Contrato de renovacion creado"));
+            } else if ("POST".equalsIgnoreCase(method) && parts.length == 5 && "reenviar-correo".equals(parts[4])) {
+                if (!AuthMiddleware.hasRole(claims, "ADMINISTRADOR")) {
+                    sendJson(exchange, 403, new ErrorResponse("Se requieren permisos de administrador"));
+                    return;
+                }
+                service.reenviarCorreo(Integer.parseInt(parts[3]));
+                sendJson(exchange, 200, Map.of("mensaje", "Correo reenviado"));
             } else if ("DELETE".equalsIgnoreCase(method) && parts.length == 4) {
                 if (!AuthMiddleware.hasRole(claims, "ADMINISTRADOR")) {
                     sendJson(exchange, 403, new ErrorResponse("Se requieren permisos de administrador"));

@@ -310,6 +310,41 @@ public class ContratoService {
         contratoDAO.update(contrato);
     }
 
+    public void reenviarCorreo(Integer idContrato) throws SQLException {
+        Contrato contrato = buscarPorId(idContrato);
+        Apartamento apto = apartamentoDAO.findById(contrato.getIdApartamento());
+        if (apto == null)
+            throw new DatosInvalidosException("El apartamento no existe.");
+
+        // Obtener el residente arrendatario
+        ResidenteDAO resDAO = new ResidenteDAO();
+        Residente res = null;
+        List<ContratoResidente> rels = contratoResidenteDAO.findByContrato(idContrato);
+        if (rels != null && !rels.isEmpty()) {
+            res = resDAO.findById(rels.get(0).getIdResidente());
+        }
+        if (res == null || res.getEmail() == null || res.getEmail().isBlank())
+            throw new DatosInvalidosException("El residente no tiene un correo electr\u00f3nico registrado.");
+
+        // Para RENOVACION: buscar fecha fin del contrato anterior vencido
+        LocalDate fechaVencAnterior = null;
+        if (contrato.getTipoContrato() == TipoContrato.RENOVACION) {
+            List<Contrato> historial = contratoDAO.findByApartamento(contrato.getIdApartamento());
+            for (Contrato ct : historial) {
+                if (ct.getEstado() == EstadoContrato.VENCIDO) {
+                    fechaVencAnterior = ct.getFechaFin();
+                    break;
+                }
+            }
+        }
+
+        try {
+            EmailService.enviarEmailContrato(res.getEmail(), res, contrato, apto, fechaVencAnterior);
+        } catch (Exception ex) {
+            throw new RuntimeException("No se pudo enviar el correo: " + ex.getMessage());
+        }
+    }
+
     public void removerResidente(Integer idApartamento, Integer idResidente) throws SQLException {
         validarId(idResidente);
         if (idApartamento == null || idApartamento <= 0)
