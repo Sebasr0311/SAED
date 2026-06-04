@@ -33,8 +33,14 @@
 # ----------------------------------------------------------------------------
 
 if [ -z "$JAVA_HOME" ] ; then
-  echo "Error: JAVA_HOME is not set" >&2
-  exit 1
+  if command -v java > /dev/null 2>&1; then
+    # Auto-detect JAVA_HOME from the java binary in PATH (handles mise, sdkman, etc.)
+    JAVA_HOME="$(dirname "$(dirname "$(readlink -f "$(command -v java)")")")"
+    export JAVA_HOME
+  else
+    echo "Error: JAVA_HOME is not set and no 'java' command could be found in your PATH." >&2
+    exit 1
+  fi
 fi
 
 # Determine the Java command to use to start the JVM.
