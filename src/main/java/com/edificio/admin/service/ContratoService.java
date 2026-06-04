@@ -61,6 +61,11 @@ public class ContratoService {
 
     public Integer crearContrato(Contrato contrato, Integer idResidenteArrendatario)
             throws SQLException {
+        return crearContrato(contrato, idResidenteArrendatario, true);
+    }
+
+    public Integer crearContrato(Contrato contrato, Integer idResidenteArrendatario, boolean enviarCorreo)
+            throws SQLException {
         validar(contrato);
         if (idResidenteArrendatario == null || idResidenteArrendatario <= 0)
             throw new DatosInvalidosException("ID del residente arrendatario es obligatorio.");
@@ -93,25 +98,27 @@ public class ContratoService {
 
             conn.commit();
 
-            // Notificar al residente por correo (best-effort: nunca interrumpe el flujo)
-            try {
-                ResidenteDAO resDAO = new ResidenteDAO();
-                Residente res = resDAO.findById(idResidenteArrendatario);
-                if (res != null && res.getEmail() != null && !res.getEmail().isBlank()) {
-                    // Para RENOVACION: buscar fecha fin del contrato anterior (ya en memoria: todos)
-                    LocalDate fechaVencAnterior = null;
-                    if (contrato.getTipoContrato() == TipoContrato.RENOVACION) {
-                        for (Contrato ct : todos) {
-                            if (ct.getEstado() == EstadoContrato.VENCIDO) {
-                                fechaVencAnterior = ct.getFechaFin();
-                                break;
+            if (enviarCorreo) {
+                // Notificar al residente por correo (best-effort: nunca interrumpe el flujo)
+                try {
+                    ResidenteDAO resDAO = new ResidenteDAO();
+                    Residente res = resDAO.findById(idResidenteArrendatario);
+                    if (res != null && res.getEmail() != null && !res.getEmail().isBlank()) {
+                        // Para RENOVACION: buscar fecha fin del contrato anterior (ya en memoria: todos)
+                        LocalDate fechaVencAnterior = null;
+                        if (contrato.getTipoContrato() == TipoContrato.RENOVACION) {
+                            for (Contrato ct : todos) {
+                                if (ct.getEstado() == EstadoContrato.VENCIDO) {
+                                    fechaVencAnterior = ct.getFechaFin();
+                                    break;
+                                }
                             }
                         }
+                        EmailService.enviarEmailContrato(res.getEmail(), res, contrato, apto, fechaVencAnterior);
                     }
-                    EmailService.enviarEmailContrato(res.getEmail(), res, contrato, apto, fechaVencAnterior);
+                } catch (Exception ex) {
+                    System.err.println("[ContratoService] No se pudo enviar email al residente: " + ex.getMessage());
                 }
-            } catch (Exception ex) {
-                System.err.println("[ContratoService] No se pudo enviar email al residente: " + ex.getMessage());
             }
 
             return idContrato;
