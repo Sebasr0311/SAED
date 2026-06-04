@@ -34,8 +34,8 @@
 
 if [ -z "$JAVA_HOME" ] ; then
   if command -v java > /dev/null 2>&1; then
-    # Auto-detect JAVA_HOME from the java binary in PATH (handles mise, sdkman, etc.)
-    JAVA_HOME="$(dirname "$(dirname "$(readlink -f "$(command -v java)")")")"
+    # Ask the JVM itself where its home is — works with mise, sdkman, jabba, etc.
+    JAVA_HOME="$(java -XshowSettings:property -version 2>&1 | grep 'java.home' | sed 's/.*java.home = //')"
     export JAVA_HOME
   else
     echo "Error: JAVA_HOME is not set and no 'java' command could be found in your PATH." >&2
