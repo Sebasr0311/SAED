@@ -56,7 +56,10 @@ if [ -n "$JAVA_HOME" ] ; then
   fi
 else
   JAVACMD=java
-  which java >/dev/null 2>&1 || die "ERROR: JAVA_HOME is not set and no 'java' command could be found in your PATH."
+  if ! command -v java > /dev/null 2>&1; then
+    echo "ERROR: JAVA_HOME is not set and no 'java' command could be found in your PATH." >&2
+    exit 1
+  fi
 fi
 
 # Resolve links

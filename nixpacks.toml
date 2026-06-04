@@ -8,4 +8,4 @@ nixPkgs = ["jdk17", "maven"]
 cmds = ["mvn -B -DskipTests package -q"]
 
 [start]
-cmd = "java -jar target/admin-residencial-1.0-SNAPSHOT.jar"
+cmd = "java -Djava.awt.headless=true -Duser.timezone=America/Bogota -jar target/admin-residencial-1.0-SNAPSHOT.jar"
