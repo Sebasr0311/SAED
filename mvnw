@@ -33,14 +33,32 @@
 # ----------------------------------------------------------------------------
 
 if [ -z "$JAVA_HOME" ] ; then
-  if command -v java > /dev/null 2>&1; then
-    # Ask the JVM itself where its home is — works with mise, sdkman, jabba, etc.
-    JAVA_HOME="$(java -XshowSettings:property -version 2>&1 | grep 'java.home' | sed 's/.*java.home = //')"
-    export JAVA_HOME
-  else
-    echo "Error: JAVA_HOME is not set and no 'java' command could be found in your PATH." >&2
+  # Railway Railpack installs Java via mise but does not export JAVA_HOME.
+  # Look for the mise Java installation directly first.
+  for _mj in "$HOME/.local/share/mise/installs/java/"*/; do
+    if [ -x "${_mj}bin/java" ]; then
+      JAVA_HOME="${_mj%/}"
+      break
+    fi
+  done
+  # Fallback: common JVM paths used by Docker / Debian / Alpine images
+  if [ -z "$JAVA_HOME" ]; then
+    for _dir in \
+        /usr/local/openjdk-21 /usr/local/openjdk-17 \
+        /usr/lib/jvm/java-21-openjdk-amd64 /usr/lib/jvm/java-17-openjdk-amd64 \
+        /usr/lib/jvm/java-21 /usr/lib/jvm/java-17 \
+        /opt/java/21 /opt/java/17; do
+      if [ -x "$_dir/bin/java" ]; then
+        JAVA_HOME="$_dir"
+        break
+      fi
+    done
+  fi
+  if [ -z "$JAVA_HOME" ]; then
+    echo "Error: JAVA_HOME is not set and could not be auto-detected." >&2
     exit 1
   fi
+  export JAVA_HOME
 fi
 
 # Determine the Java command to use to start the JVM.
