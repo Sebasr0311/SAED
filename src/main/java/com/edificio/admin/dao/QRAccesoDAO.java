@@ -221,8 +221,8 @@ public class QRAccesoDAO extends BaseDAO implements CrudDAO<QRAcceso> {
     public Integer insert(Integer idVisita, String codigoQr, int tiempoValidezMin) throws SQLException {
         String sql = "BEGIN INSERT INTO QR_ACCESOS "
                    + "  (id_visita, codigo_qr, fecha_generacion, fecha_expiracion, usado) "
-                   + "VALUES (?, ?, CURRENT_TIMESTAMP, "
-                   + "        CURRENT_TIMESTAMP + NUMTODSINTERVAL(?, 'MINUTE'), 0) "
+                   + "VALUES (?, ?, CAST(SYSTIMESTAMP AT TIME ZONE 'America/Bogota' AS TIMESTAMP), "
+                   + "        CAST(SYSTIMESTAMP AT TIME ZONE 'America/Bogota' AS TIMESTAMP) + NUMTODSINTERVAL(?, 'MINUTE'), 0) "
                    + "RETURNING id_qr INTO ?; END;";
         try (CallableStatement cs = conn().prepareCall(sql)) {
             cs.setInt(1, idVisita);

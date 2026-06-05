@@ -138,11 +138,13 @@ public class VisitanteFrecuenteDAO extends BaseDAO {
             // Oracle esta en America/Bogota; la lectura con getTimestamp() interpretaria
             // el valor UTC como Bogota, dando 5h de adelanto. Calculamos la expiracion
             // correcta en Java y corregimos el registro en BD.
-            r.fechaExpiracion = LocalDateTime.now(ZoneId.of("America/Bogota")).plusMinutes(tiempoValidez);
-            String fixSql = "UPDATE QR_ACCESOS SET fecha_expiracion = ? WHERE id_visita = ?";
+            var bogota = LocalDateTime.now(ZoneId.of("America/Bogota"));
+            r.fechaExpiracion = bogota.plusMinutes(tiempoValidez);
+            String fixSql = "UPDATE QR_ACCESOS SET fecha_generacion = ?, fecha_expiracion = ? WHERE id_visita = ?";
             try (PreparedStatement ps = conn().prepareStatement(fixSql)) {
-                ps.setTimestamp(1, Timestamp.valueOf(r.fechaExpiracion));
-                ps.setInt(2, r.idVisita);
+                ps.setTimestamp(1, Timestamp.valueOf(bogota));
+                ps.setTimestamp(2, Timestamp.valueOf(r.fechaExpiracion));
+                ps.setInt(3, r.idVisita);
                 ps.executeUpdate();
             }
             return r;

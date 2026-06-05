@@ -1890,7 +1890,9 @@ AS
     v_id_visita     QR_ACCESOS.id_visita%TYPE;
     v_usado         QR_ACCESOS.usado%TYPE;
     v_expiracion    QR_ACCESOS.fecha_expiracion%TYPE;
+    v_bogota        TIMESTAMP;
 BEGIN
+    SELECT CAST(SYSTIMESTAMP AT TIME ZONE 'America/Bogota' AS TIMESTAMP) INTO v_bogota FROM DUAL;
     -- 1. Buscar el QR y bloquearlo (previene race condition)
     BEGIN
         SELECT id_qr, id_visita, usado, fecha_expiracion
@@ -1907,8 +1909,8 @@ BEGIN
     END;
 
     -- 2. Verificar expiraci?n
-    IF CURRENT_TIMESTAMP > v_expiracion THEN
-        UPDATE QR_ACCESOS SET usado = 1, fecha_uso = CURRENT_TIMESTAMP
+    IF v_bogota > v_expiracion THEN
+        UPDATE QR_ACCESOS SET usado = 1, fecha_uso = v_bogota
          WHERE id_qr = v_id_qr;
         UPDATE VISITAS SET estado = 'EXPIRADA'
          WHERE id_visita = v_id_visita;
@@ -1930,12 +1932,12 @@ BEGIN
     -- 4. QR v?lido: marcar como usado y registrar acceso f?sico
     UPDATE QR_ACCESOS SET
            usado            = 1,
-           fecha_uso        = CURRENT_TIMESTAMP,
+           fecha_uso        = v_bogota,
            id_vigilante_uso = p_id_vigilante
      WHERE id_qr = v_id_qr;
 
     INSERT INTO REGISTROS_ACCESO (id_visita, id_vigilante, hora_entrada)
-    VALUES (v_id_visita, p_id_vigilante, CURRENT_TIMESTAMP);
+    VALUES (v_id_visita, p_id_vigilante, v_bogota);
 
     COMMIT;
 
@@ -2031,7 +2033,9 @@ AS
     v_count         NUMBER;
     v_codigo_qr     VARCHAR2(255);
     v_fecha_exp     TIMESTAMP;
+    v_bogota        TIMESTAMP;
 BEGIN
+    SELECT CAST(SYSTIMESTAMP AT TIME ZONE 'America/Bogota' AS TIMESTAMP) INTO v_bogota FROM DUAL;
     -- 1. Verificar que el visitante es frecuente activo del residente
     SELECT COUNT(*) INTO v_count
       FROM FRECUENTES_RESIDENTE
@@ -2113,10 +2117,10 @@ BEGIN
 
     -- 8. Generar c?digo QR ?nico (SYS_GUID ? 32 chars hexadecimal en min?sculas)
     v_codigo_qr := LOWER(RAWTOHEX(SYS_GUID()));
-    v_fecha_exp := CURRENT_TIMESTAMP + NUMTODSINTERVAL(p_tiempo_validez, 'MINUTE');
+    v_fecha_exp := v_bogota + NUMTODSINTERVAL(p_tiempo_validez, 'MINUTE');
 
     INSERT INTO QR_ACCESOS (id_visita, codigo_qr, fecha_generacion, fecha_expiracion, usado)
-    VALUES (v_id_visita, v_codigo_qr, CURRENT_TIMESTAMP, v_fecha_exp, 0);
+    VALUES (v_id_visita, v_codigo_qr, v_bogota, v_fecha_exp, 0);
 
     COMMIT;
 
@@ -2220,13 +2224,15 @@ CREATE OR REPLACE FUNCTION FN_MINUTOS_RESTANTES_QR (
 ) RETURN NUMBER
 IS
     v_expiracion QR_ACCESOS.fecha_expiracion%TYPE;
+    v_bogota     TIMESTAMP;
 BEGIN
+    SELECT CAST(SYSTIMESTAMP AT TIME ZONE 'America/Bogota' AS TIMESTAMP) INTO v_bogota FROM DUAL;
     SELECT fecha_expiracion
       INTO v_expiracion
       FROM QR_ACCESOS
      WHERE codigo_qr = p_codigo_qr;
 
-    RETURN ROUND((CAST(v_expiracion AS DATE) - CAST(CURRENT_TIMESTAMP AS DATE)) * 1440, 1);
+    RETURN ROUND((CAST(v_expiracion AS DATE) - CAST(v_bogota AS DATE)) * 1440, 1);
 EXCEPTION
     WHEN NO_DATA_FOUND THEN RETURN NULL;
 END FN_MINUTOS_RESTANTES_QR;
@@ -2452,8 +2458,10 @@ CREATE OR REPLACE PACKAGE BODY PKG_VISITAS AS
         p_id_visitante NUMBER,
         p_id_residente NUMBER
     ) RETURN NUMBER IS
-        v_count NUMBER;
+        v_count  NUMBER;
+        v_bogota TIMESTAMP;
     BEGIN
+        SELECT CAST(SYSTIMESTAMP AT TIME ZONE 'America/Bogota' AS TIMESTAMP) INTO v_bogota FROM DUAL;
         SELECT COUNT(*) INTO v_count
           FROM QR_ACCESOS      q
           JOIN VISITAS         v  ON q.id_visita    = v.id_visita
@@ -2461,17 +2469,19 @@ CREATE OR REPLACE PACKAGE BODY PKG_VISITAS AS
          WHERE rv.id_visitante  = p_id_visitante
            AND v.id_residente   = p_id_residente
            AND q.usado          = 0
-           AND q.fecha_expiracion > CURRENT_TIMESTAMP;
+           AND q.fecha_expiracion > v_bogota;
         RETURN CASE WHEN v_count > 0 THEN 1 ELSE 0 END;
     END FN_TIENE_QR_ACTIVO;
 
     -- ---------------------------------------------------------------
     FUNCTION FN_MINUTOS_RESTANTES_QR (p_codigo_qr VARCHAR2) RETURN NUMBER IS
-        v_exp QR_ACCESOS.fecha_expiracion%TYPE;
+        v_exp    QR_ACCESOS.fecha_expiracion%TYPE;
+        v_bogota TIMESTAMP;
     BEGIN
+        SELECT CAST(SYSTIMESTAMP AT TIME ZONE 'America/Bogota' AS TIMESTAMP) INTO v_bogota FROM DUAL;
         SELECT fecha_expiracion INTO v_exp
           FROM QR_ACCESOS WHERE codigo_qr = p_codigo_qr;
-        RETURN ROUND((CAST(v_exp AS DATE) - CAST(CURRENT_TIMESTAMP AS DATE)) * 1440, 1);
+        RETURN ROUND((CAST(v_exp AS DATE) - CAST(v_bogota AS DATE)) * 1440, 1);
     EXCEPTION
         WHEN NO_DATA_FOUND THEN RETURN NULL;
     END FN_MINUTOS_RESTANTES_QR;
@@ -2519,7 +2529,9 @@ CREATE OR REPLACE PACKAGE BODY PKG_VISITAS AS
     ) IS
         v_estado VISITAS.estado%TYPE;
         v_count  NUMBER;
+        v_bogota TIMESTAMP;
     BEGIN
+        SELECT CAST(SYSTIMESTAMP AT TIME ZONE 'America/Bogota' AS TIMESTAMP) INTO v_bogota FROM DUAL;
         SELECT estado INTO v_estado
           FROM VISITAS WHERE id_visita = p_id_visita;
 
@@ -2533,7 +2545,7 @@ CREATE OR REPLACE PACKAGE BODY PKG_VISITAS AS
         SELECT COUNT(*) INTO v_count
           FROM QR_ACCESOS
          WHERE id_visita = p_id_visita AND usado = 0
-           AND fecha_expiracion > CURRENT_TIMESTAMP;
+           AND fecha_expiracion > v_bogota;
         IF v_count > 0 THEN
             p_codigo_qr := NULL; p_expiracion := NULL;
             p_mensaje := 'Ya existe un QR activo para esta visita.';
@@ -2547,10 +2559,10 @@ CREATE OR REPLACE PACKAGE BODY PKG_VISITAS AS
         END IF;
 
         p_codigo_qr  := LOWER(RAWTOHEX(SYS_GUID()));
-        p_expiracion := CURRENT_TIMESTAMP + NUMTODSINTERVAL(p_tiempo_min, 'MINUTE');
+        p_expiracion := v_bogota + NUMTODSINTERVAL(p_tiempo_min, 'MINUTE');
 
         INSERT INTO QR_ACCESOS (id_visita, codigo_qr, fecha_generacion, fecha_expiracion, usado)
-        VALUES (p_id_visita, p_codigo_qr, CURRENT_TIMESTAMP, p_expiracion, 0);
+        VALUES (p_id_visita, p_codigo_qr, v_bogota, p_expiracion, 0);
 
         COMMIT;
         p_mensaje := 'QR generado. Vigencia: ' || p_tiempo_min || ' minuto(s).';

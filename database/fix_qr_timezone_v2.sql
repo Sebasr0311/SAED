@@ -1,13 +1,14 @@
 -- ============================================================
--- Fix: SP_LIBERAR_VISITA_FRECUENTE y SP_GENERAR_QR_VISITA
+-- Fix v2: Explicit timezone conversion for QR_ACCESOS timestamps
 -- ============================================================
--- 1. SYSTIMESTAMP -> CURRENT_TIMESTAMP en fecha_expiracion
--- 2. Agregar fecha_generacion = CURRENT_TIMESTAMP al INSERT
--- 3. Eliminar QRs bugueados (usado=0 con timestamp UTC)
+-- Root cause: On ATP, CURRENT_TIMESTAMP may return UTC despite
+-- ALTER SESSION SET TIME_ZONE. Using SYSTIMESTAMP AT TIME ZONE 'America/Bogota'
+-- AT TIME ZONE 'America/Bogota' guarantees Bogota wall-clock
+-- regardless of session timezone.
 -- ============================================================
 
 -- ============================================================
--- PARTE 1: Actualizar SP_LIBERAR_VISITA_FRECUENTE
+-- PARTE 1: SP_LIBERAR_VISITA_FRECUENTE
 -- ============================================================
 CREATE OR REPLACE PROCEDURE SP_LIBERAR_VISITA_FRECUENTE (
     p_id_visitante      IN  NUMBER,
@@ -31,7 +32,10 @@ AS
     v_fecha_exp     TIMESTAMP;
     v_bogota        TIMESTAMP;
 BEGIN
-    SELECT CAST(SYSTIMESTAMP AT TIME ZONE 'America/Bogota' AS TIMESTAMP) INTO v_bogota FROM DUAL;
+    -- Current wall-clock in Bogota (works regardless of session TZ)
+    SELECT CAST(SYSTIMESTAMP AT TIME ZONE 'America/Bogota' AS TIMESTAMP)
+      INTO v_bogota FROM DUAL;
+
     SELECT COUNT(*) INTO v_count
       FROM FRECUENTES_RESIDENTE
      WHERE id_residente = p_id_residente
@@ -109,7 +113,7 @@ END SP_LIBERAR_VISITA_FRECUENTE;
 /
 
 -- ============================================================
--- PARTE 2: Actualizar SP_GENERAR_QR_VISITA
+-- PARTE 2: SP_GENERAR_QR_VISITA (standalone procedure)
 -- ============================================================
 CREATE OR REPLACE PROCEDURE SP_GENERAR_QR_VISITA (
     p_id_visita  IN  NUMBER,
@@ -118,11 +122,13 @@ CREATE OR REPLACE PROCEDURE SP_GENERAR_QR_VISITA (
     p_expiracion OUT TIMESTAMP,
     p_mensaje    OUT VARCHAR2
 ) IS
-    v_estado VISITAS.estado%TYPE;
-    v_count  NUMBER;
-    v_bogota TIMESTAMP;
+    v_estado   VISITAS.estado%TYPE;
+    v_count    NUMBER;
+    v_bogota   TIMESTAMP;
 BEGIN
-    SELECT CAST(SYSTIMESTAMP AT TIME ZONE 'America/Bogota' AS TIMESTAMP) INTO v_bogota FROM DUAL;
+    SELECT CAST(SYSTIMESTAMP AT TIME ZONE 'America/Bogota' AS TIMESTAMP)
+      INTO v_bogota FROM DUAL;
+
     SELECT estado INTO v_estado FROM VISITAS WHERE id_visita = p_id_visita;
 
     IF v_estado != 'PENDIENTE' THEN
@@ -168,14 +174,114 @@ END SP_GENERAR_QR_VISITA;
 /
 
 -- ============================================================
--- PARTE 3: Eliminar QRs bugueados (generados con SYSTIMESTAMP)
+-- PARTE 3: SP_VALIDAR_QR - fix CURRENT_TIMESTAMP comparisons
 -- ============================================================
--- Identificamos QRs no usados donde fecha_expiracion al ser
--- interpretada como Bogota por JDBC queda en "futuro" (> SYSTIMESTAMP + 3h).
--- Esto sucede porque el valor almacenado esta en UTC (5h adelante).
--- ============================================================
-DELETE FROM QR_ACCESOS q
-WHERE q.usado = 0
-  AND q.fecha_expiracion > SYSTIMESTAMP + INTERVAL '3' HOUR;
+CREATE OR REPLACE PROCEDURE SP_VALIDAR_QR (
+    p_codigo_qr     IN  VARCHAR2,
+    p_id_vigilante  IN  NUMBER,
+    p_valido        OUT NUMBER,
+    p_mensaje       OUT VARCHAR2,
+    p_cursor        OUT SYS_REFCURSOR
+)
+AS
+    v_id_qr        QR_ACCESOS.id_qr%TYPE;
+    v_id_visita    QR_ACCESOS.id_visita%TYPE;
+    v_usado        QR_ACCESOS.usado%TYPE;
+    v_expiracion   QR_ACCESOS.fecha_expiracion%TYPE;
+    v_bogota       TIMESTAMP;
+BEGIN
+    SELECT CAST(SYSTIMESTAMP AT TIME ZONE 'America/Bogota' AS TIMESTAMP) INTO v_bogota FROM DUAL;
 
-PROMPT 'SPs actualizados + QRs bugueados eliminados.'
+    BEGIN
+        SELECT id_qr, id_visita, usado, fecha_expiracion
+          INTO v_id_qr, v_id_visita, v_usado, v_expiracion
+          FROM QR_ACCESOS
+         WHERE codigo_qr = p_codigo_qr
+           FOR UPDATE;
+    EXCEPTION
+        WHEN NO_DATA_FOUND THEN
+            p_valido  := 0;
+            p_mensaje := 'QR no encontrado en el sistema.';
+            OPEN p_cursor FOR SELECT NULL FROM DUAL WHERE 1=0;
+            RETURN;
+    END;
+
+    IF v_bogota > v_expiracion THEN
+        UPDATE QR_ACCESOS SET usado = 1, fecha_uso = v_bogota
+         WHERE id_qr = v_id_qr;
+        UPDATE VISITAS SET estado = 'EXPIRADA'
+         WHERE id_visita = v_id_visita;
+        COMMIT;
+        p_valido  := 0;
+        p_mensaje := 'QR expirado. Solicite un nuevo codigo al residente.';
+        OPEN p_cursor FOR SELECT NULL FROM DUAL WHERE 1=0;
+        RETURN;
+    END IF;
+
+    IF v_usado = 1 THEN
+        p_valido  := 0;
+        p_mensaje := 'QR ya fue utilizado. Acceso denegado.';
+        OPEN p_cursor FOR SELECT NULL FROM DUAL WHERE 1=0;
+        RETURN;
+    END IF;
+
+    UPDATE QR_ACCESOS SET
+           usado            = 1,
+           fecha_uso        = v_bogota,
+           id_vigilante_uso = p_id_vigilante
+     WHERE id_qr = v_id_qr;
+
+    INSERT INTO REGISTROS_ACCESO (id_visita, id_vigilante, hora_entrada)
+    VALUES (v_id_visita, p_id_vigilante, v_bogota);
+
+    COMMIT;
+
+    OPEN p_cursor FOR
+        SELECT
+            r.nombres  || ' ' || r.apellidos               AS residente_nombre,
+            td.codigo  || '-' || r.numero_documento        AS residente_documento,
+            a.numero                                        AS numero_apartamento,
+            q.fecha_expiracion,
+            v.tiempo_validez_min,
+            vt.nombres  || ' ' || vt.apellidos             AS visitante_nombre,
+            td2.codigo || '-' || vt.numero_documento       AS visitante_documento,
+            vh.placa,
+            vh.tipo                                         AS vehiculo_tipo
+        FROM QR_ACCESOS q
+        JOIN VISITAS v ON q.id_visita = v.id_visita
+        JOIN RESIDENTES r ON v.id_residente = r.id_residente
+        JOIN CONTRATO_RESIDENTE cr ON v.id_contrato_res = cr.id_contrato_res
+        JOIN CONTRATOS c ON cr.id_contrato = c.id_contrato
+        JOIN APARTAMENTOS a ON c.id_apartamento = a.id_apartamento
+        JOIN REGISTRO_VISITA rv ON v.id_visita = rv.id_visita AND rv.es_titular = 1
+        JOIN VISITANTES vt ON rv.id_visitante = vt.id_visitante
+        JOIN TIPOS_DOCUMENTO td ON td.id_tipo_doc = r.id_tipo_doc
+        JOIN TIPOS_DOCUMENTO td2 ON td2.id_tipo_doc = vt.id_tipo_doc
+        LEFT JOIN VEHICULOS_VISITA vh ON v.id_visita = vh.id_visita
+        WHERE q.id_qr = v_id_qr;
+
+    p_valido  := 1;
+    p_mensaje := 'QR valido. Acceso autorizado.';
+END SP_VALIDAR_QR;
+/
+
+-- ============================================================
+-- PARTE 4: Change DEFAULT on fecha_generacion
+-- ============================================================
+ALTER TABLE QR_ACCESOS MODIFY (fecha_generacion DEFAULT CURRENT_TIMESTAMP);
+
+-- ============================================================
+-- PARTE 5: Fix existing records (UTC -> Bogota)
+-- ============================================================
+UPDATE QR_ACCESOS
+   SET fecha_generacion = fecha_generacion - INTERVAL '5' HOUR
+ WHERE usado = 0
+   AND fecha_generacion > fecha_expiracion;
+
+COMMIT;
+
+-- ============================================================
+-- PARTE 6: Verification
+-- ============================================================
+SELECT SESSIONTIMEZONE, DBTIMEZONE FROM DUAL;
+SELECT COUNT(*) AS qrs_corregidos FROM QR_ACCESOS WHERE usado = 0 AND fecha_generacion > fecha_expiracion;
