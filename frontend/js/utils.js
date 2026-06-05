@@ -475,7 +475,7 @@ const Utils = (() => {
     // Validación específica para Colombia según tipo de vehículo
     var vSinEspacios = v.replace(/\s+/g, '');
     
-    if (tipoVehiculo === 'VEHICULO') {
+    if (tipoVehiculo === 'VEHICULO' || tipoVehiculo === 'CARRO') {
       // CARRO: 3 letras + 3 números (ABC123 o ABC 123)
       if (!/^[A-Z]{3}\s?\d{3}$/i.test(v)) {
         mostrarError(inputId, 'Formato de placa de carro: 3 letras + 3 números (Ej: ABC 123)');

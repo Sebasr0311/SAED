@@ -463,6 +463,7 @@ const EscannerQR = (() => {
       if (sel) {
         sel.onchange = function() {
           actualizarCamposVehiculo();
+          validarPlacaInput();
         };
       }
       // Agregar validación en tiempo real para placas
@@ -516,61 +517,27 @@ const EscannerQR = (() => {
     }
   }
 
-  function validarPlacaColombia(placa, tipoVehiculo) {
-    if (!placa) return { valido: false, mensaje: 'Placa requerida' };
-    
-    // Remover espacios para validación
-    var placaSinEspacios = placa.replace(/\s+/g, '');
-    
-    if (tipoVehiculo === 'CARRO') {
-      // Formato: 3 letras + 3 números (AAA123 o AAA 123)
-      var regexCarro = /^[A-Z]{3}\s?\d{3}$/;
-      if (!regexCarro.test(placa.trim())) {
-        return { 
-          valido: false, 
-          mensaje: 'Formato incorrecto. Use: 3 letras + 3 números (Ej: ABC 123)' 
-        };
-      }
-    } else if (tipoVehiculo === 'MOTO') {
-      // Formato: 3 letras + 2 números + 1 letra (AAA12D o AAA 12D)
-      var regexMoto = /^[A-Z]{3}\s?\d{2}[A-Z]$/;
-      if (!regexMoto.test(placa.trim())) {
-        return { 
-          valido: false, 
-          mensaje: 'Formato incorrecto. Use: 3 letras + 2 números + 1 letra (Ej: ABC 12D)' 
-        };
-      }
-    }
-    
-    return { valido: true, mensaje: '' };
-  }
-
   function validarPlacaInput() {
     var sel = document.getElementById('qr-medio-transporte');
     var placaInput = document.getElementById('qr-placa');
     var placaError = document.getElementById('qr-placa-error');
-    
     if (!sel || !placaInput || !placaError) return true;
-    if (sel.value !== 'CARRO' && sel.value !== 'MOTO') return true;
-    
+    if (sel.value !== 'CARRO' && sel.value !== 'MOTO' && sel.value !== 'VEHICULO') return true;
     var placa = placaInput.value.trim();
     if (!placa) {
       placaError.style.display = 'none';
       placaInput.classList.remove('is-invalid');
-      return true; // Permitir vacío, validar en submit
-    }
-    
-    var resultado = validarPlacaColombia(placa, sel.value);
-    if (!resultado.valido) {
-      placaError.textContent = resultado.mensaje;
-      placaError.style.display = 'block';
-      placaInput.classList.add('is-invalid');
-      return false;
-    } else {
-      placaError.style.display = 'none';
-      placaInput.classList.remove('is-invalid');
       return true;
     }
+    Utils.limpiarErrores('form-validar-qr');
+    if (!Utils.valPlaca(placa, 'qr-placa', sel.value)) {
+      placaError = document.getElementById('qr-placa-error');
+      if (placaError) placaError.style.display = 'block';
+      return false;
+    }
+    placaError.style.display = 'none';
+    placaInput.classList.remove('is-invalid');
+    return true;
   }
 
   async function validarManual() {
@@ -610,9 +577,9 @@ const EscannerQR = (() => {
         var placa = placaInput ? placaInput.value.trim() : '';
         
         if (placa) {
-          var validacion = validarPlacaColombia(placa, medioTransporte);
-          if (!validacion.valido) {
-            Utils.showToast(validacion.mensaje, 'error');
+          var placaError = document.getElementById('qr-placa-error');
+          if (placaError) placaError.style.display = 'none';
+          if (!Utils.valPlaca(placa, 'qr-placa', medioTransporte)) {
             if (btn) btn.disabled = false;
             return;
           }
