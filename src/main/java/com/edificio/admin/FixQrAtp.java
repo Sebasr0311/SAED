@@ -25,7 +25,10 @@ public class FixQrAtp {
                 // 1. DEFAULT en fecha_generacion
                 "ALTER TABLE QR_ACCESOS MODIFY (fecha_generacion DEFAULT CURRENT_TIMESTAMP)",
 
-                // 2. SP_LIBERAR_VISITA_FRECUENTE
+                // 2. DEFAULT en VISITAS.fecha_registro
+                "ALTER TABLE VISITAS MODIFY (fecha_registro DEFAULT CURRENT_TIMESTAMP)",
+
+                // 3. SP_LIBERAR_VISITA_FRECUENTE
                 "CREATE OR REPLACE PROCEDURE SP_LIBERAR_VISITA_FRECUENTE (\n" +
                 "    p_id_visitante      IN  NUMBER,\n" +
                 "    p_id_contrato_res   IN  NUMBER,\n" +
@@ -90,10 +93,10 @@ public class FixQrAtp {
                 "\n" +
                 "    INSERT INTO VISITAS (\n" +
                 "        id_contrato_res, id_residente, tiempo_validez_min,\n" +
-                "        cantidad_personas, notas, estado\n" +
+                "        cantidad_personas, notas, estado, fecha_registro, actualizado_en\n" +
                 "    ) VALUES (\n" +
                 "        p_id_contrato_res, p_id_residente, p_tiempo_validez,\n" +
-                "        p_cantidad_personas, p_notas, 'PENDIENTE'\n" +
+                "        p_cantidad_personas, p_notas, 'PENDIENTE', v_bogota, v_bogota\n" +
                 "    ) RETURNING id_visita INTO v_id_visita;\n" +
                 "\n" +
                 "    INSERT INTO REGISTRO_VISITA (id_visita, id_visitante, es_titular)\n" +
@@ -125,7 +128,7 @@ public class FixQrAtp {
                 "        p_mensaje := 'Error interno: ' || SQLERRM;\n" +
                 "END SP_LIBERAR_VISITA_FRECUENTE;",
 
-                // 3. SP_GENERAR_QR_VISITA
+                // 4. SP_GENERAR_QR_VISITA
                 "CREATE OR REPLACE PROCEDURE SP_GENERAR_QR_VISITA (\n" +
                 "    p_id_visita  IN  NUMBER,\n" +
                 "    p_tiempo_min IN  NUMBER,\n" +
@@ -181,7 +184,7 @@ public class FixQrAtp {
                 "        p_mensaje := 'Error interno: ' || SQLERRM;\n" +
                 "END SP_GENERAR_QR_VISITA;",
 
-                // 4. Clean up old buggy records
+                // 5. Clean up old buggy records
                 "UPDATE QR_ACCESOS\n" +
                 "   SET fecha_generacion = fecha_generacion - INTERVAL '5' HOUR\n" +
                 " WHERE usado = 0\n" +
