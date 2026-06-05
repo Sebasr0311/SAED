@@ -1973,7 +1973,7 @@ BEGIN
 
     -- 8. Generar código QR único (SYS_GUID → 32 chars hexadecimal en minúsculas)
     v_codigo_qr := LOWER(RAWTOHEX(SYS_GUID()));
-    v_fecha_exp := SYSTIMESTAMP + NUMTODSINTERVAL(p_tiempo_validez, 'MINUTE');
+    v_fecha_exp := CURRENT_TIMESTAMP + NUMTODSINTERVAL(p_tiempo_validez, 'MINUTE');
 
     INSERT INTO QR_ACCESOS (id_visita, codigo_qr, fecha_expiracion, usado)
     VALUES (v_id_visita, v_codigo_qr, v_fecha_exp, 0);
@@ -2418,7 +2418,7 @@ CREATE OR REPLACE PACKAGE BODY PKG_VISITAS AS
         END IF;
 
         p_codigo_qr  := LOWER(RAWTOHEX(SYS_GUID()));
-        p_expiracion := SYSTIMESTAMP + NUMTODSINTERVAL(p_tiempo_min, 'MINUTE');
+        p_expiracion := CURRENT_TIMESTAMP + NUMTODSINTERVAL(p_tiempo_min, 'MINUTE');
 
         INSERT INTO QR_ACCESOS (id_visita, codigo_qr, fecha_expiracion, usado)
         VALUES (p_id_visita, p_codigo_qr, p_expiracion, 0);

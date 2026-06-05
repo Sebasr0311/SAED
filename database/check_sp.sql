@@ -1,0 +1,1 @@
+SELECT text FROM user_source WHERE name = 'SP_LIBERAR_VISITA_FRECUENTE' AND type = 'PROCEDURE' ORDER BY line;

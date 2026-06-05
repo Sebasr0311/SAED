@@ -4,6 +4,7 @@ import com.edificio.admin.model.VisitanteFrecuente;
 
 import java.sql.*;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -130,11 +131,20 @@ public class VisitanteFrecuenteDAO extends BaseDAO {
             cs.execute();
 
             LiberarVisitaResult r = new LiberarVisitaResult();
-            r.idVisita        = cs.getInt(10);
-            r.codigoQR        = cs.getString(11);
-            Timestamp ts      = cs.getTimestamp(12);
-            r.fechaExpiracion = ts != null ? ts.toLocalDateTime() : null;
-            r.mensaje         = cs.getString(13);
+            r.idVisita = cs.getInt(10);
+            r.codigoQR = cs.getString(11);
+            r.mensaje  = cs.getString(13);
+            // El SP almacena fecha_expiracion con SYSTIMESTAMP (UTC), pero la sesion
+            // Oracle esta en America/Bogota; la lectura con getTimestamp() interpretaria
+            // el valor UTC como Bogota, dando 5h de adelanto. Calculamos la expiracion
+            // correcta en Java y corregimos el registro en BD.
+            r.fechaExpiracion = LocalDateTime.now(ZoneId.of("America/Bogota")).plusMinutes(tiempoValidez);
+            String fixSql = "UPDATE QR_ACCESOS SET fecha_expiracion = ? WHERE id_visita = ?";
+            try (PreparedStatement ps = conn().prepareStatement(fixSql)) {
+                ps.setTimestamp(1, Timestamp.valueOf(r.fechaExpiracion));
+                ps.setInt(2, r.idVisita);
+                ps.executeUpdate();
+            }
             return r;
         }
     }
