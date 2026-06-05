@@ -126,6 +126,14 @@ public class UsuarioService {
         usuarioDAO.delete(id);
     }
 
+    public boolean verificarPassword(Integer idUsuario, String password) throws SQLException {
+        validarId(idUsuario);
+        if (password == null || password.isBlank()) return false;
+        Usuario u = usuarioDAO.findById(idUsuario);
+        if (u == null) return false;
+        return BCrypt.checkpw(password, u.getPasswordHash());
+    }
+
     // ---- helpers ----
 
     private String hashear(String password) {
