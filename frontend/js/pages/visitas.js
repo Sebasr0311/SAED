@@ -290,39 +290,17 @@ const Visitas = (() => {
   function validarPlacaInput() {
     var tipo = document.getElementById('vis-tipo-vehiculo').value;
     var placaInput = document.getElementById('vis-placa');
-    var placaError = document.getElementById('vis-placa-error');
-    
     if (!placaInput || !tipo || tipo === 'BICICLETA' || tipo === '') return;
-    
     var placa = placaInput.value.trim();
     if (!placa) {
       placaInput.classList.remove('is-invalid');
-      if (placaError) placaError.textContent = '';
+      var err = document.getElementById('vis-placa-error');
+      if (err) err.textContent = '';
+      Utils.limpiarErrores('form-visita');
       return;
     }
-
-    var placaSinEspacios = placa.replace(/\s+/g, '');
-    var valido = false;
-    var mensaje = '';
-
-    if (tipo === 'VEHICULO') {
-      valido = /^[A-Z]{3}\s?\d{3}$/i.test(placa);
-      mensaje = 'Formato: 3 letras + 3 números (Ej: ABC 123)';
-    } else if (tipo === 'MOTO') {
-      valido = /^[A-Z]{3}\s?\d{2}[A-Z]$/i.test(placa);
-      mensaje = 'Formato: 3 letras + 2 números + 1 letra (Ej: ABC 12D)';
-    } else {
-      valido = /^[A-Z0-9\s]{3,10}$/i.test(placa);
-      mensaje = 'Formato inválido';
-    }
-
-    if (!valido) {
-      placaInput.classList.add('is-invalid');
-      if (placaError) placaError.textContent = mensaje;
-    } else {
-      placaInput.classList.remove('is-invalid');
-      if (placaError) placaError.textContent = '';
-    }
+    Utils.limpiarErrores('form-visita');
+    Utils.valPlaca(placa, 'vis-placa', tipo);
   }
 
   async function cargarFrecuentes() {

@@ -762,12 +762,25 @@ const ResidenteDash = (() => {
     placaInput.addEventListener('input', function() {
       this.value = this.value.replace(/[^a-zA-Z0-9\s]/g, '').toUpperCase();
     });
+    placaInput.addEventListener('blur', function() { _valPlacaFrec(); });
+    placaInput.addEventListener('input', function() { _valPlacaFrec(); });
     tipoSelect.addEventListener('change', function() {
       if (this.value === '') {
         placaInput.value = '';
         Utils.limpiarErrores('form-frec-renovar');
       }
+      _valPlacaFrec();
     });
+  }
+  function _valPlacaFrec() {
+    var placa = document.getElementById('frec-placa').value.trim();
+    var tipo = document.getElementById('frec-tipo-vehiculo').value;
+    if (!placa || !tipo || tipo === 'BICICLETA' || tipo === 'OTRO') {
+      Utils.limpiarErrores('form-frec-renovar');
+      return;
+    }
+    Utils.limpiarErrores('form-frec-renovar');
+    Utils.valPlaca(placa, 'frec-placa', tipo);
   }
 
   async function renovarFrecuente(idVisitante) {
@@ -783,13 +796,8 @@ const ResidenteDash = (() => {
     var placa = document.getElementById('frec-placa').value.trim();
     var tipoV = document.getElementById('frec-tipo-vehiculo').value;
     
-    // Validar placa si hay vehículo
     if (placa && tipoV && tipoV !== 'BICICLETA' && tipoV !== 'OTRO') {
-      if (!validarPlacaColombia(placa, tipoV)) {
-        var formato = tipoV === 'VEHICULO' ? 'AAA123 o AAA 123' : 'AAA12D o AAA 12D';
-        Utils.mostrarError('frec-placa', 'Formato inv\u00e1lido. Use: ' + formato);
-        return;
-      }
+      if (!Utils.valPlaca(placa, 'frec-placa', tipoV)) return;
     }
     if (tipoV === 'BICICLETA' && !placa) {
       Utils.mostrarError('frec-placa', 'Ingrese una descripci\u00f3n para la bicicleta');
@@ -985,17 +993,22 @@ const ResidenteDash = (() => {
     placaInput.addEventListener('input', function() {
       this.value = this.value.replace(/[^a-zA-Z0-9\s]/g, '').toUpperCase();
     });
+    placaInput.addEventListener('blur', function() { _valPlacaVisita(); });
+    placaInput.addEventListener('input', function() { _valPlacaVisita(); });
     tipoSelect.addEventListener('change', function() {
       if (this.value === '') placaInput.value = '';
+      _valPlacaVisita();
     });
   }
-
-  function validarPlacaColombia(placa, tipo) {
-    if (!placa || !tipo) return true;
-    placa = placa.replace(/\s/g, '');
-    if (tipo === 'VEHICULO') return /^[A-Z]{3}\d{3}$/.test(placa);
-    if (tipo === 'MOTO') return /^[A-Z]{3}\d{2}[A-Z]$/.test(placa);
-    return true;
+  function _valPlacaVisita() {
+    var placa = document.getElementById('res-vis-placa').value.trim();
+    var tipo = document.getElementById('res-vis-tipo-vehiculo').value;
+    if (!placa || !tipo || tipo === 'BICICLETA' || tipo === 'OTRO') {
+      Utils.limpiarErrores('form-visita-residente');
+      return;
+    }
+    Utils.limpiarErrores('form-visita-residente');
+    Utils.valPlaca(placa, 'res-vis-placa', tipo);
   }
 
   function renderNuevaVisita() {
@@ -1057,15 +1070,10 @@ const ResidenteDash = (() => {
     if (telVal && !Utils.valTelefono(telVal, 'res-vis-telefono', { required: false })) return;
     if (emailVal && !Utils.valEmail(emailVal, 'res-vis-email', { required: false })) return;
     
-    // Validación de placa si hay vehículo
     var placa = document.getElementById('res-vis-placa').value.trim();
     var tipoV = document.getElementById('res-vis-tipo-vehiculo').value;
     if (placa && tipoV && tipoV !== 'BICICLETA' && tipoV !== 'OTRO') {
-      if (!validarPlacaColombia(placa, tipoV)) {
-        var formato = tipoV === 'VEHICULO' ? 'AAA123 o AAA 123' : 'AAA12D o AAA 12D';
-        Utils.mostrarError('res-vis-placa', 'Formato inv\u00e1lido. Use: ' + formato);
-        return;
-      }
+      if (!Utils.valPlaca(placa, 'res-vis-placa', tipoV)) return;
     }
     if (tipoV === 'BICICLETA' && !placa) {
       Utils.mostrarError('res-vis-placa', 'Ingrese una descripci\u00f3n para la bicicleta');
