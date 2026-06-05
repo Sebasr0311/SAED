@@ -1034,7 +1034,7 @@ CREATE TABLE VISITAS (
     cantidad_personas   NUMBER(3)           DEFAULT 1  NOT NULL,   -- grupo completo (titular incluido)
     notas               VARCHAR2(500 CHAR),
     estado              VARCHAR2(15  CHAR)  DEFAULT 'PENDIENTE' NOT NULL,
-    fecha_registro      TIMESTAMP           DEFAULT SYSTIMESTAMP NOT NULL,
+    fecha_registro      TIMESTAMP           DEFAULT CURRENT_TIMESTAMP NOT NULL,
     actualizado_en      TIMESTAMP,
 
     CONSTRAINT FK_VIS_CONTRATO_RES
@@ -2085,14 +2085,18 @@ BEGIN
         tiempo_validez_min,
         cantidad_personas,
         notas,
-        estado
+        estado,
+        fecha_registro,
+        actualizado_en
     ) VALUES (
         p_id_contrato_res,
         p_id_residente,
         p_tiempo_validez,
         p_cantidad_personas,
         p_notas,
-        'PENDIENTE'
+        'PENDIENTE',
+        v_bogota,
+        v_bogota
     ) RETURNING id_visita INTO v_id_visita;
 
     -- 6. Registrar visitante frecuente como titular del grupo
