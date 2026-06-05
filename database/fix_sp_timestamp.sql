@@ -1,12 +1,14 @@
 -- ============================================================
--- Fix: Cambiar SYSTIMESTAMP por CURRENT_TIMESTAMP en SPs
+-- Fix: SP_LIBERAR_VISITA_FRECUENTE y SP_GENERAR_QR_VISITA
 -- ============================================================
--- La sesion Oracle se configura con America/Bogota (ConexionBD.java),
--- pero los SPs usaban SYSTIMESTAMP (servidor UTC). Al leer con JDBC,
--- los valores UTC se interpretan como Bogota, dando 5h de adelanto.
+-- 1. SYSTIMESTAMP -> CURRENT_TIMESTAMP en fecha_expiracion
+-- 2. Agregar fecha_generacion = CURRENT_TIMESTAMP al INSERT
+-- 3. Eliminar QRs bugueados (usado=0 con timestamp UTC)
 -- ============================================================
 
--- 1. SP_LIBERAR_VISITA_FRECUENTE
+-- ============================================================
+-- PARTE 1: Actualizar SP_LIBERAR_VISITA_FRECUENTE
+-- ============================================================
 CREATE OR REPLACE PROCEDURE SP_LIBERAR_VISITA_FRECUENTE (
     p_id_visitante      IN  NUMBER,
     p_id_contrato_res   IN  NUMBER,
@@ -83,12 +85,11 @@ BEGIN
                 CASE WHEN p_tipo_vehiculo = 'OTRO' THEN p_descripcion_tipo ELSE NULL END);
     END IF;
 
-    -- *** FIX: SYSTIMESTAMP -> CURRENT_TIMESTAMP ***
     v_codigo_qr := LOWER(RAWTOHEX(SYS_GUID()));
     v_fecha_exp := CURRENT_TIMESTAMP + NUMTODSINTERVAL(p_tiempo_validez, 'MINUTE');
 
-    INSERT INTO QR_ACCESOS (id_visita, codigo_qr, fecha_expiracion, usado)
-    VALUES (v_id_visita, v_codigo_qr, v_fecha_exp, 0);
+    INSERT INTO QR_ACCESOS (id_visita, codigo_qr, fecha_generacion, fecha_expiracion, usado)
+    VALUES (v_id_visita, v_codigo_qr, CURRENT_TIMESTAMP, v_fecha_exp, 0);
 
     COMMIT;
 
@@ -105,7 +106,9 @@ EXCEPTION
 END SP_LIBERAR_VISITA_FRECUENTE;
 /
 
--- 2. SP_GENERAR_QR_VISITA (usado internamente, mismo fix)
+-- ============================================================
+-- PARTE 2: Actualizar SP_GENERAR_QR_VISITA
+-- ============================================================
 CREATE OR REPLACE PROCEDURE SP_GENERAR_QR_VISITA (
     p_id_visita  IN  NUMBER,
     p_tiempo_min IN  NUMBER,
@@ -142,11 +145,10 @@ BEGIN
     END IF;
 
     p_codigo_qr  := LOWER(RAWTOHEX(SYS_GUID()));
-    -- *** FIX: SYSTIMESTAMP -> CURRENT_TIMESTAMP ***
     p_expiracion := CURRENT_TIMESTAMP + NUMTODSINTERVAL(p_tiempo_min, 'MINUTE');
 
-    INSERT INTO QR_ACCESOS (id_visita, codigo_qr, fecha_expiracion, usado)
-    VALUES (p_id_visita, p_codigo_qr, p_expiracion, 0);
+    INSERT INTO QR_ACCESOS (id_visita, codigo_qr, fecha_generacion, fecha_expiracion, usado)
+    VALUES (p_id_visita, p_codigo_qr, CURRENT_TIMESTAMP, p_expiracion, 0);
 
     COMMIT;
     p_mensaje := 'QR generado. Vigencia: ' || p_tiempo_min || ' minuto(s).';
@@ -161,4 +163,15 @@ EXCEPTION
 END SP_GENERAR_QR_VISITA;
 /
 
-PROMPT 'SPs actualizados correctamente: SYSTIMESTAMP -> CURRENT_TIMESTAMP'
+-- ============================================================
+-- PARTE 3: Eliminar QRs bugueados (generados con SYSTIMESTAMP)
+-- ============================================================
+-- Identificamos QRs no usados donde fecha_expiracion al ser
+-- interpretada como Bogota por JDBC queda en "futuro" (> SYSTIMESTAMP + 3h).
+-- Esto sucede porque el valor almacenado esta en UTC (5h adelante).
+-- ============================================================
+DELETE FROM QR_ACCESOS q
+WHERE q.usado = 0
+  AND q.fecha_expiracion > SYSTIMESTAMP + INTERVAL '3' HOUR;
+
+PROMPT 'SPs actualizados + QRs bugueados eliminados.'
