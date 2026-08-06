@@ -40,7 +40,7 @@ public class ConexionBD {
 
     // Constructor privado — patron Singleton
     private ConexionBD() {
-        // 1. Variables de entorno (Railway / produccion)
+        // 1. Variables de entorno (produccion)
         String envUrl = getenv("DB_URL");
         String envUsr = getenv("DB_USER");
         String envPwd = getenv("DB_PASS");

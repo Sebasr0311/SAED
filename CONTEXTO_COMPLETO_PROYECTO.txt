@@ -22,7 +22,7 @@ INDICE
 15. Modulo de Multas
 16. Exportacion a Excel
 17. Notificaciones
-18. Despliegue (Railway + GitHub Pages)
+18. Despliegue (Render + GitHub Pages)
 
 
 ================================================================================
@@ -82,9 +82,9 @@ BASE DE DATOS
 
 DESPLIEGUE
 ----------
-  Backend:          Railway (Java fat JAR, puerto via $PORT)
+  Backend:          Render (Java fat JAR, puerto via $PORT)
   Frontend:         GitHub Pages (gh-pages branch)
-  URL produccion:   https://sistema-administracion-edificios-production.up.railway.app
+  URL produccion:   https://TU-NOMBRE-SERVICE.onrender.com
   Frontend prod:    https://sebasr0311.github.io/sistema-administracion-edificios/
 
 
@@ -94,7 +94,7 @@ DESPLIEGUE
 
 sistema-administracion-edificios/
 ├── pom.xml                               # Maven build (Java 17, fat JAR)
-├── railway.json                          # Config Railway (Nixpacks + mvn package)
+├── render.yaml                           # Config Render (despliegue automatico)
 ├── RESUMEN_PROYECTO.txt                  # Documentacion tecnica previa
 ├── CONTEXTO_COMPLETO_PROYECTO.txt        # Este archivo
 ├── DOCUMENTACION_BASE_DATOS.txt          # Docs BD
@@ -136,7 +136,7 @@ sistema-administracion-edificios/
 ├── src/main/
 │   ├── java/com/edificio/admin/
 │   │   ├── Main.java                    # Entry point JavaFX (ventana desktop)
-│   │   ├── RestServerMain.java          # Entry point REST (Railway)
+│   │   ├── RestServerMain.java          # Entry point REST (Render)
 │   │   ├── config/
 │   │   │   └── SesionUsuario.java       # Singleton sesion activa
 │   │   ├── dao/
@@ -633,7 +633,7 @@ MODULO DE ALERTAS DE PAGO:
 10. ENDPOINTS REST COMPLETOS
 ================================================================================
 
-Prefijo: /api  (proxy Node.js en desarrollo, directo en Railway)
+Prefijo: /api  (proxy Node.js en desarrollo, directo en Render)
 
 AUTENTICACION:
   POST   /api/auth/login                    Login, retorna JWT + usuario
@@ -960,21 +960,25 @@ IMPORTANTE: Los tres metodos son flujos asistidos manualmente.
 
 
 ================================================================================
-18. DESPLIEGUE (RAILWAY + GITHUB PAGES)
+18. DESPLIEGUE (RENDER + GITHUB PAGES)
 ================================================================================
 
-BACKEND (Railway):
-  - Build: Nixpacks con mvn package -DskipTests
-  - Entry: RestServerMain.main()
-  - Puerto: via variable de entorno PORT
-  - Base de datos: Oracle ATP con wallet (wallet.zip en resources)
-  - Variables de entorno: DB_URL, DB_USER, DB_PASS (conexion ATP)
-  - URL: https://sistema-administracion-edificios-production.up.railway.app
+BACKEND (Render):
+  - Runtime: Java 17 (Render detecta pom.xml)
+  - Build: mvn clean package -DskipTests -q
+  - Start: java -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -jar target/admin-residencial-1.0-SNAPSHOT.jar
+  - Puerto: via variable de entorno PORT (Render la inyecta)
+  - Base de datos: Oracle ATP con wallet (WALLET_BASE64 en env vars)
+  - Variables de entorno: DB_URL, DB_USER, DB_PASS, JWT_SECRET, GMAIL_USER, GMAIL_PASSWORD
+  - Health check: GET /health retorna {"status":"ok"}
+  - Plan gratuito disponible (se suspende tras 15 min de inactividad)
+  - URL: https://TU-NOMBRE-SERVICE.onrender.com
+  - Config: render.yaml en la raiz del repositorio
 
 FRONTEND (GitHub Pages):
   - Deploy via GitHub Actions (.github/workflows/deploy-pages.yml)
   - Frontend estatico en gh-pages branch
-  - En produccion, _API_BASE_URL apunta directo al backend Railway
+  - En produccion, _API_BASE_URL apunta directo al backend Render
   - URL: https://sebasr0311.github.io/sistema-administracion-edificios/
 
 DESARROLLO LOCAL:

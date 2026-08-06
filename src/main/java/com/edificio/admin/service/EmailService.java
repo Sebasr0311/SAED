@@ -95,7 +95,7 @@ public class EmailService {
             enviarViaSendGrid(destinatario, asunto, html, pdfAdjunto, pdfNombre);
         } else {
             throw new Exception("No se pudo enviar el correo (SMTP bloqueado y SENDGRID_API_KEY no configurada). "
-                + "Agrega el plugin SendGrid en Railway o configura SENDGRID_API_KEY.");
+                + "Agrega el plugin SendGrid en Render o configura SENDGRID_API_KEY.");
         }
     }
 

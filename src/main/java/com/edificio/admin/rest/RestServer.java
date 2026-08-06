@@ -39,7 +39,7 @@ public class RestServer {
             addContext("/api/multas", new MultaHandler());
             addContext("/api/quejas", new QuejaSugerenciaHandler());
 
-            // Health check para Railway
+            // Health check (Render, monitoreo)
             server.createContext("/health", exchange -> {
                 String resp = "{\"status\":\"ok\"}";
                 exchange.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
