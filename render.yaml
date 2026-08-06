@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: saed-backend
+    runtime: java
+    region: oregon
+    plan: free
+    env: java
+    buildCommand: mvn clean package -DskipTests -q
+    startCommand: java -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -jar target/admin-residencial-1.0-SNAPSHOT.jar
+    envVars:
+      - key: JAVA_VERSION
+        value: "17"
+      - key: PORT
+        value: "8080"
+      - key: DB_URL
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASS
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: GMAIL_USER
+        sync: false
+      - key: GMAIL_PASSWORD
+        sync: false
+      - key: WALLET_BASE64
+        sync: false
+    healthCheckPath: /health

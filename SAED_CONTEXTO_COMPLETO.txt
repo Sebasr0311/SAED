@@ -15,7 +15,7 @@
   Repositorio activo:  https://github.com/Sebasr0311/sistema-administracion-edificios
   Repositorio local:   https://github.com/Sebasr0311/prueba_proyecto
   Frontend (GitHub Pages): https://sebasr0311.github.io/sistema-administracion-edificios/
-  Backend (Railway):       https://sistema-administracion-edificios-production.up.railway.app
+  Backend (Render):        https://TU-NOMBRE-SERVICE.onrender.com
   Total commits: ~90 (Sebastián: 49, José: 28, Iván: 13)
 
 
@@ -73,7 +73,7 @@
 
       Entrada principal: com.edificio.admin.RestServerMain
         - Inicializa WalletSetup (para conexión ATP)
-        - Inicia RestServer en puerto 8080 (o PORT env var en Railway)
+        - Inicia RestServer en puerto 8080 (o PORT env var en Render)
         - Health check en GET /health
 
       Servidor HTTP: com.sun.net.httpserver.HttpServer
@@ -469,25 +469,28 @@
   7. INFRAESTRUCTURA Y DESPLIEGUE
 ================================================================================
 
-  7.1 BACKEND — Railway (sistema-administracion-edificios)
-      URL: https://sistema-administracion-edificios-production.up.railway.app
-      Build: mvn package -DskipTests -q (railway.json)
-      Start: java -jar target/admin-residencial-1.0-SNAPSHOT.jar (Procfile)
-      Puerto: 8080 (o PORT env var)
+  7.1 BACKEND — Render (sistema-administracion-edificios)
+      URL: https://TU-NOMBRE-SERVICE.onrender.com
+      Build: mvn clean package -DskipTests -q (render.yaml)
+      Start: java -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -jar target/admin-residencial-1.0-SNAPSHOT.jar
+      Puerto: 8080 (o PORT env var, Render la inyecta automaticamente)
+      Health check: GET /health
       Variables de entorno requeridas:
         - DB_URL:     jdbc:oracle:thin:@residencial_high
         - DB_USER:    RESIDENCIAL
         - DB_PASS:    Administrador2026
-        - WALLET_BASE64_PART1: primera mitad del wallet.zip en base64
-        - WALLET_BASE64_PART2: segunda mitad del wallet.zip en base64
+        - JWT_SECRET: clave para tokens JWT
+        - GMAIL_USER: usuario Gmail para SMTP
+        - GMAIL_PASSWORD: contrasena Gmail
+        - WALLET_BASE64: wallet.zip completo en base64 (o PART1+PART2)
 
   7.2 FRONTEND — GitHub Pages
       URL: https://sebasr0311.github.io/sistema-administracion-edificios/
-      Deploy automático: .github/workflows/deploy-pages.yml
+      Deploy automatico: .github/workflows/deploy-pages.yml
         - Se activa en push a main
         - Publica frontend/ como GitHub Pages
         - index.html: si hostname incluye 'github.io', usa _API_BASE_URL
-          directo al backend Railway; si local, usa localhost:8080/api
+          directo al backend Render; si local, usa localhost:8080/api
 
   7.3 BASE DE DATOS — Oracle ATP (Oracle Cloud)
       TNS: residencial_high (adb.sa-bogota-1.oraclecloud.com:1522 TCPS)
@@ -553,11 +556,10 @@
 
   9.1 RAÍZ DEL PROYECTO
       pom.xml                  → Configuración Maven, dependencias, plugins
-      Procfile                 → Railway: comando de inicio
-      setup.bat                → Script de configuración local (crear BD +
+      render.yaml               → Render: config de despliegue (build, start, env vars)
+      setup.bat                → Script de configuracion local (crear BD +
                                  schema + datos + build)
       iniciar.bat              → Script para arrancar backend local
-      railway.json             → Railway: build command
 
   9.2 database/
       modelo_relacional_v4_atp.sql → DDL completo + datos iniciales (ATP)
@@ -569,7 +571,7 @@
 
   9.3 src/main/java/com/edificio/admin
       Main.java                      → Entry point JavaFX
-      RestServerMain.java            → Entry point REST server (Railway)
+      RestServerMain.java            → Entry point REST server (Render)
       rest/RestServer.java           → Servidor HTTP embebido
       rest/CorsFilter.java           → Filtro CORS
       rest/JwtUtil.java              → Generación/validación JWT
@@ -621,7 +623,7 @@
 ================================================================================
 
     Ramas principales:
-      main      → Producción (GitHub Pages + Railway)
+      main      → Produccion (GitHub Pages + Render)
       develop   → Integración (no creada actualmente)
 
     Ramas feature (por desarrollador):
@@ -657,7 +659,7 @@
 
     - Migración de datos desde Oracle XE local a ATP (MigrarDatosLocalToATP)
     - Fix conexión BD: auth_token, _API_BASE_URL, wallet, etc.
-    - Fix _API_BASE_URL para nuevo proyecto Railway
+    - Fix _API_BASE_URL para nuevo proyecto Render
     - Fix AuthHandler: printStackTrace para errores BD
     - GenHash.java eliminado del tracking y agregado a .gitignore
     - BUZON detail modal con overlay oscuro + info multa
@@ -671,7 +673,7 @@
 
     - FRECUENTES_RESIDENTE: migración falla con ORA-00001 por UNIQUE
       constraint (id_residente, id_visitante) — solo 1 fila local
-    - Railway deploy necesita recrearse tras cada cambio (push + redeploy)
+    - Render deploy necesita recrearse tras cada cambio (push + redeploy)
     - GitHub Actions deploy ~1-2 min después de push a main
     - Las ramas feature/* existen en el repositorio local pero develop
       no está creada actualmente (todo va directo a main)

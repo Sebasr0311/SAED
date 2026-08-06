@@ -47,7 +47,7 @@ public class WalletSetup {
 
         Path targetDir = Paths.get(System.getProperty("java.io.tmpdir"), WALLET_DIR);
 
-        // 3. WALLET_BASE64 env var (completo o partido en 2 para Railway)
+        // 3. WALLET_BASE64 env var (completo o partido en 2)
         String walletB64 = getenv(ENV_WALLET_B64);
         if (walletB64 == null || walletB64.isEmpty()) {
             String p1 = getenv(ENV_WALLET_P1);

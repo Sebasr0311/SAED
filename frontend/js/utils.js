@@ -7,7 +7,7 @@ const Utils = (() => {
       return dateStr;
     }
     if (dateStr.endsWith('Z') || /[+-]\d{2}:\d{2}/.test(dateStr)) return dateStr;
-    // El servidor (Oracle ATP / Railway) opera en UTC y envía timestamps sin offset.
+    // El servidor (Oracle ATP / Render) opera en UTC y envia timestamps sin offset.
     // Tratarlos como UTC evita que aparezcan 5 horas adelantados en Colombia (UTC-5).
     return dateStr + 'Z';
   }

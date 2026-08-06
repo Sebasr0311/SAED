@@ -5,7 +5,7 @@ import com.edificio.admin.util.WalletSetup;
 
 /**
  * Punto de entrada solo para el backend REST (sin ventana JavaFX).
- * Lee el puerto de PORT (Railway) o 8080 por defecto.
+ * Lee el puerto de PORT (Render / produccion) o 8080 por defecto.
  * Inicializa wallet Oracle ATP si existe wallet.zip en classpath.
  */
 public class RestServerMain {

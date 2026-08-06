@@ -134,7 +134,7 @@
                 </configuration>
             </plugin>
 
-            <!-- JAR ejecutable para Railway -->
+            <!-- JAR ejecutable (Render, desarrollo local) -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-jar-plugin</artifactId>

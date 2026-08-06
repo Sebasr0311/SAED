@@ -46,7 +46,7 @@ public class StaticFilesHandler implements HttpHandler {
             // fallback a index.html para SPA routing
             file = baseDir.resolve("index.html");
             if (!Files.exists(file)) {
-                // Si no hay frontend (Railway), responder mensaje simple
+                // Si no hay frontend (deploy separado), responder mensaje simple
                 String resp = "Backend REST funcionando";
                 byte[] bytes = resp.getBytes(StandardCharsets.UTF_8);
                 exchange.getResponseHeaders().set("Content-Type", "text/plain; charset=utf-8");
