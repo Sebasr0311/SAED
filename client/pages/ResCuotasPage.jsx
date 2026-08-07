@@ -11,25 +11,36 @@ const ESTADO_BADGE = {
   PAGADA: 'badge-activo',
   PENDIENTE: 'badge-pendiente-firma',
   VENCIDA: 'badge-danger',
+  ANULADA: 'badge-cancelado',
 };
 
 export default function ResCuotasPage() {
   const { user } = useAuth();
   const [page] = useState(0);
   const { data, loading } = useFetch(
-    () => api.get(`/cuotas/residente/${user?.idResidente}?page=${page}&size=20`),
+    () => api.get(`/cuotas/residente/${user?.idResidente}?page=${page}&size=50`),
     [user, page]
   );
 
   const columns = [
-    { key: 'id', label: 'ID', width: 60 },
+    { key: 'id', label: 'ID', width: 60, render: (r) => r.id || r.idCuota },
     { key: 'periodo', label: 'Periodo' },
-    { key: 'monto', label: 'Monto', render: (r) => formatCurrency(r.monto) },
-    { key: 'fechaVencimiento', label: 'Vencimiento', render: (r) => formatDate(r.fechaVencimiento) },
+    {
+      key: 'monto',
+      label: 'Monto',
+      render: (r) => formatCurrency(r.valorTotal || r.monto || r.montoPendiente),
+    },
+    {
+      key: 'fechaVencimiento',
+      label: 'Vencimiento',
+      render: (r) => formatDate(r.fechaVencimiento || r.fechaLimite),
+    },
     {
       key: 'estado',
       label: 'Estado',
-      render: (r) => <span className={`badge ${ESTADO_BADGE[r.estado] || 'badge-neutral'}`}>{r.estado}</span>,
+      render: (r) => (
+        <span className={`badge ${ESTADO_BADGE[r.estado] || 'badge-neutral'}`}>{r.estado}</span>
+      ),
     },
   ];
 
@@ -38,7 +49,7 @@ export default function ResCuotasPage() {
       <PageHeader title="Mis Cuotas" subtitle="Historial de cuotas de arriendo" />
       <DataTable
         columns={columns}
-        rows={data?.items || []}
+        rows={data?.items || data || []}
         loading={loading}
         empty="No tienes cuotas"
         keyField="id"
@@ -47,7 +58,7 @@ export default function ResCuotasPage() {
         page={page}
         totalPages={data?.totalPages || 1}
         totalItems={data?.totalItems}
-        pageSize={20}
+        pageSize={50}
         onPageChange={() => {}}
       />
     </div>
