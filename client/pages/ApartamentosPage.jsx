@@ -13,6 +13,31 @@ import api from '../lib/api.js';
 const ESTADOS = ['DISPONIBLE', 'OCUPADO', 'MANTENIMIENTO'];
 const emptyForm = { numero: '', piso: 1, tipo: 'NORMAL', area: '', estado: 'DISPONIBLE' };
 
+const ESTADO_BADGE = {
+  DISPONIBLE: 'badge-activo',
+  OCUPADO: 'badge-ocupado',
+  MANTENIMIENTO: 'badge-en-mantenimiento',
+};
+
+function ActionButtons({ onEdit, onDelete }) {
+  return (
+    <div style={{ display: 'flex', gap: '4px' }}>
+      <button onClick={onEdit} className="btn btn-ghost btn-sm" aria-label="Editar">
+        <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>edit</span>
+      </button>
+      <button onClick={onDelete} className="btn btn-ghost btn-sm" aria-label="Eliminar">
+        <span className="material-symbols-outlined" style={{ fontSize: '18px', color: '#e11d48' }}>
+          delete
+        </span>
+      </button>
+    </div>
+  );
+}
+
+function EstadoBadge({ estado }) {
+  return <span className={`badge ${ESTADO_BADGE[estado] || 'badge-neutral'}`}>{estado}</span>;
+}
+
 export default function ApartamentosPage() {
   const [page, setPage] = useState(0);
   const [toast, setToast] = useState(null);
@@ -30,43 +55,35 @@ export default function ApartamentosPage() {
     { key: 'piso', label: 'Piso' },
     { key: 'tipo', label: 'Tipo' },
     { key: 'area', label: 'Área (m²)' },
-    { key: 'estado', label: 'Estado' },
+    {
+      key: 'estado',
+      label: 'Estado',
+      render: (row) => <EstadoBadge estado={row.estado} />,
+    },
     {
       key: 'actions',
       label: 'Acciones',
-      width: 140,
+      width: 100,
       render: (row) => (
-        <div className="flex gap-1">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setEditing(row);
-              setForm({
-                numero: row.numero,
-                piso: row.piso,
-                tipo: row.tipo,
-                area: row.area,
-                estado: row.estado,
-              });
-              setErrors({});
-              setModalOpen(true);
-            }}
-            className="rounded-full p-1.5 text-on-surface-variant hover:bg-surface-container"
-            aria-label="Editar"
-          >
-            <span className="material-symbols-outlined text-lg">edit</span>
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setConfirmDel(row);
-            }}
-            className="rounded-full p-1.5 text-on-surface-variant hover:bg-error-container hover:text-error"
-            aria-label="Eliminar"
-          >
-            <span className="material-symbols-outlined text-lg">delete</span>
-          </button>
-        </div>
+        <ActionButtons
+          onEdit={(e) => {
+            e.stopPropagation();
+            setEditing(row);
+            setForm({
+              numero: row.numero,
+              piso: row.piso,
+              tipo: row.tipo,
+              area: row.area,
+              estado: row.estado,
+            });
+            setErrors({});
+            setModalOpen(true);
+          }}
+          onDelete={(e) => {
+            e.stopPropagation();
+            setConfirmDel(row);
+          }}
+        />
       ),
     },
   ];
@@ -117,7 +134,6 @@ export default function ApartamentosPage() {
         subtitle="Inventario de apartamentos del edificio"
         action={
           <Button
-            icon="add"
             onClick={() => {
               setEditing(null);
               setForm(emptyForm);
@@ -125,7 +141,7 @@ export default function ApartamentosPage() {
               setModalOpen(true);
             }}
           >
-            Nuevo Apartamento
+            + Nuevo Apartamento
           </Button>
         }
       />
@@ -153,20 +169,17 @@ export default function ApartamentosPage() {
             <Button variant="outline" onClick={() => setModalOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={save} icon="save">
-              Guardar
-            </Button>
+            <Button onClick={save}>Guardar</Button>
           </>
         }
       >
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="form-row">
           <Input
             id="numero"
             label="Número"
             value={form.numero}
             onChange={(e) => update('numero', e.target.value)}
             error={errors.numero}
-            required
           />
           <Input
             id="piso"
@@ -175,8 +188,9 @@ export default function ApartamentosPage() {
             value={form.piso}
             onChange={(e) => update('piso', e.target.value)}
             error={errors.piso}
-            required
           />
+        </div>
+        <div className="form-row">
           <Select id="tipo" label="Tipo" value={form.tipo} onChange={(e) => update('tipo', e.target.value)}>
             <option value="NORMAL">Normal</option>
             <option value="PENTHOUSE">Penthouse</option>
@@ -189,6 +203,8 @@ export default function ApartamentosPage() {
             value={form.area}
             onChange={(e) => update('area', e.target.value)}
           />
+        </div>
+        <div className="form-group">
           <Select
             id="estado"
             label="Estado"

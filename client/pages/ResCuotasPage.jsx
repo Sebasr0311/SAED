@@ -7,6 +7,12 @@ import api from '../lib/api.js';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { formatCurrency, formatDate } from '../lib/utils.js';
 
+const ESTADO_BADGE = {
+  PAGADA: 'badge-activo',
+  PENDIENTE: 'badge-pendiente-firma',
+  VENCIDA: 'badge-danger',
+};
+
 export default function ResCuotasPage() {
   const { user } = useAuth();
   const [page] = useState(0);
@@ -20,7 +26,11 @@ export default function ResCuotasPage() {
     { key: 'periodo', label: 'Periodo' },
     { key: 'monto', label: 'Monto', render: (r) => formatCurrency(r.monto) },
     { key: 'fechaVencimiento', label: 'Vencimiento', render: (r) => formatDate(r.fechaVencimiento) },
-    { key: 'estado', label: 'Estado' },
+    {
+      key: 'estado',
+      label: 'Estado',
+      render: (r) => <span className={`badge ${ESTADO_BADGE[r.estado] || 'badge-neutral'}`}>{r.estado}</span>,
+    },
   ];
 
   return (

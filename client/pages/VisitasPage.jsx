@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Button } from '../components/ui/Button.jsx';
-import { Input, Select } from '../components/ui/Form.jsx';
+import { Select } from '../components/ui/Form.jsx';
 import { DataTable } from '../components/ui/DataTable.jsx';
 import { Pagination } from '../components/ui/Pagination.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
@@ -10,6 +10,12 @@ import api from '../lib/api.js';
 import { formatDate } from '../lib/utils.js';
 
 const ESTADOS = ['', 'EN_CURSO', 'FINALIZADA', 'CANCELADA'];
+
+const ESTADO_BADGE = {
+  EN_CURSO: 'badge-activo',
+  FINALIZADA: 'badge-finalizada',
+  CANCELADA: 'badge-cancelado',
+};
 
 export default function VisitasPage() {
   const [page, setPage] = useState(0);
@@ -30,7 +36,11 @@ export default function VisitasPage() {
     { key: 'apartamento', label: 'Apartamento' },
     { key: 'fechaIngreso', label: 'Ingreso', render: (r) => formatDate(r.fechaIngreso) },
     { key: 'fechaSalida', label: 'Salida', render: (r) => formatDate(r.fechaSalida) },
-    { key: 'estado', label: 'Estado' },
+    {
+      key: 'estado',
+      label: 'Estado',
+      render: (r) => <span className={`badge ${ESTADO_BADGE[r.estado] || 'badge-neutral'}`}>{r.estado}</span>,
+    },
   ];
 
   return (
@@ -39,7 +49,7 @@ export default function VisitasPage() {
         title="Visitas"
         subtitle="Registro de visitas al edificio"
         action={
-          <div className="flex gap-2">
+          <div className="filters">
             <Select
               id="f-estado"
               value={filtroEstado}
@@ -47,7 +57,7 @@ export default function VisitasPage() {
                 setFiltroEstado(e.target.value);
                 setPage(0);
               }}
-              className="w-auto"
+              className="filter-select"
             >
               {ESTADOS.map((e) => (
                 <option key={e || 'all'} value={e}>
@@ -55,7 +65,7 @@ export default function VisitasPage() {
                 </option>
               ))}
             </Select>
-            <Button icon="add">Nueva Visita</Button>
+            <Button>+ Nueva Visita</Button>
           </div>
         }
       />

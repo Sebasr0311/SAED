@@ -3,6 +3,15 @@ import api from '../lib/api.js';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
 
+function DetailRow({ label, value }) {
+  return (
+    <div className="detail-row">
+      <span style={{ color: '#475569' }}>{label}</span>
+      <span style={{ fontWeight: 600 }}>{value || '—'}</span>
+    </div>
+  );
+}
+
 export default function ResApartamentoPage() {
   const { user } = useAuth();
   const { data } = useFetch(() => api.get(`/apartamentos/residente/${user?.idResidente}`), [user]);
@@ -11,27 +20,12 @@ export default function ResApartamentoPage() {
   return (
     <div>
       <PageHeader title="Mi Apartamento" />
-      <div className="card max-w-xl space-y-3">
-        <div className="flex justify-between text-sm">
-          <span className="text-on-surface-variant">Número</span>
-          <span className="font-semibold">{a.numero || '—'}</span>
-        </div>
-        <div className="flex justify-between text-sm">
-          <span className="text-on-surface-variant">Piso</span>
-          <span className="font-semibold">{a.piso || '—'}</span>
-        </div>
-        <div className="flex justify-between text-sm">
-          <span className="text-on-surface-variant">Tipo</span>
-          <span className="font-semibold">{a.tipo || '—'}</span>
-        </div>
-        <div className="flex justify-between text-sm">
-          <span className="text-on-surface-variant">Área</span>
-          <span className="font-semibold">{a.area ? `${a.area} m²` : '—'}</span>
-        </div>
-        <div className="flex justify-between text-sm">
-          <span className="text-on-surface-variant">Estado</span>
-          <span className="font-semibold">{a.estado || '—'}</span>
-        </div>
+      <div className="card" style={{ maxWidth: '480px' }}>
+        <DetailRow label="Número" value={a.numero} />
+        <DetailRow label="Piso" value={a.piso} />
+        <DetailRow label="Tipo" value={a.tipo} />
+        <DetailRow label="Área" value={a.area ? `${a.area} m²` : null} />
+        <DetailRow label="Estado" value={a.estado} />
       </div>
     </div>
   );

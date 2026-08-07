@@ -8,8 +8,8 @@ import api from '../lib/api.js';
 import { formatDate } from '../lib/utils.js';
 
 export default function AlertasPage() {
-  const [page, setPage] = useState(0);
-  const [toast, setToast] = useState(null);
+  const [page] = useState(0);
+  const [toast] = useState(null);
 
   const { data, loading, refetch } = useFetch(() => api.get(`/alertas?page=${page}&size=20`), [page]);
 
@@ -20,7 +20,15 @@ export default function AlertasPage() {
     { key: 'residente', label: 'Residente' },
     { key: 'periodo', label: 'Periodo' },
     { key: 'canal', label: 'Canal' },
-    { key: 'leida', label: 'Leída', render: (r) => (r.leida ? 'Sí' : 'No') },
+    {
+      key: 'leida',
+      label: 'Leída',
+      render: (r) => (
+        <span className={`badge ${r.leida ? 'badge-activo' : 'badge-pendiente-firma'}`}>
+          {r.leida ? 'Sí' : 'No'}
+        </span>
+      ),
+    },
     { key: 'fechaEnvio', label: 'Enviada', render: (r) => formatDate(r.fechaEnvio) },
   ];
 
@@ -39,7 +47,7 @@ export default function AlertasPage() {
         totalPages={data?.totalPages || 1}
         totalItems={data?.totalItems}
         pageSize={20}
-        onPageChange={setPage}
+        onPageChange={() => {}}
       />
       <Toast toast={toast} />
     </div>

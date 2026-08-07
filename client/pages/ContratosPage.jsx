@@ -23,6 +23,28 @@ const emptyForm = {
   estado: 'ACTIVO',
 };
 
+const ESTADO_BADGE = {
+  ACTIVO: 'badge-activo',
+  SUSPENDIDO: 'badge-warn',
+  VENCIDO: 'badge-danger',
+  PENDIENTE_FIRMA: 'badge-pendiente-firma',
+};
+
+function ActionButtons({ onEdit, onDelete }) {
+  return (
+    <div style={{ display: 'flex', gap: '4px' }}>
+      <button onClick={onEdit} className="btn btn-ghost btn-sm" aria-label="Editar">
+        <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>edit</span>
+      </button>
+      <button onClick={onDelete} className="btn btn-ghost btn-sm" aria-label="Eliminar">
+        <span className="material-symbols-outlined" style={{ fontSize: '18px', color: '#e11d48' }}>
+          delete
+        </span>
+      </button>
+    </div>
+  );
+}
+
 export default function ContratosPage() {
   const [page, setPage] = useState(0);
   const [filtroEstado, setFiltroEstado] = useState('');
@@ -50,43 +72,37 @@ export default function ContratosPage() {
     { key: 'fechaFin', label: 'Fin', render: (r) => formatDate(r.fechaFin) },
     { key: 'tipo', label: 'Tipo' },
     { key: 'valorMensual', label: 'Valor Mensual', render: (r) => formatCurrency(r.valorMensual) },
-    { key: 'estado', label: 'Estado' },
+    {
+      key: 'estado',
+      label: 'Estado',
+      render: (r) => <span className={`badge ${ESTADO_BADGE[r.estado] || 'badge-neutral'}`}>{r.estado}</span>,
+    },
     {
       key: 'actions',
       label: 'Acciones',
-      width: 140,
+      width: 100,
       render: (row) => (
-        <div className="flex gap-1">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setEditing(row);
-              setForm({
-                idApartamento: row.idApartamento || '',
-                idResidente: row.idResidente || '',
-                fechaInicio: row.fechaInicio || '',
-                fechaFin: row.fechaFin || '',
-                tipo: row.tipo || 'INICIAL',
-                valorMensual: row.valorMensual || '',
-                estado: row.estado || 'ACTIVO',
-              });
-              setErrors({});
-              setModalOpen(true);
-            }}
-            className="rounded-full p-1.5 text-on-surface-variant hover:bg-surface-container"
-          >
-            <span className="material-symbols-outlined text-lg">edit</span>
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setConfirmDel(row);
-            }}
-            className="rounded-full p-1.5 text-on-surface-variant hover:bg-error-container hover:text-error"
-          >
-            <span className="material-symbols-outlined text-lg">delete</span>
-          </button>
-        </div>
+        <ActionButtons
+          onEdit={(e) => {
+            e.stopPropagation();
+            setEditing(row);
+            setForm({
+              idApartamento: row.idApartamento || '',
+              idResidente: row.idResidente || '',
+              fechaInicio: row.fechaInicio || '',
+              fechaFin: row.fechaFin || '',
+              tipo: row.tipo || 'INICIAL',
+              valorMensual: row.valorMensual || '',
+              estado: row.estado || 'ACTIVO',
+            });
+            setErrors({});
+            setModalOpen(true);
+          }}
+          onDelete={(e) => {
+            e.stopPropagation();
+            setConfirmDel(row);
+          }}
+        />
       ),
     },
   ];
@@ -142,7 +158,9 @@ export default function ContratosPage() {
       <PageHeader
         title="Contratos"
         subtitle="Contratos de arrendamiento"
-        action={
+      />
+      <div className="table-toolbar" style={{ marginBottom: '12px' }}>
+        <div className="filters">
           <Select
             id="filtroEstado"
             value={filtroEstado}
@@ -150,7 +168,7 @@ export default function ContratosPage() {
               setFiltroEstado(e.target.value);
               setPage(0);
             }}
-            className="w-auto"
+            className="filter-select"
           >
             {ESTADOS.map((e) => (
               <option key={e || 'all'} value={e}>
@@ -158,20 +176,19 @@ export default function ContratosPage() {
               </option>
             ))}
           </Select>
-        }
-      />
-      <div className="mb-4">
-        <Button
-          icon="add"
-          onClick={() => {
-            setEditing(null);
-            setForm(emptyForm);
-            setErrors({});
-            setModalOpen(true);
-          }}
-        >
-          Nuevo Contrato
-        </Button>
+        </div>
+        <div className="actions">
+          <Button
+            onClick={() => {
+              setEditing(null);
+              setForm(emptyForm);
+              setErrors({});
+              setModalOpen(true);
+            }}
+          >
+            + Nuevo Contrato
+          </Button>
+        </div>
       </div>
       <DataTable
         columns={columns}
@@ -198,20 +215,17 @@ export default function ContratosPage() {
             <Button variant="outline" onClick={() => setModalOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={save} icon="save">
-              Guardar
-            </Button>
+            <Button onClick={save}>Guardar</Button>
           </>
         }
       >
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="form-row">
           <Select
             id="idApartamento"
             label="Apartamento"
             value={form.idApartamento}
             onChange={(e) => update('idApartamento', e.target.value)}
             error={errors.idApartamento}
-            required
           >
             <option value="">— Seleccionar —</option>
             {(apartamentos?.items || []).map((a) => (
@@ -226,7 +240,6 @@ export default function ContratosPage() {
             value={form.idResidente}
             onChange={(e) => update('idResidente', e.target.value)}
             error={errors.idResidente}
-            required
           >
             <option value="">— Seleccionar —</option>
             {(residentes?.items || []).map((r) => (
@@ -235,6 +248,8 @@ export default function ContratosPage() {
               </option>
             ))}
           </Select>
+        </div>
+        <div className="form-row">
           <Input
             id="fechaInicio"
             label="Fecha Inicio"
@@ -242,7 +257,6 @@ export default function ContratosPage() {
             value={form.fechaInicio}
             onChange={(e) => update('fechaInicio', e.target.value)}
             error={errors.fechaInicio}
-            required
           />
           <Input
             id="fechaFin"
@@ -251,6 +265,8 @@ export default function ContratosPage() {
             value={form.fechaFin}
             onChange={(e) => update('fechaFin', e.target.value)}
           />
+        </div>
+        <div className="form-row">
           <Select id="tipo" label="Tipo" value={form.tipo} onChange={(e) => update('tipo', e.target.value)}>
             {TIPOS.map((t) => (
               <option key={t} value={t}>
@@ -265,8 +281,9 @@ export default function ContratosPage() {
             value={form.valorMensual}
             onChange={(e) => update('valorMensual', e.target.value)}
             error={errors.valorMensual}
-            required
           />
+        </div>
+        <div className="form-group">
           <Select
             id="estado"
             label="Estado"

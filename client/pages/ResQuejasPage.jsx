@@ -10,6 +10,13 @@ import { useFetch } from '../lib/hooks.js';
 
 const CATS = ['LIMPIEZA', 'SEGURIDAD', 'MANTENIMIENTO', 'CONVIVENCIA', 'ZONAS_COMUNES', 'OTRO'];
 
+const ESTADO_BADGE = {
+  PENDIENTE: 'badge-pendiente-firma',
+  EN_REVISION: 'badge-info',
+  RESUELTA: 'badge-activo',
+  CERRADA: 'badge-neutral',
+};
+
 export default function ResQuejasPage() {
   const { user } = useAuth();
   const [form, setForm] = useState({
@@ -51,15 +58,19 @@ export default function ResQuejasPage() {
     { key: 'id', label: 'ID', width: 60 },
     { key: 'tipo', label: 'Tipo' },
     { key: 'titulo', label: 'Título' },
-    { key: 'estado', label: 'Estado' },
+    {
+      key: 'estado',
+      label: 'Estado',
+      render: (r) => <span className={`badge ${ESTADO_BADGE[r.estado] || 'badge-neutral'}`}>{r.estado}</span>,
+    },
     { key: 'fechaCreacion', label: 'Fecha' },
   ];
 
   return (
     <div>
       <PageHeader title="Mis Solicitudes" subtitle="Quejas, sugerencias y apelaciones" />
-      <div className="card mb-6 max-w-2xl space-y-4">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className="card" style={{ maxWidth: '720px', marginBottom: '24px' }}>
+        <div className="form-row">
           <Select id="tipo" label="Tipo" value={form.tipo} onChange={(e) => update('tipo', e.target.value)}>
             <option value="QUEJA">Queja</option>
             <option value="SUGERENCIA">Sugerencia</option>
@@ -72,35 +83,31 @@ export default function ResQuejasPage() {
             onChange={(e) => update('categoria', e.target.value)}
           >
             {CATS.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
+              <option key={c} value={c}>{c}</option>
             ))}
           </Select>
         </div>
-        <Input
-          id="titulo"
-          label="Título"
-          value={form.titulo}
-          onChange={(e) => update('titulo', e.target.value)}
-          required
-        />
-        <Textarea
-          id="descripcion"
-          label="Descripción"
-          rows={4}
-          value={form.descripcion}
-          onChange={(e) => update('descripcion', e.target.value)}
-          required
-        />
-        <div>
-          <Button onClick={send} loading={sending} icon="send">
-            Enviar Solicitud
-          </Button>
+        <div className="form-group">
+          <Input
+            id="titulo"
+            label="Título"
+            value={form.titulo}
+            onChange={(e) => update('titulo', e.target.value)}
+          />
         </div>
+        <div className="form-group">
+          <Textarea
+            id="descripcion"
+            label="Descripción"
+            rows={4}
+            value={form.descripcion}
+            onChange={(e) => update('descripcion', e.target.value)}
+          />
+        </div>
+        <Button onClick={send} disabled={sending}>{sending ? 'Enviando...' : 'Enviar Solicitud'}</Button>
       </div>
 
-      <h3 className="mb-3 text-base font-semibold">Historial</h3>
+      <h3 style={{ marginBottom: '12px', fontSize: '15px', fontWeight: 600 }}>Historial</h3>
       <DataTable
         columns={columns}
         rows={data || []}

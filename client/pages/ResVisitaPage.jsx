@@ -44,15 +44,16 @@ export default function ResVisitaPage() {
   return (
     <div>
       <PageHeader title="Registrar Visita" subtitle="Avisa al portero que viene una visita" />
-      <div className="card max-w-xl space-y-4">
-        <Input
-          id="nombreVisitante"
-          label="Nombre del visitante"
-          value={form.nombreVisitante}
-          onChange={(e) => update('nombreVisitante', e.target.value)}
-          required
-        />
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className="card" style={{ maxWidth: '640px' }}>
+        <div className="form-group">
+          <Input
+            id="nombreVisitante"
+            label="Nombre del visitante"
+            value={form.nombreVisitante}
+            onChange={(e) => update('nombreVisitante', e.target.value)}
+          />
+        </div>
+        <div className="form-row">
           <Select
             id="tipoDocumento"
             label="Tipo documento"
@@ -68,18 +69,17 @@ export default function ResVisitaPage() {
             label="Número documento"
             value={form.documento}
             onChange={(e) => update('documento', e.target.value)}
-            required
           />
         </div>
-        <Input
-          id="motivo"
-          label="Motivo (opcional)"
-          value={form.motivo}
-          onChange={(e) => update('motivo', e.target.value)}
-        />
-        <Button onClick={send} loading={sending} icon="send">
-          Registrar Visita
-        </Button>
+        <div className="form-group">
+          <Input
+            id="motivo"
+            label="Motivo (opcional)"
+            value={form.motivo}
+            onChange={(e) => update('motivo', e.target.value)}
+          />
+        </div>
+        <Button onClick={send} disabled={sending}>{sending ? 'Enviando...' : 'Registrar Visita'}</Button>
       </div>
       <Toast toast={toast} />
     </div>

@@ -13,6 +13,18 @@ import { formatDate } from '../lib/utils.js';
 const ESTADOS = ['PENDIENTE', 'EN_REVISION', 'RESUELTA', 'CERRADA'];
 const PRIORIDADES = ['ALTA', 'MEDIA', 'BAJA'];
 
+const ESTADO_BADGE = {
+  PENDIENTE: 'badge-pendiente-firma',
+  EN_REVISION: 'badge-info',
+  RESUELTA: 'badge-activo',
+  CERRADA: 'badge-neutral',
+};
+const PRIORIDAD_BADGE = {
+  ALTA: 'badge-danger',
+  MEDIA: 'badge-warn',
+  BAJA: 'badge-neutral',
+};
+
 export default function QuejasAdminPage() {
   const [page, setPage] = useState(0);
   const [filtroEstado, setFiltroEstado] = useState('');
@@ -37,8 +49,16 @@ export default function QuejasAdminPage() {
     { key: 'apartamento', label: 'Apto' },
     { key: 'residente', label: 'Residente' },
     { key: 'categoria', label: 'Categoría' },
-    { key: 'estado', label: 'Estado' },
-    { key: 'prioridad', label: 'Prioridad' },
+    {
+      key: 'estado',
+      label: 'Estado',
+      render: (r) => <span className={`badge ${ESTADO_BADGE[r.estado] || 'badge-neutral'}`}>{r.estado}</span>,
+    },
+    {
+      key: 'prioridad',
+      label: 'Prioridad',
+      render: (r) => <span className={`badge ${PRIORIDAD_BADGE[r.prioridad] || 'badge-neutral'}`}>{r.prioridad}</span>,
+    },
     { key: 'fechaCreacion', label: 'Fecha', render: (r) => formatDate(r.fechaCreacion) },
   ];
 
@@ -64,37 +84,39 @@ export default function QuejasAdminPage() {
   return (
     <div>
       <PageHeader title="Solicitudes" subtitle="Quejas, sugerencias y apelaciones" />
-      <div className="card mb-4 flex flex-wrap items-center gap-3">
-        <Select
-          id="f-estado"
-          value={filtroEstado}
-          onChange={(e) => {
-            setFiltroEstado(e.target.value);
-            setPage(0);
-          }}
-          className="w-auto"
-        >
-          <option value="">Todos los estados</option>
-          {ESTADOS.map((e) => (
-            <option key={e} value={e}>
-              {e}
-            </option>
-          ))}
-        </Select>
-        <Select
-          id="f-tipo"
-          value={filtroTipo}
-          onChange={(e) => {
-            setFiltroTipo(e.target.value);
-            setPage(0);
-          }}
-          className="w-auto"
-        >
-          <option value="">Todos los tipos</option>
-          <option value="QUEJA">Queja</option>
-          <option value="SUGERENCIA">Sugerencia</option>
-          <option value="APELACION">Apelación</option>
-        </Select>
+      <div className="card" style={{ marginBottom: '16px' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'center' }}>
+          <Select
+            id="f-estado"
+            value={filtroEstado}
+            onChange={(e) => {
+              setFiltroEstado(e.target.value);
+              setPage(0);
+            }}
+            className="filter-select"
+          >
+            <option value="">Todos los estados</option>
+            {ESTADOS.map((e) => (
+              <option key={e} value={e}>
+                {e}
+              </option>
+            ))}
+          </Select>
+          <Select
+            id="f-tipo"
+            value={filtroTipo}
+            onChange={(e) => {
+              setFiltroTipo(e.target.value);
+              setPage(0);
+            }}
+            className="filter-select"
+          >
+            <option value="">Todos los tipos</option>
+            <option value="QUEJA">Queja</option>
+            <option value="SUGERENCIA">Sugerencia</option>
+            <option value="APELACION">Apelación</option>
+          </Select>
+        </div>
       </div>
       <DataTable
         columns={columns}
@@ -119,44 +141,40 @@ export default function QuejasAdminPage() {
         size="lg"
         footer={
           <>
-            <Button variant="outline" onClick={() => setModal(null)}>
-              Cancelar
-            </Button>
-            <Button onClick={save} loading={saving} icon="save">
-              Guardar
-            </Button>
+            <Button variant="outline" onClick={() => setModal(null)}>Cancelar</Button>
+            <Button onClick={save} disabled={saving}>{saving ? 'Guardando...' : 'Guardar'}</Button>
           </>
         }
       >
         {modal && (
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <>
+            <div className="card-grid-2" style={{ marginBottom: '16px' }}>
               <div>
-                <div className="text-xs text-on-surface-variant">Tipo</div>
-                <div className="text-sm font-medium">{modal.tipo}</div>
+                <div style={{ fontSize: '11px', color: '#475569', fontWeight: 600 }}>Tipo</div>
+                <div style={{ fontSize: '13px' }}>{modal.tipo}</div>
               </div>
               <div>
-                <div className="text-xs text-on-surface-variant">Categoría</div>
-                <div className="text-sm font-medium">{modal.categoria}</div>
+                <div style={{ fontSize: '11px', color: '#475569', fontWeight: 600 }}>Categoría</div>
+                <div style={{ fontSize: '13px' }}>{modal.categoria}</div>
               </div>
               <div>
-                <div className="text-xs text-on-surface-variant">Apartamento</div>
-                <div className="text-sm font-medium">{modal.apartamento}</div>
+                <div style={{ fontSize: '11px', color: '#475569', fontWeight: 600 }}>Apartamento</div>
+                <div style={{ fontSize: '13px' }}>{modal.apartamento}</div>
               </div>
               <div>
-                <div className="text-xs text-on-surface-variant">Residente</div>
-                <div className="text-sm font-medium">{modal.residente}</div>
+                <div style={{ fontSize: '11px', color: '#475569', fontWeight: 600 }}>Residente</div>
+                <div style={{ fontSize: '13px' }}>{modal.residente}</div>
               </div>
             </div>
-            <div>
-              <div className="text-xs text-on-surface-variant">Título</div>
-              <div className="text-sm font-medium">{modal.titulo}</div>
+            <div className="form-group">
+              <div style={{ fontSize: '11px', color: '#475569', fontWeight: 600 }}>Título</div>
+              <div style={{ fontSize: '13px' }}>{modal.titulo}</div>
             </div>
-            <div>
-              <div className="text-xs text-on-surface-variant">Descripción</div>
-              <div className="whitespace-pre-wrap text-sm">{modal.descripcion}</div>
+            <div className="form-group">
+              <div style={{ fontSize: '11px', color: '#475569', fontWeight: 600 }}>Descripción</div>
+              <div style={{ fontSize: '13px', whiteSpace: 'pre-wrap' }}>{modal.descripcion}</div>
             </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="form-row">
               <Select
                 id="estado"
                 label="Estado"
@@ -164,9 +182,7 @@ export default function QuejasAdminPage() {
                 onChange={(e) => setForm((f) => ({ ...f, estado: e.target.value }))}
               >
                 {ESTADOS.map((e) => (
-                  <option key={e} value={e}>
-                    {e}
-                  </option>
+                  <option key={e} value={e}>{e}</option>
                 ))}
               </Select>
               <Select
@@ -176,20 +192,20 @@ export default function QuejasAdminPage() {
                 onChange={(e) => setForm((f) => ({ ...f, prioridad: e.target.value }))}
               >
                 {PRIORIDADES.map((p) => (
-                  <option key={p} value={p}>
-                    {p}
-                  </option>
+                  <option key={p} value={p}>{p}</option>
                 ))}
               </Select>
             </div>
-            <Textarea
-              id="respuesta"
-              label="Respuesta al residente (opcional)"
-              rows={4}
-              value={form.respuesta}
-              onChange={(e) => setForm((f) => ({ ...f, respuesta: e.target.value }))}
-            />
-          </div>
+            <div className="form-group">
+              <Textarea
+                id="respuesta"
+                label="Respuesta al residente (opcional)"
+                rows={4}
+                value={form.respuesta}
+                onChange={(e) => setForm((f) => ({ ...f, respuesta: e.target.value }))}
+              />
+            </div>
+          </>
         )}
       </Modal>
       <Toast toast={toast} />
