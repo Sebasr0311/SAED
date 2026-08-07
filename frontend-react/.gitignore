@@ -1,0 +1,9 @@
+# Build outputs
+dist/
+node_modules/
+.vite/
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
