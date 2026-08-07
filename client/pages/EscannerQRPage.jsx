@@ -1,18 +1,576 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { Button } from '../components/ui/Button.jsx';
+import { Input, Select, Textarea } from '../components/ui/Form.jsx';
+import { Modal } from '../components/ui/Modal.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
 import Toast from '../components/ui/Toast.jsx';
+import api from '../lib/api.js';
+import { useFetch } from '../lib/hooks.js';
+import { formatDate } from '../lib/utils.js';
 
-export default function EscannerQRPage() {
-  const [toast] = useState(null);
+const ESTADO_BADGE = {
+  PENDIENTE: 'badge-pendiente-firma',
+  EN_CURSO: 'badge-activo',
+  FINALIZADA: 'badge-finalizada',
+  CANCELADA: 'badge-cancelado',
+};
+
+function VideoCamara({ onCapture, buttonLabel = 'Capturar', buttonClass = 'btn-primary' }) {
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const [stream, setStream] = useState(null);
+  const [error, setError] = useState('');
+
+  useEffect(() => () => detener(), []);
+
+  async function iniciar(facingMode = 'environment') {
+    try {
+      const s = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode, width: { ideal: 640 }, height: { ideal: 480 } },
+        audio: false,
+      });
+      setStream(s);
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = s;
+          videoRef.current.play();
+        }
+      }, 50);
+    } catch (e) {
+      setError('No se pudo acceder a la cámara: ' + e.message);
+    }
+  }
+  function detener() {
+    if (stream) {
+      stream.getTracks().forEach((t) => t.stop());
+      setStream(null);
+    }
+  }
+  function capturar() {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas) return;
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+    canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+    onCapture(dataUrl.split(',')[1]);
+    detener();
+  }
+
   return (
     <div>
-      <PageHeader title="Escáner QR" subtitle="Validar entrada / registrar salida" />
-      <div className="card text-center">
-        <p style={{ fontSize: '13px', color: '#475569' }}>
-          La funcionalidad del escáner QR requiere acceso a la cámara del dispositivo.
-          Próximamente disponible.
-        </p>
+      {error && <p className="field-error">{error}</p>}
+      {stream && (
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          style={{ width: '100%', maxHeight: '320px', borderRadius: '8px', background: '#000', objectFit: 'contain' }}
+        />
+      )}
+      <canvas ref={canvasRef} style={{ display: 'none' }} />
+      <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+        {!stream && <Button onClick={() => iniciar()}>Activar Cámara</Button>}
+        {stream && <Button onClick={capturar} className={buttonClass}>{buttonLabel}</Button>}
+        {stream && <Button variant="outline" onClick={detener}>Cancelar</Button>}
       </div>
+    </div>
+  );
+}
+
+function PanelValidar({ onResultado, onNotificarVisita, onRegistrarEntrada, idVisitaActual, onLimpiar }) {
+  const [codigoManual, setCodigoManual] = useState('');
+  const [validando, setValidando] = useState(false);
+  const [datos, setDatos] = useState(null);
+  const [error, setError] = useState('');
+  const [medioTransporte, setMedioTransporte] = useState('CARRO');
+  const [placa, setPlaca] = useState('');
+  const [descripcion, setDescripcion] = useState('');
+  const [esperando, setEsperando] = useState(false);
+  const [idMensaje, setIdMensaje] = useState(null);
+  const [confirmado, setConfirmado] = useState(null);
+  const [registrando, setRegistrando] = useState(false);
+  const [parqueaderoAsignado, setParqueaderoAsignado] = useState(null);
+
+  async function validar(codigo) {
+    if (!codigo || codigo.length < 5) {
+      setError('Ingrese un código QR válido');
+      return;
+    }
+    setValidando(true);
+    setError('');
+    try {
+      const data = await api.post('/qr/validar', { codigoQr: codigo });
+      setDatos(data);
+      onResultado?.(data);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setValidando(false);
+    }
+  }
+
+  // Polling para ver si el residente confirma la visita
+  useEffect(() => {
+    if (!esperando || !idVisitaActual) return;
+    const interval = setInterval(async () => {
+      try {
+        const res = await api.get(`/buzon/resultado-notificar?idVisita=${idVisitaActual}`);
+        if (res.confirmado === 1) {
+          setConfirmado(true);
+          setEsperando(false);
+          clearInterval(interval);
+        } else if (res.confirmado === 0) {
+          setConfirmado(false);
+          setEsperando(false);
+          clearInterval(interval);
+        }
+      } catch (err) {
+        // seguir pollando
+      }
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [esperando, idVisitaActual]);
+
+  async function notificarVisita(foto) {
+    if (!datos?.codigoQr) return;
+    setEsperando(true);
+    setConfirmado(null);
+    try {
+      const res = await api.post('/qr/notificar', {
+        codigoQr: datos.codigoQr,
+        fotoCaptura: foto,
+      });
+      setIdMensaje(res.idMensaje);
+      onNotificarVisita?.(res);
+    } catch (err) {
+      setError(err.message);
+      setEsperando(false);
+    }
+  }
+
+  async function registrarEntrada() {
+    if (!datos?.codigoQr) return;
+    setRegistrando(true);
+    try {
+      const payload = { codigoQr: datos.codigoQr, medioTransporte };
+      if (medioTransporte === 'CARRO' || medioTransporte === 'MOTO') payload.placa = placa;
+      if (medioTransporte === 'OTRO') payload.descripcion = descripcion;
+      const res = await api.post('/qr/entrada', payload);
+      setParqueaderoAsignado(res.parqueadero);
+      onRegistrarEntrada?.(res);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setRegistrando(false);
+    }
+  }
+
+  function limpiar() {
+    setDatos(null);
+    setError('');
+    setCodigoManual('');
+    setPlaca('');
+    setDescripcion('');
+    setConfirmado(null);
+    setEsperando(false);
+    setIdMensaje(null);
+    setParqueaderoAsignado(null);
+    onLimpiar?.();
+  }
+
+  return (
+    <div>
+      <div className="form-group">
+        <Input
+          id="qr-manual"
+          label="Código QR (manual o escaneado)"
+          value={codigoManual}
+          onChange={(e) => setCodigoManual(e.target.value)}
+          placeholder="Escanea con la cámara o pega el código"
+        />
+        <div style={{ marginTop: '8px' }}>
+          <Button onClick={() => validar(codigoManual)} disabled={!codigoManual || validando}>
+            {validando ? 'Validando...' : 'Validar QR'}
+          </Button>
+        </div>
+      </div>
+
+      {error && <div className="login-error-msg" style={{ marginBottom: '12px' }}>{error}</div>}
+
+      {datos && (
+        <div className="card" style={{ marginTop: '12px' }}>
+          <h3 className="card-title">Datos del QR</h3>
+          <div className="detail-row"><span>Visitante</span><span>{datos.nombreVisitante || '—'}</span></div>
+          <div className="detail-row"><span>Documento</span><span>{datos.documentoVisitante || '—'}</span></div>
+          <div className="detail-row"><span>Residente</span><span>{datos.nombreResidente || '—'}</span></div>
+          <div className="detail-row"><span>Apartamento</span><span>{datos.numeroApartamento || '—'}</span></div>
+          <div className="detail-row"><span>Expira</span><span>{formatDate(datos.fechaExpiracion) || '—'}</span></div>
+          {datos.notas && (
+            <div className="detail-row"><span>Notas</span><span>{datos.notas}</span></div>
+          )}
+
+          {!esperando && confirmado === null && (
+            <>
+              <div style={{ marginTop: '16px' }}>
+                <h4 style={{ fontSize: '13px', fontWeight: 700, marginBottom: '8px' }}>Foto del visitante (requerida)</h4>
+                <VideoCamara onCapture={notificarVisita} buttonLabel="Capturar y Notificar" buttonClass="btn-primary" />
+              </div>
+            </>
+          )}
+
+          {esperando && confirmado === null && (
+            <div style={{ marginTop: '16px', textAlign: 'center' }}>
+              <p>Esperando confirmación del residente...</p>
+              <p style={{ fontSize: '12px', color: '#475569' }}>(polling cada 2s)</p>
+            </div>
+          )}
+
+          {confirmado === true && (
+            <>
+              <div className="login-error-msg" style={{ background: '#d1fae5', color: '#065f46', borderColor: '#065f46', marginTop: '12px' }}>
+                El residente confirmó la visita. Proceda a registrar la entrada.
+              </div>
+              <div style={{ marginTop: '12px' }}>
+                <h4 style={{ fontSize: '13px', fontWeight: 700, marginBottom: '8px' }}>¿En qué viene?</h4>
+                <Select id="medio" value={medioTransporte} onChange={(e) => setMedioTransporte(e.target.value)}>
+                  <option value="CARRO">Carro</option>
+                  <option value="MOTO">Moto</option>
+                  <option value="BICICLETA">Bicicleta</option>
+                  <option value="A_PIE">A pie</option>
+                  <option value="OTRO">Otro</option>
+                </Select>
+                {(medioTransporte === 'CARRO' || medioTransporte === 'MOTO') && (
+                  <div style={{ marginTop: '8px' }}>
+                    <Input id="placa" label="Placa" value={placa} onChange={(e) => setPlaca(e.target.value.toUpperCase())} />
+                  </div>
+                )}
+                {medioTransporte === 'OTRO' && (
+                  <div style={{ marginTop: '8px' }}>
+                    <Textarea id="desc" label="Descripción" rows={2} value={descripcion} onChange={(e) => setDescripcion(e.target.value)} />
+                  </div>
+                )}
+                <div style={{ marginTop: '12px' }}>
+                  <Button onClick={registrarEntrada} disabled={registrando}>
+                    {registrando ? 'Registrando...' : 'Registrar Entrada'}
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
+
+          {confirmado === false && (
+            <div className="login-error-msg" style={{ marginTop: '12px' }}>
+              El residente rechazó la visita.
+            </div>
+          )}
+
+          {parqueaderoAsignado && (
+            <div
+              className="card"
+              style={{
+                marginTop: '16px',
+                background: '#0f2044',
+                color: 'white',
+                textAlign: 'center',
+                padding: '24px',
+              }}
+            >
+              <div style={{ fontSize: '14px' }}>Parqueadero asignado</div>
+              <div style={{ fontSize: '36px', fontWeight: 800, marginTop: '8px' }}>{parqueaderoAsignado}</div>
+              <div style={{ fontSize: '12px', opacity: 0.7, marginTop: '8px' }}>Se cierra en 10s</div>
+            </div>
+          )}
+
+          <div style={{ marginTop: '12px' }}>
+            <Button variant="outline" onClick={limpiar}>Limpiar</Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TabValidar({ onToast }) {
+  const [codigoEscaneado, setCodigoEscaneado] = useState('');
+  const [toast, setToast] = useState(null);
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const [streaming, setStreaming] = useState(false);
+  const [error, setError] = useState('');
+  const [codigoInput, setCodigoInput] = useState('');
+  const scanRef = useRef(null);
+
+  useEffect(() => () => detener(), []);
+
+  async function iniciar() {
+    try {
+      const s = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' },
+        audio: false,
+      });
+      videoRef.current.srcObject = s;
+      await videoRef.current.play();
+      setStreaming(true);
+      scanRef.current = requestAnimationFrame(escanear);
+    } catch (e) {
+      setError('No se pudo acceder a la cámara: ' + e.message);
+    }
+  }
+  function detener() {
+    const s = videoRef.current?.srcObject;
+    if (s) {
+      s.getTracks().forEach((t) => t.stop());
+      videoRef.current.srcObject = null;
+    }
+    if (scanRef.current) cancelAnimationFrame(scanRef.current);
+    setStreaming(false);
+  }
+  function escanear() {
+    if (!streaming) return;
+    const v = videoRef.current;
+    const c = canvasRef.current;
+    if (!v || !c) {
+      scanRef.current = requestAnimationFrame(escanear);
+      return;
+    }
+    if (v.videoWidth > 0) {
+      c.width = v.videoWidth;
+      c.height = v.videoHeight;
+      const ctx = c.getContext('2d');
+      ctx.drawImage(v, 0, 0, c.width, c.height);
+      const data = ctx.getImageData(0, 0, c.width, c.height);
+      if (window.jsQR) {
+        const code = window.jsQR(data.data, data.width, data.height, { inversionAttempts: 'dontInvert' });
+        if (code && code.data && code.data.length >= 5) {
+          setCodigoEscaneado(code.data);
+          setCodigoInput(code.data);
+          detener();
+          return;
+        }
+      }
+    }
+    scanRef.current = requestAnimationFrame(escanear);
+  }
+
+  return (
+    <div>
+      <h3 style={{ marginBottom: '12px', fontSize: '14px', fontWeight: 700 }}>Escanear con cámara</h3>
+      {error && <p className="field-error">{error}</p>}
+      {!window.jsQR && (
+        <p className="field-error" style={{ marginBottom: '8px' }}>
+          Para escanear con la cámara, agregue la librería jsQR en index.html.
+          Mientras tanto, puede validar manualmente abajo.
+        </p>
+      )}
+      <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+        {streaming ? (
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted
+            style={{ width: '320px', maxHeight: '240px', borderRadius: '8px', background: '#000' }}
+          />
+        ) : (
+          <div
+            style={{
+              width: '320px',
+              height: '240px',
+              borderRadius: '8px',
+              background: '#f1f5f9',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#94a3b8',
+            }}
+          >
+            Cámara inactiva
+          </div>
+        )}
+        <canvas ref={canvasRef} style={{ display: 'none' }} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {!streaming && <Button onClick={iniciar}>Activar Cámara</Button>}
+          {streaming && <Button variant="outline" onClick={detener}>Detener</Button>}
+        </div>
+      </div>
+
+      <div style={{ marginTop: '16px' }}>
+        <PanelValidar codigoInicial={codigoInput} onToast={(t) => { setToast(t); onToast?.(t); }} />
+      </div>
+      <Toast toast={toast} />
+    </div>
+  );
+}
+
+function TabRegistrarSalida({ onToast }) {
+  const { data: visitas, loading, refetch } = useFetch(() => api.get('/visitas'), []);
+  const [registrando, setRegistrando] = useState(null);
+  const [toast, setToast] = useState(null);
+
+  const activas = (visitas || []).filter(
+    (v) => v.estado === 'EN_CURSO' || v.estado === 'PENDIENTE'
+  );
+
+  async function registrarSalida(idVisita) {
+    setRegistrando(idVisita);
+    try {
+      await api.put(`/visitas/${idVisita}/salida`);
+      setToast({ message: 'Salida registrada', type: 'success' });
+      refetch();
+    } catch (err) {
+      setToast({ message: err.message, type: 'error' });
+    } finally {
+      setRegistrando(null);
+    }
+  }
+
+  return (
+    <div>
+      <h3 style={{ marginBottom: '12px', fontSize: '14px', fontWeight: 700 }}>Visitas activas</h3>
+      <div className="table-container">
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Visitante</th>
+              <th>Apartamento</th>
+              <th>Ingreso</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading && (
+              <tr>
+                <td colSpan={5} style={{ textAlign: 'center' }}>
+                  Cargando...
+                </td>
+              </tr>
+            )}
+            {!loading && activas.length === 0 && (
+              <tr>
+                <td colSpan={5} style={{ textAlign: 'center', color: '#94a3b8' }}>
+                  No hay visitas activas
+                </td>
+              </tr>
+            )}
+            {activas.map((v) => (
+              <tr key={v.idVisita}>
+                <td>{v.idVisita}</td>
+                <td>{v.nombreVisitante || '—'}</td>
+                <td>{v.numeroApartamento || '—'}</td>
+                <td>{formatDate(v.fechaVisita) || '—'}</td>
+                <td>
+                  <Button
+                    onClick={() => registrarSalida(v.idVisita)}
+                    disabled={registrando === v.idVisita}
+                  >
+                    {registrando === v.idVisita ? 'Registrando...' : 'Registrar Salida'}
+                  </Button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <Toast toast={toast} />
+    </div>
+  );
+}
+
+function TabParqueaderos({ onToast }) {
+  const { data: parqueaderos, loading, refetch } = useFetch(
+    () => api.get('/parqueaderos'),
+    []
+  );
+
+  const grouped = (parqueaderos || []).reduce((acc, p) => {
+    const key = p.esVisitante ? 'Visitantes' : 'Residentes';
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(p);
+    return acc;
+  }, {});
+
+  return (
+    <div>
+      <h3 style={{ marginBottom: '12px', fontSize: '14px', fontWeight: 700 }}>Estado en tiempo real</h3>
+      <Button onClick={refetch} style={{ marginBottom: '12px' }}>
+        Actualizar
+      </Button>
+      {loading && <p>Cargando...</p>}
+      {Object.entries(grouped).map(([tipo, lista]) => (
+        <div key={tipo} style={{ marginBottom: '16px' }}>
+          <h4 style={{ fontSize: '13px', fontWeight: 700, marginBottom: '8px' }}>{tipo}</h4>
+          <div className="table-container">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Código</th>
+                  <th>Tipo</th>
+                  <th>Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {lista.map((p) => (
+                  <tr key={p.idParqueadero}>
+                    <td>{p.codigo}</td>
+                    <td>{p.tipo}</td>
+                    <td>
+                      <span
+                        className={`badge ${
+                          p.estado === 'DISPONIBLE'
+                            ? 'badge-activo'
+                            : p.estado === 'OCUPADO'
+                              ? 'badge-ocupado'
+                              : 'badge-en-mantenimiento'
+                        }`}
+                      >
+                        {p.estado}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export default function EscannerQRPage() {
+  const [tab, setTab] = useState('validar');
+  const [toast, setToast] = useState(null);
+
+  return (
+    <div>
+      <PageHeader title="Escáner QR" subtitle="Validar entrada y registrar salida de visitantes" />
+
+      <div className="tabs">
+        <button className={`tab ${tab === 'validar' ? 'active' : ''}`} onClick={() => setTab('validar')}>
+          Validar Entrada
+        </button>
+        <button className={`tab ${tab === 'salida' ? 'active' : ''}`} onClick={() => setTab('salida')}>
+          Registrar Salida
+        </button>
+        <button className={`tab ${tab === 'parqueaderos' ? 'active' : ''}`} onClick={() => setTab('parqueaderos')}>
+          Parqueaderos
+        </button>
+      </div>
+
+      <div className={`tab-content ${tab === 'validar' ? 'active' : ''}`}>
+        <TabValidar onToast={setToast} />
+      </div>
+      <div className={`tab-content ${tab === 'salida' ? 'active' : ''}`}>
+        <TabRegistrarSalida onToast={setToast} />
+      </div>
+      <div className={`tab-content ${tab === 'parqueaderos' ? 'active' : ''}`}>
+        <TabParqueaderos onToast={setToast} />
+      </div>
+
       <Toast toast={toast} />
     </div>
   );
