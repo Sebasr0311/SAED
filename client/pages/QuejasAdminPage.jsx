@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '../components/ui/Button.jsx';
 import { Select, Textarea } from '../components/ui/Form.jsx';
 import { DataTable } from '../components/ui/DataTable.jsx';
@@ -8,10 +8,11 @@ import { PageHeader } from '../components/ui/PageHeader.jsx';
 import Toast from '../components/ui/Toast.jsx';
 import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
-import { formatDate } from '../lib/utils.js';
+import { formatDate, todayStr } from '../lib/utils.js';
 
 const ESTADOS = ['PENDIENTE', 'EN_REVISION', 'RESUELTA', 'CERRADA'];
 const PRIORIDADES = ['ALTA', 'MEDIA', 'BAJA'];
+const TIPOS = ['QUEJA', 'SUGERENCIA', 'APELACION'];
 
 const ESTADO_BADGE = {
   PENDIENTE: 'badge-pendiente-firma',
@@ -25,22 +26,92 @@ const PRIORIDAD_BADGE = {
   BAJA: 'badge-neutral',
 };
 
+function Stat({ icon, value, label, color = 'primary' }) {
+  return (
+    <div className="stat-card">
+      <div className={`stat-icon ${color}`}>
+        <span className="material-symbols-outlined">{icon}</span>
+      </div>
+      <div className="stat-body">
+        <div className="stat-value">{value}</div>
+        <div className="stat-label">{label}</div>
+      </div>
+    </div>
+  );
+}
+
 export default function QuejasAdminPage() {
   const [page, setPage] = useState(0);
   const [filtroEstado, setFiltroEstado] = useState('');
   const [filtroTipo, setFiltroTipo] = useState('');
+  const [filtroPrioridad, setFiltroPrioridad] = useState('');
+  const [search, setSearch] = useState('');
   const [toast, setToast] = useState(null);
   const [modal, setModal] = useState(null);
   const [form, setForm] = useState({ estado: '', prioridad: '', respuesta: '' });
   const [saving, setSaving] = useState(false);
+  const [fotoGrande, setFotoGrande] = useState(null);
+  const intervalRef = useRef(null);
 
   const qs = new URLSearchParams({
     page,
     size: 20,
     ...(filtroEstado ? { estado: filtroEstado } : {}),
     ...(filtroTipo ? { tipo: filtroTipo } : {}),
+    ...(filtroPrioridad ? { prioridad: filtroPrioridad } : {}),
   });
-  const { data, loading, refetch } = useFetch(() => api.get(`/quejas?${qs}`), [page, filtroEstado, filtroTipo]);
+  const { data, loading, refetch } = useFetch(() => api.get(`/quejas?${qs}`), [
+    page,
+    filtroEstado,
+    filtroTipo,
+    filtroPrioridad,
+  ]);
+
+  // Auto-refresh cada 5s (reducido de 1.5s del vanilla para no saturar)
+  useEffect(() => {
+    intervalRef.current = setInterval(() => {
+      if (document.visibilityState === 'visible') refetch();
+    }, 5000);
+    return () => clearInterval(intervalRef.current);
+  }, [refetch]);
+
+  const stats = (() => {
+    const items = data?.items || data || [];
+    return {
+      total: items.length,
+      pendientes: items.filter((i) => i.estado === 'PENDIENTE').length,
+      revision: items.filter((i) => i.estado === 'EN_REVISION').length,
+      resueltas: items.filter((i) => i.estado === 'RESUELTA' || i.estado === 'CERRADA').length,
+    };
+  })();
+
+  const filtradas = (data?.items || data || []).filter((r) => {
+    if (!search) return true;
+    const term = search.toLowerCase();
+    return [r.titulo, r.descripcion, r.numeroApartamento, r.nombreResidente]
+      .filter(Boolean)
+      .some((v) => String(v).toLowerCase().includes(term));
+  });
+
+  function openDetalle(row) {
+    setModal(row);
+    setForm({ estado: row.estado, prioridad: row.prioridad, respuesta: row.respuesta || '' });
+  }
+
+  async function save() {
+    if (!modal) return;
+    setSaving(true);
+    try {
+      await api.put(`/quejas/${modal.id}`, form);
+      setToast({ message: 'Solicitud actualizada', type: 'success' });
+      setModal(null);
+      refetch();
+    } catch (err) {
+      setToast({ message: err.message, type: 'error' });
+    } finally {
+      setSaving(false);
+    }
+  }
 
   const columns = [
     { key: 'id', label: 'ID', width: 60 },
@@ -57,33 +128,24 @@ export default function QuejasAdminPage() {
     {
       key: 'prioridad',
       label: 'Prioridad',
-      render: (r) => <span className={`badge ${PRIORIDAD_BADGE[r.prioridad] || 'badge-neutral'}`}>{r.prioridad}</span>,
+      render: (r) => (
+        <span className={`badge ${PRIORIDAD_BADGE[r.prioridad] || 'badge-neutral'}`}>{r.prioridad}</span>
+      ),
     },
     { key: 'fechaCreacion', label: 'Fecha', render: (r) => formatDate(r.fechaCreacion) },
   ];
 
-  function openDetalle(row) {
-    setModal(row);
-    setForm({ estado: row.estado, prioridad: row.prioridad, respuesta: row.respuesta || '' });
-  }
-  async function save() {
-    if (!modal) return;
-    setSaving(true);
-    try {
-      await api.put(`/quejas/${modal.id}`, form);
-      setToast({ message: 'Solicitud actualizada', type: 'success' });
-      setModal(null);
-      refetch();
-    } catch (err) {
-      setToast({ message: err.message, type: 'error' });
-    } finally {
-      setSaving(false);
-    }
-  }
-
   return (
     <div>
       <PageHeader title="Solicitudes" subtitle="Quejas, sugerencias y apelaciones" />
+
+      <div className="card-grid-4" style={{ marginBottom: '20px' }}>
+        <Stat icon="analytics" value={stats.total} label="Total" color="primary" />
+        <Stat icon="pending" value={stats.pendientes} label="Pendientes" color="amber" />
+        <Stat icon="visibility" value={stats.revision} label="En Revisión" color="blue" />
+        <Stat icon="check_circle" value={stats.resueltas} label="Resueltas/Cerradas" color="green" />
+      </div>
+
       <div className="card" style={{ marginBottom: '16px' }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'center' }}>
           <Select
@@ -112,15 +174,42 @@ export default function QuejasAdminPage() {
             className="filter-select"
           >
             <option value="">Todos los tipos</option>
-            <option value="QUEJA">Queja</option>
-            <option value="SUGERENCIA">Sugerencia</option>
-            <option value="APELACION">Apelación</option>
+            {TIPOS.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
           </Select>
+          <Select
+            id="f-prioridad"
+            value={filtroPrioridad}
+            onChange={(e) => {
+              setFiltroPrioridad(e.target.value);
+              setPage(0);
+            }}
+            className="filter-select"
+          >
+            <option value="">Todas las prioridades</option>
+            {PRIORIDADES.map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
+            ))}
+          </Select>
+          <input
+            id="search"
+            type="text"
+            placeholder="Buscar en titulo/descripcion/apto..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="form-control"
+            style={{ flex: 1, minWidth: '200px' }}
+          />
         </div>
       </div>
       <DataTable
         columns={columns}
-        rows={data?.items || []}
+        rows={filtradas}
         loading={loading}
         empty="No hay solicitudes"
         keyField="id"
@@ -141,8 +230,12 @@ export default function QuejasAdminPage() {
         size="lg"
         footer={
           <>
-            <Button variant="outline" onClick={() => setModal(null)}>Cancelar</Button>
-            <Button onClick={save} disabled={saving}>{saving ? 'Guardando...' : 'Guardar'}</Button>
+            <Button variant="outline" onClick={() => setModal(null)} disabled={saving}>
+              Cancelar
+            </Button>
+            <Button onClick={save} disabled={saving}>
+              {saving ? 'Guardando...' : 'Guardar'}
+            </Button>
           </>
         }
       >
@@ -165,6 +258,10 @@ export default function QuejasAdminPage() {
                 <div style={{ fontSize: '11px', color: '#475569', fontWeight: 600 }}>Residente</div>
                 <div style={{ fontSize: '13px' }}>{modal.residente}</div>
               </div>
+              <div>
+                <div style={{ fontSize: '11px', color: '#475569', fontWeight: 600 }}>Fecha</div>
+                <div style={{ fontSize: '13px' }}>{formatDate(modal.fechaCreacion)}</div>
+              </div>
             </div>
             <div className="form-group">
               <div style={{ fontSize: '11px', color: '#475569', fontWeight: 600 }}>Título</div>
@@ -174,6 +271,16 @@ export default function QuejasAdminPage() {
               <div style={{ fontSize: '11px', color: '#475569', fontWeight: 600 }}>Descripción</div>
               <div style={{ fontSize: '13px', whiteSpace: 'pre-wrap' }}>{modal.descripcion}</div>
             </div>
+            {modal.fotoEvidencia && (
+              <div className="form-group">
+                <img
+                  src={`data:image/jpeg;base64,${modal.fotoEvidencia}`}
+                  alt="Evidencia"
+                  style={{ maxWidth: '100%', borderRadius: '8px', cursor: 'zoom-in' }}
+                  onClick={() => setFotoGrande(`data:image/jpeg;base64,${modal.fotoEvidencia}`)}
+                />
+              </div>
+            )}
             <div className="form-row">
               <Select
                 id="estado"
@@ -182,7 +289,9 @@ export default function QuejasAdminPage() {
                 onChange={(e) => setForm((f) => ({ ...f, estado: e.target.value }))}
               >
                 {ESTADOS.map((e) => (
-                  <option key={e} value={e}>{e}</option>
+                  <option key={e} value={e}>
+                    {e}
+                  </option>
                 ))}
               </Select>
               <Select
@@ -192,7 +301,9 @@ export default function QuejasAdminPage() {
                 onChange={(e) => setForm((f) => ({ ...f, prioridad: e.target.value }))}
               >
                 {PRIORIDADES.map((p) => (
-                  <option key={p} value={p}>{p}</option>
+                  <option key={p} value={p}>
+                    {p}
+                  </option>
                 ))}
               </Select>
             </div>
@@ -203,11 +314,35 @@ export default function QuejasAdminPage() {
                 rows={4}
                 value={form.respuesta}
                 onChange={(e) => setForm((f) => ({ ...f, respuesta: e.target.value }))}
+                placeholder="Escribe tu respuesta aquí..."
               />
             </div>
           </>
         )}
       </Modal>
+
+      {fotoGrande && (
+        <div
+          onClick={() => setFotoGrande(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.85)',
+            zIndex: 1000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'zoom-out',
+          }}
+        >
+          <img
+            src={fotoGrande}
+            alt="Foto"
+            style={{ maxWidth: '90%', maxHeight: '90%', borderRadius: '8px' }}
+          />
+        </div>
+      )}
+
       <Toast toast={toast} />
     </div>
   );
