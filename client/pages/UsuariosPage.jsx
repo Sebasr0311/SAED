@@ -5,7 +5,7 @@ import { DataTable } from '../components/ui/DataTable.jsx';
 import { Pagination } from '../components/ui/Pagination.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
-import { ConfirmDialog } from '../components/ui/ConfirmDialog.jsx';
+import { ConfirmPasswordDialog } from '../components/ui/ConfirmPasswordDialog.jsx';
 import Toast from '../components/ui/Toast.jsx';
 import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
@@ -42,6 +42,7 @@ export default function UsuariosPage() {
   const [errors, setErrors] = useState({});
   const [editing, setEditing] = useState(null);
   const [confirmDel, setConfirmDel] = useState(null);
+  const [pwdConfirmOpen, setPwdConfirmOpen] = useState(false);
 
   const { data, loading, refetch } = useFetch(() => api.get(`/usuarios?page=${page}&size=20`), [page]);
   const { data: residentes } = useFetch(() => api.get('/residentes?size=200'), []);
@@ -125,6 +126,8 @@ export default function UsuariosPage() {
       refetch();
     } catch (err) {
       setToast({ message: err.message, type: 'error' });
+    } finally {
+      setConfirmDel(null);
     }
   }
 
@@ -225,14 +228,32 @@ export default function UsuariosPage() {
         </div>
       </Modal>
 
-      <ConfirmDialog
+      <Modal
         open={!!confirmDel}
         onClose={() => setConfirmDel(null)}
-        onConfirm={handleDelete}
         title="Eliminar usuario"
-        message={`¿Eliminar usuario ${confirmDel?.username}?`}
-        confirmLabel="Eliminar"
-        danger
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setConfirmDel(null)}>
+              Cancelar
+            </Button>
+            <Button variant="danger" onClick={() => setPwdConfirmOpen(true)}>
+              Eliminar
+            </Button>
+          </>
+        }
+      >
+        <p>¿Eliminar usuario {confirmDel?.username}?</p>
+      </Modal>
+
+      <ConfirmPasswordDialog
+        open={pwdConfirmOpen}
+        onClose={() => setPwdConfirmOpen(false)}
+        onConfirmed={() => {
+          setPwdConfirmOpen(false);
+          handleDelete();
+        }}
+        descripcion={`eliminar al usuario ${confirmDel?.username}`}
       />
       <Toast toast={toast} />
     </div>
