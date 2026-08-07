@@ -1,11 +1,13 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
+import { Button } from '../components/ui/Button.jsx';
+import { Input, Select } from '../components/ui/Form.jsx';
 import { DataTable } from '../components/ui/DataTable.jsx';
-import { Pagination } from '../components/ui/Pagination.jsx';
+import { Modal } from '../components/ui/Modal.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
 import Toast from '../components/ui/Toast.jsx';
 import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
-import { formatCurrency, formatDate } from '../lib/utils.js';
+import { formatCurrency, formatDate, todayStr, formatMiles, parseMiles } from '../lib/utils.js';
 
 function Stat({ icon, value, label, color = 'primary' }) {
   return (
@@ -21,44 +23,317 @@ function Stat({ icon, value, label, color = 'primary' }) {
   );
 }
 
-export default function PagosPage() {
-  const [page] = useState(0);
-  const [toast] = useState(null);
+function agruparPorApartamento(cuotas, multas) {
+  const mapa = new Map();
+  (cuotas || []).forEach((c) => {
+    const key = c.idApartamento;
+    if (!mapa.has(key)) {
+      mapa.set(key, {
+        idApartamento: key,
+        numeroApartamento: c.numeroApartamento,
+        nombreResidente: c.nombreResidente,
+        cuotas: [],
+        multas: [],
+      });
+    }
+    mapa.get(key).cuotas.push(c);
+  });
+  (multas || []).forEach((m) => {
+    const key = m.idApartamento;
+    if (!mapa.has(key)) {
+      mapa.set(key, {
+        idApartamento: key,
+        numeroApartamento: m.numeroApartamento,
+        nombreResidente: m.nombreResidente,
+        cuotas: [],
+        multas: [],
+      });
+    }
+    mapa.get(key).multas.push(m);
+  });
+  return Array.from(mapa.values());
+}
 
-  const { data, loading, refetch } = useFetch(() => api.get(`/pagos?page=${page}&size=20`), [page]);
-  const { data: stats } = useFetch(() => api.get('/pagos/stats').catch(() => null), []);
+export default function PagosPage() {
+  const [toast, setToast] = useState(null);
+  const [search, setSearch] = useState('');
+  const [detalle, setDetalle] = useState(null);
+  const [pagoModal, setPagoModal] = useState(null); // { tipo: 'cuota'|'multa', item }
+  const [pagoForm, setPagoForm] = useState({ fecha: todayStr(), valor: '', metodo: 'EFECTIVO', referencia: '', notas: '' });
+  const [saving, setSaving] = useState(false);
+
+  const { data: cuotas, loading: loadingCuotas, refetch: refetchCuotas } = useFetch(
+    () => api.get('/cuotas?pendientes=true'),
+    []
+  );
+  const { data: multas, loading: loadingMultas, refetch: refetchMultas } = useFetch(
+    () => api.get('/multas/todas'),
+    []
+  );
+
+  const loading = loadingCuotas || loadingMultas;
+
+  const residentes = useMemo(() => {
+    const agrupado = agruparPorApartamento(cuotas, (multas || []).filter((m) => m.estado === 'PENDIENTE'));
+    if (!search) return agrupado;
+    const term = search.toLowerCase();
+    return agrupado.filter(
+      (r) =>
+        String(r.numeroApartamento || '').toLowerCase().includes(term) ||
+        String(r.nombreResidente || '').toLowerCase().includes(term)
+    );
+  }, [cuotas, multas, search]);
+
+  const kpis = useMemo(() => {
+    const cuotasPendientes = (cuotas || []).reduce((s, c) => s + Number(c.montoPendiente || c.monto || 0), 0);
+    const multasPendientes = (multas || [])
+      .filter((m) => m.estado === 'PENDIENTE')
+      .reduce((s, m) => s + Number(m.monto || 0), 0);
+    return { cuotasPendientes, multasPendientes, aptosConSaldo: residentes.length };
+  }, [cuotas, multas, residentes]);
 
   const columns = [
-    { key: 'idPago', label: 'ID', width: 60 },
-    { key: 'apartamento', label: 'Apartamento' },
-    { key: 'residente', label: 'Residente' },
-    { key: 'concepto', label: 'Concepto' },
-    { key: 'monto', label: 'Monto', render: (r) => formatCurrency(r.monto) },
-    { key: 'fechaPago', label: 'Fecha', render: (r) => formatDate(r.fechaPago) },
+    { key: 'numeroApartamento', label: 'Apartamento' },
+    { key: 'nombreResidente', label: 'Residente' },
+    {
+      key: 'cuotas',
+      label: 'Cuotas pendientes',
+      render: (r) => <span className="badge badge-pendiente-firma">{r.cuotas.length}</span>,
+    },
+    {
+      key: 'multas',
+      label: 'Multas pendientes',
+      render: (r) => <span className="badge badge-danger">{r.multas.length}</span>,
+    },
   ];
+
+  function abrirPagoCuota(cuota) {
+    setPagoModal({ tipo: 'cuota', item: cuota });
+    setPagoForm({
+      fecha: todayStr(),
+      valor: formatMiles(cuota.montoPendiente || cuota.monto),
+      metodo: 'EFECTIVO',
+      referencia: '',
+      notas: '',
+    });
+  }
+  function abrirPagoMulta(multa) {
+    setPagoModal({ tipo: 'multa', item: multa });
+    setPagoForm({ fecha: todayStr(), valor: '', metodo: 'EFECTIVO', referencia: '', notas: '' });
+  }
+
+  async function confirmarPago() {
+    if (!pagoModal) return;
+    if (pagoModal.tipo === 'cuota' && pagoForm.metodo === 'TRANSFERENCIA') {
+      if (!pagoForm.referencia.trim() || pagoForm.referencia.trim().length < 4) {
+        setToast({ message: 'La referencia es obligatoria (mín. 4 caracteres) para transferencias', type: 'error' });
+        return;
+      }
+    }
+    setSaving(true);
+    try {
+      if (pagoModal.tipo === 'cuota') {
+        await api.post('/pagos', {
+          idCuota: pagoModal.item.idCuota || pagoModal.item.id,
+          fechaPago: pagoForm.fecha,
+          valorPagado: parseMiles(pagoForm.valor),
+          metodoPago: pagoForm.metodo,
+          referencia: pagoForm.referencia,
+          notas: pagoForm.notas,
+        });
+      } else {
+        await api.put(`/multas/${pagoModal.item.idMulta}/pagar`, { metodoPago: pagoForm.metodo });
+      }
+      setToast({ message: 'Pago registrado', type: 'success' });
+      setPagoModal(null);
+      refetchCuotas();
+      refetchMultas();
+      if (detalle) {
+        setDetalle(null);
+      }
+    } catch (err) {
+      setToast({ message: err.message, type: 'error' });
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <div>
-      <PageHeader title="Pagos" subtitle="Cuotas de arriendo y multas" />
+      <PageHeader
+        title="Pagos"
+        subtitle="Cuotas de arriendo y multas"
+        action={
+          <Input
+            id="search"
+            placeholder="Buscar apto o residente..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        }
+      />
       <div className="card-grid-3" style={{ marginBottom: '20px' }}>
-        <Stat icon="receipt_long" value={formatCurrency(stats?.cuotasPendientes)} label="Cuotas pendientes" color="primary" />
-        <Stat icon="gavel" value={formatCurrency(stats?.multasPendientes)} label="Multas pendientes" color="amber" />
-        <Stat icon="apartment" value={stats?.aptosConSaldo || 0} label="Aptos con saldo" color="blue" />
+        <Stat icon="receipt_long" value={formatCurrency(kpis.cuotasPendientes)} label="Cuotas pendientes" color="primary" />
+        <Stat icon="gavel" value={formatCurrency(kpis.multasPendientes)} label="Multas pendientes" color="amber" />
+        <Stat icon="apartment" value={kpis.aptosConSaldo} label="Aptos con saldo" color="blue" />
       </div>
       <DataTable
         columns={columns}
-        rows={data?.items || []}
+        rows={residentes}
         loading={loading}
-        empty="No hay pagos"
-        keyField="idPago"
+        empty="No hay pagos pendientes"
+        keyField="idApartamento"
+        onRowClick={setDetalle}
       />
-      <Pagination
-        page={page}
-        totalPages={data?.totalPages || 1}
-        totalItems={data?.totalItems}
-        pageSize={20}
-        onPageChange={() => {}}
-      />
+
+      <Modal
+        open={!!detalle}
+        onClose={() => setDetalle(null)}
+        title={`Apto ${detalle?.numeroApartamento || ''} — ${detalle?.nombreResidente || ''}`}
+        size="lg"
+      >
+        {detalle && (
+          <>
+            <h4 style={{ marginBottom: '8px', fontSize: '13px', fontWeight: 700 }}>Cuotas</h4>
+            <div className="table-container" style={{ marginBottom: '16px' }}>
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Periodo</th>
+                    <th>Monto</th>
+                    <th>Vencimiento</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {detalle.cuotas.map((c) => (
+                    <tr key={c.idCuota || c.id}>
+                      <td>{c.periodo}</td>
+                      <td>{formatCurrency(c.montoPendiente || c.monto)}</td>
+                      <td>{formatDate(c.fechaVencimiento)}</td>
+                      <td>
+                        <Button onClick={() => abrirPagoCuota(c)} style={{ padding: '4px 10px', fontSize: '11px' }}>
+                          Pagar
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                  {detalle.cuotas.length === 0 && (
+                    <tr>
+                      <td colSpan={4} style={{ textAlign: 'center', color: '#94a3b8' }}>
+                        Sin cuotas pendientes
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <h4 style={{ marginBottom: '8px', fontSize: '13px', fontWeight: 700 }}>Multas</h4>
+            <div className="table-container">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Motivo</th>
+                    <th>Monto</th>
+                    <th>Fecha</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {detalle.multas.map((m) => (
+                    <tr key={m.idMulta}>
+                      <td>{m.tipo}</td>
+                      <td>{formatCurrency(m.monto)}</td>
+                      <td>{formatDate(m.fechaCreacion)}</td>
+                      <td>
+                        <Button onClick={() => abrirPagoMulta(m)} style={{ padding: '4px 10px', fontSize: '11px' }}>
+                          Pagar
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                  {detalle.multas.length === 0 && (
+                    <tr>
+                      <td colSpan={4} style={{ textAlign: 'center', color: '#94a3b8' }}>
+                        Sin multas pendientes
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+      </Modal>
+
+      <Modal
+        open={!!pagoModal}
+        onClose={() => setPagoModal(null)}
+        title={pagoModal?.tipo === 'cuota' ? 'Registrar Pago de Cuota' : 'Registrar Pago de Multa'}
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setPagoModal(null)} disabled={saving}>
+              Cancelar
+            </Button>
+            <Button onClick={confirmarPago} disabled={saving}>
+              {saving ? 'Guardando...' : 'Confirmar'}
+            </Button>
+          </>
+        }
+      >
+        {pagoModal?.tipo === 'cuota' && (
+          <>
+            <div className="form-row">
+              <Input
+                id="fecha"
+                label="Fecha de pago"
+                type="date"
+                value={pagoForm.fecha}
+                onChange={(e) => setPagoForm((f) => ({ ...f, fecha: e.target.value }))}
+                max={todayStr()}
+              />
+              <Input
+                id="valor"
+                label="Valor pagado"
+                value={pagoForm.valor}
+                onChange={(e) => setPagoForm((f) => ({ ...f, valor: formatMiles(e.target.value) }))}
+              />
+            </div>
+          </>
+        )}
+        <div className="form-group">
+          <Select
+            id="metodo"
+            label="Método de pago"
+            value={pagoForm.metodo}
+            onChange={(e) => setPagoForm((f) => ({ ...f, metodo: e.target.value }))}
+          >
+            <option value="EFECTIVO">Efectivo</option>
+            <option value="TRANSFERENCIA">Transferencia</option>
+          </Select>
+        </div>
+        {pagoModal?.tipo === 'cuota' && pagoForm.metodo === 'TRANSFERENCIA' && (
+          <div className="form-group">
+            <Input
+              id="referencia"
+              label="Referencia"
+              value={pagoForm.referencia}
+              onChange={(e) => setPagoForm((f) => ({ ...f, referencia: e.target.value }))}
+            />
+          </div>
+        )}
+        {pagoModal?.tipo === 'cuota' && (
+          <div className="form-group">
+            <Input
+              id="notas"
+              label="Notas (opcional)"
+              value={pagoForm.notas}
+              onChange={(e) => setPagoForm((f) => ({ ...f, notas: e.target.value }))}
+            />
+          </div>
+        )}
+      </Modal>
+
       <Toast toast={toast} />
     </div>
   );

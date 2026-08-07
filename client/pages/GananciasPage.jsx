@@ -1,11 +1,12 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
+import { Button } from '../components/ui/Button.jsx';
+import { Input } from '../components/ui/Form.jsx';
 import { DataTable } from '../components/ui/DataTable.jsx';
-import { Pagination } from '../components/ui/Pagination.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
 import Toast from '../components/ui/Toast.jsx';
 import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
-import { formatCurrency, formatDate } from '../lib/utils.js';
+import { formatCurrency, formatDate, todayStr } from '../lib/utils.js';
 
 function Stat({ icon, value, label, color = 'primary' }) {
   return (
@@ -21,57 +22,117 @@ function Stat({ icon, value, label, color = 'primary' }) {
   );
 }
 
-export default function GananciasPage() {
-  const [page] = useState(0);
-  const [toast] = useState(null);
+function exportarExcel(pagos, fechaInicio, fechaFin) {
+  const total = pagos.reduce((s, p) => s + Number(p.valorPagado || p.monto || 0), 0);
+  let xls =
+    '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">' +
+    '<head><meta charset="UTF-8"><style>table{width:100%;border-collapse:collapse}th{background:#0F2044;color:#fff}</style></head><body><table>' +
+    '<thead><tr><th>#</th><th>Fecha</th><th>Tipo</th><th>Apartamento</th><th>Residente</th><th>Método</th><th>Valor</th></tr></thead><tbody>';
+  pagos.forEach((p) => {
+    xls += `<tr><td>${p.id || p.idPago}</td><td>${p.fechaPago || ''}</td><td>${p.tipo || 'Cuota'}</td><td>${p.numeroApartamento || ''}</td><td>${p.nombreResidente || ''}</td><td>${p.metodoPago || ''}</td><td>${p.valorPagado || p.monto || 0}</td></tr>`;
+  });
+  xls += `</tbody><tfoot><tr><td colspan="6">Total</td><td>$${total.toLocaleString('es-CO')}</td></tr></tfoot></table></body></html>`;
+  const blob = new Blob([xls], { type: 'application/vnd.ms-excel' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `ganancias_${fechaInicio}_${fechaFin}.xls`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
 
-  const { data, loading, refetch } = useFetch(() => api.get(`/ganancias?page=${page}&size=20`), [page]);
-  const { data: stats } = useFetch(() => api.get('/ganancias/stats').catch(() => null), []);
+export default function GananciasPage() {
+  const [toast, setToast] = useState(null);
+  const [search, setSearch] = useState('');
+  const [fechaInicio, setFechaInicio] = useState(`${new Date().getFullYear()}-01-01`);
+  const [fechaFin, setFechaFin] = useState(todayStr());
+
+  const { data: pagos, loading } = useFetch(() => api.get('/pagos/registrados'), []);
+
+  const filtrados = useMemo(() => {
+    if (!pagos) return [];
+    return pagos.filter((p) => {
+      const fecha = (p.fechaPago || '').slice(0, 10);
+      if (fecha && (fecha < fechaInicio || fecha > fechaFin)) return false;
+      if (!search) return true;
+      const term = search.toLowerCase();
+      return [p.numeroApartamento, p.nombreResidente, p.metodoPago, p.tipo]
+        .filter(Boolean)
+        .some((v) => String(v).toLowerCase().includes(term));
+    });
+  }, [pagos, search, fechaInicio, fechaFin]);
+
+  const stats = useMemo(() => {
+    const totalPagos = filtrados.length;
+    const totalIngresos = filtrados.reduce((s, p) => s + Number(p.valorPagado || p.monto || 0), 0);
+    const cuotas = filtrados.filter((p) => (p.tipo || 'CUOTA').toUpperCase().includes('CUOTA')).length;
+    const multas = filtrados.filter((p) => (p.tipo || '').toUpperCase().includes('MULTA')).length;
+    return { totalPagos, totalIngresos, cuotas, multas };
+  }, [filtrados]);
 
   const columns = [
-    { key: 'id', label: 'ID', width: 60 },
-    { key: 'concepto', label: 'Concepto' },
-    { key: 'monto', label: 'Monto', render: (r) => formatCurrency(r.monto) },
-    { key: 'fecha', label: 'Fecha', render: (r) => formatDate(r.fecha) },
-    { key: 'categoria', label: 'Categoría' },
+    { key: 'id', label: 'ID', width: 60, render: (r) => r.id || r.idPago },
+    { key: 'fechaPago', label: 'Fecha', render: (r) => formatDate(r.fechaPago) },
+    { key: 'tipo', label: 'Tipo', render: (r) => r.tipo || 'Cuota' },
+    { key: 'numeroApartamento', label: 'Apartamento' },
+    { key: 'nombreResidente', label: 'Residente' },
+    { key: 'metodoPago', label: 'Método' },
+    { key: 'valorPagado', label: 'Valor', render: (r) => formatCurrency(r.valorPagado || r.monto) },
   ];
 
   return (
     <div>
-      <PageHeader title="Ganancias" subtitle="Ingresos del edificio" />
-      {stats && (
-        <div className="card-grid-3" style={{ marginBottom: '20px' }}>
-          <div className="card">
-            <div className="stat-label">Total del mes</div>
-            <div style={{ fontSize: '24px', fontWeight: 700, color: '#065f46' }}>
-              {formatCurrency(stats.mesActual)}
-            </div>
-          </div>
-          <div className="card">
-            <div className="stat-label">Total año</div>
-            <div style={{ fontSize: '24px', fontWeight: 700 }}>{formatCurrency(stats.anioActual)}</div>
-          </div>
-          <div className="card">
-            <div className="stat-label">Pendiente</div>
-            <div style={{ fontSize: '24px', fontWeight: 700, color: '#92400e' }}>
-              {formatCurrency(stats.pendiente)}
-            </div>
-          </div>
+      <PageHeader
+        title="Ganancias"
+        subtitle="Ingresos del edificio"
+        action={
+          <Button variant="outline" onClick={() => exportarExcel(filtrados, fechaInicio, fechaFin)}>
+            Exportar Excel
+          </Button>
+        }
+      />
+
+      <div className="card" style={{ marginBottom: '16px' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'flex-end' }}>
+          <Input
+            id="fechaInicio"
+            label="Desde"
+            type="date"
+            value={fechaInicio}
+            onChange={(e) => setFechaInicio(e.target.value)}
+          />
+          <Input
+            id="fechaFin"
+            label="Hasta"
+            type="date"
+            value={fechaFin}
+            onChange={(e) => setFechaFin(e.target.value)}
+          />
+          <Input
+            id="search"
+            label="Búsqueda rápida"
+            placeholder="Apto, residente, método..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
         </div>
-      )}
+      </div>
+
+      <div className="card-grid-4" style={{ marginBottom: '20px' }}>
+        <Stat icon="receipt_long" value={stats.totalPagos} label="Total Pagos" color="primary" />
+        <Stat icon="payments" value={formatCurrency(stats.totalIngresos)} label="Ingresos Totales" color="green" />
+        <Stat icon="description" value={stats.cuotas} label="Cuotas" color="blue" />
+        <Stat icon="gavel" value={stats.multas} label="Multas" color="amber" />
+      </div>
+
       <DataTable
         columns={columns}
-        rows={data?.items || []}
+        rows={filtrados}
         loading={loading}
-        empty="No hay ganancias registradas"
+        empty="No hay ganancias en el rango seleccionado"
         keyField="id"
-      />
-      <Pagination
-        page={page}
-        totalPages={data?.totalPages || 1}
-        totalItems={data?.totalItems}
-        pageSize={20}
-        onPageChange={() => {}}
       />
       <Toast toast={toast} />
     </div>

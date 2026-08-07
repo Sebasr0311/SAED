@@ -2,25 +2,35 @@ import { useState } from 'react';
 import { Button } from '../components/ui/Button.jsx';
 import { Input, Select } from '../components/ui/Form.jsx';
 import { DataTable } from '../components/ui/DataTable.jsx';
-import { Pagination } from '../components/ui/Pagination.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog.jsx';
 import Toast from '../components/ui/Toast.jsx';
 import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
-import { formatDate, formatCurrency } from '../lib/utils.js';
+import { formatDate, formatCurrency, formatMiles, parseMiles } from '../lib/utils.js';
 
-const ESTADOS = ['', 'ACTIVO', 'SUSPENDIDO', 'VENCIDO', 'PENDIENTE_FIRMA'];
+const ESTADOS = ['', 'ACTIVO', 'SUSPENDIDO', 'VENCIDO', 'PENDIENTE_FIRMA', 'CANCELADO'];
 const TIPOS = ['INICIAL', 'RENOVACION', 'PERMANENCIA'];
+const VALOR_POR_TIPO = {
+  ESTUDIO: 800000,
+  '1HAB': 1200000,
+  '2HAB': 1600000,
+  '3HAB': 2200000,
+  PENTHOUSE: 3000000,
+  OTRO: 1000000,
+};
+const MESES_POR_TIPO = { INICIAL: 3, RENOVACION: 6, PERMANENCIA: null };
+
 const emptyForm = {
   idApartamento: '',
   idResidente: '',
   fechaInicio: '',
   fechaFin: '',
-  tipo: 'INICIAL',
+  tipoContrato: 'INICIAL',
   valorMensual: '',
-  estado: 'ACTIVO',
+  notas: '',
+  enviarCorreo: true,
 };
 
 const ESTADO_BADGE = {
@@ -28,21 +38,20 @@ const ESTADO_BADGE = {
   SUSPENDIDO: 'badge-warn',
   VENCIDO: 'badge-danger',
   PENDIENTE_FIRMA: 'badge-pendiente-firma',
+  CANCELADO: 'badge-cancelado',
+};
+const TIPO_BADGE = {
+  INICIAL: 'badge-info',
+  RENOVACION: 'badge-success',
+  PERMANENCIA: 'badge-navy',
 };
 
-function ActionButtons({ onEdit, onDelete }) {
-  return (
-    <div style={{ display: 'flex', gap: '4px' }}>
-      <button onClick={onEdit} className="btn btn-ghost btn-sm" aria-label="Editar">
-        <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>edit</span>
-      </button>
-      <button onClick={onDelete} className="btn btn-ghost btn-sm" aria-label="Eliminar">
-        <span className="material-symbols-outlined" style={{ fontSize: '18px', color: '#e11d48' }}>
-          delete
-        </span>
-      </button>
-    </div>
-  );
+function calcularFechaFin(fechaInicio, tipo) {
+  const meses = MESES_POR_TIPO[tipo];
+  if (!fechaInicio || meses == null) return '';
+  const d = new Date(fechaInicio);
+  d.setMonth(d.getMonth() + meses);
+  return d.toISOString().slice(0, 10);
 }
 
 export default function ContratosPage() {
@@ -50,27 +59,213 @@ export default function ContratosPage() {
   const [filtroEstado, setFiltroEstado] = useState('');
   const [toast, setToast] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [renovarModal, setRenovarModal] = useState(null);
+  const [renovarForm, setRenovarForm] = useState({ fechaInicio: '', fechaFin: '', valorMensual: '', notas: '' });
   const [form, setForm] = useState(emptyForm);
   const [errors, setErrors] = useState({});
-  const [editing, setEditing] = useState(null);
-  const [confirmDel, setConfirmDel] = useState(null);
+  const [confirmCancelar, setConfirmCancelar] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [descargando, setDescargando] = useState(null);
 
-  const qs = new URLSearchParams({
-    page,
-    size: 20,
-    ...(filtroEstado ? { estado: filtroEstado } : {}),
-  });
-  const { data, loading, refetch } = useFetch(() => api.get(`/contratos?${qs}`), [page, filtroEstado]);
-  const { data: apartamentos } = useFetch(() => api.get('/apartamentos?size=200'), []);
-  const { data: residentes } = useFetch(() => api.get('/residentes?size=200'), []);
+  const { data: contratosRaw, loading, refetch } = useFetch(() => api.get('/contratos'), []);
+  const { data: apartamentos } = useFetch(() => api.get('/apartamentos?size=500'), []);
+  const { data: residentes } = useFetch(() => api.get('/residentes?size=500'), []);
+
+  const contratos = (contratosRaw || []).filter((c) => !filtroEstado || c.estado === filtroEstado);
+
+  async function descargarPDF(idContrato) {
+    setDescargando(idContrato);
+    try {
+      const token = sessionStorage.getItem('auth_token');
+      const base = (window._API_BASE_URL || 'https://sistema-administracion-edificios.onrender.com/api').replace(/\/+$/, '');
+      const res = await fetch(`${base}/contratos/${idContrato}/pdf`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: `Error ${res.status}` }));
+        throw new Error(err.error || 'Error al descargar PDF');
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `contrato_${idContrato}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 100);
+    } catch (err) {
+      setToast({ message: err.message, type: 'error' });
+    } finally {
+      setDescargando(null);
+    }
+  }
+
+  async function reenviarCorreo(idContrato) {
+    if (!window.confirm(`¿Desea reenviar el correo de notificación del contrato #${idContrato} al residente?`)) return;
+    try {
+      await api.post(`/contratos/${idContrato}/reenviar-correo`);
+      setToast({ message: 'Correo reenviado exitosamente', type: 'success' });
+    } catch (err) {
+      setToast({ message: err.message, type: 'error' });
+    }
+  }
+
+  async function activar(idContrato) {
+    try {
+      await api.post(`/contratos/${idContrato}/activar`);
+      setToast({ message: 'Contrato activado', type: 'success' });
+      refetch();
+    } catch (err) {
+      setToast({ message: err.message, type: 'error' });
+    }
+  }
+
+  async function cancelar() {
+    if (!confirmCancelar) return;
+    try {
+      await api.post(`/contratos/${confirmCancelar.idContrato}/cancelar`);
+      setToast({ message: 'Contrato cancelado', type: 'success' });
+      refetch();
+    } catch (err) {
+      setToast({ message: err.message, type: 'error' });
+    }
+  }
+
+  function abrirRenovar(contrato) {
+    const fechaInicio = new Date().toISOString().slice(0, 10);
+    const fechaFin = calcularFechaFin(fechaInicio, 'RENOVACION');
+    setRenovarModal(contrato);
+    setRenovarForm({
+      fechaInicio,
+      fechaFin,
+      valorMensual: formatMiles(contrato.valorMensual),
+      notas: '',
+    });
+  }
+
+  async function confirmarRenovar() {
+    if (!renovarModal) return;
+    setSaving(true);
+    try {
+      const res = await api.post(`/contratos/${renovarModal.idContrato}/renovar`, {
+        fechaInicio: renovarForm.fechaInicio,
+        fechaFin: renovarForm.fechaFin || null,
+        valorMensual: parseMiles(renovarForm.valorMensual),
+        notas: renovarForm.notas,
+      });
+      setToast({ message: 'Contrato renovado', type: 'success' });
+      handleEmailStatus(res);
+      setRenovarModal(null);
+      refetch();
+    } catch (err) {
+      setToast({ message: err.message, type: 'error' });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function handleEmailStatus(res) {
+    if (res.emailStatus === 'enviado') {
+      setToast({ message: 'Correo de notificación enviado al residente', type: 'success' });
+    } else if (res.emailStatus === 'sin_email') {
+      setToast({ message: 'El residente no tiene correo electrónico registrado', type: 'warning' });
+    } else if (res.emailStatus === 'error') {
+      setToast({
+        message: `Contrato creado. No se pudo enviar el correo: ${res.emailMensaje || ''}. Puede reenviarlo desde la tabla.`,
+        type: 'warning',
+      });
+    }
+  }
+
+  async function sugerirTipo(idApartamento) {
+    if (!idApartamento) return;
+    try {
+      const res = await api.get(`/contratos/sugerir-tipo/${idApartamento}`);
+      if (res?.tipoSugerido) {
+        update('tipoContrato', res.tipoSugerido);
+        if (form.fechaInicio) {
+          update('fechaFin', calcularFechaFin(form.fechaInicio, res.tipoSugerido));
+        }
+      }
+    } catch {
+      /* ignorar si falla la sugerencia */
+    }
+  }
+
+  function autoFillValor(idApartamento) {
+    const apto = (apartamentos?.items || []).find((a) => String(a.idApartamento) === String(idApartamento));
+    if (!apto) return;
+    const valorSugerido = apto.administracion != null ? Number(apto.administracion) : VALOR_POR_TIPO[apto.tipo] || null;
+    if (valorSugerido) update('valorMensual', formatMiles(valorSugerido));
+  }
+
+  function update(k, v) {
+    setForm((f) => ({ ...f, [k]: v }));
+  }
+  function onApartamentoChange(idApartamento) {
+    update('idApartamento', idApartamento);
+    sugerirTipo(idApartamento);
+    autoFillValor(idApartamento);
+  }
+  function onTipoChange(tipo) {
+    update('tipoContrato', tipo);
+    if (form.fechaInicio) update('fechaFin', calcularFechaFin(form.fechaInicio, tipo));
+  }
+  function onFechaInicioChange(fecha) {
+    update('fechaInicio', fecha);
+    update('fechaFin', calcularFechaFin(fecha, form.tipoContrato));
+  }
+
+  function validate() {
+    const e = {};
+    if (!form.idApartamento) e.idApartamento = 'Requerido';
+    if (!form.idResidente) e.idResidente = 'Requerido';
+    if (!form.fechaInicio) e.fechaInicio = 'Requerido';
+    if (!parseMiles(form.valorMensual)) e.valorMensual = 'Requerido';
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  }
+
+  async function crear() {
+    if (!validate()) return;
+    setSaving(true);
+    try {
+      const payload = {
+        idApartamento: Number(form.idApartamento),
+        idResidente: Number(form.idResidente),
+        fechaInicio: form.fechaInicio,
+        fechaFin: form.fechaFin || null,
+        tipoContrato: form.tipoContrato,
+        valorMensual: parseMiles(form.valorMensual),
+        notas: form.notas,
+        enviarCorreo: form.enviarCorreo,
+      };
+      const res = await api.post('/contratos', payload);
+      setToast({ message: 'Contrato creado', type: 'success' });
+      handleEmailStatus(res);
+      setModalOpen(false);
+      refetch();
+    } catch (err) {
+      setToast({ message: err.message, type: 'error' });
+    } finally {
+      setSaving(false);
+    }
+  }
 
   const columns = [
     { key: 'idContrato', label: 'ID', width: 60 },
-    { key: 'apartamento', label: 'Apartamento' },
-    { key: 'arrendatario', label: 'Arrendatario' },
+    { key: 'numeroApartamento', label: 'Apartamento' },
+    { key: 'nombreResidente', label: 'Arrendatario' },
     { key: 'fechaInicio', label: 'Inicio', render: (r) => formatDate(r.fechaInicio) },
-    { key: 'fechaFin', label: 'Fin', render: (r) => formatDate(r.fechaFin) },
-    { key: 'tipo', label: 'Tipo' },
+    { key: 'fechaFin', label: 'Fin', render: (r) => (r.fechaFin ? formatDate(r.fechaFin) : 'Indefinido') },
+    {
+      key: 'tipoContrato',
+      label: 'Tipo',
+      render: (r) => <span className={`badge ${TIPO_BADGE[r.tipoContrato] || 'badge-neutral'}`}>{r.tipoContrato}</span>,
+    },
     { key: 'valorMensual', label: 'Valor Mensual', render: (r) => formatCurrency(r.valorMensual) },
     {
       key: 'estado',
@@ -80,96 +275,89 @@ export default function ContratosPage() {
     {
       key: 'actions',
       label: 'Acciones',
-      width: 100,
+      width: 220,
       render: (row) => (
-        <ActionButtons
-          onEdit={(e) => {
-            e.stopPropagation();
-            setEditing(row);
-            setForm({
-              idApartamento: row.idApartamento || '',
-              idResidente: row.idResidente || '',
-              fechaInicio: row.fechaInicio || '',
-              fechaFin: row.fechaFin || '',
-              tipo: row.tipo || 'INICIAL',
-              valorMensual: row.valorMensual || '',
-              estado: row.estado || 'ACTIVO',
-            });
-            setErrors({});
-            setModalOpen(true);
-          }}
-          onDelete={(e) => {
-            e.stopPropagation();
-            setConfirmDel(row);
-          }}
-        />
+        <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+          {(row.estado === 'ACTIVO' || row.estado === 'PENDIENTE_FIRMA') && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                descargarPDF(row.idContrato);
+              }}
+              className="btn btn-ghost btn-xs"
+              title="Descargar PDF"
+              disabled={descargando === row.idContrato}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>
+                {descargando === row.idContrato ? 'hourglass_empty' : 'download'}
+              </span>
+            </button>
+          )}
+          {(row.estado === 'ACTIVO' || row.estado === 'PENDIENTE_FIRMA') && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                reenviarCorreo(row.idContrato);
+              }}
+              className="btn btn-ghost btn-xs"
+              title="Reenviar correo"
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>mail</span>
+            </button>
+          )}
+          {row.estado === 'PENDIENTE_FIRMA' && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                activar(row.idContrato);
+              }}
+              className="btn btn-ghost btn-xs"
+              title="Activar"
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: '16px', color: '#065f46' }}>
+                check_circle
+              </span>
+            </button>
+          )}
+          {row.estado === 'VENCIDO' && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                abrirRenovar(row);
+              }}
+              className="btn btn-ghost btn-xs"
+              title="Renovar"
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: '16px', color: '#0369a1' }}>
+                autorenew
+              </span>
+            </button>
+          )}
+          {row.estado === 'ACTIVO' && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setConfirmCancelar(row);
+              }}
+              className="btn btn-ghost btn-xs"
+              title="Cancelar"
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: '16px', color: '#e11d48' }}>
+                cancel
+              </span>
+            </button>
+          )}
+        </div>
       ),
     },
   ];
 
-  function update(k, v) {
-    setForm((f) => ({ ...f, [k]: v }));
-  }
-  function validate() {
-    const e = {};
-    if (!form.idApartamento) e.idApartamento = 'Requerido';
-    if (!form.idResidente) e.idResidente = 'Requerido';
-    if (!form.fechaInicio) e.fechaInicio = 'Requerido';
-    if (!form.valorMensual) e.valorMensual = 'Requerido';
-    setErrors(e);
-    return Object.keys(e).length === 0;
-  }
-  async function save() {
-    if (!validate()) return;
-    try {
-      const payload = {
-        ...form,
-        valorMensual: Number(form.valorMensual),
-        idApartamento: Number(form.idApartamento),
-        idResidente: Number(form.idResidente),
-      };
-      if (editing) {
-        await api.put(`/contratos/${editing.idContrato}`, payload);
-        setToast({ message: 'Contrato actualizado', type: 'success' });
-      } else {
-        await api.post('/contratos', payload);
-        setToast({ message: 'Contrato creado', type: 'success' });
-      }
-      setModalOpen(false);
-      setEditing(null);
-      refetch();
-    } catch (err) {
-      setToast({ message: err.message, type: 'error' });
-    }
-  }
-  async function handleDelete() {
-    if (!confirmDel) return;
-    try {
-      await api.del(`/contratos/${confirmDel.idContrato}`);
-      setToast({ message: 'Contrato eliminado', type: 'success' });
-      refetch();
-    } catch (err) {
-      setToast({ message: err.message, type: 'error' });
-    }
-  }
-
   return (
     <div>
-      <PageHeader
-        title="Contratos"
-        subtitle="Contratos de arrendamiento"
-      />
+      <PageHeader title="Contratos" subtitle="Contratos de arrendamiento" />
       <div className="table-toolbar" style={{ marginBottom: '12px' }}>
         <div className="filters">
-          <Select
-            id="filtroEstado"
-            value={filtroEstado}
-            onChange={(e) => {
-              setFiltroEstado(e.target.value);
-              setPage(0);
-            }}
-            className="filter-select"
-          >
+          <Select id="filtroEstado" value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value)} className="filter-select">
             {ESTADOS.map((e) => (
               <option key={e || 'all'} value={e}>
                 {e || 'Todos los estados'}
@@ -180,7 +368,6 @@ export default function ContratosPage() {
         <div className="actions">
           <Button
             onClick={() => {
-              setEditing(null);
               setForm(emptyForm);
               setErrors({});
               setModalOpen(true);
@@ -190,32 +377,21 @@ export default function ContratosPage() {
           </Button>
         </div>
       </div>
-      <DataTable
-        columns={columns}
-        rows={data?.items || []}
-        loading={loading}
-        empty="No hay contratos"
-        keyField="idContrato"
-      />
-      <Pagination
-        page={page}
-        totalPages={data?.totalPages || 1}
-        totalItems={data?.totalItems}
-        pageSize={20}
-        onPageChange={setPage}
-      />
+      <DataTable columns={columns} rows={contratos} loading={loading} empty="No hay contratos" keyField="idContrato" />
 
       <Modal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        title={editing ? 'Editar Contrato' : 'Nuevo Contrato'}
+        title="Nuevo Contrato"
         size="lg"
         footer={
           <>
-            <Button variant="outline" onClick={() => setModalOpen(false)}>
+            <Button variant="outline" onClick={() => setModalOpen(false)} disabled={saving}>
               Cancelar
             </Button>
-            <Button onClick={save}>Guardar</Button>
+            <Button onClick={crear} disabled={saving}>
+              {saving ? 'Guardando...' : 'Guardar'}
+            </Button>
           </>
         }
       >
@@ -224,7 +400,7 @@ export default function ContratosPage() {
             id="idApartamento"
             label="Apartamento"
             value={form.idApartamento}
-            onChange={(e) => update('idApartamento', e.target.value)}
+            onChange={(e) => onApartamentoChange(e.target.value)}
             error={errors.idApartamento}
           >
             <option value="">— Seleccionar —</option>
@@ -236,7 +412,7 @@ export default function ContratosPage() {
           </Select>
           <Select
             id="idResidente"
-            label="Residente"
+            label="Residente (arrendatario)"
             value={form.idResidente}
             onChange={(e) => update('idResidente', e.target.value)}
             error={errors.idResidente}
@@ -255,57 +431,105 @@ export default function ContratosPage() {
             label="Fecha Inicio"
             type="date"
             value={form.fechaInicio}
-            onChange={(e) => update('fechaInicio', e.target.value)}
+            onChange={(e) => onFechaInicioChange(e.target.value)}
             error={errors.fechaInicio}
           />
-          <Input
-            id="fechaFin"
-            label="Fecha Fin"
-            type="date"
-            value={form.fechaFin}
-            onChange={(e) => update('fechaFin', e.target.value)}
-          />
-        </div>
-        <div className="form-row">
-          <Select id="tipo" label="Tipo" value={form.tipo} onChange={(e) => update('tipo', e.target.value)}>
+          <Select id="tipoContrato" label="Tipo" value={form.tipoContrato} onChange={(e) => onTipoChange(e.target.value)}>
             {TIPOS.map((t) => (
               <option key={t} value={t}>
                 {t}
               </option>
             ))}
           </Select>
+        </div>
+        <div className="form-row">
+          <Input
+            id="fechaFin"
+            label="Fecha Fin (auto-calculada)"
+            type="date"
+            value={form.fechaFin}
+            onChange={(e) => update('fechaFin', e.target.value)}
+            disabled={form.tipoContrato === 'PERMANENCIA'}
+          />
           <Input
             id="valorMensual"
             label="Valor Mensual"
-            type="number"
             value={form.valorMensual}
-            onChange={(e) => update('valorMensual', e.target.value)}
+            onChange={(e) => update('valorMensual', formatMiles(e.target.value))}
             error={errors.valorMensual}
           />
         </div>
         <div className="form-group">
-          <Select
-            id="estado"
-            label="Estado"
-            value={form.estado}
-            onChange={(e) => update('estado', e.target.value)}
-          >
-            {ESTADOS.filter(Boolean).map((e) => (
-              <option key={e} value={e}>
-                {e}
-              </option>
-            ))}
-          </Select>
+          <Input id="notas" label="Notas (opcional)" value={form.notas} onChange={(e) => update('notas', e.target.value)} />
+        </div>
+        <div className="form-group">
+          <label className="checkbox-label">
+            <input
+              type="checkbox"
+              checked={form.enviarCorreo}
+              onChange={(e) => update('enviarCorreo', e.target.checked)}
+            />
+            <span>Enviar correo de notificación al residente</span>
+          </label>
+        </div>
+      </Modal>
+
+      <Modal
+        open={!!renovarModal}
+        onClose={() => setRenovarModal(null)}
+        title={`Renovar Contrato #${renovarModal?.idContrato || ''}`}
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setRenovarModal(null)} disabled={saving}>
+              Cancelar
+            </Button>
+            <Button onClick={confirmarRenovar} disabled={saving}>
+              {saving ? 'Renovando...' : 'Renovar'}
+            </Button>
+          </>
+        }
+      >
+        <div className="form-row">
+          <Input
+            id="renFechaInicio"
+            label="Nueva Fecha Inicio"
+            type="date"
+            value={renovarForm.fechaInicio}
+            onChange={(e) => setRenovarForm((f) => ({ ...f, fechaInicio: e.target.value }))}
+          />
+          <Input
+            id="renFechaFin"
+            label="Nueva Fecha Fin"
+            type="date"
+            value={renovarForm.fechaFin}
+            onChange={(e) => setRenovarForm((f) => ({ ...f, fechaFin: e.target.value }))}
+          />
+        </div>
+        <div className="form-group">
+          <Input
+            id="renValor"
+            label="Valor Mensual"
+            value={renovarForm.valorMensual}
+            onChange={(e) => setRenovarForm((f) => ({ ...f, valorMensual: formatMiles(e.target.value) }))}
+          />
+        </div>
+        <div className="form-group">
+          <Input
+            id="renNotas"
+            label="Notas (opcional)"
+            value={renovarForm.notas}
+            onChange={(e) => setRenovarForm((f) => ({ ...f, notas: e.target.value }))}
+          />
         </div>
       </Modal>
 
       <ConfirmDialog
-        open={!!confirmDel}
-        onClose={() => setConfirmDel(null)}
-        onConfirm={handleDelete}
-        title="Eliminar contrato"
-        message={`¿Eliminar contrato #${confirmDel?.idContrato}?`}
-        confirmLabel="Eliminar"
+        open={!!confirmCancelar}
+        onClose={() => setConfirmCancelar(null)}
+        onConfirm={cancelar}
+        title="Cancelar contrato"
+        message={`¿Cancelar el contrato #${confirmCancelar?.idContrato}? El apartamento quedará disponible.`}
+        confirmLabel="Cancelar contrato"
         danger
       />
       <Toast toast={toast} />
