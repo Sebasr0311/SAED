@@ -21,33 +21,34 @@ function HeroGallery() {
   }, []);
 
   return (
-    <div className="relative h-full w-full overflow-hidden">
-      {HERO_IMAGES.map((img, i) => (
+    <>
+      <div className="hero-gallery">
         <div
-          key={img}
-          className="absolute inset-0 bg-cover bg-center transition-opacity duration-700"
-          style={{
-            backgroundImage: `url(${import.meta.env.BASE_URL}imagenes/${img})`,
-            opacity: i === index ? 1 : 0,
-          }}
-        />
-      ))}
-      <div className="absolute bottom-6 left-1/2 z-10 flex -translate-x-1/2 gap-2">
+          className="hero-track"
+          style={{ transform: `translateX(-${index * 100}%)` }}
+        >
+          {HERO_IMAGES.map((img) => (
+            <div
+              key={img}
+              className="hero-slide"
+              style={{ backgroundImage: `url(${import.meta.env.BASE_URL}imagenes/${img})` }}
+            />
+          ))}
+        </div>
+      </div>
+      <div className="hero-dots">
         {HERO_IMAGES.map((_, i) => (
           <button
             key={i}
+            type="button"
             onClick={() => setIndex(i)}
-            className={`h-2 rounded-full transition-all ${
-              i === index ? 'w-8 bg-white' : 'w-2 bg-white/50'
-            }`}
+            className={`hero-dot ${i === index ? 'active' : ''}`}
             aria-label={`Slide ${i + 1}`}
           />
         ))}
       </div>
-      <p className="absolute bottom-2 left-1/2 z-10 -translate-x-1/2 text-xs font-medium text-white/90 drop-shadow">
-        SAED — Seguridad, organización y confianza
-      </p>
-    </div>
+      <p className="hero-slogan">SAED — Seguridad, organización y confianza</p>
+    </>
   );
 }
 
@@ -94,105 +95,103 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="grid h-screen w-full grid-cols-1 md:grid-cols-2">
-      <div className="flex items-center justify-center bg-background p-6">
-        <div className="w-full max-w-md">
-          <div className="mb-8 flex flex-col items-center">
-            <img
-              src={`${import.meta.env.BASE_URL}imagenes/saed_logo_final_blue.png`}
-              alt="SAED"
-              className="mb-4 h-auto w-64 object-contain"
-            />
-            <p className="text-sm text-on-surface-variant">Acceso seguro a tu edificio</p>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <input
-                id="login-username"
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="Usuario"
-                autoComplete="username"
-                required
-                className="w-full rounded-xl border border-outline-variant bg-surface px-4 py-3 text-sm transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-              />
+    <div className="login-page">
+      <div className="login-container">
+        <main className="login-main">
+          <div className="login-card">
+            <div className="login-header">
+              <div className="login-logo">
+                <img
+                  src={`${import.meta.env.BASE_URL}imagenes/saed_logo_final_blue.png`}
+                  alt="SAED"
+                />
+              </div>
+              <p className="login-subtitle">Acceso seguro a tu edificio</p>
             </div>
 
-            <div className="relative">
-              <input
-                id="login-password"
-                type={showPwd ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Contraseña"
-                autoComplete="current-password"
-                required
-                className="w-full rounded-xl border border-outline-variant bg-surface px-4 py-3 pr-12 text-sm transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPwd((s) => !s)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-on-surface"
-                aria-label={showPwd ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-              >
-                <span className="material-symbols-outlined">
-                  {showPwd ? 'visibility_off' : 'visibility'}
+            <form onSubmit={handleSubmit} className="login-form">
+              <div className="floating-input">
+                <input
+                  id="login-username"
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder=" "
+                  autoComplete="username"
+                  required
+                  className="floating-input-field"
+                />
+                <label htmlFor="login-username" className="floating-label">
+                  Usuario
+                </label>
+              </div>
+
+              <div className="floating-input" style={{ position: 'relative' }}>
+                <input
+                  id="login-password"
+                  type={showPwd ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder=" "
+                  autoComplete="current-password"
+                  required
+                  className="floating-input-field"
+                  style={{ paddingRight: '44px' }}
+                />
+                <label htmlFor="login-password" className="floating-label">
+                  Contraseña
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowPwd((s) => !s)}
+                  className="password-toggle"
+                  aria-label={showPwd ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                >
+                  <span className="material-symbols-outlined">
+                    {showPwd ? 'visibility_off' : 'visibility'}
+                  </span>
+                </button>
+              </div>
+
+              <div className="login-options">
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={remember}
+                    onChange={(e) => setRemember(e.target.checked)}
+                  />
+                  Recordarme
+                </label>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setToast({ message: 'Contacte al administrador del sistema', type: 'info' })
+                  }
+                  className="forgot-link"
+                >
+                  ¿Olvidaste tu contraseña?
+                </button>
+              </div>
+
+              {error && <div className="login-error-msg">{error}</div>}
+
+              <button type="submit" disabled={loading} className="login-btn">
+                {loading ? 'Ingresando...' : 'Iniciar Sesión'}
+                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>
+                  arrow_forward
                 </span>
               </button>
-            </div>
+            </form>
 
-            <div className="flex items-center justify-between text-sm">
-              <label className="flex cursor-pointer items-center gap-2 text-on-surface-variant">
-                <input
-                  type="checkbox"
-                  checked={remember}
-                  onChange={(e) => setRemember(e.target.checked)}
-                  className="h-4 w-4 rounded border-outline-variant text-primary focus:ring-primary"
-                />
-                Recordarme
-              </label>
-              <button
-                type="button"
-                onClick={() =>
-                  setToast({ message: 'Contacte al administrador del sistema', type: 'info' })
-                }
-                className="text-primary hover:underline"
-              >
-                ¿Olvidaste tu contraseña?
-              </button>
-            </div>
-
-            {error && (
-              <div
-                role="alert"
-                className="rounded-lg border border-error bg-error-container px-3 py-2 text-sm text-error"
-              >
-                {error}
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-on-primary transition-colors hover:bg-primary/90 disabled:opacity-50"
-            >
-              {loading ? 'Ingresando...' : 'Iniciar Sesión'}
-              <span className="material-symbols-outlined text-lg">arrow_forward</span>
-            </button>
-          </form>
-
-          <p className="mt-8 text-center text-xs text-on-surface-variant">
-            © {new Date().getFullYear()} SAED Residential. All rights reserved.
-          </p>
-        </div>
+            <p className="login-footer">
+              © {new Date().getFullYear()} SAED Residential. All rights reserved.
+            </p>
+          </div>
+        </main>
+        <aside className="login-hero">
+          <HeroGallery />
+        </aside>
       </div>
-
-      <div className="relative hidden bg-primary md:block">
-        <HeroGallery />
-      </div>
-
       <Toast toast={toast} />
     </div>
   );

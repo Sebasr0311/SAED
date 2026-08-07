@@ -50,73 +50,64 @@ export default function AppShell() {
   }
 
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-background">
-      <aside className="hidden w-64 flex-col bg-primary text-on-primary md:flex">
-        <div className="flex items-center gap-3 px-6 py-6">
-          <img
-            src={`${import.meta.env.BASE_URL}imagenes/saed_logo_emblem_only.png`}
-            alt="SAED"
-            className="h-9 w-9"
-            onError={(e) => {
-              e.currentTarget.style.display = 'none';
-            }}
-          />
-          <div className="leading-tight">
-            <div className="text-lg font-extrabold">SAED</div>
-            <div className="text-[11px] uppercase tracking-wider opacity-80">
-              Administración Residencial
+    <div className="app-shell">
+      <div style={{ display: 'flex', height: '100%' }}>
+        <aside className="sidebar-desktop">
+          <div className="sidebar-logo-area">
+            <div className="sidebar-logo-icon">
+              <img src={`${import.meta.env.BASE_URL}imagenes/saed_logo_emblem_only.png`} alt="SAED" />
+            </div>
+            <div className="sidebar-logo-text">
+              <span>SAED</span>
+              <small>Administración Residencial</small>
             </div>
           </div>
-        </div>
 
-        <nav className="flex-1 space-y-1 px-3">
-          {items.map((item) => {
-            const active = location.pathname.startsWith(item.path);
-            return (
-              <button
-                key={item.path}
-                onClick={() => navigate(item.path)}
-                className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
-                  active
-                    ? 'bg-white/15 text-on-primary'
-                    : 'text-on-primary/80 hover:bg-white/10 hover:text-on-primary'
-                }`}
-              >
-                <span className="material-symbols-outlined text-xl">{item.icon}</span>
-                <span>{item.label}</span>
-              </button>
-            );
-          })}
-        </nav>
+          <nav className="sidebar-nav-area">
+            {items.map((item) => {
+              const active = location.pathname.startsWith(item.path);
+              return (
+                <button
+                  key={item.path}
+                  onClick={() => navigate(item.path)}
+                  className="sidebar-item-btn"
+                  style={active ? { color: 'white', background: 'rgba(59,130,246,0.12)' } : {}}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>
+                    {item.icon}
+                  </span>
+                  <span className="sidebar-label">{item.label}</span>
+                </button>
+              );
+            })}
+          </nav>
 
-        <div className="border-t border-white/10 p-3">
-          <button
-            onClick={handleLogout}
-            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-on-primary/80 transition-colors hover:bg-white/10 hover:text-on-primary"
-          >
-            <span className="material-symbols-outlined text-xl">logout</span>
-            <span>Cerrar Sesión</span>
-          </button>
-        </div>
-      </aside>
-
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <header className="flex h-20 items-center justify-between border-b border-outline-variant bg-surface px-8">
-          <h1 className="text-2xl font-semibold text-on-background">{currentTitle}</h1>
-          <div className="flex items-center gap-4">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-sm font-bold text-on-primary">
-              {initial}
-            </div>
-            <span className="text-sm text-on-surface">{user?.username}</span>
-            <span className="rounded-full bg-surface-container px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">
-              {user?.rol}
-            </span>
+          <div className="sidebar-bottom">
+            <button onClick={handleLogout} className="sidebar-group-btn" title="Cerrar Sesión">
+              <span className="material-symbols-outlined">logout</span>
+              <span className="sidebar-label">Cerrar Sesión</span>
+            </button>
           </div>
-        </header>
+        </aside>
 
-        <main className="flex-1 overflow-y-auto p-8">
-          <Outlet />
-        </main>
+        <div style={{ marginLeft: '72px', flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+          <header className="topbar">
+            <div className="topbar-left">
+              <h1 className="page-title">{currentTitle}</h1>
+            </div>
+            <div className="topbar-right">
+              <div className="user-info">
+                <div className="user-avatar">{initial}</div>
+                <span className="user-name">{user?.username}</span>
+                <span className="badge-role">{user?.rol}</span>
+              </div>
+            </div>
+          </header>
+
+          <main className="content-area">
+            <Outlet />
+          </main>
+        </div>
       </div>
     </div>
   );
