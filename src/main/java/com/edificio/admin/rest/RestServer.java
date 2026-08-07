@@ -1,5 +1,6 @@
 package com.edificio.admin.rest;
 
+import com.edificio.admin.dao.ConexionBD;
 import com.edificio.admin.rest.handler.*;
 import com.edificio.admin.service.AlertaService;
 import com.sun.net.httpserver.HttpServer;
@@ -39,9 +40,15 @@ public class RestServer {
             addContext("/api/multas", new MultaHandler());
             addContext("/api/quejas", new QuejaSugerenciaHandler());
 
-            // Health check (Render, monitoreo)
+            // Health check (Render, monitoreo) - incluye ping a BD para mantener Oracle ATP activa
             server.createContext("/health", exchange -> {
-                String resp = "{\"status\":\"ok\"}";
+                String dbStatus = "ok";
+                try {
+                    ConexionBD.getInstancia().getConexion().createStatement().execute("SELECT 1 FROM DUAL");
+                } catch (Exception e) {
+                    dbStatus = "down: " + e.getMessage();
+                }
+                String resp = "{\"status\":\"ok\",\"db\":\"" + dbStatus + "\"}";
                 exchange.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
                 exchange.sendResponseHeaders(200, resp.length());
                 exchange.getResponseBody().write(resp.getBytes("UTF-8"));
