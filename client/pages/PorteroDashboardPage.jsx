@@ -4,22 +4,14 @@ import api from '../lib/api.js';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
 
 function Stat({ icon, value, label, color = 'primary' }) {
-  const colors = {
-    primary: 'bg-primary/10 text-primary',
-    green: 'bg-accent-green-bg text-accent-green',
-    blue: 'bg-blue-50 text-blue-700',
-    amber: 'bg-warn-amber-bg text-warn-amber',
-    cyan: 'bg-cyan-50 text-cyan-700',
-    orange: 'bg-orange-50 text-orange-700',
-  };
   return (
-    <div className="card flex items-center gap-4">
-      <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${colors[color]}`}>
-        <span className="material-symbols-outlined text-2xl">{icon}</span>
+    <div className="stat-card">
+      <div className={`stat-icon ${color}`}>
+        <span className="material-symbols-outlined">{icon}</span>
       </div>
-      <div>
-        <div className="text-2xl font-bold text-on-surface">{value}</div>
-        <div className="text-xs text-on-surface-variant">{label}</div>
+      <div className="stat-body">
+        <div className="stat-value">{value}</div>
+        <div className="stat-label">{label}</div>
       </div>
     </div>
   );
@@ -33,12 +25,12 @@ const QUICK = [
 ];
 
 export default function PorteroDashboardPage() {
-  const { data: stats } = useFetch(() => api.get('/portero/stats'), []);
+  const { data: stats } = useFetch(() => api.get('/portero/stats').catch(() => null), []);
 
   return (
     <div>
       <PageHeader title="Panel de Portería" />
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="card-grid-4" style={{ marginBottom: '20px' }}>
         <Stat icon="today" value={stats?.visitasHoy ?? '—'} label="Visitas Hoy" color="amber" />
         <Stat icon="how_to_reg" value={stats?.visitasActivas ?? '—'} label="Visitas Activas" color="cyan" />
         <Stat
@@ -55,16 +47,21 @@ export default function PorteroDashboardPage() {
         />
       </div>
       <div className="card">
-        <h3 className="mb-4 text-base font-semibold">Accesos Rápidos</h3>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <h3 className="card-title">
+          <span className="material-symbols-outlined">dashboard</span>
+          Accesos Rápidos
+        </h3>
+        <div className="card-grid-4" style={{ marginTop: '12px' }}>
           {QUICK.map((q) => (
             <a
               key={q.path}
               href={`#${q.path}`}
-              className="flex flex-col items-center gap-2 rounded-xl border border-outline-variant bg-surface p-4 text-center transition-colors hover:bg-surface-container"
+              className="action-card"
             >
-              <span className="material-symbols-outlined text-3xl text-primary">{q.icon}</span>
-              <span className="text-xs font-medium text-on-surface">{q.label}</span>
+              <span className="action-card-icon">
+                <span className="material-symbols-outlined" style={{ fontSize: '32px' }}>{q.icon}</span>
+              </span>
+              <span className="action-card-label">{q.label}</span>
             </a>
           ))}
         </div>

@@ -12,12 +12,18 @@ export default function ResPerfilPage() {
   return (
     <div>
       <PageHeader title="Mi Perfil" subtitle="Datos personales" />
-      <div className="card max-w-2xl space-y-4">
-        <Input id="nombres" label="Nombres" value={r.nombres || ''} readOnly />
-        <Input id="apellidos" label="Apellidos" value={r.apellidos || ''} readOnly />
-        <Input id="documento" label="Documento" value={r.numeroDocumento || ''} readOnly />
-        <Input id="telefono" label="Teléfono" value={r.telefono || ''} readOnly />
-        <Input id="email" label="Email" value={r.email || ''} readOnly />
+      <div className="card" style={{ maxWidth: '640px' }}>
+        <div className="form-row">
+          <Input id="nombres" label="Nombres" value={r.nombres || ''} readOnly />
+          <Input id="apellidos" label="Apellidos" value={r.apellidos || ''} readOnly />
+        </div>
+        <div className="form-row">
+          <Input id="documento" label="Documento" value={r.numeroDocumento || ''} readOnly />
+          <Input id="telefono" label="Teléfono" value={r.telefono || ''} readOnly />
+        </div>
+        <div className="form-group">
+          <Input id="email" label="Email" value={r.email || ''} readOnly />
+        </div>
       </div>
     </div>
   );

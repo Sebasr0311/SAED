@@ -23,13 +23,21 @@ export default function ResFrecuentesPage() {
   return (
     <div>
       <PageHeader title="Visitantes Frecuentes" subtitle="Personas que te visitan regularmente" />
-      <DataTable
-        columns={columns}
-        rows={data || []}
-        loading={loading}
-        empty="No tienes visitantes frecuentes"
-        keyField="id"
-      />
+      <div className="frecuentes-grid">
+        {data && data.length > 0 ? (
+          data.map((f) => (
+            <div key={f.id} className="frecuente-card">
+              <div className="name">{f.nombre}</div>
+              <div className="meta">Doc: {f.documento}</div>
+              {f.placa && <div className="meta">Placa: {f.placa}</div>}
+            </div>
+          ))
+        ) : (
+          <div className="card empty-state">
+            {loading ? 'Cargando...' : 'No tienes visitantes frecuentes'}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

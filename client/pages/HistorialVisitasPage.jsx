@@ -8,8 +8,8 @@ import api from '../lib/api.js';
 import { formatDate } from '../lib/utils.js';
 
 export default function HistorialVisitasPage() {
-  const [page, setPage] = useState(0);
-  const [toast, setToast] = useState(null);
+  const [page] = useState(0);
+  const [toast] = useState(null);
 
   const { data, loading, refetch } = useFetch(
     () => api.get(`/visitas/historial?page=${page}&size=20`),
@@ -41,7 +41,7 @@ export default function HistorialVisitasPage() {
         totalPages={data?.totalPages || 1}
         totalItems={data?.totalItems}
         pageSize={20}
-        onPageChange={setPage}
+        onPageChange={() => {}}
       />
       <Toast toast={toast} />
     </div>

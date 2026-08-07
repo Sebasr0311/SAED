@@ -7,9 +7,16 @@ import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
 import { formatCurrency, formatDate } from '../lib/utils.js';
 
+const ESTADO_BADGE = {
+  PAGADA: 'badge-activo',
+  PENDIENTE: 'badge-pendiente-firma',
+  VENCIDA: 'badge-danger',
+  ANULADA: 'badge-cancelado',
+};
+
 export default function MultasPage() {
-  const [page, setPage] = useState(0);
-  const [toast, setToast] = useState(null);
+  const [page] = useState(0);
+  const [toast] = useState(null);
 
   const { data, loading, refetch } = useFetch(() => api.get(`/multas?page=${page}&size=20`), [page]);
 
@@ -20,7 +27,11 @@ export default function MultasPage() {
     { key: 'motivo', label: 'Motivo' },
     { key: 'monto', label: 'Monto', render: (r) => formatCurrency(r.monto) },
     { key: 'fecha', label: 'Fecha', render: (r) => formatDate(r.fecha) },
-    { key: 'estado', label: 'Estado' },
+    {
+      key: 'estado',
+      label: 'Estado',
+      render: (r) => <span className={`badge ${ESTADO_BADGE[r.estado] || 'badge-neutral'}`}>{r.estado}</span>,
+    },
   ];
 
   return (
@@ -38,7 +49,7 @@ export default function MultasPage() {
         totalPages={data?.totalPages || 1}
         totalItems={data?.totalItems}
         pageSize={20}
-        onPageChange={setPage}
+        onPageChange={() => {}}
       />
       <Toast toast={toast} />
     </div>

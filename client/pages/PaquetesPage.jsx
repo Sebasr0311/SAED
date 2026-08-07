@@ -13,7 +13,7 @@ export default function PaquetesPage() {
   const [toast, setToast] = useState(null);
 
   const { data: apartamentos } = useFetch(() => api.get('/apartamentos?size=200'), []);
-  const { data: paquetes, loading, refetch } = useFetch(
+  const { data: paquetes, loading } = useFetch(
     () => (selectedApto ? api.get(`/paquetes?apartamento=${selectedApto}`) : Promise.resolve([])),
     [selectedApto]
   );
@@ -29,25 +29,23 @@ export default function PaquetesPage() {
   return (
     <div>
       <PageHeader title="Notificar Paquete o Domicilio" />
-      <div className="card mb-6 max-w-md">
-        <Select
-          id="apartamento"
-          label="Apartamento"
-          value={selectedApto}
-          onChange={(e) => setSelectedApto(e.target.value)}
-        >
-          <option value="">— Seleccione apartamento —</option>
-          {(apartamentos?.items || []).map((a) => (
-            <option key={a.idApartamento} value={a.idApartamento}>
-              Apto {a.numero}
-            </option>
-          ))}
-        </Select>
-        <div className="mt-4">
-          <Button disabled={!selectedApto} icon="add">
-            Notificar Llegada
-          </Button>
+      <div className="card" style={{ maxWidth: '480px', marginBottom: '20px' }}>
+        <div className="form-group">
+          <Select
+            id="apartamento"
+            label="Apartamento"
+            value={selectedApto}
+            onChange={(e) => setSelectedApto(e.target.value)}
+          >
+            <option value="">— Seleccione apartamento —</option>
+            {(apartamentos?.items || []).map((a) => (
+              <option key={a.idApartamento} value={a.idApartamento}>
+                Apto {a.numero}
+              </option>
+            ))}
+          </Select>
         </div>
+        <Button disabled={!selectedApto}>Notificar Llegada</Button>
       </div>
       <DataTable
         columns={columns}

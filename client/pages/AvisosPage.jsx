@@ -11,7 +11,7 @@ import api from '../lib/api.js';
 import { formatDate } from '../lib/utils.js';
 
 export default function AvisosPage() {
-  const [page, setPage] = useState(0);
+  const [page] = useState(0);
   const [toast, setToast] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState({ titulo: '', cuerpo: '', idApartamento: '' });
@@ -56,9 +56,7 @@ export default function AvisosPage() {
         title="Avisos"
         subtitle="Comunicados generales a residentes"
         action={
-          <Button icon="add" onClick={() => setModalOpen(true)}>
-            Nuevo Aviso
-          </Button>
+          <Button onClick={() => setModalOpen(true)}>+ Nuevo Aviso</Button>
         }
       />
       <DataTable
@@ -73,7 +71,7 @@ export default function AvisosPage() {
         totalPages={data?.totalPages || 1}
         totalItems={data?.totalItems}
         pageSize={20}
-        onPageChange={setPage}
+        onPageChange={() => {}}
       />
 
       <Modal
@@ -86,28 +84,28 @@ export default function AvisosPage() {
             <Button variant="outline" onClick={() => setModalOpen(false)} disabled={sending}>
               Cancelar
             </Button>
-            <Button onClick={send} loading={sending} icon="send">
-              Enviar
-            </Button>
+            <Button onClick={send} disabled={sending}>{sending ? 'Enviando...' : 'Enviar'}</Button>
           </>
         }
       >
-        <div className="space-y-4">
+        <div className="form-group">
           <Input
             id="titulo"
             label="Título"
             value={form.titulo}
             onChange={(e) => setForm((f) => ({ ...f, titulo: e.target.value }))}
-            required
           />
+        </div>
+        <div className="form-group">
           <Textarea
             id="cuerpo"
             label="Mensaje"
             rows={5}
             value={form.cuerpo}
             onChange={(e) => setForm((f) => ({ ...f, cuerpo: e.target.value }))}
-            required
           />
+        </div>
+        <div className="form-group">
           <Select
             id="idApartamento"
             label="Apartamento (opcional, vacío = todos)"

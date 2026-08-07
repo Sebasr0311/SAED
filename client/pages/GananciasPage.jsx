@@ -7,12 +7,26 @@ import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
 import { formatCurrency, formatDate } from '../lib/utils.js';
 
+function Stat({ icon, value, label, color = 'primary' }) {
+  return (
+    <div className="stat-card">
+      <div className={`stat-icon ${color}`}>
+        <span className="material-symbols-outlined">{icon}</span>
+      </div>
+      <div className="stat-body">
+        <div className="stat-value">{value}</div>
+        <div className="stat-label">{label}</div>
+      </div>
+    </div>
+  );
+}
+
 export default function GananciasPage() {
-  const [page, setPage] = useState(0);
-  const [toast, setToast] = useState(null);
+  const [page] = useState(0);
+  const [toast] = useState(null);
 
   const { data, loading, refetch } = useFetch(() => api.get(`/ganancias?page=${page}&size=20`), [page]);
-  const { data: stats } = useFetch(() => api.get('/ganancias/stats'), []);
+  const { data: stats } = useFetch(() => api.get('/ganancias/stats').catch(() => null), []);
 
   const columns = [
     { key: 'id', label: 'ID', width: 60 },
@@ -26,20 +40,22 @@ export default function GananciasPage() {
     <div>
       <PageHeader title="Ganancias" subtitle="Ingresos del edificio" />
       {stats && (
-        <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="card-grid-3" style={{ marginBottom: '20px' }}>
           <div className="card">
-            <div className="text-xs text-on-surface-variant">Total del mes</div>
-            <div className="text-2xl font-bold text-accent-green">
+            <div className="stat-label">Total del mes</div>
+            <div style={{ fontSize: '24px', fontWeight: 700, color: '#065f46' }}>
               {formatCurrency(stats.mesActual)}
             </div>
           </div>
           <div className="card">
-            <div className="text-xs text-on-surface-variant">Total año</div>
-            <div className="text-2xl font-bold text-on-surface">{formatCurrency(stats.anioActual)}</div>
+            <div className="stat-label">Total año</div>
+            <div style={{ fontSize: '24px', fontWeight: 700 }}>{formatCurrency(stats.anioActual)}</div>
           </div>
           <div className="card">
-            <div className="text-xs text-on-surface-variant">Pendiente</div>
-            <div className="text-2xl font-bold text-warn-amber">{formatCurrency(stats.pendiente)}</div>
+            <div className="stat-label">Pendiente</div>
+            <div style={{ fontSize: '24px', fontWeight: 700, color: '#92400e' }}>
+              {formatCurrency(stats.pendiente)}
+            </div>
           </div>
         </div>
       )}
@@ -55,7 +71,7 @@ export default function GananciasPage() {
         totalPages={data?.totalPages || 1}
         totalItems={data?.totalItems}
         pageSize={20}
-        onPageChange={setPage}
+        onPageChange={() => {}}
       />
       <Toast toast={toast} />
     </div>

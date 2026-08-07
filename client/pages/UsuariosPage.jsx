@@ -13,6 +13,27 @@ import api from '../lib/api.js';
 const ROLES = ['ADMINISTRADOR', 'PORTERO', 'RESIDENTE'];
 const emptyForm = { username: '', password: '', rol: 'RESIDENTE', idResidente: '', activo: true };
 
+const ROL_BADGE = {
+  ADMINISTRADOR: 'badge-navy',
+  PORTERO: 'badge-info',
+  RESIDENTE: 'badge-success',
+};
+
+function ActionButtons({ onEdit, onDelete }) {
+  return (
+    <div style={{ display: 'flex', gap: '4px' }}>
+      <button onClick={onEdit} className="btn btn-ghost btn-sm" aria-label="Editar">
+        <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>edit</span>
+      </button>
+      <button onClick={onDelete} className="btn btn-ghost btn-sm" aria-label="Eliminar">
+        <span className="material-symbols-outlined" style={{ fontSize: '18px', color: '#e11d48' }}>
+          delete
+        </span>
+      </button>
+    </div>
+  );
+}
+
 export default function UsuariosPage() {
   const [page, setPage] = useState(0);
   const [toast, setToast] = useState(null);
@@ -28,47 +49,41 @@ export default function UsuariosPage() {
   const columns = [
     { key: 'idUsuario', label: 'ID', width: 60 },
     { key: 'username', label: 'Username' },
-    { key: 'rol', label: 'Rol' },
+    {
+      key: 'rol',
+      label: 'Rol',
+      render: (r) => <span className={`badge ${ROL_BADGE[r.rol] || 'badge-neutral'}`}>{r.rol}</span>,
+    },
     { key: 'residente', label: 'Residente' },
     {
       key: 'activo',
       label: 'Activo',
-      render: (r) => (r.activo ? 'Sí' : 'No'),
+      render: (r) => <span className={`badge ${r.activo ? 'badge-activo' : 'badge-neutral'}`}>{r.activo ? 'Sí' : 'No'}</span>,
     },
     {
       key: 'actions',
       label: 'Acciones',
-      width: 140,
+      width: 100,
       render: (row) => (
-        <div className="flex gap-1">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setEditing(row);
-              setForm({
-                username: row.username,
-                password: '',
-                rol: row.rol,
-                idResidente: row.idResidente || '',
-                activo: row.activo,
-              });
-              setErrors({});
-              setModalOpen(true);
-            }}
-            className="rounded-full p-1.5 text-on-surface-variant hover:bg-surface-container"
-          >
-            <span className="material-symbols-outlined text-lg">edit</span>
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setConfirmDel(row);
-            }}
-            className="rounded-full p-1.5 text-on-surface-variant hover:bg-error-container hover:text-error"
-          >
-            <span className="material-symbols-outlined text-lg">delete</span>
-          </button>
-        </div>
+        <ActionButtons
+          onEdit={(e) => {
+            e.stopPropagation();
+            setEditing(row);
+            setForm({
+              username: row.username,
+              password: '',
+              rol: row.rol,
+              idResidente: row.idResidente || '',
+              activo: row.activo,
+            });
+            setErrors({});
+            setModalOpen(true);
+          }}
+          onDelete={(e) => {
+            e.stopPropagation();
+            setConfirmDel(row);
+          }}
+        />
       ),
     },
   ];
@@ -120,7 +135,6 @@ export default function UsuariosPage() {
         subtitle="Cuentas de acceso al sistema"
         action={
           <Button
-            icon="add"
             onClick={() => {
               setEditing(null);
               setForm(emptyForm);
@@ -128,7 +142,7 @@ export default function UsuariosPage() {
               setModalOpen(true);
             }}
           >
-            Nuevo Usuario
+            + Nuevo Usuario
           </Button>
         }
       />
@@ -156,20 +170,17 @@ export default function UsuariosPage() {
             <Button variant="outline" onClick={() => setModalOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={save} icon="save">
-              Guardar
-            </Button>
+            <Button onClick={save}>Guardar</Button>
           </>
         }
       >
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="form-row">
           <Input
             id="username"
             label="Username"
             value={form.username}
             onChange={(e) => update('username', e.target.value)}
             error={errors.username}
-            required
           />
           <Input
             id="password"
@@ -178,8 +189,9 @@ export default function UsuariosPage() {
             value={form.password}
             onChange={(e) => update('password', e.target.value)}
             error={errors.password}
-            required={!editing}
           />
+        </div>
+        <div className="form-row">
           <Select id="rol" label="Rol" value={form.rol} onChange={(e) => update('rol', e.target.value)}>
             {ROLES.map((r) => (
               <option key={r} value={r}>
@@ -200,14 +212,15 @@ export default function UsuariosPage() {
               </option>
             ))}
           </Select>
-          <label className="flex items-center gap-2 sm:col-span-2">
+        </div>
+        <div className="form-group">
+          <label className="checkbox-label">
             <input
               type="checkbox"
               checked={form.activo}
               onChange={(e) => update('activo', e.target.checked)}
-              className="h-4 w-4 rounded border-outline-variant text-primary focus:ring-primary"
             />
-            <span className="text-sm text-on-surface">Usuario activo</span>
+            <span>Usuario activo</span>
           </label>
         </div>
       </Modal>
