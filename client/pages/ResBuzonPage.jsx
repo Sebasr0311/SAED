@@ -1,30 +1,137 @@
+import { useState } from 'react';
 import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
-import { formatDate } from '../lib/utils.js';
+import { Button } from '../components/ui/Button.jsx';
+import { Modal } from '../components/ui/Modal.jsx';
+import Toast from '../components/ui/Toast.jsx';
+import { formatDate, formatMiles } from '../lib/utils.js';
 
 export default function ResBuzonPage() {
   const { user } = useAuth();
-  const { data, loading } = useFetch(() => api.get(`/buzon/residente/${user?.idResidente}`), [user]);
+  const [toast, setToast] = useState(null);
+  const [confirmVaciar, setConfirmVaciar] = useState(false);
+  const [fotoGrande, setFotoGrande] = useState(null);
+
+  const { data, loading, refetch } = useFetch(
+    () => api.get(`/buzon/residente/${user?.idResidente}`),
+    [user]
+  );
+
   const items = data || [];
+
+  async function vaciar() {
+    try {
+      await api.put('/buzon/vaciar');
+      setToast({ message: 'Buzón vaciado', type: 'success' });
+      refetch();
+    } catch (err) {
+      setToast({ message: err.message, type: 'error' });
+    } finally {
+      setConfirmVaciar(false);
+    }
+  }
 
   return (
     <div>
-      <PageHeader title="Buzón" subtitle="Notificaciones del administrador" />
+      <PageHeader
+        title="Buzón"
+        subtitle="Notificaciones del administrador"
+        action={
+          items.length > 0 && (
+            <Button variant="danger" onClick={() => setConfirmVaciar(true)}>
+              Vaciar buzón
+            </Button>
+          )
+        }
+      />
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         {loading && <div className="card empty-state">Cargando...</div>}
         {!loading && items.length === 0 && (
           <div className="card empty-state">Buzón vacío</div>
         )}
         {items.map((it) => (
-          <div key={it.id} className="card">
-            <div style={{ fontSize: '14px', fontWeight: 700 }}>{it.asunto}</div>
-            <div style={{ marginTop: '4px', fontSize: '13px', color: '#475569' }}>{it.cuerpo}</div>
-            <div style={{ marginTop: '8px', fontSize: '11px', color: '#94a3b8' }}>{formatDate(it.fecha)}</div>
+          <div
+            key={it.idMensaje}
+            className="card"
+            style={{
+              borderLeft: it.leido ? 'none' : '4px solid #0f2044',
+              opacity: it.leido ? 0.7 : 1,
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>{it.titulo}</div>
+                {it.cuerpo && (
+                  <div style={{ marginTop: '4px', fontSize: '13px', color: '#475569' }}>{it.cuerpo}</div>
+                )}
+                <div style={{ marginTop: '8px', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <span className="badge badge-info" style={{ fontSize: '10px' }}>
+                    {it.tipo}
+                  </span>
+                  <span style={{ fontSize: '11px', color: '#94a3b8' }}>{formatDate(it.fechaCreacion)}</span>
+                  {!it.leido && (
+                    <span className="badge badge-warn" style={{ fontSize: '10px' }}>
+                      Nuevo
+                    </span>
+                  )}
+                </div>
+              </div>
+              {it.fotoCaptura && (
+                <img
+                  src={`data:image/jpeg;base64,${it.fotoCaptura}`}
+                  alt="Foto"
+                  style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px', cursor: 'zoom-in' }}
+                  onClick={() => setFotoGrande(`data:image/jpeg;base64,${it.fotoCaptura}`)}
+                />
+              )}
+            </div>
           </div>
         ))}
       </div>
+
+      <Modal
+        open={confirmVaciar}
+        onClose={() => setConfirmVaciar(false)}
+        title="Vaciar buzón"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setConfirmVaciar(false)}>
+              Cancelar
+            </Button>
+            <Button variant="danger" onClick={vaciar}>
+              Vaciar
+            </Button>
+          </>
+        }
+      >
+        <p>¿Marcar todos los mensajes como leídos y entregados? Esta acción no se puede deshacer.</p>
+      </Modal>
+
+      {fotoGrande && (
+        <div
+          onClick={() => setFotoGrande(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.85)',
+            zIndex: 1000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'zoom-out',
+          }}
+        >
+          <img
+            src={fotoGrande}
+            alt="Foto"
+            style={{ maxWidth: '90%', maxHeight: '90%', borderRadius: '8px' }}
+          />
+        </div>
+      )}
+
+      <Toast toast={toast} />
     </div>
   );
 }
