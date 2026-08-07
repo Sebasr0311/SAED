@@ -201,7 +201,7 @@ export default function ResidentesPage() {
             value={form.idTipoDocumento}
             onChange={(e) => update('idTipoDocumento', Number(e.target.value))}
           >
-            {(tiposDoc || TIPO_DOC_OPTS).map((t) => (
+            {(tiposDoc?.items || TIPO_DOC_OPTS).map((t) => (
               <option key={t.idTipoDocumento || t.value} value={t.idTipoDocumento || t.value}>
                 {t.nombre || t.label}
               </option>
