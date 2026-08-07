@@ -9,6 +9,39 @@ import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
 import { formatDate, todayStr } from '../lib/utils.js';
 
+function exportarExcel(visitas, fechaInicio, fechaFin) {
+  const xls =
+    '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">' +
+    '<head><meta charset="UTF-8"><style>table{width:100%;border-collapse:collapse}th{background:#0F2044;color:#fff}</style></head><body><table>' +
+    '<thead><tr><th>Fecha</th><th>Visitante</th><th>Documento</th><th>Apartamento</th><th>Residente</th><th>Entrada</th><th>Salida</th><th>Tipo Vehiculo</th><th>Placa</th><th>Parqueadero</th><th>Estado</th></tr></thead><tbody>';
+  visitas.forEach((v) => {
+    xls +=
+      '<tr>' +
+      `<td>${v.fechaVisita || v.fechaIngreso || ''}</td>` +
+      `<td>${v.nombreVisitante || ''} ${v.apellidoVisitante || ''}</td>` +
+      `<td>${v.documentoVisitante || ''}</td>` +
+      `<td>${v.numeroApartamento || ''}</td>` +
+      `<td>${v.nombreResidente || ''}</td>` +
+      `<td>${v.fechaVisita || v.fechaIngreso || ''}</td>` +
+      `<td>${v.fechaSalida || ''}</td>` +
+      `<td>${v.tipoVehiculo || ''}</td>` +
+      `<td>${v.placaVehiculo || ''}</td>` +
+      `<td>${v.codigoParqueadero || ''}</td>` +
+      `<td>${v.estado || ''}</td>` +
+      '</tr>';
+  });
+  xls += '</tbody></table></body></html>';
+  const blob = new Blob([xls], { type: 'application/vnd.ms-excel' });
+  const link = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  link.href = url;
+  link.download = `visitas_${fechaInicio}_${fechaFin}.xls`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
 function Stat({ icon, value, label, color = 'primary' }) {
   return (
     <div className="stat-card">
@@ -80,7 +113,19 @@ export default function HistorialVisitasPage() {
 
   return (
     <div>
-      <PageHeader title="Historial de Visitas" subtitle="Registro histórico de visitas" />
+      <PageHeader
+        title="Historial de Visitas"
+        subtitle="Registro histórico de visitas"
+        action={
+          <Button
+            variant="outline"
+            onClick={() => exportarExcel(filtradas, fechaInicio, fechaFin)}
+            disabled={filtradas.length === 0}
+          >
+            Exportar Excel
+          </Button>
+        }
+      />
 
       <div className="card" style={{ marginBottom: '16px' }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'flex-end' }}>
