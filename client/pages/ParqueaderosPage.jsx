@@ -1,12 +1,15 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Button } from '../components/ui/Button.jsx';
-import { Select } from '../components/ui/Form.jsx';
+import { Input, Select } from '../components/ui/Form.jsx';
 import { DataTable } from '../components/ui/DataTable.jsx';
 import { Pagination } from '../components/ui/Pagination.jsx';
+import { Modal } from '../components/ui/Modal.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
+import { ConfirmPasswordDialog } from '../components/ui/ConfirmPasswordDialog.jsx';
 import Toast from '../components/ui/Toast.jsx';
 import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
+import { useAuth } from '../lib/AuthContext.jsx';
 
 const ESTADOS = ['', 'DISPONIBLE', 'OCUPADO', 'EN_MANTENIMIENTO'];
 const TIPOS = ['', 'VEHICULO', 'MOTO', 'BICICLETA'];
@@ -17,19 +20,55 @@ const ESTADO_BADGE = {
   EN_MANTENIMIENTO: 'badge-en-mantenimiento',
 };
 
+function prefijoParq(tipo, esVisitante) {
+  if (tipo === 'MOTO') return 'M';
+  if (tipo === 'BICICLETA') return 'B';
+  return esVisitante ? 'V' : 'P';
+}
+
+const emptyForm = { tipo: 'VEHICULO', esVisitante: true, idApartamento: '', numero: '', estado: 'DISPONIBLE' };
+
 export default function ParqueaderosPage() {
+  const { isPortero } = useAuth();
   const [page, setPage] = useState(0);
   const [filtroEstado, setFiltroEstado] = useState('');
   const [filtroTipo, setFiltroTipo] = useState('');
   const [toast, setToast] = useState(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [form, setForm] = useState(emptyForm);
+  const [errors, setErrors] = useState({});
+  const [editing, setEditing] = useState(null);
+  const [confirmDel, setConfirmDel] = useState(null);
+  const [pwdConfirmOpen, setPwdConfirmOpen] = useState(false);
 
   const qs = new URLSearchParams({
-    page,
-    size: 20,
     ...(filtroEstado ? { estado: filtroEstado } : {}),
     ...(filtroTipo ? { tipo: filtroTipo } : {}),
   });
-  const { data, loading, refetch } = useFetch(() => api.get(`/parqueaderos?${qs}`), [page, filtroEstado, filtroTipo]);
+  const { data, loading, refetch } = useFetch(() => api.get(`/parqueaderos?${qs}`), [filtroEstado, filtroTipo]);
+  const { data: apartamentos } = useFetch(() => api.get('/apartamentos?size=500'), []);
+
+  // Auto-refresh cada 10s si la pestaña está visible
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') refetch();
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [refetch]);
+
+  const items = data || [];
+
+  const codigoGenerado = useMemo(() => {
+    const prefijo = prefijoParq(form.tipo, form.esVisitante);
+    const existentes = items.filter((p) => p.codigo?.startsWith(prefijo));
+    const siguiente = existentes.length + 1;
+    return `${prefijo}${String(siguiente).padStart(3, '0')}`;
+  }, [form.tipo, form.esVisitante, items]);
+
+  const apartamentosDisponibles = useMemo(() => {
+    const asignados = new Set(items.filter((p) => !p.esVisitante).map((p) => p.idApartamento));
+    return (apartamentos?.items || []).filter((a) => !asignados.has(a.idApartamento) || a.idApartamento === editing?.idApartamento);
+  }, [apartamentos, items, editing]);
 
   const columns = [
     { key: 'idParqueadero', label: 'ID', width: 60 },
@@ -43,7 +82,90 @@ export default function ParqueaderosPage() {
     { key: 'visitante', label: 'Visitante' },
     { key: 'apartamento', label: 'Apartamento' },
     { key: 'propietario', label: 'Propietario' },
+    ...(isPortero
+      ? []
+      : [
+          {
+            key: 'actions',
+            label: 'Acciones',
+            width: 100,
+            render: (row) => (
+              <div style={{ display: 'flex', gap: '4px' }}>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setEditing(row);
+                    setForm({
+                      tipo: row.tipo,
+                      esVisitante: row.esVisitante,
+                      idApartamento: row.idApartamento || '',
+                      numero: row.codigo,
+                      estado: row.estado,
+                    });
+                    setErrors({});
+                    setModalOpen(true);
+                  }}
+                  className="btn btn-ghost btn-sm"
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>edit</span>
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setConfirmDel(row);
+                  }}
+                  className="btn btn-ghost btn-sm"
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: '18px', color: '#e11d48' }}>delete</span>
+                </button>
+              </div>
+            ),
+          },
+        ]),
   ];
+
+  function update(k, v) {
+    setForm((f) => ({ ...f, [k]: v }));
+  }
+  async function save() {
+    const errs = {};
+    if (!form.esVisitante && !form.idApartamento) errs.idApartamento = 'Requerido para parqueadero de residente';
+    setErrors(errs);
+    if (Object.keys(errs).length > 0) return;
+    try {
+      const payload = {
+        tipo: form.tipo,
+        esVisitante: form.esVisitante,
+        idApartamento: form.esVisitante ? null : Number(form.idApartamento),
+        codigo: editing ? form.numero : codigoGenerado,
+        estado: form.estado,
+      };
+      if (editing) {
+        await api.put(`/parqueaderos/${editing.idParqueadero}`, payload);
+        setToast({ message: 'Parqueadero actualizado', type: 'success' });
+      } else {
+        await api.post('/parqueaderos', payload);
+        setToast({ message: 'Parqueadero creado', type: 'success' });
+      }
+      setModalOpen(false);
+      setEditing(null);
+      refetch();
+    } catch (err) {
+      setToast({ message: err.message, type: 'error' });
+    }
+  }
+  async function handleDelete() {
+    if (!confirmDel) return;
+    try {
+      await api.del(`/parqueaderos/${confirmDel.idParqueadero}`);
+      setToast({ message: 'Parqueadero eliminado', type: 'success' });
+      refetch();
+    } catch (err) {
+      setToast({ message: err.message, type: 'error' });
+    } finally {
+      setConfirmDel(null);
+    }
+  }
 
   return (
     <div>
@@ -82,23 +204,120 @@ export default function ParqueaderosPage() {
                 </option>
               ))}
             </Select>
-            <Button>+ Nuevo</Button>
+            {!isPortero && (
+              <Button
+                onClick={() => {
+                  setEditing(null);
+                  setForm(emptyForm);
+                  setErrors({});
+                  setModalOpen(true);
+                }}
+              >
+                + Nuevo
+              </Button>
+            )}
           </div>
         }
       />
-      <DataTable
-        columns={columns}
-        rows={data?.items || []}
-        loading={loading}
-        empty="No hay parqueaderos"
-        keyField="idParqueadero"
-      />
-      <Pagination
-        page={page}
-        totalPages={data?.totalPages || 1}
-        totalItems={data?.totalItems}
-        pageSize={20}
-        onPageChange={setPage}
+      <DataTable columns={columns} rows={items} loading={loading} empty="No hay parqueaderos" keyField="idParqueadero" />
+
+      <Modal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title={editing ? 'Editar Parqueadero' : 'Nuevo Parqueadero'}
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setModalOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={save}>Guardar</Button>
+          </>
+        }
+      >
+        <div className="form-group">
+          <Input id="codigo" label="Código (auto-generado)" value={editing ? form.numero : codigoGenerado} disabled />
+        </div>
+        <div className="form-row">
+          <Select id="tipo" label="Tipo" value={form.tipo} onChange={(e) => update('tipo', e.target.value)}>
+            <option value="VEHICULO">Vehículo</option>
+            <option value="MOTO">Moto</option>
+            <option value="BICICLETA">Bicicleta</option>
+          </Select>
+          <Select
+            id="estado"
+            label="Estado"
+            value={form.estado}
+            onChange={(e) => update('estado', e.target.value)}
+          >
+            <option value="DISPONIBLE">Disponible</option>
+            <option value="OCUPADO">Ocupado</option>
+            <option value="EN_MANTENIMIENTO">Mantenimiento</option>
+          </Select>
+        </div>
+        <div className="form-group">
+          <label className="checkbox-label">
+            <input
+              type="radio"
+              checked={form.esVisitante}
+              onChange={() => update('esVisitante', true)}
+            />
+            <span>Visitante</span>
+          </label>
+          <label className="checkbox-label" style={{ marginLeft: '16px' }}>
+            <input
+              type="radio"
+              checked={!form.esVisitante}
+              onChange={() => update('esVisitante', false)}
+            />
+            <span>Residente</span>
+          </label>
+        </div>
+        {!form.esVisitante && (
+          <div className="form-group">
+            <Select
+              id="idApartamento"
+              label="Apartamento"
+              value={form.idApartamento}
+              onChange={(e) => update('idApartamento', e.target.value)}
+              error={errors.idApartamento}
+            >
+              <option value="">— Seleccionar —</option>
+              {apartamentosDisponibles.map((a) => (
+                <option key={a.idApartamento} value={a.idApartamento}>
+                  Apto {a.numero}
+                </option>
+              ))}
+            </Select>
+          </div>
+        )}
+      </Modal>
+
+      <Modal
+        open={!!confirmDel}
+        onClose={() => setConfirmDel(null)}
+        title="Eliminar parqueadero"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setConfirmDel(null)}>
+              Cancelar
+            </Button>
+            <Button variant="danger" onClick={() => setPwdConfirmOpen(true)}>
+              Eliminar
+            </Button>
+          </>
+        }
+      >
+        <p>¿Eliminar parqueadero {confirmDel?.codigo}?</p>
+      </Modal>
+
+      <ConfirmPasswordDialog
+        open={pwdConfirmOpen}
+        onClose={() => setPwdConfirmOpen(false)}
+        onConfirmed={() => {
+          setPwdConfirmOpen(false);
+          handleDelete();
+        }}
+        descripcion={`eliminar el parqueadero ${confirmDel?.codigo}`}
       />
       <Toast toast={toast} />
     </div>

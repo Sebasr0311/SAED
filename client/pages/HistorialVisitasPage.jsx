@@ -1,48 +1,189 @@
 import { useState } from 'react';
+import { Button } from '../components/ui/Button.jsx';
+import { Input } from '../components/ui/Form.jsx';
 import { DataTable } from '../components/ui/DataTable.jsx';
-import { Pagination } from '../components/ui/Pagination.jsx';
+import { Modal } from '../components/ui/Modal.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
 import Toast from '../components/ui/Toast.jsx';
 import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
-import { formatDate } from '../lib/utils.js';
+import { formatDate, todayStr } from '../lib/utils.js';
+
+function Stat({ icon, value, label, color = 'primary' }) {
+  return (
+    <div className="stat-card">
+      <div className={`stat-icon ${color}`}>
+        <span className="material-symbols-outlined">{icon}</span>
+      </div>
+      <div className="stat-body">
+        <div className="stat-value">{value}</div>
+        <div className="stat-label">{label}</div>
+      </div>
+    </div>
+  );
+}
+
+function haceDias(dias) {
+  const d = new Date();
+  d.setDate(d.getDate() - dias);
+  return d.toISOString().slice(0, 10);
+}
 
 export default function HistorialVisitasPage() {
-  const [page] = useState(0);
-  const [toast] = useState(null);
+  const [toast, setToast] = useState(null);
+  const [search, setSearch] = useState('');
+  const [fechaInicio, setFechaInicio] = useState(haceDias(7));
+  const [fechaFin, setFechaFin] = useState(todayStr());
+  const [detalle, setDetalle] = useState(null);
+  const [loadingDetalle, setLoadingDetalle] = useState(false);
 
-  const { data, loading, refetch } = useFetch(
-    () => api.get(`/visitas/historial?page=${page}&size=20`),
-    [page]
+  const { data: visitas, loading } = useFetch(
+    () => api.get(`/visitas/historial?fechaInicio=${fechaInicio}&fechaFin=${fechaFin}`),
+    [fechaInicio, fechaFin]
   );
+
+  const filtradas = (visitas || []).filter((v) => {
+    if (!search) return true;
+    const term = search.toLowerCase();
+    return [v.nombreVisitante, v.documentoVisitante, v.numeroApartamento, v.nombreResidente]
+      .filter(Boolean)
+      .some((x) => String(x).toLowerCase().includes(term));
+  });
+
+  const stats = {
+    total: filtradas.length,
+    activas: filtradas.filter((v) => v.estado === 'EN_CURSO' || v.estado === 'PENDIENTE').length,
+    finalizadas: filtradas.filter((v) => v.estado === 'FINALIZADA').length,
+  };
+
+  async function verDetalle(row) {
+    setLoadingDetalle(true);
+    try {
+      const d = await api.get(`/visitas/${row.idVisita}/detalle`);
+      setDetalle(d);
+    } catch (err) {
+      setToast({ message: err.message, type: 'error' });
+    } finally {
+      setLoadingDetalle(false);
+    }
+  }
 
   const columns = [
     { key: 'idVisita', label: 'ID', width: 60 },
-    { key: 'visitante', label: 'Visitante' },
-    { key: 'documento', label: 'Documento' },
-    { key: 'apartamento', label: 'Apto' },
-    { key: 'fechaIngreso', label: 'Ingreso', render: (r) => formatDate(r.fechaIngreso) },
+    { key: 'nombreVisitante', label: 'Visitante' },
+    { key: 'documentoVisitante', label: 'Documento' },
+    { key: 'numeroApartamento', label: 'Apto' },
+    { key: 'fechaVisita', label: 'Ingreso', render: (r) => formatDate(r.fechaVisita) },
     { key: 'fechaSalida', label: 'Salida', render: (r) => formatDate(r.fechaSalida) },
-    { key: 'duracion', label: 'Duración' },
+    { key: 'estado', label: 'Estado' },
   ];
 
   return (
     <div>
       <PageHeader title="Historial de Visitas" subtitle="Registro histórico de visitas" />
+
+      <div className="card" style={{ marginBottom: '16px' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'flex-end' }}>
+          <Input
+            id="fechaInicio"
+            label="Desde"
+            type="date"
+            value={fechaInicio}
+            onChange={(e) => setFechaInicio(e.target.value)}
+            min={`${new Date().getFullYear()}-01-01`}
+            max={fechaFin}
+          />
+          <Input
+            id="fechaFin"
+            label="Hasta"
+            type="date"
+            value={fechaFin}
+            onChange={(e) => setFechaFin(e.target.value)}
+            min={fechaInicio}
+            max={todayStr()}
+          />
+          <Input
+            id="search"
+            label="Búsqueda rápida"
+            placeholder="Visitante, documento, apto..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+      </div>
+
+      <div className="card-grid-3" style={{ marginBottom: '20px' }}>
+        <Stat icon="today" value={stats.total} label="Total" color="primary" />
+        <Stat icon="how_to_reg" value={stats.activas} label="Activas" color="cyan" />
+        <Stat icon="check_circle" value={stats.finalizadas} label="Finalizadas" color="green" />
+      </div>
+
       <DataTable
         columns={columns}
-        rows={data?.items || []}
+        rows={filtradas}
         loading={loading}
-        empty="No hay historial"
+        empty="No hay visitas en el rango seleccionado"
         keyField="idVisita"
+        onRowClick={verDetalle}
       />
-      <Pagination
-        page={page}
-        totalPages={data?.totalPages || 1}
-        totalItems={data?.totalItems}
-        pageSize={20}
-        onPageChange={() => {}}
-      />
+
+      <Modal open={!!detalle} onClose={() => setDetalle(null)} title="Detalle de Visita" size="md">
+        {loadingDetalle && <p>Cargando...</p>}
+        {detalle && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div className="detail-row">
+              <span>Visitante</span>
+              <span>
+                {detalle.nombreVisitante} {detalle.apellidoVisitante}
+              </span>
+            </div>
+            <div className="detail-row">
+              <span>Documento</span>
+              <span>{detalle.documentoVisitante}</span>
+            </div>
+            <div className="detail-row">
+              <span>Residente anfitrión</span>
+              <span>{detalle.nombreResidente}</span>
+            </div>
+            <div className="detail-row">
+              <span>Apartamento</span>
+              <span>{detalle.numeroApartamento}</span>
+            </div>
+            <div className="detail-row">
+              <span>Ingreso</span>
+              <span>{formatDate(detalle.fechaVisita)}</span>
+            </div>
+            <div className="detail-row">
+              <span>Salida</span>
+              <span>{formatDate(detalle.fechaSalida) || 'Aún dentro'}</span>
+            </div>
+            {detalle.placaVehiculo && (
+              <div className="detail-row">
+                <span>Vehículo</span>
+                <span>
+                  {detalle.tipoVehiculo} — {detalle.placaVehiculo}
+                </span>
+              </div>
+            )}
+            {detalle.codigoParqueadero && (
+              <div className="detail-row">
+                <span>Parqueadero</span>
+                <span>{detalle.codigoParqueadero}</span>
+              </div>
+            )}
+            {detalle.fotoCaptura && (
+              <div style={{ marginTop: '12px' }}>
+                <img
+                  src={`data:image/jpeg;base64,${detalle.fotoCaptura}`}
+                  alt="Foto de captura"
+                  style={{ maxWidth: '100%', borderRadius: '8px', cursor: 'zoom-in' }}
+                  onClick={(e) => window.open(e.target.src, '_blank')}
+                />
+              </div>
+            )}
+          </div>
+        )}
+      </Modal>
       <Toast toast={toast} />
     </div>
   );
