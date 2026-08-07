@@ -11,9 +11,9 @@ import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
 
 const TIPO_DOC_OPTS = [
-  { value: 'CEDULA', label: 'Cédula' },
-  { value: 'PASAPORTE', label: 'Pasaporte' },
-  { value: 'TARJETA_IDENTIDAD', label: 'Tarjeta Identidad' },
+  { value: 1, nombre: 'Cédula' },
+  { value: 2, nombre: 'Pasaporte' },
+  { value: 3, nombre: 'Tarjeta Identidad' },
 ];
 
 const emptyForm = {
@@ -27,6 +27,21 @@ const emptyForm = {
   idApartamento: '',
   esPropietario: false,
 };
+
+function ActionButtons({ onEdit, onDelete }) {
+  return (
+    <div style={{ display: 'flex', gap: '4px' }}>
+      <button onClick={onEdit} className="btn btn-ghost btn-sm" aria-label="Editar">
+        <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>edit</span>
+      </button>
+      <button onClick={onDelete} className="btn btn-ghost btn-sm" aria-label="Eliminar">
+        <span className="material-symbols-outlined" style={{ fontSize: '18px', color: '#e11d48' }}>
+          delete
+        </span>
+      </button>
+    </div>
+  );
+}
 
 export default function ResidentesPage() {
   const [page, setPage] = useState(0);
@@ -55,30 +70,18 @@ export default function ResidentesPage() {
     {
       key: 'actions',
       label: 'Acciones',
-      width: 140,
+      width: 100,
       render: (row) => (
-        <div className="flex gap-1">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              openEdit(row);
-            }}
-            className="rounded-full p-1.5 text-on-surface-variant hover:bg-surface-container hover:text-on-surface"
-            aria-label="Editar"
-          >
-            <span className="material-symbols-outlined text-lg">edit</span>
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setConfirmDel(row);
-            }}
-            className="rounded-full p-1.5 text-on-surface-variant hover:bg-error-container hover:text-error"
-            aria-label="Eliminar"
-          >
-            <span className="material-symbols-outlined text-lg">delete</span>
-          </button>
-        </div>
+        <ActionButtons
+          onEdit={(e) => {
+            e.stopPropagation();
+            openEdit(row);
+          }}
+          onDelete={(e) => {
+            e.stopPropagation();
+            setConfirmDel(row);
+          }}
+        />
       ),
     },
   ];
@@ -156,10 +159,9 @@ export default function ResidentesPage() {
               placeholder="Buscar..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              style={{ width: '200px' }}
             />
-            <Button icon="add" onClick={openCreate}>
-              Nuevo Residente
-            </Button>
+            <Button onClick={openCreate}>+ Nuevo Residente</Button>
           </>
         }
       />
@@ -188,13 +190,11 @@ export default function ResidentesPage() {
             <Button variant="outline" onClick={() => setModalOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={save} icon="save">
-              Guardar
-            </Button>
+            <Button onClick={save}>Guardar</Button>
           </>
         }
       >
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="form-row">
           <Select
             id="idTipoDocumento"
             label="Tipo Documento"
@@ -203,7 +203,7 @@ export default function ResidentesPage() {
           >
             {(tiposDoc?.items || TIPO_DOC_OPTS).map((t) => (
               <option key={t.idTipoDocumento || t.value} value={t.idTipoDocumento || t.value}>
-                {t.nombre || t.label}
+                {t.nombre}
               </option>
             ))}
           </Select>
@@ -213,15 +213,15 @@ export default function ResidentesPage() {
             value={form.numeroDocumento}
             onChange={(e) => update('numeroDocumento', e.target.value)}
             error={errors.numeroDocumento}
-            required
           />
+        </div>
+        <div className="form-row">
           <Input
             id="nombres"
             label="Nombres"
             value={form.nombres}
             onChange={(e) => update('nombres', e.target.value)}
             error={errors.nombres}
-            required
           />
           <Input
             id="apellidos"
@@ -229,8 +229,9 @@ export default function ResidentesPage() {
             value={form.apellidos}
             onChange={(e) => update('apellidos', e.target.value)}
             error={errors.apellidos}
-            required
           />
+        </div>
+        <div className="form-row">
           <Input
             id="fechaNacimiento"
             label="Fecha de Nacimiento"
@@ -244,6 +245,8 @@ export default function ResidentesPage() {
             value={form.telefono}
             onChange={(e) => update('telefono', e.target.value)}
           />
+        </div>
+        <div className="form-row">
           <Input
             id="email"
             label="Email"
