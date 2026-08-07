@@ -1,0 +1,45 @@
+import { useEffect, useRef, useState } from 'react';
+
+export function useFetch(fetcher, deps = []) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    fetcher()
+      .then((d) => {
+        if (!cancelled) {
+          setData(d);
+          setError(null);
+        }
+      })
+      .catch((e) => {
+        if (!cancelled) setError(e);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, deps);
+
+  return { data, loading, error, refetch: () => fetcher().then(setData).catch(setError) };
+}
+
+export function useToast() {
+  const [toast, setToast] = useState(null);
+  const timerRef = useRef(null);
+
+  function show(message, type = 'info') {
+    setToast({ message, type });
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => setToast(null), 3500);
+  }
+
+  useEffect(() => () => timerRef.current && clearTimeout(timerRef.current), []);
+
+  return { toast, show };
+}
