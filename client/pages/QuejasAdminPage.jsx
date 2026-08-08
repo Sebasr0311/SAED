@@ -96,8 +96,51 @@ export default function QuejasAdminPage() {
     if (!modal) return;
     setSaving(true);
     try {
-      await api.put(`/quejas/${modal.id}`, form);
-      setToast({ message: 'Solicitud actualizada', type: 'success' });
+      // El backend expone endpoints separados para cada accion:
+      //   PUT /quejas/:id/estado     -> { estado }
+      //   PUT /quejas/:id/prioridad  -> { prioridad }
+      //   PUT /quejas/:id/responder  -> { respuesta } (tambien marca RESUELTA)
+      // Disparamos solo los que cambiaron respecto al original, en serie cuando
+      // hay que coordinar estado+respuesta (porque /responder fuerza RESUELTA y
+      // si el admin quiere un estado distinto hay que sobrescribirlo despues).
+      const estadoOriginal = modal.estado;
+      const prioridadOriginal = modal.prioridad;
+      const respuestaOriginal = modal.respuesta || '';
+
+      const estadoCambio = form.estado && form.estado !== estadoOriginal;
+      const prioridadCambio = form.prioridad && form.prioridad !== prioridadOriginal;
+      const respuestaCambio = (form.respuesta || '') !== respuestaOriginal && form.respuesta.trim() !== '';
+
+      const errors = [];
+      async function call(p) {
+        try { await p; } catch (e) { errors.push(e?.message || 'Error'); }
+      }
+
+      // 1) Si hay respuesta, llamar a /responder primero (siempre fuerza RESUELTA).
+      if (respuestaCambio) {
+        await call(api.put(`/quejas/${modal.id}/responder`, { respuesta: form.respuesta }));
+      }
+      // 2) Despues aplicar el estado final deseado (si el admin queria otro estado
+      //    distinto a RESUELTA, sobrescribimos aqui).
+      if (estadoCambio) {
+        await call(api.put(`/quejas/${modal.id}/estado`, { estado: form.estado }));
+      }
+      // 3) La prioridad es independiente.
+      if (prioridadCambio) {
+        await call(api.put(`/quejas/${modal.id}/prioridad`, { prioridad: form.prioridad }));
+      }
+
+      if (!estadoCambio && !prioridadCambio && !respuestaCambio) {
+        setToast({ message: 'Sin cambios para guardar', type: 'info' });
+        setModal(null);
+        return;
+      }
+
+      if (errors.length === 0) {
+        setToast({ message: 'Solicitud actualizada', type: 'success' });
+      } else {
+        setToast({ message: `Actualizacion parcial: ${errors.join('; ')}`, type: 'warning' });
+      }
       setModal(null);
       refetch();
     } catch (err) {
