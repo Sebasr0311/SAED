@@ -70,7 +70,7 @@ export default function HistorialVisitasPage() {
   const [detalle, setDetalle] = useState(null);
   const [loadingDetalle, setLoadingDetalle] = useState(false);
 
-  const { data: visitasRaw, loading } = useFetch(
+  const { data: visitasRaw, loading, error } = useFetch(
     () => api.get(`/visitas/historial?fechaInicio=${fechaInicio}&fechaFin=${fechaFin}`),
     [fechaInicio, fechaFin]
   );
@@ -168,6 +168,7 @@ export default function HistorialVisitasPage() {
         rows={filtradas}
         loading={loading}
         empty="No hay visitas en el rango seleccionado"
+        error={error?.message}
         keyField="idVisita"
         onRowClick={verDetalle}
       />

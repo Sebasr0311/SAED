@@ -67,16 +67,18 @@ export default function PagosPage() {
   const [pagoForm, setPagoForm] = useState({ fecha: todayStr(), valor: '', metodo: 'EFECTIVO', referencia: '', notas: '' });
   const [saving, setSaving] = useState(false);
 
-  const { data: cuotas, loading: loadingCuotas, refetch: refetchCuotas } = useFetch(
+  const { data: cuotas, loading: loadingCuotas, error: errorCuotas, refetch: refetchCuotas } = useFetch(
     () => api.get('/cuotas?pendientes=true'),
     []
   );
-  const { data: multas, loading: loadingMultas, refetch: refetchMultas } = useFetch(
+  const { data: multas, loading: loadingMultas, error: errorMultas, refetch: refetchMultas } = useFetch(
     () => api.get('/multas/todas'),
     []
   );
 
   const loading = loadingCuotas || loadingMultas;
+
+  const fetchError = errorCuotas || errorMultas;
 
   const residentes = useMemo(() => {
     const agrupado = agruparPorApartamento(
@@ -204,6 +206,7 @@ export default function PagosPage() {
         rows={residentes}
         loading={loading}
         empty="No hay pagos pendientes"
+        error={fetchError?.message}
         keyField="numeroApartamento"
         onRowClick={setDetalle}
       />

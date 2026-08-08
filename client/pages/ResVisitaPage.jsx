@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '../components/ui/Button.jsx';
 import { Input, Select } from '../components/ui/Form.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
 import Toast from '../components/ui/Toast.jsx';
 import api from '../lib/api.js';
 import { useAuth } from '../lib/AuthContext.jsx';
-import { useFetch, useTiposDocumento } from '../lib/hooks.js';
+import { useFetch, useTiposDocumento, useLiveValidation } from '../lib/hooks.js';
 import { valNombre, valApellido, valDocumento, valTelefono, valEmail, valPlaca } from '../lib/validation.js';
 
 const emptyVisitante = {
@@ -31,20 +31,28 @@ const emptyForm = {
 export default function ResVisitaPage() {
   const { user } = useAuth();
   const { tiposDoc, error: errorTiposDoc } = useTiposDocumento();
+  const { touch, fieldError } = useLiveValidation();
   const [toast, setToast] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [errors, setErrors] = useState({});
   const [sending, setSending] = useState(false);
   const [qrGenerado, setQrGenerado] = useState(null);
   const [buscarDoc, setBuscarDoc] = useState('');
+  const [buscarDocDebounced, setBuscarDocDebounced] = useState('');
+
+  // Debounce de 400ms: evita un request por cada tecla al buscar visitante
+  useEffect(() => {
+    const t = setTimeout(() => setBuscarDocDebounced(buscarDoc), 400);
+    return () => clearTimeout(t);
+  }, [buscarDoc]);
 
   // Buscar visitante existente por documento
   const { data: visitanteExistente } = useFetch(
     () =>
-      buscarDoc.length >= 4
-        ? api.get(`/visitas/buscar?documento=${encodeURIComponent(buscarDoc)}`).catch(() => null)
+      buscarDocDebounced.length >= 4
+        ? api.get(`/visitas/buscar?documento=${encodeURIComponent(buscarDocDebounced)}`).catch(() => null)
         : Promise.resolve(null),
-    [buscarDoc]
+    [buscarDocDebounced]
   );
   const visitanteEncontrado = visitanteExistente?.raw || visitanteExistente;
 
@@ -231,6 +239,8 @@ export default function ResVisitaPage() {
               label="Teléfono (opcional)"
               value={form.visitante.telefono}
               onChange={(e) => update('visitante.telefono', e.target.value)}
+              onBlur={() => touch('visitante.telefono')}
+              error={fieldError('visitante.telefono', valTelefono(form.visitante.telefono, { required: false })) || errors['visitante.telefono']}
             />
             <Input
               id="email"
@@ -238,6 +248,8 @@ export default function ResVisitaPage() {
               type="email"
               value={form.visitante.email}
               onChange={(e) => update('visitante.email', e.target.value)}
+              onBlur={() => touch('visitante.email')}
+              error={fieldError('visitante.email', valEmail(form.visitante.email, { required: false })) || errors['visitante.email']}
             />
           </div>
 

@@ -1,18 +1,19 @@
 ﻿import { useState } from 'react';
-import { useFetch, useTiposDocumento } from '../lib/hooks.js';
+import { useFetch, useTiposDocumento, useLiveValidation } from '../lib/hooks.js';
 import api from '../lib/api.js';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { Button } from '../components/ui/Button.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
 import { Input, Select } from '../components/ui/Form.jsx';
-import { valNombre, valApellido, valDocumento, valTelefono } from '../lib/validation.js';
+import { valNombre, valApellido, valDocumento, valTelefono, valEmail } from '../lib/validation.js';
 import Toast from '../components/ui/Toast.jsx';
 import { formatDate } from '../lib/utils.js';
 
 export default function ResFrecuentesPage() {
   const { user } = useAuth();
   const { tiposDoc, error: errorTiposDoc } = useTiposDocumento();
+  const { touch, fieldError } = useLiveValidation();
   const [toast, setToast] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState({
@@ -218,7 +219,8 @@ export default function ResFrecuentesPage() {
             label="TelÃ©fono (opcional)"
             value={form.telefono}
             onChange={(e) => setForm((f) => ({ ...f, telefono: e.target.value }))}
-            error={errors.telefono}
+            onBlur={() => touch('telefono')}
+            error={fieldError('telefono', valTelefono(form.telefono, { required: false })) || errors.telefono}
           />
           <Input
             id="email"
@@ -226,6 +228,8 @@ export default function ResFrecuentesPage() {
             type="email"
             value={form.email}
             onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+            onBlur={() => touch('email')}
+            error={fieldError('email', valEmail(form.email, { required: false })) || errors.email}
           />
         </div>
       </Modal>

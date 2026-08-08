@@ -1,4 +1,4 @@
-import { DataTable } from '../components/ui/DataTable.jsx';
+﻿import { DataTable } from '../components/ui/DataTable.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
@@ -21,7 +21,7 @@ function periodoLabel(anio, mes) {
 
 export default function ResCuotasPage() {
   const { user } = useAuth();
-  const { data, loading } = useFetch(
+  const { data, loading, error } = useFetch(
     () => api.get(`/residentes/${user?.idResidente}/dashboard`),
     [user]
   );
@@ -62,6 +62,7 @@ export default function ResCuotasPage() {
         rows={cuotas}
         loading={loading}
         empty="No tienes cuotas"
+        error={error?.message}
         keyField="id"
       />
     </div>

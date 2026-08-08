@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { DataTable } from '../components/ui/DataTable.jsx';
 import { Pagination } from '../components/ui/Pagination.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
@@ -32,7 +32,7 @@ export default function MultasPage() {
   const [loadingDetalle, setLoadingDetalle] = useState(false);
   const [fotoGrande, setFotoGrande] = useState(null);
 
-  const { data, loading, refetch } = useFetch(() => api.get('/multas/todas'), []);
+  const { data, loading, error, refetch } = useFetch(() => api.get('/multas/todas'), []);
 
   const items = (data?.items || data || []).filter((m) => !filtroEstado || m.estado === filtroEstado);
   const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
@@ -63,7 +63,7 @@ export default function MultasPage() {
   }
 
   async function anular(row) {
-    if (!window.confirm(`¿Anular la multa #${row.idMulta}?`)) return;
+    if (!window.confirm(`Â¿Anular la multa #${row.idMulta}?`)) return;
     try {
       await api.put(`/multas/${row.idMulta}/anular`);
       setToast({ message: 'Multa anulada', type: 'success' });
@@ -170,6 +170,7 @@ export default function MultasPage() {
         rows={rows}
         loading={loading}
         empty="No hay multas"
+            error={error?.message}
         keyField="idMulta"
         onRowClick={verDetalle}
       />
@@ -233,7 +234,7 @@ export default function MultasPage() {
             )}
             {detalle.descripcion && (
               <div>
-                <div style={{ fontSize: '11px', color: '#475569', fontWeight: 600 }}>Descripción</div>
+                <div style={{ fontSize: '11px', color: '#475569', fontWeight: 600 }}>DescripciÃ³n</div>
                 <div style={{ fontSize: '13px' }}>{detalle.descripcion}</div>
               </div>
             )}

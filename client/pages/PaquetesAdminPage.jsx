@@ -27,7 +27,7 @@ export default function PaquetesAdminPage() {
   const [search, setSearch] = useState('');
   const [detalle, setDetalle] = useState(null);
 
-  const { data: paquetes, loading } = useFetch(() => api.get('/buzon/paquetes'), []);
+  const { data: paquetes, loading, error, refetch } = useFetch(() => api.get('/buzon/paquetes'), []);
   const all = paquetes?.items || paquetes || [];
 
   const filtrados = useMemo(() => {
@@ -85,6 +85,8 @@ export default function PaquetesAdminPage() {
         rows={filtrados}
         loading={loading}
         empty="No hay paquetes"
+        error={error?.message}
+        onRetry={refetch}
         keyField="idMensaje"
         onRowClick={setDetalle}
       />

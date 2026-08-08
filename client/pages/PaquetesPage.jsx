@@ -22,6 +22,7 @@ export default function PaquetesPage() {
   const {
     data: paquetesRaw,
     loading,
+    error,
     refetch,
   } = useFetch(
     () => (selectedApto ? api.get(`/buzon?idApartamento=${selectedApto}`) : Promise.resolve([])),
@@ -185,6 +186,8 @@ export default function PaquetesPage() {
         columns={columns}
         rows={paquetes}
         loading={loading}
+        error={error?.message}
+        onRetry={refetch}
         empty="Seleccione un apartamento para ver paquetes"
         keyField="idMensaje"
       />

@@ -5,7 +5,7 @@ import { DataTable } from '../components/ui/DataTable.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
 import Toast from '../components/ui/Toast.jsx';
-import { useFetch, useTiposDocumento } from '../lib/hooks.js';
+import { useFetch, useTiposDocumento, useLiveValidation } from '../lib/hooks.js';
 import api from '../lib/api.js';
 import { formatDate, formatMiles, imageSrc } from '../lib/utils.js';
 import {
@@ -72,8 +72,15 @@ export default function VisitasPage() {
   const savingRef = useRef(false);
 
   const { data: dataRaw, loading, refetch } = useFetch(() => api.get('/visitas'), []);
-  const { data: residentesRaw } = useFetch(() => api.get('/residentes?conUsuario=true'), []);
+  // Residentes para el selector del formulario: se cargan solo al abrir el modal
+  // (evita un request innecesario al montar la página de listado).
+  const [residentesCargados, setResidentesCargados] = useState(false);
+  const { data: residentesRaw } = useFetch(
+    () => (residentesCargados ? api.get('/residentes?conUsuario=true') : Promise.resolve([])),
+    [residentesCargados]
+  );
   const { tiposDoc } = useTiposDocumento();
+  const { touch, fieldError } = useLiveValidation();
 
   const residentes = (residentesRaw?.items || []).slice().sort(
     (a, b) => (parseInt(a.numeroApartamento, 10) || 0) - (parseInt(b.numeroApartamento, 10) || 0)
@@ -314,7 +321,7 @@ export default function VisitasPage() {
         subtitle="Registro de visitas al edificio"
         action={
           <div className="filters">
-            <Button icon="add" onClick={() => setModalRegistro(true)}>
+            <Button icon="add" onClick={() => { setResidentesCargados(true); setModalRegistro(true); }}>
               Nueva visita
             </Button>
             <Select
@@ -482,7 +489,8 @@ export default function VisitasPage() {
                 label="Teléfono"
                 value={form.telefono}
                 onChange={(e) => update('telefono', soloNumeros(e.target.value, 10))}
-                error={errors.telefono}
+                onBlur={() => touch('telefono')}
+                error={fieldError('telefono', valTelefono(form.telefono, { required: false })) || errors.telefono}
               />
               <Input
                 id="vis-email"
@@ -490,7 +498,8 @@ export default function VisitasPage() {
                 type="email"
                 value={form.email}
                 onChange={(e) => update('email', e.target.value)}
-                error={errors.email}
+                onBlur={() => touch('email')}
+                error={fieldError('email', valEmail(form.email, { required: false })) || errors.email}
               />
             </div>
             <h3 className="card-title" style={{ marginTop: '4px' }}>

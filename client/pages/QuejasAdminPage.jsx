@@ -54,7 +54,7 @@ export default function QuejasAdminPage() {
   const [fotoGrande, setFotoGrande] = useState(null);
   const intervalRef = useRef(null);
 
-  const { data, loading, refetch } = useFetch(() => api.get('/quejas/todas'), []);
+  const { data, loading, error, refetch } = useFetch(() => api.get('/quejas/todas'), []);
   const all = data?.items || data || [];
 
   const stats = {
@@ -253,6 +253,7 @@ export default function QuejasAdminPage() {
         rows={rows}
         loading={loading}
         empty="No hay solicitudes"
+            error={error?.message}
         keyField="idQueja"
         onRowClick={openDetalle}
       />
