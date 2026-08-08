@@ -18,6 +18,21 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      // Restaura la ruta SPA guardada por public/404.html (GitHub Pages no
+      // reescribe a index.html en rutas profundas). Solo actua si hay clave.
+      (function () {
+        try {
+          var saved = sessionStorage.getItem('saed_spa_redirect');
+          if (saved && saved.indexOf('/sistema-administracion-edificios/') === 0) {
+            sessionStorage.removeItem('saed_spa_redirect');
+            history.replaceState(null, '', saved);
+          }
+        } catch (e) {
+          /* storage no disponible: no-op */
+        }
+      })();
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
     <script type="module" src="/client/main.jsx"></script>
   </body>

@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <title>SAED — Redirigiendo…</title>
+    <script>
+      // GitHub Pages sirve este archivo ante cualquier ruta desconocida
+      // (p. ej. /sistema-administracion-edificios/login). Guardamos la ruta
+      // pedida y redirigimos a la raiz de la app para que React Router
+      // pueda restaurarla.
+      (function () {
+        try {
+          sessionStorage.setItem('saed_spa_redirect', location.pathname + location.search);
+        } catch (e) {
+          /* storage no disponible: igual se redirige a la raiz */
+        }
+        location.replace('/sistema-administracion-edificios/');
+      })();
+    </script>
+  </head>
+  <body></body>
+</html>
