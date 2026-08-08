@@ -11,7 +11,7 @@ import { formatDate } from '../lib/utils.js';
 
 export default function ResFrecuentesPage() {
   const { user } = useAuth();
-  const { tiposDoc } = useTiposDocumento();
+  const { tiposDoc, error: errorTiposDoc } = useTiposDocumento();
   const [toast, setToast] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState({
@@ -26,7 +26,6 @@ export default function ResFrecuentesPage() {
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState('');
-  const [fotoGrande, setFotoGrande] = useState(null);
 
   const { data, loading, refetch } = useFetch(
     () => api.get(`/residentes/${user?.idResidente}/frecuentes`),
@@ -42,7 +41,7 @@ export default function ResFrecuentesPage() {
   const filtrados = (data?.items || data || []).filter((f) => {
     if (!search) return true;
     const term = search.toLowerCase();
-    return [f.nombre, f.documento, f.placa]
+    return [f.nombreVisitante, f.documento, f.ultimaPlaca]
       .filter(Boolean)
       .some((v) => String(v).toLowerCase().includes(term));
   });
@@ -93,39 +92,10 @@ export default function ResFrecuentesPage() {
   }
 
   const columns = [
-    {
-      key: 'foto',
-      label: 'Foto',
-      width: 60,
-      render: (row) =>
-        row.fotoCaptura ? (
-          <img
-            src={`data:image/jpeg;base64,${row.fotoCaptura}`}
-            alt={row.nombre}
-            style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', cursor: 'zoom-in' }}
-            onClick={() => setFotoGrande(`data:image/jpeg;base64,${row.fotoCaptura}`)}
-          />
-        ) : (
-          <div
-            style={{
-              width: '40px',
-              height: '40px',
-              borderRadius: '50%',
-              background: '#e2e8f0',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#94a3b8',
-            }}
-          >
-            <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>person</span>
-          </div>
-        ),
-    },
-    { key: 'nombre', label: 'Nombre' },
+    { key: 'nombreVisitante', label: 'Nombre' },
     { key: 'documento', label: 'Documento' },
-    { key: 'placa', label: 'Placa' },
-    { key: 'ultimoIngreso', label: 'Último Ingreso', render: (r) => formatDate(r.ultimoIngreso) },
+    { key: 'ultimaPlaca', label: 'Placa' },
+    { key: 'ultimaVisita', label: 'Último Ingreso', render: (r) => formatDate(r.ultimaVisita) },
   ];
 
   return (
@@ -152,37 +122,30 @@ export default function ResFrecuentesPage() {
         )}
         {filtrados.map((f) => (
           <div
-            key={f.idFrecuente || f.id || f.documento}
+            key={f.idFrecuente}
             className="frecuente-card"
             style={{ flexDirection: 'row', alignItems: 'center', gap: '12px' }}
           >
-            {f.fotoCaptura ? (
-              <img
-                src={`data:image/jpeg;base64,${f.fotoCaptura}`}
-                alt={f.nombre}
-                style={{ width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover', cursor: 'zoom-in' }}
-                onClick={() => setFotoGrande(`data:image/jpeg;base64,${f.fotoCaptura}`)}
-              />
-            ) : (
-              <div
-                style={{
-                  width: '48px',
-                  height: '48px',
-                  borderRadius: '50%',
-                  background: '#e2e8f0',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#94a3b8',
-                }}
-              >
-                <span className="material-symbols-outlined">person</span>
-              </div>
-            )}
+            <div
+              style={{
+                width: '48px',
+                height: '48px',
+                borderRadius: '50%',
+                background: '#e2e8f0',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#94a3b8',
+                flexShrink: 0,
+              }}
+            >
+              <span className="material-symbols-outlined">person</span>
+            </div>
             <div style={{ flex: 1 }}>
-              <div className="name">{f.nombre || '—'}</div>
+              <div className="name">{f.nombreVisitante || '—'}</div>
               <div className="meta">Doc: {f.documento || '—'}</div>
-              {f.placa && <div className="meta">Placa: {f.placa}</div>}
+              {f.ultimaPlaca && <div className="meta">Placa: {f.ultimaPlaca}</div>}
+              {f.ultimaVisita && <div className="meta">Última visita: {formatDate(f.ultimaVisita)}</div>}
             </div>
           </div>
         ))}
@@ -217,6 +180,9 @@ export default function ResFrecuentesPage() {
               </option>
             ))}
           </Select>
+          {errorTiposDoc && !tiposDoc.length && (
+            <p style={{ color: '#e11d48', fontSize: '12px' }}>Error al cargar los tipos de documento</p>
+          )}
           <Input
             id="numeroDocumento"
             label="Número Documento"
@@ -258,28 +224,6 @@ export default function ResFrecuentesPage() {
           />
         </div>
       </Modal>
-
-      {fotoGrande && (
-        <div
-          onClick={() => setFotoGrande(null)}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.85)',
-            zIndex: 1000,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'zoom-out',
-          }}
-        >
-          <img
-            src={fotoGrande}
-            alt="Foto"
-            style={{ maxWidth: '90%', maxHeight: '90%', borderRadius: '8px' }}
-          />
-        </div>
-      )}
 
       <Toast toast={toast} />
     </div>

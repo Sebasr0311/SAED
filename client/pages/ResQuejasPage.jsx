@@ -105,6 +105,7 @@ export default function ResQuejasPage() {
     categoria: 'LIMPIEZA',
     titulo: '',
     descripcion: '',
+    idMulta: '',
   });
   const [sending, setSending] = useState(false);
   const [foto, setFoto] = useState(null);
@@ -116,6 +117,17 @@ export default function ResQuejasPage() {
     [user]
   );
 
+  const { data: multasData } = useFetch(
+    () =>
+      form.tipo === 'APELACION' && user?.idResidente
+        ? api.get(`/residentes/${user.idResidente}/dashboard`).catch(() => null)
+        : Promise.resolve(null),
+    [user, form.tipo]
+  );
+  const multas = ((multasData?.raw || multasData)?.multas || []).filter(
+    (m) => m.estado !== 'ANULADA'
+  );
+
   function update(k, v) {
     setForm((f) => ({ ...f, [k]: v }));
   }
@@ -125,13 +137,18 @@ export default function ResQuejasPage() {
       setToast({ message: 'Título y descripción son obligatorios', type: 'error' });
       return;
     }
+    if (form.tipo === 'APELACION' && !form.idMulta) {
+      setToast({ message: 'Seleccione la multa a apelar', type: 'error' });
+      return;
+    }
     setSending(true);
     try {
       const payload = { ...form, idResidente: user.idResidente };
+      if (form.tipo === 'APELACION' && form.idMulta) payload.idMulta = Number(form.idMulta);
       if (foto) payload.fotoEvidencia = foto;
       await api.post('/quejas', payload);
       setToast({ message: 'Solicitud enviada', type: 'success' });
-      setForm({ tipo: 'QUEJA', categoria: 'LIMPIEZA', titulo: '', descripcion: '' });
+      setForm({ tipo: 'QUEJA', categoria: 'LIMPIEZA', titulo: '', descripcion: '', idMulta: '' });
       setFoto(null);
       refetch();
     } catch (err) {
@@ -142,7 +159,7 @@ export default function ResQuejasPage() {
   }
 
   const columns = [
-    { key: 'id', label: 'ID', width: 60 },
+    { key: 'idQueja', label: 'ID', width: 60 },
     { key: 'tipo', label: 'Tipo' },
     { key: 'titulo', label: 'Título' },
     {
@@ -177,6 +194,29 @@ export default function ResQuejasPage() {
             ))}
           </Select>
         </div>
+        {form.tipo === 'APELACION' && (
+          <div className="form-group">
+            <Select
+              id="idMulta"
+              label="Multa a apelar"
+              value={form.idMulta}
+              onChange={(e) => update('idMulta', e.target.value)}
+            >
+              <option value="">— Seleccionar multa —</option>
+              {multas.map((m) => (
+                <option key={m.idMulta} value={m.idMulta}>
+                  Multa #{m.idMulta} — {m.tipo || 'Multa'}
+                  {m.monto ? ` — $${m.monto}` : ''}
+                </option>
+              ))}
+            </Select>
+            {multas.length === 0 && (
+              <p className="field-error" style={{ marginTop: '4px' }}>
+                No tienes multas para apelar
+              </p>
+            )}
+          </div>
+        )}
         <div className="form-group">
           <Input
             id="titulo"
@@ -230,7 +270,7 @@ export default function ResQuejasPage() {
         rows={data?.items || data || []}
         loading={loading}
         empty="No has enviado solicitudes"
-        keyField="id"
+        keyField="idQueja"
         onRowClick={setDetalle}
       />
 
@@ -265,7 +305,7 @@ export default function ResQuejasPage() {
               <div style={{ fontSize: '11px', color: '#475569', fontWeight: 600 }}>Descripción</div>
               <div style={{ fontSize: '13px', whiteSpace: 'pre-wrap' }}>{detalle.descripcion}</div>
             </div>
-            {detalle.respuesta && (
+            {detalle.respuestaAdmin && (
               <div
                 style={{
                   background: '#d1fae5',
@@ -275,7 +315,7 @@ export default function ResQuejasPage() {
                 }}
               >
                 <div style={{ fontSize: '11px', color: '#065f46', fontWeight: 600 }}>Respuesta del administrador</div>
-                <div style={{ fontSize: '13px', marginTop: '4px' }}>{detalle.respuesta}</div>
+                <div style={{ fontSize: '13px', marginTop: '4px' }}>{detalle.respuestaAdmin}</div>
               </div>
             )}
           </div>

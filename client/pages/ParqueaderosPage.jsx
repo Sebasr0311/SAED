@@ -27,6 +27,7 @@ function prefijoParq(tipo, esVisitante) {
 }
 
 const emptyForm = { tipo: 'VEHICULO', esVisitante: true, idApartamento: '', numero: '', estado: 'DISPONIBLE' };
+const PAGE_SIZE = 15;
 
 export default function ParqueaderosPage() {
   const { isPortero } = useAuth();
@@ -46,7 +47,7 @@ export default function ParqueaderosPage() {
     ...(filtroTipo ? { tipo: filtroTipo } : {}),
   });
   const { data, loading, refetch } = useFetch(() => api.get(`/parqueaderos?${qs}`), [filtroEstado, filtroTipo]);
-  const { data: apartamentos } = useFetch(() => api.get('/apartamentos?size=500'), []);
+  const { data: apartamentos } = useFetch(() => api.get('/apartamentos'), []);
 
   // Auto-refresh cada 10s si la pestaña está visible
   useEffect(() => {
@@ -57,6 +58,9 @@ export default function ParqueaderosPage() {
   }, [refetch]);
 
   const items = data?.items || data || [];
+  const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages - 1);
+  const rows = items.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
 
   const codigoGenerado = useMemo(() => {
     const prefijo = prefijoParq(form.tipo, form.esVisitante);
@@ -79,9 +83,21 @@ export default function ParqueaderosPage() {
       label: 'Estado',
       render: (r) => <span className={`badge ${ESTADO_BADGE[r.estado] || 'badge-neutral'}`}>{r.estado}</span>,
     },
-    { key: 'visitante', label: 'Visitante' },
-    { key: 'apartamento', label: 'Apartamento' },
-    { key: 'propietario', label: 'Propietario' },
+    {
+      key: 'esVisitante',
+      label: 'Visitante',
+      render: (r) => (r.esVisitante ? 'Visitante' : 'Residente'),
+    },
+    {
+      key: 'numeroApartamento',
+      label: 'Apartamento',
+      render: (r) => r.numeroApartamento || '-',
+    },
+    {
+      key: 'nombrePropietario',
+      label: 'Propietario',
+      render: (r) => r.nombrePropietario || '-',
+    },
     ...(isPortero
       ? []
       : [
@@ -219,7 +235,14 @@ export default function ParqueaderosPage() {
           </div>
         }
       />
-      <DataTable columns={columns} rows={items} loading={loading} empty="No hay parqueaderos" keyField="idParqueadero" />
+      <DataTable columns={columns} rows={rows} loading={loading} empty="No hay parqueaderos" keyField="idParqueadero" />
+      <Pagination
+        page={safePage}
+        totalPages={totalPages}
+        totalItems={items.length}
+        pageSize={PAGE_SIZE}
+        onPageChange={setPage}
+      />
 
       <Modal
         open={modalOpen}

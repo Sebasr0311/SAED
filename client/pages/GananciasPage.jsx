@@ -23,15 +23,15 @@ function Stat({ icon, value, label, color = 'primary' }) {
 }
 
 function exportarExcel(pagos, fechaInicio, fechaFin) {
-  const total = pagos.reduce((s, p) => s + Number(p.valorPagado || p.monto || 0), 0);
+  const total = pagos.reduce((s, p) => s + Number(p.valor || 0), 0);
   let xls =
     '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">' +
     '<head><meta charset="UTF-8"><style>table{width:100%;border-collapse:collapse}th{background:#0F2044;color:#fff}</style></head><body><table>' +
-    '<thead><tr><th>#</th><th>Fecha</th><th>Tipo</th><th>Apartamento</th><th>Residente</th><th>Método</th><th>Valor</th></tr></thead><tbody>';
+    '<thead><tr><th>#</th><th>Fecha</th><th>Tipo</th><th>Apartamento</th><th>Residente</th><th>Método</th><th>Valor</th><th>Descripción</th></tr></thead><tbody>';
   pagos.forEach((p) => {
-    xls += `<tr><td>${p.id || p.idPago}</td><td>${p.fechaPago || ''}</td><td>${p.tipo || 'Cuota'}</td><td>${p.numeroApartamento || ''}</td><td>${p.nombreResidente || ''}</td><td>${p.metodoPago || ''}</td><td>${p.valorPagado || p.monto || 0}</td></tr>`;
+    xls += `<tr><td>${p.id}</td><td>${p.fecha || ''}</td><td>${p.tipoPago || 'Cuota'}</td><td>${p.apartamento || ''}</td><td>${p.residente || ''}</td><td>${p.metodo || ''}</td><td>${p.valor ?? 0}</td><td>${p.descripcion || ''}</td></tr>`;
   });
-  xls += `</tbody><tfoot><tr><td colspan="6">Total</td><td>$${total.toLocaleString('es-CO')}</td></tr></tfoot></table></body></html>`;
+  xls += `</tbody><tfoot><tr><td colspan="7">Total</td><td>$${total.toLocaleString('es-CO')}</td></tr></tfoot></table></body></html>`;
   const blob = new Blob([xls], { type: 'application/vnd.ms-excel' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
@@ -54,11 +54,11 @@ export default function GananciasPage() {
 
   const filtrados = useMemo(() => {
     return all.filter((p) => {
-      const fecha = (p.fechaPago || '').slice(0, 10);
+      const fecha = (p.fecha || '').slice(0, 10);
       if (fecha && (fecha < fechaInicio || fecha > fechaFin)) return false;
       if (!search) return true;
       const term = search.toLowerCase();
-      return [p.numeroApartamento, p.nombreResidente, p.metodoPago, p.tipo]
+      return [p.apartamento, p.residente, p.metodo, p.tipoPago]
         .filter(Boolean)
         .some((v) => String(v).toLowerCase().includes(term));
     });
@@ -66,20 +66,21 @@ export default function GananciasPage() {
 
   const stats = useMemo(() => {
     const totalPagos = filtrados.length;
-    const totalIngresos = filtrados.reduce((s, p) => s + Number(p.valorPagado || p.monto || 0), 0);
-    const cuotas = filtrados.filter((p) => (p.tipo || 'CUOTA').toUpperCase().includes('CUOTA')).length;
-    const multas = filtrados.filter((p) => (p.tipo || '').toUpperCase().includes('MULTA')).length;
+    const totalIngresos = filtrados.reduce((s, p) => s + Number(p.valor || 0), 0);
+    const cuotas = filtrados.filter((p) => (p.tipoPago || 'CUOTA').toUpperCase().includes('CUOTA')).length;
+    const multas = filtrados.filter((p) => (p.tipoPago || '').toUpperCase().includes('MULTA')).length;
     return { totalPagos, totalIngresos, cuotas, multas };
   }, [filtrados]);
 
   const columns = [
-    { key: 'id', label: 'ID', width: 60, render: (r) => r.id || r.idPago },
-    { key: 'fechaPago', label: 'Fecha', render: (r) => formatDate(r.fechaPago) },
-    { key: 'tipo', label: 'Tipo', render: (r) => r.tipo || 'Cuota' },
-    { key: 'numeroApartamento', label: 'Apartamento' },
-    { key: 'nombreResidente', label: 'Residente' },
-    { key: 'metodoPago', label: 'Método' },
-    { key: 'valorPagado', label: 'Valor', render: (r) => formatCurrency(r.valorPagado || r.monto) },
+    { key: 'id', label: 'ID', width: 60 },
+    { key: 'fecha', label: 'Fecha', render: (r) => formatDate(r.fecha) },
+    { key: 'tipoPago', label: 'Tipo', render: (r) => r.tipoPago || 'Cuota' },
+    { key: 'apartamento', label: 'Apartamento' },
+    { key: 'residente', label: 'Residente' },
+    { key: 'metodo', label: 'Método' },
+    { key: 'valor', label: 'Valor', render: (r) => formatCurrency(r.valor) },
+    { key: 'descripcion', label: 'Descripción' },
   ];
 
   return (

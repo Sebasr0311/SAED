@@ -148,21 +148,21 @@ export default function ResidenteDashboardPage() {
   const { user } = useAuth();
   const { data } = useFetch(() => api.get(`/residentes/${user?.idResidente}/dashboard`), [user]);
   const { data: pagosPorMes } = useFetch(
-    () => api.get(`/pagos/registrados`).then((p) => p.filter((x) => x.idApartamento)),
+    () => api.get(`/pagos/registrados`),
     []
   );
   const resumen = data?.raw || data || {};
   const apartamento = resumen.apartamento || {};
   const contrato = resumen.contrato || {};
-  const cuotasArriendo = (resumen.cuotas || []).reduce((s, c) => s + Number(c.monto || c.valorMensual || 0), 0);
+  const cuotasArriendo = (resumen.cuotas || []).reduce((s, c) => s + Number(c.valorTotal || 0), 0);
   const multasPendientes = (resumen.multas || []).reduce(
     (s, m) => s + (m.estado === 'PENDIENTE' ? Number(m.monto || 0) : 0),
     0
   );
 
   const pagosPorEstado = (pagosPorMes?.items || pagosPorMes || []).reduce((acc, p) => {
-    const k = p.estado || 'OTROS';
-    acc[k] = (acc[k] || 0) + Number(p.valorPagado || p.monto || 0);
+    const k = p.tipoPago || 'OTROS';
+    acc[k] = (acc[k] || 0) + Number(p.valor || 0);
     return acc;
   }, {});
   const donutData = Object.entries(pagosPorEstado).map(([label, value]) => ({
@@ -198,7 +198,7 @@ export default function ResidenteDashboardPage() {
         <div style={{ marginTop: '20px' }}>
           <h3 style={{ marginBottom: '12px', fontSize: '16px', fontWeight: 700 }}>Resumen de pagos</h3>
           <div className="card-grid-2">
-            <DonutChart data={donutData} title="Distribución por estado" />
+            <DonutChart data={donutData} title="Distribución por tipo de pago" />
           </div>
         </div>
       )}

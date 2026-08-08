@@ -11,6 +11,7 @@ import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
 
 const ROLES = ['ADMINISTRADOR', 'PORTERO', 'RESIDENTE'];
+const PAGE_SIZE = 15;
 const emptyForm = { username: '', password: '', rol: 'RESIDENTE', idResidente: '', activo: true };
 
 const ROL_BADGE = {
@@ -44,8 +45,13 @@ export default function UsuariosPage() {
   const [confirmDel, setConfirmDel] = useState(null);
   const [pwdConfirmOpen, setPwdConfirmOpen] = useState(false);
 
-  const { data, loading, refetch } = useFetch(() => api.get(`/usuarios?page=${page}&size=20`), [page]);
-  const { data: residentes } = useFetch(() => api.get('/residentes?size=200'), []);
+  const { data, loading, refetch } = useFetch(() => api.get('/usuarios'), []);
+  const { data: residentes } = useFetch(() => api.get('/residentes'), []);
+
+  const items = data?.items || [];
+  const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages - 1);
+  const rows = items.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
 
   const columns = [
     { key: 'idUsuario', label: 'ID', width: 60 },
@@ -55,7 +61,11 @@ export default function UsuariosPage() {
       label: 'Rol',
       render: (r) => <span className={`badge ${ROL_BADGE[r.rol] || 'badge-neutral'}`}>{r.rol}</span>,
     },
-    { key: 'residente', label: 'Residente' },
+    {
+      key: 'nombreResidente',
+      label: 'Residente',
+      render: (r) => r.nombreResidente || '-',
+    },
     {
       key: 'activo',
       label: 'Activo',
@@ -104,6 +114,11 @@ export default function UsuariosPage() {
     try {
       const payload = { ...form };
       if (!payload.password) delete payload.password;
+      else {
+        payload.passwordHash = payload.password;
+        delete payload.password;
+      }
+      payload.idResidente = payload.idResidente ? Number(payload.idResidente) : null;
       if (editing) {
         await api.put(`/usuarios/${editing.idUsuario}`, payload);
         setToast({ message: 'Usuario actualizado', type: 'success' });
@@ -151,16 +166,16 @@ export default function UsuariosPage() {
       />
       <DataTable
         columns={columns}
-        rows={data?.items || []}
+        rows={rows}
         loading={loading}
         empty="No hay usuarios"
         keyField="idUsuario"
       />
       <Pagination
-        page={page}
-        totalPages={data?.totalPages || 1}
-        totalItems={data?.totalItems}
-        pageSize={20}
+        page={safePage}
+        totalPages={totalPages}
+        totalItems={items.length}
+        pageSize={PAGE_SIZE}
         onPageChange={setPage}
       />
 
@@ -210,7 +225,7 @@ export default function UsuariosPage() {
           >
             <option value="">— Ninguno —</option>
             {(residentes?.items || []).map((r) => (
-              <option key={r.idResidente} value={r.idResidente}>
+              <option key={r.id} value={r.id}>
                 {r.nombres} {r.apellidos}
               </option>
             ))}
