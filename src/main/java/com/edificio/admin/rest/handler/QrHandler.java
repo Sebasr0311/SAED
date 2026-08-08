@@ -11,6 +11,7 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import java.io.*;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.*;
 
 public class QrHandler extends BaseHandler implements HttpHandler {
@@ -39,8 +40,20 @@ public class QrHandler extends BaseHandler implements HttpHandler {
                 QRAcceso qr = qrDAO.findByCodigo(codigoQr);
                 if (qr == null) throw new Exception("QR no encontrado");
                 if (qr.isUsado()) throw new Exception("QR ya fue usado");
-                if (qr.getFechaExpiracion() != null && qr.getFechaExpiracion().isBefore(LocalDateTime.now()))
-                    throw new Exception("QR expirado");
+                if (qr.getFechaExpiracion() != null) {
+                    // Comparar contra el reloj del sistema (epoch ms) en vez de LocalDateTime
+                    // para evitar desfase entre la zona de la BD y la zona de la JVM. La
+                    // fechaExpiracion se guardó con CURRENT_TIMESTAMP en BD y se leyó con
+                    // toLocalDateTime() en JVM; al reconstruir con la misma zona local
+                    // (ZoneId.systemDefault) y comparar con System.currentTimeMillis() ambos
+                    // lados usan la misma referencia, eliminando el offset.
+                    long expMs = qr.getFechaExpiracion()
+                        .atZone(ZoneId.systemDefault())
+                        .toInstant()
+                        .toEpochMilli();
+                    if (expMs < System.currentTimeMillis())
+                        throw new Exception("QR expirado");
+                }
 
                 Map<String, Object> res = qrDAO.findValidationData(codigoQr);
                 if (res == null) throw new Exception("QR inv\u00e1lido: datos incompletos de la visita");
