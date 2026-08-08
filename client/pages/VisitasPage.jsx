@@ -32,9 +32,9 @@ export default function VisitasPage() {
     size: 20,
     ...(filtroEstado ? { estado: filtroEstado } : {}),
   });
-  const { data, loading, refetch } = useFetch(() => api.get(`/visitas?${qs}`), [page, filtroEstado]);
+  const { data: dataRaw, loading, refetch } = useFetch(() => api.get(`/visitas?${qs}`), [page, filtroEstado]);
 
-  const filtradas = (data || []).filter((v) => {
+  const filtradas = (dataRaw?.items || dataRaw || []).filter((v) => {
     if (!filtroFecha) return true;
     const fecha = (v.fechaVisita || '').slice(0, 10);
     return fecha === filtroFecha;

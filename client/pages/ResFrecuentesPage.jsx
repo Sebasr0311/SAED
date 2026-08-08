@@ -44,7 +44,7 @@ export default function ResFrecuentesPage() {
     [user]
   );
 
-  const filtrados = (data || []).filter((f) => {
+  const filtrados = (data?.items || data || []).filter((f) => {
     if (!search) return true;
     const term = search.toLowerCase();
     return [f.nombre, f.documento, f.placa]
