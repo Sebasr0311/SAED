@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import { mapEntityId } from './mappers.js';
 import api from './api.js';
 
 /**
@@ -12,7 +11,7 @@ function normalize(data) {
   }
   if (Array.isArray(data)) {
     return {
-      items: data.map(mapEntityId),
+      items: data,
       totalItems: data.length,
       totalPages: 1,
       raw: data,
@@ -21,7 +20,7 @@ function normalize(data) {
   if (data.items) {
     return {
       ...data,
-      items: data.items.map(mapEntityId),
+      items: data.items,
       raw: data,
     };
   }
@@ -71,22 +70,9 @@ export function useArray(fetcher, deps = []) {
   };
 }
 
-// Catalogo de tipos de documento: usa /tipos-documento y cae al seed Oracle
-// (CC=1, TI=2, CE=3, PP=4, PEP=5, RC=6, NIT=7) si el endpoint falla.
-const TIPOS_DOC_FALLBACK = [
-  { idTipoDoc: 1, descripcion: 'Cédula de Ciudadanía' },
-  { idTipoDoc: 2, descripcion: 'Tarjeta de Identidad' },
-  { idTipoDoc: 3, descripcion: 'Cédula de Extranjería' },
-  { idTipoDoc: 4, descripcion: 'Pasaporte' },
-  { idTipoDoc: 5, descripcion: 'Permiso Especial de Permanencia' },
-  { idTipoDoc: 6, descripcion: 'Registro Civil' },
-  { idTipoDoc: 7, descripcion: 'NIT' },
-];
-
 export function useTiposDocumento() {
   const { data, loading, error } = useFetch(() => api.get('/tipos-documento'), []);
-  const items = data?.items?.length ? data.items : TIPOS_DOC_FALLBACK;
-  return { tiposDoc: items, loading, error };
+  return { tiposDoc: data?.items || [], loading, error };
 }
 
 export function useToast() {
