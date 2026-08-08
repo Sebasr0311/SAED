@@ -9,14 +9,6 @@ import { Modal } from '../components/ui/Modal.jsx';
 import Toast from '../components/ui/Toast.jsx';
 import { valTelefono, valUsername, todayStr, dateToStr } from '../lib/utils.js';
 
-const TIPOS_DOC = [
-  { value: 1, nombre: 'C.C.' },
-  { value: 2, nombre: 'C.E.' },
-  { value: 3, nombre: 'NIT' },
-  { value: 4, nombre: 'Pasaporte' },
-  { value: 5, nombre: 'T.I.' },
-];
-
 export default function ResPerfilPage() {
   const { user } = useAuth();
   const [toast, setToast] = useState(null);

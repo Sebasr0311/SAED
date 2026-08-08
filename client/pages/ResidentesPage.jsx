@@ -7,14 +7,8 @@ import { Modal } from '../components/ui/Modal.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { ConfirmPasswordDialog } from '../components/ui/ConfirmPasswordDialog.jsx';
 import Toast from '../components/ui/Toast.jsx';
-import { useFetch } from '../lib/hooks.js';
+import { useFetch, useTiposDocumento } from '../lib/hooks.js';
 import api from '../lib/api.js';
-
-const TIPO_DOC_OPTS = [
-  { value: 1, nombre: 'Cédula' },
-  { value: 2, nombre: 'Pasaporte' },
-  { value: 3, nombre: 'Tarjeta Identidad' },
-];
 
 const emptyForm = {
   idTipoDocumento: 1,
@@ -58,7 +52,7 @@ export default function ResidentesPage() {
     () => api.get(`/residentes?page=${page}&size=20&search=${encodeURIComponent(search)}`),
     [page, search]
   );
-  const { data: tiposDoc } = useFetch(() => api.get('/tipos-documento'), []);
+  const { tiposDoc } = useTiposDocumento();
   const { data: apartamentos } = useFetch(() => api.get('/apartamentos?size=200'), []);
 
   const columns = [
@@ -204,9 +198,9 @@ export default function ResidentesPage() {
             value={form.idTipoDocumento}
             onChange={(e) => update('idTipoDocumento', Number(e.target.value))}
           >
-            {(tiposDoc?.items || TIPO_DOC_OPTS).map((t) => (
-              <option key={t.idTipoDocumento || t.value} value={t.idTipoDocumento || t.value}>
-                {t.nombre}
+            {tiposDoc.map((t) => (
+              <option key={t.idTipoDocumento ?? t.idTipoDoc ?? t.value} value={t.idTipoDocumento ?? t.idTipoDoc ?? t.value}>
+                {t.descripcion || t.nombre}
               </option>
             ))}
           </Select>

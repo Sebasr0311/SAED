@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useFetch } from '../lib/hooks.js';
+import { useFetch, useTiposDocumento } from '../lib/hooks.js';
 import api from '../lib/api.js';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
@@ -9,14 +9,9 @@ import { Input, Select } from '../components/ui/Form.jsx';
 import Toast from '../components/ui/Toast.jsx';
 import { formatDate } from '../lib/utils.js';
 
-const TIPOS_DOC = [
-  { value: 1, nombre: 'C.C.' },
-  { value: 2, nombre: 'C.E.' },
-  { value: 4, nombre: 'Pasaporte' },
-];
-
 export default function ResFrecuentesPage() {
   const { user } = useAuth();
+  const { tiposDoc } = useTiposDocumento();
   const [toast, setToast] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState({
@@ -216,9 +211,9 @@ export default function ResFrecuentesPage() {
             value={form.idTipoDoc}
             onChange={(e) => setForm((f) => ({ ...f, idTipoDoc: Number(e.target.value) }))}
           >
-            {TIPOS_DOC.map((t) => (
-              <option key={t.value} value={t.value}>
-                {t.nombre}
+            {tiposDoc.map((t) => (
+              <option key={t.idTipoDoc ?? t.value} value={t.idTipoDoc ?? t.value}>
+                {t.descripcion || t.nombre}
               </option>
             ))}
           </Select>

@@ -5,15 +5,8 @@ import { PageHeader } from '../components/ui/PageHeader.jsx';
 import Toast from '../components/ui/Toast.jsx';
 import api from '../lib/api.js';
 import { useAuth } from '../lib/AuthContext.jsx';
-import { useFetch } from '../lib/hooks.js';
+import { useFetch, useTiposDocumento } from '../lib/hooks.js';
 import { valPlaca, formatMiles } from '../lib/utils.js';
-
-const TIPOS_DOC = [
-  { value: 1, nombre: 'C.C.' },
-  { value: 2, nombre: 'C.E.' },
-  { value: 4, nombre: 'Pasaporte' },
-  { value: 5, nombre: 'T.I.' },
-];
 
 const emptyVisitante = {
   idTipoDoc: 1,
@@ -37,6 +30,7 @@ const emptyForm = {
 
 export default function ResVisitaPage() {
   const { user } = useAuth();
+  const { tiposDoc } = useTiposDocumento();
   const [toast, setToast] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [errors, setErrors] = useState({});
@@ -159,9 +153,9 @@ export default function ResVisitaPage() {
               value={form.visitante.idTipoDoc}
               onChange={(e) => update('visitante.idTipoDoc', Number(e.target.value))}
             >
-              {TIPOS_DOC.map((t) => (
-                <option key={t.value} value={t.value}>
-                  {t.nombre}
+              {tiposDoc.map((t) => (
+                <option key={t.idTipoDoc ?? t.value} value={t.idTipoDoc ?? t.value}>
+                  {t.descripcion || t.nombre}
                 </option>
               ))}
             </Select>
