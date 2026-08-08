@@ -48,10 +48,11 @@ export default function ResVisitaPage() {
   const { data: visitanteExistente } = useFetch(
     () =>
       buscarDoc.length >= 4
-        ? api.get(`/visitantes?documento=${encodeURIComponent(buscarDoc)}`).catch(() => null)
+        ? api.get(`/visitas/buscar?documento=${encodeURIComponent(buscarDoc)}`).catch(() => null)
         : Promise.resolve(null),
     [buscarDoc]
   );
+  const visitanteEncontrado = visitanteExistente?.raw || visitanteExistente;
 
   function update(path, value) {
     setForm((f) => {
@@ -72,16 +73,16 @@ export default function ResVisitaPage() {
     setBuscarDoc(doc);
   }
   // Si encuentra visitante existente, autollenar
-  if (visitanteExistente && visitanteExistente.nombres && form.visitante.nombres === '' && form.visitante.numeroDocumento === visitanteExistente.numeroDocumento) {
+  if (visitanteEncontrado && visitanteEncontrado.nombres && form.visitante.nombres === '' && form.visitante.numeroDocumento === visitanteEncontrado.numeroDocumento) {
     setForm((f) => ({
       ...f,
       visitante: {
-        idTipoDoc: visitanteExistente.idTipoDoc || 1,
-        numeroDocumento: visitanteExistente.numeroDocumento || '',
-        nombres: visitanteExistente.nombres || '',
-        apellidos: visitanteExistente.apellidos || '',
-        telefono: visitanteExistente.telefono || '',
-        email: visitanteExistente.email || '',
+        idTipoDoc: visitanteEncontrado.idTipoDoc || 1,
+        numeroDocumento: visitanteEncontrado.numeroDocumento || '',
+        nombres: visitanteEncontrado.nombres || '',
+        apellidos: visitanteEncontrado.apellidos || '',
+        telefono: visitanteEncontrado.telefono || '',
+        email: visitanteEncontrado.email || '',
       },
     }));
   }
@@ -109,11 +110,11 @@ export default function ResVisitaPage() {
         tiempoValidezMin: form.tiempoValidezMin,
         cantidadPersonas: form.cantidadPersonas,
         motivo: form.motivo,
-        vehiculo:
-          form.medioTransporte === 'CARRO' || form.medioTransporte === 'MOTO'
-            ? { placa: form.placa.toUpperCase(), tipo: form.medioTransporte }
-            : null,
       };
+      // Solo incluir vehiculo si hay placa; el backend explota si la key llega null
+      if (form.medioTransporte === 'CARRO' || form.medioTransporte === 'MOTO') {
+        payload.vehiculo = { placa: form.placa.toUpperCase(), tipo: form.medioTransporte };
+      }
       const res = await api.post('/visitas', payload);
       setQrGenerado(res);
       setToast({ message: 'Visita registrada, QR generado', type: 'success' });
@@ -172,9 +173,9 @@ export default function ResVisitaPage() {
               error={errors['visitante.numeroDocumento']}
             />
           </div>
-          {visitanteExistente && visitanteExistente.nombres && (
+          {visitanteEncontrado && visitanteEncontrado.nombres && (
             <p style={{ fontSize: '12px', color: '#10B981', marginTop: '-8px', marginBottom: '12px' }}>
-              Visitante encontrado: {visitanteExistente.nombres} {visitanteExistente.apellidos}
+              Visitante encontrado: {visitanteEncontrado.nombres} {visitanteEncontrado.apellidos}
             </p>
           )}
           <div className="form-row">

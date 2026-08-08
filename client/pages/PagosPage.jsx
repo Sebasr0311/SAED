@@ -74,7 +74,10 @@ export default function PagosPage() {
   const loading = loadingCuotas || loadingMultas;
 
   const residentes = useMemo(() => {
-    const agrupado = agruparPorApartamento(cuotas, (multas || []).filter((m) => m.estado === 'PENDIENTE'));
+    const agrupado = agruparPorApartamento(
+      cuotas?.items || cuotas || [],
+      (multas?.items || multas || []).filter((m) => m.estado === 'PENDIENTE')
+    );
     if (!search) return agrupado;
     const term = search.toLowerCase();
     return agrupado.filter(
@@ -85,8 +88,8 @@ export default function PagosPage() {
   }, [cuotas, multas, search]);
 
   const kpis = useMemo(() => {
-    const cuotasPendientes = (cuotas || []).reduce((s, c) => s + Number(c.montoPendiente || c.monto || 0), 0);
-    const multasPendientes = (multas || [])
+    const cuotasPendientes = (cuotas?.items || cuotas || []).reduce((s, c) => s + Number(c.montoPendiente || c.monto || 0), 0);
+    const multasPendientes = (multas?.items || multas || [])
       .filter((m) => m.estado === 'PENDIENTE')
       .reduce((s, m) => s + Number(m.monto || 0), 0);
     return { cuotasPendientes, multasPendientes, aptosConSaldo: residentes.length };

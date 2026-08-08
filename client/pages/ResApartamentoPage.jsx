@@ -15,18 +15,17 @@ function DetailRow({ label, value }) {
 
 export default function ResApartamentoPage() {
   const { user } = useAuth();
-  const { data: apto } = useFetch(() => api.get(`/apartamentos/residente/${user?.idResidente}`), [user]);
-  const { data: contrato } = useFetch(
-    () => api.get(`/contratos`).then((cs) => (cs || []).find((c) => c.idApartamento === apto?.idApartamento)),
-    [apto]
-  );
+  const { data: info } = useFetch(() => api.get(`/residentes/${user?.idResidente}/dashboard`), [user]);
+  const d = info?.raw || info || {};
+  const apto = d.apartamento || {};
+  const contrato = d.contrato || {};
   const { data: residentes } = useFetch(
-    () => (apto ? api.get(`/residentes?idApartamento=${apto.idApartamento}`) : Promise.resolve([])),
-    [apto]
+    () => (apto?.idApartamento ? api.get(`/residentes?idApartamento=${apto.idApartamento}`) : Promise.resolve([])),
+    [apto?.idApartamento]
   );
 
-  const a = apto || {};
-  const c = contrato || {};
+  const a = apto;
+  const c = contrato;
   const rs = residentes?.items || residentes || [];
 
   return (

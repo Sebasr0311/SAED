@@ -27,7 +27,7 @@ export default function PaquetesPage() {
     () => (selectedApto ? api.get(`/buzon?idApartamento=${selectedApto}`) : Promise.resolve([])),
     [selectedApto]
   );
-  const paquetes = (paquetesRaw || []).filter((p) => p.tipo === 'PAQUETE');
+  const paquetes = (paquetesRaw?.items || paquetesRaw || []).filter((p) => p.tipo === 'PAQUETE');
 
   useEffect(() => {
     return () => detenerCamara();

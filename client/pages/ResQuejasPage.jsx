@@ -112,7 +112,7 @@ export default function ResQuejasPage() {
   const [detalle, setDetalle] = useState(null);
 
   const { data, loading, refetch } = useFetch(
-    () => api.get(`/quejas/residente/${user?.idResidente}`),
+    () => api.get(`/quejas`),
     [user]
   );
 
@@ -227,7 +227,7 @@ export default function ResQuejasPage() {
       <h3 style={{ marginBottom: '12px', fontSize: '15px', fontWeight: 600 }}>Historial</h3>
       <DataTable
         columns={columns}
-        rows={data || []}
+        rows={data?.items || data || []}
         loading={loading}
         empty="No has enviado solicitudes"
         keyField="id"

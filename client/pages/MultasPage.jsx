@@ -37,7 +37,7 @@ export default function MultasPage() {
   });
   const { data, loading, refetch } = useFetch(() => api.get(`/multas/todas`), []);
 
-  const items = (data || []).filter((m) => !filtroEstado || m.estado === filtroEstado);
+  const items = (data?.items || data || []).filter((m) => !filtroEstado || m.estado === filtroEstado);
 
   async function verDetalle(row) {
     setLoadingDetalle(true);

@@ -26,9 +26,10 @@ export default function ResPerfilPage() {
   const [saving, setSaving] = useState(false);
 
   const { data, refetch } = useFetch(() => api.get(`/residentes/${user?.idResidente}`), [user]);
+  const perfil = data?.raw || data || {};
 
   function openEdit() {
-    setEdit({ telefono: data?.telefono || '', email: data?.email || '' });
+    setEdit({ telefono: perfil.telefono || '', email: perfil.email || '' });
     setErrors({});
     setModalOpen(true);
   }
@@ -69,29 +70,29 @@ export default function ResPerfilPage() {
           <Input
             id="nombres"
             label="Nombres"
-            value={`${data?.nombres || ''} ${data?.apellidos || ''}`.trim()}
+            value={`${perfil.nombres || ''} ${perfil.apellidos || ''}`.trim()}
             readOnly
           />
-          <Input id="documento" label="Documento" value={data?.numeroDocumento || ''} readOnly />
+          <Input id="documento" label="Documento" value={perfil.numeroDocumento || ''} readOnly />
         </div>
         <div className="form-row">
           <Input
             id="fechaNacimiento"
             label="Fecha de Nacimiento"
-            value={dateToStr(data?.fechaNacimiento) || ''}
+            value={dateToStr(perfil.fechaNacimiento) || ''}
             readOnly
           />
-          <Input id="telefono" label="Teléfono" value={data?.telefono || ''} readOnly />
+          <Input id="telefono" label="Teléfono" value={perfil.telefono || ''} readOnly />
         </div>
         <div className="form-group">
-          <Input id="email" label="Email" value={data?.email || ''} readOnly />
+          <Input id="email" label="Email" value={perfil.email || ''} readOnly />
         </div>
-        {data?.idApartamento && (
+        {perfil.idApartamento && (
           <div className="form-group">
             <Input
               id="apartamento"
               label="Apartamento"
-              value={`Apto ${data?.numeroApartamento || ''}`}
+              value={`Apto ${perfil.numeroApartamento || ''}`}
               readOnly
             />
           </div>

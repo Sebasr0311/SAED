@@ -23,7 +23,7 @@ function ApartamentoMultiSelect({ apartamentos, selected, onChange }) {
   }, []);
 
   const porPiso = {};
-  (apartamentos || []).forEach((a) => {
+  (apartamentos?.items || apartamentos || []).forEach((a) => {
     if (!porPiso[a.piso]) porPiso[a.piso] = [];
     porPiso[a.piso].push(a);
   });
@@ -168,7 +168,7 @@ export default function AvisosPage() {
       />
       <DataTable
         columns={columns}
-        rows={avisos || []}
+        rows={avisos?.items || avisos || []}
         loading={loading}
         empty="No hay avisos enviados"
         keyField="idMensaje"

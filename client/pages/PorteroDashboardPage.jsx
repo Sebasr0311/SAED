@@ -147,7 +147,7 @@ function ModalAvisoRuido({ open, onClose, onConfirm, apartamentos }) {
           onChange={(e) => setIdApartamento(e.target.value)}
         >
           <option value="">— Seleccionar —</option>
-          {(apartamentos || [])
+          {(apartamentos?.items || apartamentos || [])
             .filter((a) => a.estado === 'OCUPADO')
             .map((a) => (
               <option key={a.idApartamento} value={a.idApartamento}>
@@ -252,7 +252,7 @@ function ModalGenerarMulta({ open, onClose, onConfirm, apartamentos, quejasRuido
           onChange={(e) => setIdApartamento(e.target.value)}
         >
           <option value="">— Seleccionar —</option>
-          {(apartamentos || [])
+          {(apartamentos?.items || apartamentos || [])
             .filter((a) => a.estado === 'OCUPADO')
             .map((a) => (
               <option key={a.idApartamento} value={a.idApartamento}>
@@ -353,7 +353,7 @@ function ModalPaquetes({ open, onClose, onConfirm }) {
             ),
           },
         ]}
-        rows={paquetes || []}
+        rows={paquetes?.items || paquetes || []}
         empty="No hay paquetes pendientes"
         keyField="idMensaje"
       />
@@ -402,9 +402,9 @@ export default function PorteroDashboardPage() {
     [modalMulta]
   );
 
-  const visitasHoyCount = visitasHoy?.length ?? '—';
-  const visitasActivas = (visitasHoy || []).filter((v) => v.estado === 'EN_CURSO' || v.estado === 'PENDIENTE').length;
-  const parqDisponibles = (parqueaderos || []).filter((p) => p.esVisitante).length;
+  const visitasHoyCount = visitasHoy?.items?.length ?? visitasHoy?.length ?? '—';
+  const visitasActivas = (visitasHoy?.items || visitasHoy || []).filter((v) => v.estado === 'EN_CURSO' || v.estado === 'PENDIENTE').length;
+  const parqDisponibles = (parqueaderos?.items || parqueaderos || []).filter((p) => p.esVisitante).length;
   const paquetesCount = paquetes?.count ?? '—';
 
   function showToast(t) {
@@ -488,7 +488,7 @@ export default function PorteroDashboardPage() {
           showToast({ message: 'Multa generada', type: 'success' });
         }}
         apartamentos={apartamentos?.items || []}
-        quejasRuido={quejasRuido}
+        quejasRuido={quejasRuido?.items || quejasRuido || []}
         tipoInicial={modalMulta}
       />
 

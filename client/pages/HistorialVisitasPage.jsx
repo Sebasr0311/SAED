@@ -10,7 +10,7 @@ import api from '../lib/api.js';
 import { formatDate, todayStr } from '../lib/utils.js';
 
 function exportarExcel(visitas, fechaInicio, fechaFin) {
-  const xls =
+  let xls =
     '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">' +
     '<head><meta charset="UTF-8"><style>table{width:100%;border-collapse:collapse}th{background:#0F2044;color:#fff}</style></head><body><table>' +
     '<thead><tr><th>Fecha</th><th>Visitante</th><th>Documento</th><th>Apartamento</th><th>Residente</th><th>Entrada</th><th>Salida</th><th>Tipo Vehiculo</th><th>Placa</th><th>Parqueadero</th><th>Estado</th></tr></thead><tbody>';

@@ -5,7 +5,7 @@ import { useAuth } from '../lib/AuthContext.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { Button } from '../components/ui/Button.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
-import { Input } from '../components/ui/Form.jsx';
+import { Input, Select } from '../components/ui/Form.jsx';
 import Toast from '../components/ui/Toast.jsx';
 import { formatDate } from '../lib/utils.js';
 

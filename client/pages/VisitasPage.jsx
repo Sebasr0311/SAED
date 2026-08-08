@@ -178,8 +178,8 @@ export default function VisitasPage() {
       />
       <Pagination
         page={page}
-        totalPages={data?.totalPages || 1}
-        totalItems={data?.totalItems}
+        totalPages={dataRaw?.totalPages || 1}
+        totalItems={dataRaw?.totalItems}
         pageSize={20}
         onPageChange={setPage}
       />

@@ -53,19 +53,31 @@ export default function QuejasAdminPage() {
   const [fotoGrande, setFotoGrande] = useState(null);
   const intervalRef = useRef(null);
 
-  const qs = new URLSearchParams({
-    page,
-    size: 20,
-    ...(filtroEstado ? { estado: filtroEstado } : {}),
-    ...(filtroTipo ? { tipo: filtroTipo } : {}),
-    ...(filtroPrioridad ? { prioridad: filtroPrioridad } : {}),
-  });
-  const { data, loading, refetch } = useFetch(() => api.get(`/quejas?${qs}`), [
-    page,
-    filtroEstado,
-    filtroTipo,
-    filtroPrioridad,
-  ]);
+  const { data, loading, refetch } = useFetch(() => api.get('/quejas/todas'), []);
+  const all = data?.items || data || [];
+
+  const stats = {
+    total: all.length,
+    pendientes: all.filter((i) => i.estado === 'PENDIENTE').length,
+    revision: all.filter((i) => i.estado === 'EN_REVISION').length,
+    resueltas: all.filter((i) => i.estado === 'RESUELTA' || i.estado === 'CERRADA').length,
+  };
+
+  const filtradas = (() => {
+    const base = all.filter((r) => {
+      if (!search) return true;
+      const term = search.toLowerCase();
+      return [r.titulo, r.descripcion, r.numeroApartamento, r.nombreResidente]
+        .filter(Boolean)
+        .some((v) => String(v).toLowerCase().includes(term));
+    });
+    return base.filter((r) => {
+      if (filtroEstado && r.estado !== filtroEstado) return false;
+      if (filtroTipo && r.tipo !== filtroTipo) return false;
+      if (filtroPrioridad && r.prioridad !== filtroPrioridad) return false;
+      return true;
+    });
+  })();
 
   // Auto-refresh cada 5s (reducido de 1.5s del vanilla para no saturar)
   useEffect(() => {
@@ -74,24 +86,6 @@ export default function QuejasAdminPage() {
     }, 5000);
     return () => clearInterval(intervalRef.current);
   }, [refetch]);
-
-  const stats = (() => {
-    const items = data?.items || data || [];
-    return {
-      total: items.length,
-      pendientes: items.filter((i) => i.estado === 'PENDIENTE').length,
-      revision: items.filter((i) => i.estado === 'EN_REVISION').length,
-      resueltas: items.filter((i) => i.estado === 'RESUELTA' || i.estado === 'CERRADA').length,
-    };
-  })();
-
-  const filtradas = (data?.items || data || []).filter((r) => {
-    if (!search) return true;
-    const term = search.toLowerCase();
-    return [r.titulo, r.descripcion, r.numeroApartamento, r.nombreResidente]
-      .filter(Boolean)
-      .some((v) => String(v).toLowerCase().includes(term));
-  });
 
   function openDetalle(row) {
     setModal(row);

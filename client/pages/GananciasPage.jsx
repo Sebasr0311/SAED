@@ -50,10 +50,10 @@ export default function GananciasPage() {
   const [fechaFin, setFechaFin] = useState(todayStr());
 
   const { data: pagos, loading } = useFetch(() => api.get('/pagos/registrados'), []);
+  const all = pagos?.items || pagos || [];
 
   const filtrados = useMemo(() => {
-    if (!pagos) return [];
-    return pagos.filter((p) => {
+    return all.filter((p) => {
       const fecha = (p.fechaPago || '').slice(0, 10);
       if (fecha && (fecha < fechaInicio || fecha > fechaFin)) return false;
       if (!search) return true;
@@ -62,7 +62,7 @@ export default function GananciasPage() {
         .filter(Boolean)
         .some((v) => String(v).toLowerCase().includes(term));
     });
-  }, [pagos, search, fechaInicio, fechaFin]);
+  }, [all, search, fechaInicio, fechaFin]);
 
   const stats = useMemo(() => {
     const totalPagos = filtrados.length;
