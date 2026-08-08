@@ -683,5 +683,119 @@
 
 
 ================================================================================
+  20. FRONTEND REACT + VITE + TAILWIND (Migracion desde vanilla JS)
+================================================================================
+
+  20.1 Estructura
+    - React 18.3 + react-router-dom 6.30 + Vite 5
+    - Tailwind CSS 3.4 con design system SAED v4 (navy/amber/slate palette)
+    - Codigo en raiz del repo (no frontend-react/) — client/ para React, src/main/java para Java
+    - index.html apunta a /client/main.jsx con base path dinamico
+      (VITE_BASE_PATH env var) para funcionar en Vercel y GitHub Pages
+    - public/ con imagenes (logo, galeria, etc.)
+    - .codegraph/ ignorado (CodeGraph init para exploracion)
+    - .gitignore: dist/, node_modules/, .codegraph/
+
+  20.2 Componentes compartidos (client/components/)
+    - ui/Button.jsx: variantes primary/accent/outline/danger/ghost/warn/success
+      + sizes sm/xs + loading spinner
+    - ui/Form.jsx: Input, Select, Textarea con label, error, required, onKeyDown
+    - ui/Modal.jsx: overlay con backdrop, sizes sm/md/lg/xl, footer customizable
+    - ui/DataTable.jsx: columnas configurables, render custom, selectedKey,
+      empty state, loading state
+    - ui/Pagination.jsx: botones anterior/siguiente, info de total
+    - ui/ConfirmDialog.jsx: dialogo si/no simple
+    - ui/ConfirmPasswordDialog.jsx: REQUIERE POST /api/auth/verify-password
+      antes de acciones destructivas (eliminar, etc.)
+    - ui/Toast.jsx: notificaciones temporales (success/error/warning/info)
+    - ui/PageHeader.jsx: header estandar con title, subtitle, action
+    - layout/AppShell.jsx: sidebar colapsable 72px->240px + topbar sticky
+      con navegacion por rol (ADMINISTRADOR/PORTERO/RESIDENTE)
+
+  20.3 Hooks y utils (client/lib/)
+    - api.js: wrapper fetch con Bearer token, timeout 30s (AbortController),
+      redirect a /login en 401, exporta {get, post, put, del}
+    - AuthContext.jsx: sessionStorage, useAuth() expone {user, login, logout,
+      isAuthenticated, isAdmin, isPortero, isResidente}
+    - hooks.js: useFetch(fetcher, deps) con loading/error/refetch, useToast
+    - mappers.js: normaliza id (backend) a idXxx (idResidente, idUsuario, etc.)
+    - utils.js: formatDate, formatCurrency, classNames, todayStr, dateToStr,
+      formatMiles, parseMiles, valPlaca, valTelefono, valUsername, valPassword
+
+  20.4 Paginas (24 totales en client/pages/)
+    LoginPage, DashboardPage,
+    Admin: ResidentesPage, ApartamentosPage, ContratosPage, UsuariosPage,
+          VisitasPage, ParqueaderosPage, PagosPage, MultasPage, AlertasPage,
+          AvisosPage, QuejasAdminPage, GananciasPage, HistorialVisitasPage,
+          PaquetesAdminPage, EscannerQRPage
+    Portero: PorteroDashboardPage, PaquetesPage
+    Residente: ResidenteDashboardPage, ResPerfilPage, ResApartamentoPage,
+              ResCuotasPage, ResFrecuentesPage, ResBuzonPage, ResVisitaPage,
+              ResQuejasPage
+
+  20.5 Estilo (client/index.css)
+    - @tailwind base/components/utilities
+    - @layer base: reset, fuentes, scrollbar custom, selection, inputs/buttons base
+    - @layer components: 80+ clases del design system SAED v4
+      (card, stat-card, action-card, data-table, btn-*, badge-*,
+      modal-*, multi-select, tab, floating-input, hero-*, frecuentes-*)
+    - Animaciones: fade-in, slide-up, slide-in-right
+    - Responsive: breakpoints 480px y 768px
+
+  20.6 Backend en Render
+    - URL: https://sistema-administracion-edificios.onrender.com
+    - Java 17, Maven, fat-jar via maven-shade-plugin
+    - Dockerfile multi-stage: maven build + eclipse-temurin JRE
+    - Variable WALLET_BASE64 contiene wallet Oracle ATP codificado
+    - Health check (/health) ejecuta SELECT 1 a BD para evitar pausa
+    - Cron-job.org recomendado: pegar a /health cada 6 dias
+      (cron: 0 12 */6 * *) para mantener ATP activa en plan free
+
+  20.7 Historial de migracion
+    - 2026-08-06: Migracion completa vanilla JS -> React+Vite+Tailwind
+    - 2026-08-07: 7 commits de fixes para conectar 7 paginas que
+      llamaban endpoints inexistentes, restaurar PDF+email+activar+
+      cancelar+renovar en Contratos, camara+jsQR en EscannerQR,
+      modales completos de PorteroDashboard, validadores de dominio,
+      ConfirmPasswordDialog, export Excel, graficos canvas donut,
+      auto-refresh polling
+    - Backend ya tenia 100% implementado, frontend solo no lo conectaba
+    - Frontend: ~10k lineas vanilla -> 6k lineas React funcionales
+
+  20.8 Endpoints criticos del backend (validados en uso)
+    Auth:        POST /api/auth/login, POST /api/auth/verify-password
+    Residentes:  GET/POST/PUT /api/residentes, GET /api/residentes/{id},
+                GET /api/residentes?idApartamento=X
+    Apartam.:    GET/POST/PUT/DELETE /api/apartamentos, GET .../residentes/{id}
+    Contratos:   GET/POST /api/contratos, GET /api/contratos/{id},
+                POST /api/contratos/{id}/activar, /cancelar, /renovar,
+                POST /api/contratos/{id}/reenviar-correo,
+                GET /api/contratos/sugerir-tipo/{idApto},
+                GET /api/contratos/{id}/pdf
+    Visitas:     GET/POST/PUT/DELETE /api/visitas, GET /api/visitas/hoy,
+                GET /api/visitas/historial?fechaInicio=&fechaFin=,
+                GET /api/visitas/{id}/detalle,
+                POST /api/visitas/{id}/rapida, PUT /api/visitas/{id}/salida
+    Buzon:       GET/POST /api/buzon, GET /api/buzon/avisos,
+                GET /api/buzon/paquetes, GET /api/buzon/paquetes-pendientes,
+                GET /api/buzon/quejas-ruido-pendientes,
+                POST /api/buzon/aviso, POST /api/buzon/aviso-ruido,
+                POST /api/buzon/paquete, POST /api/buzon/confirmar,
+                GET /api/buzon/resultado-notificar?idVisita=X,
+                PUT /api/buzon/{id}/leido, /entregado, /vaciar
+    Multas:      GET /api/multas/todas, GET /api/multas?apartamento=X,
+                POST /api/multas/generar (RUIDO/PARQUEADERO),
+                PUT /api/multas/{id}/pagar, /anular,
+                POST /api/multas/{id}/notificar, /notificar-todas
+    Pagos:       POST /api/pagos, GET /api/pagos/registrados,
+                GET /api/pagos/ganancias
+    Cuotas:      GET /api/cuotas?pendientes=true, GET .../residente/{id}
+    QR:          POST /api/qr/validar, /notificar, /entrada, /enviar-correo
+    Parqueaderos:GET/POST/PUT/DELETE /api/parqueaderos
+    Usuarios:    GET/POST/PUT/DELETE /api/usuarios
+    TiposDoc:    GET /api/tipos-documento
+    Visitantes:  GET/POST/PUT/DELETE /api/visitantes
+
+================================================================================
   FIN DEL DOCUMENTO
 ================================================================================
