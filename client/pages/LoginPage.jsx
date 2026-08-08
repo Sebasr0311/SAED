@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../lib/AuthContext.jsx';
+import { ROLE_HOME, roleCanAccess } from '../lib/access.js';
 import Toast from '../components/ui/Toast.jsx';
 
 const HERO_IMAGES = [
@@ -66,13 +67,10 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (isAuthenticated && user) {
-      const dest =
-        user.rol === 'RESIDENTE'
-          ? '/residente-dashboard'
-          : user.rol === 'PORTERO'
-            ? '/portero-dashboard'
-            : '/dashboard';
-      navigate(location.state?.from?.pathname || dest, { replace: true });
+      const dest = ROLE_HOME[user.rol] || '/dashboard';
+      const from = location.state?.from?.pathname;
+      const target = from && roleCanAccess(from, user.rol) ? from : dest;
+      navigate(target, { replace: true });
     }
   }, [isAuthenticated, user, navigate, location]);
 

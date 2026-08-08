@@ -49,36 +49,218 @@ export default function App() {
           <Route index element={<Navigate to="/dashboard" replace />} />
 
           {/* Admin */}
-          <Route path="dashboard" element={<DashboardPage />} />
-          <Route path="residentes" element={<ResidentesPage />} />
-          <Route path="apartamentos" element={<ApartamentosPage />} />
-          <Route path="contratos" element={<ContratosPage />} />
-          <Route path="usuarios" element={<UsuariosPage />} />
-          <Route path="visitas" element={<VisitasPage />} />
-          <Route path="parqueaderos" element={<ParqueaderosPage />} />
-          <Route path="pagos" element={<PagosPage />} />
-          <Route path="multas" element={<MultasPage />} />
-          <Route path="alertas" element={<AlertasPage />} />
-          <Route path="avisos" element={<AvisosPage />} />
-          <Route path="quejas-admin" element={<QuejasAdminPage />} />
-          <Route path="ganancias" element={<GananciasPage />} />
-          <Route path="historial-visitas" element={<HistorialVisitasPage />} />
-          <Route path="paquetes-admin" element={<PaquetesAdminPage />} />
-          <Route path="escanner-qr" element={<EscannerQRPage />} />
+          <Route
+            path="dashboard"
+            element={
+              <ProtectedRoute roles={['ADMINISTRADOR']}>
+                <DashboardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="residentes"
+            element={
+              <ProtectedRoute roles={['ADMINISTRADOR']}>
+                <ResidentesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="apartamentos"
+            element={
+              <ProtectedRoute roles={['ADMINISTRADOR']}>
+                <ApartamentosPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="contratos"
+            element={
+              <ProtectedRoute roles={['ADMINISTRADOR']}>
+                <ContratosPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="usuarios"
+            element={
+              <ProtectedRoute roles={['ADMINISTRADOR']}>
+                <UsuariosPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="visitas"
+            element={
+              <ProtectedRoute roles={['ADMINISTRADOR', 'PORTERO']}>
+                <VisitasPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="parqueaderos"
+            element={
+              <ProtectedRoute roles={['ADMINISTRADOR', 'PORTERO']}>
+                <ParqueaderosPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="pagos"
+            element={
+              <ProtectedRoute roles={['ADMINISTRADOR']}>
+                <PagosPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="multas"
+            element={
+              <ProtectedRoute roles={['ADMINISTRADOR']}>
+                <MultasPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="alertas"
+            element={
+              <ProtectedRoute roles={['ADMINISTRADOR']}>
+                <AlertasPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="avisos"
+            element={
+              <ProtectedRoute roles={['ADMINISTRADOR']}>
+                <AvisosPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="quejas-admin"
+            element={
+              <ProtectedRoute roles={['ADMINISTRADOR']}>
+                <QuejasAdminPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="ganancias"
+            element={
+              <ProtectedRoute roles={['ADMINISTRADOR']}>
+                <GananciasPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="historial-visitas"
+            element={
+              <ProtectedRoute roles={['ADMINISTRADOR']}>
+                <HistorialVisitasPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="paquetes-admin"
+            element={
+              <ProtectedRoute roles={['ADMINISTRADOR']}>
+                <PaquetesAdminPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="escanner-qr"
+            element={
+              <ProtectedRoute roles={['ADMINISTRADOR', 'PORTERO']}>
+                <EscannerQRPage />
+              </ProtectedRoute>
+            }
+          />
 
           {/* Residente */}
-          <Route path="residente-dashboard" element={<ResidenteDashboardPage />} />
-          <Route path="res-perfil" element={<ResPerfilPage />} />
-          <Route path="res-apartamento" element={<ResApartamentoPage />} />
-          <Route path="res-cuotas" element={<ResCuotasPage />} />
-          <Route path="res-frecuentes" element={<ResFrecuentesPage />} />
-          <Route path="res-buzon" element={<ResBuzonPage />} />
-          <Route path="res-visita" element={<ResVisitaPage />} />
-          <Route path="res-quejas" element={<ResQuejasPage />} />
+          <Route
+            path="residente-dashboard"
+            element={
+              <ProtectedRoute roles={['RESIDENTE']}>
+                <ResidenteDashboardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="res-perfil"
+            element={
+              <ProtectedRoute roles={['RESIDENTE']}>
+                <ResPerfilPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="res-apartamento"
+            element={
+              <ProtectedRoute roles={['RESIDENTE']}>
+                <ResApartamentoPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="res-cuotas"
+            element={
+              <ProtectedRoute roles={['RESIDENTE']}>
+                <ResCuotasPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="res-frecuentes"
+            element={
+              <ProtectedRoute roles={['RESIDENTE']}>
+                <ResFrecuentesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="res-buzon"
+            element={
+              <ProtectedRoute roles={['RESIDENTE']}>
+                <ResBuzonPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="res-visita"
+            element={
+              <ProtectedRoute roles={['RESIDENTE']}>
+                <ResVisitaPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="res-quejas"
+            element={
+              <ProtectedRoute roles={['RESIDENTE']}>
+                <ResQuejasPage />
+              </ProtectedRoute>
+            }
+          />
 
           {/* Portero */}
-          <Route path="portero-dashboard" element={<PorteroDashboardPage />} />
-          <Route path="paquetes" element={<PaquetesPage />} />
+          <Route
+            path="portero-dashboard"
+            element={
+              <ProtectedRoute roles={['PORTERO']}>
+                <PorteroDashboardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="paquetes"
+            element={
+              <ProtectedRoute roles={['PORTERO']}>
+                <PaquetesPage />
+              </ProtectedRoute>
+            }
+          />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

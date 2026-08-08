@@ -1,3 +1,5 @@
+import { TOKEN_KEY, USER_KEY } from './storage.js';
+
 const RAW_BASE_URL =
   (typeof window !== 'undefined' && window._API_BASE_URL) ||
   (window.location.protocol === 'file:'
@@ -7,8 +9,14 @@ const RAW_BASE_URL =
 const BASE_URL = RAW_BASE_URL.replace(/\/+$/, '');
 const TIMEOUT_MS = 30000;
 
+let onUnauthorized = null;
+
+export function setOnUnauthorized(handler) {
+  onUnauthorized = handler;
+}
+
 function getToken() {
-  return sessionStorage.getItem('auth_token');
+  return sessionStorage.getItem(TOKEN_KEY);
 }
 
 async function request(endpoint, options = {}) {
@@ -31,9 +39,13 @@ async function request(endpoint, options = {}) {
     clearTimeout(timer);
 
     if (res.status === 401) {
-      sessionStorage.removeItem('auth_token');
-      sessionStorage.removeItem('auth_user');
-      window.location.href = '/sistema-administracion-edificios/login';
+      sessionStorage.removeItem(TOKEN_KEY);
+      sessionStorage.removeItem(USER_KEY);
+      if (typeof onUnauthorized === 'function') {
+        onUnauthorized();
+      } else {
+        window.location.href = `${import.meta.env.BASE_URL}login`;
+      }
       throw new Error('Sesión expirada');
     }
 

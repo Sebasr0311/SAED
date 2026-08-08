@@ -421,6 +421,27 @@
     background: #f1f5f9;
     color: #475569;
   }
+  .topbar-logout-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+    background: #ffffff;
+    color: #475569;
+    cursor: pointer;
+    transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+  }
+  .topbar-logout-btn:hover {
+    background: #f1f5f9;
+    color: #b91c1c;
+    border-color: #fecaca;
+  }
+  .topbar-logout-btn .material-symbols-outlined {
+    font-size: 20px;
+  }
 
   .hamburger-btn {
     width: 38px;
@@ -1548,6 +1569,15 @@
     }
     .topbar {
       padding: 0 16px;
+    }
+    /* En móvil, el topbar muestra solo avatar + botón logout
+       para evitar que el user-name/badge-role desplacen los controles fuera del viewport. */
+    .topbar .user-name,
+    .topbar .badge-role {
+      display: none;
+    }
+    .topbar .user-info {
+      padding: 4px;
     }
     .content-area {
       padding: 20px 16px;
