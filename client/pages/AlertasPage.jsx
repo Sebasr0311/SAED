@@ -7,16 +7,9 @@ import { Input } from '../components/ui/Form.jsx';
 import Toast from '../components/ui/Toast.jsx';
 import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
-import { formatDate } from '../lib/utils.js';
+import { formatDate, periodoLabel } from '../lib/utils.js';
 
 const PAGE_SIZE = 15;
-
-const MESES_ES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-
-function periodoLabel(anio, mes) {
-  if (anio == null || mes == null) return '-';
-  return `${MESES_ES[mes - 1] || mes} ${anio}`;
-}
 
 export default function AlertasPage() {
   const [page, setPage] = useState(0);

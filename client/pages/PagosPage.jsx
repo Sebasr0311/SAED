@@ -7,7 +7,7 @@ import { PageHeader } from '../components/ui/PageHeader.jsx';
 import Toast from '../components/ui/Toast.jsx';
 import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
-import { formatCurrency, formatDate, todayStr, formatMiles, parseMiles } from '../lib/utils.js';
+import { formatCurrency, formatDate, todayStr, formatMiles, parseMiles, periodoLabel } from '../lib/utils.js';
 
 function Stat({ icon, value, label, color = 'primary' }) {
   return (
@@ -21,13 +21,6 @@ function Stat({ icon, value, label, color = 'primary' }) {
       </div>
     </div>
   );
-}
-
-const MESES_ES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-
-function periodoLabel(anio, mes) {
-  if (anio == null || mes == null) return '-';
-  return `${MESES_ES[mes - 1] || mes} ${anio}`;
 }
 
 function agruparPorApartamento(cuotas, multas) {

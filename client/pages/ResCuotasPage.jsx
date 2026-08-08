@@ -3,7 +3,7 @@ import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
 import { useAuth } from '../lib/AuthContext.jsx';
-import { formatCurrency, formatDate } from '../lib/utils.js';
+import { formatCurrency, formatDate, periodoLabel } from '../lib/utils.js';
 
 const ESTADO_BADGE = {
   PAGADA: 'badge-activo',
@@ -11,13 +11,6 @@ const ESTADO_BADGE = {
   VENCIDA: 'badge-danger',
   ANULADA: 'badge-cancelado',
 };
-
-const MESES_ES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-
-function periodoLabel(anio, mes) {
-  if (anio == null || mes == null) return '-';
-  return `${MESES_ES[mes - 1] || mes} ${anio}`;
-}
 
 export default function ResCuotasPage() {
   const { user } = useAuth();

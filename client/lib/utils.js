@@ -60,3 +60,22 @@ export function parseMiles(value) {
   if (!value) return 0;
   return Number(String(value).replace(/\D/g, '')) || 0;
 }
+
+/** Etiqueta de periodo (mes año) — usado por Pagos, Alertas, ResCuotas y Dashboard. */
+const MESES_ES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+export function periodoLabel(anio, mes) {
+  if (anio == null || mes == null) return '-';
+  return `${MESES_ES[mes - 1] || mes} ${anio}`;
+}
+
+// Usado en modales de Dashboard Admin (multa, contrato, estado del sistema) —
+// NO eliminar sin verificar contra el legacy (FASE 4.3 lo eliminó por error).
+export function formatDateTime(value) {
+  if (!value) return '';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  return d.toLocaleDateString('es-CO', {
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit',
+  });
+}
