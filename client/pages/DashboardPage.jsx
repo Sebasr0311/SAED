@@ -21,9 +21,10 @@ function StatCard({ icon, value, label, color = 'primary' }) {
 }
 
 export default function DashboardPage() {
-  const { data: residentes } = useFetch(() => api.get('/residentes?size=1'), []);
-  const { data: apartamentos } = useFetch(() => api.get('/apartamentos?size=1'), []);
-  const { data: contratos } = useFetch(() => api.get('/contratos?size=1&estado=ACTIVO'), []);
+  const { data: residentes } = useFetch(() => api.get('/residentes'), []);
+  const { data: apartamentos } = useFetch(() => api.get('/apartamentos'), []);
+  const { data: contratos } = useFetch(() => api.get('/contratos'), []);
+  const contratosActivos = (contratos?.items || []).filter((c) => c.estado === 'ACTIVO').length;
 
   return (
     <div>
@@ -47,7 +48,7 @@ export default function DashboardPage() {
         />
         <StatCard
           icon="description"
-          value={contratos?.totalItems ?? '—'}
+          value={contratosActivos}
           label="Contratos Activos"
           color="green"
         />
