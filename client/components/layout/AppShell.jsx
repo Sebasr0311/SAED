@@ -1,58 +1,222 @@
+import { useEffect, useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../lib/AuthContext.jsx';
 
+/**
+ * Navegación agrupada por relación funcional, por rol.
+ * Las rutas NO cambian: solo se reorganiza su presentación.
+ */
 const NAV_BY_ROLE = {
   ADMINISTRADOR: [
-    { path: '/dashboard', label: 'Dashboard', icon: 'dashboard' },
-    { path: '/residentes', label: 'Residentes', icon: 'groups' },
-    { path: '/apartamentos', label: 'Apartamentos', icon: 'domain' },
-    { path: '/contratos', label: 'Contratos', icon: 'description' },
-    { path: '/usuarios', label: 'Usuarios', icon: 'people' },
-    { path: '/visitas', label: 'Visitas', icon: 'how_to_reg' },
-    { path: '/parqueaderos', label: 'Parqueaderos', icon: 'local_parking' },
-    { path: '/pagos', label: 'Pagos', icon: 'payments' },
-    { path: '/multas', label: 'Multas', icon: 'gavel' },
-    { path: '/alertas', label: 'Alertas', icon: 'notifications' },
-    { path: '/avisos', label: 'Avisos', icon: 'campaign' },
-    { path: '/quejas-admin', label: 'Solicitudes', icon: 'support_agent' },
+    {
+      id: 'inicio',
+      label: 'Inicio',
+      icon: 'home',
+      items: [{ path: '/dashboard', label: 'Dashboard', icon: 'dashboard' }],
+    },
+    {
+      id: 'administracion',
+      label: 'Administración',
+      icon: 'domain',
+      items: [
+        { path: '/residentes', label: 'Residentes', icon: 'groups' },
+        { path: '/apartamentos', label: 'Apartamentos', icon: 'apartment' },
+        { path: '/contratos', label: 'Contratos', icon: 'description' },
+        { path: '/usuarios', label: 'Usuarios', icon: 'manage_accounts' },
+      ],
+    },
+    {
+      id: 'operacion',
+      label: 'Operación',
+      icon: 'how_to_reg',
+      items: [
+        { path: '/visitas', label: 'Visitas', icon: 'how_to_reg' },
+        { path: '/historial-visitas', label: 'Historial Visitas', icon: 'history' },
+        { path: '/paquetes-admin', label: 'Paquetes', icon: 'inventory_2' },
+        { path: '/parqueaderos', label: 'Parqueaderos', icon: 'local_parking' },
+        { path: '/escanner-qr', label: 'Escáner QR', icon: 'qr_code_scanner' },
+      ],
+    },
+    {
+      id: 'finanzas',
+      label: 'Finanzas',
+      icon: 'payments',
+      items: [
+        { path: '/pagos', label: 'Pagos', icon: 'payments' },
+        { path: '/ganancias', label: 'Ganancias', icon: 'trending_up' },
+        { path: '/multas', label: 'Multas', icon: 'gavel' },
+      ],
+    },
+    {
+      id: 'comunicacion',
+      label: 'Comunicación',
+      icon: 'campaign',
+      items: [
+        { path: '/alertas', label: 'Alertas', icon: 'notifications' },
+        { path: '/avisos', label: 'Avisos', icon: 'campaign' },
+      ],
+    },
+    {
+      id: 'gestion',
+      label: 'Gestión',
+      icon: 'support_agent',
+      items: [{ path: '/quejas-admin', label: 'Solicitudes', icon: 'support_agent' }],
+    },
   ],
   PORTERO: [
-    { path: '/portero-dashboard', label: 'Dashboard', icon: 'dashboard' },
-    { path: '/visitas', label: 'Visitas', icon: 'how_to_reg' },
-    { path: '/paquetes', label: 'Paquetes', icon: 'inventory_2' },
-    { path: '/parqueaderos', label: 'Parqueaderos', icon: 'local_parking' },
-    { path: '/escanner-qr', label: 'Escáner QR', icon: 'qr_code_scanner' },
+    {
+      id: 'inicio',
+      label: 'Inicio',
+      icon: 'home',
+      items: [{ path: '/portero-dashboard', label: 'Dashboard', icon: 'dashboard' }],
+    },
+    {
+      id: 'operacion',
+      label: 'Operación',
+      icon: 'how_to_reg',
+      items: [
+        { path: '/visitas', label: 'Visitas', icon: 'how_to_reg' },
+        { path: '/paquetes', label: 'Paquetes', icon: 'inventory_2' },
+        { path: '/parqueaderos', label: 'Parqueaderos', icon: 'local_parking' },
+        { path: '/escanner-qr', label: 'Escáner QR', icon: 'qr_code_scanner' },
+      ],
+    },
   ],
   RESIDENTE: [
-    { path: '/residente-dashboard', label: 'Mi Panel', icon: 'dashboard' },
-    { path: '/res-perfil', label: 'Mi Perfil', icon: 'person' },
-    { path: '/res-apartamento', label: 'Mi Apartamento', icon: 'apartment' },
-    { path: '/res-cuotas', label: 'Cuotas', icon: 'payments' },
-    { path: '/res-frecuentes', label: 'Frecuentes', icon: 'how_to_reg' },
-    { path: '/res-buzon', label: 'Buzón', icon: 'mail' },
-    { path: '/res-visita', label: 'Nueva Visita', icon: 'add' },
-    { path: '/res-quejas', label: 'Solicitudes', icon: 'support_agent' },
+    {
+      id: 'inicio',
+      label: 'Inicio',
+      icon: 'home',
+      items: [{ path: '/residente-dashboard', label: 'Mi Panel', icon: 'dashboard' }],
+    },
+    {
+      id: 'mi-cuenta',
+      label: 'Mi Cuenta',
+      icon: 'account_circle',
+      items: [
+        { path: '/res-perfil', label: 'Mi Perfil', icon: 'person' },
+        { path: '/res-apartamento', label: 'Mi Apartamento', icon: 'apartment' },
+      ],
+    },
+    {
+      id: 'finanzas',
+      label: 'Finanzas',
+      icon: 'payments',
+      items: [{ path: '/res-cuotas', label: 'Cuotas', icon: 'payments' }],
+    },
+    {
+      id: 'visitas',
+      label: 'Visitas',
+      icon: 'how_to_reg',
+      items: [
+        { path: '/res-frecuentes', label: 'Frecuentes', icon: 'group_add' },
+        { path: '/res-visita', label: 'Nueva Visita', icon: 'add_circle' },
+      ],
+    },
+    {
+      id: 'comunicacion',
+      label: 'Comunicación',
+      icon: 'campaign',
+      items: [
+        { path: '/res-buzon', label: 'Buzón', icon: 'mail' },
+        { path: '/res-quejas', label: 'Solicitudes', icon: 'support_agent' },
+      ],
+    },
   ],
 };
+
+const COLLAPSED_KEY = 'saed_sidebar_collapsed';
+
+/** La ruta activa es la ruta exacta o un prefijo de segmento (evita /visitas vs /historial-visitas). */
+function isItemActive(pathname, path) {
+  return pathname === path || pathname.startsWith(path + '/');
+}
 
 export default function AppShell() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
-  const items = NAV_BY_ROLE[user?.rol] || [];
-  const initial = user?.username?.[0]?.toUpperCase() || 'U';
-  const currentTitle = items.find((i) => location.pathname.startsWith(i.path))?.label || 'SAED';
+  const groups = NAV_BY_ROLE[user?.rol] || [];
+  const allItems = groups.flatMap((g) => g.items);
+
+  // Rail colapsado por defecto; el usuario puede fijarlo abierto (persistido).
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem(COLLAPSED_KEY) !== 'false';
+    } catch {
+      return true;
+    }
+  });
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Grupos abiertos: por defecto, el grupo que contiene la ruta activa.
+  const [openGroups, setOpenGroups] = useState(() => {
+    const initial = new Set();
+    for (const group of groups) {
+      if (group.items.some((i) => isItemActive(location.pathname, i.path))) initial.add(group.id);
+    }
+    return initial;
+  });
+
+  const activeGroup = groups.find((g) => g.items.some((i) => isItemActive(location.pathname, i.path)));
+  const currentTitle = allItems.find((i) => isItemActive(location.pathname, i.path))?.label || 'SAED';
+
+  // Al navegar, el grupo de la ruta activa se abre automáticamente.
+  useEffect(() => {
+    if (activeGroup && !openGroups.has(activeGroup.id)) {
+      setOpenGroups((prev) => new Set(prev).add(activeGroup.id));
+    }
+  }, [location.pathname]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Cerrar el drawer móvil con Escape.
+  useEffect(() => {
+    if (!mobileOpen) return undefined;
+    function onKey(e) {
+      if (e.key === 'Escape') setMobileOpen(false);
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [mobileOpen]);
+
+  function toggleCollapsed() {
+    setCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(COLLAPSED_KEY, String(next));
+      } catch {
+        /* almacenamiento no disponible */
+      }
+      return next;
+    });
+  }
+
+  function toggleGroup(id) {
+    setOpenGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   function handleLogout() {
     logout();
     navigate('/login', { replace: true });
   }
 
+  const sidebarClasses = [
+    'sidebar-desktop',
+    collapsed && !mobileOpen ? 'sidebar-rail' : 'sidebar-open',
+    mobileOpen ? 'sidebar-mobile-open' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
   return (
     <div className="app-shell">
-      <div style={{ display: 'flex', height: '100%' }}>
-        <aside className="sidebar-desktop">
+      <div className="app-shell-body">
+        <aside className={sidebarClasses}>
           <div className="sidebar-logo-area">
             <div className="sidebar-logo-icon">
               <img src={`${import.meta.env.BASE_URL}imagenes/saed_logo_emblem_only.png`} alt="SAED" />
@@ -63,41 +227,99 @@ export default function AppShell() {
             </div>
           </div>
 
-          <nav className="sidebar-nav-area">
-            {items.map((item) => {
-              const active = location.pathname.startsWith(item.path);
+          <nav className="sidebar-nav-area" aria-label="Menú principal">
+            {groups.map((group) => {
+              const open = openGroups.has(group.id);
+              const groupActive = activeGroup?.id === group.id;
               return (
-                <button
-                  key={item.path}
-                  onClick={() => navigate(item.path)}
-                  className="sidebar-item-btn"
-                  style={active ? { color: 'white', background: 'rgba(59,130,246,0.12)' } : {}}
+                <div
+                  key={group.id}
+                  className={`sidebar-group ${open ? 'group-open' : ''} ${groupActive ? 'group-active' : ''}`}
                 >
-                  <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>
-                    {item.icon}
-                  </span>
-                  <span className="sidebar-label">{item.label}</span>
-                </button>
+                  <button
+                    type="button"
+                    className="sidebar-group-btn"
+                    title={group.label}
+                    aria-expanded={open}
+                    onClick={() => toggleGroup(group.id)}
+                  >
+                    <span className="material-symbols-outlined" aria-hidden="true">
+                      {group.icon}
+                    </span>
+                    <span className="sidebar-label">{group.label}</span>
+                    <span className="material-symbols-outlined sidebar-arrow" aria-hidden="true">
+                      chevron_right
+                    </span>
+                  </button>
+
+                  <div className="sidebar-submenu">
+                    {group.items.map((item) => {
+                      const active = isItemActive(location.pathname, item.path);
+                      return (
+                        <button
+                          key={item.path}
+                          type="button"
+                          className={`sidebar-item-btn ${active ? 'active' : ''}`}
+                          title={item.label}
+                          onClick={() => {
+                            navigate(item.path);
+                            setMobileOpen(false);
+                          }}
+                        >
+                          <span className="material-symbols-outlined" aria-hidden="true">
+                            {item.icon}
+                          </span>
+                          <span className="sidebar-label">{item.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               );
             })}
           </nav>
 
           <div className="sidebar-bottom">
-            <button onClick={handleLogout} className="sidebar-group-btn" title="Cerrar Sesión">
-              <span className="material-symbols-outlined">logout</span>
+            <button type="button" onClick={handleLogout} className="sidebar-group-btn" title="Cerrar Sesión">
+              <span className="material-symbols-outlined" aria-hidden="true">
+                logout
+              </span>
               <span className="sidebar-label">Cerrar Sesión</span>
             </button>
           </div>
         </aside>
 
-        <div style={{ marginLeft: '72px', flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+        {mobileOpen && <div className="sidebar-overlay show" onClick={() => setMobileOpen(false)} />}
+
+        <div className="app-body">
           <header className="topbar">
             <div className="topbar-left">
+              <button
+                type="button"
+                className="hamburger-btn sidebar-toggle-mobile"
+                onClick={() => setMobileOpen(true)}
+                aria-label="Abrir menú"
+              >
+                <span className="material-symbols-outlined" aria-hidden="true">
+                  menu
+                </span>
+              </button>
+              <button
+                type="button"
+                className="hamburger-btn sidebar-toggle-desktop"
+                onClick={toggleCollapsed}
+                aria-label={collapsed ? 'Expandir menú' : 'Colapsar menú'}
+                title={collapsed ? 'Expandir menú' : 'Colapsar menú'}
+              >
+                <span className="material-symbols-outlined" aria-hidden="true">
+                  {collapsed ? 'menu_open' : 'menu'}
+                </span>
+              </button>
               <h1 className="page-title">{currentTitle}</h1>
             </div>
             <div className="topbar-right">
               <div className="user-info">
-                <div className="user-avatar">{initial}</div>
+                <div className="user-avatar">{user?.username?.[0]?.toUpperCase() || 'U'}</div>
                 <span className="user-name">{user?.username}</span>
                 <span className="badge-role">{user?.rol}</span>
               </div>
