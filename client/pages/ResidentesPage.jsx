@@ -11,7 +11,7 @@ import { useFetch, useTiposDocumento } from '../lib/hooks.js';
 import api from '../lib/api.js';
 
 const emptyForm = {
-  idTipoDocumento: 1,
+  idTipoDoc: 1,
   numeroDocumento: '',
   nombres: '',
   apellidos: '',
@@ -19,8 +19,30 @@ const emptyForm = {
   telefono: '',
   email: '',
   idApartamento: '',
-  esPropietario: false,
 };
+
+const emptyTutorForm = {
+  idTipoDoc: '',
+  numeroDocumento: '',
+  nombres: '',
+  apellidos: '',
+  telefono: '',
+  email: '',
+  parentesco: '',
+  otroParentesco: '',
+};
+
+function calcularEdad(fechaNacimiento) {
+  if (!fechaNacimiento) return null;
+  const hoy = new Date();
+  const nac = new Date(fechaNacimiento);
+  let edad = hoy.getFullYear() - nac.getFullYear();
+  const m = hoy.getMonth() - nac.getMonth();
+  if (m < 0 || (m === 0 && hoy.getDate() < nac.getDate())) edad--;
+  return edad;
+}
+
+const PAGE_SIZE = 15;
 
 function ActionButtons({ onEdit, onDelete }) {
   return (
@@ -43,20 +65,32 @@ export default function ResidentesPage() {
   const [toast, setToast] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
+  const [tutorForm, setTutorForm] = useState(emptyTutorForm);
   const [errors, setErrors] = useState({});
   const [editing, setEditing] = useState(null);
   const [confirmDel, setConfirmDel] = useState(null);
   const [pwdConfirmOpen, setPwdConfirmOpen] = useState(false);
 
-  const { data, loading, refetch } = useFetch(
-    () => api.get(`/residentes?page=${page}&size=20&search=${encodeURIComponent(search)}`),
-    [page, search]
-  );
-  const { tiposDoc } = useTiposDocumento();
-  const { data: apartamentos } = useFetch(() => api.get('/apartamentos?size=200'), []);
+  const { data, loading, refetch } = useFetch(() => api.get('/residentes'), []);
+  const { tiposDoc, error: errorTiposDoc } = useTiposDocumento();
+  const { data: apartamentos } = useFetch(() => api.get('/apartamentos'), []);
+
+  const edad = calcularEdad(form.fechaNacimiento);
+  const requiereTutor = edad !== null && edad >= 16 && edad < 18;
+
+  const items = (data?.items || []).filter((r) => {
+    if (!search) return true;
+    const term = search.toLowerCase();
+    return [r.nombres, r.apellidos, r.numeroDocumento]
+      .filter(Boolean)
+      .some((v) => String(v).toLowerCase().includes(term));
+  });
+  const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages - 1);
+  const rows = items.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
 
   const columns = [
-    { key: 'idResidente', label: 'ID', width: 60 },
+    { key: 'id', label: 'ID', width: 60 },
     { key: 'nombres', label: 'Nombres' },
     { key: 'apellidos', label: 'Apellidos' },
     { key: 'numeroDocumento', label: 'Documento' },
@@ -84,13 +118,14 @@ export default function ResidentesPage() {
   function openCreate() {
     setEditing(null);
     setForm(emptyForm);
+    setTutorForm(emptyTutorForm);
     setErrors({});
     setModalOpen(true);
   }
   function openEdit(row) {
     setEditing(row);
     setForm({
-      idTipoDocumento: row.idTipoDocumento || 1,
+      idTipoDoc: row.idTipoDoc,
       numeroDocumento: row.numeroDocumento || '',
       nombres: row.nombres || '',
       apellidos: row.apellidos || '',
@@ -98,13 +133,36 @@ export default function ResidentesPage() {
       telefono: row.telefono || '',
       email: row.email || '',
       idApartamento: row.idApartamento || '',
-      esPropietario: !!row.esPropietario,
     });
+    setTutorForm(emptyTutorForm);
     setErrors({});
     setModalOpen(true);
+    if (row.esMenorEdad) {
+      api
+        .get(`/residentes/${row.id}`)
+        .then((r) => {
+          const t = r?.tutor;
+          if (t) {
+            setTutorForm({
+              idTipoDoc: t.idTipoDoc || '',
+              numeroDocumento: t.numeroDocumento || '',
+              nombres: t.nombres || '',
+              apellidos: t.apellidos || '',
+              telefono: t.telefono || '',
+              email: t.email || '',
+              parentesco: t.parentesco || '',
+              otroParentesco: t.otroParentesco || '',
+            });
+          }
+        })
+        .catch(() => {});
+    }
   }
   function update(k, v) {
     setForm((f) => ({ ...f, [k]: v }));
+  }
+  function updateTutor(k, v) {
+    setTutorForm((f) => ({ ...f, [k]: v }));
   }
   function validate() {
     const e = {};
@@ -112,19 +170,76 @@ export default function ResidentesPage() {
     if (!form.apellidos.trim()) e.apellidos = 'Requerido';
     if (!form.numeroDocumento.trim()) e.numeroDocumento = 'Requerido';
     if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = 'Email inválido';
+    if (requiereTutor) {
+      if (!tutorForm.idTipoDoc) e['tutor.idTipoDoc'] = 'Seleccione el tipo de documento del tutor';
+      if (!tutorForm.numeroDocumento.trim()) e['tutor.numeroDocumento'] = 'El documento del tutor es requerido';
+      if (!tutorForm.nombres.trim()) e['tutor.nombres'] = 'El nombre del tutor es requerido';
+      if (!tutorForm.apellidos.trim()) e['tutor.apellidos'] = 'El apellido del tutor es requerido';
+      if (!tutorForm.telefono.trim()) e['tutor.telefono'] = 'El teléfono del tutor es requerido';
+      if (!tutorForm.email.trim()) e['tutor.email'] = 'El email del tutor es requerido';
+      else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(tutorForm.email)) e['tutor.email'] = 'Email del tutor inválido';
+      if (!tutorForm.parentesco) e['tutor.parentesco'] = 'Seleccione el parentesco';
+      if (tutorForm.parentesco === 'OTRO' && !tutorForm.otroParentesco.trim()) {
+        e['tutor.otroParentesco'] = 'Especifique el parentesco';
+      }
+    }
     setErrors(e);
     return Object.keys(e).length === 0;
   }
   async function save() {
     if (!validate()) return;
+    const payload = {
+      ...form,
+      idApartamento: form.idApartamento === '' ? null : form.idApartamento,
+      fechaNacimiento: form.fechaNacimiento === '' ? null : form.fechaNacimiento,
+    };
+    if (requiereTutor) {
+      payload.tutor = {
+        idTipoDoc: Number(tutorForm.idTipoDoc),
+        numeroDocumento: tutorForm.numeroDocumento.trim(),
+        nombres: tutorForm.nombres.trim(),
+        apellidos: tutorForm.apellidos.trim(),
+        telefono: tutorForm.telefono.trim(),
+        email: tutorForm.email.trim(),
+        parentesco: tutorForm.parentesco,
+        otroParentesco:
+          tutorForm.parentesco === 'OTRO' ? tutorForm.otroParentesco.trim() || null : null,
+      };
+    }
     try {
+      let idResidente;
       if (editing) {
-        await api.put(`/residentes/${editing.idResidente}`, form);
+        await api.put(`/residentes/${editing.id}`, payload);
+        idResidente = editing.id;
         setToast({ message: 'Residente actualizado', type: 'success' });
       } else {
-        await api.post('/residentes', form);
+        const res = await api.post('/residentes', payload);
+        idResidente = res.id;
         setToast({ message: 'Residente creado', type: 'success' });
       }
+
+      const aptSeleccionado = form.idApartamento !== '';
+      const asignacionCambia =
+        aptSeleccionado &&
+        (!editing || Number(editing.idApartamento) !== Number(form.idApartamento));
+      if (asignacionCambia) {
+        try {
+          await api.post(`/residentes/${idResidente}/asignar-apartamento`, {
+            idApartamento: Number(form.idApartamento),
+            rolEnContrato: 'OTRO',
+          });
+          const verif = await api.get(`/residentes/${idResidente}`);
+          if (Number(verif?.idApartamento) !== Number(form.idApartamento)) {
+            throw new Error('La asignación no se pudo confirmar en el servidor');
+          }
+        } catch (err) {
+          setToast({
+            message: `Residente guardado, pero la asignación al apartamento falló: ${err.message}`,
+            type: 'error',
+          });
+        }
+      }
+
       setModalOpen(false);
       refetch();
     } catch (err) {
@@ -134,7 +249,7 @@ export default function ResidentesPage() {
   async function handleDelete() {
     if (!confirmDel) return;
     try {
-      await api.del(`/residentes/${confirmDel.idResidente}`);
+      await api.del(`/residentes/${confirmDel.id}`);
       setToast({ message: 'Residente eliminado', type: 'success' });
       refetch();
     } catch (err) {
@@ -155,7 +270,10 @@ export default function ResidentesPage() {
               id="search"
               placeholder="Buscar..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(0);
+              }}
               style={{ width: '200px' }}
             />
             <Button onClick={openCreate}>+ Nuevo Residente</Button>
@@ -164,16 +282,16 @@ export default function ResidentesPage() {
       />
       <DataTable
         columns={columns}
-        rows={data?.items || []}
+        rows={rows}
         loading={loading}
         empty="No hay residentes registrados"
-        keyField="idResidente"
+        keyField="id"
       />
       <Pagination
-        page={page}
-        totalPages={data?.totalPages || 1}
-        totalItems={data?.totalItems}
-        pageSize={20}
+        page={safePage}
+        totalPages={totalPages}
+        totalItems={items.length}
+        pageSize={PAGE_SIZE}
         onPageChange={setPage}
       />
 
@@ -193,17 +311,20 @@ export default function ResidentesPage() {
       >
         <div className="form-row">
           <Select
-            id="idTipoDocumento"
+            id="idTipoDoc"
             label="Tipo Documento"
-            value={form.idTipoDocumento}
-            onChange={(e) => update('idTipoDocumento', Number(e.target.value))}
+            value={form.idTipoDoc}
+            onChange={(e) => update('idTipoDoc', Number(e.target.value))}
           >
             {tiposDoc.map((t) => (
-              <option key={t.idTipoDocumento ?? t.idTipoDoc ?? t.value} value={t.idTipoDocumento ?? t.idTipoDoc ?? t.value}>
+              <option key={t.idTipoDoc ?? t.id ?? t.value} value={t.idTipoDoc ?? t.id ?? t.value}>
                 {t.descripcion || t.nombre}
               </option>
             ))}
           </Select>
+          {errorTiposDoc && !tiposDoc.length && (
+            <p style={{ color: '#e11d48', fontSize: '12px' }}>Error al cargar los tipos de documento</p>
+          )}
           <Input
             id="numeroDocumento"
             label="Número Documento"
@@ -266,6 +387,112 @@ export default function ResidentesPage() {
             ))}
           </Select>
         </div>
+        {requiereTutor && (
+          <div
+            style={{
+              marginTop: '16px',
+              padding: '16px',
+              background: '#f8fafc',
+              borderRadius: '12px',
+              border: '1px solid #e2e5ec',
+            }}
+          >
+            <h4 style={{ margin: 0, fontSize: '15px', fontWeight: 600 }}>Datos del Tutor Legal</h4>
+            <p style={{ fontSize: '12px', color: '#64748b', margin: '4px 0 12px' }}>
+              Menor de edad (16-17 años) — puede residir independientemente, pero debe tener un tutor
+              legal registrado.
+            </p>
+            <div className="form-row">
+              <Select
+                id="tutor-idTipoDoc"
+                label="Tipo Documento"
+                value={tutorForm.idTipoDoc}
+                onChange={(e) => updateTutor('idTipoDoc', Number(e.target.value))}
+                error={errors['tutor.idTipoDoc']}
+              >
+                <option value="">Seleccione...</option>
+                {tiposDoc.map((t) => (
+                  <option key={t.idTipoDoc ?? t.id ?? t.value} value={t.idTipoDoc ?? t.id ?? t.value}>
+                    {t.descripcion || t.nombre}
+                  </option>
+                ))}
+              </Select>
+              <Input
+                id="tutor-numeroDocumento"
+                label="Número Documento"
+                value={tutorForm.numeroDocumento}
+                onChange={(e) => updateTutor('numeroDocumento', e.target.value)}
+                error={errors['tutor.numeroDocumento']}
+              />
+            </div>
+            <div className="form-row">
+              <Input
+                id="tutor-nombres"
+                label="Nombres"
+                value={tutorForm.nombres}
+                onChange={(e) => updateTutor('nombres', e.target.value)}
+                error={errors['tutor.nombres']}
+              />
+              <Input
+                id="tutor-apellidos"
+                label="Apellidos"
+                value={tutorForm.apellidos}
+                onChange={(e) => updateTutor('apellidos', e.target.value)}
+                error={errors['tutor.apellidos']}
+              />
+            </div>
+            <div className="form-row">
+              <Input
+                id="tutor-telefono"
+                label="Teléfono"
+                value={tutorForm.telefono}
+                onChange={(e) => updateTutor('telefono', e.target.value)}
+                error={errors['tutor.telefono']}
+              />
+              <Input
+                id="tutor-email"
+                label="Email"
+                type="email"
+                value={tutorForm.email}
+                onChange={(e) => updateTutor('email', e.target.value)}
+                error={errors['tutor.email']}
+              />
+            </div>
+            <div className="form-row">
+              <Select
+                id="tutor-parentesco"
+                label="Parentesco"
+                value={tutorForm.parentesco}
+                onChange={(e) => {
+                  updateTutor('parentesco', e.target.value);
+                  if (e.target.value !== 'OTRO') updateTutor('otroParentesco', '');
+                }}
+                error={errors['tutor.parentesco']}
+              >
+                <option value="">Seleccione...</option>
+                <option value="PADRE">Padre</option>
+                <option value="MADRE">Madre</option>
+                <option value="ABUELO">Abuelo</option>
+                <option value="ABUELA">Abuela</option>
+                <option value="TIO">Tío</option>
+                <option value="TIA">Tía</option>
+                <option value="HERMANO">Hermano</option>
+                <option value="HERMANA">Hermana</option>
+                <option value="TUTOR_LEGAL">Tutor Legal</option>
+                <option value="OTRO">Otro</option>
+              </Select>
+              {tutorForm.parentesco === 'OTRO' && (
+                <Input
+                  id="tutor-parentesco-otro"
+                  label="Especifique parentesco"
+                  value={tutorForm.otroParentesco}
+                  onChange={(e) => updateTutor('otroParentesco', e.target.value)}
+                  error={errors['tutor.otroParentesco']}
+                />
+              )}
+            </div>
+          </div>
+        )}
       </Modal>
 
       <Modal

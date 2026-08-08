@@ -6,10 +6,10 @@ import Toast from '../components/ui/Toast.jsx';
 import api from '../lib/api.js';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { useFetch, useTiposDocumento } from '../lib/hooks.js';
-import { valPlaca, formatMiles } from '../lib/utils.js';
+import { valPlaca } from '../lib/utils.js';
 
 const emptyVisitante = {
-  idTipoDoc: 1,
+  idTipoDoc: '',
   numeroDocumento: '',
   nombres: '',
   apellidos: '',
@@ -30,7 +30,7 @@ const emptyForm = {
 
 export default function ResVisitaPage() {
   const { user } = useAuth();
-  const { tiposDoc } = useTiposDocumento();
+  const { tiposDoc, error: errorTiposDoc } = useTiposDocumento();
   const [toast, setToast] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [errors, setErrors] = useState({});
@@ -71,7 +71,7 @@ export default function ResVisitaPage() {
     setForm((f) => ({
       ...f,
       visitante: {
-        idTipoDoc: visitanteEncontrado.idTipoDoc || 1,
+        idTipoDoc: visitanteEncontrado.idTipoDoc || '',
         numeroDocumento: visitanteEncontrado.numeroDocumento || '',
         nombres: visitanteEncontrado.nombres || '',
         apellidos: visitanteEncontrado.apellidos || '',
@@ -86,6 +86,9 @@ export default function ResVisitaPage() {
     if (!form.visitante.nombres.trim()) e['visitante.nombres'] = 'Requerido';
     if (!form.visitante.apellidos.trim()) e['visitante.apellidos'] = 'Requerido';
     if (!form.visitante.numeroDocumento.trim()) e['visitante.numeroDocumento'] = 'Requerido';
+    if (!form.visitante.idTipoDoc && !visitanteEncontrado?.nombres) {
+      e['visitante.idTipoDoc'] = 'Seleccione el tipo de documento del visitante';
+    }
     if (form.medioTransporte === 'CARRO' || form.medioTransporte === 'MOTO') {
       if (!valPlaca(form.placa, form.medioTransporte === 'MOTO' ? 'MOTO' : 'CARRO'))
         e.placa = 'Formato de placa inválido';
@@ -99,15 +102,20 @@ export default function ResVisitaPage() {
     setSending(true);
     try {
       const payload = {
-        visitante: form.visitante,
+        visitante: { ...form.visitante },
         idResidente: user.idResidente,
         tiempoValidezMin: form.tiempoValidezMin,
         cantidadPersonas: form.cantidadPersonas,
-        motivo: form.motivo,
+        notas: form.motivo,
       };
+      if (!payload.visitante.idTipoDoc) delete payload.visitante.idTipoDoc;
       // Solo incluir vehiculo si hay placa; el backend explota si la key llega null
       if (form.medioTransporte === 'CARRO' || form.medioTransporte === 'MOTO') {
-        payload.vehiculo = { placa: form.placa.toUpperCase(), tipo: form.medioTransporte };
+        payload.vehiculo = {
+          placa: form.placa.toUpperCase(),
+          // El enum TipoVehiculo no tiene CARRO: el backend hace TipoVehiculo.valueOf(...)
+          tipo: form.medioTransporte === 'CARRO' ? 'VEHICULO' : form.medioTransporte,
+        };
       }
       const res = await api.post('/visitas', payload);
       setQrGenerado(res);
@@ -152,13 +160,18 @@ export default function ResVisitaPage() {
               label="Tipo Documento"
               value={form.visitante.idTipoDoc}
               onChange={(e) => update('visitante.idTipoDoc', Number(e.target.value))}
+              error={errors['visitante.idTipoDoc']}
             >
+              <option value="">Seleccione tipo de documento</option>
               {tiposDoc.map((t) => (
                 <option key={t.idTipoDoc ?? t.value} value={t.idTipoDoc ?? t.value}>
                   {t.descripcion || t.nombre}
                 </option>
               ))}
             </Select>
+            {errorTiposDoc && !tiposDoc.length && (
+              <p style={{ color: '#e11d48', fontSize: '12px' }}>Error al cargar los tipos de documento</p>
+            )}
             <Input
               id="numeroDocumento"
               label="Número Documento"
