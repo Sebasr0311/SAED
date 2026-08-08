@@ -21,6 +21,11 @@ function mapEntityId(item) {
     if (!('idPago' in out)) out.idPago = out.id;
   }
 
+  // QuejaSugerencia: el backend expone idQueja y respuestaAdmin (no id ni respuesta).
+  // Creamos los alias que el resto del frontend espera.
+  if ('idQueja' in out && !('id' in out)) out.id = out.idQueja;
+  if ('respuestaAdmin' in out && !('respuesta' in out)) out.respuesta = out.respuestaAdmin;
+
   if ('idTipoDoc' in out && !('idTipoDocumento' in out)) {
     out.idTipoDocumento = out.idTipoDoc;
   }
