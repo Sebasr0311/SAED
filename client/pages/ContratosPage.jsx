@@ -2,12 +2,13 @@ import { useState } from 'react';
 import { Button } from '../components/ui/Button.jsx';
 import { Input, Select } from '../components/ui/Form.jsx';
 import { DataTable } from '../components/ui/DataTable.jsx';
+import { Pagination } from '../components/ui/Pagination.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog.jsx';
 import Toast from '../components/ui/Toast.jsx';
 import { useFetch } from '../lib/hooks.js';
-import api from '../lib/api.js';
+import api, { BASE_URL } from '../lib/api.js';
 import { formatDate, formatCurrency, formatMiles, parseMiles } from '../lib/utils.js';
 
 const ESTADOS = ['', 'ACTIVO', 'SUSPENDIDO', 'VENCIDO', 'PENDIENTE_FIRMA', 'CANCELADO'];
@@ -21,6 +22,7 @@ const VALOR_POR_TIPO = {
   OTRO: 1000000,
 };
 const MESES_POR_TIPO = { INICIAL: 3, RENOVACION: 6, PERMANENCIA: null };
+const PAGE_SIZE = 15;
 
 const emptyForm = {
   idApartamento: '',
@@ -68,17 +70,19 @@ export default function ContratosPage() {
   const [descargando, setDescargando] = useState(null);
 
   const { data: contratosRaw, loading, refetch } = useFetch(() => api.get('/contratos'), []);
-  const { data: apartamentos } = useFetch(() => api.get('/apartamentos?size=500'), []);
-  const { data: residentes } = useFetch(() => api.get('/residentes?size=500'), []);
+  const { data: apartamentos } = useFetch(() => api.get('/apartamentos'), []);
+  const { data: residentes } = useFetch(() => api.get('/residentes'), []);
 
   const contratos = (contratosRaw?.items || []).filter((c) => !filtroEstado || c.estado === filtroEstado);
+  const totalPages = Math.max(1, Math.ceil(contratos.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages - 1);
+  const rows = contratos.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
 
   async function descargarPDF(idContrato) {
     setDescargando(idContrato);
     try {
       const token = sessionStorage.getItem('auth_token');
-      const base = (window._API_BASE_URL || 'https://sistema-administracion-edificios.onrender.com/api').replace(/\/+$/, '');
-      const res = await fetch(`${base}/contratos/${idContrato}/pdf`, {
+      const res = await fetch(`${BASE_URL}/contratos/${idContrato}/pdf`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) {
@@ -377,7 +381,14 @@ export default function ContratosPage() {
           </Button>
         </div>
       </div>
-      <DataTable columns={columns} rows={contratos} loading={loading} empty="No hay contratos" keyField="idContrato" />
+      <DataTable columns={columns} rows={rows} loading={loading} empty="No hay contratos" keyField="idContrato" />
+      <Pagination
+        page={safePage}
+        totalPages={totalPages}
+        totalItems={contratos.length}
+        pageSize={PAGE_SIZE}
+        onPageChange={setPage}
+      />
 
       <Modal
         open={modalOpen}
@@ -419,7 +430,7 @@ export default function ContratosPage() {
           >
             <option value="">— Seleccionar —</option>
             {(residentes?.items || []).map((r) => (
-              <option key={r.idResidente} value={r.idResidente}>
+              <option key={r.id} value={r.id}>
                 {r.nombres} {r.apellidos}
               </option>
             ))}

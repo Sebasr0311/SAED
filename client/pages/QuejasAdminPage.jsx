@@ -13,6 +13,7 @@ import { formatDate, todayStr } from '../lib/utils.js';
 const ESTADOS = ['PENDIENTE', 'EN_REVISION', 'RESUELTA', 'CERRADA'];
 const PRIORIDADES = ['ALTA', 'MEDIA', 'BAJA'];
 const TIPOS = ['QUEJA', 'SUGERENCIA', 'APELACION'];
+const PAGE_SIZE = 15;
 
 const ESTADO_BADGE = {
   PENDIENTE: 'badge-pendiente-firma',
@@ -78,6 +79,9 @@ export default function QuejasAdminPage() {
       return true;
     });
   })();
+  const totalPages = Math.max(1, Math.ceil(filtradas.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages - 1);
+  const rows = filtradas.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
 
   // Auto-refresh cada 5s (reducido de 1.5s del vanilla para no saturar)
   useEffect(() => {
@@ -89,7 +93,7 @@ export default function QuejasAdminPage() {
 
   function openDetalle(row) {
     setModal(row);
-    setForm({ estado: row.estado, prioridad: row.prioridad, respuesta: row.respuesta || '' });
+    setForm({ estado: row.estado, prioridad: row.prioridad, respuesta: row.respuestaAdmin || '' });
   }
 
   async function save() {
@@ -105,7 +109,7 @@ export default function QuejasAdminPage() {
       // si el admin quiere un estado distinto hay que sobrescribirlo despues).
       const estadoOriginal = modal.estado;
       const prioridadOriginal = modal.prioridad;
-      const respuestaOriginal = modal.respuesta || '';
+      const respuestaOriginal = modal.respuestaAdmin || '';
 
       const estadoCambio = form.estado && form.estado !== estadoOriginal;
       const prioridadCambio = form.prioridad && form.prioridad !== prioridadOriginal;
@@ -118,16 +122,16 @@ export default function QuejasAdminPage() {
 
       // 1) Si hay respuesta, llamar a /responder primero (siempre fuerza RESUELTA).
       if (respuestaCambio) {
-        await call(api.put(`/quejas/${modal.id}/responder`, { respuesta: form.respuesta }));
+        await call(api.put(`/quejas/${modal.idQueja}/responder`, { respuesta: form.respuesta }));
       }
       // 2) Despues aplicar el estado final deseado (si el admin queria otro estado
       //    distinto a RESUELTA, sobrescribimos aqui).
       if (estadoCambio) {
-        await call(api.put(`/quejas/${modal.id}/estado`, { estado: form.estado }));
+        await call(api.put(`/quejas/${modal.idQueja}/estado`, { estado: form.estado }));
       }
       // 3) La prioridad es independiente.
       if (prioridadCambio) {
-        await call(api.put(`/quejas/${modal.id}/prioridad`, { prioridad: form.prioridad }));
+        await call(api.put(`/quejas/${modal.idQueja}/prioridad`, { prioridad: form.prioridad }));
       }
 
       if (!estadoCambio && !prioridadCambio && !respuestaCambio) {
@@ -151,11 +155,11 @@ export default function QuejasAdminPage() {
   }
 
   const columns = [
-    { key: 'id', label: 'ID', width: 60 },
+    { key: 'idQueja', label: 'ID', width: 60 },
     { key: 'tipo', label: 'Tipo' },
     { key: 'titulo', label: 'Título' },
-    { key: 'apartamento', label: 'Apto' },
-    { key: 'residente', label: 'Residente' },
+    { key: 'numeroApartamento', label: 'Apto' },
+    { key: 'nombreResidente', label: 'Residente' },
     { key: 'categoria', label: 'Categoría' },
     {
       key: 'estado',
@@ -246,17 +250,17 @@ export default function QuejasAdminPage() {
       </div>
       <DataTable
         columns={columns}
-        rows={filtradas}
+        rows={rows}
         loading={loading}
         empty="No hay solicitudes"
-        keyField="id"
+        keyField="idQueja"
         onRowClick={openDetalle}
       />
       <Pagination
-        page={page}
-        totalPages={data?.totalPages || 1}
-        totalItems={data?.totalItems}
-        pageSize={20}
+        page={safePage}
+        totalPages={totalPages}
+        totalItems={filtradas.length}
+        pageSize={PAGE_SIZE}
         onPageChange={setPage}
       />
 
@@ -289,11 +293,11 @@ export default function QuejasAdminPage() {
               </div>
               <div>
                 <div style={{ fontSize: '11px', color: '#475569', fontWeight: 600 }}>Apartamento</div>
-                <div style={{ fontSize: '13px' }}>{modal.apartamento}</div>
+                <div style={{ fontSize: '13px' }}>{modal.numeroApartamento}</div>
               </div>
               <div>
                 <div style={{ fontSize: '11px', color: '#475569', fontWeight: 600 }}>Residente</div>
-                <div style={{ fontSize: '13px' }}>{modal.residente}</div>
+                <div style={{ fontSize: '13px' }}>{modal.nombreResidente}</div>
               </div>
               <div>
                 <div style={{ fontSize: '11px', color: '#475569', fontWeight: 600 }}>Fecha</div>

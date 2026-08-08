@@ -1,12 +1,19 @@
 import { TOKEN_KEY, USER_KEY } from './storage.js';
 
+const isLocalhost =
+  typeof window !== 'undefined' &&
+  (window.location.protocol === 'file:' ||
+    window.location.hostname === 'localhost' ||
+    window.location.hostname === '127.0.0.1');
+
 const RAW_BASE_URL =
+  (import.meta.env.VITE_API_BASE_URL || '') ||
   (typeof window !== 'undefined' && window._API_BASE_URL) ||
-  (window.location.protocol === 'file:'
+  (isLocalhost
     ? 'http://localhost:8080/api'
     : 'https://sistema-administracion-edificios.onrender.com/api');
 
-const BASE_URL = RAW_BASE_URL.replace(/\/+$/, '');
+export const BASE_URL = RAW_BASE_URL.replace(/\/+$/, '');
 const TIMEOUT_MS = 30000;
 
 let onUnauthorized = null;

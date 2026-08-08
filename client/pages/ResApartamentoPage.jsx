@@ -58,7 +58,7 @@ export default function ResApartamentoPage() {
         <div className="frecuentes-grid">
           {rs.map((r) => (
             <div
-              key={r.idResidente || r.id}
+              key={r.id}
               className="frecuente-card"
               style={{ flexDirection: 'row', alignItems: 'center', gap: '12px' }}
             >

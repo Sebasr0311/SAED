@@ -11,6 +11,7 @@ import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
 
 const ESTADOS = ['DISPONIBLE', 'OCUPADO', 'EN_MANTENIMIENTO'];
+const PAGE_SIZE = 15;
 const TIPOS = ['ESTUDIO', '1HAB', '2HAB', '3HAB', 'PENTHOUSE', 'OTRO'];
 const AREAS_POR_TIPO = { ESTUDIO: 35, '1HAB': 50, '2HAB': 70, '3HAB': 90, PENTHOUSE: 120, OTRO: '' };
 const CAPACIDADES_POR_TIPO = { ESTUDIO: 2, '1HAB': 3, '2HAB': 5, '3HAB': 7, PENTHOUSE: 8, OTRO: 2 };
@@ -51,11 +52,16 @@ export default function ApartamentosPage() {
   const [pwdConfirmOpen, setPwdConfirmOpen] = useState(false);
   const [verResidentes, setVerResidentes] = useState(null);
 
-  const { data, loading, refetch } = useFetch(() => api.get(`/apartamentos?page=${page}&size=20`), [page]);
+  const { data, loading, refetch } = useFetch(() => api.get('/apartamentos'), []);
   const { data: residentesDelApto, refetch: refetchResidentesApto } = useFetch(
     () => (verResidentes ? api.get(`/residentes?idApartamento=${verResidentes.idApartamento}`) : Promise.resolve(null)),
     [verResidentes]
   );
+
+  const items = data?.items || [];
+  const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages - 1);
+  const rows = items.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
 
   const columns = [
     { key: 'idApartamento', label: 'ID', width: 60 },
@@ -208,16 +214,16 @@ export default function ApartamentosPage() {
       />
       <DataTable
         columns={columns}
-        rows={data?.items || []}
+        rows={rows}
         loading={loading}
         empty="No hay apartamentos"
         keyField="idApartamento"
       />
       <Pagination
-        page={page}
-        totalPages={data?.totalPages || 1}
-        totalItems={data?.totalItems}
-        pageSize={20}
+        page={safePage}
+        totalPages={totalPages}
+        totalItems={items.length}
+        pageSize={PAGE_SIZE}
         onPageChange={setPage}
       />
 
@@ -297,7 +303,7 @@ export default function ApartamentosPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {(residentesDelApto?.items || residentesDelApto || []).map((r) => (
             <div
-              key={r.idResidente || r.id}
+              key={r.id}
               className="card"
               style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
             >
@@ -309,7 +315,7 @@ export default function ApartamentosPage() {
                   Doc: {r.numeroDocumento} · Tel: {r.telefono || '—'} · {r.email || '—'}
                 </div>
               </div>
-              <Button variant="danger" onClick={() => quitarResidente(r.idResidente || r.id)} style={{ padding: '4px 10px', fontSize: '11px' }}>
+              <Button variant="danger" onClick={() => quitarResidente(r.id)} style={{ padding: '4px 10px', fontSize: '11px' }}>
                 Quitar
               </Button>
             </div>
