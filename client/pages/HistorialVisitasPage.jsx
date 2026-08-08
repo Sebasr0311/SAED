@@ -7,7 +7,7 @@ import { PageHeader } from '../components/ui/PageHeader.jsx';
 import Toast from '../components/ui/Toast.jsx';
 import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
-import { formatDate, todayStr } from '../lib/utils.js';
+import { formatDate, todayStr, imageSrc } from '../lib/utils.js';
 
 function exportarExcel(visitas, fechaInicio, fechaFin) {
   let xls =
@@ -219,7 +219,7 @@ export default function HistorialVisitasPage() {
             {detalle.fotoCaptura && (
               <div style={{ marginTop: '12px' }}>
                 <img
-                  src={`data:image/jpeg;base64,${detalle.fotoCaptura}`}
+                  src={imageSrc(detalle.fotoCaptura)}
                   alt="Foto de captura"
                   style={{ maxWidth: '100%', borderRadius: '8px', cursor: 'zoom-in' }}
                   onClick={(e) => window.open(e.target.src, '_blank')}

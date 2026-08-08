@@ -8,7 +8,7 @@ import { PageHeader } from '../components/ui/PageHeader.jsx';
 import Toast from '../components/ui/Toast.jsx';
 import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
-import { formatDate, todayStr } from '../lib/utils.js';
+import { formatDate, todayStr, imageSrc } from '../lib/utils.js';
 
 const ESTADOS = ['PENDIENTE', 'EN_REVISION', 'RESUELTA', 'CERRADA'];
 const PRIORIDADES = ['ALTA', 'MEDIA', 'BAJA'];
@@ -315,10 +315,10 @@ export default function QuejasAdminPage() {
             {modal.fotoEvidencia && (
               <div className="form-group">
                 <img
-                  src={`data:image/jpeg;base64,${modal.fotoEvidencia}`}
+                  src={imageSrc(modal.fotoEvidencia)}
                   alt="Evidencia"
                   style={{ maxWidth: '100%', borderRadius: '8px', cursor: 'zoom-in' }}
-                  onClick={() => setFotoGrande(`data:image/jpeg;base64,${modal.fotoEvidencia}`)}
+                  onClick={() => setFotoGrande(imageSrc(modal.fotoEvidencia))}
                 />
               </div>
             )}

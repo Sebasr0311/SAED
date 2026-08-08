@@ -6,7 +6,7 @@ import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { Button } from '../components/ui/Button.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
 import Toast from '../components/ui/Toast.jsx';
-import { formatDate, formatMiles } from '../lib/utils.js';
+import { formatDate, formatMiles, imageSrc } from '../lib/utils.js';
 
 export default function ResBuzonPage() {
   const { user } = useAuth();
@@ -99,12 +99,12 @@ export default function ResBuzonPage() {
                 </div>
                 {it.fotoCaptura && (
                   <img
-                    src={`data:image/jpeg;base64,${it.fotoCaptura}`}
+                    src={imageSrc(it.fotoCaptura)}
                     alt="Foto"
                     style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px', cursor: 'zoom-in' }}
                     onClick={(e) => {
                       e.stopPropagation();
-                      setFotoGrande(`data:image/jpeg;base64,${it.fotoCaptura}`);
+                      setFotoGrande(imageSrc(it.fotoCaptura));
                     }}
                   />
                 )}

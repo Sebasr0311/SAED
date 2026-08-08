@@ -6,7 +6,7 @@ import { PageHeader } from '../components/ui/PageHeader.jsx';
 import Toast from '../components/ui/Toast.jsx';
 import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
-import { formatDate } from '../lib/utils.js';
+import { formatDate, imageSrc } from '../lib/utils.js';
 
 export default function PaquetesPage() {
   const [selectedApto, setSelectedApto] = useState('');
@@ -156,7 +156,7 @@ export default function PaquetesPage() {
           <canvas ref={canvasRef} style={{ display: 'none' }} />
           {foto && !camaraActiva && (
             <img
-              src={`data:image/jpeg;base64,${foto}`}
+              src={imageSrc(foto)}
               alt="Foto del paquete"
               style={{ maxWidth: '240px', maxHeight: '180px', borderRadius: '8px', border: '1px solid #e2e8f0' }}
             />

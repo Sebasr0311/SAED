@@ -8,7 +8,7 @@ import { Select } from '../components/ui/Form.jsx';
 import Toast from '../components/ui/Toast.jsx';
 import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
-import { formatCurrency, formatDate } from '../lib/utils.js';
+import { formatCurrency, formatDate, imageSrc } from '../lib/utils.js';
 
 const ESTADO_BADGE = {
   PENDIENTE: 'badge-pendiente-firma',
@@ -239,10 +239,10 @@ export default function MultasPage() {
             )}
             {detalle.fotoEvidencia && (
               <img
-                src={`data:image/jpeg;base64,${detalle.fotoEvidencia}`}
+                src={imageSrc(detalle.fotoEvidencia)}
                 alt="Evidencia"
                 style={{ maxWidth: '100%', borderRadius: '8px', marginTop: '8px', cursor: 'zoom-in' }}
-                onClick={() => setFotoGrande(`data:image/jpeg;base64,${detalle.fotoEvidencia}`)}
+                onClick={() => setFotoGrande(imageSrc(detalle.fotoEvidencia))}
               />
             )}
             {detalle.estado === 'PENDIENTE' && (

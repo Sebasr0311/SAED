@@ -18,6 +18,17 @@ export function classNames(...parts) {
   return parts.filter(Boolean).join(' ');
 }
 
+/**
+ * Devuelve un src listo para <img>: si el valor ya trae el prefijo data:image/...
+ * se usa tal cual; si no, se envuelve en data:image/jpeg;base64,.
+ * Defensivo: el backend a veces devuelve la foto ya prefijada y otras solo el base64.
+ */
+export function imageSrc(value) {
+  if (value == null || value === '') return '';
+  if (String(value).startsWith('data:image/')) return value;
+  return `data:image/jpeg;base64,${value}`;
+}
+
 /** Fecha de hoy en formato YYYY-MM-DD, timezone-safe para America/Bogota. */
 export function todayStr() {
   const now = new Date();
