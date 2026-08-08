@@ -84,6 +84,10 @@
   .app-shell {
     position: relative;
   }
+  .app-shell-body {
+    display: flex;
+    min-height: 100vh;
+  }
 
   /* ── Sidebar ── */
   .sidebar-overlay {
@@ -102,16 +106,21 @@
     top: 0;
     left: 0;
     height: 100vh;
-    width: 72px;
+    width: 240px;
     background: #0a1628;
     color: white;
     display: flex;
     flex-direction: column;
-    transition: width 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: width 0.28s cubic-bezier(0.4, 0, 0.2, 1), transform 0.28s ease;
     z-index: 50;
     overflow: hidden;
   }
-  .sidebar-desktop:hover {
+
+  /* Rail colapsado: ancho reducido; el hover lo expande temporalmente */
+  .sidebar-rail {
+    width: 72px;
+  }
+  .sidebar-rail:hover {
     width: 240px;
   }
 
@@ -123,6 +132,12 @@
     height: 64px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.06);
     flex-shrink: 0;
+    transition: gap 0.28s ease, padding 0.28s ease;
+  }
+  .sidebar-rail .sidebar-logo-area {
+    justify-content: center;
+    gap: 0;
+    padding: 18px 0;
   }
 
   .sidebar-logo-icon {
@@ -144,11 +159,13 @@
     line-height: 1.1;
     white-space: nowrap;
     overflow: hidden;
-    opacity: 0;
-    transition: opacity 0.18s ease;
-  }
-  .sidebar-desktop:hover .sidebar-logo-text {
+    max-width: 160px;
     opacity: 1;
+    transition: max-width 0.24s ease, opacity 0.18s ease;
+  }
+  .sidebar-rail .sidebar-logo-text {
+    max-width: 0;
+    opacity: 0;
   }
   .sidebar-logo-text span {
     font-size: 16px;
@@ -180,91 +197,139 @@
     margin-bottom: 4px;
   }
 
-  .sidebar-group-btn {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    padding: 10px 24px;
-    width: 100%;
-    color: rgba(255, 255, 255, 0.7);
-    transition: all 0.18s ease;
-    white-space: nowrap;
-    overflow: hidden;
-  }
-  .sidebar-desktop:hover .sidebar-group-btn {
-    padding: 10px 20px;
-  }
-  .sidebar-group-btn:hover {
-    background: rgba(255, 255, 255, 0.06);
+  /* Grupo activo por hijo activo: se identifica aunque esté cerrado */
+  .sidebar-group.group-active > .sidebar-group-btn {
     color: white;
+    background: rgba(59, 130, 246, 0.1);
   }
-  .sidebar-group-btn .material-symbols-outlined {
-    font-size: 22px;
-    flex-shrink: 0;
-  }
-  .sidebar-group-btn .sidebar-label {
-    font-size: 13px;
-    font-weight: 500;
-    opacity: 0;
-    transition: opacity 0.18s ease;
-  }
-  .sidebar-desktop:hover .sidebar-group-btn .sidebar-label {
-    opacity: 1;
-  }
-
-  .sidebar-arrow {
-    margin-left: auto;
-    transition: transform 0.18s ease;
-    font-size: 18px !important;
-    opacity: 0;
-  }
-  .sidebar-desktop:hover .sidebar-arrow {
-    opacity: 0.7;
-  }
-  .sidebar-group.group-open .sidebar-arrow {
-    transform: rotate(90deg);
-  }
-
-  .sidebar-item-btn {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 8px 24px 8px 56px;
-    color: rgba(255, 255, 255, 0.5);
-    font-size: 12.5px;
-    transition: all 0.18s ease;
-    width: 100%;
-    white-space: nowrap;
-    overflow: hidden;
-  }
-  .sidebar-desktop:hover .sidebar-item-btn {
-    padding: 8px 20px 8px 52px;
-  }
-  .sidebar-item-btn:hover {
-    background: rgba(255, 255, 255, 0.04);
-    color: rgba(255, 255, 255, 0.9);
-  }
-  .sidebar-item-btn.active {
-    background: rgba(59, 130, 246, 0.12);
-    color: white;
-  }
-  .sidebar-item-btn.active::after {
+  .sidebar-group.group-active > .sidebar-group-btn::after {
     content: '';
     position: absolute;
     left: 0;
+    top: 50%;
+    transform: translateY(-50%);
     width: 3px;
     height: 60%;
     background: #3d6bbf;
     border-radius: 0 3px 3px 0;
   }
 
+  /* Botón base compartido: grupo, item y logout */
+  .sidebar-group-btn,
+  .sidebar-item-btn {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 9px 20px;
+    width: 100%;
+    border: none;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.7);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    cursor: pointer;
+    transition: background 0.18s ease, color 0.18s ease;
+  }
+  .sidebar-group-btn:hover {
+    background: rgba(255, 255, 255, 0.06);
+    color: white;
+  }
+  .sidebar-group-btn .material-symbols-outlined,
+  .sidebar-item-btn .material-symbols-outlined {
+    font-size: 20px;
+    flex-shrink: 0;
+    line-height: 1;
+  }
+
+  /* Label: ocupa espacio solo cuando el sidebar está expandido.
+     Con max-width: 0 + overflow hidden no produce overflow y permite animación. */
+  .sidebar-label {
+    white-space: nowrap;
+    overflow: hidden;
+    max-width: 180px;
+    opacity: 1;
+    transition: max-width 0.24s ease, opacity 0.18s ease;
+  }
+  .sidebar-rail .sidebar-label {
+    max-width: 0;
+    opacity: 0;
+  }
+  .sidebar-rail:hover .sidebar-label {
+    max-width: 180px;
+    opacity: 1;
+  }
+
+  /* Flecha del grupo */
+  .sidebar-arrow {
+    margin-left: auto;
+    font-size: 18px !important;
+    opacity: 0.7;
+    flex-shrink: 0;
+    transition: transform 0.18s ease, opacity 0.18s ease, max-width 0.24s ease;
+  }
+  .sidebar-rail .sidebar-arrow {
+    margin-left: 0;
+    max-width: 0;
+    opacity: 0;
+    overflow: hidden;
+  }
+  .sidebar-rail:hover .sidebar-arrow {
+    margin-left: auto;
+    max-width: 24px;
+    opacity: 0.7;
+  }
+  .sidebar-group.group-open .sidebar-group-btn .sidebar-arrow {
+    transform: rotate(90deg);
+  }
+
+  /* Items dentro de un grupo */
+  .sidebar-item-btn {
+    color: rgba(255, 255, 255, 0.55);
+    font-size: 12.5px;
+    font-weight: 400;
+  }
+  .sidebar-item-btn:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.9);
+  }
+  .sidebar-item-btn.active {
+    background: rgba(59, 130, 246, 0.14);
+    color: white;
+    font-weight: 600;
+  }
+  .sidebar-item-btn.active::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 3px;
+    height: 60%;
+    background: #3d6bbf;
+    border-radius: 0 3px 3px 0;
+  }
+
+  /* Rail colapsado: iconos centrados, sin margen interno que los corte */
+  .sidebar-rail .sidebar-group-btn,
+  .sidebar-rail .sidebar-item-btn {
+    justify-content: center;
+    gap: 0;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
   .sidebar-submenu {
     max-height: 0;
     overflow: hidden;
-    transition: max-height 0.28s ease;
+    transition: max-height 0.3s ease;
   }
   .sidebar-group.group-open .sidebar-submenu {
-    max-height: 500px;
+    max-height: 1000px;
   }
 
   .sidebar-bottom {
@@ -273,10 +338,20 @@
     flex-shrink: 0;
   }
   .sidebar-bottom .sidebar-group-btn {
-    justify-content: center;
+    font-weight: 400;
   }
-  .sidebar-desktop:hover .sidebar-bottom .sidebar-group-btn {
-    justify-content: flex-start;
+
+  /* Cuerpo de la app: sigue el ancho del sidebar mediante transición */
+  .app-body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    margin-left: 240px;
+    transition: margin-left 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .sidebar-rail + .app-body {
+    margin-left: 72px;
   }
 
   /* ── Topbar ── */
@@ -360,6 +435,19 @@
   .hamburger-btn:hover {
     background: #f1f5f9;
     color: #0f172a;
+  }
+
+  /* Toggle del sidebar solo en escritorio; hamburguesa solo en móvil */
+  .sidebar-toggle-mobile {
+    display: none;
+  }
+  @media (max-width: 768px) {
+    .sidebar-toggle-mobile {
+      display: flex;
+    }
+    .sidebar-toggle-desktop {
+      display: none;
+    }
   }
 
   /* ── Content ── */
@@ -867,38 +955,76 @@
   .login-page {
     min-height: 100vh;
     display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    position: relative;
+  }
+  .login-page::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 60% 40%, rgba(245, 158, 11, 0.07) 0%, transparent 60%);
+    pointer-events: none;
   }
   .login-container {
-    flex: 1;
     display: flex;
-    min-height: 100vh;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    max-width: 1200px;
+    padding: 40px 60px;
+    gap: 60px;
+    position: relative;
+    z-index: 1;
   }
   .login-main {
-    flex: 1;
+    flex: 0 0 420px;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 32px;
   }
   .login-card {
     width: 100%;
-    max-width: 420px;
+    background: rgba(255, 255, 255, 0.97);
+    backdrop-filter: blur(20px);
+    border-radius: 20px;
+    padding: 42px 38px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    box-shadow: 0 24px 80px rgba(10, 22, 40, 0.38), 0 0 0 1px rgba(255, 255, 255, 0.75);
   }
   .login-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     text-align: center;
     margin-bottom: 32px;
+    width: 100%;
+  }
+  .login-logo {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 12px;
   }
   .login-logo img {
-    width: 260px;
+    max-width: 100%;
     height: auto;
+    max-height: 80px;
     object-fit: contain;
   }
   .login-subtitle {
     font-size: 13px;
     color: #475569;
-    margin-top: 12px;
+    font-weight: 500;
+    margin-top: 0;
   }
   .login-form {
+    width: 100%;
     display: flex;
     flex-direction: column;
     gap: 16px;
@@ -911,7 +1037,11 @@
   }
   .forgot-link {
     color: #0f2044;
-    font-weight: 500;
+    font-weight: 600;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
   }
   .forgot-link:hover {
     text-decoration: underline;
@@ -925,21 +1055,28 @@
   }
   .login-btn {
     width: 100%;
-    padding: 14px;
+    padding: 13px 24px;
     background: #0f2044;
     color: white;
+    border: none;
     border-radius: 12px;
     font-size: 14px;
-    font-weight: 600;
+    font-weight: 700;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(10, 22, 40, 0.3);
     transition: all 0.18s ease;
   }
   .login-btn:hover:not(:disabled) {
     background: #163060;
+    box-shadow: 0 6px 22px rgba(10, 22, 40, 0.42);
     transform: translateY(-1px);
+  }
+  .login-btn:active {
+    transform: scale(0.98);
   }
   .login-btn:disabled {
     opacity: 0.7;
@@ -949,71 +1086,92 @@
     text-align: center;
     font-size: 11px;
     color: #94a3b8;
-    margin-top: 32px;
+    margin-top: 24px;
   }
+
+  /* Hero: galería acotada (no ocupa toda la pantalla) */
   .login-hero {
     flex: 1;
-    position: relative;
-    background: #0a1628;
-    overflow: hidden;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
+    gap: 24px;
+    min-width: 0;
   }
   .hero-gallery {
-    position: absolute;
-    inset: 0;
+    width: 380px;
+    max-width: 100%;
+    height: 320px;
+    border-radius: 16px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.15), 0 24px 80px rgba(0, 0, 0, 0.4);
   }
   .hero-track {
-    position: absolute;
-    inset: 0;
     display: flex;
-    transition: transform 0.6s ease;
+    height: 100%;
+    transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
   }
   .hero-slide {
-    flex: 0 0 100%;
-    width: 100%;
+    min-width: 100%;
     height: 100%;
     background-size: cover;
     background-position: center;
+    flex-shrink: 0;
   }
   .hero-dots {
-    position: absolute;
-    bottom: 100px;
-    left: 50%;
-    transform: translateX(-50%);
     display: flex;
-    gap: 6px;
-    z-index: 5;
+    gap: 8px;
+    align-items: center;
   }
   .hero-dot {
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background: rgba(255, 255, 255, 0.4);
+    background: rgba(255, 255, 255, 0.3);
     border: none;
-    padding: 0;
-    transition: all 0.3s ease;
     cursor: pointer;
+    transition: all 0.3s ease;
+    padding: 0;
   }
   .hero-dot.active {
-    background: white;
+    background: #fbbf24;
     width: 24px;
     border-radius: 4px;
   }
   .hero-slogan {
-    position: absolute;
-    bottom: 24px;
-    left: 50%;
-    transform: translateX(-50%);
-    color: white;
-    font-size: 13px;
-    font-weight: 500;
-    letter-spacing: 0.3px;
+    font-size: 16px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.92);
     text-align: center;
-    width: 100%;
-    padding: 0 16px;
-    z-index: 5;
+    letter-spacing: 0.02em;
+    max-width: 400px;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  }
+
+  @media (max-width: 900px) {
+    .login-container {
+      flex-direction: column;
+      justify-content: center;
+      gap: 30px;
+      padding: 40px 20px;
+    }
+    .login-main {
+      flex: none;
+      width: 100%;
+      max-width: 420px;
+    }
+    .login-hero {
+      width: 100%;
+    }
+    .hero-gallery {
+      width: 260px;
+      height: 220px;
+    }
+    .hero-slogan {
+      font-size: 14px;
+    }
   }
 
   /* ── Modal ── */
@@ -1342,6 +1500,43 @@
 
   /* ── Responsive ── */
   @media (max-width: 768px) {
+    .sidebar-desktop {
+      width: 264px;
+      transform: translateX(-100%);
+      box-shadow: 0 4px 40px rgba(0, 0, 0, 0.3);
+      transition: width 0.28s cubic-bezier(0.4, 0, 0.2, 1), transform 0.28s ease;
+    }
+    .sidebar-desktop.sidebar-mobile-open {
+      transform: translateX(0);
+    }
+    /* En móvil el drawer siempre muestra las etiquetas completas */
+    .sidebar-mobile-open .sidebar-logo-text,
+    .sidebar-mobile-open .sidebar-label {
+      max-width: 180px;
+      opacity: 1;
+    }
+    .sidebar-mobile-open .sidebar-arrow {
+      margin-left: auto;
+      max-width: 24px;
+      opacity: 0.7;
+    }
+    .sidebar-mobile-open .sidebar-logo-area {
+      justify-content: flex-start;
+      gap: 12px;
+      padding: 18px 20px;
+    }
+    .sidebar-mobile-open .sidebar-group-btn,
+    .sidebar-mobile-open .sidebar-item-btn {
+      justify-content: flex-start;
+      gap: 14px;
+      padding: 9px 20px;
+    }
+
+    .app-body,
+    .sidebar-rail + .app-body {
+      margin-left: 0;
+    }
+
     .form-row,
     .form-grid-2 {
       grid-template-columns: 1fr;
@@ -1350,6 +1545,12 @@
     .form-row-4 {
       grid-template-columns: 1fr 1fr;
       gap: 10px;
+    }
+    .topbar {
+      padding: 0 16px;
+    }
+    .content-area {
+      padding: 20px 16px;
     }
   }
   @media (max-width: 480px) {

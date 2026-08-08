@@ -95,7 +95,12 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="login-page">
+    <div
+      className="login-page"
+      style={{
+        backgroundImage: `linear-gradient(135deg, rgba(10,22,40,0.85) 0%, rgba(14,30,64,0.75) 100%), url(${import.meta.env.BASE_URL}imagenes/fondo%20del%20login.png)`,
+      }}
+    >
       <div className="login-container">
         <main className="login-main">
           <div className="login-card">
