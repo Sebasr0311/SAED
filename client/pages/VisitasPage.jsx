@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Button } from '../components/ui/Button.jsx';
 import { Select } from '../components/ui/Form.jsx';
 import { DataTable } from '../components/ui/DataTable.jsx';
-import { Pagination } from '../components/ui/Pagination.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
 import Toast from '../components/ui/Toast.jsx';
@@ -10,16 +9,15 @@ import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
 import { formatDate, formatMiles } from '../lib/utils.js';
 
-const ESTADOS = ['', 'EN_CURSO', 'FINALIZADA', 'CANCELADA'];
+const ESTADOS = ['', 'ACTIVA', 'FINALIZADA', 'CANCELADA'];
 const ESTADO_BADGE = {
   PENDIENTE: 'badge-pendiente-firma',
-  EN_CURSO: 'badge-activo',
+  ACTIVA: 'badge-activo',
   FINALIZADA: 'badge-finalizada',
   CANCELADA: 'badge-cancelado',
 };
 
 export default function VisitasPage() {
-  const [page, setPage] = useState(0);
   const [filtroEstado, setFiltroEstado] = useState('');
   const [filtroFecha, setFiltroFecha] = useState('');
   const [toast, setToast] = useState(null);
@@ -27,14 +25,10 @@ export default function VisitasPage() {
   const [loadingDetalle, setLoadingDetalle] = useState(false);
   const [fotoGrande, setFotoGrande] = useState(null);
 
-  const qs = new URLSearchParams({
-    page,
-    size: 20,
-    ...(filtroEstado ? { estado: filtroEstado } : {}),
-  });
-  const { data: dataRaw, loading, refetch } = useFetch(() => api.get(`/visitas?${qs}`), [page, filtroEstado]);
+  const { data: dataRaw, loading, refetch } = useFetch(() => api.get('/visitas'), []);
 
   const filtradas = (dataRaw?.items || dataRaw || []).filter((v) => {
+    if (filtroEstado && (!v.estado || v.estado !== filtroEstado)) return false;
     if (!filtroFecha) return true;
     const fecha = (v.fechaVisita || '').slice(0, 10);
     return fecha === filtroFecha;
@@ -106,7 +100,7 @@ export default function VisitasPage() {
           >
             <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>visibility</span>
           </button>
-          {(row.estado === 'EN_CURSO' || row.estado === 'PENDIENTE') && (
+          {(row.estado === 'ACTIVA' || row.estado === 'PENDIENTE') && (
             <Button
               onClick={(e) => {
                 e.stopPropagation();
@@ -145,10 +139,7 @@ export default function VisitasPage() {
             <Select
               id="f-estado"
               value={filtroEstado}
-              onChange={(e) => {
-                setFiltroEstado(e.target.value);
-                setPage(0);
-              }}
+              onChange={(e) => setFiltroEstado(e.target.value)}
               className="filter-select"
             >
               {ESTADOS.map((e) => (
@@ -175,13 +166,6 @@ export default function VisitasPage() {
         empty="No hay visitas"
         keyField="idVisita"
         onRowClick={verDetalle}
-      />
-      <Pagination
-        page={page}
-        totalPages={dataRaw?.totalPages || 1}
-        totalItems={dataRaw?.totalItems}
-        pageSize={20}
-        onPageChange={setPage}
       />
 
       <Modal open={!!detalle} onClose={() => setDetalle(null)} title="Detalle de Visita" size="md">

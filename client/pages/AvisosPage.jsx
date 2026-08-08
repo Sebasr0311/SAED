@@ -125,7 +125,7 @@ export default function AvisosPage() {
   const [sending, setSending] = useState(false);
 
   const { data: avisos, loading, refetch } = useFetch(() => api.get('/buzon/avisos'), []);
-  const { data: apartamentos } = useFetch(() => api.get('/apartamentos?size=500'), []);
+  const { data: apartamentos } = useFetch(() => api.get('/apartamentos'), []);
 
   const columns = [
     { key: 'idMensaje', label: 'ID', width: 60 },

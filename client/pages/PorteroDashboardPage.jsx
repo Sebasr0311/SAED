@@ -396,14 +396,14 @@ export default function PorteroDashboardPage() {
   const { data: visitasHoy } = useFetch(() => api.get('/visitas/hoy'), []);
   const { data: parqueaderos } = useFetch(() => api.get('/parqueaderos?estado=DISPONIBLE'), []);
   const { data: paquetes } = useFetch(() => api.get('/buzon/paquetes-pendientes'), []);
-  const { data: apartamentos } = useFetch(() => api.get('/apartamentos?size=500'), []);
+  const { data: apartamentos } = useFetch(() => api.get('/apartamentos'), []);
   const { data: quejasRuido } = useFetch(
     () => (modalMulta === 'RUIDO' ? api.get('/buzon/quejas-ruido-pendientes') : Promise.resolve([])),
     [modalMulta]
   );
 
   const visitasHoyCount = visitasHoy?.items?.length ?? visitasHoy?.length ?? '—';
-  const visitasActivas = (visitasHoy?.items || visitasHoy || []).filter((v) => v.estado === 'EN_CURSO' || v.estado === 'PENDIENTE').length;
+  const visitasActivas = (visitasHoy?.items || visitasHoy || []).filter((v) => v.estado === 'ACTIVA' || v.estado === 'PENDIENTE').length;
   const parqDisponibles = (parqueaderos?.items || parqueaderos || []).filter((p) => p.esVisitante).length;
   const paquetesCount = paquetes?.count ?? '—';
 

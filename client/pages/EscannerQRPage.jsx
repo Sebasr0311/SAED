@@ -10,7 +10,7 @@ import { formatDate } from '../lib/utils.js';
 
 const ESTADO_BADGE = {
   PENDIENTE: 'badge-pendiente-firma',
-  EN_CURSO: 'badge-activo',
+  ACTIVA: 'badge-activo',
   FINALIZADA: 'badge-finalizada',
   CANCELADA: 'badge-cancelado',
 };
@@ -411,7 +411,7 @@ function TabRegistrarSalida({ onToast }) {
   const [toast, setToast] = useState(null);
 
   const activas = (visitas?.items || visitas || []).filter(
-    (v) => v.estado === 'EN_CURSO' || v.estado === 'PENDIENTE'
+    (v) => v.estado === 'ACTIVA' || v.estado === 'PENDIENTE'
   );
 
   async function registrarSalida(idVisita) {

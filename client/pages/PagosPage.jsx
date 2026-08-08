@@ -23,14 +23,20 @@ function Stat({ icon, value, label, color = 'primary' }) {
   );
 }
 
+const MESES_ES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
+function periodoLabel(anio, mes) {
+  if (anio == null || mes == null) return '-';
+  return `${MESES_ES[mes - 1] || mes} ${anio}`;
+}
+
 function agruparPorApartamento(cuotas, multas) {
   const mapa = new Map();
   (cuotas || []).forEach((c) => {
-    const key = c.idApartamento;
+    const key = c.numeroApartamento || `Apto #${c.idContrato}`;
     if (!mapa.has(key)) {
       mapa.set(key, {
-        idApartamento: key,
-        numeroApartamento: c.numeroApartamento,
+        numeroApartamento: key,
         nombreResidente: c.nombreResidente,
         cuotas: [],
         multas: [],
@@ -39,11 +45,10 @@ function agruparPorApartamento(cuotas, multas) {
     mapa.get(key).cuotas.push(c);
   });
   (multas || []).forEach((m) => {
-    const key = m.idApartamento;
+    const key = m.numeroApartamento || `Apto #${m.idApartamento}`;
     if (!mapa.has(key)) {
       mapa.set(key, {
-        idApartamento: key,
-        numeroApartamento: m.numeroApartamento,
+        numeroApartamento: key,
         nombreResidente: m.nombreResidente,
         cuotas: [],
         multas: [],
@@ -88,7 +93,7 @@ export default function PagosPage() {
   }, [cuotas, multas, search]);
 
   const kpis = useMemo(() => {
-    const cuotasPendientes = (cuotas?.items || cuotas || []).reduce((s, c) => s + Number(c.montoPendiente || c.monto || 0), 0);
+    const cuotasPendientes = (cuotas?.items || cuotas || []).reduce((s, c) => s + Number(c.saldoPendiente ?? c.valorTotal ?? 0), 0);
     const multasPendientes = (multas?.items || multas || [])
       .filter((m) => m.estado === 'PENDIENTE')
       .reduce((s, m) => s + Number(m.monto || 0), 0);
@@ -112,9 +117,10 @@ export default function PagosPage() {
 
   function abrirPagoCuota(cuota) {
     setPagoModal({ tipo: 'cuota', item: cuota });
+    const saldo = Number(cuota.saldoPendiente ?? cuota.valorTotal ?? 0);
     setPagoForm({
       fecha: todayStr(),
-      valor: formatMiles(cuota.montoPendiente || cuota.monto),
+      valor: saldo > 0 ? formatMiles(saldo) : '',
       metodo: 'EFECTIVO',
       referencia: '',
       notas: '',
@@ -185,7 +191,7 @@ export default function PagosPage() {
         rows={residentes}
         loading={loading}
         empty="No hay pagos pendientes"
-        keyField="idApartamento"
+        keyField="numeroApartamento"
         onRowClick={setDetalle}
       />
 
@@ -211,9 +217,9 @@ export default function PagosPage() {
                 <tbody>
                   {detalle.cuotas.map((c) => (
                     <tr key={c.idCuota || c.id}>
-                      <td>{c.periodo}</td>
-                      <td>{formatCurrency(c.montoPendiente || c.monto)}</td>
-                      <td>{formatDate(c.fechaVencimiento)}</td>
+                      <td>{periodoLabel(c.anio, c.mes)}</td>
+                      <td>{formatCurrency(c.saldoPendiente ?? c.valorTotal)}</td>
+                      <td>{formatDate(c.fechaLimite)}</td>
                       <td>
                         <Button onClick={() => abrirPagoCuota(c)} style={{ padding: '4px 10px', fontSize: '11px' }}>
                           Pagar
