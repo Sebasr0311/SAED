@@ -7,7 +7,7 @@ import { Select, Textarea } from '../components/ui/Form.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
 import { DataTable } from '../components/ui/DataTable.jsx';
 import Toast from '../components/ui/Toast.jsx';
-import { formatDate, formatCurrency } from '../lib/utils.js';
+import { formatDate, formatCurrency, imageSrc } from '../lib/utils.js';
 
 function Stat({ icon, value, label, color = 'primary' }) {
   return (
@@ -281,7 +281,7 @@ function ModalGenerarMulta({ open, onClose, onConfirm, apartamentos, quejasRuido
           <VideoCamara onCapture={setFoto} label="Capturar Evidencia" />
           {foto && (
             <img
-              src={`data:image/jpeg;base64,${foto}`}
+              src={imageSrc(foto)}
               alt="Evidencia"
               style={{ maxWidth: '200px', borderRadius: '8px', marginTop: '8px' }}
             />
@@ -375,7 +375,7 @@ function ModalPaquetes({ open, onClose, onConfirm }) {
             </div>
             {detalle.fotoCaptura && (
               <img
-                src={`data:image/jpeg;base64,${detalle.fotoCaptura}`}
+                src={imageSrc(detalle.fotoCaptura)}
                 alt="Foto"
                 style={{ maxWidth: '100%', borderRadius: '8px' }}
               />

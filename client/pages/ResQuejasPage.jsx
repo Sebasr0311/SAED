@@ -8,7 +8,7 @@ import Toast from '../components/ui/Toast.jsx';
 import api from '../lib/api.js';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { useFetch } from '../lib/hooks.js';
-import { formatDate } from '../lib/utils.js';
+import { formatDate, imageSrc } from '../lib/utils.js';
 
 const CATS = [
   { value: 'LIMPIEZA', label: 'Limpieza' },
@@ -241,7 +241,7 @@ export default function ResQuejasPage() {
           {foto && (
             <div style={{ marginBottom: '8px' }}>
               <img
-                src={`data:image/jpeg;base64,${foto}`}
+                src={imageSrc(foto)}
                 alt="Evidencia"
                 style={{ maxWidth: '200px', borderRadius: '8px' }}
               />

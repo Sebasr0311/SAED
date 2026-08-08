@@ -7,7 +7,7 @@ import { Modal } from '../components/ui/Modal.jsx';
 import Toast from '../components/ui/Toast.jsx';
 import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
-import { formatDate, formatMiles } from '../lib/utils.js';
+import { formatDate, formatMiles, imageSrc } from '../lib/utils.js';
 
 const ESTADOS = ['', 'ACTIVA', 'FINALIZADA', 'CANCELADA'];
 const ESTADO_BADGE = {
@@ -219,10 +219,10 @@ export default function VisitasPage() {
             )}
             {detalle.fotoCaptura && (
               <img
-                src={`data:image/jpeg;base64,${detalle.fotoCaptura}`}
+                src={imageSrc(detalle.fotoCaptura)}
                 alt="Foto"
                 style={{ maxWidth: '100%', borderRadius: '8px', marginTop: '8px', cursor: 'zoom-in' }}
-                onClick={() => setFotoGrande(`data:image/jpeg;base64,${detalle.fotoCaptura}`)}
+                onClick={() => setFotoGrande(imageSrc(detalle.fotoCaptura))}
               />
             )}
           </div>
