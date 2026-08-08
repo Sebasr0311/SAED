@@ -71,7 +71,7 @@ export default function ContratosPage() {
   const { data: apartamentos } = useFetch(() => api.get('/apartamentos?size=500'), []);
   const { data: residentes } = useFetch(() => api.get('/residentes?size=500'), []);
 
-  const contratos = (contratosRaw || []).filter((c) => !filtroEstado || c.estado === filtroEstado);
+  const contratos = (contratosRaw?.items || []).filter((c) => !filtroEstado || c.estado === filtroEstado);
 
   async function descargarPDF(idContrato) {
     setDescargando(idContrato);

@@ -70,12 +70,12 @@ export default function HistorialVisitasPage() {
   const [detalle, setDetalle] = useState(null);
   const [loadingDetalle, setLoadingDetalle] = useState(false);
 
-  const { data: visitas, loading } = useFetch(
+  const { data: visitasRaw, loading } = useFetch(
     () => api.get(`/visitas/historial?fechaInicio=${fechaInicio}&fechaFin=${fechaFin}`),
     [fechaInicio, fechaFin]
   );
 
-  const filtradas = (visitas || []).filter((v) => {
+  const filtradas = (visitasRaw?.items || visitasRaw || []).filter((v) => {
     if (!search) return true;
     const term = search.toLowerCase();
     return [v.nombreVisitante, v.documentoVisitante, v.numeroApartamento, v.nombreResidente]

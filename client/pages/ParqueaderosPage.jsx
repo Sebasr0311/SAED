@@ -56,7 +56,7 @@ export default function ParqueaderosPage() {
     return () => clearInterval(interval);
   }, [refetch]);
 
-  const items = data || [];
+  const items = data?.items || data || [];
 
   const codigoGenerado = useMemo(() => {
     const prefijo = prefijoParq(form.tipo, form.esVisitante);

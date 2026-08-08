@@ -19,7 +19,7 @@ export default function ResBuzonPage() {
     [user]
   );
 
-  const items = data || [];
+  const items = data?.items || data || [];
 
   async function vaciar() {
     try {
