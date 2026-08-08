@@ -27,6 +27,7 @@ public class AlertaPago {
 
     // Campos transient — calculados con JOIN en AlertaPagoDAO.findAll()
     private String  nombreResidente;
+    private Integer idApartamento;
     private String  numeroApartamento;
     private Integer anio;
     private Integer mes;
@@ -60,6 +61,9 @@ public class AlertaPago {
     // Transient
     public String  getNombreResidente()                   { return nombreResidente; }
     public void    setNombreResidente(String v)           { this.nombreResidente = v; }
+
+    public Integer getIdApartamento()                     { return idApartamento; }
+    public void    setIdApartamento(Integer v)            { this.idApartamento = v; }
 
     public String  getNumeroApartamento()                 { return numeroApartamento; }
     public void    setNumeroApartamento(String v)         { this.numeroApartamento = v; }

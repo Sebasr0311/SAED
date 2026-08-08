@@ -31,12 +31,16 @@ public class BuzonHandler extends BaseHandler implements HttpHandler {
             String rol = (String) claims.get("rol");
 
             if ("GET".equalsIgnoreCase(method) && path.endsWith("/pendientes")) {
-                int idApartamento = obtenerIdApartamento(claims);
+                Connection conn = ConexionBD.getInstancia().getConexion();
+                int idApartamento = AuthScope.idApartamento(conn, claims);
+                if (idApartamento <= 0) throw new Exception("No se encontro apartamento para el usuario");
                 List<Buzon> lista = buzonDAO.findPendientesByApartamento(idApartamento);
                 sendJson(exchange, 200, toMapList(lista));
 
             } else if ("GET".equalsIgnoreCase(method) && path.endsWith("/confirmar-pendiente")) {
-                int idApartamento = obtenerIdApartamento(claims);
+                Connection conn = ConexionBD.getInstancia().getConexion();
+                int idApartamento = AuthScope.idApartamento(conn, claims);
+                if (idApartamento <= 0) throw new Exception("No se encontro apartamento para el usuario");
                 List<Buzon> lista = buzonDAO.findPendientesByApartamento(idApartamento);
                 List<Map<String, Object>> res = new ArrayList<>();
                 for (Buzon b : lista) {
@@ -49,6 +53,15 @@ public class BuzonHandler extends BaseHandler implements HttpHandler {
                 String idVisitaStr = query != null ? JsonUtil.extraerValor(query, "idVisita") : null;
                 if (idVisitaStr == null) throw new Exception("idVisita requerido");
                 int idVisita = Integer.parseInt(idVisitaStr);
+                if ("RESIDENTE".equals(rol)) {
+                    Connection conn = ConexionBD.getInstancia().getConexion();
+                    int idResidente = AuthScope.idResidente(conn, claims);
+                    Visita visita = new VisitaDAO().findById(idVisita);
+                    if (visita == null || visita.getIdResidente() == null || visita.getIdResidente() != idResidente) {
+                        AuthScope.sendForbidden(exchange, "No autorizado para consultar esta visita");
+                        return;
+                    }
+                }
                 Buzon b = buzonDAO.findByVisitaAndPendiente(idVisita);
                 if (b == null) {
                     Buzon existente = buzonDAO.findByVisita(idVisita);
@@ -71,7 +84,7 @@ public class BuzonHandler extends BaseHandler implements HttpHandler {
                 }
 
             } else if ("GET".equalsIgnoreCase(method) && path.endsWith("/paquetes-pendientes")) {
-                if (!"PORTERO".equals(rol)) throw new Exception("Solo porteros pueden ver paquetes pendientes");
+                if (!AuthScope.requireRole(exchange, claims, "PORTERO")) return;
                 int count = buzonDAO.countPaquetesPendientes();
                 sendJson(exchange, 200, Map.of("count", count));
 
@@ -79,36 +92,56 @@ public class BuzonHandler extends BaseHandler implements HttpHandler {
                 if ("PORTERO".equals(rol)) {
                     List<Buzon> lista = buzonDAO.findAllPaquetesPendientes();
                     sendJson(exchange, 200, toMapList(lista));
-                } else {
+                } else if ("ADMINISTRADOR".equals(rol)) {
                     List<Buzon> lista = buzonDAO.findAllPaquetes();
                     sendJson(exchange, 200, toMapList(lista));
+                } else if ("RESIDENTE".equals(rol)) {
+                    Connection conn = ConexionBD.getInstancia().getConexion();
+                    int idApartamento = AuthScope.idApartamento(conn, claims);
+                    if (idApartamento <= 0) {
+                        AuthScope.sendForbidden(exchange, "El usuario no tiene un apartamento asociado");
+                        return;
+                    }
+                    List<Buzon> lista = buzonDAO.findByApartamento(idApartamento);
+                    List<Buzon> paquetes = new ArrayList<>();
+                    for (Buzon b : lista) {
+                        if ("PAQUETE".equals(b.getTipo())) paquetes.add(b);
+                    }
+                    sendJson(exchange, 200, toMapList(paquetes));
+                } else {
+                    AuthScope.sendForbidden(exchange, "No autorizado");
+                    return;
                 }
 
             } else if ("GET".equalsIgnoreCase(method) && path.endsWith("/quejas-ruido-pendientes")) {
-                if (!"PORTERO".equals(rol)) throw new Exception("Solo porteros pueden ver quejas pendientes");
+                if (!AuthScope.requireRole(exchange, claims, "PORTERO")) return;
                 List<Buzon> lista = buzonDAO.findQuejasRuidoPendientesHoy();
                 sendJson(exchange, 200, toMapList(lista));
 
             } else if ("GET".equalsIgnoreCase(method) && path.endsWith("/avisos")) {
-                if (!"ADMINISTRADOR".equals(rol)) throw new Exception("Solo administradores pueden ver avisos");
+                if (!AuthScope.requireRole(exchange, claims, "ADMINISTRADOR")) return;
                 List<Buzon> lista = buzonDAO.findAllAvisos();
                 sendJson(exchange, 200, toMapList(lista));
 
             } else if ("GET".equalsIgnoreCase(method)) {
-                String idApartamentoStr = query != null ? JsonUtil.extraerValor(query, "idApartamento") : null;
                 int idApartamento;
-                if (idApartamentoStr != null) {
-                    idApartamento = Integer.parseInt(idApartamentoStr);
-                } else if ("RESIDENTE".equals(rol)) {
-                    idApartamento = obtenerIdApartamento(claims);
+                if ("RESIDENTE".equals(rol)) {
+                    Connection conn = ConexionBD.getInstancia().getConexion();
+                    idApartamento = AuthScope.idApartamento(conn, claims);
+                    if (idApartamento <= 0) {
+                        AuthScope.sendForbidden(exchange, "El usuario no tiene un apartamento asociado");
+                        return;
+                    }
                 } else {
-                    throw new Exception("idApartamento requerido para este rol");
+                    String idApartamentoStr = query != null ? JsonUtil.extraerValor(query, "idApartamento") : null;
+                    if (idApartamentoStr == null) throw new Exception("idApartamento requerido para este rol");
+                    idApartamento = Integer.parseInt(idApartamentoStr);
                 }
                 List<Buzon> lista = buzonDAO.findByApartamento(idApartamento);
                 sendJson(exchange, 200, toMapList(lista));
 
             } else if ("POST".equalsIgnoreCase(method) && path.endsWith("/paquete")) {
-                if (!"PORTERO".equals(rol)) throw new Exception("Solo porteros pueden registrar paquetes");
+                if (!AuthScope.requireRole(exchange, claims, "PORTERO")) return;
                 String body = new String(exchange.getRequestBody().readAllBytes(), "UTF-8");
                 @SuppressWarnings("unchecked")
                 Map<String, Object> data = JsonUtil.fromJson(body, Map.class);
@@ -132,7 +165,7 @@ public class BuzonHandler extends BaseHandler implements HttpHandler {
                 sendJson(exchange, 201, Map.of("idMensaje", id));
 
             } else if ("POST".equalsIgnoreCase(method) && path.endsWith("/aviso-ruido")) {
-                if (!"PORTERO".equals(rol)) throw new Exception("Solo porteros pueden enviar avisos de ruido");
+                if (!AuthScope.requireRole(exchange, claims, "PORTERO")) return;
                 String body = new String(exchange.getRequestBody().readAllBytes(), "UTF-8");
                 @SuppressWarnings("unchecked")
                 Map<String, Object> data = JsonUtil.fromJson(body, Map.class);
@@ -155,7 +188,7 @@ public class BuzonHandler extends BaseHandler implements HttpHandler {
                 sendJson(exchange, 201, Map.of("idMensaje", id));
 
             } else if ("POST".equalsIgnoreCase(method) && path.endsWith("/aviso")) {
-                if (!"ADMINISTRADOR".equals(rol)) throw new Exception("Solo administradores pueden crear avisos");
+                if (!AuthScope.requireRole(exchange, claims, "ADMINISTRADOR")) return;
                 String body = new String(exchange.getRequestBody().readAllBytes(), "UTF-8");
                 @SuppressWarnings("unchecked")
                 Map<String, Object> data = JsonUtil.fromJson(body, Map.class);
@@ -187,17 +220,24 @@ public class BuzonHandler extends BaseHandler implements HttpHandler {
                 sendJson(exchange, 201, Map.of("mensaje", "Aviso(s) enviado(s)"));
 
             } else if ("POST".equalsIgnoreCase(method) && path.endsWith("/confirmar")) {
-                if (!"RESIDENTE".equals(rol)) throw new Exception("Solo residentes pueden confirmar visitas");
+                if (!AuthScope.requireRole(exchange, claims, "RESIDENTE")) return;
                 String body = new String(exchange.getRequestBody().readAllBytes(), "UTF-8");
                 @SuppressWarnings("unchecked")
                 Map<String, Object> data = JsonUtil.fromJson(body, Map.class);
                 int idMensaje = ((Number) data.get("idMensaje")).intValue();
                 int confirmado = ((Number) data.get("confirmado")).intValue();
+                Connection conn = ConexionBD.getInstancia().getConexion();
+                Buzon msg = buzonDAO.findById(idMensaje);
+                int idApartamento = AuthScope.idApartamento(conn, claims);
+                if (msg == null || msg.getIdApartamento() == null || msg.getIdApartamento() != idApartamento) {
+                    AuthScope.sendForbidden(exchange, "No autorizado para confirmar este mensaje");
+                    return;
+                }
                 buzonDAO.confirmarVisita(idMensaje, confirmado);
                 sendJson(exchange, 200, Map.of("mensaje", confirmado == 1 ? "Visita confirmada" : "Visita rechazada"));
 
             } else if ("PUT".equalsIgnoreCase(method) && path.endsWith("/vaciar-multi")) {
-                if (!"RESIDENTE".equals(rol)) throw new Exception("Solo residentes pueden vaciar el buzon");
+                if (!AuthScope.requireRole(exchange, claims, "RESIDENTE")) return;
                 String body = new String(exchange.getRequestBody().readAllBytes(), "UTF-8");
                 @SuppressWarnings("unchecked")
                 Map<String, Object> data = JsonUtil.fromJson(body, Map.class);
@@ -205,20 +245,51 @@ public class BuzonHandler extends BaseHandler implements HttpHandler {
                 List<Object> rawIds = (List<Object>) data.get("ids");
                 List<Integer> ids = new ArrayList<>();
                 for (Object o : rawIds) ids.add(((Number) o).intValue());
+                Connection conn = ConexionBD.getInstancia().getConexion();
+                int idApartamento = AuthScope.idApartamento(conn, claims);
+                for (int id : ids) {
+                    Buzon msg = buzonDAO.findById(id);
+                    if (msg == null || msg.getIdApartamento() == null || msg.getIdApartamento() != idApartamento) {
+                        AuthScope.sendForbidden(exchange, "No autorizado para vaciar uno de los mensajes");
+                        return;
+                    }
+                }
                 buzonDAO.marcarMultiLeidoYEntregado(ids);
                 sendJson(exchange, 200, Map.of("mensaje", "Mensajes eliminados"));
 
             } else if ("PUT".equalsIgnoreCase(method) && path.endsWith("/vaciar")) {
-                if (!"RESIDENTE".equals(rol)) throw new Exception("Solo residentes pueden vaciar el buzon");
-                int idApartamento = obtenerIdApartamento(claims);
+                if (!AuthScope.requireRole(exchange, claims, "RESIDENTE")) return;
+                Connection conn = ConexionBD.getInstancia().getConexion();
+                int idApartamento = AuthScope.idApartamento(conn, claims);
+                if (idApartamento <= 0) throw new Exception("No se encontro apartamento para el usuario");
                 buzonDAO.marcarTodoLeidoYEntregado(idApartamento);
                 sendJson(exchange, 200, Map.of("mensaje", "Buzon vaciado"));
 
             } else if ("PUT".equalsIgnoreCase(method) && parts.length == 5 && "leido".equals(parts[4])) {
-                buzonDAO.marcarLeido(Integer.parseInt(parts[3]));
+                int idMensaje = Integer.parseInt(parts[3]);
+                if ("RESIDENTE".equals(rol)) {
+                    Connection conn = ConexionBD.getInstancia().getConexion();
+                    Buzon msg = buzonDAO.findById(idMensaje);
+                    int idApartamento = AuthScope.idApartamento(conn, claims);
+                    if (msg == null || msg.getIdApartamento() == null || msg.getIdApartamento() != idApartamento) {
+                        AuthScope.sendForbidden(exchange, "No autorizado para marcar este mensaje");
+                        return;
+                    }
+                } else if ("PORTERO".equals(rol)) {
+                    AuthScope.sendForbidden(exchange, "Los porteros no pueden marcar mensajes como leidos");
+                    return;
+                } else if (!"ADMINISTRADOR".equals(rol)) {
+                    AuthScope.sendForbidden(exchange, "No autorizado");
+                    return;
+                }
+                buzonDAO.marcarLeido(idMensaje);
                 sendJson(exchange, 200, Map.of("mensaje", "Marcado como leido"));
 
             } else if ("PUT".equalsIgnoreCase(method) && parts.length == 5 && "entregado".equals(parts[4])) {
+                if ("RESIDENTE".equals(rol)) {
+                    AuthScope.sendForbidden(exchange, "Los residentes no pueden marcar mensajes como entregados");
+                    return;
+                }
                 buzonDAO.marcarEntregado(Integer.parseInt(parts[3]));
                 sendJson(exchange, 200, Map.of("mensaje", "Marcado como entregado"));
 
@@ -229,24 +300,6 @@ public class BuzonHandler extends BaseHandler implements HttpHandler {
             e.printStackTrace();
             sendJson(exchange, 400, new ErrorResponse(e.getMessage()));
         }
-    }
-
-    private int obtenerIdApartamento(Map<String, Object> claims) throws Exception {
-        int idUsuario = ((Number) claims.get("idUsuario")).intValue();
-        String sql = "SELECT a.id_apartamento "
-                   + "FROM   USUARIOS u "
-                   + "JOIN   RESIDENTES r ON r.id_residente = u.id_residente "
-                   + "JOIN   CONTRATO_RESIDENTE cr ON cr.id_residente = r.id_residente "
-                   + "JOIN   CONTRATOS c ON c.id_contrato = cr.id_contrato AND c.estado = 'ACTIVO' "
-                   + "JOIN   APARTAMENTOS a ON a.id_apartamento = c.id_apartamento "
-                   + "WHERE  u.id_usuario = ? AND ROWNUM = 1";
-        try (PreparedStatement ps = ConexionBD.getInstancia().getConexion().prepareStatement(sql)) {
-            ps.setInt(1, idUsuario);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) return rs.getInt("id_apartamento");
-            }
-        }
-        throw new Exception("No se encontro apartamento para el usuario");
     }
 
     private List<Map<String, Object>> toMapList(List<Buzon> lista) {

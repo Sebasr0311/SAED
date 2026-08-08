@@ -9,11 +9,13 @@ import com.edificio.admin.model.enums.TipoVehiculo;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import java.io.*;
+import java.sql.Connection;
 import java.util.*;
 
 public class VisitaHandler extends BaseHandler implements HttpHandler {
 
     private final VisitaService visitaService = new VisitaService();
+    private final VisitaDAO visitaDAO = new VisitaDAO();
     private final VisitanteDAO visitanteDAO = new VisitanteDAO();
     private final ContratoResidenteDAO contratoResidenteDAO = new ContratoResidenteDAO();
     private final VisitanteFrecuenteDAO frecuenteDAO = new VisitanteFrecuenteDAO();
@@ -57,12 +59,14 @@ public class VisitaHandler extends BaseHandler implements HttpHandler {
                 return;
             } else if ("GET".equalsIgnoreCase(method) && parts.length == 4 && "hoy".equals(parts[3])) {
                 // GET /api/visitas/hoy — obtiene todas las visitas de hoy (incluyendo finalizadas)
+                if (!AuthScope.requireRole(exchange, claims, "ADMINISTRADOR", "PORTERO")) return;
                 VisitaDAO visitaDAO = new VisitaDAO();
                 List<Visita> visitasHoy = visitaDAO.findVisitasHoy();
                 sendJson(exchange, 200, visitasHoy);
                 return;
             } else if ("GET".equalsIgnoreCase(method) && parts.length == 4 && "historial".equals(parts[3])) {
                 // GET /api/visitas/historial?fechaInicio=YYYY-MM-DD&fechaFin=YYYY-MM-DD
+                if (!AuthScope.requireRole(exchange, claims, "ADMINISTRADOR")) return;
                 String query = exchange.getRequestURI().getQuery();
                 String fechaInicio = query != null ? JsonUtil.extraerValor(query, "fechaInicio") : null;
                 String fechaFin = query != null ? JsonUtil.extraerValor(query, "fechaFin") : null;
@@ -76,9 +80,23 @@ public class VisitaHandler extends BaseHandler implements HttpHandler {
             } else if ("GET".equalsIgnoreCase(method) && parts.length == 5 && "detalle".equals(parts[4])) {
                 // GET /api/visitas/{id}/detalle — devuelve información completa de la visita
                 int idVisita = Integer.parseInt(parts[3]);
+                Visita visita = visitaDAO.findById(idVisita);
+                if (visita == null) {
+                    sendJson(exchange, 404, new ErrorResponse("Visita no encontrada"));
+                    return;
+                }
+                if ("RESIDENTE".equals(AuthScope.rol(claims))) {
+                    Connection conn = ConexionBD.getInstancia().getConexion();
+                    int idResidente = AuthScope.idResidente(conn, claims);
+                    if (idResidente <= 0 || visita.getIdResidente() == null || visita.getIdResidente() != idResidente) {
+                        AuthScope.sendForbidden(exchange, "No autorizado para ver esta visita");
+                        return;
+                    }
+                }
                 Map<String, Object> detalle = obtenerDetalleCompleto(idVisita);
                 sendJson(exchange, 200, detalle);
             } else if ("GET".equalsIgnoreCase(method) && parts.length == 3) {
+                if (!AuthScope.requireRole(exchange, claims, "ADMINISTRADOR", "PORTERO")) return;
                 List<Visita> list = visitaService.listarPendientesYActivas();
                 sendJson(exchange, 200, list);
             } else if ("POST".equalsIgnoreCase(method) && parts.length == 3) {
@@ -87,7 +105,17 @@ public class VisitaHandler extends BaseHandler implements HttpHandler {
                 Map<String, Object> data = JsonUtil.fromJson(body, Map.class);
                 @SuppressWarnings("unchecked")
                 Map<String, Object> visitanteData = (Map<String, Object>) data.get("visitante");
-                int idResidente = ((Number) data.get("idResidente")).intValue();
+                int idResidente;
+                if ("RESIDENTE".equals(AuthScope.rol(claims))) {
+                    Connection conn = ConexionBD.getInstancia().getConexion();
+                    idResidente = AuthScope.idResidente(conn, claims);
+                    if (idResidente <= 0) {
+                        AuthScope.sendForbidden(exchange, "El usuario no tiene un residente asociado");
+                        return;
+                    }
+                } else {
+                    idResidente = ((Number) data.get("idResidente")).intValue();
+                }
 
                 Integer idVisitante = findOrCreateVisitante(visitanteData);
                 int idContratoRes = obtenerIdContratoResActivo(idResidente);
@@ -119,7 +147,20 @@ public class VisitaHandler extends BaseHandler implements HttpHandler {
                 Map<String, Object> data = JsonUtil.fromJson(body, Map.class);
                 int idFrecuente = ((Number) data.get("idFrecuente")).intValue();
                 int idVisitante = ((Number) data.get("idVisitante")).intValue();
-                int idResidente = ((Number) data.get("idResidente")).intValue();
+                int idResidente;
+                if ("RESIDENTE".equals(AuthScope.rol(claims))) {
+                    Connection conn = ConexionBD.getInstancia().getConexion();
+                    idResidente = AuthScope.idResidente(conn, claims);
+                    if (idResidente <= 0) {
+                        AuthScope.sendForbidden(exchange, "El usuario no tiene un residente asociado");
+                        return;
+                    }
+                } else if ("PORTERO".equals(AuthScope.rol(claims))) {
+                    AuthScope.sendForbidden(exchange, "Los porteros no pueden generar visitas rapidas");
+                    return;
+                } else {
+                    idResidente = ((Number) data.get("idResidente")).intValue();
+                }
                 int idContratoRes = obtenerIdContratoResActivo(idResidente);
                 int cantPersonas = data.containsKey("cantidadPersonas") ? ((Number) data.get("cantidadPersonas")).intValue() : 1;
                 int tiempoValidez = data.containsKey("tiempoValidezMin") ? ((Number) data.get("tiempoValidezMin")).intValue() : 30;
@@ -135,12 +176,14 @@ public class VisitaHandler extends BaseHandler implements HttpHandler {
                 sendJson(exchange, 201, Map.of("codigoQr", res.codigoQR, "idVisita", res.idVisita));
             } else if ("PUT".equalsIgnoreCase(method) && parts.length == 5 && "salida".equals(parts[4])) {
                 // PUT /api/visitas/{id}/salida — registra la salida de una visita
+                if (!AuthScope.requireRole(exchange, claims, "ADMINISTRADOR", "PORTERO")) return;
                 int idVisita = Integer.parseInt(parts[3]);
                 registroAccesoDAO.registrarSalida(idVisita);
                 // Liberar parqueadero asignado
                 liberarParqueaderoVisita(idVisita);
                 sendJson(exchange, 200, Map.of("mensaje", "Salida registrada exitosamente"));
             } else if ("DELETE".equalsIgnoreCase(method) && parts.length == 4) {
+                if (!AuthScope.requireRole(exchange, claims, "ADMINISTRADOR", "PORTERO")) return;
                 visitaService.cancelar(Integer.parseInt(parts[3]));
                 sendJson(exchange, 200, Map.of("mensaje", "Visita cancelada"));
             } else {

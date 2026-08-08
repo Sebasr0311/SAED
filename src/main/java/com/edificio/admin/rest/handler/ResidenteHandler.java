@@ -10,6 +10,7 @@ import com.edificio.admin.model.*;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import java.io.*;
+import java.sql.Connection;
 import java.time.LocalDate;
 import java.time.Period;
 import java.util.*;
@@ -40,7 +41,17 @@ public class ResidenteHandler extends BaseHandler implements HttpHandler {
                 String query = exchange.getRequestURI().getQuery();
                 String idApartamentoStr = query != null ? JsonUtil.extraerValor(query, "idApartamento") : null;
                 String conUsuarioStr = query != null ? JsonUtil.extraerValor(query, "conUsuario") : null;
-                
+
+                if ("RESIDENTE".equals(AuthScope.rol(claims))) {
+                    if (idApartamentoStr == null) {
+                        AuthScope.sendForbidden(exchange, "Parametro idApartamento requerido para este rol");
+                        return;
+                    }
+                    int idApartamento = Integer.parseInt(idApartamentoStr);
+                    Connection conn = ConexionBD.getInstancia().getConexion();
+                    if (!AuthScope.requireOwnApartment(exchange, conn, claims, idApartamento)) return;
+                }
+
                 if ("true".equals(conUsuarioStr)) {
                     // Solo residentes con cuenta de usuario (uno por apartamento)
                     List<Residente> list = service.listarConUsuario();
@@ -63,6 +74,13 @@ public class ResidenteHandler extends BaseHandler implements HttpHandler {
                 }
             } else if ("GET".equalsIgnoreCase(method) && parts.length == 4 && !parts[3].equals("dashboard")) {
                 int id = Integer.parseInt(parts[3]);
+                if ("RESIDENTE".equals(AuthScope.rol(claims))) {
+                    Connection conn = ConexionBD.getInstancia().getConexion();
+                    if (!AuthScope.requireOwnResident(exchange, conn, claims, id)) return;
+                } else if ("PORTERO".equals(AuthScope.rol(claims))) {
+                    AuthScope.sendForbidden(exchange, "No autorizado para este rol");
+                    return;
+                }
                 Residente r = service.buscarPorId(id);
                 if (r != null && r.isEsMenorEdad()) {
                     Map<String, Object> resp = new HashMap<>();
@@ -86,6 +104,13 @@ public class ResidenteHandler extends BaseHandler implements HttpHandler {
                 }
             } else if ("GET".equalsIgnoreCase(method) && parts.length == 5 && "dashboard".equals(parts[4])) {
                 int idRes = Integer.parseInt(parts[3]);
+                if ("RESIDENTE".equals(AuthScope.rol(claims))) {
+                    Connection conn = ConexionBD.getInstancia().getConexion();
+                    if (!AuthScope.requireOwnResident(exchange, conn, claims, idRes)) return;
+                } else if ("PORTERO".equals(AuthScope.rol(claims))) {
+                    AuthScope.sendForbidden(exchange, "No autorizado para este rol");
+                    return;
+                }
                 Map<String, Object> data = new HashMap<>();
                 Residente r = service.buscarPorId(idRes);
                 data.put("residente", r);
@@ -108,13 +133,28 @@ public class ResidenteHandler extends BaseHandler implements HttpHandler {
                 sendJson(exchange, 200, data);
             } else if ("GET".equalsIgnoreCase(method) && parts.length == 5 && "qr-activos".equals(parts[4])) {
                 int idRes = Integer.parseInt(parts[3]);
+                if ("RESIDENTE".equals(AuthScope.rol(claims))) {
+                    Connection conn = ConexionBD.getInstancia().getConexion();
+                    if (!AuthScope.requireOwnResident(exchange, conn, claims, idRes)) return;
+                } else if ("PORTERO".equals(AuthScope.rol(claims))) {
+                    AuthScope.sendForbidden(exchange, "No autorizado para este rol");
+                    return;
+                }
                 List<Map<String, Object>> qrs = qrAccesoDAO.findActivosByResidente(idRes);
                 sendJson(exchange, 200, qrs);
             } else if ("GET".equalsIgnoreCase(method) && parts.length == 5 && "frecuentes".equals(parts[4])) {
                 int idRes = Integer.parseInt(parts[3]);
+                if ("RESIDENTE".equals(AuthScope.rol(claims))) {
+                    Connection conn = ConexionBD.getInstancia().getConexion();
+                    if (!AuthScope.requireOwnResident(exchange, conn, claims, idRes)) return;
+                } else if ("PORTERO".equals(AuthScope.rol(claims))) {
+                    AuthScope.sendForbidden(exchange, "No autorizado para este rol");
+                    return;
+                }
                 List<VisitanteFrecuente> frecs = frecuenteDAO.findByResidente(idRes);
                 sendJson(exchange, 200, frecs);
             } else if ("POST".equalsIgnoreCase(method) && parts.length == 3) {
+                if (!AuthScope.requireRole(exchange, claims, "ADMINISTRADOR")) return;
                 String body = new String(exchange.getRequestBody().readAllBytes(), "UTF-8");
                 Map<String, Object> requestData = JsonUtil.fromJson(body, Map.class);
                 
@@ -148,6 +188,7 @@ public class ResidenteHandler extends BaseHandler implements HttpHandler {
                 
                 sendJson(exchange, 201, Map.of("id", id));
             } else if ("POST".equalsIgnoreCase(method) && parts.length == 5 && "asignar-apartamento".equals(parts[4])) {
+                if (!AuthScope.requireRole(exchange, claims, "ADMINISTRADOR")) return;
                 int idResidente = Integer.parseInt(parts[3]);
                 String body = new String(exchange.getRequestBody().readAllBytes(), "UTF-8");
                 @SuppressWarnings("unchecked")
@@ -183,16 +224,24 @@ public class ResidenteHandler extends BaseHandler implements HttpHandler {
                 
                 sendJson(exchange, 200, Map.of("mensaje", "Residente asignado al apartamento " + apt.getNumero()));
             } else if ("PUT".equalsIgnoreCase(method) && parts.length == 5 && "perfil".equals(parts[4])) {
+                int idRes = Integer.parseInt(parts[3]);
+                if ("RESIDENTE".equals(AuthScope.rol(claims))) {
+                    Connection conn = ConexionBD.getInstancia().getConexion();
+                    if (!AuthScope.requireOwnResident(exchange, conn, claims, idRes)) return;
+                } else if ("PORTERO".equals(AuthScope.rol(claims))) {
+                    AuthScope.sendForbidden(exchange, "Los porteros no pueden editar perfiles de residentes");
+                    return;
+                }
                 String body = new String(exchange.getRequestBody().readAllBytes(), "UTF-8");
                 @SuppressWarnings("unchecked")
                 Map<String, String> data = JsonUtil.fromJson(body, Map.class);
-                int idRes = Integer.parseInt(parts[3]);
                 Residente r = service.buscarPorId(idRes);
                 if (data.containsKey("telefono")) r.setTelefono(data.get("telefono"));
                 if (data.containsKey("email")) r.setEmail(data.get("email"));
                 service.actualizar(r);
                 sendJson(exchange, 200, Map.of("mensaje", "Perfil actualizado"));
             } else if ("PUT".equalsIgnoreCase(method) && parts.length == 4) {
+                if (!AuthScope.requireRole(exchange, claims, "ADMINISTRADOR")) return;
                 String body = new String(exchange.getRequestBody().readAllBytes(), "UTF-8");
                 Map<String, Object> requestData = JsonUtil.fromJson(body, Map.class);
                 
@@ -233,10 +282,27 @@ public class ResidenteHandler extends BaseHandler implements HttpHandler {
                 
                 sendJson(exchange, 200, Map.of("mensaje", "Residente actualizado"));
             } else if ("DELETE".equalsIgnoreCase(method) && parts.length == 6 && "frecuentes".equals(parts[4])) {
+                int idRes = Integer.parseInt(parts[3]);
                 int idFrec = Integer.parseInt(parts[5]);
+                if ("RESIDENTE".equals(AuthScope.rol(claims))) {
+                    Connection conn = ConexionBD.getInstancia().getConexion();
+                    if (!AuthScope.requireOwnResident(exchange, conn, claims, idRes)) return;
+                    boolean owned = false;
+                    for (VisitanteFrecuente vf : frecuenteDAO.findByResidente(idRes)) {
+                        if (vf.getIdFrecuente() == idFrec) { owned = true; break; }
+                    }
+                    if (!owned) {
+                        AuthScope.sendForbidden(exchange, "El frecuente no pertenece al residente");
+                        return;
+                    }
+                } else if ("PORTERO".equals(AuthScope.rol(claims))) {
+                    AuthScope.sendForbidden(exchange, "Los porteros no pueden eliminar frecuentes");
+                    return;
+                }
                 frecuenteDAO.ocultarFrecuente(idFrec);
                 sendJson(exchange, 200, Map.of("mensaje", "Frecuente ocultado"));
             } else if ("DELETE".equalsIgnoreCase(method) && parts.length == 4) {
+                if (!AuthScope.requireRole(exchange, claims, "ADMINISTRADOR")) return;
                 service.desactivar(Integer.parseInt(parts[3]));
                 sendJson(exchange, 200, Map.of("mensaje", "Residente desactivado"));
             } else {

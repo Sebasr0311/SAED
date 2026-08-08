@@ -8,6 +8,7 @@ import com.edificio.admin.model.*;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import java.io.*;
+import java.sql.Connection;
 import java.util.*;
 
 public class TutorHandler extends BaseHandler implements HttpHandler {
@@ -26,20 +27,30 @@ public class TutorHandler extends BaseHandler implements HttpHandler {
 
             if ("GET".equalsIgnoreCase(method) && parts.length == 4) {
                 int idResidente = Integer.parseInt(parts[3]);
+                if ("RESIDENTE".equals(AuthScope.rol(claims))) {
+                    Connection conn = ConexionBD.getInstancia().getConexion();
+                    if (!AuthScope.requireOwnResident(exchange, conn, claims, idResidente)) return;
+                } else if ("PORTERO".equals(AuthScope.rol(claims))) {
+                    AuthScope.sendForbidden(exchange, "Los porteros no pueden consultar tutores");
+                    return;
+                }
                 Tutor t = tutorDAO.findByResidenteMenor(idResidente);
                 sendJson(exchange, 200, t != null ? t : Map.of());
             } else if ("POST".equalsIgnoreCase(method) && parts.length == 3) {
+                if (!AuthScope.requireRole(exchange, claims, "ADMINISTRADOR")) return;
                 String body = new String(exchange.getRequestBody().readAllBytes(), "UTF-8");
                 Tutor t = JsonUtil.fromJson(body, Tutor.class);
                 Integer id = tutorDAO.insert(t);
                 sendJson(exchange, 201, Map.of("id", id));
             } else if ("PUT".equalsIgnoreCase(method) && parts.length == 4) {
+                if (!AuthScope.requireRole(exchange, claims, "ADMINISTRADOR")) return;
                 String body = new String(exchange.getRequestBody().readAllBytes(), "UTF-8");
                 Tutor t = JsonUtil.fromJson(body, Tutor.class);
                 t.setIdTutor(Integer.parseInt(parts[3]));
                 tutorDAO.update(t);
                 sendJson(exchange, 200, Map.of("mensaje", "Tutor actualizado"));
             } else if ("DELETE".equalsIgnoreCase(method) && parts.length == 4) {
+                if (!AuthScope.requireRole(exchange, claims, "ADMINISTRADOR")) return;
                 tutorDAO.delete(Integer.parseInt(parts[3]));
                 sendJson(exchange, 200, Map.of("mensaje", "Tutor eliminado"));
             } else {

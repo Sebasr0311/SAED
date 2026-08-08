@@ -33,6 +33,7 @@ public class QrHandler extends BaseHandler implements HttpHandler {
             String[] parts = path.split("/");
 
             if ("POST".equalsIgnoreCase(method) && parts.length == 4 && "validar".equals(parts[3])) {
+                if (!AuthScope.requireRole(exchange, claims, "ADMINISTRADOR", "PORTERO")) return;
                 String body = new String(exchange.getRequestBody().readAllBytes(), "UTF-8");
                 @SuppressWarnings("unchecked")
                 Map<String, Object> data = JsonUtil.fromJson(body, Map.class);
@@ -60,6 +61,7 @@ public class QrHandler extends BaseHandler implements HttpHandler {
                 sendJson(exchange, 200, res);
 
             } else if ("POST".equalsIgnoreCase(method) && parts.length == 4 && "notificar".equals(parts[3])) {
+                if (!AuthScope.requireRole(exchange, claims, "ADMINISTRADOR", "PORTERO")) return;
                 String body = new String(exchange.getRequestBody().readAllBytes(), "UTF-8");
                 @SuppressWarnings("unchecked")
                 Map<String, Object> data = JsonUtil.fromJson(body, Map.class);
@@ -90,6 +92,7 @@ public class QrHandler extends BaseHandler implements HttpHandler {
                 sendJson(exchange, 200, Map.of("idMensaje", idMensaje, "idVisita", qr.getIdVisita()));
 
             } else if ("POST".equalsIgnoreCase(method) && parts.length == 4 && "enviar-correo".equals(parts[3])) {
+                if (!AuthScope.requireRole(exchange, claims, "ADMINISTRADOR", "PORTERO")) return;
                 String body2 = new String(exchange.getRequestBody().readAllBytes(), "UTF-8");
                 @SuppressWarnings("unchecked")
                 Map<String, Object> data2 = JsonUtil.fromJson(body2, Map.class);
@@ -104,6 +107,7 @@ public class QrHandler extends BaseHandler implements HttpHandler {
                 sendJson(exchange, 200, Map.of("mensaje", "Correo enviado a " + emailDest));
 
             } else if ("POST".equalsIgnoreCase(method) && parts.length == 4 && "entrada".equals(parts[3])) {
+                if (!AuthScope.requireRole(exchange, claims, "ADMINISTRADOR", "PORTERO")) return;
                 String body = new String(exchange.getRequestBody().readAllBytes(), "UTF-8");
                 @SuppressWarnings("unchecked")
                 Map<String, Object> data = JsonUtil.fromJson(body, Map.class);

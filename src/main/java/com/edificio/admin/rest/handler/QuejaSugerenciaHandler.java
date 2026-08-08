@@ -30,8 +30,7 @@ public class QuejaSugerenciaHandler extends BaseHandler implements HttpHandler {
 
             // POST /quejas - Crear queja/sugerencia/apelación (RESIDENTE)
             if ("POST".equalsIgnoreCase(method) && parts.length == 3) {
-                if (!"RESIDENTE".equals(rol))
-                    throw new Exception("Solo residentes pueden crear quejas/sugerencias");
+                if (!AuthScope.requireRole(exchange, claims, "RESIDENTE")) return;
                 
                 String body = new String(exchange.getRequestBody().readAllBytes(), "UTF-8");
                 @SuppressWarnings("unchecked")
@@ -41,7 +40,10 @@ public class QuejaSugerenciaHandler extends BaseHandler implements HttpHandler {
                 if (tipo == null || (!"QUEJA".equals(tipo) && !"SUGERENCIA".equals(tipo) && !"APELACION".equals(tipo)))
                     throw new Exception("Tipo invalido. Use QUEJA, SUGERENCIA o APELACION");
                 
-                int idApartamento = obtenerIdApartamento(claims);
+                Connection conn = ConexionBD.getInstancia().getConexion();
+                int idApartamento = AuthScope.idApartamento(conn, claims);
+                if (idApartamento <= 0)
+                    throw new Exception("No se encontro apartamento activo para el usuario");
                 
                 QuejaSugerencia q = new QuejaSugerencia();
                 q.setIdApartamento(idApartamento);
@@ -52,11 +54,17 @@ public class QuejaSugerenciaHandler extends BaseHandler implements HttpHandler {
                 q.setFotoEvidencia((String) data.get("fotoEvidencia"));
                 q.setCreadoPor(((Number) claims.get("idUsuario")).intValue());
                 
-                // Si es APELACION, requiere idMulta
+                // Si es APELACION, requiere idMulta del apartamento del usuario
                 if ("APELACION".equals(tipo)) {
                     Object multaObj = data.get("idMulta");
                     if (multaObj == null) throw new Exception("idMulta requerido para apelaciones");
-                    q.setIdMulta(((Number) multaObj).intValue());
+                    int idMulta = ((Number) multaObj).intValue();
+                    Multa multa = new MultaDAO().findById(idMulta);
+                    if (multa == null || multa.getIdApartamento() == null || multa.getIdApartamento() != idApartamento) {
+                        AuthScope.sendForbidden(exchange, "La multa no pertenece a su apartamento");
+                        return;
+                    }
+                    q.setIdMulta(idMulta);
                 }
                 
                 Integer id = quejaDAO.insert(q);
@@ -65,18 +73,21 @@ public class QuejaSugerenciaHandler extends BaseHandler implements HttpHandler {
             // GET /quejas - Mis quejas (RESIDENTE)
             } else if ("GET".equalsIgnoreCase(method) && parts.length == 3) {
                 if ("RESIDENTE".equals(rol)) {
-                    int idApartamento = obtenerIdApartamento(claims);
+                    Connection conn = ConexionBD.getInstancia().getConexion();
+                    int idApartamento = AuthScope.idApartamento(conn, claims);
+                    if (idApartamento <= 0)
+                        throw new Exception("No se encontro apartamento activo para el usuario");
                     List<QuejaSugerencia> lista = quejaDAO.findByApartamento(idApartamento);
                     List<Map<String, Object>> resp = new ArrayList<>();
                     for (QuejaSugerencia q : lista) resp.add(toMap(q));
                     sendJson(exchange, 200, resp);
                 } else {
-                    throw new Exception("No autorizado");
+                    if (!AuthScope.requireRole(exchange, claims, "RESIDENTE")) return;
                 }
 
             // GET /quejas/todas - Todas las quejas con JOIN residente (ADMINISTRADOR)
             } else if ("GET".equalsIgnoreCase(method) && path.endsWith("/todas")) {
-                if (!"ADMINISTRADOR".equals(rol)) throw new Exception("Solo administradores");
+                if (!AuthScope.requireRole(exchange, claims, "ADMINISTRADOR")) return;
                 List<QuejaSugerencia> lista = quejaDAO.findAll();
                 List<Map<String, Object>> resp = new ArrayList<>();
                 for (QuejaSugerencia q : lista) resp.add(toMap(q));
@@ -84,7 +95,7 @@ public class QuejaSugerenciaHandler extends BaseHandler implements HttpHandler {
 
             // GET /quejas/pendientes - Solo pendientes (ADMINISTRADOR)
             } else if ("GET".equalsIgnoreCase(method) && path.endsWith("/pendientes")) {
-                if (!"ADMINISTRADOR".equals(rol)) throw new Exception("Solo administradores");
+                if (!AuthScope.requireRole(exchange, claims, "ADMINISTRADOR")) return;
                 List<QuejaSugerencia> lista = quejaDAO.findPendientes();
                 List<Map<String, Object>> resp = new ArrayList<>();
                 for (QuejaSugerencia q : lista) resp.add(toMap(q));
@@ -98,17 +109,22 @@ public class QuejaSugerenciaHandler extends BaseHandler implements HttpHandler {
                 
                 // Validar permisos: residente solo ve sus quejas, admin ve todas
                 if ("RESIDENTE".equals(rol)) {
-                    int idApartamento = obtenerIdApartamento(claims);
+                    Connection conn = ConexionBD.getInstancia().getConexion();
+                    int idApartamento = AuthScope.idApartamento(conn, claims);
+                    if (idApartamento <= 0)
+                        throw new Exception("No se encontro apartamento activo para el usuario");
                     if (q.getIdApartamento() != idApartamento)
                         throw new Exception("No autorizado para ver esta queja");
+                } else if ("PORTERO".equals(rol)) {
+                    AuthScope.sendForbidden(exchange, "No autorizado para el rol PORTERO");
+                    return;
                 }
                 
                 sendJson(exchange, 200, toMap(q));
 
             // PUT /quejas/:id/responder - Responder y marcar RESUELTA (ADMINISTRADOR)
             } else if ("PUT".equalsIgnoreCase(method) && parts.length == 5 && "responder".equals(parts[4])) {
-                if (!"ADMINISTRADOR".equals(rol))
-                    throw new Exception("Solo administradores pueden responder");
+                if (!AuthScope.requireRole(exchange, claims, "ADMINISTRADOR")) return;
                 
                 int idQueja = Integer.parseInt(parts[3]);
                 String body = new String(exchange.getRequestBody().readAllBytes(), "UTF-8");
@@ -125,8 +141,7 @@ public class QuejaSugerenciaHandler extends BaseHandler implements HttpHandler {
 
             // PUT /quejas/:id/estado - Cambiar estado manualmente (ADMINISTRADOR)
             } else if ("PUT".equalsIgnoreCase(method) && parts.length == 5 && "estado".equals(parts[4])) {
-                if (!"ADMINISTRADOR".equals(rol))
-                    throw new Exception("Solo administradores pueden cambiar estado");
+                if (!AuthScope.requireRole(exchange, claims, "ADMINISTRADOR")) return;
                 
                 int idQueja = Integer.parseInt(parts[3]);
                 String body = new String(exchange.getRequestBody().readAllBytes(), "UTF-8");
@@ -143,8 +158,7 @@ public class QuejaSugerenciaHandler extends BaseHandler implements HttpHandler {
 
             // PUT /quejas/:id/prioridad - Cambiar prioridad (ADMINISTRADOR)
             } else if ("PUT".equalsIgnoreCase(method) && parts.length == 5 && "prioridad".equals(parts[4])) {
-                if (!"ADMINISTRADOR".equals(rol))
-                    throw new Exception("Solo administradores pueden cambiar prioridad");
+                if (!AuthScope.requireRole(exchange, claims, "ADMINISTRADOR")) return;
                 
                 int idQueja = Integer.parseInt(parts[3]);
                 String body = new String(exchange.getRequestBody().readAllBytes(), "UTF-8");
@@ -165,26 +179,6 @@ public class QuejaSugerenciaHandler extends BaseHandler implements HttpHandler {
         } catch (Exception e) {
             e.printStackTrace();
             sendJson(exchange, 400, new ErrorResponse(e.getMessage()));
-        }
-    }
-
-    private int obtenerIdApartamento(Map<String, Object> claims) throws Exception {
-        int idUsuario = ((Number) claims.get("idUsuario")).intValue();
-        String sql = "SELECT a.id_apartamento "
-                   + "FROM   USUARIOS u "
-                   + "JOIN   RESIDENTES r ON r.id_residente = u.id_residente "
-                   + "JOIN   CONTRATO_RESIDENTE cr ON cr.id_residente = r.id_residente "
-                   + "JOIN   CONTRATOS c ON c.id_contrato = cr.id_contrato AND c.estado = 'ACTIVO' "
-                   + "JOIN   APARTAMENTOS a ON a.id_apartamento = c.id_apartamento "
-                   + "WHERE  u.id_usuario = ? AND ROWNUM = 1";
-        try (PreparedStatement ps = ConexionBD.getInstancia().getConexion().prepareStatement(sql)) {
-            ps.setInt(1, idUsuario);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (!rs.next()) throw new Exception("No se encontro apartamento activo para el usuario");
-                return rs.getInt("id_apartamento");
-            }
-        } catch (SQLException e) {
-            throw new Exception("Error al obtener apartamento del residente: " + e.getMessage());
         }
     }
 

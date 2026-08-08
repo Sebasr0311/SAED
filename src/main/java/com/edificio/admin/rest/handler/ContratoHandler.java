@@ -4,16 +4,20 @@ import com.edificio.admin.rest.*;
 import com.edificio.admin.rest.dto.ErrorResponse;
 import com.edificio.admin.service.ContratoService;
 import com.edificio.admin.service.ContratoPdfService;
+import com.edificio.admin.dao.ConexionBD;
+import com.edificio.admin.dao.ContratoDAO;
 import com.edificio.admin.model.Contrato;
 import com.edificio.admin.model.enums.TipoContrato;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import java.io.*;
+import java.sql.Connection;
 import java.util.*;
 
 public class ContratoHandler extends BaseHandler implements HttpHandler {
 
     private final ContratoService service = new ContratoService();
+    private final ContratoDAO contratoDAO = new ContratoDAO();
 
     @Override
     public void handle(HttpExchange exchange) throws IOException {
@@ -26,16 +30,51 @@ public class ContratoHandler extends BaseHandler implements HttpHandler {
             String[] parts = path.split("/");
 
             if ("GET".equalsIgnoreCase(method) && parts.length == 3) {
+                if ("PORTERO".equals(AuthScope.rol(claims))) {
+                    AuthScope.sendForbidden(exchange, "Los porteros no pueden consultar contratos");
+                    return;
+                }
+                if ("RESIDENTE".equals(AuthScope.rol(claims))) {
+                    Connection conn = ConexionBD.getInstancia().getConexion();
+                    int idApartamento = AuthScope.idApartamento(conn, claims);
+                    if (idApartamento <= 0) {
+                        AuthScope.sendForbidden(exchange, "El usuario no tiene un apartamento asociado");
+                        return;
+                    }
+                    List<Contrato> list = contratoDAO.findByApartamento(idApartamento);
+                    sendJson(exchange, 200, list);
+                    return;
+                }
                 List<Contrato> list = service.listarTodos();
                 sendJson(exchange, 200, list);
-            } else             if ("GET".equalsIgnoreCase(method) && parts.length == 4) {
+            } else if ("GET".equalsIgnoreCase(method) && parts.length == 4) {
                 Contrato c = service.buscarPorId(Integer.parseInt(parts[3]));
+                if ("RESIDENTE".equals(AuthScope.rol(claims))) {
+                    Connection conn = ConexionBD.getInstancia().getConexion();
+                    if (c.getIdApartamento() == null || !AuthScope.requireOwnApartment(exchange, conn, claims, c.getIdApartamento())) return;
+                } else if ("PORTERO".equals(AuthScope.rol(claims))) {
+                    AuthScope.sendForbidden(exchange, "Los porteros no pueden consultar contratos");
+                    return;
+                }
                 sendJson(exchange, 200, c);
             } else if ("GET".equalsIgnoreCase(method) && parts.length == 5 && "sugerir-tipo".equals(parts[3])) {
+                if (!AuthScope.requireRole(exchange, claims, "ADMINISTRADOR")) return;
                 TipoContrato sugerido = service.sugerirTipo(Integer.parseInt(parts[4]));
                 sendJson(exchange, 200, Map.of("tipoSugerido", sugerido.name()));
             } else if ("GET".equalsIgnoreCase(method) && parts.length == 5 && "pdf".equals(parts[4])) {
                 Integer id = Integer.parseInt(parts[3]);
+                Contrato c = contratoDAO.findById(id);
+                if (c == null) {
+                    sendJson(exchange, 404, new ErrorResponse("Contrato no encontrado"));
+                    return;
+                }
+                if ("RESIDENTE".equals(AuthScope.rol(claims))) {
+                    Connection conn = ConexionBD.getInstancia().getConexion();
+                    if (c.getIdApartamento() == null || !AuthScope.requireOwnApartment(exchange, conn, claims, c.getIdApartamento())) return;
+                } else if ("PORTERO".equals(AuthScope.rol(claims))) {
+                    AuthScope.sendForbidden(exchange, "Los porteros no pueden consultar contratos");
+                    return;
+                }
                 var detalle = service.obtenerDetalleParaPDF(id);
                 ContratoPdfService pdfService = new ContratoPdfService();
                 byte[] pdfBytes = pdfService.generarPdf(detalle);

@@ -41,17 +41,20 @@ public class ParqueaderoHandler extends BaseHandler implements HttpHandler {
                 Parqueadero p = service.buscarPorId(Integer.parseInt(parts[3]));
                 sendJson(exchange, 200, p);
             } else if ("POST".equalsIgnoreCase(method) && parts.length == 3) {
+                if (!AuthScope.requireRole(exchange, claims, "ADMINISTRADOR", "PORTERO")) return;
                 String body = new String(exchange.getRequestBody().readAllBytes(), "UTF-8");
                 Parqueadero p = JsonUtil.fromJson(body, Parqueadero.class);
                 Integer id = service.registrar(p);
                 sendJson(exchange, 201, Map.of("id", id));
             } else if ("PUT".equalsIgnoreCase(method) && parts.length == 4) {
+                if (!AuthScope.requireRole(exchange, claims, "ADMINISTRADOR", "PORTERO")) return;
                 String body = new String(exchange.getRequestBody().readAllBytes(), "UTF-8");
                 Parqueadero p = JsonUtil.fromJson(body, Parqueadero.class);
                 p.setIdParqueadero(Integer.parseInt(parts[3]));
                 service.actualizar(p);
                 sendJson(exchange, 200, Map.of("mensaje", "Parqueadero actualizado"));
             } else if ("DELETE".equalsIgnoreCase(method) && parts.length == 4) {
+                if (!AuthScope.requireRole(exchange, claims, "ADMINISTRADOR", "PORTERO")) return;
                 service.desactivar(Integer.parseInt(parts[3]));
                 sendJson(exchange, 200, Map.of("mensaje", "Parqueadero eliminado"));
             } else {
