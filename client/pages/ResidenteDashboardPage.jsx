@@ -146,14 +146,21 @@ function BarChart({ data, title }) {
 
 export default function ResidenteDashboardPage() {
   const { user } = useAuth();
-  const { data } = useFetch(() => api.get(`/residentes/${user?.idResidente}/resumen`), [user]);
+  const { data } = useFetch(() => api.get(`/residentes/${user?.idResidente}/dashboard`), [user]);
   const { data: pagosPorMes } = useFetch(
     () => api.get(`/pagos/registrados`).then((p) => p.filter((x) => x.idApartamento)),
     []
   );
-  const resumen = data || {};
+  const resumen = data?.raw || data || {};
+  const apartamento = resumen.apartamento || {};
+  const contrato = resumen.contrato || {};
+  const cuotasArriendo = (resumen.cuotas || []).reduce((s, c) => s + Number(c.monto || c.valorMensual || 0), 0);
+  const multasPendientes = (resumen.multas || []).reduce(
+    (s, m) => s + (m.estado === 'PENDIENTE' ? Number(m.monto || 0) : 0),
+    0
+  );
 
-  const pagosPorEstado = (pagosPorMes || []).reduce((acc, p) => {
+  const pagosPorEstado = (pagosPorMes?.items || pagosPorMes || []).reduce((acc, p) => {
     const k = p.estado || 'OTROS';
     acc[k] = (acc[k] || 0) + Number(p.valorPagado || p.monto || 0);
     return acc;
@@ -171,17 +178,17 @@ export default function ResidenteDashboardPage() {
         subtitle={`Bienvenido${user?.username ? `, ${user.username}` : ''}`}
       />
       <div className="card-grid-4">
-        <Stat icon="apartment" value={resumen.apartamento || '—'} label="Apartamento" color="blue" />
-        <Stat icon="description" value={resumen.estadoContrato || '—'} label="Estado Contrato" color="amber" />
+        <Stat icon="apartment" value={apartamento.numero || '—'} label="Apartamento" color="blue" />
+        <Stat icon="description" value={contrato.estado || '—'} label="Estado Contrato" color="amber" />
         <Stat
           icon="payments"
-          value={formatCurrency(resumen.cuotasArriendo)}
+          value={formatCurrency(cuotasArriendo)}
           label="Cuotas de Arriendo"
           color="green"
         />
         <Stat
           icon="gavel"
-          value={formatCurrency(resumen.multas)}
+          value={formatCurrency(multasPendientes)}
           label="Multas Pendientes"
           color="amber"
         />

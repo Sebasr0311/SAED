@@ -15,7 +15,7 @@ export default function ResBuzonPage() {
   const [fotoGrande, setFotoGrande] = useState(null);
 
   const { data, loading, refetch } = useFetch(
-    () => api.get(`/buzon/residente/${user?.idResidente}`),
+    () => api.get(`/buzon`),
     [user]
   );
 

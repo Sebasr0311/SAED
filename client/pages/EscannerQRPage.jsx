@@ -410,7 +410,7 @@ function TabRegistrarSalida({ onToast }) {
   const [registrando, setRegistrando] = useState(null);
   const [toast, setToast] = useState(null);
 
-  const activas = (visitas || []).filter(
+  const activas = (visitas?.items || visitas || []).filter(
     (v) => v.estado === 'EN_CURSO' || v.estado === 'PENDIENTE'
   );
 
@@ -486,7 +486,7 @@ function TabParqueaderos({ onToast }) {
     []
   );
 
-  const grouped = (parqueaderos || []).reduce((acc, p) => {
+  const grouped = (parqueaderos?.items || parqueaderos || []).reduce((acc, p) => {
     const key = p.esVisitante ? 'Visitantes' : 'Residentes';
     if (!acc[key]) acc[key] = [];
     acc[key].push(p);

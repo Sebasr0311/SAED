@@ -28,15 +28,15 @@ export default function PaquetesAdminPage() {
   const [detalle, setDetalle] = useState(null);
 
   const { data: paquetes, loading } = useFetch(() => api.get('/buzon/paquetes'), []);
+  const all = paquetes?.items || paquetes || [];
 
   const filtrados = useMemo(() => {
-    if (!paquetes) return [];
-    if (!search) return paquetes;
+    if (!search) return all;
     const term = search.toLowerCase();
-    return paquetes.filter((p) =>
+    return all.filter((p) =>
       [p.numeroApartamento, p.nombreResidente, p.titulo].filter(Boolean).some((v) => String(v).toLowerCase().includes(term))
     );
-  }, [paquetes, search]);
+  }, [all, search]);
 
   const stats = {
     total: filtrados.length,

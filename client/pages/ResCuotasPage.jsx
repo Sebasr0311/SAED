@@ -16,11 +16,12 @@ const ESTADO_BADGE = {
 
 export default function ResCuotasPage() {
   const { user } = useAuth();
-  const [page] = useState(0);
   const { data, loading } = useFetch(
-    () => api.get(`/cuotas/residente/${user?.idResidente}?page=${page}&size=50`),
-    [user, page]
+    () => api.get(`/residentes/${user?.idResidente}/dashboard`),
+    [user]
   );
+  const info = data?.raw || data || {};
+  const cuotas = info.cuotas || [];
 
   const columns = [
     { key: 'id', label: 'ID', width: 60, render: (r) => r.id || r.idCuota },
@@ -49,15 +50,15 @@ export default function ResCuotasPage() {
       <PageHeader title="Mis Cuotas" subtitle="Historial de cuotas de arriendo" />
       <DataTable
         columns={columns}
-        rows={data?.items || data || []}
+        rows={cuotas}
         loading={loading}
         empty="No tienes cuotas"
         keyField="id"
       />
       <Pagination
-        page={page}
-        totalPages={data?.totalPages || 1}
-        totalItems={data?.totalItems}
+        page={0}
+        totalPages={1}
+        totalItems={cuotas.length}
         pageSize={50}
         onPageChange={() => {}}
       />
