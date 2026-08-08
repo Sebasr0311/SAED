@@ -15,11 +15,21 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Build frontend
+        run: npm run build
+        env:
+          VITE_BASE_PATH: /sistema-administracion-edificios/
       - uses: actions/configure-pages@v5
       - name: Upload frontend
         uses: actions/upload-pages-artifact@v3
         with:
-          path: frontend
+          path: dist
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4
