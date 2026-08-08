@@ -640,6 +640,7 @@ CREATE TABLE TUTORES (
     telefono            VARCHAR2(20  CHAR),
     email               VARCHAR2(40  CHAR),
     parentesco          VARCHAR2(30  CHAR)  NOT NULL,
+    otro_parentesco     VARCHAR2(100 CHAR),
     doc_pdf_url         VARCHAR2(2000 CHAR),
     fecha_registro      TIMESTAMP           DEFAULT SYSTIMESTAMP NOT NULL,
     actualizado_en  TIMESTAMP,
