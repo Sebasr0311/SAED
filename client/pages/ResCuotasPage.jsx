@@ -1,6 +1,4 @@
-import { useState } from 'react';
 import { DataTable } from '../components/ui/DataTable.jsx';
-import { Pagination } from '../components/ui/Pagination.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
@@ -14,6 +12,13 @@ const ESTADO_BADGE = {
   ANULADA: 'badge-cancelado',
 };
 
+const MESES_ES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
+function periodoLabel(anio, mes) {
+  if (anio == null || mes == null) return '-';
+  return `${MESES_ES[mes - 1] || mes} ${anio}`;
+}
+
 export default function ResCuotasPage() {
   const { user } = useAuth();
   const { data, loading } = useFetch(
@@ -25,16 +30,20 @@ export default function ResCuotasPage() {
 
   const columns = [
     { key: 'id', label: 'ID', width: 60, render: (r) => r.id || r.idCuota },
-    { key: 'periodo', label: 'Periodo' },
     {
-      key: 'monto',
-      label: 'Monto',
-      render: (r) => formatCurrency(r.valorTotal || r.monto || r.montoPendiente),
+      key: 'periodo',
+      label: 'Periodo',
+      render: (r) => periodoLabel(r.anio, r.mes),
     },
     {
-      key: 'fechaVencimiento',
+      key: 'valorTotal',
+      label: 'Monto',
+      render: (r) => formatCurrency(r.valorTotal),
+    },
+    {
+      key: 'fechaLimite',
       label: 'Vencimiento',
-      render: (r) => formatDate(r.fechaVencimiento || r.fechaLimite),
+      render: (r) => formatDate(r.fechaLimite),
     },
     {
       key: 'estado',
@@ -54,13 +63,6 @@ export default function ResCuotasPage() {
         loading={loading}
         empty="No tienes cuotas"
         keyField="id"
-      />
-      <Pagination
-        page={0}
-        totalPages={1}
-        totalItems={cuotas.length}
-        pageSize={50}
-        onPageChange={() => {}}
       />
     </div>
   );

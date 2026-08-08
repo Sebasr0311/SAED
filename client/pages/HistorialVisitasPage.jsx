@@ -85,7 +85,7 @@ export default function HistorialVisitasPage() {
 
   const stats = {
     total: filtradas.length,
-    activas: filtradas.filter((v) => v.estado === 'EN_CURSO' || v.estado === 'PENDIENTE').length,
+    activas: filtradas.filter((v) => v.estado === 'ACTIVA' || v.estado === 'PENDIENTE').length,
     finalizadas: filtradas.filter((v) => v.estado === 'FINALIZADA').length,
   };
 

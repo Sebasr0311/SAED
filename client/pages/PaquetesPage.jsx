@@ -18,7 +18,7 @@ export default function PaquetesPage() {
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
 
-  const { data: apartamentos } = useFetch(() => api.get('/apartamentos?size=500'), []);
+  const { data: apartamentos } = useFetch(() => api.get('/apartamentos'), []);
   const {
     data: paquetesRaw,
     loading,

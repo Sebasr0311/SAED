@@ -21,6 +21,19 @@ export default function ResBuzonPage() {
 
   const items = data?.items || data || [];
 
+  // Mensajes marcados como leidos localmente mientras llega el refetch
+  const [leidosLocalmente, setLeidosLocalmente] = useState([]);
+
+  async function marcarLeido(idMensaje) {
+    try {
+      await api.put(`/buzon/${idMensaje}/leido`);
+      setLeidosLocalmente((prev) => (prev.includes(idMensaje) ? prev : [...prev, idMensaje]));
+      refetch();
+    } catch (err) {
+      setToast({ message: err.message, type: 'error' });
+    }
+  }
+
   async function vaciar() {
     try {
       await api.put('/buzon/vaciar');
@@ -51,44 +64,54 @@ export default function ResBuzonPage() {
         {!loading && items.length === 0 && (
           <div className="card empty-state">Buzón vacío</div>
         )}
-        {items.map((it) => (
-          <div
-            key={it.idMensaje}
-            className="card"
-            style={{
-              borderLeft: it.leido ? 'none' : '4px solid #0f2044',
-              opacity: it.leido ? 0.7 : 1,
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>{it.titulo}</div>
-                {it.cuerpo && (
-                  <div style={{ marginTop: '4px', fontSize: '13px', color: '#475569' }}>{it.cuerpo}</div>
-                )}
-                <div style={{ marginTop: '8px', display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  <span className="badge badge-info" style={{ fontSize: '10px' }}>
-                    {it.tipo}
-                  </span>
-                  <span style={{ fontSize: '11px', color: '#94a3b8' }}>{formatDate(it.fechaCreacion)}</span>
-                  {!it.leido && (
-                    <span className="badge badge-warn" style={{ fontSize: '10px' }}>
-                      Nuevo
-                    </span>
+        {items.map((it) => {
+          const leido = it.leido || leidosLocalmente.includes(it.idMensaje);
+          return (
+            <div
+              key={it.idMensaje}
+              className="card"
+              style={{
+                borderLeft: leido ? 'none' : '4px solid #0f2044',
+                opacity: leido ? 0.7 : 1,
+                cursor: leido ? 'default' : 'pointer',
+              }}
+              onClick={() => {
+                if (!leido) marcarLeido(it.idMensaje);
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>{it.titulo}</div>
+                  {it.cuerpo && (
+                    <div style={{ marginTop: '4px', fontSize: '13px', color: '#475569' }}>{it.cuerpo}</div>
                   )}
+                  <div style={{ marginTop: '8px', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <span className="badge badge-info" style={{ fontSize: '10px' }}>
+                      {it.tipo}
+                    </span>
+                    <span style={{ fontSize: '11px', color: '#94a3b8' }}>{formatDate(it.fechaCreacion)}</span>
+                    {!leido && (
+                      <span className="badge badge-warn" style={{ fontSize: '10px' }}>
+                        Nuevo
+                      </span>
+                    )}
+                  </div>
                 </div>
+                {it.fotoCaptura && (
+                  <img
+                    src={`data:image/jpeg;base64,${it.fotoCaptura}`}
+                    alt="Foto"
+                    style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px', cursor: 'zoom-in' }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setFotoGrande(`data:image/jpeg;base64,${it.fotoCaptura}`);
+                    }}
+                  />
+                )}
               </div>
-              {it.fotoCaptura && (
-                <img
-                  src={`data:image/jpeg;base64,${it.fotoCaptura}`}
-                  alt="Foto"
-                  style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px', cursor: 'zoom-in' }}
-                  onClick={() => setFotoGrande(`data:image/jpeg;base64,${it.fotoCaptura}`)}
-                />
-              )}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       <Modal

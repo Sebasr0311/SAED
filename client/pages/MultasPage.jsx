@@ -22,6 +22,8 @@ const TIPO_BADGE = {
   PARQUEADERO: 'badge-info',
 };
 
+const PAGE_SIZE = 10;
+
 export default function MultasPage() {
   const [page, setPage] = useState(0);
   const [filtroEstado, setFiltroEstado] = useState('');
@@ -30,14 +32,12 @@ export default function MultasPage() {
   const [loadingDetalle, setLoadingDetalle] = useState(false);
   const [fotoGrande, setFotoGrande] = useState(null);
 
-  const qs = new URLSearchParams({
-    page,
-    size: 20,
-    ...(filtroEstado ? { estado: filtroEstado } : {}),
-  });
-  const { data, loading, refetch } = useFetch(() => api.get(`/multas/todas`), []);
+  const { data, loading, refetch } = useFetch(() => api.get('/multas/todas'), []);
 
   const items = (data?.items || data || []).filter((m) => !filtroEstado || m.estado === filtroEstado);
+  const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages - 1);
+  const rows = items.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
 
   async function verDetalle(row) {
     setLoadingDetalle(true);
@@ -167,17 +167,17 @@ export default function MultasPage() {
       />
       <DataTable
         columns={columns}
-        rows={items}
+        rows={rows}
         loading={loading}
         empty="No hay multas"
         keyField="idMulta"
         onRowClick={verDetalle}
       />
       <Pagination
-        page={page}
-        totalPages={data?.totalPages || 1}
-        totalItems={data?.totalItems}
-        pageSize={20}
+        page={safePage}
+        totalPages={totalPages}
+        totalItems={items.length}
+        pageSize={PAGE_SIZE}
         onPageChange={setPage}
       />
 
