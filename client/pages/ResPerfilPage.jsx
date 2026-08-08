@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useFetch } from '../lib/hooks.js';
+import { useRef, useState } from 'react';
+import { useFetch, useLiveValidation } from '../lib/hooks.js';
 import api from '../lib/api.js';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
@@ -7,7 +7,8 @@ import { Button } from '../components/ui/Button.jsx';
 import { Input, Select } from '../components/ui/Form.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
 import Toast from '../components/ui/Toast.jsx';
-import { valTelefono, valUsername, todayStr, dateToStr } from '../lib/utils.js';
+import { valTelefono, valEmail, valUsername } from '../lib/validation.js';
+import { todayStr, dateToStr } from '../lib/utils.js';
 
 export default function ResPerfilPage() {
   const { user } = useAuth();
@@ -16,6 +17,8 @@ export default function ResPerfilPage() {
   const [edit, setEdit] = useState({ telefono: '', email: '' });
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
+  const { touch, fieldError } = useLiveValidation();
 
   const { data, refetch } = useFetch(() => api.get(`/residentes/${user?.idResidente}`), [user]);
   const perfil = data?.raw || data || {};
@@ -27,13 +30,17 @@ export default function ResPerfilPage() {
   }
   function validate() {
     const e = {};
-    if (!valTelefono(edit.telefono)) e.telefono = 'Debe ser un teléfono válido de 10 dígitos';
-    if (edit.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(edit.email)) e.email = 'Email inválido';
+    const rTel = valTelefono(edit.telefono, { required: false });
+    if (!rTel.ok) e.telefono = rTel.mensaje;
+    const rEmail = valEmail(edit.email, { required: false });
+    if (!rEmail.ok) e.email = rEmail.mensaje;
     setErrors(e);
     return Object.keys(e).length === 0;
   }
   async function save() {
+    if (savingRef.current) return; // doble submit
     if (!validate()) return;
+    savingRef.current = true;
     setSaving(true);
     try {
       await api.put(`/residentes/${user?.idResidente}/perfil`, {
@@ -46,6 +53,7 @@ export default function ResPerfilPage() {
     } catch (err) {
       setToast({ message: err.message, type: 'error' });
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   }
@@ -112,7 +120,8 @@ export default function ResPerfilPage() {
             label="Teléfono"
             value={edit.telefono}
             onChange={(e) => setEdit((s) => ({ ...s, telefono: e.target.value }))}
-            error={errors.telefono}
+            onBlur={() => touch('telefono')}
+            error={fieldError('telefono', valTelefono(edit.telefono, { required: false })) || errors.telefono}
           />
         </div>
         <div className="form-group">
@@ -122,7 +131,8 @@ export default function ResPerfilPage() {
             type="email"
             value={edit.email}
             onChange={(e) => setEdit((s) => ({ ...s, email: e.target.value }))}
-            error={errors.email}
+            onBlur={() => touch('email')}
+            error={fieldError('email', valEmail(edit.email, { required: false })) || errors.email}
           />
         </div>
       </Modal>

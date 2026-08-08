@@ -28,7 +28,7 @@ export default function AlertasPage() {
   const qs = new URLSearchParams({
     ...(soloNoLeidas ? { soloNoLeidas: 'true' } : {}),
   });
-  const { data, loading, refetch } = useFetch(() => api.get(`/alertas?${qs}`), [soloNoLeidas]);
+  const { data, loading, error, refetch } = useFetch(() => api.get(`/alertas?${qs}`), [soloNoLeidas]);
 
   const items = (data?.items || []).filter((a) => {
     if (!search) return true;
@@ -99,6 +99,7 @@ export default function AlertasPage() {
         rows={rows}
         loading={loading}
         empty="No hay alertas"
+            error={error?.message}
         keyField="idAlerta"
         selectedKey={selectedId}
         onRowClick={(row) => setSelectedId(row.idAlerta === selectedId ? null : row.idAlerta)}

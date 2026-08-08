@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
 import { useAuth } from '../lib/AuthContext.jsx';
@@ -14,7 +14,7 @@ export default function ResBuzonPage() {
   const [confirmVaciar, setConfirmVaciar] = useState(false);
   const [fotoGrande, setFotoGrande] = useState(null);
 
-  const { data, loading, refetch } = useFetch(
+  const { data, loading, error, refetch } = useFetch(
     () => api.get(`/buzon`),
     [user]
   );
@@ -37,7 +37,7 @@ export default function ResBuzonPage() {
   async function vaciar() {
     try {
       await api.put('/buzon/vaciar');
-      setToast({ message: 'Buzón vaciado', type: 'success' });
+      setToast({ message: 'BuzÃ³n vaciado', type: 'success' });
       refetch();
     } catch (err) {
       setToast({ message: err.message, type: 'error' });
@@ -49,20 +49,23 @@ export default function ResBuzonPage() {
   return (
     <div>
       <PageHeader
-        title="Buzón"
+        title="BuzÃ³n"
         subtitle="Notificaciones del administrador"
         action={
           items.length > 0 && (
             <Button variant="danger" onClick={() => setConfirmVaciar(true)}>
-              Vaciar buzón
+              Vaciar buzÃ³n
             </Button>
           )
         }
       />
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         {loading && <div className="card empty-state">Cargando...</div>}
-        {!loading && items.length === 0 && (
-          <div className="card empty-state">Buzón vacío</div>
+        {!loading && error && (
+          <div className="card empty-state" style={{ color: '#e11d48' }}>Error al cargar el buzón: {error?.message}</div>
+        )}
+        {!loading && !error && items.length === 0 && (
+          <div className="card empty-state">BuzÃ³n vacÃ­o</div>
         )}
         {items.map((it) => {
           const leido = it.leido || leidosLocalmente.includes(it.idMensaje);
@@ -117,7 +120,7 @@ export default function ResBuzonPage() {
       <Modal
         open={confirmVaciar}
         onClose={() => setConfirmVaciar(false)}
-        title="Vaciar buzón"
+        title="Vaciar buzÃ³n"
         footer={
           <>
             <Button variant="outline" onClick={() => setConfirmVaciar(false)}>
@@ -129,7 +132,7 @@ export default function ResBuzonPage() {
           </>
         }
       >
-        <p>¿Marcar todos los mensajes como leídos y entregados? Esta acción no se puede deshacer.</p>
+        <p>Â¿Marcar todos los mensajes como leÃ­dos y entregados? Esta acciÃ³n no se puede deshacer.</p>
       </Modal>
 
       {fotoGrande && (

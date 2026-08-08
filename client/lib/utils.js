@@ -60,31 +60,3 @@ export function parseMiles(value) {
   if (!value) return 0;
   return Number(String(value).replace(/\D/g, '')) || 0;
 }
-
-/** Valida placa de vehiculo colombiano: carro (ABC123) o moto (ABC12D). */
-export function valPlaca(placa, tipoVehiculo) {
-  if (!placa) return false;
-  const p = placa.toUpperCase().replace(/[^A-Z0-9]/g, '');
-  if (tipoVehiculo === 'MOTO') {
-    return /^[A-Z]{3}\d{2}[A-Z]$/.test(p);
-  }
-  return /^[A-Z]{3}\d{3}$/.test(p);
-}
-
-/** Valida telefono colombiano: exactamente 10 digitos. */
-export function valTelefono(telefono) {
-  if (!telefono) return false;
-  return /^\d{10}$/.test(telefono.replace(/\D/g, ''));
-}
-
-/** Valida username: letras, numeros, _ y . — entre 3 y 50 caracteres. */
-export function valUsername(username) {
-  if (!username) return false;
-  return /^[a-zA-Z0-9_.]{3,50}$/.test(username);
-}
-
-/** Valida password: entre 6 y 100 caracteres. */
-export function valPassword(password) {
-  if (!password) return false;
-  return password.length >= 6 && password.length <= 100;
-}

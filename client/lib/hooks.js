@@ -58,36 +58,37 @@ export function useFetch(fetcher, deps = []) {
   return { data, loading, error, refetch };
 }
 
-/**
- * Devuelve solo el array de items (atajo para no hacer data?.items || [] en cada pagina).
- * Si la respuesta falla, devuelve [].
- */
-export function useArray(fetcher, deps = []) {
-  const { data, loading, error } = useFetch(fetcher, deps);
-  return {
-    data: data?.items ?? [],
-    loading,
-    error,
-    pagination: data ? { totalItems: data.totalItems, totalPages: data.totalPages, raw: data.raw } : null,
-  };
-}
-
 export function useTiposDocumento() {
   const { data, loading, error } = useFetch(() => api.get('/tipos-documento'), []);
   return { tiposDoc: data?.items || [], loading, error };
 }
 
-export function useToast() {
-  const [toast, setToast] = useState(null);
-  const timerRef = useRef(null);
+/**
+ * Feedback de validación en tiempo real (portado de validarTelefonoTiempoReal /
+ * validarEmailTiempoReal del legacy a React).
+ *
+ * Un campo "tocado" (blur o ya interactuado) muestra su error en vivo mientras
+ * se escribe; un campo intacto y vacío no muestra error agresivo.
+ *
+ * Uso:
+ *   const { touch, fieldError } = useLiveValidation();
+ *   <Input
+ *     value={form.telefono}
+ *     onBlur={() => touch('telefono')}
+ *     error={fieldError('telefono', valTelefono(form.telefono, { required: false }))}
+ *   />
+ */
+export function useLiveValidation() {
+  const [touched, setTouched] = useState({});
 
-  function show(message, type = 'info') {
-    setToast({ message, type });
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => setToast(null), 3500);
+  function touch(name) {
+    setTouched((t) => (t[name] ? t : { ...t, [name]: true }));
   }
 
-  useEffect(() => () => timerRef.current && clearTimeout(timerRef.current), []);
+  /** Devuelve el mensaje de error solo si el campo fue tocado y la validación falló. */
+  function fieldError(name, result) {
+    return touched[name] && result && !result.ok ? result.mensaje : undefined;
+  }
 
-  return { toast, show };
+  return { touched, touch, fieldError };
 }

@@ -177,7 +177,11 @@ export default function LoginPage() {
                 </button>
               </div>
 
-              {error && <div className="login-error-msg">{error}</div>}
+              {error && (
+                <div className="login-error-msg" role="alert">
+                  {error}
+                </div>
+              )}
 
               <button type="submit" disabled={loading} className="login-btn">
                 {loading ? 'Ingresando...' : 'Iniciar Sesión'}

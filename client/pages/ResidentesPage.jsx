@@ -8,7 +8,7 @@ import { Modal } from '../components/ui/Modal.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { ConfirmPasswordDialog } from '../components/ui/ConfirmPasswordDialog.jsx';
 import Toast from '../components/ui/Toast.jsx';
-import { useFetch, useTiposDocumento } from '../lib/hooks.js';
+import { useFetch, useTiposDocumento, useLiveValidation } from '../lib/hooks.js';
 import api from '../lib/api.js';
 
 const emptyForm = {
@@ -76,6 +76,7 @@ export default function ResidentesPage() {
 
   const { data, loading, refetch } = useFetch(() => api.get('/residentes'), []);
   const { tiposDoc, error: errorTiposDoc } = useTiposDocumento();
+  const { touch, fieldError } = useLiveValidation();
   const { data: apartamentos } = useFetch(() => api.get('/apartamentos'), []);
 
   const edad = calcularEdad(form.fechaNacimiento);
@@ -386,6 +387,8 @@ export default function ResidentesPage() {
             label="TelÃ©fono"
             value={form.telefono}
             onChange={(e) => update('telefono', e.target.value)}
+            onBlur={() => touch('telefono')}
+            error={fieldError('telefono', valTelefono(form.telefono, { required: false })) || errors.telefono}
           />
         </div>
         <div className="form-row">
@@ -395,7 +398,8 @@ export default function ResidentesPage() {
             type="email"
             value={form.email}
             onChange={(e) => update('email', e.target.value)}
-            error={errors.email}
+            onBlur={() => touch('email')}
+            error={fieldError('email', valEmail(form.email, { required: false })) || errors.email}
           />
           <Select
             id="idApartamento"

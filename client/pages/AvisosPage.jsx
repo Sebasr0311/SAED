@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+﻿import { useState, useEffect, useRef } from 'react';
 import { Button } from '../components/ui/Button.jsx';
 import { Input, Textarea } from '../components/ui/Form.jsx';
 import { DataTable } from '../components/ui/DataTable.jsx';
@@ -65,12 +65,17 @@ function ApartamentoMultiSelect({ apartamentos, selected, onChange }) {
 
   return (
     <div className="multi-select" ref={ref}>
-      <div className="multi-select-trigger" onClick={() => setOpen((o) => !o)}>
+      <button
+        type="button"
+        className="multi-select-trigger"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+      >
         <span>{label}</span>
         <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>
           arrow_drop_down
         </span>
-      </div>
+      </button>
       {open && (
         <div className="multi-select-dropdown">
           <div style={{ padding: '8px' }}>
@@ -83,30 +88,39 @@ function ApartamentoMultiSelect({ apartamentos, selected, onChange }) {
               style={{ fontSize: '12px' }}
             />
           </div>
-          <div className={`multi-select-option ${isTodos ? 'selected' : ''}`} onClick={toggleTodos}>
-            — Todos los apartamentos —
-          </div>
+          <button
+            type="button"
+            className={`multi-select-option ${isTodos ? 'selected' : ''}`}
+            onClick={toggleTodos}
+            aria-pressed={isTodos}
+          >
+            â€” Todos los apartamentos â€”
+          </button>
           {pisos.map((piso) => {
             const idsDelPiso = porPiso[piso].map((a) => a.idApartamento);
             const pisoCompleto = !isTodos && idsDelPiso.every((id) => selectedIds.includes(id));
             return (
               <div key={piso}>
-                <div
+                <button
+                  type="button"
                   className={`multi-select-option ${pisoCompleto ? 'selected' : ''}`}
                   style={{ fontWeight: 700 }}
                   onClick={() => togglePiso(piso)}
+                  aria-pressed={pisoCompleto}
                 >
                   Piso {piso} (completo)
-                </div>
+                </button>
                 {porPiso[piso].map((a) => (
-                  <div
+                  <button
+                    type="button"
                     key={a.idApartamento}
                     className={`multi-select-option ${!isTodos && selectedIds.includes(a.idApartamento) ? 'selected' : ''}`}
                     style={{ paddingLeft: '24px' }}
                     onClick={() => toggleApto(a.idApartamento)}
+                    aria-pressed={!isTodos && selectedIds.includes(a.idApartamento)}
                   >
                     Apto {a.numero}
-                  </div>
+                  </button>
                 ))}
               </div>
             );
@@ -124,20 +138,20 @@ export default function AvisosPage() {
   const [selectedApts, setSelectedApts] = useState('TODOS');
   const [sending, setSending] = useState(false);
 
-  const { data: avisos, loading, refetch } = useFetch(() => api.get('/buzon/avisos'), []);
+  const { data: avisos, loading, error, refetch } = useFetch(() => api.get('/buzon/avisos'), []);
   const { data: apartamentos } = useFetch(() => api.get('/apartamentos'), []);
 
   const columns = [
     { key: 'idMensaje', label: 'ID', width: 60 },
     { key: 'numeroApartamento', label: 'Apartamento', render: (r) => r.numeroApartamento || 'Todos' },
-    { key: 'titulo', label: 'Título' },
+    { key: 'titulo', label: 'TÃ­tulo' },
     { key: 'cuerpo', label: 'Mensaje' },
     { key: 'fechaCreacion', label: 'Fecha', render: (r) => formatDate(r.fechaCreacion) },
   ];
 
   async function send() {
     if (!form.titulo.trim() || !form.cuerpo.trim()) {
-      setToast({ message: 'Título y mensaje son obligatorios', type: 'error' });
+      setToast({ message: 'TÃ­tulo y mensaje son obligatorios', type: 'error' });
       return;
     }
     setSending(true);
@@ -171,6 +185,7 @@ export default function AvisosPage() {
         rows={avisos?.items || avisos || []}
         loading={loading}
         empty="No hay avisos enviados"
+            error={error?.message}
         keyField="idMensaje"
       />
 
@@ -201,7 +216,7 @@ export default function AvisosPage() {
         <div className="form-group">
           <Input
             id="titulo"
-            label="Título"
+            label="TÃ­tulo"
             value={form.titulo}
             onChange={(e) => setForm((f) => ({ ...f, titulo: e.target.value }))}
           />
