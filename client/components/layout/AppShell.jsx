@@ -323,6 +323,17 @@ export default function AppShell() {
                 <span className="user-name">{user?.username}</span>
                 <span className="badge-role">{user?.rol}</span>
               </div>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="topbar-logout-btn"
+                aria-label="Cerrar sesión"
+                title="Cerrar sesión"
+              >
+                <span className="material-symbols-outlined" aria-hidden="true">
+                  logout
+                </span>
+              </button>
             </div>
           </header>
 

@@ -1,10 +1,8 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import api from './api.js';
+import api, { setOnUnauthorized } from './api.js';
+import { TOKEN_KEY, USER_KEY } from './storage.js';
 
 const AuthContext = createContext(null);
-
-const TOKEN_KEY = 'auth_token';
-const USER_KEY = 'auth_user';
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
@@ -12,6 +10,10 @@ export function AuthProvider({ children }) {
     return raw ? JSON.parse(raw) : null;
   });
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setOnUnauthorized(() => logout());
+  }, []);
 
   async function login(username, password) {
     setLoading(true);
