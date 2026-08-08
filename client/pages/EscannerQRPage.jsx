@@ -4,6 +4,7 @@ import { Input, Select, Textarea } from '../components/ui/Form.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
 import Toast from '../components/ui/Toast.jsx';
+import { valPlaca } from '../lib/validation.js';
 import api from '../lib/api.js';
 import { useFetch } from '../lib/hooks.js';
 import { formatDate } from '../lib/utils.js';
@@ -80,11 +81,18 @@ function VideoCamara({ onCapture, buttonLabel = 'Capturar', buttonClass = 'btn-p
   );
 }
 
-function PanelValidar({ onResultado, onNotificarVisita, onRegistrarEntrada, idVisitaActual, onLimpiar }) {
+function PanelValidar({ onResultado, onNotificarVisita, onRegistrarEntrada, idVisitaActual, onLimpiar, codigoInicial }) {
   const [codigoManual, setCodigoManual] = useState('');
   const [validando, setValidando] = useState(false);
   const [datos, setDatos] = useState(null);
   const [error, setError] = useState('');
+
+  // Sincroniza el codigo escaneado por camara hacia el campo manual.
+  useEffect(() => {
+    if (codigoInicial) {
+      setCodigoManual(codigoInicial);
+    }
+  }, [codigoInicial]);
   const [medioTransporte, setMedioTransporte] = useState('CARRO');
   const [placa, setPlaca] = useState('');
   const [descripcion, setDescripcion] = useState('');
@@ -153,11 +161,21 @@ function PanelValidar({ onResultado, onNotificarVisita, onRegistrarEntrada, idVi
 
   async function registrarEntrada() {
     if (!datos?.codigoQr) return;
+    if (medioTransporte === 'CARRO' || medioTransporte === 'MOTO') {
+      const rPlaca = valPlaca(placa, medioTransporte === 'CARRO' ? 'CARRO' : 'MOTO');
+      if (!rPlaca.ok) { setError(rPlaca.mensaje); return; }
+    }
+    if (medioTransporte === 'BICICLETA' || medioTransporte === 'OTRO') {
+      if (!descripcion.trim()) {
+        setError(medioTransporte === 'BICICLETA' ? 'La descripción de la bicicleta es requerida' : 'La descripción es requerida');
+        return;
+      }
+    }
     setRegistrando(true);
     try {
       const payload = { codigoQr: datos.codigoQr, medioTransporte };
       if (medioTransporte === 'CARRO' || medioTransporte === 'MOTO') payload.placa = placa;
-      if (medioTransporte === 'OTRO') payload.descripcion = descripcion;
+      if (medioTransporte === 'BICICLETA' || medioTransporte === 'OTRO') payload.descripcion = descripcion;
       const res = await api.post('/qr/entrada', payload);
       setParqueaderoAsignado(res.parqueadero);
       onRegistrarEntrada?.(res);
@@ -247,11 +265,11 @@ function PanelValidar({ onResultado, onNotificarVisita, onRegistrarEntrada, idVi
                     <Input id="placa" label="Placa" value={placa} onChange={(e) => setPlaca(e.target.value.toUpperCase())} />
                   </div>
                 )}
-                {medioTransporte === 'OTRO' && (
+                {medioTransporte === 'BICICLETA' || medioTransporte === 'OTRO' ? (
                   <div style={{ marginTop: '8px' }}>
-                    <Textarea id="desc" label="Descripción" rows={2} value={descripcion} onChange={(e) => setDescripcion(e.target.value)} />
+                    <Textarea id="desc" label={medioTransporte === 'BICICLETA' ? 'Descripción de la bicicleta' : 'Descripción'} rows={2} value={descripcion} onChange={(e) => setDescripcion(e.target.value)} />
                   </div>
-                )}
+                ) : null}
                 <div style={{ marginTop: '12px' }}>
                   <Button onClick={registrarEntrada} disabled={registrando}>
                     {registrando ? 'Registrando...' : 'Registrar Entrada'}

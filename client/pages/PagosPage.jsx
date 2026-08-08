@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+﻿import { useState, useMemo } from 'react';
 import { Button } from '../components/ui/Button.jsx';
 import { Input, Select } from '../components/ui/Form.jsx';
 import { DataTable } from '../components/ui/DataTable.jsx';
@@ -133,9 +133,22 @@ export default function PagosPage() {
 
   async function confirmarPago() {
     if (!pagoModal) return;
+    const valor = parseMiles(pagoForm.valor);
+    if (valor <= 0) {
+      setToast({ message: 'El valor pagado debe ser mayor que 0', type: 'error' });
+      return;
+    }
+    if (pagoModal.tipo === 'cuota') {
+      const saldo = Number(pagoModal.item.saldoPendiente ?? pagoModal.item.valorTotal ?? 0);
+      if (valor > saldo) {
+        setToast({ message: `El valor pagado no puede superar el saldo pendiente (${formatCurrency(saldo)})`, type: 'error' });
+        return;
+      }
+    }
     if (pagoModal.tipo === 'cuota' && pagoForm.metodo === 'TRANSFERENCIA') {
-      if (!pagoForm.referencia.trim() || pagoForm.referencia.trim().length < 4) {
-        setToast({ message: 'La referencia es obligatoria (mín. 4 caracteres) para transferencias', type: 'error' });
+      const ref = pagoForm.referencia.trim();
+      if (!/^[A-Za-z0-9-]{4,50}$/.test(ref)) {
+        setToast({ message: 'La referencia debe tener entre 4 y 50 caracteres (letras, nÃºmeros o guiones)', type: 'error' });
         return;
       }
     }
@@ -174,7 +187,7 @@ export default function PagosPage() {
         subtitle="Cuotas de arriendo y multas"
         action={
           <Input
-            id="search"
+            id="search" aria-label="Buscar"
             placeholder="Buscar apto o residente..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -198,7 +211,7 @@ export default function PagosPage() {
       <Modal
         open={!!detalle}
         onClose={() => setDetalle(null)}
-        title={`Apto ${detalle?.numeroApartamento || ''} — ${detalle?.nombreResidente || ''}`}
+        title={`Apto ${detalle?.numeroApartamento || ''} â€” ${detalle?.nombreResidente || ''}`}
         size="lg"
       >
         {detalle && (
@@ -313,7 +326,7 @@ export default function PagosPage() {
         <div className="form-group">
           <Select
             id="metodo"
-            label="Método de pago"
+            label="MÃ©todo de pago"
             value={pagoForm.metodo}
             onChange={(e) => setPagoForm((f) => ({ ...f, metodo: e.target.value }))}
           >

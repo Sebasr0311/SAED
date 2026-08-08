@@ -15,7 +15,7 @@ export function Modal({ open, onClose, title, children, footer, size = 'md' }) {
     >
       <div
         className={classNames(
-          'w-full rounded-2xl bg-surface shadow-2xl',
+          'flex max-h-[90vh] w-full flex-col rounded-2xl bg-surface shadow-2xl',
           sizes[size]
         )}
         onClick={(e) => e.stopPropagation()}
@@ -32,7 +32,7 @@ export function Modal({ open, onClose, title, children, footer, size = 'md' }) {
             </button>
           </div>
         )}
-        <div className="p-6">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto p-6">{children}</div>
         {footer && (
           <div className="flex justify-end gap-2 border-t border-outline-variant px-6 py-4">
             {footer}

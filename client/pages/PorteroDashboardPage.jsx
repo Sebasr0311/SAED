@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
@@ -306,6 +307,8 @@ function ModalPaquetes({ open, onClose, onConfirm }) {
       await api.put(`/buzon/${idMensaje}/entregado`);
       onConfirm();
       refetch();
+    } catch (err) {
+      showToast({ message: err.message || 'No se pudo marcar como entregado', type: 'error' });
     } finally {
       setMarcaId(null);
     }
@@ -388,6 +391,7 @@ function ModalPaquetes({ open, onClose, onConfirm }) {
 }
 
 export default function PorteroDashboardPage() {
+  const navigate = useNavigate();
   const [toast, setToast] = useState(null);
   const [modalAviso, setModalAviso] = useState(false);
   const [modalMulta, setModalMulta] = useState(null); // 'RUIDO' | 'PARQUEADERO' | null
@@ -458,14 +462,20 @@ export default function PorteroDashboardPage() {
         <h3 className="card-title">Otras acciones</h3>
         <div className="card-grid-4" style={{ marginTop: '12px' }}>
           {QUICK.map((q) => (
-            <a key={q.path} href={`#${q.path}`} className="action-card">
+            <button
+              key={q.path}
+              type="button"
+              onClick={() => navigate(q.path)}
+              className="action-card"
+              style={{ border: 'none', cursor: 'pointer' }}
+            >
               <span className="action-card-icon">
                 <span className="material-symbols-outlined" style={{ fontSize: '32px' }}>
                   {q.icon}
                 </span>
               </span>
               <span className="action-card-label">{q.label}</span>
-            </a>
+            </button>
           ))}
         </div>
       </div>

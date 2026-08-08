@@ -6,7 +6,7 @@ import Toast from '../components/ui/Toast.jsx';
 import api from '../lib/api.js';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { useFetch, useTiposDocumento } from '../lib/hooks.js';
-import { valPlaca } from '../lib/utils.js';
+import { valNombre, valApellido, valDocumento, valTelefono, valEmail, valPlaca } from '../lib/validation.js';
 
 const emptyVisitante = {
   idTipoDoc: '',
@@ -83,15 +83,34 @@ export default function ResVisitaPage() {
 
   function validate() {
     const e = {};
-    if (!form.visitante.nombres.trim()) e['visitante.nombres'] = 'Requerido';
-    if (!form.visitante.apellidos.trim()) e['visitante.apellidos'] = 'Requerido';
-    if (!form.visitante.numeroDocumento.trim()) e['visitante.numeroDocumento'] = 'Requerido';
+    const rN = valNombre(form.visitante.nombres, 'El nombre del visitante');
+    if (!rN.ok) e['visitante.nombres'] = rN.mensaje;
+    const rA = valApellido(form.visitante.apellidos, 'El apellido del visitante');
+    if (!rA.ok) e['visitante.apellidos'] = rA.mensaje;
+    const codigoDoc = tiposDoc.find((t) => Number(t.idTipoDoc) === Number(form.visitante.idTipoDoc))?.codigo || '';
+    const rD = valDocumento(form.visitante.numeroDocumento, codigoDoc, 'El documento del visitante');
+    if (!rD.ok) e['visitante.numeroDocumento'] = rD.mensaje;
     if (!form.visitante.idTipoDoc && !visitanteEncontrado?.nombres) {
       e['visitante.idTipoDoc'] = 'Seleccione el tipo de documento del visitante';
     }
-    if (form.medioTransporte === 'CARRO' || form.medioTransporte === 'MOTO') {
-      if (!valPlaca(form.placa, form.medioTransporte === 'MOTO' ? 'MOTO' : 'CARRO'))
-        e.placa = 'Formato de placa inválido';
+    const rTel = valTelefono(form.visitante.telefono, { required: false });
+    if (!rTel.ok) e['visitante.telefono'] = rTel.mensaje;
+    const rEmail = valEmail(form.visitante.email, { required: false });
+    if (!rEmail.ok) e['visitante.email'] = rEmail.mensaje;
+    if (form.medioTransporte === 'CARRO' || form.medioTransporte === 'MOTO' || form.medioTransporte === 'BICICLETA' || form.medioTransporte === 'OTRO') {
+      const rPlaca = valPlaca(form.placa, form.medioTransporte === 'CARRO' ? 'CARRO' : form.medioTransporte === 'MOTO' ? 'MOTO' : 'OTRO');
+      if (!rPlaca.ok) e.placa = rPlaca.mensaje;
+    }
+    if (form.medioTransporte === 'BICICLETA' || form.medioTransporte === 'OTRO') {
+      if (!form.descripcion.trim()) e.descripcion = 'La descripción es requerida para ' + (form.medioTransporte === 'BICICLETA' ? 'bicicleta' : 'otro medio');
+    }
+    const validez = Number(form.tiempoValidezMin);
+    if (!form.tiempoValidezMin || Number.isNaN(validez) || validez < 5 || validez > 60) {
+      e.tiempoValidezMin = 'La validez debe ser entre 5 y 60 minutos';
+    }
+    const personas = Number(form.cantidadPersonas);
+    if (!form.cantidadPersonas || Number.isNaN(personas) || personas < 1 || personas > 99) {
+      e.cantidadPersonas = 'Debe ser entre 1 y 99 personas';
     }
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -104,17 +123,22 @@ export default function ResVisitaPage() {
       const payload = {
         visitante: { ...form.visitante },
         idResidente: user.idResidente,
-        tiempoValidezMin: form.tiempoValidezMin,
-        cantidadPersonas: form.cantidadPersonas,
+        tiempoValidezMin: Number(form.tiempoValidezMin),
+        cantidadPersonas: Number(form.cantidadPersonas),
         notas: form.motivo,
       };
       if (!payload.visitante.idTipoDoc) delete payload.visitante.idTipoDoc;
-      // Solo incluir vehiculo si hay placa; el backend explota si la key llega null
+      // Solo incluir vehiculo si hay placa o descripcion; el backend explota si la key llega null
       if (form.medioTransporte === 'CARRO' || form.medioTransporte === 'MOTO') {
         payload.vehiculo = {
           placa: form.placa.toUpperCase(),
           // El enum TipoVehiculo no tiene CARRO: el backend hace TipoVehiculo.valueOf(...)
           tipo: form.medioTransporte === 'CARRO' ? 'VEHICULO' : form.medioTransporte,
+        };
+      } else if (form.medioTransporte === 'BICICLETA' || form.medioTransporte === 'OTRO') {
+        payload.vehiculo = {
+          tipo: form.medioTransporte,
+          descripcion: form.descripcion.trim(),
         };
       }
       const res = await api.post('/visitas', payload);
@@ -222,19 +246,21 @@ export default function ResVisitaPage() {
           </h3>
           <div className="form-row">
             <Input
-              id="tiempoValidezMin"
-              label="Validez (minutos)"
-              type="number"
-              value={form.tiempoValidezMin}
-              onChange={(e) => update('tiempoValidezMin', Number(e.target.value))}
-            />
-            <Input
-              id="cantidadPersonas"
-              label="Cantidad de personas"
-              type="number"
-              value={form.cantidadPersonas}
-              onChange={(e) => update('cantidadPersonas', Number(e.target.value))}
-            />
+                id="tiempoValidezMin"
+                label="Validez (minutos)"
+                type="number"
+                value={form.tiempoValidezMin}
+                onChange={(e) => update('tiempoValidezMin', e.target.value)}
+                error={errors.tiempoValidezMin}
+              />
+              <Input
+                id="cantidadPersonas"
+                label="Cantidad de personas"
+                type="number"
+                value={form.cantidadPersonas}
+                onChange={(e) => update('cantidadPersonas', e.target.value)}
+                error={errors.cantidadPersonas}
+              />
           </div>
           <div className="form-row">
             <Select
@@ -256,6 +282,15 @@ export default function ResVisitaPage() {
                 value={form.placa}
                 onChange={(e) => update('placa', e.target.value.toUpperCase())}
                 error={errors.placa}
+              />
+            )}
+            {(form.medioTransporte === 'BICICLETA' || form.medioTransporte === 'OTRO') && (
+              <Input
+                id="descripcion"
+                label={form.medioTransporte === 'BICICLETA' ? 'Descripción de la bicicleta' : 'Descripción del medio'}
+                value={form.descripcion}
+                onChange={(e) => update('descripcion', e.target.value)}
+                error={errors.descripcion}
               />
             )}
           </div>

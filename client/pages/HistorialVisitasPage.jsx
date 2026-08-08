@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { Button } from '../components/ui/Button.jsx';
 import { Input } from '../components/ui/Form.jsx';
 import { DataTable } from '../components/ui/DataTable.jsx';
@@ -115,7 +115,7 @@ export default function HistorialVisitasPage() {
     <div>
       <PageHeader
         title="Historial de Visitas"
-        subtitle="Registro histórico de visitas"
+        subtitle="Registro histÃ³rico de visitas"
         action={
           <Button
             variant="outline"
@@ -148,8 +148,8 @@ export default function HistorialVisitasPage() {
             max={todayStr()}
           />
           <Input
-            id="search"
-            label="Búsqueda rápida"
+            id="search" aria-label="Buscar"
+            label="BÃºsqueda rÃ¡pida"
             placeholder="Visitante, documento, apto..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -187,7 +187,7 @@ export default function HistorialVisitasPage() {
               <span>{detalle.documentoVisitante}</span>
             </div>
             <div className="detail-row">
-              <span>Residente anfitrión</span>
+              <span>Residente anfitriÃ³n</span>
               <span>{detalle.nombreResidente}</span>
             </div>
             <div className="detail-row">
@@ -200,13 +200,13 @@ export default function HistorialVisitasPage() {
             </div>
             <div className="detail-row">
               <span>Salida</span>
-              <span>{formatDate(detalle.fechaSalida) || 'Aún dentro'}</span>
+              <span>{formatDate(detalle.fechaSalida) || 'AÃºn dentro'}</span>
             </div>
             {detalle.placaVehiculo && (
               <div className="detail-row">
-                <span>Vehículo</span>
+                <span>VehÃ­culo</span>
                 <span>
-                  {detalle.tipoVehiculo} — {detalle.placaVehiculo}
+                  {detalle.tipoVehiculo} â€” {detalle.placaVehiculo}
                 </span>
               </div>
             )}

@@ -168,7 +168,7 @@ export default function ResidenteDashboardPage() {
   const donutData = Object.entries(pagosPorEstado).map(([label, value]) => ({
     label,
     value,
-    color: label === 'PAGADA' ? '#10B981' : label === 'PENDIENTE' ? '#D97706' : '#3D6BBF',
+    color: label === 'CUOTA' ? '#10B981' : label === 'MULTA' ? '#D97706' : '#3D6BBF',
   }));
 
   return (

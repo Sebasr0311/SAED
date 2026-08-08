@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { ROLE_HOME, roleCanAccess } from '../lib/access.js';
+import { valUsername, valPassword } from '../lib/validation.js';
 import Toast from '../components/ui/Toast.jsx';
 
 const HERO_IMAGES = [
@@ -77,12 +78,12 @@ export default function LoginPage() {
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
-    if (!username.trim() || !password) {
-      setError('Usuario y contraseña son obligatorios');
-      return;
-    }
+    const u = valUsername(username);
+    if (!u.ok) { setError(u.mensaje); return; }
+    const p = valPassword(password);
+    if (!p.ok) { setError(p.mensaje); return; }
     try {
-      const u = await login(username.trim(), password);
+      const user = await login(username.trim(), password);
       if (remember) localStorage.setItem('remembered_user', username.trim());
       else localStorage.removeItem('remembered_user');
       setToast({ message: `Bienvenido, ${u.username}`, type: 'success' });

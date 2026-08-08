@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Button } from '../components/ui/Button.jsx';
+import { valUsername, valPassword } from '../lib/validation.js';
 import { Input, Select } from '../components/ui/Form.jsx';
 import { DataTable } from '../components/ui/DataTable.jsx';
 import { Pagination } from '../components/ui/Pagination.jsx';
@@ -38,6 +39,8 @@ function ActionButtons({ onEdit, onDelete }) {
 export default function UsuariosPage() {
   const [page, setPage] = useState(0);
   const [toast, setToast] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [errors, setErrors] = useState({});
@@ -104,13 +107,24 @@ export default function UsuariosPage() {
   }
   function validate() {
     const e = {};
-    if (!form.username.trim()) e.username = 'Requerido';
-    if (!editing && !form.password) e.password = 'Requerido';
+    const u = valUsername(form.username);
+    if (!u.ok) e.username = u.mensaje;
+    if (!editing) {
+      const p = valPassword(form.password);
+      if (!p.ok) e.password = p.mensaje;
+    }
+    if (form.idResidente && form.rol !== 'RESIDENTE') {
+      e.rol = 'Si se asigna un residente, el rol debe ser RESIDENTE';
+    }
+    if (!form.rol) e.rol = 'Seleccione el rol';
     setErrors(e);
     return Object.keys(e).length === 0;
   }
   async function save() {
     if (!validate()) return;
+    if (savingRef.current) return;
+    savingRef.current = true;
+    setSaving(true);
     try {
       const payload = { ...form };
       if (!payload.password) delete payload.password;
@@ -131,6 +145,9 @@ export default function UsuariosPage() {
       refetch();
     } catch (err) {
       setToast({ message: err.message, type: 'error' });
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
     }
   }
   async function handleDelete() {
@@ -188,7 +205,7 @@ export default function UsuariosPage() {
             <Button variant="outline" onClick={() => setModalOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={save}>Guardar</Button>
+            <Button onClick={save} disabled={saving}>{saving ? 'Guardando...' : 'Guardar'}</Button>
           </>
         }
       >

@@ -1,4 +1,5 @@
-import { useState } from 'react';
+﻿import { useState, useRef } from 'react';
+import { valNombre, valApellido, valDocumento, valFechaNacimiento, valTelefono, valEmail, valSelect } from '../lib/validation.js';
 import { Button } from '../components/ui/Button.jsx';
 import { Input, Select } from '../components/ui/Form.jsx';
 import { DataTable } from '../components/ui/DataTable.jsx';
@@ -63,6 +64,8 @@ export default function ResidentesPage() {
   const [page, setPage] = useState(0);
   const [search, setSearch] = useState('');
   const [toast, setToast] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [tutorForm, setTutorForm] = useState(emptyTutorForm);
@@ -94,7 +97,7 @@ export default function ResidentesPage() {
     { key: 'nombres', label: 'Nombres' },
     { key: 'apellidos', label: 'Apellidos' },
     { key: 'numeroDocumento', label: 'Documento' },
-    { key: 'telefono', label: 'Teléfono' },
+    { key: 'telefono', label: 'TelÃ©fono' },
     { key: 'email', label: 'Email' },
     {
       key: 'actions',
@@ -166,19 +169,33 @@ export default function ResidentesPage() {
   }
   function validate() {
     const e = {};
-    if (!form.nombres.trim()) e.nombres = 'Requerido';
-    if (!form.apellidos.trim()) e.apellidos = 'Requerido';
-    if (!form.numeroDocumento.trim()) e.numeroDocumento = 'Requerido';
-    if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = 'Email inválido';
+    const codigoDoc = tiposDoc.find((t) => Number(t.idTipoDoc) === Number(form.idTipoDoc))?.codigo || '';
+    const rNombre = valNombre(form.nombres, 'El nombre');
+    if (!rNombre.ok) e.nombres = rNombre.mensaje;
+    const rApellido = valApellido(form.apellidos, 'El apellido');
+    if (!rApellido.ok) e.apellidos = rApellido.mensaje;
+    const rDoc = valDocumento(form.numeroDocumento, codigoDoc, 'El documento');
+    if (!rDoc.ok) e.numeroDocumento = rDoc.mensaje;
+    const rFecha = valFechaNacimiento(form.fechaNacimiento, { edadMin: 0, edadMax: 110 });
+    if (!rFecha.ok) e.fechaNacimiento = rFecha.mensaje;
+    const rTel = valTelefono(form.telefono, { required: false });
+    if (!rTel.ok) e.telefono = rTel.mensaje;
+    const rEmail = valEmail(form.email);
+    if (!rEmail.ok) e.email = rEmail.mensaje;
     if (requiereTutor) {
-      if (!tutorForm.idTipoDoc) e['tutor.idTipoDoc'] = 'Seleccione el tipo de documento del tutor';
-      if (!tutorForm.numeroDocumento.trim()) e['tutor.numeroDocumento'] = 'El documento del tutor es requerido';
-      if (!tutorForm.nombres.trim()) e['tutor.nombres'] = 'El nombre del tutor es requerido';
-      if (!tutorForm.apellidos.trim()) e['tutor.apellidos'] = 'El apellido del tutor es requerido';
-      if (!tutorForm.telefono.trim()) e['tutor.telefono'] = 'El teléfono del tutor es requerido';
-      if (!tutorForm.email.trim()) e['tutor.email'] = 'El email del tutor es requerido';
-      else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(tutorForm.email)) e['tutor.email'] = 'Email del tutor inválido';
-      if (!tutorForm.parentesco) e['tutor.parentesco'] = 'Seleccione el parentesco';
+      const tCodigo = tiposDoc.find((t) => Number(t.idTipoDoc) === Number(tutorForm.idTipoDoc))?.codigo || '';
+      const rTN = valNombre(tutorForm.nombres, 'El nombre del tutor');
+      if (!rTN.ok) e['tutor.nombres'] = rTN.mensaje;
+      const rTA = valApellido(tutorForm.apellidos, 'El apellido del tutor');
+      if (!rTA.ok) e['tutor.apellidos'] = rTA.mensaje;
+      const rTDoc = valDocumento(tutorForm.numeroDocumento, tCodigo, 'El documento del tutor');
+      if (!rTDoc.ok) e['tutor.numeroDocumento'] = rTDoc.mensaje;
+      const rTTel = valTelefono(tutorForm.telefono);
+      if (!rTTel.ok) e['tutor.telefono'] = rTTel.mensaje;
+      const rTEmail = valEmail(tutorForm.email);
+      if (!rTEmail.ok) e['tutor.email'] = rTEmail.mensaje;
+      const rParent = valSelect(tutorForm.parentesco, 'Seleccione el parentesco');
+      if (!rParent.ok) e['tutor.parentesco'] = rParent.mensaje;
       if (tutorForm.parentesco === 'OTRO' && !tutorForm.otroParentesco.trim()) {
         e['tutor.otroParentesco'] = 'Especifique el parentesco';
       }
@@ -188,6 +205,9 @@ export default function ResidentesPage() {
   }
   async function save() {
     if (!validate()) return;
+    if (savingRef.current) return;
+    savingRef.current = true;
+    setSaving(true);
     const payload = {
       ...form,
       idApartamento: form.idApartamento === '' ? null : form.idApartamento,
@@ -230,11 +250,11 @@ export default function ResidentesPage() {
           });
           const verif = await api.get(`/residentes/${idResidente}`);
           if (Number(verif?.idApartamento) !== Number(form.idApartamento)) {
-            throw new Error('La asignación no se pudo confirmar en el servidor');
+            throw new Error('La asignaciÃ³n no se pudo confirmar en el servidor');
           }
         } catch (err) {
           setToast({
-            message: `Residente guardado, pero la asignación al apartamento falló: ${err.message}`,
+            message: `Residente guardado, pero la asignaciÃ³n al apartamento fallÃ³: ${err.message}`,
             type: 'error',
           });
         }
@@ -244,6 +264,9 @@ export default function ResidentesPage() {
       refetch();
     } catch (err) {
       setToast({ message: err.message, type: 'error' });
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
     }
   }
   async function handleDelete() {
@@ -263,11 +286,11 @@ export default function ResidentesPage() {
     <div>
       <PageHeader
         title="Residentes"
-        subtitle="Gestión de residentes del edificio"
+        subtitle="GestiÃ³n de residentes del edificio"
         action={
           <>
             <Input
-              id="search"
+              id="search" aria-label="Buscar"
               placeholder="Buscar..."
               value={search}
               onChange={(e) => {
@@ -305,7 +328,7 @@ export default function ResidentesPage() {
             <Button variant="outline" onClick={() => setModalOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={save}>Guardar</Button>
+            <Button onClick={save} disabled={saving}>{saving ? 'Guardando...' : 'Guardar'}</Button>
           </>
         }
       >
@@ -327,7 +350,7 @@ export default function ResidentesPage() {
           )}
           <Input
             id="numeroDocumento"
-            label="Número Documento"
+            label="NÃºmero Documento"
             value={form.numeroDocumento}
             onChange={(e) => update('numeroDocumento', e.target.value)}
             error={errors.numeroDocumento}
@@ -356,10 +379,11 @@ export default function ResidentesPage() {
             type="date"
             value={form.fechaNacimiento}
             onChange={(e) => update('fechaNacimiento', e.target.value)}
+            error={errors.fechaNacimiento}
           />
           <Input
             id="telefono"
-            label="Teléfono"
+            label="TelÃ©fono"
             value={form.telefono}
             onChange={(e) => update('telefono', e.target.value)}
           />
@@ -379,7 +403,7 @@ export default function ResidentesPage() {
             value={form.idApartamento}
             onChange={(e) => update('idApartamento', e.target.value)}
           >
-            <option value="">— Sin asignar —</option>
+            <option value="">â€” Sin asignar â€”</option>
             {(apartamentos?.items || []).map((a) => (
               <option key={a.idApartamento} value={a.idApartamento}>
                 Apto {a.numero} - Piso {a.piso}
@@ -399,7 +423,7 @@ export default function ResidentesPage() {
           >
             <h4 style={{ margin: 0, fontSize: '15px', fontWeight: 600 }}>Datos del Tutor Legal</h4>
             <p style={{ fontSize: '12px', color: '#64748b', margin: '4px 0 12px' }}>
-              Menor de edad (16-17 años) — puede residir independientemente, pero debe tener un tutor
+              Menor de edad (16-17 aÃ±os) â€” puede residir independientemente, pero debe tener un tutor
               legal registrado.
             </p>
             <div className="form-row">
@@ -419,7 +443,7 @@ export default function ResidentesPage() {
               </Select>
               <Input
                 id="tutor-numeroDocumento"
-                label="Número Documento"
+                label="NÃºmero Documento"
                 value={tutorForm.numeroDocumento}
                 onChange={(e) => updateTutor('numeroDocumento', e.target.value)}
                 error={errors['tutor.numeroDocumento']}
@@ -444,7 +468,7 @@ export default function ResidentesPage() {
             <div className="form-row">
               <Input
                 id="tutor-telefono"
-                label="Teléfono"
+                label="TelÃ©fono"
                 value={tutorForm.telefono}
                 onChange={(e) => updateTutor('telefono', e.target.value)}
                 error={errors['tutor.telefono']}
@@ -474,8 +498,8 @@ export default function ResidentesPage() {
                 <option value="MADRE">Madre</option>
                 <option value="ABUELO">Abuelo</option>
                 <option value="ABUELA">Abuela</option>
-                <option value="TIO">Tío</option>
-                <option value="TIA">Tía</option>
+                <option value="TIO">TÃ­o</option>
+                <option value="TIA">TÃ­a</option>
                 <option value="HERMANO">Hermano</option>
                 <option value="HERMANA">Hermana</option>
                 <option value="TUTOR_LEGAL">Tutor Legal</option>
@@ -511,7 +535,7 @@ export default function ResidentesPage() {
         }
       >
         <p>
-          ¿Eliminar a {confirmDel?.nombres} {confirmDel?.apellidos}?
+          Â¿Eliminar a {confirmDel?.nombres} {confirmDel?.apellidos}?
         </p>
       </Modal>
 

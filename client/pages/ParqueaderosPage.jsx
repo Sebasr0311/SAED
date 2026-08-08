@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Button } from '../components/ui/Button.jsx';
 import { Input, Select } from '../components/ui/Form.jsx';
 import { DataTable } from '../components/ui/DataTable.jsx';
@@ -35,6 +35,8 @@ export default function ParqueaderosPage() {
   const [filtroEstado, setFiltroEstado] = useState('');
   const [filtroTipo, setFiltroTipo] = useState('');
   const [toast, setToast] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [errors, setErrors] = useState({});
@@ -144,10 +146,19 @@ export default function ParqueaderosPage() {
     setForm((f) => ({ ...f, [k]: v }));
   }
   async function save() {
+    if (savingRef.current) return;
+    savingRef.current = true;
+    setSaving(true);
     const errs = {};
     if (!form.esVisitante && !form.idApartamento) errs.idApartamento = 'Requerido para parqueadero de residente';
+    if (!form.tipo) errs.tipo = 'Seleccione el tipo de parqueadero';
+    if (!editing) {
+      if (!form.numero) errs.numero = 'Requerido';
+      else if (!/^\d{1,3}$/.test(String(form.numero).trim()))
+        errs.numero = 'El número debe tener máximo 3 dígitos';
+    }
     setErrors(errs);
-    if (Object.keys(errs).length > 0) return;
+    if (Object.keys(errs).length > 0) { savingRef.current = false; setSaving(false); return; }
     try {
       const payload = {
         tipo: form.tipo,
@@ -168,6 +179,9 @@ export default function ParqueaderosPage() {
       refetch();
     } catch (err) {
       setToast({ message: err.message, type: 'error' });
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
     }
   }
   async function handleDelete() {
@@ -253,7 +267,7 @@ export default function ParqueaderosPage() {
             <Button variant="outline" onClick={() => setModalOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={save}>Guardar</Button>
+            <Button onClick={save} disabled={saving}>{saving ? 'Guardando...' : 'Guardar'}</Button>
           </>
         }
       >

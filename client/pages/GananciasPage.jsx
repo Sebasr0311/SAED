@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+﻿import { useState, useMemo, useEffect } from 'react';
 import { Button } from '../components/ui/Button.jsx';
 import { Input } from '../components/ui/Form.jsx';
 import { DataTable } from '../components/ui/DataTable.jsx';
@@ -6,6 +6,7 @@ import { PageHeader } from '../components/ui/PageHeader.jsx';
 import Toast from '../components/ui/Toast.jsx';
 import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
+import { validarFechas } from '../lib/validation.js';
 import { formatCurrency, formatDate, todayStr } from '../lib/utils.js';
 
 function Stat({ icon, value, label, color = 'primary' }) {
@@ -27,7 +28,7 @@ function exportarExcel(pagos, fechaInicio, fechaFin) {
   let xls =
     '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">' +
     '<head><meta charset="UTF-8"><style>table{width:100%;border-collapse:collapse}th{background:#0F2044;color:#fff}</style></head><body><table>' +
-    '<thead><tr><th>#</th><th>Fecha</th><th>Tipo</th><th>Apartamento</th><th>Residente</th><th>Método</th><th>Valor</th><th>Descripción</th></tr></thead><tbody>';
+    '<thead><tr><th>#</th><th>Fecha</th><th>Tipo</th><th>Apartamento</th><th>Residente</th><th>MÃ©todo</th><th>Valor</th><th>DescripciÃ³n</th></tr></thead><tbody>';
   pagos.forEach((p) => {
     xls += `<tr><td>${p.id}</td><td>${p.fecha || ''}</td><td>${p.tipoPago || 'Cuota'}</td><td>${p.apartamento || ''}</td><td>${p.residente || ''}</td><td>${p.metodo || ''}</td><td>${p.valor ?? 0}</td><td>${p.descripcion || ''}</td></tr>`;
   });
@@ -48,6 +49,12 @@ export default function GananciasPage() {
   const [search, setSearch] = useState('');
   const [fechaInicio, setFechaInicio] = useState(`${new Date().getFullYear()}-01-01`);
   const [fechaFin, setFechaFin] = useState(todayStr());
+  const [fechaError, setFechaError] = useState('');
+
+  useEffect(() => {
+    const r = validarFechas({ fechaInicio, fechaFin });
+    setFechaError(r.ok ? '' : r.mensaje);
+  }, [fechaInicio, fechaFin]);
 
   const { data: pagos, loading } = useFetch(() => api.get('/pagos/registrados'), []);
   const all = pagos?.items || pagos || [];
@@ -78,9 +85,9 @@ export default function GananciasPage() {
     { key: 'tipoPago', label: 'Tipo', render: (r) => r.tipoPago || 'Cuota' },
     { key: 'apartamento', label: 'Apartamento' },
     { key: 'residente', label: 'Residente' },
-    { key: 'metodo', label: 'Método' },
+    { key: 'metodo', label: 'MÃ©todo' },
     { key: 'valor', label: 'Valor', render: (r) => formatCurrency(r.valor) },
-    { key: 'descripcion', label: 'Descripción' },
+    { key: 'descripcion', label: 'DescripciÃ³n' },
   ];
 
   return (
@@ -111,10 +118,13 @@ export default function GananciasPage() {
             value={fechaFin}
             onChange={(e) => setFechaFin(e.target.value)}
           />
+          {fechaError && (
+            <p style={{ color: '#e11d48', fontSize: '12px', width: '100%' }}>{fechaError}</p>
+          )}
           <Input
-            id="search"
-            label="Búsqueda rápida"
-            placeholder="Apto, residente, método..."
+            id="search" aria-label="Buscar"
+            label="BÃºsqueda rÃ¡pida"
+            placeholder="Apto, residente, mÃ©todo..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />

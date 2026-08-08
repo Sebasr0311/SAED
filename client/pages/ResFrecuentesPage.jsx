@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { useFetch, useTiposDocumento } from '../lib/hooks.js';
 import api from '../lib/api.js';
 import { useAuth } from '../lib/AuthContext.jsx';
@@ -6,6 +6,7 @@ import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { Button } from '../components/ui/Button.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
 import { Input, Select } from '../components/ui/Form.jsx';
+import { valNombre, valApellido, valDocumento, valTelefono } from '../lib/validation.js';
 import Toast from '../components/ui/Toast.jsx';
 import { formatDate } from '../lib/utils.js';
 
@@ -48,11 +49,15 @@ export default function ResFrecuentesPage() {
 
   function validate() {
     const e = {};
-    if (!form.nombres.trim()) e.nombres = 'Requerido';
-    if (!form.apellidos.trim()) e.apellidos = 'Requerido';
-    if (!form.numeroDocumento.trim()) e.numeroDocumento = 'Requerido';
-    if (form.telefono && !/^\d{10}$/.test(form.telefono.replace(/\D/g, '')))
-      e.telefono = 'Debe ser un teléfono válido de 10 dígitos';
+    const rN = valNombre(form.nombres, 'El nombre');
+    if (!rN.ok) e.nombres = rN.mensaje;
+    const rA = valApellido(form.apellidos, 'El apellido');
+    if (!rA.ok) e.apellidos = rA.mensaje;
+    const codigoDoc = tiposDoc.find((t) => Number(t.idTipoDoc) === Number(form.idTipoDoc))?.codigo || '';
+    const rD = valDocumento(form.numeroDocumento, codigoDoc, 'El documento');
+    if (!rD.ok) e.numeroDocumento = rD.mensaje;
+    const rTel = valTelefono(form.telefono, { required: false });
+    if (!rTel.ok) e.telefono = rTel.mensaje;
     setErrors(e);
     return Object.keys(e).length === 0;
   }
@@ -72,7 +77,7 @@ export default function ResFrecuentesPage() {
         email: form.email.trim() || null,
         activo: true,
       });
-      setToast({ message: 'Visitante creado. Para marcarlo como frecuente, genere un QR de "Visita Rápida" en /res-visita', type: 'success' });
+      setToast({ message: 'Visitante creado. Para marcarlo como frecuente, genere un QR de "Visita RÃ¡pida" en /res-visita', type: 'success' });
       setForm({
         idTipoDoc: 1,
         numeroDocumento: '',
@@ -95,7 +100,7 @@ export default function ResFrecuentesPage() {
     { key: 'nombreVisitante', label: 'Nombre' },
     { key: 'documento', label: 'Documento' },
     { key: 'ultimaPlaca', label: 'Placa' },
-    { key: 'ultimaVisita', label: 'Último Ingreso', render: (r) => formatDate(r.ultimaVisita) },
+    { key: 'ultimaVisita', label: 'Ãšltimo Ingreso', render: (r) => formatDate(r.ultimaVisita) },
   ];
 
   return (
@@ -106,7 +111,7 @@ export default function ResFrecuentesPage() {
         action={
           <div style={{ display: 'flex', gap: '8px' }}>
             <Input
-              id="search"
+              id="search" aria-label="Buscar"
               placeholder="Buscar..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -142,10 +147,10 @@ export default function ResFrecuentesPage() {
               <span className="material-symbols-outlined">person</span>
             </div>
             <div style={{ flex: 1 }}>
-              <div className="name">{f.nombreVisitante || '—'}</div>
-              <div className="meta">Doc: {f.documento || '—'}</div>
+              <div className="name">{f.nombreVisitante || 'â€”'}</div>
+              <div className="meta">Doc: {f.documento || 'â€”'}</div>
               {f.ultimaPlaca && <div className="meta">Placa: {f.ultimaPlaca}</div>}
-              {f.ultimaVisita && <div className="meta">Última visita: {formatDate(f.ultimaVisita)}</div>}
+              {f.ultimaVisita && <div className="meta">Ãšltima visita: {formatDate(f.ultimaVisita)}</div>}
             </div>
           </div>
         ))}
@@ -185,7 +190,7 @@ export default function ResFrecuentesPage() {
           )}
           <Input
             id="numeroDocumento"
-            label="Número Documento"
+            label="NÃºmero Documento"
             value={form.numeroDocumento}
             onChange={(e) => setForm((f) => ({ ...f, numeroDocumento: e.target.value }))}
             error={errors.numeroDocumento}
@@ -210,7 +215,7 @@ export default function ResFrecuentesPage() {
         <div className="form-row">
           <Input
             id="telefono"
-            label="Teléfono (opcional)"
+            label="TelÃ©fono (opcional)"
             value={form.telefono}
             onChange={(e) => setForm((f) => ({ ...f, telefono: e.target.value }))}
             error={errors.telefono}
