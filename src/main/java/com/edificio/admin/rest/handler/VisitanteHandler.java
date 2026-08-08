@@ -53,12 +53,14 @@ public class VisitanteHandler extends BaseHandler implements HttpHandler {
                 Integer id = dao.insert(v);
                 sendJson(exchange, 201, Map.of("id", id));
             } else if ("PUT".equalsIgnoreCase(method) && parts.length == 4) {
+                if (!AuthScope.requireRole(exchange, claims, "ADMINISTRADOR", "PORTERO")) return;
                 String body = new String(exchange.getRequestBody().readAllBytes(), "UTF-8");
                 Visitante v = JsonUtil.fromJson(body, Visitante.class);
                 v.setId(Integer.parseInt(parts[3]));
                 dao.update(v);
                 sendJson(exchange, 200, Map.of("mensaje", "Visitante actualizado"));
             } else if ("DELETE".equalsIgnoreCase(method) && parts.length == 4) {
+                if (!AuthScope.requireRole(exchange, claims, "ADMINISTRADOR", "PORTERO")) return;
                 dao.delete(Integer.parseInt(parts[3]));
                 sendJson(exchange, 200, Map.of("mensaje", "Visitante eliminado"));
             } else {

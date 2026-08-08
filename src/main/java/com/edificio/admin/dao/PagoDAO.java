@@ -130,12 +130,16 @@ public class PagoDAO extends BaseDAO implements CrudDAO<Pago> {
     }
 
     public List<Map<String, Object>> findAllRegistrados() throws SQLException {
+        return findAllRegistrados(null);
+    }
+
+    public List<Map<String, Object>> findAllRegistrados(Integer idApartamento) throws SQLException {
         List<Map<String, Object>> lista = new ArrayList<>();
-        String sql = "SELECT tipo_pago, id, fecha, valor, metodo, apartamento, residente, descripcion "
+        String sql = "SELECT tipo_pago, id, fecha, valor, metodo, apartamento, id_apartamento, residente, descripcion "
                    + "FROM ( "
                    + "  SELECT 'CUOTA' AS tipo_pago, p.id_pago AS id, p.fecha_pago AS fecha, "
                    + "         p.valor_pagado AS valor, NVL(p.metodo_pago, 'EFECTIVO') AS metodo, "
-                   + "         a.numero AS apartamento, "
+                   + "         a.numero AS apartamento, a.id_apartamento AS id_apartamento, "
                    + "         NVL(r.nombres || ' ' || r.apellidos, '-') AS residente, "
                    + "         cq.tipo_cuota || ' ' || cq.anio || '/' || LPAD(cq.mes, 2, '0') AS descripcion "
                    + "  FROM PAGOS p "
@@ -147,7 +151,7 @@ public class PagoDAO extends BaseDAO implements CrudDAO<Pago> {
                    + "  UNION ALL "
                    + "  SELECT 'MULTA' AS tipo_pago, m.id_multa AS id, m.fecha_pago AS fecha, "
                    + "         m.monto AS valor, NVL(m.metodo_pago, 'EFECTIVO') AS metodo, "
-                   + "         a.numero AS apartamento, "
+                   + "         a.numero AS apartamento, a.id_apartamento AS id_apartamento, "
                    + "         NVL(r.nombres || ' ' || r.apellidos, '-') AS residente, "
                    + "         m.tipo AS descripcion "
                    + "  FROM MULTAS m "
@@ -156,21 +160,26 @@ public class PagoDAO extends BaseDAO implements CrudDAO<Pago> {
                    + "  LEFT JOIN CONTRATO_RESIDENTE cr ON cr.id_contrato = c.id_contrato AND cr.rol_en_contrato = 'ARRENDATARIO' "
                    + "  LEFT JOIN RESIDENTES r ON r.id_residente = cr.id_residente "
                    + "  WHERE m.estado = 'PAGADA' AND m.fecha_pago IS NOT NULL "
-                   + ") ORDER BY fecha DESC";
-        try (PreparedStatement ps = conn().prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
-            while (rs.next()) {
-                Map<String, Object> m = new HashMap<>();
-                m.put("tipoPago", rs.getString("tipo_pago"));
-                m.put("id", rs.getInt("id"));
-                java.sql.Date f = rs.getDate("fecha");
-                m.put("fecha", f != null ? f.toLocalDate().toString() : null);
-                m.put("valor", rs.getBigDecimal("valor"));
-                m.put("metodo", rs.getString("metodo"));
-                m.put("apartamento", rs.getString("apartamento"));
-                m.put("residente", rs.getString("residente"));
-                m.put("descripcion", rs.getString("descripcion"));
-                lista.add(m);
+                   + ") "
+                   + (idApartamento != null ? "WHERE id_apartamento = ? " : "")
+                   + "ORDER BY fecha DESC";
+        try (PreparedStatement ps = conn().prepareStatement(sql)) {
+            if (idApartamento != null) ps.setInt(1, idApartamento);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    Map<String, Object> m = new HashMap<>();
+                    m.put("tipoPago", rs.getString("tipo_pago"));
+                    m.put("id", rs.getInt("id"));
+                    java.sql.Date f = rs.getDate("fecha");
+                    m.put("fecha", f != null ? f.toLocalDate().toString() : null);
+                    m.put("valor", rs.getBigDecimal("valor"));
+                    m.put("metodo", rs.getString("metodo"));
+                    m.put("apartamento", rs.getString("apartamento"));
+                    m.put("idApartamento", rs.getInt("id_apartamento"));
+                    m.put("residente", rs.getString("residente"));
+                    m.put("descripcion", rs.getString("descripcion"));
+                    lista.add(m);
+                }
             }
         }
         return lista;

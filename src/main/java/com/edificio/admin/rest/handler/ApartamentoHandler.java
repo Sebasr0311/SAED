@@ -4,12 +4,14 @@ import com.edificio.admin.rest.*;
 import com.edificio.admin.rest.dto.ErrorResponse;
 import com.edificio.admin.service.ApartamentoService;
 import com.edificio.admin.service.ContratoService;
+import com.edificio.admin.dao.ConexionBD;
 import com.edificio.admin.dao.ResidenteDAO;
 import com.edificio.admin.model.Apartamento;
 import com.edificio.admin.model.Residente;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import java.io.*;
+import java.sql.Connection;
 import java.util.*;
 
 public class ApartamentoHandler extends BaseHandler implements HttpHandler {
@@ -59,7 +61,15 @@ public class ApartamentoHandler extends BaseHandler implements HttpHandler {
                 
                 sendJson(exchange, 200, response);
             } else if ("GET".equalsIgnoreCase(method) && parts.length == 4) {
-                Apartamento a = service.buscarPorId(Integer.parseInt(parts[3]));
+                int idApartamento = Integer.parseInt(parts[3]);
+                if ("RESIDENTE".equals(AuthScope.rol(claims))) {
+                    Connection conn = ConexionBD.getInstancia().getConexion();
+                    if (!AuthScope.requireOwnApartment(exchange, conn, claims, idApartamento)) return;
+                } else if ("PORTERO".equals(AuthScope.rol(claims))) {
+                    AuthScope.sendForbidden(exchange, "No autorizado para este rol");
+                    return;
+                }
+                Apartamento a = service.buscarPorId(idApartamento);
                 sendJson(exchange, 200, a);
             } else if ("POST".equalsIgnoreCase(method) && parts.length == 3) {
                 if (!AuthMiddleware.hasRole(claims, "ADMINISTRADOR")) {

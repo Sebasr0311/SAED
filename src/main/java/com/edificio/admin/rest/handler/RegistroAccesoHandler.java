@@ -30,9 +30,11 @@ public class RegistroAccesoHandler extends BaseHandler implements HttpHandler {
             String[] parts = path.split("/");
 
             if ("GET".equalsIgnoreCase(method) && parts.length == 4 && "activos".equals(parts[3])) {
+                if (!AuthScope.requireRole(exchange, claims, "ADMINISTRADOR", "PORTERO")) return;
                 List<RegistroAcceso> list = dao.findActivos();
                 sendJson(exchange, 200, list);
             } else if ("POST".equalsIgnoreCase(method) && parts.length == 5 && "salida".equals(parts[4])) {
+                if (!AuthScope.requireRole(exchange, claims, "ADMINISTRADOR", "PORTERO")) return;
                 int idAcceso = Integer.parseInt(parts[3]);
                 RegistroAcceso ra = dao.findById(idAcceso);
                 if (ra == null) throw new Exception("Registro de acceso no encontrado");

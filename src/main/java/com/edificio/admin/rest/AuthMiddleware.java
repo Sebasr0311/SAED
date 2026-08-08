@@ -4,8 +4,6 @@ import com.edificio.admin.dao.UsuarioDAO;
 import com.edificio.admin.rest.dto.ErrorResponse;
 import com.edificio.admin.model.Usuario;
 import com.sun.net.httpserver.HttpExchange;
-import java.net.URLDecoder;
-import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
 public class AuthMiddleware {
@@ -15,17 +13,6 @@ public class AuthMiddleware {
     public static Map<String, Object> authenticate(HttpExchange exchange) {
         String auth = exchange.getRequestHeaders().getFirst("Authorization");
         if (auth == null || !auth.startsWith("Bearer ")) {
-            String query = exchange.getRequestURI().getQuery();
-            if (query != null) {
-                for (String param : query.split("&")) {
-                    String[] kv = param.split("=", 2);
-                    if (kv.length == 2 && "token".equals(kv[0])) {
-                        String decodedToken = URLDecoder.decode(kv[1], StandardCharsets.UTF_8);
-                        Map<String, Object> claims = JwtUtil.validarToken(decodedToken);
-                        if (claims != null) return verificarActivo(exchange, claims);
-                    }
-                }
-            }
             sendUnauthorized(exchange, "Token requerido");
             return null;
         }

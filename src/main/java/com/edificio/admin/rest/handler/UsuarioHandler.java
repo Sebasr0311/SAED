@@ -25,10 +25,12 @@ public class UsuarioHandler extends BaseHandler implements HttpHandler {
             String[] parts = path.split("/");
 
             if ("GET".equalsIgnoreCase(method) && parts.length == 3) {
+                if (!AuthScope.requireRole(exchange, claims, "ADMINISTRADOR")) return;
                 List<Usuario> list = service.listarTodos();
                 for (Usuario u : list) u.setPasswordHash(null);
                 sendJson(exchange, 200, list);
             } else if ("GET".equalsIgnoreCase(method) && parts.length == 4) {
+                if (!AuthScope.requireRole(exchange, claims, "ADMINISTRADOR")) return;
                 Usuario u = service.buscarPorId(Integer.parseInt(parts[3]));
                 if (u != null) u.setPasswordHash(null);
                 sendJson(exchange, 200, u);

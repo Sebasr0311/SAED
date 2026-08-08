@@ -9,6 +9,7 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import java.io.*;
 import java.math.BigDecimal;
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -88,7 +89,7 @@ public class MultaHandler extends BaseHandler implements HttpHandler {
                 sendJson(exchange, 201, Map.of("idMulta", id, "monto", monto));
 
             } else if ("GET".equalsIgnoreCase(method) && path.endsWith("/todas")) {
-                if (!"ADMINISTRADOR".equals(rol)) throw new Exception("Solo administradores");
+                if (!AuthScope.requireRole(exchange, claims, "ADMINISTRADOR")) return;
                 List<Multa> multas = multaDAO.findAllConResidente();
                 List<Map<String, Object>> resp = new ArrayList<>();
                 for (Multa m : multas) resp.add(toMap(m));
@@ -99,21 +100,42 @@ public class MultaHandler extends BaseHandler implements HttpHandler {
                 int idMulta = Integer.parseInt(parts[3]);
                 Multa multa = multaDAO.findById(idMulta);
                 if (multa == null) throw new Exception("Multa no encontrada");
+                if ("RESIDENTE".equals(rol)) {
+                    Connection conn = ConexionBD.getInstancia().getConexion();
+                    if (multa.getIdApartamento() == null || !AuthScope.requireOwnApartment(exchange, conn, claims, multa.getIdApartamento())) return;
+                }
                 sendJson(exchange, 200, toMapDetalle(multa));
 
             } else if ("GET".equalsIgnoreCase(method) && parts.length == 3) {
                 String aptStr = query != null ? JsonUtil.extraerValor(query, "apartamento") : null;
                 if (aptStr == null) throw new Exception("apartamento requerido");
                 int idApartamento = Integer.parseInt(aptStr);
+                if ("RESIDENTE".equals(rol)) {
+                    Connection conn = ConexionBD.getInstancia().getConexion();
+                    if (!AuthScope.requireOwnApartment(exchange, conn, claims, idApartamento)) return;
+                }
                 List<Multa> multas = multaDAO.findByApartamento(idApartamento);
                 List<Map<String, Object>> resp = new ArrayList<>();
                 for (Multa m : multas) resp.add(toMap(m));
                 sendJson(exchange, 200, resp);
 
             } else if ("PUT".equalsIgnoreCase(method) && parts.length == 5 && "pagar".equals(parts[4])) {
-                if (!"RESIDENTE".equals(rol) && !"ADMINISTRADOR".equals(rol))
-                    throw new Exception("No autorizado");
                 int idMulta = Integer.parseInt(parts[3]);
+                if ("RESIDENTE".equals(rol)) {
+                    Multa multa = multaDAO.findById(idMulta);
+                    Connection conn = ConexionBD.getInstancia().getConexion();
+                    if (multa == null || multa.getIdApartamento() == null) {
+                        AuthScope.sendForbidden(exchange, "No autorizado para pagar esta multa");
+                        return;
+                    }
+                    if (!AuthScope.requireOwnApartment(exchange, conn, claims, multa.getIdApartamento())) return;
+                } else if ("PORTERO".equals(rol)) {
+                    AuthScope.sendForbidden(exchange, "Los porteros no pueden registrar pagos de multas");
+                    return;
+                } else if (!"ADMINISTRADOR".equals(rol)) {
+                    AuthScope.sendForbidden(exchange, "No autorizado");
+                    return;
+                }
                 String metodoPago = null;
                 byte[] bodyBytes = exchange.getRequestBody().readAllBytes();
                 if (bodyBytes.length > 0) {

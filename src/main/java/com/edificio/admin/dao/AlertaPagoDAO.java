@@ -24,6 +24,7 @@ public class AlertaPagoDAO extends BaseDAO {
         + "       a.leida, a.enviada_en, a.leida_en, "
         + "       c.anio, c.mes, c.estado AS estado_cuota, "
         + "       r.nombres || ' ' || r.apellidos AS nombre_residente, "
+        + "       ap.id_apartamento AS id_apartamento, "
         + "       ap.numero                        AS numero_apartamento "
         + "FROM   ALERTAS_PAGO    a "
         + "JOIN   CUOTAS_ARRIENDO c  ON c.id_cuota    = a.id_cuota "
@@ -119,6 +120,7 @@ public class AlertaPagoDAO extends BaseDAO {
         a.setMes(rs.getInt("mes"));
         a.setEstadoCuota(rs.getString("estado_cuota"));
         a.setNombreResidente(rs.getString("nombre_residente"));
+        a.setIdApartamento(rs.getInt("id_apartamento"));
         a.setNumeroApartamento(rs.getString("numero_apartamento"));
 
         return a;

@@ -99,6 +99,10 @@ public class PagoService {
         return pagoDAO.findAllRegistrados();
     }
 
+    public List<Map<String, Object>> listarPagosRegistrados(Integer idApartamento) throws SQLException {
+        return pagoDAO.findAllRegistrados(idApartamento);
+    }
+
     // ---- Resumen de ganancias ----
 
     public Map<String, Object> obtenerResumenGanancias() throws SQLException {
