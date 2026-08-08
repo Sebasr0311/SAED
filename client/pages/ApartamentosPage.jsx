@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Button } from '../components/ui/Button.jsx';
 import { Input, Select } from '../components/ui/Form.jsx';
 import { DataTable } from '../components/ui/DataTable.jsx';
@@ -6,6 +6,7 @@ import { Pagination } from '../components/ui/Pagination.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { ConfirmPasswordDialog } from '../components/ui/ConfirmPasswordDialog.jsx';
+import { valSelect, valNumero, valEntero } from '../lib/validation.js';
 import Toast from '../components/ui/Toast.jsx';
 import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
@@ -44,6 +45,8 @@ function ActionButtons({ onEdit, onDelete, onVer, mostrarVer }) {
 export default function ApartamentosPage() {
   const [page, setPage] = useState(0);
   const [toast, setToast] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [errors, setErrors] = useState({});
@@ -139,6 +142,13 @@ export default function ApartamentosPage() {
     const e = {};
     if (!form.numero) e.numero = 'Requerido';
     if (!form.piso) e.piso = 'Requerido';
+    const rTipo = valSelect(form.tipo, 'Seleccione el tipo de apartamento');
+    if (!rTipo.ok) e.tipo = rTipo.mensaje;
+    const rArea = valNumero(form.areaM2, { positivo: true });
+    if (!rArea.ok) e.areaM2 = rArea.mensaje;
+    const capMax = CAPACIDADES_POR_TIPO[form.tipo] ?? 8;
+    const rCap = valEntero(form.capacidadMaxima, { min: 1, max: Math.max(capMax, 8) });
+    if (!rCap.ok) e.capacidadMaxima = rCap.mensaje;
     const duplicado = (data?.items || []).some(
       (a) => a.numero === form.numero && (!editing || a.idApartamento !== editing.idApartamento)
     );
@@ -148,6 +158,9 @@ export default function ApartamentosPage() {
   }
   async function save() {
     if (!validate()) return;
+    if (savingRef.current) return;
+    savingRef.current = true;
+    setSaving(true);
     try {
       const payload = {
         ...form,
@@ -167,6 +180,9 @@ export default function ApartamentosPage() {
       refetch();
     } catch (err) {
       setToast({ message: err.message, type: 'error' });
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
     }
   }
   async function handleDeleteConfirmed() {
@@ -236,7 +252,7 @@ export default function ApartamentosPage() {
             <Button variant="outline" onClick={() => setModalOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={save}>Guardar</Button>
+            <Button onClick={save} disabled={saving}>{saving ? 'Guardando...' : 'Guardar'}</Button>
           </>
         }
       >
@@ -258,7 +274,7 @@ export default function ApartamentosPage() {
           />
         </div>
         <div className="form-row">
-          <Select id="tipo" label="Tipo" value={form.tipo} onChange={(e) => update('tipo', e.target.value)}>
+          <Select id="tipo" label="Tipo" value={form.tipo} onChange={(e) => update('tipo', e.target.value)} error={errors.tipo}>
             {TIPOS.map((t) => (
               <option key={t} value={t}>
                 {t}
@@ -271,6 +287,7 @@ export default function ApartamentosPage() {
             type="number"
             value={form.areaM2}
             onChange={(e) => update('areaM2', e.target.value)}
+            error={errors.areaM2}
           />
         </div>
         <div className="form-row">
@@ -280,6 +297,7 @@ export default function ApartamentosPage() {
             type="number"
             value={form.capacidadMaxima}
             onChange={(e) => update('capacidadMaxima', e.target.value)}
+            error={errors.capacidadMaxima}
           />
           <Select id="estado" label="Estado" value={form.estado} onChange={(e) => update('estado', e.target.value)}>
             {ESTADOS.map((e) => (

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+﻿import { useState, useEffect, useRef } from 'react';
 import { Button } from '../components/ui/Button.jsx';
 import { Select, Textarea } from '../components/ui/Form.jsx';
 import { DataTable } from '../components/ui/DataTable.jsx';
@@ -157,10 +157,10 @@ export default function QuejasAdminPage() {
   const columns = [
     { key: 'idQueja', label: 'ID', width: 60 },
     { key: 'tipo', label: 'Tipo' },
-    { key: 'titulo', label: 'Título' },
+    { key: 'titulo', label: 'TÃ­tulo' },
     { key: 'numeroApartamento', label: 'Apto' },
     { key: 'nombreResidente', label: 'Residente' },
-    { key: 'categoria', label: 'Categoría' },
+    { key: 'categoria', label: 'CategorÃ­a' },
     {
       key: 'estado',
       label: 'Estado',
@@ -183,7 +183,7 @@ export default function QuejasAdminPage() {
       <div className="card-grid-4" style={{ marginBottom: '20px' }}>
         <Stat icon="analytics" value={stats.total} label="Total" color="primary" />
         <Stat icon="pending" value={stats.pendientes} label="Pendientes" color="amber" />
-        <Stat icon="visibility" value={stats.revision} label="En Revisión" color="blue" />
+        <Stat icon="visibility" value={stats.revision} label="En RevisiÃ³n" color="blue" />
         <Stat icon="check_circle" value={stats.resueltas} label="Resueltas/Cerradas" color="green" />
       </div>
 
@@ -238,7 +238,7 @@ export default function QuejasAdminPage() {
             ))}
           </Select>
           <input
-            id="search"
+            id="search" aria-label="Buscar"
             type="text"
             placeholder="Buscar en titulo/descripcion/apto..."
             value={search}
@@ -288,7 +288,7 @@ export default function QuejasAdminPage() {
                 <div style={{ fontSize: '13px' }}>{modal.tipo}</div>
               </div>
               <div>
-                <div style={{ fontSize: '11px', color: '#475569', fontWeight: 600 }}>Categoría</div>
+                <div style={{ fontSize: '11px', color: '#475569', fontWeight: 600 }}>CategorÃ­a</div>
                 <div style={{ fontSize: '13px' }}>{modal.categoria}</div>
               </div>
               <div>
@@ -305,11 +305,11 @@ export default function QuejasAdminPage() {
               </div>
             </div>
             <div className="form-group">
-              <div style={{ fontSize: '11px', color: '#475569', fontWeight: 600 }}>Título</div>
+              <div style={{ fontSize: '11px', color: '#475569', fontWeight: 600 }}>TÃ­tulo</div>
               <div style={{ fontSize: '13px' }}>{modal.titulo}</div>
             </div>
             <div className="form-group">
-              <div style={{ fontSize: '11px', color: '#475569', fontWeight: 600 }}>Descripción</div>
+              <div style={{ fontSize: '11px', color: '#475569', fontWeight: 600 }}>DescripciÃ³n</div>
               <div style={{ fontSize: '13px', whiteSpace: 'pre-wrap' }}>{modal.descripcion}</div>
             </div>
             {modal.fotoEvidencia && (
@@ -355,7 +355,7 @@ export default function QuejasAdminPage() {
                 rows={4}
                 value={form.respuesta}
                 onChange={(e) => setForm((f) => ({ ...f, respuesta: e.target.value }))}
-                placeholder="Escribe tu respuesta aquí..."
+                placeholder="Escribe tu respuesta aquÃ­..."
               />
             </div>
           </>

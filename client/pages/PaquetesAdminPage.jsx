@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+﻿import { useState, useMemo } from 'react';
 import { Input } from '../components/ui/Form.jsx';
 import { DataTable } from '../components/ui/DataTable.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
@@ -48,7 +48,7 @@ export default function PaquetesAdminPage() {
     { key: 'idMensaje', label: 'ID', width: 60 },
     { key: 'numeroApartamento', label: 'Apartamento' },
     { key: 'nombreResidente', label: 'Residente' },
-    { key: 'titulo', label: 'Descripción' },
+    { key: 'titulo', label: 'DescripciÃ³n' },
     { key: 'fechaCreacion', label: 'Recibido', render: (r) => formatDate(r.fechaCreacion) },
     {
       key: 'entregado',
@@ -68,7 +68,7 @@ export default function PaquetesAdminPage() {
         subtitle="Registro de paquetes recibidos"
         action={
           <Input
-            id="search"
+            id="search" aria-label="Buscar"
             placeholder="Buscar apto o residente..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -101,7 +101,7 @@ export default function PaquetesAdminPage() {
               <span>{detalle.nombreResidente}</span>
             </div>
             <div className="detail-row">
-              <span>Descripción</span>
+              <span>DescripciÃ³n</span>
               <span>{detalle.titulo}</span>
             </div>
             <div className="detail-row">

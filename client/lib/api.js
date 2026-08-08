@@ -45,7 +45,11 @@ async function request(endpoint, options = {}) {
     });
     clearTimeout(timer);
 
-    if (res.status === 401) {
+    // Un 401 en /auth/login significa credenciales invalidas (el backend
+    // devuelve el motivo real); solo se trata como sesion expirada en el
+    // resto de endpoints.
+    const isLogin = endpoint.startsWith('/auth/login');
+    if (res.status === 401 && !isLogin) {
       sessionStorage.removeItem(TOKEN_KEY);
       sessionStorage.removeItem(USER_KEY);
       if (typeof onUnauthorized === 'function') {

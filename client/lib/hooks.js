@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import api from './api.js';
 
 /**
@@ -53,7 +53,9 @@ export function useFetch(fetcher, deps = []) {
     };
   }, deps);
 
-  return { data, loading, error, refetch: () => fetcher().then((d) => setData(normalize(d))).catch(setError) };
+  const refetch = useCallback(() => fetcher().then((d) => setData(normalize(d))).catch(setError), deps);
+
+  return { data, loading, error, refetch };
 }
 
 /**

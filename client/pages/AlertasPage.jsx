@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { DataTable } from '../components/ui/DataTable.jsx';
 import { Pagination } from '../components/ui/Pagination.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
@@ -48,7 +48,7 @@ export default function AlertasPage() {
     }
     try {
       await api.put(`/alertas/${selectedId}/leer`);
-      setToast({ message: 'Alerta marcada como leída', type: 'success' });
+      setToast({ message: 'Alerta marcada como leÃ­da', type: 'success' });
       setSelectedId(null);
       refetch();
     } catch (err) {
@@ -70,9 +70,9 @@ export default function AlertasPage() {
     { key: 'canal', label: 'Canal' },
     {
       key: 'leida',
-      label: 'Leída',
+      label: 'LeÃ­da',
       render: (r) => (
-        <span className={`badge ${r.leida ? 'badge-activo' : 'badge-pendiente-firma'}`}>{r.leida ? 'Sí' : 'No'}</span>
+        <span className={`badge ${r.leida ? 'badge-activo' : 'badge-pendiente-firma'}`}>{r.leida ? 'SÃ­' : 'No'}</span>
       ),
     },
     { key: 'enviadaEn', label: 'Enviada', render: (r) => formatDate(r.enviadaEn) },
@@ -87,10 +87,10 @@ export default function AlertasPage() {
           <>
             <label className="checkbox-label">
               <input type="checkbox" checked={soloNoLeidas} onChange={(e) => { setSoloNoLeidas(e.target.checked); setPage(0); }} />
-              <span>Solo no leídas</span>
+              <span>Solo no leÃ­das</span>
             </label>
-            <Input id="search" placeholder="Buscar..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(0); }} />
-            <Button onClick={marcarLeida}>Marcar Leída</Button>
+            <Input id="search" aria-label="Buscar" placeholder="Buscar..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(0); }} />
+            <Button onClick={marcarLeida}>Marcar LeÃ­da</Button>
           </>
         }
       />

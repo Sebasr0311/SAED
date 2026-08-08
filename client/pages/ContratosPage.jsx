@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { Button } from '../components/ui/Button.jsx';
 import { Input, Select } from '../components/ui/Form.jsx';
 import { DataTable } from '../components/ui/DataTable.jsx';
@@ -10,6 +10,7 @@ import Toast from '../components/ui/Toast.jsx';
 import { useFetch } from '../lib/hooks.js';
 import api, { BASE_URL } from '../lib/api.js';
 import { formatDate, formatCurrency, formatMiles, parseMiles } from '../lib/utils.js';
+import { valNumero } from '../lib/validation.js';
 
 const ESTADOS = ['', 'ACTIVO', 'SUSPENDIDO', 'VENCIDO', 'PENDIENTE_FIRMA', 'CANCELADO'];
 const TIPOS = ['INICIAL', 'RENOVACION', 'PERMANENCIA'];
@@ -108,7 +109,7 @@ export default function ContratosPage() {
   }
 
   async function reenviarCorreo(idContrato) {
-    if (!window.confirm(`¿Desea reenviar el correo de notificación del contrato #${idContrato} al residente?`)) return;
+    if (!window.confirm(`Â¿Desea reenviar el correo de notificaciÃ³n del contrato #${idContrato} al residente?`)) return;
     try {
       await api.post(`/contratos/${idContrato}/reenviar-correo`);
       setToast({ message: 'Correo reenviado exitosamente', type: 'success' });
@@ -152,6 +153,14 @@ export default function ContratosPage() {
 
   async function confirmarRenovar() {
     if (!renovarModal) return;
+    if (!renovarForm.fechaInicio) {
+      setToast({ message: 'La fecha de inicio es obligatoria', type: 'error' });
+      return;
+    }
+    if (!parseMiles(renovarForm.valorMensual) || parseMiles(renovarForm.valorMensual) <= 0) {
+      setToast({ message: 'El valor mensual debe ser mayor que 0', type: 'error' });
+      return;
+    }
     setSaving(true);
     try {
       const res = await api.post(`/contratos/${renovarModal.idContrato}/renovar`, {
@@ -173,9 +182,9 @@ export default function ContratosPage() {
 
   function handleEmailStatus(res) {
     if (res.emailStatus === 'enviado') {
-      setToast({ message: 'Correo de notificación enviado al residente', type: 'success' });
+      setToast({ message: 'Correo de notificaciÃ³n enviado al residente', type: 'success' });
     } else if (res.emailStatus === 'sin_email') {
-      setToast({ message: 'El residente no tiene correo electrónico registrado', type: 'warning' });
+      setToast({ message: 'El residente no tiene correo electrÃ³nico registrado', type: 'warning' });
     } else if (res.emailStatus === 'error') {
       setToast({
         message: `Contrato creado. No se pudo enviar el correo: ${res.emailMensaje || ''}. Puede reenviarlo desde la tabla.`,
@@ -194,8 +203,8 @@ export default function ContratosPage() {
           update('fechaFin', calcularFechaFin(form.fechaInicio, res.tipoSugerido));
         }
       }
-    } catch {
-      /* ignorar si falla la sugerencia */
+    } catch (err) {
+      setToast({ message: err.message || 'No se pudo sugerir el tipo de contrato', type: 'error' });
     }
   }
 
@@ -227,8 +236,16 @@ export default function ContratosPage() {
     const e = {};
     if (!form.idApartamento) e.idApartamento = 'Requerido';
     if (!form.idResidente) e.idResidente = 'Requerido';
+    const rValor = valNumero(parseMiles(form.valorMensual), { positivo: true });
+    if (!rValor.ok) e.valorMensual = rValor.mensaje;
+    const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+    const hoyStr = hoy.toISOString().slice(0, 10);
     if (!form.fechaInicio) e.fechaInicio = 'Requerido';
-    if (!parseMiles(form.valorMensual)) e.valorMensual = 'Requerido';
+    else if (form.fechaInicio < hoyStr) e.fechaInicio = 'La fecha de inicio no puede ser anterior a hoy';
+    if (form.tipoContrato !== 'PERMANENCIA') {
+      if (form.fechaInicio && form.fechaFin && form.fechaFin <= form.fechaInicio)
+        e.fechaFin = 'La fecha de fin debe ser posterior a la de inicio';
+    }
     setErrors(e);
     return Object.keys(e).length === 0;
   }
@@ -361,7 +378,7 @@ export default function ContratosPage() {
       <PageHeader title="Contratos" subtitle="Contratos de arrendamiento" />
       <div className="table-toolbar" style={{ marginBottom: '12px' }}>
         <div className="filters">
-          <Select id="filtroEstado" value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value)} className="filter-select">
+          <Select id="filtroEstado" aria-label="Filtrar por estado" value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value)} className="filter-select">
             {ESTADOS.map((e) => (
               <option key={e || 'all'} value={e}>
                 {e || 'Todos los estados'}
@@ -414,7 +431,7 @@ export default function ContratosPage() {
             onChange={(e) => onApartamentoChange(e.target.value)}
             error={errors.idApartamento}
           >
-            <option value="">— Seleccionar —</option>
+            <option value="">â€” Seleccionar â€”</option>
             {(apartamentos?.items || []).map((a) => (
               <option key={a.idApartamento} value={a.idApartamento}>
                 Apto {a.numero}
@@ -428,7 +445,7 @@ export default function ContratosPage() {
             onChange={(e) => update('idResidente', e.target.value)}
             error={errors.idResidente}
           >
-            <option value="">— Seleccionar —</option>
+            <option value="">â€” Seleccionar â€”</option>
             {(residentes?.items || []).map((r) => (
               <option key={r.id} value={r.id}>
                 {r.nombres} {r.apellidos}
@@ -480,7 +497,7 @@ export default function ContratosPage() {
               checked={form.enviarCorreo}
               onChange={(e) => update('enviarCorreo', e.target.checked)}
             />
-            <span>Enviar correo de notificación al residente</span>
+            <span>Enviar correo de notificaciÃ³n al residente</span>
           </label>
         </div>
       </Modal>
@@ -539,7 +556,7 @@ export default function ContratosPage() {
         onClose={() => setConfirmCancelar(null)}
         onConfirm={cancelar}
         title="Cancelar contrato"
-        message={`¿Cancelar el contrato #${confirmCancelar?.idContrato}? El apartamento quedará disponible.`}
+        message={`Â¿Cancelar el contrato #${confirmCancelar?.idContrato}? El apartamento quedarÃ¡ disponible.`}
         confirmLabel="Cancelar contrato"
         danger
       />
