@@ -316,7 +316,10 @@ function exportarExcel(pagos, fechaInicio, fechaFin) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = `ganancias_${fechaInicio}_${fechaFin}.xls`;
+  // Extensión .xml (SpreadsheetML 2003): Excel 2016+ muestra el warning "formato y
+  // extensión no coinciden" si el XML se guarda como .xls. Con .xml + progid
+  // Excel.Sheet, Windows lo abre con Excel directamente y sin advertencia.
+  link.download = `ganancias_${fechaInicio}_${fechaFin}.xml`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
