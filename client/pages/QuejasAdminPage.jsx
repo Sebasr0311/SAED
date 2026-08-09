@@ -252,7 +252,7 @@ export default function QuejasAdminPage() {
         columns={columns}
         rows={rows}
         loading={loading}
-        empty="No hay solicitudes"
+                empty={{ icon: 'support_agent', title: 'No hay solicitudes', subtitle: 'Las solicitudes de los residentes aparecerán aquí.' }}
             error={error?.message}
         keyField="idQueja"
         onRowClick={openDetalle}

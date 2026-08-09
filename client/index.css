@@ -614,6 +614,10 @@
   .content-area {
     padding: 32px;
   }
+  /* Entrada sutil de cada pagina al navegar (una sola animacion, sin cascadas). */
+  .content-area > * {
+    animation: slide-up 0.25s ease-out;
+  }
 
   /* ── Cards ── */
   .card {
@@ -1429,15 +1433,35 @@
     text-align: center;
     padding: 48px 24px;
     color: var(--text-muted);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+  .empty-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
+    background: var(--surface-dim);
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 8px;
   }
   .empty-icon .material-symbols-outlined {
-    font-size: 48px;
-    opacity: 0.4;
+    font-size: 26px;
   }
   .empty-title {
     font-size: 14px;
-    font-weight: 500;
-    margin-top: 8px;
+    font-weight: 600;
+    color: var(--on-surface-variant);
+  }
+  .empty-subtitle {
+    font-size: 12px;
+    color: var(--text-muted);
+    max-width: 340px;
+    margin-top: 2px;
   }
 
   /* ── Progress bar ── */
@@ -1622,6 +1646,35 @@
   /* ── Hidden helper ── */
   .hidden {
     display: none !important;
+  }
+
+  /* Transicion suave al alternar light/dark: colores de superficie, texto y
+     bordes se funden en 250ms. Se desactiva con prefers-reduced-motion. */
+  @media (prefers-reduced-motion: no-preference) {
+    body,
+    .topbar,
+    .card,
+    .stat-card,
+    .action-card,
+    .table-container,
+    .modal,
+    .modal-header,
+    .modal-footer,
+    .login-card,
+    .form-control,
+    .floating-input-field,
+    .filter-select,
+    .multi-select-trigger,
+    .frecuente-card,
+    .res-side-tabs,
+    .tabs,
+    .data-table thead th,
+    .data-table tbody td {
+      transition:
+        background-color 0.25s ease,
+        border-color 0.25s ease,
+        color 0.25s ease;
+    }
   }
 
   /* Motion sensitivity (WCAG 2.3.3): con prefers-reduced-motion se eliminan las

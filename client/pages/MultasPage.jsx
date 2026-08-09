@@ -169,7 +169,7 @@ export default function MultasPage() {
         columns={columns}
         rows={rows}
         loading={loading}
-        empty="No hay multas"
+                empty={{ icon: 'gavel', title: 'No hay multas', subtitle: 'Las multas generadas aparecerán aquí.' }}
             error={error?.message}
         keyField="idMulta"
         onRowClick={verDetalle}

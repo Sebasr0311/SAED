@@ -8,7 +8,23 @@ import { Modal } from '../components/ui/Modal.jsx';
 import { Button } from '../components/ui/Button.jsx';
 import Toast from '../components/ui/Toast.jsx';
 
-const CHART_COLORS = ['#0F2044', '#163060', '#3D6BBF', '#6B93D6', '#A8C4EC', '#D6E5F7', '#D97706', '#F59E0B', '#10B981', '#059669', '#DC2626', '#EF4444'];
+// Paleta de graficos: navy en light; tonos mas claros en dark para mantener
+// contraste sobre superficies oscuras. Se resuelve en runtime leyendo el tema.
+const CHART_COLORS_LIGHT = ['#0F2044', '#163060', '#3D6BBF', '#6B93D6', '#A8C4EC', '#D6E5F7', '#D97706', '#F59E0B', '#10B981', '#059669', '#DC2626', '#EF4444'];
+const CHART_COLORS_DARK = ['#93B4E8', '#6B93D6', '#3D6BBF', '#2855A0', '#A8C4EC', '#D6E5F7', '#FBBF24', '#F59E0B', '#34D399', '#10B981', '#F87171', '#EF4444'];
+
+function isDarkTheme() {
+  return typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'dark';
+}
+function chartColors() {
+  return isDarkTheme() ? CHART_COLORS_DARK : CHART_COLORS_LIGHT;
+}
+/** Lee un token CSS (--x) del :root, con fallback. */
+function cssVar(name, fallback) {
+  if (typeof document === 'undefined') return fallback;
+  const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  return v || fallback;
+}
 
 function Stat({ icon, value, label, color = 'primary' }) {
   return (
@@ -44,7 +60,7 @@ function drawDonut(canvas, data) {
     ctx.arc(cx, cy, outerR, 0, Math.PI * 2);
     ctx.arc(cx, cy, innerR, 0, Math.PI * 2, true);
     ctx.closePath();
-    ctx.fillStyle = '#e2e8f0';
+    ctx.fillStyle = cssVar('--border', '#e2e8f0');
     ctx.fill();
     return;
   }
@@ -55,12 +71,12 @@ function drawDonut(canvas, data) {
     ctx.arc(cx, cy, outerR, startAngle, startAngle + sliceAngle);
     ctx.arc(cx, cy, innerR, startAngle + sliceAngle, startAngle, true);
     ctx.closePath();
-    ctx.fillStyle = d.color || CHART_COLORS[i % CHART_COLORS.length];
+    ctx.fillStyle = d.color || chartColors()[i % chartColors().length];
     ctx.fill();
     startAngle += sliceAngle;
   });
   // Centro con total
-  ctx.fillStyle = '#0f172a';
+    ctx.fillStyle = cssVar('--on-surface', '#0f172a');
   ctx.font = 'bold 14px system-ui';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
@@ -83,7 +99,7 @@ function drawBar(canvas, data) {
   const innerH = cssH - padding * 2;
   const barW = innerW / data.length;
   // Eje Y
-  ctx.strokeStyle = '#e2e8f0';
+    ctx.strokeStyle = cssVar('--border', '#e2e8f0');
   ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.moveTo(padding, padding);
@@ -96,10 +112,10 @@ function drawBar(canvas, data) {
     const x = padding + barW * i + barW * 0.15;
     const w = barW * 0.7;
     const y = padding + innerH - h;
-    ctx.fillStyle = d.color || CHART_COLORS[i % CHART_COLORS.length];
+    ctx.fillStyle = d.color || chartColors()[i % chartColors().length];
     ctx.fillRect(x, y, w, h);
     // Label
-    ctx.fillStyle = '#475569';
+    ctx.fillStyle = cssVar('--text-secondary', '#475569');
     ctx.font = '11px system-ui';
     ctx.textAlign = 'center';
     ctx.fillText(d.label.slice(0, 8), x + w / 2, padding + innerH + 14);
@@ -110,6 +126,10 @@ function DonutChart({ data, title }) {
   const ref = useRef(null);
   useEffect(() => {
     drawDonut(ref.current, data);
+    // Repintar al cambiar light/dark (los colores leen tokens CSS).
+    const mo = new MutationObserver(() => drawDonut(ref.current, data));
+    mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    return () => mo.disconnect();
   }, [data]);
   return (
     <div className="card" style={{ textAlign: 'center' }}>
@@ -122,7 +142,7 @@ function DonutChart({ data, title }) {
               style={{
                 width: '10px',
                 height: '10px',
-                background: d.color || CHART_COLORS[i % CHART_COLORS.length],
+                background: d.color || chartColors()[i % chartColors().length],
                 borderRadius: '2px',
               }}
             />
@@ -138,6 +158,10 @@ function BarChart({ data, title }) {
   const ref = useRef(null);
   useEffect(() => {
     drawBar(ref.current, data);
+    // Repintar al cambiar light/dark (los colores leen tokens CSS).
+    const mo = new MutationObserver(() => drawBar(ref.current, data));
+    mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    return () => mo.disconnect();
   }, [data]);
   return (
     <div className="card">
@@ -176,7 +200,7 @@ export default function ResidenteDashboardPage() {
   const donutData = Object.entries(pagosPorEstado).map(([label, value]) => ({
     label,
     value,
-    color: label === 'CUOTA' ? '#10B981' : label === 'MULTA' ? '#D97706' : '#3D6BBF',
+    color: label === 'CUOTA' ? cssVar('--accent-green', '#10B981') : label === 'MULTA' ? cssVar('--warn', '#D97706') : cssVar('--border-focus', '#3D6BBF'),
   }));
 
   // ==== B1: Poll de confirmación de visitas (recuperado del legacy) ====

@@ -96,6 +96,7 @@ its semantic.
 | `Input/Select/Textarea` | Radius `rounded` (12px), focus ring `primary/20`, error state `error` border + message. |
 | `Modal` | `rounded-lg` (18px), focus trap + Escape + return focus (a11y hardened). |
 | `DataTable` | Headings uppercase `11px/700`; container `overflow-x: auto` so wide tables scroll on mobile. |
+| `EmptyState` | Reusable empty state: icon chip + title + optional subtitle. `DataTable` accepts `empty` as string (title) or `{ icon, title, subtitle }`. |
 | `Pagination` | Prev/Next + `Página x / y` helper text. |
 | `Toast` | Fixed bottom-right; semantic colors from tokens. |
 | `PageHeader` | `title` (`20px/700`) + optional `subtitle` + `action`. |
@@ -121,6 +122,12 @@ its semantic.
   - Status tints (`--tint-*`) switch to translucent dark backgrounds with light foregrounds.
   - Focus rings use RGB-triplet tokens (`--ring-primary`, `--ring-error`) for Tailwind alpha.
   - `.card-dark` (navy gradient card) and the sidebar stay dark in both modes by design.
+
+## Motion
+
+- Page entrances: single `slide-up` 0.25s on the content area (no cascades).
+- Theme switch: surfaces/text/borders cross-fade 0.25s.
+- All motion respects `prefers-reduced-motion: reduce` (killed globally).
 
 ## Performance
 

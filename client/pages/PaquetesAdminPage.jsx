@@ -84,7 +84,7 @@ export default function PaquetesAdminPage() {
         columns={columns}
         rows={filtrados}
         loading={loading}
-        empty="No hay paquetes"
+                empty={{ icon: 'inventory_2', title: 'No hay paquetes', subtitle: 'Los paquetes recibidos aparecerán aquí.' }}
         error={error?.message}
         onRetry={refetch}
         keyField="idMensaje"

@@ -308,7 +308,7 @@ export default function ResidentesPage() {
         columns={columns}
         rows={rows}
         loading={loading}
-        empty="No hay residentes registrados"
+                empty={{ icon: 'group', title: 'No hay residentes registrados', subtitle: 'Registra al primer residente con el botón "Nuevo Residente".' }}
         keyField="id"
       />
       <Pagination

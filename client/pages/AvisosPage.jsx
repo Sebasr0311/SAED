@@ -184,7 +184,7 @@ export default function AvisosPage() {
         columns={columns}
         rows={avisos?.items || avisos || []}
         loading={loading}
-        empty="No hay avisos enviados"
+                empty={{ icon: 'campaign', title: 'No hay avisos enviados', subtitle: 'Los avisos que envíes a los residentes aparecerán aquí.' }}
             error={error?.message}
         keyField="idMensaje"
       />

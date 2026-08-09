@@ -63,10 +63,10 @@ async function request(endpoint, options = {}) {
     const contentType = res.headers.get('content-type') || '';
     if (contentType.includes('application/json')) {
       const data = await res.json();
-      if (!res.ok) throw new Error(data.mensaje || data.error || 'Error del servidor');
+      if (!res.ok) throw new Error(data.mensaje || data.error || 'No se pudo completar la operación. Intente de nuevo.');
       return data;
     }
-    if (!res.ok) throw new Error('Error del servidor');
+    if (!res.ok) throw new Error('No se pudo completar la operación. Intente de nuevo.');
     return await res.text();
   } catch (err) {
     clearTimeout(timer);

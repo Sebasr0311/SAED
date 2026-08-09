@@ -249,7 +249,7 @@ export default function ParqueaderosPage() {
           </div>
         }
       />
-      <DataTable columns={columns} rows={rows} loading={loading} empty="No hay parqueaderos" keyField="idParqueadero" />
+      <DataTable columns={columns} rows={rows} loading={loading} empty={{ icon: 'local_parking', title: 'No hay parqueaderos', subtitle: 'Registra el primer parqueadero desde el botón "Nuevo Parqueadero".' }} keyField="idParqueadero" />
       <Pagination
         page={safePage}
         totalPages={totalPages}

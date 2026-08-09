@@ -232,7 +232,7 @@ export default function ApartamentosPage() {
         columns={columns}
         rows={rows}
         loading={loading}
-        empty="No hay apartamentos"
+                empty={{ icon: 'apartment', title: 'No hay apartamentos', subtitle: 'Usa el botón "Nuevo Apartamento" para registrar el primero.' }}
         keyField="idApartamento"
       />
       <Pagination

@@ -189,7 +189,7 @@ export default function PaquetesPage() {
         loading={loading}
         error={error?.message}
         onRetry={refetch}
-        empty="Seleccione un apartamento para ver paquetes"
+                empty={{ icon: 'inventory_2', title: 'Seleccione un apartamento para ver paquetes', subtitle: 'Elija un apartamento en el filtro para ver sus paquetes.' }}
         keyField="idMensaje"
       />
       <Toast toast={toast} />

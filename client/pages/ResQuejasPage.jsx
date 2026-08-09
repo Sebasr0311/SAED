@@ -275,7 +275,7 @@ export default function ResQuejasPage() {
         columns={columns}
         rows={data?.items || data || []}
         loading={loading}
-        empty="No has enviado solicitudes"
+                empty={{ icon: 'forum', title: 'No has enviado solicitudes', subtitle: 'Usa el formulario para enviar tu primera solicitud.' }}
         keyField="idQueja"
         onRowClick={setDetalle}
       />

@@ -54,7 +54,7 @@ export default function ResCuotasPage() {
         columns={columns}
         rows={cuotas}
         loading={loading}
-        empty="No tienes cuotas"
+                empty={{ icon: 'receipt_long', title: 'No tienes cuotas', subtitle: 'Las cuotas de tu apartamento aparecerán aquí.' }}
         error={error?.message}
         keyField="id"
       />
