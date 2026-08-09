@@ -36,7 +36,7 @@ function ActionButtons({ onEdit, onDelete, onVer, mostrarVer }) {
         <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>edit</span>
       </button>
       <button onClick={onDelete} className="btn btn-ghost btn-sm" aria-label="Eliminar">
-        <span className="material-symbols-outlined" style={{ fontSize: '18px', color: '#e11d48' }}>delete</span>
+        <span className="material-symbols-outlined" style={{ fontSize: '18px', color: 'var(--error)' }}>delete</span>
       </button>
     </div>
   );
@@ -80,7 +80,7 @@ export default function ApartamentosPage() {
         const cap = row.capacidadMaxima ?? '?';
         const alTope = cant >= cap;
         return (
-          <span style={{ color: alTope ? '#e11d48' : '#0f172a', fontWeight: alTope ? 700 : 400 }}>
+          <span style={{ color: alTope ? 'var(--error)' : 'var(--on-surface)', fontWeight: alTope ? 700 : 400 }}>
             {cant} / {cap}
           </span>
         );
@@ -97,7 +97,7 @@ export default function ApartamentosPage() {
       width: 140,
       render: (row) => (
         <ActionButtons
-          mostrarVer={row.estado === 'OCUPADO'}
+          mostrarVer={row.cantidadResidentes > 0 || row.estado === 'OCUPADO'}
           onVer={(e) => {
             e.stopPropagation();
             setVerResidentes(row);
@@ -316,7 +316,7 @@ export default function ApartamentosPage() {
         size="md"
       >
         {(residentesDelApto?.items || residentesDelApto || []).length === 0 && (
-          <p style={{ color: '#94a3b8', textAlign: 'center' }}>Sin residentes registrados</p>
+          <p style={{ color: 'var(--text-muted)', textAlign: 'center' }}>Sin residentes registrados</p>
         )}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {(residentesDelApto?.items || residentesDelApto || []).map((r) => (
@@ -329,7 +329,7 @@ export default function ApartamentosPage() {
                 <div style={{ fontWeight: 700 }}>
                   {r.nombres} {r.apellidos}
                 </div>
-                <div style={{ fontSize: '12px', color: '#475569' }}>
+                <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
                   Doc: {r.numeroDocumento} · Tel: {r.telefono || '—'} · {r.email || '—'}
                 </div>
               </div>

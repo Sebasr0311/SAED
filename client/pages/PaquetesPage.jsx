@@ -157,9 +157,10 @@ export default function PaquetesPage() {
           <canvas ref={canvasRef} style={{ display: 'none' }} />
           {foto && !camaraActiva && (
             <img
-              src={imageSrc(foto)}
-              alt="Foto del paquete"
-              style={{ maxWidth: '240px', maxHeight: '180px', borderRadius: '8px', border: '1px solid #e2e8f0' }}
+                  src={imageSrc(foto)}
+                  alt="Foto del paquete"
+                  loading="lazy"
+              style={{ maxWidth: '240px', maxHeight: '180px', borderRadius: '8px', border: '1px solid var(--border)' }}
             />
           )}
         </div>

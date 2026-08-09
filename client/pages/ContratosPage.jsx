@@ -345,7 +345,7 @@ export default function ContratosPage() {
               className="btn btn-ghost btn-xs"
               title="Activar"
             >
-              <span className="material-symbols-outlined" style={{ fontSize: '16px', color: '#065f46' }}>
+              <span className="material-symbols-outlined" style={{ fontSize: '16px', color: 'var(--success-strong)' }}>
                 check_circle
               </span>
             </button>
@@ -359,7 +359,7 @@ export default function ContratosPage() {
               className="btn btn-ghost btn-xs"
               title="Renovar"
             >
-              <span className="material-symbols-outlined" style={{ fontSize: '16px', color: '#0369a1' }}>
+              <span className="material-symbols-outlined" style={{ fontSize: '16px', color: 'var(--info)' }}>
                 autorenew
               </span>
             </button>
@@ -373,7 +373,7 @@ export default function ContratosPage() {
               className="btn btn-ghost btn-xs"
               title="Cancelar"
             >
-              <span className="material-symbols-outlined" style={{ fontSize: '16px', color: '#e11d48' }}>
+              <span className="material-symbols-outlined" style={{ fontSize: '16px', color: 'var(--error)' }}>
                 cancel
               </span>
             </button>

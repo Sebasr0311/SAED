@@ -52,7 +52,7 @@ function ActionButtons({ onEdit, onDelete }) {
         <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>edit</span>
       </button>
       <button onClick={onDelete} className="btn btn-ghost btn-sm" aria-label="Eliminar">
-        <span className="material-symbols-outlined" style={{ fontSize: '18px', color: '#e11d48' }}>
+        <span className="material-symbols-outlined" style={{ fontSize: '18px', color: 'var(--error)' }}>
           delete
         </span>
       </button>
@@ -347,7 +347,7 @@ export default function ResidentesPage() {
             ))}
           </Select>
           {errorTiposDoc && !tiposDoc.length && (
-            <p style={{ color: '#e11d48', fontSize: '12px' }}>Error al cargar los tipos de documento</p>
+            <p style={{ color: 'var(--error)', fontSize: '12px' }}>Error al cargar los tipos de documento</p>
           )}
           <Input
             id="numeroDocumento"
@@ -420,13 +420,13 @@ export default function ResidentesPage() {
             style={{
               marginTop: '16px',
               padding: '16px',
-              background: '#f8fafc',
+              background: 'var(--surface-container)',
               borderRadius: '12px',
               border: '1px solid #e2e5ec',
             }}
           >
-            <h4 style={{ margin: 0, fontSize: '15px', fontWeight: 600 }}>Datos del Tutor Legal</h4>
-            <p style={{ fontSize: '12px', color: '#64748b', margin: '4px 0 12px' }}>
+                <h4 className="m-0 text-[15px] font-semibold">Datos del Tutor Legal</h4>
+            <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '4px 0 12px' }}>
               Menor de edad (16-17 años) â€” puede residir independientemente, pero debe tener un tutor
               legal registrado.
             </p>

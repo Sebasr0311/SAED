@@ -195,7 +195,7 @@ export default function DashboardPage() {
       <div className="card dashboard-panel" style={{ marginBottom: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span className="material-symbols-outlined" style={{ color: '#D97706' }}>gavel</span>
+            <span className="material-symbols-outlined" style={{ color: 'var(--warn)' }}>gavel</span>
             <div>
               <div style={{ fontWeight: 700 }}>Multas Pendientes</div>
               <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{loadingMultas ? 'Cargando...' : `${pendientes.length} pendiente(s)`}</div>
@@ -209,7 +209,7 @@ export default function DashboardPage() {
         <div className="dashboard-panel-scroll">
         {multasError && (
           <div className="table-container p-8 text-center">
-            <p className="text-error" style={{ marginBottom: '8px' }}>{multasError}</p>
+            <p className="text-error" style={{ marginBottom: '8px' }}>{multasError?.message || multasError}</p>
             <Button variant="outline" size="sm" onClick={refetchMultas}>Reintentar</Button>
           </div>
         )}
@@ -245,7 +245,7 @@ export default function DashboardPage() {
                 style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', cursor: 'pointer' }}
               >
                 <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span className="material-symbols-outlined" style={{ fontSize: '15px', color: m.tipo === 'RUIDO' ? '#D97706' : '#2855A0' }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: '15px', color: m.tipo === 'RUIDO' ? 'var(--warn)' : '#2855A0' }}>
                     {m.tipo === 'RUIDO' ? 'volume_up' : 'local_parking'}
                   </span>
                   {m.tipo === 'RUIDO' ? 'Ruido' : 'Parqueadero'} — {formatCurrency(m.monto)}
@@ -297,7 +297,7 @@ export default function DashboardPage() {
       {/* ==== BLOQUE 2: Próximos Cobros ==== */}
       <div className="card dashboard-panel" style={{ marginBottom: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
-          <span className="material-symbols-outlined" style={{ color: '#10B981' }}>payments</span>
+          <span className="material-symbols-outlined" style={{ color: 'var(--accent-green)' }}>payments</span>
           <div>
             <div style={{ fontWeight: 700 }}>Próximos Cobros</div>
             <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Contratos activos</div>
@@ -307,7 +307,7 @@ export default function DashboardPage() {
         <div className="dashboard-panel-scroll">
         {contratosError && (
           <div className="table-container p-8 text-center">
-            <p className="text-error" style={{ marginBottom: '8px' }}>{contratosError}</p>
+            <p className="text-error" style={{ marginBottom: '8px' }}>{contratosError?.message || contratosError}</p>
             <Button variant="outline" size="sm" onClick={refetchContratos}>Reintentar</Button>
           </div>
         )}
@@ -336,7 +336,7 @@ export default function DashboardPage() {
               <strong>Apt {c.numeroApartamento || c.idApartamento}</strong>
               <small style={{ display: 'block', color: 'var(--text-muted)' }}>Contrato #{c.idContrato}</small>
             </span>
-            <span style={{ fontWeight: 700, color: '#10B981' }}>{formatCurrency(c.valorMensual)}</span>
+            <span style={{ fontWeight: 700, color: 'var(--accent-green)' }}>{formatCurrency(c.valorMensual)}</span>
           </button>
         ))}
         </div>
@@ -379,7 +379,7 @@ export default function DashboardPage() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
               <div><span className="text-muted">Fecha Inicio</span><br /><strong>{formatDate(detalleContrato.fechaInicio)}</strong></div>
               <div><span className="text-muted">Fecha Fin</span><br /><strong>{detalleContrato.fechaFin ? formatDate(detalleContrato.fechaFin) : 'Indefinido'}</strong></div>
-              <div><span className="text-muted">Valor Mensual</span><br /><strong style={{ color: '#10B981' }}>{formatCurrency(detalleContrato.valorMensual)}</strong></div>
+              <div><span className="text-muted">Valor Mensual</span><br /><strong style={{ color: 'var(--accent-green)' }}>{formatCurrency(detalleContrato.valorMensual)}</strong></div>
               <div><span className="text-muted">Estado</span><br />
                 <span className={`badge ${detalleContrato.estado === 'ACTIVO' ? 'badge-activo' : 'badge-neutral'}`}>{detalleContrato.estado}</span>
               </div>
@@ -392,21 +392,21 @@ export default function DashboardPage() {
               ) : (
                 <>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px', marginBottom: '12px' }}>
-                    <div style={{ padding: '12px', background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: '8px' }}>
+                    <div style={{ padding: '12px', background: 'var(--accent-green-bg)', border: '1px solid var(--accent-green)', borderRadius: '8px' }}>
                       <div className="text-muted" style={{ fontSize: '12px' }}>Cuotas Pagadas</div>
-                      <div style={{ fontWeight: 800, color: '#059669' }}>
+                      <div style={{ fontWeight: 800, color: 'var(--accent-green)' }}>
                         {detalleContrato.cuotas.filter((c) => c.estado === 'PAGADA').length}
                       </div>
-                      <div style={{ fontSize: '12px', color: '#059669' }}>
+                      <div style={{ fontSize: '12px', color: 'var(--accent-green)' }}>
                         {formatCurrency(detalleContrato.cuotas.filter((c) => c.estado === 'PAGADA').reduce((s, c) => s + Number(c.valorTotal || 0), 0))}
                       </div>
                     </div>
-                    <div style={{ padding: '12px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px' }}>
+                    <div style={{ padding: '12px', background: 'var(--warn-amber-bg)', border: '1px solid var(--warn)', borderRadius: '8px' }}>
                       <div className="text-muted" style={{ fontSize: '12px' }}>Cuotas Pendientes</div>
-                      <div style={{ fontWeight: 800, color: '#d97706' }}>
+                      <div style={{ fontWeight: 800, color: 'var(--warn)' }}>
                         {detalleContrato.cuotas.filter((c) => c.estado !== 'PAGADA').length}
                       </div>
-                      <div style={{ fontSize: '12px', color: '#d97706' }}>
+                      <div style={{ fontSize: '12px', color: 'var(--warn)' }}>
                         {formatCurrency(detalleContrato.cuotas.filter((c) => c.estado !== 'PAGADA').reduce((s, c) => s + Number(c.valorTotal || 0), 0))}
                       </div>
                     </div>
@@ -456,7 +456,7 @@ export default function DashboardPage() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
               <div>
                 <span className="text-muted">Monto</span><br />
-                <strong style={{ fontSize: '18px', color: '#e11d48' }}>{formatCurrency(detalleMulta.monto)}</strong>
+                <strong style={{ fontSize: '18px', color: 'var(--error)' }}>{formatCurrency(detalleMulta.monto)}</strong>
               </div>
               <div>
                 <span className="text-muted">Estado</span><br />
@@ -482,7 +482,7 @@ export default function DashboardPage() {
             )}
 
             {detalleMulta.tipo === 'RUIDO' && detalleMulta.fechaAvisoRuido && (
-              <div style={{ padding: '12px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px' }}>
+              <div style={{ padding: '12px', background: 'var(--warn-amber-bg)', border: '1px solid var(--warn)', borderRadius: '8px' }}>
                 <div style={{ fontWeight: 600, marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>notifications</span>
                   Aviso Previo de Ruido
@@ -500,6 +500,7 @@ export default function DashboardPage() {
                 <img
                   src={imageSrc(detalleMulta.fotoEvidencia)}
                   alt="Evidencia de la multa"
+                  loading="lazy"
                   style={{ width: '100%', maxHeight: '300px', objectFit: 'contain', borderRadius: '8px', border: '1px solid var(--border)', cursor: 'zoom-in' }}
                   onClick={() => window.open(imageSrc(detalleMulta.fotoEvidencia))}
                 />

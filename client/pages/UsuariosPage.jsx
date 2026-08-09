@@ -28,7 +28,7 @@ function ActionButtons({ onEdit, onDelete }) {
         <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>edit</span>
       </button>
       <button onClick={onDelete} className="btn btn-ghost btn-sm" aria-label="Eliminar">
-        <span className="material-symbols-outlined" style={{ fontSize: '18px', color: '#e11d48' }}>
+        <span className="material-symbols-outlined" style={{ fontSize: '18px', color: 'var(--error)' }}>
           delete
         </span>
       </button>

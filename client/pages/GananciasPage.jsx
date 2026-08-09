@@ -364,7 +364,7 @@ export default function GananciasPage() {
             onChange={(e) => setFechaFin(e.target.value)}
           />
           {fechaError && (
-            <p style={{ color: '#e11d48', fontSize: '12px', width: '100%' }}>{fechaError}</p>
+            <p style={{ color: 'var(--error)', fontSize: '12px', width: '100%' }}>{fechaError}</p>
           )}
           <Input
             id="search" aria-label="Buscar"

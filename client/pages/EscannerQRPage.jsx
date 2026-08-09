@@ -233,7 +233,7 @@ function PanelValidar({ onResultado, onNotificarVisita, onRegistrarEntrada, idVi
           {!esperando && confirmado === null && (
             <>
               <div style={{ marginTop: '16px' }}>
-                <h4 style={{ fontSize: '13px', fontWeight: 700, marginBottom: '8px' }}>Foto del visitante (requerida)</h4>
+                <h4 className="mb-2 text-[13px] font-bold">Foto del visitante (requerida)</h4>
                 <VideoCamara onCapture={notificarVisita} buttonLabel="Capturar y Notificar" buttonClass="btn-primary" />
               </div>
             </>
@@ -242,17 +242,17 @@ function PanelValidar({ onResultado, onNotificarVisita, onRegistrarEntrada, idVi
           {esperando && confirmado === null && (
             <div style={{ marginTop: '16px', textAlign: 'center' }}>
               <p>Esperando confirmación del residente...</p>
-              <p style={{ fontSize: '12px', color: '#475569' }}>(polling cada 2s)</p>
+              <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>(polling cada 2s)</p>
             </div>
           )}
 
           {confirmado === true && (
             <>
-              <div className="login-error-msg" style={{ background: '#d1fae5', color: '#065f46', borderColor: '#065f46', marginTop: '12px' }}>
+              <div className="login-error-msg" style={{ background: 'var(--accent-green-bg)', color: 'var(--success-strong)', borderColor: 'var(--success-strong)', marginTop: '12px' }}>
                 El residente confirmó la visita. Proceda a registrar la entrada.
               </div>
               <div style={{ marginTop: '12px' }}>
-                <h4 style={{ fontSize: '13px', fontWeight: 700, marginBottom: '8px' }}>¿En qué viene?</h4>
+                <h4 className="mb-2 text-[13px] font-bold">¿En qué viene?</h4>
                 <Select id="medio" value={medioTransporte} onChange={(e) => setMedioTransporte(e.target.value)}>
                   <option value="CARRO">Carro</option>
                   <option value="MOTO">Moto</option>
@@ -290,7 +290,7 @@ function PanelValidar({ onResultado, onNotificarVisita, onRegistrarEntrada, idVi
               className="card"
               style={{
                 marginTop: '16px',
-                background: '#0f2044',
+                background: 'var(--primary)',
                 color: 'white',
                 textAlign: 'center',
                 padding: '24px',
@@ -375,7 +375,7 @@ function TabValidar({ onToast }) {
 
   return (
     <div>
-      <h3 style={{ marginBottom: '12px', fontSize: '14px', fontWeight: 700 }}>Escanear con cámara</h3>
+      <h3 className="mb-3 text-[14px] font-bold">Escanear con cámara</h3>
       {error && <p className="field-error">{error}</p>}
       {!window.jsQR && (
         <p className="field-error" style={{ marginBottom: '8px' }}>
@@ -390,19 +390,20 @@ function TabValidar({ onToast }) {
             autoPlay
             playsInline
             muted
-            style={{ width: '320px', maxHeight: '240px', borderRadius: '8px', background: '#000' }}
+            style={{ width: '100%', maxWidth: '320px', maxHeight: '240px', borderRadius: '8px', background: '#000' }}
           />
         ) : (
           <div
             style={{
-              width: '320px',
+              width: '100%',
+              maxWidth: '320px',
               height: '240px',
               borderRadius: '8px',
-              background: '#f1f5f9',
+              background: 'var(--surface-dim)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: '#94a3b8',
+              color: 'var(--text-muted)',
             }}
           >
             Cámara inactiva
@@ -447,7 +448,7 @@ function TabRegistrarSalida({ onToast }) {
 
   return (
     <div>
-      <h3 style={{ marginBottom: '12px', fontSize: '14px', fontWeight: 700 }}>Visitas activas</h3>
+      <h3 className="mb-3 text-[14px] font-bold">Visitas activas</h3>
       <div className="table-container">
         <table className="data-table">
           <thead>
@@ -469,7 +470,7 @@ function TabRegistrarSalida({ onToast }) {
             )}
             {!loading && activas.length === 0 && (
               <tr>
-                <td colSpan={5} style={{ textAlign: 'center', color: '#94a3b8' }}>
+                <td colSpan={5} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
                   No hay visitas activas
                 </td>
               </tr>
@@ -513,14 +514,14 @@ function TabParqueaderos({ onToast }) {
 
   return (
     <div>
-      <h3 style={{ marginBottom: '12px', fontSize: '14px', fontWeight: 700 }}>Estado en tiempo real</h3>
+      <h3 className="mb-3 text-[14px] font-bold">Estado en tiempo real</h3>
       <Button onClick={refetch} style={{ marginBottom: '12px' }}>
         Actualizar
       </Button>
       {loading && <p>Cargando...</p>}
       {Object.entries(grouped).map(([tipo, lista]) => (
         <div key={tipo} style={{ marginBottom: '16px' }}>
-          <h4 style={{ fontSize: '13px', fontWeight: 700, marginBottom: '8px' }}>{tipo}</h4>
+          <h4 className="mb-2 text-[13px] font-bold">{tipo}</h4>
           <div className="table-container">
             <table className="data-table">
               <thead>

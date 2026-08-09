@@ -285,32 +285,32 @@ export default function QuejasAdminPage() {
           <>
             <div className="card-grid-2" style={{ marginBottom: '16px' }}>
               <div>
-                <div style={{ fontSize: '11px', color: '#475569', fontWeight: 600 }}>Tipo</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Tipo</div>
                 <div style={{ fontSize: '13px' }}>{modal.tipo}</div>
               </div>
               <div>
-                <div style={{ fontSize: '11px', color: '#475569', fontWeight: 600 }}>Categoría</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Categoría</div>
                 <div style={{ fontSize: '13px' }}>{modal.categoria}</div>
               </div>
               <div>
-                <div style={{ fontSize: '11px', color: '#475569', fontWeight: 600 }}>Apartamento</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Apartamento</div>
                 <div style={{ fontSize: '13px' }}>{modal.numeroApartamento}</div>
               </div>
               <div>
-                <div style={{ fontSize: '11px', color: '#475569', fontWeight: 600 }}>Residente</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Residente</div>
                 <div style={{ fontSize: '13px' }}>{modal.nombreResidente}</div>
               </div>
               <div>
-                <div style={{ fontSize: '11px', color: '#475569', fontWeight: 600 }}>Fecha</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Fecha</div>
                 <div style={{ fontSize: '13px' }}>{formatDate(modal.fechaCreacion)}</div>
               </div>
             </div>
             <div className="form-group">
-              <div style={{ fontSize: '11px', color: '#475569', fontWeight: 600 }}>Título</div>
+              <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Título</div>
               <div style={{ fontSize: '13px' }}>{modal.titulo}</div>
             </div>
             <div className="form-group">
-              <div style={{ fontSize: '11px', color: '#475569', fontWeight: 600 }}>Descripción</div>
+              <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Descripción</div>
               <div style={{ fontSize: '13px', whiteSpace: 'pre-wrap' }}>{modal.descripcion}</div>
             </div>
             {modal.fotoEvidencia && (
@@ -318,6 +318,7 @@ export default function QuejasAdminPage() {
                 <img
                   src={imageSrc(modal.fotoEvidencia)}
                   alt="Evidencia"
+                  loading="lazy"
                   style={{ maxWidth: '100%', borderRadius: '8px', cursor: 'zoom-in' }}
                   onClick={() => setFotoGrande(imageSrc(modal.fotoEvidencia))}
                 />

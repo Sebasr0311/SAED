@@ -307,7 +307,7 @@ export default function ResidenteDashboardPage() {
 
       {donutData.length > 0 && (
         <div style={{ marginTop: '20px' }}>
-          <h3 style={{ marginBottom: '12px', fontSize: '16px', fontWeight: 700 }}>Resumen de pagos</h3>
+                <h3 className="mb-3 text-base font-bold">Resumen de pagos</h3>
           <div className="card-grid-2">
             <DonutChart data={donutData} title="Distribución por tipo de pago" />
           </div>
@@ -358,8 +358,9 @@ export default function ResidenteDashboardPage() {
             <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{confirmarPendiente.cuerpo || ''}</p>
             {confirmarPendiente.fotoCaptura && (
               <img
-                src={imageSrc(confirmarPendiente.fotoCaptura)}
-                alt="Foto del visitante"
+                  src={imageSrc(confirmarPendiente.fotoCaptura)}
+                  alt="Foto del visitante"
+                  loading="lazy"
                 style={{ maxWidth: '100%', maxHeight: '280px', objectFit: 'contain', borderRadius: '8px', border: '1px solid var(--border)' }}
               />
             )}

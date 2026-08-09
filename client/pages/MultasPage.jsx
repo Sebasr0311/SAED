@@ -117,7 +117,7 @@ export default function MultasPage() {
               aria-label="Marcar pagada"
               title="Marcar pagada"
             >
-              <span className="material-symbols-outlined" style={{ fontSize: '18px', color: '#10b981' }}>
+              <span className="material-symbols-outlined" style={{ fontSize: '18px', color: 'var(--accent-green)' }}>
                 payments
               </span>
             </button>
@@ -132,7 +132,7 @@ export default function MultasPage() {
               aria-label="Anular"
               title="Anular"
             >
-              <span className="material-symbols-outlined" style={{ fontSize: '18px', color: '#e11d48' }}>
+              <span className="material-symbols-outlined" style={{ fontSize: '18px', color: 'var(--error)' }}>
                 block
               </span>
             </button>
@@ -234,14 +234,15 @@ export default function MultasPage() {
             )}
             {detalle.descripcion && (
               <div>
-                <div style={{ fontSize: '11px', color: '#475569', fontWeight: 600 }}>Descripción</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Descripción</div>
                 <div style={{ fontSize: '13px' }}>{detalle.descripcion}</div>
               </div>
             )}
             {detalle.fotoEvidencia && (
               <img
-                src={imageSrc(detalle.fotoEvidencia)}
-                alt="Evidencia"
+                  src={imageSrc(detalle.fotoEvidencia)}
+                  alt="Evidencia"
+                  loading="lazy"
                 style={{ maxWidth: '100%', borderRadius: '8px', marginTop: '8px', cursor: 'zoom-in' }}
                 onClick={() => setFotoGrande(imageSrc(detalle.fotoEvidencia))}
               />

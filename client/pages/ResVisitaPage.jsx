@@ -171,7 +171,7 @@ export default function ResVisitaPage() {
       <PageHeader title="Registrar Visita" subtitle="Avisa al portero que viene una visita" />
 
       {qrGenerado && (
-        <div className="card" style={{ background: '#0f2044', color: 'white', textAlign: 'center', marginBottom: '16px' }}>
+        <div className="card" style={{ background: 'var(--primary)', color: 'white', textAlign: 'center', marginBottom: '16px' }}>
           <div style={{ fontSize: '14px' }}>QR generado</div>
           <div style={{ fontSize: '28px', fontWeight: 800, marginTop: '8px', fontFamily: 'monospace' }}>
             {qrGenerado.codigoQr}
@@ -208,7 +208,7 @@ export default function ResVisitaPage() {
               ))}
             </Select>
             {errorTiposDoc && !tiposDoc.length && (
-              <p style={{ color: '#e11d48', fontSize: '12px' }}>Error al cargar los tipos de documento</p>
+              <p style={{ color: 'var(--error)', fontSize: '12px' }}>Error al cargar los tipos de documento</p>
             )}
             <Input
               id="numeroDocumento"
@@ -219,7 +219,7 @@ export default function ResVisitaPage() {
             />
           </div>
           {visitanteEncontrado && visitanteEncontrado.nombres && (
-            <p style={{ fontSize: '12px', color: '#10B981', marginTop: '-8px', marginBottom: '12px' }}>
+            <p style={{ fontSize: '12px', color: 'var(--accent-green)', marginTop: '-8px', marginBottom: '12px' }}>
               Visitante encontrado: {visitanteEncontrado.nombres} {visitanteEncontrado.apellidos}
             </p>
           )}
@@ -259,7 +259,7 @@ export default function ResVisitaPage() {
             />
           </div>
 
-          <h3 className="card-title" style={{ marginTop: '16px' }}>
+          <h3 className="card-title mt-4">
             Detalles de la visita
           </h3>
           <div className="form-row">
