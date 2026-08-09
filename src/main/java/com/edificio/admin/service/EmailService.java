@@ -5,8 +5,10 @@ import com.edificio.admin.model.Contrato;
 import com.edificio.admin.model.Residente;
 import com.edificio.admin.model.enums.TipoContrato;
 
+import javax.activation.DataHandler;
 import javax.mail.*;
 import javax.mail.internet.*;
+import javax.mail.util.ByteArrayDataSource;
 import java.io.InputStream;
 import java.math.BigDecimal;
 import java.net.URI;
@@ -33,13 +35,18 @@ public class EmailService {
     static {
         GMAIL_USER     = System.getenv("GMAIL_USER") != null
             ? System.getenv("GMAIL_USER") : "gestion.residencias.upc@gmail.com";
+        // Sin app password configurada el SMTP NO se intenta (fail fast). Un default
+        // hardcodeado hacia fallar con esperas de 15-30s y mensajes confusos.
         GMAIL_PASSWORD = System.getenv("GMAIL_APP_PASSWORD") != null
             ? System.getenv("GMAIL_APP_PASSWORD")
-            : (System.getenv("GMAIL_PASSWORD") != null
-                ? System.getenv("GMAIL_PASSWORD") : "Residencial2026");
+            : System.getenv("GMAIL_PASSWORD");
         GMAIL_FROM     = System.getenv("GMAIL_FROM") != null
             ? System.getenv("GMAIL_FROM") : GMAIL_USER;
         SENDGRID_API_KEY = System.getenv("SENDGRID_API_KEY");
+    }
+
+    private static boolean smtpConfigurado() {
+        return GMAIL_PASSWORD != null && !GMAIL_PASSWORD.isBlank();
     }
 
     private static final String TEMPLATE_PATH  = "/templates/correos/";
@@ -82,20 +89,24 @@ public class EmailService {
 
         String asunto = construirAsunto(tipo, apto);
 
-        // 1) Intentar SMTP directo
-        try {
-            enviarViaSMTP(destinatario, asunto, html, pdfAdjunto, pdfNombre);
-            return;
-        } catch (Exception e) {
-            System.err.println("[EmailService] SMTP fallo: " + e.getMessage());
+        // 1) Intentar SMTP directo SOLO si hay credenciales configuradas
+        if (smtpConfigurado()) {
+            try {
+                enviarViaSMTP(destinatario, asunto, html, pdfAdjunto, pdfNombre);
+                return;
+            } catch (Exception e) {
+                System.err.println("[EmailService] SMTP fallo: " + e.getMessage());
+            }
+        } else {
+            System.err.println("[EmailService] SMTP no configurado (falta GMAIL_APP_PASSWORD). Se intenta SendGrid.");
         }
 
         // 2) Fallback: SendGrid via HTTPS
         if (SENDGRID_API_KEY != null && !SENDGRID_API_KEY.isBlank()) {
             enviarViaSendGrid(destinatario, asunto, html, pdfAdjunto, pdfNombre);
         } else {
-            throw new Exception("No se pudo enviar el correo (SMTP bloqueado y SENDGRID_API_KEY no configurada). "
-                + "Agrega el plugin SendGrid en Render o configura SENDGRID_API_KEY.");
+            throw new Exception("El env\u00edo de correo no est\u00e1 configurado: define GMAIL_APP_PASSWORD "
+                + "(app password de Gmail) o SENDGRID_API_KEY en las variables de entorno del servidor.");
         }
     }
 
@@ -203,8 +214,8 @@ public class EmailService {
         props.put("mail.smtp.socketFactory.class", "javax.net.ssl.SSLSocketFactory");
         props.put("mail.smtp.socketFactory.fallback", "false");
         props.put("mail.smtp.ssl.trust",          "smtp.gmail.com");
-        props.put("mail.smtp.connectiontimeout",  "15000");
-        props.put("mail.smtp.timeout",            "15000");
+        props.put("mail.smtp.connectiontimeout",  "8000");
+        props.put("mail.smtp.timeout",            "8000");
 
         Session session = Session.getInstance(props, new Authenticator() {
             @Override
@@ -212,7 +223,6 @@ public class EmailService {
                 return new PasswordAuthentication(GMAIL_USER, GMAIL_PASSWORD);
             }
         });
-        session.setDebug(true);
 
         Message msg = new MimeMessage(session);
         msg.setFrom(new InternetAddress(GMAIL_FROM,
@@ -229,9 +239,12 @@ public class EmailService {
             multipart.addBodyPart(htmlPart);
 
             MimeBodyPart pdfPart = new MimeBodyPart();
+            // El patrón correcto para adjuntos binarios: DataHandler con un
+            // ByteArrayDataSource. setContent(byte[], type) deja el PDF corrupto
+            // (el encoding base64 no se aplica y el multipart se rompe).
+            pdfPart.setDataHandler(new DataHandler(
+                new ByteArrayDataSource(pdfAdjunto, "application/pdf")));
             pdfPart.setFileName(pdfNombre);
-            pdfPart.setContent(pdfAdjunto, "application/pdf");
-            pdfPart.setHeader("Content-Transfer-Encoding", "base64");
             multipart.addBodyPart(pdfPart);
         } else {
             multipart = new MimeMultipart("alternative");
