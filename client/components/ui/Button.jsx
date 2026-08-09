@@ -12,10 +12,10 @@ export function Button({
   icon,
 }) {
   const variants = {
-    primary: 'bg-primary text-on-primary hover:bg-primary/90',
-    accent: 'bg-accent-green text-white hover:bg-accent-green/90',
+    primary: 'bg-primary text-on-primary hover:bg-primary-hover',
+    accent: 'bg-btn-accent text-on-primary hover:bg-btn-accent-hover',
     outline: 'border border-outline-variant bg-transparent text-on-surface hover:bg-surface-container',
-    danger: 'bg-error text-on-error hover:bg-error/90',
+    danger: 'bg-btn-danger text-on-primary hover:bg-btn-danger-hover',
     ghost: 'bg-transparent text-on-surface-variant hover:bg-surface-container',
   };
   const sizes = {
