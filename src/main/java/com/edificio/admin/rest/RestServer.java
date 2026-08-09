@@ -3,6 +3,7 @@ package com.edificio.admin.rest;
 import com.edificio.admin.dao.ConexionBD;
 import com.edificio.admin.rest.handler.*;
 import com.edificio.admin.service.AlertaService;
+import com.edificio.admin.service.WompiService;
 import com.sun.net.httpserver.HttpServer;
 import java.net.InetSocketAddress;
 import java.util.concurrent.Executors;
@@ -39,6 +40,8 @@ public class RestServer {
             addContext("/api/tutores", new TutorHandler());
             addContext("/api/multas", new MultaHandler());
             addContext("/api/quejas", new QuejaSugerenciaHandler());
+            addContext("/api/pagos/wompi", new WompiHandler());
+            addContext("/api/wompi/webhook", new WompiWebhookHandler());
 
             // Health check (Render, monitoreo) - incluye ping a BD para mantener Oracle ATP activa
             server.createContext("/health", exchange -> {
@@ -86,6 +89,12 @@ public class RestServer {
         scheduler.scheduleWithFixedDelay(() -> {
             alertaService.generarAlertasProximoVencimiento();
         }, 1, 24, TimeUnit.HOURS);
+
+        // Reconciliacion de pagos Wompi: cada 15 minutos resuelve intenciones
+        // PENDIENTES que no confirmaron (webhook perdido / widget abandonado).
+        scheduler.scheduleWithFixedDelay(() -> {
+            new WompiService().reconciliarPendientes();
+        }, 2, 15, TimeUnit.MINUTES);
     }
 
     public static synchronized void stop() {
