@@ -59,8 +59,11 @@ function autoFitCols(ws) {
         } else {
           texto = String(cell.v);
         }
-        const len = texto.length;
-        if (cols[C] < len + 2) cols[C] = len + 2;
+        // Ancho real de Excel: chars * (fontSize/11) + padding (~3). Los valores KPI
+        // usan font sz 14, que ocupa ~27% mas ancho que el Calibri 11 de referencia.
+        const sz = (cell.s && cell.s.font && cell.s.font.sz) || 11;
+        const wchNeeded = Math.ceil(texto.length * (sz / 11)) + 3;
+        if (cols[C] < wchNeeded) cols[C] = wchNeeded;
       }
     }
     ws['!cols'] = cols.map((wch) => ({ wch }));
@@ -106,8 +109,12 @@ function exportarExcel(visitas, fechaInicio, fechaFin) {
     const n = Number(s);
     return Number.isNaN(n) ? s : n;
   };
-  const S = (v, st) => ({ t: 's', v, s: st });
-  const N = (v, st) => ({ t: 'n', v: Number(v || 0), s: st });
+  // IMPORTANTE: cada celda recibe un CLON del estilo. El writer de xlsx-js-style
+  // normaliza/muta los objetos de estilo; si se comparte el mismo objeto entre
+  // celdas, los estilos quedan cruzados (label con font de valor, etc.).
+  const clonarEstilo = (st) => (st ? JSON.parse(JSON.stringify(st)) : undefined);
+  const S = (v, st) => ({ t: 's', v, s: clonarEstilo(st) });
+  const N = (v, st) => ({ t: 'n', v: Number(v || 0), s: clonarEstilo(st) });
   const celdaApto = (val, st) => {
     const n = numOstr(val);
     return typeof n === 'number' ? { t: 'n', v: n, s: { ...st, numFmt: '0' } } : { t: 's', v: String(val || ''), s: st };
