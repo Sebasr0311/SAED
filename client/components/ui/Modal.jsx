@@ -12,11 +12,16 @@ export function Modal({ open, onClose, title, children, footer, size = 'md' }) {
 
     const panel = panelRef.current;
     if (panel) {
-      // Foco inicial: primer campo editable o botón, o el panel como fallback
-      const focusables = panel.querySelectorAll(
-        'input, select, textarea, button, [href], [tabindex]:not([tabindex="-1"])'
+      // Foco inicial: primer campo editable real (input/select/textarea), y solo
+      // si no hay ninguno, un boton. El boton de cerrar (X) del header no debe
+      // robarse el foco cuando el modal abre un formulario.
+      const fields = panel.querySelectorAll(
+        'input:not([type="hidden"]), select, textarea'
       );
-      const target = focusables[0] || panel;
+      const buttons = panel.querySelectorAll(
+        'button, [href], [tabindex]:not([tabindex="-1"])'
+      );
+      const target = fields[0] || buttons[0] || panel;
       target.focus?.();
     }
 
