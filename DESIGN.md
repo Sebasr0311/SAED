@@ -111,6 +111,17 @@ its semantic.
   becomes 2 columns.
 - Test every page at 390px and 1440px before shipping.
 
+## Dark Mode
+
+- **Theme system:** `data-theme="dark"` on `<html>`. Light tokens live in `:root`, dark overrides in `[data-theme='dark']` (both in `client/index.css`).
+- **Tailwind:** `darkMode: ['selector', '[data-theme="dark"]']`; semantic colors in `tailwind.config.js` resolve to the CSS vars, so kit components and pages invert automatically.
+- **Toggle:** topbar button (icon `light_mode`/`dark_mode`) in `AppShell`; persisted in `localStorage['saed_theme']` via `client/lib/theme.js`; first load follows `prefers-color-scheme` (applied in `main.jsx` before render, no flash).
+- **Rules:**
+  - Solid buttons (`--btn-*`) stay deep in both modes so white text keeps AA contrast.
+  - Status tints (`--tint-*`) switch to translucent dark backgrounds with light foregrounds.
+  - Focus rings use RGB-triplet tokens (`--ring-primary`, `--ring-error`) for Tailwind alpha.
+  - `.card-dark` (navy gradient card) and the sidebar stay dark in both modes by design.
+
 ## Performance
 
 - Routes are code-split with `React.lazy` + `Suspense` (per-route chunks; login stays eager). Heavy deps (`xlsx-js-style`) live in a shared chunk loaded only when its page is visited.

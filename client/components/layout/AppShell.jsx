@@ -1,6 +1,7 @@
 import { Suspense, useEffect, useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../lib/AuthContext.jsx';
+import { getInitialTheme, applyTheme, persistTheme } from '../../lib/theme.js';
 
 /**
  * Navegación agrupada por relación funcional, por rol.
@@ -139,6 +140,21 @@ export default function AppShell() {
 
   const groups = NAV_BY_ROLE[user?.rol] || [];
   const allItems = groups.flatMap((g) => g.items);
+
+  // Tema: localStorage gana; si no hay preferencia, se sigue la del sistema.
+  // Se aplica como atributo data-theme en <html> para que los tokens CSS y las
+  // variantes dark: de Tailwind resuelvan juntas.
+  const [dark, setDark] = useState(() => getInitialTheme() === 'dark');
+  useEffect(() => {
+    applyTheme(dark ? 'dark' : 'light');
+  }, [dark]);
+  function toggleTheme() {
+    setDark((prev) => {
+      const next = !prev;
+      persistTheme(next ? 'dark' : 'light');
+      return next;
+    });
+  }
 
   // Rail colapsado por defecto; el usuario puede fijarlo abierto (persistido).
   const [collapsed, setCollapsed] = useState(() => {
@@ -330,6 +346,17 @@ export default function AppShell() {
               <h1 className="page-title">{currentTitle}</h1>
             </div>
             <div className="topbar-right">
+              <button
+                type="button"
+                onClick={toggleTheme}
+                className="topbar-logout-btn"
+                aria-label={dark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+                title={dark ? 'Modo claro' : 'Modo oscuro'}
+              >
+                <span className="material-symbols-outlined" aria-hidden="true">
+                  {dark ? 'light_mode' : 'dark_mode'}
+                </span>
+              </button>
               <div className="user-info">
                 <div className="user-avatar">{user?.username?.[0]?.toUpperCase() || 'U'}</div>
                 <span className="user-name">{user?.username}</span>
