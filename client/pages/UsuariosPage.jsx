@@ -8,7 +8,7 @@ import { Modal } from '../components/ui/Modal.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { ConfirmPasswordDialog } from '../components/ui/ConfirmPasswordDialog.jsx';
 import Toast from '../components/ui/Toast.jsx';
-import { useFetch } from '../lib/hooks.js';
+import { useFetch, useLiveValidation } from '../lib/hooks.js';
 import api from '../lib/api.js';
 
 const ROLES = ['ADMINISTRADOR', 'PORTERO', 'RESIDENTE'];
@@ -47,6 +47,7 @@ export default function UsuariosPage() {
   const [editing, setEditing] = useState(null);
   const [confirmDel, setConfirmDel] = useState(null);
   const [pwdConfirmOpen, setPwdConfirmOpen] = useState(false);
+  const { touch, fieldError } = useLiveValidation();
 
   const { data, loading, refetch } = useFetch(() => api.get('/usuarios'), []);
   const { data: residentes } = useFetch(() => api.get('/residentes'), []);
@@ -103,6 +104,7 @@ export default function UsuariosPage() {
   ];
 
   function update(k, v) {
+    setErrors((prev) => (prev[k] ? { ...prev, [k]: undefined } : prev));
     setForm((f) => ({ ...f, [k]: v }));
   }
   function validate() {
@@ -215,7 +217,8 @@ export default function UsuariosPage() {
             label="Username"
             value={form.username}
             onChange={(e) => update('username', e.target.value)}
-            error={errors.username}
+            onBlur={() => touch('username')}
+            error={fieldError('username', valUsername(form.username)) || errors.username}
           />
           <Input
             id="password"
@@ -223,11 +226,16 @@ export default function UsuariosPage() {
             type="password"
             value={form.password}
             onChange={(e) => update('password', e.target.value)}
-            error={errors.password}
+            onBlur={() => touch('password')}
+            error={
+              (editing && !form.password
+                ? undefined
+                : fieldError('password', valPassword(form.password))) || errors.password
+            }
           />
         </div>
         <div className="form-row">
-          <Select id="rol" label="Rol" value={form.rol} onChange={(e) => update('rol', e.target.value)}>
+          <Select id="rol" label="Rol" value={form.rol} onChange={(e) => update('rol', e.target.value)} onBlur={() => touch('rol')} error={fieldError('rol', !form.rol ? { ok: false, mensaje: 'Seleccione el rol' } : form.idResidente && form.rol !== 'RESIDENTE' ? { ok: false, mensaje: 'Si se asigna un residente, el rol debe ser RESIDENTE' } : { ok: true }) || errors.rol}>
             {ROLES.map((r) => (
               <option key={r} value={r}>
                 {r}
