@@ -108,6 +108,8 @@ export default function ResQuejasPage() {
     idMulta: '',
   });
   const [sending, setSending] = useState(false);
+  // Guard anti doble-submit: mismo patron que VisitasPage (FASE 4.2-P2).
+  const sendingRef = useRef(false);
   const [foto, setFoto] = useState(null);
   const [showCamara, setShowCamara] = useState(false);
   const [detalle, setDetalle] = useState(null);
@@ -133,6 +135,7 @@ export default function ResQuejasPage() {
   }
 
   async function send() {
+    if (sendingRef.current) return; // doble submit
     if (!form.titulo || !form.descripcion) {
       setToast({ message: 'Título y descripción son obligatorios', type: 'error' });
       return;
@@ -141,6 +144,7 @@ export default function ResQuejasPage() {
       setToast({ message: 'Seleccione la multa a apelar', type: 'error' });
       return;
     }
+    sendingRef.current = true;
     setSending(true);
     try {
       const payload = { ...form, idResidente: user.idResidente };
@@ -154,6 +158,7 @@ export default function ResQuejasPage() {
     } catch (err) {
       setToast({ message: err.message, type: 'error' });
     } finally {
+      sendingRef.current = false;
       setSending(false);
     }
   }

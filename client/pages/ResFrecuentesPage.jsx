@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+﻿import { useRef, useState } from 'react';
 import { useFetch, useTiposDocumento, useLiveValidation } from '../lib/hooks.js';
 import api from '../lib/api.js';
 import { useAuth } from '../lib/AuthContext.jsx';
@@ -27,6 +27,8 @@ export default function ResFrecuentesPage() {
   });
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
+  // Guard anti doble-submit: mismo patron que VisitasPage (FASE 4.2-P2).
+  const savingRef = useRef(false);
   const [search, setSearch] = useState('');
 
   const { data, loading, refetch } = useFetch(
@@ -64,7 +66,9 @@ export default function ResFrecuentesPage() {
   }
 
   async function save() {
+    if (savingRef.current) return; // doble submit
     if (!validate()) return;
+    savingRef.current = true;
     setSaving(true);
     try {
       // POST /api/visitantes crea el visitante; la vinculacion como frecuente
@@ -93,6 +97,7 @@ export default function ResFrecuentesPage() {
     } catch (err) {
       setToast({ message: err.message, type: 'error' });
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   }
