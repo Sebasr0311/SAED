@@ -1,4 +1,5 @@
 ﻿import { useState } from 'react';
+import * as XLSX from 'xlsx';
 import { Button } from '../components/ui/Button.jsx';
 import { Input } from '../components/ui/Form.jsx';
 import { DataTable } from '../components/ui/DataTable.jsx';
@@ -9,13 +10,8 @@ import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
 import { formatDate, todayStr, imageSrc } from '../lib/utils.js';
 
-function esc(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-
-// Export a SpreadsheetML 2003 (XML nativo de Excel): con extensión .xls Excel lo
-// abre SIN el warning "el formato y la extensión no coinciden" (a diferencia del
-// HTML con .xls).
+// Export a .xlsx REAL con SheetJS: Excel abre sin warning de formato y con
+// asociacion directa (formato nativo moderno). Estilos basicos aplicados por celda.
 function exportarExcel(visitas, fechaInicio, fechaFin) {
   const total = visitas.length;
   const canceladas = visitas.filter((v) => (v.estado || '').toUpperCase() === 'CANCELADA').length;
@@ -39,251 +35,139 @@ function exportarExcel(visitas, fechaInicio, fechaFin) {
   });
   const aptosOrdenados = Object.keys(porApto).sort((a, b) => Number(a) - Number(b) || String(a).localeCompare(String(b)));
 
-  // Badge de estado: EXPIRADA ambar, CANCELADA rojo, resto neutro azul
+  // Estilos reutilizables
+  const estilos = {
+    titulo: { font: { bold: true, sz: 16, color: { rgb: '0F2044' } } },
+    subtitulo: { font: { sz: 11, color: { rgb: '5B6B85' } } },
+    header: { font: { bold: true, color: { rgb: 'FFFFFF' } }, fill: { fgColor: { rgb: '0F2044' } } },
+    headerMini: { font: { bold: true, color: { rgb: 'FFFFFF' } }, fill: { fgColor: { rgb: '2855A0' } } },
+    seccion: { font: { bold: true, sz: 13, color: { rgb: '0F2044' } } },
+    kpiLabel: { font: { sz: 10, color: { rgb: '8592A8' } }, fill: { fgColor: { rgb: 'F4F6FA' } } },
+    kpiValue: { font: { bold: true, sz: 14, color: { rgb: '0F2044' } }, fill: { fgColor: { rgb: 'F4F6FA' } } },
+    kpiRojo: { font: { bold: true, sz: 14, color: { rgb: 'C0392B' } }, fill: { fgColor: { rgb: 'F4F6FA' } } },
+    kpiAmbar: { font: { bold: true, sz: 14, color: { rgb: 'B7791F' } }, fill: { fgColor: { rgb: 'F4F6FA' } } },
+    visitante: { font: { bold: true } },
+    apto: { alignment: { horizontal: 'center' }, font: { bold: true } },
+    muted: { font: { color: { rgb: 'B7C0D1' } } },
+    badgeAmbar: { font: { bold: true, color: { rgb: 'B7791F' } }, fill: { fgColor: { rgb: 'FDF3DE' } }, alignment: { horizontal: 'center' } },
+    badgeRojo: { font: { bold: true, color: { rgb: 'C0392B' } }, fill: { fgColor: { rgb: 'FBEAE8' } }, alignment: { horizontal: 'center' } },
+    badgeAzul: { font: { bold: true, color: { rgb: '2855A0' } }, fill: { fgColor: { rgb: 'E8EEF9' } }, alignment: { horizontal: 'center' } },
+  };
+
   const badgeEstado = (estado) => {
     const e = (estado || '').toUpperCase();
-    if (e === 'EXPIRADA') return 'BadgeAmbar';
-    if (e === 'CANCELADA') return 'BadgeRojo';
-    return 'BadgeAzul';
+    if (e === 'EXPIRADA') return estilos.badgeAmbar;
+    if (e === 'CANCELADA') return estilos.badgeRojo;
+    return estilos.badgeAzul;
   };
-
-  const cell = (value, opts = {}) => {
-    const { type = 'String', style, merge } = opts;
-    const attrs = [];
-    if (style) attrs.push(`ss:StyleID="${style}"`);
-    if (merge) attrs.push(`ss:MergeAcross="${merge}"`);
-    return `<Cell${attrs.length ? ' ' + attrs.join(' ') : ''}><Data ss:Type="${type}">${esc(value)}</Data></Cell>`;
-  };
-
   const vacio = (val) => !val || String(val).trim() === '';
   const dash = (val) => (vacio(val) ? '—' : val);
-  const fecha = (v) => v.fechaVisita || v.fechaIngreso;
+  const fechaDe = (v) => v.fechaVisita || v.fechaIngreso;
 
-  const filaDetalle = (v) => {
-    const esVacioFecha = vacio(fecha(v));
-    return `<Row>
-      ${esVacioFecha ? cell('—', { style: 'Muted' }) : cell(esc(formatDate(fecha(v))))}
-      ${cell(`${esc(v.nombreVisitante || '')} ${esc(v.apellidoVisitante || '')}`, { style: 'Visitante' })}
-      ${cell(esc(v.documentoVisitante || ''))}
-      ${cell(esc(v.numeroApartamento || ''), { style: 'Apto' })}
-      ${cell(esc(v.nombreResidente || ''))}
-      ${esVacioFecha ? cell('—', { style: 'Muted' }) : cell(esc(formatDate(fecha(v))))}
-      ${vacio(v.fechaSalida) ? cell('—', { style: 'Muted' }) : cell(esc(formatDate(v.fechaSalida)))}
-      ${cell(esc(dash(v.tipoVehiculo)), { style: 'Muted' })}
-      ${cell(esc(dash(v.placaVehiculo)), { style: 'Muted' })}
-      ${cell(esc(dash(v.codigoParqueadero)), { style: 'Muted' })}
-      ${cell(esc(v.estado || ''), { style: badgeEstado(v.estado) })}
-    </Row>`;
+  const aoa = [];
+  let r = 0;
+
+  // Titulo y subtitulo
+  aoa[r] = []; aoa[r][0] = { t: 's', v: 'Historial de Visitas — Edificio Residencial', s: estilos.titulo };
+  aoa[r + 1] = [];
+  aoa[r + 1][0] = {
+    t: 's',
+    v: `Periodo: ${formatDate(fechaInicio)} — ${formatDate(fechaFin)} | Generado por SAED | ${total} registros`,
+    s: estilos.subtitulo,
   };
+  r += 3;
 
-  const filasDetalle = visitas.map(filaDetalle).join('');
+  // KPIs
+  const kpis = [
+    ['Total Registros', String(total), 'kpiValue'],
+    ['Canceladas', String(canceladas), 'kpiRojo'],
+    ['Expiradas', String(expiradas), 'kpiAmbar'],
+    ['Apartamentos Involucrados', String(aptos), 'kpiValue'],
+  ];
+  kpis.forEach(([label, valor, estilo]) => {
+    aoa[r] = [];
+    aoa[r][0] = { t: 's', v: label, s: estilos.kpiLabel };
+    aoa[r][1] = { t: 's', v: valor, s: estilos[estilo] };
+    r++;
+  });
+  r++;
 
-  const filasEstado = estadosOrdenados
-    .map((e) => `<Row>
-      ${cell(esc(e), { style: badgeEstado(e) })}
-      ${cell(String(porEstado[e]), { style: 'Apto' })}
-    </Row>`)
-    .join('');
+  // Seccion detalle
+  aoa[r] = []; aoa[r][0] = { t: 's', v: 'Detalle de registros', s: estilos.seccion };
+  r++;
+  aoa[r] = [
+    { t: 's', v: 'Fecha', s: estilos.header }, { t: 's', v: 'Visitante', s: estilos.header },
+    { t: 's', v: 'Documento', s: estilos.header }, { t: 's', v: 'Apto', s: estilos.header },
+    { t: 's', v: 'Residente', s: estilos.header }, { t: 's', v: 'Entrada', s: estilos.header },
+    { t: 's', v: 'Salida', s: estilos.header }, { t: 's', v: 'Vehículo', s: estilos.header },
+    { t: 's', v: 'Placa', s: estilos.header }, { t: 's', v: 'Parqueadero', s: estilos.header },
+    { t: 's', v: 'Estado', s: estilos.header },
+  ];
+  r++;
+  visitas.forEach((v) => {
+    const f = fechaDe(v);
+    aoa[r] = [
+      { t: 's', v: vacio(f) ? '—' : formatDate(f), s: vacio(f) ? estilos.muted : undefined },
+      { t: 's', v: `${v.nombreVisitante || ''} ${v.apellidoVisitante || ''}`, s: estilos.visitante },
+      { t: 's', v: v.documentoVisitante || '' },
+      { t: 's', v: String(v.numeroApartamento || ''), s: estilos.apto },
+      { t: 's', v: v.nombreResidente || '' },
+      { t: 's', v: vacio(f) ? '—' : formatDate(f), s: vacio(f) ? estilos.muted : undefined },
+      { t: 's', v: vacio(v.fechaSalida) ? '—' : formatDate(v.fechaSalida), s: vacio(v.fechaSalida) ? estilos.muted : undefined },
+      { t: 's', v: String(dash(v.tipoVehiculo)), s: vacio(v.tipoVehiculo) ? estilos.muted : undefined },
+      { t: 's', v: String(dash(v.placaVehiculo)), s: vacio(v.placaVehiculo) ? estilos.muted : undefined },
+      { t: 's', v: String(dash(v.codigoParqueadero)), s: vacio(v.codigoParqueadero) ? estilos.muted : undefined },
+      { t: 's', v: v.estado || '', s: badgeEstado(v.estado) },
+    ];
+    r++;
+  });
+  r++;
 
-  const filasApto = aptosOrdenados
-    .map((a) => `<Row>
-      ${cell(esc(a), { style: 'Apto' })}
-      ${cell(esc(porApto[a].residente))}
-      ${cell(String(porApto[a].n), { style: 'Apto' })}
-    </Row>`)
-    .join('');
+  // Resumen por estado + por apartamento lado a lado
+  aoa[r] = []; aoa[r][0] = { t: 's', v: 'Resumen por estado', s: estilos.seccion };
+  aoa[r][5] = { t: 's', v: 'Resumen por apartamento', s: estilos.seccion };
+  r++;
+  aoa[r] = [
+    { t: 's', v: 'Estado', s: estilos.headerMini }, { t: 's', v: 'Cantidad', s: estilos.headerMini },
+    {}, {}, {},
+    { t: 's', v: 'Apto', s: estilos.headerMini }, { t: 's', v: 'Residente', s: estilos.headerMini }, { t: 's', v: 'Registros', s: estilos.headerMini },
+    {}, {}, {},
+  ];
+  r++;
+  const filas = Math.max(estadosOrdenados.length, aptosOrdenados.length);
+  for (let i = 0; i < filas; i++) {
+    aoa[r] = [];
+    if (estadosOrdenados[i]) {
+      aoa[r][0] = { t: 's', v: estadosOrdenados[i], s: badgeEstado(estadosOrdenados[i]) };
+      aoa[r][1] = { t: 'n', v: porEstado[estadosOrdenados[i]], s: estilos.apto };
+    }
+    if (aptosOrdenados[i]) {
+      aoa[r][5] = { t: 's', v: String(aptosOrdenados[i]), s: estilos.apto };
+      aoa[r][6] = { t: 's', v: porApto[aptosOrdenados[i]].residente || '' };
+      aoa[r][7] = { t: 'n', v: porApto[aptosOrdenados[i]].n, s: estilos.apto };
+    }
+    r++;
+  }
 
-  const d1 = formatDate(fechaInicio);
-  const d2 = formatDate(fechaFin);
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols'] = [
+    { wch: 12 }, { wch: 24 }, { wch: 14 }, { wch: 10 },
+    { wch: 26 }, { wch: 12 }, { wch: 12 }, { wch: 14 },
+    { wch: 14 }, { wch: 14 }, { wch: 14 },
+  ];
+  ws['!merges'] = [
+    { s: { r: 0, c: 0 }, e: { r: 0, c: 10 } },
+    { s: { r: 1, c: 0 }, e: { r: 1, c: 10 } },
+  ];
 
-  const styles = `
-    <Style ss:ID="Default" ss:Name="Normal">
-      <Alignment ss:Vertical="Center"/>
-      <Font ss:FontName="Calibri" ss:Size="11" ss:Color="#1A2233"/>
-      <Borders>
-        <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E5E9F0"/>
-      </Borders>
-    </Style>
-    <Style ss:ID="Titulo">
-      <Font ss:FontName="Calibri" ss:Size="16" ss:Bold="1" ss:Color="#0F2044"/>
-    </Style>
-    <Style ss:ID="Subtitulo">
-      <Font ss:FontName="Calibri" ss:Size="11" ss:Color="#5B6B85"/>
-    </Style>
-    <Style ss:ID="Header">
-      <Alignment ss:Vertical="Center"/>
-      <Font ss:FontName="Calibri" ss:Size="11" ss:Bold="1" ss:Color="#FFFFFF"/>
-      <Interior ss:Color="#0F2044" ss:Pattern="Solid"/>
-      <Borders>
-        <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#0F2044"/>
-      </Borders>
-    </Style>
-    <Style ss:ID="HeaderMini">
-      <Alignment ss:Vertical="Center"/>
-      <Font ss:FontName="Calibri" ss:Size="11" ss:Bold="1" ss:Color="#FFFFFF"/>
-      <Interior ss:Color="#2855A0" ss:Pattern="Solid"/>
-      <Borders>
-        <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#2855A0"/>
-      </Borders>
-    </Style>
-    <Style ss:ID="KpiLabel">
-      <Font ss:FontName="Calibri" ss:Size="10" ss:Color="#8592A8"/>
-      <Interior ss:Color="#F4F6FA" ss:Pattern="Solid"/>
-      <Borders>
-        <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E5E9F0"/>
-        <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E5E9F0"/>
-      </Borders>
-    </Style>
-    <Style ss:ID="KpiValue">
-      <Font ss:FontName="Calibri" ss:Size="14" ss:Bold="1" ss:Color="#0F2044"/>
-      <Interior ss:Color="#F4F6FA" ss:Pattern="Solid"/>
-      <Borders>
-        <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E5E9F0"/>
-      </Borders>
-    </Style>
-    <Style ss:ID="KpiRojo">
-      <Font ss:FontName="Calibri" ss:Size="14" ss:Bold="1" ss:Color="#C0392B"/>
-      <Interior ss:Color="#F4F6FA" ss:Pattern="Solid"/>
-    </Style>
-    <Style ss:ID="KpiAmbar">
-      <Font ss:FontName="Calibri" ss:Size="14" ss:Bold="1" ss:Color="#B7791F"/>
-      <Interior ss:Color="#F4F6FA" ss:Pattern="Solid"/>
-    </Style>
-    <Style ss:ID="Seccion">
-      <Font ss:FontName="Calibri" ss:Size="13" ss:Bold="1" ss:Color="#0F2044"/>
-    </Style>
-    <Style ss:ID="Visitante">
-      <Font ss:FontName="Calibri" ss:Size="11" ss:Bold="1" ss:Color="#1A2233"/>
-    </Style>
-    <Style ss:ID="Apto">
-      <Alignment ss:Horizontal="Center"/>
-      <Font ss:FontName="Calibri" ss:Size="11" ss:Bold="1" ss:Color="#1A2233"/>
-    </Style>
-    <Style ss:ID="Muted">
-      <Font ss:FontName="Calibri" ss:Size="11" ss:Color="#B7C0D1"/>
-    </Style>
-    <Style ss:ID="BadgeAmbar">
-      <Font ss:FontName="Calibri" ss:Size="10" ss:Bold="1" ss:Color="#B7791F"/>
-      <Interior ss:Color="#FDF3DE" ss:Pattern="Solid"/>
-      <Alignment ss:Horizontal="Center"/>
-    </Style>
-    <Style ss:ID="BadgeRojo">
-      <Font ss:FontName="Calibri" ss:Size="10" ss:Bold="1" ss:Color="#C0392B"/>
-      <Interior ss:Color="#FBEAE8" ss:Pattern="Solid"/>
-      <Alignment ss:Horizontal="Center"/>
-    </Style>
-    <Style ss:ID="BadgeAzul">
-      <Font ss:FontName="Calibri" ss:Size="10" ss:Bold="1" ss:Color="#2855A0"/>
-      <Interior ss:Color="#E8EEF9" ss:Pattern="Solid"/>
-      <Alignment ss:Horizontal="Center"/>
-    </Style>`;
-
-  const kpi = (label, value, style) => `<Row>
-    ${cell(esc(label), { style: 'KpiLabel', merge: 1 })}
-    ${cell('')}
-    ${cell(esc(value), { style })}
-  </Row>`;
-
-  const filasKpi = [
-    kpi('Total Registros', String(total), 'KpiValue'),
-    kpi('Canceladas', String(canceladas), 'KpiRojo'),
-    kpi('Expiradas', String(expiradas), 'KpiAmbar'),
-    kpi('Apartamentos Involucrados', String(aptos), 'KpiValue'),
-  ].join('');
-
-  const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<?mso-application progid="Excel.Sheet"?>
-<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
- xmlns:o="urn:schemas-microsoft-com:office:office"
- xmlns:x="urn:schemas-microsoft-com:office:excel"
- xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
- xmlns:html="http://www.w3.org/TR/REC-html40">
-  <Styles>${styles}
-  </Styles>
-  <Worksheet ss:Name="Historial Visitas">
-    <Table>
-      <Column ss:Width="90"/>
-      <Column ss:Width="180"/>
-      <Column ss:Width="120"/>
-      <Column ss:Width="70"/>
-      <Column ss:Width="180"/>
-      <Column ss:Width="90"/>
-      <Column ss:Width="90"/>
-      <Column ss:Width="100"/>
-      <Column ss:Width="100"/>
-      <Column ss:Width="110"/>
-      <Column ss:Width="100"/>
-      <Row ss:Height="30">
-        ${cell('Historial de Visitas — Edificio Residencial', { style: 'Titulo', merge: 10 })}
-        ${Array(10).fill('').map(() => cell('')).join('')}
-      </Row>
-      <Row>
-        ${cell(`Periodo: ${d1} — ${d2} | Generado por SAED | ${total} registros`, { style: 'Subtitulo', merge: 10 })}
-        ${Array(10).fill('').map(() => cell('')).join('')}
-      </Row>
-      <Row ss:Height="20"/>
-      ${filasKpi}
-      <Row ss:Height="20"/>
-      <Row>
-        ${cell('Detalle de registros', { style: 'Seccion', merge: 10 })}
-        ${Array(10).fill('').map(() => cell('')).join('')}
-      </Row>
-      <Row>
-        ${cell('Fecha', { style: 'Header' })}
-        ${cell('Visitante', { style: 'Header' })}
-        ${cell('Documento', { style: 'Header' })}
-        ${cell('Apto', { style: 'Header' })}
-        ${cell('Residente', { style: 'Header' })}
-        ${cell('Entrada', { style: 'Header' })}
-        ${cell('Salida', { style: 'Header' })}
-        ${cell('Vehículo', { style: 'Header' })}
-        ${cell('Placa', { style: 'Header' })}
-        ${cell('Parqueadero', { style: 'Header' })}
-        ${cell('Estado', { style: 'Header' })}
-      </Row>
-      ${filasDetalle}
-      <Row ss:Height="20"/>
-      <Row>
-        ${cell('Resumen por estado', { style: 'Seccion', merge: 4 })}
-        ${Array(4).fill('').map(() => cell('')).join('')}
-        ${cell('Resumen por apartamento', { style: 'Seccion', merge: 5 })}
-        ${Array(5).fill('').map(() => cell('')).join('')}
-      </Row>
-      <Row>
-        ${cell('Estado', { style: 'HeaderMini' })}
-        ${cell('Cantidad', { style: 'HeaderMini' })}
-        ${Array(3).fill('').map(() => cell('')).join('')}
-        ${cell('Apto', { style: 'HeaderMini' })}
-        ${cell('Residente', { style: 'HeaderMini' })}
-        ${cell('Registros', { style: 'HeaderMini' })}
-        ${Array(3).fill('').map(() => cell('')).join('')}
-      </Row>
-      ${estadosOrdenados.map((e, i) => {
-        const apto = aptosOrdenados[i];
-        return `<Row>
-          ${cell(esc(e), { style: badgeEstado(e) })}
-          ${cell(String(porEstado[e]), { style: 'Apto' })}
-          ${Array(3).fill('').map(() => cell('')).join('')}
-          ${apto ? cell(esc(apto), { style: 'Apto' }) : cell('')}
-          ${apto ? cell(esc(porApto[apto].residente)) : cell('')}
-          ${apto ? cell(String(porApto[apto].n), { style: 'Apto' }) : cell('')}
-          ${Array(3).fill('').map(() => cell('')).join('')}
-        </Row>`;
-      }).join('')}
-    </Table>
-  </Worksheet>
-</Workbook>`;
-
-  // BOM UTF-8: sin él, Excel interpreta el .xls como Windows-1252 y corrompe los
-  // acentos (archivo "dañado" o texto ilegible). El BOM fuerza detección UTF-8.
-  const blob = new Blob(['\uFEFF' + xml], { type: 'application/vnd.ms-excel' });
-  const link = document.createElement('a');
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Historial Visitas');
+  const out = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+  const blob = new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
   link.href = url;
-  // Extensión .xml (SpreadsheetML 2003): Excel 2016+ muestra el warning "formato y
-  // extensión no coinciden" si el XML se guarda como .xls. Con .xml + progid
-  // Excel.Sheet, Windows lo abre con Excel directamente y sin advertencia.
-  link.download = `visitas_${fechaInicio}_${fechaFin}.xml`;
+  link.download = `visitas_${fechaInicio}_${fechaFin}.xlsx`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
