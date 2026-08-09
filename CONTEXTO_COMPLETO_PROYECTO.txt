@@ -908,20 +908,28 @@ NOTIFICACIONES:
 16. EXPORTACION A EXCEL
 ================================================================================
 
-UBICACION: frontend/js/pages/historial-visitas.js, funcion exportarExcel()
+UBICACION: client/pages/GananciasPage.jsx e HistorialVisitasPage.jsx,
+  funcion exportarExcel() (React + Vite)
 
-TECNICA:
-  - Sin librerias externas (no SheetJS, no ExcelJS)
-  - Construye HTML con formato Microsoft Excel:
-    xmlns:x="urn:schemas-microsoft-com:office:excel"
-    <!--[if gte mso 9]><xml><x:ExcelWorkbook>...</xml><![endif]-->
-  - Genera tabla HTML con los registros filtrados
-  - Crea Blob con MIME type application/vnd.ms-excel
-  - Descarga via URL.createObjectURL + clic programatico en <a>
-  - Archivo: historial-visitas.xls
+TECNICA (ACTUALIZADA 2026-08):
+  - Libreria: xlsx-js-style 1.2.0 (fork de SheetJS CE con escritura de estilos;
+    el SheetJS CE original NO escribe font/fill/border en XLSX)
+  - fflate 0.8.x: post-proceso del ZIP para inyectar freeze panes
+    (SheetJS CE no los escribe)
+  - Genera libro .xlsx REAL (ZIP OOXML): MIME
+    application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+  - Estilos por celda: fonts, fills (zebra, badges, headers), numFmt
+    (moneda $#,##0, enteros 0, fechas dd/mm/yyyy), borders, merges
+  - autoFitCols(): ancho de columna = ceil(chars * fontSize/11) + 3
+    (evita valores ##### en Excel; considera font sz 14 de los KPIs)
+  - Celdas con numFmt se escriben como numero serial (sumables en Excel)
+  - Archivos: ganancias_<inicio>_<fin>.xlsx, visitas_<inicio>_<fin>.xlsx
 
-COLUMNAS: Fecha, Apartamento, Residente, Visitante, Documento,
-  Vehiculo, Placa, Hora Entrada, Hora Salida, Estado
+REPORTES:
+  - Ganancias: KPIs (Total/Cuotas/Multas/Efectivo/Transferencia), detalle con
+    badges, fila TOTAL, resumen mensual y por apartamento (sort total DESC)
+  - Visitas: KPIs, detalle completo con badges de estado, resumen por estado
+    y por apartamento (sort cantidad DESC)
 
 FILTROS APLICABLES ANTES DE EXPORTAR:
   - Rango de fechas
@@ -954,9 +962,24 @@ SMS (compartirPorSMS):
   - Portero abre su app de mensajes y pega manualmente
   - NO es envio automatico de SMS
 
-IMPORTANTE: Los tres metodos son flujos asistidos manualmente.
-  No hay integracion con APIs externas (no Twilio, no SendGrid, no Firebase).
-  Decision de diseno para evitar costos en entorno academico.
+IMPORTANTE: Los tres metodos anteriores (mailto/Telegram/SMS) son flujos
+  asistidos manualmente del modulo legacy NotificacionService.java.
+
+ENVIO AUTOMATICO REAL (EmailService.java — ACTUALIZADO 2026-08):
+  - Envia correos reales en segundo plano: contratos (creacion y reenvio
+    POST /api/contratos/{id}/reenviar-correo) y QR de visitas
+    (POST /api/qr/enviar-correo)
+  - Plantillas HTML por tipo de contrato en src/main/resources/templates/correos/
+  - Adjunta el PDF del contrato (DataHandler + ByteArrayDataSource; el patron
+    setContent(byte[],type) dejaba el PDF corrupto)
+  - Estrategia de dos niveles:
+    Plan A (opcional): SMTP directo de Gmail (GMAIL_APP_PASSWORD). Gmail lo
+      bloquea desde hosts cloud (Render) -> en produccion NO se usa.
+    Plan B (produccion): Brevo via HTTPS (BREVO_API_KEY, header api-key:,
+      endpoint api.brevo.com/v3/smtp/email). Plan gratuito 300 correos/dia
+      permanente. Requiere sender verificado (GMAIL_FROM en Senders & IPs).
+  - Sin credenciales -> fail-fast con mensaje claro (no espera timeouts)
+  - SENDGRID_API_KEY: OBSOLETA (variable muerta, pendiente de limpieza)
 
 
 ================================================================================
@@ -969,7 +992,10 @@ BACKEND (Render):
   - Start: java -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -jar target/admin-residencial-1.0-SNAPSHOT.jar
   - Puerto: via variable de entorno PORT (Render la inyecta)
   - Base de datos: Oracle ATP con wallet (WALLET_BASE64 en env vars)
-  - Variables de entorno: DB_URL, DB_USER, DB_PASS, JWT_SECRET, GMAIL_USER, GMAIL_PASSWORD
+  - Variables de entorno: DB_URL, DB_USER, DB_PASS, JWT_SECRET,
+    BREVO_API_KEY (envio de correos en produccion), GMAIL_USER/GMAIL_FROM
+    (remitente; verificado en Brevo). GMAIL_APP_PASSWORD/GMAIL_PASSWORD
+    (SMTP opcional, no usado en Render). SENDGRID_API_KEY: obsoleta.
   - Health check: GET /health retorna {"status":"ok"}
   - Plan gratuito disponible (se suspende tras 15 min de inactividad)
   - URL: https://TU-NOMBRE-SERVICE.onrender.com
