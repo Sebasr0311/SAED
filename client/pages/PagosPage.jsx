@@ -204,7 +204,7 @@ export default function PagosPage() {
         columns={columns}
         rows={residentes}
         loading={loading}
-        empty="No hay pagos pendientes"
+                empty={{ icon: 'payments', title: 'No hay pagos pendientes', subtitle: 'Todos los pagos al día. Los nuevos aparecerán aquí.' }}
         error={fetchError?.message}
         keyField="numeroApartamento"
         onRowClick={setDetalle}

@@ -358,7 +358,7 @@ function ModalPaquetes({ open, onClose, onConfirm }) {
           },
         ]}
         rows={paquetes?.items || paquetes || []}
-        empty="No hay paquetes pendientes"
+                empty={{ icon: 'inventory_2', title: 'No hay paquetes pendientes', subtitle: 'Los paquetes recibidos aparecerán aquí.' }}
         keyField="idMensaje"
       />
 

@@ -385,7 +385,7 @@ export default function HistorialVisitasPage() {
         columns={columns}
         rows={filtradas}
         loading={loading}
-        empty="No hay visitas en el rango seleccionado"
+                empty={{ icon: 'history', title: 'No hay visitas en el rango seleccionado', subtitle: 'Prueba ampliando el rango de fechas.' }}
         error={error?.message}
         keyField="idVisita"
         onRowClick={verDetalle}

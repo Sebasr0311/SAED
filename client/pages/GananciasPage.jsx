@@ -387,7 +387,7 @@ export default function GananciasPage() {
         columns={columns}
         rows={filasDePagina}
         loading={loading}
-        empty="No hay ganancias en el rango seleccionado"
+                empty={{ icon: 'trending_up', title: 'No hay ganancias en el rango seleccionado', subtitle: 'Prueba ampliando el rango de fechas.' }}
         keyField="id"
       />
 

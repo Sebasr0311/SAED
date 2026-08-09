@@ -185,7 +185,7 @@ export default function UsuariosPage() {
         columns={columns}
         rows={rows}
         loading={loading}
-        empty="No hay usuarios"
+                empty={{ icon: 'manage_accounts', title: 'No hay usuarios', subtitle: 'Crea el primer usuario con el botón "Nuevo Usuario".' }}
         keyField="idUsuario"
       />
       <Pagination

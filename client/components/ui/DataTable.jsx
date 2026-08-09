@@ -1,4 +1,5 @@
 import { classNames } from '../../lib/utils.js';
+import EmptyState from './EmptyState.jsx';
 
 export function DataTable({ columns, rows, loading, empty, onRowClick, keyField = 'id', selectedKey, error, onRetry }) {
   if (loading) {
@@ -19,9 +20,16 @@ export function DataTable({ columns, rows, loading, empty, onRowClick, keyField 
     );
   }
   if (!rows || rows.length === 0) {
+    // `empty` acepta string (titulo) u objeto { icon, title, subtitle }.
+    const emptyTitle = typeof empty === 'string' ? empty : empty?.title;
+    const emptyObj = typeof empty === 'string' ? { title: empty } : empty || {};
     return (
-      <div className="table-container p-8 text-center text-on-surface-variant">
-        {empty || 'Sin datos'}
+      <div className="table-container">
+        <EmptyState
+          icon={emptyObj.icon}
+          title={emptyTitle || 'Sin datos'}
+          subtitle={emptyObj.subtitle}
+        />
       </div>
     );
   }

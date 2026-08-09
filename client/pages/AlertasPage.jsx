@@ -91,7 +91,7 @@ export default function AlertasPage() {
         columns={columns}
         rows={rows}
         loading={loading}
-        empty="No hay alertas"
+                empty={{ icon: 'notifications', title: 'No hay alertas', subtitle: 'Cuando se registre un pago o evento importante, aparecerá aquí.' }}
             error={error?.message}
         keyField="idAlerta"
         selectedKey={selectedId}

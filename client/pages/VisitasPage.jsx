@@ -353,7 +353,7 @@ export default function VisitasPage() {
         columns={columns}
         rows={filtradas}
         loading={loading}
-        empty="No hay visitas"
+                empty={{ icon: 'how_to_reg', title: 'No hay visitas', subtitle: 'Las visitas registradas aparecerán aquí.' }}
         keyField="idVisita"
         onRowClick={verDetalle}
       />

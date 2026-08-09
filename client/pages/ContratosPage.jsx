@@ -408,7 +408,7 @@ export default function ContratosPage() {
           </Button>
         </div>
       </div>
-      <DataTable columns={columns} rows={rows} loading={loading} empty="No hay contratos" keyField="idContrato" />
+      <DataTable columns={columns} rows={rows} loading={loading} empty={{ icon: 'description', title: 'No hay contratos', subtitle: 'Crea el primer contrato desde el botón "Nuevo Contrato".' }} keyField="idContrato" />
       <Pagination
         page={safePage}
         totalPages={totalPages}
