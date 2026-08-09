@@ -131,8 +131,13 @@ its semantic.
 
 ## Performance
 
-- Routes are code-split with `React.lazy` + `Suspense` (per-route chunks; login stays eager). Heavy deps (`xlsx-js-style`) live in a shared chunk loaded only when its page is visited.
+- Routes are code-split with `React.lazy` + `Suspense` (per-route chunks; login stays eager). Heavy deps (`xlsx-js-style`) load **only on the Export click** (`await import('xlsx-js-style')` inside `exportarExcel` in Ganancias/Historial) — the 850KB chunk never blocks page open.
 - Avoid layout-property animations (`width`/`height`/`margin`); prefer `transform`/`opacity`.
+
+## Browser surfaces
+
+- `document.title` is dynamic per page: `"{Sección} — SAED"` (AppShell) and `"Iniciar sesión — SAED"` (login).
+- Global keyboard focus ring (WCAG 2.4.7): `:focus-visible` outline `--border-focus` on all controls, consistent with table-row focus.
 
 ## Contribution rules
 
