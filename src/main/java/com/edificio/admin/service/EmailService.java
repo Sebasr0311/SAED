@@ -31,6 +31,7 @@ public class EmailService {
     private static final String GMAIL_PASSWORD;
     private static final String GMAIL_FROM;
     private static final String SENDGRID_API_KEY;
+    private static final String BREVO_API_KEY;
 
     static {
         GMAIL_USER     = System.getenv("GMAIL_USER") != null
@@ -42,7 +43,10 @@ public class EmailService {
             : System.getenv("GMAIL_PASSWORD");
         GMAIL_FROM     = System.getenv("GMAIL_FROM") != null
             ? System.getenv("GMAIL_FROM") : GMAIL_USER;
+        // Plan B: Brevo (antes SendGrid). SENDGRID_API_KEY queda declarada pero sin
+        // uso hasta confirmar Brevo en produccion; luego se limpia en un paso aparte.
         SENDGRID_API_KEY = System.getenv("SENDGRID_API_KEY");
+        BREVO_API_KEY    = System.getenv("BREVO_API_KEY");
     }
 
     private static boolean smtpConfigurado() {
@@ -98,15 +102,15 @@ public class EmailService {
                 System.err.println("[EmailService] SMTP fallo: " + e.getMessage());
             }
         } else {
-            System.err.println("[EmailService] SMTP no configurado (falta GMAIL_APP_PASSWORD). Se intenta SendGrid.");
+            System.err.println("[EmailService] SMTP no configurado (falta GMAIL_APP_PASSWORD). Se intenta Brevo.");
         }
 
-        // 2) Fallback: SendGrid via HTTPS
-        if (SENDGRID_API_KEY != null && !SENDGRID_API_KEY.isBlank()) {
-            enviarViaSendGrid(destinatario, asunto, html, pdfAdjunto, pdfNombre);
+        // 2) Fallback: Brevo via HTTPS
+        if (BREVO_API_KEY != null && !BREVO_API_KEY.isBlank()) {
+            enviarViaBrevo(destinatario, asunto, html, pdfAdjunto, pdfNombre);
         } else {
             throw new Exception("El env\u00edo de correo no est\u00e1 configurado: define GMAIL_APP_PASSWORD "
-                + "(app password de Gmail) o SENDGRID_API_KEY en las variables de entorno del servidor.");
+                + "(app password de Gmail) o BREVO_API_KEY en las variables de entorno del servidor.");
         }
     }
 
@@ -256,37 +260,40 @@ public class EmailService {
         System.out.println("[EmailService] Correo enviado por SMTP a " + destinatario);
     }
 
-    // ── privado: envío SendGrid (HTTPS) ───────────────────────────────────────
+    // ── privado: envío Brevo (HTTPS) ──────────────────────────────────────────
+    // Plan B: se usa cuando el SMTP directo de Gmail falla (Gmail bloquea SMTP
+    // desde hosts cloud como Render). GOTCHA: Brevo exige que el sender esté
+    // registrado Y verificado (https://app.brevo.com/senders) — si no, el envío
+    // se rechaza (mismo requisito que tenía SendGrid).
 
-    private static void enviarViaSendGrid(String destinatario,
-                                          String asunto,
-                                          String htmlBody,
-                                          byte[] pdfAdjunto,
-                                          String pdfNombre) throws Exception {
+    private static void enviarViaBrevo(String destinatario,
+                                       String asunto,
+                                       String htmlBody,
+                                       byte[] pdfAdjunto,
+                                       String pdfNombre) throws Exception {
         HttpClient client = HttpClient.newHttpClient();
 
         StringBuilder json = new StringBuilder();
-        json.append("{\"personalizations\":[{\"to\":[{\"email\":\"")
-            .append(jsonEscape(destinatario)).append("\"}]}],")
-            .append("\"from\":{\"email\":\"").append(jsonEscape(GMAIL_FROM))
+        json.append("{\"sender\":{\"email\":\"").append(jsonEscape(GMAIL_FROM))
             .append("\",\"name\":\"Administración · Torres del Horizonte\"},"
-            + "\"subject\":\"").append(jsonEscape(asunto)).append("\",")
-            .append("\"content\":[{\"type\":\"text/html\",\"value\":\"")
-            .append(jsonEscape(htmlBody)).append("\"}]");
+            + "\"to\":[{\"email\":\"").append(jsonEscape(destinatario)).append("\"}],")
+            .append("\"subject\":\"").append(jsonEscape(asunto)).append("\",")
+            .append("\"htmlContent\":\"").append(jsonEscape(htmlBody)).append("\"");
 
         if (pdfAdjunto != null && pdfNombre != null) {
             String b64 = Base64.getEncoder().encodeToString(pdfAdjunto);
-            json.append(",\"attachments\":[{\"content\":\"")
+            // API Brevo: attachment[] con {content (base64), name} — sin campo type
+            json.append(",\"attachment\":[{\"content\":\"")
                 .append(b64)
-                .append("\",\"type\":\"application/pdf\",\"filename\":\"")
+                .append("\",\"name\":\"")
                 .append(jsonEscape(pdfNombre)).append("\"}]");
         }
 
         json.append("}");
 
         HttpRequest request = HttpRequest.newBuilder()
-            .uri(URI.create("https://api.sendgrid.com/v3/mail/send"))
-            .header("Authorization", "Bearer " + SENDGRID_API_KEY)
+            .uri(URI.create("https://api.brevo.com/v3/smtp/email"))
+            .header("api-key", BREVO_API_KEY)
             .header("Content-Type", "application/json")
             .POST(HttpRequest.BodyPublishers.ofString(json.toString()))
             .timeout(Duration.ofSeconds(30))
@@ -297,10 +304,10 @@ public class EmailService {
 
         int status = response.statusCode();
         if (status >= 200 && status < 300) {
-            System.out.println("[EmailService] Correo enviado por SendGrid a " + destinatario
+            System.out.println("[EmailService] Correo enviado por Brevo a " + destinatario
                 + (pdfAdjunto != null ? " (con PDF adjunto)" : ""));
         } else {
-            throw new Exception("SendGrid respondió con estado " + status
+            throw new Exception("Brevo respondió con estado " + status
                 + ": " + response.body());
         }
     }
@@ -350,10 +357,10 @@ public class EmailService {
             System.err.println("[EmailService] SMTP QR fallo: " + e.getMessage());
         }
 
-        if (SENDGRID_API_KEY != null && !SENDGRID_API_KEY.isBlank()) {
-            enviarViaSendGrid(destinatario, "C\u00f3digo QR de Acceso \u00b7 Torres del Horizonte", html, null, null);
+        if (BREVO_API_KEY != null && !BREVO_API_KEY.isBlank()) {
+            enviarViaBrevo(destinatario, "C\u00f3digo QR de Acceso \u00b7 Torres del Horizonte", html, null, null);
         } else {
-            throw new Exception("No se pudo enviar el correo (SMTP bloqueado y SENDGRID_API_KEY no configurada).");
+            throw new Exception("No se pudo enviar el correo: SMTP sin credenciales y BREVO_API_KEY no configurada.");
         }
     }
 
