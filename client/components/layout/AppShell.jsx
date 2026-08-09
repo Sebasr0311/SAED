@@ -2,6 +2,7 @@ import { Suspense, useEffect, useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../lib/AuthContext.jsx';
 import { getInitialTheme, applyTheme, persistTheme } from '../../lib/theme.js';
+import ErrorBoundary from '../ErrorBoundary.jsx';
 
 /**
  * Navegación agrupada por relación funcional, por rol.
@@ -385,6 +386,7 @@ export default function AppShell() {
           </header>
 
           <main id="main-content" className="content-area">
+            <ErrorBoundary routeKey={location.pathname}>
             <Suspense
               fallback={
                 <div className="table-container p-8 text-center text-on-surface-variant">
@@ -394,6 +396,7 @@ export default function AppShell() {
             >
               <Outlet />
             </Suspense>
+            </ErrorBoundary>
           </main>
         </div>
       </div>
