@@ -67,6 +67,10 @@ export default function LoginPage() {
   const [toast, setToast] = useState(null);
 
   useEffect(() => {
+    document.title = 'Iniciar sesión — SAED';
+  }, []);
+
+  useEffect(() => {
     if (isAuthenticated && user) {
       const dest = ROLE_HOME[user.rol] || '/dashboard';
       const from = location.state?.from?.pathname;

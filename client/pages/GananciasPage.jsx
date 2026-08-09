@@ -1,5 +1,4 @@
 import { useState, useMemo, useEffect } from 'react';
-import * as XLSX from 'xlsx-js-style';
 import { unzipSync, zipSync, strFromU8, strToU8 } from 'fflate';
 import { Button } from '../components/ui/Button.jsx';
 import { Input } from '../components/ui/Form.jsx';
@@ -48,7 +47,8 @@ function aplicarFreeze(buffer, ySplit) {
 // Ajusta el ancho de cada columna al contenido real formateado (evita que Excel
 // muestre ##### cuando el valor no cabe). Las celdas dentro de merges no cuentan
 // (su texto se reparte en el rango). Usa el ancho del spec como minimo.
-function autoFitCols(ws) {
+// Recibe XLSX como parametro: la libreria se carga bajo demanda al exportar.
+function autoFitCols(XLSX, ws) {
   if (!ws['!ref']) return;
   try {
     const range = XLSX.utils.decode_range(ws['!ref']);
@@ -84,7 +84,9 @@ function autoFitCols(ws) {
 
 // Export a .xlsx REAL con SheetJS: Excel abre sin warning de formato y con
 // asociacion directa (formato nativo moderno). Estilos basicos aplicados por celda.
-function exportarExcel(pagos, fechaInicio, fechaFin) {
+// SheetJS (pesado, ~600KB) se carga SOLO al hacer clic en Exportar.
+async function exportarExcel(pagos, fechaInicio, fechaFin) {
+  const XLSX = await import('xlsx-js-style');
   const total = pagos.reduce((s, p) => s + Number(p.valor || 0), 0);
   const cuotas = pagos.filter((p) => (p.tipoPago || 'CUOTA').toUpperCase().includes('CUOTA'));
   const multas = pagos.filter((p) => (p.tipoPago || '').toUpperCase().includes('MULTA'));
@@ -259,7 +261,7 @@ function exportarExcel(pagos, fechaInicio, fechaFin) {
   const ws = XLSX.utils.aoa_to_sheet(aoa);
   ws['!cols'] = [{ wch: 8 }, { wch: 12 }, { wch: 10 }, { wch: 12 }, { wch: 26 }, { wch: 16 }, { wch: 14 }, { wch: 22 }];
   ws['!merges'] = merges;
-  autoFitCols(ws);
+  autoFitCols(XLSX, ws);
   ws['!freeze'] = { xSplit: 0, ySplit: rHeaderTabla + 1 };
 
   const wb = XLSX.utils.book_new();

@@ -178,6 +178,11 @@ export default function AppShell() {
   const activeGroup = groups.find((g) => g.items.some((i) => isItemActive(location.pathname, i.path)));
   const currentTitle = allItems.find((i) => isItemActive(location.pathname, i.path))?.label || 'SAED';
 
+  // Titulo de pestana dinamico: "Apartamentos — SAED".
+  useEffect(() => {
+    document.title = currentTitle === 'SAED' ? 'SAED — Administración Residencial' : `${currentTitle} — SAED`;
+  }, [currentTitle]);
+
   // Al navegar, el grupo de la ruta activa se abre automáticamente.
   useEffect(() => {
     if (activeGroup && !openGroups.has(activeGroup.id)) {
