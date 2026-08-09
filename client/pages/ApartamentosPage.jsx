@@ -8,7 +8,7 @@ import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { ConfirmPasswordDialog } from '../components/ui/ConfirmPasswordDialog.jsx';
 import { valSelect, valNumero, valEntero } from '../lib/validation.js';
 import Toast from '../components/ui/Toast.jsx';
-import { useFetch } from '../lib/hooks.js';
+import { useFetch, useLiveValidation } from '../lib/hooks.js';
 import api from '../lib/api.js';
 
 const ESTADOS = ['DISPONIBLE', 'OCUPADO', 'EN_MANTENIMIENTO'];
@@ -54,6 +54,7 @@ export default function ApartamentosPage() {
   const [confirmDel, setConfirmDel] = useState(null);
   const [pwdConfirmOpen, setPwdConfirmOpen] = useState(false);
   const [verResidentes, setVerResidentes] = useState(null);
+  const { touch, fieldError } = useLiveValidation();
 
   const { data, loading, refetch } = useFetch(() => api.get('/apartamentos'), []);
   const { data: residentesDelApto, refetch: refetchResidentesApto } = useFetch(
@@ -126,6 +127,7 @@ export default function ApartamentosPage() {
   ];
 
   function update(k, v) {
+    setErrors((prev) => (prev[k] ? { ...prev, [k]: undefined } : prev));
     setForm((f) => {
       const next = { ...f, [k]: v };
       if (k === 'tipo') {
@@ -262,7 +264,8 @@ export default function ApartamentosPage() {
             label="Número"
             value={form.numero}
             onChange={(e) => update('numero', e.target.value)}
-            error={errors.numero}
+            onBlur={() => touch('numero')}
+            error={fieldError('numero', form.numero ? { ok: true } : { ok: false, mensaje: 'Requerido' }) || errors.numero}
           />
           <Input
             id="piso"
@@ -270,11 +273,12 @@ export default function ApartamentosPage() {
             type="number"
             value={form.piso}
             onChange={(e) => update('piso', e.target.value)}
-            error={errors.piso}
+            onBlur={() => touch('piso')}
+            error={fieldError('piso', form.piso ? { ok: true } : { ok: false, mensaje: 'Requerido' }) || errors.piso}
           />
         </div>
         <div className="form-row">
-          <Select id="tipo" label="Tipo" value={form.tipo} onChange={(e) => update('tipo', e.target.value)} error={errors.tipo}>
+          <Select id="tipo" label="Tipo" value={form.tipo} onChange={(e) => update('tipo', e.target.value)} onBlur={() => touch('tipo')} error={fieldError('tipo', valSelect(form.tipo, 'Seleccione el tipo de apartamento')) || errors.tipo}>
             {TIPOS.map((t) => (
               <option key={t} value={t}>
                 {t}
@@ -287,7 +291,8 @@ export default function ApartamentosPage() {
             type="number"
             value={form.areaM2}
             onChange={(e) => update('areaM2', e.target.value)}
-            error={errors.areaM2}
+            onBlur={() => touch('areaM2')}
+            error={fieldError('areaM2', valNumero(form.areaM2, { positivo: true })) || errors.areaM2}
           />
         </div>
         <div className="form-row">
@@ -297,7 +302,13 @@ export default function ApartamentosPage() {
             type="number"
             value={form.capacidadMaxima}
             onChange={(e) => update('capacidadMaxima', e.target.value)}
-            error={errors.capacidadMaxima}
+            onBlur={() => touch('capacidadMaxima')}
+            error={
+              fieldError(
+                'capacidadMaxima',
+                valEntero(form.capacidadMaxima, { min: 1, max: Math.max(CAPACIDADES_POR_TIPO[form.tipo] ?? 8, 8) })
+              ) || errors.capacidadMaxima
+            }
           />
           <Select id="estado" label="Estado" value={form.estado} onChange={(e) => update('estado', e.target.value)}>
             {ESTADOS.map((e) => (
