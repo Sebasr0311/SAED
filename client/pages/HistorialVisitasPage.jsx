@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 import * as XLSX from 'xlsx-js-style';
 import { unzipSync, zipSync, strFromU8, strToU8 } from 'fflate';
 import { Button } from '../components/ui/Button.jsx';
@@ -31,6 +31,40 @@ function aplicarFreeze(buffer, ySplit) {
   } catch {
     return buffer;
   }
+}
+
+// Ajusta el ancho de cada columna al contenido real formateado (evita que Excel
+// muestre ##### cuando el valor no cabe). Las celdas dentro de merges no cuentan
+// (su texto se reparte en el rango). Usa el ancho del spec como minimo.
+function autoFitCols(ws) {
+  if (!ws['!ref']) return;
+  try {
+    const range = XLSX.utils.decode_range(ws['!ref']);
+    const merged = new Set();
+    (ws['!merges'] || []).forEach((m) => {
+      for (let r = m.s.r; r <= m.e.r; r++) {
+        for (let c = m.s.c; c <= m.e.c; c++) merged.add(r + ':' + c);
+      }
+    });
+    const cols = (ws['!cols'] || []).map((c) => (c && c.wch) || 10);
+    for (let R = range.s.r; R <= range.e.r; R++) {
+      for (let C = range.s.c; C <= range.e.c; C++) {
+        if (merged.has(R + ':' + C)) continue;
+        const cell = ws[XLSX.utils.encode_cell({ r: R, c: C })];
+        if (!cell || cell.v === undefined || cell.v === null) continue;
+        let texto;
+        const fmt = cell.z || (cell.s && cell.s.numFmt);
+        if (cell.t === 'n' && fmt) {
+          try { texto = XLSX.SSF.format(fmt, cell.v); } catch { texto = String(cell.v); }
+        } else {
+          texto = String(cell.v);
+        }
+        const len = texto.length;
+        if (cols[C] < len + 2) cols[C] = len + 2;
+      }
+    }
+    ws['!cols'] = cols.map((wch) => ({ wch }));
+  } catch { /* mantiene !cols original ante cualquier error */ }
 }
 
 function exportarExcel(visitas, fechaInicio, fechaFin) {
@@ -201,6 +235,7 @@ function exportarExcel(visitas, fechaInicio, fechaFin) {
   const ws = XLSX.utils.aoa_to_sheet(aoa);
   ws['!cols'] = [{ wch: 12 }, { wch: 20 }, { wch: 14 }, { wch: 10 }, { wch: 26 }, { wch: 10 }, { wch: 10 }, { wch: 14 }, { wch: 10 }, { wch: 14 }, { wch: 12 }];
   ws['!merges'] = merges;
+  autoFitCols(ws);
   ws['!freeze'] = { xSplit: 0, ySplit: rHeaderTabla + 1 };
 
   const wb = XLSX.utils.book_new();
