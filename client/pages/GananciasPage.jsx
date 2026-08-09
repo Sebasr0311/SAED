@@ -27,6 +27,14 @@ function esc(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
+// Escape para atributos XML (además del HTML).
+function escA(s) {
+  return esc(s).replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+}
+
+// Export a SpreadsheetML 2003 (XML nativo de Excel): con extensión .xls Excel lo
+// abre SIN el warning "el formato y la extensión no coinciden" (a diferencia del
+// HTML con .xls). Los valores numéricos quedan editables y sumables.
 function exportarExcel(pagos, fechaInicio, fechaFin) {
   const total = pagos.reduce((s, p) => s + Number(p.valor || 0), 0);
   const cuotas = pagos.filter((p) => (p.tipoPago || 'CUOTA').toUpperCase().includes('CUOTA'));
@@ -58,138 +66,253 @@ function exportarExcel(pagos, fechaInicio, fechaFin) {
   });
   const aptosOrdenados = Object.keys(porApto).sort((a, b) => Number(a) - Number(b) || String(a).localeCompare(String(b)));
 
-  const filaDetalle = (p, fondo) => `
-<tr style="background:${fondo};">
-<td style="padding:8px 12px;border-bottom:1px solid #E5E9F0;color:#5B6B85;">${esc(p.id)}</td>
-<td style="padding:8px 12px;border-bottom:1px solid #E5E9F0;">${esc(formatDate(p.fecha))}</td>
-<td style="padding:8px 12px;border-bottom:1px solid #E5E9F0;"><span style="background:${(p.tipoPago || '').toUpperCase().includes('MULTA') ? '#FBEAE8;color:#C0392B' : '#E7F7EF;color:#0F8A5F'};padding:3px 10px;border-radius:10px;font-size:12px;font-weight:700;">${esc(p.tipoPago || 'CUOTA')}</span></td>
-<td style="padding:8px 12px;border-bottom:1px solid #E5E9F0;text-align:center;font-weight:600;">${esc(p.apartamento)}</td>
-<td style="padding:8px 12px;border-bottom:1px solid #E5E9F0;">${esc(p.residente)}</td>
-<td style="padding:8px 12px;border-bottom:1px solid #E5E9F0;color:#5B6B85;">${esc(p.metodo)}</td>
-<td style='mso-number-format:"\\#\\,\\#\\#0";text-align:right;padding:8px 12px;border-bottom:1px solid #E5E9F0;'>${Number(p.valor || 0)}</td>
-<td style="padding:8px 12px;border-bottom:1px solid #E5E9F0;color:#5B6B85;">${esc(p.descripcion)}</td>
-</tr>`;
+  const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
+  // Helpers SpreadsheetML
+  const cell = (value, opts = {}) => {
+    const { type = 'String', style, merge } = opts;
+    const attrs = [];
+    if (style) attrs.push(`ss:StyleID="${style}"`);
+    if (merge) attrs.push(`ss:MergeAcross="${merge}"`);
+    return `<Cell${attrs.length ? ' ' + attrs.join(' ') : ''}><Data ss:Type="${type}">${esc(value)}</Data></Cell>`;
+  };
+  const cellNum = (value, style) =>
+    `<Cell${style ? ` ss:StyleID="${style}"` : ''}><Data ss:Type="Number">${Number(value || 0)}</Data></Cell>`;
+
+  // Estilos
+  const styles = `
+    <Style ss:ID="Default" ss:Name="Normal">
+      <Alignment ss:Vertical="Center"/>
+      <Font ss:FontName="Calibri" ss:Size="11" ss:Color="#1A2233"/>
+      <Borders>
+        <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E5E9F0"/>
+      </Borders>
+    </Style>
+    <Style ss:ID="Titulo">
+      <Font ss:FontName="Calibri" ss:Size="16" ss:Bold="1" ss:Color="#0F2044"/>
+    </Style>
+    <Style ss:ID="Subtitulo">
+      <Font ss:FontName="Calibri" ss:Size="11" ss:Color="#5B6B85"/>
+    </Style>
+    <Style ss:ID="Header">
+      <Alignment ss:Vertical="Center"/>
+      <Font ss:FontName="Calibri" ss:Size="11" ss:Bold="1" ss:Color="#FFFFFF"/>
+      <Interior ss:Color="#0F2044" ss:Pattern="Solid"/>
+      <Borders>
+        <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#0F2044"/>
+      </Borders>
+    </Style>
+    <Style ss:ID="HeaderMini">
+      <Alignment ss:Vertical="Center"/>
+      <Font ss:FontName="Calibri" ss:Size="11" ss:Bold="1" ss:Color="#FFFFFF"/>
+      <Interior ss:Color="#2855A0" ss:Pattern="Solid"/>
+      <Borders>
+        <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#2855A0"/>
+      </Borders>
+    </Style>
+    <Style ss:ID="KpiLabel">
+      <Font ss:FontName="Calibri" ss:Size="10" ss:Color="#8592A8"/>
+      <Interior ss:Color="#F4F6FA" ss:Pattern="Solid"/>
+      <Borders>
+        <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E5E9F0"/>
+        <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E5E9F0"/>
+      </Borders>
+    </Style>
+    <Style ss:ID="KpiValue">
+      <Font ss:FontName="Calibri" ss:Size="14" ss:Bold="1" ss:Color="#0F2044"/>
+      <Interior ss:Color="#F4F6FA" ss:Pattern="Solid"/>
+      <Borders>
+        <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E5E9F0"/>
+      </Borders>
+    </Style>
+    <Style ss:ID="KpiVerde">
+      <Font ss:FontName="Calibri" ss:Size="14" ss:Bold="1" ss:Color="#0F8A5F"/>
+      <Interior ss:Color="#F4F6FA" ss:Pattern="Solid"/>
+    </Style>
+    <Style ss:ID="KpiRojo">
+      <Font ss:FontName="Calibri" ss:Size="14" ss:Bold="1" ss:Color="#C0392B"/>
+      <Interior ss:Color="#F4F6FA" ss:Pattern="Solid"/>
+    </Style>
+    <Style ss:ID="Seccion">
+      <Font ss:FontName="Calibri" ss:Size="13" ss:Bold="1" ss:Color="#0F2044"/>
+    </Style>
+    <Style ss:ID="Numero">
+      <NumberFormat ss:Format="#,##0"/>
+      <Alignment ss:Horizontal="Right"/>
+      <Font ss:FontName="Calibri" ss:Size="11" ss:Color="#1A2233"/>
+    </Style>
+    <Style ss:ID="NumeroBold">
+      <NumberFormat ss:Format="#,##0"/>
+      <Alignment ss:Horizontal="Right"/>
+      <Font ss:FontName="Calibri" ss:Size="11" ss:Bold="1" ss:Color="#0F2044"/>
+    </Style>
+    <Style ss:ID="BadgeCuota">
+      <Font ss:FontName="Calibri" ss:Size="10" ss:Bold="1" ss:Color="#0F8A5F"/>
+      <Interior ss:Color="#E7F7EF" ss:Pattern="Solid"/>
+      <Alignment ss:Horizontal="Center"/>
+    </Style>
+    <Style ss:ID="BadgeMulta">
+      <Font ss:FontName="Calibri" ss:Size="10" ss:Bold="1" ss:Color="#C0392B"/>
+      <Interior ss:Color="#FBEAE8" ss:Pattern="Solid"/>
+      <Alignment ss:Horizontal="Center"/>
+    </Style>
+    <Style ss:ID="Apto">
+      <Alignment ss:Horizontal="Center"/>
+      <Font ss:FontName="Calibri" ss:Size="11" ss:Bold="1" ss:Color="#1A2233"/>
+    </Style>
+    <Style ss:ID="Muted">
+      <Font ss:FontName="Calibri" ss:Size="11" ss:Color="#5B6B85"/>
+    </Style>`;
+
+  // Filas de detalle
   const filasDetalle = pagos
-    .map((p, i) => filaDetalle(p, i % 2 === 0 ? '#FFFFFF' : '#F7F9FC'))
+    .map((p) => {
+      const esMulta = (p.tipoPago || '').toUpperCase().includes('MULTA');
+      const badge = esMulta ? 'BadgeMulta' : 'BadgeCuota';
+      return `<Row>
+        ${cell(esc(p.id), { style: 'Muted' })}
+        ${cell(esc(formatDate(p.fecha)))}
+        ${cell(esc(p.tipoPago || 'CUOTA'), { style: badge })}
+        ${cell(esc(p.apartamento), { style: 'Apto' })}
+        ${cell(esc(p.residente))}
+        ${cell(esc(p.metodo), { style: 'Muted' })}
+        ${cellNum(p.valor, 'Numero')}
+        ${cell(esc(p.descripcion), { style: 'Muted' })}
+      </Row>`;
+    })
     .join('');
 
-  const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  // Resumen mensual
   const filasMensual = mesesOrdenados
     .map((m) => {
       const [y, mm] = m.split('-');
       const nombreMes = MESES[Number(mm) - 1] || mm;
-      return `
-<tr>
-<td style="padding:8px 14px;border-bottom:1px solid #E5E9F0;">${nombreMes} ${y}</td>
-<td style="padding:8px 14px;border-bottom:1px solid #E5E9F0;text-align:center;">${porMes[m].n}</td>
-<td style='mso-number-format:"\\#\\,\\#\\#0";text-align:right;padding:8px 12px;border-bottom:1px solid #E5E9F0;font-weight:700;'>${porMes[m].total}</td>
-</tr>`;
+      return `<Row>
+        ${cell(`${nombreMes} ${y}`)}
+        ${cell(String(porMes[m].n), { style: 'Apto' })}
+        ${cellNum(porMes[m].total, 'NumeroBold')}
+      </Row>`;
     })
     .join('');
 
+  // Resumen por apartamento
   const filasApto = aptosOrdenados
-    .map((a) => `
-<tr>
-<td style="padding:8px 14px;border-bottom:1px solid #E5E9F0;text-align:center;font-weight:600;">${esc(a)}</td>
-<td style="padding:8px 14px;border-bottom:1px solid #E5E9F0;text-align:center;">${porApto[a].n}</td>
-<td style='mso-number-format:"\\#\\,\\#\\#0";text-align:right;padding:8px 12px;border-bottom:1px solid #E5E9F0;font-weight:700;'>${porApto[a].total}</td>
-</tr>`
-    )
+    .map((a) => `<Row>
+      ${cell(esc(a), { style: 'Apto' })}
+      ${cell(String(porApto[a].n), { style: 'Apto' })}
+      ${cellNum(porApto[a].total, 'NumeroBold')}
+    </Row>`)
     .join('');
+
+  // KPIs
+  const kpi = (label, value, style) => `<Row>
+    ${cell(esc(label), { style: 'KpiLabel', merge: 1 })}
+    ${cell('')}
+    ${cell(esc(value), { style })}
+  </Row>`;
+
+  const filasKpi = [
+    kpi('Total General', formatCurrency(total), 'KpiValue'),
+    kpi('Cuotas', formatCurrency(totalCuotas), 'KpiVerde'),
+    kpi('Multas', formatCurrency(totalMultas), 'KpiRojo'),
+    kpi('Efectivo', formatCurrency(totalEfectivo), 'KpiValue'),
+    kpi('Transferencia', formatCurrency(totalTransferencia), 'KpiValue'),
+  ].join('');
 
   const d1 = formatDate(fechaInicio);
   const d2 = formatDate(fechaFin);
 
-  let xls = `<!DOCTYPE html>
-<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
-<head>
-<meta charset="UTF-8">
-<!--[if gte mso 9]>
-<xml>
-<x:ExcelWorkbook>
-<x:ExcelWorksheets>
-<x:ExcelWorksheet>
-<x:Name>Ganancias</x:Name>
-<x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>
-</x:ExcelWorksheet>
-</x:ExcelWorksheets>
-</x:ExcelWorkbook>
-</xml>
-<![endif]-->
-<style>
-  body { font-family: Calibri, Arial, sans-serif; color:#1A2233; margin:0; padding:24px; background:#EEF1F6; }
-  .sheet { max-width: 1100px; margin: 0 auto; background:#fff; }
-  h1 { font-size: 22px; margin:0 0 4px 0; color:#0F2044; }
-  .subtitle { color:#5B6B85; font-size:13px; margin-bottom:20px; }
-  table { border-collapse: collapse; width:100%; }
-  .kpi-table td { padding:16px 20px; }
-  .kpi-label { font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#8592A8; }
-  .kpi-value { font-size:20px; font-weight:700; color:#0F2044; }
-  .section-title { font-size:15px; font-weight:700; color:#0F2044; margin:28px 0 10px 0; padding-top:10px; border-top:2px solid #EEF1F6;}
-  thead th { background:#0F2044; color:#fff; text-align:left; padding:10px 12px; font-size:12px; text-transform:uppercase; letter-spacing:.03em; }
-  tfoot td { background:#0F2044; color:#fff; font-weight:700; padding:10px 12px; }
-  .mini thead th { background:#2855A0; }
-  .footer-note { color:#8592A8; font-size:11px; margin-top:24px; }
-</style>
-</head>
-<body>
-<div class="sheet">
-  <h1>Reporte de Ganancias — Edificio Residencial</h1>
-  <div class="subtitle">Periodo: ${d1} — ${d2} &nbsp;|&nbsp; Generado por SAED &nbsp;|&nbsp; ${pagos.length} transacciones · ${aptos} apartamentos</div>
-
-  <table class="kpi-table" style="border:1px solid #E5E9F0;">
-    <tr>
-      <td style="border-right:1px solid #E5E9F0;"><div class="kpi-label">Total General</div><div class="kpi-value" style="color:#0F2044;">${formatCurrency(total)}</div></td>
-      <td style="border-right:1px solid #E5E9F0;"><div class="kpi-label">Cuotas</div><div class="kpi-value" style="color:#0F8A5F;">${formatCurrency(totalCuotas)}</div></td>
-      <td style="border-right:1px solid #E5E9F0;"><div class="kpi-label">Multas</div><div class="kpi-value" style="color:#C0392B;">${formatCurrency(totalMultas)}</div></td>
-      <td style="border-right:1px solid #E5E9F0;"><div class="kpi-label">Efectivo</div><div class="kpi-value" style="color:#1A2233;">${formatCurrency(totalEfectivo)}</div></td>
-      <td><div class="kpi-label">Transferencia</div><div class="kpi-value" style="color:#1A2233;">${formatCurrency(totalTransferencia)}</div></td>
-    </tr>
-  </table>
-
-  <div class="section-title">Detalle de transacciones</div>
-  <table>
-    <thead>
-      <tr><th>#</th><th>Fecha</th><th>Tipo</th><th>Apto</th><th>Residente</th><th>Método</th><th style="text-align:right;">Valor</th><th>Descripción</th></tr>
-    </thead>
-    <tbody>
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:o="urn:schemas-microsoft-com:office:office"
+ xmlns:x="urn:schemas-microsoft-com:office:excel"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:html="http://www.w3.org/TR/REC-html40">
+  <Styles>${styles}
+  </Styles>
+  <Worksheet ss:Name="Ganancias">
+    <Table>
+      <Column ss:Width="90"/>
+      <Column ss:Width="180"/>
+      <Column ss:Width="120"/>
+      <Column ss:Width="80"/>
+      <Column ss:Width="180"/>
+      <Column ss:Width="110"/>
+      <Column ss:Width="90"/>
+      <Column ss:Width="160"/>
+      <Row ss:Height="30">
+        ${cell('Reporte de Ganancias — Edificio Residencial', { style: 'Titulo', merge: 7 })}
+        ${Array(7).fill('').map(() => cell('')).join('')}
+      </Row>
+      <Row>
+        ${cell(`Periodo: ${d1} — ${d2} | Generado por SAED | ${pagos.length} transacciones · ${aptos} apartamentos`, { style: 'Subtitulo', merge: 7 })}
+        ${Array(7).fill('').map(() => cell('')).join('')}
+      </Row>
+      <Row ss:Height="20"/>
+      ${filasKpi}
+      <Row ss:Height="20"/>
+      <Row>
+        ${cell('Detalle de transacciones', { style: 'Seccion', merge: 7 })}
+        ${Array(7).fill('').map(() => cell('')).join('')}
+      </Row>
+      <Row>
+        ${cell('#', { style: 'Header' })}
+        ${cell('Fecha', { style: 'Header' })}
+        ${cell('Tipo', { style: 'Header' })}
+        ${cell('Apto', { style: 'Header' })}
+        ${cell('Residente', { style: 'Header' })}
+        ${cell('Método', { style: 'Header' })}
+        ${cell('Valor', { style: 'Header' })}
+        ${cell('Descripción', { style: 'Header' })}
+      </Row>
       ${filasDetalle}
-    </tbody>
-    <tfoot>
-      <tr><td colspan="6">Total</td><td style='mso-number-format:"\\#\\,\\#\\#0";text-align:right;'>${total}</td><td></td></tr>
-    </tfoot>
-  </table>
-
-  <div style="display:flex;gap:24px;">
-    <div style="flex:1;">
-      <div class="section-title">Resumen mensual</div>
-      <table class="mini">
-        <thead><tr><th>Mes</th><th style="text-align:center;">Transacciones</th><th style="text-align:right;">Total</th></tr></thead>
-        <tbody>
-          ${filasMensual}
-        </tbody>
-      </table>
-    </div>
-    <div style="flex:1;">
-      <div class="section-title">Resumen por apartamento</div>
-      <table class="mini">
-        <thead><tr><th style="text-align:center;">Apto</th><th style="text-align:center;">Transacciones</th><th style="text-align:right;">Total</th></tr></thead>
-        <tbody>
-          ${filasApto}
-        </tbody>
-      </table>
-    </div>
-  </div>
-
-  <div class="footer-note">Los valores están escritos como números editables (formato Excel) — puedes sumar, filtrar o dar formato adicional directamente en la hoja.</div>
-</div>
-</body>
-</html>`;
+      <Row>
+        ${cell('Total', { style: 'Header', merge: 5 })}
+        ${Array(5).fill('').map(() => cell('')).join('')}
+        ${cellNum(total, 'Header')}
+        ${cell('')}
+      </Row>
+      <Row ss:Height="20"/>
+      <Row>
+        ${cell('Resumen mensual', { style: 'Seccion', merge: 2 })}
+        ${Array(2).fill('').map(() => cell('')).join('')}
+        ${cell('Resumen por apartamento', { style: 'Seccion', merge: 2 })}
+        ${Array(2).fill('').map(() => cell('')).join('')}
+      </Row>
+      <Row>
+        ${cell('Mes', { style: 'HeaderMini' })}
+        ${cell('Transacciones', { style: 'HeaderMini' })}
+        ${cell('Total', { style: 'HeaderMini' })}
+        ${cell('Apto', { style: 'HeaderMini' })}
+        ${cell('Transacciones', { style: 'HeaderMini' })}
+        ${cell('Total', { style: 'HeaderMini' })}
+        ${cell('')}
+        ${cell('')}
+      </Row>
+      ${mesesOrdenados.map((m, i) => {
+        const [y, mm] = m.split('-');
+        const nombreMes = MESES[Number(mm) - 1] || mm;
+        const apto = aptosOrdenados[i];
+        const row = `<Row>
+          ${cell(`${nombreMes} ${y}`)}
+          ${cell(String(porMes[m].n), { style: 'Apto' })}
+          ${cellNum(porMes[m].total, 'NumeroBold')}
+          ${apto ? cell(esc(apto), { style: 'Apto' }) : cell('')}
+          ${apto ? cell(String(porApto[apto].n), { style: 'Apto' }) : cell('')}
+          ${apto ? cellNum(porApto[apto].total, 'NumeroBold') : cell('')}
+          ${cell('')}
+          ${cell('')}
+        </Row>`;
+        return row;
+      }).join('')}
+    </Table>
+  </Worksheet>
+</Workbook>`;
 
   // BOM UTF-8: sin él, Excel interpreta el .xls como Windows-1252 y corrompe los
   // acentos (archivo "dañado" o texto ilegible). El BOM fuerza detección UTF-8.
-  const blob = new Blob(['\uFEFF' + xls], { type: 'application/vnd.ms-excel' });
+  const blob = new Blob(['\uFEFF' + xml], { type: 'application/vnd.ms-excel' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
