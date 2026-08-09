@@ -94,7 +94,7 @@ function exportarExcel(pagos, fechaInicio, fechaFin) {
   };
   r += 3;
 
-  // KPIs: una fila por KPI (label + valor en columna A/B)
+  // KPIs: una fila por KPI (label merge A:B, valor en C) — fiel a la plantilla
   const kpis = [
     ['Total General', total, 'kpiValue'],
     ['Cuotas', totalCuotas, 'kpiVerde'],
@@ -102,15 +102,18 @@ function exportarExcel(pagos, fechaInicio, fechaFin) {
     ['Efectivo', totalEfectivo, 'kpiValue'],
     ['Transferencia', totalTransferencia, 'kpiValue'],
   ];
+  const filasKpi = [];
   kpis.forEach(([label, valor, estilo]) => {
     aoa[r] = [];
     aoa[r][0] = { t: 's', v: label, s: estilos.kpiLabel };
-    aoa[r][1] = { t: 'n', v: Number(valor || 0), s: estilos[estilo] };
+    aoa[r][2] = { t: 'n', v: Number(valor || 0), s: estilos[estilo] };
+    filasKpi.push(r);
     r++;
   });
   r++;
 
-  // Seccion detalle
+  // Seccion detalle (merge A:H como en la plantilla)
+  const rSeccionDetalle = r;
   aoa[r] = [{ t: 's', v: 'Detalle de transacciones', s: estilos.seccion }];
   r++;
   aoa[r] = [
@@ -131,7 +134,8 @@ function exportarExcel(pagos, fechaInicio, fechaFin) {
   aoa[r] = [S('header', 'Total'), {}, {}, {}, {}, {}, N(total, 'numeroBold'), {}];
   r += 2;
 
-  // Resumen mensual + por apartamento lado a lado
+  // Resumen mensual + por apartamento lado a lado (merges A:C y E:G como la plantilla)
+  const rSeccionResumenes = r;
   aoa[r] = []; aoa[r][0] = { t: 's', v: 'Resumen mensual', s: estilos.seccion };
   aoa[r][4] = { t: 's', v: 'Resumen por apartamento', s: estilos.seccion };
   r++;
@@ -161,10 +165,15 @@ function exportarExcel(pagos, fechaInicio, fechaFin) {
     { wch: 12 }, { wch: 22 }, { wch: 12 }, { wch: 12 },
     { wch: 26 }, { wch: 14 }, { wch: 14 }, { wch: 30 },
   ];
-  // Merges: titulo A1:H1, subtitulo A2:H2, seccion detalle
+  // Merges fieles a la plantilla: titulo A1:H1, subtitulo A2:H2, labels KPI A:B,
+  // seccion detalle A:H, resumen mensual A:C, resumen por apartamento E:G
   ws['!merges'] = [
     { s: { r: 0, c: 0 }, e: { r: 0, c: 7 } },
     { s: { r: 1, c: 0 }, e: { r: 1, c: 7 } },
+    ...filasKpi.map((fr) => ({ s: { r: fr, c: 0 }, e: { r: fr, c: 1 } })),
+    { s: { r: rSeccionDetalle, c: 0 }, e: { r: rSeccionDetalle, c: 7 } },
+    { s: { r: rSeccionResumenes, c: 0 }, e: { r: rSeccionResumenes, c: 2 } },
+    { s: { r: rSeccionResumenes, c: 4 }, e: { r: rSeccionResumenes, c: 6 } },
   ];
 
   const wb = XLSX.utils.book_new();

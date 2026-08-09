@@ -77,22 +77,25 @@ function exportarExcel(visitas, fechaInicio, fechaFin) {
   };
   r += 3;
 
-  // KPIs
+  // KPIs: label merge A:B, valor en C — fiel a la plantilla
   const kpis = [
     ['Total Registros', String(total), 'kpiValue'],
     ['Canceladas', String(canceladas), 'kpiRojo'],
     ['Expiradas', String(expiradas), 'kpiAmbar'],
     ['Apartamentos Involucrados', String(aptos), 'kpiValue'],
   ];
+  const filasKpi = [];
   kpis.forEach(([label, valor, estilo]) => {
     aoa[r] = [];
     aoa[r][0] = { t: 's', v: label, s: estilos.kpiLabel };
-    aoa[r][1] = { t: 's', v: valor, s: estilos[estilo] };
+    aoa[r][2] = { t: 's', v: valor, s: estilos[estilo] };
+    filasKpi.push(r);
     r++;
   });
   r++;
 
-  // Seccion detalle
+  // Seccion detalle (merge A:K como en la plantilla)
+  const rSeccionDetalle = r;
   aoa[r] = []; aoa[r][0] = { t: 's', v: 'Detalle de registros', s: estilos.seccion };
   r++;
   aoa[r] = [
@@ -123,7 +126,8 @@ function exportarExcel(visitas, fechaInicio, fechaFin) {
   });
   r++;
 
-  // Resumen por estado + por apartamento lado a lado
+  // Resumen por estado + por apartamento lado a lado (merges A:E y F:K como la plantilla)
+  const rSeccionResumenes = r;
   aoa[r] = []; aoa[r][0] = { t: 's', v: 'Resumen por estado', s: estilos.seccion };
   aoa[r][5] = { t: 's', v: 'Resumen por apartamento', s: estilos.seccion };
   r++;
@@ -155,9 +159,15 @@ function exportarExcel(visitas, fechaInicio, fechaFin) {
     { wch: 26 }, { wch: 12 }, { wch: 12 }, { wch: 14 },
     { wch: 14 }, { wch: 14 }, { wch: 14 },
   ];
+  // Merges fieles a la plantilla: titulo A1:K1, subtitulo A2:K2, labels KPI A:B,
+  // seccion detalle A:K, resumen por estado A:E, resumen por apartamento F:K
   ws['!merges'] = [
     { s: { r: 0, c: 0 }, e: { r: 0, c: 10 } },
     { s: { r: 1, c: 0 }, e: { r: 1, c: 10 } },
+    ...filasKpi.map((fr) => ({ s: { r: fr, c: 0 }, e: { r: fr, c: 1 } })),
+    { s: { r: rSeccionDetalle, c: 0 }, e: { r: rSeccionDetalle, c: 10 } },
+    { s: { r: rSeccionResumenes, c: 0 }, e: { r: rSeccionResumenes, c: 4 } },
+    { s: { r: rSeccionResumenes, c: 5 }, e: { r: rSeccionResumenes, c: 10 } },
   ];
 
   const wb = XLSX.utils.book_new();
