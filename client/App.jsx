@@ -1,37 +1,43 @@
+import { lazy } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import LoginPage from './pages/LoginPage.jsx';
-import DashboardPage from './pages/DashboardPage.jsx';
 import AppShell from './components/layout/AppShell.jsx';
 import { AuthProvider } from './lib/AuthContext.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 
-import ResidentesPage from './pages/ResidentesPage.jsx';
-import ApartamentosPage from './pages/ApartamentosPage.jsx';
-import ContratosPage from './pages/ContratosPage.jsx';
-import UsuariosPage from './pages/UsuariosPage.jsx';
-import VisitasPage from './pages/VisitasPage.jsx';
-import ParqueaderosPage from './pages/ParqueaderosPage.jsx';
-import PagosPage from './pages/PagosPage.jsx';
-import MultasPage from './pages/MultasPage.jsx';
-import AlertasPage from './pages/AlertasPage.jsx';
-import AvisosPage from './pages/AvisosPage.jsx';
-import QuejasAdminPage from './pages/QuejasAdminPage.jsx';
-import GananciasPage from './pages/GananciasPage.jsx';
-import HistorialVisitasPage from './pages/HistorialVisitasPage.jsx';
-import PaquetesAdminPage from './pages/PaquetesAdminPage.jsx';
-import EscannerQRPage from './pages/EscannerQRPage.jsx';
+// Code-splitting por ruta: cada página carga solo cuando se visita, reduciendo
+// el bundle inicial (~1.2MB -> fracciones). Login queda eager (entry point).
+const DashboardPage = lazy(() => import('./pages/DashboardPage.jsx'));
+const ResidentesPage = lazy(() => import('./pages/ResidentesPage.jsx'));
+const ApartamentosPage = lazy(() => import('./pages/ApartamentosPage.jsx'));
+const ContratosPage = lazy(() => import('./pages/ContratosPage.jsx'));
+const UsuariosPage = lazy(() => import('./pages/UsuariosPage.jsx'));
+const VisitasPage = lazy(() => import('./pages/VisitasPage.jsx'));
+const ParqueaderosPage = lazy(() => import('./pages/ParqueaderosPage.jsx'));
+const PagosPage = lazy(() => import('./pages/PagosPage.jsx'));
+const MultasPage = lazy(() => import('./pages/MultasPage.jsx'));
+const AlertasPage = lazy(() => import('./pages/AlertasPage.jsx'));
+const AvisosPage = lazy(() => import('./pages/AvisosPage.jsx'));
+const QuejasAdminPage = lazy(() => import('./pages/QuejasAdminPage.jsx'));
+const GananciasPage = lazy(() => import('./pages/GananciasPage.jsx'));
+const HistorialVisitasPage = lazy(() => import('./pages/HistorialVisitasPage.jsx'));
+const PaquetesAdminPage = lazy(() => import('./pages/PaquetesAdminPage.jsx'));
+const EscannerQRPage = lazy(() => import('./pages/EscannerQRPage.jsx'));
 
-import ResidenteDashboardPage from './pages/ResidenteDashboardPage.jsx';
-import ResPerfilPage from './pages/ResPerfilPage.jsx';
-import ResApartamentoPage from './pages/ResApartamentoPage.jsx';
-import ResCuotasPage from './pages/ResCuotasPage.jsx';
-import ResFrecuentesPage from './pages/ResFrecuentesPage.jsx';
-import ResBuzonPage from './pages/ResBuzonPage.jsx';
-import ResVisitaPage from './pages/ResVisitaPage.jsx';
-import ResQuejasPage from './pages/ResQuejasPage.jsx';
+const ResidenteDashboardPage = lazy(() => import('./pages/ResidenteDashboardPage.jsx'));
+const ResPerfilPage = lazy(() => import('./pages/ResPerfilPage.jsx'));
+const ResApartamentoPage = lazy(() => import('./pages/ResApartamentoPage.jsx'));
+const ResCuotasPage = lazy(() => import('./pages/ResCuotasPage.jsx'));
+const ResFrecuentesPage = lazy(() => import('./pages/ResFrecuentesPage.jsx'));
+const ResBuzonPage = lazy(() => import('./pages/ResBuzonPage.jsx'));
+const ResVisitaPage = lazy(() => import('./pages/ResVisitaPage.jsx'));
+const ResQuejasPage = lazy(() => import('./pages/ResQuejasPage.jsx'));
 
-import PorteroDashboardPage from './pages/PorteroDashboardPage.jsx';
-import PaquetesPage from './pages/PaquetesPage.jsx';
+const PorteroDashboardPage = lazy(() => import('./pages/PorteroDashboardPage.jsx'));
+const PaquetesPage = lazy(() => import('./pages/PaquetesPage.jsx'));
+
+// Fallback de las rutas lazy vive en AppShell (envuelve <Outlet />), de modo que
+// el shell (sidebar/topbar) permanezca visible mientras se carga la página.
 
 export default function App() {
   return (

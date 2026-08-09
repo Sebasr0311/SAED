@@ -29,7 +29,7 @@ export function Button({
       disabled={disabled || loading}
       onClick={onClick}
       className={classNames(
-        'inline-flex items-center justify-center gap-2 rounded-full font-semibold transition-colors',
+        'inline-flex items-center justify-center gap-2 rounded font-semibold transition-colors',
         'disabled:opacity-50 disabled:cursor-not-allowed',
         variants[variant],
         sizes[size],

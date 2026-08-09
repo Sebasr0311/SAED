@@ -142,11 +142,11 @@ export default function ResFrecuentesPage() {
                 width: '48px',
                 height: '48px',
                 borderRadius: '50%',
-                background: '#e2e8f0',
+                background: 'var(--border)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: '#94a3b8',
+                color: 'var(--text-muted)',
                 flexShrink: 0,
               }}
             >
@@ -192,7 +192,7 @@ export default function ResFrecuentesPage() {
             ))}
           </Select>
           {errorTiposDoc && !tiposDoc.length && (
-            <p style={{ color: '#e11d48', fontSize: '12px' }}>Error al cargar los tipos de documento</p>
+            <p style={{ color: 'var(--error)', fontSize: '12px' }}>Error al cargar los tipos de documento</p>
           )}
           <Input
             id="numeroDocumento"

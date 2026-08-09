@@ -106,7 +106,7 @@ export default function ResBuzonPage() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         {loading && <div className="card empty-state">Cargando...</div>}
         {!loading && error && (
-          <div className="card empty-state" style={{ color: '#e11d48' }}>Error al cargar el buzón: {error?.message}</div>
+          <div className="card empty-state" style={{ color: 'var(--error)' }}>Error al cargar el buzón: {error?.message}</div>
         )}
         {!loading && !error && items.length === 0 && (
           <div className="card empty-state">Buzón vacío</div>
@@ -121,7 +121,7 @@ export default function ResBuzonPage() {
                 display: 'flex',
                 alignItems: 'flex-start',
                 gap: '10px',
-                borderLeft: leido ? 'none' : '4px solid #0f2044',
+                borderLeft: leido ? 'none' : '4px solid var(--primary)',
                 opacity: leido ? 0.7 : 1,
                 cursor: leido ? 'default' : 'pointer',
               }}
@@ -139,15 +139,15 @@ export default function ResBuzonPage() {
               />
               <div style={{ flex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>{it.titulo}</div>
+                  <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--on-surface)' }}>{it.titulo}</div>
                   {it.cuerpo && (
-                    <div style={{ marginTop: '4px', fontSize: '13px', color: '#475569' }}>{it.cuerpo}</div>
+                    <div style={{ marginTop: '4px', fontSize: '13px', color: 'var(--text-secondary)' }}>{it.cuerpo}</div>
                   )}
                   <div style={{ marginTop: '8px', display: 'flex', gap: '8px', alignItems: 'center' }}>
                     <span className="badge badge-info" style={{ fontSize: '10px' }}>
                       {it.tipo}
                     </span>
-                    <span style={{ fontSize: '11px', color: '#94a3b8' }}>{formatDate(it.fechaCreacion)}</span>
+                    <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{formatDate(it.fechaCreacion)}</span>
                     {!leido && (
                       <span className="badge badge-warn" style={{ fontSize: '10px' }}>
                         Nuevo
@@ -157,8 +157,9 @@ export default function ResBuzonPage() {
                 </div>
                 {it.fotoCaptura && (
                   <img
-                    src={imageSrc(it.fotoCaptura)}
-                    alt="Foto"
+                  src={imageSrc(it.fotoCaptura)}
+                  alt="Foto"
+                  loading="lazy"
                     style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px', cursor: 'zoom-in', flexShrink: 0 }}
                     onClick={(e) => {
                       e.stopPropagation();

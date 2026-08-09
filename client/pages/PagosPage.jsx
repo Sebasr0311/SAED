@@ -218,7 +218,7 @@ export default function PagosPage() {
       >
         {detalle && (
           <>
-            <h4 style={{ marginBottom: '8px', fontSize: '13px', fontWeight: 700 }}>Cuotas</h4>
+                <h4 className="mb-2 text-[13px] font-bold">Cuotas</h4>
             <div className="table-container" style={{ marginBottom: '16px' }}>
               <table className="data-table">
                 <thead>
@@ -244,7 +244,7 @@ export default function PagosPage() {
                   ))}
                   {detalle.cuotas.length === 0 && (
                     <tr>
-                      <td colSpan={4} style={{ textAlign: 'center', color: '#94a3b8' }}>
+                      <td colSpan={4} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
                         Sin cuotas pendientes
                       </td>
                     </tr>
@@ -252,7 +252,7 @@ export default function PagosPage() {
                 </tbody>
               </table>
             </div>
-            <h4 style={{ marginBottom: '8px', fontSize: '13px', fontWeight: 700 }}>Multas</h4>
+                <h4 className="mb-2 text-[13px] font-bold">Multas</h4>
             <div className="table-container">
               <table className="data-table">
                 <thead>
@@ -278,7 +278,7 @@ export default function PagosPage() {
                   ))}
                   {detalle.multas.length === 0 && (
                     <tr>
-                      <td colSpan={4} style={{ textAlign: 'center', color: '#94a3b8' }}>
+                      <td colSpan={4} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
                         Sin multas pendientes
                       </td>
                     </tr>

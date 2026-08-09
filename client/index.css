@@ -27,6 +27,39 @@
     overflow-x: hidden;
   }
 
+  :root {
+    /* Tokens semanticos: misma fuente de verdad que tailwind.config.js.
+       Las paginas usan estas vars inline (`var(--text-muted)`) y los componentes
+       del kit usan las utilidades de Tailwind; ambos deben resolver al mismo valor. */
+    --surface: #ffffff;
+    --surface-dim: #f1f5f9;
+    --surface-container: #f8fafc;
+    --primary: #0f2044;
+    --on-primary: #ffffff;
+    --on-surface: #0f172a;
+    --on-surface-variant: #475569;
+    --outline-variant: #e2e8f0;
+    --text-secondary: #475569;
+    --text-muted: #64748b;
+    --text-hint: #94a3b8;
+    --border: #e2e8f0;
+    --border-focus: #3d6bbf;
+    --border-subtle: #f1f5f9;
+    --error: #e11d48;
+    --error-container: #ffe4e6;
+    --success: #059669;
+    --success-strong: #065f46;
+    --warn: #b45309;
+    --warn-amber-bg: #fffbeb;
+    --accent-green: #047857;
+    --accent-green-bg: #ecfdf5;
+    --info: #0369a1;
+    --info-bg: #e0f2fe;
+    /* Radio unico para controles interactivos (estilo shadcn, no pildoras).
+       Consistente con el token Tailwind `rounded` (DEFAULT 12px). */
+    --radius-control: 12px;
+  }
+
   /* Material Symbols */
   .material-symbols-outlined {
     font-variation-settings:
@@ -671,7 +704,7 @@
   .stat-badge {
     margin-left: auto;
     opacity: 0.4;
-    color: #94a3b8;
+    color: var(--text-muted);
   }
   .stat-badge .material-symbols-outlined {
     font-size: 22px;
@@ -721,7 +754,7 @@
     justify-content: center;
     gap: 8px;
     padding: 10px 18px;
-    border-radius: 10px;
+    border-radius: var(--radius-control);
     font-size: 13px;
     font-weight: 600;
     cursor: pointer;
@@ -771,11 +804,11 @@
     color: #0f172a;
   }
   .btn-warn {
-    background: #d97706;
+    background: #b45309;
     color: white;
   }
   .btn-success {
-    background: #059669;
+    background: #047857;
     color: white;
   }
   .btn-sm {
@@ -823,6 +856,15 @@
   }
   .data-table tbody tr:last-child td {
     border-bottom: none;
+  }
+  /* Fila clickeable (DataTable onRowClick): accesible por teclado con foco visible. */
+  .row-clickable {
+    cursor: pointer;
+  }
+  .row-clickable:focus-visible {
+    outline: 2px solid #3d6bbf;
+    outline-offset: -2px;
+    background: #f8fafc;
   }
 
   /* ── Badges ── */
@@ -910,7 +952,7 @@
   }
   .field-optional {
     font-size: 10px;
-    color: #94a3b8;
+    color: var(--text-muted);
     font-weight: 500;
     margin-left: 4px;
   }
@@ -918,7 +960,7 @@
     width: 100%;
     padding: 9px 12px;
     border: 1px solid #e2e8f0;
-    border-radius: 8px;
+    border-radius: var(--radius-control);
     font-size: 13px;
     background: white;
     color: #0f172a;
@@ -931,7 +973,7 @@
   }
   .form-control:disabled {
     background: #f8fafc;
-    color: #94a3b8;
+    color: var(--text-muted);
   }
 
   /* ── Floating input (login) ── */
@@ -963,7 +1005,7 @@
     left: 14px;
     top: 16px;
     font-size: 13px;
-    color: #94a3b8;
+    color: var(--text-muted);
     pointer-events: none;
     transform-origin: left top;
     transition: all 0.18s ease;
@@ -973,7 +1015,7 @@
     right: 12px;
     top: 50%;
     transform: translateY(-50%);
-    color: #94a3b8;
+    color: var(--text-muted);
     padding: 4px;
   }
   .password-toggle:hover {
@@ -1128,7 +1170,7 @@
   .login-footer {
     text-align: center;
     font-size: 11px;
-    color: #94a3b8;
+    color: var(--text-muted);
     margin-top: 24px;
   }
 
@@ -1280,7 +1322,7 @@
   .empty-state {
     text-align: center;
     padding: 48px 24px;
-    color: #94a3b8;
+    color: var(--text-muted);
   }
   .empty-icon .material-symbols-outlined {
     font-size: 48px;
@@ -1328,7 +1370,7 @@
   .filter-select {
     padding: 8px 12px;
     border: 1px solid #e2e8f0;
-    border-radius: 8px;
+    border-radius: var(--radius-control);
     font-size: 13px;
     background: white;
     color: #0f172a;
@@ -1351,7 +1393,10 @@
   .table-container {
     background: white;
     border-radius: 14px;
-    overflow: hidden;
+    /* overflow-x auto (no hidden): en pantallas chicas las tablas anchas scrollean
+       horizontalmente en vez de cortarse. overflow-y hidden mantiene las esquinas. */
+    overflow-x: auto;
+    overflow-y: hidden;
     border: 1px solid #f1f5f9;
     box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
   }
@@ -1413,7 +1458,7 @@
     justify-content: space-between;
     padding: 9px 12px;
     border: 1px solid #e2e8f0;
-    border-radius: 8px;
+    border-radius: var(--radius-control);
     background: white;
     font-size: 13px;
     font-family: inherit;
@@ -1471,6 +1516,26 @@
   /* ── Hidden helper ── */
   .hidden {
     display: none !important;
+  }
+
+  /* Motion sensitivity (WCAG 2.3.3): con prefers-reduced-motion se eliminan las
+     animaciones de layout y de entrada. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+    .sidebar-desktop,
+    .app-body,
+    .sidebar-submenu,
+    .sidebar-label,
+    .sidebar-arrow {
+      transition: none;
+    }
   }
 
   /* ── Form groups (vanilla compat) ── */
@@ -1625,6 +1690,26 @@
     }
     .dashboard-panel-scroll {
       overflow-y: visible;
+    }
+    /* Touch targets: WCAG 2.5.8 mide por lo menos 44x44px para controles tactiles. */
+    .btn,
+    .btn-sm,
+    .btn-xs,
+    .btn-icon,
+    .hamburger-btn,
+    .topbar-logout-btn,
+    .modal-close,
+    .password-toggle,
+    .sidebar-item-btn,
+    .sidebar-group-btn,
+    .tab {
+      min-height: 44px;
+    }
+    .btn-icon,
+    .hamburger-btn,
+    .topbar-logout-btn,
+    .modal-close {
+      min-width: 44px;
     }
   }
   @media (max-width: 480px) {

@@ -134,7 +134,7 @@ export default function ParqueaderosPage() {
                   }}
                   className="btn btn-ghost btn-sm"
                 >
-                  <span className="material-symbols-outlined" style={{ fontSize: '18px', color: '#e11d48' }}>delete</span>
+                  <span className="material-symbols-outlined" style={{ fontSize: '18px', color: 'var(--error)' }}>delete</span>
                 </button>
               </div>
             ),

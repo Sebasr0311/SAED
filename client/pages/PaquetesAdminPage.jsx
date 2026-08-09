@@ -112,8 +112,9 @@ export default function PaquetesAdminPage() {
             </div>
             {detalle.fotoCaptura && (
               <img
-                src={imageSrc(detalle.fotoCaptura)}
-                alt="Foto del paquete"
+                  src={imageSrc(detalle.fotoCaptura)}
+                  alt="Foto del paquete"
+                  loading="lazy"
                 style={{ maxWidth: '100%', borderRadius: '8px', marginTop: '8px', cursor: 'zoom-in' }}
                 onClick={(e) => window.open(e.target.src, '_blank')}
               />

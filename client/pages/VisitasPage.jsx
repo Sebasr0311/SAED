@@ -306,7 +306,7 @@ export default function VisitasPage() {
               aria-label="Cancelar"
               title="Cancelar"
             >
-              <span className="material-symbols-outlined" style={{ fontSize: '18px', color: '#e11d48' }}>cancel</span>
+              <span className="material-symbols-outlined" style={{ fontSize: '18px', color: 'var(--error)' }}>cancel</span>
             </button>
           )}
         </div>
@@ -369,7 +369,7 @@ export default function VisitasPage() {
                 fontFamily: 'monospace',
                 wordBreak: 'break-all',
                 textAlign: 'center',
-                background: '#0f2044',
+                background: 'var(--primary)',
                 color: 'white',
                 padding: '16px',
                 borderRadius: '12px',
@@ -437,7 +437,7 @@ export default function VisitasPage() {
                 required
               />
             </div>
-            <h3 className="card-title" style={{ marginTop: '4px' }}>
+            <h3 className="card-title mt-1">
               Visitante
             </h3>
             <div className="form-row">
@@ -502,7 +502,7 @@ export default function VisitasPage() {
                 error={fieldError('email', valEmail(form.email, { required: false })) || errors.email}
               />
             </div>
-            <h3 className="card-title" style={{ marginTop: '4px' }}>
+            <h3 className="card-title mt-1">
               Vehículo (opcional)
             </h3>
             <div className="form-row">
@@ -616,8 +616,9 @@ export default function VisitasPage() {
             )}
             {detalle.fotoCaptura && (
               <img
-                src={imageSrc(detalle.fotoCaptura)}
-                alt="Foto"
+                  src={imageSrc(detalle.fotoCaptura)}
+                  alt="Foto"
+                  loading="lazy"
                 style={{ maxWidth: '100%', borderRadius: '8px', marginTop: '8px', cursor: 'zoom-in' }}
                 onClick={() => setFotoGrande(imageSrc(detalle.fotoCaptura))}
               />

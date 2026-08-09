@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../lib/AuthContext.jsx';
 
@@ -350,7 +350,15 @@ export default function AppShell() {
           </header>
 
           <main className="content-area">
-            <Outlet />
+            <Suspense
+              fallback={
+                <div className="table-container p-8 text-center text-on-surface-variant">
+                  Cargando...
+                </div>
+              }
+            >
+              <Outlet />
+            </Suspense>
           </main>
         </div>
       </div>

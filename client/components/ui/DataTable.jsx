@@ -9,7 +9,7 @@ export function DataTable({ columns, rows, loading, empty, onRowClick, keyField 
   if (error) {
     return (
       <div className="table-container p-8 text-center">
-        <p className="text-error" style={{ marginBottom: '8px' }}>{error}</p>
+        <p className="text-error" style={{ marginBottom: '8px' }}>{error?.message || error}</p>
         {onRetry && (
           <button type="button" className="btn btn-outline btn-sm" onClick={onRetry}>
             Reintentar
@@ -42,8 +42,24 @@ export function DataTable({ columns, rows, loading, empty, onRowClick, keyField 
             <tr
               key={row[keyField] ?? idx}
               onClick={onRowClick ? () => onRowClick(row) : undefined}
-              className={classNames(onRowClick && 'cursor-pointer', selectedKey != null && row[keyField] === selectedKey && 'selected')}
-              style={selectedKey != null && row[keyField] === selectedKey ? { background: '#edf4fc' } : undefined}
+              onKeyDown={
+                onRowClick
+                  ? (e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        onRowClick(row);
+                      }
+                    }
+                  : undefined
+              }
+              tabIndex={onRowClick ? 0 : undefined}
+              role={onRowClick ? 'button' : undefined}
+              aria-label={onRowClick ? 'Ver detalles' : undefined}
+              className={classNames(
+                onRowClick && 'row-clickable',
+                selectedKey != null && row[keyField] === selectedKey && 'selected'
+              )}
+              style={selectedKey != null && row[keyField] === selectedKey ? { background: '#d6e5f7' } : undefined}
             >
               {columns.map((col) => (
                 <td key={col.key} className={classNames(col.cellClassName)}>

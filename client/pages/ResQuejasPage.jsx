@@ -240,14 +240,15 @@ export default function ResQuejasPage() {
           />
         </div>
         <div className="form-group">
-          <label style={{ fontSize: '12px', fontWeight: 600, color: '#475569', display: 'block', marginBottom: '6px' }}>
+          <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>
             Foto de evidencia (opcional)
           </label>
           {foto && (
             <div style={{ marginBottom: '8px' }}>
               <img
-                src={imageSrc(foto)}
-                alt="Evidencia"
+                  src={imageSrc(foto)}
+                  alt="Evidencia"
+                  loading="lazy"
                 style={{ maxWidth: '200px', borderRadius: '8px' }}
               />
             </div>
@@ -269,7 +270,7 @@ export default function ResQuejasPage() {
         </Button>
       </div>
 
-      <h3 style={{ marginBottom: '12px', fontSize: '15px', fontWeight: 600 }}>Historial</h3>
+                        <h3 className="mb-3 text-[15px] font-semibold">Historial</h3>
       <DataTable
         columns={columns}
         rows={data?.items || data || []}
@@ -303,23 +304,23 @@ export default function ResQuejasPage() {
               <span>{formatDate(detalle.fechaCreacion)}</span>
             </div>
             <div>
-              <div style={{ fontSize: '11px', color: '#475569', fontWeight: 600 }}>Título</div>
+              <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Título</div>
               <div style={{ fontSize: '13px' }}>{detalle.titulo}</div>
             </div>
             <div>
-              <div style={{ fontSize: '11px', color: '#475569', fontWeight: 600 }}>Descripción</div>
+              <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Descripción</div>
               <div style={{ fontSize: '13px', whiteSpace: 'pre-wrap' }}>{detalle.descripcion}</div>
             </div>
             {detalle.respuestaAdmin && (
               <div
                 style={{
-                  background: '#d1fae5',
+                  background: 'var(--accent-green-bg)',
                   padding: '12px',
                   borderRadius: '8px',
-                  border: '1px solid #10b981',
+                  border: '1px solid var(--accent-green)',
                 }}
               >
-                <div style={{ fontSize: '11px', color: '#065f46', fontWeight: 600 }}>Respuesta del administrador</div>
+                <div style={{ fontSize: '11px', color: 'var(--success-strong)', fontWeight: 600 }}>Respuesta del administrador</div>
                 <div style={{ fontSize: '13px', marginTop: '4px' }}>{detalle.respuestaAdmin}</div>
               </div>
             )}

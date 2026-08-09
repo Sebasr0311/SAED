@@ -7,7 +7,7 @@ import { formatCurrency } from '../lib/utils.js';
 function DetailRow({ label, value }) {
   return (
     <div className="detail-row">
-      <span style={{ color: '#475569' }}>{label}</span>
+      <span style={{ color: 'var(--text-secondary)' }}>{label}</span>
       <span style={{ fontWeight: 600 }}>{value || '—'}</span>
     </div>
   );
@@ -67,7 +67,7 @@ export default function ResApartamentoPage() {
                   width: '40px',
                   height: '40px',
                   borderRadius: '50%',
-                  background: '#0f2044',
+                  background: 'var(--primary)',
                   color: 'white',
                   display: 'flex',
                   alignItems: 'center',
@@ -86,7 +86,7 @@ export default function ResApartamentoPage() {
               </div>
             </div>
           ))}
-          {rs.length === 0 && <p style={{ color: '#94a3b8' }}>Sin residentes registrados</p>}
+          {rs.length === 0 && <p style={{ color: 'var(--text-muted)' }}>Sin residentes registrados</p>}
         </div>
       </div>
     </div>

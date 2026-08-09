@@ -276,14 +276,15 @@ function ModalGenerarMulta({ open, onClose, onConfirm, apartamentos, quejasRuido
 
       {tipo === 'PARQUEADERO' && (
         <div className="form-group">
-          <label style={{ fontSize: '12px', fontWeight: 600, color: '#475569' }}>
+          <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>
             Foto de evidencia (obligatoria)
           </label>
           <VideoCamara onCapture={setFoto} label="Capturar Evidencia" />
           {foto && (
             <img
-              src={imageSrc(foto)}
-              alt="Evidencia"
+                  src={imageSrc(foto)}
+                  alt="Evidencia"
+                  loading="lazy"
               style={{ maxWidth: '200px', borderRadius: '8px', marginTop: '8px' }}
             />
           )}
@@ -378,8 +379,9 @@ function ModalPaquetes({ open, onClose, onConfirm }) {
             </div>
             {detalle.fotoCaptura && (
               <img
-                src={imageSrc(detalle.fotoCaptura)}
-                alt="Foto"
+                  src={imageSrc(detalle.fotoCaptura)}
+                  alt="Foto"
+                  loading="lazy"
                 style={{ maxWidth: '100%', borderRadius: '8px' }}
               />
             )}
