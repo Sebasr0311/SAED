@@ -1,4 +1,4 @@
-﻿import { useState, useMemo } from 'react';
+﻿import { useMemo, useRef, useState } from 'react';
 import { Button } from '../components/ui/Button.jsx';
 import { Input, Select } from '../components/ui/Form.jsx';
 import { DataTable } from '../components/ui/DataTable.jsx';
@@ -59,6 +59,9 @@ export default function PagosPage() {
   const [pagoModal, setPagoModal] = useState(null); // { tipo: 'cuota'|'multa', item }
   const [pagoForm, setPagoForm] = useState({ fecha: todayStr(), valor: '', metodo: 'EFECTIVO', referencia: '', notas: '' });
   const [saving, setSaving] = useState(false);
+  // Guard anti doble-submit: mismo patron que VisitasPage (FASE 4.2-P2).
+  // Critico aqui: un doble POST /pagos registraria el pago de la misma cuota dos veces.
+  const savingRef = useRef(false);
 
   const { data: cuotas, loading: loadingCuotas, error: errorCuotas, refetch: refetchCuotas } = useFetch(
     () => api.get('/cuotas?pendientes=true'),
@@ -127,6 +130,7 @@ export default function PagosPage() {
   }
 
   async function confirmarPago() {
+    if (savingRef.current) return; // doble submit
     if (!pagoModal) return;
     const valor = parseMiles(pagoForm.valor);
     if (valor <= 0) {
@@ -147,6 +151,7 @@ export default function PagosPage() {
         return;
       }
     }
+    savingRef.current = true;
     setSaving(true);
     try {
       if (pagoModal.tipo === 'cuota') {
@@ -171,6 +176,7 @@ export default function PagosPage() {
     } catch (err) {
       setToast({ message: err.message, type: 'error' });
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   }

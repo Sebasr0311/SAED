@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '../components/ui/Button.jsx';
 import { Input, Select } from '../components/ui/Form.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
@@ -36,6 +36,9 @@ export default function ResVisitaPage() {
   const [form, setForm] = useState(emptyForm);
   const [errors, setErrors] = useState({});
   const [sending, setSending] = useState(false);
+  // Guard anti doble-submit: mismo patron que VisitasPage (FASE 4.2-P2).
+  // disabled={state} NO bloquea clicks sincronicos (re-render asincrono) — el ref es la barrera real.
+  const sendingRef = useRef(false);
   const [qrGenerado, setQrGenerado] = useState(null);
   const [buscarDoc, setBuscarDoc] = useState('');
   const [buscarDocDebounced, setBuscarDocDebounced] = useState('');
@@ -125,7 +128,9 @@ export default function ResVisitaPage() {
   }
 
   async function send() {
+    if (sendingRef.current) return; // doble submit
     if (!validate()) return;
+    sendingRef.current = true;
     setSending(true);
     try {
       const payload = {
@@ -156,6 +161,7 @@ export default function ResVisitaPage() {
     } catch (err) {
       setToast({ message: err.message, type: 'error' });
     } finally {
+      sendingRef.current = false;
       setSending(false);
     }
   }

@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+﻿import { useRef, useState } from 'react';
 import { Button } from '../components/ui/Button.jsx';
 import { Input, Select } from '../components/ui/Form.jsx';
 import { DataTable } from '../components/ui/DataTable.jsx';
@@ -68,6 +68,10 @@ export default function ContratosPage() {
   const [errors, setErrors] = useState({});
   const [confirmCancelar, setConfirmCancelar] = useState(null);
   const [saving, setSaving] = useState(false);
+  // Guard anti doble-submit (compartido por crear/confirmarRenovar): mismo patron que
+  // VisitasPage (FASE 4.2-P2). disabled={state} NO bloquea clicks sincronicos — el ref es
+  // la barrera real. Ambos flujos son mutuamente excluyentes desde la misma pantalla.
+  const savingRef = useRef(false);
   const [descargando, setDescargando] = useState(null);
 
   const { data: contratosRaw, loading, refetch } = useFetch(() => api.get('/contratos'), []);
@@ -152,6 +156,7 @@ export default function ContratosPage() {
   }
 
   async function confirmarRenovar() {
+    if (savingRef.current) return; // doble submit
     if (!renovarModal) return;
     if (!renovarForm.fechaInicio) {
       setToast({ message: 'La fecha de inicio es obligatoria', type: 'error' });
@@ -161,6 +166,7 @@ export default function ContratosPage() {
       setToast({ message: 'El valor mensual debe ser mayor que 0', type: 'error' });
       return;
     }
+    savingRef.current = true;
     setSaving(true);
     try {
       const res = await api.post(`/contratos/${renovarModal.idContrato}/renovar`, {
@@ -176,6 +182,7 @@ export default function ContratosPage() {
     } catch (err) {
       setToast({ message: err.message, type: 'error' });
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   }
@@ -251,7 +258,9 @@ export default function ContratosPage() {
   }
 
   async function crear() {
+    if (savingRef.current) return; // doble submit
     if (!validate()) return;
+    savingRef.current = true;
     setSaving(true);
     try {
       const payload = {
@@ -272,6 +281,7 @@ export default function ContratosPage() {
     } catch (err) {
       setToast({ message: err.message, type: 'error' });
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   }
