@@ -528,6 +528,28 @@
     grid-template-columns: repeat(4, 1fr);
     gap: 16px;
   }
+  /* Paneles del dashboard: Multas Pendientes + Próximos Cobros lado a lado.
+     Cada panel tiene altura acotada y scroll interno para que la página no crezca. */
+  .dashboard-panels {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    align-items: start;
+    margin-bottom: 20px;
+  }
+  .dashboard-panel {
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - 280px);
+    min-height: 260px;
+  }
+  .dashboard-panel-scroll {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+    margin: 0 -4px;
+    padding: 0 4px;
+  }
   .card-dark {
     background: linear-gradient(135deg, #0a1628 0%, #163060 100%);
     color: white;
@@ -1591,6 +1613,18 @@
     }
     .content-area {
       padding: 20px 16px;
+    }
+    /* En pantallas medianas/pequeñas los paneles se apilan y crecen con su
+       contenido; el scroll interno solo aplica en escritorio (2 columnas). */
+    .dashboard-panels {
+      grid-template-columns: 1fr;
+    }
+    .dashboard-panel {
+      max-height: none;
+      min-height: 0;
+    }
+    .dashboard-panel-scroll {
+      overflow-y: visible;
     }
   }
   @media (max-width: 480px) {

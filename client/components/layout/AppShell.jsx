@@ -205,6 +205,18 @@ export default function AppShell() {
     navigate('/login', { replace: true });
   }
 
+  // En modo rail (colapsado), al retirar el cursor del sidebar se cierran los
+  // grupos abiertos y solo se conserva el de la ruta activa. Así el submenú no
+  // queda mostrando los iconos cuando el rail se vuelve a colapsar.
+  function handleSidebarMouseLeave() {
+    if (!collapsed || mobileOpen) return;
+    setOpenGroups(() => {
+      const next = new Set();
+      if (activeGroup) next.add(activeGroup.id);
+      return next;
+    });
+  }
+
   const sidebarClasses = [
     'sidebar-desktop',
     collapsed && !mobileOpen ? 'sidebar-rail' : 'sidebar-open',
@@ -216,7 +228,7 @@ export default function AppShell() {
   return (
     <div className="app-shell">
       <div className="app-shell-body">
-        <aside className={sidebarClasses}>
+        <aside className={sidebarClasses} onMouseLeave={handleSidebarMouseLeave}>
           <div className="sidebar-logo-area">
             <div className="sidebar-logo-icon">
               <img src={`${import.meta.env.BASE_URL}imagenes/saed_logo_emblem_only.png`} alt="SAED" />

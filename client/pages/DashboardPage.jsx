@@ -188,8 +188,11 @@ export default function DashboardPage() {
         <StatCard icon="description" value={contratosActivos} label="Contratos Activos" color="green" />
       </div>
 
+      {/* Grid de 2 columnas: Multas Pendientes + Próximos Cobros lado a lado.
+          Cada panel tiene scroll interno para no alargar la página. */}
+      <div className="dashboard-panels">
       {/* ==== BLOQUE 1: Multas Pendientes ==== */}
-      <div className="card" style={{ marginBottom: '20px' }}>
+      <div className="card dashboard-panel" style={{ marginBottom: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <span className="material-symbols-outlined" style={{ color: '#D97706' }}>gavel</span>
@@ -203,6 +206,7 @@ export default function DashboardPage() {
           </Button>
         </div>
 
+        <div className="dashboard-panel-scroll">
         {multasError && (
           <div className="table-container p-8 text-center">
             <p className="text-error" style={{ marginBottom: '8px' }}>{multasError}</p>
@@ -287,19 +291,11 @@ export default function DashboardPage() {
             </Button>
           </div>
         )}
+        </div>
       </div>
 
-      <ConfirmDialog
-        open={confirmarNotificarTodas}
-        onClose={() => setConfirmarNotificarTodas(false)}
-        onConfirm={notificarTodas}
-        title="Notificar todas las multas"
-        message={`¿Enviar notificación a todos los apartamentos con multas pendientes (${pendientes.length})?`}
-        confirmLabel="Notificar"
-      />
-
       {/* ==== BLOQUE 2: Próximos Cobros ==== */}
-      <div className="card" style={{ marginBottom: '20px' }}>
+      <div className="card dashboard-panel" style={{ marginBottom: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
           <span className="material-symbols-outlined" style={{ color: '#10B981' }}>payments</span>
           <div>
@@ -308,6 +304,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        <div className="dashboard-panel-scroll">
         {contratosError && (
           <div className="table-container p-8 text-center">
             <p className="text-error" style={{ marginBottom: '8px' }}>{contratosError}</p>
@@ -342,7 +339,18 @@ export default function DashboardPage() {
             <span style={{ fontWeight: 700, color: '#10B981' }}>{formatCurrency(c.valorMensual)}</span>
           </button>
         ))}
+        </div>
       </div>
+      </div>{/* fin dashboard-panels */}
+
+      <ConfirmDialog
+        open={confirmarNotificarTodas}
+        onClose={() => setConfirmarNotificarTodas(false)}
+        onConfirm={notificarTodas}
+        title="Notificar todas las multas"
+        message={`¿Enviar notificación a todos los apartamentos con multas pendientes (${pendientes.length})?`}
+        confirmLabel="Notificar"
+      />
 
       {/* ==== BLOQUE 3: Modal Detalle Contrato ==== */}
       <Modal

@@ -63,7 +63,7 @@ export default function MultasPage() {
   }
 
   async function anular(row) {
-    if (!window.confirm(`Â¿Anular la multa #${row.idMulta}?`)) return;
+    if (!window.confirm(`¿Anular la multa #${row.idMulta}?`)) return;
     try {
       await api.put(`/multas/${row.idMulta}/anular`);
       setToast({ message: 'Multa anulada', type: 'success' });
@@ -234,7 +234,7 @@ export default function MultasPage() {
             )}
             {detalle.descripcion && (
               <div>
-                <div style={{ fontSize: '11px', color: '#475569', fontWeight: 600 }}>DescripciÃ³n</div>
+                <div style={{ fontSize: '11px', color: '#475569', fontWeight: 600 }}>Descripción</div>
                 <div style={{ fontSize: '13px' }}>{detalle.descripcion}</div>
               </div>
             )}

@@ -144,14 +144,14 @@ export default function AvisosPage() {
   const columns = [
     { key: 'idMensaje', label: 'ID', width: 60 },
     { key: 'numeroApartamento', label: 'Apartamento', render: (r) => r.numeroApartamento || 'Todos' },
-    { key: 'titulo', label: 'TÃ­tulo' },
+    { key: 'titulo', label: 'Título' },
     { key: 'cuerpo', label: 'Mensaje' },
     { key: 'fechaCreacion', label: 'Fecha', render: (r) => formatDate(r.fechaCreacion) },
   ];
 
   async function send() {
     if (!form.titulo.trim() || !form.cuerpo.trim()) {
-      setToast({ message: 'TÃ­tulo y mensaje son obligatorios', type: 'error' });
+      setToast({ message: 'Título y mensaje son obligatorios', type: 'error' });
       return;
     }
     setSending(true);
@@ -216,7 +216,7 @@ export default function AvisosPage() {
         <div className="form-group">
           <Input
             id="titulo"
-            label="TÃ­tulo"
+            label="Título"
             value={form.titulo}
             onChange={(e) => setForm((f) => ({ ...f, titulo: e.target.value }))}
           />

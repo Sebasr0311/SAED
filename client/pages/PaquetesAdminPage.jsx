@@ -48,7 +48,7 @@ export default function PaquetesAdminPage() {
     { key: 'idMensaje', label: 'ID', width: 60 },
     { key: 'numeroApartamento', label: 'Apartamento' },
     { key: 'nombreResidente', label: 'Residente' },
-    { key: 'titulo', label: 'DescripciÃ³n' },
+    { key: 'titulo', label: 'Descripción' },
     { key: 'fechaCreacion', label: 'Recibido', render: (r) => formatDate(r.fechaCreacion) },
     {
       key: 'entregado',
@@ -103,7 +103,7 @@ export default function PaquetesAdminPage() {
               <span>{detalle.nombreResidente}</span>
             </div>
             <div className="detail-row">
-              <span>DescripciÃ³n</span>
+              <span>Descripción</span>
               <span>{detalle.titulo}</span>
             </div>
             <div className="detail-row">

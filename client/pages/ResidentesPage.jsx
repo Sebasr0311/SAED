@@ -98,7 +98,7 @@ export default function ResidentesPage() {
     { key: 'nombres', label: 'Nombres' },
     { key: 'apellidos', label: 'Apellidos' },
     { key: 'numeroDocumento', label: 'Documento' },
-    { key: 'telefono', label: 'TelÃ©fono' },
+    { key: 'telefono', label: 'Teléfono' },
     { key: 'email', label: 'Email' },
     {
       key: 'actions',
@@ -251,11 +251,11 @@ export default function ResidentesPage() {
           });
           const verif = await api.get(`/residentes/${idResidente}`);
           if (Number(verif?.idApartamento) !== Number(form.idApartamento)) {
-            throw new Error('La asignaciÃ³n no se pudo confirmar en el servidor');
+            throw new Error('La asignación no se pudo confirmar en el servidor');
           }
         } catch (err) {
           setToast({
-            message: `Residente guardado, pero la asignaciÃ³n al apartamento fallÃ³: ${err.message}`,
+            message: `Residente guardado, pero la asignación al apartamento falló: ${err.message}`,
             type: 'error',
           });
         }
@@ -287,7 +287,7 @@ export default function ResidentesPage() {
     <div>
       <PageHeader
         title="Residentes"
-        subtitle="GestiÃ³n de residentes del edificio"
+        subtitle="Gestión de residentes del edificio"
         action={
           <>
             <Input
@@ -351,7 +351,7 @@ export default function ResidentesPage() {
           )}
           <Input
             id="numeroDocumento"
-            label="NÃºmero Documento"
+            label="Número Documento"
             value={form.numeroDocumento}
             onChange={(e) => update('numeroDocumento', e.target.value)}
             error={errors.numeroDocumento}
@@ -384,7 +384,7 @@ export default function ResidentesPage() {
           />
           <Input
             id="telefono"
-            label="TelÃ©fono"
+            label="Teléfono"
             value={form.telefono}
             onChange={(e) => update('telefono', e.target.value)}
             onBlur={() => touch('telefono')}
@@ -427,7 +427,7 @@ export default function ResidentesPage() {
           >
             <h4 style={{ margin: 0, fontSize: '15px', fontWeight: 600 }}>Datos del Tutor Legal</h4>
             <p style={{ fontSize: '12px', color: '#64748b', margin: '4px 0 12px' }}>
-              Menor de edad (16-17 aÃ±os) â€” puede residir independientemente, pero debe tener un tutor
+              Menor de edad (16-17 años) â€” puede residir independientemente, pero debe tener un tutor
               legal registrado.
             </p>
             <div className="form-row">
@@ -447,7 +447,7 @@ export default function ResidentesPage() {
               </Select>
               <Input
                 id="tutor-numeroDocumento"
-                label="NÃºmero Documento"
+                label="Número Documento"
                 value={tutorForm.numeroDocumento}
                 onChange={(e) => updateTutor('numeroDocumento', e.target.value)}
                 error={errors['tutor.numeroDocumento']}
@@ -472,7 +472,7 @@ export default function ResidentesPage() {
             <div className="form-row">
               <Input
                 id="tutor-telefono"
-                label="TelÃ©fono"
+                label="Teléfono"
                 value={tutorForm.telefono}
                 onChange={(e) => updateTutor('telefono', e.target.value)}
                 error={errors['tutor.telefono']}
@@ -502,8 +502,8 @@ export default function ResidentesPage() {
                 <option value="MADRE">Madre</option>
                 <option value="ABUELO">Abuelo</option>
                 <option value="ABUELA">Abuela</option>
-                <option value="TIO">TÃ­o</option>
-                <option value="TIA">TÃ­a</option>
+                <option value="TIO">Tío</option>
+                <option value="TIA">Tía</option>
                 <option value="HERMANO">Hermano</option>
                 <option value="HERMANA">Hermana</option>
                 <option value="TUTOR_LEGAL">Tutor Legal</option>
@@ -539,7 +539,7 @@ export default function ResidentesPage() {
         }
       >
         <p>
-          Â¿Eliminar a {confirmDel?.nombres} {confirmDel?.apellidos}?
+          ¿Eliminar a {confirmDel?.nombres} {confirmDel?.apellidos}?
         </p>
       </Modal>
 
