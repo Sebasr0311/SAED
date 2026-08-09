@@ -22,6 +22,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.Base64;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Properties;
 import java.util.regex.Matcher;
 
@@ -310,6 +311,52 @@ public class EmailService {
             throw new Exception("Brevo respondió con estado " + status
                 + ": " + response.body());
         }
+    }
+
+    // ── público: envío de recibo de pago (Wompi) ─────────────────────────────
+
+    public static void enviarReciboPago(String destinatario,
+                                        Residente residente,
+                                        Map<String, Object> datos) throws Exception {
+        if (destinatario == null || destinatario.isBlank()) return;
+
+        String html = cargarPlantillaRecibo();
+        String nombre = (residente != null)
+            ? (safeStr(residente.getNombres()) + " " + safeStr(residente.getApellidos())).trim()
+            : "Residente";
+        String concepto  = String.valueOf(datos.getOrDefault("concepto", "pago"));
+        String monto     = String.valueOf(datos.getOrDefault("monto", ""));
+        String referencia = String.valueOf(datos.getOrDefault("referencia", ""));
+        String fecha     = String.valueOf(datos.getOrDefault("fecha", ""));
+        String apartamento = String.valueOf(datos.getOrDefault("apartamento", "-"));
+
+        // placeholders {token} con escape de texto simple
+        html = html.replace("{nombreResidente}", htmlEscape(nombre))
+                   .replace("{concepto}", htmlEscape(concepto))
+                   .replace("{monto}", htmlEscape(monto))
+                   .replace("{referencia}", htmlEscape(referencia))
+                   .replace("{fecha}", htmlEscape(fecha))
+                   .replace("{apartamento}", htmlEscape(apartamento));
+
+        String asunto = "Recibo de pago " + concepto + " · Torres del Horizonte";
+        enviarViaBrevo(destinatario, asunto, html, null, null);
+    }
+
+    private static String cargarPlantillaRecibo() throws Exception {
+        InputStream is = EmailService.class.getResourceAsStream(TEMPLATE_PATH + "correo_recibo_pago.html");
+        if (is == null) {
+            is = Thread.currentThread().getContextClassLoader()
+                    .getResourceAsStream(TEMPLATE_PATH + "correo_recibo_pago.html");
+        }
+        if (is == null) throw new Exception("Plantilla de recibo no encontrada: correo_recibo_pago.html");
+        byte[] bytes = is.readAllBytes();
+        is.close();
+        return new String(bytes, StandardCharsets.UTF_8);
+    }
+
+    private static String htmlEscape(String s) {
+        if (s == null) return "";
+        return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
     }
 
     // ── público: envío de QR por correo ───────────────────────────────────────

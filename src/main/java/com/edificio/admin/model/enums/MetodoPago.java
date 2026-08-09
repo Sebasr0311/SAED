@@ -6,5 +6,6 @@ public enum MetodoPago {
     TRANSFERENCIA,
     PSE,
     TARJETA,
-    OTRO
+    OTRO,
+    WOMPI
 }
