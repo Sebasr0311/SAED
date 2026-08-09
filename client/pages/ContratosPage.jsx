@@ -7,7 +7,7 @@ import { Modal } from '../components/ui/Modal.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog.jsx';
 import Toast from '../components/ui/Toast.jsx';
-import { useFetch } from '../lib/hooks.js';
+import { useFetch, useLiveValidation } from '../lib/hooks.js';
 import api, { BASE_URL } from '../lib/api.js';
 import { formatDate, formatCurrency, formatMiles, parseMiles } from '../lib/utils.js';
 import { valNumero } from '../lib/validation.js';
@@ -68,6 +68,7 @@ export default function ContratosPage() {
   const [errors, setErrors] = useState({});
   const [confirmCancelar, setConfirmCancelar] = useState(null);
   const [saving, setSaving] = useState(false);
+  const { touch, fieldError } = useLiveValidation();
   // Guard anti doble-submit (compartido por crear/confirmarRenovar): mismo patron que
   // VisitasPage (FASE 4.2-P2). disabled={state} NO bloquea clicks sincronicos — el ref es
   // la barrera real. Ambos flujos son mutuamente excluyentes desde la misma pantalla.
@@ -223,6 +224,7 @@ export default function ContratosPage() {
   }
 
   function update(k, v) {
+    setErrors((prev) => (prev[k] ? { ...prev, [k]: undefined } : prev));
     setForm((f) => ({ ...f, [k]: v }));
   }
   function onApartamentoChange(idApartamento) {
@@ -470,7 +472,17 @@ export default function ContratosPage() {
             type="date"
             value={form.fechaInicio}
             onChange={(e) => onFechaInicioChange(e.target.value)}
-            error={errors.fechaInicio}
+            onBlur={() => touch('fechaInicio')}
+            error={
+              fieldError(
+                'fechaInicio',
+                !form.fechaInicio
+                  ? { ok: false, mensaje: 'Requerido' }
+                  : form.fechaInicio < new Date(new Date().setHours(0, 0, 0, 0)).toISOString().slice(0, 10)
+                    ? { ok: false, mensaje: 'La fecha de inicio no puede ser anterior a hoy' }
+                    : { ok: true }
+              ) || errors.fechaInicio
+            }
           />
           <Select id="tipoContrato" label="Tipo" value={form.tipoContrato} onChange={(e) => onTipoChange(e.target.value)}>
             {TIPOS.map((t) => (
@@ -487,14 +499,26 @@ export default function ContratosPage() {
             type="date"
             value={form.fechaFin}
             onChange={(e) => update('fechaFin', e.target.value)}
+            onBlur={() => touch('fechaFin')}
             disabled={form.tipoContrato === 'PERMANENCIA'}
+            error={
+              fieldError(
+                'fechaFin',
+                form.tipoContrato === 'PERMANENCIA' || !form.fechaFin || !form.fechaInicio
+                  ? { ok: true }
+                  : form.fechaFin <= form.fechaInicio
+                    ? { ok: false, mensaje: 'La fecha de fin debe ser posterior a la de inicio' }
+                    : { ok: true }
+              ) || errors.fechaFin
+            }
           />
           <Input
             id="valorMensual"
             label="Valor Mensual"
             value={form.valorMensual}
             onChange={(e) => update('valorMensual', formatMiles(e.target.value))}
-            error={errors.valorMensual}
+            onBlur={() => touch('valorMensual')}
+            error={fieldError('valorMensual', valNumero(parseMiles(form.valorMensual), { positivo: true })) || errors.valorMensual}
           />
         </div>
         <div className="form-group">
