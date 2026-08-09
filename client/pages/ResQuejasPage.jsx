@@ -7,7 +7,7 @@ import { Modal } from '../components/ui/Modal.jsx';
 import Toast from '../components/ui/Toast.jsx';
 import api from '../lib/api.js';
 import { useAuth } from '../lib/AuthContext.jsx';
-import { useFetch } from '../lib/hooks.js';
+import { useFetch, useLiveValidation } from '../lib/hooks.js';
 import { formatDate, imageSrc } from '../lib/utils.js';
 
 const CATS = [
@@ -113,6 +113,7 @@ export default function ResQuejasPage() {
   const [foto, setFoto] = useState(null);
   const [showCamara, setShowCamara] = useState(false);
   const [detalle, setDetalle] = useState(null);
+  const { touch, fieldError } = useLiveValidation();
 
   const { data, loading, refetch } = useFetch(
     () => api.get(`/quejas`),
@@ -206,6 +207,8 @@ export default function ResQuejasPage() {
               label="Multa a apelar"
               value={form.idMulta}
               onChange={(e) => update('idMulta', e.target.value)}
+              onBlur={() => touch('idMulta')}
+              error={fieldError('idMulta', form.idMulta ? { ok: true } : { ok: false, mensaje: 'Seleccione la multa a apelar' })}
             >
               <option value="">— Seleccionar multa —</option>
               {multas.map((m) => (
@@ -228,6 +231,8 @@ export default function ResQuejasPage() {
             label="Título"
             value={form.titulo}
             onChange={(e) => update('titulo', e.target.value)}
+            onBlur={() => touch('titulo')}
+            error={fieldError('titulo', form.titulo.trim() ? { ok: true } : { ok: false, mensaje: 'El título es obligatorio' })}
           />
         </div>
         <div className="form-group">
@@ -237,6 +242,8 @@ export default function ResQuejasPage() {
             rows={4}
             value={form.descripcion}
             onChange={(e) => update('descripcion', e.target.value)}
+            onBlur={() => touch('descripcion')}
+            error={fieldError('descripcion', form.descripcion.trim() ? { ok: true } : { ok: false, mensaje: 'La descripción es obligatoria' })}
           />
         </div>
         <div className="form-group">

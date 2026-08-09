@@ -5,7 +5,7 @@ import { DataTable } from '../components/ui/DataTable.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
 import Toast from '../components/ui/Toast.jsx';
-import { useFetch } from '../lib/hooks.js';
+import { useFetch, useLiveValidation } from '../lib/hooks.js';
 import api from '../lib/api.js';
 import { formatDate } from '../lib/utils.js';
 
@@ -137,6 +137,7 @@ export default function AvisosPage() {
   const [form, setForm] = useState({ titulo: '', cuerpo: '' });
   const [selectedApts, setSelectedApts] = useState('TODOS');
   const [sending, setSending] = useState(false);
+  const { touch, fieldError } = useLiveValidation();
 
   const { data: avisos, loading, error, refetch } = useFetch(() => api.get('/buzon/avisos'), []);
   const { data: apartamentos } = useFetch(() => api.get('/apartamentos'), []);
@@ -219,6 +220,8 @@ export default function AvisosPage() {
             label="Título"
             value={form.titulo}
             onChange={(e) => setForm((f) => ({ ...f, titulo: e.target.value }))}
+            onBlur={() => touch('titulo')}
+            error={fieldError('titulo', form.titulo.trim() ? { ok: true } : { ok: false, mensaje: 'El título es obligatorio' })}
           />
         </div>
         <div className="form-group">
@@ -228,6 +231,8 @@ export default function AvisosPage() {
             rows={5}
             value={form.cuerpo}
             onChange={(e) => setForm((f) => ({ ...f, cuerpo: e.target.value }))}
+            onBlur={() => touch('cuerpo')}
+            error={fieldError('cuerpo', form.cuerpo.trim() ? { ok: true } : { ok: false, mensaje: 'El mensaje es obligatorio' })}
           />
         </div>
       </Modal>
