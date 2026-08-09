@@ -1,5 +1,6 @@
 ﻿import { useState, useMemo, useEffect } from 'react';
-import * as XLSX from 'xlsx';
+import * as XLSX from 'xlsx-js-style';
+import { unzipSync, zipSync, strFromU8, strToU8 } from 'fflate';
 import { Button } from '../components/ui/Button.jsx';
 import { Input } from '../components/ui/Form.jsx';
 import { DataTable } from '../components/ui/DataTable.jsx';
@@ -24,6 +25,26 @@ function Stat({ icon, value, label, color = 'primary' }) {
   );
 }
 
+// SheetJS CE lee freeze panes pero no los escribe: se inyectan en el XML de la hoja
+// dentro del zip del .xlsx (fflate). ySplit = cantidad de filas congeladas.
+function aplicarFreeze(buffer, ySplit) {
+  if (!ySplit) return buffer;
+  try {
+    const zip = unzipSync(new Uint8Array(buffer));
+    const ruta = zip['xl/worksheets/sheet1.xml'];
+    if (!ruta) return buffer;
+    const xml = strFromU8(ruta);
+    const celda = 'A' + (ySplit + 1);
+    const pane = `<pane xSplit="0" ySplit="${ySplit}" topLeftCell="${celda}" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="${celda}" sqref="${celda}"/>`;
+    const limpio = xml.replace(/<selection[^>]*\/>/g, '');
+    const nuevo = limpio.replace(/<sheetView([^>]*)>/, `<sheetView$1>${pane}`);
+    zip['xl/worksheets/sheet1.xml'] = strToU8(nuevo);
+    return zipSync(zip);
+  } catch {
+    return buffer;
+  }
+}
+
 // Export a .xlsx REAL con SheetJS: Excel abre sin warning de formato y con
 // asociacion directa (formato nativo moderno). Estilos basicos aplicados por celda.
 function exportarExcel(pagos, fechaInicio, fechaFin) {
@@ -36,7 +57,7 @@ function exportarExcel(pagos, fechaInicio, fechaFin) {
   const totalTransferencia = pagos.filter((p) => (p.metodo || '').toUpperCase() === 'TRANSFERENCIA').reduce((s, p) => s + Number(p.valor || 0), 0);
   const aptos = new Set(pagos.map((p) => p.apartamento).filter(Boolean)).size;
 
-  // Resumen mensual
+  // Resumen mensual (cronologico)
   const porMes = {};
   pagos.forEach((p) => {
     const mes = (p.fecha || '').slice(0, 7);
@@ -47,7 +68,7 @@ function exportarExcel(pagos, fechaInicio, fechaFin) {
   });
   const mesesOrdenados = Object.keys(porMes).sort();
 
-  // Resumen por apartamento
+  // Resumen por apartamento (sort por total DESC segun spec)
   const porApto = {};
   pagos.forEach((p) => {
     const apto = p.apartamento || 'Sin apto';
@@ -55,91 +76,126 @@ function exportarExcel(pagos, fechaInicio, fechaFin) {
     porApto[apto].total += Number(p.valor || 0);
     porApto[apto].n += 1;
   });
-  const aptosOrdenados = Object.keys(porApto).sort((a, b) => Number(a) - Number(b) || String(a).localeCompare(String(b)));
+  const aptosOrdenados = Object.keys(porApto).sort((a, b) => porApto[b].total - porApto[a].total);
 
   const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
-  // Estilos reutilizables (SheetJS CE: fuentes, rellenos, alineacion, formatos)
-  const estilos = {
-    titulo: { font: { bold: true, sz: 16, color: { rgb: '0F2044' } } },
-    subtitulo: { font: { sz: 11, color: { rgb: '5B6B85' } } },
-    header: { font: { bold: true, color: { rgb: 'FFFFFF' } }, fill: { fgColor: { rgb: '0F2044' } } },
-    headerMini: { font: { bold: true, color: { rgb: 'FFFFFF' } }, fill: { fgColor: { rgb: '2855A0' } } },
-    seccion: { font: { bold: true, sz: 13, color: { rgb: '0F2044' } } },
-    kpiLabel: { font: { sz: 10, color: { rgb: '8592A8' } }, fill: { fgColor: { rgb: 'F4F6FA' } } },
-    kpiValue: { font: { bold: true, sz: 14, color: { rgb: '0F2044' } }, fill: { fgColor: { rgb: 'F4F6FA' } } },
-    kpiVerde: { font: { bold: true, sz: 14, color: { rgb: '0F8A5F' } }, fill: { fgColor: { rgb: 'F4F6FA' } } },
-    kpiRojo: { font: { bold: true, sz: 14, color: { rgb: 'C0392B' } }, fill: { fgColor: { rgb: 'F4F6FA' } } },
-    numero: { numFmt: '#,##0', alignment: { horizontal: 'right' } },
-    numeroBold: { numFmt: '#,##0', alignment: { horizontal: 'right' }, font: { bold: true } },
-    apto: { alignment: { horizontal: 'center' }, font: { bold: true } },
-    muted: { font: { color: { rgb: '5B6B85' } } },
-    badgeCuota: { font: { bold: true, color: { rgb: '0F8A5F' } }, fill: { fgColor: { rgb: 'E7F7EF' } }, alignment: { horizontal: 'center' } },
-    badgeMulta: { font: { bold: true, color: { rgb: 'C0392B' } }, fill: { fgColor: { rgb: 'FBEAE8' } }, alignment: { horizontal: 'center' } },
+  // Helpers
+  const serieFecha = (str) => {
+    if (!str) return null;
+    const m = String(str).match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?/);
+    if (!m) return null;
+    let serial = (Date.UTC(+m[1], +m[2] - 1, +m[3]) - Date.UTC(1899, 11, 30)) / 86400000;
+    if (m[4] !== undefined) serial += (+m[4] * 3600 + +m[5] * 60) / 86400;
+    return serial;
+  };
+  const numOstr = (val) => {
+    const s = String(val == null ? '' : val).trim();
+    if (s === '') return '';
+    const n = Number(s);
+    return Number.isNaN(n) ? s : n;
+  };
+  const S = (v, st) => ({ t: 's', v, s: st });
+  const N = (v, st) => ({ t: 'n', v: Number(v || 0), s: st });
+  const celdaApto = (val, st) => {
+    const n = numOstr(val);
+    return typeof n === 'number' ? { t: 'n', v: n, s: { ...st, numFmt: '0' } } : { t: 's', v: String(val || ''), s: st };
   };
 
-  const S = (name, val) => ({ t: 's', v: val, s: estilos[name] || undefined });
-  const N = (v, name) => ({ t: 'n', v: Number(v || 0), s: estilos[name] || undefined });
-  const SC = (r, c, name) => ({ r, c, s: estilos[name] || undefined });
+  // Estilos segun spec
+  const estilos = {
+    titulo: { font: { bold: true, sz: 16, color: { rgb: '0F2044' }, name: 'Calibri' } },
+    subtitulo: { font: { italic: true, sz: 10, color: { rgb: '5B6B85' }, name: 'Calibri' } },
+    seccion: { font: { bold: true, sz: 13, color: { rgb: '0F2044' } } },
+    kpiLabel: { font: { sz: 9, color: { rgb: '8592A8' } }, fill: { fgColor: { rgb: 'F4F6FA' } } },
+    kpiFill: { fill: { fgColor: { rgb: 'F4F6FA' } } },
+    kpiValue: (color, sz) => ({ font: { bold: true, sz, color: { rgb: color } }, fill: { fgColor: { rgb: 'F4F6FA' } }, numFmt: '$#,##0' }),
+    headerTabla: { font: { bold: true, sz: 10, color: { rgb: 'FFFFFF' } }, fill: { fgColor: { rgb: '0F2044' } } },
+    headerSummary: { font: { bold: true, sz: 9, color: { rgb: 'FFFFFF' } }, fill: { fgColor: { rgb: '2855A0' } } },
+    zebraOdd: { fill: { fgColor: { rgb: 'F7F9FC' } } },
+    zebraEven: { fill: { fgColor: { rgb: 'FFFFFF' } } },
+    bd: { border: { bottom: { style: 'thin', color: { rgb: 'E5E9F0' } } } },
+    totalRow: { font: { bold: true, sz: 10, color: { rgb: '0F2044' } }, fill: { fgColor: { rgb: 'EEF1F6' } } },
+    badgeCuota: { font: { bold: true, color: { rgb: '0F8A5F' } }, fill: { fgColor: { rgb: 'E7F7EF' } } },
+    badgeMulta: { font: { bold: true, color: { rgb: 'C0392B' } }, fill: { fgColor: { rgb: 'FBEAE8' } } },
+    apto: { alignment: { horizontal: 'center' }, font: { bold: true } },
+    fecha: { numFmt: 'dd/mm/yyyy' },
+    moneda: { numFmt: '$#,##0', alignment: { horizontal: 'right' } },
+    monedaBold: { numFmt: '$#,##0', alignment: { horizontal: 'right' }, font: { bold: true } },
+    entero: { numFmt: '0', alignment: { horizontal: 'center' } },
+  };
 
   const aoa = [];
+  const merges = [];
   let r = 0;
 
-  // Titulo y subtitulo (merge A:H)
-  aoa[r] = []; aoa[r][0] = { t: 's', v: 'Reporte de Ganancias — Edificio Residencial', s: estilos.titulo };
-  aoa[r + 1] = []; aoa[r + 1][0] = {
-    t: 's',
-    v: `Periodo: ${formatDate(fechaInicio)} — ${formatDate(fechaFin)} | Generado por SAED | ${pagos.length} transacciones · ${aptos} apartamentos`,
-    s: estilos.subtitulo,
-  };
+  // Titulo y subtitulo
+  aoa[r] = [S('Reporte de Ganancias — Edificio Residencial', estilos.titulo)];
+  aoa[r + 1] = [S(`Periodo: ${formatDate(fechaInicio)} — ${formatDate(fechaFin)}  ·  Generado por SAED  ·  ${pagos.length} transacciones`, estilos.subtitulo)];
+  merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: 7 } }, { s: { r: 1, c: 0 }, e: { r: 1, c: 7 } });
   r += 3;
 
-  // KPIs: una fila por KPI (label merge A:B, valor en C) — fiel a la plantilla
-  const kpis = [
-    ['Total General', total, 'kpiValue'],
-    ['Cuotas', totalCuotas, 'kpiVerde'],
-    ['Multas', totalMultas, 'kpiRojo'],
-    ['Efectivo', totalEfectivo, 'kpiValue'],
-    ['Transferencia', totalTransferencia, 'kpiValue'],
-  ];
-  const filasKpi = [];
-  kpis.forEach(([label, valor, estilo]) => {
-    aoa[r] = [];
-    aoa[r][0] = { t: 's', v: label, s: estilos.kpiLabel };
-    aoa[r][2] = { t: 'n', v: Number(valor || 0), s: estilos[estilo] };
-    filasKpi.push(r);
-    r++;
-  });
+  // KPIs grilla: fila 1 = Total General / Cuotas / Multas; fila 2 = Efectivo / Transferencia
+  // El spec mergeaba A:B (label + valor en el rango) — un merge en Excel oculta el valor de
+  // la 2da celda, así que label y valor van en columnas contiguas SIN merge (mismos col_start).
+  const kpiCelda = (label, valor, color, sz, c0) => {
+    aoa[r] = aoa[r] || [];
+    aoa[r][c0] = S(label, estilos.kpiLabel);
+    aoa[r][c0 + 1] = N(valor, estilos.kpiValue(color, sz));
+  };
+  kpiCelda('Total General', total, '0F2044', 14, 0);
+  kpiCelda('Cuotas', totalCuotas, '0F8A5F', 14, 2);
+  kpiCelda('Multas', totalMultas, 'C0392B', 14, 4);
   r++;
+  kpiCelda('Efectivo', totalEfectivo, '1A2233', 13, 0);
+  kpiCelda('Transferencia', totalTransferencia, '1A2233', 13, 2);
+  r += 2;
 
-  // Seccion detalle (merge A:H como en la plantilla)
-  const rSeccionDetalle = r;
-  aoa[r] = [{ t: 's', v: 'Detalle de transacciones', s: estilos.seccion }];
+  // Seccion detalle
+  aoa[r] = [S('Detalle de transacciones', estilos.seccion)];
+  merges.push({ s: { r, c: 0 }, e: { r, c: 7 } });
   r++;
+  const rHeaderTabla = r;
   aoa[r] = [
-    S('header', '#'), S('header', 'Fecha'), S('header', 'Tipo'), S('header', 'Apto'),
-    S('header', 'Residente'), S('header', 'Método'), S('header', 'Valor'), S('header', 'Descripción'),
+    S('#', estilos.headerTabla), S('Fecha', estilos.headerTabla), S('Tipo', estilos.headerTabla), S('Apto', estilos.headerTabla),
+    S('Residente', estilos.headerTabla), S('Método', estilos.headerTabla), S('Valor', estilos.headerTabla), S('Descripción', estilos.headerTabla),
   ];
   r++;
-  pagos.forEach((p) => {
+  pagos.forEach((p, i) => {
+    const zebra = i % 2 === 0 ? estilos.zebraOdd : estilos.zebraEven;
+    const base = { ...zebra, ...estilos.bd };
     const esMulta = (p.tipoPago || '').toUpperCase().includes('MULTA');
     aoa[r] = [
-      N(p.id, 'muted'), { t: 's', v: formatDate(p.fecha) }, S(esMulta ? 'badgeMulta' : 'badgeCuota', p.tipoPago || 'CUOTA'),
-      S('apto', String(p.apartamento || '')), { t: 's', v: p.residente || '' }, S('muted', p.metodo || ''),
-      N(p.valor, 'numero'), S('muted', p.descripcion || ''),
+      { t: 'n', v: Number(p.id || 0), s: { ...estilos.entero, ...base } },
+      { t: 'n', v: serieFecha(p.fecha), s: { ...estilos.fecha, ...base } },
+      S(p.tipoPago || 'CUOTA', { ...base, ...(esMulta ? estilos.badgeMulta : estilos.badgeCuota) }),
+      celdaApto(p.apartamento, { ...estilos.apto, ...base }),
+      S(p.residente || '', base),
+      S(p.metodo || '', base),
+      N(p.valor, { ...estilos.moneda, ...base }),
+      S(p.descripcion || '', base),
     ];
     r++;
   });
   // Total
-  aoa[r] = [S('header', 'Total'), {}, {}, {}, {}, {}, N(total, 'numeroBold'), {}];
+  aoa[r] = [S('TOTAL', estilos.totalRow)];
+  aoa[r][6] = N(total, { ...estilos.totalRow, ...estilos.monedaBold });
+  merges.push({ s: { r, c: 0 }, e: { r, c: 5 } });
   r += 2;
 
-  // Resumen mensual + por apartamento lado a lado (merges A:C y E:G como la plantilla)
+  // Resumen mensual + por apartamento lado a lado
   const rSeccionResumenes = r;
-  aoa[r] = []; aoa[r][0] = { t: 's', v: 'Resumen mensual', s: estilos.seccion };
-  aoa[r][4] = { t: 's', v: 'Resumen por apartamento', s: estilos.seccion };
+  aoa[r] = [S('Resumen mensual', estilos.seccion)];
+  aoa[r][4] = S('Resumen por apartamento', estilos.seccion);
+  merges.push(
+    { s: { r, c: 0 }, e: { r, c: 2 } },
+    { s: { r, c: 4 }, e: { r, c: 6 } },
+  );
   r++;
-  aoa[r] = [S('headerMini', 'Mes'), S('headerMini', 'Transacciones'), S('headerMini', 'Total'), {}, S('headerMini', 'Apto'), S('headerMini', 'Transacciones'), S('headerMini', 'Total')];
+  aoa[r] = [
+    S('Mes', estilos.headerSummary), S('Transacciones', estilos.headerSummary), S('Total', estilos.headerSummary), null,
+    S('Apto', estilos.headerSummary), S('Transacciones', estilos.headerSummary), S('Total', estilos.headerSummary),
+  ];
   r++;
   const filas = Math.max(mesesOrdenados.length, aptosOrdenados.length);
   for (let i = 0; i < filas; i++) {
@@ -147,39 +203,27 @@ function exportarExcel(pagos, fechaInicio, fechaFin) {
     if (mesesOrdenados[i]) {
       const [y, mm] = mesesOrdenados[i].split('-');
       const nombreMes = MESES[Number(mm) - 1] || mm;
-      aoa[r][0] = { t: 's', v: `${nombreMes} ${y}` };
-      aoa[r][1] = N(porMes[mesesOrdenados[i]].n, 'apto');
-      aoa[r][2] = N(porMes[mesesOrdenados[i]].total, 'numeroBold');
+      aoa[r][0] = S(`${nombreMes} ${y}`, estilos.bd);
+      aoa[r][1] = N(porMes[mesesOrdenados[i]].n, { ...estilos.entero, ...estilos.bd });
+      aoa[r][2] = N(porMes[mesesOrdenados[i]].total, { ...estilos.monedaBold, ...estilos.bd });
     }
     if (aptosOrdenados[i]) {
-      aoa[r][4] = S('apto', String(aptosOrdenados[i]));
-      aoa[r][5] = N(porApto[aptosOrdenados[i]].n, 'apto');
-      aoa[r][6] = N(porApto[aptosOrdenados[i]].total, 'numeroBold');
+      aoa[r][4] = celdaApto(aptosOrdenados[i], { ...estilos.apto, ...estilos.bd });
+      aoa[r][5] = N(porApto[aptosOrdenados[i]].n, { ...estilos.entero, ...estilos.bd });
+      aoa[r][6] = N(porApto[aptosOrdenados[i]].total, { ...estilos.monedaBold, ...estilos.bd });
     }
     r++;
   }
 
-  // Anchuras de columna
   const ws = XLSX.utils.aoa_to_sheet(aoa);
-  ws['!cols'] = [
-    { wch: 12 }, { wch: 22 }, { wch: 12 }, { wch: 12 },
-    { wch: 26 }, { wch: 14 }, { wch: 14 }, { wch: 30 },
-  ];
-  // Merges fieles a la plantilla: titulo A1:H1, subtitulo A2:H2, labels KPI A:B,
-  // seccion detalle A:H, resumen mensual A:C, resumen por apartamento E:G
-  ws['!merges'] = [
-    { s: { r: 0, c: 0 }, e: { r: 0, c: 7 } },
-    { s: { r: 1, c: 0 }, e: { r: 1, c: 7 } },
-    ...filasKpi.map((fr) => ({ s: { r: fr, c: 0 }, e: { r: fr, c: 1 } })),
-    { s: { r: rSeccionDetalle, c: 0 }, e: { r: rSeccionDetalle, c: 7 } },
-    { s: { r: rSeccionResumenes, c: 0 }, e: { r: rSeccionResumenes, c: 2 } },
-    { s: { r: rSeccionResumenes, c: 4 }, e: { r: rSeccionResumenes, c: 6 } },
-  ];
+  ws['!cols'] = [{ wch: 8 }, { wch: 12 }, { wch: 10 }, { wch: 12 }, { wch: 26 }, { wch: 16 }, { wch: 14 }, { wch: 22 }];
+  ws['!merges'] = merges;
+  ws['!freeze'] = { xSplit: 0, ySplit: rHeaderTabla + 1 };
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Ganancias');
-  const out = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-  const blob = new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const out = XLSX.write(wb, { bookType: 'xlsx', type: 'array', cellStyles: true });
+  const blob = new Blob([aplicarFreeze(out, rHeaderTabla + 1)], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
@@ -189,6 +233,7 @@ function exportarExcel(pagos, fechaInicio, fechaFin) {
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
 }
+
 
 const PAGE_SIZE = 10;
 

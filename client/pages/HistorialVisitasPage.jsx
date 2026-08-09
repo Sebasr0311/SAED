@@ -1,5 +1,6 @@
 ﻿import { useState } from 'react';
-import * as XLSX from 'xlsx';
+import * as XLSX from 'xlsx-js-style';
+import { unzipSync, zipSync, strFromU8, strToU8 } from 'fflate';
 import { Button } from '../components/ui/Button.jsx';
 import { Input } from '../components/ui/Form.jsx';
 import { DataTable } from '../components/ui/DataTable.jsx';
@@ -12,168 +13,200 @@ import { formatDate, todayStr, imageSrc } from '../lib/utils.js';
 
 // Export a .xlsx REAL con SheetJS: Excel abre sin warning de formato y con
 // asociacion directa (formato nativo moderno). Estilos basicos aplicados por celda.
+// SheetJS CE lee freeze panes pero no los escribe: se inyectan en el XML de la hoja
+// dentro del zip del .xlsx (fflate). ySplit = cantidad de filas congeladas.
+function aplicarFreeze(buffer, ySplit) {
+  if (!ySplit) return buffer;
+  try {
+    const zip = unzipSync(new Uint8Array(buffer));
+    const ruta = zip['xl/worksheets/sheet1.xml'];
+    if (!ruta) return buffer;
+    const xml = strFromU8(ruta);
+    const celda = 'A' + (ySplit + 1);
+    const pane = `<pane xSplit="0" ySplit="${ySplit}" topLeftCell="${celda}" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="${celda}" sqref="${celda}"/>`;
+    const limpio = xml.replace(/<selection[^>]*\/>/g, '');
+    const nuevo = limpio.replace(/<sheetView([^>]*)>/, `<sheetView$1>${pane}`);
+    zip['xl/worksheets/sheet1.xml'] = strToU8(nuevo);
+    return zipSync(zip);
+  } catch {
+    return buffer;
+  }
+}
+
 function exportarExcel(visitas, fechaInicio, fechaFin) {
   const total = visitas.length;
   const canceladas = visitas.filter((v) => (v.estado || '').toUpperCase() === 'CANCELADA').length;
   const expiradas = visitas.filter((v) => (v.estado || '').toUpperCase() === 'EXPIRADA').length;
   const aptos = new Set(visitas.map((v) => v.numeroApartamento).filter(Boolean)).size;
 
-  // Resumen por estado
+  // Resumen por estado (sort cantidad DESC)
   const porEstado = {};
   visitas.forEach((v) => {
     const e = (v.estado || 'SIN ESTADO').toUpperCase();
     porEstado[e] = (porEstado[e] || 0) + 1;
   });
-  const estadosOrdenados = Object.keys(porEstado).sort();
+  const estadosOrdenados = Object.keys(porEstado).sort((a, b) => porEstado[b] - porEstado[a]);
 
-  // Resumen por apartamento
+  // Resumen por apartamento (sort registros DESC)
   const porApto = {};
   visitas.forEach((v) => {
     const apto = v.numeroApartamento || 'Sin apto';
     if (!porApto[apto]) porApto[apto] = { residente: v.nombreResidente || '', n: 0 };
     porApto[apto].n += 1;
   });
-  const aptosOrdenados = Object.keys(porApto).sort((a, b) => Number(a) - Number(b) || String(a).localeCompare(String(b)));
+  const aptosOrdenados = Object.keys(porApto).sort((a, b) => porApto[b].n - porApto[a].n);
 
-  // Estilos reutilizables
-  const estilos = {
-    titulo: { font: { bold: true, sz: 16, color: { rgb: '0F2044' } } },
-    subtitulo: { font: { sz: 11, color: { rgb: '5B6B85' } } },
-    header: { font: { bold: true, color: { rgb: 'FFFFFF' } }, fill: { fgColor: { rgb: '0F2044' } } },
-    headerMini: { font: { bold: true, color: { rgb: 'FFFFFF' } }, fill: { fgColor: { rgb: '2855A0' } } },
-    seccion: { font: { bold: true, sz: 13, color: { rgb: '0F2044' } } },
-    kpiLabel: { font: { sz: 10, color: { rgb: '8592A8' } }, fill: { fgColor: { rgb: 'F4F6FA' } } },
-    kpiValue: { font: { bold: true, sz: 14, color: { rgb: '0F2044' } }, fill: { fgColor: { rgb: 'F4F6FA' } } },
-    kpiRojo: { font: { bold: true, sz: 14, color: { rgb: 'C0392B' } }, fill: { fgColor: { rgb: 'F4F6FA' } } },
-    kpiAmbar: { font: { bold: true, sz: 14, color: { rgb: 'B7791F' } }, fill: { fgColor: { rgb: 'F4F6FA' } } },
-    visitante: { font: { bold: true } },
-    apto: { alignment: { horizontal: 'center' }, font: { bold: true } },
-    muted: { font: { color: { rgb: 'B7C0D1' } } },
-    badgeAmbar: { font: { bold: true, color: { rgb: 'B7791F' } }, fill: { fgColor: { rgb: 'FDF3DE' } }, alignment: { horizontal: 'center' } },
-    badgeRojo: { font: { bold: true, color: { rgb: 'C0392B' } }, fill: { fgColor: { rgb: 'FBEAE8' } }, alignment: { horizontal: 'center' } },
-    badgeAzul: { font: { bold: true, color: { rgb: '2855A0' } }, fill: { fgColor: { rgb: 'E8EEF9' } }, alignment: { horizontal: 'center' } },
+  // Helpers
+  const serieFecha = (str) => {
+    if (!str) return null;
+    const m = String(str).match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?/);
+    if (!m) return null;
+    let serial = (Date.UTC(+m[1], +m[2] - 1, +m[3]) - Date.UTC(1899, 11, 30)) / 86400000;
+    if (m[4] !== undefined) serial += (+m[4] * 3600 + +m[5] * 60) / 86400;
+    return serial;
   };
-
-  const badgeEstado = (estado) => {
-    const e = (estado || '').toUpperCase();
-    if (e === 'EXPIRADA') return estilos.badgeAmbar;
-    if (e === 'CANCELADA') return estilos.badgeRojo;
-    return estilos.badgeAzul;
+  const tieneHora = (str) => /[T ]\d{2}:\d{2}/.test(String(str || ''));
+  const numOstr = (val) => {
+    const s = String(val == null ? '' : val).trim();
+    if (s === '') return '';
+    const n = Number(s);
+    return Number.isNaN(n) ? s : n;
+  };
+  const S = (v, st) => ({ t: 's', v, s: st });
+  const N = (v, st) => ({ t: 'n', v: Number(v || 0), s: st });
+  const celdaApto = (val, st) => {
+    const n = numOstr(val);
+    return typeof n === 'number' ? { t: 'n', v: n, s: { ...st, numFmt: '0' } } : { t: 's', v: String(val || ''), s: st };
+  };
+  const celdaFecha = (val, st, hhmm) => {
+    const serial = serieFecha(val);
+    if (serial === null) return S('—', st);
+    return { t: 'n', v: serial, s: { ...st, numFmt: hhmm && tieneHora(val) ? 'hh:mm' : 'dd/mm/yyyy' } };
   };
   const vacio = (val) => !val || String(val).trim() === '';
-  const dash = (val) => (vacio(val) ? '—' : val);
+  const dash = (val, st) => (vacio(val) ? S('—', st) : S(String(val), st));
   const fechaDe = (v) => v.fechaVisita || v.fechaIngreso;
 
+  // Estilos segun spec
+  const estilos = {
+    titulo: { font: { bold: true, sz: 16, color: { rgb: '0F2044' }, name: 'Calibri' } },
+    subtitulo: { font: { italic: true, sz: 10, color: { rgb: '5B6B85' }, name: 'Calibri' } },
+    seccion: { font: { bold: true, sz: 13, color: { rgb: '0F2044' } } },
+    kpiLabel: { font: { sz: 9, color: { rgb: '8592A8' } }, fill: { fgColor: { rgb: 'F4F6FA' } } },
+    kpiValue: (color) => ({ font: { bold: true, sz: 14, color: { rgb: color } }, fill: { fgColor: { rgb: 'F4F6FA' } }, numFmt: '0' }),
+    headerTabla: { font: { bold: true, sz: 10, color: { rgb: 'FFFFFF' } }, fill: { fgColor: { rgb: '0F2044' } } },
+    headerSummary: { font: { bold: true, sz: 9, color: { rgb: 'FFFFFF' } }, fill: { fgColor: { rgb: '2855A0' } } },
+    zebraOdd: { fill: { fgColor: { rgb: 'F7F9FC' } } },
+    zebraEven: { fill: { fgColor: { rgb: 'FFFFFF' } } },
+    bd: { border: { bottom: { style: 'thin', color: { rgb: 'E5E9F0' } } } },
+    muted: { font: { color: { rgb: '5B6B85' } } },
+    visitante: { font: { bold: true } },
+    apto: { alignment: { horizontal: 'center' }, font: { bold: true } },
+    entero: { numFmt: '0', alignment: { horizontal: 'center' } },
+    fecha: { numFmt: 'dd/mm/yyyy' },
+    badgeEstado: {
+      CANCELADA: { font: { bold: true, color: { rgb: 'C0392B' } }, fill: { fgColor: { rgb: 'FBEAE8' } } },
+      EXPIRADA: { font: { bold: true, color: { rgb: 'B7791F' } }, fill: { fgColor: { rgb: 'FDF3DE' } } },
+      COMPLETADA: { font: { bold: true, color: { rgb: '0F8A5F' } }, fill: { fgColor: { rgb: 'E7F7EF' } } },
+      ACTIVA: { font: { bold: true, color: { rgb: '2855A0' } }, fill: { fgColor: { rgb: 'E9F0FB' } } },
+      default: { font: { bold: true, color: { rgb: '2855A0' } }, fill: { fgColor: { rgb: 'E9F0FB' } } },
+    },
+  };
+  const badgeDe = (estado) => estilos.badgeEstado[String(estado || '').toUpperCase()] || estilos.badgeEstado.default;
+
   const aoa = [];
+  const merges = [];
   let r = 0;
 
   // Titulo y subtitulo
-  aoa[r] = []; aoa[r][0] = { t: 's', v: 'Historial de Visitas — Edificio Residencial', s: estilos.titulo };
-  aoa[r + 1] = [];
-  aoa[r + 1][0] = {
-    t: 's',
-    v: `Periodo: ${formatDate(fechaInicio)} — ${formatDate(fechaFin)} | Generado por SAED | ${total} registros`,
-    s: estilos.subtitulo,
-  };
+  aoa[r] = [S('Historial de Visitas — Edificio Residencial', estilos.titulo)];
+  aoa[r + 1] = [S(`Periodo: ${formatDate(fechaInicio)} — ${formatDate(fechaFin)}  ·  Generado por SAED  ·  ${total} registros`, estilos.subtitulo)];
+  merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: 10 } }, { s: { r: 1, c: 0 }, e: { r: 1, c: 10 } });
   r += 3;
 
-  // KPIs: label merge A:B, valor en C — fiel a la plantilla
-  const kpis = [
-    ['Total Registros', String(total), 'kpiValue'],
-    ['Canceladas', String(canceladas), 'kpiRojo'],
-    ['Expiradas', String(expiradas), 'kpiAmbar'],
-    ['Apartamentos Involucrados', String(aptos), 'kpiValue'],
-  ];
-  const filasKpi = [];
-  kpis.forEach(([label, valor, estilo]) => {
-    aoa[r] = [];
-    aoa[r][0] = { t: 's', v: label, s: estilos.kpiLabel };
-    aoa[r][2] = { t: 's', v: valor, s: estilos[estilo] };
-    filasKpi.push(r);
-    r++;
-  });
-  r++;
+  // KPIs: una fila con 4 bloques (label + valor en columnas contiguas: A:B, C:D, E:F, G:H).
+  // Sin merge: un merge ocultaria el valor en Excel (solo se muestra la celda superior-izquierda).
+  const kpiCelda = (label, valor, color, c0) => {
+    aoa[r] = aoa[r] || [];
+    aoa[r][c0] = S(label, estilos.kpiLabel);
+    aoa[r][c0 + 1] = N(valor, estilos.kpiValue(color));
+  };
+  kpiCelda('Total Registros', total, '0F2044', 0);
+  kpiCelda('Canceladas', canceladas, 'C0392B', 2);
+  kpiCelda('Expiradas', expiradas, 'B7791F', 4);
+  kpiCelda('Apartamentos Involucrados', aptos, '1A2233', 6);
+  r += 2;
 
-  // Seccion detalle (merge A:K como en la plantilla)
-  const rSeccionDetalle = r;
-  aoa[r] = []; aoa[r][0] = { t: 's', v: 'Detalle de registros', s: estilos.seccion };
+  // Seccion detalle
+  aoa[r] = [S('Detalle de registros', estilos.seccion)];
+  merges.push({ s: { r, c: 0 }, e: { r, c: 10 } });
   r++;
+  const rHeaderTabla = r;
   aoa[r] = [
-    { t: 's', v: 'Fecha', s: estilos.header }, { t: 's', v: 'Visitante', s: estilos.header },
-    { t: 's', v: 'Documento', s: estilos.header }, { t: 's', v: 'Apto', s: estilos.header },
-    { t: 's', v: 'Residente', s: estilos.header }, { t: 's', v: 'Entrada', s: estilos.header },
-    { t: 's', v: 'Salida', s: estilos.header }, { t: 's', v: 'Vehículo', s: estilos.header },
-    { t: 's', v: 'Placa', s: estilos.header }, { t: 's', v: 'Parqueadero', s: estilos.header },
-    { t: 's', v: 'Estado', s: estilos.header },
+    S('Fecha', estilos.headerTabla), S('Visitante', estilos.headerTabla), S('Documento', estilos.headerTabla), S('Apto', estilos.headerTabla),
+    S('Residente', estilos.headerTabla), S('Entrada', estilos.headerTabla), S('Salida', estilos.headerTabla), S('Vehículo', estilos.headerTabla),
+    S('Placa', estilos.headerTabla), S('Parqueadero', estilos.headerTabla), S('Estado', estilos.headerTabla),
   ];
   r++;
-  visitas.forEach((v) => {
+  visitas.forEach((v, i) => {
+    const zebra = i % 2 === 0 ? estilos.zebraOdd : estilos.zebraEven;
+    const base = { ...zebra, ...estilos.bd };
     const f = fechaDe(v);
     aoa[r] = [
-      { t: 's', v: vacio(f) ? '—' : formatDate(f), s: vacio(f) ? estilos.muted : undefined },
-      { t: 's', v: `${v.nombreVisitante || ''} ${v.apellidoVisitante || ''}`, s: estilos.visitante },
-      { t: 's', v: v.documentoVisitante || '' },
-      { t: 's', v: String(v.numeroApartamento || ''), s: estilos.apto },
-      { t: 's', v: v.nombreResidente || '' },
-      { t: 's', v: vacio(f) ? '—' : formatDate(f), s: vacio(f) ? estilos.muted : undefined },
-      { t: 's', v: vacio(v.fechaSalida) ? '—' : formatDate(v.fechaSalida), s: vacio(v.fechaSalida) ? estilos.muted : undefined },
-      { t: 's', v: String(dash(v.tipoVehiculo)), s: vacio(v.tipoVehiculo) ? estilos.muted : undefined },
-      { t: 's', v: String(dash(v.placaVehiculo)), s: vacio(v.placaVehiculo) ? estilos.muted : undefined },
-      { t: 's', v: String(dash(v.codigoParqueadero)), s: vacio(v.codigoParqueadero) ? estilos.muted : undefined },
-      { t: 's', v: v.estado || '', s: badgeEstado(v.estado) },
+      celdaFecha(f, base, false),
+      S(`${v.nombreVisitante || ''} ${v.apellidoVisitante || ''}`, { ...estilos.visitante, ...base }),
+      S(v.documentoVisitante || '', base),
+      celdaApto(v.numeroApartamento, { ...estilos.apto, ...base }),
+      S(v.nombreResidente || '', base),
+      celdaFecha(f, base, true),
+      celdaFecha(v.fechaSalida, base, true),
+      dash(v.tipoVehiculo, { ...estilos.muted, ...base }),
+      dash(v.placaVehiculo, { ...estilos.muted, ...base }),
+      dash(v.codigoParqueadero, { ...estilos.muted, ...base }),
+      S(v.estado || '', { ...base, ...badgeDe(v.estado) }),
     ];
     r++;
   });
   r++;
 
-  // Resumen por estado + por apartamento lado a lado (merges A:E y F:K como la plantilla)
+  // Resumen por estado + por apartamento lado a lado (gap 1 col: bloque 2 en D)
   const rSeccionResumenes = r;
-  aoa[r] = []; aoa[r][0] = { t: 's', v: 'Resumen por estado', s: estilos.seccion };
-  aoa[r][5] = { t: 's', v: 'Resumen por apartamento', s: estilos.seccion };
+  aoa[r] = [S('Resumen por estado', estilos.seccion)];
+  aoa[r][3] = S('Resumen por apartamento', estilos.seccion);
+  merges.push(
+    { s: { r, c: 0 }, e: { r, c: 1 } },
+    { s: { r, c: 3 }, e: { r, c: 5 } },
+  );
   r++;
   aoa[r] = [
-    { t: 's', v: 'Estado', s: estilos.headerMini }, { t: 's', v: 'Cantidad', s: estilos.headerMini },
-    {}, {}, {},
-    { t: 's', v: 'Apto', s: estilos.headerMini }, { t: 's', v: 'Residente', s: estilos.headerMini }, { t: 's', v: 'Registros', s: estilos.headerMini },
-    {}, {}, {},
+    S('Estado', estilos.headerSummary), S('Cantidad', estilos.headerSummary), null,
+    S('Apto', estilos.headerSummary), S('Residente', estilos.headerSummary), S('Registros', estilos.headerSummary),
   ];
   r++;
   const filas = Math.max(estadosOrdenados.length, aptosOrdenados.length);
   for (let i = 0; i < filas; i++) {
     aoa[r] = [];
     if (estadosOrdenados[i]) {
-      aoa[r][0] = { t: 's', v: estadosOrdenados[i], s: badgeEstado(estadosOrdenados[i]) };
-      aoa[r][1] = { t: 'n', v: porEstado[estadosOrdenados[i]], s: estilos.apto };
+      aoa[r][0] = S(estadosOrdenados[i], { ...badgeDe(estadosOrdenados[i]), ...estilos.bd });
+      aoa[r][1] = N(porEstado[estadosOrdenados[i]], { ...estilos.entero, ...estilos.bd });
     }
     if (aptosOrdenados[i]) {
-      aoa[r][5] = { t: 's', v: String(aptosOrdenados[i]), s: estilos.apto };
-      aoa[r][6] = { t: 's', v: porApto[aptosOrdenados[i]].residente || '' };
-      aoa[r][7] = { t: 'n', v: porApto[aptosOrdenados[i]].n, s: estilos.apto };
+      aoa[r][3] = celdaApto(aptosOrdenados[i], { ...estilos.apto, ...estilos.bd });
+      aoa[r][4] = S(porApto[aptosOrdenados[i]].residente || '', estilos.bd);
+      aoa[r][5] = N(porApto[aptosOrdenados[i]].n, { ...estilos.entero, ...estilos.bd });
     }
     r++;
   }
 
   const ws = XLSX.utils.aoa_to_sheet(aoa);
-  ws['!cols'] = [
-    { wch: 12 }, { wch: 24 }, { wch: 14 }, { wch: 10 },
-    { wch: 26 }, { wch: 12 }, { wch: 12 }, { wch: 14 },
-    { wch: 14 }, { wch: 14 }, { wch: 14 },
-  ];
-  // Merges fieles a la plantilla: titulo A1:K1, subtitulo A2:K2, labels KPI A:B,
-  // seccion detalle A:K, resumen por estado A:E, resumen por apartamento F:K
-  ws['!merges'] = [
-    { s: { r: 0, c: 0 }, e: { r: 0, c: 10 } },
-    { s: { r: 1, c: 0 }, e: { r: 1, c: 10 } },
-    ...filasKpi.map((fr) => ({ s: { r: fr, c: 0 }, e: { r: fr, c: 1 } })),
-    { s: { r: rSeccionDetalle, c: 0 }, e: { r: rSeccionDetalle, c: 10 } },
-    { s: { r: rSeccionResumenes, c: 0 }, e: { r: rSeccionResumenes, c: 4 } },
-    { s: { r: rSeccionResumenes, c: 5 }, e: { r: rSeccionResumenes, c: 10 } },
-  ];
+  ws['!cols'] = [{ wch: 12 }, { wch: 20 }, { wch: 14 }, { wch: 10 }, { wch: 26 }, { wch: 10 }, { wch: 10 }, { wch: 14 }, { wch: 10 }, { wch: 14 }, { wch: 12 }];
+  ws['!merges'] = merges;
+  ws['!freeze'] = { xSplit: 0, ySplit: rHeaderTabla + 1 };
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Historial Visitas');
-  const out = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-  const blob = new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const out = XLSX.write(wb, { bookType: 'xlsx', type: 'array', cellStyles: true });
+  const blob = new Blob([aplicarFreeze(out, rHeaderTabla + 1)], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
@@ -183,6 +216,7 @@ function exportarExcel(visitas, fechaInicio, fechaFin) {
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
 }
+
 
 function Stat({ icon, value, label, color = 'primary' }) {
   return (
