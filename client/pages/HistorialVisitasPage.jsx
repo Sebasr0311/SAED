@@ -9,29 +9,170 @@ import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
 import { formatDate, todayStr, imageSrc } from '../lib/utils.js';
 
+function esc(s) {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 function exportarExcel(visitas, fechaInicio, fechaFin) {
-  let xls =
-    '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">' +
-    '<head><meta charset="UTF-8"><style>table{width:100%;border-collapse:collapse}th{background:#0F2044;color:#fff}</style></head><body><table>' +
-    '<thead><tr><th>Fecha</th><th>Visitante</th><th>Documento</th><th>Apartamento</th><th>Residente</th><th>Entrada</th><th>Salida</th><th>Tipo Vehiculo</th><th>Placa</th><th>Parqueadero</th><th>Estado</th></tr></thead><tbody>';
+  const total = visitas.length;
+  const canceladas = visitas.filter((v) => (v.estado || '').toUpperCase() === 'CANCELADA').length;
+  const expiradas = visitas.filter((v) => (v.estado || '').toUpperCase() === 'EXPIRADA').length;
+  const aptos = new Set(visitas.map((v) => v.numeroApartamento).filter(Boolean)).size;
+
+  // Resumen por estado
+  const porEstado = {};
   visitas.forEach((v) => {
-    xls +=
-      '<tr>' +
-      `<td>${v.fechaVisita || v.fechaIngreso || ''}</td>` +
-      `<td>${v.nombreVisitante || ''} ${v.apellidoVisitante || ''}</td>` +
-      `<td>${v.documentoVisitante || ''}</td>` +
-      `<td>${v.numeroApartamento || ''}</td>` +
-      `<td>${v.nombreResidente || ''}</td>` +
-      `<td>${v.fechaVisita || v.fechaIngreso || ''}</td>` +
-      `<td>${v.fechaSalida || ''}</td>` +
-      `<td>${v.tipoVehiculo || ''}</td>` +
-      `<td>${v.placaVehiculo || ''}</td>` +
-      `<td>${v.codigoParqueadero || ''}</td>` +
-      `<td>${v.estado || ''}</td>` +
-      '</tr>';
+    const e = (v.estado || 'SIN ESTADO').toUpperCase();
+    porEstado[e] = (porEstado[e] || 0) + 1;
   });
-  xls += '</tbody></table></body></html>';
-  const blob = new Blob([xls], { type: 'application/vnd.ms-excel' });
+  const estadosOrdenados = Object.keys(porEstado).sort();
+
+  // Resumen por apartamento
+  const porApto = {};
+  visitas.forEach((v) => {
+    const apto = v.numeroApartamento || 'Sin apto';
+    if (!porApto[apto]) porApto[apto] = { residente: v.nombreResidente || '', n: 0 };
+    porApto[apto].n += 1;
+  });
+  const aptosOrdenados = Object.keys(porApto).sort((a, b) => Number(a) - Number(b) || String(a).localeCompare(String(b)));
+
+  // Badge de estado: EXPIRADA ambar, CANCELADA rojo, resto neutro azul
+  const badgeEstado = (estado) => {
+    const e = (estado || '').toUpperCase();
+    if (e === 'EXPIRADA') return 'background:#FDF3DE;color:#B7791F';
+    if (e === 'CANCELADA') return 'background:#FBEAE8;color:#C0392B';
+    return 'background:#E8EEF9;color:#2855A0';
+  };
+
+  const celdaVacia = 'style="padding:8px 12px;border-bottom:1px solid #E5E9F0;text-align:center;color:#B7C0D1;font-style:italic;"';
+
+  const filaDetalle = (v, fondo) => {
+    const vacio = (val) => !val || String(val).trim() === '';
+    const fecha = v.fechaVisita || v.fechaIngreso;
+    return `
+<tr style="background:${fondo};">
+${vacio(fecha) ? `<td ${celdaVacia}>—</td>` : `<td style="padding:8px 12px;border-bottom:1px solid #E5E9F0;">${esc(formatDate(fecha))}</td>`}
+<td style="padding:8px 12px;border-bottom:1px solid #E5E9F0;font-weight:600;">${esc(v.nombreVisitante || '')} ${esc(v.apellidoVisitante || '')}</td>
+<td style="padding:8px 12px;border-bottom:1px solid #E5E9F0;">${esc(v.documentoVisitante || '')}</td>
+<td style="padding:8px 12px;border-bottom:1px solid #E5E9F0;text-align:center;font-weight:600;">${esc(v.numeroApartamento || '')}</td>
+<td style="padding:8px 12px;border-bottom:1px solid #E5E9F0;">${esc(v.nombreResidente || '')}</td>
+${vacio(fecha) ? `<td ${celdaVacia}>—</td>` : `<td style="padding:8px 12px;border-bottom:1px solid #E5E9F0;">${esc(formatDate(fecha))}</td>`}
+${vacio(v.fechaSalida) ? `<td ${celdaVacia}>—</td>` : `<td style="padding:8px 12px;border-bottom:1px solid #E5E9F0;">${esc(formatDate(v.fechaSalida))}</td>`}
+${vacio(v.tipoVehiculo) ? `<td ${celdaVacia}>—</td>` : `<td style="padding:8px 12px;border-bottom:1px solid #E5E9F0;">${esc(v.tipoVehiculo)}</td>`}
+${vacio(v.placaVehiculo) ? `<td ${celdaVacia}>—</td>` : `<td style="padding:8px 12px;border-bottom:1px solid #E5E9F0;">${esc(v.placaVehiculo)}</td>`}
+${vacio(v.codigoParqueadero) ? `<td ${celdaVacia}>—</td>` : `<td style="padding:8px 12px;border-bottom:1px solid #E5E9F0;">${esc(v.codigoParqueadero)}</td>`}
+<td style="padding:8px 12px;border-bottom:1px solid #E5E9F0;"><span style="${badgeEstado(v.estado)};padding:3px 10px;border-radius:10px;font-size:12px;font-weight:700;">${esc(v.estado || '')}</span></td>
+</tr>`;
+  };
+
+  const filasDetalle = visitas
+    .map((v, i) => filaDetalle(v, i % 2 === 0 ? '#FFFFFF' : '#F7F9FC'))
+    .join('');
+
+  const filasEstado = estadosOrdenados
+    .map((e) => `
+<tr>
+<td style="padding:8px 14px;border-bottom:1px solid #E5E9F0;"><span style="${badgeEstado(e)};padding:3px 10px;border-radius:10px;font-size:12px;font-weight:700;">${esc(e)}</span></td>
+<td style="padding:8px 14px;border-bottom:1px solid #E5E9F0;text-align:center;font-weight:700;">${porEstado[e]}</td>
+</tr>`
+    )
+    .join('');
+
+  const filasApto = aptosOrdenados
+    .map((a) => `
+<tr>
+<td style="padding:8px 14px;border-bottom:1px solid #E5E9F0;text-align:center;font-weight:600;">${esc(a)}</td>
+<td style="padding:8px 14px;border-bottom:1px solid #E5E9F0;">${esc(porApto[a].residente)}</td>
+<td style="padding:8px 14px;border-bottom:1px solid #E5E9F0;text-align:center;">${porApto[a].n}</td>
+</tr>`
+    )
+    .join('');
+
+  const d1 = formatDate(fechaInicio);
+  const d2 = formatDate(fechaFin);
+
+  let xls = `<!DOCTYPE html>
+<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+<meta charset="UTF-8">
+<!--[if gte mso 9]>
+<xml>
+<x:ExcelWorkbook>
+<x:ExcelWorksheets>
+<x:ExcelWorksheet>
+<x:Name>Historial Visitas</x:Name>
+<x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>
+</x:ExcelWorksheet>
+</x:ExcelWorksheets>
+</x:ExcelWorkbook>
+</xml>
+<![endif]-->
+<style>
+  body { font-family: Calibri, Arial, sans-serif; color:#1A2233; margin:0; padding:24px; background:#EEF1F6; }
+  .sheet { max-width: 1150px; margin: 0 auto; background:#fff; }
+  h1 { font-size: 22px; margin:0 0 4px 0; color:#0F2044; }
+  .subtitle { color:#5B6B85; font-size:13px; margin-bottom:16px; }
+  table { border-collapse: collapse; width:100%; }
+  .kpi-table td { padding:16px 20px; }
+  .kpi-label { font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#8592A8; }
+  .kpi-value { font-size:20px; font-weight:700; color:#0F2044; }
+  .section-title { font-size:15px; font-weight:700; color:#0F2044; margin:28px 0 10px 0; padding-top:10px; border-top:2px solid #EEF1F6;}
+  thead th { background:#0F2044; color:#fff; text-align:left; padding:10px 12px; font-size:12px; text-transform:uppercase; letter-spacing:.03em; }
+  .mini thead th { background:#2855A0; }
+  .footer-note { color:#8592A8; font-size:11px; margin-top:24px; }
+</style>
+</head>
+<body>
+<div class="sheet">
+  <h1>Historial de Visitas — Edificio Residencial</h1>
+  <div class="subtitle">Periodo: ${d1} — ${d2} &nbsp;|&nbsp; Generado por SAED &nbsp;|&nbsp; ${total} registros</div>
+
+  <table class="kpi-table" style="border:1px solid #E5E9F0;">
+    <tr>
+      <td style="border-right:1px solid #E5E9F0;"><div class="kpi-label">Total Registros</div><div class="kpi-value">${total}</div></td>
+      <td style="border-right:1px solid #E5E9F0;"><div class="kpi-label">Canceladas</div><div class="kpi-value" style="color:#C0392B;">${canceladas}</div></td>
+      <td style="border-right:1px solid #E5E9F0;"><div class="kpi-label">Expiradas</div><div class="kpi-value" style="color:#B7791F;">${expiradas}</div></td>
+      <td><div class="kpi-label">Apartamentos Involucrados</div><div class="kpi-value">${aptos}</div></td>
+    </tr>
+  </table>
+
+  <div class="section-title">Detalle de registros</div>
+  <table>
+    <thead>
+      <tr><th>Fecha</th><th>Visitante</th><th>Documento</th><th>Apto</th><th>Residente</th><th>Entrada</th><th>Salida</th><th>Vehículo</th><th>Placa</th><th>Parqueadero</th><th>Estado</th></tr>
+    </thead>
+    <tbody>
+      ${filasDetalle}
+    </tbody>
+  </table>
+
+  <div style="display:flex; gap:24px; margin-top:10px;">
+    <div style="flex:1;">
+      <div class="section-title">Resumen por estado</div>
+      <table class="mini">
+        <thead><tr><th>Estado</th><th style="text-align:center;">Cantidad</th></tr></thead>
+        <tbody>
+          ${filasEstado}
+        </tbody>
+      </table>
+    </div>
+    <div style="flex:1;">
+      <div class="section-title">Resumen por apartamento</div>
+      <table class="mini">
+        <thead><tr><th style="text-align:center;">Apto</th><th>Residente</th><th style="text-align:center;">Registros</th></tr></thead>
+        <tbody>
+          ${filasApto}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+</body>
+</html>`;
+
+  // BOM UTF-8: sin él, Excel interpreta el .xls como Windows-1252 y corrompe los
+  // acentos (archivo "dañado" o texto ilegible). El BOM fuerza detección UTF-8.
+  const blob = new Blob(['\uFEFF' + xls], { type: 'application/vnd.ms-excel' });
   const link = document.createElement('a');
   const url = URL.createObjectURL(blob);
   link.href = url;
