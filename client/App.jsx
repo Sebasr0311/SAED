@@ -35,6 +35,7 @@ const ResQuejasPage = lazy(() => import('./pages/ResQuejasPage.jsx'));
 
 const PorteroDashboardPage = lazy(() => import('./pages/PorteroDashboardPage.jsx'));
 const PaquetesPage = lazy(() => import('./pages/PaquetesPage.jsx'));
+const NotFoundPage = lazy(() => import('./pages/NotFoundPage.jsx'));
 
 // Fallback de las rutas lazy vive en AppShell (envuelve <Outlet />), de modo que
 // el shell (sidebar/topbar) permanezca visible mientras se carga la página.
@@ -267,8 +268,18 @@ export default function App() {
               </ProtectedRoute>
             }
           />
+          {/* 404 con identidad dentro del shell (usuarios autenticados). */}
+          <Route
+            path="*"
+            element={
+              <ProtectedRoute>
+                <NotFoundPage />
+              </ProtectedRoute>
+            }
+          />
         </Route>
-        <Route path="*" element={<Navigate to="/" replace />} />
+        {/* Ruta raiz no autenticada -> login; cualquier otra desconocida fuera del shell. */}
+        <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </AuthProvider>
   );
