@@ -81,7 +81,7 @@ export default function ResBuzonPage() {
   return (
     <div>
       <PageHeader
-        title="BuzÃ³n"
+        title="Buzón"
         subtitle="Notificaciones del administrador"
         action={
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -97,7 +97,7 @@ export default function ResBuzonPage() {
             )}
             {items.length > 0 && (
               <Button variant="danger" onClick={() => setConfirmVaciar(true)}>
-                Vaciar buzÃ³n
+                Vaciar buzón
               </Button>
             )}
           </div>
@@ -109,7 +109,7 @@ export default function ResBuzonPage() {
           <div className="card empty-state" style={{ color: '#e11d48' }}>Error al cargar el buzón: {error?.message}</div>
         )}
         {!loading && !error && items.length === 0 && (
-          <div className="card empty-state">BuzÃ³n vacÃ­o</div>
+          <div className="card empty-state">Buzón vacío</div>
         )}
         {items.map((it) => {
           const leido = it.leido || leidosLocalmente.includes(it.idMensaje);
@@ -175,7 +175,7 @@ export default function ResBuzonPage() {
       <Modal
         open={confirmVaciar}
         onClose={() => setConfirmVaciar(false)}
-        title="Vaciar buzÃ³n"
+        title="Vaciar buzón"
         footer={
           <>
             <Button variant="outline" onClick={() => setConfirmVaciar(false)}>
@@ -187,7 +187,7 @@ export default function ResBuzonPage() {
           </>
         }
       >
-        <p>Â¿Marcar todos los mensajes como leÃ­dos y entregados? Esta acciÃ³n no se puede deshacer.</p>
+        <p>¿Marcar todos los mensajes como leídos y entregados? Esta acción no se puede deshacer.</p>
       </Modal>
 
       <Modal
@@ -205,7 +205,7 @@ export default function ResBuzonPage() {
           </>
         }
       >
-        <p>Â¿Marcar los {seleccionados.length} mensajes seleccionados como leÃ­dos y entregados? Esta acciÃ³n no se puede deshacer.</p>
+        <p>¿Marcar los {seleccionados.length} mensajes seleccionados como leídos y entregados? Esta acción no se puede deshacer.</p>
       </Modal>
 
       {fotoGrande && (

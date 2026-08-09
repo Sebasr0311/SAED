@@ -115,7 +115,7 @@ export default function HistorialVisitasPage() {
     <div>
       <PageHeader
         title="Historial de Visitas"
-        subtitle="Registro histÃ³rico de visitas"
+        subtitle="Registro histórico de visitas"
         action={
           <Button
             variant="outline"
@@ -149,7 +149,7 @@ export default function HistorialVisitasPage() {
           />
           <Input
             id="search" aria-label="Buscar"
-            label="BÃºsqueda rÃ¡pida"
+            label="Búsqueda rápida"
             placeholder="Visitante, documento, apto..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -188,7 +188,7 @@ export default function HistorialVisitasPage() {
               <span>{detalle.documentoVisitante}</span>
             </div>
             <div className="detail-row">
-              <span>Residente anfitriÃ³n</span>
+              <span>Residente anfitrión</span>
               <span>{detalle.nombreResidente}</span>
             </div>
             <div className="detail-row">
@@ -201,11 +201,11 @@ export default function HistorialVisitasPage() {
             </div>
             <div className="detail-row">
               <span>Salida</span>
-              <span>{formatDate(detalle.fechaSalida) || 'AÃºn dentro'}</span>
+              <span>{formatDate(detalle.fechaSalida) || 'Aún dentro'}</span>
             </div>
             {detalle.placaVehiculo && (
               <div className="detail-row">
-                <span>VehÃ­culo</span>
+                <span>Vehículo</span>
                 <span>
                   {detalle.tipoVehiculo} â€” {detalle.placaVehiculo}
                 </span>

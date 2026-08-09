@@ -147,7 +147,7 @@ export default function PagosPage() {
     if (pagoModal.tipo === 'cuota' && pagoForm.metodo === 'TRANSFERENCIA') {
       const ref = pagoForm.referencia.trim();
       if (!/^[A-Za-z0-9-]{4,50}$/.test(ref)) {
-        setToast({ message: 'La referencia debe tener entre 4 y 50 caracteres (letras, nÃºmeros o guiones)', type: 'error' });
+        setToast({ message: 'La referencia debe tener entre 4 y 50 caracteres (letras, números o guiones)', type: 'error' });
         return;
       }
     }
@@ -328,7 +328,7 @@ export default function PagosPage() {
         <div className="form-group">
           <Select
             id="metodo"
-            label="MÃ©todo de pago"
+            label="Método de pago"
             value={pagoForm.metodo}
             onChange={(e) => setPagoForm((f) => ({ ...f, metodo: e.target.value }))}
           >

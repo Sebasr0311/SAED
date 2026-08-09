@@ -82,7 +82,7 @@ export default function ResFrecuentesPage() {
         email: form.email.trim() || null,
         activo: true,
       });
-      setToast({ message: 'Visitante creado. Para marcarlo como frecuente, genere un QR de "Visita RÃ¡pida" en /res-visita', type: 'success' });
+      setToast({ message: 'Visitante creado. Para marcarlo como frecuente, genere un QR de "Visita Rápida" en /res-visita', type: 'success' });
       setForm({
         idTipoDoc: 1,
         numeroDocumento: '',
@@ -196,7 +196,7 @@ export default function ResFrecuentesPage() {
           )}
           <Input
             id="numeroDocumento"
-            label="NÃºmero Documento"
+            label="Número Documento"
             value={form.numeroDocumento}
             onChange={(e) => setForm((f) => ({ ...f, numeroDocumento: e.target.value }))}
             error={errors.numeroDocumento}
@@ -221,7 +221,7 @@ export default function ResFrecuentesPage() {
         <div className="form-row">
           <Input
             id="telefono"
-            label="TelÃ©fono (opcional)"
+            label="Teléfono (opcional)"
             value={form.telefono}
             onChange={(e) => setForm((f) => ({ ...f, telefono: e.target.value }))}
             onBlur={() => touch('telefono')}
