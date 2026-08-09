@@ -13,8 +13,8 @@
 ÍNDICE
 ======
   1.  Arquitectura general y conexión Java → Oracle
-  2.  Tablas (21)
-  3.  Secuencias (21)
+  2.  Tablas (22)
+  3.  Secuencias (22)
   4.  Índices (~42)
   5.  Triggers (17)
   6.  Procedimientos almacenados — SP_VALIDAR_QR, SP_LIBERAR_VISITA_FRECUENTE
@@ -919,11 +919,59 @@ Constraints:
   FK_QUEJA_APARTAMENTO → APARTAMENTOS CASCADE
   FK_QUEJA_MULTA      → MULTAS CASCADE
   FK_QUEJA_CREADOR    → USUARIOS RESTRICT
-  FK_QUEJA_RESPONDEDOR → USUARIOS RESTRICT
+  FK_QUEJA_RESPONDEDOR    → USUARIOS RESTRICT
+
+
+TABLA 22: TRANSACCIONES_PAGO  (nueva en v5.1 — pagos con Wompi)
+──────────────────────────────────────────────────────────────────────────────
+Propósito:
+  Intenciones de pago con la pasarela Wompi para cuotas (arriendo y
+  administración) y multas. Cada fila es un intento de pago; el flujo manual
+  existente (admin registra pagos / residente marca multa) se mantiene como
+  respaldo. Un índice único funcional por ítem garantiza a nivel BD que no
+  existan dos intenciones PENDIENTE simultáneas para la misma cuota o multa
+  (permite múltiples intentos históricos sobre el mismo ítem).
+
+Columnas:
+  id                 NUMBER           PK. Generado por SEC_TRANSACCIONES_PAGO.NEXTVAL.
+  referencia         VARCHAR2(255)    NOT NULL. UNIQUE. Formato SAED-<CONCEPTO>-<id>-<timestamp>.
+  id_apartamento     NUMBER           NOT NULL. FK → APARTAMENTOS RESTRICT.
+  id_usuario         NUMBER           NOT NULL. FK → USUARIOS RESTRICT. Quién inició.
+  concepto           VARCHAR2(20)     NOT NULL. CHECK: CUOTA | MULTA.
+  id_cuota           NUMBER           Nullable. FK → CUOTAS_ARRIENDO RESTRICT.
+  id_multa           NUMBER           Nullable. FK → MULTAS RESTRICT.
+  monto_centavos     NUMBER(12,0)     NOT NULL. CHECK (> 0). Centavos COP (API Wompi).
+  moneda             VARCHAR2(3)      DEFAULT 'COP'. CHECK: COP.
+  estado             VARCHAR2(20)     DEFAULT 'PENDIENTE'. CHECK: PENDIENTE |
+                                       APROBADO | RECHAZADO | VENCIDO | ERROR.
+  id_transaccion_wompi VARCHAR2(64)   Nullable. ID que asigna el widget de Wompi.
+  metodo_pago_wompi  VARCHAR2(30)     Nullable. CARD | NEQUI | PSE | BANCOLOMBIA (sin CHECK).
+  payload_webhook    CLOB             Nullable. Evento crudo transaction.updated.
+  fecha_creacion     TIMESTAMP(6)     DEFAULT SYSTIMESTAMP.
+  fecha_confirmacion TIMESTAMP(6)     Nullable.
+
+Constraints:
+  PK_TPAGO            → id
+  UQ_TPAGO_REFERENCIA → referencia
+  CHK_TPAGO_CONCEPTO  → concepto IN (CUOTA, MULTA)
+  CHK_TPAGO_ESTADO    → estado IN (PENDIENTE, APROBADO, RECHAZADO, VENCIDO, ERROR)
+  CHK_TPAGO_MONEDA    → moneda = COP
+  CHK_TPAGO_MONTO     → monto_centavos > 0
+  CHK_TPAGO_EXCLUSION → (CUOTA con id_cuota y sin id_multa) XOR (MULTA con id_multa y sin id_cuota)
+  FK_TPAGO_APARTAMENTO → APARTAMENTOS RESTRICT
+  FK_TPAGO_USUARIO    → USUARIOS RESTRICT
+  FK_TPAGO_CUOTA      → CUOTAS_ARRIENDO RESTRICT
+  FK_TPAGO_MULTA      → MULTAS RESTRICT
+
+Índices:
+  IDX_TPAGO_ESTADO        → estado (reconciliación de PENDIENTES)
+  IDX_TPAGO_APARTAMENTO   → id_apartamento (historial del residente)
+  UQ_TPAGO_CUOTA_PEND     → único funcional: 1 PENDIENTE por id_cuota
+  UQ_TPAGO_MULTA_PEND     → único funcional: 1 PENDIENTE por id_multa
 
 
 ══════════════════════════════════════════════════════════════════════════════
-3.  SECUENCIAS (21)
+3.  SECUENCIAS (22)
 ══════════════════════════════════════════════════════════════════════════════
 
 Todas las secuencias se definen con:
@@ -957,6 +1005,7 @@ Cada tabla tiene su propia secuencia asignada como DEFAULT en la columna PK:
   SEC_REGISTROS_ACCESO     → REGISTROS_ACCESO.id_acceso
   SEC_BUZON                → BUZON.id_mensaje
   SEQ_QUEJAS_SUGERENCIAS   → QUEJAS_SUGERENCIAS.id_queja
+  SEC_TRANSACCIONES_PAGO   → TRANSACCIONES_PAGO.id
 
 Nota: SEC_TIPOS_DOCUMENTO existe en el script pero NO en la BD en
 producción (la BD fue inicializada desde una versión anterior del script
