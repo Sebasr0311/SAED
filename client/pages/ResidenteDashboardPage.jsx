@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
-import { formatCurrency } from '../lib/utils.js';
+import { formatCurrency, formatDateTime, imageSrc } from '../lib/utils.js';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
+import { Modal } from '../components/ui/Modal.jsx';
+import { Button } from '../components/ui/Button.jsx';
+import Toast from '../components/ui/Toast.jsx';
 
 const CHART_COLORS = ['#0F2044', '#163060', '#3D6BBF', '#6B93D6', '#A8C4EC', '#D6E5F7', '#D97706', '#F59E0B', '#10B981', '#059669', '#DC2626', '#EF4444'];
 
@@ -151,6 +154,11 @@ export default function ResidenteDashboardPage() {
     () => api.get(`/pagos/registrados`),
     []
   );
+  const { data: qrsRaw } = useFetch(
+    () => (user?.idResidente ? api.get(`/residentes/${user.idResidente}/qr-activos`) : Promise.resolve([])),
+    [user]
+  );
+  const qrActivos = qrsRaw?.items || qrsRaw || [];
   const resumen = data?.raw || data || {};
   const apartamento = resumen.apartamento || {};
   const contrato = resumen.contrato || {};
@@ -170,6 +178,109 @@ export default function ResidenteDashboardPage() {
     value,
     color: label === 'CUOTA' ? '#10B981' : label === 'MULTA' ? '#D97706' : '#3D6BBF',
   }));
+
+  // ==== B1: Poll de confirmación de visitas (recuperado del legacy) ====
+  const [confirmarPendiente, setConfirmarPendiente] = useState(null); // mensaje en modal o null
+  const [confirmando, setConfirmando] = useState(false);
+  const confirmandoRef = useRef(false);
+  const [toast, setToast] = useState(null);
+  const failCountRef = useRef(0);
+  const [backoffActivo, setBackoffActivo] = useState(false); // reactivo: recrea el intervalo al cambiar
+
+  async function tickConfirmacion() {
+    // Pausa mientras el modal está abierto (el estado actúa como "pause")
+    if (confirmarPendiente) return;
+    if (document.visibilityState !== 'visible') return;
+    try {
+      const pendientes = await api.get('/buzon/confirmar-pendiente');
+      const lista = Array.isArray(pendientes) ? pendientes : pendientes?.items || [];
+      failCountRef.current = 0;
+      if (backoffActivo) setBackoffActivo(false); // red recuperada: el intervalo vuelve solo a 5s
+      if (lista.length > 0) setConfirmarPendiente(lista[0]);
+    } catch {
+      // Best-effort: el modal es el feedback, no un toast por tick.
+      // Umbral: 5 fallos consecutivos -> aviso único + backoff a 30s. El poll sigue vivo
+      // (no se detiene): si la red se recupera sola, el tick exitoso restaura 5s sin
+      // depender de que el residente abra/cierre el modal.
+      failCountRef.current += 1;
+      if (failCountRef.current >= 5 && !backoffActivo) {
+        setBackoffActivo(true); // dispara re-render → el efecto recrea el intervalo con 30s
+        setToast({ message: 'No se pudo verificar visitas pendientes. Se reintentará automáticamente.', type: 'warning' });
+      }
+    }
+  }
+
+  useEffect(() => {
+    const interval = setInterval(tickConfirmacion, backoffActivo ? 30000 : 5000);
+    return () => clearInterval(interval);
+  }, [confirmarPendiente, backoffActivo]);
+
+  // Al volver la pestaña visible: poll inmediato (no esperar el próximo tick)
+  useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === 'visible') tickConfirmacion(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [confirmarPendiente]);
+
+  async function responderConfirmacion(confirmado) {
+    if (confirmandoRef.current) return; // doble submit (patrón generalizado)
+    if (!confirmarPendiente) return;
+    confirmandoRef.current = true;
+    setConfirmando(true);
+    try {
+      await api.post('/buzon/confirmar', { idMensaje: confirmarPendiente.idMensaje, confirmado });
+      setToast({ message: confirmado === 1 ? 'Acceso confirmado' : 'Acceso rechazado', type: 'success' });
+      setConfirmarPendiente(null); // cierra; el próximo tick traerá el siguiente pendiente si hay
+    } catch (err) {
+      // El modal se MANTIENE abierto: el residente ve el error y puede reintentar;
+      // el poll sigue pausado mientras haya modal.
+      setToast({ message: err.message, type: 'error' });
+    } finally {
+      confirmandoRef.current = false;
+      setConfirmando(false);
+    }
+  }
+
+  // ==== B3: QR activos + compartir (recuperado del legacy) ====
+  // Imagen QR via api.qrserver.com (fiel al legacy; sin dependencia nueva).
+  // Seguridad: el QR es single-use + expira (el endpoint filtra usado=0 AND
+  // fecha_expiracion>now); la validacion del portero es server-side — compartir
+  // la imagen por error no la hace valida despues de usarse o expirar.
+  function qrImageUrl(codigoQr) {
+    return 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=' + encodeURIComponent(codigoQr);
+  }
+
+  function compartirTelegram(codigoQr, nombre) {
+    const imgUrl = qrImageUrl(codigoQr);
+    const text = encodeURIComponent(`Código QR de acceso para ${nombre || 'tu visita'}\n\nAbre esta imagen para escanear:\n${imgUrl}`);
+    window.open(`https://t.me/share/url?url=${encodeURIComponent(imgUrl)}&text=${text}`, '_blank');
+  }
+
+  function compartirSMS(codigoQr, telefono) {
+    const imgUrl = qrImageUrl(codigoQr);
+    const body = encodeURIComponent(`Tu código QR de acceso: ${codigoQr} - Abre la imagen: ${imgUrl}`);
+    window.open(telefono ? `sms:${telefono}?body=${body}` : `sms:?body=${body}`);
+  }
+
+  function compartirCorreo(codigoQr, nombre, email) {
+    const imgUrl = qrImageUrl(codigoQr);
+    const subject = encodeURIComponent('Código QR de Acceso');
+    const body = encodeURIComponent(
+      `Hola,\n\nHas recibido un código QR de acceso${nombre ? ` para ${nombre}` : ''}.\n\n` +
+      `Código: ${codigoQr}\n\nO abre esta imagen para escanear:\n${imgUrl}\n\n` +
+      `Preséntala en la entrada del edificio.`
+    );
+    window.open(email ? `mailto:${email}?subject=${subject}&body=${body}` : `mailto:?subject=${subject}&body=${body}`);
+  }
+
+  async function copiarQR(codigoQr) {
+    try {
+      await navigator.clipboard.writeText(codigoQr);
+      setToast({ message: 'Código QR copiado al portapapeles', type: 'success' });
+    } catch {
+      setToast({ message: 'No se pudo copiar el código', type: 'error' });
+    }
+  }
 
   return (
     <div>
@@ -202,6 +313,69 @@ export default function ResidenteDashboardPage() {
           </div>
         </div>
       )}
+
+      {qrActivos.length > 0 && (
+        <div className="card" style={{ marginTop: '20px' }}>
+          <div style={{ fontWeight: 700, marginBottom: '12px' }}>Códigos QR Activos</div>
+          {qrActivos.map((qr) => (
+            <div
+              key={qr.idQr}
+              style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', border: '1px solid var(--border)', borderRadius: '8px', marginBottom: '8px' }}
+            >
+              <img
+                src={qrImageUrl(qr.codigoQr)}
+                alt={`QR de ${qr.nombreVisitante || 'visita'}`}
+                style={{ borderRadius: '4px', width: '56px', height: '56px', flexShrink: 0 }}
+              />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ fontWeight: 600, fontSize: '13px' }}>{qr.nombreVisitante || 'Visitante'}</p>
+                <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                  {qr.cantidadPersonas || 1} persona(s) · Vence: {formatDateTime(qr.fechaExpiracion)}
+                </p>
+                <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                  #{String(qr.codigoQr).slice(0, 8)}...
+                </p>
+              </div>
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                <Button size="sm" onClick={() => compartirTelegram(qr.codigoQr, qr.nombreVisitante)} title="Compartir por Telegram">Telegram</Button>
+                <Button size="sm" onClick={() => compartirSMS(qr.codigoQr, '')} title="Compartir por SMS">SMS</Button>
+                <Button size="sm" onClick={() => compartirCorreo(qr.codigoQr, qr.nombreVisitante, '')} title="Compartir por Correo">Correo</Button>
+                <Button size="sm" variant="outline" onClick={() => copiarQR(qr.codigoQr)}>Copiar QR</Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ==== B1: Modal de confirmación de visita ==== */}
+      <Modal open={!!confirmarPendiente} onClose={() => setConfirmarPendiente(null)} title="Solicitud de Acceso">
+        {confirmarPendiente && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <p style={{ fontSize: '14px', color: 'var(--text-muted)' }}>
+              Un visitante está en portería esperando su confirmación
+            </p>
+            <p style={{ fontWeight: 600, fontSize: '14px' }}>{confirmarPendiente.titulo || ''}</p>
+            <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{confirmarPendiente.cuerpo || ''}</p>
+            {confirmarPendiente.fotoCaptura && (
+              <img
+                src={imageSrc(confirmarPendiente.fotoCaptura)}
+                alt="Foto del visitante"
+                style={{ maxWidth: '100%', maxHeight: '280px', objectFit: 'contain', borderRadius: '8px', border: '1px solid var(--border)' }}
+              />
+            )}
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <Button variant="outline" onClick={() => responderConfirmacion(0)} disabled={confirmando}>
+                Rechazar
+              </Button>
+              <Button onClick={() => responderConfirmacion(1)} disabled={confirmando}>
+                {confirmando ? 'Confirmando...' : 'Confirmar Acceso'}
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      <Toast toast={toast} />
     </div>
   );
 }

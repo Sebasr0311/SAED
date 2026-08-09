@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+﻿import { useRef, useState } from 'react';
 import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
 import { useAuth } from '../lib/AuthContext.jsx';
@@ -12,7 +12,11 @@ export default function ResBuzonPage() {
   const { user } = useAuth();
   const [toast, setToast] = useState(null);
   const [confirmVaciar, setConfirmVaciar] = useState(false);
+  const [confirmVaciarSel, setConfirmVaciarSel] = useState(false);
   const [fotoGrande, setFotoGrande] = useState(null);
+  const [seleccionados, setSeleccionados] = useState([]);
+  const [vaciandoSel, setVaciandoSel] = useState(false);
+  const vaciandoSelRef = useRef(false); // patrón anti doble-submit generalizado
 
   const { data, loading, error, refetch } = useFetch(
     () => api.get(`/buzon`),
@@ -37,12 +41,40 @@ export default function ResBuzonPage() {
   async function vaciar() {
     try {
       await api.put('/buzon/vaciar');
-      setToast({ message: 'BuzÃ³n vaciado', type: 'success' });
+      setToast({ message: 'Buzón vaciado', type: 'success' });
       refetch();
     } catch (err) {
       setToast({ message: err.message, type: 'error' });
     } finally {
       setConfirmVaciar(false);
+    }
+  }
+
+  function toggleSeleccion(idMensaje) {
+    setSeleccionados((prev) =>
+      prev.includes(idMensaje) ? prev.filter((x) => x !== idMensaje) : [...prev, idMensaje]
+    );
+  }
+
+  async function vaciarSeleccionados() {
+    if (vaciandoSelRef.current) return; // doble submit
+    setConfirmVaciarSel(false);
+    vaciandoSelRef.current = true;
+    setVaciandoSel(true);
+    try {
+      await api.put('/buzon/vaciar-multi', { ids: seleccionados });
+      setToast({ message: 'Mensajes eliminados', type: 'success' });
+      setSeleccionados([]);
+      refetch();
+    } catch (err) {
+      // 403 posible: algun ID ya no pertenece al apartamento (todo-o-nada en backend).
+      // Nunca asumir exito parcial: sincronizar la lista real y limpiar la seleccion.
+      setToast({ message: err.message, type: 'error' });
+      setSeleccionados([]);
+      refetch();
+    } finally {
+      vaciandoSelRef.current = false;
+      setVaciandoSel(false);
     }
   }
 
@@ -52,11 +84,23 @@ export default function ResBuzonPage() {
         title="BuzÃ³n"
         subtitle="Notificaciones del administrador"
         action={
-          items.length > 0 && (
-            <Button variant="danger" onClick={() => setConfirmVaciar(true)}>
-              Vaciar buzÃ³n
-            </Button>
-          )
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+            {seleccionados.length > 0 && (
+              <>
+                <Button variant="outline" size="sm" onClick={() => setSeleccionados([])}>
+                  Limpiar ({seleccionados.length})
+                </Button>
+                <Button variant="danger" size="sm" onClick={() => setConfirmVaciarSel(true)} disabled={vaciandoSel}>
+                  Vaciar seleccionados ({seleccionados.length})
+                </Button>
+              </>
+            )}
+            {items.length > 0 && (
+              <Button variant="danger" onClick={() => setConfirmVaciar(true)}>
+                Vaciar buzÃ³n
+              </Button>
+            )}
+          </div>
         }
       />
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -74,6 +118,9 @@ export default function ResBuzonPage() {
               key={it.idMensaje}
               className="card"
               style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '10px',
                 borderLeft: leido ? 'none' : '4px solid #0f2044',
                 opacity: leido ? 0.7 : 1,
                 cursor: leido ? 'default' : 'pointer',
@@ -82,7 +129,15 @@ export default function ResBuzonPage() {
                 if (!leido) marcarLeido(it.idMensaje);
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <input
+                type="checkbox"
+                checked={seleccionados.includes(it.idMensaje)}
+                onChange={() => toggleSeleccion(it.idMensaje)}
+                onClick={(e) => e.stopPropagation()}
+                aria-label={`Seleccionar: ${it.titulo}`}
+                style={{ marginTop: '4px', flexShrink: 0 }}
+              />
+              <div style={{ flex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>{it.titulo}</div>
                   {it.cuerpo && (
@@ -104,7 +159,7 @@ export default function ResBuzonPage() {
                   <img
                     src={imageSrc(it.fotoCaptura)}
                     alt="Foto"
-                    style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px', cursor: 'zoom-in' }}
+                    style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px', cursor: 'zoom-in', flexShrink: 0 }}
                     onClick={(e) => {
                       e.stopPropagation();
                       setFotoGrande(imageSrc(it.fotoCaptura));
@@ -133,6 +188,24 @@ export default function ResBuzonPage() {
         }
       >
         <p>Â¿Marcar todos los mensajes como leÃ­dos y entregados? Esta acciÃ³n no se puede deshacer.</p>
+      </Modal>
+
+      <Modal
+        open={confirmVaciarSel}
+        onClose={() => setConfirmVaciarSel(false)}
+        title="Vaciar seleccionados"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setConfirmVaciarSel(false)}>
+              Cancelar
+            </Button>
+            <Button variant="danger" onClick={vaciarSeleccionados} disabled={vaciandoSel}>
+              {vaciandoSel ? 'Vaciando...' : 'Vaciar seleccionados'}
+            </Button>
+          </>
+        }
+      >
+        <p>Â¿Marcar los {seleccionados.length} mensajes seleccionados como leÃ­dos y entregados? Esta acciÃ³n no se puede deshacer.</p>
       </Modal>
 
       {fotoGrande && (
