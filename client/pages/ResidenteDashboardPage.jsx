@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
-import { formatCurrency, formatDateTime, imageSrc } from '../lib/utils.js';
+import { formatCurrency, formatDateTime, formatDate, imageSrc } from '../lib/utils.js';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
@@ -173,7 +173,7 @@ function BarChart({ data, title }) {
 
 export default function ResidenteDashboardPage() {
   const { user } = useAuth();
-  const { data } = useFetch(() => api.get(`/residentes/${user?.idResidente}/dashboard`), [user]);
+  const { data, refetch: refetchDashboard } = useFetch(() => api.get(`/residentes/${user?.idResidente}/dashboard`), [user]);
   const { data: pagosPorMes } = useFetch(
     () => api.get(`/pagos/registrados`),
     []
@@ -202,6 +202,95 @@ export default function ResidenteDashboardPage() {
     value,
     color: label === 'CUOTA' ? cssVar('--accent-green', '#10B981') : label === 'MULTA' ? cssVar('--warn', '#D97706') : cssVar('--border-focus', '#3D6BBF'),
   }));
+
+  // ==== Pagos en línea (Wompi) ====
+  const MESES_W = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const { data: wompiHistorialRaw, refetch: refetchHistorialWompi } = useFetch(
+    () => api.get('/pagos/wompi/historial'),
+    []
+  );
+  const wompiHistorial = wompiHistorialRaw?.items || wompiHistorialRaw || [];
+  const cuotasPendientes = (resumen.cuotas || []).filter((c) => c.estado !== 'PAGADA');
+  const multasPendientesList = (resumen.multas || []).filter((m) => m.estado === 'PENDIENTE');
+  const [pagando, setPagando] = useState(null); // {concepto, id, label}
+
+  function cargarWidgetWompi() {
+    return new Promise((resolve, reject) => {
+      if (window.WidgetCheckout) return resolve();
+      if (window._wompiWidgetCargando) return window._wompiWidgetCargando;
+      window._wompiWidgetCargando = new Promise((res, rej) => {
+        const s = document.createElement('script');
+        s.src = 'https://checkout.wompi.co/widget.js';
+        s.async = true;
+        s.onload = () => { window._wompiWidgetCargando = null; res(); };
+        s.onerror = () => { window._wompiWidgetCargando = null; rej(new Error('No se pudo cargar el widget de pago')); };
+        document.head.appendChild(s);
+      });
+      return window._wompiWidgetCargando;
+    });
+  }
+
+  async function pollEstadoWompi(referencia) {
+    const t0 = Date.now();
+    while (Date.now() - t0 < 180000) {
+      await new Promise((r) => setTimeout(r, 2000));
+      try {
+        const est = await api.get(`/pagos/wompi/estado?referencia=${encodeURIComponent(referencia)}`);
+        const estado = est.estado || 'PENDIENTE';
+        if (['APROBADO', 'RECHAZADO', 'VENCIDO', 'ERROR'].includes(estado)) {
+          setToast({
+            message: estado === 'APROBADO' ? 'Pago confirmado. Recibirás el recibo por correo.' : `El pago fue ${estado.toLowerCase()}.`,
+            type: estado === 'APROBADO' ? 'success' : 'error',
+          });
+          return;
+        }
+      } catch { /* reintentar */ }
+    }
+    setToast({ message: 'El pago quedó pendiente de confirmación; te avisaremos por correo.', type: 'info' });
+  }
+
+  async function pagarConWompi(concepto, id, label) {
+    if (pagando) return;
+    setPagando({ concepto, id, label });
+    try {
+      const sol = await api.post('/pagos/wompi/solicitud', { concepto, id });
+      await cargarWidgetWompi();
+      const customerData = user?.email
+        ? { email: user.email, fullName: `${user.nombres || ''} ${user.apellidos || ''}`.trim() || undefined }
+        : undefined;
+      const checkout = new window.WidgetCheckout({
+        currency: 'COP',
+        amountInCents: sol.montoCentavos,
+        reference: sol.referencia,
+        publicKey: sol.publicKey,
+        signature: { integrity: sol.firmaIntegridad },
+        redirectUrl: `${window.location.origin}/residente-dashboard?pago=resultado`,
+        ...(customerData ? { customerData } : {}),
+      });
+      checkout.open(async (result) => {
+        await pollEstadoWompi(sol.referencia);
+        setPagando(null);
+        refetchHistorialWompi();
+        // refetch del dashboard (datos de cuotas/multas)
+        if (typeof refetchDashboard === 'function') refetchDashboard();
+      });
+    } catch (err) {
+      setToast({ message: err.message || 'No se pudo iniciar el pago', type: 'error' });
+      setPagando(null);
+    }
+  }
+
+  const badgeWompi = (estado) => {
+    const map = {
+      APROBADO: { label: 'Pagado', color: 'var(--accent-green)' },
+      RECHAZADO: { label: 'Rechazado', color: 'var(--warn)' },
+      VENCIDO: { label: 'Vencido', color: 'var(--warn)' },
+      ERROR: { label: 'Error', color: 'var(--error)' },
+      PENDIENTE: { label: 'Pendiente', color: 'var(--text-muted)' },
+    };
+    const e = map[estado] || map.PENDIENTE;
+    return <span style={{ color: e.color, fontWeight: 700, fontSize: '12px' }}>{e.label}</span>;
+  };
 
   // ==== B1: Poll de confirmación de visitas (recuperado del legacy) ====
   const [confirmarPendiente, setConfirmarPendiente] = useState(null); // mensaje en modal o null
@@ -335,6 +424,58 @@ export default function ResidenteDashboardPage() {
           <div className="card-grid-2">
             <DonutChart data={donutData} title="Distribución por tipo de pago" />
           </div>
+        </div>
+      )}
+
+      {(cuotasPendientes.length > 0 || multasPendientesList.length > 0 || wompiHistorial.length > 0) && (
+        <div className="card" style={{ marginTop: '20px' }}>
+          <div style={{ fontWeight: 700, marginBottom: '2px' }}>Mis pagos</div>
+          <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '12px' }}>
+            Pagá en línea tus cuotas y multas pendientes (tarjeta, Nequi, PSE o Bancolombia).
+          </p>
+
+          {cuotasPendientes.map((c) => (
+            <div key={`wc-${c.idCuota}`} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 600, fontSize: '13px' }}>
+                  {c.tipoCuota === 'ADMINISTRACION' ? 'Cuota de administración' : 'Cuota de arriendo'} · {MESES_W[(c.mes || 1) - 1]} {c.anio}
+                </div>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                  {c.fechaLimite ? `Vence ${formatDate(c.fechaLimite)} · ` : ''}{c.estado}
+                </div>
+              </div>
+              <div style={{ fontWeight: 700, fontSize: '14px' }}>{formatCurrency(c.saldoPendiente ?? c.valorTotal)}</div>
+              <Button size="sm" onClick={() => pagarConWompi('CUOTA', c.idCuota, `Cuota ${c.anio}/${String(c.mes).padStart(2, '0')}`)} disabled={!!pagando}>
+                {pagando?.id === c.idCuota && pagando?.concepto === 'CUOTA' ? 'Abriendo…' : 'Pagar'}
+              </Button>
+            </div>
+          ))}
+
+          {multasPendientesList.map((m) => (
+            <div key={`wm-${m.idMulta}`} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 600, fontSize: '13px' }}>Multa · {m.tipo}</div>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{m.descripcion || 'Multa pendiente'}</div>
+              </div>
+              <div style={{ fontWeight: 700, fontSize: '14px' }}>{formatCurrency(m.monto)}</div>
+              <Button size="sm" onClick={() => pagarConWompi('MULTA', m.idMulta, `Multa ${m.tipo}`)} disabled={!!pagando}>
+                {pagando?.id === m.idMulta && pagando?.concepto === 'MULTA' ? 'Abriendo…' : 'Pagar'}
+              </Button>
+            </div>
+          ))}
+
+          {wompiHistorial.length > 0 && (
+            <div style={{ marginTop: '12px' }}>
+              <div style={{ fontWeight: 600, fontSize: '12px', color: 'var(--text-muted)', marginBottom: '6px' }}>Intentos recientes</div>
+              {wompiHistorial.slice(0, 5).map((h) => (
+                <div key={h.referencia} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', padding: '4px 0' }}>
+                  <span style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>#{String(h.referencia).slice(0, 24)}</span>
+                  <span>{formatCurrency(h.montoCentavos / 100)}</span>
+                  {badgeWompi(h.estado)}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
