@@ -7,7 +7,7 @@ import { Modal } from '../components/ui/Modal.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { ConfirmPasswordDialog } from '../components/ui/ConfirmPasswordDialog.jsx';
 import Toast from '../components/ui/Toast.jsx';
-import { useFetch } from '../lib/hooks.js';
+import { useFetch, useLiveValidation } from '../lib/hooks.js';
 import api from '../lib/api.js';
 import { useAuth } from '../lib/AuthContext.jsx';
 
@@ -43,6 +43,7 @@ export default function ParqueaderosPage() {
   const [editing, setEditing] = useState(null);
   const [confirmDel, setConfirmDel] = useState(null);
   const [pwdConfirmOpen, setPwdConfirmOpen] = useState(false);
+  const { touch, fieldError } = useLiveValidation();
 
   const qs = new URLSearchParams({
     ...(filtroEstado ? { estado: filtroEstado } : {}),
@@ -143,6 +144,7 @@ export default function ParqueaderosPage() {
   ];
 
   function update(k, v) {
+    setErrors((prev) => (prev[k] ? { ...prev, [k]: undefined } : prev));
     setForm((f) => ({ ...f, [k]: v }));
   }
   async function save() {
@@ -275,7 +277,14 @@ export default function ParqueaderosPage() {
           <Input id="codigo" label="Código (auto-generado)" value={editing ? form.numero : codigoGenerado} disabled />
         </div>
         <div className="form-row">
-          <Select id="tipo" label="Tipo" value={form.tipo} onChange={(e) => update('tipo', e.target.value)}>
+          <Select
+            id="tipo"
+            label="Tipo"
+            value={form.tipo}
+            onChange={(e) => update('tipo', e.target.value)}
+            onBlur={() => touch('tipo')}
+            error={fieldError('tipo', form.tipo ? { ok: true } : { ok: false, mensaje: 'Seleccione el tipo de parqueadero' }) || errors.tipo}
+          >
             <option value="VEHICULO">Vehículo</option>
             <option value="MOTO">Moto</option>
             <option value="BICICLETA">Bicicleta</option>
@@ -316,7 +325,15 @@ export default function ParqueaderosPage() {
               label="Apartamento"
               value={form.idApartamento}
               onChange={(e) => update('idApartamento', e.target.value)}
-              error={errors.idApartamento}
+              onBlur={() => touch('idApartamento')}
+              error={
+                fieldError(
+                  'idApartamento',
+                  !form.esVisitante && !form.idApartamento
+                    ? { ok: false, mensaje: 'Requerido para parqueadero de residente' }
+                    : { ok: true }
+                ) || errors.idApartamento
+              }
             >
               <option value="">— Seleccionar —</option>
               {apartamentosDisponibles.map((a) => (
