@@ -248,6 +248,9 @@ export default function AppShell() {
 
   return (
     <div className="app-shell">
+      <a href="#main-content" className="skip-link">
+        Saltar al contenido
+      </a>
       <div className="app-shell-body">
         <aside className={sidebarClasses} onMouseLeave={handleSidebarMouseLeave}>
           <div className="sidebar-logo-area">
@@ -381,7 +384,7 @@ export default function AppShell() {
             </div>
           </header>
 
-          <main className="content-area">
+          <main id="main-content" className="content-area">
             <Suspense
               fallback={
                 <div className="table-container p-8 text-center text-on-surface-variant">

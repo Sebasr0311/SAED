@@ -1,6 +1,7 @@
+import { memo } from 'react';
 import { classNames } from '../../lib/utils.js';
 
-export function Button({
+export const Button = memo(function Button({
   variant = 'primary',
   size = 'md',
   type = 'button',
@@ -44,4 +45,4 @@ export function Button({
       {children}
     </button>
   );
-}
+});

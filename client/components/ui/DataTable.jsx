@@ -1,7 +1,8 @@
+import { memo } from 'react';
 import { classNames } from '../../lib/utils.js';
 import EmptyState from './EmptyState.jsx';
 
-export function DataTable({ columns, rows, loading, empty, onRowClick, keyField = 'id', selectedKey, error, onRetry }) {
+export const DataTable = memo(function DataTable({ columns, rows, loading, empty, onRowClick, keyField = 'id', selectedKey, error, onRetry }) {
   if (loading) {
     return (
       <div className="table-container p-8 text-center text-on-surface-variant">Cargando...</div>
@@ -80,4 +81,4 @@ export function DataTable({ columns, rows, loading, empty, onRowClick, keyField 
       </table>
     </div>
   );
-}
+});

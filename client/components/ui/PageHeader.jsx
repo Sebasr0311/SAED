@@ -1,4 +1,6 @@
-export function PageHeader({ title, subtitle, action }) {
+import { memo } from 'react';
+
+export const PageHeader = memo(function PageHeader({ title, subtitle, action }) {
   return (
     <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
       <div>
@@ -8,4 +10,4 @@ export function PageHeader({ title, subtitle, action }) {
       {action && <div className="flex items-center gap-2">{action}</div>}
     </div>
   );
-}
+});

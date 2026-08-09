@@ -138,6 +138,9 @@ its semantic.
 
 - `document.title` is dynamic per page: `"{Sección} — SAED"` (AppShell) and `"Iniciar sesión — SAED"` (login).
 - Global keyboard focus ring (WCAG 2.4.7): `:focus-visible` outline `--border-focus` on all controls, consistent with table-row focus.
+- Skip link (WCAG 2.4.1): `#main-content` anchor appears on first Tab in the shell.
+- jsQR is **not** in `index.html`: the Escáner QR page injects the script on demand (lazy third-party asset; other pages never download it).
+- Core kit components (`Button`, `DataTable`, `PageHeader`) are `React.memo`-wrapped to avoid re-renders on page state changes.
 
 ## Contribution rules
 

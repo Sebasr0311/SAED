@@ -223,6 +223,24 @@
   .app-shell {
     position: relative;
   }
+  /* Skip link (WCAG 2.4.1): aparece al tabular, salta al contenido principal. */
+  .skip-link {
+    position: fixed;
+    top: 8px;
+    left: 8px;
+    z-index: 200;
+    padding: 8px 16px;
+    border-radius: var(--radius-control);
+    background: var(--primary);
+    color: var(--on-primary);
+    font-size: 13px;
+    font-weight: 600;
+    transform: translateY(-200%);
+    transition: transform 0.18s ease;
+  }
+  .skip-link:focus-visible {
+    transform: translateY(0);
+  }
   .app-shell-body {
     display: flex;
     min-height: 100vh;
