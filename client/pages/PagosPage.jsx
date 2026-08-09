@@ -5,7 +5,7 @@ import { DataTable } from '../components/ui/DataTable.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
 import Toast from '../components/ui/Toast.jsx';
-import { useFetch } from '../lib/hooks.js';
+import { useFetch, useLiveValidation } from '../lib/hooks.js';
 import api from '../lib/api.js';
 import { formatCurrency, formatDate, todayStr, formatMiles, parseMiles, periodoLabel } from '../lib/utils.js';
 
@@ -57,6 +57,7 @@ export default function PagosPage() {
   const [search, setSearch] = useState('');
   const [detalle, setDetalle] = useState(null);
   const [pagoModal, setPagoModal] = useState(null); // { tipo: 'cuota'|'multa', item }
+  const { touch, fieldError } = useLiveValidation();
   const [pagoForm, setPagoForm] = useState({ fecha: todayStr(), valor: '', metodo: 'EFECTIVO', referencia: '', notas: '' });
   const [saving, setSaving] = useState(false);
   // Guard anti doble-submit: mismo patron que VisitasPage (FASE 4.2-P2).
@@ -321,6 +322,17 @@ export default function PagosPage() {
                 label="Valor pagado"
                 value={pagoForm.valor}
                 onChange={(e) => setPagoForm((f) => ({ ...f, valor: formatMiles(e.target.value) }))}
+                onBlur={() => touch('valor')}
+                error={
+                  fieldError(
+                    'valor',
+                    parseMiles(pagoForm.valor) <= 0
+                      ? { ok: false, mensaje: 'El valor pagado debe ser mayor que 0' }
+                      : pagoModal?.tipo === 'cuota' && parseMiles(pagoForm.valor) > Number(pagoModal.item.saldoPendiente ?? pagoModal.item.valorTotal ?? 0)
+                        ? { ok: false, mensaje: `No puede superar el saldo pendiente (${formatCurrency(Number(pagoModal.item.saldoPendiente ?? pagoModal.item.valorTotal ?? 0))})` }
+                        : { ok: true }
+                  ) || undefined
+                }
               />
             </div>
           </>
