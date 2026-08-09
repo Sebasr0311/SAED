@@ -319,9 +319,27 @@ function TabValidar({ onToast }) {
   const [streaming, setStreaming] = useState(false);
   const [error, setError] = useState('');
   const [codigoInput, setCodigoInput] = useState('');
+  const [jsqrListo, setJsqrListo] = useState(!!window.jsQR);
   const scanRef = useRef(null);
 
   useEffect(() => () => detener(), []);
+
+  // Carga bajo demanda de jsQR (solo en esta pagina, no en el bundle global).
+  useEffect(() => {
+    if (window.jsQR) {
+      setJsqrListo(true);
+      return undefined;
+    }
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js';
+    script.onload = () => setJsqrListo(true);
+    script.onerror = () => setJsqrListo(false);
+    document.head.appendChild(script);
+    return () => {
+      script.onload = null;
+      script.onerror = null;
+    };
+  }, []);
 
   async function iniciar() {
     try {
@@ -360,7 +378,7 @@ function TabValidar({ onToast }) {
       const ctx = c.getContext('2d');
       ctx.drawImage(v, 0, 0, c.width, c.height);
       const data = ctx.getImageData(0, 0, c.width, c.height);
-      if (window.jsQR) {
+      if (jsqrListo) {
         const code = window.jsQR(data.data, data.width, data.height, { inversionAttempts: 'dontInvert' });
         if (code && code.data && code.data.length >= 5) {
           setCodigoEscaneado(code.data);
@@ -377,10 +395,10 @@ function TabValidar({ onToast }) {
     <div>
       <h3 className="mb-3 text-[14px] font-bold">Escanear con cámara</h3>
       {error && <p className="field-error">{error}</p>}
-      {!window.jsQR && (
+      {!jsqrListo && (
         <p className="field-error" style={{ marginBottom: '8px' }}>
-          Para escanear con la cámara, agregue la librería jsQR en index.html.
-          Mientras tanto, puede validar manualmente abajo.
+          La librería de escaneo no pudo cargarse. Verifique la conexión; mientras
+          tanto puede validar manualmente abajo.
         </p>
       )}
       <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
