@@ -106,7 +106,12 @@ APIs EXTERNAS USADAS
   API / Servicio          | Usado? | Detalle
   ------------------------|--------|--------------------------------------------
   Oracle DB (JDBC local)  | SI     | Conexion directa jdbc:oracle:thin al esquema RESIDENCIAL
-  SendGrid / SES          | NO     | Email abre cliente de correo local via mailto:
+  Brevo (ex Sendinblue)   | SI     | Envio automatico de correos (contratos + QR) via
+                          |        | API HTTPS. Plan gratuito 300 correos/dia permanente
+  Gmail SMTP              | PARCIAL| Plan A opcional (GMAIL_APP_PASSWORD); Gmail lo
+                          |        | bloquea desde Render, no se usa en produccion
+  SendGrid                | NO     | OBSOLETO: fue el Plan B hasta 2026-08, reemplazado
+                          |        | por Brevo (variable muerta en EmailService)
   Twilio / Vonage (SMS)   | NO     | SMS copia texto al portapapeles del sistema
   Telegram Bot API        | NO     | Telegram abre enlace t.me/share en el navegador
   AWS / Firebase / Azure  | NO     | Ningun servicio en la nube
@@ -352,23 +357,31 @@ GENERACION DE PDF DEL CONTRATO
 7. MODULO DE REPORTES Y EXPORTACION A EXCEL
 ================================================================================
 
-  Modulo: Historial de Visitas (frontend/js/pages/historial-visitas.js)
-  Funcion: exportarExcel() (lineas aproximadas 270-310)
+  Modulos: client/pages/GananciasPage.jsx e HistorialVisitasPage.jsx (React + Vite)
+  Funcion: exportarExcel() en cada pagina
 
-  IMPORTANTE: No se usa ninguna biblioteca externa (no SheetJS, no ExcelJS).
-  La exportacion se hace con HTML puro que Excel puede abrir.
+  IMPORTANTE (ACTUALIZADO 2026-08): ya NO se usa HTML puro tipo .xls. Se genera
+  un .xlsx REAL con xlsx-js-style 1.2.0 (fork de SheetJS CE que SI escribe
+  estilos: font/fill/border/numFmt; el SheetJS CE original no los escribe) y
+  fflate 0.8.x (post-proceso del ZIP para inyectar freeze panes).
 
   Proceso tecnico:
-    1. Se construye un string HTML con encabezado de hoja de calculo Microsoft:
-         xmlns:x="urn:schemas-microsoft-com:office:excel"
-         <!--[if gte mso 9]><xml><x:ExcelWorkbook>...</xml><![endif]-->
-    2. Se genera una tabla HTML con los registros filtrados actualmente visibles
-       (respeta los filtros de fecha y texto aplicados en pantalla)
-    3. Columnas incluidas: Fecha, Apartamento, Residente, Visitante, Documento,
-       Vehiculo, Placa, Hora Entrada, Hora Salida, Estado
-    4. new Blob([htmlExcel], { type: 'application/vnd.ms-excel' })
-    5. URL.createObjectURL(blob) -> se hace clic programatico en un <a>
-    6. Archivo descargado: historial-visitas.xls
+    1. Se arma el libro con XLSX.utils.aoa_to_sheet + estilos por celda
+       (zebra, badges, headers azul oscuro, numFmt $#,##0 / 0 / dd/mm/yyyy)
+    2. autoFitCols(): ancho = ceil(chars * fontSize/11) + 3 — evita ##### en
+       Excel (los KPIs usan font sz 14, ~27% mas ancho que Calibri 11)
+    3. Celdas numericas con numFmt -> numeros seriales sumables en Excel
+    4. aplicaFreeze(): inyecta <pane state="frozen"> en sheet1.xml via fflate
+    5. new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    6. URL.createObjectURL(blob) -> clic programatico en <a>
+    7. Archivos descargados: ganancias_<inicio>_<fin>.xlsx, visitas_<inicio>_<fin>.xlsx
+
+  Reportes:
+    - Ganancias: KPIs en grilla (Total/Cuotas/Multas/Efectivo/Transferencia),
+      detalle con badges CUOTA/MULTA, fila TOTAL, resumen mensual y por
+      apartamento (sort por total DESC)
+    - Visitas: KPIs, detalle con badges de estado (COMPLETADA/EXPIRADA/
+      CANCELADA/ACTIVA), resumen por estado y por apartamento (sort DESC)
 
   Los filtros disponibles antes de exportar:
     - Rango de fechas (fecha inicio / fecha fin)
@@ -380,21 +393,25 @@ GENERACION DE PDF DEL CONTRATO
 8. NOTIFICACIONES: EMAIL, TELEGRAM Y SMS
 ================================================================================
 
-  Implementacion: NotificacionService.java
-  Bibliotecas usadas: NINGUNA externa. Solo java.awt.Desktop y java.awt.Toolkit (JDK 17)
-  No hay integracion con Twilio, SendGrid, Firebase, AWS SNS ni ninguna API cloud.
+  Implementacion: NotificacionService.java (flujos asistidos legacy)
+  + EmailService.java (envio automatico real)
+  Bibliotecas legacy: NINGUNA externa. Solo java.awt.Desktop y java.awt.Toolkit (JDK 17)
+  Envio automatico: Brevo via HTTPS (api-key, plan gratuito 300 correos/dia).
+  Ya NO es cierto que no haya APIs cloud: el correo automatico usa Brevo.
 
   EMAIL
   -----
-    Metodo: compartirPorCorreo()
-    Mecanismo:
-      1. Se construye una URI con esquema mailto:
-         "mailto:" + destinatario + "?subject=" + asuntoEncoded + "&body=" + cuerpoEncoded
-      2. Desktop.getDesktop().mail(uri) -> abre el cliente de correo local del SO
-         (Outlook, Thunderbird, etc.)
-      3. El usuario ve el correo prellenado y hace clic en Enviar manualmente
-    Limitacion: requiere que el SO tenga un cliente de correo configurado.
-    No envio automatico ni en segundo plano.
+    Envio automatico (EmailService.java):
+      - Contratos: al crear (checkbox enviarCorreo) y POST /api/contratos/{id}/reenviar-correo
+      - QR de visitas: POST /api/qr/enviar-correo
+      - Plantillas HTML por tipo de contrato (src/main/resources/templates/correos/)
+      - Adjunta PDF del contrato (DataHandler + ByteArrayDataSource)
+      - Flujo: Plan A SMTP Gmail (opcional, bloqueado en Render) -> Plan B Brevo
+      - Sin credenciales -> fail-fast con mensaje claro
+    Metodo legacy: compartirPorCorreo()
+      - mailto: + Desktop.getDesktop().mail(uri) -> cliente de correo local
+      - Requiere cliente de correo configurado en el SO; envio manual
+    Limitacion legacy: requiere que el SO tenga un cliente de correo configurado.
 
   TELEGRAM
   --------

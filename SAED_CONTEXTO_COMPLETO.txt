@@ -480,9 +480,16 @@
         - DB_USER:    RESIDENCIAL
         - DB_PASS:    Administrador2026
         - JWT_SECRET: clave para tokens JWT
-        - GMAIL_USER: usuario Gmail para SMTP
-        - GMAIL_PASSWORD: contrasena Gmail
         - WALLET_BASE64: wallet.zip completo en base64 (o PART1+PART2)
+      Variables de CORREO (EmailService.java, actualizado 2026-08):
+        - BREVO_API_KEY: OBLIGATORIA para el envio en produccion (Plan B,
+          api-key de Brevo, empieza con xkeysib-, 300 correos/dia gratis)
+        - GMAIL_USER / GMAIL_FROM: remitente de los correos (debe estar
+          verificado en Brevo -> Settings > Senders & IPs)
+        - GMAIL_APP_PASSWORD / GMAIL_PASSWORD: SMTP Plan A OPCIONAL; Gmail lo
+          bloquea desde Render, por eso NO estan configuradas en produccion
+        - SENDGRID_API_KEY: OBSOLETA (fue el Plan B hasta 2026-08; variable
+          muerta en el codigo, pendiente de limpieza)
 
   7.2 FRONTEND — GitHub Pages
       URL: https://sebasr0311.github.io/sistema-administracion-edificios/
