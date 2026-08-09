@@ -4,6 +4,15 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [react()],
   base: process.env.VITE_BASE_PATH || '/',
+  // Dev server: permite el proxy de Vercel v0 (hosts dinamicos sb-*.vercel.run).
+  // Solo afecta al dev server local; no se usa en el build de produccion.
+  server: {
+    allowedHosts: ['.vercel.run'],
+  },
+  // Preview server (vite preview): v0 tambien puede servir el build por aqui.
+  preview: {
+    allowedHosts: ['.vercel.run'],
+  },
   build: {
     outDir: 'dist',
     sourcemap: false,
