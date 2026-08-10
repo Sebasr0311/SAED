@@ -38,7 +38,11 @@ export default function NotificationBell() {
   const [items, setItems] = useState([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const vistoRef = useRef(null); // timestamp del ultimo "visto" (admin)
+  // Timestamp del ultimo "visto" (admin); 0 = nunca visto -> todas cuentan.
+  const [visto, setVisto] = useState(() => {
+    try { return Number(localStorage.getItem(VISTO_KEY)) || 0; } catch { return 0; }
+  });
+  const vistoRef = useRef(visto);
 
   const esAdmin = user?.rol === 'ADMINISTRADOR';
   const verMasRuta = esAdmin ? '/quejas-admin' : '/res-buzon';
@@ -67,14 +71,10 @@ export default function NotificationBell() {
 
   // Contador de no leidas
   const noLeidas = esAdmin
-    ? (() => {
-        const visto = vistoRef.current;
-        if (!visto) return 0;
-        return items.filter((it) => {
-          const f = new Date(it.fecha);
-          return !Number.isNaN(f.getTime()) && f.getTime() > visto;
-        }).length;
-      })()
+    ? items.filter((it) => {
+        const f = new Date(it.fecha);
+        return !Number.isNaN(f.getTime()) && f.getTime() > vistoRef.current;
+      }).length
     : items.filter((it) => !it.leido).length;
 
   function alAbrir() {
@@ -82,6 +82,7 @@ export default function NotificationBell() {
     if (esAdmin) {
       const ahora = Date.now();
       vistoRef.current = ahora;
+      setVisto(ahora);
       try { localStorage.setItem(VISTO_KEY, String(ahora)); } catch { /* noop */ }
     }
   }
