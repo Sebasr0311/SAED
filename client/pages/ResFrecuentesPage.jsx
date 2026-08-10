@@ -6,7 +6,7 @@ import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { Button } from '../components/ui/Button.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
 import { Input, Select } from '../components/ui/Form.jsx';
-import { valNombre, valApellido, valDocumento, valTelefono, valEmail } from '../lib/validation.js';
+import { valNombre, valApellido, valDocumento, valTelefono, valEmail, valPlaca } from '../lib/validation.js';
 import Toast from '../components/ui/Toast.jsx';
 import { formatDate } from '../lib/utils.js';
 
@@ -30,6 +30,94 @@ export default function ResFrecuentesPage() {
   // Guard anti doble-submit: mismo patron que VisitasPage (FASE 4.2-P2).
   const savingRef = useRef(false);
   const [search, setSearch] = useState('');
+
+  // ==== QR de visita rapida para un frecuente (datos variables del dia) ====
+  const [qrModal, setQrModal] = useState(null); // frecuente seleccionado o null
+  const [qrForm, setQrForm] = useState({
+    medioTransporte: 'A_PIE',
+    placa: '',
+    descripcion: '',
+    cantidadPersonas: '1',
+    tiempoValidezMin: '30',
+    notas: '',
+  });
+  const [qrErrors, setQrErrors] = useState({});
+  const [qrSending, setQrSending] = useState(false);
+  const qrSendingRef = useRef(false);
+  const [qrGenerado, setQrGenerado] = useState(null); // { codigoQr, mensaje, fechaExpiracion }
+
+  // Mapea el tipo de vehiculo del ultimo registro al select del modal
+  function tipoAMedio(t) {
+    if (t === 'VEHICULO') return 'CARRO';
+    if (t === 'MOTO' || t === 'BICICLETA' || t === 'OTRO') return t;
+    return 'A_PIE';
+  }
+
+  function abrirQr(frecuente) {
+    setQrForm({
+      medioTransporte: tipoAMedio(frecuente.ultimoTipoVehiculo),
+      placa: frecuente.ultimaPlaca || '',
+      descripcion: frecuente.ultimaDescripcionTipo || '',
+      cantidadPersonas: '1',
+      tiempoValidezMin: '30',
+      notas: '',
+    });
+    setQrErrors({});
+    setQrGenerado(null);
+    setQrModal(frecuente);
+  }
+
+  function validateQr() {
+    const e = {};
+    const personas = Number(qrForm.cantidadPersonas);
+    if (!qrForm.cantidadPersonas || Number.isNaN(personas) || personas < 1 || personas > 99) {
+      e.cantidadPersonas = 'Debe ser entre 1 y 99 personas';
+    }
+    const validez = Number(qrForm.tiempoValidezMin);
+    if (!qrForm.tiempoValidezMin || Number.isNaN(validez) || validez < 5 || validez > 60) {
+      e.tiempoValidezMin = 'La validez debe ser entre 5 y 60 minutos';
+    }
+    if (qrForm.medioTransporte === 'CARRO' || qrForm.medioTransporte === 'MOTO') {
+      const rPlaca = valPlaca(qrForm.placa, qrForm.medioTransporte === 'CARRO' ? 'CARRO' : 'MOTO');
+      if (!rPlaca.ok) e.placa = rPlaca.mensaje;
+    }
+    if (qrForm.medioTransporte === 'BICICLETA' || qrForm.medioTransporte === 'OTRO') {
+      if (!qrForm.descripcion.trim()) {
+        e.descripcion = 'La descripción es requerida para ' + (qrForm.medioTransporte === 'BICICLETA' ? 'bicicleta' : 'otro medio');
+      }
+    }
+    setQrErrors(e);
+    return Object.keys(e).length === 0;
+  }
+
+  async function generarQr() {
+    if (qrSendingRef.current) return; // doble submit
+    if (!validateQr()) return;
+    qrSendingRef.current = true;
+    setQrSending(true);
+    try {
+      const tipoVehiculo = qrForm.medioTransporte === 'A_PIE' ? null
+        : qrForm.medioTransporte === 'CARRO' ? 'VEHICULO'
+        : qrForm.medioTransporte;
+      const res = await api.post('/visitas/rapida', {
+        idFrecuente: qrModal.idFrecuente,
+        idVisitante: qrModal.idVisitante,
+        cantidadPersonas: Number(qrForm.cantidadPersonas),
+        tiempoValidezMin: Number(qrForm.tiempoValidezMin),
+        tipoVehiculo,
+        placa: qrForm.medioTransporte === 'CARRO' || qrForm.medioTransporte === 'MOTO' ? qrForm.placa.toUpperCase() : null,
+        descripcionTipo: qrForm.medioTransporte === 'BICICLETA' || qrForm.medioTransporte === 'OTRO' ? qrForm.descripcion.trim() : null,
+        notas: qrForm.notas.trim() || null,
+      });
+      setQrGenerado(res);
+      setToast({ message: 'QR generado para ' + qrModal.nombreVisitante, type: 'success' });
+    } catch (err) {
+      setToast({ message: err.message, type: 'error' });
+    } finally {
+      qrSendingRef.current = false;
+      setQrSending(false);
+    }
+  }
 
   const { data, loading, refetch } = useFetch(
     () => api.get(`/residentes/${user?.idResidente}/frecuentes`),
@@ -158,6 +246,9 @@ export default function ResFrecuentesPage() {
               {f.ultimaPlaca && <div className="meta">Placa: {f.ultimaPlaca}</div>}
               {f.ultimaVisita && <div className="meta">Última visita: {formatDate(f.ultimaVisita)}</div>}
             </div>
+            <Button variant="outline" onClick={() => abrirQr(f)} style={{ flexShrink: 0 }}>
+              Generar QR
+            </Button>
           </div>
         ))}
       </div>
@@ -237,6 +328,120 @@ export default function ResFrecuentesPage() {
             error={fieldError('email', valEmail(form.email, { required: false })) || errors.email}
           />
         </div>
+      </Modal>
+
+      <Modal
+        open={qrModal !== null}
+        onClose={() => setQrModal(null)}
+        title={qrGenerado ? 'QR generado' : `Generar QR — ${qrModal?.nombreVisitante || ''}`}
+        size="md"
+      >
+        {qrGenerado ? (
+          <div style={{ textAlign: 'center', padding: '8px 0' }}>
+            <div style={{ fontSize: '14px', marginBottom: '4px' }}>{qrGenerado.mensaje || 'Visita registrada'}</div>
+            <div
+              style={{
+                fontSize: '22px',
+                fontWeight: 800,
+                fontFamily: 'monospace',
+                background: 'var(--primary)',
+                color: 'white',
+                borderRadius: '8px',
+                padding: '16px',
+                margin: '12px 0',
+                wordBreak: 'break-all',
+              }}
+            >
+              {qrGenerado.codigoQr}
+            </div>
+            <div style={{ fontSize: '12px', opacity: 0.7 }}>
+              Compartí este código con {qrModal?.nombreVisitante} para que el portero lo escanee.
+              {qrGenerado.fechaExpiracion ? ` Expira el ${formatDate(qrGenerado.fechaExpiracion)}.` : ''}
+            </div>
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginTop: '16px' }}>
+              <Button variant="outline" onClick={() => setQrModal(null)}>
+                Cerrar
+              </Button>
+              <Button onClick={() => abrirQr(qrModal)}>
+                Generar otro QR
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="form-group">
+              <div className="meta" style={{ fontSize: '13px' }}>
+                Visitante: <strong>{qrModal?.nombreVisitante}</strong> · Doc: {qrModal?.documento}
+              </div>
+            </div>
+            <div className="form-row">
+              <Select
+                id="qr-medioTransporte"
+                label="¿En qué viene?"
+                value={qrForm.medioTransporte}
+                onChange={(e) => setQrForm((f) => ({ ...f, medioTransporte: e.target.value }))}
+              >
+                <option value="CARRO">Carro</option>
+                <option value="MOTO">Moto</option>
+                <option value="BICICLETA">Bicicleta</option>
+                <option value="A_PIE">A pie</option>
+                <option value="OTRO">Otro</option>
+              </Select>
+              {(qrForm.medioTransporte === 'CARRO' || qrForm.medioTransporte === 'MOTO') && (
+                <Input
+                  id="qr-placa"
+                  label="Placa"
+                  value={qrForm.placa}
+                  onChange={(e) => setQrForm((f) => ({ ...f, placa: e.target.value.toUpperCase() }))}
+                  error={qrErrors.placa}
+                />
+              )}
+              {(qrForm.medioTransporte === 'BICICLETA' || qrForm.medioTransporte === 'OTRO') && (
+                <Input
+                  id="qr-descripcion"
+                  label={qrForm.medioTransporte === 'BICICLETA' ? 'Descripción de la bicicleta' : 'Descripción del medio'}
+                  value={qrForm.descripcion}
+                  onChange={(e) => setQrForm((f) => ({ ...f, descripcion: e.target.value }))}
+                  error={qrErrors.descripcion}
+                />
+              )}
+            </div>
+            <div className="form-row">
+              <Input
+                id="qr-cantidadPersonas"
+                label="Cantidad de personas"
+                type="number"
+                value={qrForm.cantidadPersonas}
+                onChange={(e) => setQrForm((f) => ({ ...f, cantidadPersonas: e.target.value }))}
+                error={qrErrors.cantidadPersonas}
+              />
+              <Input
+                id="qr-tiempoValidezMin"
+                label="Validez (minutos)"
+                type="number"
+                value={qrForm.tiempoValidezMin}
+                onChange={(e) => setQrForm((f) => ({ ...f, tiempoValidezMin: e.target.value }))}
+                error={qrErrors.tiempoValidezMin}
+              />
+            </div>
+            <div className="form-group">
+              <Input
+                id="qr-notas"
+                label="Motivo / descripción (opcional)"
+                value={qrForm.notas}
+                onChange={(e) => setQrForm((f) => ({ ...f, notas: e.target.value }))}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '4px' }}>
+              <Button variant="outline" onClick={() => setQrModal(null)} disabled={qrSending}>
+                Cancelar
+              </Button>
+              <Button onClick={generarQr} disabled={qrSending}>
+                {qrSending ? 'Generando...' : 'Generar QR'}
+              </Button>
+            </div>
+          </>
+        )}
       </Modal>
 
       <Toast toast={toast} />

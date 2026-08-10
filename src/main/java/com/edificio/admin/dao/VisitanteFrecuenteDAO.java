@@ -134,15 +134,18 @@ public class VisitanteFrecuenteDAO extends BaseDAO {
             r.idVisita = cs.getInt(10);
             r.codigoQR = cs.getString(11);
             r.mensaje  = cs.getString(13);
-            // El SP almacena fecha_expiracion con SYSTIMESTAMP (UTC), pero la sesion
-            // Oracle esta en America/Bogota; la lectura con getTimestamp() interpretaria
-            // el valor UTC como Bogota, dando 5h de adelanto. Calculamos la expiracion
-            // correcta en Java y corregimos el registro en BD.
-            var bogota = LocalDateTime.now(ZoneId.of("America/Bogota"));
-            r.fechaExpiracion = bogota.plusMinutes(tiempoValidez);
+            // El SP almacena fecha_expiracion con la zona de la sesion Oracle,
+            // pero QrHandler.validar compara contra la zona de la JVM
+            // (ZoneId.systemDefault). Si la JVM y la sesion Oracle usan zonas
+            // distintas (p.ej. Render en UTC y Oracle en America/Bogota), el QR
+            // queda 5h en el pasado y "expira" al instante. Guardamos la
+            // expiracion en la zona de la JVM para que la lectura con
+            // atZone(systemDefault) de QrHandler sea el instante correcto.
+            var ahoraJvm = LocalDateTime.now();
+            r.fechaExpiracion = ahoraJvm.plusMinutes(tiempoValidez);
             String fixSql = "UPDATE QR_ACCESOS SET fecha_generacion = ?, fecha_expiracion = ? WHERE id_visita = ?";
             try (PreparedStatement ps = conn().prepareStatement(fixSql)) {
-                ps.setTimestamp(1, Timestamp.valueOf(bogota));
+                ps.setTimestamp(1, Timestamp.valueOf(ahoraJvm));
                 ps.setTimestamp(2, Timestamp.valueOf(r.fechaExpiracion));
                 ps.setInt(3, r.idVisita);
                 ps.executeUpdate();

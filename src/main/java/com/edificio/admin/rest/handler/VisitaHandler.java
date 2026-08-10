@@ -169,11 +169,18 @@ public class VisitaHandler extends BaseHandler implements HttpHandler {
                     throw new Exception("Ya gener\u00f3 un c\u00f3digo QR para esta persona. \u00daselo o espere a que expire.");
                 String tipoVehiculo = (String) data.get("tipoVehiculo");
                 String placa = (String) data.get("placa");
+                Object descRaw = data.get("descripcionTipo") != null ? data.get("descripcionTipo") : data.get("descripcion");
+                String descripcionTipo = descRaw != null ? String.valueOf(descRaw) : null;
                 String notas = (String) data.get("notas");
                 VisitanteFrecuenteDAO.LiberarVisitaResult res = frecuenteDAO.liberarVisita(
                     idVisitante, idContratoRes, idResidente,
-                    cantPersonas, tiempoValidez, tipoVehiculo, placa, null, notas);
-                sendJson(exchange, 201, Map.of("codigoQr", res.codigoQR, "idVisita", res.idVisita));
+                    cantPersonas, tiempoValidez, tipoVehiculo, placa, descripcionTipo, notas);
+                Map<String, Object> resp = new HashMap<>();
+                resp.put("codigoQr", res.codigoQR);
+                resp.put("idVisita", res.idVisita);
+                resp.put("fechaExpiracion", res.fechaExpiracion != null ? res.fechaExpiracion.toString() : null);
+                resp.put("mensaje", res.mensaje);
+                sendJson(exchange, 201, resp);
             } else if ("PUT".equalsIgnoreCase(method) && parts.length == 5 && "salida".equals(parts[4])) {
                 // PUT /api/visitas/{id}/salida — registra la salida de una visita
                 if (!AuthScope.requireRole(exchange, claims, "ADMINISTRADOR", "PORTERO")) return;
