@@ -411,7 +411,7 @@ export default function PorteroDashboardPage() {
   const visitasHoyCount = visitasHoy?.items?.length ?? visitasHoy?.length ?? 'â€”';
   const visitasActivas = (visitasHoy?.items || visitasHoy || []).filter((v) => v.estado === 'ACTIVA' || v.estado === 'PENDIENTE').length;
   const parqDisponibles = (parqueaderos?.items || parqueaderos || []).filter((p) => p.esVisitante).length;
-  const paquetesCount = paquetes?.count ?? 'â€”';
+  const paquetesCount = paquetes?.count ?? (Array.isArray(paquetes) ? paquetes.length : (paquetes?.items ? paquetes.items.length : 0));
 
   function showToast(t) {
     setToast(t);
