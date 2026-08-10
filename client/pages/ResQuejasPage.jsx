@@ -79,7 +79,7 @@ function CamaraCaptura({ onCapture, onCancel }) {
           autoPlay
           playsInline
           muted
-          style={{ width: '100%', maxHeight: '320px', borderRadius: '8px', background: '#000' }}
+          style={{ width: '100%', maxHeight: '320px', borderRadius: '12px', background: 'var(--preview-bg)' }}
         />
       ) : (
         <Button onClick={iniciar}>Activar Cámara</Button>
