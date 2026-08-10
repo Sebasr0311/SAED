@@ -88,6 +88,22 @@ public class WompiService {
         if (idItem == null || idItem <= 0)
             throw new DatosInvalidosException("El item de pago es obligatorio.");
 
+        // Idempotencia (opcion B aprobada en Fase 5.1): si ya existe una intencion
+        // PENDIENTE para este item, se devuelve la misma (retomar el pago) en vez de
+        // fallar con ORA-00001 del indice unico funcional (UQ_TPAGO_*_PEND).
+        WompiPago existente = wompiDAO.findPendientePorItem(concepto, idItem);
+        if (existente != null) {
+            Map<String, Object> res = new HashMap<>();
+            res.put("id", existente.getId());
+            res.put("referencia", existente.getReferencia());
+            res.put("montoCentavos", existente.getMontoCentavos());
+            res.put("publicKey", WOMPI_PUBLIC_KEY);
+            res.put("firmaIntegridad", firmaIntegridad(existente.getReferencia(), existente.getMontoCentavos()));
+            res.put("idTransaccionWompi", existente.getIdTransaccionWompi());
+            res.put("reintento", true);
+            return res;
+        }
+
         BigDecimal saldoPesos = saldoEnPesos(concepto, idItem);
 
         // Referencia unica de SAED (max 255 chars)

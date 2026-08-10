@@ -61,6 +61,21 @@ public class WompiPagoDAO extends BaseDAO {
         }
     }
 
+    /** Intencion PENDIENTE existente para un item (cuota o multa), si hay. */
+    public WompiPago findPendientePorItem(String concepto, Integer idItem) throws SQLException {
+        String col = "CUOTA".equals(concepto) ? "id_cuota" : "id_multa";
+        String sql = "SELECT " + COLS + " FROM TRANSACCIONES_PAGO " +
+            "WHERE concepto = ? AND estado = 'PENDIENTE' AND " + col + " = ? " +
+            "FETCH FIRST 1 ROWS ONLY";
+        try (PreparedStatement ps = conn().prepareStatement(sql)) {
+            ps.setString(1, concepto);
+            ps.setInt(2, idItem);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? mapear(rs) : null;
+            }
+        }
+    }
+
     /** Pendientes con transaccion creada en Wompi y mas antiguas de N minutos. */
     public List<WompiPago> findPendientesAntiguos(int minutos) throws SQLException {
         return findBySql(
