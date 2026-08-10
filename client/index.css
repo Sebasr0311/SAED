@@ -132,7 +132,7 @@
     --outline-variant: #2a3447;
 --text-secondary: #9aa7bd;
 --text-muted: #7c89a1;
---text-hint: #7c89a1;
+--text-hint: #9aa7bd;
 --border: #2a3447;
 --border-focus: #6b93d6;
 --border-subtle: #222c3f;
@@ -2302,4 +2302,14 @@ input:-webkit-autofill:focus {
   background: var(--primary);
   flex-shrink: 0;
   margin-top: 6px;
+}
+
+/* ==== impeccable: adapt — touch targets 44px en movil (WCAG 2.5.8) ==== */
+@media (max-width: 640px) {
+  .btn-sm, .btn-xs { min-height: 44px; }
+}
+
+/* ==== impeccable: polish — iconos decorativos de botones legacy ==== */
+.btn .material-symbols-outlined, .btn-icon .material-symbols-outlined {
+  font-size: 18px;
 }

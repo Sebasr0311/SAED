@@ -30,11 +30,15 @@ function HeroGallery() {
           style={{ transform: `translateX(-${index * 100}%)` }}
         >
           {HERO_IMAGES.map((img) => (
-            <div
-              key={img}
-              className="hero-slide"
-              style={{ backgroundImage: `url(${import.meta.env.BASE_URL}imagenes/${img})` }}
-            />
+            <div key={img} className="hero-slide">
+              <img
+                src={`${import.meta.env.BASE_URL}imagenes/${img}`}
+                alt=""
+                loading="lazy"
+                decoding="async"
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              />
+            </div>
           ))}
         </div>
       </div>
