@@ -173,6 +173,20 @@ export default function AppShell() {
     obs.observe(document.body, { childList: true, subtree: true });
     return () => obs.disconnect();
   }, []);
+
+  // impeccable/harden: los iconos material-symbols dentro de botones legacy son
+  // decorativos (el texto del boton es el accesible); se marcan aria-hidden
+  // para que los lectores de pantalla no los anuncien.
+  useEffect(() => {
+    const marcar = () => {
+      document.querySelectorAll('.btn .material-symbols-outlined, .topbar-logout-btn .material-symbols-outlined')
+        .forEach((el) => { if (!el.hasAttribute('aria-hidden')) el.setAttribute('aria-hidden', 'true'); });
+    };
+    marcar();
+    const obs = new MutationObserver(marcar);
+    obs.observe(document.body, { childList: true, subtree: true });
+    return () => obs.disconnect();
+  }, []);
   function toggleTheme() {
     setDark((prev) => {
       const next = !prev;
