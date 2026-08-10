@@ -2058,3 +2058,32 @@ iframe[src*="checkout.wompi.co"] {
 body:has(.wompi-overlay) {
   overflow: hidden;
 }
+
+/* ==== Polish v3: focus visible en controles legacy + acentos ==== */
+.btn:focus-visible,
+.multi-select-trigger:focus-visible,
+.sidebar-group-btn:focus-visible,
+.sidebar-item-btn:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+.sidebar-item-btn.active {
+  border-radius: 10px;
+}
+.sidebar-item-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px var(--surface) inset;
+  -webkit-text-fill-color: var(--on-background);
+  transition: background-color 9999s ease-in-out 0s;
+}
+.login-btn {
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
+}
+.login-btn:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}

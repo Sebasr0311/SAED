@@ -2,6 +2,7 @@ import { memo, useEffect, useState } from 'react';
 import { classNames } from '../../lib/utils.js';
 import EmptyState from './EmptyState.jsx';
 import { Button } from './Button.jsx';
+import { Skeleton } from './skeleton.tsx';
 
 export const DataTable = memo(function DataTable({ columns, rows, loading, empty, onRowClick, keyField = 'id', selectedKey, error, onRetry, pageSize }) {
   const [page, setPage] = useState(1);
@@ -18,7 +19,30 @@ export const DataTable = memo(function DataTable({ columns, rows, loading, empty
 
   if (loading) {
     return (
-      <div className="table-container p-8 text-center text-on-surface-variant">Cargando...</div>
+      <div className="table-container">
+        <table className="data-table">
+          <thead>
+            <tr>
+              {columns.map((col) => (
+                <th key={col.key} scope="col" style={col.width ? { width: col.width } : undefined}>
+                  {col.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody aria-busy="true">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <tr key={`sk-${i}`}>
+                {columns.map((col) => (
+                  <td key={col.key}>
+                    <Skeleton className="h-4 w-full" />
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     );
   }
   if (error) {
