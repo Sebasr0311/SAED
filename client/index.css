@@ -2014,6 +2014,18 @@ input::placeholder, textarea::placeholder {
   backdrop-filter: blur(3px);
   animation: fade-in 0.18s ease-out;
 }
+/* El contenedor blanco grande lo crea Wompi alrededor del iframe. El checkout
+   conserva su propia superficie; este host no debe pintar otra tarjeta detrÃ¡s. */
+.waybox-modal.wompi-modal-host {
+  background: transparent !important;
+  box-shadow: none !important;
+  overflow: visible !important;
+  width: 0 !important;
+  height: 0 !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+}
 iframe[src*="checkout.wompi.co"] {
   position: fixed !important;
   top: 50% !important;
@@ -2025,6 +2037,7 @@ iframe[src*="checkout.wompi.co"] {
   border: 0 !important;
   border-radius: 18px !important;
   background: var(--surface);
+  overflow: auto !important;
   box-shadow: 0 24px 64px rgba(15, 23, 42, 0.18);
   animation: slide-up 0.22s ease-out;
 }
@@ -2304,12 +2317,12 @@ input:-webkit-autofill:focus {
   margin-top: 6px;
 }
 
-/* ==== impeccable: adapt — touch targets 44px en movil (WCAG 2.5.8) ==== */
+/* ==== impeccable: adapt ï¿½ touch targets 44px en movil (WCAG 2.5.8) ==== */
 @media (max-width: 640px) {
   .btn-sm, .btn-xs { min-height: 44px; }
 }
 
-/* ==== impeccable: polish — iconos decorativos de botones legacy ==== */
+/* ==== impeccable: polish ï¿½ iconos decorativos de botones legacy ==== */
 .btn .material-symbols-outlined, .btn-icon .material-symbols-outlined {
   font-size: 18px;
 }

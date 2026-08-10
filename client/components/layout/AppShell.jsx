@@ -157,21 +157,53 @@ export default function AppShell() {
   // lo localiza en su contenedor original para ajustar la altura). Aplica en
   // cualquier pagina donde se abra el pago (dashboard, cuotas, frecuentes...).
   useEffect(() => {
+    let frameObserver = null;
+    let currentFrame = null;
+    let currentHost = null;
+
+    const prepareFrame = (frame) => {
+      if (currentFrame === frame) return;
+      frameObserver?.disconnect();
+      currentFrame = frame;
+      currentHost?.classList.remove('wompi-modal-host');
+      currentHost = frame.parentElement;
+      currentHost?.classList.add('wompi-modal-host');
+
+      const allowScroll = () => {
+        if (frame.isConnected && frame.getAttribute('scrolling') !== 'yes') {
+          frame.setAttribute('scrolling', 'yes');
+        }
+      };
+      allowScroll();
+      frameObserver = new MutationObserver(allowScroll);
+      frameObserver.observe(frame, { attributes: true, attributeFilter: ['scrolling'] });
+    };
+
     const obs = new MutationObserver(() => {
       const frame = document.querySelector('iframe[src*="checkout.wompi.co"]');
       if (frame) {
+        prepareFrame(frame);
         if (!document.querySelector('.wompi-overlay')) {
           const overlay = document.createElement('div');
           overlay.className = 'wompi-overlay';
           frame.parentNode.insertBefore(overlay, frame);
         }
       } else {
+        frameObserver?.disconnect();
+        frameObserver = null;
+        currentFrame = null;
+        currentHost?.classList.remove('wompi-modal-host');
+        currentHost = null;
         const ov = document.querySelector('.wompi-overlay');
         if (ov) ov.remove();
       }
     });
     obs.observe(document.body, { childList: true, subtree: true });
-    return () => obs.disconnect();
+    return () => {
+      obs.disconnect();
+      frameObserver?.disconnect();
+      currentHost?.classList.remove('wompi-modal-host');
+    };
   }, []);
 
   // impeccable/harden: los iconos material-symbols dentro de botones legacy son
