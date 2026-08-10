@@ -258,6 +258,30 @@ export default function ResidenteDashboardPage() {
     cargarWidgetWompi().catch(() => { /* best-effort: se reintenta al pagar */ });
   }, []);
 
+  // El widget de Wompi se inyecta ocupando todo el ancho disponible (en desktop
+  // llega a ~1100px). Lo encuadramos con CSS en un checkout centrado tipo modal
+  // (max 560px) con backdrop. IMPORTANTE: el iframe NO se mueve del DOM — el
+  // widget.js lo localiza en su contenedor original para ajustar la altura por
+  // postMessage; moverlo rompe ese ajuste.
+  useEffect(() => {
+    const obs = new MutationObserver(() => {
+      const frame = document.querySelector('iframe[src*="checkout.wompi.co"]');
+      if (frame) {
+        if (!document.querySelector('.wompi-overlay')) {
+          const overlay = document.createElement('div');
+          overlay.className = 'wompi-overlay';
+          frame.parentNode.insertBefore(overlay, frame);
+        }
+      } else {
+        // El widget se cerro y removio su iframe: limpiar el backdrop
+        const ov = document.querySelector('.wompi-overlay');
+        if (ov) ov.remove();
+      }
+    });
+    obs.observe(document.body, { childList: true, subtree: true });
+    return () => obs.disconnect();
+  }, []);
+
   async function pollEstadoWompi(referencia) {
     const t0 = Date.now();
     while (Date.now() - t0 < 180000) {
