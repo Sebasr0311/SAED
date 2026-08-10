@@ -5,7 +5,7 @@ import { Input } from './Form.jsx';
 import api from '../../lib/api.js';
 
 /**
- * Modal que reverifica la contraseÃ±a del admin antes de una accion destructiva.
+ * Modal que reverifica la contraseña del admin antes de una accion destructiva.
  * Uso: const confirmar = useConfirmPassword(); const ok = await confirmar.ask('eliminar X'); if (ok) { ... }
  */
 export function ConfirmPasswordDialog({ open, onClose, onConfirmed, descripcion }) {
@@ -15,7 +15,7 @@ export function ConfirmPasswordDialog({ open, onClose, onConfirmed, descripcion 
 
   async function confirmar() {
     if (!password) {
-      setError('La contraseÃ±a es obligatoria');
+      setError('La contraseña es obligatoria');
       return;
     }
     setVerificando(true);
@@ -25,7 +25,7 @@ export function ConfirmPasswordDialog({ open, onClose, onConfirmed, descripcion 
       setError('');
       onConfirmed();
     } catch {
-      setError('ContraseÃ±a incorrecta. IntÃ©ntelo de nuevo.');
+      setError('Contraseña incorrecta. Inténtelo de nuevo.');
       setPassword('');
     } finally {
       setVerificando(false);
@@ -42,7 +42,7 @@ export function ConfirmPasswordDialog({ open, onClose, onConfirmed, descripcion 
     <Modal
       open={open}
       onClose={handleClose}
-      title="Confirmar acciÃ³n"
+      title="Confirmar acción"
       footer={
         <>
           <Button variant="outline" onClick={handleClose} disabled={verificando}>
@@ -55,11 +55,11 @@ export function ConfirmPasswordDialog({ open, onClose, onConfirmed, descripcion 
       }
     >
       <p style={{ marginBottom: '12px', fontSize: '13px', color: 'var(--on-surface-variant)' }}>
-        Para {descripcion || 'continuar con esta acciÃ³n'}, ingrese su contraseÃ±a de administrador.
+        Para {descripcion || 'continuar con esta acción'}, ingrese su contraseña de administrador.
       </p>
       <Input
         id="confirm-password"
-        label="ContraseÃ±a"
+        label="Contraseña"
         type="password"
         value={password}
         onChange={(e) => setPassword(e.target.value)}

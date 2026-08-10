@@ -50,7 +50,7 @@ export default function PaquetesPage() {
         }
       }, 50);
     } catch (err) {
-      setToast({ message: 'No se pudo acceder a la cÃ¡mara: ' + err.message, type: 'error' });
+      setToast({ message: 'No se pudo acceder a la cámara: ' + err.message, type: 'error' });
     }
   }
 
@@ -107,7 +107,7 @@ export default function PaquetesPage() {
 
   const columns = [
     { key: 'idMensaje', label: 'ID', width: 60 },
-    { key: 'titulo', label: 'DescripciÃ³n' },
+    { key: 'titulo', label: 'Descripción' },
     { key: 'fechaCreacion', label: 'Recibido', render: (r) => formatDate(r.fechaCreacion) },
     {
       key: 'entregado',
@@ -135,7 +135,7 @@ export default function PaquetesPage() {
               detenerCamara();
             }}
           >
-            <option value="">â€” Seleccione apartamento â€”</option>
+            <option value="">— Seleccione apartamento —</option>
             {(apartamentos?.items || []).map((a) => (
               <option key={a.idApartamento} value={a.idApartamento}>
                 Apto {a.numero}
@@ -168,7 +168,7 @@ export default function PaquetesPage() {
         <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginBottom: '16px' }}>
           {!camaraActiva && !foto && (
             <Button variant="outline" onClick={abrirCamara} disabled={!selectedApto}>
-              Abrir CÃ¡mara
+              Abrir Cámara
             </Button>
           )}
           {camaraActiva && <Button onClick={capturar}>Capturar Foto</Button>}

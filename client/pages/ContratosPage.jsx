@@ -1,4 +1,4 @@
-﻿import { useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Button } from '../components/ui/Button.jsx';
 import { Input, Select } from '../components/ui/Form.jsx';
 import { DataTable } from '../components/ui/DataTable.jsx';
@@ -443,7 +443,7 @@ export default function ContratosPage() {
             onChange={(e) => onApartamentoChange(e.target.value)}
             error={errors.idApartamento}
           >
-            <option value="">â€” Seleccionar â€”</option>
+            <option value="">— Seleccionar —</option>
             {(apartamentos?.items || []).map((a) => (
               <option key={a.idApartamento} value={a.idApartamento}>
                 Apto {a.numero}
@@ -457,7 +457,7 @@ export default function ContratosPage() {
             onChange={(e) => update('idResidente', e.target.value)}
             error={errors.idResidente}
           >
-            <option value="">â€” Seleccionar â€”</option>
+            <option value="">— Seleccionar —</option>
             {(residentes?.items || []).map((r) => (
               <option key={r.id} value={r.id}>
                 {r.nombres} {r.apellidos}
