@@ -25,7 +25,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Build frontend
-        run: pnpm run build
+        run: set -o pipefail; pnpm run build 2>&1 | tail -120
         env:
           VITE_BASE_PATH: /sistema-administracion-edificios/
       - uses: actions/configure-pages@v5
