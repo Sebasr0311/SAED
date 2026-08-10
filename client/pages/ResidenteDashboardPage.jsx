@@ -182,6 +182,12 @@ function BarChart({ data, title }) {
 
 export default function ResidenteDashboardPage() {
   const { user } = useAuth();
+  const { data: perfilResidente } = useFetch(
+    () => (user?.idResidente ? api.get(`/residentes/${user.idResidente}`) : Promise.resolve(null)),
+    [user]
+  );
+  const perfil = perfilResidente?.raw || perfilResidente || {};
+  const nombreResidente = `${perfil?.nombres || ''} ${perfil?.apellidos || ''}`.trim();
   const { data, refetch: refetchDashboard } = useFetch(() => api.get(`/residentes/${user?.idResidente}/dashboard`), [user]);
   const { data: pagosPorMes } = useFetch(
     () => api.get(`/pagos/registrados`),
@@ -408,7 +414,7 @@ export default function ResidenteDashboardPage() {
     <div>
       <PageHeader
         title="Mi Panel"
-        subtitle={`Bienvenido${user?.username ? `, ${user.username}` : ''}`}
+        subtitle={`Bienvenido${nombreResidente || user?.username ? `, ${nombreResidente || user?.username}` : ''}`}
       />
       <div className="card-grid-4">
         <Stat icon="apartment" value={apartamento.numero || '—'} label="Apartamento" color="blue" />
