@@ -392,7 +392,7 @@ export default function AppShell() {
               <div className="user-info">
                 <div className="user-avatar">{user?.username?.[0]?.toUpperCase() || 'U'}</div>
                 <span className="user-name">{user?.username}</span>
-                <span className="badge-role">{user?.rol}</span>
+                <span className="badge-role" data-rol={user?.rol}>{user?.rol}</span>
               </div>
               <button
                 type="button"
