@@ -117,7 +117,10 @@ export const DataTable = memo(function DataTable({ columns, rows, loading, empty
         </tbody>
       </table>
       {pageSize && pageSize > 0 && totalPaginas > 1 && (
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px', paddingTop: '14px' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px', paddingTop: '14px', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+            {totalRows} registro(s)
+          </span>
           <Button
             variant="outline"
             size="sm"
