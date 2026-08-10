@@ -169,9 +169,9 @@ public class ResidenteHandler extends BaseHandler implements HttpHandler {
                 
                 Integer id = service.registrar(r);
                 
-                // Validar tutor para menores de 16-17 años
+                // Validar tutor para todos los menores de edad (< 18)
                 int edad = Period.between(r.getFechaNacimiento(), LocalDate.now()).getYears();
-                if (edad >= 16 && edad < 18) {
+                if (edad < 18) {
                     Map<String, Object> tutorData = (Map<String, Object>) requestData.get("tutor");
                     if (tutorData == null || tutorData.isEmpty()) {
                         // Eliminar el residente recién creado si no tiene tutor

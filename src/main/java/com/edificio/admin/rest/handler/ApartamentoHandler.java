@@ -42,6 +42,7 @@ public class ApartamentoHandler extends BaseHandler implements HttpHandler {
                     aptMap.put("numero", apt.getNumero());
                     aptMap.put("piso", apt.getPiso());
                     aptMap.put("tipo", apt.getTipo());
+                    aptMap.put("descripcionTipo", apt.getDescripcionTipo());
                     aptMap.put("areaM2", apt.getAreaM2());
                     aptMap.put("capacidadMaxima", apt.getCapacidadMaxima());
                     aptMap.put("estado", apt.getEstado());

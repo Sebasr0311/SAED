@@ -19,6 +19,23 @@ public class RestServer {
     public static synchronized void start(int port) {
         if (server != null) return;
         try {
+            // Migraciones ligeras idempotentes (columnas nuevas). El ALTER falla
+            // si la columna ya existe (ORA-01430) o si no hay permiso; en ese caso
+            // se verifica y se sigue. Asi el deploy es autocontenido.
+            try (var conn = ConexionBD.getInstancia().getConexion();
+                 var st = conn.createStatement()) {
+                st.execute("ALTER TABLE APARTAMENTOS ADD (descripcion_tipo VARCHAR2(100))");
+                System.out.println("[Migracion] columna descripcion_tipo creada en APARTAMENTOS");
+            } catch (Exception e) {
+                try (var conn = ConexionBD.getInstancia().getConexion();
+                     var st = conn.createStatement()) {
+                    st.executeQuery("SELECT descripcion_tipo FROM APARTAMENTOS WHERE 1 = 0").close();
+                    System.out.println("[Migracion] descripcion_tipo ya existe (ok)");
+                } catch (Exception e2) {
+                    System.err.println("[Migracion] ADVERTENCIA: descripcion_tipo no disponible: " + e2.getMessage());
+                }
+            }
+
             server = HttpServer.create(new InetSocketAddress(port), 0);
             server.setExecutor(Executors.newFixedThreadPool(4));
 

@@ -16,7 +16,7 @@ const PAGE_SIZE = 15;
 const TIPOS = ['ESTUDIO', '1HAB', '2HAB', '3HAB', 'PENTHOUSE', 'OTRO'];
 const AREAS_POR_TIPO = { ESTUDIO: 35, '1HAB': 50, '2HAB': 70, '3HAB': 90, PENTHOUSE: 120, OTRO: '' };
 const CAPACIDADES_POR_TIPO = { ESTUDIO: 2, '1HAB': 3, '2HAB': 5, '3HAB': 7, PENTHOUSE: 8, OTRO: 2 };
-const emptyForm = { numero: '', piso: 1, tipo: 'ESTUDIO', areaM2: 35, capacidadMaxima: 2, estado: 'DISPONIBLE' };
+const emptyForm = { numero: '', piso: 1, tipo: 'ESTUDIO', descripcionTipo: '', areaM2: 35, capacidadMaxima: 2, estado: 'DISPONIBLE' };
 
 const ESTADO_BADGE = {
   DISPONIBLE: 'badge-activo',
@@ -110,6 +110,7 @@ export default function ApartamentosPage() {
               numero: row.numero,
               piso: row.piso,
               tipo: row.tipo,
+              descripcionTipo: row.descripcionTipo || '',
               areaM2: row.areaM2,
               capacidadMaxima: row.capacidadMaxima,
               estado: row.estado,
@@ -133,6 +134,7 @@ export default function ApartamentosPage() {
       if (k === 'tipo') {
         if (AREAS_POR_TIPO[v] !== '') next.areaM2 = AREAS_POR_TIPO[v];
         next.capacidadMaxima = CAPACIDADES_POR_TIPO[v];
+        if (v !== 'OTRO') next.descripcionTipo = '';
       }
       if (k === 'piso' || k === 'aptoCascada') {
         // recalculado abajo si aplica
@@ -142,12 +144,16 @@ export default function ApartamentosPage() {
   }
   function validate() {
     const e = {};
-    if (!form.numero) e.numero = 'Requerido';
+    const rNumero = valNumeroApartamento(form.numero);
+    if (!rNumero.ok) e.numero = rNumero.mensaje;
     if (!form.piso) e.piso = 'Requerido';
     const rTipo = valSelect(form.tipo, 'Seleccione el tipo de apartamento');
     if (!rTipo.ok) e.tipo = rTipo.mensaje;
-    const rArea = valNumero(form.areaM2, { positivo: true });
+    const rArea = valNumero(form.areaM2, { positivo: true, max: 1000 });
     if (!rArea.ok) e.areaM2 = rArea.mensaje;
+    if (form.tipo === 'OTRO' && !form.descripcionTipo?.trim()) {
+      e.descripcionTipo = 'Describa el tipo de apartamento';
+    }
     const capMax = CAPACIDADES_POR_TIPO[form.tipo] ?? 8;
     const rCap = valEntero(form.capacidadMaxima, { min: 1, max: Math.max(capMax, 8) });
     if (!rCap.ok) e.capacidadMaxima = rCap.mensaje;
@@ -285,6 +291,17 @@ export default function ApartamentosPage() {
               </option>
             ))}
           </Select>
+          {form.tipo === 'OTRO' && (
+            <Input
+              id="descripcionTipo"
+              label="Descripcion del tipo"
+              placeholder="Ej: Local comercial, bodega, sotano..."
+              value={form.descripcionTipo}
+              onChange={(e) => update('descripcionTipo', e.target.value)}
+              onBlur={() => touch('descripcionTipo')}
+              error={errors.descripcionTipo}
+            />
+          )}
           <Input
             id="areaM2"
             label="Área (m²)"
@@ -292,7 +309,7 @@ export default function ApartamentosPage() {
             value={form.areaM2}
             onChange={(e) => update('areaM2', e.target.value)}
             onBlur={() => touch('areaM2')}
-            error={fieldError('areaM2', valNumero(form.areaM2, { positivo: true })) || errors.areaM2}
+            error={fieldError('areaM2', valNumero(form.areaM2, { positivo: true, max: 1000 })) || errors.areaM2}
           />
         </div>
         <div className="form-row">

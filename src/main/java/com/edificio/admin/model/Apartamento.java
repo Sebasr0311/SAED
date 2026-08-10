@@ -13,8 +13,10 @@ public class Apartamento {
     private Integer           idApartamento;
     private String            numero;
     private Integer           piso;
-    /** ESTUDIO / 1HAB / 2HAB / 3HAB / PENTHOUSE */
+    /** ESTUDIO / 1HAB / 2HAB / 3HAB / PENTHOUSE / OTRO */
     private String            tipo;
+    /** Descripcion libre cuando tipo = OTRO (local, bodega, sotano...). */
+    private String            descripcionTipo;
     private BigDecimal        areaM2;
     private Integer           capacidadMaxima;
     private BigDecimal        administracion;
@@ -38,6 +40,9 @@ public class Apartamento {
 
     public String            getTipo()                               { return tipo; }
     public void              setTipo(String v)                       { this.tipo = v; }
+
+    public String            getDescripcionTipo()                    { return descripcionTipo; }
+    public void              setDescripcionTipo(String v)            { this.descripcionTipo = v; }
 
     public BigDecimal        getAreaM2()                             { return areaM2; }
     public void              setAreaM2(BigDecimal v)                 { this.areaM2 = v; }
