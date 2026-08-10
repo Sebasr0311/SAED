@@ -18,6 +18,14 @@ export function classNames(...parts) {
   return parts.filter(Boolean).join(' ');
 }
 
+import { clsx } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
+/** shadcn/ui: merge de clases Tailwind sin conflictos. */
+export function cn(...inputs) {
+  return twMerge(clsx(inputs));
+}
+
 /**
  * Devuelve un src listo para <img>: si el valor ya trae el prefijo data:image/...
  * se usa tal cual; si no, se envuelve en data:image/jpeg;base64,.

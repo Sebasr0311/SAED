@@ -1,37 +1,48 @@
-import { useState, useEffect } from 'react';
-import { classNames } from '../../lib/utils.js';
+import { useEffect, useState } from 'react';
+import { Toaster, toast as sonner } from 'sonner';
 
-const TYPES = {
-  success: 'bg-accent-green-bg text-accent-green border-accent-green',
-  error: 'bg-error-container text-error border-error',
-  info: 'bg-blue-50 text-blue-800 border-blue-200',
-  warning: 'bg-warn-amber-bg text-warn-amber border-warn-amber',
-};
-
+/**
+ * Wrapper de compatibilidad sobre sonner (toasts).
+ * Mantiene la API del kit anterior: <Toast toast={{ message, type }} />
+ * donde type es success|error|info|warning.
+ */
 export default function Toast({ toast }) {
-  const [visible, setVisible] = useState(false);
+  // El Toaster escucha el data-theme del documento (light/dark del app).
+  const [theme, setTheme] = useState(() =>
+    typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'dark'
+      ? 'dark'
+      : 'light'
+  );
 
   useEffect(() => {
-    if (toast) {
-      setVisible(true);
-      const t = setTimeout(() => setVisible(false), 3300);
-      return () => clearTimeout(t);
-    }
-    setVisible(false);
+    if (!toast) return;
+    const { message, type } = toast;
+    const fn = {
+      success: sonner.success,
+      error: sonner.error,
+      info: sonner.info,
+      warning: sonner.warning,
+    }[type] || sonner.info;
+    fn(String(message));
   }, [toast]);
 
-  if (!toast || !visible) return null;
+  useEffect(() => {
+    const el = document.documentElement;
+    const obs = new MutationObserver(() => {
+      setTheme(el.getAttribute('data-theme') === 'dark' ? 'dark' : 'light');
+    });
+    obs.observe(el, { attributes: true, attributeFilter: ['data-theme'] });
+    return () => obs.disconnect();
+  }, []);
 
   return (
-    <div
-      role="alert"
-      aria-live="polite"
-      className={classNames(
-        'fixed bottom-6 right-6 z-50 rounded-xl border px-4 py-3 text-sm font-medium shadow-lg',
-        TYPES[toast.type] || TYPES.info
-      )}
-    >
-      {toast.message}
-    </div>
+    <Toaster
+      theme={theme}
+      position="bottom-right"
+      richColors
+      toastOptions={{
+        style: { borderRadius: '12px', fontSize: '14px' },
+      }}
+    />
   );
 }

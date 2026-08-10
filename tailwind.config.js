@@ -1,6 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: ['./index.html', './client/**/*.{js,jsx}'],
+  content: ['./index.html', './client/**/*.{js,jsx,ts,tsx}'],
   darkMode: ['selector', '[data-theme="dark"]'],
   theme: {
     extend: {
@@ -140,6 +140,39 @@ export default {
         // Anillos de foco con alpha fijo (RGB triplets).
         'ring-primary': 'rgb(var(--ring-primary) / 0.25)',
         'ring-error': 'rgb(var(--ring-error) / 0.25)',
+        // ---- Tokens shadcn/ui (mapeados a la paleta SAED existente) ----
+        // Los componentes shadcn usan estos nombres; resuelven a las mismas
+        // variables que el kit propio (single source of truth en index.css).
+        foreground: 'var(--on-background)',
+        card: {
+          DEFAULT: 'var(--surface)',
+          foreground: 'var(--on-background)',
+        },
+        'primary-foreground': 'var(--on-primary)',
+        secondary: {
+          DEFAULT: 'var(--surface-dim)',
+          foreground: 'var(--on-surface)',
+        },
+        muted: {
+          DEFAULT: 'var(--surface-dim)',
+          foreground: 'var(--text-muted)',
+        },
+        'accent-foreground': 'var(--on-surface)',
+        destructive: {
+          DEFAULT: 'var(--btn-danger)',
+          foreground: 'var(--on-primary)',
+        },
+        input: 'var(--outline-variant)',
+        ring: 'var(--border-focus)',
+        popover: {
+          DEFAULT: 'var(--surface)',
+          foreground: 'var(--on-background)',
+        },
+        'chart-1': 'var(--chart-1)',
+        'chart-2': 'var(--chart-2)',
+        'chart-3': 'var(--chart-3)',
+        'chart-4': 'var(--chart-4)',
+        'chart-5': 'var(--chart-5)',
       },
       borderRadius: {
         xs: '4px',

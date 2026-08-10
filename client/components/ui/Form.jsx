@@ -1,90 +1,84 @@
-import { classNames } from '../../lib/utils.js';
+import { cn } from '../../lib/utils.js';
+import { Input as ShadcnInput } from './input.tsx';
+import { Textarea as ShadcnTextarea } from './textarea.tsx';
+import { Label } from './label.tsx';
+
+/**
+ * Wrappers de compatibilidad sobre shadcn/ui.
+ * Mantienen la API del kit anterior (label|error|id|className) para que las
+ * paginas existentes mejoren visualmente sin cambios.
+ */
+
+function FieldShell({ label, id, required, error, children, className }) {
+  return (
+    <div className={cn('grid gap-1.5', className)}>
+      {label && (
+        <Label htmlFor={id} className="text-sm font-medium">
+          {label}
+          {required && <span className="ml-1 text-error">*</span>}
+        </Label>
+      )}
+      {children}
+      {error && (
+        <p id={id ? `${id}-error` : undefined} className="text-xs text-error">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
 
 export function Input({ label, error, id, className = '', ...props }) {
-  const errorId = error && id ? `${id}-error` : undefined;
   return (
-    <div className="space-y-1">
-      {label && (
-        <label htmlFor={id} className="block text-sm font-medium text-on-surface">
-          {label}
-          {props.required && <span className="ml-1 text-error">*</span>}
-        </label>
-      )}
-      <input
+    <FieldShell label={label} id={id} required={props.required} error={error} className={props.className}>
+      <ShadcnInput
         id={id}
         {...props}
         aria-invalid={error ? true : undefined}
-        aria-describedby={errorId}
-        className={classNames(
-          'w-full rounded border bg-surface px-3 py-2 text-sm transition-colors',
-          'focus:outline-none focus:ring-2',
-          error
-            ? 'border-error focus:border-error focus:ring-ring-error'
-            : 'border-outline-variant focus:border-primary focus:ring-ring-primary',
-          className
-        )}
+        aria-describedby={error && id ? `${id}-error` : undefined}
+        className={cn(error && 'border-destructive focus-visible:ring-destructive', className)}
       />
-      {error && <p id={errorId} className="text-xs text-error">{error}</p>}
-    </div>
+    </FieldShell>
   );
 }
 
 export function Select({ label, error, id, children, className = '', ...props }) {
-  const errorId = error && id ? `${id}-error` : undefined;
   return (
-    <div className="space-y-1">
-      {label && (
-        <label htmlFor={id} className="block text-sm font-medium text-on-surface">
-          {label}
-          {props.required && <span className="ml-1 text-error">*</span>}
-        </label>
-      )}
-      <select
-        id={id}
-        {...props}
-        aria-invalid={error ? true : undefined}
-        aria-describedby={errorId}
-        className={classNames(
-          'w-full rounded border bg-surface px-3 py-2 text-sm transition-colors',
-          'focus:outline-none focus:ring-2',
-          error
-            ? 'border-error focus:border-error focus:ring-ring-error'
-            : 'border-outline-variant focus:border-primary focus:ring-ring-primary',
-          className
-        )}
-      >
-        {children}
-      </select>
-      {error && <p id={errorId} className="text-xs text-error">{error}</p>}
-    </div>
+    <FieldShell label={label} id={id} required={props.required} error={error} className={props.className}>
+      <div className="relative">
+        <select
+          id={id}
+          {...props}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error && id ? `${id}-error` : undefined}
+          className={cn(
+            'flex h-9 w-full appearance-none rounded-md border border-input bg-transparent px-3 py-1 pr-8 text-sm shadow-sm transition-colors',
+            'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+            'disabled:cursor-not-allowed disabled:opacity-50',
+            error && 'border-destructive focus-visible:ring-destructive',
+            className
+          )}
+        >
+          {children}
+        </select>
+        <span className="material-symbols-outlined pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-base text-muted-foreground">
+          expand_more
+        </span>
+      </div>
+    </FieldShell>
   );
 }
 
 export function Textarea({ label, error, id, className = '', ...props }) {
-  const errorId = error && id ? `${id}-error` : undefined;
   return (
-    <div className="space-y-1">
-      {label && (
-        <label htmlFor={id} className="block text-sm font-medium text-on-surface">
-          {label}
-          {props.required && <span className="ml-1 text-error">*</span>}
-        </label>
-      )}
-      <textarea
+    <FieldShell label={label} id={id} required={props.required} error={error} className={props.className}>
+      <ShadcnTextarea
         id={id}
         {...props}
         aria-invalid={error ? true : undefined}
-        aria-describedby={errorId}
-        className={classNames(
-          'w-full rounded border bg-surface px-3 py-2 text-sm transition-colors',
-          'focus:outline-none focus:ring-2',
-          error
-            ? 'border-error focus:border-error focus:ring-ring-error'
-            : 'border-outline-variant focus:border-primary focus:ring-ring-primary',
-          className
-        )}
+        aria-describedby={error && id ? `${id}-error` : undefined}
+        className={cn(error && 'border-destructive focus-visible:ring-destructive', className)}
       />
-      {error && <p id={errorId} className="text-xs text-error">{error}</p>}
-    </div>
+    </FieldShell>
   );
 }
