@@ -5,6 +5,7 @@ import { useAuth } from '../lib/AuthContext.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { Button } from '../components/ui/Button.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog.jsx';
 import { Input, Select } from '../components/ui/Form.jsx';
 import { valNombre, valApellido, valDocumento, valTelefono, valEmail, valPlaca } from '../lib/validation.js';
 import Toast from '../components/ui/Toast.jsx';
@@ -45,6 +46,7 @@ export default function ResFrecuentesPage() {
   const [qrSending, setQrSending] = useState(false);
   const qrSendingRef = useRef(false);
   const [qrGenerado, setQrGenerado] = useState(null); // { codigoQr, mensaje, fechaExpiracion }
+  const [confirmQuitar, setConfirmQuitar] = useState(null); // frecuente a quitar
 
   // Mapea el tipo de vehiculo del ultimo registro al select del modal
   function tipoAMedio(t) {
@@ -88,6 +90,19 @@ export default function ResFrecuentesPage() {
     }
     setQrErrors(e);
     return Object.keys(e).length === 0;
+  }
+
+  async function quitarFrecuente() {
+    if (!confirmQuitar) return;
+    try {
+      await api.del(`/residentes/${user?.idResidente}/frecuentes/${confirmQuitar.idFrecuente}`);
+      setToast({ message: 'Visitante frecuente quitado', type: 'success' });
+      refetch();
+    } catch (err) {
+      setToast({ message: err.message, type: 'error' });
+    } finally {
+      setConfirmQuitar(null);
+    }
   }
 
   async function generarQr() {
@@ -223,7 +238,7 @@ export default function ResFrecuentesPage() {
           <div
             key={f.idFrecuente}
             className="frecuente-card"
-            style={{ flexDirection: 'row', alignItems: 'center', gap: '12px' }}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}
           >
             <div
               style={{
@@ -240,15 +255,21 @@ export default function ResFrecuentesPage() {
             >
               <span className="material-symbols-outlined">person</span>
             </div>
-            <div style={{ flex: 1 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
               <div className="name">{f.nombreVisitante || '—'}</div>
               <div className="meta">Doc: {f.documento || '—'}</div>
               {f.ultimaPlaca && <div className="meta">Placa: {f.ultimaPlaca}</div>}
               {f.ultimaVisita && <div className="meta">Última visita: {formatDate(f.ultimaVisita)}</div>}
             </div>
-            <Button variant="outline" onClick={() => abrirQr(f)} style={{ flexShrink: 0 }}>
-              Generar QR
-            </Button>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', flexShrink: 0 }}>
+              <Button variant="outline" onClick={() => abrirQr(f)}>
+                Generar QR
+              </Button>
+              <Button variant="outline" onClick={() => setConfirmQuitar(f)} aria-label={`Quitar a ${f.nombreVisitante || ''}`} title="Quitar frecuente">
+                <span className="material-symbols-outlined" aria-hidden="true" style={{ fontSize: '16px' }}>person_remove</span>
+                Quitar
+              </Button>
+            </div>
           </div>
         ))}
       </div>
@@ -443,6 +464,26 @@ export default function ResFrecuentesPage() {
           </>
         )}
       </Modal>
+
+      <ConfirmDialog
+        open={!!confirmQuitar}
+        onClose={() => setConfirmQuitar(null)}
+        onConfirm={quitarFrecuente}
+        title="Quitar visitante frecuente"
+        message={`¿Quitar a ${confirmQuitar?.nombreVisitante || ''} de tus visitantes frecuentes? Podrás volver a generarle un QR más adelante.`}
+        confirmLabel="Quitar"
+        danger
+      />
+
+      <ConfirmDialog
+        open={!!confirmQuitar}
+        onClose={() => setConfirmQuitar(null)}
+        onConfirm={quitarFrecuente}
+        title="Quitar visitante frecuente"
+        message={`¿Quitar a ${confirmQuitar?.nombreVisitante || ''} de tus visitantes frecuentes? Podrás volver a generarle un QR más adelante.`}
+        confirmLabel="Quitar"
+        danger
+      />
 
       <Toast toast={toast} />
     </div>
