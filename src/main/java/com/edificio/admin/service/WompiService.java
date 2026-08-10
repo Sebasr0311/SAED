@@ -139,6 +139,48 @@ public class WompiService {
         return res;
     }
 
+    /**
+     * Registra el idTransaccionWompi que el widget reporta al frontend en su
+     * callback. Sin esto, una intencion quedaria PENDIENTE para siempre si el
+     * webhook no llega (mal configurado o perdido): el polling de /estado no
+     * puede consultar Wompi sin el id de la transaccion.
+     */
+    public void registrarTransaccion(String referencia, String idTransaccionWompi) throws Exception {
+        if (referencia == null || referencia.isBlank() || idTransaccionWompi == null || idTransaccionWompi.isBlank())
+            throw new DatosInvalidosException("Referencia e idTransaccionWompi son obligatorios.");
+        WompiPago w = wompiDAO.findByReferencia(referencia);
+        if (w == null) throw new DatosInvalidosException("Intencion no encontrada: " + referencia);
+        if ("PENDIENTE".equals(w.getEstado()) && w.getIdTransaccionWompi() == null) {
+            wompiDAO.marcarEstado(w.getId(), "PENDIENTE", idTransaccionWompi, null, null, false);
+        }
+    }
+
+    /**
+     * Refresca el estado de una intencion PENDIENTE consultando Wompi cuando ya
+     * hay transaccion creada. Si el estado cambio, PERSISTE (igual que el
+     * webhook) y ejecuta el negocio si fue APPROVED. Devuelve el estado vigente.
+     */
+    public String refrescarEstado(String referencia) throws Exception {
+        WompiPago w = wompiDAO.findByReferencia(referencia);
+        if (w == null) throw new DatosInvalidosException("Intencion no encontrada: " + referencia);
+        String estado = w.getEstado();
+        if ("PENDIENTE".equals(estado) && w.getIdTransaccionWompi() != null) {
+            String statusWompi = consultarTransaccion(w.getIdTransaccionWompi());
+            if (statusWompi != null && !"PENDING".equalsIgnoreCase(statusWompi)) {
+                String nuevo = estadoInternoDe(statusWompi);
+                boolean aprobada = "APROBADO".equals(nuevo);
+                wompiDAO.marcarEstado(w.getId(), nuevo, null, null,
+                    "Sincronizado por polling de estado", aprobada);
+                if (aprobada) {
+                    w.setEstado(nuevo);
+                    ejecutarNegocio(w, null);
+                }
+                estado = nuevo;
+            }
+        }
+        return estado;
+    }
+
     /** Saldo pendiente en pesos: cuota = valorTotal - totalPagado; multa = monto. */
     private BigDecimal saldoEnPesos(String concepto, Integer idItem) throws Exception {
         if ("CUOTA".equals(concepto)) {
