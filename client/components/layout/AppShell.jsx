@@ -149,6 +149,29 @@ export default function AppShell() {
   useEffect(() => {
     applyTheme(dark ? 'dark' : 'light');
   }, [dark]);
+
+  // Checkout de pago Wompi: encuadre global. El widget se inyecta ocupando todo
+  // el ancho disponible (~1100px); lo envolvemos visualmente con un backdrop
+  // (position fixed + CSS en index.css) SIN mover el iframe del DOM (el widget
+  // lo localiza en su contenedor original para ajustar la altura). Aplica en
+  // cualquier pagina donde se abra el pago (dashboard, cuotas, frecuentes...).
+  useEffect(() => {
+    const obs = new MutationObserver(() => {
+      const frame = document.querySelector('iframe[src*="checkout.wompi.co"]');
+      if (frame) {
+        if (!document.querySelector('.wompi-overlay')) {
+          const overlay = document.createElement('div');
+          overlay.className = 'wompi-overlay';
+          frame.parentNode.insertBefore(overlay, frame);
+        }
+      } else {
+        const ov = document.querySelector('.wompi-overlay');
+        if (ov) ov.remove();
+      }
+    });
+    obs.observe(document.body, { childList: true, subtree: true });
+    return () => obs.disconnect();
+  }, []);
   function toggleTheme() {
     setDark((prev) => {
       const next = !prev;
