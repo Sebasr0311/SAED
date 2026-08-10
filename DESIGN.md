@@ -1,4 +1,4 @@
-# SAED Frontend â€” Design Language
+# SAED Frontend — Design Language
 
 This document is the single source of truth for the visual language of the
 SAED frontend (`client/`). It describes the token system, the component kit,
@@ -71,8 +71,8 @@ its semantic.
 
 ## Accessibility
 
-- Text contrast targets WCAG AA (â‰¥4.5:1). Keep `text-secondary` for secondary text, use `text-muted` sparingly for hints/placeholders (4.76:1).
-- Touch targets are â‰¥44px on mobile (WCAG 2.5.8).
+- Text contrast targets WCAG AA (≥4.5:1). Keep `text-secondary` for secondary text, use `text-muted` sparingly for hints/placeholders (4.76:1).
+- Touch targets are ≥44px on mobile (WCAG 2.5.8).
 - `prefers-reduced-motion: reduce` disables layout/entrance animations (WCAG 2.3.3).
 - Clickable table rows expose keyboard access (`tabIndex`, Enter/Space, focus ring).
 - All `<img>` carry descriptive `alt`; modals have focus trap + Escape + return focus.
@@ -86,7 +86,7 @@ its semantic.
 
 ## Type
 
-- Font: **Plus Jakarta Sans** (weights 400â€“800), loaded in `index.html`.
+- Font: **Plus Jakarta Sans** (weights 400–800), loaded in `index.html`.
 - Mono: **JetBrains Mono** for codes/QR/tokens.
 - Base size `14px`, line-height `1.6`. Canvas headings `20px/700`,
   card titles `16px/700`, table header `11px/700 uppercase`.
@@ -100,18 +100,18 @@ its semantic.
 | `Modal` | `rounded-lg` (18px), focus trap + Escape + return focus (a11y hardened). |
 | `DataTable` | Headings uppercase `11px/700`; container `overflow-x: auto` so wide tables scroll on mobile. |
 | `EmptyState` | Reusable empty state: icon chip + title + optional subtitle. `DataTable` accepts `empty` as string (title) or `{ icon, title, subtitle }`. |
-| `Pagination` | Prev/Next + `PÃ¡gina x / y` helper text. |
+| `Pagination` | Prev/Next + `Página x / y` helper text. |
 | `Toast` | Fixed bottom-right; semantic colors from tokens. |
 | `PageHeader` | `title` (`20px/700`) + optional `subtitle` + `action`. |
 
 ## Responsive behavior
 
 - **Desktop:** sidebar rail (72px) / expanded (240px) with hover-expand.
-- **Mobile (â‰¤768px):** sidebar becomes a drawer (264px, translated off-canvas);
+- **Mobile (≤768px):** sidebar becomes a drawer (264px, translated off-canvas);
   topbar shows only avatar + logout; `form-row` stacks to one column;
   `dashboard-panels` stack vertically; **wide tables scroll horizontally**
   (never clip).
-- **Small (â‰¤480px):** `form-row-3/4` collapse to one column; `card-grid-4`
+- **Small (≤480px):** `form-row-3/4` collapse to one column; `card-grid-4`
   becomes 2 columns.
 - Test every page at 390px and 1440px before shipping.
 
@@ -134,22 +134,22 @@ its semantic.
 
 ## Performance
 
-- Routes are code-split with `React.lazy` + `Suspense` (per-route chunks; login stays eager). Heavy deps (`xlsx-js-style`) load **only on the Export click** (`await import('xlsx-js-style')` inside `exportarExcel` in Ganancias/Historial) â€” the 850KB chunk never blocks page open.
+- Routes are code-split with `React.lazy` + `Suspense` (per-route chunks; login stays eager). Heavy deps (`xlsx-js-style`) load **only on the Export click** (`await import('xlsx-js-style')` inside `exportarExcel` in Ganancias/Historial) — the 850KB chunk never blocks page open.
 - Avoid layout-property animations (`width`/`height`/`margin`); prefer `transform`/`opacity`.
 
 ## Browser surfaces
 
-- `document.title` is dynamic per page: `"{SecciÃ³n} â€” SAED"` (AppShell) and `"Iniciar sesiÃ³n â€” SAED"` (login).
+- `document.title` is dynamic per page: `"{Sección} — SAED"` (AppShell) and `"Iniciar sesión — SAED"` (login).
 - Global keyboard focus ring (WCAG 2.4.7): `:focus-visible` outline `--border-focus` on all controls, consistent with table-row focus.
 - Skip link (WCAG 2.4.1): `#main-content` anchor appears on first Tab in the shell.
-- jsQR is **not** in `index.html`: the EscÃ¡ner QR page injects the script on demand (lazy third-party asset; other pages never download it).
+- jsQR is **not** in `index.html`: the Escáner QR page injects the script on demand (lazy third-party asset; other pages never download it).
 - Core kit components (`Button`, `DataTable`, `PageHeader`) are `React.memo`-wrapped to avoid re-renders on page state changes.
 
 ## Contribution rules
 
 - Add a new color to **both** `tailwind.config.js` and the `:root` block in
   `client/index.css` using the same value; never change only one.
-- New UI component â†’ put it in `client/components/ui` and consume it from
+- New UI component → put it in `client/components/ui` and consume it from
   pages; do not hand-roll a styled `div`.
 - Inline styles should reference `var(--token)` or Tailwind utilities; avoid
   literal hex in `style={{}}`.

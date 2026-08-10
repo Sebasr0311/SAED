@@ -1,4 +1,4 @@
-﻿import { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Button } from '../components/ui/Button.jsx';
 import { Input, Select } from '../components/ui/Form.jsx';
 import { DataTable } from '../components/ui/DataTable.jsx';
@@ -214,7 +214,7 @@ export default function PagosPage() {
       <Modal
         open={!!detalle}
         onClose={() => setDetalle(null)}
-        title={`Apto ${detalle?.numeroApartamento || ''} â€” ${detalle?.nombreResidente || ''}`}
+        title={`Apto ${detalle?.numeroApartamento || ''} — ${detalle?.nombreResidente || ''}`}
         size="lg"
       >
         {detalle && (

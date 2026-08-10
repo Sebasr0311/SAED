@@ -407,7 +407,7 @@ export default function ResidentesPage() {
             value={form.idApartamento}
             onChange={(e) => update('idApartamento', e.target.value)}
           >
-            <option value="">â€” Sin asignar â€”</option>
+            <option value="">— Sin asignar —</option>
             {(apartamentos?.items || []).map((a) => (
               <option key={a.idApartamento} value={a.idApartamento}>
                 Apto {a.numero} - Piso {a.piso}
@@ -427,7 +427,7 @@ export default function ResidentesPage() {
           >
                 <h4 className="m-0 text-[15px] font-semibold">Datos del Tutor Legal</h4>
             <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '4px 0 12px' }}>
-              Menor de edad (16-17 años) â€” puede residir independientemente, pero debe tener un tutor
+              Menor de edad (16-17 años) — puede residir independientemente, pero debe tener un tutor
               legal registrado.
             </p>
             <div className="form-row">

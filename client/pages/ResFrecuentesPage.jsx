@@ -1,4 +1,4 @@
-﻿import { useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useFetch, useTiposDocumento, useLiveValidation } from '../lib/hooks.js';
 import api from '../lib/api.js';
 import { useAuth } from '../lib/AuthContext.jsx';
@@ -106,7 +106,7 @@ export default function ResFrecuentesPage() {
     { key: 'nombreVisitante', label: 'Nombre' },
     { key: 'documento', label: 'Documento' },
     { key: 'ultimaPlaca', label: 'Placa' },
-    { key: 'ultimaVisita', label: 'Ãšltimo Ingreso', render: (r) => formatDate(r.ultimaVisita) },
+    { key: 'ultimaVisita', label: 'Último Ingreso', render: (r) => formatDate(r.ultimaVisita) },
   ];
 
   return (
@@ -153,10 +153,10 @@ export default function ResFrecuentesPage() {
               <span className="material-symbols-outlined">person</span>
             </div>
             <div style={{ flex: 1 }}>
-              <div className="name">{f.nombreVisitante || 'â€”'}</div>
-              <div className="meta">Doc: {f.documento || 'â€”'}</div>
+              <div className="name">{f.nombreVisitante || '—'}</div>
+              <div className="meta">Doc: {f.documento || '—'}</div>
               {f.ultimaPlaca && <div className="meta">Placa: {f.ultimaPlaca}</div>}
-              {f.ultimaVisita && <div className="meta">Ãšltima visita: {formatDate(f.ultimaVisita)}</div>}
+              {f.ultimaVisita && <div className="meta">Última visita: {formatDate(f.ultimaVisita)}</div>}
             </div>
           </div>
         ))}

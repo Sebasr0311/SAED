@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '../components/ui/Button.jsx';
 import { Input, Textarea } from '../components/ui/Form.jsx';
 import { DataTable } from '../components/ui/DataTable.jsx';
@@ -94,7 +94,7 @@ function ApartamentoMultiSelect({ apartamentos, selected, onChange }) {
             onClick={toggleTodos}
             aria-pressed={isTodos}
           >
-            â€” Todos los apartamentos â€”
+            — Todos los apartamentos —
           </button>
           {pisos.map((piso) => {
             const idsDelPiso = porPiso[piso].map((a) => a.idApartamento);
