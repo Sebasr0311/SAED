@@ -108,16 +108,16 @@ public class ResidenteService {
         if (r.getFechaNacimiento() == null)
             throw new DatosInvalidosException(
                 "La fecha de nacimiento es obligatoria.");
+        if (r.getFechaNacimiento().isAfter(LocalDate.now().minusDays(1)))
+            throw new DatosInvalidosException(
+                "La fecha de nacimiento no puede ser de hoy: la persona debe tener al menos 1 dia de nacida.");
         if (r.getFechaNacimiento().isAfter(LocalDate.now()))
             throw new DatosInvalidosException(
                 "La fecha de nacimiento no puede ser futura.");
         int edad = Period.between(r.getFechaNacimiento(), LocalDate.now()).getYears();
-        if (edad < 16)
+        if (edad > 115)
             throw new DatosInvalidosException(
-                "El residente debe tener al menos 16 a\u00f1os.");
-        if (edad > 110)
-            throw new DatosInvalidosException(
-                "La fecha de nacimiento no es v\u00e1lida (mayor de 110 a\u00f1os).");
+                "La fecha de nacimiento no es v\u00e1lida (mayor de 115 a\u00f1os).");
     }
 
     private void validarId(Integer id) {

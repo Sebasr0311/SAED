@@ -18,7 +18,7 @@ public class ApartamentoDAO extends BaseDAO implements CrudDAO<Apartamento> {
     @Override
     public List<Apartamento> findAll() throws SQLException {
         List<Apartamento> lista = new ArrayList<>();
-        String sql = "SELECT id_apartamento, numero, piso, tipo, area_m2, capacidad_maxima, administracion, estado, "
+        String sql = "SELECT id_apartamento, numero, piso, tipo, descripcion_tipo, area_m2, capacidad_maxima, administracion, estado, "
                    + "       activo, fecha_registro, actualizado_en "
                    + "FROM   APARTAMENTOS "
                    + "WHERE  activo = 1 "
@@ -32,7 +32,7 @@ public class ApartamentoDAO extends BaseDAO implements CrudDAO<Apartamento> {
 
     @Override
     public Apartamento findById(Integer id) throws SQLException {
-        String sql = "SELECT id_apartamento, numero, piso, tipo, area_m2, capacidad_maxima, administracion, estado, "
+        String sql = "SELECT id_apartamento, numero, piso, tipo, descripcion_tipo, area_m2, capacidad_maxima, administracion, estado, "
                    + "       activo, fecha_registro, actualizado_en "
                    + "FROM   APARTAMENTOS WHERE id_apartamento = ?";
         try (PreparedStatement ps = conn().prepareStatement(sql)) {
@@ -46,7 +46,7 @@ public class ApartamentoDAO extends BaseDAO implements CrudDAO<Apartamento> {
     /** Filtra apartamentos por estado (DISPONIBLE / OCUPADO / MANTENIMIENTO). */
     public List<Apartamento> findByEstado(EstadoApartamento estado) throws SQLException {
         List<Apartamento> lista = new ArrayList<>();
-        String sql = "SELECT id_apartamento, numero, piso, tipo, area_m2, capacidad_maxima, administracion, estado, "
+        String sql = "SELECT id_apartamento, numero, piso, tipo, descripcion_tipo, area_m2, capacidad_maxima, administracion, estado, "
                    + "       activo, fecha_registro, actualizado_en "
                    + "FROM   APARTAMENTOS "
                    + "WHERE  estado = ? AND activo = 1 "
@@ -63,35 +63,35 @@ public class ApartamentoDAO extends BaseDAO implements CrudDAO<Apartamento> {
     @Override
     public Integer insert(Apartamento a) throws SQLException {
         String sql = "BEGIN INSERT INTO APARTAMENTOS "
-                   + "  (numero, piso, tipo, area_m2, capacidad_maxima, estado) "
-                   + "VALUES (?, ?, ?, ?, ?, ?) "
+                   + "  (numero, piso, tipo, descripcion_tipo, area_m2, capacidad_maxima, estado) "
+                   + "VALUES (?, ?, ?, ?, ?, ?, ?) "
                    + "RETURNING id_apartamento INTO ?; END;";
         try (CallableStatement cs = conn().prepareCall(sql)) {
             cs.setString(1, a.getNumero());
             cs.setInt(2, a.getPiso());
             cs.setString(3, a.getTipo());
             cs.setBigDecimal(4, a.getAreaM2());
-            cs.setInt(5, a.getCapacidadMaxima() != null ? a.getCapacidadMaxima() : 2);
-            cs.setString(6, a.getEstado() != null ? a.getEstado().name() : EstadoApartamento.DISPONIBLE.name());
-            cs.registerOutParameter(7, Types.NUMERIC);
+            cs.setInt(6, a.getCapacidadMaxima() != null ? a.getCapacidadMaxima() : 2);
+            cs.setString(7, a.getEstado() != null ? a.getEstado().name() : EstadoApartamento.DISPONIBLE.name());
+            cs.registerOutParameter(8, Types.NUMERIC);
             cs.executeUpdate();
-            return cs.getInt(7);
+            return cs.getInt(8);
         }
     }
 
     @Override
     public void update(Apartamento a) throws SQLException {
         String sql = "UPDATE APARTAMENTOS "
-                   + "SET    numero = ?, piso = ?, tipo = ?, area_m2 = ?, capacidad_maxima = ?, estado = ? "
+                   + "SET    numero = ?, piso = ?, tipo = ?, descripcion_tipo = ?, area_m2 = ?, capacidad_maxima = ?, estado = ? "
                    + "WHERE  id_apartamento = ?";
         try (PreparedStatement ps = conn().prepareStatement(sql)) {
             ps.setString(1, a.getNumero());
             ps.setInt(2, a.getPiso());
             ps.setString(3, a.getTipo());
             ps.setBigDecimal(4, a.getAreaM2());
-            ps.setInt(5, a.getCapacidadMaxima() != null ? a.getCapacidadMaxima() : 2);
-            ps.setString(6, a.getEstado().name());
-            ps.setInt(7, a.getIdApartamento());
+            ps.setInt(6, a.getCapacidadMaxima() != null ? a.getCapacidadMaxima() : 2);
+            ps.setString(7, a.getEstado().name());
+            ps.setInt(8, a.getIdApartamento());
             ps.executeUpdate();
         }
     }
@@ -114,6 +114,7 @@ public class ApartamentoDAO extends BaseDAO implements CrudDAO<Apartamento> {
         a.setNumero(rs.getString("numero"));
         a.setPiso(rs.getInt("piso"));
         a.setTipo(rs.getString("tipo"));
+        a.setDescripcionTipo(rs.getString("descripcion_tipo"));
 
         BigDecimal area = rs.getBigDecimal("area_m2");
         a.setAreaM2(area);

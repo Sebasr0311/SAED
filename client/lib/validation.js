@@ -108,17 +108,21 @@ export function calcularEdad(fechaISO) {
 
 /**
  * Valida fecha de nacimiento.
- * Reglas: obligatoria, válida, año >= 1930, no futura, edad <= 110, edadMin/edadMax.
+ * Reglas: obligatoria, válida, no futura, no de hoy (min 1 día de nacido),
+ * edad <= 115, edadMin/edadMax.
  */
 export function valFechaNacimiento(value, opts = {}) {
-  const { edadMin = 0, edadMax = 110 } = opts;
+  const { edadMin = 0, edadMax = 115 } = opts;
   if (!value) return { ok: false, mensaje: 'La fecha de nacimiento es obligatoria' };
   const fecha = parseISO(value);
   if (Number.isNaN(fecha.getTime())) return { ok: false, mensaje: 'Fecha inválida' };
-  if (fecha.getFullYear() < 1930)
-    return { ok: false, mensaje: 'Fecha de nacimiento no válida (año anterior a 1930)' };
+  if (fecha.getFullYear() < 1900)
+    return { ok: false, mensaje: 'Fecha de nacimiento no válida (año anterior a 1900)' };
   const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
   if (fecha > hoy) return { ok: false, mensaje: 'La fecha de nacimiento no puede ser futura' };
+  // Minimo 1 dia de nacido: hoy mismo no es valido
+  const ayer = new Date(hoy); ayer.setDate(hoy.getDate() - 1);
+  if (fecha > ayer) return { ok: false, mensaje: 'La fecha de nacimiento debe ser al menos de ayer (mínimo 1 día de nacido)' };
   const edad = calcularEdad(value);
   if (edad === null) return { ok: false, mensaje: 'Fecha inválida' };
   if (edad > edadMax) return { ok: false, mensaje: `La edad no puede superar ${edadMax} años` };
@@ -278,5 +282,15 @@ export function valPassword(value) {
   if (!v) return { ok: false, mensaje: 'La contraseña es obligatoria' };
   if (v.length < 6 || v.length > 100)
     return { ok: false, mensaje: 'La contraseña debe tener entre 6 y 100 caracteres' };
+  return { ok: true };
+}
+
+/** Valida el numero de un apartamento: alfanumerico, 1-15 chars, sin simbolos. */
+export function valNumeroApartamento(value) {
+  if (!value || !String(value).trim()) return { ok: false, mensaje: 'El numero del apartamento es obligatorio' };
+  const s = String(value).trim();
+  if (s.length > 15) return { ok: false, mensaje: 'Maximo 15 caracteres' };
+  if (!/^[A-Za-z0-9][A-Za-z0-9 -]*$/.test(s))
+    return { ok: false, mensaje: 'Solo letras, numeros, espacios y guiones' };
   return { ok: true };
 }

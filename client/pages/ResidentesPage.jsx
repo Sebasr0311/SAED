@@ -177,7 +177,7 @@ export default function ResidentesPage() {
     if (!rApellido.ok) e.apellidos = rApellido.mensaje;
     const rDoc = valDocumento(form.numeroDocumento, codigoDoc, 'El documento');
     if (!rDoc.ok) e.numeroDocumento = rDoc.mensaje;
-    const rFecha = valFechaNacimiento(form.fechaNacimiento, { edadMin: 0, edadMax: 110 });
+    const rFecha = valFechaNacimiento(form.fechaNacimiento, { edadMin: 0, edadMax: 115 });
     if (!rFecha.ok) e.fechaNacimiento = rFecha.mensaje;
     const rTel = valTelefono(form.telefono, { required: false });
     if (!rTel.ok) e.telefono = rTel.mensaje;

@@ -58,12 +58,24 @@ public class ApartamentoService {
     private void validar(Apartamento a) {
         if (a.getNumero() == null || a.getNumero().isBlank())
             throw new DatosInvalidosException("El numero del apartamento es obligatorio.");
+        // Formato de numero: alfanumerico (con espacios y guiones), 1-15 caracteres.
+        String num = a.getNumero().trim();
+        if (num.length() > 15 || !num.matches("[A-Za-z0-9][A-Za-z0-9 -]*"))
+            throw new DatosInvalidosException(
+                "El numero del apartamento solo puede contener letras, numeros, espacios y guiones (max 15 caracteres).");
         if (a.getPiso() == null || a.getPiso() <= 0)
             throw new DatosInvalidosException("El piso debe ser un numero positivo.");
         if (a.getTipo() == null || a.getTipo().isBlank())
             throw new DatosInvalidosException("El tipo de apartamento es obligatorio.");
-        if (a.getAreaM2() == null || a.getAreaM2().compareTo(BigDecimal.ZERO) <= 0)
-            throw new DatosInvalidosException("El area debe ser mayor que 0.");
+        if ("OTRO".equalsIgnoreCase(a.getTipo())) {
+            if (a.getDescripcionTipo() == null || a.getDescripcionTipo().isBlank())
+                throw new DatosInvalidosException("Debe describir el tipo de apartamento cuando selecciona 'Otro'.");
+            if (a.getDescripcionTipo().trim().length() > 100)
+                throw new DatosInvalidosException("La descripcion del tipo no puede superar 100 caracteres.");
+        }
+        if (a.getAreaM2() == null || a.getAreaM2().compareTo(BigDecimal.ZERO) <= 0
+                || a.getAreaM2().compareTo(new BigDecimal("1000")) > 0)
+            throw new DatosInvalidosException("El area debe estar entre 1 y 1000 m2.");
         
         // Validar capacidad máxima según tipo de apartamento
         if (a.getCapacidadMaxima() != null) {
