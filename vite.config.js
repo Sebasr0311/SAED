@@ -1,9 +1,15 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { fileURLToPath, URL } from 'node:url';
 
 export default defineConfig({
   plugins: [react()],
   base: process.env.VITE_BASE_PATH || '/',
+  resolve: {
+    alias: {
+      '@': fileURLToPath(new URL('./client', import.meta.url)),
+    },
+  },
   // Dev server: permite el proxy de Vercel v0 (hosts dinamicos sb-*.vercel.run).
   // Solo afecta al dev server local; no se usa en el build de produccion.
   server: {

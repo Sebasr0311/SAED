@@ -1,6 +1,12 @@
 import { memo } from 'react';
-import { classNames } from '../../lib/utils.js';
+import { cn } from '../../lib/utils.js';
+import { Button as ShadcnButton } from './button.tsx';
 
+/**
+ * Wrapper de compatibilidad sobre el Button de shadcn/ui.
+ * Mantiene la API del kit anterior (variant|size|loading|icon) para que las
+ * paginas existentes mejoren visualmente sin cambios.
+ */
 export const Button = memo(function Button({
   variant = 'primary',
   size = 'md',
@@ -12,38 +18,36 @@ export const Button = memo(function Button({
   className = '',
   icon,
 }) {
-  const variants = {
-    primary: 'bg-primary text-on-primary hover:bg-primary-hover',
-    accent: 'bg-btn-accent text-on-primary hover:bg-btn-accent-hover',
-    outline: 'border border-outline-variant bg-transparent text-on-surface hover:bg-surface-container',
-    danger: 'bg-btn-danger text-on-primary hover:bg-btn-danger-hover',
-    ghost: 'bg-transparent text-on-surface-variant hover:bg-surface-container',
+  const variantMap = {
+    primary: 'default',
+    accent: 'default',
+    outline: 'outline',
+    danger: 'destructive',
+    ghost: 'ghost',
   };
-  const   sizes = {
-    // WCAG 2.5.8: touch target >=44px en movil; en desktop (>=sm) vuelve a compacto.
-    sm: 'px-3 py-1.5 text-xs min-h-11 min-w-11 sm:min-h-0 sm:min-w-0',
-    md: 'px-4 py-2.5 text-sm',
-    lg: 'px-6 py-3 text-base',
+  const sizeMap = {
+    sm: 'sm',
+    md: 'default',
+    lg: 'lg',
   };
+  const accentBg = variant === 'accent' ? '!bg-btn-accent hover:!bg-btn-accent-hover' : '';
+  // WCAG 2.5.8: touch target >=44px en movil; compacto en desktop (igual que el kit anterior).
+  const touchTarget = size === 'sm' ? 'min-h-11 min-w-11 sm:min-h-8' : 'min-h-11 sm:min-h-9';
   return (
-    <button
+    <ShadcnButton
       type={type}
       disabled={disabled || loading}
       onClick={onClick}
-      className={classNames(
-        'inline-flex items-center justify-center gap-2 rounded font-semibold transition-colors',
-        'disabled:opacity-50 disabled:cursor-not-allowed',
-        variants[variant],
-        sizes[size],
-        className
-      )}
+      variant={variantMap[variant] || 'default'}
+      size={sizeMap[size] || 'default'}
+      className={cn(touchTarget, accentBg, className)}
     >
       {loading ? (
-        <span className="material-symbols-outlined animate-spin text-base">progress_activity</span>
+        <span className="material-symbols-outlined animate-spin text-base leading-none">progress_activity</span>
       ) : icon ? (
-        <span className="material-symbols-outlined text-lg">{icon}</span>
+        <span className="material-symbols-outlined text-lg leading-none">{icon}</span>
       ) : null}
       {children}
-    </button>
+    </ShadcnButton>
   );
 });
