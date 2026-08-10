@@ -267,6 +267,19 @@ export default function ResidenteDashboardPage() {
   async function pagarConWompi(concepto, id, label) {
     if (pagando) return;
     setPagando({ concepto, id, label });
+    // Anti-colgado: si el widget se cierra sin completar, el callback de
+    // WidgetCheckout.open() nunca corre y `pagando` quedaría activo para
+    // siempre (botón "Abriendo…" que bloquea reintentos). Se resetea solo.
+    const timer = setTimeout(() => {
+      setPagando(null);
+      setToast({ message: 'El pago se canceló o expiró. Podés volver a intentar.', type: 'info' });
+    }, 60000);
+    const finalizar = () => {
+      clearTimeout(timer);
+      setPagando(null);
+      refetchHistorialWompi();
+      if (typeof refetchDashboard === 'function') refetchDashboard();
+    };
     try {
       const sol = await api.post('/pagos/wompi/solicitud', { concepto, id });
       // Idempotencia: si ya había un intento PENDIENTE con transacción creada en
@@ -274,9 +287,7 @@ export default function ResidenteDashboardPage() {
       if (sol.idTransaccionWompi) {
         setToast({ message: 'Ya hay un pago en curso para este ítem. Esperando confirmación…', type: 'info' });
         await pollEstadoWompi(sol.referencia);
-        setPagando(null);
-        refetchHistorialWompi();
-        if (typeof refetchDashboard === 'function') refetchDashboard();
+        finalizar();
         return;
       }
       await cargarWidgetWompi();
@@ -294,12 +305,10 @@ export default function ResidenteDashboardPage() {
       });
       checkout.open(async (result) => {
         await pollEstadoWompi(sol.referencia);
-        setPagando(null);
-        refetchHistorialWompi();
-        // refetch del dashboard (datos de cuotas/multas)
-        if (typeof refetchDashboard === 'function') refetchDashboard();
+        finalizar();
       });
     } catch (err) {
+      clearTimeout(timer);
       setToast({ message: err.message || 'No se pudo iniciar el pago', type: 'error' });
       setPagando(null);
     }
