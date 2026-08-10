@@ -70,7 +70,9 @@ public class ApartamentoDAO extends BaseDAO implements CrudDAO<Apartamento> {
             cs.setString(1, a.getNumero());
             cs.setInt(2, a.getPiso());
             cs.setString(3, a.getTipo());
-            cs.setBigDecimal(4, a.getAreaM2());
+            if (a.getDescripcionTipo() != null && !a.getDescripcionTipo().isBlank()) cs.setString(4, a.getDescripcionTipo());
+            else cs.setNull(4, Types.VARCHAR);
+            cs.setBigDecimal(5, a.getAreaM2());
             cs.setInt(6, a.getCapacidadMaxima() != null ? a.getCapacidadMaxima() : 2);
             cs.setString(7, a.getEstado() != null ? a.getEstado().name() : EstadoApartamento.DISPONIBLE.name());
             cs.registerOutParameter(8, Types.NUMERIC);
@@ -88,7 +90,9 @@ public class ApartamentoDAO extends BaseDAO implements CrudDAO<Apartamento> {
             ps.setString(1, a.getNumero());
             ps.setInt(2, a.getPiso());
             ps.setString(3, a.getTipo());
-            ps.setBigDecimal(4, a.getAreaM2());
+            if (a.getDescripcionTipo() != null && !a.getDescripcionTipo().isBlank()) ps.setString(4, a.getDescripcionTipo());
+            else ps.setNull(4, Types.VARCHAR);
+            ps.setBigDecimal(5, a.getAreaM2());
             ps.setInt(6, a.getCapacidadMaxima() != null ? a.getCapacidadMaxima() : 2);
             ps.setString(7, a.getEstado().name());
             ps.setInt(8, a.getIdApartamento());
