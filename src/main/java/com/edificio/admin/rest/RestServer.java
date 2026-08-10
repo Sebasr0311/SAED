@@ -57,6 +57,7 @@ public class RestServer {
             addContext("/api/tutores", new TutorHandler());
             addContext("/api/multas", new MultaHandler());
             addContext("/api/quejas", new QuejaSugerenciaHandler());
+            addContext("/api/notificaciones", new NotificacionHandler());
             addContext("/api/pagos/wompi", new WompiHandler());
             addContext("/api/wompi/webhook", new WompiWebhookHandler());
 

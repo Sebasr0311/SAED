@@ -3,6 +3,7 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../lib/AuthContext.jsx';
 import { getInitialTheme, applyTheme, persistTheme } from '../../lib/theme.js';
 import ErrorBoundary from '../ErrorBoundary.jsx';
+import NotificationBell from '../ui/NotificationBell.jsx';
 
 /**
  * Navegación agrupada por relación funcional, por rol.
@@ -389,6 +390,7 @@ export default function AppShell() {
                   {dark ? 'light_mode' : 'dark_mode'}
                 </span>
               </button>
+              <NotificationBell />
               <div className="user-info">
                 <div className="user-avatar">{user?.username?.[0]?.toUpperCase() || 'U'}</div>
                 <span className="user-name">{user?.username}</span>
