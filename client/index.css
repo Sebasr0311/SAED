@@ -1963,3 +1963,44 @@ input::placeholder, textarea::placeholder {
   opacity: 1;
 }
 
+
+/* ==== Refinamiento visual v2 (solo estetica) ==== */
+.data-table thead th {
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  border-bottom: 2px solid var(--border);
+}
+.data-table tbody tr {
+  transition: background-color 0.15s ease;
+}
+.data-table tbody td {
+  vertical-align: middle;
+}
+.stat-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.stat-card:hover {
+  transform: translateY(-2px);
+}
+.topbar {
+  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.04), 0 2px 8px rgba(15, 23, 42, 0.04);
+}
+.badge {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.empty-icon .material-symbols-outlined {
+  font-size: 44px;
+  opacity: 0.55;
+}
+.frecuente-card {
+  transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+}
+.frecuente-card:hover {
+  transform: translateY(-2px);
+}
+.login-card {
+  box-shadow: 0 4px 24px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(15, 23, 42, 0.03);
+}
