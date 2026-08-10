@@ -89,30 +89,28 @@ public class WompiService {
             throw new DatosInvalidosException("El item de pago es obligatorio.");
 
         // Idempotencia (opcion B aprobada en Fase 5.1): si ya existe una intencion
-        // PENDIENTE para este item, se devuelve la misma (retomar el pago) en vez de
-        // fallar con ORA-00001 del indice unico funcional (UQ_TPAGO_*_PEND).
+        // PENDIENTE para este item, no se crea otra (el indice unico funcional
+        // UQ_TPAGO_*_PEND lo impide). PERO una referencia de Wompi NO puede
+        // reutilizarse: el widget responde 403 si la referencia ya genero una
+        // transaccion en Wompi (el widget crea la tx al abrir, aun sin completar
+        // el pago). Por eso el reintento SIEMPRE rota: la intencion vieja se marca
+        // VENCIDO y se crea una nueva con referencia fresca.
         WompiPago existente = wompiDAO.findPendientePorItem(concepto, idItem);
         if (existente != null) {
-            // Si el widget nunca creo transaccion y la intencion es vieja (>15 min),
-            // se marca VENCIDO y se crea una nueva: reintentar con la misma referencia
-            // daria 422 en Wompi (referencia duplicada) si la tx anterior quedo pendiente.
-            boolean viejaSinTx = existente.getIdTransaccionWompi() == null
-                && existente.getFechaCreacion() != null
-                && existente.getFechaCreacion().isBefore(java.time.LocalDateTime.now().minusMinutes(15));
-            if (viejaSinTx) {
-                wompiDAO.marcarEstado(existente.getId(), "VENCIDO", null, null,
-                    "Vencida por reintento (sin transaccion en Wompi)", false);
-            } else {
-                Map<String, Object> res = new HashMap<>();
-                res.put("id", existente.getId());
-                res.put("referencia", existente.getReferencia());
-                res.put("montoCentavos", existente.getMontoCentavos());
-                res.put("publicKey", WOMPI_PUBLIC_KEY);
-                res.put("firmaIntegridad", firmaIntegridad(existente.getReferencia(), existente.getMontoCentavos()));
-                res.put("idTransaccionWompi", existente.getIdTransaccionWompi());
-                res.put("reintento", true);
-                return res;
+            // Si la intencion tiene idTransaccionWompi, consultar Wompi: si el pago
+            // ya fue APPROVED (webhook perdido), sincronizar y avisar en vez de
+            // crear un pago duplicado.
+            if (existente.getIdTransaccionWompi() != null) {
+                String status = consultarTransaccion(existente.getIdTransaccionWompi());
+                if ("APROBADO".equals(status)) {
+                    wompiDAO.marcarEstado(existente.getId(), "APROBADO",
+                        existente.getIdTransaccionWompi(), existente.getMetodoPagoWompi(), null, true);
+                    ejecutarNegocio(existente, null);
+                    throw new DatosInvalidosException("Este pago ya fue aprobado en Wompi.");
+                }
             }
+            wompiDAO.marcarEstado(existente.getId(), "VENCIDO", null, null,
+                "Vencida por reintento (la referencia ya fue usada en Wompi)", false);
         }
 
         BigDecimal saldoPesos = saldoEnPesos(concepto, idItem);

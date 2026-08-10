@@ -218,7 +218,7 @@ export default function ResidenteDashboardPage() {
     color: label === 'CUOTA' ? cssVar('--accent-green', '#10B981') : label === 'MULTA' ? cssVar('--warn', '#D97706') : cssVar('--border-focus', '#3D6BBF'),
   }));
 
-  // ==== Pagos en línea (Wompi) ====
+  // ==== Pagos en lÃƒÆ’Ã‚Â­nea (Wompi) ====
   const MESES_W = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   const { data: wompiHistorialRaw, refetch: refetchHistorialWompi } = useFetch(
     () => api.get('/pagos/wompi/historial'),
@@ -254,25 +254,25 @@ export default function ResidenteDashboardPage() {
         const estado = est.estado || 'PENDIENTE';
         if (['APROBADO', 'RECHAZADO', 'VENCIDO', 'ERROR'].includes(estado)) {
           setToast({
-            message: estado === 'APROBADO' ? 'Pago confirmado. Recibirás el recibo por correo.' : `El pago fue ${estado.toLowerCase()}.`,
+            message: estado === 'APROBADO' ? 'Pago confirmado. RecibirÃƒÆ’Ã‚Â¡s el recibo por correo.' : `El pago fue ${estado.toLowerCase()}.`,
             type: estado === 'APROBADO' ? 'success' : 'error',
           });
           return;
         }
       } catch { /* reintentar */ }
     }
-    setToast({ message: 'El pago quedó pendiente de confirmación; te avisaremos por correo.', type: 'info' });
+    setToast({ message: 'El pago quedÃƒÆ’Ã‚Â³ pendiente de confirmaciÃƒÆ’Ã‚Â³n; te avisaremos por correo.', type: 'info' });
   }
 
   async function pagarConWompi(concepto, id, label) {
     if (pagando) return;
     setPagando({ concepto, id, label });
     // Anti-colgado: si el widget se cierra sin completar, el callback de
-    // WidgetCheckout.open() nunca corre y `pagando` quedaría activo para
-    // siempre (botón "Abriendo…" que bloquea reintentos). Se resetea solo.
+    // WidgetCheckout.open() nunca corre y `pagando` quedarÃƒÆ’Ã‚Â­a activo para
+    // siempre (botÃƒÆ’Ã‚Â³n "AbriendoÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦" que bloquea reintentos). Se resetea solo.
     const timer = setTimeout(() => {
       setPagando(null);
-      setToast({ message: 'El pago se canceló o expiró. Podés volver a intentar.', type: 'info' });
+      setToast({ message: 'El pago se cancelÃƒÆ’Ã‚Â³ o expirÃƒÆ’Ã‚Â³. PodÃƒÆ’Ã‚Â©s volver a intentar.', type: 'info' });
     }, 60000);
     const finalizar = () => {
       clearTimeout(timer);
@@ -280,18 +280,18 @@ export default function ResidenteDashboardPage() {
       refetchHistorialWompi();
       if (typeof refetchDashboard === 'function') refetchDashboard();
     };
-    try {
-      const sol = await api.post('/pagos/wompi/solicitud', { concepto, id });
-      // Idempotencia: si ya había un intento PENDIENTE con transacción creada en
-      // Wompi, no se reabre el widget — solo se espera el estado final.
+        try {
+            const sol = await api.post('/pagos/wompi/solicitud', { concepto, id });
+            // Idempotencia: si ya habÃƒÆ’Ã‚Â­a un intento PENDIENTE con transacciÃƒÆ’Ã‚Â³n creada en
+      // Wompi, no se reabre el widget ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â solo se espera el estado final.
       if (sol.idTransaccionWompi) {
-        setToast({ message: 'Ya hay un pago en curso para este ítem. Esperando confirmación…', type: 'info' });
+        setToast({ message: 'Ya hay un pago en curso para este ÃƒÆ’Ã‚Â­tem. Esperando confirmaciÃƒÆ’Ã‚Â³nÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦', type: 'info' });
         await pollEstadoWompi(sol.referencia);
         finalizar();
         return;
       }
       await cargarWidgetWompi();
-      const customerData = user?.email
+            const customerData = user?.email
         ? { email: user.email, fullName: `${user.nombres || ''} ${user.apellidos || ''}`.trim() || undefined }
         : undefined;
       const checkout = new window.WidgetCheckout({
@@ -303,7 +303,7 @@ export default function ResidenteDashboardPage() {
         redirectUrl: `${window.location.origin}/residente-dashboard?pago=resultado`,
         ...(customerData ? { customerData } : {}),
       });
-      checkout.open(async (result) => {
+            checkout.open(async (result) => {
         await pollEstadoWompi(sol.referencia);
         finalizar();
       });
@@ -326,7 +326,7 @@ export default function ResidenteDashboardPage() {
     return <span style={{ color: e.color, fontWeight: 700, fontSize: '12px' }}>{e.label}</span>;
   };
 
-  // ==== B1: Poll de confirmación de visitas (recuperado del legacy) ====
+  // ==== B1: Poll de confirmaciÃƒÆ’Ã‚Â³n de visitas (recuperado del legacy) ====
   const [confirmarPendiente, setConfirmarPendiente] = useState(null); // mensaje en modal o null
   const [confirmando, setConfirmando] = useState(false);
   const confirmandoRef = useRef(false);
@@ -335,7 +335,7 @@ export default function ResidenteDashboardPage() {
   const [backoffActivo, setBackoffActivo] = useState(false); // reactivo: recrea el intervalo al cambiar
 
   async function tickConfirmacion() {
-    // Pausa mientras el modal está abierto (el estado actúa como "pause")
+    // Pausa mientras el modal estÃƒÆ’Ã‚Â¡ abierto (el estado actÃƒÆ’Ã‚Âºa como "pause")
     if (confirmarPendiente) return;
     if (document.visibilityState !== 'visible') return;
     try {
@@ -346,13 +346,13 @@ export default function ResidenteDashboardPage() {
       if (lista.length > 0) setConfirmarPendiente(lista[0]);
     } catch {
       // Best-effort: el modal es el feedback, no un toast por tick.
-      // Umbral: 5 fallos consecutivos -> aviso único + backoff a 30s. El poll sigue vivo
+      // Umbral: 5 fallos consecutivos -> aviso ÃƒÆ’Ã‚Âºnico + backoff a 30s. El poll sigue vivo
       // (no se detiene): si la red se recupera sola, el tick exitoso restaura 5s sin
       // depender de que el residente abra/cierre el modal.
       failCountRef.current += 1;
       if (failCountRef.current >= 5 && !backoffActivo) {
-        setBackoffActivo(true); // dispara re-render → el efecto recrea el intervalo con 30s
-        setToast({ message: 'No se pudo verificar visitas pendientes. Se reintentará automáticamente.', type: 'warning' });
+        setBackoffActivo(true); // dispara re-render ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ el efecto recrea el intervalo con 30s
+        setToast({ message: 'No se pudo verificar visitas pendientes. Se reintentarÃƒÆ’Ã‚Â¡ automÃƒÆ’Ã‚Â¡ticamente.', type: 'warning' });
       }
     }
   }
@@ -362,7 +362,7 @@ export default function ResidenteDashboardPage() {
     return () => clearInterval(interval);
   }, [confirmarPendiente, backoffActivo]);
 
-  // Al volver la pestaña visible: poll inmediato (no esperar el próximo tick)
+  // Al volver la pestaÃƒÆ’Ã‚Â±a visible: poll inmediato (no esperar el prÃƒÆ’Ã‚Â³ximo tick)
   useEffect(() => {
     const onVisible = () => { if (document.visibilityState === 'visible') tickConfirmacion(); };
     document.addEventListener('visibilitychange', onVisible);
@@ -370,14 +370,14 @@ export default function ResidenteDashboardPage() {
   }, [confirmarPendiente]);
 
   async function responderConfirmacion(confirmado) {
-    if (confirmandoRef.current) return; // doble submit (patrón generalizado)
+    if (confirmandoRef.current) return; // doble submit (patrÃƒÆ’Ã‚Â³n generalizado)
     if (!confirmarPendiente) return;
     confirmandoRef.current = true;
     setConfirmando(true);
     try {
       await api.post('/buzon/confirmar', { idMensaje: confirmarPendiente.idMensaje, confirmado });
       setToast({ message: confirmado === 1 ? 'Acceso confirmado' : 'Acceso rechazado', type: 'success' });
-      setConfirmarPendiente(null); // cierra; el próximo tick traerá el siguiente pendiente si hay
+      setConfirmarPendiente(null); // cierra; el prÃƒÆ’Ã‚Â³ximo tick traerÃƒÆ’Ã‚Â¡ el siguiente pendiente si hay
     } catch (err) {
       // El modal se MANTIENE abierto: el residente ve el error y puede reintentar;
       // el poll sigue pausado mientras haya modal.
@@ -391,7 +391,7 @@ export default function ResidenteDashboardPage() {
   // ==== B3: QR activos + compartir (recuperado del legacy) ====
   // Imagen QR via api.qrserver.com (fiel al legacy; sin dependencia nueva).
   // Seguridad: el QR es single-use + expira (el endpoint filtra usado=0 AND
-  // fecha_expiracion>now); la validacion del portero es server-side — compartir
+  // fecha_expiracion>now); la validacion del portero es server-side ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â compartir
   // la imagen por error no la hace valida despues de usarse o expirar.
   function qrImageUrl(codigoQr) {
     return 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=' + encodeURIComponent(codigoQr);
@@ -399,23 +399,23 @@ export default function ResidenteDashboardPage() {
 
   function compartirTelegram(codigoQr, nombre) {
     const imgUrl = qrImageUrl(codigoQr);
-    const text = encodeURIComponent(`Código QR de acceso para ${nombre || 'tu visita'}\n\nAbre esta imagen para escanear:\n${imgUrl}`);
+    const text = encodeURIComponent(`CÃƒÆ’Ã‚Â³digo QR de acceso para ${nombre || 'tu visita'}\n\nAbre esta imagen para escanear:\n${imgUrl}`);
     window.open(`https://t.me/share/url?url=${encodeURIComponent(imgUrl)}&text=${text}`, '_blank');
   }
 
   function compartirSMS(codigoQr, telefono) {
     const imgUrl = qrImageUrl(codigoQr);
-    const body = encodeURIComponent(`Tu código QR de acceso: ${codigoQr} - Abre la imagen: ${imgUrl}`);
+    const body = encodeURIComponent(`Tu cÃƒÆ’Ã‚Â³digo QR de acceso: ${codigoQr} - Abre la imagen: ${imgUrl}`);
     window.open(telefono ? `sms:${telefono}?body=${body}` : `sms:?body=${body}`);
   }
 
   function compartirCorreo(codigoQr, nombre, email) {
     const imgUrl = qrImageUrl(codigoQr);
-    const subject = encodeURIComponent('Código QR de Acceso');
+    const subject = encodeURIComponent('CÃƒÆ’Ã‚Â³digo QR de Acceso');
     const body = encodeURIComponent(
-      `Hola,\n\nHas recibido un código QR de acceso${nombre ? ` para ${nombre}` : ''}.\n\n` +
-      `Código: ${codigoQr}\n\nO abre esta imagen para escanear:\n${imgUrl}\n\n` +
-      `Preséntala en la entrada del edificio.`
+      `Hola,\n\nHas recibido un cÃƒÆ’Ã‚Â³digo QR de acceso${nombre ? ` para ${nombre}` : ''}.\n\n` +
+      `CÃƒÆ’Ã‚Â³digo: ${codigoQr}\n\nO abre esta imagen para escanear:\n${imgUrl}\n\n` +
+      `PresÃƒÆ’Ã‚Â©ntala en la entrada del edificio.`
     );
     window.open(email ? `mailto:${email}?subject=${subject}&body=${body}` : `mailto:?subject=${subject}&body=${body}`);
   }
@@ -423,9 +423,9 @@ export default function ResidenteDashboardPage() {
   async function copiarQR(codigoQr) {
     try {
       await navigator.clipboard.writeText(codigoQr);
-      setToast({ message: 'Código QR copiado al portapapeles', type: 'success' });
+      setToast({ message: 'CÃƒÆ’Ã‚Â³digo QR copiado al portapapeles', type: 'success' });
     } catch {
-      setToast({ message: 'No se pudo copiar el código', type: 'error' });
+      setToast({ message: 'No se pudo copiar el cÃƒÆ’Ã‚Â³digo', type: 'error' });
     }
   }
 
@@ -436,8 +436,8 @@ export default function ResidenteDashboardPage() {
         subtitle={`Bienvenido${nombreResidente || user?.username ? `, ${nombreResidente || user?.username}` : ''}`}
       />
       <div className="card-grid-4">
-        <Stat icon="apartment" value={apartamento.numero || '—'} label="Apartamento" color="blue" />
-        <Stat icon="description" value={contrato.estado || '—'} label="Estado Contrato" color="amber" />
+        <Stat icon="apartment" value={apartamento.numero || 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â'} label="Apartamento" color="blue" />
+        <Stat icon="description" value={contrato.estado || 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â'} label="Estado Contrato" color="amber" />
         <Stat
           icon="payments"
           value={formatCurrency(cuotasArriendo)}
@@ -456,7 +456,7 @@ export default function ResidenteDashboardPage() {
         <div style={{ marginTop: '20px' }}>
                 <h3 className="mb-3 text-base font-bold">Resumen de pagos</h3>
           <div className="card-grid-2">
-            <DonutChart data={donutData} title="Distribución por tipo de pago" />
+            <DonutChart data={donutData} title="DistribuciÃƒÆ’Ã‚Â³n por tipo de pago" />
           </div>
         </div>
       )}
@@ -465,22 +465,22 @@ export default function ResidenteDashboardPage() {
         <div className="card" style={{ marginTop: '20px' }}>
           <div style={{ fontWeight: 700, marginBottom: '2px' }}>Mis pagos</div>
           <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '12px' }}>
-            Pagá en línea tus cuotas y multas pendientes (tarjeta, Nequi, PSE o Bancolombia).
+            PagÃƒÆ’Ã‚Â¡ en lÃƒÆ’Ã‚Â­nea tus cuotas y multas pendientes (tarjeta, Nequi, PSE o Bancolombia).
           </p>
 
           {cuotasPendientes.map((c) => (
             <div key={`wc-${c.idCuota}`} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 600, fontSize: '13px' }}>
-                  {c.tipoCuota === 'ADMINISTRACION' ? 'Cuota de administración' : 'Cuota de arriendo'} · {MESES_W[(c.mes || 1) - 1]} {c.anio}
+                  {c.tipoCuota === 'ADMINISTRACION' ? 'Cuota de administraciÃƒÆ’Ã‚Â³n' : 'Cuota de arriendo'} Ãƒâ€šÃ‚Â· {MESES_W[(c.mes || 1) - 1]} {c.anio}
                 </div>
                 <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                  {c.fechaLimite ? `Vence ${formatDate(c.fechaLimite)} · ` : ''}{c.estado}
+                  {c.fechaLimite ? `Vence ${formatDate(c.fechaLimite)} Ãƒâ€šÃ‚Â· ` : ''}{c.estado}
                 </div>
               </div>
               <div style={{ fontWeight: 700, fontSize: '14px' }}>{formatCurrency(c.saldoPendiente ?? c.valorTotal)}</div>
               <Button size="sm" onClick={() => pagarConWompi('CUOTA', c.idCuota, `Cuota ${c.anio}/${String(c.mes).padStart(2, '0')}`)} disabled={!!pagando}>
-                {pagando?.id === c.idCuota && pagando?.concepto === 'CUOTA' ? 'Abriendo…' : 'Pagar'}
+                {pagando?.id === c.idCuota && pagando?.concepto === 'CUOTA' ? 'AbriendoÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦' : 'Pagar'}
               </Button>
             </div>
           ))}
@@ -488,12 +488,12 @@ export default function ResidenteDashboardPage() {
           {multasPendientesList.map((m) => (
             <div key={`wm-${m.idMulta}`} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 600, fontSize: '13px' }}>Multa · {m.tipo}</div>
+                <div style={{ fontWeight: 600, fontSize: '13px' }}>Multa Ãƒâ€šÃ‚Â· {m.tipo}</div>
                 <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{m.descripcion || 'Multa pendiente'}</div>
               </div>
               <div style={{ fontWeight: 700, fontSize: '14px' }}>{formatCurrency(m.monto)}</div>
               <Button size="sm" onClick={() => pagarConWompi('MULTA', m.idMulta, `Multa ${m.tipo}`)} disabled={!!pagando}>
-                {pagando?.id === m.idMulta && pagando?.concepto === 'MULTA' ? 'Abriendo…' : 'Pagar'}
+                {pagando?.id === m.idMulta && pagando?.concepto === 'MULTA' ? 'AbriendoÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦' : 'Pagar'}
               </Button>
             </div>
           ))}
@@ -515,7 +515,7 @@ export default function ResidenteDashboardPage() {
 
       {qrActivos.length > 0 && (
         <div className="card" style={{ marginTop: '20px' }}>
-          <div style={{ fontWeight: 700, marginBottom: '12px' }}>Códigos QR Activos</div>
+          <div style={{ fontWeight: 700, marginBottom: '12px' }}>CÃƒÆ’Ã‚Â³digos QR Activos</div>
           {qrActivos.map((qr) => (
             <div
               key={qr.idQr}
@@ -529,7 +529,7 @@ export default function ResidenteDashboardPage() {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <p style={{ fontWeight: 600, fontSize: '13px' }}>{qr.nombreVisitante || 'Visitante'}</p>
                 <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                  {qr.cantidadPersonas || 1} persona(s) · Vence: {formatDateTime(qr.fechaExpiracion)}
+                  {qr.cantidadPersonas || 1} persona(s) Ãƒâ€šÃ‚Â· Vence: {formatDateTime(qr.fechaExpiracion)}
                 </p>
                 <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
                   #{String(qr.codigoQr).slice(0, 8)}...
@@ -546,12 +546,12 @@ export default function ResidenteDashboardPage() {
         </div>
       )}
 
-      {/* ==== B1: Modal de confirmación de visita ==== */}
+      {/* ==== B1: Modal de confirmaciÃƒÆ’Ã‚Â³n de visita ==== */}
       <Modal open={!!confirmarPendiente} onClose={() => setConfirmarPendiente(null)} title="Solicitud de Acceso">
         {confirmarPendiente && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <p style={{ fontSize: '14px', color: 'var(--text-muted)' }}>
-              Un visitante está en portería esperando su confirmación
+              Un visitante estÃƒÆ’Ã‚Â¡ en porterÃƒÆ’Ã‚Â­a esperando su confirmaciÃƒÆ’Ã‚Â³n
             </p>
             <p style={{ fontWeight: 600, fontSize: '14px' }}>{confirmarPendiente.titulo || ''}</p>
             <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{confirmarPendiente.cuerpo || ''}</p>
