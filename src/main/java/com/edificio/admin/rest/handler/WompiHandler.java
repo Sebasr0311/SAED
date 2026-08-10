@@ -41,6 +41,8 @@ public class WompiHandler extends BaseHandler implements HttpHandler {
 
             if ("POST".equalsIgnoreCase(method) && "solicitud".equals(sub)) {
                 handleSolicitud(exchange, claims);
+            } else if ("POST".equalsIgnoreCase(method) && "transaccion".equals(sub)) {
+                handleRegistrarTransaccion(exchange, claims);
             } else if ("GET".equalsIgnoreCase(method) && "estado".equals(sub)) {
                 handleEstado(exchange, claims, query);
             } else if ("GET".equalsIgnoreCase(method) && "historial".equals(sub)) {
@@ -88,6 +90,26 @@ public class WompiHandler extends BaseHandler implements HttpHandler {
         sendJson(exchange, 201, res);
     }
 
+    /**
+     * POST /pagos/wompi/transaccion — el frontend reporta el idTransaccionWompi
+     * que el widget devolvio en su callback, para que el polling /estado pueda
+     * consultar el estado real en Wompi aunque el webhook no llegue.
+     */
+    private void handleRegistrarTransaccion(HttpExchange exchange, Map<String, Object> claims) throws Exception {
+        String rol = AuthScope.rol(claims);
+        if (!"RESIDENTE".equals(rol) && !"ADMINISTRADOR".equals(rol)) {
+            AuthScope.sendForbidden(exchange, "Los porteros no pueden actualizar pagos Wompi");
+            return;
+        }
+        String body = new String(exchange.getRequestBody().readAllBytes(), "UTF-8");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> data = JsonUtil.fromJson(body, Map.class);
+        String referencia = data.get("referencia") != null ? String.valueOf(data.get("referencia")) : null;
+        String idTx = data.get("idTransaccionWompi") != null ? String.valueOf(data.get("idTransaccionWompi")) : null;
+        service.registrarTransaccion(referencia, idTx);
+        sendJson(exchange, 200, Map.of("ok", true));
+    }
+
     private void handleEstado(HttpExchange exchange, Map<String, Object> claims, String query) throws Exception {
         String referencia = JsonUtil.extraerValor(query, "referencia");
         if (referencia == null || referencia.isBlank())
@@ -96,14 +118,9 @@ public class WompiHandler extends BaseHandler implements HttpHandler {
         if (w == null) throw new Exception("Intencion no encontrada: " + referencia);
         if (!permitidoVer(exchange, claims, w)) return;
 
-        String estado = w.getEstado();
-        // Refrescar PENDIENTES contra Wompi si ya hay transaccion creada
-        if ("PENDIENTE".equals(estado) && w.getIdTransaccionWompi() != null) {
-            String statusWompi = service.consultarTransaccion(w.getIdTransaccionWompi());
-            if (statusWompi != null && !"PENDING".equalsIgnoreCase(statusWompi)) {
-                estado = mapearEstado(statusWompi);
-            }
-        }
+        // Refresca PENDIENTES contra Wompi si ya hay transaccion; persiste el
+        // cambio y ejecuta el negocio cuando el pago fue aprobado.
+        String estado = service.refrescarEstado(referencia);
         sendJson(exchange, 200, toMap(w, estado));
     }
 

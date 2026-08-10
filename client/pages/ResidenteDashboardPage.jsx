@@ -230,20 +230,33 @@ export default function ResidenteDashboardPage() {
   const [pagando, setPagando] = useState(null); // {concepto, id, label}
 
   function cargarWidgetWompi() {
-    return new Promise((resolve, reject) => {
-      if (window.WidgetCheckout) return resolve();
-      if (window._wompiWidgetCargando) return window._wompiWidgetCargando;
-      window._wompiWidgetCargando = new Promise((res, rej) => {
-        const s = document.createElement('script');
-        s.src = 'https://checkout.wompi.co/widget.js';
-        s.async = true;
-        s.onload = () => { window._wompiWidgetCargando = null; res(); };
-        s.onerror = () => { window._wompiWidgetCargando = null; rej(new Error('No se pudo cargar el widget de pago')); };
-        document.head.appendChild(s);
-      });
-      return window._wompiWidgetCargando;
+    // Sin wrapper: cada camino devuelve UNA promesa que SIEMPRE resuelve o
+    // rechaza. (Antes se devolvia `window._wompiWidgetCargando` desde el
+    // ejecutor de un `new Promise` externo, y ese return se ignora: cuando la
+    // carga ya estaba en vuelo, el await quedaba colgado para siempre.)
+    if (window.WidgetCheckout) return Promise.resolve();
+    if (window._wompiWidgetCargando) return window._wompiWidgetCargando;
+    const promesa = new Promise((res, rej) => {
+      const s = document.createElement('script');
+      s.src = 'https://checkout.wompi.co/widget.js';
+      s.async = true;
+      const timer = setTimeout(() => {
+        window._wompiWidgetCargando = null;
+        rej(new Error('El widget de pago tarda demasiado en cargar. Revisá tu conexión e intentá de nuevo.'));
+      }, 15000);
+      s.onload = () => { clearTimeout(timer); window._wompiWidgetCargando = null; res(); };
+      s.onerror = () => { clearTimeout(timer); window._wompiWidgetCargando = null; rej(new Error('No se pudo cargar el widget de pago')); };
+      document.head.appendChild(s);
     });
+    window._wompiWidgetCargando = promesa;
+    return promesa;
   }
+
+  // Precarga: el widget empieza a descargarse al entrar al dashboard, no al
+  // clickear "Pagar". Asi el script suele estar listo cuando el usuario paga.
+  useEffect(() => {
+    cargarWidgetWompi().catch(() => { /* best-effort: se reintenta al pagar */ });
+  }, []);
 
   async function pollEstadoWompi(referencia) {
     const t0 = Date.now();
@@ -300,10 +313,22 @@ export default function ResidenteDashboardPage() {
         reference: sol.referencia,
         publicKey: sol.publicKey,
         signature: { integrity: sol.firmaIntegridad },
-        redirectUrl: `${window.location.origin}/residente-dashboard?pago=resultado`,
+        // Sin redirectUrl: Wompi bloquea con 403 los redirect-url de localhost
+        // (entornos de desarrollo), y el resultado ya se maneja por callback +
+        // polling (pollEstadoWompi). Evitar el redirect elimina el bloqueo en
+        // cualquier entorno y mantiene la confirmacion por webhook/polling.
+        // redirectUrl: `${window.location.origin}/residente-dashboard?pago=resultado`,
         ...(customerData ? { customerData } : {}),
       });
             checkout.open(async (result) => {
+        // El widget devuelve la transaccion creada en Wompi: registrarla en el
+        // backend para que el polling pueda consultar el estado real (el
+        // webhook puede no estar configurado o perderse).
+        if (result && result.transaction && result.transaction.id) {
+          try {
+            await api.post('/pagos/wompi/transaccion', { referencia: sol.referencia, idTransaccionWompi: result.transaction.id });
+          } catch { /* best-effort */ }
+        }
         await pollEstadoWompi(sol.referencia);
         finalizar();
       });
