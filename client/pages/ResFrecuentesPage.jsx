@@ -262,10 +262,20 @@ export default function ResFrecuentesPage() {
               {f.ultimaVisita && <div className="meta">Última visita: {formatDate(f.ultimaVisita)}</div>}
             </div>
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', flexShrink: 0 }}>
-              <Button variant="outline" onClick={() => abrirQr(f)}>
+              <Button
+                variant="outline"
+                onClick={() => abrirQr(f)}
+                className="hover:!bg-accent-green hover:!text-white"
+              >
                 Generar QR
               </Button>
-              <Button variant="outline" onClick={() => setConfirmQuitar(f)} aria-label={`Quitar a ${f.nombreVisitante || ''}`} title="Quitar frecuente">
+              <Button
+                variant="outline"
+                onClick={() => setConfirmQuitar(f)}
+                aria-label={`Quitar a ${f.nombreVisitante || ''}`}
+                title="Quitar frecuente"
+                className="hover:!bg-btn-danger hover:!text-white"
+              >
                 <span className="material-symbols-outlined" aria-hidden="true" style={{ fontSize: '16px' }}>person_remove</span>
                 Quitar
               </Button>
