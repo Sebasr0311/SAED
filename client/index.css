@@ -233,7 +233,7 @@
 }
 
 @layer components {
-  /* Ã¢â€â‚¬Ã¢â€â‚¬ App Shell Ã¢â€â‚¬Ã¢â€â‚¬ */
+  /* ── App Shell ── */
   .app-shell {
     position: relative;
   }
@@ -260,7 +260,7 @@
     min-height: 100vh;
   }
 
-  /* Ã¢â€â‚¬Ã¢â€â‚¬ Sidebar Ã¢â€â‚¬Ã¢â€â‚¬ */
+  /* ── Sidebar ── */
   .sidebar-overlay {
     position: fixed;
     inset: 0;
@@ -369,7 +369,7 @@
     margin-bottom: 4px;
   }
 
-  /* Grupo activo por hijo activo: se identifica aunque estÃƒÂ© cerrado */
+  /* Grupo activo por hijo activo: se identifica aunque esté cerrado */
   .sidebar-group.group-active > .sidebar-group-btn {
     color: white;
     background: rgba(59, 130, 246, 0.1);
@@ -386,7 +386,7 @@
     border-radius: 0 3px 3px 0;
   }
 
-  /* BotÃƒÂ³n base compartido: grupo, item y logout */
+  /* Botón base compartido: grupo, item y logout */
   .sidebar-group-btn,
   .sidebar-item-btn {
     position: relative;
@@ -418,8 +418,8 @@
     line-height: 1;
   }
 
-  /* Label: ocupa espacio solo cuando el sidebar estÃƒÂ¡ expandido.
-     Con max-width: 0 + overflow hidden no produce overflow y permite animaciÃƒÂ³n. */
+  /* Label: ocupa espacio solo cuando el sidebar está expandido.
+     Con max-width: 0 + overflow hidden no produce overflow y permite animación. */
   .sidebar-label {
     white-space: nowrap;
     overflow: hidden;
@@ -513,7 +513,7 @@
     font-weight: 400;
   }
 
-  /* Cuerpo de la app: sigue el ancho del sidebar mediante transiciÃƒÂ³n */
+  /* Cuerpo de la app: sigue el ancho del sidebar mediante transición */
   .app-body {
     flex: 1;
     min-width: 0;
@@ -526,7 +526,7 @@
     margin-left: 72px;
   }
 
-  /* Ã¢â€â‚¬Ã¢â€â‚¬ Topbar Ã¢â€â‚¬Ã¢â€â‚¬ */
+  /* ── Topbar ── */
   .topbar {
     display: flex;
     align-items: center;
@@ -630,7 +630,7 @@
     color: var(--on-surface);
   }
 
-  /* Toggle del sidebar solo en escritorio; hamburguesa solo en mÃƒÂ³vil */
+  /* Toggle del sidebar solo en escritorio; hamburguesa solo en móvil */
   .sidebar-toggle-mobile {
     display: none;
   }
@@ -643,7 +643,7 @@
     }
   }
 
-  /* Ã¢â€â‚¬Ã¢â€â‚¬ Content Ã¢â€â‚¬Ã¢â€â‚¬ */
+  /* ── Content ── */
   .content-area {
     padding: 32px;
   }
@@ -652,7 +652,7 @@
     animation: slide-up 0.25s ease-out;
   }
 
-  /* Ã¢â€â‚¬Ã¢â€â‚¬ Cards Ã¢â€â‚¬Ã¢â€â‚¬ */
+  /* ── Cards ── */
   .card {
     background: var(--surface);
     border-radius: 18px;
@@ -705,8 +705,8 @@
     grid-template-columns: repeat(4, 1fr);
     gap: 16px;
   }
-  /* Paneles del dashboard: Multas Pendientes + PrÃƒÂ³ximos Cobros lado a lado.
-     Cada panel tiene altura acotada y scroll interno para que la pÃƒÂ¡gina no crezca. */
+  /* Paneles del dashboard: Multas Pendientes + Próximos Cobros lado a lado.
+     Cada panel tiene altura acotada y scroll interno para que la página no crezca. */
   .dashboard-panels {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -758,7 +758,7 @@
     margin-bottom: 8px;
   }
 
-  /* Ã¢â€â‚¬Ã¢â€â‚¬ Stat Card Ã¢â€â‚¬Ã¢â€â‚¬ */
+  /* ── Stat Card ── */
   .stat-card {
     background: var(--surface);
     border-radius: 18px;
@@ -854,7 +854,7 @@
     font-size: 22px;
   }
 
-  /* Ã¢â€â‚¬Ã¢â€â‚¬ Action Card Ã¢â€â‚¬Ã¢â€â‚¬ */
+  /* ── Action Card ── */
   .action-card {
     display: flex;
     flex-direction: column;
@@ -891,7 +891,7 @@
     text-align: center;
   }
 
-  /* Ã¢â€â‚¬Ã¢â€â‚¬ Buttons Ã¢â€â‚¬Ã¢â€â‚¬ */
+  /* ── Buttons ── */
   .btn {
     display: inline-flex;
     align-items: center;
@@ -970,7 +970,7 @@
     padding: 8px;
   }
 
-  /* Ã¢â€â‚¬Ã¢â€â‚¬ Data Table Ã¢â€â‚¬Ã¢â€â‚¬ */
+  /* ── Data Table ── */
   .data-table {
     width: 100%;
     border-collapse: collapse;
@@ -1021,7 +1021,7 @@ border-radius: 4px;
 }
 
 
-  /* Ã¢â€â‚¬Ã¢â€â‚¬ Badges Ã¢â€â‚¬Ã¢â€â‚¬ */
+  /* ── Badges ── */
   .badge {
     display: inline-flex;
     align-items: center;
@@ -1088,7 +1088,7 @@ border-radius: 4px;
     color: var(--tint-amber-fg);
   }
 
-  /* Ã¢â€â‚¬Ã¢â€â‚¬ Form fields Ã¢â€â‚¬Ã¢â€â‚¬ */
+  /* ── Form fields ── */
   .field-group {
     display: flex;
     flex-direction: column;
@@ -1130,7 +1130,7 @@ border-radius: 4px;
     color: var(--text-muted);
   }
 
-  /* Ã¢â€â‚¬Ã¢â€â‚¬ Floating input (login) Ã¢â€â‚¬Ã¢â€â‚¬ */
+  /* ── Floating input (login) ── */
   .floating-input {
     position: relative;
   }
@@ -1190,7 +1190,7 @@ border-radius: 4px;
     accent-color: var(--primary);
   }
 
-  /* Ã¢â€â‚¬Ã¢â€â‚¬ Login Ã¢â€â‚¬Ã¢â€â‚¬ */
+  /* ── Login ── */
   .login-page {
     min-height: 100vh;
     display: flex;
@@ -1328,7 +1328,7 @@ border-radius: 4px;
     margin-top: 24px;
   }
 
-  /* Hero: galerÃƒÂ­a acotada (no ocupa toda la pantalla) */
+  /* Hero: galería acotada (no ocupa toda la pantalla) */
   .login-hero {
     flex: 1;
     display: flex;
@@ -1413,7 +1413,7 @@ border-radius: 4px;
     }
   }
 
-  /* Ã¢â€â‚¬Ã¢â€â‚¬ Modal Ã¢â€â‚¬Ã¢â€â‚¬ */
+  /* ── Modal ── */
   .modal-overlay {
     position: fixed;
     inset: 0;
@@ -1472,7 +1472,7 @@ border-radius: 4px;
     border-top: 1px solid var(--border-subtle);
   }
 
-  /* Ã¢â€â‚¬Ã¢â€â‚¬ Empty state Ã¢â€â‚¬Ã¢â€â‚¬ */
+  /* ── Empty state ── */
   .empty-state {
     text-align: center;
     padding: 48px 24px;
@@ -1508,7 +1508,7 @@ border-radius: 4px;
     margin-top: 2px;
   }
 
-  /* Ã¢â€â‚¬Ã¢â€â‚¬ Progress bar Ã¢â€â‚¬Ã¢â€â‚¬ */
+  /* ── Progress bar ── */
   .progress-bar {
     height: 6px;
     background: var(--surface-dim);
@@ -1522,7 +1522,7 @@ border-radius: 4px;
     transition: width 0.3s ease;
   }
 
-  /* Ã¢â€â‚¬Ã¢â€â‚¬ Detail row Ã¢â€â‚¬Ã¢â€â‚¬ */
+  /* ── Detail row ── */
   .detail-row {
     display: flex;
     justify-content: space-between;
@@ -1534,7 +1534,7 @@ border-radius: 4px;
     border-bottom: none;
   }
 
-  /* Ã¢â€â‚¬Ã¢â€â‚¬ Filter Ã¢â€â‚¬Ã¢â€â‚¬ */
+  /* ── Filter ── */
   .filters {
     display: flex;
     gap: 8px;
@@ -1575,7 +1575,7 @@ border-radius: 4px;
     box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
   }
 
-  /* Ã¢â€â‚¬Ã¢â€â‚¬ Toast Ã¢â€â‚¬Ã¢â€â‚¬ */
+  /* ── Toast ── */
   .toast-container {
     position: fixed;
     bottom: 24px;
@@ -1586,7 +1586,7 @@ border-radius: 4px;
     gap: 8px;
   }
 
-  /* Ã¢â€â‚¬Ã¢â€â‚¬ Frecuentes (visitante) Ã¢â€â‚¬Ã¢â€â‚¬ */
+  /* ── Frecuentes (visitante) ── */
   .frecuentes-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
@@ -1622,7 +1622,7 @@ border-radius: 4px;
     margin-top: 8px;
   }
 
-  /* Ã¢â€â‚¬Ã¢â€â‚¬ Multi-select Ã¢â€â‚¬Ã¢â€â‚¬ */
+  /* ── Multi-select ── */
   .multi-select {
     position: relative;
   }
@@ -1680,14 +1680,14 @@ border-radius: 4px;
     font-weight: 600;
   }
 
-  /* Ã¢â€â‚¬Ã¢â€â‚¬ Divider Ã¢â€â‚¬Ã¢â€â‚¬ */
+  /* ── Divider ── */
   .divider {
     height: 1px;
     background: var(--border);
     margin: 16px 0;
   }
 
-  /* Ã¢â€â‚¬Ã¢â€â‚¬ Hidden helper Ã¢â€â‚¬Ã¢â€â‚¬ */
+  /* ── Hidden helper ── */
   .hidden {
     display: none !important;
   }
@@ -1741,7 +1741,7 @@ border-radius: 4px;
     }
   }
 
-  /* Ã¢â€â‚¬Ã¢â€â‚¬ Form groups (vanilla compat) Ã¢â€â‚¬Ã¢â€â‚¬ */
+  /* ── Form groups (vanilla compat) ── */
   .form-group {
     margin-bottom: 16px;
   }
@@ -1767,7 +1767,7 @@ border-radius: 4px;
     margin-bottom: 0;
   }
 
-  /* Ã¢â€â‚¬Ã¢â€â‚¬ Tabs Ã¢â€â‚¬Ã¢â€â‚¬ */
+  /* ── Tabs ── */
   .tabs {
     display: flex;
     gap: 4px;
@@ -1819,7 +1819,7 @@ border-radius: 4px;
     min-width: 200px;
   }
 
-  /* Ã¢â€â‚¬Ã¢â€â‚¬ Responsive Ã¢â€â‚¬Ã¢â€â‚¬ */
+  /* ── Responsive ── */
   @media (max-width: 768px) {
     .sidebar-desktop {
       width: 264px;
@@ -1830,7 +1830,7 @@ border-radius: 4px;
     .sidebar-desktop.sidebar-mobile-open {
       transform: translateX(0);
     }
-    /* En mÃƒÂ³vil el drawer siempre muestra las etiquetas completas */
+    /* En móvil el drawer siempre muestra las etiquetas completas */
     .sidebar-mobile-open .sidebar-logo-text,
     .sidebar-mobile-open .sidebar-label {
       max-width: 180px;
@@ -1870,7 +1870,7 @@ border-radius: 4px;
     .topbar {
       padding: 0 16px;
     }
-    /* En mÃƒÂ³vil, el topbar muestra solo avatar + botÃƒÂ³n logout
+    /* En móvil, el topbar muestra solo avatar + botón logout
        para evitar que el user-name/badge-role desplacen los controles fuera del viewport. */
     .topbar .user-name,
     .topbar .badge-role {
@@ -1882,7 +1882,7 @@ border-radius: 4px;
     .content-area {
       padding: 20px 16px;
     }
-    /* En pantallas medianas/pequeÃƒÂ±as los paneles se apilan y crecen con su
+    /* En pantallas medianas/pequeñas los paneles se apilan y crecen con su
        contenido; el scroll interno solo aplica en escritorio (2 columnas). */
     .dashboard-panels {
       grid-template-columns: 1fr;
@@ -2086,4 +2086,47 @@ input:-webkit-autofill:focus {
 .login-btn:focus-visible {
   outline: 2px solid var(--border-focus);
   outline-offset: 2px;
+}
+
+/* ==== Polish v4: form-control, tablas sticky, motion, dropdowns ==== */
+.form-control {
+  border-radius: 12px !important;
+  border-color: var(--outline-variant) !important;
+  background: var(--surface) !important;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.form-control:focus {
+  border-color: var(--border-focus) !important;
+  box-shadow: 0 0 0 3px rgb(var(--ring-primary) / 0.25);
+  outline: none;
+}
+.data-table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  z-index: 1;
+}
+.multi-select-dropdown {
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.14), 0 0 0 1px rgba(15, 23, 42, 0.04);
+  border: 1px solid var(--border);
+}
+.multi-select-trigger {
+  border-radius: 12px !important;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.multi-select-trigger:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+.card-title {
+  letter-spacing: -0.01em;
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
