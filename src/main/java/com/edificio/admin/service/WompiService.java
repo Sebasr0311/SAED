@@ -93,15 +93,26 @@ public class WompiService {
         // fallar con ORA-00001 del indice unico funcional (UQ_TPAGO_*_PEND).
         WompiPago existente = wompiDAO.findPendientePorItem(concepto, idItem);
         if (existente != null) {
-            Map<String, Object> res = new HashMap<>();
-            res.put("id", existente.getId());
-            res.put("referencia", existente.getReferencia());
-            res.put("montoCentavos", existente.getMontoCentavos());
-            res.put("publicKey", WOMPI_PUBLIC_KEY);
-            res.put("firmaIntegridad", firmaIntegridad(existente.getReferencia(), existente.getMontoCentavos()));
-            res.put("idTransaccionWompi", existente.getIdTransaccionWompi());
-            res.put("reintento", true);
-            return res;
+            // Si el widget nunca creo transaccion y la intencion es vieja (>15 min),
+            // se marca VENCIDO y se crea una nueva: reintentar con la misma referencia
+            // daria 422 en Wompi (referencia duplicada) si la tx anterior quedo pendiente.
+            boolean viejaSinTx = existente.getIdTransaccionWompi() == null
+                && existente.getFechaCreacion() != null
+                && existente.getFechaCreacion().isBefore(java.time.LocalDateTime.now().minusMinutes(15));
+            if (viejaSinTx) {
+                wompiDAO.marcarEstado(existente.getId(), "VENCIDO", null, null,
+                    "Vencida por reintento (sin transaccion en Wompi)", false);
+            } else {
+                Map<String, Object> res = new HashMap<>();
+                res.put("id", existente.getId());
+                res.put("referencia", existente.getReferencia());
+                res.put("montoCentavos", existente.getMontoCentavos());
+                res.put("publicKey", WOMPI_PUBLIC_KEY);
+                res.put("firmaIntegridad", firmaIntegridad(existente.getReferencia(), existente.getMontoCentavos()));
+                res.put("idTransaccionWompi", existente.getIdTransaccionWompi());
+                res.put("reintento", true);
+                return res;
+            }
         }
 
         BigDecimal saldoPesos = saldoEnPesos(concepto, idItem);
