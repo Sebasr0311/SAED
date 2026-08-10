@@ -136,7 +136,10 @@ function DonutChart({ data, title }) {
   useEffect(() => {
     drawDonut(ref.current, data);
     // Repintar al cambiar light/dark (los colores leen tokens CSS).
-    const mo = new MutationObserver(() => drawDonut(ref.current, data));
+    // No repintar en pestanas ocultas (el canvas no es visible).
+    const mo = new MutationObserver(() => {
+      if (document.visibilityState === 'visible') drawDonut(ref.current, data);
+    });
     mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
     return () => mo.disconnect();
   }, [data]);
