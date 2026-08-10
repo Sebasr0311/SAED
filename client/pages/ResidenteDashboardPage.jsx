@@ -477,17 +477,14 @@ export default function ResidenteDashboardPage() {
         />
       </div>
 
-      {donutData.length > 0 && (
-        <div style={{ marginTop: '20px' }}>
-                <h3 className="mb-3 text-base font-bold">Resumen de pagos</h3>
-          <div className="card-grid-2">
+      {(donutData.length > 0 || cuotasPendientes.length > 0 || multasPendientesList.length > 0 || wompiHistorial.length > 0) && (
+        <div className="card-grid-2" style={{ marginTop: '20px', alignItems: 'start' }}>
+          {donutData.length > 0 && (
             <DonutChart data={donutData} title="Distribución por tipo de pago" />
-          </div>
-        </div>
-      )}
+          )}
 
       {(cuotasPendientes.length > 0 || multasPendientesList.length > 0 || wompiHistorial.length > 0) && (
-        <div className="card" style={{ marginTop: '20px' }}>
+        <div className="card">
           <div style={{ fontWeight: 700, marginBottom: '2px' }}>Mis pagos</div>
           <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '12px' }}>
             Pagá en línea tus cuotas y multas pendientes (tarjeta, Nequi, PSE o Bancolombia).
@@ -536,6 +533,8 @@ export default function ResidenteDashboardPage() {
             </div>
           )}
         </div>
+      )}
+      </div>
       )}
 
       {qrActivos.length > 0 && (
