@@ -1,8 +1,21 @@
-import { memo } from 'react';
+import { memo, useEffect, useState } from 'react';
 import { classNames } from '../../lib/utils.js';
 import EmptyState from './EmptyState.jsx';
+import { Button } from './Button.jsx';
 
-export const DataTable = memo(function DataTable({ columns, rows, loading, empty, onRowClick, keyField = 'id', selectedKey, error, onRetry }) {
+export const DataTable = memo(function DataTable({ columns, rows, loading, empty, onRowClick, keyField = 'id', selectedKey, error, onRetry, pageSize }) {
+  const [page, setPage] = useState(1);
+
+  // Si cambian los datos (refetch, filtro), volver a la primera pagina.
+  const totalRows = rows?.length || 0;
+  useEffect(() => {
+    setPage(1);
+  }, [totalRows]);
+
+  const totalPaginas = pageSize && pageSize > 0 ? Math.max(1, Math.ceil(totalRows / pageSize)) : 1;
+  const paginaSegura = Math.min(page, totalPaginas);
+  const filasVisibles = pageSize && pageSize > 0 ? rows.slice((paginaSegura - 1) * pageSize, paginaSegura * pageSize) : rows;
+
   if (loading) {
     return (
       <div className="table-container p-8 text-center text-on-surface-variant">Cargando...</div>
@@ -47,7 +60,7 @@ export const DataTable = memo(function DataTable({ columns, rows, loading, empty
           </tr>
         </thead>
         <tbody>
-          {rows.map((row, idx) => (
+          {filasVisibles.map((row, idx) => (
             <tr
               key={row[keyField] ?? idx}
               onClick={onRowClick ? () => onRowClick(row) : undefined}
@@ -79,6 +92,29 @@ export const DataTable = memo(function DataTable({ columns, rows, loading, empty
           ))}
         </tbody>
       </table>
+      {pageSize && pageSize > 0 && totalPaginas > 1 && (
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px', paddingTop: '14px' }}>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={paginaSegura <= 1}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+          >
+            ← Anterior
+          </Button>
+          <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+            Página {paginaSegura} de {totalPaginas}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={paginaSegura >= totalPaginas}
+            onClick={() => setPage((p) => Math.min(totalPaginas, p + 1))}
+          >
+            Siguiente →
+          </Button>
+        </div>
+      )}
     </div>
   );
 });

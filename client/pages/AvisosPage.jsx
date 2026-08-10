@@ -188,6 +188,7 @@ export default function AvisosPage() {
                 empty={{ icon: 'campaign', title: 'No hay avisos enviados', subtitle: 'Los avisos que envíes a los residentes aparecerán aquí.' }}
             error={error?.message}
         keyField="idMensaje"
+        pageSize={10}
       />
 
       <Modal
