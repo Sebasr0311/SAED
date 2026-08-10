@@ -19,8 +19,9 @@ export const Button = memo(function Button({
     danger: 'bg-btn-danger text-on-primary hover:bg-btn-danger-hover',
     ghost: 'bg-transparent text-on-surface-variant hover:bg-surface-container',
   };
-  const sizes = {
-    sm: 'px-3 py-1.5 text-xs',
+  const   sizes = {
+    // WCAG 2.5.8: touch target >=44px en movil; en desktop (>=sm) vuelve a compacto.
+    sm: 'px-3 py-1.5 text-xs min-h-11 min-w-11 sm:min-h-0 sm:min-w-0',
     md: 'px-4 py-2.5 text-sm',
     lg: 'px-6 py-3 text-base',
   };

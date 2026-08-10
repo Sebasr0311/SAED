@@ -46,12 +46,19 @@
     --on-surface: #0f172a;
     --on-surface-variant: #475569;
     --outline-variant: #e2e8f0;
-    --text-secondary: #475569;
-    --text-muted: #64748b;
-    --text-hint: #94a3b8;
-    --border: #e2e8f0;
-    --border-focus: #3d6bbf;
-    --border-subtle: #f1f5f9;
+--text-secondary: #475569;
+--text-muted: #64748b;
+--text-hint: #6b7280;
+--border: #e2e8f0;
+--border-focus: #3d6bbf;
+--border-subtle: #f1f5f9;
+--surface-selected: #dce8fb;
+--preview-bg: #0b1220;
+--chart-1: #0f2044;
+--chart-2: #163060;
+--chart-3: #3d6bbf;
+--chart-4: #6b93d6;
+--chart-5: #a8c4ec;
     /* Anillos de foco (RGB triplets para alpha en Tailwind). */
     --ring-primary: 61 107 191;
     --ring-error: 225 29 72;
@@ -123,12 +130,19 @@
     --on-surface: #e7ecf5;
     --on-surface-variant: #9aa7bd;
     --outline-variant: #2a3447;
-    --text-secondary: #9aa7bd;
-    --text-muted: #7c89a1;
-    --text-hint: #5c6880;
-    --border: #2a3447;
-    --border-focus: #6b93d6;
-    --border-subtle: #222c3f;
+--text-secondary: #9aa7bd;
+--text-muted: #7c89a1;
+--text-hint: #7c89a1;
+--border: #2a3447;
+--border-focus: #6b93d6;
+--border-subtle: #222c3f;
+--surface-selected: #16233c;
+--preview-bg: #0b1220;
+--chart-1: #93b4e8;
+--chart-2: #6b93d6;
+--chart-3: #3d6bbf;
+--chart-4: #2855a0;
+--chart-5: #a8c4ec;
     --ring-primary: 107 147 214;
     --ring-error: 248 113 113;
     --error: #f87171;
@@ -219,7 +233,7 @@
 }
 
 @layer components {
-  /* ── App Shell ── */
+  /* Ã¢â€â‚¬Ã¢â€â‚¬ App Shell Ã¢â€â‚¬Ã¢â€â‚¬ */
   .app-shell {
     position: relative;
   }
@@ -246,7 +260,7 @@
     min-height: 100vh;
   }
 
-  /* ── Sidebar ── */
+  /* Ã¢â€â‚¬Ã¢â€â‚¬ Sidebar Ã¢â€â‚¬Ã¢â€â‚¬ */
   .sidebar-overlay {
     position: fixed;
     inset: 0;
@@ -269,6 +283,7 @@
     display: flex;
     flex-direction: column;
     transition: width 0.28s cubic-bezier(0.4, 0, 0.2, 1), transform 0.28s ease;
+    contain: layout;
     z-index: 50;
     overflow: hidden;
   }
@@ -289,7 +304,7 @@
     height: 64px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.06);
     flex-shrink: 0;
-    transition: gap 0.28s ease, padding 0.28s ease;
+    transition: opacity 0.18s ease;
   }
   .sidebar-rail .sidebar-logo-area {
     justify-content: center;
@@ -318,7 +333,7 @@
     overflow: hidden;
     max-width: 160px;
     opacity: 1;
-    transition: max-width 0.24s ease, opacity 0.18s ease;
+    transition: opacity 0.18s ease;
   }
   .sidebar-rail .sidebar-logo-text {
     max-width: 0;
@@ -354,7 +369,7 @@
     margin-bottom: 4px;
   }
 
-  /* Grupo activo por hijo activo: se identifica aunque esté cerrado */
+  /* Grupo activo por hijo activo: se identifica aunque estÃƒÂ© cerrado */
   .sidebar-group.group-active > .sidebar-group-btn {
     color: white;
     background: rgba(59, 130, 246, 0.1);
@@ -371,7 +386,7 @@
     border-radius: 0 3px 3px 0;
   }
 
-  /* Botón base compartido: grupo, item y logout */
+  /* BotÃƒÂ³n base compartido: grupo, item y logout */
   .sidebar-group-btn,
   .sidebar-item-btn {
     position: relative;
@@ -403,14 +418,14 @@
     line-height: 1;
   }
 
-  /* Label: ocupa espacio solo cuando el sidebar está expandido.
-     Con max-width: 0 + overflow hidden no produce overflow y permite animación. */
+  /* Label: ocupa espacio solo cuando el sidebar estÃƒÂ¡ expandido.
+     Con max-width: 0 + overflow hidden no produce overflow y permite animaciÃƒÂ³n. */
   .sidebar-label {
     white-space: nowrap;
     overflow: hidden;
     max-width: 180px;
     opacity: 1;
-    transition: max-width 0.24s ease, opacity 0.18s ease;
+    transition: opacity 0.18s ease;
   }
   .sidebar-rail .sidebar-label {
     max-width: 0;
@@ -427,7 +442,7 @@
     font-size: 18px !important;
     opacity: 0.7;
     flex-shrink: 0;
-    transition: transform 0.18s ease, opacity 0.18s ease, max-width 0.24s ease;
+    transition: transform 0.18s ease, opacity 0.18s ease;
   }
   .sidebar-rail .sidebar-arrow {
     margin-left: 0;
@@ -498,7 +513,7 @@
     font-weight: 400;
   }
 
-  /* Cuerpo de la app: sigue el ancho del sidebar mediante transición */
+  /* Cuerpo de la app: sigue el ancho del sidebar mediante transiciÃƒÂ³n */
   .app-body {
     flex: 1;
     min-width: 0;
@@ -511,7 +526,7 @@
     margin-left: 72px;
   }
 
-  /* ── Topbar ── */
+  /* Ã¢â€â‚¬Ã¢â€â‚¬ Topbar Ã¢â€â‚¬Ã¢â€â‚¬ */
   .topbar {
     display: flex;
     align-items: center;
@@ -615,7 +630,7 @@
     color: var(--on-surface);
   }
 
-  /* Toggle del sidebar solo en escritorio; hamburguesa solo en móvil */
+  /* Toggle del sidebar solo en escritorio; hamburguesa solo en mÃƒÂ³vil */
   .sidebar-toggle-mobile {
     display: none;
   }
@@ -628,7 +643,7 @@
     }
   }
 
-  /* ── Content ── */
+  /* Ã¢â€â‚¬Ã¢â€â‚¬ Content Ã¢â€â‚¬Ã¢â€â‚¬ */
   .content-area {
     padding: 32px;
   }
@@ -637,7 +652,7 @@
     animation: slide-up 0.25s ease-out;
   }
 
-  /* ── Cards ── */
+  /* Ã¢â€â‚¬Ã¢â€â‚¬ Cards Ã¢â€â‚¬Ã¢â€â‚¬ */
   .card {
     background: var(--surface);
     border-radius: 18px;
@@ -689,8 +704,8 @@
     grid-template-columns: repeat(4, 1fr);
     gap: 16px;
   }
-  /* Paneles del dashboard: Multas Pendientes + Próximos Cobros lado a lado.
-     Cada panel tiene altura acotada y scroll interno para que la página no crezca. */
+  /* Paneles del dashboard: Multas Pendientes + PrÃƒÂ³ximos Cobros lado a lado.
+     Cada panel tiene altura acotada y scroll interno para que la pÃƒÂ¡gina no crezca. */
   .dashboard-panels {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -742,7 +757,7 @@
     margin-bottom: 8px;
   }
 
-  /* ── Stat Card ── */
+  /* Ã¢â€â‚¬Ã¢â€â‚¬ Stat Card Ã¢â€â‚¬Ã¢â€â‚¬ */
   .stat-card {
     background: var(--surface);
     border-radius: 18px;
@@ -838,7 +853,7 @@
     font-size: 22px;
   }
 
-  /* ── Action Card ── */
+  /* Ã¢â€â‚¬Ã¢â€â‚¬ Action Card Ã¢â€â‚¬Ã¢â€â‚¬ */
   .action-card {
     display: flex;
     flex-direction: column;
@@ -875,7 +890,7 @@
     text-align: center;
   }
 
-  /* ── Buttons ── */
+  /* Ã¢â€â‚¬Ã¢â€â‚¬ Buttons Ã¢â€â‚¬Ã¢â€â‚¬ */
   .btn {
     display: inline-flex;
     align-items: center;
@@ -954,7 +969,7 @@
     padding: 8px;
   }
 
-  /* ── Data Table ── */
+  /* Ã¢â€â‚¬Ã¢â€â‚¬ Data Table Ã¢â€â‚¬Ã¢â€â‚¬ */
   .data-table {
     width: 100%;
     border-collapse: collapse;
@@ -1005,7 +1020,7 @@ border-radius: 4px;
 }
 
 
-  /* ── Badges ── */
+  /* Ã¢â€â‚¬Ã¢â€â‚¬ Badges Ã¢â€â‚¬Ã¢â€â‚¬ */
   .badge {
     display: inline-flex;
     align-items: center;
@@ -1072,7 +1087,7 @@ border-radius: 4px;
     color: var(--tint-amber-fg);
   }
 
-  /* ── Form fields ── */
+  /* Ã¢â€â‚¬Ã¢â€â‚¬ Form fields Ã¢â€â‚¬Ã¢â€â‚¬ */
   .field-group {
     display: flex;
     flex-direction: column;
@@ -1114,7 +1129,7 @@ border-radius: 4px;
     color: var(--text-muted);
   }
 
-  /* ── Floating input (login) ── */
+  /* Ã¢â€â‚¬Ã¢â€â‚¬ Floating input (login) Ã¢â€â‚¬Ã¢â€â‚¬ */
   .floating-input {
     position: relative;
   }
@@ -1174,7 +1189,7 @@ border-radius: 4px;
     accent-color: var(--primary);
   }
 
-  /* ── Login ── */
+  /* Ã¢â€â‚¬Ã¢â€â‚¬ Login Ã¢â€â‚¬Ã¢â€â‚¬ */
   .login-page {
     min-height: 100vh;
     display: flex;
@@ -1312,7 +1327,7 @@ border-radius: 4px;
     margin-top: 24px;
   }
 
-  /* Hero: galería acotada (no ocupa toda la pantalla) */
+  /* Hero: galerÃƒÂ­a acotada (no ocupa toda la pantalla) */
   .login-hero {
     flex: 1;
     display: flex;
@@ -1397,7 +1412,7 @@ border-radius: 4px;
     }
   }
 
-  /* ── Modal ── */
+  /* Ã¢â€â‚¬Ã¢â€â‚¬ Modal Ã¢â€â‚¬Ã¢â€â‚¬ */
   .modal-overlay {
     position: fixed;
     inset: 0;
@@ -1456,7 +1471,7 @@ border-radius: 4px;
     border-top: 1px solid var(--border-subtle);
   }
 
-  /* ── Empty state ── */
+  /* Ã¢â€â‚¬Ã¢â€â‚¬ Empty state Ã¢â€â‚¬Ã¢â€â‚¬ */
   .empty-state {
     text-align: center;
     padding: 48px 24px;
@@ -1492,7 +1507,7 @@ border-radius: 4px;
     margin-top: 2px;
   }
 
-  /* ── Progress bar ── */
+  /* Ã¢â€â‚¬Ã¢â€â‚¬ Progress bar Ã¢â€â‚¬Ã¢â€â‚¬ */
   .progress-bar {
     height: 6px;
     background: var(--surface-dim);
@@ -1506,7 +1521,7 @@ border-radius: 4px;
     transition: width 0.3s ease;
   }
 
-  /* ── Detail row ── */
+  /* Ã¢â€â‚¬Ã¢â€â‚¬ Detail row Ã¢â€â‚¬Ã¢â€â‚¬ */
   .detail-row {
     display: flex;
     justify-content: space-between;
@@ -1518,7 +1533,7 @@ border-radius: 4px;
     border-bottom: none;
   }
 
-  /* ── Filter ── */
+  /* Ã¢â€â‚¬Ã¢â€â‚¬ Filter Ã¢â€â‚¬Ã¢â€â‚¬ */
   .filters {
     display: flex;
     gap: 8px;
@@ -1559,7 +1574,7 @@ border-radius: 4px;
     box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
   }
 
-  /* ── Toast ── */
+  /* Ã¢â€â‚¬Ã¢â€â‚¬ Toast Ã¢â€â‚¬Ã¢â€â‚¬ */
   .toast-container {
     position: fixed;
     bottom: 24px;
@@ -1570,7 +1585,7 @@ border-radius: 4px;
     gap: 8px;
   }
 
-  /* ── Frecuentes (visitante) ── */
+  /* Ã¢â€â‚¬Ã¢â€â‚¬ Frecuentes (visitante) Ã¢â€â‚¬Ã¢â€â‚¬ */
   .frecuentes-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
@@ -1606,7 +1621,7 @@ border-radius: 4px;
     margin-top: 8px;
   }
 
-  /* ── Multi-select ── */
+  /* Ã¢â€â‚¬Ã¢â€â‚¬ Multi-select Ã¢â€â‚¬Ã¢â€â‚¬ */
   .multi-select {
     position: relative;
   }
@@ -1664,14 +1679,14 @@ border-radius: 4px;
     font-weight: 600;
   }
 
-  /* ── Divider ── */
+  /* Ã¢â€â‚¬Ã¢â€â‚¬ Divider Ã¢â€â‚¬Ã¢â€â‚¬ */
   .divider {
     height: 1px;
     background: var(--border);
     margin: 16px 0;
   }
 
-  /* ── Hidden helper ── */
+  /* Ã¢â€â‚¬Ã¢â€â‚¬ Hidden helper Ã¢â€â‚¬Ã¢â€â‚¬ */
   .hidden {
     display: none !important;
   }
@@ -1725,7 +1740,7 @@ border-radius: 4px;
     }
   }
 
-  /* ── Form groups (vanilla compat) ── */
+  /* Ã¢â€â‚¬Ã¢â€â‚¬ Form groups (vanilla compat) Ã¢â€â‚¬Ã¢â€â‚¬ */
   .form-group {
     margin-bottom: 16px;
   }
@@ -1751,7 +1766,7 @@ border-radius: 4px;
     margin-bottom: 0;
   }
 
-  /* ── Tabs ── */
+  /* Ã¢â€â‚¬Ã¢â€â‚¬ Tabs Ã¢â€â‚¬Ã¢â€â‚¬ */
   .tabs {
     display: flex;
     gap: 4px;
@@ -1803,18 +1818,18 @@ border-radius: 4px;
     min-width: 200px;
   }
 
-  /* ── Responsive ── */
+  /* Ã¢â€â‚¬Ã¢â€â‚¬ Responsive Ã¢â€â‚¬Ã¢â€â‚¬ */
   @media (max-width: 768px) {
     .sidebar-desktop {
       width: 264px;
       transform: translateX(-100%);
       box-shadow: 0 4px 40px rgba(0, 0, 0, 0.3);
-      transition: width 0.28s cubic-bezier(0.4, 0, 0.2, 1), transform 0.28s ease;
+      transition: transform 0.28s ease;
     }
     .sidebar-desktop.sidebar-mobile-open {
       transform: translateX(0);
     }
-    /* En móvil el drawer siempre muestra las etiquetas completas */
+    /* En mÃƒÂ³vil el drawer siempre muestra las etiquetas completas */
     .sidebar-mobile-open .sidebar-logo-text,
     .sidebar-mobile-open .sidebar-label {
       max-width: 180px;
@@ -1854,7 +1869,7 @@ border-radius: 4px;
     .topbar {
       padding: 0 16px;
     }
-    /* En móvil, el topbar muestra solo avatar + botón logout
+    /* En mÃƒÂ³vil, el topbar muestra solo avatar + botÃƒÂ³n logout
        para evitar que el user-name/badge-role desplacen los controles fuera del viewport. */
     .topbar .user-name,
     .topbar .badge-role {
@@ -1866,7 +1881,7 @@ border-radius: 4px;
     .content-area {
       padding: 20px 16px;
     }
-    /* En pantallas medianas/pequeñas los paneles se apilan y crecen con su
+    /* En pantallas medianas/pequeÃƒÂ±as los paneles se apilan y crecen con su
        contenido; el scroll interno solo aplica en escritorio (2 columnas). */
     .dashboard-panels {
       grid-template-columns: 1fr;

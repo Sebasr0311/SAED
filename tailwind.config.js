@@ -89,6 +89,8 @@ export default {
         'surface-dim': 'var(--surface-dim)',
         'surface-container': 'var(--surface-container)',
         'surface-muted': 'var(--surface-dim)',
+    'surface-selected': 'var(--surface-selected)',
+    'preview-bg': 'var(--preview-bg)',
         primary: {
           DEFAULT: 'var(--primary)',
           hover: 'var(--primary-hover)',

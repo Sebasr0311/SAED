@@ -123,11 +123,11 @@ async function exportarExcel(visitas, fechaInicio, fechaFin) {
   };
   const celdaFecha = (val, st, hhmm) => {
     const serial = serieFecha(val);
-    if (serial === null) return S('—', st);
+    if (serial === null) return S('â€”', st);
     return { t: 'n', v: serial, s: { ...st, numFmt: hhmm && tieneHora(val) ? 'hh:mm' : 'dd/mm/yyyy' } };
   };
   const vacio = (val) => !val || String(val).trim() === '';
-  const dash = (val, st) => (vacio(val) ? S('—', st) : S(String(val), st));
+  const dash = (val, st) => (vacio(val) ? S('â€”', st) : S(String(val), st));
   const fechaDe = (v) => v.fechaVisita || v.fechaIngreso;
 
   // Estilos segun spec
@@ -135,7 +135,7 @@ async function exportarExcel(visitas, fechaInicio, fechaFin) {
     titulo: { font: { bold: true, sz: 16, color: { rgb: '0F2044' }, name: 'Calibri' } },
     subtitulo: { font: { italic: true, sz: 10, color: { rgb: '5B6B85' }, name: 'Calibri' } },
     seccion: { font: { bold: true, sz: 13, color: { rgb: '0F2044' } } },
-    kpiLabel: { font: { sz: 9, color: { rgb: '8592A8' } }, fill: { fgColor: { rgb: 'F4F6FA' } } },
+    kpiLabel: { font: { sz: 9, color: { rgb: '64748B' } }, fill: { fgColor: { rgb: 'F4F6FA' } } },
     kpiValue: (color) => ({ font: { bold: true, sz: 14, color: { rgb: color } }, fill: { fgColor: { rgb: 'F4F6FA' } }, numFmt: '0' }),
     headerTabla: { font: { bold: true, sz: 10, color: { rgb: 'FFFFFF' } }, fill: { fgColor: { rgb: '0F2044' } } },
     headerSummary: { font: { bold: true, sz: 9, color: { rgb: 'FFFFFF' } }, fill: { fgColor: { rgb: '2855A0' } } },
@@ -162,8 +162,8 @@ async function exportarExcel(visitas, fechaInicio, fechaFin) {
   let r = 0;
 
   // Titulo y subtitulo
-  aoa[r] = [S('Historial de Visitas — Edificio Residencial', estilos.titulo)];
-  aoa[r + 1] = [S(`Periodo: ${formatDate(fechaInicio)} — ${formatDate(fechaFin)}  ·  Generado por SAED  ·  ${total} registros`, estilos.subtitulo)];
+  aoa[r] = [S('Historial de Visitas â€” Edificio Residencial', estilos.titulo)];
+  aoa[r + 1] = [S(`Periodo: ${formatDate(fechaInicio)} â€” ${formatDate(fechaFin)}  Â·  Generado por SAED  Â·  ${total} registros`, estilos.subtitulo)];
   merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: 10 } }, { s: { r: 1, c: 0 }, e: { r: 1, c: 10 } });
   r += 3;
 
@@ -187,7 +187,7 @@ async function exportarExcel(visitas, fechaInicio, fechaFin) {
   const rHeaderTabla = r;
   aoa[r] = [
     S('Fecha', estilos.headerTabla), S('Visitante', estilos.headerTabla), S('Documento', estilos.headerTabla), S('Apto', estilos.headerTabla),
-    S('Residente', estilos.headerTabla), S('Entrada', estilos.headerTabla), S('Salida', estilos.headerTabla), S('Vehículo', estilos.headerTabla),
+    S('Residente', estilos.headerTabla), S('Entrada', estilos.headerTabla), S('Salida', estilos.headerTabla), S('VehÃ­culo', estilos.headerTabla),
     S('Placa', estilos.headerTabla), S('Parqueadero', estilos.headerTabla), S('Estado', estilos.headerTabla),
   ];
   r++;
@@ -335,7 +335,7 @@ export default function HistorialVisitasPage() {
     <div>
       <PageHeader
         title="Historial de Visitas"
-        subtitle="Registro histórico de visitas"
+        subtitle="Registro histÃ³rico de visitas"
         action={
           <Button
             variant="outline"
@@ -369,7 +369,7 @@ export default function HistorialVisitasPage() {
           />
           <Input
             id="search" aria-label="Buscar"
-            label="Búsqueda rápida"
+            label="BÃºsqueda rÃ¡pida"
             placeholder="Visitante, documento, apto..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -408,7 +408,7 @@ export default function HistorialVisitasPage() {
               <span>{detalle.documentoVisitante}</span>
             </div>
             <div className="detail-row">
-              <span>Residente anfitrión</span>
+              <span>Residente anfitriÃ³n</span>
               <span>{detalle.nombreResidente}</span>
             </div>
             <div className="detail-row">
@@ -421,13 +421,13 @@ export default function HistorialVisitasPage() {
             </div>
             <div className="detail-row">
               <span>Salida</span>
-              <span>{formatDate(detalle.fechaSalida) || 'Aún dentro'}</span>
+              <span>{formatDate(detalle.fechaSalida) || 'AÃºn dentro'}</span>
             </div>
             {detalle.placaVehiculo && (
               <div className="detail-row">
-                <span>Vehículo</span>
+                <span>VehÃ­culo</span>
                 <span>
-                  {detalle.tipoVehiculo} â€” {detalle.placaVehiculo}
+                  {detalle.tipoVehiculo} Ã¢â‚¬â€ {detalle.placaVehiculo}
                 </span>
               </div>
             )}

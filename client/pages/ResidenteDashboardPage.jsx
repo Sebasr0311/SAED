@@ -10,8 +10,17 @@ import Toast from '../components/ui/Toast.jsx';
 
 // Paleta de graficos: navy en light; tonos mas claros en dark para mantener
 // contraste sobre superficies oscuras. Se resuelve en runtime leyendo el tema.
-const CHART_COLORS_LIGHT = ['#0F2044', '#163060', '#3D6BBF', '#6B93D6', '#A8C4EC', '#D6E5F7', '#D97706', '#F59E0B', '#10B981', '#059669', '#DC2626', '#EF4444'];
-const CHART_COLORS_DARK = ['#93B4E8', '#6B93D6', '#3D6BBF', '#2855A0', '#A8C4EC', '#D6E5F7', '#FBBF24', '#F59E0B', '#34D399', '#10B981', '#F87171', '#EF4444'];
+// Marcas (5) desde tokens --chart-*, recalculadas al cambiar tema; estados fijos.
+const CHART_COLORS_LIGHT = [
+  cssVar('--chart-1', '#0F2044'), cssVar('--chart-2', '#163060'), cssVar('--chart-3', '#3D6BBF'),
+  cssVar('--chart-4', '#6B93D6'), cssVar('--chart-5', '#A8C4EC'),
+  '#D6E5F7', '#D97706', '#F59E0B', '#10B981', '#059669', '#DC2626', '#EF4444',
+];
+const CHART_COLORS_DARK = [
+  cssVar('--chart-1', '#93B4E8'), cssVar('--chart-2', '#6B93D6'), cssVar('--chart-3', '#3D6BBF'),
+  cssVar('--chart-4', '#2855A0'), cssVar('--chart-5', '#A8C4EC'),
+  '#D6E5F7', '#FBBF24', '#F59E0B', '#34D399', '#10B981', '#F87171', '#EF4444',
+];
 
 function isDarkTheme() {
   return typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'dark';
