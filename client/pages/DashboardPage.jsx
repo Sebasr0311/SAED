@@ -392,22 +392,28 @@ export default function DashboardPage() {
               ) : (
                 <>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px', marginBottom: '12px' }}>
-                    <div style={{ padding: '12px', background: 'var(--accent-green-bg)', border: '1px solid var(--accent-green)', borderRadius: '8px' }}>
-                      <div className="text-muted" style={{ fontSize: '12px' }}>Cuotas Pagadas</div>
-                      <div style={{ fontWeight: 800, color: 'var(--accent-green)' }}>
-                        {detalleContrato.cuotas.filter((c) => c.estado === 'PAGADA').length}
+                    <div style={{ padding: '14px', background: 'var(--accent-green-bg)', border: '1px solid var(--accent-green)', borderRadius: '12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--accent-green)', marginBottom: '6px' }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>check_circle</span>
+                        Cuotas Pagadas
                       </div>
-                      <div style={{ fontSize: '12px', color: 'var(--accent-green)' }}>
-                        {formatCurrency(detalleContrato.cuotas.filter((c) => c.estado === 'PAGADA').reduce((s, c) => s + Number(c.valorTotal || 0), 0))}
+                      <div style={{ fontWeight: 800, fontSize: '20px', color: 'var(--accent-green)' }}>
+                        {detalleContrato.cuotas.filter((c) => c.estado === 'PAGADA').length} cuota(s)
+                      </div>
+                      <div style={{ fontSize: '13px', color: 'var(--accent-green)' }}>
+                        Total: {formatCurrency(detalleContrato.cuotas.filter((c) => c.estado === 'PAGADA').reduce((s, c) => s + Number(c.valorTotal || 0), 0))}
                       </div>
                     </div>
-                    <div style={{ padding: '12px', background: 'var(--warn-amber-bg)', border: '1px solid var(--warn)', borderRadius: '8px' }}>
-                      <div className="text-muted" style={{ fontSize: '12px' }}>Cuotas Pendientes</div>
-                      <div style={{ fontWeight: 800, color: 'var(--warn)' }}>
-                        {detalleContrato.cuotas.filter((c) => c.estado !== 'PAGADA').length}
+                    <div style={{ padding: '14px', background: 'var(--warn-amber-bg)', border: '1px solid var(--warn)', borderRadius: '12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--warn)', marginBottom: '6px' }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>schedule</span>
+                        Cuotas Pendientes
                       </div>
-                      <div style={{ fontSize: '12px', color: 'var(--warn)' }}>
-                        {formatCurrency(detalleContrato.cuotas.filter((c) => c.estado !== 'PAGADA').reduce((s, c) => s + Number(c.valorTotal || 0), 0))}
+                      <div style={{ fontWeight: 800, fontSize: '20px', color: 'var(--warn)' }}>
+                        {detalleContrato.cuotas.filter((c) => c.estado !== 'PAGADA').length} cuota(s)
+                      </div>
+                      <div style={{ fontSize: '13px', color: 'var(--warn)' }}>
+                        Total: {formatCurrency(detalleContrato.cuotas.filter((c) => c.estado !== 'PAGADA').reduce((s, c) => s + Number(c.valorTotal || 0), 0))}
                       </div>
                     </div>
                   </div>
