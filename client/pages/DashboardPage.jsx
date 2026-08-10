@@ -58,10 +58,10 @@ export default function DashboardPage() {
   const contratosActivosList = (contratos?.items || []).filter((c) => c.estado === 'ACTIVO');
   const contratosActivos = contratosActivosList.length; // conteo para la Stat Card
 
-  // Filtro en cliente (idéntico al legacy app.js:274-275; /multas/todas devuelve array plano sin query de estado)
+  // Filtro en cliente (idÃ©ntico al legacy app.js:274-275; /multas/todas devuelve array plano sin query de estado)
   const pendientes = (multasRaw?.items || multasRaw || []).filter((m) => m.estado === 'PENDIENTE');
 
-  // Agrupación por apartamento (fiel al legacy renderMultas)
+  // AgrupaciÃ³n por apartamento (fiel al legacy renderMultas)
   const grupos = useMemo(() => {
     const map = {};
     pendientes.forEach((m) => {
@@ -79,7 +79,7 @@ export default function DashboardPage() {
   async function notificarUna(idMulta) {
     try {
       const res = await api.post(`/multas/${idMulta}/notificar`);
-      setToast({ message: res.mensaje || 'Notificación enviada', type: 'success' });
+      setToast({ message: res.mensaje || 'NotificaciÃ³n enviada', type: 'success' });
     } catch (err) {
       setToast({ message: err.message, type: 'error' });
     }
@@ -139,7 +139,7 @@ export default function DashboardPage() {
   }
 
   // Hora corta HH:mm para listas del estado del sistema (fiel al legacy, que mostraba
-  // solo hora con substring(11,19)). Local: unico consumidor — subir a utils si se duplica.
+  // solo hora con substring(11,19)). Local: unico consumidor â€” subir a utils si se duplica.
   function formatTime(iso) {
     if (!iso) return '-';
     const d = new Date(iso);
@@ -147,7 +147,7 @@ export default function DashboardPage() {
     return d.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
   }
 
-  // Estado del sistema (Bloque 5): ambos endpoints son CRITICOS para este modal — si uno
+  // Estado del sistema (Bloque 5): ambos endpoints son CRITICOS para este modal â€” si uno
   // falla, la imagen del estado estaria incompleta y seria enganosa -> Promise.all con
   // toast + cierre (igual al legacy, que mostraba error en ambas secciones).
   async function abrirEstadoSistema() {
@@ -174,7 +174,7 @@ export default function DashboardPage() {
     <div>
       <PageHeader
         title="Resumen general"
-        subtitle="Vista rápida de los indicadores clave del edificio"
+        subtitle="Vista rÃ¡pida de los indicadores clave del edificio"
         action={
           <Button variant="outline" onClick={abrirEstadoSistema}>
             Estado del Sistema
@@ -183,13 +183,13 @@ export default function DashboardPage() {
       />
 
       <div className="card-grid-3" style={{ marginBottom: '20px' }}>
-        <StatCard icon="groups" value={residentes?.totalItems ?? '—'} label="Residentes" color="primary" />
-        <StatCard icon="domain" value={apartamentos?.totalItems ?? '—'} label="Apartamentos" color="blue" />
+        <StatCard icon="groups" value={residentes?.totalItems ?? 'â€”'} label="Residentes" color="primary" />
+        <StatCard icon="domain" value={apartamentos?.totalItems ?? 'â€”'} label="Apartamentos" color="blue" />
         <StatCard icon="description" value={contratosActivos} label="Contratos Activos" color="green" />
       </div>
 
-      {/* Grid de 2 columnas: Multas Pendientes + Próximos Cobros lado a lado.
-          Cada panel tiene scroll interno para no alargar la página. */}
+      {/* Grid de 2 columnas: Multas Pendientes + PrÃ³ximos Cobros lado a lado.
+          Cada panel tiene scroll interno para no alargar la pÃ¡gina. */}
       <div className="dashboard-panels">
       {/* ==== BLOQUE 1: Multas Pendientes ==== */}
       <div className="card dashboard-panel" style={{ marginBottom: 0 }}>
@@ -245,10 +245,10 @@ export default function DashboardPage() {
                 style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', cursor: 'pointer' }}
               >
                 <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span className="material-symbols-outlined" style={{ fontSize: '15px', color: m.tipo === 'RUIDO' ? 'var(--warn)' : '#2855A0' }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: '15px', color: m.tipo === 'RUIDO' ? 'var(--warn)' : 'var(--info)' }}>
                     {m.tipo === 'RUIDO' ? 'volume_up' : 'local_parking'}
                   </span>
-                  {m.tipo === 'RUIDO' ? 'Ruido' : 'Parqueadero'} — {formatCurrency(m.monto)}
+                  {m.tipo === 'RUIDO' ? 'Ruido' : 'Parqueadero'} â€” {formatCurrency(m.monto)}
                 </span>
                 <span style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                   <small style={{ color: 'var(--text-muted)' }}>{formatDate(m.fechaCreacion)}</small>
@@ -267,7 +267,7 @@ export default function DashboardPage() {
           </div>
         ))}
 
-        {/* Paginación 10/pág */}
+        {/* PaginaciÃ³n 10/pÃ¡g */}
         {!multasError && !loadingMultas && grupos.length > MULTAS_PAGE_SIZE && (
           <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px', marginTop: '12px' }}>
             <Button
@@ -276,10 +276,10 @@ export default function DashboardPage() {
               disabled={paginaSegura <= 1}
               onClick={() => setMultasPage((p) => Math.max(1, p - 1))}
             >
-              ← Anterior
+              â† Anterior
             </Button>
             <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-              Página {paginaSegura} de {totalPaginas}
+              PÃ¡gina {paginaSegura} de {totalPaginas}
             </span>
             <Button
               variant="outline"
@@ -287,19 +287,19 @@ export default function DashboardPage() {
               disabled={paginaSegura >= totalPaginas}
               onClick={() => setMultasPage((p) => Math.min(totalPaginas, p + 1))}
             >
-              Siguiente →
+              Siguiente â†’
             </Button>
           </div>
         )}
         </div>
       </div>
 
-      {/* ==== BLOQUE 2: Próximos Cobros ==== */}
+      {/* ==== BLOQUE 2: PrÃ³ximos Cobros ==== */}
       <div className="card dashboard-panel" style={{ marginBottom: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
           <span className="material-symbols-outlined" style={{ color: 'var(--accent-green)' }}>payments</span>
           <div>
-            <div style={{ fontWeight: 700 }}>Próximos Cobros</div>
+            <div style={{ fontWeight: 700 }}>PrÃ³ximos Cobros</div>
             <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Contratos activos</div>
           </div>
         </div>
@@ -348,7 +348,7 @@ export default function DashboardPage() {
         onClose={() => setConfirmarNotificarTodas(false)}
         onConfirm={notificarTodas}
         title="Notificar todas las multas"
-        message={`¿Enviar notificación a todos los apartamentos con multas pendientes (${pendientes.length})?`}
+        message={`Â¿Enviar notificaciÃ³n a todos los apartamentos con multas pendientes (${pendientes.length})?`}
         confirmLabel="Notificar"
       />
 
@@ -370,7 +370,7 @@ export default function DashboardPage() {
                     {detalleContrato.residente.nombres} {detalleContrato.residente.apellidos}
                   </strong></div>
                   <div><span className="text-muted">Documento:</span><br /><strong>{detalleContrato.residente.numeroDocumento || '-'}</strong></div>
-                  <div><span className="text-muted">Teléfono:</span><br /><strong>{detalleContrato.residente.telefono || '-'}</strong></div>
+                  <div><span className="text-muted">TelÃ©fono:</span><br /><strong>{detalleContrato.residente.telefono || '-'}</strong></div>
                   <div><span className="text-muted">Email:</span><br /><strong style={{ wordBreak: 'break-all' }}>{detalleContrato.residente.email || '-'}</strong></div>
                 </div>
               </div>
@@ -447,7 +447,7 @@ export default function DashboardPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <div className="card" style={{ padding: '12px', background: 'var(--navy-50)', border: '1px solid var(--navy-200)' }}>
               <div style={{ fontWeight: 700, marginBottom: '8px' }}>Residente Afectado</div>
-              <div style={{ fontSize: '14px' }}><strong>{detalleMulta.nombreResidente || 'Sin información'}</strong></div>
+              <div style={{ fontSize: '14px' }}><strong>{detalleMulta.nombreResidente || 'Sin informaciÃ³n'}</strong></div>
               <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
                 Apto {detalleMulta.numeroApartamento || 'N/A'}
               </div>
@@ -465,7 +465,7 @@ export default function DashboardPage() {
                 </span>
               </div>
               <div>
-                <span className="text-muted">Fecha de Generación</span><br />
+                <span className="text-muted">Fecha de GeneraciÃ³n</span><br />
                 <strong>{formatDateTime(detalleMulta.fechaCreacion)}</strong>
               </div>
               <div>
@@ -476,7 +476,7 @@ export default function DashboardPage() {
 
             {detalleMulta.descripcion && (
               <div>
-                <span className="text-muted">Descripción</span><br />
+                <span className="text-muted">DescripciÃ³n</span><br />
                 <div style={{ whiteSpace: 'pre-wrap', fontSize: '13px' }}>{detalleMulta.descripcion}</div>
               </div>
             )}
@@ -535,9 +535,9 @@ export default function DashboardPage() {
                   {estadoSistema.activos.map((v) => (
                     <div key={v.idAcceso} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
                       <span>
-                        {v.numeroApartamento && <small style={{ color: 'var(--text-muted)' }}>Apto {v.numeroApartamento} — </small>}
+                        {v.numeroApartamento && <small style={{ color: 'var(--text-muted)' }}>Apto {v.numeroApartamento} â€” </small>}
                         {v.nombreResidente || `Visitante #${v.idVisita}`}
-                        {v.codigoParqueadero && <small style={{ color: 'var(--text-muted)' }}> · Parq. {v.codigoParqueadero}</small>}
+                        {v.codigoParqueadero && <small style={{ color: 'var(--text-muted)' }}> Â· Parq. {v.codigoParqueadero}</small>}
                       </span>
                       <small style={{ color: 'var(--text-muted)' }}>{formatTime(v.horaEntrada)}</small>
                     </div>
@@ -555,7 +555,7 @@ export default function DashboardPage() {
                   {estadoSistema.qrPendientes.map((v) => (
                     <div key={v.idVisita} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
                       <span>
-                        {v.numeroApartamento && <small style={{ color: 'var(--text-muted)' }}>Apto {v.numeroApartamento} — </small>}
+                        {v.numeroApartamento && <small style={{ color: 'var(--text-muted)' }}>Apto {v.numeroApartamento} â€” </small>}
                         {v.nombreVisitante || `Visitante #${v.idVisita}`}
                       </span>
                       <small style={{ color: 'var(--text-muted)' }}>{formatTime(v.fechaRegistro)}</small>

@@ -1,4 +1,4 @@
-﻿import { useState, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { valNombre, valApellido, valDocumento, valFechaNacimiento, valTelefono, valEmail, valSelect } from '../lib/validation.js';
 import { Button } from '../components/ui/Button.jsx';
 import { Input, Select } from '../components/ui/Form.jsx';
@@ -422,7 +422,7 @@ export default function ResidentesPage() {
               padding: '16px',
               background: 'var(--surface-container)',
               borderRadius: '12px',
-              border: '1px solid #e2e5ec',
+              border: '1px solid var(--border)',
             }}
           >
                 <h4 className="m-0 text-[15px] font-semibold">Datos del Tutor Legal</h4>

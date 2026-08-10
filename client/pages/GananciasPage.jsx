@@ -150,7 +150,7 @@ async function exportarExcel(pagos, fechaInicio, fechaFin) {
     titulo: { font: { bold: true, sz: 16, color: { rgb: '0F2044' }, name: 'Calibri' } },
     subtitulo: { font: { italic: true, sz: 10, color: { rgb: '5B6B85' }, name: 'Calibri' } },
     seccion: { font: { bold: true, sz: 13, color: { rgb: '0F2044' } } },
-    kpiLabel: { font: { sz: 9, color: { rgb: '8592A8' } }, fill: { fgColor: { rgb: 'F4F6FA' } } },
+    kpiLabel: { font: { sz: 9, color: { rgb: '64748B' } }, fill: { fgColor: { rgb: 'F4F6FA' } } },
     kpiFill: { fill: { fgColor: { rgb: 'F4F6FA' } } },
     kpiValue: (color, sz) => ({ font: { bold: true, sz, color: { rgb: color } }, fill: { fgColor: { rgb: 'F4F6FA' } }, numFmt: '$#,##0' }),
     headerTabla: { font: { bold: true, sz: 10, color: { rgb: 'FFFFFF' } }, fill: { fgColor: { rgb: '0F2044' } } },
@@ -173,14 +173,14 @@ async function exportarExcel(pagos, fechaInicio, fechaFin) {
   let r = 0;
 
   // Titulo y subtitulo
-  aoa[r] = [S('Reporte de Ganancias — Edificio Residencial', estilos.titulo)];
-  aoa[r + 1] = [S(`Periodo: ${formatDate(fechaInicio)} — ${formatDate(fechaFin)}  ·  Generado por SAED  ·  ${pagos.length} transacciones`, estilos.subtitulo)];
+  aoa[r] = [S('Reporte de Ganancias â€” Edificio Residencial', estilos.titulo)];
+  aoa[r + 1] = [S(`Periodo: ${formatDate(fechaInicio)} â€” ${formatDate(fechaFin)}  Â·  Generado por SAED  Â·  ${pagos.length} transacciones`, estilos.subtitulo)];
   merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: 7 } }, { s: { r: 1, c: 0 }, e: { r: 1, c: 7 } });
   r += 3;
 
   // KPIs grilla: fila 1 = Total General / Cuotas / Multas; fila 2 = Efectivo / Transferencia
-  // El spec mergeaba A:B (label + valor en el rango) — un merge en Excel oculta el valor de
-  // la 2da celda, así que label y valor van en columnas contiguas SIN merge (mismos col_start).
+  // El spec mergeaba A:B (label + valor en el rango) â€” un merge en Excel oculta el valor de
+  // la 2da celda, asÃ­ que label y valor van en columnas contiguas SIN merge (mismos col_start).
   const kpiCelda = (label, valor, color, sz, c0) => {
     aoa[r] = aoa[r] || [];
     aoa[r][c0] = S(label, estilos.kpiLabel);
@@ -201,7 +201,7 @@ async function exportarExcel(pagos, fechaInicio, fechaFin) {
   const rHeaderTabla = r;
   aoa[r] = [
     S('#', estilos.headerTabla), S('Fecha', estilos.headerTabla), S('Tipo', estilos.headerTabla), S('Apto', estilos.headerTabla),
-    S('Residente', estilos.headerTabla), S('Método', estilos.headerTabla), S('Valor', estilos.headerTabla), S('Descripción', estilos.headerTabla),
+    S('Residente', estilos.headerTabla), S('MÃ©todo', estilos.headerTabla), S('Valor', estilos.headerTabla), S('DescripciÃ³n', estilos.headerTabla),
   ];
   r++;
   pagos.forEach((p, i) => {
@@ -309,7 +309,7 @@ export default function GananciasPage() {
     });
   }, [all, search, fechaInicio, fechaFin]);
 
-  // Reinicia a la primera página cuando cambian los filtros (patrón de v0).
+  // Reinicia a la primera pÃ¡gina cuando cambian los filtros (patrÃ³n de v0).
   useEffect(() => {
     setPage(1);
   }, [search, fechaInicio, fechaFin]);
@@ -332,9 +332,9 @@ export default function GananciasPage() {
     { key: 'tipoPago', label: 'Tipo', render: (r) => r.tipoPago || 'Cuota' },
     { key: 'apartamento', label: 'Apartamento' },
     { key: 'residente', label: 'Residente' },
-    { key: 'metodo', label: 'Método' },
+    { key: 'metodo', label: 'MÃ©todo' },
     { key: 'valor', label: 'Valor', render: (r) => formatCurrency(r.valor) },
-    { key: 'descripcion', label: 'Descripción' },
+    { key: 'descripcion', label: 'DescripciÃ³n' },
   ];
 
   return (
@@ -370,8 +370,8 @@ export default function GananciasPage() {
           )}
           <Input
             id="search" aria-label="Buscar"
-            label="Búsqueda rápida"
-            placeholder="Apto, residente, método..."
+            label="BÃºsqueda rÃ¡pida"
+            placeholder="Apto, residente, mÃ©todo..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -401,10 +401,10 @@ export default function GananciasPage() {
             disabled={paginaSegura <= 1}
             onClick={() => setPage((p) => Math.max(1, p - 1))}
           >
-            ← Anterior
+            â† Anterior
           </Button>
           <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-            Página {paginaSegura} de {totalPaginas}
+            PÃ¡gina {paginaSegura} de {totalPaginas}
           </span>
           <Button
             variant="outline"
@@ -412,7 +412,7 @@ export default function GananciasPage() {
             disabled={paginaSegura >= totalPaginas}
             onClick={() => setPage((p) => Math.min(totalPaginas, p + 1))}
           >
-            Siguiente →
+            Siguiente â†’
           </Button>
         </div>
       )}

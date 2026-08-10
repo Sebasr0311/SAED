@@ -68,7 +68,7 @@ export const DataTable = memo(function DataTable({ columns, rows, loading, empty
                 onRowClick && 'row-clickable',
                 selectedKey != null && row[keyField] === selectedKey && 'selected'
               )}
-              style={selectedKey != null && row[keyField] === selectedKey ? { background: '#d6e5f7' } : undefined}
+              style={selectedKey != null && row[keyField] === selectedKey ? { background: 'var(--surface-selected)' } : undefined}
             >
               {columns.map((col) => (
                 <td key={col.key} className={classNames(col.cellClassName)}>

@@ -38,7 +38,7 @@ function VideoCamara({ onCapture, buttonLabel = 'Capturar', buttonClass = 'btn-p
         }
       }, 50);
     } catch (e) {
-      setError('No se pudo acceder a la cámara: ' + e.message);
+      setError('No se pudo acceder a la cÃ¡mara: ' + e.message);
     }
   }
   function detener() {
@@ -68,12 +68,12 @@ function VideoCamara({ onCapture, buttonLabel = 'Capturar', buttonClass = 'btn-p
           autoPlay
           playsInline
           muted
-          style={{ width: '100%', maxHeight: '320px', borderRadius: '8px', background: '#000', objectFit: 'contain' }}
+          style={{ width: '100%', maxHeight: '320px', borderRadius: '8px', background: 'var(--preview-bg)', objectFit: 'contain' }}
         />
       )}
       <canvas ref={canvasRef} style={{ display: 'none' }} />
       <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-        {!stream && <Button onClick={() => iniciar()}>Activar Cámara</Button>}
+        {!stream && <Button onClick={() => iniciar()}>Activar CÃ¡mara</Button>}
         {stream && <Button onClick={capturar} className={buttonClass}>{buttonLabel}</Button>}
         {stream && <Button variant="outline" onClick={detener}>Cancelar</Button>}
       </div>
@@ -104,7 +104,7 @@ function PanelValidar({ onResultado, onNotificarVisita, onRegistrarEntrada, idVi
 
   async function validar(codigo) {
     if (!codigo || codigo.length < 5) {
-      setError('Ingrese un código QR válido');
+      setError('Ingrese un cÃ³digo QR vÃ¡lido');
       return;
     }
     setValidando(true);
@@ -167,7 +167,7 @@ function PanelValidar({ onResultado, onNotificarVisita, onRegistrarEntrada, idVi
     }
     if (medioTransporte === 'BICICLETA' || medioTransporte === 'OTRO') {
       if (!descripcion.trim()) {
-        setError(medioTransporte === 'BICICLETA' ? 'La descripción de la bicicleta es requerida' : 'La descripción es requerida');
+        setError(medioTransporte === 'BICICLETA' ? 'La descripciÃ³n de la bicicleta es requerida' : 'La descripciÃ³n es requerida');
         return;
       }
     }
@@ -204,10 +204,10 @@ function PanelValidar({ onResultado, onNotificarVisita, onRegistrarEntrada, idVi
       <div className="form-group">
         <Input
           id="qr-manual"
-          label="Código QR (manual o escaneado)"
+          label="CÃ³digo QR (manual o escaneado)"
           value={codigoManual}
           onChange={(e) => setCodigoManual(e.target.value)}
-          placeholder="Escanea con la cámara o pega el código"
+          placeholder="Escanea con la cÃ¡mara o pega el cÃ³digo"
         />
         <div style={{ marginTop: '8px' }}>
           <Button onClick={() => validar(codigoManual)} disabled={!codigoManual || validando}>
@@ -221,11 +221,11 @@ function PanelValidar({ onResultado, onNotificarVisita, onRegistrarEntrada, idVi
       {datos && (
         <div className="card" style={{ marginTop: '12px' }}>
           <h3 className="card-title">Datos del QR</h3>
-          <div className="detail-row"><span>Visitante</span><span>{datos.nombreVisitante || '—'}</span></div>
-          <div className="detail-row"><span>Documento</span><span>{datos.documentoVisitante || '—'}</span></div>
-          <div className="detail-row"><span>Residente</span><span>{datos.nombreResidente || '—'}</span></div>
-          <div className="detail-row"><span>Apartamento</span><span>{datos.numeroApartamento || '—'}</span></div>
-          <div className="detail-row"><span>Expira</span><span>{formatDate(datos.fechaExpiracion) || '—'}</span></div>
+          <div className="detail-row"><span>Visitante</span><span>{datos.nombreVisitante || 'â€”'}</span></div>
+          <div className="detail-row"><span>Documento</span><span>{datos.documentoVisitante || 'â€”'}</span></div>
+          <div className="detail-row"><span>Residente</span><span>{datos.nombreResidente || 'â€”'}</span></div>
+          <div className="detail-row"><span>Apartamento</span><span>{datos.numeroApartamento || 'â€”'}</span></div>
+          <div className="detail-row"><span>Expira</span><span>{formatDate(datos.fechaExpiracion) || 'â€”'}</span></div>
           {datos.notas && (
             <div className="detail-row"><span>Notas</span><span>{datos.notas}</span></div>
           )}
@@ -241,7 +241,7 @@ function PanelValidar({ onResultado, onNotificarVisita, onRegistrarEntrada, idVi
 
           {esperando && confirmado === null && (
             <div style={{ marginTop: '16px', textAlign: 'center' }}>
-              <p>Esperando confirmación del residente...</p>
+              <p>Esperando confirmaciÃ³n del residente...</p>
               <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>(polling cada 2s)</p>
             </div>
           )}
@@ -249,10 +249,10 @@ function PanelValidar({ onResultado, onNotificarVisita, onRegistrarEntrada, idVi
           {confirmado === true && (
             <>
               <div className="login-error-msg" style={{ background: 'var(--accent-green-bg)', color: 'var(--success-strong)', borderColor: 'var(--success-strong)', marginTop: '12px' }}>
-                El residente confirmó la visita. Proceda a registrar la entrada.
+                El residente confirmÃ³ la visita. Proceda a registrar la entrada.
               </div>
               <div style={{ marginTop: '12px' }}>
-                <h4 className="mb-2 text-[13px] font-bold">¿En qué viene?</h4>
+                <h4 className="mb-2 text-[13px] font-bold">Â¿En quÃ© viene?</h4>
                 <Select id="medio" value={medioTransporte} onChange={(e) => setMedioTransporte(e.target.value)}>
                   <option value="CARRO">Carro</option>
                   <option value="MOTO">Moto</option>
@@ -267,7 +267,7 @@ function PanelValidar({ onResultado, onNotificarVisita, onRegistrarEntrada, idVi
                 )}
                 {medioTransporte === 'BICICLETA' || medioTransporte === 'OTRO' ? (
                   <div style={{ marginTop: '8px' }}>
-                    <Textarea id="desc" label={medioTransporte === 'BICICLETA' ? 'Descripción de la bicicleta' : 'Descripción'} rows={2} value={descripcion} onChange={(e) => setDescripcion(e.target.value)} />
+                    <Textarea id="desc" label={medioTransporte === 'BICICLETA' ? 'DescripciÃ³n de la bicicleta' : 'DescripciÃ³n'} rows={2} value={descripcion} onChange={(e) => setDescripcion(e.target.value)} />
                   </div>
                 ) : null}
                 <div style={{ marginTop: '12px' }}>
@@ -281,7 +281,7 @@ function PanelValidar({ onResultado, onNotificarVisita, onRegistrarEntrada, idVi
 
           {confirmado === false && (
             <div className="login-error-msg" style={{ marginTop: '12px' }}>
-              El residente rechazó la visita.
+              El residente rechazÃ³ la visita.
             </div>
           )}
 
@@ -352,7 +352,7 @@ function TabValidar({ onToast }) {
       setStreaming(true);
       scanRef.current = requestAnimationFrame(escanear);
     } catch (e) {
-      setError('No se pudo acceder a la cámara: ' + e.message);
+      setError('No se pudo acceder a la cÃ¡mara: ' + e.message);
     }
   }
   function detener() {
@@ -393,11 +393,11 @@ function TabValidar({ onToast }) {
 
   return (
     <div>
-      <h3 className="mb-3 text-[14px] font-bold">Escanear con cámara</h3>
+      <h3 className="mb-3 text-[14px] font-bold">Escanear con cÃ¡mara</h3>
       {error && <p className="field-error">{error}</p>}
       {!jsqrListo && (
         <p className="field-error" style={{ marginBottom: '8px' }}>
-          La librería de escaneo no pudo cargarse. Verifique la conexión; mientras
+          La librerÃ­a de escaneo no pudo cargarse. Verifique la conexiÃ³n; mientras
           tanto puede validar manualmente abajo.
         </p>
       )}
@@ -408,7 +408,7 @@ function TabValidar({ onToast }) {
             autoPlay
             playsInline
             muted
-            style={{ width: '100%', maxWidth: '320px', maxHeight: '240px', borderRadius: '8px', background: '#000' }}
+            style={{ width: '100%', maxWidth: '320px', maxHeight: '240px', borderRadius: '8px', background: 'var(--preview-bg)' }}
           />
         ) : (
           <div
@@ -424,12 +424,12 @@ function TabValidar({ onToast }) {
               color: 'var(--text-muted)',
             }}
           >
-            Cámara inactiva
+            CÃ¡mara inactiva
           </div>
         )}
         <canvas ref={canvasRef} style={{ display: 'none' }} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {!streaming && <Button onClick={iniciar}>Activar Cámara</Button>}
+          {!streaming && <Button onClick={iniciar}>Activar CÃ¡mara</Button>}
           {streaming && <Button variant="outline" onClick={detener}>Detener</Button>}
         </div>
       </div>
@@ -496,9 +496,9 @@ function TabRegistrarSalida({ onToast }) {
             {activas.map((v) => (
               <tr key={v.idVisita}>
                 <td>{v.idVisita}</td>
-                <td>{v.nombreVisitante || '—'}</td>
-                <td>{v.numeroApartamento || '—'}</td>
-                <td>{formatDate(v.fechaVisita) || '—'}</td>
+                <td>{v.nombreVisitante || 'â€”'}</td>
+                <td>{v.numeroApartamento || 'â€”'}</td>
+                <td>{formatDate(v.fechaVisita) || 'â€”'}</td>
                 <td>
                   <Button
                     onClick={() => registrarSalida(v.idVisita)}
@@ -544,7 +544,7 @@ function TabParqueaderos({ onToast }) {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Código</th>
+                  <th>CÃ³digo</th>
                   <th>Tipo</th>
                   <th>Estado</th>
                 </tr>
@@ -584,7 +584,7 @@ export default function EscannerQRPage() {
 
   return (
     <div>
-      <PageHeader title="Escáner QR" subtitle="Validar entrada y registrar salida de visitantes" />
+      <PageHeader title="EscÃ¡ner QR" subtitle="Validar entrada y registrar salida de visitantes" />
 
       <div className="tabs">
         <button className={`tab ${tab === 'validar' ? 'active' : ''}`} onClick={() => setTab('validar')}>
