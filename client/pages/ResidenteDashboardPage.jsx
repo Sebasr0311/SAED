@@ -269,6 +269,16 @@ export default function ResidenteDashboardPage() {
     setPagando({ concepto, id, label });
     try {
       const sol = await api.post('/pagos/wompi/solicitud', { concepto, id });
+      // Idempotencia: si ya había un intento PENDIENTE con transacción creada en
+      // Wompi, no se reabre el widget — solo se espera el estado final.
+      if (sol.idTransaccionWompi) {
+        setToast({ message: 'Ya hay un pago en curso para este ítem. Esperando confirmación…', type: 'info' });
+        await pollEstadoWompi(sol.referencia);
+        setPagando(null);
+        refetchHistorialWompi();
+        if (typeof refetchDashboard === 'function') refetchDashboard();
+        return;
+      }
       await cargarWidgetWompi();
       const customerData = user?.email
         ? { email: user.email, fullName: `${user.nombres || ''} ${user.apellidos || ''}`.trim() || undefined }
