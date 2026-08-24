@@ -15,32 +15,36 @@ out/
 .classpath
 .settings/
 
-# Node & Frontend
+# Node & Frontend (Root & Subpackages)
 node_modules/
+**/node_modules/
 dist/
+**/dist/
 dist-ssr/
 *.local
 .npm
 .pnpm-store
 
-# Environment & Secrets
+# Environment & Secrets (Root & Subpackages)
 .env
 .env.local
 .env.*.local
 *.pem
 *.key
-src/main/resources/bd.properties
-src/main/resources/wallet.zip
-database/wallet_base64.txt
+**/bd.properties
+**/wallet.zip
+**/wallet_base64.txt
 wallet_part1.txt
 wallet_part2.txt
 *.p12
 *.sso
 *.jks
 
-# Build & Compilation
+# Build & Compilation (Root & Subpackages)
 target/
+**/target/
 bin/
+**/bin/
 *.class
 .mvn/wrapper/maven-wrapper.jar
 
