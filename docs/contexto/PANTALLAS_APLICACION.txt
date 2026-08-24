@@ -1,0 +1,726 @@
+# PANTALLAS DE LA APLICACIÓN — Sistema de Administración Residencial (SAED)
+
+## 1. Resumen del proyecto
+
+SAED (Sistema de Administración de Edificio Residencial) es una aplicación web SPA
+para la administración integral de un edificio residencial en Colombia. Permite
+gestionar residentes, apartamentos, contratos de arrendamiento, cuotas y pagos,
+visitas con código QR, parqueaderos, paquetes de portería, multas, avisos, quejas/
+sugerencias y alertas, con interfaz diferenciada por rol.
+
+- Frontend: React 18 + Vite + Tailwind CSS v3, en la carpeta `client/`. Enrutado con
+  React Router v6, código dividido por ruta (lazy loading). Kit de UI: shadcn/ui
+  (Radix) con wrappers de compatibilidad en `client/components/ui/`.
+- Backend: Java 17 + Maven, servidor HTTP nativo (com.sun.net.httpserver) sin Spring,
+  en `src/main/java/com/edificio/admin/`. Base de datos Oracle (XE 18c local / Oracle
+  ATP en la nube). Autenticación JWT + BCrypt.
+- Despliegue: frontend en GitHub Pages / Vercel y backend en Render (proxy opcional
+  Node.js `server.js` en puerto 3000).
+- Pagos en línea: integración con Wompi (widget de checkout) para que el residente
+  pague cuotas y multas desde su portal.
+
+NOTA: Toda la documentación del proyecto (CONTEXTO_COMPLETO_PROYECTO.txt,
+SAED_CONTEXTO_COMPLETO.txt, RESUMEN_PROYECTO.txt y DESIGN.md) ha sido completamente
+actualizada a la versión 5.5, reflejando el stack real y vigente con React 18 en `client/`,
+servidor Java 17 nativo y base de datos Oracle. Este documento complementa dicho contexto
+detallando exhaustivamente cada pantalla, ruta y componente de la interfaz.
+
+## 2. Roles de usuario
+
+Los roles se definen en `src/main/java/com/edificio/admin/model/enums/TipoRol.java`
+y se reutilizan en `client/lib/access.js` (ROLE_HOME, ACCESS_BY_ROLE) y
+`client/components/ui/Form.jsx`/`UsuariosPage.jsx` (constante ROLES).
+
+| Rol | Qué puede hacer | Pantallas que ve |
+|-----|-----------------|------------------|
+| ADMINISTRADOR | Acceso total: CRUD de residentes, apartamentos, contratos, usuarios, parqueaderos; registro de pagos; gestión de multas, alertas, avisos, quejas/solicitudes; reportes de ganancias e historial de visitas; exportación a Excel; también ve visitas y escáner QR | /dashboard, /residentes, /apartamentos, /contratos, /usuarios, /visitas, /historial-visitas, /paquetes-admin, /parqueaderos, /escanner-qr, /pagos, /ganancias, /multas, /alertas, /avisos, /quejas-admin |
+| PORTERO | Control de acceso: registrar visitas, validar QR, registrar salidas, notificar paquetes/domicilios, generar avisos de ruido y multas, consultar parqueaderos (solo lectura de parqueaderos: sin crear/editar/eliminar) | /portero-dashboard, /visitas, /paquetes, /parqueaderos, /escanner-qr |
+| RESIDENTE | Portal personal: ver su apartamento, contrato, cuotas, perfil; registrar visitas y generar QR; gestionar visitantes frecuentes; leer buzón; enviar quejas/sugerencias/apelaciones; pagar en línea (Wompi); confirmar acceso de visitantes en portería | /residente-dashboard, /res-perfil, /res-apartamento, /res-cuotas, /res-frecuentes, /res-buzon, /res-visita, /res-quejas |
+
+Reglas de autorización por rol:
+- Frontend: `client/App.jsx` envuelve cada ruta con `<ProtectedRoute roles={[...]}>`
+  y `client/lib/access.js` define qué rutas puede visitar cada rol.
+- Backend: `AuthScope.requireRole(...)` en cada handler REST (p. ej. UsuarioHandler
+  y ContratoHandler solo ADMINISTRADOR; QrHandler y VisitaHandler admiten
+  ADMINISTRADOR y PORTERO; BuzonHandler admite PORTERO/ADMINISTRADOR/RESIDENTE
+  según el endpoint). El middleware `AuthMiddleware` valida el JWT y que el usuario
+  siga activo en BD en cada request.
+- Los residentes solo acceden a sus propios datos: `AuthScope.requireOwnResident` y
+  `requireOwnApartment` derivan los IDs del token, nunca de parámetros del cliente.
+
+## 3. Mapa de navegación
+
+Definido en `client/App.jsx`. Todas las rutas internas están protegidas: un usuario
+no autenticado es redirigido a /login. `/` redirige a `/dashboard` (si el rol no
+tiene permiso, ProtectedRoute lo lleva a su home: /portero-dashboard o
+/residente-dashboard).
+
+| URL | Página | Rol permitido |
+|-----|--------|---------------|
+| /login | LoginPage | Público (única ruta sin autenticación) |
+| /dashboard | DashboardPage | ADMINISTRADOR (ruta principal de admin) |
+| /residentes | ResidentesPage | ADMINISTRADOR |
+| /apartamentos | ApartamentosPage | ADMINISTRADOR |
+| /contratos | ContratosPage | ADMINISTRADOR |
+| /usuarios | UsuariosPage | ADMINISTRADOR |
+| /visitas | VisitasPage | ADMINISTRADOR, PORTERO |
+| /historial-visitas | HistorialVisitasPage | ADMINISTRADOR |
+| /paquetes-admin | PaquetesAdminPage | ADMINISTRADOR |
+| /parqueaderos | ParqueaderosPage | ADMINISTRADOR, PORTERO |
+| /escanner-qr | EscannerQRPage | ADMINISTRADOR, PORTERO |
+| /pagos | PagosPage | ADMINISTRADOR |
+| /ganancias | GananciasPage | ADMINISTRADOR |
+| /multas | MultasPage | ADMINISTRADOR |
+| /alertas | AlertasPage | ADMINISTRADOR |
+| /avisos | AvisosPage | ADMINISTRADOR |
+| /quejas-admin | QuejasAdminPage | ADMINISTRADOR |
+| /residente-dashboard | ResidenteDashboardPage | RESIDENTE (ruta principal de residente) |
+| /res-perfil | ResPerfilPage | RESIDENTE |
+| /res-apartamento | ResApartamentoPage | RESIDENTE |
+| /res-cuotas | ResCuotasPage | RESIDENTE |
+| /res-frecuentes | ResFrecuentesPage | RESIDENTE |
+| /res-buzon | ResBuzonPage | RESIDENTE |
+| /res-visita | ResVisitaPage | RESIDENTE |
+| /res-quejas | ResQuejasPage | RESIDENTE |
+| /portero-dashboard | PorteroDashboardPage | PORTERO (ruta principal de portero) |
+| /paquetes | PaquetesPage | PORTERO |
+| * (cualquier otra, autenticado) | NotFoundPage | Cualquier rol autenticado |
+| * (sin autenticar) | redirección a /login | — |
+
+## 4. Pantallas principales
+
+### 4.1 Login — client/pages/LoginPage.jsx (URL: /login)
+
+- Propósito: autenticación de usuarios del sistema.
+- Contenido: tarjeta de login centrada (logo SAED, subtítulo "Acceso seguro a tu
+  edificio") con galería rotativa de imágenes del edificio al costado (HeroGallery,
+  6 imágenes de `public/imagenes/`).
+- Funcionalidades: formulario usuario/contraseña con validación
+  (`valUsername`/`valPassword` de `client/lib/validation.js`), botón para
+  mostrar/ocultar contraseña, checkbox "Recordarme" (persiste el usuario en
+  localStorage), enlace "¿Olvidaste tu contraseña?" que solo muestra un aviso
+  "Contacte al administrador del sistema" (no existe recuperación real de
+  contraseña). Al autenticarse llama a POST /api/auth/login (vía
+  `client/lib/AuthContext.jsx`), guarda el JWT en sessionStorage ("auth_token" y
+  "auth_user") y redirige según rol: ADMINISTRADOR → /dashboard, PORTERO →
+  /portero-dashboard, RESIDENTE → /residente-dashboard (ROLE_HOME). Si venía de
+  una ruta protegida, vuelve a esa ruta si su rol la permite.
+- Componentes: Toast.
+- Rol: público.
+
+### 4.2 Dashboard del administrador — client/pages/DashboardPage.jsx (URL: /dashboard)
+
+- Propósito: vista general del estado del edificio.
+- Contenido: 3 tarjetas de estadísticas (Residentes, Apartamentos, Contratos
+  Activos) + dos paneles: "Multas Pendientes" (agrupadas por apartamento, con
+  paginación de 10 grupos/página y botón de notificación por multa) y "Próximos
+  Cobros" (contratos activos con su valor mensual, clic abre detalle).
+- Funcionalidades y acciones:
+  - Botón "Estado del Sistema" → modal con "Visitantes dentro del edificio"
+    (GET /api/registros-acceso/activos) y "QR generados sin escanear" (filtra
+    visitas PENDIENTE de GET /api/visitas).
+  - "Notificar todos" → POST /api/multas/notificar-todas (con ConfirmDialog).
+  - Clic en multa pendiente → modal de detalle (GET /api/multas/{id}): residente,
+    monto, estado, fecha, generada por, descripción, aviso previo de ruido, foto
+    de evidencia (solo multas PARQUEADERO), botón "Notificar al Residente"
+    (POST /api/multas/{id}/notificar).
+  - Clic en contrato activo → modal de detalle (GET /api/contratos/{id} +
+    GET /api/residentes/{id} + GET /api/cuotas?contrato={id}): titular del
+    contrato, fechas, valor mensual, estado, resumen de cuotas pagadas/pendientes
+    y tabla de cuotas por período.
+- Datos: GET /api/residentes, /api/apartamentos, /api/contratos, /api/multas/todas.
+- Componentes: PageHeader, Button, Modal, ConfirmDialog, Toast, StatCard (local).
+- Rol: ADMINISTRADOR.
+
+### 4.3 Gestión de residentes — client/pages/ResidentesPage.jsx (URL: /residentes)
+
+- Propósito: CRUD de residentes del edificio.
+- Contenido: tabla (ID, Nombres, Apellidos, Documento, Teléfono, Email, Acciones)
+  con búsqueda por nombre/documento y paginación de 15 registros.
+- Funcionalidades y acciones:
+  - "+ Nuevo Residente" / editar → modal de formulario: tipo y número de
+    documento (tipos desde GET /api/tipos-documento), nombres, apellidos, fecha
+    de nacimiento, teléfono, email y apartamento a asignar (GET /api/apartamentos).
+    Si la edad calculada está entre 16 y 17 años, aparece el panel "Datos del
+    Tutor Legal" (obligatorio: tipo doc, documento, nombres, apellidos, teléfono,
+    email, parentesco). Validaciones en vivo (useLiveValidation).
+  - Guardar → POST/PUT /api/residentes; si se asigna apartamento, también
+    POST /api/residentes/{id}/asignar-apartamento y verifica el resultado.
+  - Eliminar → confirmación + ConfirmPasswordDialog (reverificación de contraseña
+    del admin vía POST /api/auth/verify-password) y DELETE /api/residentes/{id}.
+- Componentes: PageHeader, DataTable, Pagination, Modal, Form (Input/Select),
+  Button, ConfirmPasswordDialog, Toast.
+- Rol: ADMINISTRADOR.
+
+### 4.4 Gestión de apartamentos — client/pages/ApartamentosPage.jsx (URL: /apartamentos)
+
+- Propósito: inventario y estado de apartamentos.
+- Contenido: tabla (ID, Número, Piso, Tipo, Área m², Residentes ocupación/capacidad
+  — en rojo si está al tope —, Estado con badge, Acciones).
+- Funcionalidades y acciones:
+  - "+ Nuevo Apartamento" / editar → modal: número, piso, tipo (ESTUDIO, 1HAB,
+    2HAB, 3HAB, PENTHOUSE, OTRO — con descripción si OTRO), área y capacidad
+    máxima (autocompletadas según tipo), estado (DISPONIBLE/OCUPADO/EN_MANTENIMIENTO).
+    Valida número duplicado.
+  - Icono "grupos" (solo si el apto tiene residentes u OCUPADO) → modal con
+    residentes del apartamento (GET /api/residentes?idApartamento=) y botón
+    "Quitar" para desasignar (DELETE /api/apartamentos/{id}/residentes/{id}).
+  - Eliminar → ConfirmPasswordDialog + DELETE /api/apartamentos/{id}.
+- Componentes: PageHeader, DataTable, Pagination, Modal, Form, Button,
+  ConfirmPasswordDialog, Toast.
+- Rol: ADMINISTRADOR.
+
+### 4.5 Gestión de contratos — client/pages/ContratosPage.jsx (URL: /contratos)
+
+- Propósito: contratos de arrendamiento (ciclo de vida: PENDIENTE_FIRMA → ACTIVO
+  → VENCIDO/CANCELADO/SUSPENDIDO, renovación).
+- Contenido: filtro por estado (todos, ACTIVO, SUSPENDIDO, VENCIDO,
+  PENDIENTE_FIRMA, CANCELADO) y tabla (ID, Apartamento, Arrendatario, Inicio, Fin
+  — "Indefinido" si aplica —, Tipo, Valor Mensual, Estado, Acciones).
+- Funcionalidades y acciones:
+  - "+ Nuevo Contrato" → modal con autocompletados: al elegir apartamento, sugiere
+    tipo de contrato según historial (GET /api/contratos/sugerir-tipo/{idApto}) y
+    autocompleta valor mensual (según administración del apto o valor por tipo);
+    la fecha fin se auto-calcula por tipo (INICIAL: +3 meses, RENOVACION: +6
+    meses, PERMANENCIA: sin fecha fin, campo deshabilitado). Checkbox "Enviar
+    correo de notificación al residente" (POST /api/contratos → respuesta incluye
+    emailStatus: enviado / sin_email / error).
+  - Acciones por fila (según estado): descargar PDF (GET /api/contratos/{id}/pdf,
+    descarga `contrato_{id}.pdf`), reenviar correo
+    (POST /api/contratos/{id}/reenviar-correo), activar (POST .../activar),
+    renovar (modal con nuevas fechas y valor, POST .../renovar) y cancelar
+    (ConfirmDialog "El apartamento quedará disponible", POST .../cancelar).
+- Componentes: PageHeader, DataTable, Pagination, Modal, Form, Button,
+  ConfirmDialog, Toast.
+- Rol: ADMINISTRADOR.
+
+### 4.6 Gestión de usuarios — client/pages/UsuariosPage.jsx (URL: /usuarios)
+
+- Propósito: cuentas de acceso al sistema.
+- Contenido: tabla (ID, Username, Rol con badge, Residente asociado, Activo,
+  Acciones).
+- Funcionalidades y acciones:
+  - "+ Nuevo Usuario" / editar → modal: username, contraseña (obligatoria al
+    crear, opcional al editar), rol (ADMINISTRADOR/PORTERO/RESIDENTE), residente
+    asociado (opcional; si se asigna, el rol debe ser RESIDENTE — validado en
+    frontend y backend) y checkbox "Usuario activo".
+  - Eliminar → ConfirmPasswordDialog + DELETE /api/usuarios/{id}.
+- Datos: GET/POST/PUT/DELETE /api/usuarios (solo ADMIN).
+- Componentes: PageHeader, DataTable, Pagination, Modal, Form, Button,
+  ConfirmPasswordDialog, Toast.
+- Rol: ADMINISTRADOR.
+
+### 4.7 Registro de visitas — client/pages/VisitasPage.jsx (URL: /visitas)
+
+- Propósito: registro y seguimiento de visitas con generación de QR.
+- Contenido: tabla (ID, Visitante, Documento, Apartamento, Ingreso, Salida,
+  Estado con badge, Acciones) con filtros por estado (ACTIVA/FINALIZADA/CANCELADA)
+  y por fecha.
+- Funcionalidades y acciones:
+  - "Nueva visita" → modal con: residente autorizante (solo residentes con
+    usuario, GET /api/residentes?conUsuario=true), tiempo de validez en minutos,
+    cantidad de personas, datos del visitante (tipo doc, documento con máscara
+    según tipo CC/TI/RC/NIT/CE/PP, nombres, apellidos, teléfono, email) y vehículo
+    opcional (tipo + placa con validación, o descripción si bicicleta).
+  - "Generar QR y Registrar" → POST /api/visitas; muestra el código QR generado con
+    botones: Copiar QR, Correo (mailto con el código), Telegram (t.me/share) y
+    "Registrar otra visita".
+  - Clic en fila → modal de detalle (GET /api/visitas/{id}/detalle): datos del
+    visitante, residente, apartamento, ingreso/salida, vehículo, parqueadero,
+    badge "Visitante Frecuente" si aplica, foto de captura (zoom a pantalla
+    completa).
+  - "Salida" → PUT /api/visitas/{id}/salida; "Cancelar" → DELETE /api/visitas/{id}.
+- Componentes: PageHeader, DataTable, Modal, Form (Input/Select/Textarea), Button,
+  Toast.
+- Rol: ADMINISTRADOR y PORTERO.
+
+### 4.8 Historial de visitas — client/pages/HistorialVisitasPage.jsx (URL: /historial-visitas)
+
+- Propósito: consulta histórica de visitas por rango de fechas con exportación a
+  Excel real (.xlsx con estilos).
+- Contenido: filtros Desde/Hasta (rango inicial: últimos 7 días) y búsqueda rápida
+  (visitante, documento, apto, residente); 3 KPIs (Total, Activas, Finalizadas);
+  tabla (ID, Visitante, Documento, Apto, Ingreso, Salida, Estado).
+- Funcionalidades y acciones:
+  - Clic en fila → modal de detalle (mismo endpoint /visitas/{id}/detalle).
+  - "Exportar Excel" → genera `visitas_<inicio>_<fin>.xlsx` real con
+    xlsx-js-style: título, KPIs, detalle con badges de estado, resumen por estado
+    y por apartamento (orden DESC), celdas numéricas con numFmt, autoFit de
+    columnas y paneles congelados (freeze) inyectados vía fflate.
+- Datos: GET /api/visitas/historial?fechaInicio=&fechaFin=.
+- Componentes: PageHeader, DataTable, Modal, Button, Toast.
+- Rol: ADMINISTRADOR.
+
+### 4.9 Paquetes (vista administrador) — client/pages/PaquetesAdminPage.jsx (URL: /paquetes-admin)
+
+- Propósito: consulta global de paquetes recibidos en portería.
+- Contenido: búsqueda (apto, residente, descripción), 3 KPIs (Total, Entregados,
+  Pendientes) y tabla (ID, Apartamento, Residente, Descripción, Recibido, Estado).
+- Funcionalidades: clic en fila → modal de detalle con foto del paquete. Solo
+  lectura (el registro y la entrega los hace el portero).
+- Datos: GET /api/buzon/paquetes.
+- Componentes: PageHeader, DataTable, Modal, Button, Toast.
+- Rol: ADMINISTRADOR.
+
+### 4.10 Parqueaderos — client/pages/ParqueaderosPage.jsx (URL: /parqueaderos)
+
+- Propósito: gestión de parqueaderos de residentes y visitantes.
+- Contenido: filtros por estado y tipo; tabla (ID, Código, Tipo, Estado, Visitante/
+  Residente, Apartamento, Propietario, Acciones). Auto-refresh cada 10 s.
+- Funcionalidades y acciones:
+  - "+ Nuevo" / editar → modal: código auto-generado (prefijo P=vehículo
+    residente, V=vehículo visitante, M=moto, B=bicicleta + número correlativo),
+    tipo (VEHICULO/MOTO/BICICLETA), estado, radio Visitante/Residente y apartamento
+    asignado (obligatorio si es de residente; solo apartamentos sin parqueadero
+    asignado). POST/PUT /api/parqueaderos.
+  - Eliminar → ConfirmPasswordDialog + DELETE /api/parqueaderos/{id}.
+  - Por rol: si el usuario es PORTERO, NO se muestran las acciones crear/editar/
+    eliminar (solo lectura), condicional `isPortero` en el código.
+- Componentes: PageHeader, DataTable, Pagination, Modal, Form, Button,
+  ConfirmPasswordDialog, Toast.
+- Rol: ADMINISTRADOR (gestión completa) y PORTERO (solo lectura).
+
+### 4.11 Escáner QR — client/pages/EscannerQRPage.jsx (URL: /escanner-qr)
+
+- Propósito: validación de QR de visitantes en portería. Tiene 3 pestañas.
+- Pestaña "Validar Entrada":
+  - Escaneo con cámara (jsQR cargado bajo demanda desde CDN, getUserMedia,
+    requestAnimationFrame) o entrada manual del código.
+  - POST /api/qr/validar → muestra datos del QR (visitante, documento, residente,
+    apartamento, expiración, notas).
+  - "Capturar y Notificar": fotografía al visitante (VideoCamara) y
+    POST /api/qr/notificar → espera confirmación del residente (polling cada 2 s
+    a GET /api/buzon/resultado-notificar?idVisita=).
+  - Si el residente confirmó: "¿En qué viene?" (Carro/Moto/Bicicleta/A pie/Otro),
+    placa o descripción según el caso, y "Registrar Entrada"
+    (POST /api/qr/entrada) → muestra el parqueadero asignado en pantalla (se
+    cierra en 10 s). Si rechazó, muestra "El residente rechazó la visita".
+- Pestaña "Registrar Salida": tabla de visitas activas (ACTIVA/PENDIENTE) con
+  botón "Registrar Salida" (PUT /api/visitas/{id}/salida).
+- Pestaña "Parqueaderos": estado en tiempo real agrupado en Visitantes/Residentes
+  (GET /api/parqueaderos) con botón "Actualizar".
+- Componentes: PageHeader, Button, Form, Modal, Toast, VideoCamara (local),
+  PanelValidar (local), TabValidar (local), TabRegistrarSalida (local),
+  TabParqueaderos (local).
+- Rol: ADMINISTRADOR y PORTERO.
+
+### 4.12 Pagos (administrador) — client/pages/PagosPage.jsx (URL: /pagos)
+
+- Propósito: cobro de cuotas de arriendo y multas pendientes por apartamento.
+- Contenido: búsqueda por apto/residente; 3 KPIs (Cuotas pendientes en $, Multas
+  pendientes en $, Aptos con saldo); tabla de apartamentos (Apartamento, Residente,
+  nº de cuotas pendientes, nº de multas pendientes).
+- Funcionalidades y acciones:
+  - Clic en fila → modal con dos tablas: Cuotas (período, monto, vencimiento,
+    botón "Pagar") y Multas (motivo, monto, fecha, botón "Pagar").
+  - Modal "Registrar Pago": fecha (máx. hoy), valor (no puede superar el saldo
+    pendiente), método (EFECTIVO / TRANSFERENCIA — referencia obligatoria con
+    formato 4-50 alfanumérica si transferencia) y notas opcionales.
+  - Confirmar → POST /api/pagos (cuotas, con idCuota) o
+    PUT /api/multas/{id}/pagar (multas). Guard anti doble-submit (ref).
+- Datos: GET /api/cuotas?pendientes=true y GET /api/multas/todas.
+- Componentes: PageHeader, DataTable, Modal, Form, Button, Toast.
+- Rol: ADMINISTRADOR.
+
+### 4.13 Ganancias — client/pages/GananciasPage.jsx (URL: /ganancias)
+
+- Propósito: reporte de ingresos del edificio con exportación a Excel.
+- Contenido: filtros Desde/Hasta (default: año en curso hasta hoy) + búsqueda
+  rápida; 4 KPIs (Total Pagos, Ingresos Totales, Cuotas, Multas); tabla de pagos
+  registrados (ID, Fecha, Tipo, Apartamento, Residente, Método, Valor,
+  Descripción) con paginación de 10.
+- Funcionalidades: "Exportar Excel" → `ganancias_<inicio>_<fin>.xlsx` real con
+  xlsx-js-style: título, KPIs, detalle con badges CUOTA/MULTA y fila TOTAL,
+  resumen mensual y por apartamento (sort por total DESC), formatos de moneda,
+  autoFit y freeze panes (fflate). El botón está deshabilitado si no hay datos.
+- Datos: GET /api/pagos/registrados (filtrado en cliente por rango/búsqueda).
+- Componentes: PageHeader, DataTable, Button, Toast.
+- Rol: ADMINISTRADOR.
+
+### 4.14 Multas (administrador) — client/pages/MultasPage.jsx (URL: /multas)
+
+- Propósito: consulta y gestión del estado de las multas.
+- Contenido: filtro por estado (PENDIENTE/PAGADA/VENCIDA/ANULADA); tabla (ID,
+  Apartamento, Residente, Tipo con badge RUIDO/PARQUEADERO, Monto, Fecha, Estado,
+  Acciones) con paginación de 10.
+- Funcionalidades y acciones:
+  - Clic en fila → modal de detalle (GET /api/multas/{id}): tipo, apartamento,
+    residente, monto, estado, fecha, generada por, aviso de ruido previo,
+    descripción, foto de evidencia (zoom).
+  - "Marcar Pagada" → PUT /api/multas/{id}/pagar (método EFECTIVO).
+  - "Anular" → PUT /api/multas/{id}/anular (con confirmación).
+- Nota: la GENERACIÓN de multas no está en esta página: se hace desde el panel del
+  portero (PorteroDashboardPage, POST /api/multas/generar).
+- Componentes: PageHeader, DataTable, Pagination, Modal, Button, Toast.
+- Rol: ADMINISTRADOR.
+
+### 4.15 Alertas — client/pages/AlertasPage.jsx (URL: /alertas)
+
+- Propósito: notificaciones automáticas de vencimientos enviadas a residentes
+  (generadas por el backend en un job diario — AlertaService).
+- Contenido: checkbox "Solo no leídas", búsqueda (tipo, apto, residente, estado de
+  cuota); tabla (ID, Tipo, Apartamento, Residente, Período, Estado Cuota, Canal,
+  Leída, Enviada) con selección de fila por clic y paginación de 15.
+- Funcionalidades: botón "Marcar Leída" → PUT /api/alertas/{id}/leer sobre la fila
+  seleccionada.
+- Datos: GET /api/alertas?[soloNoLeidas=true].
+- Componentes: PageHeader, DataTable, Pagination, Button, Input, Toast.
+- Rol: ADMINISTRADOR.
+
+### 4.16 Avisos — client/pages/AvisosPage.jsx (URL: /avisos)
+
+- Propósito: envío de comunicados masivos a residentes (buzón).
+- Contenido: tabla de avisos enviados (ID, Apartamento — "Todos" si fue masivo —,
+  Título, Mensaje, Fecha).
+- Funcionalidades: "+ Nuevo Aviso" → modal con selector de apartamentos
+  (ApartamentoMultiSelect: "Todos los apartamentos", selección por piso completo
+  o apto individual, con búsqueda de piso), título y mensaje obligatorios →
+  POST /api/buzon/aviso (sin lista de apartamentos = masivo; con lista = dirigido).
+- Datos: GET /api/buzon/avisos (historial) y GET /api/apartamentos (selector).
+- Componentes: PageHeader, DataTable, Modal, Form, Button, Toast,
+  ApartamentoMultiSelect (local).
+- Rol: ADMINISTRADOR.
+
+### 4.17 Solicitudes/quejas (administrador) — client/pages/QuejasAdminPage.jsx (URL: /quejas-admin)
+
+- Propósito: gestión de quejas, sugerencias y apelaciones de los residentes.
+- Contenido: 4 KPIs (Total, Pendientes, En Revisión, Resueltas/Cerradas); filtros
+  por estado, tipo (QUEJA/SUGERENCIA/APELACION) y prioridad (ALTA/MEDIA/BAJA) +
+  búsqueda; tabla (ID, Tipo, Título, Apto, Residente, Categoría, Estado, Prioridad,
+  Fecha). Auto-refresh cada 5 s (solo con pestaña visible).
+- Funcionalidades: clic en fila → modal de detalle con datos, descripción, foto de
+  evidencia (zoom) y formulario de gestión: estado (PENDIENTE/EN_REVISION/RESUELTA/
+  CERRADA), prioridad y respuesta al residente. Guarda disparando solo los cambios:
+  PUT /api/quejas/{id}/responder (marca RESUELTA), PUT .../estado y PUT
+  .../prioridad (en serie para coordinar estado final).
+- Datos: GET /api/quejas/todas.
+- Componentes: PageHeader, DataTable, Pagination, Modal, Form (Select/Textarea),
+  Button, Toast.
+- Rol: ADMINISTRADOR.
+
+### 4.18 Panel del residente — client/pages/ResidenteDashboardPage.jsx (URL: /residente-dashboard)
+
+- Propósito: centro del portal del residente: su estado financiero, pagos en línea
+  y QR activos.
+- Contenido: 4 tarjetas (Apartamento, Estado Contrato, Cuotas de Arriendo, Multas
+  Pendientes); gráfico donut de distribución por tipo de pago (canvas propio,
+  repinta al cambiar tema); sección "Mis pagos" con cuotas y multas pendientes y
+  botones "Pagar"; historial de intentos de pago (últimos 5); sección "Códigos QR
+  Activos" con miniaturas.
+- Funcionalidades y acciones:
+  - Pagos en línea con Wompi: POST /api/pagos/wompi/solicitud → abre el widget de
+    checkout (script precargado; sin redirectUrl por bloqueo de localhost),
+    registra la transacción (POST /api/pagos/wompi/transaccion) y hace polling
+    (cada 2 s, hasta 3 min) a GET /api/pagos/wompi/estado hasta APROBADO/RECHAZADO/
+    VENCIDO/ERROR. Botones por cuota (CUOTA) y multa (MULTA). Los estados se
+    muestran con badges (Pagado/Rechazado/Vencido/Error/Pendiente).
+  - QR activos (GET /api/residentes/{id}/qr-activos): imagen QR vía
+    api.qrserver.com, botones Compartir Telegram (t.me/share), SMS (sms:),
+    Correo (mailto:) y Copiar QR.
+  - Confirmación de visitas en tiempo real: polling cada 5 s (30 s si 5 fallos
+    consecutivos, con aviso) a GET /api/buzon/confirmar-pendiente; cuando hay una
+    solicitud pendiente abre un modal "Solicitud de Acceso" con foto del visitante
+    y botones Confirmar Acceso / Rechazar (POST /api/buzon/confirmar).
+- Datos: GET /api/residentes/{id}, /api/residentes/{id}/dashboard,
+  /api/pagos/registrados, /api/pagos/wompi/historial.
+- Componentes: PageHeader, Modal, Button, Toast, DonutChart/BarChart (locales,
+  canvas).
+- Rol: RESIDENTE.
+
+### 4.19 Mi Perfil — client/pages/ResPerfilPage.jsx (URL: /res-perfil)
+
+- Propósito: consulta y edición de datos personales del residente.
+- Contenido: tarjeta con campos solo lectura (Nombres, Documento, Fecha de
+  Nacimiento, Teléfono, Email, Apartamento) y botón "Editar".
+- Funcionalidades: modal de edición limitado a teléfono y email (validados en
+  vivo) → PUT /api/residentes/{id}/perfil. Nombres, documento y fecha de
+  nacimiento no son editables por el residente.
+- Datos: GET /api/residentes/{id}.
+- Componentes: PageHeader, Form, Button, Modal, Toast.
+- Rol: RESIDENTE.
+
+### 4.20 Mi Apartamento — client/pages/ResApartamentoPage.jsx (URL: /res-apartamento)
+
+- Propósito: información del apartamento y del contrato del residente.
+- Contenido: dos tarjetas (Información del apartamento: número, piso, tipo, área,
+  capacidad, estado; Contrato actual: tipo, estado, fechas, valor mensual, día de
+  pago) y tarjeta "Compañeros de apartamento" (lista con avatar de inicial).
+- Funcionalidades: solo lectura. Datos de GET /api/residentes/{id}/dashboard y
+  GET /api/residentes?idApartamento=.
+- Componentes: PageHeader, DetailRow (local).
+- Rol: RESIDENTE.
+
+### 4.21 Mis Cuotas — client/pages/ResCuotasPage.jsx (URL: /res-cuotas)
+
+- Propósito: historial de cuotas de arriendo del residente.
+- Contenido: tabla (ID, Período, Monto, Vencimiento, Estado con badge PAGADA/
+  PENDIENTE/VENCIDA/ANULADA). Sin acciones: solo lectura (el pago se hace desde
+  el panel, sección "Mis pagos", vía Wompi).
+- Datos: GET /api/residentes/{id}/dashboard (campo cuotas).
+- Componentes: PageHeader, DataTable.
+- Rol: RESIDENTE.
+
+### 4.22 Visitantes Frecuentes — client/pages/ResFrecuentesPage.jsx (URL: /res-frecuentes)
+
+- Propósito: gestión de visitantes frecuentes y generación rápida de QR.
+- Contenido: búsqueda y grilla de tarjetas (avatar, nombre, documento, placa,
+  última visita) con botones "Generar QR" y "Quitar".
+- Funcionalidades y acciones:
+  - "+ Nuevo Visitante" → modal (tipo y número de documento, nombres, apellidos,
+    teléfono, email) → POST /api/visitantes. El aviso aclara que para marcarlo
+    como frecuente debe generarse un QR de visita rápida.
+  - "Generar QR" → modal con medio de transporte (pre-llenado con la última placa/
+    descripción), cantidad de personas, validez (5-60 min), notas →
+    POST /api/visitas/rapida → muestra el código QR generado con expiración y
+    botones Cerrar / "Generar otro QR".
+  - "Quitar" → ConfirmDialog + DELETE /api/residentes/{id}/frecuentes/{id}.
+- Datos: GET /api/residentes/{id}/frecuentes, GET /api/residentes/{id}/qr-activos.
+- Componentes: PageHeader, Button, Modal, Form, ConfirmDialog, Toast.
+- Rol: RESIDENTE.
+
+### 4.23 Buzón — client/pages/ResBuzonPage.jsx (URL: /res-buzon)
+
+- Propósito: notificaciones del administrador/portería (avisos, paquetes, avisos
+  de ruido, confirmaciones).
+- Contenido: lista de tarjetas de mensajes (título, cuerpo, tipo con badge, fecha,
+  foto de captura con zoom; borde izquierdo azul y badge "Nuevo" si no está
+  leído). Los no leídos se marcan al hacer clic (PUT /api/buzon/{id}/leido).
+- Funcionalidades: checkboxes de selección múltiple + "Vaciar seleccionados"
+  (PUT /api/buzon/vaciar-multi), botón "Vaciar buzón" (PUT /api/buzon/vaciar —
+  marca todo como leído/entregado), ambos con modal de confirmación.
+- Datos: GET /api/buzon.
+- Componentes: PageHeader, Button, Modal, Toast.
+- Rol: RESIDENTE.
+
+### 4.24 Registrar Visita (residente) — client/pages/ResVisitaPage.jsx (URL: /res-visita)
+
+- Propósito: registrar una visita propia y generar su QR.
+- Contenido: formulario (máx. 720 px) con datos del visitante (tipo doc, documento
+  — con búsqueda automática por documento con debounce de 400 ms que autocompleta
+  visitantes existentes vía GET /api/visitas/buscar?documento= —, nombres,
+  apellidos, teléfono, email), validez (5-60 min), cantidad de personas (1-99),
+  medio de transporte (Carro/Moto/Bicicleta/A pie/Otro + placa o descripción) y
+  motivo opcional.
+- Funcionalidades: "Generar QR de visita" → POST /api/visitas → muestra tarjeta
+  azul con el código QR generado y botón "Generar otro".
+- Componentes: PageHeader, Form, Button, Toast.
+- Rol: RESIDENTE.
+
+### 4.25 Mis Solicitudes (residente) — client/pages/ResQuejasPage.jsx (URL: /res-quejas)
+
+- Propósito: enviar quejas, sugerencias y apelaciones, y ver su historial.
+- Contenido: formulario "Nueva solicitud" (tipo QUEJA/SUGERENCIA/APELACION;
+  categoría LIMPIEZA/SEGURIDAD/MANTENIMIENTO/CONVIVENCIA/ZONAS_COMUNES/OTRO; si es
+  APELACION, selector de la multa a apelar desde su dashboard; título; descripción;
+  foto de evidencia opcional tomada con cámara — CamaraCaptura) + tabla de
+  historial (ID, Tipo, Título, Estado, Fecha).
+- Funcionalidades: "Enviar Solicitud" → POST /api/quejas; clic en fila → modal de
+  detalle con respuesta del administrador destacada (recuadro verde).
+- Datos: GET /api/quejas (solo las propias), GET /api/residentes/{id}/dashboard
+  (multas para apelar).
+- Componentes: PageHeader, Form, Button, Modal, DataTable, Toast, CamaraCaptura
+  (local).
+- Rol: RESIDENTE.
+
+### 4.26 Panel del portero — client/pages/PorteroDashboardPage.jsx (URL: /portero-dashboard)
+
+- Propósito: operación diaria de portería.
+- Contenido: 4 KPIs (Visitas Hoy, Visitas Activas, Parqueaderos Visitantes
+  Disponibles, Paquetes Pendientes); "Acciones Rápidas" (Aviso de Ruido, Multa por
+  Ruido, Multa Parqueadero, Paquetes Pendientes) y "Otras acciones" (accesos
+  directos a /visitas, /paquetes, /parqueaderos, /escanner-qr).
+- Funcionalidades y acciones:
+  - Modal "Aviso de Ruido": selector de apartamento OCUPADO + mensaje →
+    POST /api/buzon/aviso-ruido.
+  - Modal "Generar Multa": tipo RUIDO o PARQUEADERO; para RUIDO puede partir de un
+    aviso previo (GET /api/buzon/quejas-ruido-pendientes, requiere ≥20 min desde el
+    aviso — validado por backend); para PARQUEADERO la foto de evidencia es
+    obligatoria (VideoCamara). → POST /api/multas/generar.
+  - Modal "Paquetes Pendientes": lista (GET /api/buzon/paquetes-pendientes) con
+    botones Ver (detalle con foto) y "Entregado" (PUT /api/buzon/{id}/entregado).
+- Datos: GET /api/visitas/hoy, /api/parqueaderos?estado=DISPONIBLE,
+  /api/buzon/paquetes-pendientes, /api/apartamentos.
+- Componentes: PageHeader, Button, Form (Select/Textarea), Modal, DataTable, Toast,
+  VideoCamara (local), ModalAvisoRuido/ModalGenerarMulta/ModalPaquetes (locales).
+- Rol: PORTERO.
+
+### 4.27 Notificar Paquete o Domicilio — client/pages/PaquetesPage.jsx (URL: /paquetes)
+
+- Propósito: registrar un paquete/domicilio recibido en portería con foto.
+- Contenido: tarjeta con selector de apartamento, cámara (foto obligatoria,
+  previsualización y botón Repetir) y botón "Notificar Llegada" + tabla de
+  paquetes del apartamento seleccionado (ID, Descripción, Recibido, Estado).
+- Funcionalidades: "Notificar Llegada" → POST /api/buzon/paquete (título fijo
+  "Paquete/Domicilio recibido" + foto en base64). La tabla consulta
+  GET /api/buzon?idApartamento= y filtra tipo PAQUETE.
+- Componentes: PageHeader, Form (Select), Button, DataTable, Toast.
+- Rol: PORTERO.
+
+### 4.28 Página 404 — client/pages/NotFoundPage.jsx (URL: * dentro del shell)
+
+- Propósito: ruta inexistente para usuarios autenticados.
+- Contenido: estado vacío con icono, "Error 404" y botón "Ir al inicio".
+- Componentes: PageHeader, EmptyState (CSS local).
+- Rol: cualquier rol autenticado.
+
+## 5. Componentes compartidos
+
+Los componentes de UI viven en `client/components/` y se componen de un kit
+shadcn/ui/Radix (`*.tsx`) más wrappers de compatibilidad propios (`*.jsx`) que
+mantienen la API usada por las páginas. DESIGN.md es la guía de diseño (tokens,
+radios, accesibilidad).
+
+- AppShell (`components/layout/AppShell.jsx`) — shell de la app autenticada:
+  sidebar por rol agrupado (NAV_BY_ROLE: Inicio, Administración, Operación,
+  Finanzas, Comunicación, Gestión para admin; Inicio y Operación para portero;
+  Inicio, Mi Cuenta, Finanzas, Visitas, Comunicación para residente), colapsable a
+  rail (persistido en localStorage) y drawer en móvil; topbar con hamburguesa,
+  título de página (también document.title), toggle de tema claro/oscuro,
+  NotificationBell, avatar + username + badge de rol y botón de cerrar sesión;
+  contiene el <Outlet /> envuelto en Suspense (fallback "Cargando...") y
+  ErrorBoundary; envuelve el iframe del checkout de Wompi con un backdrop global.
+- ProtectedRoute (`components/ProtectedRoute.jsx`) — guard de rutas: sin sesión →
+  /login (recordando la ruta de origen); con rol no permitido → home del rol.
+- ErrorBoundary (`components/ErrorBoundary.jsx`) — límite de error por ruta: si una
+  página falla, el shell sigue vivo y muestra fallback con "Recargar página";
+  resetea al navegar.
+- PageHeader (`components/ui/PageHeader.jsx`) — encabezado estándar de página:
+  título, subtítulo y zona de acciones (botones/filtros). Se usa en TODAS las
+  páginas.
+- DataTable (`components/ui/DataTable.jsx`) — tabla genérica con columnas
+  configurables (render por columna), skeleton de carga (5 filas), estado vacío
+  (EmptyState), estado de error con "Reintentar", paginación integrada opcional
+  (pageSize) y filas clicables con accesibilidad de teclado. Usada en casi todas
+  las páginas de listado.
+- Pagination (`components/ui/Pagination.jsx`) — paginación externa (página, total
+  de páginas, rango visible) para las tablas que manejan su propio paginado.
+- Modal (`components/ui/Modal.jsx`) — wrapper sobre Dialog de shadcn/ui; API
+  open/onClose/title/footer/size (sm/md/lg/xl); scroll interno y altura máxima.
+  Usado para formularios, detalles y confirmaciones en todas las páginas.
+- Form (`components/ui/Form.jsx`) — wrappers Input/Select/Textarea sobre shadcn/ui
+  con label, required (*), error inline accesible (aria-invalid/aria-describedby).
+- Button (`components/ui/Button.jsx`) — wrapper sobre Button de shadcn/ui con
+  variantes primary/outline/danger/ghost/accent y tamaños sm/md/lg; touch target
+  ≥44px en móvil.
+- Toast (`components/ui/Toast.jsx`) — wrapper sobre sonner; API
+  `<Toast toast={{message, type}}/>` con types success/error/info/warning;
+  posicionado abajo a la derecha, respeta tema claro/oscuro.
+- ConfirmDialog (`components/ui/ConfirmDialog.jsx`) — diálogo de confirmación
+  (AlertDialog de Radix) con botón de confirmación async (loading) y variante
+  danger. Usado en: Dashboard (notificar todas), Contratos (cancelar),
+  ResFrecuentes (quitar frecuente).
+- ConfirmPasswordDialog (`components/ui/ConfirmPasswordDialog.jsx`) — modal que
+  pide la contraseña del administrador (POST /api/auth/verify-password) antes de
+  acciones destructivas: eliminar residente, apartamento, usuario y parqueadero.
+- EmptyState (`components/ui/EmptyState.jsx`) — estado vacío estándar (icono +
+  título + subtítulo) para tablas y listas.
+- NotificationBell (`components/ui/NotificationBell.jsx`) — campana en la topbar
+  con badge de no leídas; panel lateral (Sheet) con hasta 12 notificaciones
+  recientes y botón "Ver más". Fuente según rol: admin → GET /api/notificaciones
+  (contador por timestamp "visto" en localStorage), residente → GET /api/buzon
+  (marca leído al abrir). Clic navega a /quejas-admin (admin) o /res-buzon
+  (residente). Refresca cada 45 s.
+- Kit shadcn/ui base (no usados directamente por las páginas salvo los wrappers):
+  alert-dialog, alert, avatar, badge, button, card, checkbox, dialog,
+  dropdown-menu, input, label, select, separator, sheet, skeleton, sonner, switch,
+  table, tabs, textarea, tooltip (todos en `components/ui/*.tsx`).
+- Código compartido en `client/lib/`:
+  - api.js — cliente fetch con base URL (localhost:8080 en dev; Render en prod),
+    timeout 30 s, header Authorization Bearer, y manejo de 401 (limpia sesión y
+    redirige a /login, salvo en el propio /auth/login).
+  - AuthContext.jsx — contexto de autenticación: login (POST /api/auth/login),
+    logout, isAuthenticated, isAdmin/isPortero/isResidente; usuario persistido en
+    sessionStorage.
+  - access.js — ROLE_HOME (home por rol) y ACCESS_BY_ROLE (rutas permitidas por
+    rol) + roleCanAccess().
+  - hooks.js — useFetch (fetch + normalize {items,totalItems,totalPages,raw} +
+    refetch), useTiposDocumento (GET /api/tipos-documento) y useLiveValidation
+    (validación en vivo por campo "tocado").
+  - validation.js — validadores (nombre, apellido, documento por tipo, teléfono,
+    email, placa, enteros, fechas, username, password).
+  - utils.js — formatDate/formatDateTime (es-CO), formatCurrency (COP),
+    formatMiles/parseMiles, periodoLabel (mes año), todayStr (timezone
+    America/Bogota), imageSrc (base64 → data:image), cn/classNames.
+  - storage.js — claves de sesión (auth_token, auth_user).
+  - theme.js — tema claro/oscuro con persistencia (localStorage) y preferencia
+    del sistema.
+
+## 6. Funcionalidades transversales
+
+- Login/logout: login en /login (POST /api/auth/login, JWT en sessionStorage);
+  logout desde la sidebar ("Cerrar Sesión") o el icono de la topbar (limpia
+  sessionStorage y navega a /login). Un 401 en cualquier request no-login cierra
+  la sesión automáticamente.
+- Sesión: el token se envía en cada request (Authorization: Bearer). El backend
+  valida el JWT y además verifica en cada request que el usuario siga activo en BD
+  (AuthMiddleware.verificarActivo): un usuario desactivado recibe 401.
+- Cambio de contraseña: no existe pantalla de cambio de contraseña propia. El
+  administrador puede fijar/cambiar la contraseña de cualquier usuario desde
+  UsuariosPage (campo "Nueva contraseña (opcional)" al editar). El enlace
+  "¿Olvidaste tu contraseña?" del login solo informa que debe contactarse al
+  administrador.
+- Confirmación con contraseña: acciones destructivas (eliminar residente,
+  apartamento, usuario, parqueadero) requieren reingresar la contraseña del admin
+  (ConfirmPasswordDialog + POST /api/auth/verify-password).
+- Notificaciones: campana global con contador (NotificationBell); buzón interno
+  por residente (avisos, paquetes, avisos de ruido, confirmaciones de visita);
+  correos automáticos vía Brevo (contratos: al crear/renovar/reenviar; recibo de
+  pagos Wompi); compartir QR por correo (mailto), Telegram (t.me/share) y SMS
+  (sms: — flujo asistido, abre la app de mensajes).
+- Pagos en línea: widget Wompi en el panel del residente (cuotas y multas) con
+  confirmación por polling; conciliación automática de pendientes en el backend
+  (cada 15 min) y webhook /api/wompi/webhook.
+- Tema claro/oscuro: toggle en la topbar, persistido; los gráficos (canvas) y
+  toasts se repintan al cambiar de tema.
+- Título dinámico de pestaña: "«Página» — SAED" según la ruta activa.
+- Exportación a Excel: Ganancias e Historial de Visitas generan .xlsx real con
+  xlsx-js-style + fflate (freeze panes), descargados como
+  ganancias_<inicio>_<fin>.xlsx y visitas_<inicio>_<fin>.xlsx.
+- Anti doble-submit: patrón de ref en los envíos críticos (crear contrato, pagos,
+  visitas, envíos de solicitudes, etc.).
+- Confirmaciones de visita en portería: flujo residente (modal con foto, confirmar/
+  rechazar) + portero (polling del resultado, 2 s) para completar el ingreso.
+
+## 7. Observaciones
+
+- Documentación desactualizada: RESUMEN_PROYECTO.txt, SAED_CONTEXTO_COMPLETO.txt y
+  CONTEXTO_COMPLETO_PROYECTO.txt describen un frontend "Vanilla JS" (frontend/js/
+  pages/) y no mencionan el frontend React actual (client/) ni el módulo de pagos
+  Wompi, el dashboard del residente con gráficos, ni los reportes .xlsx con
+  xlsx-js-style. Se recomienda actualizar esos documentos o marcarlos como
+  históricos. Este TXT refleja el estado real del código.
+- Código duplicado en ResFrecuentesPage.jsx: el ConfirmDialog "Quitar visitante
+  frecuente" está definido dos veces (líneas ~478-496), con los mismos props.
+  Funcionalmente inofensivo pero indica una edición con copia/pega sin limpiar.
+- Página "Multas" del admin (MultasPage) no permite generar multas: solo consulta,
+  marca pagada y anula. La generación vive en el panel del portero
+  (PorteroDashboardPage → POST /api/multas/generar).
+- El filtro de estado de VisitasPage ofrece ACTIVA/FINALIZADA/CANCELADA pero el
+  sistema también produce visitas PENDIENTE (badge definido en la misma página);
+  no hay opción de filtrar por PENDIENTE desde el select.
+- Inconsistencia de nomenclatura de estados: la exportación de Historial de
+  Visitas estiliza un estado "COMPLETADA" que no existe como estado del backend
+  (los estados reales son PENDIENTE/ACTIVA/FINALIZADA/CANCELADA/EXPIRADA); el
+  estilo se aplica solo como fallback visual si apareciera.
+- "¿Olvidaste tu contraseña?" (login) no implementa recuperación: solo muestra
+  "Contacte al administrador del sistema". No existe endpoint de reset.
+- El residente no puede editar su nombre, documento ni fecha de nacimiento desde
+  ResPerfilPage (solo teléfono y email); tampoco existe cambio de contraseña
+  self-service.
+- La ruta /escanner-qr conserva la ortografía histórica "Escanner" (con doble n)
+  en la URL y el nombre de archivo (EscannerQRPage.jsx).
+- PaquetesAdminPage (admin) es de solo lectura; si se intentara entregar un
+  paquete desde ahí, no hay botón: la entrega es responsabilidad del portero
+  (PaquetesPage y modal del PorteroDashboard).
+- Estado del sistema (Dashboard admin): si GET /registros-acceso/activos o
+  /visitas fallan, el modal se cierra con toast de error (comportamiento
+  deliberado, documentado en el código).
+- Backend con endpoints no visibles en la UI React actual: /api/tutores,
+  /api/visitantes (usados por el portal y flujos internos), /api/wompi/webhook
+  (callback externo) y /health (monitoreo). No hay pantallas adicionales
+  asociadas a ellos.
+- El scroll de tablas largas y la paginación se resuelven de forma heterogénea:
+  algunas páginas usan Pagination (Residentes, Apartamentos, Contratos, Usuarios,
+  Multas, Alertas, QuejasAdmin) y otras la paginación integrada de DataTable
+  (Avisos, PaquetesAdmin) o ninguna (HistorialVisitas, Pagos, ResCuotas,
+  ResQuejas).

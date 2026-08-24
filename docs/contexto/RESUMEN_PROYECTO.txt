@@ -1,0 +1,759 @@
+================================================================================
+        SAED - SISTEMA DE ADMINISTRACIÓN DE EDIFICIO RESIDENCIAL
+              RESUMEN TÉCNICO COMPLETO DEL PROYECTO
+================================================================================
+
+ESTADO: Actualizado el 2026-08-14 — refleja el estado actual del repositorio
+(frontend React en client/).
+
+ÍNDICE
+------
+1. Visión General del Proyecto
+2. Arquitectura y Stack Tecnológico
+3. Bibliotecas y Dependencias Externas
+4. Sistema de Autenticación y Roles
+5. Módulo de Visitas y Códigos QR
+6. Módulo de Contratos (explicación completa)
+7. Módulo de Reportes y Exportación a Excel
+8. Notificaciones: Email, Telegram y SMS
+9. Endpoints REST de la API (resumen completo)
+10. Estructura de Base de Datos Oracle
+
+
+================================================================================
+1. VISIÓN GENERAL DEL PROYECTO
+================================================================================
+
+SAED es una aplicación web de página única (SPA) para la administración integral
+de un edificio residencial. Permite gestionar residentes, apartamentos, contratos,
+pagos (incluido pago en línea con Wompi), visitas con código QR, parqueaderos,
+paquetes de portería, multas, avisos y solicitudes, todo desde una sola interfaz
+accesible según el rol del usuario.
+
+Roles del sistema:
+  - ADMINISTRADOR : acceso total a todos los módulos
+  - PORTERO       : control de acceso, visitas, paquetes, parqueaderos (solo
+                    lectura en parqueaderos), multas y avisos de ruido
+  - RESIDENTE     : portal personal, cuotas, pagos en línea, visitas propias,
+                    visitantes frecuentes, buzón, quejas y apelaciones
+
+Servidores en ejecución:
+  - Frontend React (client/): servidor de desarrollo Vite (npm run dev) o build
+    estático (npm run build → dist/) desplegado en GitHub Pages / Vercel
+  - Servidor Java (puerto 8080): API REST con com.sun.net.httpserver (JDK nativo)
+  - Base de datos: Oracle XE 18c local (esquema RESIDENCIAL, servicio xepdb1) u
+    Oracle ATP en la nube (TNS residencial_high)
+  - server.js (Node, puerto 3000): proxy legacy sin dependencias npm; apuntaba a
+    frontend/, carpeta que ya no existe — hoy solo queda como referencia
+    histórica (el desarrollo usa Vite y el despliegue usa el build estático)
+
+
+================================================================================
+2. ARQUITECTURA Y STACK TECNOLÓGICO
+================================================================================
+
+FRONTEND (client/)
+------------------
+  - React 18.3 + Vite 5 + Tailwind CSS 3.4 + shadcn/ui (Radix)
+  - Enrutado con React Router v6 (client/App.jsx), código dividido por ruta
+    (React.lazy + Suspense); login es la única ruta pública
+  - Cada pantalla es un componente en client/pages/ (28 páginas)
+  - Kit de UI en client/components/ui/ (wrappers .jsx sobre componentes .tsx de
+    shadcn/ui/Radix) y shell en client/components/layout/AppShell.jsx
+  - Utilidades en client/lib/: api.js (cliente fetch con Bearer y manejo de 401),
+    AuthContext.jsx, access.js (ROLE_HOME / ACCESS_BY_ROLE), hooks.js (useFetch,
+    useTiposDocumento, useLiveValidation), validation.js, utils.js, storage.js,
+    theme.js (tema claro/oscuro persistido)
+  - Tokens JWT en sessionStorage bajo las claves "auth_token" y "auth_user"
+  - En desarrollo el cliente llama directo a localhost:8080; en producción apunta
+    al backend de Render
+
+BACKEND (src/main/java/com/edificio/admin/)
+-------------------------------------------
+  - Java 17 con servidor HTTP nativo (com.sun.net.httpserver)
+  - Sin Spring, sin Jakarta EE; todo implementado manualmente
+  - JDBC directo con Oracle JDBC (ojdbc11 23.3.0.23.09)
+  - Patrón DAO para acceso a datos
+  - Patrón Service para lógica de negocio
+  - Handlers REST en rest/handler/ (uno por recurso), autorización fina por rol
+    con rest/AuthScope.java (requireRole / requireOwnResident / requireOwnApartment)
+  - Jobs programados en RestServer: alertas de vencimiento (cada 24 h) y
+    conciliación de pagos Wompi pendientes (cada 15 min)
+
+PROXY NODE.JS (server.js) — LEGACY
+----------------------------------
+  - Sin dependencias npm (solo módulos nativos: http, fs, path)
+  - Puerto 3000: servía archivos estáticos del frontend y reenviaba /api/* al
+    backend en puerto 8080
+  - Propaga el JWT desde query string o header Authorization
+  - Maneja nombres de archivo con espacios usando decodeURIComponent()
+  - Nota: apunta a la carpeta frontend/, que ya no existe en el repositorio;
+    el flujo vigente es Vite (dev) y el build estático de client/ (producción)
+
+BASE DE DATOS
+-------------
+  - Oracle XE 18c (esquema RESIDENCIAL) local y Oracle ATP en la nube
+  - 21 tablas del modelo relacional + TRANSACCIONES_PAGO (pagos Wompi)
+  - Secuencias, triggers de auditoría y procedimiento SP_VALIDAR_QR
+  - Archivo de referencia: database/modelo_relacional_v4.sql (+ fix_wompi_transacciones_pago.sql)
+
+
+================================================================================
+3. BIBLIOTECAS Y DEPENDENCIAS EXTERNAS
+================================================================================
+
+BACKEND (pom.xml)
+-----------------
+  Biblioteca              | Coordenadas Maven                          | Versión
+  ------------------------|--------------------------------------------|---------
+  Oracle JDBC             | com.oracle.database.jdbc:ojdbc11           | 23.3.0.23.09
+  BCrypt (contraseñas)    | org.mindrot:jbcrypt                        | 0.4
+  Gson (JSON)             | com.google.code.gson:gson                  | 2.10.1
+  ZXing Core (QR)         | com.google.zxing:core                      | 3.5.2
+  ZXing JavaSE (QR)       | com.google.zxing:javase                    | 3.5.2
+  Flying Saucer / XHTML   | com.openhtmltopdf:openhtmltopdf-core+pdfbox| 1.0.10
+  jsoup                   | org.jsoup:jsoup                            | 1.16.1
+  JDK HTTP Server         | com.sun.net.httpserver                     | JDK 17 nativo
+
+FRONTEND (npm — package.json)
+-----------------------------
+  Biblioteca              | Versión            | Uso
+  ------------------------|--------------------|--------------------------------
+  react / react-dom       | 18.3               | Framework de UI
+  react-router-dom        | 6.26               | Enrutado (rutas protegidas por rol)
+  vite / @vitejs/plugin-react | 5.4 / 4.3      | Build y dev server
+  tailwindcss             | 3.4                | Estilos + design tokens
+  shadcn/ui (@radix-ui/*) | —                  | Kit: dialog, alert-dialog, select,
+                          |                    | dropdown-menu, tabs, switch, etc.
+  xlsx-js-style           | 1.2                | Exportación .xlsx con estilos
+  fflate                  | 0.8                | Freeze panes en el .xlsx
+  sonner                  | 2.0                | Toasts
+  lucide-react            | —                  | Iconos
+  next-themes / clsx / tailwind-merge / cva  | — | Soporte de tema y clases
+
+RECURSOS EN RUNTIME (CDN / servicios)
+-------------------------------------
+  Biblioteca / Servicio   | Detalle
+  ------------------------|-----------------------------------------------------
+  jsQR (CDN)              | Decodificación QR en el Escáner; se inyecta bajo
+                          | demanda solo en esa página (no en index.html)
+  api.qrserver.com        | Imagen del código QR generado (panel del residente)
+  Google Fonts            | Plus Jakarta Sans, JetBrains Mono
+  Material Symbols        | Iconos outlined
+
+APIs EXTERNAS USADAS
+--------------------
+  API / Servicio          | Usado? | Detalle
+  ------------------------|--------|--------------------------------------------
+  Oracle DB (JDBC)        | SI     | Conexión jdbc:oracle:thin al esquema
+                          |        | RESIDENCIAL (XE local o ATP con wallet)
+  Wompi                   | SI     | Pagos en línea del residente (widget de
+                          |        | checkout). Sandbox o producción según
+                          |        | WOMPI_ENV; claves WOMPI_PUBLIC_KEY,
+                          |        | WOMPI_INTEGRITY_SECRET, WOMPI_EVENTS_SECRET
+  Brevo (ex Sendinblue)   | SI     | Envío automático de correos: contratos
+                          |        | (crear/renovar/reenviar), QR de visitas y
+                          |        | recibo de pagos Wompi. Plan gratuito
+                          |        | 300 correos/día permanente
+  Gmail SMTP              | PARCIAL| Plan A opcional (GMAIL_APP_PASSWORD); Gmail
+                          |        | lo bloquea desde Render, no se usa en
+                          |        | producción
+  SendGrid                | NO     | OBSOLETO: fue el Plan B hasta 2026-08,
+                          |        | reemplazado por Brevo (variable muerta en
+                          |        | EmailService)
+  Twilio / Vonage (SMS)   | NO     | SMS es flujo asistido (enlace sms: abre la
+                          |        | app de mensajes); sin API de operadoras
+  Telegram Bot API        | NO     | Telegram abre enlace t.me/share en el
+                          |        | navegador
+  AWS / Firebase / Azure  | NO     | Ningún servicio en la nube
+  Google Maps / Geoloc.   | NO     | No usado
+
+
+================================================================================
+4. SISTEMA DE AUTENTICACIÓN Y ROLES
+================================================================================
+
+  - Endpoint de login: POST /api/auth/login
+    Body: { "username": "...", "password": "..." }
+    Respuesta: { "token": "JWT...", "rol": "ADMINISTRADOR|PORTERO|RESIDENTE", ... }
+
+  - El token JWT se guarda en sessionStorage["auth_token"] (usuario en
+    sessionStorage["auth_user"]), vía client/lib/AuthContext.jsx
+  - Cada petición a /api/* incluye el header: Authorization: Bearer <token>
+  - El backend valida el token en cada handler (AuthMiddleware) y además
+    verifica en cada request que el usuario siga activo en BD; un usuario
+    desactivado recibe 401
+  - El JWT expira a las 8 horas (JwtUtil.EXPIRATION_HOURS = 8); no hay refresh
+  - La autorización es fina por endpoint: cada handler exige el rol necesario con
+    AuthScope.requireRole(...) (p. ej. usuarios y contratos solo ADMINISTRADOR;
+    QR y visitas ADMINISTRADOR/PORTERO; buzón y pagos según el endpoint)
+  - Los residentes solo acceden a sus propios datos: requireOwnResident y
+    requireOwnApartment derivan los IDs del token, nunca de parámetros del cliente
+  - Contraseñas almacenadas con BCrypt (jbcrypt 0.4), nunca en texto plano
+  - Acciones destructivas del admin requieren POST /api/auth/verify-password
+    (ConfirmPasswordDialog)
+  - Home por rol: ADMINISTRADOR → /dashboard, PORTERO → /portero-dashboard,
+    RESIDENTE → /residente-dashboard (ROLE_HOME en client/lib/access.js)
+
+
+================================================================================
+5. MÓDULO DE VISITAS Y CÓDIGOS QR
+================================================================================
+
+FLUJO COMPLETO DE VISITAS
+-------------------------
+
+  1. RESIDENTE, ADMINISTRADOR o PORTERO registra una visita:
+       POST /api/visitas
+       Body: { idResidente (autorizante), tiempoValidezMin (5-60), cantidadPersonas,
+               tipoDocumento, documentoVisitante, nombres, apellidos, telefono,
+               email, vehiculo?, motivo? }
+     El residente puede registrar una visita rápida (POST /api/visitas/rapida),
+     opcionalmente partiendo de un visitante frecuente.
+
+  2. El backend (VisitaService) crea el registro en la tabla VISITAS (estado
+     PENDIENTE) y genera automáticamente el código QR único.
+
+GENERACIÓN DEL CÓDIGO QR (backend — ZXing)
+------------------------------------------
+  Biblioteca: Google ZXing 3.5.2 (com.google.zxing:core + :javase)
+
+  El código se genera con ZXing (QRCodeWriter.encode con charset UTF-8 y margen 1,
+  BitMatrix 300x300 → PNG en base64) y se guarda en la tabla QR_ACCESOS con su
+  fecha de expiración (ahora + tiempo de validez).
+
+VISUALIZACIÓN DEL QR (frontend React)
+-------------------------------------
+  El código recibido del backend se renderiza como imagen QR vía api.qrserver.com
+  (client/pages/ResidenteDashboardPage.jsx, ResFrecuentesPage.jsx, ResVisitaPage.jsx,
+  VisitasPage.jsx). Desde el panel del residente se puede compartir por Telegram
+  (t.me/share), SMS (sms:) o correo (mailto:), y copiar la imagen.
+
+ESCANEO Y VALIDACIÓN DEL QR (client/pages/EscannerQRPage.jsx)
+-------------------------------------------------------------
+  Biblioteca: jsQR (CDN, inyectado bajo demanda)
+
+  Dos modos de escaneo:
+    a) Cámara en vivo:
+       - getUserMedia() abre la cámara del dispositivo
+       - Captura frames con <video> + <canvas>
+       - requestAnimationFrame() ejecuta jsQR(imageData, width, height) en bucle
+    b) Entrada manual del código (texto)
+
+  Flujo de ingreso (pestaña "Validar Entrada"):
+    - POST /api/qr/validar → datos del QR (visitante, residente, apartamento,
+      expiración, notas)
+    - "Capturar y Notificar": fotografía al visitante y POST /api/qr/notificar →
+      el residente confirma/rechaza desde su portal (polling del portero a
+      GET /api/buzon/resultado-notificar?idVisita=)
+    - Si confirma: "¿En qué viene?" (Carro/Moto/Bicicleta/A pie/Otro) y
+      POST /api/qr/entrada → asigna parqueadero y registra el ingreso
+    - Salida: PUT /api/visitas/{id}/salida (pestaña "Registrar Salida")
+
+  Estados de una visita: PENDIENTE, ACTIVA, FINALIZADA, CANCELADA, EXPIRADA.
+
+VISITANTES FRECUENTES
+---------------------
+  - El residente gestiona sus frecuentes (GET /api/residentes/{id}/frecuentes,
+    DELETE /api/residentes/{id}/frecuentes/{idVisitante})
+  - Para marcarlo como frecuente se genera un QR de visita rápida
+
+
+================================================================================
+6. MÓDULO DE CONTRATOS (EXPLICACIÓN COMPLETA)
+================================================================================
+
+ESTRUCTURA DE LA BASE DE DATOS
+-------------------------------
+
+Tabla CONTRATOS (columnas principales):
+  id_contrato        NUMBER PK  (secuencia SEC_CONTRATOS)
+  id_apartamento     NUMBER FK  -> APARTAMENTOS (obligatorio)
+  id_tutor           NUMBER FK  -> TUTORES (solo si el residente es menor de edad)
+  id_registrado_por  NUMBER FK  -> USUARIOS (admin que creó el contrato)
+  fecha_inicio       DATE       (obligatorio)
+  fecha_fin          DATE       (NULL = contrato indefinido / PERMANENCIA)
+  valor_mensual      NUMBER(12,2) (canon de arriendo en COP, debe ser > 0)
+  dia_pago           NUMBER(2)  DEFAULT 5  (día del mes en que vence el pago)
+  dias_gracia        NUMBER(2)  DEFAULT 5  (días antes de aplicar mora)
+  porcentaje_mora    NUMBER(5,2) DEFAULT 1.5 (% mensual sobre saldo vencido)
+  tipo_contrato      VARCHAR2   INICIAL | RENOVACION | PERMANENCIA
+  contrato_pdf_url   VARCHAR2   (URL del PDF firmado, puede ser nulo)
+  estado             VARCHAR2   PENDIENTE_FIRMA | ACTIVO | VENCIDO | CANCELADO | SUSPENDIDO
+  observaciones      VARCHAR2   (notas del administrador)
+  fecha_registro     TIMESTAMP  DEFAULT SYSTIMESTAMP
+  actualizado_en     TIMESTAMP  (mantenido por trigger TRG_CONTRATOS_UPD)
+
+  Restricción ÚNICA a nivel DB:
+    CREATE UNIQUE INDEX UIX_CONT_APT_ACTIVO ON CONTRATOS (
+        CASE WHEN estado = 'ACTIVO' THEN id_apartamento ELSE NULL END
+    );
+    -> Solo puede existir UN contrato ACTIVO por apartamento a la vez.
+
+Tabla CONTRATO_RESIDENTE (tabla puente N:M):
+  id_contrato_res    NUMBER PK
+  id_contrato        NUMBER FK -> CONTRATOS (ON DELETE CASCADE)
+  id_residente       NUMBER FK -> RESIDENTES
+  rol_en_contrato    VARCHAR2   ARRENDATARIO | CODEUDOR | RESIDENTE_MENOR | OTRO
+
+  Un contrato puede tener múltiples personas vinculadas con distintos roles.
+  La consulta de "residente del contrato" filtra siempre por rol = 'ARRENDATARIO'.
+
+AUTOCOMPLETADO DEL FORMULARIO (client/pages/ContratosPage.jsx)
+---------------------------------------------------------------
+
+El formulario de nuevo contrato tiene tres mecanismos de autocompletado:
+
+  1. SUGERENCIA DE TIPO DE CONTRATO (al seleccionar apartamento)
+     - GET /api/contratos/sugerir-tipo/{idApartamento}
+     - El backend (ContratoSuggestionService) revisa el historial del apartamento:
+         0 contratos exitosos previos -> sugiere INICIAL  (3 meses)
+         1 contrato exitoso previo    -> sugiere RENOVACION (6 meses)
+         2 o más contratos exitosos   -> sugiere PERMANENCIA (sin fecha fin)
+
+  2. CÁLCULO AUTOMÁTICO DE FECHA FIN (al cambiar tipo o fecha inicio)
+     - INICIAL     -> fecha_fin = fecha_inicio + 3 meses
+     - RENOVACION  -> fecha_fin = fecha_inicio + 6 meses
+     - PERMANENCIA -> sin fecha fin (campo deshabilitado)
+
+  3. DATOS DEL TUTOR LEGAL (si el residente es menor de edad, 16-17 años)
+     - Panel obligatorio con tipo doc, documento, nombres, apellidos, teléfono,
+       email y parentesco del tutor
+
+  Adicionalmente: checkbox "Enviar correo de notificación al residente"
+  (POST /api/contratos responde emailStatus: enviado / sin_email / error).
+
+CICLO DE VIDA DEL CONTRATO
+---------------------------
+
+  Estado inicial al crear: PENDIENTE_FIRMA
+
+  Transiciones permitidas:
+    PENDIENTE_FIRMA -> ACTIVO      (admin hace clic en "Activar")
+    ACTIVO          -> CANCELADO   (admin hace clic en "Cancelar")
+    ACTIVO          -> VENCIDO     (automático por fecha_fin o proceso batch)
+    ACTIVO          -> SUSPENDIDO  (acción administrativa especial)
+    VENCIDO         -> ACTIVO      (admin hace clic en "Renovar", con nuevas fechas)
+    Cualquier estado -> CANCELADO  (soft-delete, nunca se borra físicamente)
+
+  Sincronización con el apartamento (ContratoService):
+    - Al ACTIVAR  un contrato -> apartamento.estado = OCUPADO
+    - Al CANCELAR un contrato -> apartamento.estado = DISPONIBLE
+    - Al RENOVAR  un contrato -> apartamento.estado = OCUPADO
+
+VALIDACIONES (doble capa: frontend + backend)
+---------------------------------------------
+
+  Frontend (client/lib/validation.js + useLiveValidation):
+    - Apartamento obligatorio, fecha de inicio obligatoria y no anterior a hoy
+    - Valor mensual obligatorio y mayor a 0
+    - Si tipo != PERMANENCIA: fecha_fin posterior a fecha_inicio
+
+  Backend (ContratoService.validar + ContratoValidatorService):
+    - Apartamento debe existir y no estar OCUPADO
+    - Fecha de inicio no anterior a hoy, valor mensual > 0
+    - Fecha fin (si no es PERMANENCIA) posterior a fecha inicio
+
+ENDPOINTS REST DE CONTRATOS
+---------------------------
+
+  GET  /api/contratos                              Lista todos los contratos
+  GET  /api/contratos/{id}                         Obtiene un contrato por ID
+  GET  /api/contratos/sugerir-tipo/{idApto}        Sugiere tipo según historial
+  GET  /api/contratos/{id}/pdf                     Descarga PDF binario del contrato
+  POST /api/contratos                              Crea nuevo contrato (solo ADMIN)
+       Body: { idApartamento, idResidente, idTutor?, tipoContrato?,
+               fechaInicio, fechaFin?, valorMensual, notas?, enviarCorreo? }
+  POST /api/contratos/{id}/activar                 Activa contrato (solo ADMIN)
+  POST /api/contratos/{id}/cancelar                Cancela contrato (solo ADMIN)
+  POST /api/contratos/{id}/renovar                 Renueva contrato (solo ADMIN)
+  POST /api/contratos/{id}/reenviar-correo         Reenvía el correo (solo ADMIN)
+  DELETE /api/contratos/{id}                       Cancela contrato (soft-delete)
+
+GENERACIÓN DE PDF DEL CONTRATO
+------------------------------
+
+  Flujo:
+    1. Frontend llama GET /api/contratos/{id}/pdf con JWT en el header
+    2. ContratoHandler invoca ContratoService.obtenerDetalleParaPDF(id)
+    3. Se carga un DTO con 52 campos: datos del residente, apartamento,
+       parqueadero asignado, tutor (si aplica), términos financieros,
+       datos del edificio y configuración según tipo de contrato
+    4. TemplateRenderService elige la plantilla HTML según tipo:
+         - contrato_inicial.html      (INICIAL, incluye cláusula de prueba)
+         - contrato_renovacion.html   (RENOVACION)
+         - contrato_permanencia.html  (PERMANENCIA, sin fecha de fin)
+    5. Se reemplazan marcadores {{variable}} con los valores reales del DTO
+    6. Flying Saucer/OpenHTMLtoPDF convierte el XHTML a bytes PDF
+    7. El backend responde con Content-Type: application/pdf
+    8. El frontend crea un Blob, genera una URL temporal y fuerza la descarga:
+       contrato_{id}.pdf
+
+  Nota técnica: las plantillas NO usan display:flex ni display:grid
+  por incompatibilidad con Flying Saucer 1.0.10. Se usa layout de tabla CSS.
+
+  La información del tutor aparece en el PDF únicamente si el residente
+  es menor de edad (sección de firma del tutor legal).
+
+
+================================================================================
+7. MÓDULO DE REPORTES Y EXPORTACIÓN A EXCEL
+================================================================================
+
+  Módulos: client/pages/GananciasPage.jsx e HistorialVisitasPage.jsx (React + Vite)
+  Función: exportarExcel() en cada página
+
+  IMPORTANTE (ACTUALIZADO 2026-08): ya NO se usa HTML puro tipo .xls. Se genera
+  un .xlsx REAL con xlsx-js-style 1.2.0 (fork de SheetJS CE que SÍ escribe
+  estilos: font/fill/border/numFmt; el SheetJS CE original no los escribe) y
+  fflate 0.8.x (post-proceso del ZIP para inyectar freeze panes).
+
+  Proceso técnico:
+    1. Se arma el libro con XLSX.utils.aoa_to_sheet + estilos por celda
+       (zebra, badges, headers azul oscuro, numFmt $#,##0 / 0 / dd/mm/yyyy)
+    2. autoFitCols(): ancho = ceil(chars * fontSize/11) + 3 — evita ##### en
+       Excel (los KPIs usan font sz 14, ~27% más ancho que Calibri 11)
+    3. Celdas numéricas con numFmt -> números seriales sumables en Excel
+    4. aplicaFreeze(): inyecta <pane state="frozen"> en sheet1.xml via fflate
+    5. new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    6. URL.createObjectURL(blob) -> clic programático en <a>
+    7. Archivos descargados: ganancias_<inicio>_<fin>.xlsx, visitas_<inicio>_<fin>.xlsx
+    8. La librería se carga solo al hacer clic en Exportar (await import('xlsx-js-style'))
+
+  Reportes:
+    - Ganancias (GET /api/pagos/registrados): 4 KPIs (Total Pagos, Ingresos
+      Totales, Cuotas, Multas), detalle con badges CUOTA/MULTA, fila TOTAL,
+      resumen mensual y por apartamento (sort por total DESC)
+    - Visitas (GET /api/visitas/historial): KPIs (Total, Activas, Finalizadas),
+      detalle con badges de estado, resumen por estado y por apartamento
+      (sort DESC)
+
+  Los filtros disponibles antes de exportar:
+    - Rango de fechas (fecha inicio / fecha fin)
+    - Búsqueda por texto libre (nombre visitante, residente, apartamento, placa)
+    - La exportación refleja exactamente lo que se ve en pantalla
+
+
+================================================================================
+8. NOTIFICACIONES: EMAIL, TELEGRAM Y SMS
+================================================================================
+
+  Implementación:
+    - EmailService.java: envío automático REAL de correos (Brevo)
+    - NotificacionService.java: flujos asistidos legacy (java.awt.Desktop/Toolkit)
+    - Frontend React: enlaces directos mailto:, t.me/share y sms: desde las
+      tarjetas de QR
+
+  EMAIL
+  -----
+    Envío automático (EmailService.java):
+      - Contratos: al crear (checkbox enviarCorreo) y
+        POST /api/contratos/{id}/reenviar-correo
+      - QR de visitas: POST /api/qr/enviar-correo
+      - Recibo de pagos Wompi al residente
+      - Plantillas HTML por tipo de contrato (src/main/resources/templates/correos/)
+      - Adjunta PDF del contrato (DataHandler + ByteArrayDataSource)
+      - Flujo: Plan A SMTP Gmail (opcional, bloqueado en Render) -> Plan B Brevo
+        (BREVO_API_KEY, header api-key:, api.brevo.com/v3/smtp/email)
+      - Sin credenciales -> fail-fast con mensaje claro
+    Método legacy: compartirPorCorreo()
+      - mailto: + Desktop.getDesktop().mail(uri) -> cliente de correo local;
+        requiere cliente de correo configurado en el SO
+    En el frontend React el compartir por correo usa el enlace mailto: directo
+    (sin depender del SO del servidor).
+
+  TELEGRAM
+  --------
+    Método: compartirPorTelegram()
+    Mecanismo:
+      1. Se construye la URL del botón de compartir oficial de Telegram:
+         "https://t.me/share/url?url=" + urlEncoded + "&text=" + textoEncoded
+      2. Desktop.getDesktop().browse(uri) -> abre Telegram Desktop o el navegador
+         (en el frontend React: enlace t.me/share directo en el navegador)
+      3. Telegram muestra el diálogo de reenvío con el texto prellenado
+    No se usa el Bot API ni ningún token de bot. Es el enlace público de compartir.
+
+  SMS
+  ---
+    Método: compartirPorSMS()
+    Mecanismo:
+      1. En el frontend React: enlace sms: que abre la app de mensajes del
+         dispositivo con el código prellenado (flujo asistido)
+      2. En el legacy (NotificacionService): copia el código al portapapeles del
+         sistema y muestra el teléfono para que el operador lo pegue manualmente
+    Limitación: NO es envío automático de SMS. No hay integración con operadoras
+    ni APIs de mensajería.
+
+  NOTIFICACIONES INTERNAS (adicionales al correo)
+  -----------------------------------------------
+    - Buzón por residente: avisos, paquetes, avisos de ruido, confirmaciones de
+      visita (GET /api/buzon)
+    - AlertaService: job diario (cada 24 h) que genera alertas de próximo
+      vencimiento de cuotas (canal SISTEMA) — GET /api/alertas
+    - Campana global (NotificationBell): admin → GET /api/notificaciones;
+      residente → GET /api/buzon (marca leído al abrir); refresca cada 45 s
+
+  RESUMEN DE LIMITACIONES
+  -----------------------
+  Telegram y SMS son flujos asistidos que dependen de acción manual del operador/
+  usuario. El envío automático real es por correo (Brevo) y por el buzón interno.
+  Los canales de alerta EMAIL/SMS/WHATSAPP existen como enum en el modelo
+  (AlertaPago.Canal), pero el job solo genera alertas con canal SISTEMA:
+  el envío por correo/SMS/WhatsApp de alertas NO está implementado.
+
+
+================================================================================
+9. ENDPOINTS REST DE LA API (RESUMEN COMPLETO)
+================================================================================
+
+  Prefijo base: /api. En desarrollo el cliente React llama directo a
+  localhost:8080; en producción apunta al backend de Render.
+  Leyenda de roles: [A] ADMINISTRADOR, [P] PORTERO, [R] RESIDENTE, [*] autenticado.
+
+  AUTENTICACIÓN
+    POST   /api/auth/login              Login (público), retorna JWT + usuario
+    POST   /api/auth/verify-password     Reverifica contraseña del admin (acciones
+                                        destructivas) [A]
+
+  USUARIOS
+    GET    /api/usuarios                Lista usuarios [A]
+    GET    /api/usuarios/{id}           Usuario por ID [A]
+    POST   /api/usuarios                Crea usuario (username, contraseña, rol,
+                                        residente asociado — RESIDENTE si hay) [A]
+    PUT    /api/usuarios/{id}           Actualiza usuario [A]
+    POST   /api/usuarios/{id}/toggle-activo  Activa/desactiva [A]
+    DELETE /api/usuarios/{id}/eliminar  Eliminación con verificación [A]
+    DELETE /api/usuarios/{id}           Elimina usuario [A]
+
+  RESIDENTES
+    GET    /api/residentes              Lista (filtros: conUsuario=true,
+                                        idApartamento=) [A/P]
+    GET    /api/residentes/{id}         Residente por ID (incluye tutor si es
+                                        menor) [*]
+    GET    /api/residentes/{id}/dashboard   Panel del residente (contrato, cuotas,
+                                        multas, QR activos) [R]
+    GET    /api/residentes/{id}/qr-activos  QR activos del residente [R]
+    GET    /api/residentes/{id}/frecuentes  Visitantes frecuentes [R]
+    POST   /api/residentes              Crea residente (tutor si 16-17 años) [A]
+    POST   /api/residentes/{id}/asignar-apartamento  Asigna apto [A]
+    PUT    /api/residentes/{id}         Actualiza residente [A]
+    PUT    /api/residentes/{id}/perfil  Edición de perfil (teléfono/email) [R]
+    DELETE /api/residentes/{id}         Elimina residente [A]
+    DELETE /api/residentes/{id}/frecuentes/{idVisitante}  Quita frecuente [R]
+
+  APARTAMENTOS
+    GET    /api/apartamentos            Lista (incluye ocupación) [*]
+    GET    /api/apartamentos/{id}       Apartamento por ID [*]
+    POST   /api/apartamentos            Crea apartamento [A]
+    PUT    /api/apartamentos/{id}       Actualiza apartamento [A]
+    DELETE /api/apartamentos/{id}       Elimina apartamento [A]
+    DELETE /api/apartamentos/{id}/residentes/{idResidente}  Desasigna residente [A]
+
+  CONTRATOS
+    GET    /api/contratos               Lista (JOIN residente+apto) [*]
+    GET    /api/contratos/{id}          Contrato por ID [*]
+    GET    /api/contratos/sugerir-tipo/{idApto}  Sugerencia de tipo [A]
+    GET    /api/contratos/{id}/pdf      Descarga PDF del contrato [*]
+    POST   /api/contratos               Crea contrato [A]
+    POST   /api/contratos/{id}/activar  Activa contrato [A]
+    POST   /api/contratos/{id}/cancelar Cancela contrato [A]
+    POST   /api/contratos/{id}/renovar  Renueva contrato vencido [A]
+    POST   /api/contratos/{id}/reenviar-correo  Reenvía correo [A]
+    DELETE /api/contratos/{id}          Soft-delete = cancelar [A]
+
+  CUOTAS
+    GET    /api/cuotas                  Lista (filtros: contrato=, pendientes=true;
+                                        por rol) [*]
+    POST   /api/cuotas                  Genera cuota [A]
+
+  PAGOS
+    GET    /api/pagos                   Lista pagos (filtros; por rol) [*]
+    GET    /api/pagos/registrados       Todos los pagos (cuotas + multas,
+                                        UNION ALL) [A]
+    GET    /api/pagos/ganancias         Resumen de ganancias (totales, por tipo,
+                                        por mes) [A]
+    POST   /api/pagos                   Registra pago de cuota (EFECTIVO/
+                                        TRANSFERENCIA con referencia) [A]
+
+  PAGOS WOMBI (pagos en línea del residente)
+    POST   /api/pagos/wompi/solicitud   Crea intención de pago (cuota o multa) y
+                                        devuelve publicKey para el widget [R/A]
+    POST   /api/pagos/wompi/transaccion Reporta el idTransaccionWompi del widget
+                                        para el polling de estado [R/A]
+    GET    /api/pagos/wompi/estado?referencia=  Estado de la intención (polling
+                                        cada 2 s, hasta 3 min) [R/A]
+    GET    /api/pagos/wompi/historial   Historial de intentos del residente [R]
+    GET    /api/pagos/wompi/historial-todos     Historial completo [A]
+    POST   /api/wompi/webhook           Callback de Wompi (público/externo);
+                                        conciliación automática de pendientes
+                                        cada 15 min en el backend
+
+  VISITAS
+    GET    /api/visitas                 Lista visitas (filtros por estado/fecha) [*]
+    GET    /api/visitas/buscar?documento=  Busca visitante por documento [R]
+    GET    /api/visitas/hoy             Visitas del día [P]
+    GET    /api/visitas/historial?fechaInicio=&fechaFin=  Historial [A]
+    GET    /api/visitas/{id}/detalle    Detalle completo de la visita [*]
+    POST   /api/visitas                 Registra visita + genera QR [R/A/P]
+    POST   /api/visitas/rapida          Visita rápida desde frecuente [R]
+    PUT    /api/visitas/{id}/salida     Registra salida [P/A]
+    DELETE /api/visitas/{id}            Cancela visita [P/A]
+
+  CÓDIGOS QR
+    POST   /api/qr/validar              Valida un código QR escaneado [P/A]
+    POST   /api/qr/notificar            Notifica al residente (confirmar acceso) [P/A]
+    POST   /api/qr/entrada              Registra entrada (asigna parqueadero) [P/A]
+    POST   /api/qr/enviar-correo        Envía el QR por correo [P/A]
+
+  REGISTROS DE ACCESO
+    GET    /api/registros-acceso/activos     Visitantes actualmente dentro [A/P]
+    POST   /api/registros-acceso/{id}/salida Registra salida física [P/A]
+
+  PARQUEADEROS
+    GET    /api/parqueaderos            Lista (filtros: estado, tipo) [*]
+    GET    /api/parqueaderos/{id}       Parqueadero por ID [*]
+    POST   /api/parqueaderos            Crea parqueadero [A]
+    PUT    /api/parqueaderos/{id}       Actualiza parqueadero [A]
+    DELETE /api/parqueaderos/{id}       Elimina parqueadero [A]
+
+  BUZÓN / MENSAJES
+    GET    /api/buzon                   Mensajes del residente logueado [R]
+    GET    /api/buzon/pendientes        Mensajes pendientes [R]
+    GET    /api/buzon/confirmar-pendiente   Solicitud de acceso pendiente [R]
+    GET    /api/buzon/resultado-notificar?idVisita=  Resultado de la confirmación [P/A]
+    GET    /api/buzon/paquetes          Paquetes (PORTERO: pendientes; ADMIN:
+                                        todos; RESIDENTE: propios) [*]
+    GET    /api/buzon/paquetes-pendientes   Paquetes pendientes [P]
+    GET    /api/buzon/quejas-ruido-pendientes  Avisos de ruido (≥20 min) [P]
+    GET    /api/buzon/avisos            Historial de avisos [A]
+    POST   /api/buzon/paquete           Registra paquete/domicilio con foto [P]
+    POST   /api/buzon/aviso-ruido       Aviso de ruido [P]
+    POST   /api/buzon/aviso             Aviso masivo o dirigido [A]
+    POST   /api/buzon/confirmar         Confirma/rechaza visita [R]
+    PUT    /api/buzon/{id}/leido        Marca mensaje como leído [R/A]
+    PUT    /api/buzon/{id}/entregado    Marca paquete como entregado [P/A]
+    PUT    /api/buzon/vaciar            Vacía el buzón (marca todo leído) [R]
+    PUT    /api/buzon/vaciar-multi      Vacía mensajes seleccionados [R]
+
+  MULTAS
+    GET    /api/multas/todas            Todas las multas [A]
+    GET    /api/multas                  Multas (ADMIN: todas; RESIDENTE: propias) [*]
+    GET    /api/multas/{id}             Detalle (foto, aviso previo) [*]
+    POST   /api/multas/generar          Genera multa RUIDO ($100.000) o
+                                        PARQUEADERO ($50.000, foto obligatoria) [P/A]
+    PUT    /api/multas/{id}/pagar       Marca pagada (EFECTIVO) [A/R]
+    PUT    /api/multas/{id}/anular      Anula multa [A]
+    POST   /api/multas/notificar-todas  Notifica todas las pendientes [A]
+    POST   /api/multas/{id}/notificar   Notifica una multa [A]
+
+  QUEJAS / SOLICITUDES
+    GET    /api/quejas                  Lista (RESIDENTE: solo las propias) [R]
+    GET    /api/quejas/todas            Todas [A]
+    GET    /api/quejas/pendientes       Pendientes [*]
+    GET    /api/quejas/{id}             Detalle [*]
+    POST   /api/quejas                  Crea queja/sugerencia/apelación [R]
+    PUT    /api/quejas/{id}/responder   Responde (marca RESUELTA) [A]
+    PUT    /api/quejas/{id}/estado      Cambia estado [A]
+    PUT    /api/quejas/{id}/prioridad   Cambia prioridad [A]
+
+  ALERTAS
+    GET    /api/alertas                 Lista alertas (por rol) [A/R]
+    PUT    /api/alertas/{id}/leer       Marca alerta como leída [A/R]
+
+  TIPOS DE DOCUMENTO
+    GET    /api/tipos-documento         Catálogo (CC, TI, CE, PP, RC, NIT...) [*]
+
+  VISITANTES
+    GET/POST/PUT/DELETE /api/visitantes  CRUD de visitantes reutilizables [*]
+
+  TUTORES
+    GET    /api/tutores/{id}            Tutor por ID [*]
+    POST/PUT/DELETE /api/tutores        CRUD tutores [A]
+
+  NOTIFICACIONES (campana de la topbar)
+    GET    /api/notificaciones          Notificaciones recientes (admin) [A]
+
+  HEALTH
+    GET    /health                      Monitoreo (público; SELECT 1 a BD en Render)
+
+
+================================================================================
+10. ESTRUCTURA DE BASE DE DATOS ORACLE
+================================================================================
+
+  Esquema: RESIDENCIAL | Servicio: xepdb1 (local) / residencial_high (ATP)
+  Archivos de referencia: database/modelo_relacional_v4.sql (21 tablas) y
+  database/fix_wompi_transacciones_pago.sql (tabla TRANSACCIONES_PAGO de Wompi)
+
+  TABLAS PRINCIPALES (22 en total):
+
+  TIPOS_DOCUMENTO     id_tipo_doc, codigo, descripcion, activo
+  APARTAMENTOS        id_apartamento, numero, piso, tipo, area_m2,
+                      capacidad_maxima, estado, administracion, activo
+  PARQUEADEROS        id_parqueadero, codigo, tipo (VEHICULO/MOTO/BICICLETA),
+                      es_visitante, estado, id_apartamento_fk
+  RESIDENTES          id_residente, id_tipo_doc, numero_documento, nombres,
+                      apellidos, fecha_nacimiento, telefono, email,
+                      es_menor_edad, id_tutor_fk, id_usuario_fk, activo
+  TUTORES             id_tutor, id_residente_menor, id_tipo_doc,
+                      numero_documento, nombres, apellidos, parentesco,
+                      telefono, email
+  USUARIOS            id_usuario, id_residente_fk (nullable), username,
+                      password_hash (BCrypt), rol (ADMINISTRADOR/PORTERO/
+                      RESIDENTE), activo, ultimo_login
+  CONTRATOS           (ver sección 6 para detalle completo)
+  CONTRATO_RESIDENTE  id_contrato_res, id_contrato, id_residente, rol_en_contrato
+  CUOTAS_ARRIENDO     id_cuota, id_contrato, anio, mes, tipo_cuota, valor_base,
+                      valor_mora, valor_total, fecha_vencimiento, estado
+                      (PENDIENTE/PAGADA/VENCIDA/EN_MORA/ANULADA)
+  PAGOS               id_pago, id_cuota, id_registrado_por, fecha_pago,
+                      valor_pagado, metodo_pago (EFECTIVO/TRANSFERENCIA/WOMPI/...)
+  ALERTAS_PAGO        id_alerta, id_cuota, tipo (PROXIMO_VENCIMIENTO/VENCIDA/
+                      EN_MORA), canal (SISTEMA/EMAIL/SMS/WHATSAPP), leida
+  MULTAS              id_multa, id_apartamento, id_mensaje_buzon_fk, tipo
+                      (RUIDO/PARQUEADERO), monto, estado (PENDIENTE/PAGADA/
+                      ANULADA), descripcion, foto_evidencia, creado_por
+  VISITAS             id_visita, id_contrato_res, id_residente, fecha_visita,
+                      tiempo_validez_min, cantidad_personas, estado
+                      (PENDIENTE/ACTIVA/FINALIZADA/CANCELADA/EXPIRADA)
+  QR_ACCESOS          id_qr, id_visita, codigo_qr, fecha_generacion,
+                      fecha_expiracion, usado, fecha_uso, id_vigilante_uso
+  VISITANTES          id_visitante, id_tipo_doc, numero_documento, nombres,
+                      apellidos, telefono, foto_url, activo
+  VEHICULOS_VISITA    id_vehiculo_visita, id_visita, id_parqueadero_fk, placa,
+                      tipo
+  REGISTRO_VISITA     id_registro_visita, id_visita, id_visitante,
+                      id_vehiculo_visita_fk, es_titular
+  FRECUENTES_RESIDENTE id_frecuente, id_residente, id_visitante, activo
+                      — UNIQUE(id_residente, id_visitante)
+  REGISTROS_ACCESO    id_acceso, id_visita, id_vigilante, hora_entrada,
+                      hora_salida
+  BUZON               id_mensaje, id_apartamento_fk, id_visita_fk, tipo
+                      (PAQUETE/AVISO/CONFIRMAR_VISITA/QUEJA_RUIDO), titulo,
+                      cuerpo, foto_captura, leido, entregado, confirmado,
+                      creado_por, fecha_creacion
+  QUEJAS_SUGERENCIAS  id_queja, id_apartamento, id_multa_fk, tipo
+                      (QUEJA/SUGERENCIA/APELACION), categoria, titulo,
+                      descripcion, foto_evidencia, estado, prioridad,
+                      respuesta, respondido_por, fecha_respuesta
+  TRANSACCIONES_PAGO  (Wompi) id, referencia (única, SAED-<CONCEPTO>-<id>-
+                      <timestamp>), id_apartamento, id_usuario, concepto
+                      (CUOTA/MULTA), id_cuota o id_multa (excluyentes), monto_centavos,
+                      moneda (COP), estado (PENDIENTE/APROBADO/RECHAZADO/VENCIDO/
+                      ERROR), id_transaccion_wompi, metodo_pago_wompi, payload_webhook,
+                      fecha_creacion, fecha_confirmacion
+
+  SEC_* (secuencias)  Una secuencia Oracle por cada tabla con PK autogenerada
+  TRG_* (triggers)    Triggers de auditoría para actualizado_en en tablas clave
+
+  PROCEDIMIENTO ALMACENADO:
+    SP_VALIDAR_QR(p_codigo_qr, p_id_portero, p_valido OUT, p_mensaje OUT)
+    -> Ejecuta validación atómica del QR: verifica existencia, estado "no usado",
+       no vencimiento, y registra el uso en una sola transacción Oracle.
+
+
+================================================================================
+FIN DEL DOCUMENTO
+Generado el: 27/05/2026 (actualizado 2026-08-14)
+Proyecto: SAED v4.3
+================================================================================

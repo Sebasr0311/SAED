@@ -496,12 +496,16 @@
   }
 
   .sidebar-submenu {
-    max-height: 0;
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.24s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .sidebar-submenu-inner {
     overflow: hidden;
-    transition: max-height 0.3s ease;
+    min-height: 0;
   }
   .sidebar-group.group-open .sidebar-submenu {
-    max-height: 1000px;
+    grid-template-rows: 1fr;
   }
 
   .sidebar-bottom {
