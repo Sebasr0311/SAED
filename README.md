@@ -9,47 +9,51 @@
 
 ---
 
-## 🏛️ Estructura del Proyecto
+## 🏛️ Arquitectura y Estructura del Proyecto
+
+El repositorio está organizado en módulos desacoplados y bien estructurados:
 
 ```
 SAED/
-├── client/                     # Frontend SPA (React 18 + Vite + TailwindCSS)
-│   ├── components/             # Componentes UI reutilizables y Layout (AppShell)
-│   ├── pages/                  # Vistas del sistema (Dashboard, Contratos, Pagos, QR...)
-│   └── lib/                    # Cliente HTTP (api.js), AuthContext, storage, helpers
+├── frontend/                   # Frontend SPA (React 18 + Vite + TailwindCSS)
+│   ├── src/                    # Componentes UI, Páginas, AuthContext y Libs
+│   ├── public/                 # Recursos públicos y estáticos
+│   ├── package.json            # Dependencias y scripts de Node
+│   ├── vite.config.js          # Configuración del bundler Vite
+│   ├── tailwind.config.js      # Sistema de diseño y tokens de Tailwind
+│   └── index.html              # Entry point HTML de la aplicación
 │
-├── src/                        # Backend REST (Java 17/25)
-│   ├── main/java/com/edificio/admin/
-│   │   ├── dao/                # Capa de acceso a datos (Oracle JDBC)
-│   │   ├── exception/          # Manejo de excepciones de dominio
-│   │   ├── model/              # Entidades y enumeraciones de negocio
-│   │   ├── rest/               # Servidor HTTP, Handlers, Middleware, DTOs, JWT
-│   │   ├── service/            # Servicios de negocio (Wompi, Alertas, PDF, Correo)
-│   │   └── util/               # Criptografía, ZXing QR, validadores, WalletSetup
-│   └── main/resources/
-│       └── templates/          # Plantillas HTML para contratos PDF y correos
+├── backend/                    # Backend REST (Java 17/25)
+│   ├── src/main/java/          # Código fuente Java (com.edificio.admin)
+│   │   ├── dao/                # Capa DAO JDBC (Oracle)
+│   │   ├── exception/          # Excepciones de dominio
+│   │   ├── model/              # Modelos y Enums
+│   │   ├── rest/               # Servidor REST, Handlers, Middleware, DTOs, JWT
+│   │   ├── service/            # Wompi, Alertas, Generador PDF, EmailService
+│   │   └── util/               # Criptografía, ZXing QR, Validadores, WalletSetup
+│   ├── src/main/resources/     # Plantillas HTML para contratos PDF y correos
+│   ├── pom.xml                 # Dependencias Maven y configuración de build
+│   └── Dockerfile              # Empaquetado contenerizado de producción
 │
 ├── database/                   # Base de Datos (Oracle ATP / Oracle 19c)
 │   ├── schema/                 # Scripts DDL base del modelo relacional
 │   ├── migrations/             # Parches y correcciones incrementales
 │   ├── seeds/                  # Semillas y datos de prueba
-│   ├── utilities/              # Scripts Java auxiliares de auditoría y migración
-│   └── docs/                   # Documentación técnica de tablas y modelos
+│   ├── utilities/              # Scripts Java auxiliares (Auditoria, Migracion)
+│   └── docs/                   # Documentación técnica de BD
 │
 ├── docs/                       # Documentación Técnica del Proyecto
-│   ├── arquitectura/           # Diagnósticos, blueprints y decisiones de diseño
+│   ├── arquitectura/           # Blueprints SAED 2.0, Diagnósticos y DESIGN.md
 │   ├── contexto/               # Resumen del proyecto, pantallas y especificaciones
-│   ├── diagramas/              # Diagramas UML, ERD y arquitectónicos
+│   ├── diagramas/              # Diagramas PlantUML y arquitectura
 │   └── plantillas/             # Plantillas fuente de contratos y correos
 │
 ├── scripts/                    # Scripts de utilidad y ejecución
 │   └── dev/                    # Scripts de arranque y configuración local
 │
-├── pom.xml                     # Configuración de dependencias Maven
-├── package.json                # Configuración de dependencias Frontend
-├── Dockerfile                  # Empaquetado contenerizado para backend
-├── render.yaml                 # Manifiesto de despliegue en Render
-└── vite.config.js              # Configuración de compilación Vite
+├── render.yaml                 # Manifiesto de despliegue multi-servicio (Render)
+├── .env.example                # Plantilla de variables de entorno
+└── README.md                   # Documentación principal
 ```
 
 ---
@@ -71,7 +75,7 @@ SAED/
 - Maven 3.8+
 
 ### 1. Variables de Entorno (Backend)
-Copia `.env.example` o configura las variables en tu entorno:
+Configura las variables en tu entorno o en `backend/.env`:
 ```env
 PORT=8080
 DB_URL=jdbc:oracle:thin:@residencial_high
@@ -86,11 +90,13 @@ WOMPI_EVENTS_SECRET=tu_events_secret_wompi
 
 ### 2. Ejecutar el Backend (Java)
 ```bash
+cd backend
 mvn compile exec:java -Dexec.mainClass="com.edificio.admin.RestServerMain"
 ```
 
 ### 3. Ejecutar el Frontend (React)
 ```bash
+cd frontend
 npm install
 npm run dev
 ```

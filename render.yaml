@@ -1,6 +1,7 @@
 services:
   - type: web
     name: saed-backend
+    rootDir: backend
     runtime: java
     region: oregon
     plan: free
@@ -27,3 +28,14 @@ services:
       - key: WALLET_BASE64
         sync: false
     healthCheckPath: /health
+
+  - type: web
+    name: saed-frontend
+    rootDir: frontend
+    runtime: static
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
