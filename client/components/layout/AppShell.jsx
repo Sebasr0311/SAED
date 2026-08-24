@@ -360,26 +360,28 @@ export default function AppShell() {
                   </button>
 
                   <div className="sidebar-submenu">
-                    {group.items.map((item) => {
-                      const active = isItemActive(location.pathname, item.path);
-                      return (
-                        <button
-                          key={item.path}
-                          type="button"
-                          className={`sidebar-item-btn ${active ? 'active' : ''}`}
-                          title={item.label}
-                          onClick={() => {
-                            navigate(item.path);
-                            setMobileOpen(false);
-                          }}
-                        >
-                          <span className="material-symbols-outlined" aria-hidden="true">
-                            {item.icon}
-                          </span>
-                          <span className="sidebar-label">{item.label}</span>
-                        </button>
-                      );
-                    })}
+                    <div className="sidebar-submenu-inner">
+                      {group.items.map((item) => {
+                        const active = isItemActive(location.pathname, item.path);
+                        return (
+                          <button
+                            key={item.path}
+                            type="button"
+                            className={`sidebar-item-btn ${active ? 'active' : ''}`}
+                            title={item.label}
+                            onClick={() => {
+                              navigate(item.path);
+                              setMobileOpen(false);
+                            }}
+                          >
+                            <span className="material-symbols-outlined" aria-hidden="true">
+                              {item.icon}
+                            </span>
+                            <span className="sidebar-label">{item.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               );
@@ -396,7 +398,7 @@ export default function AppShell() {
           </div>
         </aside>
 
-        {mobileOpen && <div className="sidebar-overlay show" onClick={() => setMobileOpen(false)} />}
+        {mobileOpen && <div className="sidebar-overlay show" aria-hidden="true" onClick={() => setMobileOpen(false)} />}
 
         <div className="app-body">
           <header className="topbar">

@@ -1,5 +1,8 @@
 # SAED Frontend — Design Language
 
+> ESTADO: Actualizado el 2026-08-14 — refleja el estado actual del repositorio
+> (frontend React en client/).
+
 This document is the single source of truth for the visual language of the
 SAED frontend (`client/`). It describes the token system, the component kit,
 and the rules that keep the UI uniform, accessible, and responsive.
@@ -7,7 +10,9 @@ and the rules that keep the UI uniform, accessible, and responsive.
 ## Principles
 
 The interface follows shadcn/ui conventions applied to the existing SAED
-stack (Vite + React 18 + Tailwind CSS v3, no TypeScript):
+stack (Vite + React 18 + Tailwind CSS v3). Application code lives in `.jsx`;
+the shadcn/ui kit components live in `client/components/ui/*.tsx` and are
+consumed through `.jsx` wrappers in the same folder:
 
 1. **One source of truth for tokens.** `tailwind.config.js` and the `:root`
    block in `client/index.css` define the same palette. Tailwind utility
