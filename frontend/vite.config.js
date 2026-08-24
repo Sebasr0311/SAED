@@ -7,7 +7,7 @@ export default defineConfig({
   base: process.env.VITE_BASE_PATH || '/',
   resolve: {
     alias: {
-      '@': fileURLToPath(new URL('./client', import.meta.url)),
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
   // Dev server: permite el proxy de Vercel v0 (hosts dinamicos sb-*.vercel.run).
