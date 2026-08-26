@@ -47,6 +47,7 @@ public class AdversarialFoundationTest {
                 .organizationId(1L)
                 .propertyId(1L)
                 .roleCode("SUPERADMIN") 
+                .roleScope("GLOBAL")
                 .build();
         SaedContextHolder.setContext(spoofedContext);
 
