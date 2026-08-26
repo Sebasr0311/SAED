@@ -1,0 +1,25 @@
+spring:
+  application:
+    name: saed-backend
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+
+---
+spring:
+  config:
+    activate:
+      on-profile: dev
+  datasource:
+    hikari:
+      driver-class-name: oracle.jdbc.OracleDriver
+      jdbc-url: ${DB_URL:jdbc:oracle:thin:@localhost:1521/XEPDB1}
+      username: ${DB_USERNAME:SAED_V39_FINAL_TEST}
+      password: ${DB_PASSWORD:saed2026}
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
+
+jwt:
+  secret: ${JWT_SECRET:dGhpcy1pcy1hLXZlcnktc2VjdXJlLWtleS1mb3Itc2FlZC0yLjAtc2VjcmV0}
+  expiration:
+    ms: 86400000
