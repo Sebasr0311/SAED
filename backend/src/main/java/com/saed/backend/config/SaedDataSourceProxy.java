@@ -42,12 +42,13 @@ public class SaedDataSourceProxy extends DelegatingDataSource {
     private void applySaedContext(Connection connection) throws SQLException {
         SaedContext context = SaedContextHolder.getContext();
         
+        if (context == null || context.getUserId() == null) {
+            // No context set (e.g. login flow, anonymous request)
+            return;
+        }
+
         try (CallableStatement cs = connection.prepareCall("{call PKG_SAED_SESSION.SET_CONTEXT(?, ?, ?, ?)}")) {
-            if (context != null && context.getUserId() != null) {
-                cs.setLong(1, context.getUserId());
-            } else {
-                cs.setNull(1, Types.NUMERIC);
-            }
+            cs.setLong(1, context.getUserId());
             
             if (context != null && context.getOrganizationId() != null) {
                 cs.setLong(2, context.getOrganizationId());

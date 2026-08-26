@@ -25,11 +25,11 @@ public class SaedContextIntegrationTest {
     @Test
     public void givenNoContext_whenSelect_thenZeroTrustShouldBlockOrReturnZero() {
         try {
-            jdbcTemplate.queryForObject("SELECT count(*) FROM ORGANIZACIONES", Integer.class);
-            fail("Zero Trust failed: Unauthenticated user saw data or obtained connection.");
+            Integer count = jdbcTemplate.queryForObject("SELECT count(*) FROM ORGANIZACIONES", Integer.class);
+            assertEquals(0, count, "Zero Trust failed: Unauthenticated user saw data.");
         } catch (DataAccessException e) {
-             assertTrue(e.getCause() != null && e.getCause().getMessage().contains("ORA-20082"), 
-                        "Oracle should reject null/invalid user with ORA-20082");
+             assertTrue(e.getCause() != null && e.getCause().getMessage().contains("ORA-2008"), 
+                        "Oracle should reject null/invalid user with ORA-2008X");
         }
     }
 

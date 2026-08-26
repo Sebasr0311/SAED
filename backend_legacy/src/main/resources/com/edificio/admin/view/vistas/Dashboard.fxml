@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.edificio.admin.view.controladores.DashboardController">
+
+    <top>
+        <VBox spacing="0">
+            <MenuBar>
+                <Menu text="Archivo">
+                    <MenuItem text="Cerrar Sesión" onAction="#cerrarSesion"/>
+                    <MenuItem text="Salir"/>
+                </Menu>
+                <Menu fx:id="mnuGestion" text="Gestión">
+                    <MenuItem text="Residentes"   onAction="#mostrarResidentes"/>
+                    <MenuItem text="Apartamentos" onAction="#mostrarApartamentos"/>
+                    <MenuItem text="Contratos"    onAction="#mostrarContratos"/>
+                    <MenuItem text="Pagos"        onAction="#mostrarPagos"/>
+                    <SeparatorMenuItem/>
+                    <MenuItem text="Usuarios"     onAction="#mostrarUsuarios"/>
+                    <MenuItem text="Alertas de Pago" onAction="#mostrarAlertas"/>
+                </Menu>
+                <Menu text="Visitas">
+                    <MenuItem text="Registro de Visitas" onAction="#mostrarVisitas"/>
+                    <MenuItem text="Escáner QR" onAction="#mostrarEscannerQR"/>
+                </Menu>
+                <Menu text="Parqueadero">
+                    <MenuItem text="Administrar Parqueaderos" onAction="#mostrarParqueaderos"/>
+                </Menu>
+            </MenuBar>
+
+            <HBox styleClass="header-bar" spacing="15">
+                <padding>
+                    <Insets top="10" bottom="10" left="20" right="20"/>
+                </padding>
+                <Label text="Sistema Inteligente de Administración Residencial"
+                       styleClass="header-titulo"/>
+                <Region HBox.hgrow="ALWAYS"/>
+                <Label text="Usuario: " styleClass="header-label"/>
+                <Label fx:id="lblUsuario" styleClass="header-usuario"/>
+                <Label text=" - " styleClass="header-label"/>
+                <Label fx:id="lblRol" styleClass="header-rol"/>
+            </HBox>
+        </VBox>
+    </top>
+
+    <left>
+        <VBox styleClass="sidebar" spacing="5">
+            <padding>
+                <Insets top="10" bottom="10" left="5" right="5"/>
+            </padding>
+            <Button fx:id="btnResidentes" text="Residentes" onAction="#mostrarResidentes"
+                    styleClass="boton-menu" maxWidth="Infinity"/>
+            <Button fx:id="btnApartamentos" text="Apartamentos" onAction="#mostrarApartamentos"
+                    styleClass="boton-menu" maxWidth="Infinity"/>
+            <Button fx:id="btnContratos" text="Contratos" onAction="#mostrarContratos"
+                    styleClass="boton-menu" maxWidth="Infinity"/>
+            <Button fx:id="btnPagos" text="Pagos" onAction="#mostrarPagos"
+                    styleClass="boton-menu" maxWidth="Infinity"/>
+            <Button fx:id="btnUsuarios" text="Usuarios" onAction="#mostrarUsuarios"
+                    styleClass="boton-menu" maxWidth="Infinity"/>
+            <Button fx:id="btnAlertas" text="Alertas de Pago" onAction="#mostrarAlertas"
+                    styleClass="boton-menu" maxWidth="Infinity"/>
+            <Separator fx:id="sepAdmin"/>
+            <Button text="Registro de Visitas" onAction="#mostrarVisitas"
+                    styleClass="boton-menu" maxWidth="Infinity"/>
+            <Button text="Escáner QR" onAction="#mostrarEscannerQR"
+                    styleClass="boton-menu" maxWidth="Infinity"/>
+            <Separator/>
+            <Button text="Parqueaderos" onAction="#mostrarParqueaderos"
+                    styleClass="boton-menu" maxWidth="Infinity"/>
+        </VBox>
+    </left>
+
+    <center>
+        <BorderPane fx:id="mainPane" styleClass="contenido-principal"/>
+    </center>
+</BorderPane>

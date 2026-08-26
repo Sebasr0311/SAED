@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.edificio.admin.view.controladores.ParqueaderoController"
+      styleClass="vista-container">
+
+    <Label text="Gestión de Parqueaderos" styleClass="titulo-vista"/>
+
+    <!-- Barra de filtros -->
+    <HBox spacing="10" styleClass="barra-herramientas">
+        <Label text="Estado:" styleClass="label-formulario"/>
+        <ComboBox fx:id="cmbFiltroEstado" prefWidth="140" promptText="Todos"/>
+        <Label text="Tipo:" styleClass="label-formulario"/>
+        <ComboBox fx:id="cmbFiltroTipo" prefWidth="120" promptText="Todos"/>
+        <Label text="Clasificación:" styleClass="label-formulario"/>
+        <ComboBox fx:id="cmbFiltroClasificacion" prefWidth="120" promptText="Todos"/>
+    </HBox>
+
+    <HBox spacing="10" styleClass="barra-herramientas">
+        <Button text="Guardar"     onAction="#guardar"          styleClass="boton-accion"/>
+        <Button text="Desactivar"  onAction="#desactivar"       styleClass="boton-accion"/>
+        <Button text="Limpiar"     onAction="#limpiarFormulario" styleClass="boton-accion"/>
+    </HBox>
+
+    <HBox spacing="20" VBox.vgrow="ALWAYS">
+
+        <!-- Panel izquierdo: formulario -->
+        <VBox spacing="10" styleClass="panel-formulario" prefWidth="260">
+            <padding><Insets top="15" bottom="15" left="15" right="15"/></padding>
+
+            <Label text="Código:" styleClass="label-formulario"/>
+            <TextField fx:id="txtCodigo" promptText="Ej: P-01" styleClass="campo-texto"/>
+
+            <Label text="Tipo:" styleClass="label-formulario"/>
+            <ComboBox fx:id="cmbTipo" maxWidth="Infinity" styleClass="combobox"/>
+
+            <Label text="Estado:" styleClass="label-formulario"/>
+            <ComboBox fx:id="cmbEstado" maxWidth="Infinity" styleClass="combobox"/>
+
+            <HBox spacing="8" alignment="CENTER_LEFT">
+                <CheckBox fx:id="chkEsVisitante"/>
+                <Label text="Para visitantes (rotativo)" styleClass="label-formulario"/>
+            </HBox>
+
+            <Label text="(El estado DISPONIBLE/OCUPADO es actualizado automáticamente por el trigger de acceso.)"
+                   styleClass="label-ayuda" wrapText="true"/>
+        </VBox>
+
+        <!-- Panel derecho: tabla -->
+        <VBox spacing="10" HBox.hgrow="ALWAYS">
+            <Label text="Parqueaderos Activos" styleClass="subtitulo"/>
+            <TableView fx:id="tablaParqueaderos" VBox.vgrow="ALWAYS" styleClass="tabla">
+                <columns>
+                    <TableColumn fx:id="colId"           text="ID"           prefWidth="50"/>
+                    <TableColumn fx:id="colCodigo"       text="Código"       prefWidth="80"/>
+                    <TableColumn fx:id="colTipo"         text="Tipo"         prefWidth="90"/>
+                    <TableColumn fx:id="colVisitante"    text="Visitante"    prefWidth="70"/>
+                    <TableColumn fx:id="colApartamento"  text="Apartamento"  prefWidth="90"/>
+                    <TableColumn fx:id="colPropietario"  text="Propietario"  prefWidth="160"/>
+                    <TableColumn fx:id="colEstado"       text="Estado"       prefWidth="110"/>
+                </columns>
+                <columnResizePolicy>
+                    <TableView fx:constant="CONSTRAINED_RESIZE_POLICY"/>
+                </columnResizePolicy>
+            </TableView>
+        </VBox>
+    </HBox>
+</VBox>
