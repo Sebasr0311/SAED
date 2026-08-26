@@ -72,7 +72,6 @@ public class JwtAuthenticationFilterTest {
         when(jwtProvider.validateToken("valid.token")).thenReturn(true);
         when(jwtProvider.getUserIdFromToken("valid.token")).thenReturn(1L);
         when(request.getHeader("X-Assignment-Id")).thenReturn(null);
-        when(request.getRequestURI()).thenReturn("/api/v1/auth/assignments");
 
         filter.doFilterInternal(request, response, filterChain);
 

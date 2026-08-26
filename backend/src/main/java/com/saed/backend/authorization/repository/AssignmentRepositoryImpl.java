@@ -50,7 +50,7 @@ public class AssignmentRepositoryImpl implements AssignmentRepository {
             r.alcance as rol_alcance,
             o.id_organizacion, o.nombre as organizacion_nombre,
             p.id_propiedad, p.nombre as propiedad_nombre,
-            u.id_unidad, u.identificador_unidad as identificador_unidad
+            u.id_unidad, u.identificador as identificador_unidad
         FROM USUARIO_ASIGNACIONES ua
         JOIN ROLES r ON ua.id_rol = r.id_rol
         LEFT JOIN ORGANIZACIONES o ON ua.id_organizacion = o.id_organizacion

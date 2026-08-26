@@ -30,3 +30,5 @@ DELETE FROM ORGANIZACIONES WHERE ID_ORGANIZACION IN (1000, 2000);
 -- because they might be used by other real records, and keeping them is harmless.
 
 COMMIT;
+
+EXIT;
