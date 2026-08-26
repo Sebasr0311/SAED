@@ -8,6 +8,7 @@ import ProtectedRoute from './components/ProtectedRoute.jsx';
 // Code-splitting por ruta: cada página carga solo cuando se visita, reduciendo
 // el bundle inicial (~1.2MB -> fracciones). Login queda eager (entry point).
 const DashboardPage = lazy(() => import('./pages/DashboardPage.jsx'));
+const PersonasPage = lazy(() => import('./pages/PersonasPage.jsx'));
 const ResidentesPage = lazy(() => import('./pages/ResidentesPage.jsx'));
 const ApartamentosPage = lazy(() => import('./pages/ApartamentosPage.jsx'));
 const ContratosPage = lazy(() => import('./pages/ContratosPage.jsx'));
@@ -61,6 +62,14 @@ export default function App() {
             element={
               <ProtectedRoute roles={['ADMINISTRADOR']}>
                 <DashboardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="personas"
+            element={
+              <ProtectedRoute roles={['ADMINISTRADOR']}>
+                <PersonasPage />
               </ProtectedRoute>
             }
           />
