@@ -20,6 +20,7 @@ public class GlobalExceptionHandler {
         
         // Catch ORA-28115 RLS Violation
         if (message != null && message.contains("ORA-28115")) {
+            ex.printStackTrace();
             response.put("code", "ACCESS_DENIED_RLS");
             response.put("message", "Operación bloqueada por la política de seguridad RLS. Acceso al tenant denegado.");
             return new ResponseEntity<>(response, HttpStatus.FORBIDDEN);
@@ -38,11 +39,44 @@ public class GlobalExceptionHandler {
             return new ResponseEntity<>(response, HttpStatus.FORBIDDEN);
         }
 
+        if (message != null && (message.contains("ORA-00001") || message.contains("UIX_ASIGNACION_UNICA"))) {
+            response.put("code", "CONFLICT");
+            response.put("message", "El registro ya existe o la asignación está duplicada.");
+            return new ResponseEntity<>(response, HttpStatus.CONFLICT);
+        }
+
         // Generic fallback for DB
         System.err.println("DB Error: " + message);
         response.put("code", "DATABASE_ERROR");
         response.put("message", "Ha ocurrido un error en la capa de datos.");
         return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
+    public ResponseEntity<Map<String, Object>> handleAccessDenied(org.springframework.security.access.AccessDeniedException ex) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", false);
+        response.put("code", "FORBIDDEN");
+        response.put("message", ex.getMessage());
+        return new ResponseEntity<>(response, HttpStatus.FORBIDDEN);
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<Map<String, Object>> handleIllegalArgument(IllegalArgumentException ex) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", false);
+        response.put("code", "BAD_REQUEST");
+        response.put("message", ex.getMessage());
+        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(java.util.NoSuchElementException.class)
+    public ResponseEntity<Map<String, Object>> handleNoSuchElement(java.util.NoSuchElementException ex) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", false);
+        response.put("code", "NOT_FOUND");
+        response.put("message", ex.getMessage());
+        return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
     }
 
     @ExceptionHandler(com.saed.backend.identity.exception.InvalidCredentialsException.class)

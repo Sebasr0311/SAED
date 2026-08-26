@@ -71,7 +71,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     
                     SaedContext.Builder builder = SaedContext.builder()
                             .userId(userId)
-                            .roleCode(assign.getRol().getCodigo());
+                            .roleCode(assign.getRol().getCodigo())
+                            .roleScope(assign.getRol().getAlcance());
                             
                     if (assign.getOrganizacion() != null) {
                         builder.organizationId(assign.getOrganizacion().getId());
