@@ -22,6 +22,7 @@ const NAV_BY_ROLE = {
       label: 'Administración',
       icon: 'domain',
       items: [
+        { path: '/personas', label: 'Personas', icon: 'person' },
         { path: '/residentes', label: 'Residentes', icon: 'groups' },
         { path: '/apartamentos', label: 'Apartamentos', icon: 'apartment' },
         { path: '/contratos', label: 'Contratos', icon: 'description' },
