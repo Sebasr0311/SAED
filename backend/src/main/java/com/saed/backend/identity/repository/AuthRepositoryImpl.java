@@ -25,7 +25,7 @@ public class AuthRepositoryImpl implements AuthRepository {
         // Setup CallableStatements via SimpleJdbcCall
         this.getAuthDataCall = new SimpleJdbcCall(jdbcTemplate)
                 .withCatalogName("SAED_SEC_MASTER.PKG_AUTH_BOOTSTRAP")
-                .withProcedureName("GET_AUTH_DATA")
+                .withProcedureName("GET_AUTH_DATA").withoutProcedureColumnMetaDataAccess()
                 .declareParameters(
                         new SqlParameter("p_email", Types.VARCHAR),
                         new SqlOutParameter("p_id_usuario", Types.NUMERIC),
@@ -36,7 +36,7 @@ public class AuthRepositoryImpl implements AuthRepository {
                 
         this.registerFailureCall = new SimpleJdbcCall(jdbcTemplate)
                 .withCatalogName("SAED_SEC_MASTER.PKG_AUTH_BOOTSTRAP")
-                .withProcedureName("REGISTER_LOGIN_FAILURE")
+                .withProcedureName("REGISTER_LOGIN_FAILURE").withoutProcedureColumnMetaDataAccess()
                 .declareParameters(
                         new SqlParameter("p_id_usuario", Types.NUMERIC),
                         new SqlParameter("p_ip_origen", Types.VARCHAR)
@@ -44,7 +44,7 @@ public class AuthRepositoryImpl implements AuthRepository {
                 
         this.registerSuccessCall = new SimpleJdbcCall(jdbcTemplate)
                 .withCatalogName("SAED_SEC_MASTER.PKG_AUTH_BOOTSTRAP")
-                .withProcedureName("REGISTER_LOGIN_SUCCESS")
+                .withProcedureName("REGISTER_LOGIN_SUCCESS").withoutProcedureColumnMetaDataAccess()
                 .declareParameters(
                         new SqlParameter("p_id_usuario", Types.NUMERIC),
                         new SqlParameter("p_ip_origen", Types.VARCHAR)
