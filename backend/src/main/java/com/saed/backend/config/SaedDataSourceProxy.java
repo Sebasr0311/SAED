@@ -18,15 +18,25 @@ public class SaedDataSourceProxy extends DelegatingDataSource {
     @Override
     public Connection getConnection() throws SQLException {
         Connection connection = super.getConnection();
-        applySaedContext(connection);
-        return SaedConnectionProxy.createProxy(connection);
+        try {
+            applySaedContext(connection);
+            return SaedConnectionProxy.createProxy(connection);
+        } catch (SQLException e) {
+            connection.close();
+            throw e;
+        }
     }
 
     @Override
     public Connection getConnection(String username, String password) throws SQLException {
         Connection connection = super.getConnection(username, password);
-        applySaedContext(connection);
-        return SaedConnectionProxy.createProxy(connection);
+        try {
+            applySaedContext(connection);
+            return SaedConnectionProxy.createProxy(connection);
+        } catch (SQLException e) {
+            connection.close();
+            throw e;
+        }
     }
 
     private void applySaedContext(Connection connection) throws SQLException {
