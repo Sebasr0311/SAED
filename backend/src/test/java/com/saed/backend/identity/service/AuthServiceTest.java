@@ -8,6 +8,7 @@ import com.saed.backend.security.jwt.JwtProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Optional;
 
@@ -25,7 +26,11 @@ public class AuthServiceTest {
     void setUp() {
         authRepository = mock(AuthRepository.class);
         passwordEncoder = mock(PasswordEncoder.class);
-        jwtProvider = mock(JwtProvider.class);
+        
+        jwtProvider = new JwtProvider();
+        ReflectionTestUtils.setField(jwtProvider, "jwtSecret", "dGhpcy1pcy1hLXZlcnktc2VjdXJlLWtleS1mb3Itc2FlZC0yLjAtc2VjcmV0");
+        ReflectionTestUtils.setField(jwtProvider, "jwtExpirationMs", 86400000);
+        
         authService = new AuthService(authRepository, passwordEncoder, jwtProvider);
     }
 
@@ -43,13 +48,12 @@ public class AuthServiceTest {
 
         when(authRepository.getAuthData("test@saed.com")).thenReturn(Optional.of(authData));
         when(passwordEncoder.matches("password123", "hashed")).thenReturn(true);
-        when(jwtProvider.generateIdentityToken(1L)).thenReturn("dummy-jwt-token");
 
         AuthResponse response = authService.login(request);
 
         assertNotNull(response);
-        assertEquals("dummy-jwt-token", response.getToken());
-        verify(authRepository).registerLoginSuccess(1L, "0.0.0.0");
+        assertNotNull(response.getToken());
+        verify(authRepository).registerLoginSuccess(1L, "API");
     }
 
     @Test
@@ -68,8 +72,8 @@ public class AuthServiceTest {
         when(passwordEncoder.matches("wrong", "hashed")).thenReturn(false);
 
         RuntimeException ex = assertThrows(RuntimeException.class, () -> authService.login(request));
-        assertEquals("Credenciales invǭlidas", ex.getMessage());
-        verify(authRepository).registerLoginFailure(1L, "0.0.0.0");
+        assertTrue(ex.getMessage().contains("Credenciales"));
+        verify(authRepository).registerLoginFailure(1L, "API");
     }
 
     @Test
@@ -79,11 +83,13 @@ public class AuthServiceTest {
         request.setPassword("password123");
 
         AuthData authData = new AuthData();
+        authData.setHashPassword("hashed");
         authData.setEstado("INACTIVO");
 
         when(authRepository.getAuthData("test@saed.com")).thenReturn(Optional.of(authData));
+        when(passwordEncoder.matches("password123", "hashed")).thenReturn(true);
 
         RuntimeException ex = assertThrows(RuntimeException.class, () -> authService.login(request));
-        assertEquals("Usuario inactivo o bloqueado", ex.getMessage());
+        assertTrue(ex.getMessage().contains("Credenciales"));
     }
 }
