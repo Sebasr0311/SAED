@@ -44,6 +44,15 @@ public class GlobalExceptionHandler {
         response.put("message", "Ha ocurrido un error en la capa de datos.");
         return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
     }
+
+    @ExceptionHandler(com.saed.backend.identity.exception.InvalidCredentialsException.class)
+    public ResponseEntity<Map<String, Object>> handleInvalidCredentials(com.saed.backend.identity.exception.InvalidCredentialsException ex) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", false);
+        response.put("code", "UNAUTHORIZED");
+        response.put("message", ex.getMessage()); // Will output "Credenciales invalidas"
+        return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
+    }
     
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleGenericException(Exception ex) {
