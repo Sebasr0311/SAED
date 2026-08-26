@@ -1,0 +1,41 @@
+ALTER SESSION SET CONTAINER = XEPDB1;
+
+-- Pre-requisitos DBA para V4.0 Auth Bootstrap
+-- Este script debe ejecutarse como SYSDBA antes de la migración principal.
+
+WHENEVER SQLERROR EXIT SQL.SQLCODE ROLLBACK
+WHENEVER OSERROR EXIT FAILURE ROLLBACK
+
+-- 1. Crear el esquema de seguridad maestro
+-- ORA-01920 si ya existe, lo omitimos usando bloque PL/SQL o lo dropeamos.
+BEGIN
+    EXECUTE IMMEDIATE 'DROP USER SAED_SEC_MASTER CASCADE';
+EXCEPTION
+    WHEN OTHERS THEN
+        IF SQLCODE != -1918 THEN
+            RAISE;
+        END IF;
+END;
+/
+
+CREATE USER SAED_SEC_MASTER IDENTIFIED BY "saed_sec_2026_SecurePwd!" ACCOUNT LOCK;
+
+-- 2. Privilegios básicos
+GRANT CREATE SESSION, CREATE PROCEDURE TO SAED_SEC_MASTER;
+
+-- 3. Privilegio Crítico (Bypass RLS)
+GRANT EXEMPT ACCESS POLICY TO SAED_SEC_MASTER;
+
+-- 4. Permitirle leer y actualizar las tablas del schema dueño
+GRANT SELECT, UPDATE(intentos_fallidos, ultimo_login, estado, fecha_bloqueo) ON SAED_V39_FINAL_TEST.USUARIOS TO SAED_SEC_MASTER;
+GRANT SELECT ON SAED_V39_FINAL_TEST.PERSONAS TO SAED_SEC_MASTER;
+GRANT SELECT ON SAED_V39_FINAL_TEST.USUARIO_ASIGNACIONES TO SAED_SEC_MASTER;
+GRANT SELECT ON SAED_V39_FINAL_TEST.ROLES TO SAED_SEC_MASTER;
+
+-- Permitirle escribir auditoría
+GRANT INSERT ON SAED_V39_FINAL_TEST.AUDITORIA_LOG TO SAED_SEC_MASTER;
+
+-- Permitirle compilar
+ALTER USER SAED_SEC_MASTER QUOTA UNLIMITED ON USERS;
+
+EXIT;
