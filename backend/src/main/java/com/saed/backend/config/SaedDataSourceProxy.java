@@ -43,21 +43,23 @@ public class SaedDataSourceProxy extends DelegatingDataSource {
         SaedContext context = SaedContextHolder.getContext();
         
         if (context == null || context.getUserId() == null) {
-            // State 0: Anonymous (login flow)
             return;
         }
 
-        if (context.getOrganizationId() == null) {
-            // State 1: Bootstrap (identity only, fetching contexts)
-            try (CallableStatement cs = connection.prepareCall("{call PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(?)}")) {
-                cs.setLong(1, context.getUserId());
-                cs.execute();
-            }
-        } else {
-            // State 2: Business (full tenant context)
+        try (CallableStatement cs = connection.prepareCall("{call PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(?)}")) {
+            cs.setLong(1, context.getUserId());
+            cs.execute();
+        }
+
+        if (context.getRoleScope() != null) {
             try (CallableStatement cs = connection.prepareCall("{call PKG_SAED_SESSION.SET_CONTEXT(?, ?, ?, ?)}")) {
                 cs.setLong(1, context.getUserId());
-                cs.setLong(2, context.getOrganizationId());
+                
+                if (context.getOrganizationId() != null) {
+                    cs.setLong(2, context.getOrganizationId());
+                } else {
+                    cs.setNull(2, Types.NUMERIC);
+                }
                 
                 if (context.getPropertyId() != null) {
                     cs.setLong(3, context.getPropertyId());

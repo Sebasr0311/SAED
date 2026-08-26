@@ -37,6 +37,7 @@ public class SaedContextIntegrationTest {
                 .userId(9999L)
                 .organizationId(1L)
                 .roleCode("SUPERADMIN")
+                .roleScope("GLOBAL")
                 .build();
         
         SaedContextHolder.setContext(mockAttackerContext);

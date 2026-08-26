@@ -6,6 +6,7 @@ public class SaedContext {
     private Long propertyId;
     private Long unitId;
     private String roleCode;
+    private String roleScope;
 
     public SaedContext() {}
 
@@ -24,6 +25,9 @@ public class SaedContext {
     public String getRoleCode() { return roleCode; }
     public void setRoleCode(String roleCode) { this.roleCode = roleCode; }
 
+    public String getRoleScope() { return roleScope; }
+    public void setRoleScope(String roleScope) { this.roleScope = roleScope; }
+
     public static Builder builder() {
         return new Builder();
     }
@@ -35,6 +39,7 @@ public class SaedContext {
         public Builder propertyId(Long propertyId) { ctx.propertyId = propertyId; return this; }
         public Builder unitId(Long unitId) { ctx.unitId = unitId; return this; }
         public Builder roleCode(String roleCode) { ctx.roleCode = roleCode; return this; }
+        public Builder roleScope(String roleScope) { ctx.roleScope = roleScope; return this; }
         public SaedContext build() { return ctx; }
     }
 }
