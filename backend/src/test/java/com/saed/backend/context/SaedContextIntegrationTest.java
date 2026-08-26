@@ -24,21 +24,17 @@ public class SaedContextIntegrationTest {
 
     @Test
     public void givenNoContext_whenSelect_thenZeroTrustShouldBlockOrReturnZero() {
-        // By default, no context is set in SaedContextHolder
-        // Oracle RLS should return 0 rows for any protected table.
         try {
-            Integer count = jdbcTemplate.queryForObject("SELECT count(*) FROM ORGANIZACIONES", Integer.class);
-            assertEquals(0, count, "Zero Trust failed: Unauthenticated user saw data.");
-        } catch (BadSqlGrammarException e) {
-             // In case the user doesn't have privileges, which is also fine.
-             assertTrue(true);
+            jdbcTemplate.queryForObject("SELECT count(*) FROM ORGANIZACIONES", Integer.class);
+            fail("Zero Trust failed: Unauthenticated user saw data or obtained connection.");
+        } catch (DataAccessException e) {
+             assertTrue(e.getCause() != null && e.getCause().getMessage().contains("ORA-20082"), 
+                        "Oracle should reject null/invalid user with ORA-20082");
         }
     }
 
     @Test
     public void givenInvalidRoleContext_whenSetContext_thenOracleThrowsSpoofingError() {
-        // Create an illegal context (e.g., trying to be SUPERADMIN when not allowed)
-        // Note: Oracle PKG_SAED_SESSION logic throws -20083 if the user is not in ADMINISTRADORES_SAED
         SaedContext mockAttackerContext = SaedContext.builder()
                 .userId(9999L)
                 .roleCode("SUPERADMIN")
@@ -46,11 +42,11 @@ public class SaedContextIntegrationTest {
         
         SaedContextHolder.setContext(mockAttackerContext);
 
-        // When the proxy intercepts this query, it will invoke SET_CONTEXT which should fail
         DataAccessException exception = assertThrows(DataAccessException.class, () -> {
             jdbcTemplate.queryForObject("SELECT count(*) FROM ORGANIZACIONES", Integer.class);
         });
         
-        assertTrue(exception.getMessage().contains("ORA-2008"), "Should throw context spoofing error");
+        assertTrue(exception.getCause() != null && exception.getCause().getMessage().contains("ORA-2008"), 
+                   "Should throw context spoofing error (ORA-2008X) from root cause");
     }
 }
