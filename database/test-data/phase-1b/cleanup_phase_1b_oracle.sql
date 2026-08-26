@@ -1,0 +1,32 @@
+-- CLEANUP TEST DATA FOR PHASE 1B INTEGRATION TESTS
+-- Target: Oracle SAED_V39_FINAL_TEST
+-- User: SAED_V39_FINAL_TEST
+
+BEGIN
+    -- Clear Context to ensure no locks or triggers fail
+    NULL;
+END;
+/
+
+-- Delete Assignments
+DELETE FROM USUARIO_ASIGNACIONES WHERE ID_ASIGNACION IN (1000, 2000, 3000);
+
+-- Delete Users
+DELETE FROM USUARIOS WHERE ID_USUARIO IN (1000, 2000, 3000);
+
+-- Delete Persons
+DELETE FROM PERSONAS WHERE ID_PERSONA IN (1000, 2000, 3000);
+
+-- Delete Units
+DELETE FROM UNIDADES WHERE ID_UNIDAD IN (1000, 2000);
+
+-- Delete Properties
+DELETE FROM PROPIEDADES WHERE ID_PROPIEDAD IN (1000, 2000);
+
+-- Delete Organizations
+DELETE FROM ORGANIZACIONES WHERE ID_ORGANIZACION IN (1000, 2000);
+
+-- Note: We DO NOT delete Dictionaries (TIPOS_DOCUMENTO, TIPOS_PROPIEDAD, TIPOS_UNIDAD, ROLES)
+-- because they might be used by other real records, and keeping them is harmless.
+
+COMMIT;
