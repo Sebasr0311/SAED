@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.edificio.admin.view.controladores.ApartamentoController"
+      styleClass="vista-container">
+
+    <Label text="Gestión de Apartamentos" styleClass="titulo-vista"/>
+
+    <HBox spacing="10" styleClass="barra-herramientas">
+        <Button text="Nuevo"    onAction="#limpiarFormulario"   styleClass="boton-accion"/>
+        <Button text="Guardar"  onAction="#guardarApartamento"  styleClass="boton-accion"/>
+        <Button text="Editar"   onAction="#editarApartamento"   styleClass="boton-accion"/>
+        <Button text="Eliminar" onAction="#eliminarApartamento" styleClass="boton-accion"/>
+    </HBox>
+
+    <HBox spacing="20" VBox.vgrow="ALWAYS">
+        <VBox spacing="10" styleClass="panel-formulario" prefWidth="240">
+            <padding><Insets top="15" bottom="15" left="15" right="15"/></padding>
+
+            <Label text="Número:" styleClass="label-formulario"/>
+            <TextField fx:id="txtNumero" styleClass="campo-texto"/>
+
+            <Label text="Piso:" styleClass="label-formulario"/>
+            <TextField fx:id="txtPiso" styleClass="campo-texto"/>
+
+            <Label text="Tipo:" styleClass="label-formulario"/>
+            <ComboBox fx:id="cmbTipo" maxWidth="Infinity" styleClass="combobox"/>
+
+            <Label text="Área (m²):" styleClass="label-formulario"/>
+            <TextField fx:id="txtArea" styleClass="campo-texto"/>
+
+            <Label text="Estado:" styleClass="label-formulario"/>
+            <ComboBox fx:id="cmbEstado" maxWidth="Infinity" styleClass="combobox"/>
+        </VBox>
+
+        <VBox spacing="10" HBox.hgrow="ALWAYS">
+            <TableView fx:id="tablaApartamentos" VBox.vgrow="ALWAYS" styleClass="tabla">
+                <columns>
+                    <TableColumn fx:id="colId"     text="ID"     prefWidth="50"/>
+                    <TableColumn fx:id="colNumero"  text="Número" prefWidth="80"/>
+                    <TableColumn fx:id="colPiso"    text="Piso"   prefWidth="60"/>
+                    <TableColumn fx:id="colTipo"    text="Tipo"   prefWidth="100"/>
+                    <TableColumn fx:id="colArea"    text="Área m²" prefWidth="80"/>
+                    <TableColumn fx:id="colEstado"  text="Estado" prefWidth="100"/>
+                </columns>
+            </TableView>
+        </VBox>
+    </HBox>
+</VBox>

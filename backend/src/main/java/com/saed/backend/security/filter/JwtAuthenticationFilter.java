@@ -33,16 +33,34 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String jwt = parseJwt(request);
             if (jwt != null && jwtProvider.validateToken(jwt)) {
                 
-                SaedContext saedContext = jwtProvider.getContextFromToken(jwt);
+                Long userId = jwtProvider.getUserIdFromToken(jwt);
+                
+                // Get Context from database based on Header assignment ID
+                SaedContext saedContext = null;
+                String assignmentHeader = request.getHeader("X-Assignment-Id");
+                
+                if (StringUtils.hasText(assignmentHeader)) {
+                    // Avoid circular dependency in filter, ideally get it from ApplicationContext
+                    com.saed.backend.identity.service.ContextService contextService = 
+                        org.springframework.web.context.support.WebApplicationContextUtils
+                        .getRequiredWebApplicationContext(request.getServletContext())
+                        .getBean(com.saed.backend.identity.service.ContextService.class);
+                        
+                    saedContext = contextService.resolveContext(userId, Long.parseLong(assignmentHeader));
+                } else {
+                    // Fallback to purely identity context (no tenant)
+                    saedContext = SaedContext.builder().userId(userId).build();
+                }
                 
                 // Set into ThreadLocal for Oracle Proxy
                 SaedContextHolder.setContext(saedContext);
 
                 // Set into Spring Security for @PreAuthorize
+                String role = (saedContext.getRoleCode() != null) ? "ROLE_" + saedContext.getRoleCode() : "ROLE_USER";
                 UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                        saedContext.getUserId(),
+                        userId,
                         null,
-                        Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + saedContext.getRoleCode()))
+                        Collections.singletonList(new SimpleGrantedAuthority(role))
                 );
                 
                 SecurityContextHolder.getContext().setAuthentication(authentication);

@@ -25,37 +25,26 @@ public class JwtProvider {
         return Keys.hmacShaKeyFor(jwtSecret.getBytes());
     }
 
-    public String generateToken(SaedContext context) {
-        Map<String, Object> claims = new HashMap<>();
-        claims.put("userId", context.getUserId());
-        claims.put("organizationId", context.getOrganizationId());
-        claims.put("propertyId", context.getPropertyId());
-        claims.put("unitId", context.getUnitId());
-        claims.put("roleCode", context.getRoleCode());
+    public String generateIdentityToken(Long userId) {
+        Date now = new Date();
+        Date expiryDate = new Date(now.getTime() + jwtExpirationMs);
 
         return Jwts.builder()
-                .claims(claims)
-                .subject(context.getUserId().toString())
-                .issuedAt(new Date())
-                .expiration(new Date((new Date()).getTime() + jwtExpirationMs))
+                .subject(String.valueOf(userId))
+                .issuedAt(now)
+                .expiration(expiryDate)
                 .signWith(getSigningKey())
                 .compact();
     }
 
-    public SaedContext getContextFromToken(String token) {
+    public Long getUserIdFromToken(String token) {
         Claims claims = Jwts.parser()
                 .verifyWith(getSigningKey())
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
 
-        return SaedContext.builder()
-                .userId(claims.get("userId", Long.class))
-                .organizationId(claims.get("organizationId", Long.class))
-                .propertyId(claims.get("propertyId", Long.class))
-                .unitId(claims.get("unitId", Long.class))
-                .roleCode(claims.get("roleCode", String.class))
-                .build();
+        return Long.parseLong(claims.getSubject());
     }
 
     public boolean validateToken(String authToken) {
