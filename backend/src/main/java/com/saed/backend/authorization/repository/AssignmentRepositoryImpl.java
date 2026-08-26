@@ -72,4 +72,27 @@ public class AssignmentRepositoryImpl implements AssignmentRepository {
         List<AssignmentResponseDTO> results = jdbcTemplate.query(sql, rowMapper, idUsuario, idAsignacion);
         return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
     }
+
+    @Override
+    public Long create(com.saed.backend.authorization.dto.AssignmentRequestDTO request, Long asignadoPor) {
+        String sql = "INSERT INTO USUARIO_ASIGNACIONES (id_usuario, id_rol, id_organizacion, id_propiedad, id_unidad, asignado_por) " +
+                     "VALUES (?, ?, ?, ?, ?, ?)";
+        org.springframework.jdbc.support.KeyHolder keyHolder = new org.springframework.jdbc.support.GeneratedKeyHolder();
+        jdbcTemplate.update(connection -> {
+            java.sql.PreparedStatement ps = connection.prepareStatement(sql, new String[]{"ID_ASIGNACION"});
+            ps.setLong(1, request.getIdUsuario());
+            ps.setLong(2, request.getIdRol());
+            if (request.getIdOrganizacion() != null) ps.setLong(3, request.getIdOrganizacion()); else ps.setNull(3, java.sql.Types.NUMERIC);
+            if (request.getIdPropiedad() != null) ps.setLong(4, request.getIdPropiedad()); else ps.setNull(4, java.sql.Types.NUMERIC);
+            if (request.getIdUnidad() != null) ps.setLong(5, request.getIdUnidad()); else ps.setNull(5, java.sql.Types.NUMERIC);
+            if (asignadoPor != null) ps.setLong(6, asignadoPor); else ps.setNull(6, java.sql.Types.NUMERIC);
+            return ps;
+        }, keyHolder);
+        return keyHolder.getKey().longValue();
+    }
+
+    @Override
+    public void updateStatus(Long id, String estado) {
+        jdbcTemplate.update("UPDATE USUARIO_ASIGNACIONES SET estado = ? WHERE id_asignacion = ?", estado, id);
+    }
 }
