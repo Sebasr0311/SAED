@@ -71,7 +71,7 @@ public class AuthServiceTest {
         when(authRepository.getAuthData("test@saed.com")).thenReturn(Optional.of(authData));
         when(passwordEncoder.matches("wrong", "hashed")).thenReturn(false);
 
-        RuntimeException ex = assertThrows(RuntimeException.class, () -> authService.login(request));
+        Exception ex = assertThrows(com.saed.backend.identity.exception.InvalidCredentialsException.class, () -> authService.login(request));
         assertTrue(ex.getMessage().contains("Credenciales"));
         verify(authRepository).registerLoginFailure(1L, "API");
     }
@@ -89,7 +89,7 @@ public class AuthServiceTest {
         when(authRepository.getAuthData("test@saed.com")).thenReturn(Optional.of(authData));
         when(passwordEncoder.matches("password123", "hashed")).thenReturn(true);
         
-        RuntimeException ex = assertThrows(RuntimeException.class, () -> authService.login(request));
+        Exception ex = assertThrows(com.saed.backend.identity.exception.InvalidCredentialsException.class, () -> authService.login(request));
         assertEquals("Credenciales invalidas", ex.getMessage());
     }
 
@@ -107,7 +107,7 @@ public class AuthServiceTest {
         when(authRepository.getAuthData("test@saed.com")).thenReturn(Optional.of(authData));
         when(passwordEncoder.matches("password123", "hashed")).thenReturn(true);
         
-        RuntimeException ex = assertThrows(RuntimeException.class, () -> authService.login(request));
+        Exception ex = assertThrows(com.saed.backend.identity.exception.InvalidCredentialsException.class, () -> authService.login(request));
         assertEquals("Credenciales invalidas", ex.getMessage());
     }
 }

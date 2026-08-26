@@ -20,6 +20,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
+@org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
 @ActiveProfiles("dev")
 public class Phase1AAuthIntegrationTest {
 
@@ -87,7 +88,7 @@ public class Phase1AAuthIntegrationTest {
         req.setEmail(TEST_EMAIL);
         req.setPassword("wrongpassword");
         
-        RuntimeException ex = assertThrows(RuntimeException.class, () -> authService.login(req));
+        Exception ex = assertThrows(com.saed.backend.identity.exception.InvalidCredentialsException.class, () -> authService.login(req));
         assertEquals("Credenciales invalidas", ex.getMessage());
     }
 
@@ -97,7 +98,7 @@ public class Phase1AAuthIntegrationTest {
         req.setEmail("notexists@saed.com");
         req.setPassword("password");
         
-        RuntimeException ex = assertThrows(RuntimeException.class, () -> authService.login(req));
+        Exception ex = assertThrows(com.saed.backend.identity.exception.InvalidCredentialsException.class, () -> authService.login(req));
         assertEquals("Credenciales invalidas", ex.getMessage());
     }
 
@@ -137,4 +138,43 @@ public class Phase1AAuthIntegrationTest {
         int count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM SAED_V39_FINAL_TEST.USUARIOS", Integer.class);
         assertEquals(0, count, "El backend no deberia poder hacer SELECT directo a USUARIOS debido a RLS");
     }
+    @Autowired
+    private org.springframework.test.web.servlet.MockMvc mockMvc;
+    @Autowired
+    private com.fasterxml.jackson.databind.ObjectMapper objectMapper;
+
+    @Test
+    public void testHttp401OnInvalidCredentials() throws Exception {
+        LoginRequest req = new LoginRequest();
+        req.setEmail("notexists@saed.com");
+        req.setPassword("wrong");
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/v1/auth/login")
+                .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(req)))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isUnauthorized())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.success").value(false))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.code").value("UNAUTHORIZED"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.message").value("Credenciales invalidas"));
+    }
+
+    @Test
+    public void testExpiredJwtIsRejected() throws Exception {
+        java.util.Date now = new java.util.Date();
+        java.util.Date past = new java.util.Date(now.getTime() - 3600000); 
+        
+        String expiredJwt = io.jsonwebtoken.Jwts.builder()
+                .subject("100")
+                .issuedAt(past)
+                .expiration(past)
+                .signWith(io.jsonwebtoken.security.Keys.hmacShaKeyFor(jwtSecret.getBytes()))
+                .compact();
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/v1/me/contexts")
+                .header("Authorization", "Bearer " + expiredJwt))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isUnauthorized());
+                
+        assertNull(com.saed.backend.context.SaedContextHolder.getContext(), "SaedContext should be null since authentication failed");
+    }
 }
+
