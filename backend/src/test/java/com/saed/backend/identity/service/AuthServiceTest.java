@@ -81,15 +81,33 @@ public class AuthServiceTest {
         LoginRequest request = new LoginRequest();
         request.setEmail("test@saed.com");
         request.setPassword("password123");
-
+        
         AuthData authData = new AuthData();
         authData.setHashPassword("hashed");
         authData.setEstado("INACTIVO");
-
+        
         when(authRepository.getAuthData("test@saed.com")).thenReturn(Optional.of(authData));
         when(passwordEncoder.matches("password123", "hashed")).thenReturn(true);
-
+        
         RuntimeException ex = assertThrows(RuntimeException.class, () -> authService.login(request));
-        assertTrue(ex.getMessage().contains("Credenciales"));
+        assertEquals("Credenciales invalidas", ex.getMessage());
+    }
+
+    @Test
+    void whenUserBlocked_thenBlocksLogin() {
+        LoginRequest request = new LoginRequest();
+        request.setEmail("test@saed.com");
+        request.setPassword("password123");
+        
+        AuthData authData = new AuthData();
+        authData.setHashPassword("hashed");
+        authData.setEstado("BLOQUEADO");
+        authData.setIdUsuario(1L);
+        
+        when(authRepository.getAuthData("test@saed.com")).thenReturn(Optional.of(authData));
+        when(passwordEncoder.matches("password123", "hashed")).thenReturn(true);
+        
+        RuntimeException ex = assertThrows(RuntimeException.class, () -> authService.login(request));
+        assertEquals("Credenciales invalidas", ex.getMessage());
     }
 }

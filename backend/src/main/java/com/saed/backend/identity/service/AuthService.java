@@ -40,17 +40,17 @@ public class AuthService {
                 // Register failure in Oracle (handles increments, lockouts, and auditing via autonomous transaction)
                 authRepository.registerLoginFailure(authData.getIdUsuario(), "API");
             }
-            throw new RuntimeException("Credenciales invǭlidas"); // Caught by GlobalExceptionHandler -> 401
+            throw new RuntimeException("Credenciales invalidas"); // Caught by GlobalExceptionHandler -> 401
         }
         
         if ("INACTIVO".equals(authData.getEstado()) || "BLOQUEADO".equals(authData.getEstado())) {
-            throw new RuntimeException("Credenciales invǭlidas"); // Don't reveal blocked status unless policy explicitly says so, but for now use uniform msg
+            throw new RuntimeException("Credenciales invalidas"); // Don't reveal blocked status unless policy explicitly says so, but for now use uniform msg
         }
 
         // Register success in Oracle (resets attempts, updates last login, audits)
         authRepository.registerLoginSuccess(authData.getIdUsuario(), "API");
 
         String token = jwtProvider.generateIdentityToken(authData.getIdUsuario());
-        return new AuthResponse(token);
+        return new AuthResponse(token, false, authData.getIdUsuario());
     }
 }
