@@ -115,7 +115,7 @@ public class Phase1CAdversarialTest {
                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+                .andExpect(jsonPath("$.code").value("CONTEXT_SPOOFING_DETECTED"));
     }
 
 
@@ -156,7 +156,7 @@ public class Phase1CAdversarialTest {
                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(result -> {
                     int status = result.getResponse().getStatus();
-                    assertTrue(status == 201 || status == 500); // Because FK id_tipo_propiedad might be invalid (500), but not 403.
+                    assertTrue(status == 403); // RLS physically rejects inserting out-of-tenant ID.
                 });
     }
 }
