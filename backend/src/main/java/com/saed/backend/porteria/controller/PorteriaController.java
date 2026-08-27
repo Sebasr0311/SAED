@@ -6,11 +6,13 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import io.swagger.v3.oas.annotations.tags.Tag;
 
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
+@Tag(name = "Porteria", description = "API para la gestion de Porteria")
 @RestController
 @RequestMapping("/api/v1/porteria")
 public class PorteriaController {
@@ -104,5 +106,6 @@ public class PorteriaController {
         porteriaService.registrarSalidaVehiculo(id, body.getOrDefault("costoTotal", BigDecimal.ZERO));
     }
 }
+
 
 
