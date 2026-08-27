@@ -1,6 +1,7 @@
 package com.saed.backend.identity.repository;
 
 import com.saed.backend.identity.dto.AuthData;
+import com.saed.backend.identity.dto.AuthUserDTO;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.SqlOutParameter;
 import org.springframework.jdbc.core.SqlParameter;
@@ -16,24 +17,39 @@ public class AuthRepositoryImpl implements AuthRepository {
 
     private final JdbcTemplate jdbcTemplate;
     private final SimpleJdbcCall getAuthDataCall;
+    private final SimpleJdbcCall getUserProfileCall;
     private final SimpleJdbcCall registerFailureCall;
     private final SimpleJdbcCall registerSuccessCall;
 
     public AuthRepositoryImpl(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
-        
+
         // Setup CallableStatements via SimpleJdbcCall
         this.getAuthDataCall = new SimpleJdbcCall(jdbcTemplate)
                 .withCatalogName("SAED_SEC_MASTER.PKG_AUTH_BOOTSTRAP")
                 .withProcedureName("GET_AUTH_DATA").withoutProcedureColumnMetaDataAccess()
                 .declareParameters(
-                        new SqlParameter("p_email", Types.VARCHAR),
+                        new SqlParameter("p_username", Types.VARCHAR),
                         new SqlOutParameter("p_id_usuario", Types.NUMERIC),
                         new SqlOutParameter("p_hash", Types.VARCHAR),
                         new SqlOutParameter("p_estado", Types.VARCHAR),
                         new SqlOutParameter("p_intentos", Types.NUMERIC)
                 );
-                
+
+        this.getUserProfileCall = new SimpleJdbcCall(jdbcTemplate)
+                .withCatalogName("SAED_SEC_MASTER.PKG_AUTH_BOOTSTRAP")
+                .withProcedureName("GET_USER_PROFILE").withoutProcedureColumnMetaDataAccess()
+                .declareParameters(
+                        new SqlParameter("p_id_usuario", Types.NUMERIC),
+                        new SqlOutParameter("p_nombre_usuario", Types.VARCHAR),
+                        new SqlOutParameter("p_email", Types.VARCHAR),
+                        new SqlOutParameter("p_rol_codigo", Types.VARCHAR),
+                        new SqlOutParameter("p_alcance", Types.VARCHAR),
+                        new SqlOutParameter("p_org_id", Types.NUMERIC),
+                        new SqlOutParameter("p_prop_id", Types.NUMERIC),
+                        new SqlOutParameter("p_unidad_id", Types.NUMERIC)
+                );
+
         this.registerFailureCall = new SimpleJdbcCall(jdbcTemplate)
                 .withCatalogName("SAED_SEC_MASTER.PKG_AUTH_BOOTSTRAP")
                 .withProcedureName("REGISTER_LOGIN_FAILURE").withoutProcedureColumnMetaDataAccess()
@@ -41,7 +57,7 @@ public class AuthRepositoryImpl implements AuthRepository {
                         new SqlParameter("p_id_usuario", Types.NUMERIC),
                         new SqlParameter("p_ip_origen", Types.VARCHAR)
                 );
-                
+
         this.registerSuccessCall = new SimpleJdbcCall(jdbcTemplate)
                 .withCatalogName("SAED_SEC_MASTER.PKG_AUTH_BOOTSTRAP")
                 .withProcedureName("REGISTER_LOGIN_SUCCESS").withoutProcedureColumnMetaDataAccess()
@@ -52,20 +68,39 @@ public class AuthRepositoryImpl implements AuthRepository {
     }
 
     @Override
-    public Optional<AuthData> getAuthData(String email) {
-        Map<String, Object> out = getAuthDataCall.execute(Map.of("p_email", email));
-        
+    public Optional<AuthData> getAuthData(String username) {
+        Map<String, Object> out = getAuthDataCall.execute(Map.of("p_username", username));
+
         Number idUsuario = (Number) out.get("p_id_usuario");
         if (idUsuario == null) {
             return Optional.empty();
         }
-        
+
         return Optional.of(AuthData.builder()
                 .idUsuario(idUsuario.longValue())
                 .hashPassword((String) out.get("p_hash"))
                 .estado((String) out.get("p_estado"))
                 .intentosFallidos(((Number) out.get("p_intentos")).intValue())
                 .build());
+    }
+
+    @Override
+    public AuthUserDTO getUserProfile(Long userId) {
+        Map<String, Object> out = getUserProfileCall.execute(Map.of("p_id_usuario", userId));
+        String nombreUsuario = (String) out.get("p_nombre_usuario");
+        if (nombreUsuario == null) {
+            return null;
+        }
+        return new AuthUserDTO(
+                userId,
+                nombreUsuario,
+                (String) out.get("p_email"),
+                (String) out.get("p_rol_codigo"),
+                (String) out.get("p_alcance"),
+                (Number) out.get("p_org_id") != null ? ((Number) out.get("p_org_id")).longValue() : null,
+                (Number) out.get("p_prop_id") != null ? ((Number) out.get("p_prop_id")).longValue() : null,
+                (Number) out.get("p_unidad_id") != null ? ((Number) out.get("p_unidad_id")).longValue() : null
+        );
     }
 
     @Override

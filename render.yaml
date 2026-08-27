@@ -7,27 +7,33 @@ services:
     plan: free
     env: java
     buildCommand: mvn clean package -DskipTests -q
-    startCommand: java -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -jar target/admin-residencial-1.0-SNAPSHOT.jar
+    startCommand: java -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -jar target/backend-1.0.0-SNAPSHOT.jar
+    healthCheckPath: /api/v1/auth/login
     envVars:
       - key: JAVA_VERSION
         value: "17"
       - key: PORT
         value: "8080"
+      - key: SPRING_PROFILES_ACTIVE
+        value: "prod"
       - key: DB_URL
         sync: false
-      - key: DB_USER
+      - key: DB_USERNAME
         sync: false
-      - key: DB_PASS
+      - key: DB_PASSWORD
         sync: false
       - key: JWT_SECRET
         sync: false
-      - key: GMAIL_USER
+      - key: CORS_ALLOWED_ORIGINS
         sync: false
-      - key: GMAIL_PASSWORD
+      - key: SPRING_MAIL_HOST
         sync: false
-      - key: WALLET_BASE64
+      - key: SPRING_MAIL_PORT
         sync: false
-    healthCheckPath: /health
+      - key: SPRING_MAIL_USERNAME
+        sync: false
+      - key: SPRING_MAIL_PASSWORD
+        sync: false
 
   - type: web
     name: saed-frontend

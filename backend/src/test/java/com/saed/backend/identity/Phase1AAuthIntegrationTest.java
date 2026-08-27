@@ -36,7 +36,7 @@ public class Phase1AAuthIntegrationTest {
     @Value("${jwt.secret:dGhpcy1pcy1hLXZlcnktc2VjdXJlLWtleS1mb3Itc2FlZC0yLjAtc2VjcmV0}")
     private String jwtSecret;
 
-    private static final String TEST_EMAIL = "integration@saed.com";
+    private static final String TEST_USERNAME = "integration.saed";
     private static final String TEST_PASSWORD = "password123";
 
     @BeforeEach
@@ -54,13 +54,13 @@ public class Phase1AAuthIntegrationTest {
                 .withProcedureName("GET_AUTH_DATA")
                 .withoutProcedureColumnMetaDataAccess()
                 .declareParameters(
-                    new org.springframework.jdbc.core.SqlParameter("p_email", java.sql.Types.VARCHAR), 
+                    new org.springframework.jdbc.core.SqlParameter("p_username", java.sql.Types.VARCHAR), 
                     new org.springframework.jdbc.core.SqlOutParameter("p_id_usuario", java.sql.Types.NUMERIC), 
                     new org.springframework.jdbc.core.SqlOutParameter("p_hash", java.sql.Types.VARCHAR), 
                     new org.springframework.jdbc.core.SqlOutParameter("p_estado", java.sql.Types.VARCHAR), 
                     new org.springframework.jdbc.core.SqlOutParameter("p_intentos", java.sql.Types.NUMERIC)
                 );
-            Map<String, Object> out = call.execute(Map.of("p_email", TEST_EMAIL));
+            Map<String, Object> out = call.execute(Map.of("p_username", TEST_USERNAME));
             Number id = (Number) out.get("p_id_usuario");
             return id != null ? id.longValue() : null;
         } catch(Exception e) {
@@ -71,7 +71,7 @@ public class Phase1AAuthIntegrationTest {
     @Test
     public void testA_LoginCorrecto() {
         LoginRequest req = new LoginRequest();
-        req.setEmail(TEST_EMAIL);
+        req.setUsername(TEST_USERNAME);
         req.setPassword(TEST_PASSWORD);
         
         AuthResponse res = authService.login(req);
@@ -85,7 +85,7 @@ public class Phase1AAuthIntegrationTest {
     @Test
     public void testB_PasswordIncorrecto() {
         LoginRequest req = new LoginRequest();
-        req.setEmail(TEST_EMAIL);
+        req.setUsername(TEST_USERNAME);
         req.setPassword("wrongpassword");
         
         Exception ex = assertThrows(com.saed.backend.identity.exception.InvalidCredentialsException.class, () -> authService.login(req));
@@ -95,7 +95,7 @@ public class Phase1AAuthIntegrationTest {
     @Test
     public void testC_UsuarioInexistente() {
         LoginRequest req = new LoginRequest();
-        req.setEmail("notexists@saed.com");
+        req.setUsername("notexists.saed");
         req.setPassword("password");
         
         Exception ex = assertThrows(com.saed.backend.identity.exception.InvalidCredentialsException.class, () -> authService.login(req));
@@ -105,7 +105,7 @@ public class Phase1AAuthIntegrationTest {
     @Test
     public void testH_JwtValidoAndStructure() {
         LoginRequest req = new LoginRequest();
-        req.setEmail(TEST_EMAIL);
+        req.setUsername(TEST_USERNAME);
         req.setPassword(TEST_PASSWORD);
         
         AuthResponse res = authService.login(req);
@@ -146,7 +146,7 @@ public class Phase1AAuthIntegrationTest {
     @Test
     public void testHttp401OnInvalidCredentials() throws Exception {
         LoginRequest req = new LoginRequest();
-        req.setEmail("notexists@saed.com");
+        req.setUsername("notexists.saed");
         req.setPassword("wrong");
 
         mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/v1/auth/login")
@@ -177,4 +177,5 @@ public class Phase1AAuthIntegrationTest {
         assertNull(com.saed.backend.context.SaedContextHolder.getContext(), "SaedContext should be null since authentication failed");
     }
 }
+
 

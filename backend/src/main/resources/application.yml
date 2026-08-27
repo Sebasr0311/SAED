@@ -6,8 +6,16 @@ spring:
   config:
     import: optional:file:.env[.properties]
   mail:
-    host: localhost
-    port: 2525
+    host: ${SPRING_MAIL_HOST:localhost}
+    port: ${SPRING_MAIL_PORT:2525}
+    username: ${SPRING_MAIL_USERNAME:}
+    password: ${SPRING_MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: ${SPRING_MAIL_SMTP_AUTH:false}
+          starttls:
+            enable: ${SPRING_MAIL_SMTP_STARTTLS:false}
 
 ---
 spring:
@@ -18,6 +26,26 @@ spring:
     driver-class-name: oracle.jdbc.OracleDriver
     url: ${DB_URL:jdbc:oracle:thin:@localhost:1521/XEPDB1}
     username: ${DB_USERNAME:SAED_V39_FINAL_TEST}
+    password: ${DB_PASSWORD}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
+
+jwt:
+  secret: ${JWT_SECRET}
+  expiration:
+    ms: 86400000
+
+---
+spring:
+  config:
+    activate:
+      on-profile: prod
+  datasource:
+    driver-class-name: oracle.jdbc.OracleDriver
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
     hikari:
       maximum-pool-size: 10

@@ -37,7 +37,7 @@ public class AuthServiceTest {
     @Test
     void whenValidCredentials_thenReturnsToken() {
         LoginRequest request = new LoginRequest();
-        request.setEmail("test@saed.com");
+        request.setUsername("test@saed.com");
         request.setPassword("password123");
 
         AuthData authData = new AuthData();
@@ -59,7 +59,7 @@ public class AuthServiceTest {
     @Test
     void whenInvalidPassword_thenIncrementsFailedAttempts() {
         LoginRequest request = new LoginRequest();
-        request.setEmail("test@saed.com");
+        request.setUsername("test@saed.com");
         request.setPassword("wrong");
 
         AuthData authData = new AuthData();
@@ -79,7 +79,7 @@ public class AuthServiceTest {
     @Test
     void whenUserInactive_thenBlocksLogin() {
         LoginRequest request = new LoginRequest();
-        request.setEmail("test@saed.com");
+        request.setUsername("test@saed.com");
         request.setPassword("password123");
         
         AuthData authData = new AuthData();
@@ -96,7 +96,7 @@ public class AuthServiceTest {
     @Test
     void whenUserBlocked_thenBlocksLogin() {
         LoginRequest request = new LoginRequest();
-        request.setEmail("test@saed.com");
+        request.setUsername("test@saed.com");
         request.setPassword("password123");
         
         AuthData authData = new AuthData();
