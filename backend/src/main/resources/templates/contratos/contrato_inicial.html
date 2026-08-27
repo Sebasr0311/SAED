@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Contrato de Arrendamiento Inicial – Torres del Horizonte</title>
+  <style>
+    @page { size: A4; margin: 15mm 18mm; }
+    /* Fonts removed for PDF compatibility */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'EB Garamond', Georgia, serif;
+      font-size: 11.5pt;
+      color: #0D1B2A;
+      background: #fff;
+      line-height: 1.7;
+    }
+
+    /* ── PÁGINA ── */
+    .page {
+      width: auto;
+      padding: 0;
+    }
+
+    /* ── ENCABEZADO ── */
+    .header {
+      display: table;
+      width: 100%;
+      border-bottom: 3px solid #0D1B2A;
+      padding-bottom: 10px;
+      margin-bottom: 6px;
+    }
+    .header-left { display: table-cell; vertical-align: top; width: 1%; white-space: nowrap; }
+    .header-left .building-name {
+      font-family: 'Montserrat', sans-serif;
+      font-weight: 700;
+      font-size: 16pt;
+      color: #0D1B2A;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+    .header-left .building-sub {
+      font-family: 'Montserrat', sans-serif;
+      font-size: 7.5pt;
+      color: #B8933E;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-top: 2px;
+    }
+    .header-right {
+      display: table-cell;
+      vertical-align: top;
+      text-align: right;
+      font-family: 'Montserrat', sans-serif;
+      font-size: 7.5pt;
+      color: #6B7280;
+      line-height: 1.6;
+    }
+    .badge-tipo {
+      display: inline-block;
+      margin-top: 4px;
+      background: #0D1B2A;
+      color: #fff;
+      font-family: 'Montserrat', sans-serif;
+      font-size: 7pt;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      padding: 3px 10px;
+      border-radius: 2px;
+    }
+    .acta-line {
+      font-family: 'Montserrat', sans-serif;
+      font-size: 7pt;
+      color: #6B7280;
+      text-align: right;
+      margin-bottom: 14px;
+    }
+
+    /* ── TÍTULO PRINCIPAL ── */
+    .contract-title {
+      text-align: center;
+      margin: 16px 0 4px;
+    }
+    .contract-title h1 {
+      font-family: 'Montserrat', sans-serif;
+      font-weight: 700;
+      font-size: 13pt;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #0D1B2A;
+    }
+    .contract-title .subtitle {
+      font-family: 'Montserrat', sans-serif;
+      font-size: 8pt;
+      color: #B8933E;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      margin-top: 3px;
+    }
+    .divider-ornament {
+      text-align: center;
+      color: #B8933E;
+      font-size: 14pt;
+      margin: 8px 0;
+      letter-spacing: 6px;
+    }
+
+    /* ── CAJAS DE DATOS ── */
+    .info-grid {
+      width: 100%;
+      margin: 14px 0;
+    }
+    .info-grid:after { content: ''; display: block; clear: both; }
+    .info-grid > div { float: left; width: 49%; }
+    .info-grid > div:first-child { margin-right: 2%; }
+    .info-box {
+      border: 1px solid #D6CFC0;
+      border-top: 3px solid #B8933E;
+      padding: 10px 12px;
+      background: #F8F5EE;
+    }
+    .info-box.full { width: 100%; clear: both; margin-right: 0; }
+    .info-box h4 {
+      font-family: 'Montserrat', sans-serif;
+      font-size: 7pt;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #B8933E;
+      margin-bottom: 7px;
+    }
+    .info-row {
+      overflow: hidden;
+      margin-bottom: 3px;
+      font-size: 10.5pt;
+    }
+    .info-label {
+      font-family: 'Montserrat', sans-serif;
+      font-size: 7.5pt;
+      font-weight: 600;
+      color: #6B7280;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      padding-top: 2px;
+      display: block;
+      float: left;
+      width: 120px;
+    }
+    .info-value {
+      font-family: 'EB Garamond', serif;
+      font-size: 11pt;
+      color: #0D1B2A;
+      font-weight: 600;
+      border-bottom: 1px dotted #D6CFC0;
+      display: block;
+      margin-left: 120px;
+    }
+    .highlight-value {
+      color: #B8933E;
+      font-weight: 700;
+    }
+
+    /* ── TABLA FINANCIERA ── */
+    .finance-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10px 0;
+      font-size: 10.5pt;
+    }
+    .finance-table th {
+      background: #0D1B2A;
+      color: #fff;
+      font-family: 'Montserrat', sans-serif;
+      font-size: 7pt;
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      padding: 7px 10px;
+      text-align: left;
+    }
+    .finance-table td {
+      padding: 6px 10px;
+      border-bottom: 1px solid #D6CFC0;
+    }
+    .finance-table tr:nth-child(even) td { background: #F8F5EE; }
+    .finance-table .total-row td {
+      background: #0D1B2A;
+      color: #fff;
+      font-family: 'Montserrat', sans-serif;
+      font-weight: 700;
+      font-size: 10pt;
+    }
+    .finance-table .deposito-row td {
+      background: #f0ebe0;
+      color: #0D1B2A;
+      font-family: 'Montserrat', sans-serif;
+      font-weight: 600;
+      font-size: 10pt;
+      border-top: 2px solid #B8933E;
+    }
+    .text-right { text-align: right; }
+
+    /* ── SECCIONES ── */
+    .section {
+      margin: 14px 0;
+    }
+    .section-title {
+      font-family: 'Montserrat', sans-serif;
+      font-size: 8pt;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #0D1B2A;
+      border-left: 4px solid #B8933E;
+      padding-left: 8px;
+      margin-bottom: 8px;
+    }
+    .clause {
+      margin-bottom: 9px;
+      text-align: justify;
+      hyphens: auto;
+    }
+    .clause-number {
+      font-family: 'Montserrat', sans-serif;
+      font-weight: 700;
+      font-size: 8.5pt;
+      color: #B8933E;
+      margin-right: 4px;
+    }
+
+    /* ── ALERTA PERÍODO DE PRUEBA ── */
+    .alert-box {
+      border: 1.5px solid #8B1A1A;
+      border-left: 5px solid #8B1A1A;
+      background: #fdf5f5;
+      padding: 9px 12px;
+      margin: 12px 0;
+      font-size: 10.5pt;
+    }
+    .alert-box strong {
+      font-family: 'Montserrat', sans-serif;
+      font-size: 7.5pt;
+      font-weight: 700;
+      color: #8B1A1A;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      display: block;
+      margin-bottom: 3px;
+    }
+
+    /* ── CAUSALES ── */
+    .causal-list {
+      list-style: none;
+      margin: 6px 0 6px 4px;
+    }
+    .causal-list li {
+      padding: 3px 0 3px 16px;
+      position: relative;
+      font-size: 10.5pt;
+      border-bottom: 1px dotted #D6CFC0;
+    }
+    .causal-list li::before {
+      content: '■';
+      position: absolute;
+      left: 0;
+      color: #8B1A1A;
+      font-size: 6pt;
+      top: 7px;
+    }
+
+    /* ── FIRMAS ── */
+    .firma-section {
+      margin-top: 24px;
+      page-break-inside: avoid;
+    }
+    .firma-grid {
+      display: table;
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 30px 0;
+      margin-top: 12px;
+    }
+    .firma-box {
+      display: table-cell;
+      width: 50%;
+      text-align: center;
+    }
+    .firma-line {
+      border-top: 2px solid #0D1B2A;
+      margin: 50px 10px 6px;
+    }
+    .firma-name {
+      font-family: 'Montserrat', sans-serif;
+      font-weight: 700;
+      font-size: 9pt;
+      color: #0D1B2A;
+    }
+    .firma-role {
+      font-family: 'Montserrat', sans-serif;
+      font-size: 7.5pt;
+      color: #6B7280;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .firma-doc {
+      font-size: 9.5pt;
+      color: #6B7280;
+      margin-top: 2px;
+    }
+
+    /* ── TUTOR ── */
+    .tutor-section {
+      margin-top: 14px;
+      border: 1px dashed #D6CFC0;
+      padding: 10px 14px;
+      background: #F8F5EE;
+    }
+    .tutor-section h4 {
+      font-family: 'Montserrat', sans-serif;
+      font-size: 7pt;
+      font-weight: 700;
+      color: #B8933E;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+
+    /* ── PIE DE PÁGINA ── */
+    .footer {
+      margin-top: 20px;
+      border-top: 2px solid #0D1B2A;
+      padding-top: 8px;
+      display: table;
+      width: 100%;
+    }
+    .footer-left {
+      display: table-cell;
+      width: 1%;
+      white-space: nowrap;
+      font-family: 'Montserrat', sans-serif;
+      font-size: 7pt;
+      color: #6B7280;
+      line-height: 1.6;
+    }
+    .footer-right {
+      display: table-cell;
+      text-align: right;
+      font-family: 'Montserrat', sans-serif;
+      font-size: 7pt;
+      color: #6B7280;
+    }
+    .watermark-tipo {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) rotate(-35deg);
+      font-family: 'Montserrat', sans-serif;
+      font-size: 72pt;
+      font-weight: 900;
+      color: rgba(13, 27, 42, 0.04);
+      letter-spacing: 8px;
+      text-transform: uppercase;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+
+    @media print {
+      .watermark-tipo { position: fixed; }
+    }
+  </style>
+</head>
+<body>
+<div class="watermark-tipo">INICIAL</div>
+
+<div class="page">
+
+  <!-- ENCABEZADO -->
+  <div class="header">
+    <div class="header-left">
+      <div class="building-name">Torres del Horizonte</div>
+      <div class="building-sub">Administración de Propiedad Horizontal</div>
+    </div>
+    <div class="header-right">
+      NIT: 900.456.789-1<br/>
+      Cra 12 # 45-67, Montería, Córdoba<br/>
+      Rep. Legal: Carlos Andrés Mendoza<br/>
+      CC: 79.123.456
+      <div class="badge-tipo">Contrato Inicial</div>
+    </div>
+  </div>
+  <div class="acta-line">
+    No. de Contrato: <strong>{{numeroContrato}}</strong> &nbsp;|&nbsp;
+    Generado: {{fechaGeneracion}} &nbsp;|&nbsp;
+    Estado: <strong>PENDIENTE DE FIRMA</strong>
+  </div>
+
+  <!-- TÍTULO -->
+  <div class="contract-title">
+    <h1>Contrato de Arrendamiento de Vivienda Urbana</h1>
+    <div class="subtitle">Período de Prueba — Tres (3) Meses — Ley 820 de 2003</div>
+  </div>
+  <div class="divider-ornament">— ✦ —</div>
+
+  <!-- COMPARECIENTES -->
+  <p class="clause" style="margin-top:10px;">
+    Entre los suscritos, a saber: de una parte, <strong>TORRES DEL HORIZONTE</strong>,
+    identificada con NIT <strong>900.456.789-1</strong>, representada legalmente por
+    <strong>Carlos Andrés Mendoza</strong>, identificado con C.C. <strong>79.123.456</strong>,
+    quien en adelante se denominará <strong>EL ARRENDADOR</strong>; y de otra parte,
+    <strong>{{nombreCompletoResidente}}</strong>, identificado(a) con
+    <strong>{{tipoDocumento}} No. {{numeroDocumento}}</strong>, mayor de edad, domiciliado en
+    la ciudad de Montería, quien en adelante se denominará <strong>EL ARRENDATARIO</strong>;
+    hemos convenido celebrar el presente Contrato de Arrendamiento de Vivienda Urbana, que
+    se regirá por las Ley 820 de 2003 y las disposiciones civiles concordantes, con sujeción
+    a las siguientes cláusulas:
+  </p>
+
+  <!-- DATOS DEL CONTRATO -->
+  <div class="info-grid">
+    <div class="info-box">
+      <h4>Datos del Arrendatario</h4>
+      <div class="info-row">
+        <span class="info-label">Nombre completo</span>
+        <span class="info-value">{{nombreCompletoResidente}}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Tipo documento</span>
+        <span class="info-value">{{tipoDocumento}}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Número documento</span>
+        <span class="info-value">{{numeroDocumento}}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Correo electrónico</span>
+        <span class="info-value">{{correoResidente}}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Teléfono</span>
+        <span class="info-value">{{telefonoResidente}}</span>
+      </div>
+    </div>
+
+    <div class="info-box">
+      <h4>Datos del Inmueble</h4>
+      <div class="info-row">
+        <span class="info-label">Apartamento No.</span>
+        <span class="info-value highlight-value">{{numeroApartamento}}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Tipo</span>
+        <span class="info-value">{{tipoApartamento}}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Piso</span>
+        <span class="info-value">{{piso}}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Área</span>
+        <span class="info-value">{{area}} m²</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Capacidad máx.</span>
+        <span class="info-value">{{capacidadMaxima}} personas</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Parqueadero</span>
+        <span class="info-value">{{nombreParqueadero}}</span>
+      </div>
+    </div>
+
+    <div class="info-box full">
+      <h4>Vigencia del Contrato</h4>
+      <div class="info-grid" style="margin:0;">
+        <div>
+          <div class="info-row">
+            <span class="info-label">Tipo de contrato</span>
+            <span class="info-value highlight-value">INICIAL – PERÍODO DE PRUEBA</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Duración</span>
+            <span class="info-value">TRES (3) MESES</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Fecha de inicio</span>
+            <span class="info-value">{{fechaInicio}}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Fecha de vencimiento</span>
+            <span class="info-value">{{fechaFin}}</span>
+          </div>
+        </div>
+        <div>
+          <div class="info-row">
+            <span class="info-label">Aviso previo salida</span>
+            <span class="info-value">15 días calendario</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Penalización anticipada</span>
+            <span class="info-value">1 mes de canon</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Inspecciones</span>
+            <span class="info-value">Mensuales</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Renovación</span>
+            <span class="info-value">No garantizada — sujeto a evaluación</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TABLA FINANCIERA -->
+  <div class="section">
+    <div class="section-title">Condiciones Económicas</div>
+    <table class="finance-table">
+      <thead>
+        <tr>
+          <th>Concepto</th>
+          <th class="text-right">Valor Mensual</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Canon de arrendamiento</td>
+          <td class="text-right">{{valorCanon}}</td>
+        </tr>
+        <tr>
+          <td>Cuota de administración</td>
+          <td class="text-right">{{valorAdministracion}}</td>
+        </tr>
+        <tr class="total-row">
+          <td><strong>TOTAL MENSUAL A PAGAR</strong></td>
+          <td class="text-right"><strong>{{valorTotal}}</strong></td>
+        </tr>
+        <tr class="deposito-row">
+          <td>Depósito en garantía (pagado una sola vez al inicio)</td>
+          <td class="text-right">{{valorDeposito}}</td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="clause" style="font-size:9.5pt; margin-top:6px;">
+      <span class="clause-number">§</span>
+      El canon deberá pagarse dentro de los primeros <strong>{{diaPago}} días</strong> de cada mes,
+      con un período de gracia de <strong>{{diasGracia}} días</strong> antes de aplicar mora.
+      La mora se liquidará a razón de <strong>{{porcentajeMora}}%</strong> por día de retraso sobre el valor total adeudado.
+      Medio de pago aceptado: consignación bancaria o transferencia electrónica, indicando como referencia
+      el número del apartamento.
+    </p>
+  </div>
+
+  <!-- ALERTA PERÍODO DE PRUEBA -->
+  <div class="alert-box">
+    <strong>⚠ Cláusula especial — Período de prueba (3 meses)</strong>
+    El presente contrato constituye un período de adaptación y evaluación mutua. La administración
+    realizará <strong>inspecciones mensuales</strong> del inmueble. Al vencimiento, la renovación
+    <strong>no es automática ni garantizada</strong> y quedará sujeta al comportamiento, puntualidad
+    de pagos y cumplimiento del reglamento interno durante este período. La salida anticipada
+    requiere aviso previo de <strong>15 días calendario</strong> y genera penalización equivalente
+    a <strong>un (1) mes de canon</strong>.
+  </div>
+
+  <!-- CLÁUSULAS -->
+  <div class="section">
+    <div class="section-title">Cláusulas y Condiciones Generales</div>
+
+    <p class="clause"><span class="clause-number">PRIMERA — OBJETO.</span>
+    El ARRENDADOR entrega al ARRENDATARIO, a título de arrendamiento, el apartamento No.
+    <strong>{{numeroApartamento}}</strong>, tipo <strong>{{tipoApartamento}}</strong>,
+    ubicado en el piso <strong>{{piso}}</strong> del Edificio Torres del Horizonte,
+    con un área aproximada de <strong>{{area}} m²</strong>, exclusivamente para uso
+    <strong>residencial</strong>. Se prohíbe expresamente cualquier uso comercial, industrial
+    o actividad diferente a la habitacional.</p>
+
+    <p class="clause"><span class="clause-number">SEGUNDA — OCUPANTES Y CAPACIDAD MÁXIMA.</span>
+    El inmueble objeto del presente contrato tiene una capacidad máxima de
+    <strong>{{capacidadMaxima}} personas</strong>, conforme al tipo de apartamento
+    <strong>{{tipoApartamento}}</strong>. El ARRENDATARIO se obliga a registrar en el sistema
+    digital del edificio a la totalidad de los ocupantes permanentes. El exceso de ocupantes
+    constituye causal de terminación inmediata del contrato.</p>
+
+    <p class="clause"><span class="clause-number">TERCERA — PROHIBICIÓN DE SUBARRIENDO.</span>
+    Queda expresamente prohibido al ARRENDATARIO subarrendar total o parcialmente el inmueble,
+    ceder el contrato o permitir el uso del mismo a terceros no registrados, sin previa
+    autorización escrita del ARRENDADOR. El incumplimiento de esta cláusula dará lugar a la
+    terminación inmediata del contrato, sin perjuicio de las acciones legales correspondientes.</p>
+
+    <p class="clause"><span class="clause-number">CUARTA — SERVICIOS PÚBLICOS.</span>
+    Los servicios públicos de energía eléctrica, agua, gas, internet y demás, serán pagados
+    directamente por el ARRENDATARIO a las empresas prestadoras correspondientes. El retraso
+    o suspensión de dichos servicios por falta de pago del ARRENDATARIO no generará
+    responsabilidad para el ARRENDADOR.</p>
+
+    <p class="clause"><span class="clause-number">QUINTA — MASCOTAS.</span>
+    Se permite la tenencia de hasta <strong>dos (2) mascotas</strong> de razas no consideradas
+    peligrosas según la normativa colombiana vigente (Ley 1801 de 2016 y sus reglamentaciones).
+    El ARRENDATARIO asume plena responsabilidad por daños, ruidos o molestias que sus mascotas
+    causen a la comunidad. El incumplimiento reiterado de esta cláusula podrá generar multas
+    y, en caso de reincidencia grave, terminación del contrato.</p>
+
+    <p class="clause"><span class="clause-number">SEXTA — CONVIVENCIA Y RESTRICCIONES DE RUIDO.</span>
+    El ARRENDATARIO se compromete a respetar los horarios de convivencia establecidos por el
+    Reglamento de Propiedad Horizontal: <strong>silencio nocturno de 10:00 p.m. a 6:00 a.m.</strong>
+    El portero del edificio podrá generar un aviso previo ante la primera queja de ruido.
+    Transcurridos <strong>20 minutos</strong> sin cese de la perturbación, se procederá a
+    generar la multa correspondiente registrada en el sistema. La acumulación de
+    <strong>tres (3) o más multas</strong> constituye causal de terminación del contrato.</p>
+
+    <p class="clause"><span class="clause-number">SÉPTIMA — MANTENIMIENTO Y REPARACIONES.</span>
+    Las reparaciones menores derivadas del uso normal del inmueble (instalaciones eléctricas
+    de baja escala, cerraduras, vidrios, elementos de cocina y baño de uso cotidiano) serán
+    a cargo del ARRENDATARIO. Las reparaciones de carácter estructural, de fachada, de redes
+    hidráulicas o eléctricas principales serán responsabilidad del ARRENDADOR, previa
+    comunicación formal a través del sistema de solicitudes del edificio.</p>
+
+    <p class="clause"><span class="clause-number">OCTAVA — VISITANTES Y CONTROL DE ACCESO.</span>
+    El ARRENDATARIO podrá registrar visitas frecuentes o programar visitas en el sistema
+    digital del edificio. El acceso de visitantes se realizará mediante código QR generado
+    por el sistema, el cual deberá ser presentado ante el portero. El portero tomará registro
+    fotográfico y asignará parqueadero de visitantes cuando corresponda. El ARRENDATARIO es
+    responsable por el comportamiento de sus visitantes dentro de las instalaciones del edificio.</p>
+
+    <p class="clause"><span class="clause-number">NOVENA — PARQUEADERO.</span>
+    Se asigna al presente contrato el parqueadero <strong>{{nombreParqueadero}}</strong>,
+    de uso exclusivo del ARRENDATARIO. Queda prohibido estacionar en espacios no asignados,
+    zonas de visitantes sin autorización del portero, o áreas de circulación. El
+    incumplimiento generará multa con registro en el sistema.</p>
+
+    <p class="clause"><span class="clause-number">DÉCIMA — MULTAS Y SANCIONES.</span>
+    Las infracciones al Reglamento de Propiedad Horizontal y a las cláusulas del presente
+    contrato generarán multas registradas en el sistema de administración por el portero o
+    el administrador. El ARRENDATARIO podrá apelar la multa a través del módulo de quejas
+    y sugerencias del sistema dentro de los <strong>5 días hábiles</strong> siguientes a
+    su notificación. Las multas no apeladas o confirmadas en apelación se adicionarán al
+    siguiente recibo de pago.</p>
+
+    <p class="clause"><span class="clause-number">DÉCIMA PRIMERA — MORA EN EL PAGO.</span>
+    Vencido el período de gracia de <strong>{{diasGracia}} días</strong>, el sistema calculará
+    automáticamente la mora a razón de <strong>{{porcentajeMora}}% diario</strong> sobre el
+    total adeudado. La mora de más de <strong>60 días</strong> constituye causal de terminación
+    anticipada del contrato y habilita al ARRENDADOR para iniciar el proceso de restitución
+    del inmueble conforme a la Ley 820 de 2003.</p>
+
+    <p class="clause"><span class="clause-number">DÉCIMA SEGUNDA — PAQUETES Y DOMICILIOS.</span>
+    El portero registrará en el sistema la llegada de paquetes y domicilios. El ARRENDATARIO
+    recibirá notificación automática y deberá confirmar la recepción a través del sistema.
+    La administración no se responsabiliza por paquetes no reclamados en un plazo
+    superior a <strong>5 días hábiles</strong>.</p>
+
+    <p class="clause"><span class="clause-number">DÉCIMA TERCERA — ENTREGA DEL INMUEBLE.</span>
+    Al vencimiento del contrato o en caso de terminación anticipada, el ARRENDATARIO deberá
+    entregar el inmueble en el mismo estado en que lo recibió, salvo el deterioro natural por
+    el uso. Se realizará una inspección de entrega con inventario. Los daños verificados
+    serán descontados del depósito en garantía, y si este resulta insuficiente, el
+    ARRENDATARIO deberá cancelar la diferencia.</p>
+
+    <p class="clause"><span class="clause-number">DÉCIMA CUARTA — QUEJAS, SUGERENCIAS Y AVISOS.</span>
+    El ARRENDATARIO tiene derecho a presentar quejas, sugerencias y apelaciones a través
+    del sistema digital del edificio. La administración se compromete a dar respuesta en
+    un plazo no mayor a <strong>5 días hábiles</strong>. Los avisos generales de la
+    administración serán publicados en el sistema y se entenderán notificados al momento
+    de su publicación.</p>
+  </div>
+
+  <!-- CAUSALES DE TERMINACIÓN -->
+  <div class="section">
+    <div class="section-title">Causales de Terminación Inmediata</div>
+    <p class="clause" style="margin-bottom:6px;">
+      Las siguientes conductas darán lugar a la terminación inmediata del contrato sin
+      indemnización a favor del ARRENDATARIO:
+    </p>
+    <ul class="causal-list">
+      <li>Subarrendar o ceder el contrato sin autorización escrita del ARRENDADOR.</li>
+      <li>Desarrollar actividades ilícitas, comerciales o que perturben el orden público dentro del inmueble o zonas comunes.</li>
+      <li>Agresiones físicas o verbales a otros residentes, visitantes o personal del edificio.</li>
+      <li>Manipular, adulterar o intentar vulnerar el sistema de control de acceso QR del edificio.</li>
+      <li>Exceder la capacidad máxima de <strong>{{capacidadMaxima}} personas</strong> establecida para el apartamento.</li>
+      <li>Mora en el pago superior a 60 días calendario.</li>
+      <li>Acumulación de tres (3) o más multas vigentes en el sistema de administración.</li>
+      <li>Causar daños graves o intencionales a la estructura, instalaciones o bienes comunes del edificio.</li>
+      <li>Suministrar información falsa o documentación fraudulenta al momento de suscribir el contrato.</li>
+      <li>Incumplimiento reiterado de las normas de convivencia del Reglamento de Propiedad Horizontal.</li>
+    </ul>
+  </div>
+
+  <!-- OBLIGACIONES DE LAS PARTES -->
+  <div class="section">
+    <div class="section-title">Obligaciones del Arrendador</div>
+    <p class="clause">El ARRENDADOR se obliga a: (i) mantener el sistema operativo de portería, QR y notificaciones;
+    (ii) atender quejas y solicitudes en el sistema dentro de los plazos establecidos;
+    (iii) enviar recordatorios de pago y avisos de vencimiento a través del sistema;
+    (iv) mantener los parqueaderos de visitantes en condiciones de uso; (v) garantizar las
+    reparaciones estructurales del inmueble en un plazo razonable; y (vi) devolver el depósito
+    en garantía dentro de los <strong>30 días</strong> siguientes a la entrega del inmueble,
+    descontando los valores que correspondan por daños verificados.</p>
+  </div>
+
+  <!-- NOTIFICACIONES -->
+  <div class="section">
+    <div class="section-title">Notificaciones y Domicilio Contractual</div>
+    <p class="clause">Para todos los efectos legales del presente contrato, las partes señalan
+    como domicilio contractual la ciudad de <strong>Montería, Córdoba</strong>. Las notificaciones
+    se realizarán preferiblemente a través del sistema digital del edificio, y en su defecto,
+    al correo electrónico registrado por cada parte. Las comunicaciones formales (demandas,
+    requerimientos judiciales) deberán dirigirse a la dirección física del edificio:
+    <strong>Cra 12 # 45-67, Montería, Córdoba</strong>.</p>
+  </div>
+
+  <!-- FIRMAS -->
+  <div class="firma-section">
+    <div class="section-title">Firmas de las Partes</div>
+    <p class="clause" style="font-size:9.5pt; margin-bottom:10px;">
+      En constancia de haber leído, entendido y aceptado la totalidad de las cláusulas del
+      presente contrato, las partes lo suscriben en la ciudad de Montería a los
+      <strong>{{diaFirma}}</strong> días del mes de <strong>{{mesFirma}}</strong>
+      de <strong>{{anioFirma}}</strong>.
+    </p>
+    <div class="firma-grid">
+      <div class="firma-box">
+        <div class="firma-line"></div>
+        <div class="firma-name">Carlos Andrés Mendoza</div>
+        <div class="firma-role">El Arrendador / Representante Legal</div>
+        <div class="firma-doc">C.C. 79.123.456</div>
+        <div class="firma-doc">Torres del Horizonte – NIT 900.456.789-1</div>
+      </div>
+      <div class="firma-box">
+        <div class="firma-line"></div>
+        <div class="firma-name">{{nombreCompletoResidente}}</div>
+        <div class="firma-role">El Arrendatario</div>
+        <div class="firma-doc">{{tipoDocumento}} No. {{numeroDocumento}}</div>
+        <div class="firma-doc">Apto. {{numeroApartamento}} – Piso {{piso}}</div>
+      </div>
+    </div>
+
+    <!-- SECCIÓN TUTOR (solo para menores 16-17 años) -->
+    <div class="tutor-section">
+      <h4>Firma del Tutor o Representante Legal (solo si el arrendatario es menor de edad)</h4>
+      <div class="firma-grid" style="margin-top:8px;">
+        <div class="firma-box">
+          <div class="firma-line" style="margin-top:40px;"></div>
+          <div class="firma-name">{{nombreTutor}}</div>
+          <div class="firma-role">{{relacionTutor}} del Arrendatario</div>
+          <div class="firma-doc">C.C. {{cedulaTutor}}</div>
+        </div>
+        <div class="firma-box" style="vertical-align:bottom; padding-bottom:20px;">
+          <div style="font-family:'Montserrat',sans-serif; font-size:7.5pt; color:#6B7280; text-align:center; max-width:180px;">
+            Esta sección aplica únicamente cuando el arrendatario tiene entre 16 y 17 años.
+            En los demás casos, se omite en el documento generado.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PIE DE PÁGINA -->
+  <div class="footer">
+    <div class="footer-left">
+      <strong>Torres del Horizonte</strong> · NIT 900.456.789-1<br/>
+      Cra 12 # 45-67, Montería, Córdoba · {{telefonoAdministracion}} · {{correoAdministracion}}
+    </div>
+    <div class="footer-right">
+      Contrato No. {{numeroContrato}}<br/>
+      Generado: {{fechaGeneracion}}<br/>
+      Tipo: INICIAL (3 meses)
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

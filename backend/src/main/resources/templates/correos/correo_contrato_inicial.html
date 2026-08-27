@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8"/>
+  <style>
+    body { margin: 0; padding: 0; background-color: #f4f4f4; font-family: Arial, sans-serif; }
+    .wrapper { max-width: 620px; margin: 30px auto; background-color: #ffffff; border: 1px solid #e0e0e0; }
+    .header { background-color: #0D1B2A; padding: 24px 32px; }
+    .header-brand { color: #ffffff; font-size: 18px; font-weight: bold; letter-spacing: 1px; text-transform: uppercase; margin: 0; }
+    .header-sub { color: #B8933E; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; margin: 4px 0 0; }
+    .badge { display: inline-block; margin-top: 12px; background-color: #B8933E; color: #ffffff; font-size: 10px; font-weight: bold; letter-spacing: 1px; text-transform: uppercase; padding: 4px 12px; }
+    .body { padding: 32px; color: #1a1a1a; font-size: 14px; line-height: 1.8; }
+    .body p { margin: 0 0 16px; }
+    .steps { margin: 16px 0 16px 0; padding: 0; }
+    .steps li { margin-bottom: 10px; }
+    .sub-list { margin-top: 8px; padding-left: 20px; list-style: none; }
+    .sub-list li::before { content: "• "; color: #B8933E; font-weight: bold; }
+    .highlight { font-weight: bold; color: #0D1B2A; }
+    .footer { background-color: #f8f5ee; border-top: 3px solid #0D1B2A; padding: 20px 32px; font-size: 12px; color: #555555; line-height: 1.7; }
+    .footer-brand { font-weight: bold; color: #0D1B2A; font-size: 13px; }
+    .footer-divider { border: none; border-top: 1px solid #ddd; margin: 10px 0; }
+    .footer-note { font-size: 11px; color: #999999; margin-top: 8px; }
+  </style>
+</head>
+<body>
+<div class="wrapper">
+
+  <!-- ENCABEZADO -->
+  <div class="header">
+    <p class="header-brand">Torres del Horizonte</p>
+    <p class="header-sub">Administrado por SAED</p>
+    <span class="badge">Contrato Inicial · 3 meses</span>
+  </div>
+
+  <!-- CUERPO -->
+  <div class="body">
+    <p>Estimado/a <span class="highlight" th:text="${nombreResidente}">Nombre del Residente</span>,</p>
+
+    <p>Reciba un cordial saludo de parte del equipo administrativo de <strong>SAED</strong>, administradores del Conjunto Residencial Torres del Horizonte.</p>
+
+    <p>Por medio del presente correo, le hacemos entrega de su <strong>contrato de arrendamiento inicial (3 meses)</strong>, correspondiente al
+      <strong>Apto. <span th:text="${numeroApartamento}">XX</span>, Piso <span th:text="${piso}">X</span></strong>,
+      el cual se adjunta en formato PDF para su revisión.
+    </p>
+
+    <p>Le solicitamos atentamente:</p>
+    <ol class="steps">
+      <li>Revisar el contrato y verificar que sus datos personales y condiciones pactadas sean correctos.</li>
+      <li>Firmarlo en la página de firmas en señal de aceptación.</li>
+      <li>Hacernos llegar el documento firmado por cualquiera de los siguientes medios:
+        <ul class="sub-list">
+          <li><strong>Físicamente:</strong> en la portería del edificio (Cra 12 # 45-67, Montería, Córdoba), en horario de administración.</li>
+          <li><strong>Digitalmente:</strong> escaneado o fotografiado con buena legibilidad, respondiendo a este mismo correo.</li>
+        </ul>
+      </li>
+    </ol>
+
+    <p>Le agradecemos gestionar la devolución del contrato firmado en un plazo no mayor a
+      <strong><span th:text="${diasHabiles}">5</span> días hábiles</strong>
+      a partir de la recepción de este mensaje.
+    </p>
+
+    <p>Si tiene alguna inquietud, corrección o requiere información adicional sobre las condiciones del contrato, no dude en comunicarse con nosotros.</p>
+
+    <p>Cordialmente,</p>
+    <p>
+      <strong>Área Administrativa</strong><br/>
+      SAED – Administración Torres del Horizonte
+    </p>
+  </div>
+
+  <!-- PIE -->
+  <div class="footer">
+    <span class="footer-brand">SAED · Torres del Horizonte</span><br/>
+    Cra 12 # 45-67, Montería, Córdoba &nbsp;·&nbsp; NIT 900.456.789-1<br/>
+    <span th:text="${telefonoAdministracion}">Tel: (000) 000-0000</span>
+    &nbsp;·&nbsp;
+    <span th:text="${correoAdministracion}">administracion@saed.com.co</span>
+    <hr class="footer-divider"/>
+    <p class="footer-note">Este correo es generado automáticamente por el sistema de administración de Torres del Horizonte. Por favor no responda a esta dirección si desea comunicarse con la administración; use el correo indicado arriba.</p>
+  </div>
+
+</div>
+</body>
+</html>

@@ -10,4 +10,7 @@ public interface FinanzasRepository {
     List<CuotaDTO> getCuotasByResidente(Long idResidente);
     Long registrarPago(PagoRequestDTO req, Long idUnidad);
     void actualizarSaldoCuota(Long idCuota, BigDecimal montoAplicado);
+    ContratoDetalleDTO getContratoDetalle(Long idContrato);
+    void generarCuotasIniciales(Long idContrato);
 }
+
