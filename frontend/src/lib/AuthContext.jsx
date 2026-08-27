@@ -1,13 +1,19 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import api, { setOnUnauthorized } from './api.js';
 import { TOKEN_KEY, USER_KEY } from './storage.js';
+import { normalizeRole } from './access.js';
 
 const AuthContext = createContext(null);
+
+function normalizeUser(user) {
+  if (!user) return user;
+  return { ...user, rol: normalizeRole(user.rol) };
+}
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
     const raw = sessionStorage.getItem(USER_KEY);
-    return raw ? JSON.parse(raw) : null;
+    return raw ? normalizeUser(JSON.parse(raw)) : null;
   });
   const [loading, setLoading] = useState(false);
 
@@ -19,10 +25,11 @@ export function AuthProvider({ children }) {
     setLoading(true);
     try {
       const data = await api.post('/auth/login', { username, password });
+      const usuario = normalizeUser(data.usuario);
       sessionStorage.setItem(TOKEN_KEY, data.token);
-      sessionStorage.setItem(USER_KEY, JSON.stringify(data.usuario));
-      setUser(data.usuario);
-      return data.usuario;
+      sessionStorage.setItem(USER_KEY, JSON.stringify(usuario));
+      setUser(usuario);
+      return usuario;
     } finally {
       setLoading(false);
     }

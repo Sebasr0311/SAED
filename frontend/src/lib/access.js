@@ -1,3 +1,21 @@
+// Normaliza roles de SAED 2.0 a los roles que entiende la UI (SAED 1.0).
+// Backend devuelve: SUPERADMIN, ADMIN_ORGANIZACION, ADMIN_PROPIEDAD, RESIDENTE
+// La UI usa: ADMINISTRADOR (admin), PORTERO (acceso parcial), RESIDENTE.
+export function normalizeRole(rol) {
+  if (!rol) return rol;
+  const r = String(rol).toUpperCase();
+  if (r === 'SUPERADMIN' || r === 'ADMIN_ORGANIZACION' || r === 'ADMIN_PROPIEDAD') {
+    return 'ADMINISTRADOR';
+  }
+  if (r === 'PORTERO' || r === 'VIGILANTE') {
+    return 'PORTERO';
+  }
+  if (r === 'RESIDENTE' || r === 'PROPIETARIO' || r === 'PROPIETARIO_UNIDAD') {
+    return 'RESIDENTE';
+  }
+  return rol;
+}
+
 export const ROLE_HOME = {
   ADMINISTRADOR: '/dashboard',
   PORTERO: '/portero-dashboard',
@@ -44,7 +62,7 @@ const ACCESS_BY_ROLE = {
 
 export function roleCanAccess(pathname, rol) {
   if (!pathname || !rol) return false;
-  const allowed = ACCESS_BY_ROLE[rol];
+  const allowed = ACCESS_BY_ROLE[normalizeRole(rol)];
   if (!allowed) return false;
   return allowed.some((path) => pathname === path || pathname.startsWith(path + '/'));
 }
