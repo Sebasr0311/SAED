@@ -9,9 +9,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import io.swagger.v3.oas.annotations.tags.Tag;
 
 import java.util.List;
 
+@Tag(name = "Paquetes", description = "API para la gestion de Paquetes")
 @RestController
 @RequestMapping("/api/v1/paquetes")
 public class PaquetesController {
@@ -52,3 +54,4 @@ public class PaquetesController {
         return ResponseEntity.ok(paquetesService.registrarEntrega(id, request));
     }
 }
+
