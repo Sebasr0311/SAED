@@ -76,8 +76,8 @@ export default function ContratosPage() {
   const [descargando, setDescargando] = useState(null);
 
   const { data: contratosRaw, loading, refetch } = useFetch(() => api.get('/contratos'), []);
-  const { data: apartamentos } = useFetch(() => api.get('/apartamentos'), []);
-  const { data: residentes } = useFetch(() => api.get('/residentes'), []);
+  const { data: apartamentos } = useFetch(() => api.get('/units'), []);
+  const { data: residentes } = useFetch(() => api.get('/personas'), []);
 
   const contratos = (contratosRaw?.items || []).filter((c) => !filtroEstado || c.estado === filtroEstado);
   const totalPages = Math.max(1, Math.ceil(contratos.length / PAGE_SIZE));
@@ -217,7 +217,7 @@ export default function ContratosPage() {
   }
 
   function autoFillValor(idApartamento) {
-    const apto = (apartamentos?.items || []).find((a) => String(a.idApartamento) === String(idApartamento));
+    const apto = (apartamentos || []).find((a) => String(a.id) === String(idApartamento));
     if (!apto) return;
     const valorSugerido = apto.administracion != null ? Number(apto.administracion) : VALOR_POR_TIPO[apto.tipo] || null;
     if (valorSugerido) update('valorMensual', formatMiles(valorSugerido));
@@ -444,8 +444,8 @@ export default function ContratosPage() {
             error={errors.idApartamento}
           >
             <option value="">— Seleccionar —</option>
-            {(apartamentos?.items || []).map((a) => (
-              <option key={a.idApartamento} value={a.idApartamento}>
+            {(apartamentos || []).map((a) => (
+              <option key={a.id} value={a.id}>
                 Apto {a.numero}
               </option>
             ))}
@@ -458,7 +458,7 @@ export default function ContratosPage() {
             error={errors.idResidente}
           >
             <option value="">— Seleccionar —</option>
-            {(residentes?.items || []).map((r) => (
+            {(residentes?.content || []).map((r) => (
               <option key={r.id} value={r.id}>
                 {r.nombres} {r.apellidos}
               </option>
