@@ -3,7 +3,9 @@ import com.saed.backend.finanzas.dto.ResidenteDashboardDTO;
 import com.saed.backend.finanzas.service.FinanzasService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import io.swagger.v3.oas.annotations.tags.Tag;
 
+@Tag(name = "ResidentesFinanzas", description = "API para la gestion de ResidentesFinanzas")
 @RestController
 @RequestMapping("/api/v1/residentes")
 public class ResidentesFinanzasController {
@@ -15,3 +17,4 @@ public class ResidentesFinanzasController {
         return ResponseEntity.ok(finanzasService.getDashboardResidente(id));
     }
 }
+

@@ -5,12 +5,16 @@ import com.saed.backend.authorization.service.AssignmentService;
 import com.saed.backend.common.dto.ApiResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.web.bind.annotation.*;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.web.bind.annotation.*;
+import io.swagger.v3.oas.annotations.tags.Tag;
 
 import java.util.List;
 
+@Tag(name = "Assignment", description = "API para la gestion de Assignment")
 @RestController
 @RequestMapping("/api/v1/auth/assignments")
 public class AssignmentController {
@@ -31,3 +35,4 @@ public class AssignmentController {
         return ResponseEntity.ok(ApiResponse.success(assignments));
     }
 }
+
