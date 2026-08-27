@@ -114,7 +114,7 @@ function ModalAvisoRuido({ open, onClose, onConfirm, apartamentos }) {
     if (!idApartamento) return;
     setSending(true);
     try {
-      await api.post('/buzon/aviso-ruido', {
+      await api.post('/api/v1/buzon/aviso-ruido', {
         idApartamento: Number(idApartamento),
         cuerpo,
       });
