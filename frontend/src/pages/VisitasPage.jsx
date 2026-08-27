@@ -71,12 +71,12 @@ export default function VisitasPage() {
   const [qrGenerado, setQrGenerado] = useState(null);
   const savingRef = useRef(false);
 
-  const { data: dataRaw, loading, refetch } = useFetch(() => api.get('/v1/porteria/visitas-resumen'), []);
+  const { data: dataRaw, loading, refetch } = useFetch(() => api.get('/porteria/visitas-resumen'), []);
   // Residentes para el selector del formulario: se cargan solo al abrir el modal
   // (evita un request innecesario al montar la página de listado).
   const [residentesCargados, setResidentesCargados] = useState(false);
   const { data: residentesRaw } = useFetch(
-    () => (residentesCargados ? api.get('/v1/personas') : Promise.resolve([])),
+    () => (residentesCargados ? api.get('/personas') : Promise.resolve([])),
     [residentesCargados]
   );
   const { tiposDoc } = useTiposDocumento();
@@ -206,7 +206,7 @@ export default function VisitasPage() {
       } else if (form.tipoVehiculo && form.placa.trim()) {
         d.vehiculo = { placa: form.placa.trim().toUpperCase(), tipo: form.tipoVehiculo };
       }
-      const res = await api.post('/v1/porteria/visitas', { unidadId: d.unidadId, visitanteId: d.visitante.idPersona, metodoIngreso: d.metodoIngreso || 'PEATONAL', motivo: d.motivo, fechaProgramada: d.fechaVisita, estado: 'PROGRAMADA' });
+      const res = await api.post('/porteria/visitas', { unidadId: d.unidadId, visitanteId: d.visitante.idPersona, metodoIngreso: d.metodoIngreso || 'PEATONAL', motivo: d.motivo, fechaProgramada: d.fechaVisita, estado: 'PROGRAMADA' });
       setQrGenerado({ ...res, emailVisitante: d.visitante.email });
       setToast({ message: 'Visita registrada exitosamente', type: 'success' });
       setForm(emptyForm);

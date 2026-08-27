@@ -10,8 +10,8 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import org.springframework.context.annotation.Import;
-import com.saed.backend.security.SecurityConfig;
-import com.saed.backend.security.JwtTokenProvider;
+import com.saed.backend.config.SecurityConfig;
+import com.saed.backend.security.jwt.JwtProvider;
 import org.springframework.jdbc.core.RowMapper;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
@@ -27,7 +27,7 @@ public class AlertasControllerTest {
     private NamedParameterJdbcTemplate jdbcTemplate;
     
     @MockBean
-    private JwtTokenProvider jwtTokenProvider;
+    private JwtProvider jwtTokenProvider;
 
     @Test
     @WithMockUser(authorities = "SCOPE_ADMIN_PROPIEDAD")

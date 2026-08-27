@@ -110,7 +110,7 @@ function PanelValidar({ onResultado, onNotificarVisita, onRegistrarEntrada, idVi
     setValidando(true);
     setError('');
     try {
-      const data = await api.post('/api/v1/porteria/qr/validar', { codigoQr: codigo });
+      const data = await api.post('/porteria/qr/validar', { codigoQr: codigo });
       setDatos(data);
       onResultado?.(data);
     } catch (err) {
@@ -147,7 +147,7 @@ function PanelValidar({ onResultado, onNotificarVisita, onRegistrarEntrada, idVi
     setEsperando(true);
     setConfirmado(null);
     try {
-      const res = await api.post('/api/v1/porteria/qr/notificar', {
+      const res = await api.post('/porteria/qr/notificar', {
         codigoQr: datos.codigoQr,
         fotoCaptura: foto,
       });
@@ -176,7 +176,7 @@ function PanelValidar({ onResultado, onNotificarVisita, onRegistrarEntrada, idVi
       const payload = { codigoQr: datos.codigoQr, medioTransporte };
       if (medioTransporte === 'CARRO' || medioTransporte === 'MOTO') payload.placa = placa;
       if (medioTransporte === 'BICICLETA' || medioTransporte === 'OTRO') payload.descripcion = descripcion;
-      const res = await api.post('/api/v1/porteria/qr/entrada', payload);
+      const res = await api.post('/porteria/qr/entrada', payload);
       setParqueaderoAsignado(res.parqueadero);
       onRegistrarEntrada?.(res);
     } catch (err) {

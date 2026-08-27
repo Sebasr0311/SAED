@@ -10,8 +10,8 @@ const RAW_BASE_URL =
   (import.meta.env.VITE_API_BASE_URL || '') ||
   (typeof window !== 'undefined' && window._API_BASE_URL) ||
   (isLocalhost
-    ? 'http://localhost:8080/api'
-    : 'https://sistema-administracion-edificios.onrender.com/api');
+    ? 'http://localhost:8080/api/v1'
+    : 'https://sistema-administracion-edificios.onrender.com/api/v1');
 
 export const BASE_URL = RAW_BASE_URL.replace(/\/+$/, '');
 const TIMEOUT_MS = 30000;
