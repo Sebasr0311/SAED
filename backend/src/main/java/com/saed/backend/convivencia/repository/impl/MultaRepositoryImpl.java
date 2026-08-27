@@ -19,12 +19,12 @@ public class MultaRepositoryImpl implements MultaRepository {
     @Override
     public List<MultaDTO> findAll() {
         String sql = "SELECT m.ID_MULTA, u.IDENTIFICADOR as numeroApartamento, p.PRIMER_NOMBRE || ' ' || p.PRIMER_APELLIDO as nombreResidente, " +
-                     "c.NOMBRE as tipo, m.MONTO, m.ESTADO, m.FECHA_CREACION " +
+                     "c.NOMBRE as tipo, m.MONTO, m.ESTADO, m.FECHA_IMPOSICION as FECHA_CREACION " +
                      "FROM MULTAS m " +
                      "JOIN UNIDADES u ON m.ID_UNIDAD = u.ID_UNIDAD " +
                      "LEFT JOIN PERSONAS p ON m.ID_PERSONA_INFRACTORA = p.ID_PERSONA " +
                      "JOIN CONCEPTOS_COBRO c ON m.ID_CONCEPTO = c.ID_CONCEPTO " +
-                     "ORDER BY m.FECHA_CREACION DESC";
+                     "ORDER BY m.FECHA_IMPOSICION DESC";
         return jdbc.query(sql, (rs, rowNum) -> {
             MultaDTO dto = new MultaDTO();
             dto.setIdMulta(rs.getLong("ID_MULTA"));
@@ -50,7 +50,7 @@ public class MultaRepositoryImpl implements MultaRepository {
     @Override
     public MultaDTO findById(Long id) {
         String sql = "SELECT m.ID_MULTA, u.IDENTIFICADOR as numeroApartamento, p.PRIMER_NOMBRE || ' ' || p.PRIMER_APELLIDO as nombreResidente, " +
-                     "c.NOMBRE as tipo, m.MONTO, m.ESTADO, m.FECHA_CREACION " +
+                     "c.NOMBRE as tipo, m.MONTO, m.ESTADO, m.FECHA_IMPOSICION as FECHA_CREACION " +
                      "FROM MULTAS m " +
                      "JOIN UNIDADES u ON m.ID_UNIDAD = u.ID_UNIDAD " +
                      "LEFT JOIN PERSONAS p ON m.ID_PERSONA_INFRACTORA = p.ID_PERSONA " +

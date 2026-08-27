@@ -5,6 +5,8 @@ import com.saed.backend.authorization.dto.AssignmentResponseDTO;
 import com.saed.backend.authorization.service.AssignmentService;
 import com.saed.backend.context.SaedContext;
 import com.saed.backend.context.SaedContextHolder;
+import com.saed.backend.identity.dto.AuthUserDTO;
+import com.saed.backend.identity.repository.AuthRepository;
 import com.saed.backend.security.jwt.JwtProvider;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -16,11 +18,14 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
+import org.springframework.web.context.support.WebApplicationContextUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -41,18 +46,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             String jwt = parseJwt(request);
             if (jwt != null && jwtProvider.validateToken(jwt)) {
-                
+
                 Long userId = jwtProvider.getUserIdFromToken(jwt);
-                
+
                 String assignmentHeader = request.getHeader("X-Assignment-Id");
                 SaedContext saedContext = null;
-                
+
                 if (StringUtils.hasText(assignmentHeader)) {
-                    AssignmentService assignmentService = 
-                        org.springframework.web.context.support.WebApplicationContextUtils
+                    AssignmentService assignmentService =
+                        WebApplicationContextUtils
                         .getRequiredWebApplicationContext(request.getServletContext())
                         .getBean(AssignmentService.class);
-                        
+
                     Long assignmentId;
                     try {
                         assignmentId = Long.parseLong(assignmentHeader);
@@ -66,14 +71,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         sendJsonError(response, HttpStatus.FORBIDDEN, "Invalid or inactive assignment");
                         return;
                     }
-                    
+
                     AssignmentResponseDTO assign = optAssign.get();
-                    
+
                     SaedContext.Builder builder = SaedContext.builder()
                             .userId(userId)
                             .roleCode(assign.getRol().getCodigo())
                             .roleScope(assign.getRol().getAlcance());
-                            
+
                     if (assign.getOrganizacion() != null) {
                         builder.organizationId(assign.getOrganizacion().getId());
                     }
@@ -85,21 +90,77 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     }
                     saedContext = builder.build();
                 } else {
-                    // STATE 1: purely identity context
-                    saedContext = SaedContext.builder().userId(userId).build();
+                    // Sin X-Assignment-Id: resolver la asignacion ACTIVA principal
+                    // del usuario via PKG_AUTH_BOOTSTRAP (AUTHID DEFINER + EXEMPT,
+                    // salta RLS). Esto da contexto RLS completo al dashboard del
+                    // frontend legacy (que no envia el header).
+                    AuthRepository authRepository =
+                        WebApplicationContextUtils
+                        .getRequiredWebApplicationContext(request.getServletContext())
+                        .getBean(AuthRepository.class);
+                    AuthUserDTO perfil = authRepository.getUserProfile(userId);
+
+                    if (perfil != null && perfil.getRol() != null) {
+                        SaedContext.Builder builder = SaedContext.builder()
+                                .userId(userId)
+                                .roleCode(perfil.getRol())
+                                .roleScope(perfil.getAlcance());
+                        if (perfil.getIdOrganizacion() != null) {
+                            builder.organizationId(perfil.getIdOrganizacion());
+                        }
+                        if (perfil.getIdPropiedad() != null) {
+                            builder.propertyId(perfil.getIdPropiedad());
+                        }
+                        if (perfil.getIdUnidad() != null) {
+                            builder.unitId(perfil.getIdUnidad());
+                        }
+                        saedContext = builder.build();
+                    } else {
+                        // STATE 1: purely identity context
+                        saedContext = SaedContext.builder().userId(userId).build();
+                    }
                 }
-                
+
                 // Set into ThreadLocal for Oracle Proxy
                 SaedContextHolder.setContext(saedContext);
 
-                // Set into Spring Security for @PreAuthorize
-                String role = (saedContext.getRoleCode() != null) ? "ROLE_" + saedContext.getRoleCode() : "ROLE_USER";
+                // Set into Spring Security for @PreAuthorize:
+                // - ROLE_<codigo> por compatibilidad
+                // - SCOPE_<codigo> + SCOPE_<ALCANCE> como exigen los controllers 2.0
+                List<SimpleGrantedAuthority> authorities = new ArrayList<>();
+                if (saedContext.getRoleCode() != null) {
+                    String code = saedContext.getRoleCode();
+                    authorities.add(new SimpleGrantedAuthority("ROLE_" + code));
+                    authorities.add(new SimpleGrantedAuthority("SCOPE_" + code));
+                }
+                // Scopes derivados por alcance/rol (modelo 2.0)
+                if (saedContext.getRoleScope() != null) {
+                    authorities.add(new SimpleGrantedAuthority("SCOPE_" + saedContext.getRoleScope()));
+                }
+                if (saedContext.getRoleCode() != null) {
+                    switch (saedContext.getRoleCode()) {
+                        case "SUPERADMIN":
+                            authorities.add(new SimpleGrantedAuthority("SCOPE_ADMIN_PROPIEDAD"));
+                            authorities.add(new SimpleGrantedAuthority("SCOPE_ADMIN_ORGANIZACION"));
+                            authorities.add(new SimpleGrantedAuthority("SCOPE_RESIDENTE"));
+                            break;
+                        case "ADMIN_ORGANIZACION":
+                            authorities.add(new SimpleGrantedAuthority("SCOPE_ADMIN_PROPIEDAD"));
+                            break;
+                        default:
+                            break;
+                    }
+                }
+                if (authorities.isEmpty()) {
+                    authorities.add(new SimpleGrantedAuthority("ROLE_USER"));
+                }
+
                 UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                         userId,
                         null,
-                        Collections.singletonList(new SimpleGrantedAuthority(role))
+                        authorities
                 );
-                
+
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }
         } catch (Exception e) {
@@ -123,7 +184,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
         return null;
     }
-    
+
     private void sendJsonError(HttpServletResponse response, HttpStatus status, String message) throws IOException {
         response.setStatus(status.value());
         response.setContentType("application/json");
