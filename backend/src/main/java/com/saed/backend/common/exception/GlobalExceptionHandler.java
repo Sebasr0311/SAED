@@ -5,6 +5,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.transaction.CannotCreateTransactionException;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -88,6 +89,28 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
     }
     
+    
+    @ExceptionHandler(CannotCreateTransactionException.class)
+    public ResponseEntity<Map<String, Object>> handleTransactionException(CannotCreateTransactionException ex) {
+        String message = ex.getMessage();
+        if (ex.getCause() != null) {
+            message += " " + ex.getCause().getMessage();
+        }
+        
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", false);
+        
+        if (message != null && message.contains("ORA-2008")) {
+            response.put("code", "CONTEXT_SPOOFING_DETECTED");
+            response.put("message", "Intento de establecer un contexto de seguridad no autorizado.");
+            return new ResponseEntity<>(response, HttpStatus.FORBIDDEN);
+        }
+        
+        response.put("code", "INTERNAL_SERVER_ERROR");
+        response.put("message", "Error al iniciar transaccin en la base de datos.");
+        return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleGenericException(Exception ex) {
         Map<String, Object> response = new HashMap<>();

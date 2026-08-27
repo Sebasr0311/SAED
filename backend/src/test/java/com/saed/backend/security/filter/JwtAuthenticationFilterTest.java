@@ -13,6 +13,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -30,7 +31,6 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 public class JwtAuthenticationFilterTest {
 
-    @Mock
     private JwtProvider jwtProvider;
 
     @Mock
@@ -56,10 +56,15 @@ public class JwtAuthenticationFilterTest {
 
     private JwtAuthenticationFilter filter;
 
+
     @BeforeEach
     public void setup() {
+        jwtProvider = new JwtProvider();
+        ReflectionTestUtils.setField(jwtProvider, "jwtSecret", "dGhpcy1pcy1hLXZlcnktc2VjdXJlLWtleS1mb3Itc2FlZC0yLjAtc2VjcmV0");
+        ReflectionTestUtils.setField(jwtProvider, "jwtExpirationMs", 3600000);
         filter = new JwtAuthenticationFilter(jwtProvider, objectMapper);
     }
+
 
     @AfterEach
     public void cleanup() {
@@ -68,9 +73,8 @@ public class JwtAuthenticationFilterTest {
 
     @Test
     public void testState1_IdentityBound_WhenNoAssignmentHeader() throws Exception {
-        when(request.getHeader("Authorization")).thenReturn("Bearer valid.token");
-        when(jwtProvider.validateToken("valid.token")).thenReturn(true);
-        when(jwtProvider.getUserIdFromToken("valid.token")).thenReturn(1L);
+        String token = jwtProvider.generateIdentityToken(1L);
+        when(request.getHeader("Authorization")).thenReturn("Bearer " + token);
         when(request.getHeader("X-Assignment-Id")).thenReturn(null);
 
         filter.doFilterInternal(request, response, filterChain);
