@@ -1,5 +1,6 @@
 package com.saed.backend.porteria.service.impl;
 
+import com.saed.backend.common.service.EmailService;
 import com.saed.backend.porteria.dto.*;
 import com.saed.backend.porteria.repository.PorteriaRepository;
 import com.saed.backend.porteria.service.PorteriaService;
@@ -9,15 +10,22 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.ZonedDateTime;
 import java.util.List;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import java.util.Map;
+import com.saed.backend.context.SaedContextHolder;
 
 @Service
 @Transactional
 public class PorteriaServiceImpl implements PorteriaService {
 
     private final PorteriaRepository porteriaRepository;
+    private final EmailService emailService;
+    private final NamedParameterJdbcTemplate jdbcTemplate;
 
-    public PorteriaServiceImpl(PorteriaRepository porteriaRepository) {
+    public PorteriaServiceImpl(PorteriaRepository porteriaRepository, EmailService emailService, NamedParameterJdbcTemplate jdbcTemplate) {
         this.porteriaRepository = porteriaRepository;
+        this.emailService = emailService;
+        this.jdbcTemplate = jdbcTemplate;
     }
 
     @Override
@@ -79,7 +87,21 @@ public class PorteriaServiceImpl implements PorteriaService {
 
     @Override
     public QrAccesoDTO generarQrAcceso(QrAccesoRequestDTO request) {
-        return porteriaRepository.createQrAcceso(request);
+        QrAccesoDTO qr = porteriaRepository.createQrAcceso(request);
+        try {
+            Long unitId = SaedContextHolder.getContext().getUnitId();
+            List<Map<String, Object>> residentes = jdbcTemplate.queryForList(
+                "SELECT P.EMAIL FROM PERSONAS P " +
+                "JOIN UNIDAD_HABITANTES UH ON UH.ID_PERSONA = P.ID_PERSONA " +
+                "WHERE UH.ID_UNIDAD = :u AND P.EMAIL IS NOT NULL", 
+                Map.of("u", unitId)
+            );
+            if (!residentes.isEmpty()) {
+                String destinatario = (String) residentes.get(0).get("EMAIL");
+                emailService.enviarCorreoQR(destinatario, qr.tokenQr(), qr.fechaExpiracion().toString(), "Visitante");
+            }
+        } catch(Exception e) { e.printStackTrace(); }
+        return qr;
     }
 
     @Override
