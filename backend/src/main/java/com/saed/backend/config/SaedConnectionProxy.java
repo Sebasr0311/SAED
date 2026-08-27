@@ -26,8 +26,14 @@ public class SaedConnectionProxy implements InvocationHandler {
     @Override
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
         if ("close".equals(method.getName())) {
-            clearSaedContext(target);
-            target.close();
+            // Limpiar contexto SIEMPRE en finally: si CLEAR_CONTEXT falla (p.ej.
+            // conexion ya cerrada por Hikari), NO impedir el close real, o el
+            // pool se agota con conexiones que nunca se devuelven.
+            try {
+                clearSaedContext(target);
+            } finally {
+                target.close();
+            }
             return null;
         }
         return method.invoke(target, args);
