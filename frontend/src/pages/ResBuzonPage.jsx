@@ -1,4 +1,4 @@
-锘縤mport { useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
 import { useAuth } from '../lib/AuthContext.jsx';
@@ -16,7 +16,7 @@ export default function ResBuzonPage() {
   const [fotoGrande, setFotoGrande] = useState(null);
   const [seleccionados, setSeleccionados] = useState([]);
   const [vaciandoSel, setVaciandoSel] = useState(false);
-  const vaciandoSelRef = useRef(false); // patr贸n anti doble-submit generalizado
+  const vaciandoSelRef = useRef(false); // patr髇 anti doble-submit generalizado
 
   const { data, loading, error, refetch } = useFetch(
     () => api.get(`/buzon`),
@@ -41,7 +41,7 @@ export default function ResBuzonPage() {
   async function vaciar() {
     try {
       await api.put('/buzon/vaciar');
-      setToast({ message: 'Buz贸n vaciado', type: 'success' });
+      setToast({ message: 'Buz髇 vaciado', type: 'success' });
       refetch();
     } catch (err) {
       setToast({ message: err.message, type: 'error' });
@@ -81,7 +81,7 @@ export default function ResBuzonPage() {
   return (
     <div>
       <PageHeader
-        title="Buz贸n"
+        title="Buz髇"
         subtitle="Notificaciones del administrador"
         action={
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -97,7 +97,7 @@ export default function ResBuzonPage() {
             )}
             {items.length > 0 && (
               <Button variant="danger" onClick={() => setConfirmVaciar(true)}>
-                Vaciar buz贸n
+                Vaciar buz髇
               </Button>
             )}
           </div>
@@ -106,10 +106,10 @@ export default function ResBuzonPage() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         {loading && <div className="card empty-state">Cargando...</div>}
         {!loading && error && (
-          <div className="card empty-state" style={{ color: 'var(--error)' }}>Error al cargar el buz贸n: {error?.message}</div>
+          <div className="card empty-state" style={{ color: 'var(--error)' }}>Error al cargar el buz髇: {error?.message}</div>
         )}
         {!loading && !error && items.length === 0 && (
-          <div className="card empty-state">Buz贸n vac铆o</div>
+          <div className="card empty-state">Buz髇 vac韔</div>
         )}
         {items.map((it) => {
           const leido = it.leido || leidosLocalmente.includes(it.idMensaje);
@@ -176,7 +176,7 @@ export default function ResBuzonPage() {
       <Modal
         open={confirmVaciar}
         onClose={() => setConfirmVaciar(false)}
-        title="Vaciar buz贸n"
+        title="Vaciar buz髇"
         footer={
           <>
             <Button variant="outline" onClick={() => setConfirmVaciar(false)}>
@@ -188,7 +188,7 @@ export default function ResBuzonPage() {
           </>
         }
       >
-        <p>驴Marcar todos los mensajes como le铆dos y entregados? Esta acci贸n no se puede deshacer.</p>
+        <p>縈arcar todos los mensajes como le韉os y entregados? Esta acci髇 no se puede deshacer.</p>
       </Modal>
 
       <Modal
@@ -206,7 +206,7 @@ export default function ResBuzonPage() {
           </>
         }
       >
-        <p>驴Marcar los {seleccionados.length} mensajes seleccionados como le铆dos y entregados? Esta acci贸n no se puede deshacer.</p>
+        <p>縈arcar los {seleccionados.length} mensajes seleccionados como le韉os y entregados? Esta acci髇 no se puede deshacer.</p>
       </Modal>
 
       {fotoGrande && (
@@ -235,3 +235,4 @@ export default function ResBuzonPage() {
     </div>
   );
 }
+
