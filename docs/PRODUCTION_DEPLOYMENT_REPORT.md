@@ -1,31 +1,35 @@
-# 🔴 DEPLOYMENT BLOCKED
+# 🔴 SAED 2.0 — DEPLOYMENT BLOCKED
 
-## RESUMEN DE EJECUCIÓN
-Se ha ejecutado la **Fase D1 (Auditoría Pre-Deploy)** con éxito. El código Backend compila de manera impecable en Java 17, el Frontend compila su build de producción en Vite y los archivos SQL de migraciones están listos.
+## ESTADO DE EJECUCIÓN
+- **Qué ya fue completado:** Fase D1 (Auditoría Pre-Deploy). El repositorio Git está limpio (main, tag v2.0.1). El código backend compila exitosamente (Java 17, 73/73 tests). El frontend compila exitosamente (npm run build). Los scripts de migración Oracle (V4.x) están localizados y verificados estáticamente. Se actualizó la configuración de ender.yaml y preparativos de pplication.yml.
+- **Qué NO se ejecutó:** Fases D2 a D10 (Preparación Oracle ATP, Migración de Base de Datos, Preparación y Deploy en Render, Deploy en Vercel, Integraciones Externas, QA End-to-End, Auditoría Final).
 
-Sin embargo, la progresión a las **Fases D2 a D10** se encuentra técnica y administrativamente detenida debido a bloqueos de credenciales y acceso a los entornos Cloud, cumpliendo la directiva de seguridad que prohíbe despliegues ciegos sin validación real o sustituciones destructivas.
+---
 
-## BLOQUEOS DETECTADOS
+## DETALLE DE BLOQUEOS
 
-### 1. Oracle ATP (Fase D2)
-- **Causa:** No existe una Wallet.zip de conexión válida para el entorno productivo de SAED 2.0 (la wallet encontrada pertenece a SAED 1.0), ni las credenciales (URL, Admin Username, Password) necesarias para crear el esquema, el usuario SAED_APP y ejecutar el script V4.
-- **Riesgo evitado:** Imposibilidad de conectar al entorno Cloud y violación de la regla que impide suponer migraciones estáticas como exitosas sin verificación real en base de datos.
+### Bloqueo 1: Falta acceso a Oracle ATP de SAED 2.0
+- **Recurso requerido:** Archivo Wallet (Wallet*.zip) correspondiente al entorno de Producción de SAED 2.0, y credenciales DBA (URL/TNS, Usuario, Contraseña).
+- **Por qué es necesario:** La regla crítica prohíbe explícitamente usar la wallet legacy encontrada en ackend_legacy/src/main/resources/wallet.zip y prohíbe ejecutar DDL sin confirmar primero la identidad del esquema destino. Sin la wallet de SAED 2.0, es imposible conectar a la base de datos para la Fase D2.
+- **Comando/acción que quedó pendiente:** Ejecución del script database/modelo_relacional_v4_atp.sql vía JDBC/SQLcl contra el entorno ATP.
+- **Cómo reanudar:** Depositar la wallet correcta en el entorno y proporcionar (vía variables de entorno) las credenciales DBA del ATP destino.
 
-### 2. Vercel & Render (Fases D3 y D4)
-- **Causa:** Los CLIs de ercel y ender no están autenticados en el entorno (no hay tokens de despliegue). 
-- **Riesgo evitado:** Despliegues ciegos o intentos fallidos de configuración de secretos.
+### Bloqueo 2: Falta autorización/acceso a Render y Vercel
+- **Recurso requerido:** Tokens de API CLI para Vercel (VERCEL_TOKEN) y Render (RENDER_API_KEY).
+- **Por qué es necesario:** Para configurar y ejecutar el despliegue automático del backend y frontend desde este entorno hacia las nubes productivas sin intervención manual de UI.
+- **Comando/acción que quedó pendiente:** 
+px vercel --prod y configuración remota del servicio en Render.
+- **Cómo reanudar:** Autenticar los CLIs en el entorno local o inyectar los tokens de acceso CI/CD como variables de entorno.
 
-### 3. Wompi y Brevo/SMTP (Fases D7 y D8)
-- **Causa:** Las variables sensibles necesarias para inyectar en Render (WOMPI_PUBLIC_KEY, WOMPI_PRIVATE_KEY, WOMPI_EVENTS_SECRET, SMTP_PASSWORD) no han sido suministradas.
+### Bloqueo 3: Credenciales Externas Faltantes (Wompi, Correo)
+- **Recurso requerido:** WOMPI_PUBLIC_KEY, WOMPI_PRIVATE_KEY, WOMPI_EVENTS_SECRET, SMTP_HOST, SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD.
+- **Por qué es necesario:** Las integraciones fallarán en producción o en el smoke test (QA End-to-End, Fase D9) impidiendo la validación requerida por la regla Anti-Falso-Pass.
+- **Comando/acción que quedó pendiente:** Inyección de secretos en los entornos de Render y Vercel.
+- **Cómo reanudar:** Suministrar las credenciales de negocio mediante el sistema seguro del entorno para que sean inyectadas en los servicios Cloud durante las fases D4 y D6.
+
+---
 
 ## VEREDICTO FINAL
+**🔴 SAED 2.0 — DEPLOYMENT BLOCKED**
 
-**🔴 DEPLOYMENT BLOCKED**
-
-### ACCIONES REQUERIDAS (INTERVENCIÓN HUMANA)
-Para completar el despliegue autónomo se requiere:
-1. **Credenciales ATP:** Depositar la Wallet de producción en el entorno y proporcionar variables de acceso DBA para desplegar el modelo relacional V4.
-2. **Tokens PaaS:** Inyectar tokens de Vercel y Render en el entorno (VERCEL_TOKEN, RENDER_API_KEY).
-3. **Secretos del Negocio:** Proveer las claves de integración reales de Wompi (Sandbox o Prod) y Brevo/SMTP.
-
-Una vez resueltos estos bloqueos externos, el proceso podrá reanudar desde la Fase D2 hacia adelante de forma ininterrumpida.
+El proceso se detiene estrictamente respetando los criterios de bloqueo definidos en la Directiva Maestra.
