@@ -1,4 +1,4 @@
-Ôªøimport { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { Input } from '../components/ui/Form.jsx';
 import { DataTable } from '../components/ui/DataTable.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
@@ -48,7 +48,7 @@ export default function PaquetesAdminPage() {
     { key: 'idMensaje', label: 'ID', width: 60 },
     { key: 'numeroApartamento', label: 'Apartamento' },
     { key: 'nombreResidente', label: 'Residente' },
-    { key: 'titulo', label: 'Descripci√≥n' },
+    { key: 'titulo', label: 'DescripciÛn' },
     { key: 'fechaCreacion', label: 'Recibido', render: (r) => formatDate(r.fechaCreacion) },
     {
       key: 'entregado',
@@ -84,7 +84,7 @@ export default function PaquetesAdminPage() {
         columns={columns}
         rows={filtrados}
         loading={loading}
-                empty={{ icon: 'inventory_2', title: 'No hay paquetes', subtitle: 'Los paquetes recibidos aparecer√°n aqu√≠.' }}
+                empty={{ icon: 'inventory_2', title: 'No hay paquetes', subtitle: 'Los paquetes recibidos aparecer·n aquÌ.' }}
         error={error?.message}
         onRetry={refetch}
         keyField="idMensaje"
@@ -103,7 +103,7 @@ export default function PaquetesAdminPage() {
               <span>{detalle.nombreResidente}</span>
             </div>
             <div className="detail-row">
-              <span>Descripci√≥n</span>
+              <span>DescripciÛn</span>
               <span>{detalle.titulo}</span>
             </div>
             <div className="detail-row">
@@ -126,3 +126,4 @@ export default function PaquetesAdminPage() {
     </div>
   );
 }
+
