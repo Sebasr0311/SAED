@@ -121,4 +121,54 @@ public class FinanzasRepositoryImpl implements FinanzasRepository {
                      "WHERE ID_CUOTA = :idCuota";
         jdbcTemplate.update(sql, new MapSqlParameterSource().addValue("monto", montoAplicado).addValue("idCuota", idCuota));
     }
+
+    @Override
+    public ContratoDetalleDTO getContratoDetalle(Long idContrato) {
+        String sql = "SELECT c.ID_CONTRATO, c.NUMERO_CONTRATO, c.FECHA_INICIO, c.FECHA_FIN, c.TIPO_CONTRATO, c.ESTADO, " +
+                     "u.IDENTIFICADOR as numeroApartamento, p.PRIMER_NOMBRE as nombresResidente, p.PRIMER_APELLIDO as apellidosResidente, " +
+                     "p.DOCUMENTO as numeroDocumentoResidente, p.TELEFONO as telefonoResidente, p.EMAIL as correoResidente, " +
+                     "c.CANON_MENSUAL, c.DIA_CORTE_PAGO " +
+                     "FROM CONTRATOS c " +
+                     "JOIN UNIDADES u ON c.ID_UNIDAD = u.ID_UNIDAD " +
+                     "JOIN PERSONAS p ON c.ID_ARRENDATARIO_PRINCIPAL = p.ID_PERSONA " +
+                     "WHERE c.ID_CONTRATO = :id";
+                     
+        List<ContratoDetalleDTO> list = jdbcTemplate.query(sql, new MapSqlParameterSource("id", idContrato), (rs, rowNum) -> {
+            ContratoDetalleDTO dto = new ContratoDetalleDTO();
+            dto.setIdContrato(rs.getInt("ID_CONTRATO"));
+            dto.setNumeroContrato(rs.getString("NUMERO_CONTRATO"));
+            dto.setFechaGeneracion(java.time.LocalDate.now());
+            if (rs.getDate("FECHA_INICIO") != null) dto.setFechaInicio(rs.getDate("FECHA_INICIO").toLocalDate());
+            if (rs.getDate("FECHA_FIN") != null) dto.setFechaFin(rs.getDate("FECHA_FIN").toLocalDate());
+            dto.setTipoContrato(rs.getString("TIPO_CONTRATO"));
+            dto.setEstado(rs.getString("ESTADO"));
+            dto.setNumeroApartamento(rs.getString("numeroApartamento"));
+            dto.setNombreCompletoResidente(rs.getString("nombresResidente") + " " + rs.getString("apellidosResidente"));
+            dto.setNombresResidente(rs.getString("nombresResidente"));
+            dto.setApellidosResidente(rs.getString("apellidosResidente"));
+            dto.setNumeroDocumentoResidente(rs.getString("numeroDocumentoResidente"));
+            dto.setTelefonoResidente(rs.getString("telefonoResidente"));
+            dto.setCorreoResidente(rs.getString("correoResidente"));
+            dto.setValorCanon(rs.getBigDecimal("CANON_MENSUAL"));
+            dto.setDiaPago(rs.getInt("DIA_CORTE_PAGO"));
+            return dto;
+        });
+        return list.isEmpty() ? null : list.get(0);
+    }
+
+    @Override
+    public void generarCuotasIniciales(Long idContrato) {
+        String sql = "INSERT INTO CUOTAS (ID_UNIDAD, ID_CONCEPTO, ID_CONTRATO, PERIODO, VALOR_BASE, VALOR_TOTAL, SALDO_PENDIENTE, FECHA_VENCIMIENTO, ESTADO) " +
+                     "SELECT c.ID_UNIDAD, " +
+                     "(SELECT ID_CONCEPTO FROM CONCEPTOS_COBRO WHERE TIPO = 'ARRIENDO' AND ID_PROPIEDAD = u.ID_PROPIEDAD FETCH FIRST 1 ROWS ONLY), " +
+                     "c.ID_CONTRATO, " +
+                     "TO_CHAR(c.FECHA_INICIO, 'YYYY-MM'), " +
+                     "c.CANON_MENSUAL, c.CANON_MENSUAL, c.CANON_MENSUAL, " +
+                     "c.FECHA_INICIO + (CASE WHEN c.DIA_CORTE_PAGO > 0 THEN c.DIA_CORTE_PAGO ELSE 5 END), " +
+                     "'PENDIENTE' " +
+                     "FROM CONTRATOS c " +
+                     "JOIN UNIDADES u ON c.ID_UNIDAD = u.ID_UNIDAD " +
+                     "WHERE c.ID_CONTRATO = :id AND NOT EXISTS (SELECT 1 FROM CUOTAS cu WHERE cu.ID_CONTRATO = c.ID_CONTRATO)";
+        jdbcTemplate.update(sql, new MapSqlParameterSource("id", idContrato));
+    }
 }
