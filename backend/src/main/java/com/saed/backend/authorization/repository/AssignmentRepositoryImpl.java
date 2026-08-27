@@ -68,9 +68,54 @@ public class AssignmentRepositoryImpl implements AssignmentRepository {
 
     @Override
     public Optional<AssignmentResponseDTO> findByIdAndUsuarioId(Long idAsignacion, Long idUsuario) {
-        String sql = BASE_QUERY + " AND ua.id_asignacion = ?";
-        List<AssignmentResponseDTO> results = jdbcTemplate.query(sql, rowMapper, idUsuario, idAsignacion);
-        return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
+        // Validacion via PKG_AUTH_BOOTSTRAP (AUTHID DEFINER + EXEMPT ACCESS
+        // POLICY): el query directo bajo RLS devuelve 0 filas cuando el
+        // contexto de sesion aun no esta establecido (el filtro JWT valida
+        // la asignacion ANTES de armar el SaedContext).
+        try {
+            var call = new org.springframework.jdbc.core.simple.SimpleJdbcCall(jdbcTemplate)
+                .withCatalogName("SAED_SEC_MASTER.PKG_AUTH_BOOTSTRAP")
+                .withProcedureName("GET_ASSIGNMENT_CONTEXT")
+                .withoutProcedureColumnMetaDataAccess()
+                .declareParameters(
+                    new org.springframework.jdbc.core.SqlParameter("p_id_usuario", java.sql.Types.NUMERIC),
+                    new org.springframework.jdbc.core.SqlParameter("p_id_asignacion", java.sql.Types.NUMERIC),
+                    new org.springframework.jdbc.core.SqlOutParameter("p_org_id", java.sql.Types.NUMERIC),
+                    new org.springframework.jdbc.core.SqlOutParameter("p_prop_id", java.sql.Types.NUMERIC),
+                    new org.springframework.jdbc.core.SqlOutParameter("p_unidad_id", java.sql.Types.NUMERIC),
+                    new org.springframework.jdbc.core.SqlOutParameter("p_rol_codigo", java.sql.Types.VARCHAR),
+                    new org.springframework.jdbc.core.SqlOutParameter("p_alcance", java.sql.Types.VARCHAR)
+                );
+            java.util.Map<String, Object> out = call.execute(java.util.Map.of(
+                "p_id_usuario", idUsuario,
+                "p_id_asignacion", idAsignacion
+            ));
+
+            String rolCodigo = (String) out.get("p_rol_codigo");
+            if (rolCodigo == null) {
+                return Optional.empty();
+            }
+
+            AssignmentResponseDTO dto = new AssignmentResponseDTO();
+            dto.setIdAsignacion(idAsignacion);
+            dto.setRol(new RoleDTO(rolCodigo, (String) out.get("p_alcance")));
+
+            Number orgId = (Number) out.get("p_org_id");
+            if (orgId != null) {
+                dto.setOrganizacion(new OrganizationDTO(orgId.longValue(), null));
+            }
+            Number propId = (Number) out.get("p_prop_id");
+            if (propId != null) {
+                dto.setPropiedad(new PropertyDTO(propId.longValue(), null));
+            }
+            Number unidadId = (Number) out.get("p_unidad_id");
+            if (unidadId != null) {
+                dto.setUnidad(new UnitDTO(unidadId.longValue(), null));
+            }
+            return Optional.of(dto);
+        } catch (Exception e) {
+            return Optional.empty();
+        }
     }
 
     @Override
