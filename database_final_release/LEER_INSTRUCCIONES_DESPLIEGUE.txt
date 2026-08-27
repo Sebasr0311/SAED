@@ -1,0 +1,45 @@
+===========================================================
+  SAED 2.0 - SCRIPTS FINALES DE BASE DE DATOS ORACLE ATP
+===========================================================
+
+Esta carpeta contiene la versión definitiva y consolidada de la Base de Datos para SAED 2.0, adaptada para funcionar en Oracle Autonomous Transaction Processing (ATP) con la arquitectura Zero-Trust y seguridad RLS.
+
+ARCHIVOS INCLUIDOS:
+-------------------
+1. modelo_relacional_v4_atp.sql
+   - Es el script principal y ÚNICO necesario para crear toda la estructura funcional de SAED 2.0.
+   - Incluye: Creación del esquema, Tablas, Constraints, Índices, Triggers, Paquetes PL/SQL de Seguridad (SAED_SECURITY_PKG), Políticas RLS (DBMS_RLS) para el aislamiento Multi-Tenant.
+   - Todo está unificado en el orden de dependencias correcto.
+
+2. datos_prueba.sql
+   - (Opcional) Script para insertar datos semilla (usuarios administradores iniciales, configuraciones básicas, etc.) necesarios para que el sistema no arranque completamente vacío y se puedan realizar pruebas de QA.
+
+COMO EJECUTAR:
+--------------
+PRE-REQUISITOS:
+- Necesitas acceso a tu base de datos Oracle ATP mediante SQL Developer, SQLcl, o la consola web de Oracle Cloud (Database Actions / SQL).
+- Debes conectarte inicialmente con un usuario administrador/DBA (ej. ADMIN).
+
+PASO 1: APLICAR EL MODELO RELACIONAL
+1. Abre tu herramienta de SQL conectada como ADMIN.
+2. Abre el archivo 'modelo_relacional_v4_atp.sql'.
+3. Ejecútalo como un SCRIPT completo (Run Script / F5 en SQL Developer).
+   *Nota: Este script creará automáticamente el usuario maestro SAED_SEC_MASTER (dueño de políticas) y SAED_APP (usuario de la aplicación), y les otorgará los permisos necesarios. La contraseña por defecto que crea el script debes cambiarla luego en producción.*
+
+PASO 2: (OPCIONAL) INSERTAR DATOS DE PRUEBA
+1. Abre el archivo 'datos_prueba.sql'.
+2. Ejecútalo como Script (F5).
+   *Esto te proveerá de un conjunto base de edificios, apartamentos, administradores y residentes para que el sistema esté operativo al conectar el Frontend.*
+
+PASO 3: CONFIGURAR EL BACKEND
+Una vez ejecutado el Paso 1 (y opcionalmente el Paso 2), debes configurar tu Backend de Spring Boot (en tu archivo de variables de entorno de Render o localmente en el .env) para que use las credenciales de base de datos creadas.
+- DB_USERNAME=SAED_APP
+- DB_PASSWORD=saed2026 (o la que hayas modificado)
+- DB_URL=jdbc:oracle:thin:@... (URL TNS de tu Oracle ATP)
+
+EXPLICACION DE LA ARQUITECTURA (ZERO-TRUST):
+--------------------------------------------
+SAED 2.0 implementa seguridad a nivel de base de datos usando Oracle Virtual Private Database (RLS).
+- El backend Java nunca accede a los datos directamente. Al iniciar una solicitud web, el backend setea un 'SYS_CONTEXT' en Oracle con el ID del Tenant (Edificio) del usuario autenticado.
+- Las políticas DBMS_RLS (incluidas en el script) interceptan CADA consulta SQL y le inyectan de forma transparente y obligatoria un filtro 'WHERE ID_TENANT = X'.
+- Esto garantiza matemáticamente que los datos de un conjunto residencial nunca se mezclen con otro, incluso si hubiera una vulnerabilidad en el código Java.
