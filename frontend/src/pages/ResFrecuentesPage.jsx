@@ -114,7 +114,7 @@ export default function ResFrecuentesPage() {
       const tipoVehiculo = qrForm.medioTransporte === 'A_PIE' ? null
         : qrForm.medioTransporte === 'CARRO' ? 'VEHICULO'
         : qrForm.medioTransporte;
-      const res = await api.post('/api/v1/visitas/rapida', {
+      const res = await api.post('/visitas/rapida', {
         idFrecuente: qrModal.idFrecuente,
         idVisitante: qrModal.idVisitante,
         cantidadPersonas: Number(qrForm.cantidadPersonas),
@@ -176,7 +176,7 @@ export default function ResFrecuentesPage() {
     try {
       // POST /api/visitantes crea el visitante; la vinculacion como frecuente
       // se hace via flujo de QR/libera visita
-      await api.post('/api/v1/visitantes', {
+      await api.post('/visitantes', {
         idTipoDoc: Number(form.idTipoDoc),
         numeroDocumento: form.numeroDocumento.trim(),
         nombres: form.nombres.trim(),
