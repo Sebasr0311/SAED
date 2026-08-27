@@ -5,9 +5,11 @@ import com.saed.backend.convivencia.service.NotificacionService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import java.util.Map;
 
+@Tag(name = "Buzon", description = "API para la gestion de Buzon")
 @RestController
 @RequestMapping("/api/v1/buzon")
 public class BuzonController {
@@ -45,3 +47,4 @@ public class BuzonController {
         return ResponseEntity.ok().build();
     }
 }
+

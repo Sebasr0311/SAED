@@ -6,9 +6,11 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import java.util.Map;
 
+@Tag(name = "Pagos", description = "API para la gestion de Pagos")
 @RestController
 @RequestMapping("/api/v1")
 public class PagosController {
@@ -41,4 +43,5 @@ public class PagosController {
         }
     }
 }
+
 

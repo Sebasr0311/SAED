@@ -7,10 +7,12 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import io.swagger.v3.oas.annotations.tags.Tag;
 
 import java.util.List;
 import java.util.Map;
 
+@Tag(name = "Unit", description = "API para la gestion de Unit")
 @RestController
 @RequestMapping("/api/v1/units")
 public class UnitController {
@@ -44,3 +46,4 @@ public class UnitController {
         return ResponseEntity.ok(Map.of("success", true));
     }
 }
+

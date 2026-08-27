@@ -8,10 +8,12 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import io.swagger.v3.oas.annotations.tags.Tag;
 
 import java.util.List;
 import java.util.Map;
 
+@Tag(name = "Organization", description = "API para la gestion de Organization")
 @RestController
 @RequestMapping("/api/v1/organizations")
 public class OrganizationController {
@@ -51,3 +53,4 @@ public class OrganizationController {
         return ResponseEntity.ok(Map.of("success", true));
     }
 }
+

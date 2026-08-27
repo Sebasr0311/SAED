@@ -2,11 +2,13 @@ package com.saed.backend.comunicacion.controller;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
 
+@Tag(name = "Wompi", description = "API para la gestion de Wompi")
 @RestController
 @RequestMapping("/api/v1/pagos")
 public class WompiController {
@@ -42,3 +44,4 @@ public class WompiController {
         return ResponseEntity.ok().build();
     }
 }
+

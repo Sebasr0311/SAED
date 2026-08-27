@@ -7,9 +7,11 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import io.swagger.v3.oas.annotations.tags.Tag;
 
 import java.util.Map;
 
+@Tag(name = "AssignmentManagement", description = "API para la gestion de AssignmentManagement")
 @RestController
 @RequestMapping("/api/v1/assignments")
 public class AssignmentManagementController {
@@ -33,3 +35,4 @@ public class AssignmentManagementController {
         return ResponseEntity.ok(Map.of("success", true));
     }
 }
+

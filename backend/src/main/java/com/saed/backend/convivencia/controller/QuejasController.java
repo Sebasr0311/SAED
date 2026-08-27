@@ -7,10 +7,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Map;
 
+@Tag(name = "Quejas", description = "API para la gestion de Quejas")
 @RestController
 public class QuejasController {
     private final QuejaService service;
@@ -60,3 +62,4 @@ public class QuejasController {
         return ResponseEntity.ok().build();
     }
 }
+
