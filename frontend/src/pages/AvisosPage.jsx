@@ -139,7 +139,7 @@ export default function AvisosPage() {
   const [sending, setSending] = useState(false);
   const { touch, fieldError } = useLiveValidation();
 
-  const { data: avisos, loading, error, refetch } = useFetch(() => api.get('/api/v1/buzon/avisos'), []);
+  const { data: avisos, loading, error, refetch } = useFetch(() => api.get('/buzon/avisos'), []);
   const { data: apartamentos } = useFetch(() => api.get('/apartamentos'), []);
 
   const columns = [
@@ -161,7 +161,7 @@ export default function AvisosPage() {
       if (selectedApts !== 'TODOS' && selectedApts.length > 0) {
         payload.idApartamentos = selectedApts;
       }
-      await api.post('/api/v1/buzon/aviso', payload);
+      await api.post('/buzon/aviso', payload);
       setToast({ message: 'Aviso enviado', type: 'success' });
       setForm({ titulo: '', cuerpo: '' });
       setSelectedApts('TODOS');
