@@ -1,10 +1,7 @@
-@echo off
-title SAED - Lanzador del Sistema Completo
+﻿@echo off
+title SAED 2.0 - Launcher
 chcp 65001 >nul
-echo ===================================================
-echo   Lanzando SAED (Backend + Frontend)
-echo ===================================================
-start "SAED Backend" "%~dp0iniciar-backend.bat"
-timeout /t 2 >nul
-start "SAED Frontend" "%~dp0iniciar-frontend.bat"
-echo Sistema iniciado en terminales independientes.
+echo Iniciando entorno completo de desarrollo SAED 2.0...
+start cmd /c "call %~dp0iniciar-backend.bat"
+start cmd /c "call %~dp0iniciar-frontend.bat"
+echo Entornos lanzados.
