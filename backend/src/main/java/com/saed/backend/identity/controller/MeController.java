@@ -25,9 +25,8 @@ public class MeController {
     }
 
     @GetMapping
-    public ResponseEntity<String> getProfile(@AuthenticationPrincipal Long userId) {
-        // Return dummy profile for now, next steps will fetch real person data
-        return ResponseEntity.ok("Profile info for user " + userId);
+    public ResponseEntity<java.util.Map<String, Object>> getProfile(@AuthenticationPrincipal Long userId) {
+        return ResponseEntity.ok(java.util.Map.of("id", userId));
     }
 
     @GetMapping("/contexts")

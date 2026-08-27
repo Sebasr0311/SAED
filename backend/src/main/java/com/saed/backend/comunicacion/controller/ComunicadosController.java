@@ -46,8 +46,8 @@ public class ComunicadosController {
 
     @GetMapping("/confirmar-pendiente")
     @PreAuthorize("hasAuthority('SCOPE_RESIDENTE')")
-    public Map<String, Object> confirmarPendiente() {
-        return Map.of(); // Mock empty for now to satisfy frontend
+    public List<Map<String, Object>> confirmarPendiente() {
+        return java.util.Collections.emptyList(); // Feature removed in V4 schema
     }
 
     @PostMapping("/confirmar")
