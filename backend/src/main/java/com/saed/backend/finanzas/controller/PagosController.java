@@ -13,7 +13,8 @@ import java.util.Map;
 @RequestMapping("/api/v1")
 public class PagosController {
     private final FinanzasService finanzasService;
-    public PagosController(FinanzasService finanzasService) { this.finanzasService = finanzasService; }
+    private final com.saed.backend.finanzas.service.WompiService wompiService;
+    public PagosController(FinanzasService finanzasService, com.saed.backend.finanzas.service.WompiService wompiService) { this.finanzasService = finanzasService; this.wompiService = wompiService; }
 
     @GetMapping("/cuotas")
     public ResponseEntity<List<CuotaDTO>> getCuotasPendientes(@RequestParam(required = false) Boolean pendientes) {
@@ -27,5 +28,17 @@ public class PagosController {
     }
     
     
+    
+    @PostMapping("/pagos/wompi/webhook")
+    public ResponseEntity<Void> wompiWebhook(@RequestBody String payload) {
+        try {
+            // Requiere WompiService injection (anadir despues)
+            wompiService.procesarWebhook(payload);
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            System.err.println("Error procesando webhook Wompi: " + e.getMessage());
+            return ResponseEntity.ok().build(); // Wompi espera 200 siempre si no es error de red
+        }
+    }
 }
 
