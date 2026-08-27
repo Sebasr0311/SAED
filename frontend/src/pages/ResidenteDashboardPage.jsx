@@ -224,7 +224,7 @@ export default function ResidenteDashboardPage() {
   // ==== Pagos en línea (Wompi) ====
   const MESES_W = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   const { data: wompiHistorialRaw, refetch: refetchHistorialWompi } = useFetch(
-    () => api.get('/pagos/wompi/historial'),
+    () => api.get('/api/v1/pagos/wompi/historial'),
     []
   );
   const wompiHistorial = wompiHistorialRaw?.items || wompiHistorialRaw || [];
@@ -297,7 +297,7 @@ export default function ResidenteDashboardPage() {
       if (typeof refetchDashboard === 'function') refetchDashboard();
     };
         try {
-            const sol = await api.post('/pagos/wompi/solicitud', { concepto, id });
+            const sol = await api.post('/api/v1/pagos/wompi/solicitud', { concepto, id });
             // Idempotencia: si ya había un intento PENDIENTE con transacción creada en
       // Wompi, no se reabre el widget — solo se espera el estado final.
       if (sol.idTransaccionWompi) {
@@ -329,7 +329,7 @@ export default function ResidenteDashboardPage() {
         // webhook puede no estar configurado o perderse).
         if (result && result.transaction && result.transaction.id) {
           try {
-            await api.post('/pagos/wompi/transaccion', { referencia: sol.referencia, idTransaccionWompi: result.transaction.id });
+            await api.post('/api/v1/pagos/wompi/transaccion', { referencia: sol.referencia, idTransaccionWompi: result.transaction.id });
           } catch { /* best-effort */ }
         }
         await pollEstadoWompi(sol.referencia);
@@ -367,7 +367,7 @@ export default function ResidenteDashboardPage() {
     if (confirmarPendiente) return;
     if (document.visibilityState !== 'visible') return;
     try {
-      const pendientes = await api.get('/buzon/confirmar-pendiente');
+      const pendientes = await api.get('/api/v1/buzon/confirmar-pendiente');
       const lista = Array.isArray(pendientes) ? pendientes : pendientes?.items || [];
       failCountRef.current = 0;
       if (backoffActivo) setBackoffActivo(false); // red recuperada: el intervalo vuelve solo a 5s
@@ -403,7 +403,7 @@ export default function ResidenteDashboardPage() {
     confirmandoRef.current = true;
     setConfirmando(true);
     try {
-      await api.post('/buzon/confirmar', { idMensaje: confirmarPendiente.idMensaje, confirmado });
+      await api.post('/api/v1/buzon/confirmar', { idMensaje: confirmarPendiente.idMensaje, confirmado });
       setToast({ message: confirmado === 1 ? 'Acceso confirmado' : 'Acceso rechazado', type: 'success' });
       setConfirmarPendiente(null); // cierra; el próximo tick traerá el siguiente pendiente si hay
     } catch (err) {
