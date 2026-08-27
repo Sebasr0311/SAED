@@ -294,7 +294,7 @@ export default function GananciasPage() {
     setFechaError(r.ok ? '' : r.mensaje);
   }, [fechaInicio, fechaFin]);
 
-  const { data: pagos, loading } = useFetch(() => api.get('/api/v1/pagos/registrados'), []);
+  const { data: pagos, loading } = useFetch(() => api.get('/pagos/registrados'), []);
   const all = pagos?.items || pagos || [];
 
   const filtrados = useMemo(() => {

@@ -90,7 +90,7 @@ export default function PersonasPage() {
     setSaving(true);
     
     try {
-      await api.post('/v1/personas', form);
+      await api.post('/personas', form);
       setToast({ message: 'Persona registrada correctamente', type: 'success' });
       setModalOpen(false);
       refetch();
