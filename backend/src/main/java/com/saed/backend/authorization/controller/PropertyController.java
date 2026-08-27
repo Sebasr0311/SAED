@@ -7,10 +7,12 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import io.swagger.v3.oas.annotations.tags.Tag;
 
 import java.util.List;
 import java.util.Map;
 
+@Tag(name = "Property", description = "API para la gestion de Property")
 @RestController
 @RequestMapping("/api/v1/properties")
 public class PropertyController {
@@ -44,3 +46,4 @@ public class PropertyController {
         return ResponseEntity.ok(Map.of("success", true));
     }
 }
+

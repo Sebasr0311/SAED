@@ -6,9 +6,11 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import io.swagger.v3.oas.annotations.tags.Tag;
 
 import java.util.List;
 
+@Tag(name = "Dependent", description = "API para la gestion de Dependent")
 @RestController
 @RequestMapping("/api/v1")
 public class DependentController {
@@ -135,3 +137,4 @@ public class DependentController {
         dependentService.deleteVisitante(id);
     }
 }
+

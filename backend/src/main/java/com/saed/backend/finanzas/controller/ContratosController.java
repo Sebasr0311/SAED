@@ -6,9 +6,11 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import java.util.Map;
 
+@Tag(name = "Contratos", description = "API para la gestion de Contratos")
 @RestController
 @RequestMapping("/api/v1/contratos")
 public class ContratosController {
@@ -38,3 +40,4 @@ public class ContratosController {
         return ResponseEntity.ok(Map.of("success", true));
     }
 }
+
