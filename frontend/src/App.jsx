@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import LoginPage from './pages/LoginPage.jsx';
 import AppShell from './components/layout/AppShell.jsx';
 import { AuthProvider } from './lib/AuthContext.jsx';
+import { TenantProvider } from './lib/TenantContext.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 
 // Code-splitting por ruta: cada página carga solo cuando se visita, reduciendo
@@ -50,7 +51,9 @@ export default function App() {
           path="/"
           element={
             <ProtectedRoute>
-              <AppShell />
+              <TenantProvider>
+                <AppShell />
+              </TenantProvider>
             </ProtectedRoute>
           }
         >

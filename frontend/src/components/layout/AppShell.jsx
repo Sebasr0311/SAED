@@ -4,6 +4,7 @@ import { useAuth } from '../../lib/AuthContext.jsx';
 import { getInitialTheme, applyTheme, persistTheme } from '../../lib/theme.js';
 import ErrorBoundary from '../ErrorBoundary.jsx';
 import NotificationBell from '../ui/NotificationBell.jsx';
+import TenantSwitcher from './TenantSwitcher.jsx';
 
 /**
  * Navegación agrupada por relación funcional, por rol.
@@ -428,6 +429,7 @@ export default function AppShell() {
               <h1 className="page-title">{currentTitle}</h1>
             </div>
             <div className="topbar-right">
+              <TenantSwitcher />
               <button
                 type="button"
                 onClick={toggleTheme}
