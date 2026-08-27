@@ -1,14 +1,12 @@
 package com.saed.backend.config;
 
-import java.sql.CallableStatement;
 import java.sql.Connection;
-import java.sql.SQLException;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 
 public class SaedConnectionProxy implements InvocationHandler {
-    
+
     private final Connection target;
 
     public SaedConnectionProxy(Connection target) {
@@ -26,26 +24,15 @@ public class SaedConnectionProxy implements InvocationHandler {
     @Override
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
         if ("close".equals(method.getName())) {
-            // Limpiar contexto SIEMPRE en finally: si CLEAR_CONTEXT falla (p.ej.
-            // conexion ya cerrada por Hikari), NO impedir el close real, o el
-            // pool se agota con conexiones que nunca se devuelven.
-            try {
-                clearSaedContext(target);
-            } finally {
-                target.close();
-            }
+            // Delegar el close directamente a Hikari. El contexto RLS se limpia
+            // por request en JwtAuthenticationFilter (SaedContextHolder.clearContext
+            // en finally) y cada conexion del pool re-aplica SET_CONTEXT al
+            // obtenerse (SaedDataSourceProxy.applySaedContext). Interceptar
+            // close() aqui rompe el reciclaje del pool y agota las conexiones
+            // ("Failed to obtain JDBC Connection") bajo carga del navegador.
+            target.close();
             return null;
         }
         return method.invoke(target, args);
-    }
-
-    private void clearSaedContext(Connection connection) {
-        try (CallableStatement cs = connection.prepareCall("{call PKG_SAED_SESSION.CLEAR_CONTEXT()}")) {
-            cs.execute();
-        } catch (SQLException e) {
-            // Log this strictly. If this fails, the connection might leak context to the next user.
-            // Hikari usually rolls back and tests the connection, but this ensures Oracle drops the context.
-            System.err.println("CRITICAL: Failed to clear SAED context on connection close: " + e.getMessage());
-        }
     }
 }
