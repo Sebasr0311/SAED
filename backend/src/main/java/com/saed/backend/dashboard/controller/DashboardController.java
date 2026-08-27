@@ -1,0 +1,39 @@
+package com.saed.backend.dashboard.controller;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import java.util.List;
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/v1/residentes")
+public class DashboardController {
+    private final NamedParameterJdbcTemplate jdbcTemplate;
+    public DashboardController(NamedParameterJdbcTemplate jdbcTemplate) { this.jdbcTemplate = jdbcTemplate; }
+
+    @GetMapping("/{id}/frecuentes")
+    @PreAuthorize("hasAuthority('SCOPE_RESIDENTE')")
+    public List<Map<String, Object>> getFrecuentes(@PathVariable Long id) {
+        return jdbcTemplate.queryForList("SELECT * FROM VISITANTES WHERE ES_FRECUENTE = 'S'", Map.of());
+    }
+
+    @DeleteMapping("/{id}/frecuentes/{idFrecuente}")
+    @PreAuthorize("hasAuthority('SCOPE_RESIDENTE')")
+    public ResponseEntity<Void> deleteFrecuente(@PathVariable Long id, @PathVariable Long idFrecuente) {
+        jdbcTemplate.update("UPDATE VISITANTES SET ES_FRECUENTE = 'N' WHERE ID_VISITANTE = :id", Map.of("id", idFrecuente));
+        return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/{id}/qr-activos")
+    @PreAuthorize("hasAuthority('SCOPE_RESIDENTE')")
+    public List<Map<String, Object>> getQrActivos(@PathVariable Long id) {
+        return jdbcTemplate.queryForList("SELECT * FROM QR_ACCESOS WHERE ESTADO = 'ACTIVO'", Map.of());
+    }
+    
+    @PostMapping("/{id}/asignar-apartamento")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
+    public ResponseEntity<Void> asignarApartamento(@PathVariable Long id, @RequestBody Map<String, Object> payload) {
+        return ResponseEntity.ok().build();
+    }
+}
