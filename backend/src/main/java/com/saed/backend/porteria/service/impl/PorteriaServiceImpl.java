@@ -39,8 +39,6 @@ public class PorteriaServiceImpl implements PorteriaService {
     }
 
     @Override
-    
-    @Override
     @Transactional(readOnly = true)
     public List<VisitaListDTO> getVisitasResumen() {
         return porteriaRepository.getVisitasResumen();
@@ -113,5 +111,7 @@ public class PorteriaServiceImpl implements PorteriaService {
         porteriaRepository.registerSalidaVehiculo(vehiculoVisitaId, costoTotal);
     }
 }
+
+
 
 
