@@ -162,11 +162,10 @@ export default function ParqueaderosPage() {
     setErrors(errs);
     if (Object.keys(errs).length > 0) { savingRef.current = false; setSaving(false); return; }
     try {
+      const tipoReal = form.esVisitante ? "VISITANTES" : (form.tipo === "MOTO" ? "MOTOS" : (form.tipo === "BICICLETA" ? "BICICLETAS" : "PRIVADO"));
       const payload = {
-        tipo: form.tipo,
-        esVisitante: form.esVisitante,
-        idApartamento: form.esVisitante ? null : Number(form.idApartamento),
-        codigo: editing ? form.numero : codigoGenerado,
+        numeroParqueadero: editing ? form.numero : codigoGenerado,
+        tipo: tipoReal,
         estado: form.estado,
       };
       if (editing) {
@@ -377,3 +376,4 @@ export default function ParqueaderosPage() {
     </div>
   );
 }
+
