@@ -1,9 +1,10 @@
-@echo off
-title SAED - Backend REST (Puerto 8080)
+﻿@echo off
+title SAED 2.0 - Backend Spring Boot (Puerto 8080)
 chcp 65001 >nul
 echo ===================================================
-echo   Iniciando Backend SAED (Java REST + Oracle)
+echo   Iniciando Backend SAED 2.0 (Spring Boot + Oracle)
 echo ===================================================
 cd /d "%~dp0..\..\backend"
-mvn compile exec:java -Dexec.mainClass="com.edificio.admin.RestServerMain"
+set "JAVA_HOME=C:\Program Files\Java\jdk-24"
+mvn spring-boot:run
 pause
