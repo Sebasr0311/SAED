@@ -26,8 +26,6 @@ public class PagosController {
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("success", true));
     }
     
-    @GetMapping("/multas/todas")
-    public ResponseEntity<List<Object>> getMultas() {
-        return ResponseEntity.ok(List.of()); 
-    }
+    
 }
+
