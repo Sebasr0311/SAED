@@ -51,11 +51,24 @@ export default function NotificationBell() {
     if (!user) return;
     setLoading(true);
     try {
+      // SAED 2.0: /buzon/avisos expone los comunicados/avisos del tenant.
+      // (El endpoint 1.0 /notificaciones ya no existe en el backend 2.0.)
       const res = esAdmin
-        ? await api.get('/notificaciones')
-        : await api.get('/buzon');
+        ? await api.get('/buzon/avisos')
+        : await api.get('/buzon/avisos');
       const lista = res?.items || res || [];
-      setItems(Array.isArray(lista) ? lista : []);
+      const raw = Array.isArray(lista) ? lista : [];
+      // Normaliza COMUNICADOS 2.0 (titulo/contenido/fecha_publicacion) al shape
+      // del bell (titulo/cuerpo/fecha).
+      setItems(raw.map((it) => ({
+        id: it.idComunicado ?? it.id,
+        tipo: 'AVISO',
+        titulo: it.titulo || it.tituloComunicado || 'Aviso',
+        cuerpo: it.contenido || it.mensaje || '',
+        fecha: it.fechaPublicacion || it.fecha_publicacion || it.fecha,
+        leido: it.estado === 'LEIDO',
+        ruta: '/avisos',
+      })));
     } catch {
       setItems([]);
     } finally {
