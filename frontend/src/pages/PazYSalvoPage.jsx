@@ -39,7 +39,7 @@ export default function PazYSalvoPage() {
     }
     setGenerando(true);
     try {
-      await api.post('/paz-y-salvos', { unidadId: Number(form.unidadId), motivo: form.monto });
+      await api.post('/paz-y-salvos', { idUnidad: Number(form.unidadId), motivo: form.motivo });
       toast.success('Paz y salvo generado exitosamente');
       setDialogOpen(false);
       setForm({ unidadId: '', motivo: '' });
