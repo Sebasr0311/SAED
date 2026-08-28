@@ -33,6 +33,11 @@ const GananciasPage = lazy(() => import('./pages/GananciasPage.jsx'));
 const HistorialVisitasPage = lazy(() => import('./pages/HistorialVisitasPage.jsx'));
 const PaquetesAdminPage = lazy(() => import('./pages/PaquetesAdminPage.jsx'));
 const EscannerQRPage = lazy(() => import('./pages/EscannerQRPage.jsx'));
+const CarteraPage = lazy(() => import('./pages/CarteraPage.jsx'));
+const PresupuestoPage = lazy(() => import('./pages/PresupuestoPage.jsx'));
+const GastosPage = lazy(() => import('./pages/GastosPage.jsx'));
+const ConciliacionPage = lazy(() => import('./pages/ConciliacionPage.jsx'));
+const PazYSalvoPage = lazy(() => import('./pages/PazYSalvoPage.jsx'));
 
 const ResidenteDashboardPage = lazy(() => import('./pages/ResidenteDashboardPage.jsx'));
 const ResPerfilPage = lazy(() => import('./pages/ResPerfilPage.jsx'));
@@ -258,6 +263,46 @@ export default function App() {
             element={
               <ProtectedRoute roles={['ADMINISTRADOR', 'PORTERO']}>
                 <EscannerQRPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="cartera"
+            element={
+              <ProtectedRoute roles={['ADMINISTRADOR']}>
+                <CarteraPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="presupuestos"
+            element={
+              <ProtectedRoute roles={['ADMINISTRADOR']}>
+                <PresupuestoPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="gastos"
+            element={
+              <ProtectedRoute roles={['ADMINISTRADOR']}>
+                <GastosPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="conciliaciones"
+            element={
+              <ProtectedRoute roles={['ADMINISTRADOR']}>
+                <ConciliacionPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="paz-y-salvos"
+            element={
+              <ProtectedRoute roles={['ADMINISTRADOR']}>
+                <PazYSalvoPage />
               </ProtectedRoute>
             }
           />
