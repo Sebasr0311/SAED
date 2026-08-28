@@ -24,6 +24,7 @@ const NAV_BY_ROLE = {
       icon: 'domain',
       items: [
         { path: '/organizaciones', label: 'Organizaciones', icon: 'domain' },
+        { path: '/propiedades', label: 'Propiedades', icon: 'apartment' },
         { path: '/personas', label: 'Personas', icon: 'person' },
         { path: '/residentes', label: 'Residentes', icon: 'groups' },
         { path: '/unidades', label: 'Unidades', icon: 'apartment' },
