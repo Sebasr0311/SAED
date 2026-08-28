@@ -58,4 +58,12 @@ public class CatalogoController {
                 "SELECT ID_ROL, CODIGO, NOMBRE, ALCANCE, ESTADO FROM ROLES ORDER BY NOMBRE",
                 new MapSqlParameterSource());
     }
+
+    @GetMapping("/usuarios")
+    public List<Map<String, Object>> usuarios() {
+        return jdbcTemplate.queryForList(
+                "SELECT u.ID_USUARIO, u.NOMBRE_USUARIO, u.EMAIL, u.ESTADO " +
+                "FROM USUARIOS u ORDER BY u.NOMBRE_USUARIO",
+                new MapSqlParameterSource());
+    }
 }
