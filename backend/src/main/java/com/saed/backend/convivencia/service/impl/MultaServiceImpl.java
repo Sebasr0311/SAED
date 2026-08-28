@@ -2,6 +2,7 @@ package com.saed.backend.convivencia.service.impl;
 import com.saed.backend.convivencia.dto.MultaDTO;
 import com.saed.backend.convivencia.repository.MultaRepository;
 import com.saed.backend.convivencia.service.MultaService;
+import com.saed.backend.common.service.EmailService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
@@ -9,9 +10,11 @@ import java.util.List;
 @Service
 public class MultaServiceImpl implements MultaService {
     private final MultaRepository repo;
+    private final EmailService emailService;
 
-    public MultaServiceImpl(MultaRepository repo) {
+    public MultaServiceImpl(MultaRepository repo, EmailService emailService) {
         this.repo = repo;
+        this.emailService = emailService;
     }
 
     
@@ -30,6 +33,17 @@ public class MultaServiceImpl implements MultaService {
     public void pagar(Long id, String metodo) {
         // En una implementacion real se crearia un pago
         repo.updateEstado(id, "PAGADA");
+
+        // Enviar notificación por email (non-blocking)
+        try {
+            MultaDTO multa = repo.findById(id);
+            if (multa != null) {
+                String fecha = multa.getFechaCreacion() != null ? multa.getFechaCreacion().toString() : "";
+                emailService.enviarNotificacionMulta(null, multa.getTipo(), multa.getMonto(), fecha);
+            }
+        } catch (Exception e) {
+            System.err.println("Error enviando notificación de multa: " + e.getMessage());
+        }
     }
     
     @Override

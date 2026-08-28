@@ -16,6 +16,8 @@ const ACCION_COLORS = {
   DENIED: 'bg-orange-100 text-orange-800',
 };
 
+const fmtCOP = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' });
+
 export default function ReportesPage() {
   const [filtro, setFiltro] = useState({ tabla: '', accion: '', limite: 50 });
   const [tabActiva, setTabActiva] = useState('audit');
@@ -31,8 +33,25 @@ export default function ReportesPage() {
   );
   const { data: statsData } = useFetch(() => api.get('/audit/stats'), []);
 
+  // --- Business reports ---
+  const { data: morosaData, loading: morosaLoading } = useFetch(
+    () => api.get('/reportes/cartera-morosa'),
+    [tabActiva === 'morosa']
+  );
+  const { data: cuotasData, loading: cuotasLoading } = useFetch(
+    () => api.get('/reportes/ejecucion-cuotas'),
+    [tabActiva === 'cuotas']
+  );
+  const { data: pagosData, loading: pagosLoading } = useFetch(
+    () => api.get('/reportes/pagos-recientes'),
+    [tabActiva === 'pagos']
+  );
+
   const registros = auditData?.items || auditData?.data || [];
   const stats = statsData?.items || statsData?.data || [];
+  const morosa = morosaData?.items || morosaData?.data || [];
+  const cuotas = cuotasData?.items || cuotasData?.data || [];
+  const pagos = pagosData?.items || pagosData?.data || [];
 
   return (
     <div className="space-y-6">
@@ -43,6 +62,9 @@ export default function ReportesPage() {
         {[
           { id: 'audit', label: 'Registro de Auditoría', icon: 'history' },
           { id: 'stats', label: 'Estadísticas', icon: 'bar_chart' },
+          { id: 'morosa', label: 'Cartera Morosa', icon: 'money_off' },
+          { id: 'cuotas', label: 'Ejecución de Cuotas', icon: 'assessment' },
+          { id: 'pagos', label: 'Pagos Recientes', icon: 'payments' },
         ].map((t) => (
           <button
             key={t.id}
@@ -59,7 +81,7 @@ export default function ReportesPage() {
         ))}
       </div>
 
-      {/* ── TAB: Auditoría ───────────────────────────── */}
+      {/* ======= TAB: Auditoría ======= */}
       {tabActiva === 'audit' && (
         <>
           {/* Filtros */}
@@ -122,7 +144,7 @@ export default function ReportesPage() {
                       {registros.map((r, i) => (
                         <TableRow key={r.ID || r.id || i}>
                           <TableCell className="text-xs whitespace-nowrap">
-                            {r.FECHA_ACCION || r.fechaAccion || '—'}
+                            {r.FECHA_ACCION || r.fechaAccion || '-'}
                           </TableCell>
                           <TableCell className="font-mono text-xs">{r.TABLA || r.tabla}</TableCell>
                           <TableCell>
@@ -133,10 +155,10 @@ export default function ReportesPage() {
                           <TableCell className="font-mono text-xs">{r.ID_REGISTRO || r.idRegistro}</TableCell>
                           <TableCell className="text-xs">{r.USUARIO || r.usuario}</TableCell>
                           <TableCell className="text-xs max-w-[120px] truncate">
-                            {r.ESTADO_ANTERIOR || r.estadoAnterior || '—'}
+                            {r.ESTADO_ANTERIOR || r.estadoAnterior || '-'}
                           </TableCell>
                           <TableCell className="text-xs max-w-[120px] truncate">
-                            {r.ESTADO_NUEVO || r.estadoNuevo || '—'}
+                            {r.ESTADO_NUEVO || r.estadoNuevo || '-'}
                           </TableCell>
                         </TableRow>
                       ))}
@@ -149,7 +171,7 @@ export default function ReportesPage() {
         </>
       )}
 
-      {/* ── TAB: Estadísticas ──────────────────────────── */}
+      {/* ======= TAB: Estadísticas ======= */}
       {tabActiva === 'stats' && (
         <Card>
           <CardHeader>
@@ -180,8 +202,176 @@ export default function ReportesPage() {
                           </span>
                         </TableCell>
                         <TableCell className="text-right font-bold">{Number(s.TOTAL || s.total).toLocaleString()}</TableCell>
-                        <TableCell className="text-xs">{s.PRIMERA || s.primera || '—'}</TableCell>
-                        <TableCell className="text-xs">{s.ULTIMA || s.ultima || '—'}</TableCell>
+                        <TableCell className="text-xs">{s.PRIMERA || s.primera || '-'}</TableCell>
+                        <TableCell className="text-xs">{s.ULTIMA || s.ultima || '-'}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ======= TAB: Cartera Morosa ======= */}
+      {tabActiva === 'morosa' && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Cartera Morosa - Unidades con Saldo Vencido</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {morosaLoading ? (
+              <div className="space-y-2">
+                <Skeleton className="h-8 w-full" />
+                <Skeleton className="h-8 w-full" />
+                <Skeleton className="h-8 w-full" />
+              </div>
+            ) : morosa.length === 0 ? (
+              <p className="py-8 text-center text-muted-foreground">No hay cuotas vencidas registradas.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Unidad</TableHead>
+                      <TableHead>Propiedad</TableHead>
+                      <TableHead className="text-right">Cuotas Pendientes</TableHead>
+                      <TableHead className="text-right">Deuda Total</TableHead>
+                      <TableHead>Primer Vencimiento</TableHead>
+                      <TableHead>Último Vencimiento</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {morosa.map((m, i) => (
+                      <TableRow key={i}>
+                        <TableCell className="font-mono text-sm">{m.UNIDAD}</TableCell>
+                        <TableCell>{m.PROPIEDAD}</TableCell>
+                        <TableCell className="text-right font-bold">{Number(m.CUOTAS_PENDIENTES).toLocaleString()}</TableCell>
+                        <TableCell className="text-right font-bold text-red-600">{fmtCOP.format(Number(m.DEUDA_TOTAL))}</TableCell>
+                        <TableCell className="text-xs">{m.PRIMER_VENCIMIENTO || '-'}</TableCell>
+                        <TableCell className="text-xs">{m.ULTIMO_VENCIMIENTO || '-'}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ======= TAB: Ejecución de Cuotas ======= */}
+      {tabActiva === 'cuotas' && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Ejecución de Cuotas por Período</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {cuotasLoading ? (
+              <div className="space-y-2">
+                <Skeleton className="h-8 w-full" />
+                <Skeleton className="h-8 w-full" />
+                <Skeleton className="h-8 w-full" />
+              </div>
+            ) : cuotas.length === 0 ? (
+              <p className="py-8 text-center text-muted-foreground">No hay datos de ejecución de cuotas.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Período</TableHead>
+                      <TableHead className="text-right">Total</TableHead>
+                      <TableHead className="text-right">Pagadas</TableHead>
+                      <TableHead className="text-right">Pendientes</TableHead>
+                      <TableHead className="text-right">Total Facturado</TableHead>
+                      <TableHead className="text-right">Total Recaudado</TableHead>
+                      <TableHead className="w-40">% Recaudado</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {cuotas.map((c, i) => {
+                      const totalFacturado = Number(c.TOTAL_FACTURADO) || 0;
+                      const totalRecaudado = Number(c.TOTAL_RECAUDADO) || 0;
+                      const pct = totalFacturado > 0 ? (totalRecaudado / totalFacturado) * 100 : 0;
+                      return (
+                        <TableRow key={i}>
+                          <TableCell className="font-mono text-sm">{c.PERIODO}</TableCell>
+                          <TableCell className="text-right">{Number(c.TOTAL_CUOTAS).toLocaleString()}</TableCell>
+                          <TableCell className="text-right text-green-600">{Number(c.PAGADAS).toLocaleString()}</TableCell>
+                          <TableCell className="text-right text-amber-600">{Number(c.PENDIENTES).toLocaleString()}</TableCell>
+                          <TableCell className="text-right">{fmtCOP.format(totalFacturado)}</TableCell>
+                          <TableCell className="text-right">{fmtCOP.format(totalRecaudado)}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                <div
+                                  className="h-full bg-green-500 rounded-full transition-all"
+                                  style={{ width: `${Math.min(pct, 100)}%` }}
+                                />
+                              </div>
+                              <span className="text-xs font-medium whitespace-nowrap">{pct.toFixed(1)}%</span>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ======= TAB: Pagos Recientes ======= */}
+      {tabActiva === 'pagos' && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Últimos 50 Pagos Registrados</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {pagosLoading ? (
+              <div className="space-y-2">
+                <Skeleton className="h-8 w-full" />
+                <Skeleton className="h-8 w-full" />
+                <Skeleton className="h-8 w-full" />
+              </div>
+            ) : pagos.length === 0 ? (
+              <p className="py-8 text-center text-muted-foreground">No hay pagos registrados.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>ID</TableHead>
+                      <TableHead>Unidad</TableHead>
+                      <TableHead className="text-right">Monto</TableHead>
+                      <TableHead>Método</TableHead>
+                      <TableHead>Estado</TableHead>
+                      <TableHead>Fecha</TableHead>
+                      <TableHead>Referencia</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {pagos.map((p) => (
+                      <TableRow key={p.ID_PAGO}>
+                        <TableCell className="font-mono text-sm">{p.ID_PAGO}</TableCell>
+                        <TableCell className="font-mono text-sm">{p.UNIDAD}</TableCell>
+                        <TableCell className="text-right font-bold">{fmtCOP.format(Number(p.MONTO_TOTAL))}</TableCell>
+                        <TableCell>{p.METODO_PAGO}</TableCell>
+                        <TableCell>
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                            p.ESTADO === 'CONFIRMADO' ? 'bg-green-100 text-green-800' :
+                            p.ESTADO === 'PENDIENTE' ? 'bg-amber-100 text-amber-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {p.ESTADO}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-xs whitespace-nowrap">{p.FECHA_PAGO || '-'}</TableCell>
+                        <TableCell className="text-xs max-w-[120px] truncate">{p.REFERENCIA_COMPROBANTE || '-'}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

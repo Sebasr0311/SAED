@@ -41,13 +41,14 @@ public class AuditoriaController {
             @RequestParam(value = "hasta", required = false) String hasta,
             @RequestParam(value = "limite", defaultValue = "100") int limite) {
 
-        StringBuilder sb = new StringBuilder("SELECT ID, TABLA, ACCION, ID_REGISTRO, " +
-                "USUARIO, FECHA_ACCION, ESTADO_ANTERIOR, ESTADO_NUEVO " +
+        StringBuilder sb = new StringBuilder("SELECT ID_LOG, ENTIDAD, ACCION, ID_ENTIDAD_AFECTADA, " +
+                "ID_USUARIO, FECHA_HORA, ESTADO_ANTERIOR, ESTADO_NUEVO, " +
+                "ID_ORGANIZACION, ID_PROPIEDAD " +
                 "FROM AUDITORIA_LOG WHERE 1=1");
         MapSqlParameterSource params = new MapSqlParameterSource();
 
         if (tabla != null && !tabla.isBlank()) {
-            sb.append(" AND TABLA = :tabla");
+            sb.append(" AND ENTIDAD = :tabla");
             params.addValue("tabla", tabla.toUpperCase());
         }
         if (accion != null && !accion.isBlank()) {
@@ -55,19 +56,19 @@ public class AuditoriaController {
             params.addValue("accion", accion.toUpperCase());
         }
         if (usuario != null && !usuario.isBlank()) {
-            sb.append(" AND USUARIO = :usuario");
+            sb.append(" AND ID_USUARIO = :usuario");
             params.addValue("usuario", usuario);
         }
         if (desde != null && !desde.isBlank()) {
-            sb.append(" AND FECHA_ACCION >= TO_DATE(:desde, 'YYYY-MM-DD')");
+            sb.append(" AND FECHA_HORA >= TO_DATE(:desde, 'YYYY-MM-DD')");
             params.addValue("desde", desde);
         }
         if (hasta != null && !hasta.isBlank()) {
-            sb.append(" AND FECHA_ACCION <= TO_DATE(:hasta, 'YYYY-MM-DD') + 1");
+            sb.append(" AND FECHA_HORA <= TO_DATE(:hasta, 'YYYY-MM-DD') + 1");
             params.addValue("hasta", hasta);
         }
 
-        sb.append(" ORDER BY FECHA_ACCION DESC FETCH FIRST :limite ROWS ONLY");
+        sb.append(" ORDER BY FECHA_HORA DESC FETCH FIRST :limite ROWS ONLY");
         params.addValue("limite", limite);
 
         List<Map<String, Object>> items = jdbcTemplate.queryForList(sb.toString(), params);
@@ -76,17 +77,17 @@ public class AuditoriaController {
 
     @GetMapping("/stats")
     public ApiResponse<List<Map<String, Object>>> estadisticas() {
-        String sql = "SELECT TABLA, ACCION, COUNT(*) AS TOTAL, " +
-                     "MIN(FECHA_ACCION) AS PRIMERA, MAX(FECHA_ACCION) AS ULTIMA " +
+        String sql = "SELECT ENTIDAD, ACCION, COUNT(*) AS TOTAL, " +
+                     "MIN(FECHA_HORA) AS PRIMERA, MAX(FECHA_HORA) AS ULTIMA " +
                      "FROM AUDITORIA_LOG " +
-                     "GROUP BY TABLA, ACCION " +
+                     "GROUP BY ENTIDAD, ACCION " +
                      "ORDER BY TOTAL DESC";
         return ApiResponse.success(jdbcTemplate.queryForList(sql, new MapSqlParameterSource()));
     }
 
     @GetMapping("/{id}")
     public ApiResponse<Map<String, Object>> detalle(@PathVariable Long id) {
-        String sql = "SELECT * FROM AUDITORIA_LOG WHERE ID = :id";
+        String sql = "SELECT * FROM AUDITORIA_LOG WHERE ID_LOG = :id";
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql, new MapSqlParameterSource("id", id));
         if (rows.isEmpty()) return ApiResponse.error("Registro no encontrado");
         return ApiResponse.success(rows.get(0));

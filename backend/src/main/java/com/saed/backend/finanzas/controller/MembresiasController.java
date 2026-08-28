@@ -125,6 +125,24 @@ public class MembresiasController {
         jdbcTemplate.update(sql, params, keyHolder, new String[]{"ID_MEMBRESIA"});
         Long id = keyHolder.getKey().longValue();
 
+        // ─── HISTORIAL: CREACION ────────────────────────────────
+        try {
+            String planNombre = jdbcTemplate.queryForObject(
+                    "SELECT NOMBRE FROM PLANES WHERE ID_PLAN = :idPlan",
+                    new MapSqlParameterSource("idPlan", idPlan.longValue()),
+                    String.class);
+            jdbcTemplate.update(
+                    "INSERT INTO MEMBRESIAS_HISTORIAL " +
+                    "(ID_MEMBRESIA, TIPO_CAMBIO, PLAN_NUEVO, REALIZADO_POR, FECHA_CAMBIO, NOTAS) " +
+                    "VALUES (:idMembresia, 'CREACION', :planNuevo, 'SISTEMa', SYSDATE, :notas)",
+                    new MapSqlParameterSource()
+                            .addValue("idMembresia", id)
+                            .addValue("planNuevo", planNombre)
+                            .addValue("notas", "Membresia creada con estado " + estado.toUpperCase()));
+        } catch (Exception e) {
+            System.err.println("Error insertando historial de creacion: " + e.getMessage());
+        }
+
         return ApiResponse.success(Map.of(
                 "id", id,
                 "idOrganizacion", idOrg,
@@ -140,10 +158,35 @@ public class MembresiasController {
         if (!List.of("ACTIVA", "INACTIVA", "PENDIENTE", "SUSPENDIDA", "PRUEBA").contains(estado)) {
             return ApiResponse.error("Estado inválido. Valores: ACTIVA, INACTIVA, PENDIENTE, SUSPENDIDA, PRUEBA");
         }
+        // Obtener estado anterior para el historial
+        Map<String, Object> membresiaActual = jdbcTemplate.queryForMap(
+                "SELECT m.ESTADO, p.NOMBRE AS PLAN_NOMBRE " +
+                "FROM MEMBRESIAS m JOIN PLANES p ON m.ID_PLAN = p.ID_PLAN " +
+                "WHERE m.ID_MEMBRESIA = :id",
+                new MapSqlParameterSource("id", id));
+        String estadoAnterior = (String) membresiaActual.get("ESTADO");
+        String planNombre = (String) membresiaActual.get("PLAN_NOMBRE");
+
         int rows = jdbcTemplate.update(
                 "UPDATE MEMBRESIAS SET ESTADO = :estado WHERE ID_MEMBRESIA = :id",
                 new MapSqlParameterSource("id", id).addValue("estado", estado));
         if (rows == 0) return ApiResponse.error("Membresía no encontrada");
+
+        // ─── HISTORIAL: CAMBIO_ESTADO ──────────────────────────
+        try {
+            jdbcTemplate.update(
+                    "INSERT INTO MEMBRESIAS_HISTORIAL " +
+                    "(ID_MEMBRESIA, TIPO_CAMBIO, PLAN_ANTERIOR, PLAN_NUEVO, REALIZADO_POR, FECHA_CAMBIO, NOTAS) " +
+                    "VALUES (:idMembresia, 'CAMBIO_ESTADO', :planAnterior, :planNuevo, 'SISTEMa', SYSDATE, :notas)",
+                    new MapSqlParameterSource()
+                            .addValue("idMembresia", id)
+                            .addValue("planAnterior", planNombre)
+                            .addValue("planNuevo", planNombre)
+                            .addValue("notas", "Estado cambió de " + estadoAnterior + " a " + estado.toUpperCase()));
+        } catch (Exception e) {
+            System.err.println("Error insertando historial de cambio de estado: " + e.getMessage());
+        }
+
         return ApiResponse.success("OK");
     }
 
@@ -151,11 +194,40 @@ public class MembresiasController {
 
     @DeleteMapping("/{id}")
     public ApiResponse<String> cancelar(@PathVariable Long id) {
+        // Obtener datos actuales para el historial
+        Map<String, Object> membresiaActual;
+        try {
+            membresiaActual = jdbcTemplate.queryForMap(
+                    "SELECT m.ESTADO, p.NOMBRE AS PLAN_NOMBRE " +
+                    "FROM MEMBRESIAS m JOIN PLANES p ON m.ID_PLAN = p.ID_PLAN " +
+                    "WHERE m.ID_MEMBRESIA = :id",
+                    new MapSqlParameterSource("id", id));
+        } catch (Exception e) {
+            membresiaActual = null;
+        }
+
         int rows = jdbcTemplate.update(
                 "UPDATE MEMBRESIAS SET ESTADO = 'INACTIVA', FECHA_FIN = TRUNC(SYSDATE) " +
                 "WHERE ID_MEMBRESIA = :id AND ESTADO IN ('ACTIVA','PRUEBA')",
                 new MapSqlParameterSource("id", id));
         if (rows == 0) return ApiResponse.error("Membresía no encontrada o ya inactiva");
+
+        // ─── HISTORIAL: CANCELACION ────────────────────────────
+        try {
+            String planNombre = membresiaActual != null ? (String) membresiaActual.get("PLAN_NOMBRE") : null;
+            String estadoAnterior = membresiaActual != null ? (String) membresiaActual.get("ESTADO") : "DESCONOCIDO";
+            jdbcTemplate.update(
+                    "INSERT INTO MEMBRESIAS_HISTORIAL " +
+                    "(ID_MEMBRESIA, TIPO_CAMBIO, PLAN_ANTERIOR, REALIZADO_POR, FECHA_CAMBIO, NOTAS) " +
+                    "VALUES (:idMembresia, 'CANCELACION', :planAnterior, 'SISTEMa', SYSDATE, :notas)",
+                    new MapSqlParameterSource()
+                            .addValue("idMembresia", id)
+                            .addValue("planAnterior", planNombre)
+                            .addValue("notas", "Membresía cancelada. Estado anterior: " + estadoAnterior));
+        } catch (Exception e) {
+            System.err.println("Error insertando historial de cancelación: " + e.getMessage());
+        }
+
         return ApiResponse.success("Membresía cancelada");
     }
 }

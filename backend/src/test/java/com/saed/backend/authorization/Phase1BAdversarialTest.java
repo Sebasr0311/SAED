@@ -30,18 +30,13 @@ public class Phase1BAdversarialTest {
     }
 
     @Test
-    public void testMissingAssignmentIdHeader_Returns400() throws Exception {
-        // We will call a generic protected endpoint (like /api/v1/propiedades if it exists)
-        // Since we don't have business endpoints yet, let's call the /api/v1/me endpoint which is protected
+    public void testMissingAssignmentIdHeader_Returns401() throws Exception {
+        // Identity-only token without assignment header -> 401 on protected endpoints
         String token = jwtProvider.generateIdentityToken(1L);
 
         mockMvc.perform(get("/api/v1/me")
                 .header("Authorization", "Bearer " + token))
-                // Our JWT filter leaves saedContext with STATE 1 (Identity Only)
-                // Since /api/v1/me doesn't strictly check for assignment in the controller currently, it might return 200.
-                // However, if the controller queries DB, RLS would block it.
-                // We'll test that a bad header format returns 400.
-                .andExpect(status().isOk());
+                .andExpect(status().isUnauthorized());
                 
         mockMvc.perform(get("/api/v1/me")
                 .header("Authorization", "Bearer " + token)

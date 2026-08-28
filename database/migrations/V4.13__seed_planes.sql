@@ -1,0 +1,101 @@
+-- ============================================================================
+-- SAED 2.0 - Seed data: Planes por defecto (v4.13)
+-- Uso: MERGE INTO para idempotencia (Oracle IF NOT EXISTS pattern)
+-- ============================================================================
+
+SET PAGESIZE 0 FEEDBACK ON
+ALTER SESSION SET CURRENT_SCHEMA = SAED_APP;
+
+MERGE INTO PLANES p
+USING (
+    SELECT 'FREE' AS CODIGO,
+           'Plan Gratuito' AS NOMBRE,
+           'Plan basico sin costo para pequeños condominios con necesidades basicas de administracion.' AS DESCRIPCION,
+           0 AS PRECIO_MENSUAL,
+           1 AS LIMITE_PROPIEDADES,
+           10 AS LIMITE_UNIDADES,
+           5 AS LIMITE_USUARIOS,
+           1 AS LIMITE_ALMACENAMIENTO_GB,
+           'ACTIVO' AS ESTADO
+    FROM DUAL
+) src
+ON (p.CODIGO = src.CODIGO)
+WHEN NOT MATCHED THEN
+    INSERT (CODIGO, NOMBRE, DESCRIPCION, PRECIO_MENSUAL, LIMITE_PROPIEDADES,
+            LIMITE_UNIDADES, LIMITE_USUARIOS, LIMITE_ALMACENAMIENTO_GB, ESTADO)
+    VALUES (src.CODIGO, src.NOMBRE, src.DESCRIPCION, src.PRECIO_MENSUAL, src.LIMITE_PROPIEDADES,
+            src.LIMITE_UNIDADES, src.LIMITE_USUARIOS, src.LIMITE_ALMACENAMIENTO_GB, src.ESTADO)
+WHEN MATCHED THEN
+    UPDATE SET NOMBRE = src.NOMBRE,
+               DESCRIPCION = src.DESCRIPCION,
+               PRECIO_MENSUAL = src.PRECIO_MENSUAL,
+               LIMITE_PROPIEDADES = src.LIMITE_PROPIEDADES,
+               LIMITE_UNIDADES = src.LIMITE_UNIDADES,
+               LIMITE_USUARIOS = src.LIMITE_USUARIOS,
+               LIMITE_ALMACENAMIENTO_GB = src.LIMITE_ALMACENAMIENTO_GB,
+               ESTADO = src.ESTADO
+;
+
+MERGE INTO PLANES p
+USING (
+    SELECT 'PRO' AS CODIGO,
+           'Plan Profesional' AS NOMBRE,
+           'Plan intermedio para condominios medianos con funcionalidades avanzadas de gestion y reportes.' AS DESCRIPCION,
+           299000 AS PRECIO_MENSUAL,
+           5 AS LIMITE_PROPIEDADES,
+           100 AS LIMITE_UNIDADES,
+           50 AS LIMITE_USUARIOS,
+           10 AS LIMITE_ALMACENAMIENTO_GB,
+           'ACTIVO' AS ESTADO
+    FROM DUAL
+) src
+ON (p.CODIGO = src.CODIGO)
+WHEN NOT MATCHED THEN
+    INSERT (CODIGO, NOMBRE, DESCRIPCION, PRECIO_MENSUAL, LIMITE_PROPIEDADES,
+            LIMITE_UNIDADES, LIMITE_USUARIOS, LIMITE_ALMACENAMIENTO_GB, ESTADO)
+    VALUES (src.CODIGO, src.NOMBRE, src.DESCRIPCION, src.PRECIO_MENSUAL, src.LIMITE_PROPIEDADES,
+            src.LIMITE_UNIDADES, src.LIMITE_USUARIOS, src.LIMITE_ALMACENAMIENTO_GB, src.ESTADO)
+WHEN MATCHED THEN
+    UPDATE SET NOMBRE = src.NOMBRE,
+               DESCRIPCION = src.DESCRIPCION,
+               PRECIO_MENSUAL = src.PRECIO_MENSUAL,
+               LIMITE_PROPIEDADES = src.LIMITE_PROPIEDADES,
+               LIMITE_UNIDADES = src.LIMITE_UNIDADES,
+               LIMITE_USUARIOS = src.LIMITE_USUARIOS,
+               LIMITE_ALMACENAMIENTO_GB = src.LIMITE_ALMACENAMIENTO_GB,
+               ESTADO = src.ESTADO
+;
+
+MERGE INTO PLANES p
+USING (
+    SELECT 'ENTERPRISE' AS CODIGO,
+           'Plan Empresarial' AS NOMBRE,
+           'Plan completo para grandes organizaciones con todas las funcionalidades y soporte prioritario.' AS DESCRIPCION,
+           799000 AS PRECIO_MENSUAL,
+           999 AS LIMITE_PROPIEDADES,
+           9999 AS LIMITE_UNIDADES,
+           999 AS LIMITE_USUARIOS,
+           100 AS LIMITE_ALMACENAMIENTO_GB,
+           'ACTIVO' AS ESTADO
+    FROM DUAL
+) src
+ON (p.CODIGO = src.CODIGO)
+WHEN NOT MATCHED THEN
+    INSERT (CODIGO, NOMBRE, DESCRIPCION, PRECIO_MENSUAL, LIMITE_PROPIEDADES,
+            LIMITE_UNIDADES, LIMITE_USUARIOS, LIMITE_ALMACENAMIENTO_GB, ESTADO)
+    VALUES (src.CODIGO, src.NOMBRE, src.DESCRIPCION, src.PRECIO_MENSUAL, src.LIMITE_PROPIEDADES,
+            src.LIMITE_UNIDADES, src.LIMITE_USUARIOS, src.LIMITE_ALMACENAMIENTO_GB, src.ESTADO)
+WHEN MATCHED THEN
+    UPDATE SET NOMBRE = src.NOMBRE,
+               DESCRIPCION = src.DESCRIPCION,
+               PRECIO_MENSUAL = src.PRECIO_MENSUAL,
+               LIMITE_PROPIEDADES = src.LIMITE_PROPIEDADES,
+               LIMITE_UNIDADES = src.LIMITE_UNIDADES,
+               LIMITE_USUARIOS = src.LIMITE_USUARIOS,
+               LIMITE_ALMACENAMIENTO_GB = src.LIMITE_ALMACENAMIENTO_GB,
+               ESTADO = src.ESTADO
+;
+
+SELECT 'SEED_PLANES: ' || COUNT(*) || ' planes cargados' AS RESULTADO FROM PLANES;
+
+EXIT;

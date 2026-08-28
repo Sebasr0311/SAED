@@ -74,6 +74,14 @@ public class FinanzasServiceImpl implements FinanzasService {
                 
         finanzasRepository.registrarPago(request, cuota.idUnidad());
         finanzasRepository.actualizarSaldoCuota(request.idCuota(), request.valorPagado());
+
+        // Enviar recibo por email (non-blocking)
+        try {
+            String referencia = "PAGO-" + request.idCuota();
+            emailService.enviarReciboPago(null, cuota.concepto(), cuota.valorTotal(), referencia, LocalDate.now().toString());
+        } catch (Exception e) {
+            System.err.println("Error enviando recibo de pago: " + e.getMessage());
+        }
     }
 
     @Override
