@@ -19,6 +19,16 @@ public class PropertyRepositoryImpl implements PropertyRepository {
         this.jdbcTemplate = jdbcTemplate;
     }
 
+    private static final String BASE_SELECT = """
+        SELECT p.id_propiedad, p.id_organizacion, p.id_tipo_propiedad, p.nombre,
+               p.direccion, p.ciudad, p.tipo_ocupacion_predominante, p.estado,
+               o.nombre AS organizacion_nombre,
+               tp.codigo AS tipo_propiedad_codigo, tp.nombre AS tipo_propiedad_nombre
+        FROM PROPIEDADES p
+        LEFT JOIN ORGANIZACIONES o ON o.id_organizacion = p.id_organizacion
+        LEFT JOIN TIPOS_PROPIEDAD tp ON tp.id_tipo_propiedad = p.id_tipo_propiedad
+    """;
+
     @Override
     public Long create(PropertyRequestDTO request) {
         String sql = "INSERT INTO PROPIEDADES (id_organizacion, id_tipo_propiedad, nombre, direccion, ciudad, tipo_ocupacion_predominante) " +
@@ -38,26 +48,31 @@ public class PropertyRepositoryImpl implements PropertyRepository {
 
     @Override
     public Optional<PropertyDTO> findById(Long id) {
-        String sql = "SELECT id_propiedad, id_organizacion, nombre, direccion, ciudad, estado " +
-                     "FROM PROPIEDADES WHERE id_propiedad = :id";
-        List<PropertyDTO> results = jdbcTemplate.query(sql, new MapSqlParameterSource("id", id), (rs, rowNum) -> {
-            PropertyDTO dto = new PropertyDTO();
-            dto.setId(rs.getLong("id_propiedad"));
-            dto.setNombre(rs.getString("nombre"));
-            return dto;
-        });
+        String sql = BASE_SELECT + " WHERE p.id_propiedad = :id";
+        List<PropertyDTO> results = jdbcTemplate.query(sql, new MapSqlParameterSource("id", id), this::mapRow);
         return results.stream().findFirst();
     }
 
     @Override
     public List<PropertyDTO> findAll() {
-        String sql = "SELECT id_propiedad, nombre, estado FROM PROPIEDADES";
-        return jdbcTemplate.query(sql, (rs, rowNum) -> {
-            PropertyDTO dto = new PropertyDTO();
-            dto.setId(rs.getLong("id_propiedad"));
-            dto.setNombre(rs.getString("nombre"));
-            return dto;
-        });
+        return jdbcTemplate.query(BASE_SELECT + " ORDER BY p.nombre", this::mapRow);
+    }
+
+    private PropertyDTO mapRow(java.sql.ResultSet rs, int rowNum) throws java.sql.SQLException {
+        PropertyDTO dto = new PropertyDTO();
+        dto.setId(rs.getLong("id_propiedad"));
+        dto.setIdOrganizacion(rs.getLong("id_organizacion"));
+        long idTipo = rs.getLong("id_tipo_propiedad");
+        if (!rs.wasNull()) dto.setIdTipoPropiedad(idTipo);
+        dto.setNombre(rs.getString("nombre"));
+        dto.setDireccion(rs.getString("direccion"));
+        dto.setCiudad(rs.getString("ciudad"));
+        dto.setTipoOcupacionPredominante(rs.getString("tipo_ocupacion_predominante"));
+        dto.setEstado(rs.getString("estado"));
+        dto.setOrganizacionNombre(rs.getString("organizacion_nombre"));
+        dto.setTipoPropiedadCodigo(rs.getString("tipo_propiedad_codigo"));
+        dto.setTipoPropiedadNombre(rs.getString("tipo_propiedad_nombre"));
+        return dto;
     }
 
     @Override
