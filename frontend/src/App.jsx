@@ -6,12 +6,13 @@ import { AuthProvider } from './lib/AuthContext.jsx';
 import { TenantProvider } from './lib/TenantContext.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 
-// Code-splitting por ruta: cada página carga solo cuando se visita, reduciendo
+// Code-splitting por ruta: cada pÃ¡gina carga solo cuando se visita, reduciendo
 // el bundle inicial (~1.2MB -> fracciones). Login queda eager (entry point).
 const DashboardPage = lazy(() => import('./pages/DashboardPage.jsx'));
 const PersonasPage = lazy(() => import('./pages/PersonasPage.jsx'));
 const ResidentesPage = lazy(() => import('./pages/ResidentesPage.jsx'));
 const ApartamentosPage = lazy(() => import('./pages/ApartamentosPage.jsx'));
+const UnidadesPage = lazy(() => import('./pages/UnidadesPage.jsx'));
 const ContratosPage = lazy(() => import('./pages/ContratosPage.jsx'));
 const UsuariosPage = lazy(() => import('./pages/UsuariosPage.jsx'));
 const VisitasPage = lazy(() => import('./pages/VisitasPage.jsx'));
@@ -40,7 +41,7 @@ const PaquetesPage = lazy(() => import('./pages/PaquetesPage.jsx'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage.jsx'));
 
 // Fallback de las rutas lazy vive en AppShell (envuelve <Outlet />), de modo que
-// el shell (sidebar/topbar) permanezca visible mientras se carga la página.
+// el shell (sidebar/topbar) permanezca visible mientras se carga la pÃ¡gina.
 
 export default function App() {
   return (
@@ -89,6 +90,14 @@ export default function App() {
             element={
               <ProtectedRoute roles={['ADMINISTRADOR']}>
                 <ApartamentosPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="unidades"
+            element={
+              <ProtectedRoute roles={['ADMINISTRADOR']}>
+                <UnidadesPage />
               </ProtectedRoute>
             }
           />

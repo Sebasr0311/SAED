@@ -25,7 +25,8 @@ const NAV_BY_ROLE = {
       items: [
         { path: '/personas', label: 'Personas', icon: 'person' },
         { path: '/residentes', label: 'Residentes', icon: 'groups' },
-        { path: '/apartamentos', label: 'Apartamentos', icon: 'apartment' },
+        { path: '/unidades', label: 'Unidades', icon: 'apartment' },
+        { path: '/apartamentos', label: 'Apartamentos (legacy)', icon: 'apartment' },
         { path: '/contratos', label: 'Contratos', icon: 'description' },
         { path: '/usuarios', label: 'Usuarios', icon: 'manage_accounts' },
       ],
