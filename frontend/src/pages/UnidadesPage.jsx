@@ -136,7 +136,7 @@ export default function UnidadesPage() {
     <div className="unidades-page space-y-6">
       <PageHeader
         title="Unidades"
-        subtitle="JerarquÃ­a Propiedad â†’ Bloque â†’ Unidad del tenant activo"
+        subtitle="Jerarquía Propiedad â†’ Bloque â†’ Unidad del tenant activo"
       >
         <Button onClick={() => { setEditing(null); setDialogOpen(true); }}>
           <span className="material-symbols-outlined text-base mr-1">add</span>
@@ -173,7 +173,7 @@ export default function UnidadesPage() {
             </div>
           ) : unidades.length === 0 ? (
             <p className="py-8 text-center text-muted-foreground">
-              No hay unidades en este tenant todavÃ­a.
+              No hay unidades en este tenant todavía.
             </p>
           ) : (
             <div className="overflow-x-auto">
@@ -183,7 +183,7 @@ export default function UnidadesPage() {
                     <TableHead>Identificador</TableHead>
                     <TableHead>Tipo</TableHead>
                     <TableHead>Bloque</TableHead>
-                    <TableHead>Ãrea (mÂ²)</TableHead>
+                    <TableHead>Área (mÂ²)</TableHead>
                     <TableHead>Estado</TableHead>
                     <TableHead className="text-right">Acciones</TableHead>
                   </TableRow>
@@ -283,7 +283,7 @@ export default function UnidadesPage() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="areaM2">Ãrea (mÂ²)</Label>
+                <Label htmlFor="areaM2">Área (mÂ²)</Label>
                 <Input
                   id="areaM2"
                   type="number"

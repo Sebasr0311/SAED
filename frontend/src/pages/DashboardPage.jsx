@@ -4,31 +4,16 @@ import { useTenantApi } from '../lib/useTenantApi.js';
 import { useFetch } from '../lib/hooks.js';
 import { formatCurrency } from '../lib/utils.js';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
+import { StatCard } from '../components/ui/StatCard.jsx';
 import Toast from '../components/ui/Toast.jsx';
 
 /**
- * DashboardPage 2.0 Ã¢â‚¬â€ panel multi-tenant.
+ * DashboardPage 2.0 — panel multi-tenant.
  *
  * KPIs por tenant (unidades, residentes, contratos activos, multas pendientes)
  * usando la asignacion activa del TenantContext (X-Assignment-Id inyectado
  * por useTenantApi). El RLS del backend filtra por organizacion/propiedad.
  */
-function StatCard({ icon, value, label, color = 'primary' }) {
-  return (
-    <div className="stat-card">
-      <div className={`stat-icon ${color}`}>
-        <span className="material-symbols-outlined">{icon}</span>
-      </div>
-      <div className="stat-body">
-        <div className="stat-value">{value}</div>
-        <div className="stat-label">{label}</div>
-      </div>
-      <div className="stat-badge">
-        <span className="material-symbols-outlined">{icon}</span>
-      </div>
-    </div>
-  );
-}
 
 export default function DashboardPage() {
   const [toast, setToast] = useState(null);

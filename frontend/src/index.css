@@ -811,7 +811,7 @@
     padding: 0 4px;
   }
   .card-dark {
-    background: linear-gradient(135deg, #0a1628 0%, #163060 100%);
+    background: linear-gradient(135deg, var(--sidebar-bg, #0a1628) 0%, var(--primary, #163060) 100%);
     color: white;
     position: relative;
     overflow: hidden;

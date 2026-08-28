@@ -298,7 +298,7 @@ export default function ResidentesPage() {
                 setSearch(e.target.value);
                 setPage(0);
               }}
-              style={{ width: '200px' }}
+              style={{ width: '100%', maxWidth: '200px' }}
             />
             <Button onClick={openCreate}>+ Nuevo Residente</Button>
           </>

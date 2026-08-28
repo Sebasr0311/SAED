@@ -218,15 +218,10 @@ export default function AppShell() {
   // impeccable/harden: los iconos material-symbols dentro de botones legacy son
   // decorativos (el texto del boton es el accesible); se marcan aria-hidden
   // para que los lectores de pantalla no los anuncien.
+  // Se ejecuta una vez al montar y se desconecta (no necesita observer continuo).
   useEffect(() => {
-    const marcar = () => {
-      document.querySelectorAll('.btn .material-symbols-outlined, .topbar-logout-btn .material-symbols-outlined')
-        .forEach((el) => { if (!el.hasAttribute('aria-hidden')) el.setAttribute('aria-hidden', 'true'); });
-    };
-    marcar();
-    const obs = new MutationObserver(marcar);
-    obs.observe(document.body, { childList: true, subtree: true });
-    return () => obs.disconnect();
+    document.querySelectorAll('.btn .material-symbols-outlined, .topbar-logout-btn .material-symbols-outlined')
+      .forEach((el) => { if (!el.hasAttribute('aria-hidden')) el.setAttribute('aria-hidden', 'true'); });
   }, []);
   function toggleTheme() {
     setDark((prev) => {
@@ -378,6 +373,7 @@ export default function AppShell() {
                             type="button"
                             className={`sidebar-item-btn ${active ? 'active' : ''}`}
                             title={item.label}
+                            aria-current={active ? 'page' : undefined}
                             onClick={() => {
                               navigate(item.path);
                               setMobileOpen(false);

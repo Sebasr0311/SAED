@@ -344,7 +344,7 @@ export default function VisitasPage() {
               value={filtroFecha}
               onChange={(e) => setFiltroFecha(e.target.value)}
               className="form-control"
-              style={{ width: '160px' }}
+              style={{ width: '100%', maxWidth: '160px' }}
             />
           </div>
         }

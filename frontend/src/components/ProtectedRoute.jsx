@@ -8,7 +8,7 @@ export default function ProtectedRoute({ children, roles }) {
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center text-on-surface-variant">
+      <div className="flex h-screen items-center justify-center text-on-surface-variant" role="status" aria-live="polite">
         Cargando...
       </div>
     );
