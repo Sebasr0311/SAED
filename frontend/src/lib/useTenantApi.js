@@ -49,7 +49,13 @@ export function useTenantApi() {
     [headers]
   );
 
-  return { get, post, put, del };
+  const patch = useCallback(
+    (url, body, opts) =>
+      api.patch(url, body, { ...(opts || {}), headers: headers(opts?.headers) }),
+    [headers]
+  );
+
+  return { get, post, put, del, patch };
 }
 
 export default useTenantApi;
