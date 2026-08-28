@@ -134,7 +134,7 @@ public class MembresiasController {
             jdbcTemplate.update(
                     "INSERT INTO MEMBRESIAS_HISTORIAL " +
                     "(ID_MEMBRESIA, TIPO_CAMBIO, PLAN_NUEVO, REALIZADO_POR, FECHA_CAMBIO, NOTAS) " +
-                    "VALUES (:idMembresia, 'CREACION', :planNuevo, 'SISTEMa', SYSDATE, :notas)",
+                    "VALUES (:idMembresia, 'CREACION', :planNuevo, 'SISTEMA', SYSDATE, :notas)",
                     new MapSqlParameterSource()
                             .addValue("idMembresia", id)
                             .addValue("planNuevo", planNombre)
@@ -177,7 +177,7 @@ public class MembresiasController {
             jdbcTemplate.update(
                     "INSERT INTO MEMBRESIAS_HISTORIAL " +
                     "(ID_MEMBRESIA, TIPO_CAMBIO, PLAN_ANTERIOR, PLAN_NUEVO, REALIZADO_POR, FECHA_CAMBIO, NOTAS) " +
-                    "VALUES (:idMembresia, 'CAMBIO_ESTADO', :planAnterior, :planNuevo, 'SISTEMa', SYSDATE, :notas)",
+                    "VALUES (:idMembresia, 'CAMBIO_ESTADO', :planAnterior, :planNuevo, 'SISTEMA', SYSDATE, :notas)",
                     new MapSqlParameterSource()
                             .addValue("idMembresia", id)
                             .addValue("planAnterior", planNombre)
@@ -219,7 +219,7 @@ public class MembresiasController {
             jdbcTemplate.update(
                     "INSERT INTO MEMBRESIAS_HISTORIAL " +
                     "(ID_MEMBRESIA, TIPO_CAMBIO, PLAN_ANTERIOR, REALIZADO_POR, FECHA_CAMBIO, NOTAS) " +
-                    "VALUES (:idMembresia, 'CANCELACION', :planAnterior, 'SISTEMa', SYSDATE, :notas)",
+                    "VALUES (:idMembresia, 'CANCELACION', :planAnterior, 'SISTEMA', SYSDATE, :notas)",
                     new MapSqlParameterSource()
                             .addValue("idMembresia", id)
                             .addValue("planAnterior", planNombre)

@@ -6,9 +6,12 @@ import com.saed.backend.finanzas.service.FinanzasService;
 import com.saed.backend.common.service.PdfService;
 import com.saed.backend.common.service.EmailService;
 import com.saed.backend.common.service.TemplateRenderService;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.time.LocalDate;
 
@@ -18,12 +21,14 @@ public class FinanzasServiceImpl implements FinanzasService {
     private final PdfService pdfService;
     private final EmailService emailService;
     private final TemplateRenderService templateService;
+    private final NamedParameterJdbcTemplate jdbcTemplate;
 
-    public FinanzasServiceImpl(FinanzasRepository finanzasRepository, PdfService pdfService, EmailService emailService, TemplateRenderService templateService) {
+    public FinanzasServiceImpl(FinanzasRepository finanzasRepository, PdfService pdfService, EmailService emailService, TemplateRenderService templateService, NamedParameterJdbcTemplate jdbcTemplate) {
         this.finanzasRepository = finanzasRepository;
         this.pdfService = pdfService;
         this.emailService = emailService;
         this.templateService = templateService;
+        this.jdbcTemplate = jdbcTemplate;
     }
 
     @Override
@@ -77,8 +82,16 @@ public class FinanzasServiceImpl implements FinanzasService {
 
         // Enviar recibo por email (non-blocking)
         try {
-            String referencia = "PAGO-" + request.idCuota();
-            emailService.enviarReciboPago(null, cuota.concepto(), cuota.valorTotal(), referencia, LocalDate.now().toString());
+            List<Map<String, Object>> residentes = jdbcTemplate.queryForList(
+                "SELECT P.EMAIL FROM PERSONAS P " +
+                "JOIN RESIDENTES_UNIDAD RU ON RU.ID_PERSONA = P.ID_PERSONA " +
+                "WHERE RU.ID_UNIDAD = :u AND P.EMAIL IS NOT NULL",
+                new MapSqlParameterSource("u", cuota.idUnidad()));
+            if (!residentes.isEmpty()) {
+                String destinatario = (String) residentes.get(0).get("EMAIL");
+                String referencia = "PAGO-" + request.idCuota();
+                emailService.enviarReciboPago(destinatario, cuota.concepto(), cuota.valorTotal(), referencia, LocalDate.now().toString());
+            }
         } catch (Exception e) {
             System.err.println("Error enviando recibo de pago: " + e.getMessage());
         }
