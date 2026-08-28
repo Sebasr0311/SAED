@@ -140,4 +140,9 @@ public class EmailService {
                 "</body></html>";
         enviarHtml(destinatario, "Notificacion de Infraccion/Multa", html, null, null);
     }
+
+    /** Envío público de HTML simple (para avisos masivos desde controllers). */
+    public void enviarHtmlPublico(String destinatario, String asunto, String html) throws Exception {
+        enviarHtml(destinatario, asunto, html, null, null);
+    }
 }
