@@ -113,19 +113,19 @@ export default function CarteraPage() {
                   </TableHeader>
                   <TableBody>
                     {unidades.map((u, i) => (
-                      <TableRow key={u.ID || u.id || i}>
-                        <TableCell className="font-mono text-sm">{u.UNIDAD || u.unidad}</TableCell>
-                        <TableCell className="text-right">{fmtCOP.format(Number(u.SALDO_CORRIENTE || u.saldo_corriente || 0))}</TableCell>
-                        <TableCell className="text-right text-amber-600">{fmtCOP.format(Number(u.MORA_30 || u.mora_30 || 0))}</TableCell>
-                        <TableCell className="text-right text-orange-600">{fmtCOP.format(Number(u.MORA_60 || u.mora_60 || 0))}</TableCell>
-                        <TableCell className="text-right text-red-600">{fmtCOP.format(Number(u.MORA_90 || u.mora_90 || 0))}</TableCell>
-                        <TableCell className="text-right font-bold">{fmtCOP.format(Number(u.SALDO_TOTAL || u.saldo_total || 0))}</TableCell>
+                      <TableRow key={u.ID_CARTERA || u.id || i}>
+                        <TableCell className="font-mono text-sm">{u.ID_UNIDAD || u.id_unidad}</TableCell>
+                        <TableCell className="text-right">{fmtCOP.format(Number(u.SALDO_CORRIENTE || 0))}</TableCell>
+                        <TableCell className="text-right text-amber-600">{fmtCOP.format(Number(u.SALDO_MORA_30 || 0))}</TableCell>
+                        <TableCell className="text-right text-orange-600">{fmtCOP.format(Number(u.SALDO_MORA_60 || 0))}</TableCell>
+                        <TableCell className="text-right text-red-600">{fmtCOP.format(Number(u.SALDO_MORA_90_MAS || 0))}</TableCell>
+                        <TableCell className="text-right font-bold">{fmtCOP.format(Number(u.SALDO_TOTAL || 0))}</TableCell>
                         <TableCell>
-                          <Badge variant={(u.ESTADO || u.estado) === 'AL_DIA' ? 'default' : 'destructive'}>
-                            {(u.ESTADO || u.estado || '').replace('_', ' ')}
+                          <Badge variant={(u.ESTADO_CARTERA || 'AL_DIA') === 'AL_DIA' ? 'default' : 'destructive'}>
+                            {(u.ESTADO_CARTERA || 'AL_DIA').replace('_', ' ')}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-xs whitespace-nowrap">{u.FECHA_CORTE || u.fecha_corte || '-'}</TableCell>
+                        <TableCell className="text-xs whitespace-nowrap">{u.FECHA_CORTE || '-'}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -145,10 +145,10 @@ export default function CarteraPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <StatCard icon="account_balance" value={fmtCOP.format(Number(resumen.totalCartera || resumen.total_cartera || 0))} label="Total Cartera" color="primary" />
-              <StatCard icon="money_off" value={fmtCOP.format(Number(resumen.totalMora || resumen.total_mora || 0))} label="Total Mora" color="danger" />
-              <StatCard icon="check_circle" value={resumen.unidadesAlDia || resumen.unidades_al_dia || 0} label="Unidades al día" color="success" />
-              <StatCard icon="warning" value={resumen.unidadesEnMora || resumen.unidades_en_mora || 0} label="Unidades en mora" color="warning" />
+              <StatCard icon="account_balance" value={fmtCOP.format(Number(resumen.TOTAL_CARTERA || 0))} label="Total Cartera" color="primary" />
+              <StatCard icon="money_off" value={fmtCOP.format(Number(resumen.TOTAL_MORA || 0))} label="Total Mora" color="danger" />
+              <StatCard icon="check_circle" value={resumen.COUNT_AL_DIA || 0} label="Unidades al día" color="success" />
+              <StatCard icon="warning" value={(resumen.COUNT_MORA_LEVE || 0) + (resumen.COUNT_MORA_MEDIA || 0) + (resumen.COUNT_MORA_GRAVE || 0)} label="Unidades en mora" color="warning" />
             </div>
           )}
         </>
@@ -172,10 +172,10 @@ export default function CarteraPage() {
             ) : (
               <div className="space-y-4">
                 {antiguedad.map((a, i) => {
-                  const rango = a.RANGO || a.rango || `${a.min_dias || 0}-${a.max_dias || 0} días`;
-                  const monto = Number(a.MONTO || a.monto || 0);
-                  const unidadesCount = Number(a.UNIDADES || a.unidades || 0);
-                  const totalGeneral = Number(resumen.totalCartera || resumen.total_cartera || 1);
+                  const rango = a.RANGO || `Rango ${i + 1}`;
+                  const monto = Number(a.TOTAL_SALDO || 0);
+                  const unidadesCount = Number(a.CANTIDAD_CUOTAS || 0);
+                  const totalGeneral = Number(resumen.TOTAL_CARTERA || 1);
                   const pct = totalGeneral > 0 ? (monto / totalGeneral) * 100 : 0;
                   return (
                     <div key={i} className="space-y-1">

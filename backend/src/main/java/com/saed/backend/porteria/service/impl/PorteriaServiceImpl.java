@@ -28,6 +28,74 @@ public class PorteriaServiceImpl implements PorteriaService {
         this.jdbcTemplate = jdbcTemplate;
     }
 
+    // --- ADMIN CRUD PORTERÍAS ---
+    @Override
+    @Transactional(readOnly = true)
+    public List<PorteriaDTO> listarPorterias() {
+        Long orgId = SaedContextHolder.getContext().getOrganizationId();
+        Long propId = SaedContextHolder.getContext().getPropertyId();
+        return jdbcTemplate.query(
+            "SELECT ID_PORTERIA, NOMBRE, UBICACION, TELEFONO_CONTACTO, ESTADO FROM PORTERIAS " +
+            "WHERE ID_PROPIEDAD = :propId ORDER BY NOMBRE",
+            Map.of("propId", propId),
+            (rs, rowNum) -> new PorteriaDTO(
+                rs.getLong("ID_PORTERIA"), rs.getString("NOMBRE"),
+                rs.getString("UBICACION"), rs.getString("TELEFONO_CONTACTO"),
+                rs.getString("ESTADO")
+            )
+        );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PorteriaDTO getPorteriaById(Long id) {
+        return jdbcTemplate.queryForObject(
+            "SELECT ID_PORTERIA, NOMBRE, UBICACION, TELEFONO_CONTACTO, ESTADO FROM PORTERIAS WHERE ID_PORTERIA = :id",
+            Map.of("id", id),
+            (rs, rowNum) -> new PorteriaDTO(
+                rs.getLong("ID_PORTERIA"), rs.getString("NOMBRE"),
+                rs.getString("UBICACION"), rs.getString("TELEFONO_CONTACTO"),
+                rs.getString("ESTADO")
+            )
+        );
+    }
+
+    @Override
+    public PorteriaDTO crearPorteria(PorteriaCreateDTO request) {
+        Long propId = SaedContextHolder.getContext().getPropertyId();
+        var keyHolder = new org.springframework.jdbc.support.GeneratedKeyHolder();
+        jdbcTemplate.update(
+            "INSERT INTO PORTERIAS (ID_PROPIEDAD, NOMBRE, UBICACION, TELEFONO_CONTACTO) VALUES (:propId, :nombre, :ubicacion, :tel)",
+            new org.springframework.jdbc.core.namedparam.MapSqlParameterSource()
+                .addValue("propId", propId)
+                .addValue("nombre", request.nombre())
+                .addValue("ubicacion", request.ubicacion())
+                .addValue("tel", request.telefonoContacto()),
+            keyHolder
+        );
+        Number id = keyHolder.getKey();
+        return getPorteriaById(id.longValue());
+    }
+
+    @Override
+    public PorteriaDTO actualizarPorteria(Long id, PorteriaCreateDTO request) {
+        jdbcTemplate.update(
+            "UPDATE PORTERIAS SET NOMBRE = :nombre, UBICACION = :ubicacion, TELEFONO_CONTACTO = :tel WHERE ID_PORTERIA = :id",
+            new org.springframework.jdbc.core.namedparam.MapSqlParameterSource()
+                .addValue("id", id)
+                .addValue("nombre", request.nombre())
+                .addValue("ubicacion", request.ubicacion())
+                .addValue("tel", request.telefonoContacto())
+        );
+        return getPorteriaById(id);
+    }
+
+    @Override
+    public void eliminarPorteria(Long id) {
+        jdbcTemplate.update("DELETE FROM PORTERIAS WHERE ID_PORTERIA = :id", Map.of("id", id));
+    }
+
+    // --- OPERACIONES PORTERO ---
     @Override
     public VisitaDTO programarVisita(VisitaRequestDTO request) {
         return porteriaRepository.createVisita(request);

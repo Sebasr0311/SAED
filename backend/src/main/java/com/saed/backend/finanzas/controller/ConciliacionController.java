@@ -6,6 +6,7 @@ import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
@@ -24,6 +25,7 @@ import java.util.Map;
 @Tag(name = "Conciliaciones", description = "Conciliacion bancaria")
 @RestController
 @RequestMapping("/api/v1/conciliaciones")
+@PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
 public class ConciliacionController {
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
@@ -41,6 +43,57 @@ public class ConciliacionController {
                 "ESTADO, CONCILIADO_POR, FECHA_CONCILIACION " +
                 "FROM CONCILIACIONES ORDER BY PERIODO DESC";
         return ApiResponse.success(jdbcTemplate.queryForList(sql, new MapSqlParameterSource()));
+    }
+
+    // --- ACTUALIZAR ---
+
+    @PutMapping("/{id}")
+    public ApiResponse<String> actualizar(@PathVariable Long id, @RequestBody Map<String, Object> body) {
+        String bancoCuenta = (String) body.getOrDefault("bancoCuenta", null);
+        String periodo = (String) body.getOrDefault("periodo", null);
+        Number saldoBanco = (Number) body.getOrDefault("saldoBanco", null);
+        Number saldoLibros = (Number) body.getOrDefault("saldoLibros", null);
+        String estado = body.get("estado") != null ? ((String) body.get("estado")).toUpperCase() : null;
+
+        StringBuilder sb = new StringBuilder("UPDATE CONCILIACIONES SET ");
+        MapSqlParameterSource params = new MapSqlParameterSource("id", id);
+        boolean first = true;
+
+        if (bancoCuenta != null) {
+            sb.append(first ? "" : ", ").append("BANCO_CUENTA = :bancoCuenta");
+            params.addValue("bancoCuenta", bancoCuenta);
+            first = false;
+        }
+        if (periodo != null) {
+            sb.append(first ? "" : ", ").append("PERIODO = :periodo");
+            params.addValue("periodo", periodo);
+            first = false;
+        }
+        if (saldoBanco != null) {
+            sb.append(first ? "" : ", ").append("SALDO_BANCO = :saldoBanco");
+            params.addValue("saldoBanco", saldoBanco);
+            first = false;
+        }
+        if (saldoLibros != null) {
+            sb.append(first ? "" : ", ").append("SALDO_LIBROS = :saldoLibros");
+            params.addValue("saldoLibros", saldoLibros);
+            first = false;
+        }
+        if (estado != null) {
+            if (!List.of("EN_PROCESO", "CONCILIADA", "DISCREPANCIA").contains(estado)) {
+                return ApiResponse.error("estado debe ser EN_PROCESO, CONCILIADA o DISCREPANCIA");
+            }
+            sb.append(first ? "" : ", ").append("ESTADO = :estado");
+            params.addValue("estado", estado);
+            first = false;
+        }
+
+        if (first) return ApiResponse.error("Ningun campo para actualizar");
+
+        sb.append(" WHERE ID_CONCILIACION = :id");
+        int rows = jdbcTemplate.update(sb.toString(), params);
+        if (rows == 0) return ApiResponse.error("Conciliacion no encontrada");
+        return ApiResponse.success("OK");
     }
 
     // --- CREAR ---

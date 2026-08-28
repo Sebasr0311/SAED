@@ -19,7 +19,7 @@ import { toast } from 'sonner';
 
 const fmtCOP = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' });
 
-const EMPTY_FORM = { rubro: '', tipo: 'INGRESO', montoPresupuestado: 0, estado: 'ACTIVO' };
+const EMPTY_FORM = { rubro: '', tipo: 'INGRESO', montoPresupuestado: 0, estado: 'ACTIVO', vigenciaAnio: new Date().getFullYear() };
 
 const TABS = [
   { id: 'lista', label: 'Presupuestos', icon: 'list' },
@@ -56,6 +56,7 @@ export default function PresupuestoPage() {
       tipo: p.TIPO || p.tipo || 'INGRESO',
       montoPresupuestado: p.MONTO_PRESUPUESTADO || p.monto_presupuestado || p.montoPresupuestado || 0,
       estado: p.ESTADO || p.estado || 'ACTIVO',
+      vigenciaAnio: p.VIGENCIA_ANIO || p.vigencia_anio || p.vigenciaAnio || new Date().getFullYear(),
     });
     setDialogOpen(true);
   }
@@ -71,7 +72,7 @@ export default function PresupuestoPage() {
         rubro: form.rubro,
         tipo: form.tipo,
         montoPresupuestado: Number(form.montoPresupuestado),
-        estado: form.estado,
+        vigenciaAnio: Number(form.vigenciaAnio),
       };
       if (editando) {
         await api.put(`/presupuestos/${editando.ID || editando.id}`, payload);
@@ -230,10 +231,10 @@ export default function PresupuestoPage() {
       {/* TAB: Resumen */}
       {tabActiva === 'resumen' && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard icon="trending_up" value={fmtCOP.format(Number(resumen.totalIngresos || resumen.total_ingresos || 0))} label="Total Ingresos" color="success" />
-          <StatCard icon="trending_down" value={fmtCOP.format(Number(resumen.totalEgresos || resumen.total_egresos || 0))} label="Total Egresos" color="danger" />
-          <StatCard icon="savings" value={fmtCOP.format(Number(resumen.saldo || 0))} label="Saldo" color="primary" />
-          <StatCard icon="pie_chart" value={`${Number(resumen.pctEjecucion || resumen.pct_ejecucion || 0).toFixed(1)}%`} label="% Ejecución General" color="warning" />
+          <StatCard icon="trending_up" value={fmtCOP.format(Number(resumen.TOTAL_INGRESOS || 0))} label="Total Ingresos" color="success" />
+          <StatCard icon="trending_down" value={fmtCOP.format(Number(resumen.TOTAL_EGRESOS || 0))} label="Total Egresos" color="danger" />
+          <StatCard icon="savings" value={fmtCOP.format(Number(resumen.SALDO || 0))} label="Saldo" color="primary" />
+          <StatCard icon="pie_chart" value={`${Number(resumen.PORCENTAJE_EJECUCION || 0).toFixed(1)}%`} label="% Ejecución General" color="warning" />
         </div>
       )}
 
@@ -275,6 +276,11 @@ export default function PresupuestoPage() {
               <label className="text-sm font-medium">Monto Presupuestado (COP) *</label>
               <input type="number" className="border rounded px-3 py-2 text-sm" value={form.montoPresupuestado}
                 onChange={(e) => setForm((f) => ({ ...f, montoPresupuestado: e.target.value }))} />
+            </div>
+            <div className="grid gap-2">
+              <label className="text-sm font-medium">Vigencia (Año) *</label>
+              <input type="number" className="border rounded px-3 py-2 text-sm" value={form.vigenciaAnio}
+                onChange={(e) => setForm((f) => ({ ...f, vigenciaAnio: e.target.value }))} min="2020" max="2099" />
             </div>
           </div>
           <DialogFooter>

@@ -4,6 +4,7 @@ import com.saed.backend.common.dto.ApiResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
@@ -23,6 +24,7 @@ import java.util.Map;
 @Tag(name = "Cartera", description = "Gestion de cartera y saldos de unidades")
 @RestController
 @RequestMapping("/api/v1/cartera")
+@PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
 public class CarteraController {
 
     private final NamedParameterJdbcTemplate jdbcTemplate;

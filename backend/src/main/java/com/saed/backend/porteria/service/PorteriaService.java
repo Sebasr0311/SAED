@@ -6,6 +6,14 @@ import java.math.BigDecimal;
 import java.util.List;
 
 public interface PorteriaService {
+    // Admin CRUD
+    List<PorteriaDTO> listarPorterias();
+    PorteriaDTO getPorteriaById(Long id);
+    PorteriaDTO crearPorteria(PorteriaCreateDTO request);
+    PorteriaDTO actualizarPorteria(Long id, PorteriaCreateDTO request);
+    void eliminarPorteria(Long id);
+
+    // Operaciones portero
     VisitaDTO programarVisita(VisitaRequestDTO request);
     VisitaDTO getVisitaById(Long id);
     List<VisitaDTO> getVisitasByUnidad(Long unidadId);

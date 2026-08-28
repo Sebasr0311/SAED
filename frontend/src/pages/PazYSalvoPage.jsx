@@ -60,7 +60,8 @@ export default function PazYSalvoPage() {
     setResultadoVerificacion(null);
     try {
       const result = await api.get(`/paz-y-salvos/verificar/${encodeURIComponent(codigoVerificacion)}`);
-      setResultadoVerificacion(result);
+      // Backend returns the paz y salvo record on success; treat any successful response as valid
+      setResultadoVerificacion({ valido: true, ...result });
     } catch (err) {
       setResultadoVerificacion({ valido: false, mensaje: err.message || 'Código no válido' });
     } finally {
@@ -115,14 +116,20 @@ export default function PazYSalvoPage() {
               {resultadoVerificacion.mensaje && (
                 <p className="text-sm mt-1">{resultadoVerificacion.mensaje}</p>
               )}
-              {resultadoVerificacion.unidad && (
-                <p className="text-sm mt-1">Unidad: {resultadoVerificacion.unidad}</p>
+              {resultadoVerificacion.ID_UNIDAD && (
+                <p className="text-sm mt-1">Unidad: {resultadoVerificacion.ID_UNIDAD}</p>
               )}
-              {resultadoVerificacion.fechaEmision && (
-                <p className="text-sm mt-1">Fecha emisión: {resultadoVerificacion.fechaEmision}</p>
+              {resultadoVerificacion.FECHA_EMISION && (
+                <p className="text-sm mt-1">Fecha emisión: {resultadoVerificacion.FECHA_EMISION}</p>
               )}
-              {resultadoVerificacion.vencimiento && (
-                <p className="text-sm mt-1">Vencimiento: {resultadoVerificacion.vencimiento}</p>
+              {resultadoVerificacion.FECHA_VENCIMIENTO && (
+                <p className="text-sm mt-1">Vencimiento: {resultadoVerificacion.FECHA_VENCIMIENTO}</p>
+              )}
+              {resultadoVerificacion.SALDO_A_LA_FECHA != null && (
+                <p className="text-sm mt-1">Saldo: {fmtCOP.format(Number(resultadoVerificacion.SALDO_A_LA_FECHA))}</p>
+              )}
+              {resultadoVerificacion.ESTADO && (
+                <p className="text-sm mt-1">Estado: {resultadoVerificacion.ESTADO}</p>
               )}
             </div>
           )}
@@ -152,15 +159,15 @@ export default function PazYSalvoPage() {
                 </TableHeader>
                 <TableBody>
                   {pazYSalvos.map((p, i) => (
-                    <TableRow key={p.ID || p.id || i}>
-                      <TableCell className="font-mono text-sm">{p.UNIDAD || p.unidad}</TableCell>
-                      <TableCell>{p.SOLICITANTE || p.solicitante}</TableCell>
+                    <TableRow key={p.ID_PAZ_SALVO || p.id || i}>
+                      <TableCell className="font-mono text-sm">{p.ID_UNIDAD || p.id_unidad}</TableCell>
+                      <TableCell>{p.ID_PERSONA_SOLICITANTE || p.id_persona_solicitante}</TableCell>
                       <TableCell className="font-mono text-xs">{p.CODIGO_VERIFICACION || p.codigo_verificacion || p.codigoVerificacion}</TableCell>
                       <TableCell className="text-xs whitespace-nowrap">{p.FECHA_EMISION || p.fecha_emision || '-'}</TableCell>
-                      <TableCell className="text-xs whitespace-nowrap">{p.VENCIMIENTO || p.vencimiento || '-'}</TableCell>
-                      <TableCell className="text-right font-bold">{fmtCOP.format(Number(p.SALDO || p.saldo || 0))}</TableCell>
+                      <TableCell className="text-xs whitespace-nowrap">{p.FECHA_VENCIMIENTO || p.fecha_vencimiento || '-'}</TableCell>
+                      <TableCell className="text-right font-bold">{fmtCOP.format(Number(p.SALDO_A_LA_FECHA || p.saldo_a_la_fecha || 0))}</TableCell>
                       <TableCell>
-                        <Badge variant={(p.ESTADO || p.estado) === 'VIGENTE' ? 'default' : 'secondary'}>
+                        <Badge variant={(p.ESTADO || p.estado) === 'VALIDO' ? 'default' : 'secondary'}>
                           {p.ESTADO || p.estado}
                         </Badge>
                       </TableCell>

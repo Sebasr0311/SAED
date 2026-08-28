@@ -1,11 +1,14 @@
 package com.saed.backend.porteria.controller;
 
+import com.saed.backend.common.dto.ApiResponse;
 import com.saed.backend.porteria.dto.*;
 import com.saed.backend.porteria.service.PorteriaService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 import java.math.BigDecimal;
@@ -21,6 +24,44 @@ public class PorteriaController {
 
     public PorteriaController(PorteriaService porteriaService) {
         this.porteriaService = porteriaService;
+    }
+
+    // --- ADMIN CRUD PORTERÍAS ---
+    @Operation(summary = "Listar porterías de la propiedad")
+    @GetMapping
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
+    public ResponseEntity<ApiResponse<List<PorteriaDTO>>> listar() {
+        return ResponseEntity.ok(ApiResponse.success(porteriaService.listarPorterias()));
+    }
+
+    @Operation(summary = "Obtener portería por ID")
+    @GetMapping("/{id}")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
+    public ResponseEntity<ApiResponse<PorteriaDTO>> obtener(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.success(porteriaService.getPorteriaById(id)));
+    }
+
+    @Operation(summary = "Crear portería")
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
+    public ResponseEntity<ApiResponse<PorteriaDTO>> crear(@RequestBody @Valid PorteriaCreateDTO request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(porteriaService.crearPorteria(request)));
+    }
+
+    @Operation(summary = "Actualizar portería")
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
+    public ResponseEntity<ApiResponse<PorteriaDTO>> actualizar(@PathVariable Long id, @RequestBody @Valid PorteriaCreateDTO request) {
+        return ResponseEntity.ok(ApiResponse.success(porteriaService.actualizarPorteria(id, request)));
+    }
+
+    @Operation(summary = "Eliminar portería")
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
+    public ResponseEntity<ApiResponse<Void>> eliminar(@PathVariable Long id) {
+        porteriaService.eliminarPorteria(id);
+        return ResponseEntity.ok(ApiResponse.success(null));
     }
 
     // --- VISITAS ---

@@ -5,6 +5,7 @@ import com.saed.backend.finanzas.service.FinanzasService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
@@ -13,6 +14,7 @@ import java.util.Map;
 @Tag(name = "Contratos", description = "API para la gestion de Contratos")
 @RestController
 @RequestMapping("/api/v1/contratos")
+@PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
 public class ContratosController {
     private final FinanzasService finanzasService;
     public ContratosController(FinanzasService finanzasService) { this.finanzasService = finanzasService; }

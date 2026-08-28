@@ -191,5 +191,56 @@ Ver inventario completo en la sección de evidencia de la Fase A.
 
 ---
 
+## 11. Verificación B.6-B.8 (28/ago/2026)
+
+### B.6: Cobertura de Contratos
+
+| Componente | DDL | Backend | Frontend | Estado |
+|---|---|---|---|---|
+| Contratos CRUD | ✅ CONTRATOS | ✅ ContratosController | ✅ ContratosPage | ✅ Completo |
+| Renovaciones | ✅ (RENOVACION_AUTOMATICA en CONTRATOS) | ✅ renovar endpoint | ✅ Renovar modal | ✅ Completo |
+| Coarrendatarios | ✅ CONTRATO_RESIDENTE | ❌ Sin controller | ❌ Sin página | ❌ Faltante |
+| Tutores | ✅ TUTORES | ⚠️ Solo DTO fields | ❌ Sin UI | ⚠️ Parcial |
+| Contratos Proveedor | ✅ CONTRATOS_PROVEEDOR | ❌ Sin controller | ❌ Sin página | ❌ Faltante |
+| Prórrogas | ❌ No existe tabla | — | — | ❌ No definido |
+
+**Gap**: Coarrendatarios y Contratos Proveedor existen en DDL pero no tienen backend ni frontend.
+
+### B.7: Propiedades/Unidades
+
+| Componente | DDL | Backend | Frontend | Estado |
+|---|---|---|---|---|
+| Propiedades | ✅ PROPIEDADES | ✅ PropiedadesService | ✅ PropiedadesPage | ✅ Completo |
+| Unidades | ✅ UNIDADES | ✅ UnitService | ✅ UnidadesPage | ✅ Completo |
+| Tipos de Unidad | ✅ TIPOS_UNIDAD | ✅ (en UnitService) | ✅ (en UnidadesPage) | ✅ Completo |
+
+### B.8: Porterías N-porterías
+
+| Componente | DDL | Backend | Frontend | Estado |
+|---|---|---|---|---|
+| Tabla PORTERIAS | ✅ PORTERIAS | — | — | ✅ DDL |
+| Portería CRUD admin | ❌ Sin controller admin | — | ❌ Sin página admin | ❌ Faltante |
+| Operación portero | ✅ (RLS por portero) | ✅ PorteriaController | ✅ PorteroDashboardPage | ✅ Completo |
+| Visitas | ✅ VISITAS | ✅ PorteriaService | ✅ VisitasPage | ✅ Completo |
+| QR Acceso | ✅ QR_ACCESO | ✅ PorteriaService | ✅ EscannerQRPage | ✅ Completo |
+| Paquetes | ✅ PAQUETES | ✅ PaquetesController | ✅ PaquetesPage | ✅ Completo |
+
+**Gap**: No existe página de administración de porterías (CRUD para crear/editar porterías por propiedad).
+
+### B.9: Tests Adversariales Fase B
+
+Archivo: `backend/src/test/java/com/saed/backend/finanzas/PhaseBFinanzasAdversarialTest.java`
+
+Cobertura:
+- **Cartera**: 5 tests (list, resumen, recalcular, antigüedad, unidad no existente)
+- **Presupuestos**: 6 tests (create, residente forbidden, sin rubro, tipo inválido, resumen, ejecución)
+- **Gastos**: 4 tests (create, residente forbidden, sin categoría, delete no existente)
+- **Conciliaciones**: 5 tests (create, residente forbidden, sin periodo, resumen, estado inválido)
+- **Paz y Salvos**: 4 tests (list, residente forbidden, sin unidad, código inválido)
+
+Total: **24 tests adversariales** — compilan exitosamente (`mvn compile test-compile` exit 0).
+
+---
+
 *Documento generado el 28 de agosto de 2026 por verificación directa del código fuente.*
 *Reemplaza: CHECKLIST_SAED_2_0.md, FINAL_COMPREHENSIVE_AUDIT_SAED_2_0.md, FINAL_REMEDIATION_AUDIT_SAED_2_0.md, docs/FINAL_PROJECT_AUDIT.md, FINAL_RELEASE_AUDIT_SAED_2_0.md, DEPLOYMENT_READINESS_AUDIT.md, PRODUCTION_DEPLOYMENT_REPORT.md, FINAL_DEPLOYMENT_AUDIT_SAED_2_0.md, PRODUCTION_QA_REPORT.md.*

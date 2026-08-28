@@ -23,7 +23,6 @@ function Stat({ icon, value, label, color = 'primary' }) {
 }
 
 export default function PaquetesAdminPage() {
-  const [toast] = useState(null);
   const [search, setSearch] = useState('');
   const [detalle, setDetalle] = useState(null);
 

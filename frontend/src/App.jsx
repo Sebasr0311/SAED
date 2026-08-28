@@ -38,6 +38,9 @@ const PresupuestoPage = lazy(() => import('./pages/PresupuestoPage.jsx'));
 const GastosPage = lazy(() => import('./pages/GastosPage.jsx'));
 const ConciliacionPage = lazy(() => import('./pages/ConciliacionPage.jsx'));
 const PazYSalvoPage = lazy(() => import('./pages/PazYSalvoPage.jsx'));
+const FlujoCajaPage = lazy(() => import('./pages/FlujoCajaPage.jsx'));
+const CoarrendatariosPage = lazy(() => import('./pages/CoarrendatariosPage.jsx'));
+const ContratosProveedorPage = lazy(() => import('./pages/ContratosProveedorPage.jsx'));
 
 const ResidenteDashboardPage = lazy(() => import('./pages/ResidenteDashboardPage.jsx'));
 const ResPerfilPage = lazy(() => import('./pages/ResPerfilPage.jsx'));
@@ -48,6 +51,7 @@ const ResBuzonPage = lazy(() => import('./pages/ResBuzonPage.jsx'));
 const ResVisitaPage = lazy(() => import('./pages/ResVisitaPage.jsx'));
 const ResQuejasPage = lazy(() => import('./pages/ResQuejasPage.jsx'));
 
+const PorteriasPage = lazy(() => import('./pages/PorteriasPage.jsx'));
 const PorteroDashboardPage = lazy(() => import('./pages/PorteroDashboardPage.jsx'));
 const PaquetesPage = lazy(() => import('./pages/PaquetesPage.jsx'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage.jsx'));
@@ -303,6 +307,38 @@ export default function App() {
             element={
               <ProtectedRoute roles={['ADMINISTRADOR']}>
                 <PazYSalvoPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="flujo-caja"
+            element={
+              <ProtectedRoute roles={['ADMINISTRADOR']}>
+                <FlujoCajaPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="porterias-admin"
+            element={
+              <ProtectedRoute roles={['ADMINISTRADOR']}>
+                <PorteriasPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="coarrendatarios"
+            element={
+              <ProtectedRoute roles={['ADMINISTRADOR']}>
+                <CoarrendatariosPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="contratos-proveedor"
+            element={
+              <ProtectedRoute roles={['ADMINISTRADOR']}>
+                <ContratosProveedorPage />
               </ProtectedRoute>
             }
           />

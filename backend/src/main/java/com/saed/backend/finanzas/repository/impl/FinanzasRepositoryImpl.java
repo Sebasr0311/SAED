@@ -1,6 +1,7 @@
 package com.saed.backend.finanzas.repository.impl;
 import com.saed.backend.finanzas.dto.*;
 import com.saed.backend.finanzas.repository.FinanzasRepository;
+import com.saed.backend.context.SaedContextHolder;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
@@ -16,14 +17,16 @@ public class FinanzasRepositoryImpl implements FinanzasRepository {
 
     @Override
     public List<ContratoDTO> getContratos() {
+        Long propId = SaedContextHolder.getContext().getPropertyId();
         String sql = "SELECT c.ID_CONTRATO, c.ID_UNIDAD, u.IDENTIFICADOR as numeroApartamento, c.ID_ARRENDATARIO_PRINCIPAL, " +
                      "p.PRIMER_NOMBRE || ' ' || p.PRIMER_APELLIDO as nombreArrendatario, c.NUMERO_CONTRATO, c.CANON_MENSUAL, c.DIA_CORTE_PAGO, " +
                      "c.FECHA_INICIO, c.FECHA_FIN, c.FECHA_TERMINACION_ANTICIPADA, c.ESTADO, c.TIPO_CONTRATO " +
                      "FROM CONTRATOS c " +
                      "JOIN UNIDADES u ON c.ID_UNIDAD = u.ID_UNIDAD " +
                      "JOIN PERSONAS p ON c.ID_ARRENDATARIO_PRINCIPAL = p.ID_PERSONA " +
+                     "WHERE u.ID_PROPIEDAD = :propId " +
                      "ORDER BY c.ID_CONTRATO DESC";
-        return jdbcTemplate.query(sql, (rs, rowNum) -> new ContratoDTO(
+        return jdbcTemplate.query(sql, new MapSqlParameterSource("propId", propId), (rs, rowNum) -> new ContratoDTO(
             rs.getLong("ID_CONTRATO"), rs.getLong("ID_UNIDAD"), rs.getString("numeroApartamento"),
             rs.getLong("ID_ARRENDATARIO_PRINCIPAL"), rs.getString("nombreArrendatario"), rs.getString("NUMERO_CONTRATO"),
             rs.getBigDecimal("CANON_MENSUAL"), rs.getInt("DIA_CORTE_PAGO"),
@@ -59,6 +62,7 @@ public class FinanzasRepositoryImpl implements FinanzasRepository {
 
     @Override
     public List<CuotaDTO> getCuotasPendientes() {
+        Long propId = SaedContextHolder.getContext().getPropertyId();
         String sql = "SELECT c.ID_CUOTA, c.ID_UNIDAD, u.IDENTIFICADOR as numeroApartamento, p.PRIMER_NOMBRE || ' ' || p.PRIMER_APELLIDO as nombreResidente, c.ID_CONTRATO, " +
                      "co.NOMBRE as concepto, c.PERIODO, c.VALOR_BASE, c.VALOR_TOTAL, c.SALDO_PENDIENTE, c.FECHA_VENCIMIENTO as FECHA_LIMITE, c.ESTADO " +
                      "FROM CUOTAS c " +
@@ -66,8 +70,8 @@ public class FinanzasRepositoryImpl implements FinanzasRepository {
                      "JOIN CONCEPTOS_COBRO co ON c.ID_CONCEPTO = co.ID_CONCEPTO " +
                      "LEFT JOIN CONTRATOS con ON c.ID_CONTRATO = con.ID_CONTRATO " +
                      "LEFT JOIN PERSONAS p ON con.ID_ARRENDATARIO_PRINCIPAL = p.ID_PERSONA " +
-                     "WHERE c.ESTADO = 'PENDIENTE'";
-        return jdbcTemplate.query(sql, (rs, rowNum) -> new CuotaDTO(
+                     "WHERE c.ESTADO = 'PENDIENTE' AND u.ID_PROPIEDAD = :propId";
+        return jdbcTemplate.query(sql, new MapSqlParameterSource("propId", propId), (rs, rowNum) -> new CuotaDTO(
             rs.getLong("ID_CUOTA"), rs.getLong("ID_UNIDAD"), rs.getString("numeroApartamento"), rs.getString("nombreResidente"),
             rs.getLong("ID_CONTRATO"), rs.getString("concepto"), rs.getString("PERIODO"),
             rs.getBigDecimal("VALOR_BASE"), rs.getBigDecimal("VALOR_TOTAL"), rs.getBigDecimal("SALDO_PENDIENTE"),
@@ -77,6 +81,7 @@ public class FinanzasRepositoryImpl implements FinanzasRepository {
 
     @Override
     public List<CuotaDTO> getCuotasByResidente(Long idResidente) {
+        Long propId = SaedContextHolder.getContext().getPropertyId();
         String sql = "SELECT c.ID_CUOTA, c.ID_UNIDAD, u.IDENTIFICADOR as numeroApartamento, p.PRIMER_NOMBRE || ' ' || p.PRIMER_APELLIDO as nombreResidente, c.ID_CONTRATO, " +
                      "co.NOMBRE as concepto, c.PERIODO, c.VALOR_BASE, c.VALOR_TOTAL, c.SALDO_PENDIENTE, c.FECHA_VENCIMIENTO as FECHA_LIMITE, c.ESTADO " +
                      "FROM CUOTAS c " +
@@ -84,9 +89,9 @@ public class FinanzasRepositoryImpl implements FinanzasRepository {
                      "JOIN CONCEPTOS_COBRO co ON c.ID_CONCEPTO = co.ID_CONCEPTO " +
                      "JOIN CONTRATOS con ON c.ID_CONTRATO = con.ID_CONTRATO " +
                      "JOIN PERSONAS p ON con.ID_ARRENDATARIO_PRINCIPAL = p.ID_PERSONA " +
-                     "WHERE con.ID_ARRENDATARIO_PRINCIPAL = :idRes " +
-                     "ORDER BY c.FECHA_VENCIMIENTO as FECHA_LIMITE DESC";
-        return jdbcTemplate.query(sql, new MapSqlParameterSource("idRes", idResidente), (rs, rowNum) -> new CuotaDTO(
+                     "WHERE con.ID_ARRENDATARIO_PRINCIPAL = :idRes AND u.ID_PROPIEDAD = :propId " +
+                     "ORDER BY c.FECHA_VENCIMIENTO DESC";
+        return jdbcTemplate.query(sql, new MapSqlParameterSource("idRes", idResidente).addValue("propId", propId), (rs, rowNum) -> new CuotaDTO(
             rs.getLong("ID_CUOTA"), rs.getLong("ID_UNIDAD"), rs.getString("numeroApartamento"), rs.getString("nombreResidente"),
             rs.getLong("ID_CONTRATO"), rs.getString("concepto"), rs.getString("PERIODO"),
             rs.getBigDecimal("VALOR_BASE"), rs.getBigDecimal("VALOR_TOTAL"), rs.getBigDecimal("SALDO_PENDIENTE"),
@@ -116,10 +121,14 @@ public class FinanzasRepositoryImpl implements FinanzasRepository {
 
     @Override
     public void actualizarSaldoCuota(Long idCuota, BigDecimal montoAplicado) {
+        Long propId = SaedContextHolder.getContext().getPropertyId();
         String sql = "UPDATE CUOTAS SET SALDO_PENDIENTE = GREATEST(SALDO_PENDIENTE - :monto, 0), " +
                      "ESTADO = CASE WHEN SALDO_PENDIENTE - :monto <= 0 THEN 'PAGADA' ELSE ESTADO END " +
-                     "WHERE ID_CUOTA = :idCuota";
-        jdbcTemplate.update(sql, new MapSqlParameterSource().addValue("monto", montoAplicado).addValue("idCuota", idCuota));
+                     "WHERE ID_CUOTA = :idCuota AND ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD = :propId)";
+        jdbcTemplate.update(sql, new MapSqlParameterSource()
+                .addValue("monto", montoAplicado)
+                .addValue("idCuota", idCuota)
+                .addValue("propId", propId));
     }
 
     @Override

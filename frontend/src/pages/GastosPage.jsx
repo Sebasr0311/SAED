@@ -38,7 +38,7 @@ export default function GastosPage() {
   const presupuestos = presupData?.items || presupData || [];
 
   const gastosFiltrados = filtroPresupuesto
-    ? gastos.filter((g) => String(g.PRESUPUESTO_ID || g.presupuesto_id || g.presupuestoId) === filtroPresupuesto)
+    ? gastos.filter((g) => String(g.ID_PRESUPUESTO || g.id_presupuesto || g.idPresupuesto) === filtroPresupuesto)
     : gastos;
 
   function abrirCrear() {
@@ -50,13 +50,13 @@ export default function GastosPage() {
   function abrirEditar(g) {
     setEditando(g);
     setForm({
-      fecha: g.FECHA || g.fecha || '',
+      fecha: g.FECHA_GASTO || g.fecha_gasto || '',
       categoria: g.CATEGORIA || g.categoria || '',
       beneficiario: g.BENEFICIARIO || g.beneficiario || '',
       monto: g.MONTO || g.monto || 0,
       metodoPago: g.METODO_PAGO || g.metodo_pago || g.metodoPago || 'EFECTIVO',
-      estado: g.ESTADO || g.estado || 'PENDIENTE',
-      presupuestoId: g.PRESUPUESTO_ID || g.presupuesto_id || g.presupuestoId || '',
+      estado: g.ESTADO || g.estado || 'REGISTRADO',
+      presupuestoId: g.ID_PRESUPUESTO || g.id_presupuesto || g.idPresupuesto || '',
     });
     setDialogOpen(true);
   }
@@ -69,16 +69,16 @@ export default function GastosPage() {
     setSaving(true);
     try {
       const payload = {
-        fecha: form.fecha || undefined,
+        fechaGasto: form.fecha || undefined,
         categoria: form.categoria,
         beneficiario: form.beneficiario,
         monto: Number(form.monto),
         metodoPago: form.metodoPago,
         estado: form.estado,
-        presupuestoId: form.presupuestoId ? Number(form.presupuestoId) : undefined,
+        idPresupuesto: form.presupuestoId ? Number(form.presupuestoId) : undefined,
       };
       if (editando) {
-        await api.put(`/gastos/${editando.ID || editando.id}`, payload);
+        await api.put(`/gastos/${editando.ID_GASTO || editando.id || editando.id_gasto}`, payload);
         toast.success('Gasto actualizado');
       } else {
         await api.post('/gastos', payload);
@@ -97,7 +97,7 @@ export default function GastosPage() {
   async function eliminar() {
     if (!deleteTarget) return;
     try {
-      await api.del(`/gastos/${deleteTarget.ID || deleteTarget.id}`);
+      await api.del(`/gastos/${deleteTarget.ID_GASTO || deleteTarget.id || deleteTarget.id_gasto}`);
       toast.success('Gasto eliminado');
       refetch();
     } catch (err) {
@@ -151,10 +151,10 @@ export default function GastosPage() {
                 </TableHeader>
                 <TableBody>
                   {gastosFiltrados.map((g) => {
-                    const presup = presupuestos.find((p) => (p.ID || p.id) === (g.PRESUPUESTO_ID || g.presupuesto_id || g.presupuestoId));
+                    const presup = presupuestos.find((p) => (p.ID || p.id) === (g.ID_PRESUPUESTO || g.id_presupuesto || g.idPresupuesto));
                     return (
-                      <TableRow key={g.ID || g.id}>
-                        <TableCell className="text-xs whitespace-nowrap">{g.FECHA || g.fecha || '-'}</TableCell>
+                      <TableRow key={g.ID_GASTO || g.id || g.id_gasto}>
+                        <TableCell className="text-xs whitespace-nowrap">{g.FECHA_GASTO || g.fecha_gasto || '-'}</TableCell>
                         <TableCell>{g.CATEGORIA || g.categoria}</TableCell>
                         <TableCell>{g.BENEFICIARIO || g.beneficiario}</TableCell>
                         <TableCell className="text-right font-bold">{fmtCOP.format(Number(g.MONTO || g.monto || 0))}</TableCell>
@@ -236,6 +236,7 @@ export default function GastosPage() {
                   onChange={(e) => setForm((f) => ({ ...f, estado: e.target.value }))}>
                   <option value="PENDIENTE">Pendiente</option>
                   <option value="CONFIRMADO">Confirmado</option>
+                  <option value="REGISTRADO">Registrado</option>
                   <option value="CANCELADO">Cancelado</option>
                 </select>
               </div>

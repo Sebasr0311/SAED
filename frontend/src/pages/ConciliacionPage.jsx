@@ -44,7 +44,7 @@ export default function ConciliacionPage() {
     setEditando(c);
     setForm({
       periodo: c.PERIODO || c.periodo || '',
-      cuentaBanco: c.CUENTA_BANCO || c.cuenta_banco || c.cuentaBanco || '',
+      cuentaBanco: c.BANCO_CUENTA || c.banco_cuenta || c.cuentaBanco || '',
       saldoBanco: c.SALDO_BANCO || c.saldo_banco || c.saldoBanco || 0,
       saldoLibros: c.SALDO_LIBROS || c.saldo_libros || c.saldoLibros || 0,
       estado: c.ESTADO || c.estado || 'EN_PROCESO',
@@ -67,7 +67,7 @@ export default function ConciliacionPage() {
         estado: form.estado,
       };
       if (editando) {
-        await api.patch(`/conciliaciones/${editando.ID || editando.id}`, payload);
+        await api.put(`/conciliaciones/${editando.ID_CONCILIACION || editando.id || editando.id_conciliacion}`, payload);
         toast.success('Conciliación actualizada');
       } else {
         await api.post('/conciliaciones', payload);
@@ -102,9 +102,9 @@ export default function ConciliacionPage() {
 
       {/* Resumen cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard icon="check_circle" value={resumen.conciliadas || 0} label="Conciliadas" color="success" />
-        <StatCard icon="pending" value={resumen.enProceso || resumen.en_proceso || 0} label="En Proceso" color="warning" />
-        <StatCard icon="warning" value={resumen.conDiscrepancias || resumen.con_discrepancias || 0} label="Con Discrepancias" color="danger" />
+        <StatCard icon="check_circle" value={resumen.CONCILIADAS || 0} label="Conciliadas" color="success" />
+        <StatCard icon="pending" value={resumen.EN_PROCESO || 0} label="En Proceso" color="warning" />
+        <StatCard icon="warning" value={resumen.CON_DISCREPANCIAS || 0} label="Con Discrepancias" color="danger" />
       </div>
 
       <Card>
@@ -130,13 +130,13 @@ export default function ConciliacionPage() {
                 </TableHeader>
                 <TableBody>
                   {conciliaciones.map((c) => {
-                    const banco = Number(c.SALDO_BANCO || c.saldo_banco || c.saldoBanco || 0);
-                    const libros = Number(c.SALDO_LIBROS || c.saldo_libros || c.saldoLibros || 0);
+                    const banco = Number(c.SALDO_BANCO || c.saldo_banco || 0);
+                    const libros = Number(c.SALDO_LIBROS || c.saldo_libros || 0);
                     const diferencia = banco - libros;
                     return (
-                      <TableRow key={c.ID || c.id}>
+                      <TableRow key={c.ID_CONCILIACION || c.id || c.id_conciliacion}>
                         <TableCell className="font-mono text-sm">{c.PERIODO || c.periodo}</TableCell>
-                        <TableCell>{c.CUENTA_BANCO || c.cuenta_banco || c.cuentaBanco}</TableCell>
+                        <TableCell>{c.BANCO_CUENTA || c.banco_cuenta || c.cuentaBanco}</TableCell>
                         <TableCell className="text-right">{fmtCOP.format(banco)}</TableCell>
                         <TableCell className="text-right">{fmtCOP.format(libros)}</TableCell>
                         <TableCell className={`text-right font-bold ${diferencia !== 0 ? 'text-red-600' : 'text-green-600'}`}>
