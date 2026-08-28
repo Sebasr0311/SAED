@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
+import { toast } from 'sonner';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { ROLE_HOME, roleCanAccess } from '../lib/access.js';
 import { valUsername, valPassword } from '../lib/validation.js';
-import Toast from '../components/ui/Toast.jsx';
 
 const HERO_IMAGES = [
   'galeria1.png',
@@ -68,7 +68,6 @@ export default function LoginPage() {
   const [remember, setRemember] = useState(() => !!localStorage.getItem('remembered_user'));
   const [showPwd, setShowPwd] = useState(false);
   const [error, setError] = useState('');
-  const [toast, setToast] = useState(null);
 
   useEffect(() => {
     document.title = 'Iniciar sesión — SAED';
@@ -94,10 +93,10 @@ export default function LoginPage() {
       const user = await login(username.trim(), password);
       if (remember) localStorage.setItem('remembered_user', username.trim());
       else localStorage.removeItem('remembered_user');
-      setToast({ message: `Bienvenido, ${u.username}`, type: 'success' });
+      toast.success(`Bienvenido, ${u.username}`);
     } catch (err) {
       setError(err.message);
-      setToast({ message: err.message, type: 'error' });
+      toast.error(err.message);
     }
   }
 
@@ -177,7 +176,7 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={() =>
-                    setToast({ message: 'Contacte al administrador del sistema', type: 'info' })
+                    toast.info('Contacte al administrador del sistema')
                   }
                   className="forgot-link"
                 >
@@ -208,7 +207,6 @@ export default function LoginPage() {
           <HeroGallery />
         </aside>
       </div>
-      <Toast toast={toast} />
     </div>
   );
 }

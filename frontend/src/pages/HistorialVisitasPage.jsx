@@ -1,11 +1,11 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
+import { toast } from 'sonner';
 import { unzipSync, zipSync, strFromU8, strToU8 } from 'fflate';
 import { Button } from '../components/ui/Button.jsx';
 import { Input } from '../components/ui/Form.jsx';
 import { DataTable } from '../components/ui/DataTable.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
-import Toast from '../components/ui/Toast.jsx';
 import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
 import { formatDate, todayStr, imageSrc } from '../lib/utils.js';
@@ -283,7 +283,6 @@ function haceDias(dias) {
 }
 
 export default function HistorialVisitasPage() {
-  const [toast, setToast] = useState(null);
   const [search, setSearch] = useState('');
   const [fechaInicio, setFechaInicio] = useState(haceDias(7));
   const [fechaFin, setFechaFin] = useState(todayStr());
@@ -315,7 +314,7 @@ export default function HistorialVisitasPage() {
       const d = await api.get(`/visitas/${row.idVisita}/detalle`);
       setDetalle(d);
     } catch (err) {
-      setToast({ message: err.message, type: 'error' });
+      toast.error(err.message);
     } finally {
       setLoadingDetalle(false);
     }
@@ -451,7 +450,6 @@ export default function HistorialVisitasPage() {
           </div>
         )}
       </Modal>
-      <Toast toast={toast} />
     </div>
   );
 }

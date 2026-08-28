@@ -1,10 +1,10 @@
 ﻿import { useState } from 'react';
+import { toast } from 'sonner';
 import { DataTable } from '../components/ui/DataTable.jsx';
 import { Pagination } from '../components/ui/Pagination.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { Button } from '../components/ui/Button.jsx';
 import { Input } from '../components/ui/Form.jsx';
-import Toast from '../components/ui/Toast.jsx';
 import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
 import { formatDate, periodoLabel } from '../lib/utils.js';
@@ -13,7 +13,6 @@ const PAGE_SIZE = 15;
 
 export default function AlertasPage() {
   const [page, setPage] = useState(0);
-  const [toast, setToast] = useState(null);
   const [soloNoLeidas, setSoloNoLeidas] = useState(false);
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState(null);
@@ -36,16 +35,16 @@ export default function AlertasPage() {
 
   async function marcarLeida() {
     if (!selectedId) {
-      setToast({ message: 'Seleccione una alerta de la tabla', type: 'error' });
+      toast.error('Seleccione una alerta de la tabla');
       return;
     }
     try {
       await api.put(`/alertas/${selectedId}/leer`);
-      setToast({ message: 'Alerta marcada como leída', type: 'success' });
+      toast.success('Alerta marcada como leída');
       setSelectedId(null);
       refetch();
     } catch (err) {
-      setToast({ message: err.message, type: 'error' });
+      toast.error(err.message);
     }
   }
 
@@ -104,7 +103,6 @@ export default function AlertasPage() {
         pageSize={PAGE_SIZE}
         onPageChange={setPage}
       />
-      <Toast toast={toast} />
     </div>
   );
 }

@@ -1,4 +1,5 @@
-import { useState, useRef } from 'react';
+﻿import { useState, useRef } from 'react';
+import { toast } from 'sonner';
 import { Button } from '../components/ui/Button.jsx';
 import { valUsername, valPassword } from '../lib/validation.js';
 import { Input, Select } from '../components/ui/Form.jsx';
@@ -7,7 +8,6 @@ import { Pagination } from '../components/ui/Pagination.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { ConfirmPasswordDialog } from '../components/ui/ConfirmPasswordDialog.jsx';
-import Toast from '../components/ui/Toast.jsx';
 import { useFetch, useLiveValidation } from '../lib/hooks.js';
 import api from '../lib/api.js';
 
@@ -38,7 +38,6 @@ function ActionButtons({ onEdit, onDelete }) {
 
 export default function UsuariosPage() {
   const [page, setPage] = useState(0);
-  const [toast, setToast] = useState(null);
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
   const [modalOpen, setModalOpen] = useState(false);
@@ -137,16 +136,16 @@ export default function UsuariosPage() {
       payload.idResidente = payload.idResidente ? Number(payload.idResidente) : null;
       if (editing) {
         await api.put(`/usuarios/${editing.idUsuario}`, payload);
-        setToast({ message: 'Usuario actualizado', type: 'success' });
+        toast.success('Usuario actualizado');
       } else {
         await api.post('/usuarios', payload);
-        setToast({ message: 'Usuario creado', type: 'success' });
+        toast.success('Usuario creado');
       }
       setModalOpen(false);
       setEditing(null);
       refetch();
     } catch (err) {
-      setToast({ message: err.message, type: 'error' });
+      toast.error(err.message);
     } finally {
       savingRef.current = false;
       setSaving(false);
@@ -156,10 +155,10 @@ export default function UsuariosPage() {
     if (!confirmDel) return;
     try {
       await api.del(`/usuarios/${confirmDel.idUsuario}`);
-      setToast({ message: 'Usuario eliminado', type: 'success' });
+      toast.success('Usuario eliminado');
       refetch();
     } catch (err) {
-      setToast({ message: err.message, type: 'error' });
+      toast.error(err.message);
     } finally {
       setConfirmDel(null);
     }
@@ -295,7 +294,6 @@ export default function UsuariosPage() {
         }}
         descripcion={`eliminar al usuario ${confirmDel?.username}`}
       />
-      <Toast toast={toast} />
     </div>
   );
 }

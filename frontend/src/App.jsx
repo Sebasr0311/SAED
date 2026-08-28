@@ -1,12 +1,13 @@
 import { lazy } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
+import { Toaster } from 'sonner';
 import LoginPage from './pages/LoginPage.jsx';
 import AppShell from './components/layout/AppShell.jsx';
 import { AuthProvider } from './lib/AuthContext.jsx';
 import { TenantProvider } from './lib/TenantContext.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 
-// Code-splitting por ruta: cada pÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡gina carga solo cuando se visita, reduciendo
+// Code-splitting por ruta: cada página carga solo cuando se visita, reduciendo
 // el bundle inicial (~1.2MB -> fracciones). Login queda eager (entry point).
 const DashboardPage = lazy(() => import('./pages/DashboardPage.jsx'));
 const PersonasPage = lazy(() => import('./pages/PersonasPage.jsx'));
@@ -47,11 +48,12 @@ const PaquetesPage = lazy(() => import('./pages/PaquetesPage.jsx'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage.jsx'));
 
 // Fallback de las rutas lazy vive en AppShell (envuelve <Outlet />), de modo que
-// el shell (sidebar/topbar) permanezca visible mientras se carga la pÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡gina.
+// el shell (sidebar/topbar) permanezca visible mientras se carga la página.
 
 export default function App() {
   return (
     <AuthProvider>
+      <Toaster position="top-right" richColors />
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route

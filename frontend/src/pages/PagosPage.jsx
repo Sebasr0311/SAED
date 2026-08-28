@@ -1,10 +1,10 @@
-import { useMemo, useRef, useState } from 'react';
+﻿import { useMemo, useRef, useState } from 'react';
+import { toast } from 'sonner';
 import { Button } from '../components/ui/Button.jsx';
 import { Input, Select } from '../components/ui/Form.jsx';
 import { DataTable } from '../components/ui/DataTable.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
-import Toast from '../components/ui/Toast.jsx';
 import { useFetch, useLiveValidation } from '../lib/hooks.js';
 import api from '../lib/api.js';
 import { formatCurrency, formatDate, todayStr, formatMiles, parseMiles, periodoLabel } from '../lib/utils.js';
@@ -53,7 +53,6 @@ function agruparPorApartamento(cuotas, multas) {
 }
 
 export default function PagosPage() {
-  const [toast, setToast] = useState(null);
   const [search, setSearch] = useState('');
   const [detalle, setDetalle] = useState(null);
   const [pagoModal, setPagoModal] = useState(null); // { tipo: 'cuota'|'multa', item }
@@ -135,20 +134,20 @@ export default function PagosPage() {
     if (!pagoModal) return;
     const valor = parseMiles(pagoForm.valor);
     if (valor <= 0) {
-      setToast({ message: 'El valor pagado debe ser mayor que 0', type: 'error' });
+      toast.error('El valor pagado debe ser mayor que 0');
       return;
     }
     if (pagoModal.tipo === 'cuota') {
       const saldo = Number(pagoModal.item.saldoPendiente ?? pagoModal.item.valorTotal ?? 0);
       if (valor > saldo) {
-        setToast({ message: `El valor pagado no puede superar el saldo pendiente (${formatCurrency(saldo)})`, type: 'error' });
+        toast.error(`El valor pagado no puede superar el saldo pendiente (${formatCurrency(saldo)})`);
         return;
       }
     }
     if (pagoModal.tipo === 'cuota' && pagoForm.metodo === 'TRANSFERENCIA') {
       const ref = pagoForm.referencia.trim();
       if (!/^[A-Za-z0-9-]{4,50}$/.test(ref)) {
-        setToast({ message: 'La referencia debe tener entre 4 y 50 caracteres (letras, números o guiones)', type: 'error' });
+        toast.error('La referencia debe tener entre 4 y 50 caracteres (letras, números o guiones)');
         return;
       }
     }
@@ -167,7 +166,7 @@ export default function PagosPage() {
       } else {
         await api.put(`/multas/${pagoModal.item.idMulta}/pagar`, { metodoPago: pagoForm.metodo });
       }
-      setToast({ message: 'Pago registrado', type: 'success' });
+      toast.success('Pago registrado');
       setPagoModal(null);
       refetchCuotas();
       refetchMultas();
@@ -175,7 +174,7 @@ export default function PagosPage() {
         setDetalle(null);
       }
     } catch (err) {
-      setToast({ message: err.message, type: 'error' });
+      toast.error(err.message);
     } finally {
       savingRef.current = false;
       setSaving(false);
@@ -369,8 +368,6 @@ export default function PagosPage() {
           </div>
         )}
       </Modal>
-
-      <Toast toast={toast} />
     </div>
   );
 }

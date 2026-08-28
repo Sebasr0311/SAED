@@ -1,10 +1,10 @@
-import { useState, useRef, useEffect } from 'react';
+﻿import { useState, useRef, useEffect } from 'react';
+import { toast } from 'sonner';
 import { Button } from '../components/ui/Button.jsx';
 import { Input, Select, Textarea } from '../components/ui/Form.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { DataTable } from '../components/ui/DataTable.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
-import Toast from '../components/ui/Toast.jsx';
 import api from '../lib/api.js';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { useFetch, useLiveValidation } from '../lib/hooks.js';
@@ -99,7 +99,6 @@ function CamaraCaptura({ onCapture, onCancel }) {
 
 export default function ResQuejasPage() {
   const { user } = useAuth();
-  const [toast, setToast] = useState(null);
   const [form, setForm] = useState({
     tipo: 'QUEJA',
     categoria: 'LIMPIEZA',
@@ -138,11 +137,11 @@ export default function ResQuejasPage() {
   async function send() {
     if (sendingRef.current) return; // doble submit
     if (!form.titulo || !form.descripcion) {
-      setToast({ message: 'Título y descripción son obligatorios', type: 'error' });
+      toast.error('Título y descripción son obligatorios');
       return;
     }
     if (form.tipo === 'APELACION' && !form.idMulta) {
-      setToast({ message: 'Seleccione la multa a apelar', type: 'error' });
+      toast.error('Seleccione la multa a apelar');
       return;
     }
     sendingRef.current = true;
@@ -152,12 +151,12 @@ export default function ResQuejasPage() {
       if (form.tipo === 'APELACION' && form.idMulta) payload.idMulta = Number(form.idMulta);
       if (foto) payload.fotoEvidencia = foto;
       await api.post('/quejas', payload);
-      setToast({ message: 'Solicitud enviada', type: 'success' });
+      toast.success('Solicitud enviada');
       setForm({ tipo: 'QUEJA', categoria: 'LIMPIEZA', titulo: '', descripcion: '', idMulta: '' });
       setFoto(null);
       refetch();
     } catch (err) {
-      setToast({ message: err.message, type: 'error' });
+      toast.error(err.message);
     } finally {
       sendingRef.current = false;
       setSending(false);
@@ -334,7 +333,6 @@ export default function ResQuejasPage() {
           </div>
         )}
       </Modal>
-      <Toast toast={toast} />
     </div>
   );
 }

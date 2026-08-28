@@ -1,10 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
+﻿import { useState, useEffect, useRef } from 'react';
+import { toast } from 'sonner';
 import { Button } from '../components/ui/Button.jsx';
 import { Input, Textarea } from '../components/ui/Form.jsx';
 import { DataTable } from '../components/ui/DataTable.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
-import Toast from '../components/ui/Toast.jsx';
 import { useFetch, useLiveValidation } from '../lib/hooks.js';
 import api from '../lib/api.js';
 import { formatDate } from '../lib/utils.js';
@@ -132,7 +132,6 @@ function ApartamentoMultiSelect({ apartamentos, selected, onChange }) {
 }
 
 export default function AvisosPage() {
-  const [toast, setToast] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState({ titulo: '', cuerpo: '' });
   const [selectedApts, setSelectedApts] = useState('TODOS');
@@ -152,7 +151,7 @@ export default function AvisosPage() {
 
   async function send() {
     if (!form.titulo.trim() || !form.cuerpo.trim()) {
-      setToast({ message: 'Título y mensaje son obligatorios', type: 'error' });
+      toast.error('Título y mensaje son obligatorios');
       return;
     }
     setSending(true);
@@ -162,13 +161,13 @@ export default function AvisosPage() {
         payload.idApartamentos = selectedApts;
       }
       await api.post('/buzon/aviso', payload);
-      setToast({ message: 'Aviso enviado', type: 'success' });
+      toast.success('Aviso enviado');
       setForm({ titulo: '', cuerpo: '' });
       setSelectedApts('TODOS');
       setModalOpen(false);
       refetch();
     } catch (err) {
-      setToast({ message: err.message, type: 'error' });
+      toast.error(err.message);
     } finally {
       setSending(false);
     }
@@ -237,7 +236,6 @@ export default function AvisosPage() {
           />
         </div>
       </Modal>
-      <Toast toast={toast} />
     </div>
   );
 }

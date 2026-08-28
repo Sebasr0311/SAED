@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+﻿import { useEffect, useRef, useState } from 'react';
+import { toast } from 'sonner';
 import { Button } from '../components/ui/Button.jsx';
 import { Input, Select } from '../components/ui/Form.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
-import Toast from '../components/ui/Toast.jsx';
 import api from '../lib/api.js';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { useFetch, useTiposDocumento, useLiveValidation } from '../lib/hooks.js';
@@ -32,7 +32,6 @@ export default function ResVisitaPage() {
   const { user } = useAuth();
   const { tiposDoc, error: errorTiposDoc } = useTiposDocumento();
   const { touch, fieldError } = useLiveValidation();
-  const [toast, setToast] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [errors, setErrors] = useState({});
   const [sending, setSending] = useState(false);
@@ -156,10 +155,10 @@ export default function ResVisitaPage() {
       }
       const res = await api.post('/visitas', payload);
       setQrGenerado(res);
-      setToast({ message: 'Visita registrada, QR generado', type: 'success' });
+      toast.success('Visita registrada, QR generado');
       setForm(emptyForm);
     } catch (err) {
-      setToast({ message: err.message, type: 'error' });
+      toast.error(err.message);
     } finally {
       sendingRef.current = false;
       setSending(false);
@@ -327,7 +326,6 @@ export default function ResVisitaPage() {
           </div>
         </div>
       )}
-      <Toast toast={toast} />
     </div>
   );
 }

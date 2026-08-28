@@ -6,8 +6,9 @@ import { Pagination } from '../components/ui/Pagination.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { ConfirmPasswordDialog } from '../components/ui/ConfirmPasswordDialog.jsx';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog.jsx';
 import { valSelect, valNumero, valEntero } from '../lib/validation.js';
-import Toast from '../components/ui/Toast.jsx';
+import { toast } from 'sonner';
 import { useFetch, useLiveValidation } from '../lib/hooks.js';
 import api from '../lib/api.js';
 
@@ -44,7 +45,6 @@ function ActionButtons({ onEdit, onDelete, onVer, mostrarVer }) {
 
 export default function ApartamentosPage() {
   const [page, setPage] = useState(0);
-  const [toast, setToast] = useState(null);
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
   const [modalOpen, setModalOpen] = useState(false);
@@ -54,6 +54,7 @@ export default function ApartamentosPage() {
   const [confirmDel, setConfirmDel] = useState(null);
   const [pwdConfirmOpen, setPwdConfirmOpen] = useState(false);
   const [verResidentes, setVerResidentes] = useState(null);
+  const [confirmQuitarResidente, setConfirmQuitarResidente] = useState(null);
   const { touch, fieldError } = useLiveValidation();
 
   const { data, loading, refetch } = useFetch(() => api.get('/apartamentos'), []);
@@ -178,16 +179,16 @@ export default function ApartamentosPage() {
       };
       if (editing) {
         await api.put(`/apartamentos/${editing.idApartamento}`, payload);
-        setToast({ message: 'Apartamento actualizado', type: 'success' });
+        toast.success('Apartamento actualizado');
       } else {
         await api.post('/apartamentos', payload);
-        setToast({ message: 'Apartamento creado', type: 'success' });
+        toast.success('Apartamento creado');
       }
       setModalOpen(false);
       setEditing(null);
       refetch();
     } catch (err) {
-      setToast({ message: err.message, type: 'error' });
+      toast.error(err.message);
     } finally {
       savingRef.current = false;
       setSaving(false);
@@ -197,24 +198,25 @@ export default function ApartamentosPage() {
     if (!confirmDel) return;
     try {
       await api.del(`/apartamentos/${confirmDel.idApartamento}`);
-      setToast({ message: 'Apartamento eliminado', type: 'success' });
+      toast.success('Apartamento eliminado');
       refetch();
     } catch (err) {
-      setToast({ message: err.message, type: 'error' });
+      toast.error(err.message);
     } finally {
       setConfirmDel(null);
     }
   }
   async function quitarResidente(idResidente) {
-    if (!verResidentes) return;
-    if (!window.confirm('¿Está seguro de eliminar este residente del apartamento?')) return;
+    if (!confirmQuitarResidente) return;
     try {
-      await api.del(`/apartamentos/${verResidentes.idApartamento}/residentes/${idResidente}`);
-      setToast({ message: 'Residente removido del apartamento', type: 'success' });
+      await api.del(`/apartamentos/${confirmQuitarResidente.idApartamento}/residentes/${idResidente}`);
+      toast.success('Residente removido del apartamento');
       refetchResidentesApto();
       refetch();
     } catch (err) {
-      setToast({ message: err.message, type: 'error' });
+      toast.error(err.message);
+    } finally {
+      setConfirmQuitarResidente(null);
     }
   }
 
@@ -361,7 +363,7 @@ export default function ApartamentosPage() {
                   Doc: {r.numeroDocumento} · Tel: {r.telefono || '—'} · {r.email || '—'}
                 </div>
               </div>
-              <Button variant="danger" onClick={() => quitarResidente(r.id)} style={{ padding: '4px 10px', fontSize: '11px' }}>
+              <Button variant="danger" onClick={() => setConfirmQuitarResidente({ idApartamento: verResidentes.idApartamento, idResidente: r.id })} style={{ padding: '4px 10px', fontSize: '11px' }}>
                 Quitar
               </Button>
             </div>
@@ -396,7 +398,15 @@ export default function ApartamentosPage() {
         }}
         descripcion={`eliminar el apartamento #${confirmDel?.numero}`}
       />
-      <Toast toast={toast} />
+      <ConfirmDialog
+        open={!!confirmQuitarResidente}
+        onClose={() => setConfirmQuitarResidente(null)}
+        onConfirm={() => quitarResidente(confirmQuitarResidente?.idResidente)}
+        title="Quitar residente"
+        message="¿Está seguro de eliminar este residente del apartamento?"
+        confirmLabel="Quitar"
+        danger
+      />
     </div>
   );
 }

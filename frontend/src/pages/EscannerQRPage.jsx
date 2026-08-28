@@ -3,7 +3,7 @@ import { Button } from '../components/ui/Button.jsx';
 import { Input, Select, Textarea } from '../components/ui/Form.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
-import Toast from '../components/ui/Toast.jsx';
+import { toast } from 'sonner';
 import { valPlaca } from '../lib/validation.js';
 import api from '../lib/api.js';
 import { useFetch } from '../lib/hooks.js';
@@ -313,7 +313,6 @@ function PanelValidar({ onResultado, onNotificarVisita, onRegistrarEntrada, idVi
 
 function TabValidar({ onToast }) {
   const [codigoEscaneado, setCodigoEscaneado] = useState('');
-  const [toast, setToast] = useState(null);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const [streaming, setStreaming] = useState(false);
@@ -435,9 +434,8 @@ function TabValidar({ onToast }) {
       </div>
 
       <div style={{ marginTop: '16px' }}>
-        <PanelValidar codigoInicial={codigoInput} onToast={(t) => { setToast(t); onToast?.(t); }} />
+        <PanelValidar codigoInicial={codigoInput} onToast={(t) => { onToast?.(t); }} />
       </div>
-      <Toast toast={toast} />
     </div>
   );
 }
@@ -445,7 +443,6 @@ function TabValidar({ onToast }) {
 function TabRegistrarSalida({ onToast }) {
   const { data: visitas, loading, refetch } = useFetch(() => api.get('/visitas'), []);
   const [registrando, setRegistrando] = useState(null);
-  const [toast, setToast] = useState(null);
 
   const activas = (visitas?.items || visitas || []).filter(
     (v) => v.estado === 'ACTIVA' || v.estado === 'PENDIENTE'
@@ -455,10 +452,10 @@ function TabRegistrarSalida({ onToast }) {
     setRegistrando(idVisita);
     try {
       await api.put(`/visitas/${idVisita}/salida`);
-      setToast({ message: 'Salida registrada', type: 'success' });
+      toast.success('Salida registrada');
       refetch();
     } catch (err) {
-      setToast({ message: err.message, type: 'error' });
+      toast.error(err.message);
     } finally {
       setRegistrando(null);
     }
@@ -512,7 +509,6 @@ function TabRegistrarSalida({ onToast }) {
           </tbody>
         </table>
       </div>
-      <Toast toast={toast} />
     </div>
   );
 }
@@ -580,7 +576,6 @@ function TabParqueaderos({ onToast }) {
 
 export default function EscannerQRPage() {
   const [tab, setTab] = useState('validar');
-  const [toast, setToast] = useState(null);
 
   return (
     <div>
@@ -599,16 +594,14 @@ export default function EscannerQRPage() {
       </div>
 
       <div className={`tab-content ${tab === 'validar' ? 'active' : ''}`}>
-        <TabValidar onToast={setToast} />
+        <TabValidar />
       </div>
       <div className={`tab-content ${tab === 'salida' ? 'active' : ''}`}>
-        <TabRegistrarSalida onToast={setToast} />
+        <TabRegistrarSalida />
       </div>
       <div className={`tab-content ${tab === 'parqueaderos' ? 'active' : ''}`}>
-        <TabParqueaderos onToast={setToast} />
+        <TabParqueaderos />
       </div>
-
-      <Toast toast={toast} />
     </div>
   );
 }

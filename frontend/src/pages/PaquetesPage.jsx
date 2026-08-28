@@ -1,16 +1,15 @@
-import { useState, useRef, useEffect } from 'react';
+﻿import { useState, useRef, useEffect } from 'react';
+import { toast } from 'sonner';
 import { Button } from '../components/ui/Button.jsx';
 import { Select } from '../components/ui/Form.jsx';
 import { DataTable } from '../components/ui/DataTable.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
-import Toast from '../components/ui/Toast.jsx';
 import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
 import { formatDate, imageSrc } from '../lib/utils.js';
 
 export default function PaquetesPage() {
   const [selectedApto, setSelectedApto] = useState('');
-  const [toast, setToast] = useState(null);
   const [camaraActiva, setCamaraActiva] = useState(false);
   const [foto, setFoto] = useState(null);
   const [registrando, setRegistrando] = useState(false);
@@ -50,7 +49,7 @@ export default function PaquetesPage() {
         }
       }, 50);
     } catch (err) {
-      setToast({ message: 'No se pudo acceder a la cámara: ' + err.message, type: 'error' });
+      toast.error('No se pudo acceder a la cámara: ' + err.message);
     }
   }
 
@@ -81,11 +80,11 @@ export default function PaquetesPage() {
 
   async function registrar() {
     if (!selectedApto) {
-      setToast({ message: 'Seleccione un apartamento', type: 'error' });
+      toast.error('Seleccione un apartamento');
       return;
     }
     if (!foto) {
-      setToast({ message: 'Debe tomar una foto del paquete', type: 'error' });
+      toast.error('Debe tomar una foto del paquete');
       return;
     }
     setRegistrando(true);
@@ -95,11 +94,11 @@ export default function PaquetesPage() {
         titulo: 'Paquete/Domicilio recibido',
         fotoCaptura: foto,
       });
-      setToast({ message: 'Paquete registrado', type: 'success' });
+      toast.success('Paquete registrado');
       setFoto(null);
       refetch();
     } catch (err) {
-      setToast({ message: err.message, type: 'error' });
+      toast.error(err.message);
     } finally {
       setRegistrando(false);
     }
@@ -192,7 +191,6 @@ export default function PaquetesPage() {
                 empty={{ icon: 'inventory_2', title: 'Seleccione un apartamento para ver paquetes', subtitle: 'Elija un apartamento en el filtro para ver sus paquetes.' }}
         keyField="idMensaje"
       />
-      <Toast toast={toast} />
     </div>
   );
 }

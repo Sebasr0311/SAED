@@ -1,22 +1,21 @@
-import { useRef, useState } from 'react';
+ï»¿import { useRef, useState } from 'react';
+import { toast } from 'sonner';
 import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { Button } from '../components/ui/Button.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
-import Toast from '../components/ui/Toast.jsx';
 import { formatDate, formatMiles, imageSrc } from '../lib/utils.js';
 
 export default function ResBuzonPage() {
   const { user } = useAuth();
-  const [toast, setToast] = useState(null);
   const [confirmVaciar, setConfirmVaciar] = useState(false);
   const [confirmVaciarSel, setConfirmVaciarSel] = useState(false);
   const [fotoGrande, setFotoGrande] = useState(null);
   const [seleccionados, setSeleccionados] = useState([]);
   const [vaciandoSel, setVaciandoSel] = useState(false);
-  const vaciandoSelRef = useRef(false); // patrón anti doble-submit generalizado
+  const vaciandoSelRef = useRef(false); // patrï¿½n anti doble-submit generalizado
 
   const { data, loading, error, refetch } = useFetch(
     () => api.get(`/buzon`),
@@ -34,17 +33,17 @@ export default function ResBuzonPage() {
       setLeidosLocalmente((prev) => (prev.includes(idMensaje) ? prev : [...prev, idMensaje]));
       refetch();
     } catch (err) {
-      setToast({ message: err.message, type: 'error' });
+      toast.error(err.message);
     }
   }
 
   async function vaciar() {
     try {
       await api.put('/buzon/vaciar');
-      setToast({ message: 'Buzón vaciado', type: 'success' });
+      toast.success('Buzï¿½n vaciado');
       refetch();
     } catch (err) {
-      setToast({ message: err.message, type: 'error' });
+      toast.error(err.message);
     } finally {
       setConfirmVaciar(false);
     }
@@ -63,13 +62,13 @@ export default function ResBuzonPage() {
     setVaciandoSel(true);
     try {
       await api.put('/buzon/vaciar-multi', { ids: seleccionados });
-      setToast({ message: 'Mensajes eliminados', type: 'success' });
+      toast.success('Mensajes eliminados');
       setSeleccionados([]);
       refetch();
     } catch (err) {
       // 403 posible: algun ID ya no pertenece al apartamento (todo-o-nada en backend).
       // Nunca asumir exito parcial: sincronizar la lista real y limpiar la seleccion.
-      setToast({ message: err.message, type: 'error' });
+      toast.error(err.message);
       setSeleccionados([]);
       refetch();
     } finally {
@@ -81,7 +80,7 @@ export default function ResBuzonPage() {
   return (
     <div>
       <PageHeader
-        title="Buzón"
+        title="Buzï¿½n"
         subtitle="Notificaciones del administrador"
         action={
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -97,7 +96,7 @@ export default function ResBuzonPage() {
             )}
             {items.length > 0 && (
               <Button variant="danger" onClick={() => setConfirmVaciar(true)}>
-                Vaciar buzón
+                Vaciar buzï¿½n
               </Button>
             )}
           </div>
@@ -106,10 +105,10 @@ export default function ResBuzonPage() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         {loading && <div className="card empty-state">Cargando...</div>}
         {!loading && error && (
-          <div className="card empty-state" style={{ color: 'var(--error)' }}>Error al cargar el buzón: {error?.message}</div>
+          <div className="card empty-state" style={{ color: 'var(--error)' }}>Error al cargar el buzï¿½n: {error?.message}</div>
         )}
         {!loading && !error && items.length === 0 && (
-          <div className="card empty-state">Buzón vacío</div>
+          <div className="card empty-state">Buzï¿½n vacï¿½o</div>
         )}
         {items.map((it) => {
           const leido = it.leido || leidosLocalmente.includes(it.idMensaje);
@@ -176,7 +175,7 @@ export default function ResBuzonPage() {
       <Modal
         open={confirmVaciar}
         onClose={() => setConfirmVaciar(false)}
-        title="Vaciar buzón"
+        title="Vaciar buzï¿½n"
         footer={
           <>
             <Button variant="outline" onClick={() => setConfirmVaciar(false)}>
@@ -188,7 +187,7 @@ export default function ResBuzonPage() {
           </>
         }
       >
-        <p>¿Marcar todos los mensajes como leídos y entregados? Esta acción no se puede deshacer.</p>
+        <p>ï¿½Marcar todos los mensajes como leï¿½dos y entregados? Esta acciï¿½n no se puede deshacer.</p>
       </Modal>
 
       <Modal
@@ -206,7 +205,7 @@ export default function ResBuzonPage() {
           </>
         }
       >
-        <p>¿Marcar los {seleccionados.length} mensajes seleccionados como leídos y entregados? Esta acción no se puede deshacer.</p>
+        <p>ï¿½Marcar los {seleccionados.length} mensajes seleccionados como leï¿½dos y entregados? Esta acciï¿½n no se puede deshacer.</p>
       </Modal>
 
       {fotoGrande && (
@@ -230,8 +229,6 @@ export default function ResBuzonPage() {
           />
         </div>
       )}
-
-      <Toast toast={toast} />
     </div>
   );
 }

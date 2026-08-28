@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+﻿import { useState, useEffect, useMemo, useRef } from 'react';
+import { toast } from 'sonner';
 import { Button } from '../components/ui/Button.jsx';
 import { Input, Select } from '../components/ui/Form.jsx';
 import { DataTable } from '../components/ui/DataTable.jsx';
@@ -6,7 +7,6 @@ import { Pagination } from '../components/ui/Pagination.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { ConfirmPasswordDialog } from '../components/ui/ConfirmPasswordDialog.jsx';
-import Toast from '../components/ui/Toast.jsx';
 import { useFetch, useLiveValidation } from '../lib/hooks.js';
 import api from '../lib/api.js';
 import { useAuth } from '../lib/AuthContext.jsx';
@@ -34,7 +34,6 @@ export default function ParqueaderosPage() {
   const [page, setPage] = useState(0);
   const [filtroEstado, setFiltroEstado] = useState('');
   const [filtroTipo, setFiltroTipo] = useState('');
-  const [toast, setToast] = useState(null);
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
   const [modalOpen, setModalOpen] = useState(false);
@@ -170,16 +169,16 @@ export default function ParqueaderosPage() {
       };
       if (editing) {
         await api.put(`/parqueaderos/${editing.idParqueadero}`, payload);
-        setToast({ message: 'Parqueadero actualizado', type: 'success' });
+        toast.success('Parqueadero actualizado');
       } else {
         await api.post('/parqueaderos', payload);
-        setToast({ message: 'Parqueadero creado', type: 'success' });
+        toast.success('Parqueadero creado');
       }
       setModalOpen(false);
       setEditing(null);
       refetch();
     } catch (err) {
-      setToast({ message: err.message, type: 'error' });
+      toast.error(err.message);
     } finally {
       savingRef.current = false;
       setSaving(false);
@@ -189,10 +188,10 @@ export default function ParqueaderosPage() {
     if (!confirmDel) return;
     try {
       await api.del(`/parqueaderos/${confirmDel.idParqueadero}`);
-      setToast({ message: 'Parqueadero eliminado', type: 'success' });
+      toast.success('Parqueadero eliminado');
       refetch();
     } catch (err) {
-      setToast({ message: err.message, type: 'error' });
+      toast.error(err.message);
     } finally {
       setConfirmDel(null);
     }
@@ -372,7 +371,6 @@ export default function ParqueaderosPage() {
         }}
         descripcion={`eliminar el parqueadero ${confirmDel?.codigo}`}
       />
-      <Toast toast={toast} />
     </div>
   );
 }

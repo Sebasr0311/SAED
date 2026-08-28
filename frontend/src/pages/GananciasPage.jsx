@@ -1,10 +1,10 @@
-import { useState, useMemo, useEffect } from 'react';
+﻿import { useState, useMemo, useEffect } from 'react';
+import { toast } from 'sonner';
 import { unzipSync, zipSync, strFromU8, strToU8 } from 'fflate';
 import { Button } from '../components/ui/Button.jsx';
 import { Input } from '../components/ui/Form.jsx';
 import { DataTable } from '../components/ui/DataTable.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
-import Toast from '../components/ui/Toast.jsx';
 import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
 import { validarFechas } from '../lib/validation.js';
@@ -282,7 +282,6 @@ async function exportarExcel(pagos, fechaInicio, fechaFin) {
 const PAGE_SIZE = 10;
 
 export default function GananciasPage() {
-  const [toast, setToast] = useState(null);
   const [search, setSearch] = useState('');
   const [fechaInicio, setFechaInicio] = useState(`${new Date().getFullYear()}-01-01`);
   const [fechaFin, setFechaFin] = useState(todayStr());
@@ -416,7 +415,6 @@ export default function GananciasPage() {
           </Button>
         </div>
       )}
-      <Toast toast={toast} />
     </div>
   );
 }

@@ -6,7 +6,7 @@ import { useAuth } from '../lib/AuthContext.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
 import { Button } from '../components/ui/Button.jsx';
-import Toast from '../components/ui/Toast.jsx';
+import { toast } from 'sonner';
 
 // Paleta de graficos: navy en light; tonos mas claros en dark para mantener
 // contraste sobre superficies oscuras. Se resuelve en runtime leyendo el tema.
@@ -269,15 +269,16 @@ export default function ResidenteDashboardPage() {
         const est = await api.get(`/pagos/wompi/estado?referencia=${encodeURIComponent(referencia)}`);
         const estado = est.estado || 'PENDIENTE';
         if (['APROBADO', 'RECHAZADO', 'VENCIDO', 'ERROR'].includes(estado)) {
-          setToast({
-            message: estado === 'APROBADO' ? 'Pago confirmado. Recibirás el recibo por correo.' : `El pago fue ${estado.toLowerCase()}.`,
-            type: estado === 'APROBADO' ? 'success' : 'error',
-          });
+          if (estado === 'APROBADO') {
+            toast.success('Pago confirmado. Recibirás el recibo por correo.');
+          } else {
+            toast.error(`El pago fue ${estado.toLowerCase()}.`);
+          }
           return;
         }
       } catch { /* reintentar */ }
     }
-    setToast({ message: 'El pago quedó pendiente de confirmación; te avisaremos por correo.', type: 'info' });
+    toast.info('El pago quedó pendiente de confirmación; te avisaremos por correo.');
   }
 
   async function pagarConWompi(concepto, id, label) {
@@ -288,7 +289,7 @@ export default function ResidenteDashboardPage() {
     // siempre (botón "Abriendo…" que bloquea reintentos). Se resetea solo.
     const timer = setTimeout(() => {
       setPagando(null);
-      setToast({ message: 'El pago se canceló o expiró. Podés volver a intentar.', type: 'info' });
+      toast.info('El pago se canceló o expiró. Podés volver a intentar.');
     }, 60000);
     const finalizar = () => {
       clearTimeout(timer);
@@ -301,7 +302,7 @@ export default function ResidenteDashboardPage() {
             // Idempotencia: si ya había un intento PENDIENTE con transacción creada en
       // Wompi, no se reabre el widget — solo se espera el estado final.
       if (sol.idTransaccionWompi) {
-        setToast({ message: 'Ya hay un pago en curso para este ítem. Esperando confirmación…', type: 'info' });
+        toast.info('Ya hay un pago en curso para este ítem. Esperando confirmación…');
         await pollEstadoWompi(sol.referencia);
         finalizar();
         return;
@@ -337,7 +338,7 @@ export default function ResidenteDashboardPage() {
       });
     } catch (err) {
       clearTimeout(timer);
-      setToast({ message: err.message || 'No se pudo iniciar el pago', type: 'error' });
+      toast.error(err.message || 'No se pudo iniciar el pago');
       setPagando(null);
     }
   }
@@ -358,7 +359,6 @@ export default function ResidenteDashboardPage() {
   const [confirmarPendiente, setConfirmarPendiente] = useState(null); // mensaje en modal o null
   const [confirmando, setConfirmando] = useState(false);
   const confirmandoRef = useRef(false);
-  const [toast, setToast] = useState(null);
   const failCountRef = useRef(0);
   const [backoffActivo, setBackoffActivo] = useState(false); // reactivo: recrea el intervalo al cambiar
 
@@ -380,7 +380,7 @@ export default function ResidenteDashboardPage() {
       failCountRef.current += 1;
       if (failCountRef.current >= 5 && !backoffActivo) {
         setBackoffActivo(true); // dispara re-render → el efecto recrea el intervalo con 30s
-        setToast({ message: 'No se pudo verificar visitas pendientes. Se reintentará automáticamente.', type: 'warning' });
+        toast.warning('No se pudo verificar visitas pendientes. Se reintentará automáticamente.');
       }
     }
   }
@@ -404,12 +404,12 @@ export default function ResidenteDashboardPage() {
     setConfirmando(true);
     try {
       await api.post('/buzon/confirmar', { idMensaje: confirmarPendiente.idMensaje, confirmado });
-      setToast({ message: confirmado === 1 ? 'Acceso confirmado' : 'Acceso rechazado', type: 'success' });
+      toast.success(confirmado === 1 ? 'Acceso confirmado' : 'Acceso rechazado');
       setConfirmarPendiente(null); // cierra; el próximo tick traerá el siguiente pendiente si hay
     } catch (err) {
       // El modal se MANTIENE abierto: el residente ve el error y puede reintentar;
       // el poll sigue pausado mientras haya modal.
-      setToast({ message: err.message, type: 'error' });
+      toast.error(err.message);
     } finally {
       confirmandoRef.current = false;
       setConfirmando(false);
@@ -451,9 +451,9 @@ export default function ResidenteDashboardPage() {
   async function copiarQR(codigoQr) {
     try {
       await navigator.clipboard.writeText(codigoQr);
-      setToast({ message: 'Código QR copiado al portapapeles', type: 'success' });
+      toast.success('Código QR copiado al portapapeles');
     } catch {
-      setToast({ message: 'No se pudo copiar el código', type: 'error' });
+      toast.error('No se pudo copiar el código');
     }
   }
 
@@ -601,8 +601,6 @@ export default function ResidenteDashboardPage() {
           </div>
         )}
       </Modal>
-
-      <Toast toast={toast} />
     </div>
   );
 }

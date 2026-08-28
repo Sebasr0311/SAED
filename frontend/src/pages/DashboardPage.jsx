@@ -1,11 +1,10 @@
-import { useMemo, useState } from 'react';
+﻿import { useMemo, useState } from 'react';
 import { useTenant } from '../lib/TenantContext.jsx';
 import { useTenantApi } from '../lib/useTenantApi.js';
 import { useFetch } from '../lib/hooks.js';
 import { formatCurrency } from '../lib/utils.js';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { StatCard } from '../components/ui/StatCard.jsx';
-import Toast from '../components/ui/Toast.jsx';
 
 /**
  * DashboardPage 2.0 — panel multi-tenant.
@@ -16,7 +15,6 @@ import Toast from '../components/ui/Toast.jsx';
  */
 
 export default function DashboardPage() {
-  const [toast, setToast] = useState(null);
   const tenant = useTenant();
   const tenantApi = useTenantApi();
 
@@ -136,8 +134,6 @@ export default function DashboardPage() {
           )}
         </section>
       </div>
-
-      <Toast toast={toast} />
     </div>
   );
 }

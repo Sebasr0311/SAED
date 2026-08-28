@@ -1,9 +1,9 @@
-import { useState, useMemo } from 'react';
+ï»¿import { useState, useMemo } from 'react';
+import { toast } from 'sonner';
 import { Input } from '../components/ui/Form.jsx';
 import { DataTable } from '../components/ui/DataTable.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
-import Toast from '../components/ui/Toast.jsx';
 import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
 import { formatDate, imageSrc } from '../lib/utils.js';
@@ -48,7 +48,7 @@ export default function PaquetesAdminPage() {
     { key: 'idMensaje', label: 'ID', width: 60 },
     { key: 'numeroApartamento', label: 'Apartamento' },
     { key: 'nombreResidente', label: 'Residente' },
-    { key: 'titulo', label: 'Descripción' },
+    { key: 'titulo', label: 'Descripciï¿½n' },
     { key: 'fechaCreacion', label: 'Recibido', render: (r) => formatDate(r.fechaCreacion) },
     {
       key: 'entregado',
@@ -84,7 +84,7 @@ export default function PaquetesAdminPage() {
         columns={columns}
         rows={filtrados}
         loading={loading}
-                empty={{ icon: 'inventory_2', title: 'No hay paquetes', subtitle: 'Los paquetes recibidos aparecerán aquí.' }}
+                empty={{ icon: 'inventory_2', title: 'No hay paquetes', subtitle: 'Los paquetes recibidos aparecerï¿½n aquï¿½.' }}
         error={error?.message}
         onRetry={refetch}
         keyField="idMensaje"
@@ -103,7 +103,7 @@ export default function PaquetesAdminPage() {
               <span>{detalle.nombreResidente}</span>
             </div>
             <div className="detail-row">
-              <span>Descripción</span>
+              <span>Descripciï¿½n</span>
               <span>{detalle.titulo}</span>
             </div>
             <div className="detail-row">
@@ -122,7 +122,6 @@ export default function PaquetesAdminPage() {
           </div>
         )}
       </Modal>
-      <Toast toast={toast} />
     </div>
   );
 }

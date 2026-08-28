@@ -1,4 +1,5 @@
-import { useRef, useState } from 'react';
+﻿import { useRef, useState } from 'react';
+import { toast } from 'sonner';
 import { useFetch, useTiposDocumento, useLiveValidation } from '../lib/hooks.js';
 import api from '../lib/api.js';
 import { useAuth } from '../lib/AuthContext.jsx';
@@ -8,14 +9,12 @@ import { Modal } from '../components/ui/Modal.jsx';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog.jsx';
 import { Input, Select } from '../components/ui/Form.jsx';
 import { valNombre, valApellido, valDocumento, valTelefono, valEmail, valPlaca } from '../lib/validation.js';
-import Toast from '../components/ui/Toast.jsx';
 import { formatDate } from '../lib/utils.js';
 
 export default function ResFrecuentesPage() {
   const { user } = useAuth();
   const { tiposDoc, error: errorTiposDoc } = useTiposDocumento();
   const { touch, fieldError } = useLiveValidation();
-  const [toast, setToast] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState({
     idTipoDoc: 1,
@@ -96,10 +95,10 @@ export default function ResFrecuentesPage() {
     if (!confirmQuitar) return;
     try {
       await api.del(`/residentes/${user?.idResidente}/frecuentes/${confirmQuitar.idFrecuente}`);
-      setToast({ message: 'Visitante frecuente quitado', type: 'success' });
+      toast.success('Visitante frecuente quitado');
       refetch();
     } catch (err) {
-      setToast({ message: err.message, type: 'error' });
+      toast.error(err.message);
     } finally {
       setConfirmQuitar(null);
     }
@@ -125,9 +124,9 @@ export default function ResFrecuentesPage() {
         notas: qrForm.notas.trim() || null,
       });
       setQrGenerado(res);
-      setToast({ message: 'QR generado para ' + qrModal.nombreVisitante, type: 'success' });
+      toast.success('QR generado para ' + qrModal.nombreVisitante);
     } catch (err) {
-      setToast({ message: err.message, type: 'error' });
+      toast.error(err.message);
     } finally {
       qrSendingRef.current = false;
       setQrSending(false);
@@ -185,7 +184,7 @@ export default function ResFrecuentesPage() {
         email: form.email.trim() || null,
         activo: true,
       });
-      setToast({ message: 'Visitante creado. Para marcarlo como frecuente, genere un QR de "Visita Rápida" en /res-visita', type: 'success' });
+      toast.success('Visitante creado. Para marcarlo como frecuente, genere un QR de "Visita Rápida" en /res-visita');
       setForm({
         idTipoDoc: 1,
         numeroDocumento: '',
@@ -198,7 +197,7 @@ export default function ResFrecuentesPage() {
       setModalOpen(false);
       refetch();
     } catch (err) {
-      setToast({ message: err.message, type: 'error' });
+      toast.error(err.message);
     } finally {
       savingRef.current = false;
       setSaving(false);
@@ -494,8 +493,6 @@ export default function ResFrecuentesPage() {
         confirmLabel="Quitar"
         danger
       />
-
-      <Toast toast={toast} />
     </div>
   );
 }

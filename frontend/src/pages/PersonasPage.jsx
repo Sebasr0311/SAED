@@ -1,4 +1,5 @@
-import { useState, useRef } from 'react';
+﻿import { useState, useRef } from 'react';
+import { toast } from 'sonner';
 import api from '../lib/api.js';
 import { useFetch, useLiveValidation } from '../lib/hooks.js';
 import { valEmail, valTelefono, valRequerido } from '../lib/validation.js';
@@ -9,7 +10,6 @@ import { DataTable } from '../components/ui/DataTable.jsx';
 import { Pagination } from '../components/ui/Pagination.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
-import Toast from '../components/ui/Toast.jsx';
 
 const PAGE_SIZE = 10;
 
@@ -43,7 +43,6 @@ export default function PersonasPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(emptyForm);
-  const [toast, setToast] = useState(null);
   const [formErrors, setFormErrors] = useState({});
   const savingRef = useRef(false);
 
@@ -82,7 +81,7 @@ export default function PersonasPage() {
     
     // Basic validations
     if (!form.numeroDocumento || !form.primerNombre || !form.primerApellido) {
-      setToast({ message: 'Por favor complete los campos obligatorios', type: 'error' });
+      toast.error('Por favor complete los campos obligatorios');
       return;
     }
 
@@ -91,11 +90,11 @@ export default function PersonasPage() {
     
     try {
       await api.post('/personas', form);
-      setToast({ message: 'Persona registrada correctamente', type: 'success' });
+      toast.success('Persona registrada correctamente');
       setModalOpen(false);
       refetch();
     } catch (err) {
-      setToast({ message: err.message || 'Error al registrar persona', type: 'error' });
+      toast.error(err.message || 'Error al registrar persona');
     } finally {
       savingRef.current = false;
       setSaving(false);
@@ -230,8 +229,6 @@ export default function PersonasPage() {
           />
         </div>
       </Modal>
-
-      <Toast toast={toast} />
     </div>
   );
 }

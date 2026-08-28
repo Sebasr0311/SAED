@@ -1,4 +1,5 @@
-import { useState, useRef } from 'react';
+﻿import { useState, useRef } from 'react';
+import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
@@ -7,7 +8,6 @@ import { Button } from '../components/ui/Button.jsx';
 import { Select, Textarea } from '../components/ui/Form.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
 import { DataTable } from '../components/ui/DataTable.jsx';
-import Toast from '../components/ui/Toast.jsx';
 import { formatDate, formatCurrency, imageSrc } from '../lib/utils.js';
 
 function Stat({ icon, value, label, color = 'primary' }) {
@@ -309,7 +309,7 @@ function ModalPaquetes({ open, onClose, onConfirm }) {
       onConfirm();
       refetch();
     } catch (err) {
-      showToast({ message: err.message || 'No se pudo marcar como entregado', type: 'error' });
+      toast.error(err.message || 'No se pudo marcar como entregado');
     } finally {
       setMarcaId(null);
     }
@@ -394,7 +394,6 @@ function ModalPaquetes({ open, onClose, onConfirm }) {
 
 export default function PorteroDashboardPage() {
   const navigate = useNavigate();
-  const [toast, setToast] = useState(null);
   const [modalAviso, setModalAviso] = useState(false);
   const [modalMulta, setModalMulta] = useState(null); // 'RUIDO' | 'PARQUEADERO' | null
   const [modalPaquetes, setModalPaquetes] = useState(false);
@@ -412,10 +411,6 @@ export default function PorteroDashboardPage() {
   const visitasActivas = (visitasHoy?.items || visitasHoy || []).filter((v) => v.estado === 'ACTIVA' || v.estado === 'PENDIENTE').length;
   const parqDisponibles = (parqueaderos?.items || parqueaderos || []).filter((p) => p.esVisitante).length;
   const paquetesCount = paquetes?.count ?? (Array.isArray(paquetes) ? paquetes.length : (paquetes?.items ? paquetes.items.length : 0));
-
-  function showToast(t) {
-    setToast(t);
-  }
 
   return (
     <div>
@@ -487,7 +482,7 @@ export default function PorteroDashboardPage() {
         onClose={() => setModalAviso(false)}
         onConfirm={() => {
           setModalAviso(false);
-          showToast({ message: 'Aviso de ruido enviado', type: 'success' });
+          toast.success('Aviso de ruido enviado');
         }}
         apartamentos={apartamentos?.items || []}
       />
@@ -497,7 +492,7 @@ export default function PorteroDashboardPage() {
         onClose={() => setModalMulta(null)}
         onConfirm={() => {
           setModalMulta(null);
-          showToast({ message: 'Multa generada', type: 'success' });
+          toast.success('Multa generada');
         }}
         apartamentos={apartamentos?.items || []}
         quejasRuido={quejasRuido?.items || quejasRuido || []}
@@ -507,9 +502,8 @@ export default function PorteroDashboardPage() {
       <ModalPaquetes
         open={modalPaquetes}
         onClose={() => setModalPaquetes(false)}
-        onConfirm={() => showToast({ message: 'Paquete marcado como entregado', type: 'success' })}
+        onConfirm={() => toast.success('Paquete marcado como entregado')}
       />
-      <Toast toast={toast} />
     </div>
   );
 }

@@ -5,7 +5,8 @@ import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { Button } from '../components/ui/Button.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
 import { Select } from '../components/ui/Form.jsx';
-import Toast from '../components/ui/Toast.jsx';
+import { toast } from 'sonner';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog.jsx';
 import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
 import { formatCurrency, formatDate, imageSrc } from '../lib/utils.js';
@@ -27,7 +28,6 @@ const PAGE_SIZE = 10;
 export default function MultasPage() {
   const [page, setPage] = useState(0);
   const [filtroEstado, setFiltroEstado] = useState('');
-  const [toast, setToast] = useState(null);
   const [detalle, setDetalle] = useState(null);
   const [loadingDetalle, setLoadingDetalle] = useState(false);
   const [fotoGrande, setFotoGrande] = useState(null);
@@ -45,7 +45,7 @@ export default function MultasPage() {
       const d = await api.get(`/multas/${row.idMulta}`);
       setDetalle(d);
     } catch (err) {
-      setToast({ message: err.message, type: 'error' });
+      toast.error(err.message);
     } finally {
       setLoadingDetalle(false);
     }
@@ -54,23 +54,27 @@ export default function MultasPage() {
   async function marcarPagada(row) {
     try {
       await api.put(`/multas/${row.idMulta}/pagar`, { metodoPago: 'EFECTIVO' });
-      setToast({ message: 'Multa marcada como pagada', type: 'success' });
+      toast.success('Multa marcada como pagada');
       refetch();
       if (detalle?.idMulta === row.idMulta) setDetalle(null);
     } catch (err) {
-      setToast({ message: err.message, type: 'error' });
+      toast.error(err.message);
     }
   }
 
-  async function anular(row) {
-    if (!window.confirm(`¿Anular la multa #${row.idMulta}?`)) return;
+  const [confirmAnular, setConfirmAnular] = useState(null);
+
+  async function anular() {
+    if (!confirmAnular) return;
     try {
-      await api.put(`/multas/${row.idMulta}/anular`);
-      setToast({ message: 'Multa anulada', type: 'success' });
+      await api.put(`/multas/${confirmAnular.idMulta}/anular`);
+      toast.success('Multa anulada');
       refetch();
-      if (detalle?.idMulta === row.idMulta) setDetalle(null);
+      if (detalle?.idMulta === confirmAnular.idMulta) setDetalle(null);
     } catch (err) {
-      setToast({ message: err.message, type: 'error' });
+      toast.error(err.message);
+    } finally {
+      setConfirmAnular(null);
     }
   }
 
@@ -126,7 +130,7 @@ export default function MultasPage() {
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                anular(row);
+                setConfirmAnular(row);
               }}
               className="btn btn-ghost btn-sm"
               aria-label="Anular"
@@ -252,7 +256,7 @@ export default function MultasPage() {
                 <Button onClick={() => marcarPagada(detalle)} style={{ flex: 1 }}>
                   Marcar Pagada
                 </Button>
-                <Button variant="danger" onClick={() => anular(detalle)} style={{ flex: 1 }}>
+                <Button variant="danger" onClick={() => setConfirmAnular(detalle)} style={{ flex: 1 }}>
                   Anular
                 </Button>
               </div>
@@ -283,7 +287,15 @@ export default function MultasPage() {
         </div>
       )}
 
-      <Toast toast={toast} />
+      <ConfirmDialog
+        open={!!confirmAnular}
+        onClose={() => setConfirmAnular(null)}
+        onConfirm={anular}
+        title="Anular multa"
+        message={`¿Anular la multa #${confirmAnular?.idMulta}?`}
+        confirmLabel="Anular"
+        danger
+      />
     </div>
   );
 }

@@ -1,4 +1,5 @@
-import { useRef, useState } from 'react';
+﻿import { useRef, useState } from 'react';
+import { toast } from 'sonner';
 import { useFetch, useLiveValidation } from '../lib/hooks.js';
 import api from '../lib/api.js';
 import { useAuth } from '../lib/AuthContext.jsx';
@@ -6,13 +7,11 @@ import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { Button } from '../components/ui/Button.jsx';
 import { Input, Select } from '../components/ui/Form.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
-import Toast from '../components/ui/Toast.jsx';
 import { valTelefono, valEmail, valUsername } from '../lib/validation.js';
 import { todayStr, dateToStr } from '../lib/utils.js';
 
 export default function ResPerfilPage() {
   const { user } = useAuth();
-  const [toast, setToast] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [edit, setEdit] = useState({ telefono: '', email: '' });
   const [errors, setErrors] = useState({});
@@ -47,11 +46,11 @@ export default function ResPerfilPage() {
         telefono: edit.telefono.replace(/\D/g, ''),
         email: edit.email || null,
       });
-      setToast({ message: 'Perfil actualizado', type: 'success' });
+      toast.success('Perfil actualizado');
       setModalOpen(false);
       refetch();
     } catch (err) {
-      setToast({ message: err.message, type: 'error' });
+      toast.error(err.message);
     } finally {
       savingRef.current = false;
       setSaving(false);
@@ -136,7 +135,6 @@ export default function ResPerfilPage() {
           />
         </div>
       </Modal>
-      <Toast toast={toast} />
     </div>
   );
 }

@@ -1,10 +1,11 @@
-import { useRef, useState } from 'react';
+﻿import { useRef, useState } from 'react';
 import { Button } from '../components/ui/Button.jsx';
 import { Input, Select, Textarea } from '../components/ui/Form.jsx';
 import { DataTable } from '../components/ui/DataTable.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
-import Toast from '../components/ui/Toast.jsx';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog.jsx';
+import { toast } from 'sonner';
 import { useFetch, useTiposDocumento, useLiveValidation } from '../lib/hooks.js';
 import api from '../lib/api.js';
 import { formatDate, formatMiles, imageSrc } from '../lib/utils.js';
@@ -60,7 +61,6 @@ const emptyForm = {
 export default function VisitasPage() {
   const [filtroEstado, setFiltroEstado] = useState('');
   const [filtroFecha, setFiltroFecha] = useState('');
-  const [toast, setToast] = useState(null);
   const [detalle, setDetalle] = useState(null);
   const [loadingDetalle, setLoadingDetalle] = useState(false);
   const [fotoGrande, setFotoGrande] = useState(null);
@@ -69,6 +69,7 @@ export default function VisitasPage() {
   const [errors, setErrors] = useState({});
   const [sending, setSending] = useState(false);
   const [qrGenerado, setQrGenerado] = useState(null);
+  const [confirmCancelar, setConfirmCancelar] = useState(null);
   const savingRef = useRef(false);
 
   const { data: dataRaw, loading, refetch } = useFetch(() => api.get('/porteria/visitas-resumen'), []);
@@ -99,7 +100,7 @@ export default function VisitasPage() {
       const d = await api.get(`/visitas/${row.idVisita}/detalle`);
       setDetalle(d);
     } catch (err) {
-      setToast({ message: err.message, type: 'error' });
+      toast.error(err.message);
     } finally {
       setLoadingDetalle(false);
     }
@@ -108,21 +109,23 @@ export default function VisitasPage() {
   async function registrarSalida(row) {
     try {
       await api.put(`/visitas/${row.idVisita}/salida`);
-      setToast({ message: 'Salida registrada', type: 'success' });
+      toast.success('Salida registrada');
       refetch();
     } catch (err) {
-      setToast({ message: err.message, type: 'error' });
+      toast.error(err.message);
     }
   }
 
-  async function cancelarVisita(row) {
-    if (!window.confirm(`¿Cancelar la visita #${row.idVisita}?`)) return;
+  async function cancelarVisita() {
+    if (!confirmCancelar) return;
     try {
-      await api.del(`/visitas/${row.idVisita}`);
-      setToast({ message: 'Visita cancelada', type: 'success' });
+      await api.del(`/visitas/${confirmCancelar.idVisita}`);
+      toast.success('Visita cancelada');
       refetch();
     } catch (err) {
-      setToast({ message: err.message, type: 'error' });
+      toast.error(err.message);
+    } finally {
+      setConfirmCancelar(null);
     }
   }
 
@@ -208,13 +211,13 @@ export default function VisitasPage() {
       }
       const res = await api.post('/porteria/visitas', { unidadId: d.unidadId, visitanteId: d.visitante.idPersona, metodoIngreso: d.metodoIngreso || 'PEATONAL', motivo: d.motivo, fechaProgramada: d.fechaVisita, estado: 'PROGRAMADA' });
       setQrGenerado({ ...res, emailVisitante: d.visitante.email });
-      setToast({ message: 'Visita registrada exitosamente', type: 'success' });
+      toast.success('Visita registrada exitosamente');
       setForm(emptyForm);
       setErrors({});
       refetch();
     } catch (err) {
       // Conservar los datos introducidos para permitir corregir y reintentar
-      setToast({ message: err.message, type: 'error' });
+      toast.error(err.message);
     } finally {
       savingRef.current = false;
       setSending(false);
@@ -233,8 +236,8 @@ export default function VisitasPage() {
     if (!qrGenerado?.codigoQr) return;
     navigator.clipboard
       .writeText(qrGenerado.codigoQr)
-      .then(() => setToast({ message: 'Código QR copiado al portapapeles', type: 'success' }))
-      .catch(() => setToast({ message: 'No se pudo copiar el código', type: 'error' }));
+      .then(() => toast.success('Código QR copiado al portapapeles'))
+      .catch(() => toast.error('No se pudo copiar el código'));
   }
 
   function compartirCorreo() {
@@ -300,7 +303,7 @@ export default function VisitasPage() {
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                cancelarVisita(row);
+                setConfirmCancelar(row);
               }}
               className="btn btn-ghost btn-sm"
               aria-label="Cancelar"
@@ -649,7 +652,15 @@ export default function VisitasPage() {
         </div>
       )}
 
-      <Toast toast={toast} />
+      <ConfirmDialog
+        open={!!confirmCancelar}
+        onClose={() => setConfirmCancelar(null)}
+        onConfirm={cancelarVisita}
+        title="Cancelar visita"
+        message={`¿Cancelar la visita #${confirmCancelar?.idVisita}?`}
+        confirmLabel="Cancelar visita"
+        danger
+      />
     </div>
   );
 }

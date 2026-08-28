@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+﻿import { useRef, useState } from 'react';
 import { Button } from '../components/ui/Button.jsx';
 import { Input, Select } from '../components/ui/Form.jsx';
 import { DataTable } from '../components/ui/DataTable.jsx';
@@ -6,7 +6,7 @@ import { Pagination } from '../components/ui/Pagination.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog.jsx';
-import Toast from '../components/ui/Toast.jsx';
+import { toast } from 'sonner';
 import { useFetch, useLiveValidation } from '../lib/hooks.js';
 import api, { BASE_URL } from '../lib/api.js';
 import { formatDate, formatCurrency, formatMiles, parseMiles } from '../lib/utils.js';
@@ -60,7 +60,6 @@ function calcularFechaFin(fechaInicio, tipo) {
 export default function ContratosPage() {
   const [page, setPage] = useState(0);
   const [filtroEstado, setFiltroEstado] = useState('');
-  const [toast, setToast] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [renovarModal, setRenovarModal] = useState(null);
   const [renovarForm, setRenovarForm] = useState({ fechaInicio: '', fechaFin: '', valorMensual: '', notas: '' });
@@ -73,6 +72,7 @@ export default function ContratosPage() {
   // VisitasPage (FASE 4.2-P2). disabled={state} NO bloquea clicks sincronicos — el ref es
   // la barrera real. Ambos flujos son mutuamente excluyentes desde la misma pantalla.
   const savingRef = useRef(false);
+  const [confirmReenviar, setConfirmReenviar] = useState(null);
   const [descargando, setDescargando] = useState(null);
 
   const { data: contratosRaw, loading, refetch } = useFetch(() => api.get('/contratos'), []);
@@ -107,29 +107,31 @@ export default function ContratosPage() {
         URL.revokeObjectURL(url);
       }, 100);
     } catch (err) {
-      setToast({ message: err.message, type: 'error' });
+      toast.error(err.message);
     } finally {
       setDescargando(null);
     }
   }
 
-  async function reenviarCorreo(idContrato) {
-    if (!window.confirm(`¿Desea reenviar el correo de notificación del contrato #${idContrato} al residente?`)) return;
+  async function reenviarCorreo() {
+    if (!confirmReenviar) return;
     try {
-      await api.post(`/contratos/${idContrato}/reenviar-correo`);
-      setToast({ message: 'Correo reenviado exitosamente', type: 'success' });
+      await api.post(`/contratos/${confirmReenviar}/reenviar-correo`);
+      toast.success('Correo reenviado exitosamente');
     } catch (err) {
-      setToast({ message: err.message, type: 'error' });
+      toast.error(err.message);
+    } finally {
+      setConfirmReenviar(null);
     }
   }
 
   async function activar(idContrato) {
     try {
       await api.post(`/contratos/${idContrato}/activar`);
-      setToast({ message: 'Contrato activado', type: 'success' });
+      toast.success('Contrato activado');
       refetch();
     } catch (err) {
-      setToast({ message: err.message, type: 'error' });
+      toast.error(err.message);
     }
   }
 
@@ -137,10 +139,10 @@ export default function ContratosPage() {
     if (!confirmCancelar) return;
     try {
       await api.post(`/contratos/${confirmCancelar.idContrato}/cancelar`);
-      setToast({ message: 'Contrato cancelado', type: 'success' });
+      toast.success('Contrato cancelado');
       refetch();
     } catch (err) {
-      setToast({ message: err.message, type: 'error' });
+      toast.error(err.message);
     }
   }
 
@@ -160,11 +162,11 @@ export default function ContratosPage() {
     if (savingRef.current) return; // doble submit
     if (!renovarModal) return;
     if (!renovarForm.fechaInicio) {
-      setToast({ message: 'La fecha de inicio es obligatoria', type: 'error' });
+      toast.error('La fecha de inicio es obligatoria');
       return;
     }
     if (!parseMiles(renovarForm.valorMensual) || parseMiles(renovarForm.valorMensual) <= 0) {
-      setToast({ message: 'El valor mensual debe ser mayor que 0', type: 'error' });
+      toast.error('El valor mensual debe ser mayor que 0');
       return;
     }
     savingRef.current = true;
@@ -176,12 +178,12 @@ export default function ContratosPage() {
         valorMensual: parseMiles(renovarForm.valorMensual),
         notas: renovarForm.notas,
       });
-      setToast({ message: 'Contrato renovado', type: 'success' });
+      toast.success('Contrato renovado');
       handleEmailStatus(res);
       setRenovarModal(null);
       refetch();
     } catch (err) {
-      setToast({ message: err.message, type: 'error' });
+      toast.error(err.message);
     } finally {
       savingRef.current = false;
       setSaving(false);
@@ -190,14 +192,11 @@ export default function ContratosPage() {
 
   function handleEmailStatus(res) {
     if (res.emailStatus === 'enviado') {
-      setToast({ message: 'Correo de notificación enviado al residente', type: 'success' });
+      toast.success('Correo de notificación enviado al residente');
     } else if (res.emailStatus === 'sin_email') {
-      setToast({ message: 'El residente no tiene correo electrónico registrado', type: 'warning' });
+      toast.warning('El residente no tiene correo electrónico registrado');
     } else if (res.emailStatus === 'error') {
-      setToast({
-        message: `Contrato creado. No se pudo enviar el correo: ${res.emailMensaje || ''}. Puede reenviarlo desde la tabla.`,
-        type: 'warning',
-      });
+      toast.warning(`Contrato creado. No se pudo enviar el correo: ${res.emailMensaje || ''}. Puede reenviarlo desde la tabla.`);
     }
   }
 
@@ -212,7 +211,7 @@ export default function ContratosPage() {
         }
       }
     } catch (err) {
-      setToast({ message: err.message || 'No se pudo sugerir el tipo de contrato', type: 'error' });
+      toast.error(err.message || 'No se pudo sugerir el tipo de contrato');
     }
   }
 
@@ -276,12 +275,12 @@ export default function ContratosPage() {
         enviarCorreo: form.enviarCorreo,
       };
       const res = await api.post('/contratos', payload);
-      setToast({ message: 'Contrato creado', type: 'success' });
+      toast.success('Contrato creado');
       handleEmailStatus(res);
       setModalOpen(false);
       refetch();
     } catch (err) {
-      setToast({ message: err.message, type: 'error' });
+      toast.error(err.message);
     } finally {
       savingRef.current = false;
       setSaving(false);
@@ -330,7 +329,7 @@ export default function ContratosPage() {
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                reenviarCorreo(row.idContrato);
+                setConfirmReenviar(row.idContrato);
               }}
               className="btn btn-ghost btn-xs"
               title="Reenviar correo"
@@ -594,7 +593,14 @@ export default function ContratosPage() {
         confirmLabel="Cancelar contrato"
         danger
       />
-      <Toast toast={toast} />
+      <ConfirmDialog
+        open={!!confirmReenviar}
+        onClose={() => setConfirmReenviar(null)}
+        onConfirm={reenviarCorreo}
+        title="Reenviar correo"
+        message={`¿Desea reenviar el correo de notificación del contrato #${confirmReenviar} al residente?`}
+        confirmLabel="Reenviar"
+      />
     </div>
   );
 }

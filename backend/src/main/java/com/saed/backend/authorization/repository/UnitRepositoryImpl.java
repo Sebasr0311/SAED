@@ -19,6 +19,16 @@ public class UnitRepositoryImpl implements UnitRepository {
         this.jdbcTemplate = jdbcTemplate;
     }
 
+    private static final String BASE_SELECT = """
+        SELECT u.id_unidad, u.id_propiedad, u.id_bloque, u.id_tipo_unidad,
+               u.identificador, u.area_m2, u.coeficiente_copropiedad, u.estado,
+               tu.codigo AS tipo_unidad_codigo, tu.nombre AS tipo_unidad_nombre,
+               b.codigo AS bloque_codigo, b.nombre AS bloque_nombre
+        FROM UNIDADES u
+        LEFT JOIN TIPOS_UNIDAD tu ON tu.id_tipo_unidad = u.id_tipo_unidad
+        LEFT JOIN BLOQUES b ON b.id_bloque = u.id_bloque
+    """;
+
     @Override
     public Long create(UnitRequestDTO request) {
         String sql = "INSERT INTO UNIDADES (id_propiedad, id_tipo_unidad, id_bloque, identificador, area_m2, coeficiente_copropiedad) " +
@@ -38,25 +48,14 @@ public class UnitRepositoryImpl implements UnitRepository {
 
     @Override
     public Optional<UnitDTO> findById(Long id) {
-        String sql = "SELECT id_unidad, id_propiedad, identificador, estado FROM UNIDADES WHERE id_unidad = :id";
-        List<UnitDTO> results = jdbcTemplate.query(sql, new MapSqlParameterSource("id", id), (rs, rowNum) -> {
-            UnitDTO dto = new UnitDTO();
-            dto.setId(rs.getLong("id_unidad"));
-            dto.setIdentificador(rs.getString("identificador"));
-            return dto;
-        });
+        String sql = BASE_SELECT + " WHERE u.id_unidad = :id";
+        List<UnitDTO> results = jdbcTemplate.query(sql, new MapSqlParameterSource("id", id), this::mapRow);
         return results.stream().findFirst();
     }
 
     @Override
     public List<UnitDTO> findAll() {
-        String sql = "SELECT id_unidad, identificador, estado FROM UNIDADES";
-        return jdbcTemplate.query(sql, (rs, rowNum) -> {
-            UnitDTO dto = new UnitDTO();
-            dto.setId(rs.getLong("id_unidad"));
-            dto.setIdentificador(rs.getString("identificador"));
-            return dto;
-        });
+        return jdbcTemplate.query(BASE_SELECT + " ORDER BY u.identificador", this::mapRow);
     }
 
     @Override
@@ -69,5 +68,26 @@ public class UnitRepositoryImpl implements UnitRepository {
                 .addValue("areaM2", request.getAreaM2())
                 .addValue("coeficienteCopropiedad", request.getCoeficienteCopropiedad());
         jdbcTemplate.update(sql, params);
+    }
+
+    private UnitDTO mapRow(java.sql.ResultSet rs, int rowNum) throws java.sql.SQLException {
+        UnitDTO dto = new UnitDTO();
+        dto.setId(rs.getLong("id_unidad"));
+        dto.setIdPropiedad(rs.getLong("id_propiedad"));
+        long idBloque = rs.getLong("id_bloque");
+        if (!rs.wasNull()) dto.setIdBloque(idBloque);
+        long idTipo = rs.getLong("id_tipo_unidad");
+        if (!rs.wasNull()) dto.setIdTipoUnidad(idTipo);
+        dto.setIdentificador(rs.getString("identificador"));
+        dto.setTipoUnidadCodigo(rs.getString("tipo_unidad_codigo"));
+        dto.setTipoUnidadNombre(rs.getString("tipo_unidad_nombre"));
+        dto.setBloqueCodigo(rs.getString("bloque_codigo"));
+        dto.setBloqueNombre(rs.getString("bloque_nombre"));
+        java.math.BigDecimal area = rs.getBigDecimal("area_m2");
+        if (!rs.wasNull()) dto.setAreaM2(area);
+        java.math.BigDecimal coef = rs.getBigDecimal("coeficiente_copropiedad");
+        if (!rs.wasNull()) dto.setCoeficienteCopropiedad(coef);
+        dto.setEstado(rs.getString("estado"));
+        return dto;
     }
 }

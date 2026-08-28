@@ -1,4 +1,5 @@
-import { useState, useRef } from 'react';
+﻿import { useState, useRef } from 'react';
+import { toast } from 'sonner';
 import { valNombre, valApellido, valDocumento, valFechaNacimiento, valTelefono, valEmail, valSelect } from '../lib/validation.js';
 import { Button } from '../components/ui/Button.jsx';
 import { Input, Select } from '../components/ui/Form.jsx';
@@ -7,7 +8,6 @@ import { Pagination } from '../components/ui/Pagination.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { ConfirmPasswordDialog } from '../components/ui/ConfirmPasswordDialog.jsx';
-import Toast from '../components/ui/Toast.jsx';
 import { useFetch, useTiposDocumento, useLiveValidation } from '../lib/hooks.js';
 import api from '../lib/api.js';
 
@@ -63,7 +63,6 @@ function ActionButtons({ onEdit, onDelete }) {
 export default function ResidentesPage() {
   const [page, setPage] = useState(0);
   const [search, setSearch] = useState('');
-  const [toast, setToast] = useState(null);
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
   const [modalOpen, setModalOpen] = useState(false);
@@ -232,11 +231,11 @@ export default function ResidentesPage() {
       if (editing) {
         await api.put(`/residentes/${editing.id}`, payload);
         idResidente = editing.id;
-        setToast({ message: 'Residente actualizado', type: 'success' });
+        toast.success('Residente actualizado');
       } else {
         const res = await api.post('/residentes', payload);
         idResidente = res.id;
-        setToast({ message: 'Residente creado', type: 'success' });
+        toast.success('Residente creado');
       }
 
       const aptSeleccionado = form.idApartamento !== '';
@@ -254,17 +253,16 @@ export default function ResidentesPage() {
             throw new Error('La asignación no se pudo confirmar en el servidor');
           }
         } catch (err) {
-          setToast({
-            message: `Residente guardado, pero la asignación al apartamento falló: ${err.message}`,
-            type: 'error',
-          });
+          toast.error(
+            `Residente guardado, pero la asignación al apartamento falló: ${err.message}`,
+          );
         }
       }
 
       setModalOpen(false);
       refetch();
     } catch (err) {
-      setToast({ message: err.message, type: 'error' });
+      toast.error(err.message);
     } finally {
       savingRef.current = false;
       setSaving(false);
@@ -274,10 +272,10 @@ export default function ResidentesPage() {
     if (!confirmDel) return;
     try {
       await api.del(`/residentes/${confirmDel.id}`);
-      setToast({ message: 'Residente eliminado', type: 'success' });
+      toast.success('Residente eliminado');
       refetch();
     } catch (err) {
-      setToast({ message: err.message, type: 'error' });
+      toast.error(err.message);
     } finally {
       setConfirmDel(null);
     }
@@ -552,8 +550,6 @@ export default function ResidentesPage() {
         }}
         descripcion={`eliminar a ${confirmDel?.nombres} ${confirmDel?.apellidos}`}
       />
-
-      <Toast toast={toast} />
     </div>
   );
 }

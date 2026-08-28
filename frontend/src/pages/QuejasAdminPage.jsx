@@ -1,11 +1,11 @@
 ﻿import { useState, useEffect, useRef } from 'react';
+import { toast } from 'sonner';
 import { Button } from '../components/ui/Button.jsx';
 import { Select, Textarea } from '../components/ui/Form.jsx';
 import { DataTable } from '../components/ui/DataTable.jsx';
 import { Pagination } from '../components/ui/Pagination.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
-import Toast from '../components/ui/Toast.jsx';
 import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
 import { formatDate, todayStr, imageSrc } from '../lib/utils.js';
@@ -47,7 +47,6 @@ export default function QuejasAdminPage() {
   const [filtroTipo, setFiltroTipo] = useState('');
   const [filtroPrioridad, setFiltroPrioridad] = useState('');
   const [search, setSearch] = useState('');
-  const [toast, setToast] = useState(null);
   const [modal, setModal] = useState(null);
   const [form, setForm] = useState({ estado: '', prioridad: '', respuesta: '' });
   const [saving, setSaving] = useState(false);
@@ -135,20 +134,20 @@ export default function QuejasAdminPage() {
       }
 
       if (!estadoCambio && !prioridadCambio && !respuestaCambio) {
-        setToast({ message: 'Sin cambios para guardar', type: 'info' });
+        toast.info('Sin cambios para guardar');
         setModal(null);
         return;
       }
 
       if (errors.length === 0) {
-        setToast({ message: 'Solicitud actualizada', type: 'success' });
+        toast.success('Solicitud actualizada');
       } else {
-        setToast({ message: `Actualizacion parcial: ${errors.join('; ')}`, type: 'warning' });
+        toast.warning(`Actualizacion parcial: ${errors.join('; ')}`);
       }
       setModal(null);
       refetch();
     } catch (err) {
-      setToast({ message: err.message, type: 'error' });
+      toast.error(err.message);
     } finally {
       setSaving(false);
     }
@@ -385,8 +384,6 @@ export default function QuejasAdminPage() {
           />
         </div>
       )}
-
-      <Toast toast={toast} />
     </div>
   );
 }
