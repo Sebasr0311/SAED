@@ -20,6 +20,7 @@ const PropiedadesPage = lazy(() => import('./pages/PropiedadesPage.jsx'));
 const RolesYAsignacionesPage = lazy(() => import('./pages/RolesYAsignacionesPage.jsx'));
 const PlanesPage = lazy(() => import('./pages/PlanesPage.jsx'));
 const MembresiasPage = lazy(() => import('./pages/MembresiasPage.jsx'));
+const ReportesPage = lazy(() => import('./pages/ReportesPage.jsx'));
 const VisitasPage = lazy(() => import('./pages/VisitasPage.jsx'));
 const ParqueaderosPage = lazy(() => import('./pages/ParqueaderosPage.jsx'));
 const PagosPage = lazy(() => import('./pages/PagosPage.jsx'));
@@ -151,6 +152,14 @@ export default function App() {
             element={
               <ProtectedRoute roles={['ADMINISTRADOR']}>
                 <MembresiasPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="reportes"
+            element={
+              <ProtectedRoute roles={['ADMINISTRADOR']}>
+                <ReportesPage />
               </ProtectedRoute>
             }
           />

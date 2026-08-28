@@ -34,6 +34,7 @@ const NAV_BY_ROLE = {
         { path: '/roles-asignaciones', label: 'Roles y Asignaciones', icon: 'admin_panel_settings' },
         { path: '/planes', label: 'Planes', icon: 'pricing_plan' },
         { path: '/membresias', label: 'Membresías', icon: 'card_membership' },
+        { path: '/reportes', label: 'Reportes', icon: 'assessment' },
       ],
     },
     {
