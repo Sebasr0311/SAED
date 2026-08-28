@@ -632,7 +632,11 @@ export default function VisitasPage() {
 
       {fotoGrande && (
         <div
+          role="dialog"
+          aria-label="Foto de visita"
+          tabIndex={0}
           onClick={() => setFotoGrande(null)}
+          onKeyDown={(e) => e.key === 'Escape' && setFotoGrande(null)}
           style={{
             position: 'fixed',
             inset: 0,

@@ -7,6 +7,7 @@ import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
 import { Button } from '../components/ui/Button.jsx';
 import { toast } from 'sonner';
+import { StatCard } from '../components/ui/StatCard.jsx';
 
 // Paleta de graficos: navy en light; tonos mas claros en dark para mantener
 // contraste sobre superficies oscuras. Se resuelve en runtime leyendo el tema.
@@ -33,20 +34,6 @@ function cssVar(name, fallback) {
   if (typeof document === 'undefined') return fallback;
   const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
   return v || fallback;
-}
-
-function Stat({ icon, value, label, color = 'primary' }) {
-  return (
-    <div className="stat-card">
-      <div className={`stat-icon ${color}`}>
-        <span className="material-symbols-outlined">{icon}</span>
-      </div>
-      <div className="stat-body" style={{ minWidth: 0 }}>
-        <div className="stat-value" style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{value}</div>
-        <div className="stat-label">{label}</div>
-      </div>
-    </div>
-  );
 }
 
 function drawDonut(canvas, data) {
@@ -464,15 +451,15 @@ export default function ResidenteDashboardPage() {
         subtitle={`Bienvenido${nombreResidente || user?.username ? `, ${nombreResidente || user?.username}` : ''}`}
       />
       <div className="card-grid-4">
-        <Stat icon="apartment" value={apartamento.numero || '—'} label="Apartamento" color="blue" />
-        <Stat icon="description" value={contrato.estado || '—'} label="Estado Contrato" color="amber" />
-        <Stat
+        <StatCard icon="apartment" value={apartamento.numero || '—'} label="Apartamento" color="blue" />
+        <StatCard icon="description" value={contrato.estado || '—'} label="Estado Contrato" color="amber" />
+        <StatCard
           icon="payments"
           value={formatCurrency(cuotasArriendo)}
           label="Cuotas de Arriendo"
           color="green"
         />
-        <Stat
+        <StatCard
           icon="gavel"
           value={formatCurrency(multasPendientes)}
           label="Multas Pendientes"

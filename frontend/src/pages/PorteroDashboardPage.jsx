@@ -9,20 +9,7 @@ import { Select, Textarea } from '../components/ui/Form.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
 import { DataTable } from '../components/ui/DataTable.jsx';
 import { formatDate, formatCurrency, imageSrc } from '../lib/utils.js';
-
-function Stat({ icon, value, label, color = 'primary' }) {
-  return (
-    <div className="stat-card">
-      <div className={`stat-icon ${color}`}>
-        <span className="material-symbols-outlined">{icon}</span>
-      </div>
-      <div className="stat-body">
-        <div className="stat-value">{value}</div>
-        <div className="stat-label">{label}</div>
-      </div>
-    </div>
-  );
-}
+import { StatCard } from '../components/ui/StatCard.jsx';
 
 function VideoCamara({ onCapture, label = 'Capturar Foto' }) {
   const videoRef = useRef(null);
@@ -416,10 +403,10 @@ export default function PorteroDashboardPage() {
     <div>
       <PageHeader title="Panel de Portería" />
       <div className="card-grid-4" style={{ marginBottom: '20px' }}>
-        <Stat icon="today" value={visitasHoyCount} label="Visitas Hoy" color="amber" />
-        <Stat icon="how_to_reg" value={visitasActivas} label="Visitas Activas" color="cyan" />
-        <Stat icon="local_parking" value={parqDisponibles} label="Parqueaderos Visitantes" color="green" />
-        <Stat icon="inventory_2" value={paquetesCount} label="Paquetes Pendientes" color="orange" />
+        <StatCard icon="today" value={visitasHoyCount} label="Visitas Hoy" color="amber" />
+        <StatCard icon="how_to_reg" value={visitasActivas} label="Visitas Activas" color="cyan" />
+        <StatCard icon="local_parking" value={parqDisponibles} label="Parqueaderos Visitantes" color="green" />
+        <StatCard icon="inventory_2" value={paquetesCount} label="Paquetes Pendientes" color="orange" />
       </div>
 
       <div className="card">

@@ -2234,3 +2234,20 @@ input:-webkit-autofill:focus {
 .btn .material-symbols-outlined, .btn-icon .material-symbols-outlined {
   font-size: 18px;
 }
+
+/* Layout utilities — replace inline styles */
+.flex-center { display: flex; align-items: center; justify-content: center; }
+.flex-between { display: flex; align-items: center; justify-content: space-between; }
+.flex-col { display: flex; flex-direction: column; }
+.flex-wrap { flex-wrap: wrap; }
+.gap-xs { gap: 4px; }
+.gap-sm { gap: 8px; }
+.gap-md { gap: 12px; }
+.gap-lg { gap: 16px; }
+.gap-xl { gap: 24px; }
+.text-sm { font-size: 0.875rem; }
+.text-xs { font-size: 0.75rem; }
+.text-lg { font-size: 1.125rem; }
+.truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.w-full { width: 100%; }
+.min-w-0 { min-width: 0; }

@@ -207,7 +207,8 @@ export default function AppShell() {
         if (ov) ov.remove();
       }
     });
-    obs.observe(document.body, { childList: true, subtree: true });
+    const target = document.getElementById('root') || document.body;
+    obs.observe(target, { childList: true, subtree: true });
     return () => {
       obs.disconnect();
       frameObserver?.disconnect();
