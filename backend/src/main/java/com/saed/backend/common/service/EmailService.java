@@ -1,36 +1,91 @@
 package com.saed.backend.common.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.saed.backend.finanzas.dto.ContratoDetalleDTO;
-import jakarta.mail.internet.MimeMessage;
-import org.springframework.core.io.ByteArrayResource;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
+/**
+ * EmailService — envío de correos via API HTTP de Brevo v3 (flujo SAED 1.0).
+ *
+ * Reemplaza JavaMailSender/SMTP por la API de Brevo (https://api.brevo.com/v3),
+ * que es el flujo que ya funcionaba en produccion en SAED 1.0 y que Gmail no
+ * bloquea desde hosts cloud (Render). Requiere BREVO_API_KEY en el entorno.
+ *
+ * Sender: gestion.residencias.upc@gmail.com (verificado en Brevo).
+ */
 @Service
 public class EmailService {
 
-    private final JavaMailSender mailSender;
-    private final TemplateRenderService templateService;
+    private static final String BREVO_URL = "https://api.brevo.com/v3/smtp/email";
+    private static final String BREVO_SENDER = "gestion.residencias.upc@gmail.com";
+    private static final String BREVO_SENDER_NAME = "SAED";
 
-    public EmailService(JavaMailSender mailSender, TemplateRenderService templateService) {
-        this.mailSender = mailSender;
+    private final TemplateRenderService templateService;
+    private final ObjectMapper objectMapper;
+    private final HttpClient httpClient;
+
+    // Lee la API key una sola vez (como el resto de las variables de entorno
+    // del backend: WOMPI_*, etc.). Si falta, el envío falla con mensaje claro.
+    private static final String BREVO_API_KEY = System.getenv("BREVO_API_KEY");
+
+    public EmailService(TemplateRenderService templateService, ObjectMapper objectMapper) {
         this.templateService = templateService;
+        this.objectMapper = objectMapper;
+        this.httpClient = HttpClient.newBuilder().connectTimeout(java.time.Duration.ofSeconds(15)).build();
     }
 
+    /** Envía un HTML (opcionalmente con un PDF adjunto en base64) via Brevo v3. */
     private void enviarHtml(String destinatario, String asunto, String html, byte[] pdfAdjunto, String pdfNombre) throws Exception {
         if (destinatario == null || destinatario.isBlank()) return;
-        MimeMessage message = mailSender.createMimeMessage();
-        MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-        helper.setTo(destinatario);
-        helper.setSubject(asunto);
-        helper.setText(html, true);
-        if (pdfAdjunto != null && pdfNombre != null) {
-            helper.addAttachment(pdfNombre, new ByteArrayResource(pdfAdjunto));
+        if (BREVO_API_KEY == null || BREVO_API_KEY.isBlank()) {
+            throw new IllegalStateException("Brevo no configurado: falta BREVO_API_KEY en el entorno.");
         }
-        mailSender.send(message);
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("sender", Map.of("name", BREVO_SENDER_NAME, "email", BREVO_SENDER));
+        payload.put("to", List.of(Map.of("email", destinatario)));
+        payload.put("subject", asunto);
+        payload.put("htmlContent", html);
+
+        if (pdfAdjunto != null && pdfAdjunto.length > 0 && pdfNombre != null && !pdfNombre.isBlank()) {
+            List<Map<String, String>> attachments = new ArrayList<>();
+            attachments.add(Map.of(
+                "content", Base64.getEncoder().encodeToString(pdfAdjunto),
+                "name", pdfNombre,
+                "type", "application/pdf"
+            ));
+            payload.put("attachment", attachments);
+        }
+
+        String body = objectMapper.writeValueAsString(payload);
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(BREVO_URL))
+                .timeout(java.time.Duration.ofSeconds(30))
+                .header("Content-Type", "application/json")
+                .header("Accept", "application/json")
+                .header("api-key", BREVO_API_KEY)
+                .POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8))
+                .build();
+
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+        if (response.statusCode() < 200 || response.statusCode() >= 300) {
+            throw new IllegalStateException(
+                "Brevo rechazó el envío a " + destinatario + " (HTTP " + response.statusCode() + "): " + response.body()
+            );
+        }
     }
 
     public void enviarEmailContrato(String destinatario, ContratoDetalleDTO detalle, byte[] pdfAdjunto, String pdfNombre) throws Exception {
@@ -58,12 +113,11 @@ public class EmailService {
                 "<h2>Codigo QR de Acceso</h2>" +
                 "<p>Se ha generado un acceso para: <strong>" + (nombreVisitante != null ? nombreVisitante : "tu visita") + "</strong>.</p>" +
                 "<p>El codigo es valido hasta: " + fechaExp + "</p>" +
-                "<div style=\"margin: 20px 0;\"><img src=\"cid:qrImage\" alt=\"QR Code\" style=\"width:200px; height:200px;\"/></div>" +
                 "<p>Token manual: " + tokenQR + "</p>" +
                 "</body></html>";
-        enviarHtml(destinatario, "Codigo QR de Acceso", html, null, null); // Note: inline QR cid attachment could be added
+        enviarHtml(destinatario, "Codigo QR de Acceso", html, null, null);
     }
-    
+
     public void enviarNotificacionPQRS(String destinatario, String radicado, String estado, String respuesta) throws Exception {
         String html = "<!DOCTYPE html><html><head><meta charset=\"UTF-8\"></head>" +
                 "<body style=\"font-family: Arial; padding: 20px;\">" +
