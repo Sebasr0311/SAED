@@ -101,10 +101,11 @@ public class WompiServiceImpl implements WompiService {
 
         String firma = firmaIntegridad(referencia, montoCentavos);
 
-        // Esquema 2.0 real de TRANSACCIONES_PAGO
+        // Esquema 2.0 real de TRANSACCIONES_PAGO (ID_TRANSACCION_PASARELA NOT NULL:
+        // placeholder temporal; el id real llega en el webhook transaction.updated)
         String sql = "INSERT INTO TRANSACCIONES_PAGO " +
-                     "(ID_UNIDAD, ID_PAGO, PASARELA, REFERENCIA_INTERNA, MONTO_CENTAVOS, MONEDA, ESTADO_PASARELA, METODO_ORIGEN, FIRMA_CHECKSUM) " +
-                     "VALUES (:u, NULL, 'WOMPI', :ref, :mc, 'COP', 'PENDIENTE', :concepto, :firma)";
+                     "(ID_UNIDAD, ID_PAGO, PASARELA, ID_TRANSACCION_PASARELA, REFERENCIA_INTERNA, MONTO_CENTAVOS, MONEDA, ESTADO_PASARELA, METODO_ORIGEN, FIRMA_CHECKSUM) " +
+                     "VALUES (:u, NULL, 'WOMPI', :ref, :ref, :mc, 'COP', 'PENDIENTE', :concepto, :firma)";
         jdbcTemplate.update(sql, new MapSqlParameterSource()
             .addValue("u", idUnidad)
             .addValue("ref", referencia)
