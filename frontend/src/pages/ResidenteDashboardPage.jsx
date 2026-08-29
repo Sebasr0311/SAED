@@ -540,6 +540,8 @@ export default function ResidenteDashboardPage() {
               <img
                 src={qrImageUrl(qr.codigoQr)}
                 alt={`QR de ${qr.nombreVisitante || 'visita'}`}
+                width="56"
+                height="56"
                 style={{ borderRadius: '4px', width: '56px', height: '56px', flexShrink: 0 }}
               />
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -576,6 +578,8 @@ export default function ResidenteDashboardPage() {
                   src={imageSrc(confirmarPendiente.fotoCaptura)}
                   alt="Foto del visitante"
                   loading="lazy"
+                  width="400"
+                  height="300"
                 style={{ maxWidth: '100%', maxHeight: '280px', objectFit: 'contain', borderRadius: '8px', border: '1px solid var(--border)' }}
               />
             )}

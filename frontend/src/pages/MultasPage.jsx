@@ -247,6 +247,8 @@ export default function MultasPage() {
                   src={imageSrc(detalle.fotoEvidencia)}
                   alt="Evidencia"
                   loading="lazy"
+                  width="400"
+                  height="300"
                 style={{ maxWidth: '100%', borderRadius: '8px', marginTop: '8px', cursor: 'zoom-in' }}
                 onClick={() => setFotoGrande(imageSrc(detalle.fotoEvidencia))}
               />
@@ -286,6 +288,8 @@ export default function MultasPage() {
           <img
             src={fotoGrande}
             alt="Evidencia"
+            width="800"
+            height="600"
             style={{ maxWidth: '90%', maxHeight: '90%', borderRadius: '8px' }}
           />
         </div>

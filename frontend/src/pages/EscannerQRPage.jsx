@@ -579,25 +579,25 @@ export default function EscannerQRPage() {
     <div>
       <PageHeader title="Escáner QR" subtitle="Validar entrada y registrar salida de visitantes" />
 
-      <div className="tabs">
-        <button className={`tab ${tab === 'validar' ? 'active' : ''}`} onClick={() => setTab('validar')}>
+      <div className="tabs" role="tablist" aria-label="Escáner QR">
+        <button className={`tab ${tab === 'validar' ? 'active' : ''}`} role="tab" aria-selected={tab === 'validar'} aria-controls="panel-validar" id="tab-validar" onClick={() => setTab('validar')}>
           Validar Entrada
         </button>
-        <button className={`tab ${tab === 'salida' ? 'active' : ''}`} onClick={() => setTab('salida')}>
+        <button className={`tab ${tab === 'salida' ? 'active' : ''}`} role="tab" aria-selected={tab === 'salida'} aria-controls="panel-salida" id="tab-salida" onClick={() => setTab('salida')}>
           Registrar Salida
         </button>
-        <button className={`tab ${tab === 'parqueaderos' ? 'active' : ''}`} onClick={() => setTab('parqueaderos')}>
+        <button className={`tab ${tab === 'parqueaderos' ? 'active' : ''}`} role="tab" aria-selected={tab === 'parqueaderos'} aria-controls="panel-parqueaderos" id="tab-parqueaderos" onClick={() => setTab('parqueaderos')}>
           Parqueaderos
         </button>
       </div>
 
-      <div className={`tab-content ${tab === 'validar' ? 'active' : ''}`}>
+      <div className={`tab-content ${tab === 'validar' ? 'active' : ''}`} role="tabpanel" id="panel-validar" aria-labelledby="tab-validar">
         <TabValidar />
       </div>
-      <div className={`tab-content ${tab === 'salida' ? 'active' : ''}`}>
+      <div className={`tab-content ${tab === 'salida' ? 'active' : ''}`} role="tabpanel" id="panel-salida" aria-labelledby="tab-salida">
         <TabRegistrarSalida />
       </div>
-      <div className={`tab-content ${tab === 'parqueaderos' ? 'active' : ''}`}>
+      <div className={`tab-content ${tab === 'parqueaderos' ? 'active' : ''}`} role="tabpanel" id="panel-parqueaderos" aria-labelledby="tab-parqueaderos">
         <TabParqueaderos />
       </div>
     </div>

@@ -159,6 +159,8 @@ export default function PaquetesPage() {
                   src={imageSrc(foto)}
                   alt="Foto del paquete"
                   loading="lazy"
+                  width="240"
+                  height="180"
               style={{ maxWidth: '240px', maxHeight: '180px', borderRadius: '8px', border: '1px solid var(--border)' }}
             />
           )}

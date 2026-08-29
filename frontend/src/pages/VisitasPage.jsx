@@ -622,6 +622,8 @@ export default function VisitasPage() {
                   src={imageSrc(detalle.fotoCaptura)}
                   alt="Foto"
                   loading="lazy"
+                  width="400"
+                  height="300"
                 style={{ maxWidth: '100%', borderRadius: '8px', marginTop: '8px', cursor: 'zoom-in' }}
                 onClick={() => setFotoGrande(imageSrc(detalle.fotoCaptura))}
               />
@@ -651,6 +653,8 @@ export default function VisitasPage() {
           <img
             src={fotoGrande}
             alt="Foto"
+            width="800"
+            height="600"
             style={{ maxWidth: '90%', maxHeight: '90%', borderRadius: '8px' }}
           />
         </div>

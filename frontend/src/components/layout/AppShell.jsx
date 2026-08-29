@@ -334,7 +334,7 @@ export default function AppShell() {
         <aside className={sidebarClasses} onMouseLeave={handleSidebarMouseLeave}>
           <div className="sidebar-logo-area">
             <div className="sidebar-logo-icon">
-              <img src={`${import.meta.env.BASE_URL}imagenes/saed_logo_emblem_only.png`} alt="SAED" />
+              <img src={`${import.meta.env.BASE_URL}imagenes/saed_logo_emblem_only.png`} alt="SAED" width="40" height="40" />
             </div>
             <div className="sidebar-logo-text">
               <span>SAED</span>

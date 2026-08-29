@@ -36,6 +36,8 @@ function HeroGallery() {
                 alt=""
                 loading="lazy"
                 decoding="async"
+                width="1920"
+                height="1080"
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
               />
             </div>
@@ -115,6 +117,8 @@ export default function LoginPage() {
                 <img
                   src={`${import.meta.env.BASE_URL}imagenes/saed_logo_final_blue.png`}
                   alt="SAED"
+                  width="200"
+                  height="60"
                 />
               </div>
               <p className="login-subtitle">Acceso seguro a tu edificio</p>

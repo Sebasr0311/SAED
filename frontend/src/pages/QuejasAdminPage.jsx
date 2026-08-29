@@ -305,6 +305,8 @@ export default function QuejasAdminPage() {
                   src={imageSrc(modal.fotoEvidencia)}
                   alt="Evidencia"
                   loading="lazy"
+                  width="400"
+                  height="300"
                   style={{ maxWidth: '100%', borderRadius: '8px', cursor: 'zoom-in' }}
                   onClick={() => setFotoGrande(imageSrc(modal.fotoEvidencia))}
                 />
@@ -352,7 +354,11 @@ export default function QuejasAdminPage() {
 
       {fotoGrande && (
         <div
+          role="dialog"
+          aria-label="Foto de evidencia"
+          tabIndex={0}
           onClick={() => setFotoGrande(null)}
+          onKeyDown={(e) => e.key === 'Escape' && setFotoGrande(null)}
           style={{
             position: 'fixed',
             inset: 0,
@@ -367,6 +373,8 @@ export default function QuejasAdminPage() {
           <img
             src={fotoGrande}
             alt="Foto"
+            width="800"
+            height="600"
             style={{ maxWidth: '90%', maxHeight: '90%', borderRadius: '8px' }}
           />
         </div>

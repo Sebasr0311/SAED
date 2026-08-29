@@ -255,6 +255,8 @@ export default function ResQuejasPage() {
                   src={imageSrc(foto)}
                   alt="Evidencia"
                   loading="lazy"
+                  width="200"
+                  height="150"
                 style={{ maxWidth: '200px', borderRadius: '8px' }}
               />
             </div>

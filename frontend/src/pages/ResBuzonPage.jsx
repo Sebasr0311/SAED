@@ -159,6 +159,8 @@ export default function ResBuzonPage() {
                   src={imageSrc(it.fotoCaptura)}
                   alt="Foto"
                   loading="lazy"
+                  width="80"
+                  height="80"
                     style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px', cursor: 'zoom-in', flexShrink: 0 }}
                     onClick={(e) => {
                       e.stopPropagation();
@@ -210,7 +212,11 @@ export default function ResBuzonPage() {
 
       {fotoGrande && (
         <div
+          role="dialog"
+          aria-label="Foto de evidencia"
+          tabIndex={0}
           onClick={() => setFotoGrande(null)}
+          onKeyDown={(e) => e.key === 'Escape' && setFotoGrande(null)}
           style={{
             position: 'fixed',
             inset: 0,
@@ -225,6 +231,8 @@ export default function ResBuzonPage() {
           <img
             src={fotoGrande}
             alt="Foto"
+            width="800"
+            height="600"
             style={{ maxWidth: '90%', maxHeight: '90%', borderRadius: '8px' }}
           />
         </div>

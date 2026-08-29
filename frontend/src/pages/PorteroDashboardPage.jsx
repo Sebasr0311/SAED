@@ -369,6 +369,8 @@ function ModalPaquetes({ open, onClose, onConfirm }) {
                   src={imageSrc(detalle.fotoCaptura)}
                   alt="Foto"
                   loading="lazy"
+                  width="400"
+                  height="300"
                 style={{ maxWidth: '100%', borderRadius: '8px' }}
               />
             )}
