@@ -28,6 +28,8 @@ const MultasPage = lazy(() => import('./pages/MultasPage.jsx'));
 const AlertasPage = lazy(() => import('./pages/AlertasPage.jsx'));
 const AvisosPage = lazy(() => import('./pages/AvisosPage.jsx'));
 const QuejasAdminPage = lazy(() => import('./pages/QuejasAdminPage.jsx'));
+const ReservasAdminPage = lazy(() => import('./pages/ReservasAdminPage.jsx'));
+const ResReservasPage = lazy(() => import('./pages/ResReservasPage.jsx'));
 const GananciasPage = lazy(() => import('./pages/GananciasPage.jsx'));
 const HistorialVisitasPage = lazy(() => import('./pages/HistorialVisitasPage.jsx'));
 const PaquetesAdminPage = lazy(() => import('./pages/PaquetesAdminPage.jsx'));
@@ -230,6 +232,14 @@ export default function App() {
             }
           />
           <Route
+            path="reservas-admin"
+            element={
+              <ProtectedRoute roles={['ADMINISTRADOR']}>
+                <ReservasAdminPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="ganancias"
             element={
               <ProtectedRoute roles={['ADMINISTRADOR']}>
@@ -396,6 +406,14 @@ export default function App() {
             element={
               <ProtectedRoute roles={['RESIDENTE']}>
                 <ResQuejasPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="res-reservas"
+            element={
+              <ProtectedRoute roles={['RESIDENTE']}>
+                <ResReservasPage />
               </ProtectedRoute>
             }
           />

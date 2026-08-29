@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useRef } from 'react';
 import { toast } from 'sonner';
 import { Button } from '../components/ui/Button.jsx';
 import { Select, Textarea } from '../components/ui/Form.jsx';
@@ -9,168 +9,113 @@ import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { StatCard } from '../components/ui/StatCard.jsx';
 import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
-import { formatDate, todayStr, imageSrc } from '../lib/utils.js';
+import { formatDate } from '../lib/utils.js';
 
-const ESTADOS = ['PENDIENTE', 'EN_REVISION', 'RESUELTA', 'CERRADA'];
-const PRIORIDADES = ['ALTA', 'MEDIA', 'BAJA'];
-const TIPOS = ['QUEJA', 'SUGERENCIA', 'APELACION'];
+const ESTADOS = ['RADICADO', 'EN_REVISION', 'RESUELTO', 'CERRADO'];
+const TIPOS = ['PETICION', 'QUEJA', 'RECLAMO', 'SUGERENCIA'];
 const PAGE_SIZE = 15;
 
 const ESTADO_BADGE = {
-  PENDIENTE: 'badge-pendiente-firma',
+  RADICADO: 'badge-pendiente-firma',
   EN_REVISION: 'badge-info',
-  RESUELTA: 'badge-activo',
-  CERRADA: 'badge-neutral',
-};
-const PRIORIDAD_BADGE = {
-  ALTA: 'badge-danger',
-  MEDIA: 'badge-warn',
-  BAJA: 'badge-neutral',
+  RESUELTO: 'badge-activo',
+  CERRADO: 'badge-neutral',
 };
 
 export default function QuejasAdminPage() {
   const [page, setPage] = useState(0);
   const [filtroEstado, setFiltroEstado] = useState('');
   const [filtroTipo, setFiltroTipo] = useState('');
-  const [filtroPrioridad, setFiltroPrioridad] = useState('');
   const [search, setSearch] = useState('');
   const [modal, setModal] = useState(null);
-  const [form, setForm] = useState({ estado: '', prioridad: '', respuesta: '' });
+  const [form, setForm] = useState({ estado: '', observacion: '' });
   const [saving, setSaving] = useState(false);
-  const [fotoGrande, setFotoGrande] = useState(null);
-  const intervalRef = useRef(null);
 
-  const { data, loading, error, refetch } = useFetch(() => api.get('/quejas/todas'), []);
-  const all = data?.items || data || [];
+  const { data, loading, error, refetch } = useFetch(() => api.get('/pqrs/todos'), []);
+  const all = data || [];
 
   const stats = {
     total: all.length,
-    pendientes: all.filter((i) => i.estado === 'PENDIENTE').length,
+    radicados: all.filter((i) => i.estado === 'RADICADO').length,
     revision: all.filter((i) => i.estado === 'EN_REVISION').length,
-    resueltas: all.filter((i) => i.estado === 'RESUELTA' || i.estado === 'CERRADA').length,
+    resueltos: all.filter((i) => i.estado === 'RESUELTO' || i.estado === 'CERRADO').length,
   };
 
-  const filtradas = useMemo(() => {
-    const base = all.filter((r) => {
-      if (!search) return true;
-      const term = search.toLowerCase();
-      return [r.titulo, r.descripcion, r.numeroApartamento, r.nombreResidente]
-        .filter(Boolean)
-        .some((v) => String(v).toLowerCase().includes(term));
-    });
-    return base.filter((r) => {
-      if (filtroEstado && r.estado !== filtroEstado) return false;
-      if (filtroTipo && r.tipo !== filtroTipo) return false;
-      if (filtroPrioridad && r.prioridad !== filtroPrioridad) return false;
-      return true;
-    });
-  }, [all, search, filtroEstado, filtroTipo, filtroPrioridad]);
-  const totalPages = Math.max(1, Math.ceil(filtradas.length / PAGE_SIZE));
+  const filtradas = all.filter((i) => {
+    if (filtroEstado && i.estado !== filtroEstado) return false;
+    if (filtroTipo && i.tipo !== filtroTipo) return false;
+    if (search) {
+      const q = search.toLowerCase();
+      if (!i.asunto?.toLowerCase().includes(q) && !i.numeroRadicado?.toLowerCase().includes(q)) {
+        return false;
+      }
+    }
+    return true;
+  });
+
+  const totalPages = Math.ceil(filtradas.length / PAGE_SIZE) || 1;
   const safePage = Math.min(page, totalPages - 1);
-  const rows = filtradas.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
+  const rows = filtradas.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
 
-  // Auto-refresh cada 5s (reducido de 1.5s del vanilla para no saturar)
-  useEffect(() => {
-    intervalRef.current = setInterval(() => {
-      if (document.visibilityState === 'visible') refetch();
-    }, 5000);
-    return () => clearInterval(intervalRef.current);
-  }, [refetch]);
-
-  function openDetalle(row) {
+  const openDetalle = (row) => {
+    setForm({ estado: row.estado, observacion: row.observacionCierre || '' });
     setModal(row);
-    setForm({ estado: row.estado, prioridad: row.prioridad, respuesta: row.respuestaAdmin || '' });
-  }
+  };
 
-  async function save() {
-    if (!modal) return;
+  const save = async () => {
+    if (!form.estado) return;
     setSaving(true);
     try {
-      // El backend expone endpoints separados para cada accion:
-      //   PUT /quejas/:id/estado     -> { estado }
-      //   PUT /quejas/:id/prioridad  -> { prioridad }
-      //   PUT /quejas/:id/responder  -> { respuesta } (tambien marca RESUELTA)
-      // Disparamos solo los que cambiaron respecto al original, en serie cuando
-      // hay que coordinar estado+respuesta (porque /responder fuerza RESUELTA y
-      // si el admin quiere un estado distinto hay que sobrescribirlo despues).
-      const estadoOriginal = modal.estado;
-      const prioridadOriginal = modal.prioridad;
-      const respuestaOriginal = modal.respuestaAdmin || '';
-
-      const estadoCambio = form.estado && form.estado !== estadoOriginal;
-      const prioridadCambio = form.prioridad && form.prioridad !== prioridadOriginal;
-      const respuestaCambio = (form.respuesta || '') !== respuestaOriginal && form.respuesta.trim() !== '';
-
-      const errors = [];
-      async function call(p) {
-        try { await p; } catch (e) { errors.push(e?.message || 'Error'); }
-      }
-
-      // 1) Si hay respuesta, llamar a /responder primero (siempre fuerza RESUELTA).
-      if (respuestaCambio) {
-        await call(api.put(`/quejas/${modal.idQueja}/responder`, { respuesta: form.respuesta }));
-      }
-      // 2) Despues aplicar el estado final deseado (si el admin queria otro estado
-      //    distinto a RESUELTA, sobrescribimos aqui).
-      if (estadoCambio) {
-        await call(api.put(`/quejas/${modal.idQueja}/estado`, { estado: form.estado }));
-      }
-      // 3) La prioridad es independiente.
-      if (prioridadCambio) {
-        await call(api.put(`/quejas/${modal.idQueja}/prioridad`, { prioridad: form.prioridad }));
-      }
-
-      if (!estadoCambio && !prioridadCambio && !respuestaCambio) {
-        toast.info('Sin cambios para guardar');
-        setModal(null);
-        return;
-      }
-
-      if (errors.length === 0) {
-        toast.success('Solicitud actualizada');
-      } else {
-        toast.warning(`Actualizacion parcial: ${errors.join('; ')}`);
-      }
+      await api.put(`/pqrs/${modal.idTicket}/estado`, null, { params: { estado: form.estado } });
+      toast.success('Estado del PQRS actualizado con éxito');
       setModal(null);
       refetch();
     } catch (err) {
-      toast.error(err.message);
+      toast.error('Error al actualizar PQRS');
     } finally {
       setSaving(false);
     }
-  }
+  };
 
   const columns = [
-    { key: 'idQueja', label: 'ID', width: 60 },
+    { key: 'numeroRadicado', label: 'Radicado' },
     { key: 'tipo', label: 'Tipo' },
-    { key: 'titulo', label: 'Título' },
-    { key: 'numeroApartamento', label: 'Apto' },
-    { key: 'nombreResidente', label: 'Residente' },
-    { key: 'categoria', label: 'Categoría' },
-    {
-      key: 'estado',
-      label: 'Estado',
-      render: (r) => <span className={`badge ${ESTADO_BADGE[r.estado] || 'badge-neutral'}`}>{r.estado}</span>,
-    },
-    {
-      key: 'prioridad',
-      label: 'Prioridad',
+    { key: 'asunto', label: 'Asunto' },
+    { 
+      key: 'estado', 
+      label: 'Estado', 
       render: (r) => (
-        <span className={`badge ${PRIORIDAD_BADGE[r.prioridad] || 'badge-neutral'}`}>{r.prioridad}</span>
-      ),
+        <span className={`badge ${ESTADO_BADGE[r.estado] || 'badge-neutral'}`}>
+          {r.estado}
+        </span>
+      ) 
     },
-    { key: 'fechaCreacion', label: 'Fecha', render: (r) => formatDate(r.fechaCreacion) },
+    { key: 'fechaRadicacion', label: 'Radicado El', render: (r) => formatDate(r.fechaRadicacion) },
+    { 
+      key: 'fechaLimiteSla', 
+      label: 'Vence (SLA)', 
+      render: (r) => {
+        const vence = new Date(r.fechaLimiteSla);
+        const hoy = new Date();
+        const isVencido = vence < hoy && r.estado !== 'RESUELTO' && r.estado !== 'CERRADO';
+        return (
+          <span style={{ color: isVencido ? 'var(--danger-color)' : 'inherit', fontWeight: isVencido ? 600 : 'normal' }}>
+            {formatDate(r.fechaLimiteSla)}
+          </span>
+        );
+      }
+    },
   ];
 
   return (
     <div>
-      <PageHeader title="Solicitudes" subtitle="Quejas, sugerencias y apelaciones" />
+      <PageHeader title="PQRS (Tickets)" subtitle="Peticiones, Quejas, Reclamos y Sugerencias" />
 
       <div className="card-grid-4" style={{ marginBottom: '20px' }}>
-        <StatCard icon="analytics" value={stats.total} label="Total" color="primary" />
-        <StatCard icon="pending" value={stats.pendientes} label="Pendientes" color="amber" />
+        <StatCard icon="confirmation_number" value={stats.total} label="Total PQRS" color="primary" />
+        <StatCard icon="pending" value={stats.radicados} label="Nuevos (Radicados)" color="amber" />
         <StatCard icon="visibility" value={stats.revision} label="En Revisión" color="blue" />
-        <StatCard icon="check_circle" value={stats.resueltas} label="Resueltas/Cerradas" color="green" />
+        <StatCard icon="check_circle" value={stats.resueltos} label="Resueltos" color="green" />
       </div>
 
       <div className="card" style={{ marginBottom: '16px' }}>
@@ -207,26 +152,10 @@ export default function QuejasAdminPage() {
               </option>
             ))}
           </Select>
-          <Select
-            id="f-prioridad"
-            value={filtroPrioridad}
-            onChange={(e) => {
-              setFiltroPrioridad(e.target.value);
-              setPage(0);
-            }}
-            className="filter-select"
-          >
-            <option value="">Todas las prioridades</option>
-            {PRIORIDADES.map((p) => (
-              <option key={p} value={p}>
-                {p}
-              </option>
-            ))}
-          </Select>
           <input
             id="search" aria-label="Buscar"
             type="text"
-            placeholder="Buscar en titulo/descripcion/apto..."
+            placeholder="Buscar radicado o asunto..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="form-control"
@@ -238,9 +167,9 @@ export default function QuejasAdminPage() {
         columns={columns}
         rows={rows}
         loading={loading}
-                empty={{ icon: 'support_agent', title: 'No hay solicitudes', subtitle: 'Las solicitudes de los residentes aparecerán aquí.' }}
-            error={error?.message}
-        keyField="idQueja"
+        empty={{ icon: 'support_agent', title: 'No hay PQRS', subtitle: 'Las PQRS de los residentes aparecerán aquí.' }}
+        error={error?.message}
+        keyField="idTicket"
         onRowClick={openDetalle}
       />
       <Pagination
@@ -254,7 +183,7 @@ export default function QuejasAdminPage() {
       <Modal
         open={!!modal}
         onClose={() => setModal(null)}
-        title="Detalle de la Solicitud"
+        title={`Detalle PQRS: ${modal?.numeroRadicado}`}
         size="lg"
         footer={
           <>
@@ -262,7 +191,7 @@ export default function QuejasAdminPage() {
               Cancelar
             </Button>
             <Button onClick={save} disabled={saving}>
-              {saving ? 'Guardando...' : 'Guardar'}
+              {saving ? 'Guardando...' : 'Guardar Estado'}
             </Button>
           </>
         }
@@ -279,43 +208,33 @@ export default function QuejasAdminPage() {
                 <div style={{ fontSize: '13px' }}>{modal.categoria}</div>
               </div>
               <div>
-                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Apartamento</div>
-                <div style={{ fontSize: '13px' }}>{modal.numeroApartamento}</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Fecha de Radicación</div>
+                <div style={{ fontSize: '13px' }}>{formatDate(modal.fechaRadicacion)}</div>
               </div>
               <div>
-                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Residente</div>
-                <div style={{ fontSize: '13px' }}>{modal.nombreResidente}</div>
-              </div>
-              <div>
-                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Fecha</div>
-                <div style={{ fontSize: '13px' }}>{formatDate(modal.fechaCreacion)}</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Vencimiento SLA</div>
+                <div style={{ fontSize: '13px', color: new Date(modal.fechaLimiteSla) < new Date() ? 'var(--danger-color)' : 'inherit' }}>
+                  {formatDate(modal.fechaLimiteSla)}
+                </div>
               </div>
             </div>
             <div className="form-group">
-              <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Título</div>
-              <div style={{ fontSize: '13px' }}>{modal.titulo}</div>
+              <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Asunto</div>
+              <div style={{ fontSize: '14px', fontWeight: 500 }}>{modal.asunto}</div>
             </div>
             <div className="form-group">
-              <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Descripción</div>
-              <div style={{ fontSize: '13px', whiteSpace: 'pre-wrap' }}>{modal.descripcion}</div>
-            </div>
-            {modal.fotoEvidencia && (
-              <div className="form-group">
-                <img
-                  src={imageSrc(modal.fotoEvidencia)}
-                  alt="Evidencia"
-                  loading="lazy"
-                  width="400"
-                  height="300"
-                  style={{ maxWidth: '100%', borderRadius: '8px', cursor: 'zoom-in' }}
-                  onClick={() => setFotoGrande(imageSrc(modal.fotoEvidencia))}
-                />
+              <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Descripción de la solicitud</div>
+              <div style={{ fontSize: '13px', whiteSpace: 'pre-wrap', background: 'var(--bg-secondary)', padding: '12px', borderRadius: '6px' }}>
+                {modal.descripcion}
               </div>
-            )}
-            <div className="form-row">
+            </div>
+            
+            <hr style={{ margin: '20px 0', borderColor: 'var(--border-color)' }} />
+            
+            <div className="form-group">
               <Select
                 id="estado"
-                label="Estado"
+                label="Actualizar Estado"
                 value={form.estado}
                 onChange={(e) => setForm((f) => ({ ...f, estado: e.target.value }))}
               >
@@ -325,60 +244,10 @@ export default function QuejasAdminPage() {
                   </option>
                 ))}
               </Select>
-              <Select
-                id="prioridad"
-                label="Prioridad"
-                value={form.prioridad}
-                onChange={(e) => setForm((f) => ({ ...f, prioridad: e.target.value }))}
-              >
-                {PRIORIDADES.map((p) => (
-                  <option key={p} value={p}>
-                    {p}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <div className="form-group">
-              <Textarea
-                id="respuesta"
-                label="Respuesta al residente (opcional)"
-                rows={4}
-                value={form.respuesta}
-                onChange={(e) => setForm((f) => ({ ...f, respuesta: e.target.value }))}
-                placeholder="Escribe tu respuesta aquí..."
-              />
             </div>
           </>
         )}
       </Modal>
-
-      {fotoGrande && (
-        <div
-          role="dialog"
-          aria-label="Foto de evidencia"
-          tabIndex={0}
-          onClick={() => setFotoGrande(null)}
-          onKeyDown={(e) => e.key === 'Escape' && setFotoGrande(null)}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.85)',
-            zIndex: 1000,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'zoom-out',
-          }}
-        >
-          <img
-            src={fotoGrande}
-            alt="Foto"
-            width="800"
-            height="600"
-            style={{ maxWidth: '90%', maxHeight: '90%', borderRadius: '8px' }}
-          />
-        </div>
-      )}
     </div>
   );
 }

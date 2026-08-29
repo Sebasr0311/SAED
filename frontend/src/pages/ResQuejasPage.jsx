@@ -1,4 +1,4 @@
-﻿import { useState, useRef, useEffect } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '../components/ui/Button.jsx';
 import { Input, Select, Textarea } from '../components/ui/Form.jsx';
@@ -8,189 +8,108 @@ import { Modal } from '../components/ui/Modal.jsx';
 import api from '../lib/api.js';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { useFetch, useLiveValidation } from '../lib/hooks.js';
-import { formatDate, imageSrc } from '../lib/utils.js';
+import { formatDate } from '../lib/utils.js';
 
 const CATS = [
-  { value: 'LIMPIEZA', label: 'Limpieza' },
-  { value: 'SEGURIDAD', label: 'Seguridad' },
+  { value: 'ADMINISTRACION', label: 'Administración' },
   { value: 'MANTENIMIENTO', label: 'Mantenimiento' },
   { value: 'CONVIVENCIA', label: 'Convivencia' },
+  { value: 'SEGURIDAD', label: 'Seguridad' },
   { value: 'ZONAS_COMUNES', label: 'Zonas Comunes' },
   { value: 'OTRO', label: 'Otro' },
 ];
 
+const TIPOS = [
+  { value: 'PETICION', label: 'Petición' },
+  { value: 'QUEJA', label: 'Queja' },
+  { value: 'RECLAMO', label: 'Reclamo' },
+  { value: 'SUGERENCIA', label: 'Sugerencia' },
+];
+
+const PRIORIDADES = [
+  { value: 'BAJA', label: 'Baja' },
+  { value: 'MEDIA', label: 'Media' },
+  { value: 'ALTA', label: 'Alta' },
+];
+
 const ESTADO_BADGE = {
-  PENDIENTE: 'badge-pendiente-firma',
+  RADICADO: 'badge-pendiente-firma',
   EN_REVISION: 'badge-info',
-  RESUELTA: 'badge-activo',
-  CERRADA: 'badge-neutral',
+  RESUELTO: 'badge-activo',
+  CERRADO: 'badge-neutral',
 };
-
-function CamaraCaptura({ onCapture, onCancel }) {
-  const videoRef = useRef(null);
-  const canvasRef = useRef(null);
-  const [stream, setStream] = useState(null);
-  const [error, setError] = useState('');
-
-  useEffect(() => () => detener(), []);
-
-  async function iniciar() {
-    try {
-      const s = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment' },
-        audio: false,
-      });
-      setStream(s);
-      setTimeout(() => {
-        if (videoRef.current) {
-          videoRef.current.srcObject = s;
-          videoRef.current.play();
-        }
-      }, 50);
-    } catch (e) {
-      setError('No se pudo acceder a la cámara: ' + e.message);
-    }
-  }
-  function detener() {
-    if (stream) {
-      stream.getTracks().forEach((t) => t.stop());
-      setStream(null);
-    }
-  }
-  function capturar() {
-    const v = videoRef.current;
-    const c = canvasRef.current;
-    if (!v || !c) return;
-    c.width = v.videoWidth || 640;
-    c.height = v.videoHeight || 480;
-    c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
-    const dataUrl = c.toDataURL('image/jpeg', 0.8);
-    onCapture(dataUrl.split(',')[1]);
-    detener();
-    onCancel();
-  }
-
-  return (
-    <div>
-      {error && <p className="field-error">{error}</p>}
-      {stream ? (
-        <video
-          ref={videoRef}
-          autoPlay
-          playsInline
-          muted
-          style={{ width: '100%', maxHeight: '320px', borderRadius: '12px', background: 'var(--preview-bg)' }}
-        />
-      ) : (
-        <Button onClick={iniciar}>Activar Cámara</Button>
-      )}
-      <canvas ref={canvasRef} style={{ display: 'none' }} />
-      {stream && (
-        <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-          <Button onClick={capturar}>Capturar</Button>
-          <Button variant="outline" onClick={() => { detener(); onCancel(); }}>
-            Cancelar
-          </Button>
-        </div>
-      )}
-    </div>
-  );
-}
 
 export default function ResQuejasPage() {
   const { user } = useAuth();
-  const [form, setForm] = useState({
-    tipo: 'QUEJA',
-    categoria: 'LIMPIEZA',
-    titulo: '',
-    descripcion: '',
-    idMulta: '',
+  const [form, setForm] = useState({ tipo: 'PETICION', categoria: 'ADMINISTRACION', prioridad: 'MEDIA', asunto: '', descripcion: '' });
+  const [saving, setSaving] = useState(false);
+  const [modal, setModal] = useState(null);
+
+  const { data, loading, refetch } = useFetch(() => api.get(`/pqrs/mis-tickets`), [user]);
+  const rows = data || [];
+
+  const { validate, errors } = useLiveValidation(form, {
+    asunto: (v) => (!v.trim() ? 'El asunto es obligatorio' : ''),
+    descripcion: (v) => (!v.trim() ? 'La descripción es obligatoria' : ''),
   });
-  const [sending, setSending] = useState(false);
-  // Guard anti doble-submit: mismo patron que VisitasPage (FASE 4.2-P2).
-  const sendingRef = useRef(false);
-  const [foto, setFoto] = useState(null);
-  const [showCamara, setShowCamara] = useState(false);
-  const [detalle, setDetalle] = useState(null);
-  const { touch, fieldError } = useLiveValidation();
 
-  const { data, loading, refetch } = useFetch(
-    () => api.get(`/quejas`),
-    [user]
-  );
-
-  const { data: multasData } = useFetch(
-    () =>
-      form.tipo === 'APELACION' && user?.idResidente
-        ? api.get(`/residentes/${user.idResidente}/dashboard`).catch(() => null)
-        : Promise.resolve(null),
-    [user, form.tipo]
-  );
-  const multas = ((multasData?.raw || multasData)?.multas || []).filter(
-    (m) => m.estado !== 'ANULADA'
-  );
-
-  function update(k, v) {
-    setForm((f) => ({ ...f, [k]: v }));
-  }
-
-  async function send() {
-    if (sendingRef.current) return; // doble submit
-    if (!form.titulo || !form.descripcion) {
-      toast.error('Título y descripción son obligatorios');
-      return;
-    }
-    if (form.tipo === 'APELACION' && !form.idMulta) {
-      toast.error('Seleccione la multa a apelar');
-      return;
-    }
-    sendingRef.current = true;
-    setSending(true);
+  const onSubmit = async (e) => {
+    e.preventDefault();
+    if (!validate()) return;
+    setSaving(true);
     try {
-      const payload = { ...form, idResidente: user.idResidente };
-      if (form.tipo === 'APELACION' && form.idMulta) payload.idMulta = Number(form.idMulta);
-      if (foto) payload.fotoEvidencia = foto;
-      await api.post('/quejas', payload);
-      toast.success('Solicitud enviada');
-      setForm({ tipo: 'QUEJA', categoria: 'LIMPIEZA', titulo: '', descripcion: '', idMulta: '' });
-      setFoto(null);
+      const payload = { ...form };
+      await api.post('/pqrs', payload);
+      toast.success('PQRS radicada exitosamente');
+      setForm({ tipo: 'PETICION', categoria: 'ADMINISTRACION', prioridad: 'MEDIA', asunto: '', descripcion: '' });
       refetch();
     } catch (err) {
-      toast.error(err.message);
+      toast.error('Error al enviar la PQRS');
     } finally {
-      sendingRef.current = false;
-      setSending(false);
+      setSaving(false);
     }
-  }
+  };
 
   const columns = [
-    { key: 'idQueja', label: 'ID', width: 60 },
+    { key: 'numeroRadicado', label: 'Radicado' },
     { key: 'tipo', label: 'Tipo' },
-    { key: 'titulo', label: 'Título' },
-    {
-      key: 'estado',
-      label: 'Estado',
-      render: (r) => <span className={`badge ${ESTADO_BADGE[r.estado] || 'badge-neutral'}`}>{r.estado}</span>,
+    { key: 'asunto', label: 'Asunto' },
+    { 
+      key: 'estado', 
+      label: 'Estado', 
+      render: (r) => (
+        <span className={`badge ${ESTADO_BADGE[r.estado] || 'badge-neutral'}`}>
+          {r.estado}
+        </span>
+      ) 
     },
-    { key: 'fechaCreacion', label: 'Fecha', render: (r) => formatDate(r.fechaCreacion) },
+    { key: 'fechaRadicacion', label: 'Radicado El', render: (r) => formatDate(r.fechaRadicacion) },
   ];
 
   return (
-    <div>
-      <PageHeader title="Mis Solicitudes" subtitle="Quejas, sugerencias y apelaciones" />
-      <div className="card" style={{ marginBottom: '24px', maxWidth: '720px' }}>
-        <h3 className="card-title">Nueva solicitud</h3>
-        <div className="form-row">
-          <Select id="tipo" label="Tipo" value={form.tipo} onChange={(e) => update('tipo', e.target.value)}>
-            <option value="QUEJA">Queja</option>
-            <option value="SUGERENCIA">Sugerencia</option>
-            <option value="APELACION">Apelación</option>
+    <div style={{ maxWidth: '900px', margin: '0 auto' }}>
+      <PageHeader title="Mis PQRS" subtitle="Radica tus Peticiones, Quejas, Reclamos y Sugerencias" />
+
+      <div className="card" style={{ marginBottom: '24px' }}>
+        <h3 style={{ marginBottom: '16px' }}>Radicar nueva PQRS</h3>
+        <form onSubmit={onSubmit} className="card-grid-2">
+          <Select
+            id="tipo"
+            label="Tipo de Solicitud"
+            value={form.tipo}
+            onChange={(e) => setForm((f) => ({ ...f, tipo: e.target.value }))}
+          >
+            {TIPOS.map((c) => (
+              <option key={c.value} value={c.value}>
+                {c.label}
+              </option>
+            ))}
           </Select>
           <Select
             id="categoria"
             label="Categoría"
             value={form.categoria}
-            onChange={(e) => update('categoria', e.target.value)}
+            onChange={(e) => setForm((f) => ({ ...f, categoria: e.target.value }))}
           >
             {CATS.map((c) => (
               <option key={c.value} value={c.value}>
@@ -198,141 +117,112 @@ export default function ResQuejasPage() {
               </option>
             ))}
           </Select>
-        </div>
-        {form.tipo === 'APELACION' && (
-          <div className="form-group">
-            <Select
-              id="idMulta"
-              label="Multa a apelar"
-              value={form.idMulta}
-              onChange={(e) => update('idMulta', e.target.value)}
-              onBlur={() => touch('idMulta')}
-              error={fieldError('idMulta', form.idMulta ? { ok: true } : { ok: false, mensaje: 'Seleccione la multa a apelar' })}
-            >
-              <option value="">— Seleccionar multa —</option>
-              {multas.map((m) => (
-                <option key={m.idMulta} value={m.idMulta}>
-                  Multa #{m.idMulta} — {m.tipo || 'Multa'}
-                  {m.monto ? ` — $${m.monto}` : ''}
-                </option>
-              ))}
-            </Select>
-            {multas.length === 0 && (
-              <p className="field-error" style={{ marginTop: '4px' }}>
-                No tienes multas para apelar
-              </p>
-            )}
-          </div>
-        )}
-        <div className="form-group">
+          <Select
+            id="prioridad"
+            label="Prioridad"
+            value={form.prioridad}
+            onChange={(e) => setForm((f) => ({ ...f, prioridad: e.target.value }))}
+          >
+            {PRIORIDADES.map((c) => (
+              <option key={c.value} value={c.value}>
+                {c.label}
+              </option>
+            ))}
+          </Select>
           <Input
-            id="titulo"
-            label="Título"
-            value={form.titulo}
-            onChange={(e) => update('titulo', e.target.value)}
-            onBlur={() => touch('titulo')}
-            error={fieldError('titulo', form.titulo.trim() ? { ok: true } : { ok: false, mensaje: 'El título es obligatorio' })}
+            id="asunto"
+            label="Asunto"
+            placeholder="Breve título descriptivo..."
+            value={form.asunto}
+            onChange={(e) => setForm((f) => ({ ...f, asunto: e.target.value }))}
+            error={errors.asunto}
           />
-        </div>
-        <div className="form-group">
-          <Textarea
-            id="descripcion"
-            label="Descripción"
-            rows={4}
-            value={form.descripcion}
-            onChange={(e) => update('descripcion', e.target.value)}
-            onBlur={() => touch('descripcion')}
-            error={fieldError('descripcion', form.descripcion.trim() ? { ok: true } : { ok: false, mensaje: 'La descripción es obligatoria' })}
-          />
-        </div>
-        <div className="form-group">
-          <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>
-            Foto de evidencia (opcional)
-          </label>
-          {foto && (
-            <div style={{ marginBottom: '8px' }}>
-              <img
-                  src={imageSrc(foto)}
-                  alt="Evidencia"
-                  loading="lazy"
-                  width="200"
-                  height="150"
-                style={{ maxWidth: '200px', borderRadius: '8px' }}
-              />
-            </div>
-          )}
-          {!showCamara && (
-            <Button variant="outline" onClick={() => setShowCamara(true)}>
-              {foto ? 'Retomar Foto' : 'Tomar Foto'}
-            </Button>
-          )}
-          {showCamara && (
-            <CamaraCaptura
-              onCapture={(b) => setFoto(b)}
-              onCancel={() => setShowCamara(false)}
+          <div style={{ gridColumn: '1 / -1' }}>
+            <Textarea
+              id="descripcion"
+              label="Descripción detallada"
+              rows={4}
+              placeholder="Explique su solicitud con claridad..."
+              value={form.descripcion}
+              onChange={(e) => setForm((f) => ({ ...f, descripcion: e.target.value }))}
+              error={errors.descripcion}
             />
-          )}
-        </div>
-        <Button onClick={send} disabled={sending}>
-          {sending ? 'Enviando...' : 'Enviar Solicitud'}
-        </Button>
+          </div>
+          
+          <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
+            <Button type="submit" disabled={saving}>
+              {saving ? 'Enviando...' : 'Radicar PQRS'}
+            </Button>
+          </div>
+        </form>
       </div>
 
-                        <h3 className="mb-3 text-[15px] font-semibold">Historial</h3>
+      <h3 style={{ marginBottom: '16px' }}>Mi Historial de PQRS</h3>
       <DataTable
         columns={columns}
-        rows={data?.items || data || []}
+        rows={rows}
         loading={loading}
-                empty={{ icon: 'forum', title: 'No has enviado solicitudes', subtitle: 'Usa el formulario para enviar tu primera solicitud.' }}
-        keyField="idQueja"
-        onRowClick={setDetalle}
+        empty={{ icon: 'inbox', title: 'Aún no tienes radicados', subtitle: 'Tus tickets aparecerán aquí.' }}
+        keyField="idTicket"
+        onRowClick={(r) => setModal(r)}
       />
 
-      <Modal open={!!detalle} onClose={() => setDetalle(null)} title="Detalle de Solicitud" size="md">
-        {detalle && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <div className="detail-row">
-              <span>Tipo</span>
-              <span>{detalle.tipo}</span>
-            </div>
-            <div className="detail-row">
-              <span>Categoría</span>
-              <span>{detalle.categoria}</span>
-            </div>
-            <div className="detail-row">
-              <span>Estado</span>
-              <span>
-                <span className={`badge ${ESTADO_BADGE[detalle.estado] || 'badge-neutral'}`}>
-                  {detalle.estado}
-                </span>
-              </span>
-            </div>
-            <div className="detail-row">
-              <span>Fecha</span>
-              <span>{formatDate(detalle.fechaCreacion)}</span>
-            </div>
-            <div>
-              <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Título</div>
-              <div style={{ fontSize: '13px' }}>{detalle.titulo}</div>
-            </div>
-            <div>
-              <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Descripción</div>
-              <div style={{ fontSize: '13px', whiteSpace: 'pre-wrap' }}>{detalle.descripcion}</div>
-            </div>
-            {detalle.respuestaAdmin && (
-              <div
-                style={{
-                  background: 'var(--accent-green-bg)',
-                  padding: '12px',
-                  borderRadius: '8px',
-                  border: '1px solid var(--accent-green)',
-                }}
-              >
-                <div style={{ fontSize: '11px', color: 'var(--success-strong)', fontWeight: 600 }}>Respuesta del administrador</div>
-                <div style={{ fontSize: '13px', marginTop: '4px' }}>{detalle.respuestaAdmin}</div>
+      <Modal
+        open={!!modal}
+        onClose={() => setModal(null)}
+        title={`Detalle PQRS: ${modal?.numeroRadicado}`}
+        footer={
+          <Button variant="outline" onClick={() => setModal(null)}>
+            Cerrar
+          </Button>
+        }
+      >
+        {modal && (
+          <>
+            <div className="card-grid-2" style={{ marginBottom: '16px' }}>
+              <div>
+                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Tipo y Categoría</div>
+                <div style={{ fontSize: '13px' }}>{modal.tipo} - {modal.categoria}</div>
               </div>
-            )}
-          </div>
+              <div>
+                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Estado Actual</div>
+                <div style={{ fontSize: '13px' }}>
+                  <span className={`badge ${ESTADO_BADGE[modal.estado] || 'badge-neutral'}`}>
+                    {modal.estado}
+                  </span>
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Fecha de Radicación</div>
+                <div style={{ fontSize: '13px' }}>{formatDate(modal.fechaRadicacion)}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Vencimiento SLA</div>
+                <div style={{ fontSize: '13px', color: new Date(modal.fechaLimiteSla) < new Date() ? 'var(--danger-color)' : 'inherit' }}>
+                  {formatDate(modal.fechaLimiteSla)}
+                </div>
+              </div>
+            </div>
+            <div className="form-group">
+              <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Asunto</div>
+              <div style={{ fontSize: '14px', fontWeight: 500 }}>{modal.asunto}</div>
+            </div>
+            <div className="form-group" style={{ marginBottom: '16px' }}>
+              <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Descripción de la solicitud</div>
+              <div style={{ fontSize: '13px', whiteSpace: 'pre-wrap', background: 'var(--bg-secondary)', padding: '12px', borderRadius: '6px' }}>
+                {modal.descripcion}
+              </div>
+            </div>
+            
+            {modal.estado === 'RESUELTO' || modal.estado === 'CERRADO' ? (
+              <div className="form-group">
+                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Observaciones de Cierre</div>
+                <div style={{ fontSize: '13px', whiteSpace: 'pre-wrap', background: 'var(--bg-accent)', color: 'var(--accent-color)', padding: '12px', borderRadius: '6px' }}>
+                  {modal.observacionCierre || 'Ticket cerrado sin observaciones adicionales.'}
+                </div>
+              </div>
+            ) : null}
+          </>
         )}
       </Modal>
     </div>

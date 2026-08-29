@@ -72,7 +72,10 @@ const NAV_BY_ROLE = {
       id: 'gestion',
       label: 'Gestión',
       icon: 'support_agent',
-      items: [{ path: '/quejas-admin', label: 'Solicitudes', icon: 'support_agent' }],
+      items: [
+        { path: '/quejas-admin', label: 'PQRS (Tickets)', icon: 'support_agent' },
+        { path: '/reservas-admin', label: 'Reservas Z.C.', icon: 'event' }
+      ],
     },
   ],
   PORTERO: [
@@ -131,7 +134,8 @@ const NAV_BY_ROLE = {
       icon: 'campaign',
       items: [
         { path: '/res-buzon', label: 'Buzón', icon: 'mail' },
-        { path: '/res-quejas', label: 'Solicitudes', icon: 'support_agent' },
+        { path: '/res-quejas', label: 'PQRS', icon: 'support_agent' },
+        { path: '/res-reservas', label: 'Zonas Comunes', icon: 'event' }
       ],
     },
   ],
