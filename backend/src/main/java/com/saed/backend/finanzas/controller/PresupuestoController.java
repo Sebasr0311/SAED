@@ -7,6 +7,7 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
@@ -76,18 +77,17 @@ public class PresupuestoController {
     // --- CREAR ---
 
     @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<Map<String, Object>> crear(@RequestBody Map<String, Object> body) {
+    public ResponseEntity<ApiResponse<Map<String, Object>>> crear(@RequestBody Map<String, Object> body) {
         String rubro = (String) body.getOrDefault("rubro", "");
         String tipo = body.get("tipo") != null ? ((String) body.get("tipo")).toUpperCase() : "";
         Number montoPresupuestado = (Number) body.getOrDefault("montoPresupuestado", 0);
         Number vigenciaAnio = (Number) body.getOrDefault("vigenciaAnio", 0);
 
         if (rubro.isBlank()) {
-            return ApiResponse.error("rubro es obligatorio");
+            return ResponseEntity.badRequest().body(ApiResponse.error("rubro es obligatorio"));
         }
         if (!List.of("INGRESO", "EGRESO").contains(tipo)) {
-            return ApiResponse.error("tipo debe ser INGRESO o EGRESO");
+            return ResponseEntity.badRequest().body(ApiResponse.error("tipo debe ser INGRESO o EGRESO"));
         }
 
         String sql = "INSERT INTO PRESUPUESTOS (ID_PROPIEDAD, VIGENCIA_ANIO, RUBRO, TIPO, MONTO_PRESUPUESTADO) " +
@@ -103,13 +103,13 @@ public class PresupuestoController {
         jdbcTemplate.update(sql, params, keyHolder, new String[]{"ID_PRESUPUESTO"});
         Long id = keyHolder.getKey().longValue();
 
-        return ApiResponse.success(Map.of(
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(Map.of(
                 "id", id,
                 "rubro", rubro,
                 "tipo", tipo,
                 "montoPresupuestado", montoPresupuestado,
                 "vigenciaAnio", vigenciaAnio
-        ));
+        )));
     }
 
     // --- ACTUALIZAR ---

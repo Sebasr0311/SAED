@@ -57,20 +57,20 @@ async function request(endpoint, options = {}) {
       } else {
         window.location.href = `${import.meta.env.BASE_URL}login`;
       }
-      throw new Error('Sesión expirada');
+      throw new Error('SesiÃ³n expirada');
     }
 
     const contentType = res.headers.get('content-type') || '';
     if (contentType.includes('application/json')) {
       const data = await res.json();
-      if (!res.ok) throw new Error(data.mensaje || data.error || 'No se pudo completar la operación. Intente de nuevo.');
+      if (!res.ok) throw new Error(data.message || data.mensaje || data.error || 'No se pudo completar la operaciÃ³n. Intente de nuevo.');
       return data;
     }
-    if (!res.ok) throw new Error('No se pudo completar la operación. Intente de nuevo.');
+    if (!res.ok) throw new Error('No se pudo completar la operaciÃ³n. Intente de nuevo.');
     return await res.text();
   } catch (err) {
     clearTimeout(timer);
-    if (err.name === 'AbortError') throw new Error('La solicitud tardó demasiado, intente de nuevo');
+    if (err.name === 'AbortError') throw new Error('La solicitud tardÃ³ demasiado, intente de nuevo');
     throw err;
   }
 }

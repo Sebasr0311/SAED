@@ -1,6 +1,7 @@
 package com.saed.backend.finanzas.controller;
 
 import com.saed.backend.common.dto.ApiResponse;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -59,8 +60,7 @@ public class GastosController {
     // --- CREAR ---
 
     @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<Map<String, Object>> crear(@RequestBody Map<String, Object> body) {
+    public ResponseEntity<ApiResponse<Map<String, Object>>> crear(@RequestBody Map<String, Object> body) {
         Number idPresupuesto = (Number) body.get("idPresupuesto");
         String categoria = (String) body.getOrDefault("categoria", "");
         String beneficiario = (String) body.getOrDefault("beneficiario", "");
@@ -70,7 +70,7 @@ public class GastosController {
         String facturaSoporteUrl = (String) body.getOrDefault("facturaSoporteUrl", null);
 
         if (categoria.isBlank() || beneficiario.isBlank()) {
-            return ApiResponse.error("categoria y beneficiario son obligatorios");
+            return ResponseEntity.badRequest().body(ApiResponse.error("categoria y beneficiario son obligatorios"));
         }
 
         String sql;
@@ -118,18 +118,18 @@ public class GastosController {
                             .addValue("monto", monto));
         }
 
-        return ApiResponse.success(Map.of(
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(Map.of(
                 "id", id,
                 "categoria", categoria,
                 "beneficiario", beneficiario,
                 "monto", monto
-        ));
+        )));
     }
 
     // --- ACTUALIZAR ---
 
     @PutMapping("/{id}")
-    public ApiResponse<String> actualizar(@PathVariable Long id, @RequestBody Map<String, Object> body) {
+    public ResponseEntity<ApiResponse<String>> actualizar(@PathVariable Long id, @RequestBody Map<String, Object> body) {
         String categoria = (String) body.getOrDefault("categoria", null);
         String beneficiario = (String) body.getOrDefault("beneficiario", null);
         Number monto = (Number) body.getOrDefault("monto", null);
@@ -172,25 +172,25 @@ public class GastosController {
             first = false;
         }
 
-        if (first) return ApiResponse.error("Ningun campo para actualizar");
+        if (first) return ResponseEntity.badRequest().body(ApiResponse.error("Ningun campo para actualizar"));
 
         sb.append(" WHERE ID_GASTO = :id");
         int rows = jdbcTemplate.update(sb.toString(), params);
-        if (rows == 0) return ApiResponse.error("Gasto no encontrado");
-        return ApiResponse.success("OK");
+        if (rows == 0) return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error("Gasto no encontrado"));
+        return ResponseEntity.ok(ApiResponse.success("OK"));
     }
 
     // --- ELIMINAR ---
 
     @DeleteMapping("/{id}")
-    public ApiResponse<String> eliminar(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<String>> eliminar(@PathVariable Long id) {
         // Revert MONTO_EJECUTADO in PRESUPUESTOS before deleting
         List<Map<String, Object>> gastos = jdbcTemplate.queryForList(
                 "SELECT ID_PRESUPUESTO, MONTO FROM GASTOS WHERE ID_GASTO = :id",
                 new MapSqlParameterSource("id", id));
 
         if (gastos.isEmpty()) {
-            return ApiResponse.error("Gasto no encontrado");
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error("Gasto no encontrado"));
         }
 
         Map<String, Object> gasto = gastos.get(0);
@@ -208,6 +208,6 @@ public class GastosController {
                             .addValue("monto", monto));
         }
 
-        return ApiResponse.success("Eliminado");
+        return ResponseEntity.ok(ApiResponse.success("Eliminado"));
     }
 }

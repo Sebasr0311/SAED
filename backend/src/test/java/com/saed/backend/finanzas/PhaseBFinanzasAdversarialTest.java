@@ -21,15 +21,15 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 /**
- * Phase B Adversarial Tests — Finanzas sub-modules:
+ * Phase B Adversarial Tests Ã¢â‚¬â€ Finanzas sub-modules:
  * Cartera, Presupuesto, Gastos, Conciliacion, PazYSalvo.
  *
  * Each module tested for:
  *   1. Happy-path CRUD (admin can create/read/update/delete)
  *   2. Residente forbidden (role isolation)
- *   3. Missing required fields → 400
- *   4. Invalid enum values → 400
- *   5. Non-existent resource → error response
+ *   3. Missing required fields Ã¢â€ â€™ 400
+ *   4. Invalid enum values Ã¢â€ â€™ 400
+ *   5. Non-existent resource Ã¢â€ â€™ error response
  *   6. Multi-tenancy: data from other property invisible
  */
 @SpringBootTest
@@ -48,6 +48,8 @@ public class PhaseBFinanzasAdversarialTest {
             .userId(1L)
             .organizationId(1L)
             .propertyId(1L)
+            .roleCode("SUPERADMIN")
+            .roleScope("GLOBAL")
             .build();
         SaedContextHolder.setContext(ctx);
     }
@@ -99,8 +101,8 @@ public class PhaseBFinanzasAdversarialTest {
     void carteraPorUnidadNoExistenteReturnsError() throws Exception {
         mockMvc.perform(get("/api/v1/cartera/999999")
                 .header("X-Assignment-Id", "1"))
-                .andExpect(status().isOk()) // ApiResponse wraps errors in 200
-                .andExpect(jsonPath("$.data").value("No se encontro cartera para la unidad"));
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("No se encontro cartera para la unidad"));
     }
 
     // ======================== PRESUPUESTOS ========================
@@ -154,8 +156,8 @@ public class PhaseBFinanzasAdversarialTest {
                 .header("X-Assignment-Id", "1")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(body)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data").value("rubro es obligatorio"));
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("rubro es obligatorio"));
     }
 
     @Test
@@ -172,8 +174,8 @@ public class PhaseBFinanzasAdversarialTest {
                 .header("X-Assignment-Id", "1")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(body)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data").value("tipo debe ser INGRESO o EGRESO"));
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("tipo debe ser INGRESO o EGRESO"));
     }
 
     @Test
@@ -241,14 +243,14 @@ public class PhaseBFinanzasAdversarialTest {
                 .header("X-Assignment-Id", "1")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(body)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data").value("categoria y beneficiario son obligatorios"));
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("categoria y beneficiario son obligatorios"));
     }
 
     @Test
     @WithMockUser(authorities = {"SCOPE_ADMIN_PROPIEDAD"}, username = "1")
     void adminCanListGastos() throws Exception {
-        mockMvc.perform(get("/api/v1/gastos")
+            mockMvc.perform(get("/api/v1/gastos")
                 .header("X-Assignment-Id", "1"))
                 .andExpect(status().isOk());
     }
@@ -258,8 +260,8 @@ public class PhaseBFinanzasAdversarialTest {
     void adminCanDeleteGastoNoExistente() throws Exception {
         mockMvc.perform(delete("/api/v1/gastos/999999")
                 .header("X-Assignment-Id", "1"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data").value("Gasto no encontrado"));
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("Gasto no encontrado"));
     }
 
     // ======================== CONCILIACIONES ========================
@@ -312,8 +314,8 @@ public class PhaseBFinanzasAdversarialTest {
                 .header("X-Assignment-Id", "1")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(body)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data").value("bancoCuenta y periodo son obligatorios"));
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("bancoCuenta y periodo son obligatorios"));
     }
 
     @Test
@@ -331,8 +333,8 @@ public class PhaseBFinanzasAdversarialTest {
                 .header("X-Assignment-Id", "1")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"estado\": \"ESTADO_INVALIDO\"}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data").value("estado debe ser EN_PROCESO, CONCILIADA o DISCREPANCIA"));
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("estado debe ser EN_PROCESO, CONCILIADA o DISCREPANCIA"));
     }
 
     // ======================== PAZ Y SALVOS ========================
@@ -364,23 +366,23 @@ public class PhaseBFinanzasAdversarialTest {
     @WithMockUser(authorities = {"SCOPE_ADMIN_PROPIEDAD"}, username = "1")
     void generarPazYSalvoSinUnidadFails() throws Exception {
         Map<String, Object> body = Map.of(
-            "motivo", "Salida del edificio"
+            "motivo", "Venta de inmueble"
         );
 
         mockMvc.perform(post("/api/v1/paz-y-salvos")
                 .header("X-Assignment-Id", "1")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(body)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data").value("idUnidad es obligatorio"));
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("idUnidad es obligatorio"));
     }
 
     @Test
     @WithMockUser(authorities = {"SCOPE_ADMIN_PROPIEDAD"}, username = "1")
     void verificarCodigoNoExistente() throws Exception {
-        mockMvc.perform(get("/api/v1/paz-y-salvos/verificar/codigo-inexistente-12345")
+        mockMvc.perform(get("/api/v1/paz-y-salvos/verificar/CODIGO_INVALIDO")
                 .header("X-Assignment-Id", "1"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data").value("Codigo de verificacion no valido"));
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("Codigo de verificacion no valido"));
     }
 }

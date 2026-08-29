@@ -7,6 +7,7 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
@@ -99,8 +100,7 @@ public class ConciliacionController {
     // --- CREAR ---
 
     @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<Map<String, Object>> crear(@RequestBody Map<String, Object> body) {
+    public ResponseEntity<ApiResponse<Map<String, Object>>> crear(@RequestBody Map<String, Object> body) {
         String bancoCuenta = (String) body.getOrDefault("bancoCuenta", "");
         String periodo = (String) body.getOrDefault("periodo", "");
         Number saldoBanco = (Number) body.getOrDefault("saldoBanco", 0);
@@ -108,7 +108,7 @@ public class ConciliacionController {
         String documentoExtractoUrl = (String) body.getOrDefault("documentoExtractoUrl", null);
 
         if (bancoCuenta.isBlank() || periodo.isBlank()) {
-            return ApiResponse.error("bancoCuenta y periodo son obligatorios");
+            return ResponseEntity.badRequest().body(ApiResponse.error("bancoCuenta y periodo son obligatorios"));
         }
 
         String sql = "INSERT INTO CONCILIACIONES (ID_PROPIEDAD, BANCO_CUENTA, PERIODO, " +
@@ -127,22 +127,22 @@ public class ConciliacionController {
         jdbcTemplate.update(sql, params, keyHolder, new String[]{"ID_CONCILIACION"});
         Long id = keyHolder.getKey().longValue();
 
-        return ApiResponse.success(Map.of(
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(Map.of(
                 "id", id,
                 "bancoCuenta", bancoCuenta,
                 "periodo", periodo,
                 "saldoBanco", saldoBanco,
                 "saldoLibros", saldoLibros
-        ));
+        )));
     }
 
     // --- CAMBIAR ESTADO ---
 
     @PatchMapping("/{id}/estado")
-    public ApiResponse<String> cambiarEstado(@PathVariable Long id, @RequestBody Map<String, String> body) {
+    public ResponseEntity<ApiResponse<String>> cambiarEstado(@PathVariable Long id, @RequestBody Map<String, String> body) {
         String estado = body.getOrDefault("estado", "").toUpperCase();
         if (!List.of("EN_PROCESO", "CONCILIADA", "DISCREPANCIA").contains(estado)) {
-            return ApiResponse.error("estado debe ser EN_PROCESO, CONCILIADA o DISCREPANCIA");
+            return ResponseEntity.badRequest().body(ApiResponse.error("estado debe ser EN_PROCESO, CONCILIADA o DISCREPANCIA"));
         }
 
         MapSqlParameterSource params = new MapSqlParameterSource("id", id)
@@ -161,8 +161,8 @@ public class ConciliacionController {
                     params);
         }
 
-        if (rows == 0) return ApiResponse.error("Conciliacion no encontrada");
-        return ApiResponse.success("OK");
+        if (rows == 0) return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error("Conciliacion no encontrada"));
+        return ResponseEntity.ok(ApiResponse.success("OK"));
     }
 
     // --- RESUMEN ---

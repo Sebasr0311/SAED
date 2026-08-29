@@ -7,6 +7,7 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
@@ -50,13 +51,12 @@ public class PazYSalvoController {
     // --- GENERAR ---
 
     @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<Map<String, Object>> generar(@RequestBody Map<String, Object> body) {
+    public ResponseEntity<ApiResponse<Map<String, Object>>> generar(@RequestBody Map<String, Object> body) {
         Number idUnidad = (Number) body.get("idUnidad");
         String motivo = (String) body.getOrDefault("motivo", "");
 
         if (idUnidad == null) {
-            return ApiResponse.error("idUnidad es obligatorio");
+            return ResponseEntity.badRequest().body(ApiResponse.error("idUnidad es obligatorio"));
         }
 
         // Get persona from JWT context (never trust client)
@@ -69,7 +69,7 @@ public class PazYSalvoController {
                 Number.class);
 
         if (idPersonaSolicitante == null) {
-            return ApiResponse.error("Usuario no valido");
+            return ResponseEntity.badRequest().body(ApiResponse.error("Usuario no valido"));
         }
 
         // 1. Check unit's SALDO_TOTAL from CARTERA
@@ -80,7 +80,7 @@ public class PazYSalvoController {
         if (!carteraRows.isEmpty()) {
             Number saldoTotal = (Number) carteraRows.get(0).get("SALDO_TOTAL");
             if (saldoTotal != null && saldoTotal.doubleValue() > 0) {
-                return ApiResponse.error("Unidad tiene saldo pendiente");
+                return ResponseEntity.badRequest().body(ApiResponse.error("Unidad tiene saldo pendiente"));
             }
         }
 
@@ -110,11 +110,11 @@ public class PazYSalvoController {
         jdbcTemplate.update(sql, params, keyHolder, new String[]{"ID_PAZ_SALVO"});
         Long id = keyHolder.getKey().longValue();
 
-        return ApiResponse.success(Map.of(
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(Map.of(
                 "id", id,
                 "codigoVerificacion", codigoVerificacion,
                 "estado", "VALIDO"
-        ));
+        )));
     }
 
     // --- DETALLE ---
@@ -136,7 +136,7 @@ public class PazYSalvoController {
     // --- VERIFICAR POR CODIGO ---
 
     @GetMapping("/verificar/{codigo}")
-    public ApiResponse<Map<String, Object>> verificar(@PathVariable String codigo) {
+    public ResponseEntity<ApiResponse<Map<String, Object>>> verificar(@PathVariable String codigo) {
         String sql = "SELECT ID_PAZ_SALVO, ID_UNIDAD, CODIGO_VERIFICACION, " +
                 "FECHA_EMISION, FECHA_VENCIMIENTO, SALDO_A_LA_FECHA, " +
                 "MOTIVO, ESTADO " +
@@ -145,7 +145,7 @@ public class PazYSalvoController {
                 new MapSqlParameterSource("codigo", codigo));
 
         if (rows.isEmpty()) {
-            return ApiResponse.error("Codigo de verificacion no valido");
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error("Codigo de verificacion no valido"));
         }
 
         Map<String, Object> pazSalvo = rows.get(0);
@@ -153,9 +153,9 @@ public class PazYSalvoController {
 
         // Check if expired
         if ("VENCIDO".equals(estado)) {
-            return ApiResponse.error("Paz y salvos vencido");
+            return ResponseEntity.badRequest().body(ApiResponse.error("Paz y salvos vencido"));
         }
 
-        return ApiResponse.success(pazSalvo);
+        return ResponseEntity.ok(ApiResponse.success(pazSalvo));
     }
 }

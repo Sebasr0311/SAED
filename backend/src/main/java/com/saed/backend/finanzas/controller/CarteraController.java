@@ -5,6 +5,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
@@ -47,7 +48,7 @@ public class CarteraController {
     // --- CARTERA POR UNIDAD ---
 
     @GetMapping("/{idUnidad}")
-    public ApiResponse<Map<String, Object>> porUnidad(@PathVariable Long idUnidad) {
+    public ResponseEntity<ApiResponse<Map<String, Object>>> porUnidad(@PathVariable Long idUnidad) {
         String sql = "SELECT ID_CARTERA, ID_UNIDAD, SALDO_CORRIENTE, " +
                 "SALDO_MORA_30, SALDO_MORA_60, SALDO_MORA_90_MAS, " +
                 "SALDO_TOTAL, FECHA_CORTE, ESTADO_CARTERA " +
@@ -55,9 +56,9 @@ public class CarteraController {
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql,
                 new MapSqlParameterSource("idUnidad", idUnidad));
         if (rows.isEmpty()) {
-            return ApiResponse.error("No se encontro cartera para la unidad");
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error("No se encontro cartera para la unidad"));
         }
-        return ApiResponse.success(rows.get(0));
+        return ResponseEntity.ok(ApiResponse.success(rows.get(0)));
     }
 
     // --- RESUMEN DE CARTERA ---
@@ -150,14 +151,7 @@ public class CarteraController {
                 "    WHEN TRUNC(SYSDATE) - FECHA_VENCIMIENTO BETWEEN 61 AND 90 THEN '61-90 dias' " +
                 "    ELSE '90+ dias' " +
                 "  END " +
-                "ORDER BY " +
-                "  CASE " +
-                "    WHEN FECHA_VENCIMIENTO >= TRUNC(SYSDATE) THEN 0 " +
-                "    WHEN TRUNC(SYSDATE) - FECHA_VENCIMIENTO <= 30 THEN 1 " +
-                "    WHEN TRUNC(SYSDATE) - FECHA_VENCIMIENTO BETWEEN 31 AND 60 THEN 2 " +
-                "    WHEN TRUNC(SYSDATE) - FECHA_VENCIMIENTO BETWEEN 61 AND 90 THEN 3 " +
-                "    ELSE 4 " +
-                "  END";
+                "ORDER BY MIN(FECHA_VENCIMIENTO) DESC";
         return ApiResponse.success(jdbcTemplate.queryForList(sql, new MapSqlParameterSource()));
     }
 }
