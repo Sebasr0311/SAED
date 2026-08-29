@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
+    <!-- Oracle JDBC driver false positives -->
+    <suppress>
+        <notes>Oracle JDBC driver is managed by the container</notes>
+        <gav groupId="com.oracle.database.jdbc" artifactId="ojdbc11"/>
+        <cpe>cpe:/a:oracle:database:-</cpe>
+    </suppress>
+</suppressions>

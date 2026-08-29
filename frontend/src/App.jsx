@@ -12,7 +12,6 @@ import ProtectedRoute from './components/ProtectedRoute.jsx';
 const DashboardPage = lazy(() => import('./pages/DashboardPage.jsx'));
 const PersonasPage = lazy(() => import('./pages/PersonasPage.jsx'));
 const ResidentesPage = lazy(() => import('./pages/ResidentesPage.jsx'));
-const ApartamentosPage = lazy(() => import('./pages/ApartamentosPage.jsx'));
 const UnidadesPage = lazy(() => import('./pages/UnidadesPage.jsx'));
 const ContratosPage = lazy(() => import('./pages/ContratosPage.jsx'));
 const UsuariosPage = lazy(() => import('./pages/UsuariosPage.jsx'));
@@ -99,14 +98,6 @@ export default function App() {
             element={
               <ProtectedRoute roles={['ADMINISTRADOR']}>
                 <ResidentesPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="apartamentos"
-            element={
-              <ProtectedRoute roles={['ADMINISTRADOR']}>
-                <ApartamentosPage />
               </ProtectedRoute>
             }
           />
