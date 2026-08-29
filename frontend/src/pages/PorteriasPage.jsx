@@ -10,8 +10,6 @@ export default function PorteriasPage() {
   const [form, setForm] = useState({ nombre: '', ubicacion: '', telefonoContacto: '' });
   const [deleteTarget, setDeleteTarget] = useState(null);
 
-  useEffect(() => { cargar(); }, []);
-
   const cargar = async () => {
     try {
       setLoading(true);
@@ -23,6 +21,8 @@ export default function PorteriasPage() {
       setLoading(false);
     }
   };
+
+  useEffect(() => { cargar(); }, []);
 
   const openCreate = () => {
     setForm({ nombre: '', ubicacion: '', telefonoContacto: '' });

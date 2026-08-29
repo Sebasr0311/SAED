@@ -19,18 +19,20 @@ const TenantContext = createContext(null);
 
 export function TenantProvider({ children }) {
   const { user, isAuthenticated } = useAuth();
-  const [assignments, setAssignments] = useState([]);
+  const [assignmentsRaw, setAssignments] = useState([]);
   const [activeAssignmentId, setActiveAssignmentId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  // Derived: empty when not authenticated (avoids setState inside useEffect)
+  const assignments = useMemo(
+    () => (!isAuthenticated || !user?.idUsuario ? [] : assignmentsRaw),
+    [isAuthenticated, user?.idUsuario, assignmentsRaw]
+  );
+
   // Cargar asignaciones cuando el usuario se autentica
   useEffect(() => {
-    if (!isAuthenticated || !user?.idUsuario) {
-      setAssignments([]);
-      setActiveAssignmentId(null);
-      return;
-    }
+    if (!isAuthenticated || !user?.idUsuario) return;
     let cancelled = false;
     setLoading(true);
     setError(null);

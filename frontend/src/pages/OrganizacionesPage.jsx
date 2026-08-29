@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useTenant } from '../lib/TenantContext.jsx';
 import { useTenantApi } from '../lib/useTenantApi.js';
 import { useFetch } from '../lib/hooks.js';
@@ -56,22 +56,6 @@ export default function OrganizacionesPage() {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    if (!dialogOpen) return;
-    if (editing) {
-      setForm({
-        nombre: editing.nombre || '',
-        identificacionFiscal: editing.identificacionFiscal || '',
-        emailContacto: editing.emailContacto || '',
-        telefonoContacto: editing.telefonoContacto || '',
-        direccion: editing.direccion || '',
-        ciudad: editing.ciudad || '',
-      });
-    } else {
-      setForm(emptyForm);
-    }
-  }, [dialogOpen, editing]);
-
   async function guardar() {
     if (!form.nombre.trim() || !form.identificacionFiscal.trim() || !form.emailContacto.trim()) {
       toast.error('Nombre, identificaci\u00f3n fiscal y email son obligatorios');
@@ -121,7 +105,7 @@ export default function OrganizacionesPage() {
         title="Organizaciones"
         subtitle="Tenants del SaaS: alta, edici\u00f3n y estado"
       >
-        <Button onClick={() => { setEditing(null); setDialogOpen(true); }}>
+        <Button onClick={() => { setEditing(null); setForm(emptyForm); setDialogOpen(true); }}>
           <span className="material-symbols-outlined text-base mr-1">add</span>
           Nueva Organizaci\u00f3n
         </Button>
@@ -199,7 +183,7 @@ export default function OrganizacionesPage() {
                         <Badge variant={ESTADO_BADGE[o.estado] || 'default'}>{o.estado}</Badge>
                       </TableCell>
                       <TableCell className="text-right whitespace-nowrap">
-                        <Button variant="ghost" size="sm" onClick={() => { setEditing(o); setDialogOpen(true); }} aria-label={`Editar ${o.nombre}`}>
+                        <Button variant="ghost" size="sm" onClick={() => { setEditing(o); setForm({ nombre: o.nombre || '', identificacionFiscal: o.identificacionFiscal || '', emailContacto: o.emailContacto || '', telefonoContacto: o.telefonoContacto || '', direccion: o.direccion || '', ciudad: o.ciudad || '' }); setDialogOpen(true); }} aria-label={`Editar ${o.nombre}`}>
                           <span className="material-symbols-outlined text-base">edit</span>
                         </Button>
                         {o.estado === 'ACTIVA' ? (

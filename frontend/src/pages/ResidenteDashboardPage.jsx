@@ -32,7 +32,7 @@ function chartColors() {
 /** Lee un token CSS (--x) del :root, con fallback. */
 function cssVar(name, fallback) {
   if (typeof document === 'undefined') return fallback;
-  const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  const v = window.getComputedStyle(document.documentElement).getPropertyValue(name).trim();
   return v || fallback;
 }
 
@@ -124,7 +124,7 @@ function DonutChart({ data, title }) {
     drawDonut(ref.current, data);
     // Repintar al cambiar light/dark (los colores leen tokens CSS).
     // No repintar en pestanas ocultas (el canvas no es visible).
-    const mo = new MutationObserver(() => {
+    const mo = new window.MutationObserver(() => {
       if (document.visibilityState === 'visible') drawDonut(ref.current, data);
     });
     mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
@@ -158,7 +158,7 @@ function BarChart({ data, title }) {
   useEffect(() => {
     drawBar(ref.current, data);
     // Repintar al cambiar light/dark (los colores leen tokens CSS).
-    const mo = new MutationObserver(() => drawBar(ref.current, data));
+    const mo = new window.MutationObserver(() => drawBar(ref.current, data));
     mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
     return () => mo.disconnect();
   }, [data]);
@@ -249,7 +249,9 @@ export default function ResidenteDashboardPage() {
   }, []);
 
   async function pollEstadoWompi(referencia) {
+    // eslint-disable-next-line react-hooks/purity -- Date.now() in async event handler, not render
     const t0 = Date.now();
+    // eslint-disable-next-line react-hooks/purity
     while (Date.now() - t0 < 180000) {
       await new Promise((r) => setTimeout(r, 2000));
       try {

@@ -12,12 +12,6 @@ export default function CoarrendatariosPage() {
   const [form, setForm] = useState({ idPersona: '', tipoVinculo: 'COARRENDATARIO', esResponsablePago: 'N' });
   const [deleteTarget, setDeleteTarget] = useState(null);
 
-  useEffect(() => { cargarContratos(); }, []);
-
-  useEffect(() => {
-    if (selectedContrato) cargarCoarrendatarios(selectedContrato);
-  }, [selectedContrato]);
-
   const cargarContratos = async () => {
     try {
       setLoading(true);
@@ -38,6 +32,12 @@ export default function CoarrendatariosPage() {
       console.error('Error:', e);
     }
   };
+
+  useEffect(() => { cargarContratos(); }, []);
+
+  useEffect(() => {
+    if (selectedContrato) cargarCoarrendatarios(selectedContrato);
+  }, [selectedContrato]);
 
   const crear = async () => {
     if (!form.idPersona) {

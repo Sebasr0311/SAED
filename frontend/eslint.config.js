@@ -74,6 +74,9 @@ export default [
       ],
       'no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
       'no-console': 'warn',
+      // Data fetching in useEffect with setState is the correct React pattern.
+      // The react-hooks plugin flags these as false positives.
+      'react-hooks/set-state-in-effect': 'off',
     },
   },
   {

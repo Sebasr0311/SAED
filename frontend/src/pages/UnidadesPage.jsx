@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTenant } from '../lib/TenantContext.jsx';
 import { useTenantApi } from '../lib/useTenantApi.js';
 import { useFetch } from '../lib/hooks.js';
@@ -68,22 +68,6 @@ export default function UnidadesPage() {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    if (!dialogOpen) return;
-    if (editing) {
-      setForm({
-        identificador: editing.identificador || '',
-        idBloque: editing.idBloque != null ? String(editing.idBloque) : '',
-        idTipoUnidad: editing.idTipoUnidad != null ? String(editing.idTipoUnidad) : '',
-        areaM2: editing.areaM2 != null ? String(editing.areaM2) : '',
-        coeficienteCopropiedad:
-          editing.coeficienteCopropiedad != null ? String(editing.coeficienteCopropiedad) : '',
-      });
-    } else {
-      setForm(emptyForm);
-    }
-  }, [dialogOpen, editing]);
-
   async function guardar() {
     if (!form.identificador.trim()) {
       toast.error('El identificador es obligatorio');
@@ -138,7 +122,7 @@ export default function UnidadesPage() {
         title="Unidades"
         subtitle="Jerarquía Propiedad â†’ Bloque â†’ Unidad del tenant activo"
       >
-        <Button onClick={() => { setEditing(null); setDialogOpen(true); }}>
+        <Button onClick={() => { setEditing(null); setForm(emptyForm); setDialogOpen(true); }}>
           <span className="material-symbols-outlined text-base mr-1">add</span>
           Nueva Unidad
         </Button>
@@ -210,7 +194,7 @@ export default function UnidadesPage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => { setEditing(u); setDialogOpen(true); }}
+                          onClick={() => { setEditing(u); setForm({ identificador: u.identificador || '', idBloque: u.idBloque != null ? String(u.idBloque) : '', idTipoUnidad: u.idTipoUnidad != null ? String(u.idTipoUnidad) : '', areaM2: u.areaM2 != null ? String(u.areaM2) : '', coeficienteCopropiedad: u.coeficienteCopropiedad != null ? String(u.coeficienteCopropiedad) : '' }); setDialogOpen(true); }}
                           aria-label={`Editar ${u.identificador}`}
                         >
                           <span className="material-symbols-outlined text-base">edit</span>

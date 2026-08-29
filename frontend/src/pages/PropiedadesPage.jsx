@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useTenant } from '../lib/TenantContext.jsx';
 import { useTenantApi } from '../lib/useTenantApi.js';
 import { useFetch } from '../lib/hooks.js';
@@ -67,25 +67,6 @@ export default function PropiedadesPage() {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    if (!dialogOpen) return;
-    if (editing) {
-      setForm({
-        idOrganizacion: editing.idOrganizacion != null ? String(editing.idOrganizacion) : '',
-        idTipoPropiedad: editing.idTipoPropiedad != null ? String(editing.idTipoPropiedad) : '',
-        nombre: editing.nombre || '',
-        direccion: editing.direccion || '',
-        ciudad: editing.ciudad || '',
-        tipoOcupacionPredominante: editing.tipoOcupacionPredominante || 'MIXTA',
-      });
-    } else {
-      setForm({
-        ...emptyForm,
-        idOrganizacion: tenant.activeOrgId != null ? String(tenant.activeOrgId) : '',
-      });
-    }
-  }, [dialogOpen, editing, tenant.activeOrgId]);
-
   async function guardar() {
     if (!form.nombre.trim() || !form.direccion.trim() || !form.ciudad.trim()) {
       toast.error('Nombre, direcci\u00f3n y ciudad son obligatorios');
@@ -127,7 +108,7 @@ export default function PropiedadesPage() {
         title="Propiedades"
         subtitle="Propiedades de las organizaciones (Edificio / Conjunto Cerrado)"
       >
-        <Button onClick={() => { setEditing(null); setDialogOpen(true); }}>
+        <Button onClick={() => { setEditing(null); setForm({ ...emptyForm, idOrganizacion: tenant.activeOrgId != null ? String(tenant.activeOrgId) : '' }); setDialogOpen(true); }}>
           <span className="material-symbols-outlined text-base mr-1">add</span>
           Nueva Propiedad
         </Button>
@@ -204,7 +185,7 @@ export default function PropiedadesPage() {
                         <Badge variant={ESTADO_BADGE[p.estado] || 'default'}>{p.estado}</Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button variant="ghost" size="sm" onClick={() => { setEditing(p); setDialogOpen(true); }} aria-label={`Editar ${p.nombre}`}>
+                        <Button variant="ghost" size="sm" onClick={() => { setEditing(p); setForm({ idOrganizacion: p.idOrganizacion != null ? String(p.idOrganizacion) : '', idTipoPropiedad: p.idTipoPropiedad != null ? String(p.idTipoPropiedad) : '', nombre: p.nombre || '', direccion: p.direccion || '', ciudad: p.ciudad || '', tipoOcupacionPredominante: p.tipoOcupacionPredominante || 'MIXTA' }); setDialogOpen(true); }} aria-label={`Editar ${p.nombre}`}>
                           <span className="material-symbols-outlined text-base">edit</span>
                         </Button>
                       </TableCell>

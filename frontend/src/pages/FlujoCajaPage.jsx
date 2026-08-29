@@ -12,10 +12,6 @@ export default function FlujoCajaPage() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState('resumen');
 
-  useEffect(() => {
-    cargarDatos();
-  }, []);
-
   const cargarDatos = async () => {
     try {
       setLoading(true);
@@ -33,6 +29,10 @@ export default function FlujoCajaPage() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    cargarDatos();
+  }, []);
 
   const fmt = (v) => {
     const n = Number(v);

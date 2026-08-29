@@ -1,4 +1,4 @@
-﻿import { useState, useMemo, useEffect } from 'react';
+﻿import { useState, useMemo, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
 import { unzipSync, zipSync, strFromU8, strToU8 } from 'fflate';
 import { Button } from '../components/ui/Button.jsx';
@@ -285,12 +285,11 @@ export default function GananciasPage() {
   const [search, setSearch] = useState('');
   const [fechaInicio, setFechaInicio] = useState(`${new Date().getFullYear()}-01-01`);
   const [fechaFin, setFechaFin] = useState(todayStr());
-  const [fechaError, setFechaError] = useState('');
   const [page, setPage] = useState(1);
 
-  useEffect(() => {
+  const fechaError = useMemo(() => {
     const r = validarFechas({ fechaInicio, fechaFin });
-    setFechaError(r.ok ? '' : r.mensaje);
+    return r.ok ? '' : r.mensaje;
   }, [fechaInicio, fechaFin]);
 
   const { data: pagos, loading } = useFetch(() => api.get('/pagos/registrados'), []);
@@ -308,7 +307,7 @@ export default function GananciasPage() {
     });
   }, [all, search, fechaInicio, fechaFin]);
 
-  // Reinicia a la primera página cuando cambian los filtros (patrón de v0).
+  // Reinicia a la primera pagina cuando cambian los filtros
   useEffect(() => {
     setPage(1);
   }, [search, fechaInicio, fechaFin]);

@@ -13,8 +13,6 @@ export default function ContratosProveedorPage() {
   });
   const [deleteTarget, setDeleteTarget] = useState(null);
 
-  useEffect(() => { cargar(); }, []);
-
   const cargar = async () => {
     try {
       setLoading(true);
@@ -26,6 +24,8 @@ export default function ContratosProveedorPage() {
       setLoading(false);
     }
   };
+
+  useEffect(() => { cargar(); }, []);
 
   const crear = async () => {
     if (!form.idProveedor || !form.numeroContrato || !form.objetoContrato || !form.valorTotal || !form.fechaInicio || !form.fechaFin) {

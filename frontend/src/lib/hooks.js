@@ -53,7 +53,7 @@ export function useFetch(fetcher, deps = []) {
     };
   }, deps);
 
-  const refetch = useCallback(() => fetcher().then((d) => setData(normalize(d))).catch(setError), deps);
+  const refetch = useCallback(() => fetcher().then((d) => setData(normalize(d))).catch(setError), [fetcher]);
 
   return { data, loading, error, refetch };
 }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../lib/api.js';
 import { useAuth } from '../../lib/AuthContext.jsx';
@@ -42,8 +42,6 @@ export default function NotificationBell() {
   const [visto, setVisto] = useState(() => {
     try { return Number(localStorage.getItem(VISTO_KEY)) || 0; } catch { return 0; }
   });
-  const vistoRef = useRef(visto);
-
   const esAdmin = user?.rol === 'ADMINISTRADOR';
   const verMasRuta = esAdmin ? '/quejas-admin' : '/res-buzon';
 
@@ -86,7 +84,7 @@ export default function NotificationBell() {
   const noLeidas = esAdmin
     ? items.filter((it) => {
         const f = new Date(it.fecha);
-        return !Number.isNaN(f.getTime()) && f.getTime() > vistoRef.current;
+        return !Number.isNaN(f.getTime()) && f.getTime() > visto;
       }).length
     : items.filter((it) => !it.leido).length;
 
@@ -94,7 +92,6 @@ export default function NotificationBell() {
     setOpen(true);
     if (esAdmin) {
       const ahora = Date.now();
-      vistoRef.current = ahora;
       setVisto(ahora);
       try { localStorage.setItem(VISTO_KEY, String(ahora)); } catch { /* noop */ }
     }

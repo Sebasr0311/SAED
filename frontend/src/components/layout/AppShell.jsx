@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../lib/AuthContext.jsx';
 import { getInitialTheme, applyTheme, persistTheme } from '../../lib/theme.js';
@@ -252,19 +252,22 @@ export default function AppShell() {
   });
 
   const activeGroup = groups.find((g) => g.items.some((i) => isItemActive(location.pathname, i.path)));
+
+  // During render, always ensure the active group is open (replaces useEffect that called setState)
+  const openGroupsDisplay = useMemo(() => {
+    if (!activeGroup) return openGroups;
+    if (openGroups.has(activeGroup.id)) return openGroups;
+    const next = new Set(openGroups);
+    next.add(activeGroup.id);
+    return next;
+  }, [openGroups, activeGroup]);
+
   const currentTitle = allItems.find((i) => isItemActive(location.pathname, i.path))?.label || 'SAED';
 
   // Titulo de pestana dinamico: "Apartamentos — SAED".
   useEffect(() => {
     document.title = currentTitle === 'SAED' ? 'SAED — Administración Residencial' : `${currentTitle} — SAED`;
   }, [currentTitle]);
-
-  // Al navegar, el grupo de la ruta activa se abre automáticamente.
-  useEffect(() => {
-    if (activeGroup && !openGroups.has(activeGroup.id)) {
-      setOpenGroups((prev) => new Set(prev).add(activeGroup.id));
-    }
-  }, [location.pathname]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Cerrar el drawer móvil con Escape.
   useEffect(() => {
@@ -341,7 +344,7 @@ export default function AppShell() {
 
           <nav className="sidebar-nav-area" aria-label="Menú principal">
             {groups.map((group) => {
-              const open = openGroups.has(group.id);
+                const open = openGroupsDisplay.has(group.id);
               const groupActive = activeGroup?.id === group.id;
               return (
                 <div

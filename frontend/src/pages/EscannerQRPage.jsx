@@ -82,16 +82,14 @@ function VideoCamara({ onCapture, buttonLabel = 'Capturar', buttonClass = 'btn-p
 }
 
 function PanelValidar({ onResultado, onNotificarVisita, onRegistrarEntrada, idVisitaActual, onLimpiar, codigoInicial }) {
-  const [codigoManual, setCodigoManual] = useState('');
+  const [codigoManual, setCodigoManual] = useState(codigoInicial || '');
   const [validando, setValidando] = useState(false);
   const [datos, setDatos] = useState(null);
   const [error, setError] = useState('');
 
-  // Sincroniza el codigo escaneado por camara hacia el campo manual.
+  // When codigoInicial prop changes, sync to local state
   useEffect(() => {
-    if (codigoInicial) {
-      setCodigoManual(codigoInicial);
-    }
+    if (codigoInicial) setCodigoManual(codigoInicial);
   }, [codigoInicial]);
   const [medioTransporte, setMedioTransporte] = useState('CARRO');
   const [placa, setPlaca] = useState('');

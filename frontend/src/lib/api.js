@@ -70,7 +70,7 @@ async function request(endpoint, options = {}) {
     return await res.text();
   } catch (err) {
     clearTimeout(timer);
-    if (err.name === 'AbortError') throw new Error('La solicitud tardÃ³ demasiado, intente de nuevo');
+    if (err.name === 'AbortError') throw new Error('La solicitud tardÃ³ demasiado, intente de nuevo', { cause: err });
     throw err;
   }
 }
