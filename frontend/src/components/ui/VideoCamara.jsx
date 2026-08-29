@@ -14,9 +14,15 @@ export function VideoCamara({ onCapture, buttonLabel = 'Capturar', buttonClass =
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const [stream, setStream] = useState(null);
+  const streamRef = useRef(null); // Keep a ref for the unmount cleanup
   const [error, setError] = useState('');
 
-  useEffect(() => () => detener(), []);
+  useEffect(() => () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+  }, []);
 
   async function iniciar(facingMode = 'environment') {
     try {
@@ -25,6 +31,7 @@ export function VideoCamara({ onCapture, buttonLabel = 'Capturar', buttonClass =
         audio: false,
       });
       setStream(s);
+      streamRef.current = s;
       setTimeout(() => {
         if (videoRef.current) {
           videoRef.current.srcObject = s;
@@ -37,8 +44,9 @@ export function VideoCamara({ onCapture, buttonLabel = 'Capturar', buttonClass =
   }
 
   function detener() {
-    if (stream) {
-      stream.getTracks().forEach((t) => t.stop());
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
       setStream(null);
     }
   }

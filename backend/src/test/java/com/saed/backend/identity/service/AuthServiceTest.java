@@ -5,6 +5,7 @@ import com.saed.backend.identity.dto.AuthResponse;
 import com.saed.backend.identity.dto.LoginRequest;
 import com.saed.backend.identity.repository.AuthRepository;
 import com.saed.backend.security.jwt.JwtProvider;
+import com.saed.backend.security.jwt.RefreshTokenService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -20,18 +21,20 @@ public class AuthServiceTest {
     private AuthRepository authRepository;
     private PasswordEncoder passwordEncoder;
     private JwtProvider jwtProvider;
+    private RefreshTokenService refreshTokenService;
     private AuthService authService;
 
     @BeforeEach
     void setUp() {
         authRepository = mock(AuthRepository.class);
         passwordEncoder = mock(PasswordEncoder.class);
+        refreshTokenService = mock(RefreshTokenService.class);
         
         jwtProvider = new JwtProvider();
         ReflectionTestUtils.setField(jwtProvider, "jwtSecret", "dGhpcy1pcy1hLXZlcnktc2VjdXJlLWtleS1mb3Itc2FlZC0yLjAtc2VjcmV0");
         ReflectionTestUtils.setField(jwtProvider, "jwtExpirationMs", 86400000);
         
-        authService = new AuthService(authRepository, passwordEncoder, jwtProvider);
+        authService = new AuthService(authRepository, passwordEncoder, jwtProvider, refreshTokenService);
     }
 
     @Test

@@ -41,30 +41,42 @@ function clearAuth() {
   sessionStorage.removeItem(USER_KEY);
 }
 
+let refreshTokenPromise = null;
+
 /**
  * Attempt to refresh the access token using the stored refresh token.
  * Returns true if successful, false otherwise.
  */
 async function tryRefreshToken() {
-  const refreshToken = getRefreshToken();
-  if (!refreshToken) return false;
-
-  try {
-    const res = await fetch(BASE_URL + '/auth/refresh', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken }),
-    });
-    if (!res.ok) return false;
-    const data = await res.json();
-    if (data.token && data.refreshToken) {
-      setTokens(data.token, data.refreshToken);
-      return true;
-    }
-    return false;
-  } catch {
-    return false;
+  if (refreshTokenPromise) {
+    return refreshTokenPromise;
   }
+
+  refreshTokenPromise = (async () => {
+    const refreshToken = getRefreshToken();
+    if (!refreshToken) return false;
+
+    try {
+      const res = await fetch(BASE_URL + '/auth/refresh', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken }),
+      });
+      if (!res.ok) return false;
+      const data = await res.json();
+      if (data.token && data.refreshToken) {
+        setTokens(data.token, data.refreshToken);
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    } finally {
+      refreshTokenPromise = null;
+    }
+  })();
+
+  return refreshTokenPromise;
 }
 
 async function request(endpoint, options = {}) {
