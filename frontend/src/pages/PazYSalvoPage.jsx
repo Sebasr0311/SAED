@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useFetch } from '../lib/hooks.js';
 import { api } from '../lib/api.js';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
-import { Button } from '../components/ui/button.tsx';
+import { Button } from '../components/ui/Button.jsx';
 import { Badge } from '../components/ui/badge.tsx';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card.tsx';
 import {

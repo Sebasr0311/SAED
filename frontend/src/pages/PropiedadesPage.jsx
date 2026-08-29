@@ -3,7 +3,7 @@ import { useTenant } from '../lib/TenantContext.jsx';
 import { useTenantApi } from '../lib/useTenantApi.js';
 import { useFetch } from '../lib/hooks.js';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
-import { Button } from '../components/ui/button.tsx';
+import { Button } from '../components/ui/Button.jsx';
 import { Badge } from '../components/ui/badge.tsx';
 import { Card, CardContent } from '../components/ui/card.tsx';
 import {
