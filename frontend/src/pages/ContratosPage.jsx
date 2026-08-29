@@ -1,4 +1,4 @@
-﻿import { useRef, useState } from 'react';
+﻿import { useRef, useState, useMemo } from 'react';
 import { Button } from '../components/ui/Button.jsx';
 import { Input, Select } from '../components/ui/Form.jsx';
 import { DataTable } from '../components/ui/DataTable.jsx';
@@ -79,7 +79,7 @@ export default function ContratosPage() {
   const { data: apartamentos } = useFetch(() => api.get('/units'), []);
   const { data: residentes } = useFetch(() => api.get('/personas'), []);
 
-  const contratos = (contratosRaw?.items || []).filter((c) => !filtroEstado || c.estado === filtroEstado);
+  const contratos = useMemo(() => (contratosRaw?.items || []).filter((c) => !filtroEstado || c.estado === filtroEstado), [contratosRaw, filtroEstado]);
   const totalPages = Math.max(1, Math.ceil(contratos.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages - 1);
   const rows = contratos.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);

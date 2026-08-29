@@ -1,4 +1,4 @@
-import { TOKEN_KEY, USER_KEY } from './storage.js';
+import { TOKEN_KEY, REFRESH_TOKEN_KEY, USER_KEY } from './storage.js';
 
 const isLocalhost =
   typeof window !== 'undefined' &&
@@ -26,6 +26,47 @@ function getToken() {
   return sessionStorage.getItem(TOKEN_KEY);
 }
 
+function getRefreshToken() {
+  return sessionStorage.getItem(REFRESH_TOKEN_KEY);
+}
+
+function setTokens(token, refreshToken) {
+  sessionStorage.setItem(TOKEN_KEY, token);
+  if (refreshToken) sessionStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+}
+
+function clearAuth() {
+  sessionStorage.removeItem(TOKEN_KEY);
+  sessionStorage.removeItem(REFRESH_TOKEN_KEY);
+  sessionStorage.removeItem(USER_KEY);
+}
+
+/**
+ * Attempt to refresh the access token using the stored refresh token.
+ * Returns true if successful, false otherwise.
+ */
+async function tryRefreshToken() {
+  const refreshToken = getRefreshToken();
+  if (!refreshToken) return false;
+
+  try {
+    const res = await fetch(BASE_URL + '/auth/refresh', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken }),
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    if (data.token && data.refreshToken) {
+      setTokens(data.token, data.refreshToken);
+      return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 async function request(endpoint, options = {}) {
   const headers = {
     'Content-Type': 'application/json',
@@ -50,27 +91,53 @@ async function request(endpoint, options = {}) {
     // resto de endpoints.
     const isLogin = endpoint.startsWith('/auth/login');
     if (res.status === 401 && !isLogin) {
-      sessionStorage.removeItem(TOKEN_KEY);
-      sessionStorage.removeItem(USER_KEY);
+      // Attempt token refresh before clearing session
+      const refreshed = await tryRefreshToken();
+      if (refreshed) {
+        // Retry the original request with the new token
+        const newToken = getToken();
+        const retryHeaders = {
+          'Content-Type': 'application/json',
+          ...(options.headers || {}),
+          Authorization: `Bearer ${newToken}`,
+        };
+        const retryRes = await fetch(BASE_URL + endpoint, {
+          ...options,
+          headers: retryHeaders,
+          signal: AbortSignal.timeout(TIMEOUT_MS),
+        });
+        clearTimeout(timer);
+        const retryContentType = retryRes.headers.get('content-type') || '';
+        if (retryContentType.includes('application/json')) {
+          const retryData = await retryRes.json();
+          if (!retryRes.ok) throw new Error(retryData.message || retryData.mensaje || retryData.error || 'No se pudo completar la operación. Intente de nuevo.');
+          return retryData;
+        }
+        if (!retryRes.ok) throw new Error('No se pudo completar la operación. Intente de nuevo.');
+        return await retryRes.text();
+      }
+
+      // Refresh failed — clear session and redirect
+      clearAuth();
       if (typeof onUnauthorized === 'function') {
         onUnauthorized();
       } else {
         window.location.href = `${import.meta.env.BASE_URL}login`;
       }
-      throw new Error('SesiÃ³n expirada');
+      throw new Error('Sesión expirada');
     }
 
     const contentType = res.headers.get('content-type') || '';
     if (contentType.includes('application/json')) {
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || data.mensaje || data.error || 'No se pudo completar la operaciÃ³n. Intente de nuevo.');
+      if (!res.ok) throw new Error(data.message || data.mensaje || data.error || 'No se pudo completar la operación. Intente de nuevo.');
       return data;
     }
-    if (!res.ok) throw new Error('No se pudo completar la operaciÃ³n. Intente de nuevo.');
+    if (!res.ok) throw new Error('No se pudo completar la operación. Intente de nuevo.');
     return await res.text();
   } catch (err) {
     clearTimeout(timer);
-    if (err.name === 'AbortError') throw new Error('La solicitud tardÃ³ demasiado, intente de nuevo', { cause: err });
+    if (err.name === 'AbortError') throw new Error('La solicitud tardó demasiado, intente de nuevo', { cause: err });
     throw err;
   }
 }
@@ -83,5 +150,7 @@ export const api = {
   del: (url, body) =>
     request(url, { method: 'DELETE', body: body ? JSON.stringify(body) : undefined }),
 };
+
+export { clearAuth, setTokens };
 
 export default api;

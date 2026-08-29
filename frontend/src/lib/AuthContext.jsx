@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import api, { setOnUnauthorized } from './api.js';
-import { TOKEN_KEY, USER_KEY } from './storage.js';
+import api, { setOnUnauthorized, setTokens, clearAuth } from './api.js';
+import { TOKEN_KEY, REFRESH_TOKEN_KEY, USER_KEY } from './storage.js';
 import { normalizeRole } from './access.js';
 
 const AuthContext = createContext(null);
@@ -26,7 +26,7 @@ export function AuthProvider({ children }) {
     try {
       const data = await api.post('/auth/login', { username, password });
       const usuario = normalizeUser(data.usuario);
-      sessionStorage.setItem(TOKEN_KEY, data.token);
+      setTokens(data.token, data.refreshToken);
       sessionStorage.setItem(USER_KEY, JSON.stringify(usuario));
       setUser(usuario);
       return usuario;
@@ -36,8 +36,7 @@ export function AuthProvider({ children }) {
   }
 
   function logout() {
-    sessionStorage.removeItem(TOKEN_KEY);
-    sessionStorage.removeItem(USER_KEY);
+    clearAuth();
     setUser(null);
   }
 

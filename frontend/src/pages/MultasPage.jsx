@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+﻿import { useState, useMemo } from 'react';
 import { DataTable } from '../components/ui/DataTable.jsx';
 import { Pagination } from '../components/ui/Pagination.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
@@ -34,7 +34,7 @@ export default function MultasPage() {
 
   const { data, loading, error, refetch } = useFetch(() => api.get('/multas/todas'), []);
 
-  const items = (data?.items || data || []).filter((m) => !filtroEstado || m.estado === filtroEstado);
+  const items = useMemo(() => (data?.items || data || []).filter((m) => !filtroEstado || m.estado === filtroEstado), [data, filtroEstado]);
   const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages - 1);
   const rows = items.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);

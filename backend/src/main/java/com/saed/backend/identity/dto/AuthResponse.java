@@ -2,18 +2,21 @@ package com.saed.backend.identity.dto;
 
 public class AuthResponse {
     private String token;
+    private String refreshToken;
     private boolean requiresPasswordChange;
     private Long idUsuario;
     private AuthUserDTO usuario;
 
-    public AuthResponse(String token, boolean requiresPasswordChange, Long idUsuario) {
+    public AuthResponse(String token, String refreshToken, boolean requiresPasswordChange, Long idUsuario) {
         this.token = token;
+        this.refreshToken = refreshToken;
         this.requiresPasswordChange = requiresPasswordChange;
         this.idUsuario = idUsuario;
     }
 
-    public AuthResponse(String token, boolean requiresPasswordChange, Long idUsuario, AuthUserDTO usuario) {
+    public AuthResponse(String token, String refreshToken, boolean requiresPasswordChange, Long idUsuario, AuthUserDTO usuario) {
         this.token = token;
+        this.refreshToken = refreshToken;
         this.requiresPasswordChange = requiresPasswordChange;
         this.idUsuario = idUsuario;
         this.usuario = usuario;
@@ -21,6 +24,8 @@ public class AuthResponse {
 
     public String getToken() { return token; }
     public void setToken(String token) { this.token = token; }
+    public String getRefreshToken() { return refreshToken; }
+    public void setRefreshToken(String refreshToken) { this.refreshToken = refreshToken; }
     public boolean isRequiresPasswordChange() { return requiresPasswordChange; }
     public void setRequiresPasswordChange(boolean requiresPasswordChange) { this.requiresPasswordChange = requiresPasswordChange; }
     public Long getIdUsuario() { return idUsuario; }

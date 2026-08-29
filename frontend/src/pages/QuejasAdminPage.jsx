@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef } from 'react';
+﻿import { useState, useEffect, useRef, useMemo } from 'react';
 import { toast } from 'sonner';
 import { Button } from '../components/ui/Button.jsx';
 import { Select, Textarea } from '../components/ui/Form.jsx';
@@ -50,7 +50,7 @@ export default function QuejasAdminPage() {
     resueltas: all.filter((i) => i.estado === 'RESUELTA' || i.estado === 'CERRADA').length,
   };
 
-  const filtradas = (() => {
+  const filtradas = useMemo(() => {
     const base = all.filter((r) => {
       if (!search) return true;
       const term = search.toLowerCase();
@@ -64,7 +64,7 @@ export default function QuejasAdminPage() {
       if (filtroPrioridad && r.prioridad !== filtroPrioridad) return false;
       return true;
     });
-  })();
+  }, [all, search, filtroEstado, filtroTipo, filtroPrioridad]);
   const totalPages = Math.max(1, Math.ceil(filtradas.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages - 1);
   const rows = filtradas.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);

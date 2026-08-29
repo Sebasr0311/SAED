@@ -1,4 +1,4 @@
-﻿import { useState, useRef } from 'react';
+﻿import { useState, useRef, useMemo } from 'react';
 import { toast } from 'sonner';
 import { valNombre, valApellido, valDocumento, valFechaNacimiento, valTelefono, valEmail, valSelect } from '../lib/validation.js';
 import { Button } from '../components/ui/Button.jsx';
@@ -8,6 +8,7 @@ import { Pagination } from '../components/ui/Pagination.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { ConfirmPasswordDialog } from '../components/ui/ConfirmPasswordDialog.jsx';
+import { ActionButtons } from '../components/ui/ActionButtons.jsx';
 import { useFetch, useTiposDocumento, useLiveValidation } from '../lib/hooks.js';
 import api from '../lib/api.js';
 
@@ -45,21 +46,6 @@ function calcularEdad(fechaNacimiento) {
 
 const PAGE_SIZE = 15;
 
-function ActionButtons({ onEdit, onDelete }) {
-  return (
-    <div style={{ display: 'flex', gap: '4px' }}>
-      <button onClick={onEdit} className="btn btn-ghost btn-sm" aria-label="Editar">
-        <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>edit</span>
-      </button>
-      <button onClick={onDelete} className="btn btn-ghost btn-sm" aria-label="Eliminar">
-        <span className="material-symbols-outlined" style={{ fontSize: '18px', color: 'var(--error)' }}>
-          delete
-        </span>
-      </button>
-    </div>
-  );
-}
-
 export default function ResidentesPage() {
   const [page, setPage] = useState(0);
   const [search, setSearch] = useState('');
@@ -81,13 +67,13 @@ export default function ResidentesPage() {
   const edad = calcularEdad(form.fechaNacimiento);
   const requiereTutor = edad !== null && edad >= 16 && edad < 18;
 
-  const items = (data?.items || []).filter((r) => {
+  const items = useMemo(() => (data?.items || []).filter((r) => {
     if (!search) return true;
     const term = search.toLowerCase();
     return [r.nombres, r.apellidos, r.numeroDocumento]
       .filter(Boolean)
       .some((v) => String(v).toLowerCase().includes(term));
-  });
+  }), [data, search]);
   const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages - 1);
   const rows = items.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);

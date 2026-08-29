@@ -8,6 +8,7 @@ import { Pagination } from '../components/ui/Pagination.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { ConfirmPasswordDialog } from '../components/ui/ConfirmPasswordDialog.jsx';
+import { ActionButtons } from '../components/ui/ActionButtons.jsx';
 import { useFetch, useLiveValidation } from '../lib/hooks.js';
 import api from '../lib/api.js';
 
@@ -20,21 +21,6 @@ const ROL_BADGE = {
   PORTERO: 'badge-info',
   RESIDENTE: 'badge-success',
 };
-
-function ActionButtons({ onEdit, onDelete }) {
-  return (
-    <div style={{ display: 'flex', gap: '4px' }}>
-      <button onClick={onEdit} className="btn btn-ghost btn-sm" aria-label="Editar">
-        <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>edit</span>
-      </button>
-      <button onClick={onDelete} className="btn btn-ghost btn-sm" aria-label="Eliminar">
-        <span className="material-symbols-outlined" style={{ fontSize: '18px', color: 'var(--error)' }}>
-          delete
-        </span>
-      </button>
-    </div>
-  );
-}
 
 export default function UsuariosPage() {
   const [page, setPage] = useState(0);

@@ -1,4 +1,4 @@
-﻿import { useState, useRef, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { useFetch } from '../lib/hooks.js';
@@ -10,82 +10,7 @@ import { Modal } from '../components/ui/Modal.jsx';
 import { DataTable } from '../components/ui/DataTable.jsx';
 import { formatDate, formatCurrency, imageSrc } from '../lib/utils.js';
 import { StatCard } from '../components/ui/StatCard.jsx';
-
-function VideoCamara({ onCapture, label = 'Capturar Foto' }) {
-  const videoRef = useRef(null);
-  const canvasRef = useRef(null);
-  const [stream, setStream] = useState(null);
-  const [error, setError] = useState('');
-
-  useEffect(() => () => detener(), []);
-
-  async function iniciar(facingMode) {
-    try {
-      const s = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode, width: { ideal: 640 }, height: { ideal: 480 } },
-        audio: false,
-      });
-      setStream(s);
-      setTimeout(() => {
-        if (videoRef.current) {
-          videoRef.current.srcObject = s;
-          videoRef.current.play();
-        }
-      }, 50);
-    } catch (e) {
-      setError('No se pudo acceder a la cámara: ' + e.message);
-    }
-  }
-  function detener() {
-    if (stream) {
-      stream.getTracks().forEach((t) => t.stop());
-      setStream(null);
-    }
-  }
-  function capturar() {
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    if (!video || !canvas) return;
-    canvas.width = video.videoWidth || 640;
-    canvas.height = video.videoHeight || 480;
-    canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-    onCapture(dataUrl.split(',')[1]);
-    detener();
-  }
-
-  return (
-    <div>
-      {error && <p className="field-error">{error}</p>}
-      {stream && (
-        <video
-          ref={videoRef}
-          autoPlay
-          playsInline
-          muted
-          style={{ width: '100%', maxHeight: '280px', borderRadius: '8px', background: 'var(--preview-bg)' }}
-        />
-      )}
-      <canvas ref={canvasRef} style={{ display: 'none' }} />
-      <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-        {!stream && (
-          <>
-            <Button onClick={() => iniciar('environment')}>Cámara Trasera</Button>
-            <Button variant="outline" onClick={() => iniciar('user')}>
-              Cámara Frontal
-            </Button>
-          </>
-        )}
-        {stream && <Button onClick={capturar}>{label}</Button>}
-        {stream && (
-          <Button variant="outline" onClick={detener}>
-            Cancelar
-          </Button>
-        )}
-      </div>
-    </div>
-  );
-}
+import { VideoCamara } from '../components/ui/VideoCamara.jsx';
 
 const QUICK = [
   { label: 'Registrar Visita', icon: 'edit_note', path: '/visitas' },
@@ -268,7 +193,7 @@ function ModalGenerarMulta({ open, onClose, onConfirm, apartamentos, quejasRuido
           <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>
             Foto de evidencia (obligatoria)
           </label>
-          <VideoCamara onCapture={setFoto} label="Capturar Evidencia" />
+          <VideoCamara onCapture={setFoto} buttonLabel="Capturar Evidencia" dualCamera maxHeight="280px" />
           {foto && (
             <img
                   src={imageSrc(foto)}

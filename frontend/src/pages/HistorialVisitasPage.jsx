@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+﻿import { useState, useMemo } from 'react';
 import { toast } from 'sonner';
 import { unzipSync, zipSync, strFromU8, strToU8 } from 'fflate';
 import { Button } from '../components/ui/Button.jsx';
@@ -281,13 +281,13 @@ export default function HistorialVisitasPage() {
     [fechaInicio, fechaFin]
   );
 
-  const filtradas = (visitasRaw?.items || visitasRaw || []).filter((v) => {
+  const filtradas = useMemo(() => (visitasRaw?.items || visitasRaw || []).filter((v) => {
     if (!search) return true;
     const term = search.toLowerCase();
     return [v.nombreVisitante, v.documentoVisitante, v.numeroApartamento, v.nombreResidente]
       .filter(Boolean)
       .some((x) => String(x).toLowerCase().includes(term));
-  });
+  }), [visitasRaw, search]);
 
   const stats = {
     total: filtradas.length,
