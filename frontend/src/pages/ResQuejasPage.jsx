@@ -46,12 +46,17 @@ export default function ResQuejasPage() {
   const [modal, setModal] = useState(null);
 
   const { data, loading, refetch } = useFetch(() => api.get(`/pqrs/mis-tickets`), [user]);
-  const rows = data || [];
+  const rows = data?.items || [];
 
-  const { validate, errors } = useLiveValidation(form, {
-    asunto: (v) => (!v.trim() ? 'El asunto es obligatorio' : ''),
-    descripcion: (v) => (!v.trim() ? 'La descripción es obligatoria' : ''),
-  });
+  const [errors, setErrors] = useState({});
+
+  const validate = () => {
+    const newErrors = {};
+    if (!form.asunto?.trim()) newErrors.asunto = 'El asunto es obligatorio';
+    if (!form.descripcion?.trim()) newErrors.descripcion = 'La descripción es obligatoria';
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const onSubmit = async (e) => {
     e.preventDefault();

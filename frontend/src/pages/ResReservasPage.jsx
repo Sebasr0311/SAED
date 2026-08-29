@@ -24,18 +24,24 @@ export default function ResReservasPage() {
   const [modal, setModal] = useState(null);
 
   const { data: zonasData } = useFetch(() => api.get('/zonas-comunes'), []);
-  const zonas = zonasData || [];
+  const zonas = zonasData?.items || [];
 
   const { data: reservasData, loading, refetch } = useFetch(() => api.get(`/reservas/mis-reservas`), [user]);
-  const rows = reservasData || [];
+  const rows = reservasData?.items || [];
 
-  const { validate, errors } = useLiveValidation(form, {
-    idZona: (v) => (!v ? 'Seleccione una zona común' : ''),
-    fechaReserva: (v) => (!v ? 'Seleccione una fecha' : ''),
-    horaInicio: (v) => (!v ? 'Ingrese hora de inicio' : ''),
-    horaFin: (v) => (!v ? 'Ingrese hora de fin' : ''),
-    cantidadAsistentes: (v) => (v < 1 ? 'Mínimo 1 asistente' : ''),
-  });
+  const [errors, setErrors] = useState({});
+
+  const validate = () => {
+    const newErrors = {};
+    if (!form.idZona) newErrors.idZona = 'Seleccione una zona común';
+    if (!form.fechaReserva) newErrors.fechaReserva = 'Seleccione una fecha';
+    if (!form.horaInicio) newErrors.horaInicio = 'Ingrese hora de inicio';
+    if (!form.horaFin) newErrors.horaFin = 'Ingrese hora de fin';
+    if (form.cantidadAsistentes < 1) newErrors.cantidadAsistentes = 'Mínimo 1 asistente';
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const onSubmit = async (e) => {
     e.preventDefault();

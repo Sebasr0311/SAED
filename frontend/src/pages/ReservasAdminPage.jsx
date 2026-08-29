@@ -30,7 +30,7 @@ export default function ReservasAdminPage() {
   const [saving, setSaving] = useState(false);
 
   const { data, loading, error, refetch } = useFetch(() => api.get('/reservas/todas'), []);
-  const all = data || [];
+  const all = data?.items || [];
 
   const stats = {
     total: all.length,
