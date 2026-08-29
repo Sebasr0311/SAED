@@ -3,6 +3,8 @@ import com.saed.backend.convivencia.dto.MultaDTO;
 import com.saed.backend.convivencia.repository.MultaRepository;
 import com.saed.backend.convivencia.service.MultaService;
 import com.saed.backend.common.service.EmailService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -12,6 +14,8 @@ import java.util.Map;
 
 @Service
 public class MultaServiceImpl implements MultaService {
+    private static final Logger log = LoggerFactory.getLogger(MultaServiceImpl.class);
+
     private final MultaRepository repo;
     private final EmailService emailService;
     private final NamedParameterJdbcTemplate jdbcTemplate;
@@ -62,7 +66,7 @@ public class MultaServiceImpl implements MultaService {
                 }
             }
         } catch (Exception e) {
-            System.err.println("Error enviando notificación de multa: " + e.getMessage());
+            log.error("Error enviando notificación de multa", e);
         }
     }
     

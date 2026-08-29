@@ -1,6 +1,8 @@
 package com.saed.backend.finanzas.controller;
 
 import com.saed.backend.common.dto.ApiResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -32,6 +34,8 @@ import java.util.Map;
 @RequestMapping("/api/v1/membresias")
 @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
 public class MembresiasController {
+
+    private static final Logger log = LoggerFactory.getLogger(MembresiasController.class);
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
 
@@ -142,7 +146,7 @@ public class MembresiasController {
                             .addValue("planNuevo", planNombre)
                             .addValue("notas", "Membresia creada con estado " + estado.toUpperCase()));
         } catch (Exception e) {
-            System.err.println("Error insertando historial de creacion: " + e.getMessage());
+            log.error("Error insertando historial de creacion", e);
         }
 
         return ApiResponse.success(Map.of(
@@ -186,7 +190,7 @@ public class MembresiasController {
                             .addValue("planNuevo", planNombre)
                             .addValue("notas", "Estado cambió de " + estadoAnterior + " a " + estado.toUpperCase()));
         } catch (Exception e) {
-            System.err.println("Error insertando historial de cambio de estado: " + e.getMessage());
+            log.error("Error insertando historial de cambio de estado", e);
         }
 
         return ApiResponse.success("OK");
@@ -227,7 +231,7 @@ public class MembresiasController {
                             .addValue("planAnterior", planNombre)
                             .addValue("notas", "Membresía cancelada. Estado anterior: " + estadoAnterior));
         } catch (Exception e) {
-            System.err.println("Error insertando historial de cancelación: " + e.getMessage());
+            log.error("Error insertando historial de cancelación", e);
         }
 
         return ApiResponse.success("Membresía cancelada");

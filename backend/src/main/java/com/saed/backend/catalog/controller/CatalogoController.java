@@ -62,7 +62,7 @@ public class CatalogoController {
     @GetMapping("/usuarios")
     public List<Map<String, Object>> usuarios() {
         return jdbcTemplate.queryForList(
-                "SELECT u.ID_USUARIO, u.NOMBRE_USUARIO, u.EMAIL, u.ESTADO " +
+                "SELECT u.ID_USUARIO, u.NOMBRE_USUARIO, u.ESTADO " +
                 "FROM USUARIOS u ORDER BY u.NOMBRE_USUARIO",
                 new MapSqlParameterSource());
     }

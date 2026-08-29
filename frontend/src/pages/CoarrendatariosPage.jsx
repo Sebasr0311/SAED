@@ -56,7 +56,7 @@ export default function CoarrendatariosPage() {
       setForm({ idPersona: '', tipoVinculo: 'COARRENDATARIO', esResponsablePago: 'N' });
       cargarCoarrendatarios(selectedContrato);
     } catch (e) {
-      toast.error('Error: ' + (e.response?.data?.message || e.message));
+      toast.error('Error: ' + (e.message || 'Error desconocido'));
     }
   };
 

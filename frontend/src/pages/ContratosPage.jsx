@@ -318,6 +318,7 @@ export default function ContratosPage() {
               }}
               className="btn btn-ghost btn-xs"
               title="Descargar PDF"
+              aria-label="Descargar PDF"
               disabled={descargando === row.idContrato}
             >
               <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>
@@ -333,6 +334,7 @@ export default function ContratosPage() {
               }}
               className="btn btn-ghost btn-xs"
               title="Reenviar correo"
+              aria-label="Reenviar correo"
             >
               <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>mail</span>
             </button>
@@ -345,6 +347,7 @@ export default function ContratosPage() {
               }}
               className="btn btn-ghost btn-xs"
               title="Activar"
+              aria-label="Activar contrato"
             >
               <span className="material-symbols-outlined" style={{ fontSize: '16px', color: 'var(--success-strong)' }}>
                 check_circle
@@ -359,6 +362,7 @@ export default function ContratosPage() {
               }}
               className="btn btn-ghost btn-xs"
               title="Renovar"
+              aria-label="Renovar contrato"
             >
               <span className="material-symbols-outlined" style={{ fontSize: '16px', color: 'var(--info)' }}>
                 autorenew
@@ -373,6 +377,7 @@ export default function ContratosPage() {
               }}
               className="btn btn-ghost btn-xs"
               title="Cancelar"
+              aria-label="Cancelar contrato"
             >
               <span className="material-symbols-outlined" style={{ fontSize: '16px', color: 'var(--error)' }}>
                 cancel

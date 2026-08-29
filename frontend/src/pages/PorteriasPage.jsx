@@ -50,7 +50,7 @@ export default function PorteriasPage() {
       setDialog({ open: false, mode: 'create', data: null });
       cargar();
     } catch (e) {
-      toast.error('Error al guardar: ' + (e.response?.data?.message || e.message));
+      toast.error('Error al guardar: ' + (e.message || 'Error desconocido'));
     }
   };
 

@@ -7,6 +7,8 @@ import com.saed.backend.finanzas.service.WompiService;
 import com.saed.backend.common.service.EmailService;
 import com.saed.backend.context.SaedContext;
 import com.saed.backend.context.SaedContextHolder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -19,6 +21,9 @@ import java.util.Map;
 import java.util.HashMap;
 import java.time.format.DateTimeFormatter;
 import java.time.LocalDateTime;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * WompiServiceImpl — pasarela de pagos Wompi (produccion).
@@ -35,6 +40,8 @@ import java.time.LocalDateTime;
  */
 @Service
 public class WompiServiceImpl implements WompiService {
+
+    private static final Logger log = LoggerFactory.getLogger(WompiServiceImpl.class);
 
     private static final String WOMPI_PUBLIC_KEY = System.getenv("WOMPI_PUBLIC_KEY");
     private static final String WOMPI_INTEGRITY_SECRET = System.getenv("WOMPI_INTEGRITY_SECRET");
@@ -154,7 +161,7 @@ public class WompiServiceImpl implements WompiService {
         if (!"transaction.updated".equals(event)) return;
 
         if (!verificarChecksum(evento)) {
-            System.err.println("[Wompi] Checksum invalido");
+            log.warn("[Wompi] Checksum invalido");
             return;
         }
 
@@ -176,7 +183,7 @@ public class WompiServiceImpl implements WompiService {
         );
 
         if (txs.isEmpty()) {
-            System.err.println("[Wompi] Referencia no encontrada: " + referencia);
+            log.warn("[Wompi] Referencia no encontrada: {}", referencia);
             return;
         }
 
@@ -220,7 +227,7 @@ public class WompiServiceImpl implements WompiService {
                     );
                 }
             } catch (Exception e) {
-                System.err.println("[Wompi] Error registrando pago aprobado: " + e.getMessage());
+                log.error("[Wompi] Error registrando pago aprobado", e);
             }
 
             // Recibo por correo (modelo 2.0: RESIDENTES_UNIDAD)
@@ -236,7 +243,7 @@ public class WompiServiceImpl implements WompiService {
                     emailService.enviarReciboPago(destinatario, concepto, montoPesos, referencia, java.time.LocalDate.now().toString());
                 }
             } catch (Exception e) {
-                e.printStackTrace();
+                log.error("[Wompi] Error enviando recibo de pago", e);
             }
         }
     }

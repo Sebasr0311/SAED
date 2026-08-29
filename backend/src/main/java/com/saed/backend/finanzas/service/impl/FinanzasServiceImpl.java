@@ -6,6 +6,8 @@ import com.saed.backend.finanzas.service.FinanzasService;
 import com.saed.backend.common.service.PdfService;
 import com.saed.backend.common.service.EmailService;
 import com.saed.backend.common.service.TemplateRenderService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -17,6 +19,8 @@ import java.time.LocalDate;
 
 @Service
 public class FinanzasServiceImpl implements FinanzasService {
+    private static final Logger log = LoggerFactory.getLogger(FinanzasServiceImpl.class);
+
     private final FinanzasRepository finanzasRepository;
     private final PdfService pdfService;
     private final EmailService emailService;
@@ -53,7 +57,7 @@ public class FinanzasServiceImpl implements FinanzasService {
                 emailService.enviarEmailContrato(detalle.getCorreoResidente(), detalle, pdf, "Contrato_" + numContrato + ".pdf");
             }
         } catch (Exception e) {
-            System.err.println("Error generando PDF/Email para contrato: " + e.getMessage());
+            log.error("Error generando PDF/Email para contrato", e);
         }
         
         return id;
@@ -93,7 +97,7 @@ public class FinanzasServiceImpl implements FinanzasService {
                 emailService.enviarReciboPago(destinatario, cuota.concepto(), cuota.valorTotal(), referencia, LocalDate.now().toString());
             }
         } catch (Exception e) {
-            System.err.println("Error enviando recibo de pago: " + e.getMessage());
+            log.error("Error enviando recibo de pago", e);
         }
     }
 

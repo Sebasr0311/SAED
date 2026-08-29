@@ -1,4 +1,4 @@
-﻿import { useState, useRef } from 'react';
+﻿import { useState, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { useFetch } from '../lib/hooks.js';
@@ -16,6 +16,8 @@ function VideoCamara({ onCapture, label = 'Capturar Foto' }) {
   const canvasRef = useRef(null);
   const [stream, setStream] = useState(null);
   const [error, setError] = useState('');
+
+  useEffect(() => () => detener(), []);
 
   async function iniciar(facingMode) {
     try {
@@ -417,25 +419,25 @@ export default function PorteroDashboardPage() {
           Acciones Rápidas
         </h3>
         <div className="card-grid-4" style={{ marginTop: '12px' }}>
-          <button onClick={() => setModalAviso(true)} className="action-card" style={{ border: 'none', cursor: 'pointer' }}>
+          <button onClick={() => setModalAviso(true)} className="action-card" style={{ border: 'none', cursor: 'pointer' }} aria-label="Enviar aviso de ruido">
             <span className="action-card-icon">
               <span className="material-symbols-outlined" style={{ fontSize: '32px' }}>volume_up</span>
             </span>
             <span className="action-card-label">Aviso de Ruido</span>
           </button>
-          <button onClick={() => setModalMulta('RUIDO')} className="action-card" style={{ border: 'none', cursor: 'pointer' }}>
+          <button onClick={() => setModalMulta('RUIDO')} className="action-card" style={{ border: 'none', cursor: 'pointer' }} aria-label="Generar multa por ruido">
             <span className="action-card-icon">
               <span className="material-symbols-outlined" style={{ fontSize: '32px' }}>gavel</span>
             </span>
             <span className="action-card-label">Multa por Ruido</span>
           </button>
-          <button onClick={() => setModalMulta('PARQUEADERO')} className="action-card" style={{ border: 'none', cursor: 'pointer' }}>
+          <button onClick={() => setModalMulta('PARQUEADERO')} className="action-card" style={{ border: 'none', cursor: 'pointer' }} aria-label="Generar multa por parqueadero">
             <span className="action-card-icon">
               <span className="material-symbols-outlined" style={{ fontSize: '32px' }}>directions_car</span>
             </span>
             <span className="action-card-label">Multa Parqueadero</span>
           </button>
-          <button onClick={() => setModalPaquetes(true)} className="action-card" style={{ border: 'none', cursor: 'pointer' }}>
+          <button onClick={() => setModalPaquetes(true)} className="action-card" style={{ border: 'none', cursor: 'pointer' }} aria-label="Ver paquetes pendientes">
             <span className="action-card-icon">
               <span className="material-symbols-outlined" style={{ fontSize: '32px' }}>inventory_2</span>
             </span>

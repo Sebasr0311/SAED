@@ -1,5 +1,7 @@
 package com.saed.backend.common.exception;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -23,6 +25,8 @@ import java.util.Map;
  */
 @ControllerAdvice
 public class GlobalExceptionHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
 
@@ -99,7 +103,7 @@ public class GlobalExceptionHandler {
         }
 
         // Generic fallback for DB
-        System.err.println("DB Error: " + message);
+        log.error("DB Error: {}", message);
         response.put("code", "DATABASE_ERROR");
         response.put("message", "Ha ocurrido un error en la capa de datos.");
         return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
@@ -170,7 +174,7 @@ public class GlobalExceptionHandler {
         response.put("success", false);
         response.put("code", "INTERNAL_SERVER_ERROR");
         response.put("message", "Error interno del servidor");
-        ex.printStackTrace();
+        log.error("Unhandled exception", ex);
         return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 }

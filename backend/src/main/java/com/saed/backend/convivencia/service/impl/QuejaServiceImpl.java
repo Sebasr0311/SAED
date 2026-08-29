@@ -5,6 +5,8 @@ import com.saed.backend.convivencia.repository.QuejaRepository;
 import com.saed.backend.convivencia.service.QuejaService;
 import com.saed.backend.context.SaedContextHolder;
 import com.saed.backend.common.service.EmailService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
@@ -13,6 +15,8 @@ import java.util.Map;
 
 @Service
 public class QuejaServiceImpl implements QuejaService {
+    private static final Logger log = LoggerFactory.getLogger(QuejaServiceImpl.class);
+
     private final QuejaRepository repo;
     private final EmailService emailService;
     private final NamedParameterJdbcTemplate jdbcTemplate;
@@ -77,7 +81,7 @@ public class QuejaServiceImpl implements QuejaService {
                 emailService.enviarNotificacionPQRS(destinatario, "PQRS-" + idQueja, estado, respuesta);
             }
         } catch(Exception e) {
-            e.printStackTrace();
+            log.error("Error sending PQRS notification email", e);
         }
     }
 }

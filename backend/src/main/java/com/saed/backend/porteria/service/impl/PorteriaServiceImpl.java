@@ -4,6 +4,8 @@ import com.saed.backend.common.service.EmailService;
 import com.saed.backend.porteria.dto.*;
 import com.saed.backend.porteria.repository.PorteriaRepository;
 import com.saed.backend.porteria.service.PorteriaService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,6 +19,8 @@ import com.saed.backend.context.SaedContextHolder;
 @Service
 @Transactional
 public class PorteriaServiceImpl implements PorteriaService {
+
+    private static final Logger log = LoggerFactory.getLogger(PorteriaServiceImpl.class);
 
     private final PorteriaRepository porteriaRepository;
     private final EmailService emailService;
@@ -168,7 +172,7 @@ public class PorteriaServiceImpl implements PorteriaService {
                 String destinatario = (String) residentes.get(0).get("EMAIL");
                 emailService.enviarCorreoQR(destinatario, qr.tokenQr(), qr.fechaExpiracion().toString(), "Visitante");
             }
-        } catch(Exception e) { e.printStackTrace(); }
+        } catch(Exception e) { log.error("Error sending QR email", e); }
         return qr;
     }
 

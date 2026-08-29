@@ -6,20 +6,31 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import jakarta.annotation.PostConstruct;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.crypto.SecretKey;
 import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
 
 @Component
 public class JwtProvider {
 
-    @Value("${jwt.secret:dGhpcy1pcy1hLXZlcnktc2VjdXJlLWtleS1mb3Itc2FlZC0yLjAtc2VjcmV0}")
+    private static final Logger log = LoggerFactory.getLogger(JwtProvider.class);
+
+    @Value("${jwt.secret:}")
     private String jwtSecret;
 
     @Value("${jwt.expiration.ms:86400000}")
     private int jwtExpirationMs;
+
+    @PostConstruct
+    void validateSecret() {
+        if (jwtSecret == null || jwtSecret.isBlank()) {
+            throw new IllegalStateException(
+                "jwt.secret is not set. Configure JWT_SECRET env var before starting the application.");
+        }
+    }
 
     private SecretKey getSigningKey() {
         return Keys.hmacShaKeyFor(jwtSecret.getBytes());
@@ -52,7 +63,7 @@ public class JwtProvider {
             Jwts.parser().verifyWith(getSigningKey()).build().parseSignedClaims(authToken);
             return true;
         } catch (Exception e) {
-            System.err.println("Invalid JWT signature: " + e.getMessage());
+            log.warn("Invalid JWT signature: {}", e.getMessage());
         }
         return false;
     }

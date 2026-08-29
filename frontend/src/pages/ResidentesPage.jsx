@@ -158,7 +158,7 @@ export default function ResidentesPage() {
             });
           }
         })
-        .catch(() => {});
+        .catch(() => { /* Tutor data not available — non-critical */ });
     }
   }
   function update(k, v) {

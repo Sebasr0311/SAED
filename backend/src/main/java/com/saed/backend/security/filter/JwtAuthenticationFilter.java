@@ -12,6 +12,8 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -31,6 +33,8 @@ import java.util.Optional;
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
+
+    private static final Logger log = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
 
     private final JwtProvider jwtProvider;
     private final ObjectMapper objectMapper;
@@ -164,7 +168,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }
         } catch (Exception e) {
-            System.err.println("CRITICAL SECURITY ERROR: Cannot set user authentication: " + e.getMessage());
+            log.error("CRITICAL SECURITY ERROR: Cannot set user authentication: {}", e.getMessage());
             // Chain continues unauthenticated
         }
 

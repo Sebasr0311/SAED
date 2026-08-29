@@ -48,7 +48,7 @@ export default function ContratosProveedorPage() {
       setForm({ idProveedor: '', numeroContrato: '', objetoContrato: '', valorTotal: '', periodicidadPago: 'MENSUAL', fechaInicio: '', fechaFin: '', diasAlertaVenc: '30' });
       cargar();
     } catch (e) {
-      toast.error('Error: ' + (e.response?.data?.message || e.message));
+      toast.error('Error: ' + (e.message || 'Error desconocido'));
     }
   };
 

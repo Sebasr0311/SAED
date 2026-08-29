@@ -3,6 +3,7 @@ package com.saed.backend.dashboard.controller;
 import com.saed.backend.common.dto.ApiResponse;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
@@ -24,6 +25,7 @@ import java.util.Map;
 @Tag(name = "Auditoría", description = "Lectura de registros de auditoría (append-only)")
 @RestController
 @RequestMapping("/api/v1/audit")
+@PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_PROPIEDAD')")
 public class AuditoriaController {
 
     private final NamedParameterJdbcTemplate jdbcTemplate;

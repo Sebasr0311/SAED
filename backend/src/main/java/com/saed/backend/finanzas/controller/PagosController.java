@@ -3,6 +3,8 @@ import com.saed.backend.finanzas.dto.CuotaDTO;
 import com.saed.backend.finanzas.dto.PagoRequestDTO;
 import com.saed.backend.finanzas.service.FinanzasService;
 import jakarta.validation.Valid;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -16,6 +18,8 @@ import java.util.Map;
 @RequestMapping("/api/v1")
 @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
 public class PagosController {
+    private static final Logger log = LoggerFactory.getLogger(PagosController.class);
+
     private final FinanzasService finanzasService;
     private final com.saed.backend.finanzas.service.WompiService wompiService;
     public PagosController(FinanzasService finanzasService, com.saed.backend.finanzas.service.WompiService wompiService) { this.finanzasService = finanzasService; this.wompiService = wompiService; }
@@ -40,7 +44,7 @@ public class PagosController {
             wompiService.procesarWebhook(payload);
             return ResponseEntity.ok().build();
         } catch (Exception e) {
-            System.err.println("Error procesando webhook Wompi: " + e.getMessage());
+            log.error("Error procesando webhook Wompi", e);
             return ResponseEntity.ok().build(); // Wompi espera 200 siempre si no es error de red
         }
     }
