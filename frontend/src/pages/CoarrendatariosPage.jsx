@@ -16,9 +16,9 @@ export default function CoarrendatariosPage() {
     try {
       setLoading(true);
       const res = await api.get('/contratos');
-      setContratos(res.data?.data || res.data || []);
+      setContratos(res.data || []);
     } catch (e) {
-      console.error('Error:', e);
+      toast.error('No se pudieron cargar los contratos');
     } finally {
       setLoading(false);
     }
@@ -27,9 +27,9 @@ export default function CoarrendatariosPage() {
   const cargarCoarrendatarios = async (idContrato) => {
     try {
       const res = await api.get(`/contratos-admin/coarrendatarios/${idContrato}`);
-      setCoarrendatarios(res.data?.data || res.data || []);
+      setCoarrendatarios(res.data || []);
     } catch (e) {
-      console.error('Error:', e);
+      toast.error('No se pudieron cargar los coarrendatarios');
     }
   };
 

@@ -5,23 +5,10 @@ import { Input, Select } from '../components/ui/Form.jsx';
 import { DataTable } from '../components/ui/DataTable.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
+import { StatCard } from '../components/ui/StatCard.jsx';
 import { useFetch, useLiveValidation } from '../lib/hooks.js';
 import api from '../lib/api.js';
 import { formatCurrency, formatDate, todayStr, formatMiles, parseMiles, periodoLabel } from '../lib/utils.js';
-
-function Stat({ icon, value, label, color = 'primary' }) {
-  return (
-    <div className="stat-card">
-      <div className={`stat-icon ${color}`}>
-        <span className="material-symbols-outlined">{icon}</span>
-      </div>
-      <div className="stat-body">
-        <div className="stat-value">{value}</div>
-        <div className="stat-label">{label}</div>
-      </div>
-    </div>
-  );
-}
 
 function agruparPorApartamento(cuotas, multas) {
   const mapa = new Map();
@@ -196,9 +183,9 @@ export default function PagosPage() {
         }
       />
       <div className="card-grid-3" style={{ marginBottom: '20px' }}>
-        <Stat icon="receipt_long" value={formatCurrency(kpis.cuotasPendientes)} label="Cuotas pendientes" color="primary" />
-        <Stat icon="gavel" value={formatCurrency(kpis.multasPendientes)} label="Multas pendientes" color="amber" />
-        <Stat icon="apartment" value={kpis.aptosConSaldo} label="Aptos con saldo" color="blue" />
+        <StatCard icon="receipt_long" value={formatCurrency(kpis.cuotasPendientes)} label="Cuotas pendientes" color="primary" />
+        <StatCard icon="gavel" value={formatCurrency(kpis.multasPendientes)} label="Multas pendientes" color="amber" />
+        <StatCard icon="apartment" value={kpis.aptosConSaldo} label="Aptos con saldo" color="blue" />
       </div>
       <DataTable
         columns={columns}

@@ -17,9 +17,9 @@ export default function ContratosProveedorPage() {
     try {
       setLoading(true);
       const res = await api.get('/contratos-admin/proveedores');
-      setContratos(res.data?.data || res.data || []);
+      setContratos(res.data || []);
     } catch (e) {
-      console.error('Error:', e);
+      toast.error('No se pudieron cargar los contratos de proveedor');
     } finally {
       setLoading(false);
     }

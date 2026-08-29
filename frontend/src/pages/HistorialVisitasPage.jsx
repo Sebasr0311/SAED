@@ -6,6 +6,7 @@ import { Input } from '../components/ui/Form.jsx';
 import { DataTable } from '../components/ui/DataTable.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
+import { StatCard } from '../components/ui/StatCard.jsx';
 import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
 import { formatDate, todayStr, imageSrc } from '../lib/utils.js';
@@ -262,20 +263,6 @@ async function exportarExcel(visitas, fechaInicio, fechaFin) {
 }
 
 
-function Stat({ icon, value, label, color = 'primary' }) {
-  return (
-    <div className="stat-card">
-      <div className={`stat-icon ${color}`}>
-        <span className="material-symbols-outlined">{icon}</span>
-      </div>
-      <div className="stat-body">
-        <div className="stat-value">{value}</div>
-        <div className="stat-label">{label}</div>
-      </div>
-    </div>
-  );
-}
-
 function haceDias(dias) {
   const d = new Date();
   d.setDate(d.getDate() - dias);
@@ -377,9 +364,9 @@ export default function HistorialVisitasPage() {
       </div>
 
       <div className="card-grid-3" style={{ marginBottom: '20px' }}>
-        <Stat icon="today" value={stats.total} label="Total" color="primary" />
-        <Stat icon="how_to_reg" value={stats.activas} label="Activas" color="cyan" />
-        <Stat icon="check_circle" value={stats.finalizadas} label="Finalizadas" color="green" />
+        <StatCard icon="today" value={stats.total} label="Total" color="primary" />
+        <StatCard icon="how_to_reg" value={stats.activas} label="Activas" color="cyan" />
+        <StatCard icon="check_circle" value={stats.finalizadas} label="Finalizadas" color="green" />
       </div>
 
       <DataTable

@@ -5,24 +5,11 @@ import { Button } from '../components/ui/Button.jsx';
 import { Input } from '../components/ui/Form.jsx';
 import { DataTable } from '../components/ui/DataTable.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
+import { StatCard } from '../components/ui/StatCard.jsx';
 import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
 import { validarFechas } from '../lib/validation.js';
 import { formatCurrency, formatDate, todayStr } from '../lib/utils.js';
-
-function Stat({ icon, value, label, color = 'primary' }) {
-  return (
-    <div className="stat-card">
-      <div className={`stat-icon ${color}`}>
-        <span className="material-symbols-outlined">{icon}</span>
-      </div>
-      <div className="stat-body">
-        <div className="stat-value">{value}</div>
-        <div className="stat-label">{label}</div>
-      </div>
-    </div>
-  );
-}
 
 // SheetJS CE lee freeze panes pero no los escribe: se inyectan en el XML de la hoja
 // dentro del zip del .xlsx (fflate). ySplit = cantidad de filas congeladas.
@@ -377,10 +364,10 @@ export default function GananciasPage() {
       </div>
 
       <div className="card-grid-4" style={{ marginBottom: '20px' }}>
-        <Stat icon="receipt_long" value={stats.totalPagos} label="Total Pagos" color="primary" />
-        <Stat icon="payments" value={formatCurrency(stats.totalIngresos)} label="Ingresos Totales" color="green" />
-        <Stat icon="description" value={stats.cuotas} label="Cuotas" color="blue" />
-        <Stat icon="gavel" value={stats.multas} label="Multas" color="amber" />
+        <StatCard icon="receipt_long" value={stats.totalPagos} label="Total Pagos" color="primary" />
+        <StatCard icon="payments" value={formatCurrency(stats.totalIngresos)} label="Ingresos Totales" color="green" />
+        <StatCard icon="description" value={stats.cuotas} label="Cuotas" color="blue" />
+        <StatCard icon="gavel" value={stats.multas} label="Multas" color="amber" />
       </div>
 
       <DataTable

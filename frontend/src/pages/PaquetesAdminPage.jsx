@@ -4,23 +4,10 @@ import { Input } from '../components/ui/Form.jsx';
 import { DataTable } from '../components/ui/DataTable.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
+import { StatCard } from '../components/ui/StatCard.jsx';
 import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
 import { formatDate, imageSrc } from '../lib/utils.js';
-
-function Stat({ icon, value, label, color = 'primary' }) {
-  return (
-    <div className="stat-card">
-      <div className={`stat-icon ${color}`}>
-        <span className="material-symbols-outlined">{icon}</span>
-      </div>
-      <div className="stat-body">
-        <div className="stat-value">{value}</div>
-        <div className="stat-label">{label}</div>
-      </div>
-    </div>
-  );
-}
 
 export default function PaquetesAdminPage() {
   const [search, setSearch] = useState('');
@@ -75,9 +62,9 @@ export default function PaquetesAdminPage() {
         }
       />
       <div className="card-grid-3" style={{ marginBottom: '20px' }}>
-        <Stat icon="inventory_2" value={stats.total} label="Total" color="primary" />
-        <Stat icon="check_circle" value={stats.entregados} label="Entregados" color="green" />
-        <Stat icon="pending" value={stats.pendientes} label="Pendientes" color="amber" />
+        <StatCard icon="inventory_2" value={stats.total} label="Total" color="primary" />
+        <StatCard icon="check_circle" value={stats.entregados} label="Entregados" color="green" />
+        <StatCard icon="pending" value={stats.pendientes} label="Pendientes" color="amber" />
       </div>
       <DataTable
         columns={columns}

@@ -6,6 +6,7 @@ import { DataTable } from '../components/ui/DataTable.jsx';
 import { Pagination } from '../components/ui/Pagination.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
+import { StatCard } from '../components/ui/StatCard.jsx';
 import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
 import { formatDate, todayStr, imageSrc } from '../lib/utils.js';
@@ -26,20 +27,6 @@ const PRIORIDAD_BADGE = {
   MEDIA: 'badge-warn',
   BAJA: 'badge-neutral',
 };
-
-function Stat({ icon, value, label, color = 'primary' }) {
-  return (
-    <div className="stat-card">
-      <div className={`stat-icon ${color}`}>
-        <span className="material-symbols-outlined">{icon}</span>
-      </div>
-      <div className="stat-body">
-        <div className="stat-value">{value}</div>
-        <div className="stat-label">{label}</div>
-      </div>
-    </div>
-  );
-}
 
 export default function QuejasAdminPage() {
   const [page, setPage] = useState(0);
@@ -180,10 +167,10 @@ export default function QuejasAdminPage() {
       <PageHeader title="Solicitudes" subtitle="Quejas, sugerencias y apelaciones" />
 
       <div className="card-grid-4" style={{ marginBottom: '20px' }}>
-        <Stat icon="analytics" value={stats.total} label="Total" color="primary" />
-        <Stat icon="pending" value={stats.pendientes} label="Pendientes" color="amber" />
-        <Stat icon="visibility" value={stats.revision} label="En Revisión" color="blue" />
-        <Stat icon="check_circle" value={stats.resueltas} label="Resueltas/Cerradas" color="green" />
+        <StatCard icon="analytics" value={stats.total} label="Total" color="primary" />
+        <StatCard icon="pending" value={stats.pendientes} label="Pendientes" color="amber" />
+        <StatCard icon="visibility" value={stats.revision} label="En Revisión" color="blue" />
+        <StatCard icon="check_circle" value={stats.resueltas} label="Resueltas/Cerradas" color="green" />
       </div>
 
       <div className="card" style={{ marginBottom: '16px' }}>

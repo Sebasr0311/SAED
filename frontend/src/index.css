@@ -355,7 +355,7 @@
   /* Grupo activo por hijo activo: se identifica aunque esté cerrado */
   .sidebar-group.group-active > .sidebar-group-btn {
     color: white;
-    background: rgba(59, 130, 246, 0.1);
+    background: rgba(61, 107, 191, 0.1);
   }
   .sidebar-group.group-active > .sidebar-group-btn::after {
     content: '';
@@ -453,7 +453,7 @@
     color: rgba(255, 255, 255, 0.9);
   }
   .sidebar-item-btn.active {
-    background: rgba(59, 130, 246, 0.14);
+    background: rgba(61, 107, 191, 0.14);
     color: white;
     font-weight: 600;
     border-radius: 10px;

@@ -14,9 +14,9 @@ export default function PorteriasPage() {
     try {
       setLoading(true);
       const res = await api.get('/porteria');
-      setPorterias(res.data?.data || res.data || []);
+      setPorterias(res.data || []);
     } catch (e) {
-      console.error('Error:', e);
+      toast.error('No se pudieron cargar las porterías');
     } finally {
       setLoading(false);
     }

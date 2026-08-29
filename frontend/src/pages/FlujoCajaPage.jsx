@@ -3,6 +3,7 @@ import { useAuth } from '../lib/AuthContext.jsx';
 import { api } from '../lib/api.js';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog.jsx';
 import { StatCard } from '../components/ui/StatCard.jsx';
+import { toast } from 'sonner';
 
 export default function FlujoCajaPage() {
   const { token } = useAuth();
@@ -20,11 +21,11 @@ export default function FlujoCajaPage() {
         api.get('/flujo-caja/movimientos?limite=20'),
         api.get('/flujo-caja/proyeccion')
       ]);
-      setResumen(resumenRes.data?.data || resumenRes.data);
-      setMovimientos(movRes.data?.data || movRes.data || []);
-      setProyeccion(proyRes.data?.data || proyRes.data || []);
+      setResumen(resumenRes.data);
+      setMovimientos(movRes.data || []);
+      setProyeccion(proyRes.data || []);
     } catch (e) {
-      console.error('Error cargando flujo de caja:', e);
+      toast.error('No se pudo cargar el flujo de caja');
     } finally {
       setLoading(false);
     }
