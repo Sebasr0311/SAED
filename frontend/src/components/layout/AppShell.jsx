@@ -56,7 +56,7 @@ const NAV_BY_ROLE = {
       items: [
         { path: '/pagos', label: 'Pagos', icon: 'payments' },
         { path: '/ganancias', label: 'Ganancias', icon: 'trending_up' },
-        { path: '/multas', label: 'Multas', icon: 'gavel' },
+        { path: '/sanciones-admin', label: 'Sanciones', icon: 'gavel' },
       ],
     },
     {
@@ -135,7 +135,8 @@ const NAV_BY_ROLE = {
       items: [
         { path: '/res-buzon', label: 'Buzón', icon: 'mail' },
         { path: '/res-quejas', label: 'PQRS', icon: 'support_agent' },
-        { path: '/res-reservas', label: 'Zonas Comunes', icon: 'event' }
+        { path: '/res-reservas', label: 'Zonas Comunes', icon: 'event' },
+        { path: '/res-sanciones', label: 'Sanciones', icon: 'gavel' },
       ],
     },
   ],

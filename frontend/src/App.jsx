@@ -30,6 +30,8 @@ const AvisosPage = lazy(() => import('./pages/AvisosPage.jsx'));
 const QuejasAdminPage = lazy(() => import('./pages/QuejasAdminPage.jsx'));
 const ReservasAdminPage = lazy(() => import('./pages/ReservasAdminPage.jsx'));
 const ResReservasPage = lazy(() => import('./pages/ResReservasPage.jsx'));
+const SancionesAdminPage = lazy(() => import('./pages/SancionesAdminPage.jsx'));
+const ResSancionesPage = lazy(() => import('./pages/ResSancionesPage.jsx'));
 const GananciasPage = lazy(() => import('./pages/GananciasPage.jsx'));
 const HistorialVisitasPage = lazy(() => import('./pages/HistorialVisitasPage.jsx'));
 const PaquetesAdminPage = lazy(() => import('./pages/PaquetesAdminPage.jsx'));
@@ -204,6 +206,14 @@ export default function App() {
             element={
               <ProtectedRoute roles={['ADMINISTRADOR']}>
                 <MultasPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="sanciones-admin"
+            element={
+              <ProtectedRoute roles={['ADMINISTRADOR']}>
+                <SancionesAdminPage />
               </ProtectedRoute>
             }
           />
@@ -414,6 +424,14 @@ export default function App() {
             element={
               <ProtectedRoute roles={['RESIDENTE']}>
                 <ResReservasPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="res-sanciones"
+            element={
+              <ProtectedRoute roles={['RESIDENTE']}>
+                <ResSancionesPage />
               </ProtectedRoute>
             }
           />
