@@ -36,7 +36,7 @@ public class ReportesController {
     @GetMapping("/cartera-morosa")
     public ApiResponse<List<Map<String, Object>>> carteraMorosa() {
         String sql = """
-            SELECT u.CODIGO AS UNIDAD, p.NOMBRE AS PROPIEDAD,
+            SELECT u.IDENTIFICADOR AS UNIDAD, p.NOMBRE AS PROPIEDAD,
                    COUNT(c.ID_CUOTA) AS CUOTAS_PENDIENTES,
                    SUM(c.SALDO_PENDIENTE) AS DEUDA_TOTAL,
                    MIN(c.FECHA_VENCIMIENTO) AS PRIMER_VENCIMIENTO,
@@ -45,7 +45,7 @@ public class ReportesController {
             JOIN UNIDADES u ON c.ID_UNIDAD = u.ID_UNIDAD
             JOIN PROPIEDADES p ON u.ID_PROPIEDAD = p.ID_PROPIEDAD
             WHERE c.ESTADO IN ('PENDIENTE', 'VENCIDA')
-            GROUP BY u.CODIGO, p.NOMBRE
+            GROUP BY u.IDENTIFICADOR, p.NOMBRE
             ORDER BY DEUDA_TOTAL DESC
             """;
         List<Map<String, Object>> items = jdbcTemplate.queryForList(sql, new MapSqlParameterSource());
@@ -72,7 +72,7 @@ public class ReportesController {
     @GetMapping("/pagos-recientes")
     public ApiResponse<List<Map<String, Object>>> pagosRecientes() {
         String sql = """
-            SELECT p.ID_PAGO, u.CODIGO AS UNIDAD, p.MONTO_TOTAL, p.METODO_PAGO,
+            SELECT p.ID_PAGO, u.IDENTIFICADOR AS UNIDAD, p.MONTO_TOTAL, p.METODO_PAGO,
                    p.ESTADO, p.FECHA_PAGO, p.REFERENCIA_COMPROBANTE
             FROM PAGOS p
             JOIN UNIDADES u ON p.ID_UNIDAD = u.ID_UNIDAD

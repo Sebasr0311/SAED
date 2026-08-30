@@ -56,11 +56,11 @@ public class PaquetesRepositoryImpl implements PaquetesRepository {
 
     private String getBaseQuery() {
         return "SELECT p.*, " +
-               "u.NUMERO as numeroApartamento, " +
-               "(dest.NOMBRES || ' ' || dest.APELLIDOS) as nombreDestinatario, " +
-               "(port_recibe.NOMBRES || ' ' || port_recibe.APELLIDOS) as nombrePorteroRecibe, " +
-               "(port_entrega.NOMBRES || ' ' || port_entrega.APELLIDOS) as nombrePorteroEntrega, " +
-               "(pers_recibe.NOMBRES || ' ' || pers_recibe.APELLIDOS) as nombrePersonaRecibe " +
+               "u.IDENTIFICADOR as numeroApartamento, " +
+               "(dest.PRIMER_NOMBRE || ' ' || dest.PRIMER_APELLIDO) as nombreDestinatario, " +
+               "(port_recibe.PRIMER_NOMBRE || ' ' || port_recibe.PRIMER_APELLIDO) as nombrePorteroRecibe, " +
+               "(port_entrega.PRIMER_NOMBRE || ' ' || port_entrega.PRIMER_APELLIDO) as nombrePorteroEntrega, " +
+               "(pers_recibe.PRIMER_NOMBRE || ' ' || pers_recibe.PRIMER_APELLIDO) as nombrePersonaRecibe " +
                "FROM PAQUETES p " +
                "JOIN UNIDADES u ON p.ID_UNIDAD = u.ID_UNIDAD " +
                "LEFT JOIN PERSONAS dest ON p.ID_PERSONA_DESTINATARIO = dest.ID_PERSONA " +
