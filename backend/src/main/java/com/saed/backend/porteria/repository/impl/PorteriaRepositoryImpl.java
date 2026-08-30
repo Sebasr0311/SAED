@@ -106,6 +106,104 @@ public class PorteriaRepositoryImpl implements PorteriaRepository {
     }
 
     
+    // --- HISTORIAL ---
+    private final RowMapper<VisitaHistorialDTO> historialMapper = (rs, rowNum) -> new VisitaHistorialDTO(
+            rs.getLong("ID_VISITA"),
+            rs.getString("NOMBRE_VISITANTE"),
+            rs.getString("APELLIDO_VISITANTE"),
+            rs.getString("DOCUMENTO_VISITANTE"),
+            rs.getString("NOMBRE_RESIDENTE"),
+            rs.getString("NUMERO_APARTAMENTO"),
+            toZDT(rs.getTimestamp("FECHA_VISITA")),
+            toZDT(rs.getTimestamp("FECHA_SALIDA")),
+            rs.getString("ESTADO"),
+            rs.getString("TIPO_VEHICULO"),
+            rs.getString("PLACA_VEHICULO"),
+            rs.getString("CODIGO_PARQUEADERO")
+    );
+
+    @Override
+    public List<VisitaHistorialDTO> getVisitasHistorial(String fechaInicio, String fechaFin) {
+        String sql = "SELECT v.ID_VISITA, " +
+                     "       pv.NOMBRES AS NOMBRE_VISITANTE, pv.APELLIDOS AS APELLIDO_VISITANTE, pv.NUMERO_DOCUMENTO AS DOCUMENTO_VISITANTE, " +
+                     "       pr.NOMBRES || ' ' || pr.APELLIDOS AS NOMBRE_RESIDENTE, " +
+                     "       u.NUMERO AS NUMERO_APARTAMENTO, " +
+                     "       (SELECT MIN(FECHA_HORA) FROM REGISTROS_ACCESO ra WHERE ra.ID_VISITA = v.ID_VISITA AND ra.TIPO_MOVIMIENTO = 'ENTRADA') AS FECHA_VISITA, " +
+                     "       (SELECT MAX(FECHA_HORA) FROM REGISTROS_ACCESO ra WHERE ra.ID_VISITA = v.ID_VISITA AND ra.TIPO_MOVIMIENTO = 'SALIDA') AS FECHA_SALIDA, " +
+                     "       v.ESTADO, " +
+                     "       vv.TIPO_VEHICULO, vv.PLACA AS PLACA_VEHICULO, " +
+                     "       pq.CODIGO AS CODIGO_PARQUEADERO " +
+                     "FROM VISITAS v " +
+                     "JOIN UNIDADES u ON v.ID_UNIDAD = u.ID_UNIDAD " +
+                     "JOIN VISITANTES vis ON v.ID_VISITANTE = vis.ID_VISITANTE " +
+                     "JOIN PERSONAS pv ON vis.ID_PERSONA = pv.ID_PERSONA " +
+                     "LEFT JOIN UNIDAD_HABITANTES uh ON uh.ID_UNIDAD = v.ID_UNIDAD AND uh.ES_TITULAR = 1 " +
+                     "LEFT JOIN PERSONAS pr ON uh.ID_PERSONA = pr.ID_PERSONA " +
+                     "LEFT JOIN VEHICULOS_VISITA vv ON vv.ID_VISITA = v.ID_VISITA " +
+                     "LEFT JOIN PARQUEADEROS pq ON pq.ID_PARQUEADERO = vv.ID_PARQUEADERO " +
+                     "WHERE TRUNC(v.FECHA_CREACION) BETWEEN TO_DATE(:fechaInicio, 'YYYY-MM-DD') AND TO_DATE(:fechaFin, 'YYYY-MM-DD') " +
+                     "ORDER BY v.FECHA_CREACION DESC";
+
+        return jdbcTemplate.query(sql,
+                new org.springframework.jdbc.core.namedparam.MapSqlParameterSource()
+                        .addValue("fechaInicio", fechaInicio)
+                        .addValue("fechaFin", fechaFin),
+                historialMapper);
+    }
+
+    // --- DETALLE ---
+    @Override
+    public Optional<VisitaDetalleDTO> getVisitaDetalle(Long id) {
+        String sql = "SELECT v.ID_VISITA, " +
+                     "       pv.NOMBRES AS NOMBRE_VISITANTE, pv.APELLIDOS AS APELLIDO_VISITANTE, " +
+                     "       pv.NUMERO_DOCUMENTO AS DOCUMENTO_VISITANTE, pv.TELEFONO AS TELEFONO_VISITANTE, pv.EMAIL AS EMAIL_VISITANTE, " +
+                     "       pr.NOMBRES || ' ' || pr.APELLIDOS AS NOMBRE_RESIDENTE, " +
+                     "       u.NUMERO AS NUMERO_APARTAMENTO, u.PISO, " +
+                     "       (SELECT MIN(FECHA_HORA) FROM REGISTROS_ACCESO ra WHERE ra.ID_VISITA = v.ID_VISITA AND ra.TIPO_MOVIMIENTO = 'ENTRADA') AS FECHA_VISITA, " +
+                     "       (SELECT MAX(FECHA_HORA) FROM REGISTROS_ACCESO ra WHERE ra.ID_VISITA = v.ID_VISITA AND ra.TIPO_MOVIMIENTO = 'SALIDA') AS FECHA_SALIDA, " +
+                     "       v.ESTADO, v.MOTIVO AS NOTAS, " +
+                     "       vv.TIPO_VEHICULO, vv.PLACA AS PLACA_VEHICULO, vv.DESCRIPCION_TIPO AS DESCRIPCION_VEHICULO, " +
+                     "       pq.CODIGO AS CODIGO_PARQUEADERO, " +
+                     "       NULL AS FOTO_CAPTURA, " +
+                     "       v.CANTIDAD_PERSONAS, " +
+                     "       0 AS ES_FRECUENTE " +
+                     "FROM VISITAS v " +
+                     "JOIN UNIDADES u ON v.ID_UNIDAD = u.ID_UNIDAD " +
+                     "JOIN VISITANTES vis ON v.ID_VISITANTE = vis.ID_VISITANTE " +
+                     "JOIN PERSONAS pv ON vis.ID_PERSONA = pv.ID_PERSONA " +
+                     "LEFT JOIN UNIDAD_HABITANTES uh ON uh.ID_UNIDAD = v.ID_UNIDAD AND uh.ES_TITULAR = 1 " +
+                     "LEFT JOIN PERSONAS pr ON uh.ID_PERSONA = pr.ID_PERSONA " +
+                     "LEFT JOIN VEHICULOS_VISITA vv ON vv.ID_VISITA = v.ID_VISITA " +
+                     "LEFT JOIN PARQUEADEROS pq ON pq.ID_PARQUEADERO = vv.ID_PARQUEADERO " +
+                     "WHERE v.ID_VISITA = :id";
+
+        List<VisitaDetalleDTO> list = jdbcTemplate.query(sql,
+                new org.springframework.jdbc.core.namedparam.MapSqlParameterSource("id", id),
+                (rs, rowNum) -> new VisitaDetalleDTO(
+                        rs.getLong("ID_VISITA"),
+                        rs.getString("NOMBRE_VISITANTE"),
+                        rs.getString("APELLIDO_VISITANTE"),
+                        rs.getString("DOCUMENTO_VISITANTE"),
+                        rs.getString("TELEFONO_VISITANTE"),
+                        rs.getString("EMAIL_VISITANTE"),
+                        rs.getString("NOMBRE_RESIDENTE"),
+                        rs.getString("NUMERO_APARTAMENTO"),
+                        rs.getObject("PISO") != null ? rs.getInt("PISO") : null,
+                        toZDT(rs.getTimestamp("FECHA_VISITA")),
+                        toZDT(rs.getTimestamp("FECHA_SALIDA")),
+                        rs.getString("ESTADO"),
+                        rs.getString("NOTAS"),
+                        rs.getString("TIPO_VEHICULO"),
+                        rs.getString("PLACA_VEHICULO"),
+                        rs.getString("DESCRIPCION_VEHICULO"),
+                        rs.getString("CODIGO_PARQUEADERO"),
+                        rs.getString("FOTO_CAPTURA"),
+                        rs.getObject("CANTIDAD_PERSONAS") != null ? rs.getInt("CANTIDAD_PERSONAS") : null,
+                        rs.getInt("ES_FRECUENTE") == 1
+                ));
+        return list.stream().findFirst();
+    }
+
     @Override
     public List<VisitaListDTO> getVisitasResumen() {
         String sql = "SELECT v.ID_VISITA, p.PRIMER_NOMBRE || ' ' || COALESCE(p.SEGUNDO_NOMBRE, '') || ' ' || p.PRIMER_APELLIDO || ' ' || COALESCE(p.SEGUNDO_APELLIDO, '') AS nombreVisitante, p.NUMERO_DOCUMENTO AS documentoVisitante, u.NUMERO AS numeroApartamento, " +

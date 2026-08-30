@@ -124,11 +124,11 @@ async function exportarExcel(visitas, fechaInicio, fechaFin) {
   };
   const celdaFecha = (val, st, hhmm) => {
     const serial = serieFecha(val);
-    if (serial === null) return S('—', st);
+    if (serial === null) return S('ï¿½', st);
     return { t: 'n', v: serial, s: { ...st, numFmt: hhmm && tieneHora(val) ? 'hh:mm' : 'dd/mm/yyyy' } };
   };
   const vacio = (val) => !val || String(val).trim() === '';
-  const dash = (val, st) => (vacio(val) ? S('—', st) : S(String(val), st));
+  const dash = (val, st) => (vacio(val) ? S('ï¿½', st) : S(String(val), st));
   const fechaDe = (v) => v.fechaVisita || v.fechaIngreso;
 
   // Estilos segun spec
@@ -163,8 +163,8 @@ async function exportarExcel(visitas, fechaInicio, fechaFin) {
   let r = 0;
 
   // Titulo y subtitulo
-  aoa[r] = [S('Historial de Visitas — Edificio Residencial', estilos.titulo)];
-  aoa[r + 1] = [S(`Periodo: ${formatDate(fechaInicio)} — ${formatDate(fechaFin)}  ·  Generado por SAED  ·  ${total} registros`, estilos.subtitulo)];
+  aoa[r] = [S('Historial de Visitas ï¿½ Edificio Residencial', estilos.titulo)];
+  aoa[r + 1] = [S(`Periodo: ${formatDate(fechaInicio)} ï¿½ ${formatDate(fechaFin)}  ï¿½  Generado por SAED  ï¿½  ${total} registros`, estilos.subtitulo)];
   merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: 10 } }, { s: { r: 1, c: 0 }, e: { r: 1, c: 10 } });
   r += 3;
 
@@ -188,7 +188,7 @@ async function exportarExcel(visitas, fechaInicio, fechaFin) {
   const rHeaderTabla = r;
   aoa[r] = [
     S('Fecha', estilos.headerTabla), S('Visitante', estilos.headerTabla), S('Documento', estilos.headerTabla), S('Apto', estilos.headerTabla),
-    S('Residente', estilos.headerTabla), S('Entrada', estilos.headerTabla), S('Salida', estilos.headerTabla), S('Vehículo', estilos.headerTabla),
+    S('Residente', estilos.headerTabla), S('Entrada', estilos.headerTabla), S('Salida', estilos.headerTabla), S('Vehï¿½culo', estilos.headerTabla),
     S('Placa', estilos.headerTabla), S('Parqueadero', estilos.headerTabla), S('Estado', estilos.headerTabla),
   ];
   r++;
@@ -277,7 +277,7 @@ export default function HistorialVisitasPage() {
   const [loadingDetalle, setLoadingDetalle] = useState(false);
 
   const { data: visitasRaw, loading, error } = useFetch(
-    () => api.get('/porteria/visitas-resumen'),
+    () => api.get(`/porteria/visitas/historial?fechaInicio=${fechaInicio}&fechaFin=${fechaFin}`),
     [fechaInicio, fechaFin]
   );
 
@@ -309,7 +309,7 @@ export default function HistorialVisitasPage() {
   async function verDetalle(row) {
     setLoadingDetalle(true);
     try {
-      const d = await api.get(`/porteria/visitas/${row.idVisita}`);
+      const d = await api.get(`/porteria/visitas/${row.idVisita}/detalle`);
       setDetalle(d);
     } catch (err) {
       toast.error(err.message);
@@ -332,7 +332,7 @@ export default function HistorialVisitasPage() {
     <div>
       <PageHeader
         title="Historial de Visitas"
-        subtitle="Registro histórico de visitas"
+        subtitle="Registro histï¿½rico de visitas"
         action={
           <Button
             variant="outline"
@@ -366,7 +366,7 @@ export default function HistorialVisitasPage() {
           />
           <Input
             id="search" aria-label="Buscar"
-            label="Búsqueda rápida"
+            label="Bï¿½squeda rï¿½pida"
             placeholder="Visitante, documento, apto..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -405,7 +405,7 @@ export default function HistorialVisitasPage() {
               <span>{detalle.documentoVisitante}</span>
             </div>
             <div className="detail-row">
-              <span>Residente anfitrión</span>
+              <span>Residente anfitriï¿½n</span>
               <span>{detalle.nombreResidente}</span>
             </div>
             <div className="detail-row">
@@ -418,13 +418,13 @@ export default function HistorialVisitasPage() {
             </div>
             <div className="detail-row">
               <span>Salida</span>
-              <span>{formatDate(detalle.fechaSalida) || 'Aún dentro'}</span>
+              <span>{formatDate(detalle.fechaSalida) || 'Aï¿½n dentro'}</span>
             </div>
             {detalle.placaVehiculo && (
               <div className="detail-row">
-                <span>Vehículo</span>
+                <span>Vehï¿½culo</span>
                 <span>
-                  {detalle.tipoVehiculo} — {detalle.placaVehiculo}
+                  {detalle.tipoVehiculo} ï¿½ {detalle.placaVehiculo}
                 </span>
               </div>
             )}

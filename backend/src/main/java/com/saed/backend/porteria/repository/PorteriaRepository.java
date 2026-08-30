@@ -13,6 +13,8 @@ public interface PorteriaRepository {
     VisitaDTO updateVisita(Long id, VisitaRequestDTO request);
     void updateVisitaEstado(Long id, String estado);
     List<VisitaListDTO> getVisitasResumen();
+    List<VisitaHistorialDTO> getVisitasHistorial(String fechaInicio, String fechaFin);
+    Optional<VisitaDetalleDTO> getVisitaDetalle(Long id);
 
     // Registro Acceso
     RegistroAccesoDTO createRegistroAcceso(RegistroAccesoRequestDTO request);

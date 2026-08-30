@@ -131,6 +131,19 @@ public class PorteriaServiceImpl implements PorteriaService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public List<VisitaHistorialDTO> getVisitasHistorial(String fechaInicio, String fechaFin) {
+        return porteriaRepository.getVisitasHistorial(fechaInicio, fechaFin);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public VisitaDetalleDTO getVisitaDetalle(Long id) {
+        return porteriaRepository.getVisitaDetalle(id)
+                .orElseThrow(() -> new RuntimeException("Visita no encontrada"));
+    }
+
+    @Override
     public VisitaDTO actualizarVisita(Long id, VisitaRequestDTO request) {
         return porteriaRepository.updateVisita(id, request);
     }

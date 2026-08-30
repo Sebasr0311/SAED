@@ -62,8 +62,16 @@ public class CatalogoController {
     @GetMapping("/usuarios")
     public List<Map<String, Object>> usuarios() {
         return jdbcTemplate.queryForList(
-                "SELECT u.ID_USUARIO, u.NOMBRE_USUARIO, u.ESTADO " +
-                "FROM USUARIOS u ORDER BY u.NOMBRE_USUARIO",
+                "SELECT u.ID_USUARIO, u.NOMBRE_USUARIO, u.EMAIL, u.ESTADO, " +
+                "r.CODIGO AS ROL, " +
+                "p.ID_PERSONA, " +
+                "p.PRIMER_NOMBRE || ' ' || COALESCE(p.SEGUNDO_NOMBRE, '') || ' ' || " +
+                "p.PRIMER_APELLIDO || ' ' || COALESCE(p.SEGUNDO_APELLIDO, '') AS NOMBRE_COMPLETO " +
+                "FROM USUARIOS u " +
+                "LEFT JOIN USUARIO_ASIGNACIONES ua ON ua.ID_USUARIO = u.ID_USUARIO AND ua.ESTADO = 'ACTIVO' " +
+                "LEFT JOIN ROLES r ON r.ID_ROL = ua.ID_ROL " +
+                "LEFT JOIN PERSONAS p ON p.ID_PERSONA = u.ID_PERSONA " +
+                "ORDER BY u.NOMBRE_USUARIO",
                 new MapSqlParameterSource());
     }
 }

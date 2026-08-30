@@ -103,6 +103,20 @@ public class PorteriaController {
         return porteriaService.getVisitasResumen();
     }
 
+    @GetMapping("/visitas/historial")
+    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_PROPIEDAD')")
+    public List<VisitaHistorialDTO> getVisitasHistorial(
+            @RequestParam String fechaInicio,
+            @RequestParam String fechaFin) {
+        return porteriaService.getVisitasHistorial(fechaInicio, fechaFin);
+    }
+
+    @GetMapping("/visitas/{id}/detalle")
+    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_PORTERO')")
+    public VisitaDetalleDTO getVisitaDetalle(@PathVariable Long id) {
+        return porteriaService.getVisitaDetalle(id);
+    }
+
     // --- REGISTROS DE ACCESO ---
     @PostMapping("/registros/entrada")
     @ResponseStatus(HttpStatus.CREATED)

@@ -20,6 +20,8 @@ public interface PorteriaService {
     VisitaDTO actualizarVisita(Long id, VisitaRequestDTO request);
     void registrarSalidaVisita(Long id);
     List<VisitaListDTO> getVisitasResumen();
+    List<VisitaHistorialDTO> getVisitasHistorial(String fechaInicio, String fechaFin);
+    VisitaDetalleDTO getVisitaDetalle(Long id);
     
     RegistroAccesoDTO registrarEntrada(RegistroAccesoRequestDTO request);
     RegistroAccesoDTO registrarSalida(RegistroAccesoRequestDTO request);

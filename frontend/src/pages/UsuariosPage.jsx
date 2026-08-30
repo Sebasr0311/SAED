@@ -37,7 +37,15 @@ export default function UsuariosPage() {
   const { data, loading, refetch } = useFetch(() => api.get('/usuarios'), []);
   const { data: residentes } = useFetch(() => api.get('/residentes'), []);
 
-  const items = data?.items || [];
+  const items = (data?.items || data || []).map((u) => ({
+    idUsuario: u.ID_USUARIO ?? u.idUsuario,
+    username: u.NOMBRE_USUARIO ?? u.username,
+    email: u.EMAIL ?? u.email,
+    rol: u.ROL ?? u.rol,
+    nombreResidente: u.NOMBRE_COMPLETO ?? u.nombreResidente,
+    activo: (u.ESTADO ?? u.estado) === 'ACTIVO',
+    idResidente: u.ID_PERSONA ?? u.idResidente,
+  }));
   const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages - 1);
   const rows = items.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
