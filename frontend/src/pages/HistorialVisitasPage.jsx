@@ -1,4 +1,4 @@
-ï»¿import { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { toast } from 'sonner';
 import { unzipSync, zipSync, strFromU8, strToU8 } from 'fflate';
 import { Button } from '../components/ui/Button.jsx';
@@ -124,11 +124,11 @@ async function exportarExcel(visitas, fechaInicio, fechaFin) {
   };
   const celdaFecha = (val, st, hhmm) => {
     const serial = serieFecha(val);
-    if (serial === null) return S('â€”', st);
+    if (serial === null) return S('—', st);
     return { t: 'n', v: serial, s: { ...st, numFmt: hhmm && tieneHora(val) ? 'hh:mm' : 'dd/mm/yyyy' } };
   };
   const vacio = (val) => !val || String(val).trim() === '';
-  const dash = (val, st) => (vacio(val) ? S('â€”', st) : S(String(val), st));
+  const dash = (val, st) => (vacio(val) ? S('—', st) : S(String(val), st));
   const fechaDe = (v) => v.fechaVisita || v.fechaIngreso;
 
   // Estilos segun spec
@@ -163,8 +163,8 @@ async function exportarExcel(visitas, fechaInicio, fechaFin) {
   let r = 0;
 
   // Titulo y subtitulo
-  aoa[r] = [S('Historial de Visitas â€” Edificio Residencial', estilos.titulo)];
-  aoa[r + 1] = [S(`Periodo: ${formatDate(fechaInicio)} â€” ${formatDate(fechaFin)}  Â·  Generado por SAED  Â·  ${total} registros`, estilos.subtitulo)];
+  aoa[r] = [S('Historial de Visitas — Edificio Residencial', estilos.titulo)];
+  aoa[r + 1] = [S(`Periodo: ${formatDate(fechaInicio)} — ${formatDate(fechaFin)}  ·  Generado por SAED  ·  ${total} registros`, estilos.subtitulo)];
   merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: 10 } }, { s: { r: 1, c: 0 }, e: { r: 1, c: 10 } });
   r += 3;
 
@@ -188,7 +188,7 @@ async function exportarExcel(visitas, fechaInicio, fechaFin) {
   const rHeaderTabla = r;
   aoa[r] = [
     S('Fecha', estilos.headerTabla), S('Visitante', estilos.headerTabla), S('Documento', estilos.headerTabla), S('Apto', estilos.headerTabla),
-    S('Residente', estilos.headerTabla), S('Entrada', estilos.headerTabla), S('Salida', estilos.headerTabla), S('VehÃ­culo', estilos.headerTabla),
+    S('Residente', estilos.headerTabla), S('Entrada', estilos.headerTabla), S('Salida', estilos.headerTabla), S('Vehículo', estilos.headerTabla),
     S('Placa', estilos.headerTabla), S('Parqueadero', estilos.headerTabla), S('Estado', estilos.headerTabla),
   ];
   r++;
@@ -277,17 +277,28 @@ export default function HistorialVisitasPage() {
   const [loadingDetalle, setLoadingDetalle] = useState(false);
 
   const { data: visitasRaw, loading, error } = useFetch(
-    () => api.get(`/visitas/historial?fechaInicio=${fechaInicio}&fechaFin=${fechaFin}`),
+    () => api.get('/porteria/visitas-resumen'),
     [fechaInicio, fechaFin]
   );
 
-  const filtradas = useMemo(() => (visitasRaw?.items || visitasRaw || []).filter((v) => {
-    if (!search) return true;
-    const term = search.toLowerCase();
-    return [v.nombreVisitante, v.documentoVisitante, v.numeroApartamento, v.nombreResidente]
-      .filter(Boolean)
-      .some((x) => String(x).toLowerCase().includes(term));
-  }), [visitasRaw, search]);
+    const filtradas = useMemo(() => {
+    let list = visitasRaw?.items || visitasRaw || [];
+    if (fechaInicio) {
+      list = list.filter(v => !v.fechaIngreso || v.fechaIngreso.split('T')[0] >= fechaInicio);
+    }
+    if (fechaFin) {
+      list = list.filter(v => !v.fechaIngreso || v.fechaIngreso.split('T')[0] <= fechaFin);
+    }
+    if (search) {
+      const term = search.toLowerCase();
+      list = list.filter((v) => {
+        return [v.nombreVisitante, v.documentoVisitante, v.numeroApartamento, v.nombreResidente]
+          .filter(Boolean)
+          .some((x) => String(x).toLowerCase().includes(term));
+      });
+    }
+    return list;
+  }, [visitasRaw, search, fechaInicio, fechaFin]);
 
   const stats = {
     total: filtradas.length,
@@ -298,7 +309,7 @@ export default function HistorialVisitasPage() {
   async function verDetalle(row) {
     setLoadingDetalle(true);
     try {
-      const d = await api.get(`/visitas/${row.idVisita}/detalle`);
+      const d = await api.get(`/porteria/visitas/${row.idVisita}`);
       setDetalle(d);
     } catch (err) {
       toast.error(err.message);
@@ -321,7 +332,7 @@ export default function HistorialVisitasPage() {
     <div>
       <PageHeader
         title="Historial de Visitas"
-        subtitle="Registro histÃ³rico de visitas"
+        subtitle="Registro histórico de visitas"
         action={
           <Button
             variant="outline"
@@ -355,7 +366,7 @@ export default function HistorialVisitasPage() {
           />
           <Input
             id="search" aria-label="Buscar"
-            label="BÃºsqueda rÃ¡pida"
+            label="Búsqueda rápida"
             placeholder="Visitante, documento, apto..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -394,7 +405,7 @@ export default function HistorialVisitasPage() {
               <span>{detalle.documentoVisitante}</span>
             </div>
             <div className="detail-row">
-              <span>Residente anfitriÃ³n</span>
+              <span>Residente anfitrión</span>
               <span>{detalle.nombreResidente}</span>
             </div>
             <div className="detail-row">
@@ -407,13 +418,13 @@ export default function HistorialVisitasPage() {
             </div>
             <div className="detail-row">
               <span>Salida</span>
-              <span>{formatDate(detalle.fechaSalida) || 'AÃºn dentro'}</span>
+              <span>{formatDate(detalle.fechaSalida) || 'Aún dentro'}</span>
             </div>
             {detalle.placaVehiculo && (
               <div className="detail-row">
-                <span>VehÃ­culo</span>
+                <span>Vehículo</span>
                 <span>
-                  {detalle.tipoVehiculo} â€” {detalle.placaVehiculo}
+                  {detalle.tipoVehiculo} — {detalle.placaVehiculo}
                 </span>
               </div>
             )}
@@ -442,3 +453,8 @@ export default function HistorialVisitasPage() {
     </div>
   );
 }
+
+
+
+
+

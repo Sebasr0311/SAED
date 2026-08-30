@@ -125,6 +125,12 @@ public class PorteriaServiceImpl implements PorteriaService {
     }
 
     @Override
+    public void registrarSalidaVisita(Long id) {
+        porteriaRepository.getVisitaById(id).orElseThrow();
+        porteriaRepository.updateVisitaEstado(id, "FINALIZADA");
+    }
+
+    @Override
     public VisitaDTO actualizarVisita(Long id, VisitaRequestDTO request) {
         return porteriaRepository.updateVisita(id, request);
     }
@@ -205,6 +211,8 @@ public class PorteriaServiceImpl implements PorteriaService {
         porteriaRepository.registerSalidaVehiculo(vehiculoVisitaId, costoTotal);
     }
 }
+
+
 
 
 

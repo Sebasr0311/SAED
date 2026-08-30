@@ -375,7 +375,7 @@ function TabValidar({ onToast }) {
 }
 
 function TabRegistrarSalida({ onToast }) {
-  const { data: visitas, loading, refetch } = useFetch(() => api.get('/visitas'), []);
+  const { data: visitas, loading, refetch } = useFetch(() => api.get('/porteria/visitas-resumen'), []);
   const [registrando, setRegistrando] = useState(null);
 
   const activas = (visitas?.items || visitas || []).filter(
@@ -385,7 +385,7 @@ function TabRegistrarSalida({ onToast }) {
   async function registrarSalida(idVisita) {
     setRegistrando(idVisita);
     try {
-      await api.put(`/visitas/${idVisita}/salida`);
+      await api.put(`/porteria/visitas/${idVisita}/salida`);
       toast.success('Salida registrada');
       refetch();
     } catch (err) {
@@ -539,3 +539,7 @@ export default function EscannerQRPage() {
     </div>
   );
 }
+
+
+
+

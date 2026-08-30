@@ -1,4 +1,4 @@
-ï»¿import { useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Button } from '../components/ui/Button.jsx';
 import { Input, Select, Textarea } from '../components/ui/Form.jsx';
 import { DataTable } from '../components/ui/DataTable.jsx';
@@ -74,7 +74,7 @@ export default function VisitasPage() {
 
   const { data: dataRaw, loading, refetch } = useFetch(() => api.get('/porteria/visitas-resumen'), []);
   // Residentes para el selector del formulario: se cargan solo al abrir el modal
-  // (evita un request innecesario al montar la pÃ¡gina de listado).
+  // (evita un request innecesario al montar la página de listado).
   const [residentesCargados, setResidentesCargados] = useState(false);
   const { data: residentesRaw } = useFetch(
     () => (residentesCargados ? api.get('/personas') : Promise.resolve([])),
@@ -97,7 +97,7 @@ export default function VisitasPage() {
   async function verDetalle(row) {
     setLoadingDetalle(true);
     try {
-      const d = await api.get(`/visitas/${row.idVisita}/detalle`);
+      const d = await api.get(`/porteria/visitas/${row.idVisita}`);
       setDetalle(d);
     } catch (err) {
       toast.error(err.message);
@@ -108,7 +108,7 @@ export default function VisitasPage() {
 
   async function registrarSalida(row) {
     try {
-      await api.put(`/visitas/${row.idVisita}/salida`);
+      await api.put(`/porteria/visitas/${row.idVisita}/salida`);
       toast.success('Salida registrada');
       refetch();
     } catch (err) {
@@ -174,7 +174,7 @@ export default function VisitasPage() {
     const rPer = valEntero(form.cantidadPersonas, { positivo: true });
     if (!rPer.ok) e.cantidadPersonas = 'La cantidad de personas debe ser un entero mayor que 0';
     if (form.tipoVehiculo === 'BICICLETA' && !form.descripcion.trim()) {
-      e.descripcion = 'La descripciÃ³n es obligatoria para bicicletas';
+      e.descripcion = 'La descripción es obligatoria para bicicletas';
     }
     if (form.tipoVehiculo && form.tipoVehiculo !== 'BICICLETA' && form.placa.trim()) {
       const rPlaca = valPlaca(form.placa, form.tipoVehiculo);
@@ -236,8 +236,8 @@ export default function VisitasPage() {
     if (!qrGenerado?.codigoQr) return;
     navigator.clipboard
       .writeText(qrGenerado.codigoQr)
-      .then(() => toast.success('CÃ³digo QR copiado al portapapeles'))
-      .catch(() => toast.error('No se pudo copiar el cÃ³digo'));
+      .then(() => toast.success('Código QR copiado al portapapeles'))
+      .catch(() => toast.error('No se pudo copiar el código'));
   }
 
   function compartirCorreo() {
@@ -356,7 +356,7 @@ export default function VisitasPage() {
         columns={columns}
         rows={filtradas}
         loading={loading}
-                empty={{ icon: 'how_to_reg', title: 'No hay visitas', subtitle: 'Las visitas registradas aparecerÃ¡n aquÃ­.' }}
+                empty={{ icon: 'how_to_reg', title: 'No hay visitas', subtitle: 'Las visitas registradas aparecerán aquí.' }}
         keyField="idVisita"
         onRowClick={verDetalle}
       />
@@ -461,7 +461,7 @@ export default function VisitasPage() {
               </Select>
               <Input
                 id="vis-documento"
-                label="NÃºmero Documento"
+                label="Número Documento"
                 value={form.documento}
                 onChange={(e) => onDocumentoChange(e.target.value)}
                 error={errors.documento}
@@ -489,7 +489,7 @@ export default function VisitasPage() {
             <div className="form-row">
               <Input
                 id="vis-telefono"
-                label="TelÃ©fono"
+                label="Teléfono"
                 value={form.telefono}
                 onChange={(e) => update('telefono', soloNumeros(e.target.value, 10))}
                 onBlur={() => touch('telefono')}
@@ -506,7 +506,7 @@ export default function VisitasPage() {
               />
             </div>
             <h3 className="card-title mt-1">
-              VehÃ­culo (opcional)
+              Vehículo (opcional)
             </h3>
             <div className="form-row">
               <Select
@@ -518,7 +518,7 @@ export default function VisitasPage() {
                   setErrors((er) => ({ ...er, placa: undefined, descripcion: undefined }));
                 }}
               >
-                <option value="">Sin vehÃ­culo</option>
+                <option value="">Sin vehículo</option>
                 {TIPOS_VEHICULO.map((t) => (
                   <option key={t} value={t}>
                     {t}
@@ -528,12 +528,12 @@ export default function VisitasPage() {
               {form.tipoVehiculo === 'BICICLETA' ? (
                 <Input
                   id="vis-descripcion"
-                  label="DescripciÃ³n"
+                  label="Descripción"
                   maxLength="100"
                   value={form.descripcion}
                   onChange={(e) => update('descripcion', e.target.value)}
                   error={errors.descripcion}
-                  placeholder="DescripciÃ³n del vehÃ­culo"
+                  placeholder="Descripción del vehículo"
                 />
               ) : (
                 <Input
@@ -596,13 +596,13 @@ export default function VisitasPage() {
             </div>
             <div className="detail-row">
               <span>Salida</span>
-              <span>{formatDate(detalle.fechaSalida) || 'AÃºn dentro'}</span>
+              <span>{formatDate(detalle.fechaSalida) || 'Aún dentro'}</span>
             </div>
             {detalle.placaVehiculo && (
               <div className="detail-row">
-                <span>VehÃ­culo</span>
+                <span>Vehículo</span>
                 <span>
-                  {detalle.tipoVehiculo} â€” {detalle.placaVehiculo}
+                  {detalle.tipoVehiculo} — {detalle.placaVehiculo}
                 </span>
               </div>
             )}
@@ -665,11 +665,18 @@ export default function VisitasPage() {
         onClose={() => setConfirmCancelar(null)}
         onConfirm={cancelarVisita}
         title="Cancelar visita"
-        message={`Â¿Cancelar la visita #${confirmCancelar?.idVisita}?`}
+        message={`¿Cancelar la visita #${confirmCancelar?.idVisita}?`}
         confirmLabel="Cancelar visita"
         danger
       />
     </div>
   );
 }
+
+
+
+
+
+
+
 

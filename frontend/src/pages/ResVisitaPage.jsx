@@ -1,4 +1,4 @@
-ï»¿import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '../components/ui/Button.jsx';
 import { Input, Select } from '../components/ui/Form.jsx';
@@ -36,7 +36,7 @@ export default function ResVisitaPage() {
   const [errors, setErrors] = useState({});
   const [sending, setSending] = useState(false);
   // Guard anti doble-submit: mismo patron que VisitasPage (FASE 4.2-P2).
-  // disabled={state} NO bloquea clicks sincronicos (re-render asincrono) â€” el ref es la barrera real.
+  // disabled={state} NO bloquea clicks sincronicos (re-render asincrono) — el ref es la barrera real.
   const sendingRef = useRef(false);
   const [qrGenerado, setQrGenerado] = useState(null);
   const [buscarDoc, setBuscarDoc] = useState('');
@@ -52,7 +52,7 @@ export default function ResVisitaPage() {
   const { data: visitanteExistente } = useFetch(
     () =>
       buscarDocDebounced.length >= 4
-        ? api.get(`/visitas/buscar?documento=${encodeURIComponent(buscarDocDebounced)}`).catch(() => null)
+        ? api.get(`/porteria/visitas/buscar?documento=${encodeURIComponent(buscarDocDebounced)}`).catch(() => null)
         : Promise.resolve(null),
     [buscarDocDebounced]
   );
@@ -112,7 +112,7 @@ export default function ResVisitaPage() {
       if (!rPlaca.ok) e.placa = rPlaca.mensaje;
     }
     if (form.medioTransporte === 'BICICLETA' || form.medioTransporte === 'OTRO') {
-      if (!form.descripcion.trim()) e.descripcion = 'La descripciÃ³n es requerida para ' + (form.medioTransporte === 'BICICLETA' ? 'bicicleta' : 'otro medio');
+      if (!form.descripcion.trim()) e.descripcion = 'La descripción es requerida para ' + (form.medioTransporte === 'BICICLETA' ? 'bicicleta' : 'otro medio');
     }
     const validez = Number(form.tiempoValidezMin);
     if (!form.tiempoValidezMin || Number.isNaN(validez) || validez < 5 || validez > 60) {
@@ -153,7 +153,7 @@ export default function ResVisitaPage() {
           descripcion: form.descripcion.trim(),
         };
       }
-      const res = await api.post('/visitas', payload);
+      const res = await api.post('/porteria/visitas', payload);
       setQrGenerado(res);
       toast.success('Visita registrada, QR generado');
       setForm(emptyForm);
@@ -211,7 +211,7 @@ export default function ResVisitaPage() {
             )}
             <Input
               id="numeroDocumento"
-              label="NÃºmero Documento"
+              label="Número Documento"
               value={form.visitante.numeroDocumento}
               onChange={(e) => onDocumentoChange(e.target.value)}
               error={errors['visitante.numeroDocumento']}
@@ -241,7 +241,7 @@ export default function ResVisitaPage() {
           <div className="form-row">
             <Input
               id="telefono"
-              label="TelÃ©fono (opcional)"
+              label="Teléfono (opcional)"
               value={form.visitante.telefono}
               onChange={(e) => update('visitante.telefono', e.target.value)}
               onBlur={() => touch('visitante.telefono')}
@@ -282,7 +282,7 @@ export default function ResVisitaPage() {
           <div className="form-row">
             <Select
               id="medioTransporte"
-              label="Â¿En quÃ© viene?"
+              label="¿En qué viene?"
               value={form.medioTransporte}
               onChange={(e) => update('medioTransporte', e.target.value)}
             >
@@ -304,7 +304,7 @@ export default function ResVisitaPage() {
             {(form.medioTransporte === 'BICICLETA' || form.medioTransporte === 'OTRO') && (
               <Input
                 id="descripcion"
-                label={form.medioTransporte === 'BICICLETA' ? 'DescripciÃ³n de la bicicleta' : 'DescripciÃ³n del medio'}
+                label={form.medioTransporte === 'BICICLETA' ? 'Descripción de la bicicleta' : 'Descripción del medio'}
                 value={form.descripcion}
                 onChange={(e) => update('descripcion', e.target.value)}
                 error={errors.descripcion}
@@ -329,3 +329,6 @@ export default function ResVisitaPage() {
     </div>
   );
 }
+
+
+

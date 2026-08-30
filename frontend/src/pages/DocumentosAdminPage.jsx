@@ -69,7 +69,7 @@ export default function DocumentosAdminPage() {
   async function handleDelete(id) {
     if (!confirm('¿Seguro que desea eliminar este documento?')) return;
     try {
-      await api.delete(`/api/v1/documentos/${id}`);
+      await api.delete(`/documentos/${id}`);
       toast.success('Documento eliminado');
       refetch();
     } catch (err) {
@@ -133,3 +133,4 @@ export default function DocumentosAdminPage() {
     </div>
   );
 }
+

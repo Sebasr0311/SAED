@@ -36,7 +36,7 @@ export default function ResSancionesPage() {
     e.preventDefault();
     setSubmitting(true);
     try {
-      await api.post(`/api/v1/sanciones/${detalle.idSancion}/descargos`, { descargos });
+      await api.post(`/sanciones/${detalle.idSancion}/descargos`, { descargos });
       toast.success('Descargos enviados para revisión.');
       setDetalle(null);
       setDescargos('');
@@ -110,3 +110,4 @@ export default function ResSancionesPage() {
     </div>
   );
 }
+

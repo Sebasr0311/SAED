@@ -73,7 +73,7 @@ export default function SancionesAdminPage() {
     e.preventDefault();
     setSubmitting(true);
     try {
-      await api.post(`/api/v1/sanciones/${detalle.idSancion}/resolucion`, resolucionForm);
+      await api.post(`/sanciones/${detalle.idSancion}/resolucion`, resolucionForm);
       toast.success('Resolución emitida exitosamente');
       setDetalle(null);
       setResolucionForm({ decision: 'APLICADA', resolucionFinal: '' });
@@ -175,3 +175,4 @@ export default function SancionesAdminPage() {
     </div>
   );
 }
+

@@ -34,7 +34,7 @@ export default function IncidentesAdminPage() {
 
   const handleCerrar = async () => {
     try {
-      await api.post(`/api/v1/incidentes/${selectedIncidente.idIncidente}/cerrar`, { conclusiones });
+      await api.post(`/incidentes/${selectedIncidente.idIncidente}/cerrar`, { conclusiones });
       toast.success('Incidente cerrado correctamente');
       setCierreOpen(false);
       setSelectedIncidente(null);
@@ -158,3 +158,4 @@ export default function IncidentesAdminPage() {
     </div>
   );
 }
+

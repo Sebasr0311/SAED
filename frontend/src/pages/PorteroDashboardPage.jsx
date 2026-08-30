@@ -314,7 +314,7 @@ export default function PorteroDashboardPage() {
   const [modalMulta, setModalMulta] = useState(null); // 'RUIDO' | 'PARQUEADERO' | null
   const [modalPaquetes, setModalPaquetes] = useState(false);
 
-  const { data: visitasHoy } = useFetch(() => api.get('/visitas/hoy'), []);
+  const { data: visitasHoy } = useFetch(() => api.get('/porteria/visitas-resumen/hoy'), []);
   const { data: parqueaderos } = useFetch(() => api.get('/parqueaderos?estado=DISPONIBLE'), []);
   const { data: paquetes } = useFetch(() => api.get('/buzon/paquetes-pendientes'), []);
   const { data: apartamentos } = useFetch(() => api.get('/units'), []);
@@ -423,3 +423,5 @@ export default function PorteroDashboardPage() {
     </div>
   );
 }
+
+

@@ -1,4 +1,4 @@
-﻿import { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { toast } from 'sonner';
 import { Input } from '../components/ui/Form.jsx';
 import { DataTable } from '../components/ui/DataTable.jsx';
@@ -13,7 +13,7 @@ export default function PaquetesAdminPage() {
   const [search, setSearch] = useState('');
   const [detalle, setDetalle] = useState(null);
 
-  const { data: paquetes, loading, error, refetch } = useFetch(() => api.get('/buzon/paquetes'), []);
+  const { data: paquetes, loading, error, refetch } = useFetch(() => api.get('/paquetes'), []);
   const all = paquetes?.items || paquetes || [];
 
   const filtrados = useMemo(() => {
@@ -34,7 +34,7 @@ export default function PaquetesAdminPage() {
     { key: 'idMensaje', label: 'ID', width: 60 },
     { key: 'numeroApartamento', label: 'Apartamento' },
     { key: 'nombreResidente', label: 'Residente' },
-    { key: 'titulo', label: 'Descripci�n' },
+    { key: 'titulo', label: 'Descripci?n' },
     { key: 'fechaCreacion', label: 'Recibido', render: (r) => formatDate(r.fechaCreacion) },
     {
       key: 'entregado',
@@ -70,7 +70,7 @@ export default function PaquetesAdminPage() {
         columns={columns}
         rows={filtrados}
         loading={loading}
-                empty={{ icon: 'inventory_2', title: 'No hay paquetes', subtitle: 'Los paquetes recibidos aparecer�n aqu�.' }}
+                empty={{ icon: 'inventory_2', title: 'No hay paquetes', subtitle: 'Los paquetes recibidos aparecer?n aqu?.' }}
         error={error?.message}
         onRetry={refetch}
         keyField="idMensaje"
@@ -89,7 +89,7 @@ export default function PaquetesAdminPage() {
               <span>{detalle.nombreResidente}</span>
             </div>
             <div className="detail-row">
-              <span>Descripci�n</span>
+              <span>Descripci?n</span>
               <span>{detalle.titulo}</span>
             </div>
             <div className="detail-row">
@@ -113,4 +113,5 @@ export default function PaquetesAdminPage() {
     </div>
   );
 }
+
 

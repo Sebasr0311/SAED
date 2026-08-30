@@ -18,6 +18,7 @@ public interface PorteriaService {
     VisitaDTO getVisitaById(Long id);
     List<VisitaDTO> getVisitasByUnidad(Long unidadId);
     VisitaDTO actualizarVisita(Long id, VisitaRequestDTO request);
+    void registrarSalidaVisita(Long id);
     List<VisitaListDTO> getVisitasResumen();
     
     RegistroAccesoDTO registrarEntrada(RegistroAccesoRequestDTO request);
@@ -31,5 +32,6 @@ public interface PorteriaService {
     VehiculoVisitaDTO registrarIngresoVehiculo(VehiculoVisitaRequestDTO request);
     void registrarSalidaVehiculo(Long vehiculoVisitaId, BigDecimal costoTotal);
 }
+
 
 

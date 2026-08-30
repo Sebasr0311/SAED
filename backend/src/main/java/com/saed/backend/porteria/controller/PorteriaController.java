@@ -90,6 +90,13 @@ public class PorteriaController {
         return porteriaService.actualizarVisita(id, request);
     }
 
+    @PutMapping("/visitas/{id}/salida")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_PORTERO')")
+    public void registrarSalidaVisita(@PathVariable Long id) {
+        porteriaService.registrarSalidaVisita(id);
+    }
+
     @GetMapping("/visitas-resumen")
     @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_PORTERO')")
     public List<VisitaListDTO> getVisitasResumen() {
@@ -153,6 +160,7 @@ public class PorteriaController {
         porteriaService.registrarSalidaVehiculo(id, body.getOrDefault("costoTotal", BigDecimal.ZERO));
     }
 }
+
 
 
 

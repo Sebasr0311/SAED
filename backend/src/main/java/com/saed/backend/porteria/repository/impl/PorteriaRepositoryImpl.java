@@ -108,7 +108,7 @@ public class PorteriaRepositoryImpl implements PorteriaRepository {
     
     @Override
     public List<VisitaListDTO> getVisitasResumen() {
-        String sql = "SELECT v.ID_VISITA, p.NOMBRES || ' ' || p.APELLIDOS AS nombreVisitante, p.NUMERO_DOCUMENTO AS documentoVisitante, u.NUMERO AS numeroApartamento, " +
+        String sql = "SELECT v.ID_VISITA, p.PRIMER_NOMBRE || ' ' || COALESCE(p.SEGUNDO_NOMBRE, '') || ' ' || p.PRIMER_APELLIDO || ' ' || COALESCE(p.SEGUNDO_APELLIDO, '') AS nombreVisitante, p.NUMERO_DOCUMENTO AS documentoVisitante, u.NUMERO AS numeroApartamento, " +
                      "(SELECT MIN(FECHA_HORA) FROM REGISTROS_ACCESO ra WHERE ra.ID_VISITA = v.ID_VISITA AND ra.TIPO_MOVIMIENTO = 'ENTRADA') AS fechaIngreso, " +
                      "(SELECT MAX(FECHA_HORA) FROM REGISTROS_ACCESO ra WHERE ra.ID_VISITA = v.ID_VISITA AND ra.TIPO_MOVIMIENTO = 'SALIDA') AS fechaSalida, " +
                      "v.ESTADO " +
@@ -276,6 +276,7 @@ public class PorteriaRepositoryImpl implements PorteriaRepository {
         jdbcTemplate.update(sql, new MapSqlParameterSource("id", id).addValue("costoTotal", costoTotal));
     }
 }
+
 
 
 

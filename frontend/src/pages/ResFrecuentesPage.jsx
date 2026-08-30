@@ -1,4 +1,4 @@
-ï»¿import { useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { useFetch, useTiposDocumento, useLiveValidation } from '../lib/hooks.js';
 import api from '../lib/api.js';
@@ -84,7 +84,7 @@ export default function ResFrecuentesPage() {
     }
     if (qrForm.medioTransporte === 'BICICLETA' || qrForm.medioTransporte === 'OTRO') {
       if (!qrForm.descripcion.trim()) {
-        e.descripcion = 'La descripciÃ³n es requerida para ' + (qrForm.medioTransporte === 'BICICLETA' ? 'bicicleta' : 'otro medio');
+        e.descripcion = 'La descripción es requerida para ' + (qrForm.medioTransporte === 'BICICLETA' ? 'bicicleta' : 'otro medio');
       }
     }
     setQrErrors(e);
@@ -113,7 +113,7 @@ export default function ResFrecuentesPage() {
       const tipoVehiculo = qrForm.medioTransporte === 'A_PIE' ? null
         : qrForm.medioTransporte === 'CARRO' ? 'VEHICULO'
         : qrForm.medioTransporte;
-      const res = await api.post('/visitas/rapida', {
+      const res = await api.post('/porteria/visitas/rapida', {
         idFrecuente: qrModal.idFrecuente,
         idVisitante: qrModal.idVisitante,
         cantidadPersonas: Number(qrForm.cantidadPersonas),
@@ -184,7 +184,7 @@ export default function ResFrecuentesPage() {
         email: form.email.trim() || null,
         activo: true,
       });
-      toast.success('Visitante creado. Para marcarlo como frecuente, genere un QR de "Visita RÃ¡pida" en /res-visita');
+      toast.success('Visitante creado. Para marcarlo como frecuente, genere un QR de "Visita Rápida" en /res-visita');
       setForm({
         idTipoDoc: 1,
         numeroDocumento: '',
@@ -208,7 +208,7 @@ export default function ResFrecuentesPage() {
     { key: 'nombreVisitante', label: 'Nombre' },
     { key: 'documento', label: 'Documento' },
     { key: 'ultimaPlaca', label: 'Placa' },
-    { key: 'ultimaVisita', label: 'Ãšltimo Ingreso', render: (r) => formatDate(r.ultimaVisita) },
+    { key: 'ultimaVisita', label: 'Último Ingreso', render: (r) => formatDate(r.ultimaVisita) },
   ];
 
   return (
@@ -255,10 +255,10 @@ export default function ResFrecuentesPage() {
               <span className="material-symbols-outlined">person</span>
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div className="name">{f.nombreVisitante || 'â€”'}</div>
-              <div className="meta">Doc: {f.documento || 'â€”'}</div>
+              <div className="name">{f.nombreVisitante || '—'}</div>
+              <div className="meta">Doc: {f.documento || '—'}</div>
               {f.ultimaPlaca && <div className="meta">Placa: {f.ultimaPlaca}</div>}
-              {f.ultimaVisita && <div className="meta">Ãšltima visita: {formatDate(f.ultimaVisita)}</div>}
+              {f.ultimaVisita && <div className="meta">Última visita: {formatDate(f.ultimaVisita)}</div>}
             </div>
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', flexShrink: 0 }}>
               <Button
@@ -317,7 +317,7 @@ export default function ResFrecuentesPage() {
           )}
           <Input
             id="numeroDocumento"
-            label="NÃºmero Documento"
+            label="Número Documento"
             value={form.numeroDocumento}
             onChange={(e) => setForm((f) => ({ ...f, numeroDocumento: e.target.value }))}
             error={errors.numeroDocumento}
@@ -342,7 +342,7 @@ export default function ResFrecuentesPage() {
         <div className="form-row">
           <Input
             id="telefono"
-            label="TelÃ©fono (opcional)"
+            label="Teléfono (opcional)"
             value={form.telefono}
             onChange={(e) => setForm((f) => ({ ...f, telefono: e.target.value }))}
             onBlur={() => touch('telefono')}
@@ -363,7 +363,7 @@ export default function ResFrecuentesPage() {
       <Modal
         open={qrModal !== null}
         onClose={() => setQrModal(null)}
-        title={qrGenerado ? 'QR generado' : `Generar QR â€” ${qrModal?.nombreVisitante || ''}`}
+        title={qrGenerado ? 'QR generado' : `Generar QR — ${qrModal?.nombreVisitante || ''}`}
         size="md"
       >
         {qrGenerado ? (
@@ -385,7 +385,7 @@ export default function ResFrecuentesPage() {
               {qrGenerado.codigoQr}
             </div>
             <div style={{ fontSize: '12px', opacity: 0.7 }}>
-              CompartÃ­ este cÃ³digo con {qrModal?.nombreVisitante} para que el portero lo escanee.
+              Compartí este código con {qrModal?.nombreVisitante} para que el portero lo escanee.
               {qrGenerado.fechaExpiracion ? ` Expira el ${formatDate(qrGenerado.fechaExpiracion)}.` : ''}
             </div>
             <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginTop: '16px' }}>
@@ -401,13 +401,13 @@ export default function ResFrecuentesPage() {
           <>
             <div className="form-group">
               <div className="meta" style={{ fontSize: '13px' }}>
-                Visitante: <strong>{qrModal?.nombreVisitante}</strong> Â· Doc: {qrModal?.documento}
+                Visitante: <strong>{qrModal?.nombreVisitante}</strong> · Doc: {qrModal?.documento}
               </div>
             </div>
             <div className="form-row">
               <Select
                 id="qr-medioTransporte"
-                label="Â¿En quÃ© viene?"
+                label="¿En qué viene?"
                 value={qrForm.medioTransporte}
                 onChange={(e) => setQrForm((f) => ({ ...f, medioTransporte: e.target.value }))}
               >
@@ -429,7 +429,7 @@ export default function ResFrecuentesPage() {
               {(qrForm.medioTransporte === 'BICICLETA' || qrForm.medioTransporte === 'OTRO') && (
                 <Input
                   id="qr-descripcion"
-                  label={qrForm.medioTransporte === 'BICICLETA' ? 'DescripciÃ³n de la bicicleta' : 'DescripciÃ³n del medio'}
+                  label={qrForm.medioTransporte === 'BICICLETA' ? 'Descripción de la bicicleta' : 'Descripción del medio'}
                   value={qrForm.descripcion}
                   onChange={(e) => setQrForm((f) => ({ ...f, descripcion: e.target.value }))}
                   error={qrErrors.descripcion}
@@ -457,7 +457,7 @@ export default function ResFrecuentesPage() {
             <div className="form-group">
               <Input
                 id="qr-notas"
-                label="Motivo / descripciÃ³n (opcional)"
+                label="Motivo / descripción (opcional)"
                 value={qrForm.notas}
                 onChange={(e) => setQrForm((f) => ({ ...f, notas: e.target.value }))}
               />
@@ -479,7 +479,7 @@ export default function ResFrecuentesPage() {
         onClose={() => setConfirmQuitar(null)}
         onConfirm={quitarFrecuente}
         title="Quitar visitante frecuente"
-        message={`Â¿Quitar a ${confirmQuitar?.nombreVisitante || ''} de tus visitantes frecuentes? PodrÃ¡s volver a generarle un QR mÃ¡s adelante.`}
+        message={`¿Quitar a ${confirmQuitar?.nombreVisitante || ''} de tus visitantes frecuentes? Podrás volver a generarle un QR más adelante.`}
         confirmLabel="Quitar"
         danger
       />
@@ -489,10 +489,12 @@ export default function ResFrecuentesPage() {
         onClose={() => setConfirmQuitar(null)}
         onConfirm={quitarFrecuente}
         title="Quitar visitante frecuente"
-        message={`Â¿Quitar a ${confirmQuitar?.nombreVisitante || ''} de tus visitantes frecuentes? PodrÃ¡s volver a generarle un QR mÃ¡s adelante.`}
+        message={`¿Quitar a ${confirmQuitar?.nombreVisitante || ''} de tus visitantes frecuentes? Podrás volver a generarle un QR más adelante.`}
         confirmLabel="Quitar"
         danger
       />
     </div>
   );
 }
+
+
