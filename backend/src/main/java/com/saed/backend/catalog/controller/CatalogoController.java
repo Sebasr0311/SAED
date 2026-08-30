@@ -74,4 +74,14 @@ public class CatalogoController {
                 "ORDER BY u.NOMBRE_USUARIO",
                 new MapSqlParameterSource());
     }
+
+    @GetMapping("/personas")
+    public List<Map<String, Object>> personas() {
+        return jdbcTemplate.queryForList(
+                "SELECT ID_PERSONA AS \"id\", " +
+                "PRIMER_NOMBRE || ' ' || COALESCE(SEGUNDO_NOMBRE, '') AS \"nombres\", " +
+                "PRIMER_APELLIDO || ' ' || COALESCE(SEGUNDO_APELLIDO, '') AS \"apellidos\" " +
+                "FROM PERSONAS ORDER BY PRIMER_NOMBRE",
+                new MapSqlParameterSource());
+    }
 }

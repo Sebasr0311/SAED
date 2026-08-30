@@ -392,7 +392,7 @@ export default function ResidentesPage() {
             onChange={(e) => update('idApartamento', e.target.value)}
           >
             <option value="">— Sin asignar —</option>
-            {(apartamentos?.items || []).map((a) => (
+            {(apartamentos?.items || apartamentos || []).map((a) => (
               <option key={a.idApartamento} value={a.idApartamento}>
                 Apto {a.numero} - Piso {a.piso}
               </option>

@@ -183,7 +183,7 @@ public class PorteriaServiceImpl implements PorteriaService {
             Long unitId = SaedContextHolder.getContext().getUnitId();
             List<Map<String, Object>> residentes = jdbcTemplate.queryForList(
                 "SELECT P.EMAIL FROM PERSONAS P " +
-                "JOIN UNIDAD_HABITANTES UH ON UH.ID_PERSONA = P.ID_PERSONA " +
+                "JOIN RESIDENTES_UNIDAD UH ON UH.ID_PERSONA = P.ID_PERSONA " +
                 "WHERE UH.ID_UNIDAD = :u AND P.EMAIL IS NOT NULL", 
                 Map.of("u", unitId)
             );

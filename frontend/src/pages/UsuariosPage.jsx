@@ -1,4 +1,4 @@
-﻿import { useState, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { toast } from 'sonner';
 import { Button } from '../components/ui/Button.jsx';
 import { valUsername, valPassword } from '../lib/validation.js';
@@ -35,7 +35,7 @@ export default function UsuariosPage() {
   const { touch, fieldError } = useLiveValidation();
 
   const { data, loading, refetch } = useFetch(() => api.get('/usuarios'), []);
-  const { data: residentes } = useFetch(() => api.get('/residentes'), []);
+  const { data: residentes } = useFetch(() => api.get('/personas'), []);
 
   const items = (data?.items || data || []).map((u) => ({
     idUsuario: u.ID_USUARIO ?? u.idUsuario,
@@ -242,7 +242,7 @@ export default function UsuariosPage() {
             onChange={(e) => update('idResidente', e.target.value)}
           >
             <option value="">— Ninguno —</option>
-            {(residentes?.items || []).map((r) => (
+            {(residentes?.items || residentes || []).map((r) => (
               <option key={r.id} value={r.id}>
                 {r.nombres} {r.apellidos}
               </option>

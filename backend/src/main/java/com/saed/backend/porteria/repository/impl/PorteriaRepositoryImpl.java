@@ -137,7 +137,7 @@ public class PorteriaRepositoryImpl implements PorteriaRepository {
                      "JOIN UNIDADES u ON v.ID_UNIDAD = u.ID_UNIDAD " +
                      "JOIN VISITANTES vis ON v.ID_VISITANTE = vis.ID_VISITANTE " +
                      "JOIN PERSONAS pv ON vis.ID_PERSONA = pv.ID_PERSONA " +
-                     "LEFT JOIN UNIDAD_HABITANTES uh ON uh.ID_UNIDAD = v.ID_UNIDAD AND uh.ES_TITULAR = 1 " +
+                     "LEFT JOIN RESIDENTES_UNIDAD uh ON uh.ID_UNIDAD = v.ID_UNIDAD AND uh.TIPO_RESIDENTE = 'TITULAR' " +
                      "LEFT JOIN PERSONAS pr ON uh.ID_PERSONA = pr.ID_PERSONA " +
                      "LEFT JOIN VEHICULOS_VISITA vv ON vv.ID_VISITA = v.ID_VISITA " +
                      "LEFT JOIN PARQUEADEROS pq ON pq.ID_PARQUEADERO = vv.ID_PARQUEADERO " +
@@ -171,7 +171,7 @@ public class PorteriaRepositoryImpl implements PorteriaRepository {
                      "JOIN UNIDADES u ON v.ID_UNIDAD = u.ID_UNIDAD " +
                      "JOIN VISITANTES vis ON v.ID_VISITANTE = vis.ID_VISITANTE " +
                      "JOIN PERSONAS pv ON vis.ID_PERSONA = pv.ID_PERSONA " +
-                     "LEFT JOIN UNIDAD_HABITANTES uh ON uh.ID_UNIDAD = v.ID_UNIDAD AND uh.ES_TITULAR = 1 " +
+                     "LEFT JOIN RESIDENTES_UNIDAD uh ON uh.ID_UNIDAD = v.ID_UNIDAD AND uh.TIPO_RESIDENTE = 'TITULAR' " +
                      "LEFT JOIN PERSONAS pr ON uh.ID_PERSONA = pr.ID_PERSONA " +
                      "LEFT JOIN VEHICULOS_VISITA vv ON vv.ID_VISITA = v.ID_VISITA " +
                      "LEFT JOIN PARQUEADEROS pq ON pq.ID_PARQUEADERO = vv.ID_PARQUEADERO " +

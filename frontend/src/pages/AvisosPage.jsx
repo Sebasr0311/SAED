@@ -209,7 +209,7 @@ export default function AvisosPage() {
         <div className="form-group">
           <label>Apartamentos</label>
           <ApartamentoMultiSelect
-            apartamentos={apartamentos?.items || []}
+            apartamentos={apartamentos?.items || apartamentos || []}
             selected={selectedApts}
             onChange={setSelectedApts}
           />

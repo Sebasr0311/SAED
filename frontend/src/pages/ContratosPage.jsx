@@ -1,4 +1,4 @@
-﻿import { useRef, useState, useMemo } from 'react';
+import { useRef, useState, useMemo } from 'react';
 import { Button } from '../components/ui/Button.jsx';
 import { Input, Select } from '../components/ui/Form.jsx';
 import { DataTable } from '../components/ui/DataTable.jsx';
@@ -216,7 +216,7 @@ export default function ContratosPage() {
   }
 
   function autoFillValor(idApartamento) {
-    const apto = (apartamentos || []).find((a) => String(a.id) === String(idApartamento));
+    const apto = (apartamentos?.items || apartamentos || []).find((a) => String(a.id) === String(idApartamento));
     if (!apto) return;
     const valorSugerido = apto.administracion != null ? Number(apto.administracion) : VALOR_POR_TIPO[apto.tipo] || null;
     if (valorSugerido) update('valorMensual', formatMiles(valorSugerido));
@@ -448,7 +448,7 @@ export default function ContratosPage() {
             error={errors.idApartamento}
           >
             <option value="">— Seleccionar —</option>
-            {(apartamentos || []).map((a) => (
+            {(apartamentos?.items || apartamentos || []).map((a) => (
               <option key={a.id} value={a.id}>
                 Apto {a.numero}
               </option>
@@ -462,7 +462,7 @@ export default function ContratosPage() {
             error={errors.idResidente}
           >
             <option value="">— Seleccionar —</option>
-            {(residentes?.content || []).map((r) => (
+            {(residentes?.content || residentes?.items || residentes || []).map((r) => (
               <option key={r.id} value={r.id}>
                 {r.nombres} {r.apellidos}
               </option>

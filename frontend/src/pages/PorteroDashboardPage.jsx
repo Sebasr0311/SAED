@@ -400,7 +400,7 @@ export default function PorteroDashboardPage() {
           setModalAviso(false);
           toast.success('Aviso de ruido enviado');
         }}
-        apartamentos={apartamentos?.items || []}
+        apartamentos={apartamentos?.items || apartamentos || []}
       />
 
       <ModalGenerarMulta
@@ -410,7 +410,7 @@ export default function PorteroDashboardPage() {
           setModalMulta(null);
           toast.success('Multa generada');
         }}
-        apartamentos={apartamentos?.items || []}
+        apartamentos={apartamentos?.items || apartamentos || []}
         quejasRuido={quejasRuido?.items || quejasRuido || []}
         tipoInicial={modalMulta}
       />
