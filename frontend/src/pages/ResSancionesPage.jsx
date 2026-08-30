@@ -15,7 +15,7 @@ const ESTADO_BADGE = {
 };
 
 export default function ResSancionesPage() {
-  const { data, loading, error, mutate } = useFetch('/api/v1/sanciones/mis-sanciones');
+  const { data, loading, error, refetch } = useFetch(() => api.get('/api/v1/sanciones/mis-sanciones');
   const [detalle, setDetalle] = useState(null);
   const [descargos, setDescargos] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -40,7 +40,7 @@ export default function ResSancionesPage() {
       toast.success('Descargos enviados para revisión.');
       setDetalle(null);
       setDescargos('');
-      mutate();
+      refetch();
     } catch (err) {
       toast.error(err.message);
     } finally {

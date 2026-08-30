@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 const CATEGORIAS = ['REGLAMENTO', 'ACTA', 'FINANZAS', 'CONTRATO', 'MANUAL', 'POLIZA', 'OTRO'];
 
 export default function DocumentosAdminPage() {
-  const { data, loading, error, mutate } = useFetch('/api/v1/documentos/admin');
+  const { data, loading, error, refetch } = useFetch(() => api.get('/api/v1/documentos/admin');
   const [modalOpen, setModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({
@@ -58,7 +58,7 @@ export default function DocumentosAdminPage() {
       toast.success('Documento subido exitosamente');
       setModalOpen(false);
       setForm({ titulo: '', categoria: 'REGLAMENTO', descripcion: '', esPublicoResidentes: 'N', rolMinimoAcceso: 'ADMIN_PROPIEDAD', archivoUrl: '' });
-      mutate();
+      refetch();
     } catch (err) {
       toast.error(err.message);
     } finally {
@@ -71,7 +71,7 @@ export default function DocumentosAdminPage() {
     try {
       await api.delete(`/api/v1/documentos/${id}`);
       toast.success('Documento eliminado');
-      mutate();
+      refetch();
     } catch (err) {
       toast.error(err.message);
     }

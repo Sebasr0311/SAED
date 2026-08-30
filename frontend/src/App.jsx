@@ -32,6 +32,8 @@ const ReservasAdminPage = lazy(() => import('./pages/ReservasAdminPage.jsx'));
 const ResReservasPage = lazy(() => import('./pages/ResReservasPage.jsx'));
 const SancionesAdminPage = lazy(() => import('./pages/SancionesAdminPage.jsx'));
 const ResSancionesPage = lazy(() => import('./pages/ResSancionesPage.jsx'));
+const ObrasAdminPage = lazy(() => import('./pages/ObrasAdminPage.jsx'));
+const ResObrasPage = lazy(() => import('./pages/ResObrasPage.jsx'));
 const GananciasPage = lazy(() => import('./pages/GananciasPage.jsx'));
 const HistorialVisitasPage = lazy(() => import('./pages/HistorialVisitasPage.jsx'));
 const PaquetesAdminPage = lazy(() => import('./pages/PaquetesAdminPage.jsx'));
@@ -61,6 +63,11 @@ const NotFoundPage = lazy(() => import('./pages/NotFoundPage.jsx'));
 
 // Fallback de las rutas lazy vive en AppShell (envuelve <Outlet />), de modo que
 // el shell (sidebar/topbar) permanezca visible mientras se carga la página.
+
+import ObrasAdminPage from './pages/ObrasAdminPage';
+import ResObrasPage from './pages/ResObrasPage';
+const ObrasAdminPage = lazy(() => import('./pages/ObrasAdminPage.jsx'));
+const ResObrasPage = lazy(() => import('./pages/ResObrasPage.jsx'));
 
 export default function App() {
   return (
