@@ -1,7 +1,7 @@
-﻿-- ALTER SESSION REMOVED FOR ATP
+-- ALTER SESSION REMOVED FOR ATP
 
 -- Pre-requisitos DBA para V4.0 Auth Bootstrap
--- Este script debe ejecutarse como SYSDBA antes de la migraciÃ³n principal.
+-- Este script debe ejecutarse como SYSDBA antes de la migración principal.
 
 WHENEVER SQLERROR EXIT SQL.SQLCODE ROLLBACK
 WHENEVER OSERROR EXIT FAILURE ROLLBACK
@@ -20,19 +20,19 @@ END;
 
 CREATE USER SAED_SEC_MASTER IDENTIFIED BY "saed_sec_2026_SecurePwd!" ACCOUNT LOCK;
 
--- 2. Privilegios bÃ¡sicos
+-- 2. Privilegios básicos
 GRANT CREATE SESSION, CREATE PROCEDURE TO SAED_SEC_MASTER;
 
--- 3. Privilegio CrÃ­tico (Bypass RLS)
+-- 3. Privilegio Crítico (Bypass RLS)
 GRANT EXEMPT ACCESS POLICY TO SAED_SEC_MASTER;
 
--- 4. Permitirle leer y actualizar las tablas del schema dueÃ±o
+-- 4. Permitirle leer y actualizar las tablas del schema dueño
 GRANT SELECT, UPDATE(intentos_fallidos, ultimo_login, estado, fecha_bloqueo) ON SAED_V39_FINAL_TEST.USUARIOS TO SAED_SEC_MASTER;
 GRANT SELECT ON SAED_V39_FINAL_TEST.PERSONAS TO SAED_SEC_MASTER;
 GRANT SELECT ON SAED_V39_FINAL_TEST.USUARIO_ASIGNACIONES TO SAED_SEC_MASTER;
 GRANT SELECT ON SAED_V39_FINAL_TEST.ROLES TO SAED_SEC_MASTER;
 
--- Permitirle escribir auditorÃ­a
+-- Permitirle escribir auditoría
 GRANT INSERT ON SAED_V39_FINAL_TEST.AUDITORIA_LOG TO SAED_SEC_MASTER;
 
 -- Permitirle compilar
@@ -1488,105 +1488,105 @@ GRANT UPDATE ("ULTIMO_LOGIN") ON "USUARIOS" TO "SAED_SEC_MASTER";
 GRANT UPDATE ("INTENTOS_FALLIDOS") ON "USUARIOS" TO "SAED_SEC_MASTER";
 -- new object type path: SCHEMA_EXPORT/TABLE/COMMENT
  COMMENT ON TABLE "AUDITORIA_LOG"  IS 'Log centralizado inmutable (append-only) de acciones sensibles de la plataforma SaaS.';
- COMMENT ON COLUMN "AUDITORIA_LOG"."ID_USUARIO" IS 'FK diferida a USUARIOS(id_usuario). NULL = acciÃƒÂ³n automÃƒÂ¡tica del sistema.';
- COMMENT ON COLUMN "AUDITORIA_LOG"."ID_ORGANIZACION" IS 'FK diferida a ORGANIZACIONES(id_organizacion). NULL = acciÃƒÂ³n de alcance PLATAFORMA.';
- COMMENT ON COLUMN "AUDITORIA_LOG"."ID_PROPIEDAD" IS 'FK diferida a PROPIEDADES(id_propiedad). NULL = acciÃƒÂ³n sin propiedad asociada.';
- COMMENT ON TABLE "TIPOS_DOCUMENTO"  IS 'CatÃƒÂ¡logo de tipos de documento de identidad (CC, CE, NIT, Pasaporte, etc.).';
+ COMMENT ON COLUMN "AUDITORIA_LOG"."ID_USUARIO" IS 'FK diferida a USUARIOS(id_usuario). NULL = acciÃ³n automÃ¡tica del sistema.';
+ COMMENT ON COLUMN "AUDITORIA_LOG"."ID_ORGANIZACION" IS 'FK diferida a ORGANIZACIONES(id_organizacion). NULL = acciÃ³n de alcance PLATAFORMA.';
+ COMMENT ON COLUMN "AUDITORIA_LOG"."ID_PROPIEDAD" IS 'FK diferida a PROPIEDADES(id_propiedad). NULL = acciÃ³n sin propiedad asociada.';
+ COMMENT ON TABLE "TIPOS_DOCUMENTO"  IS 'CatÃ¡logo de tipos de documento de identidad (CC, CE, NIT, Pasaporte, etc.).';
  COMMENT ON TABLE "PERSONAS"  IS 'Identidad de negocio (residente, copropietario, tutor, trabajador, contratista).';
- COMMENT ON TABLE "USUARIOS"  IS 'Credenciales de acceso y estado de autenticaciÃƒÂ³n (1:1 con PERSONAS).';
- COMMENT ON TABLE "ROLES"  IS 'CatÃƒÂ¡logo maestro de roles del sistema con su alcance de seguridad correspondiente.';
- COMMENT ON TABLE "PERMISOS"  IS 'CatÃƒÂ¡logo de permisos atÃƒÂ³micos y granulares por acciÃƒÂ³n de negocio.';
- COMMENT ON TABLE "ROL_PERMISO"  IS 'Matriz RBAC: asignaciÃƒÂ³n de permisos atÃƒÂ³micos a cada rol.';
- COMMENT ON TABLE "USUARIO_ASIGNACIONES"  IS 'Asignaciones de rol y contexto por usuario (soporta mÃƒÂºltiples asignaciones simultÃƒÂ¡neas).';
- COMMENT ON TABLE "USUARIO_PROPIEDADES_ASIGNADAS"  IS 'Propiedades asignadas a un Administrador General que gestiona mÃƒÂºltiples inmuebles seleccionados.';
- COMMENT ON TABLE "ORGANIZACIONES"  IS 'Tenant lÃƒÂ³gico de la plataforma SaaS (empresa administradora o copropiedad independiente).';
- COMMENT ON COLUMN "ORGANIZACIONES"."ESTADO" IS 'SUSPENDIDA = membresÃƒÂ­a vencida o mora, bloquea transacciones operativas; INACTIVA = baja definitiva.';
- COMMENT ON TABLE "ORGANIZACION_CONFIGURACION"  IS 'ParÃƒÂ¡metros clave-valor especÃƒÂ­ficos del tenant (moneda, branding, dÃƒÂ­a de corte global).';
- COMMENT ON TABLE "TIPOS_PROPIEDAD"  IS 'CatÃƒÂ¡logo del tipo de copropiedad o inmueble.';
+ COMMENT ON TABLE "USUARIOS"  IS 'Credenciales de acceso y estado de autenticaciÃ³n (1:1 con PERSONAS).';
+ COMMENT ON TABLE "ROLES"  IS 'CatÃ¡logo maestro de roles del sistema con su alcance de seguridad correspondiente.';
+ COMMENT ON TABLE "PERMISOS"  IS 'CatÃ¡logo de permisos atÃ³micos y granulares por acciÃ³n de negocio.';
+ COMMENT ON TABLE "ROL_PERMISO"  IS 'Matriz RBAC: asignaciÃ³n de permisos atÃ³micos a cada rol.';
+ COMMENT ON TABLE "USUARIO_ASIGNACIONES"  IS 'Asignaciones de rol y contexto por usuario (soporta mÃºltiples asignaciones simultÃ¡neas).';
+ COMMENT ON TABLE "USUARIO_PROPIEDADES_ASIGNADAS"  IS 'Propiedades asignadas a un Administrador General que gestiona mÃºltiples inmuebles seleccionados.';
+ COMMENT ON TABLE "ORGANIZACIONES"  IS 'Tenant lÃ³gico de la plataforma SaaS (empresa administradora o copropiedad independiente).';
+ COMMENT ON COLUMN "ORGANIZACIONES"."ESTADO" IS 'SUSPENDIDA = membresÃ­a vencida o mora, bloquea transacciones operativas; INACTIVA = baja definitiva.';
+ COMMENT ON TABLE "ORGANIZACION_CONFIGURACION"  IS 'ParÃ¡metros clave-valor especÃ­ficos del tenant (moneda, branding, dÃ­a de corte global).';
+ COMMENT ON TABLE "TIPOS_PROPIEDAD"  IS 'CatÃ¡logo del tipo de copropiedad o inmueble.';
  COMMENT ON TABLE "PROPIEDADES"  IS 'Inmueble administrado perteneciente al tenant.';
  COMMENT ON TABLE "ORGANIZACION_PROPIEDAD"  IS 'Historial de empresas administradoras que han gestionado la propiedad.';
- COMMENT ON TABLE "PROPIEDAD_CONFIGURACION"  IS 'ParÃƒÂ¡metros y feature flags por propiedad (habilita_qr, habilita_lpr, permite_mascotas, tolerancia_mora_dias).';
- COMMENT ON TABLE "BLOQUES"  IS 'Estructura intermedia y jerÃƒÂ¡rquica (Torres, Etapas, Manzanas, Pisos).';
- COMMENT ON TABLE "TIPOS_UNIDAD"  IS 'CatÃƒÂ¡logo del tipo de unidad habitable u operativa.';
- COMMENT ON TABLE "UNIDADES"  IS 'Unidad fÃƒÂ­sica habitacional o comercial.';
- COMMENT ON COLUMN "UNIDADES"."COEFICIENTE_COPROPIEDAD" IS 'Coeficiente para prorrateo de cuotas y quÃƒÂ³rum en asamblea.';
- COMMENT ON TABLE "PLANES"  IS 'CatÃƒÂ¡logo de planes comerciales del SaaS SAED.';
- COMMENT ON TABLE "MODULOS"  IS 'MÃƒÂ³dulos funcionales de la plataforma habilitables por plan.';
- COMMENT ON TABLE "PLAN_MODULOS"  IS 'Matriz comercial de mÃƒÂ³dulos habilitados por plan.';
- COMMENT ON TABLE "MEMBRESIAS"  IS 'SuscripciÃƒÂ³n vigente de una organizaciÃƒÂ³n a un plan.';
- COMMENT ON TABLE "MEMBRESIAS_HISTORIAL"  IS 'BitÃƒÂ¡cora inmutable de transiciones comerciales de membresÃƒÂ­a.';
+ COMMENT ON TABLE "PROPIEDAD_CONFIGURACION"  IS 'ParÃ¡metros y feature flags por propiedad (habilita_qr, habilita_lpr, permite_mascotas, tolerancia_mora_dias).';
+ COMMENT ON TABLE "BLOQUES"  IS 'Estructura intermedia y jerÃ¡rquica (Torres, Etapas, Manzanas, Pisos).';
+ COMMENT ON TABLE "TIPOS_UNIDAD"  IS 'CatÃ¡logo del tipo de unidad habitable u operativa.';
+ COMMENT ON TABLE "UNIDADES"  IS 'Unidad fÃ­sica habitacional o comercial.';
+ COMMENT ON COLUMN "UNIDADES"."COEFICIENTE_COPROPIEDAD" IS 'Coeficiente para prorrateo de cuotas y quÃ³rum en asamblea.';
+ COMMENT ON TABLE "PLANES"  IS 'CatÃ¡logo de planes comerciales del SaaS SAED.';
+ COMMENT ON TABLE "MODULOS"  IS 'MÃ³dulos funcionales de la plataforma habilitables por plan.';
+ COMMENT ON TABLE "PLAN_MODULOS"  IS 'Matriz comercial de mÃ³dulos habilitados por plan.';
+ COMMENT ON TABLE "MEMBRESIAS"  IS 'SuscripciÃ³n vigente de una organizaciÃ³n a un plan.';
+ COMMENT ON TABLE "MEMBRESIAS_HISTORIAL"  IS 'BitÃ¡cora inmutable de transiciones comerciales de membresÃ­a.';
  COMMENT ON TABLE "ADMINISTRADORES_SAED"  IS 'Personal interno de SAED con privilegios sobre la plataforma.';
- COMMENT ON TABLE "PLATAFORMA_CONFIGURACION"  IS 'ParÃƒÂ¡metros globales del SaaS (modo mantenimiento, versiÃƒÂ³n mÃƒÂ­nima de app, etc.).';
+ COMMENT ON TABLE "PLATAFORMA_CONFIGURACION"  IS 'ParÃ¡metros globales del SaaS (modo mantenimiento, versiÃ³n mÃ­nima de app, etc.).';
  COMMENT ON TABLE "PROPIETARIOS_UNIDAD"  IS 'Titularidad de dominio legal sobre una unidad (soporta copropiedad).';
- COMMENT ON TABLE "RESIDENTES_UNIDAD"  IS 'Personas que habitan fÃƒÂ­sicamente una unidad.';
- COMMENT ON TABLE "TUTORES"  IS 'RepresentaciÃƒÂ³n legal de personas menores de edad vinculadas a la copropiedad.';
+ COMMENT ON TABLE "RESIDENTES_UNIDAD"  IS 'Personas que habitan fÃ­sicamente una unidad.';
+ COMMENT ON TABLE "TUTORES"  IS 'RepresentaciÃ³n legal de personas menores de edad vinculadas a la copropiedad.';
  COMMENT ON TABLE "CONTRATOS"  IS 'Contratos de arrendamiento sobre unidades habitables u operativas.';
  COMMENT ON TABLE "CONTRATO_RESIDENTE"  IS 'Personas vinculadas contractualmente a la unidad (coarrendatarios y familiares convivientes).';
- COMMENT ON TABLE "CONCEPTOS_COBRO"  IS 'CatÃƒÂ¡logo de conceptos facturables por la copropiedad.';
- COMMENT ON TABLE "CUOTAS"  IS 'Obligaciones financieras periÃƒÂ³dicas por unidad.';
+ COMMENT ON TABLE "CONCEPTOS_COBRO"  IS 'CatÃ¡logo de conceptos facturables por la copropiedad.';
+ COMMENT ON TABLE "CUOTAS"  IS 'Obligaciones financieras periÃ³dicas por unidad.';
  COMMENT ON TABLE "PAGOS"  IS 'Recaudos y pagos efectuados por residentes o propietarios.';
- COMMENT ON TABLE "PAGO_DETALLE"  IS 'DistribuciÃƒÂ³n del recaudo entre cuotas pendientes.';
+ COMMENT ON TABLE "PAGO_DETALLE"  IS 'DistribuciÃ³n del recaudo entre cuotas pendientes.';
  COMMENT ON TABLE "TRANSACCIONES_PAGO"  IS 'Eventos crudos de transacciones de pasarela (Wompi).';
- COMMENT ON TABLE "MULTAS"  IS 'Sanciones econÃƒÂ³micas derivadas de infracciones al reglamento.';
- COMMENT ON TABLE "CARTERA"  IS 'Snapshot periÃƒÂ³dico de saldos y mora consolidada por unidad.';
+ COMMENT ON TABLE "MULTAS"  IS 'Sanciones econÃ³micas derivadas de infracciones al reglamento.';
+ COMMENT ON TABLE "CARTERA"  IS 'Snapshot periÃ³dico de saldos y mora consolidada por unidad.';
  COMMENT ON TABLE "PRESUPUESTOS"  IS 'Presupuesto anual aprobado de la copropiedad.';
  COMMENT ON TABLE "GASTOS"  IS 'Egresos reales y costos operativos ejecutados.';
  COMMENT ON TABLE "CONCILIACIONES"  IS 'Conciliaciones bancarias mensuales de la copropiedad.';
- COMMENT ON TABLE "PAZ_Y_SALVOS"  IS 'Certificados oficiales de paz y salvo emitidos con cÃƒÂ³digo de verificaciÃƒÂ³n pÃƒÂºblico.';
- COMMENT ON TABLE "PORTERIAS"  IS 'Puntos de control fÃƒÂ­sico y recepciÃƒÂ³n de la copropiedad.';
- COMMENT ON TABLE "ACCESOS_CONFIGURADOS"  IS 'Molinetes, talanqueras, puertas y carriles parametrizados por porterÃƒÂ­a.';
+ COMMENT ON TABLE "PAZ_Y_SALVOS"  IS 'Certificados oficiales de paz y salvo emitidos con cÃ³digo de verificaciÃ³n pÃºblico.';
+ COMMENT ON TABLE "PORTERIAS"  IS 'Puntos de control fÃ­sico y recepciÃ³n de la copropiedad.';
+ COMMENT ON TABLE "ACCESOS_CONFIGURADOS"  IS 'Molinetes, talanqueras, puertas y carriles parametrizados por porterÃ­a.';
  COMMENT ON TABLE "VISITANTES"  IS 'Personas registradas en calidad de visitantes.';
- COMMENT ON TABLE "VISITAS"  IS 'Eventos de visita programados o espontÃƒÂ¡neos a una unidad.';
- COMMENT ON TABLE "QR_ACCESOS"  IS 'Tokens de acceso efÃƒÂ­meros para validaciÃƒÂ³n en porterÃƒÂ­a.';
- COMMENT ON TABLE "REGISTROS_ACCESO"  IS 'BitÃƒÂ¡cora inmutable de entradas y salidas efectivas en porterÃƒÂ­a.';
- COMMENT ON TABLE "VEHICULOS"  IS 'VehÃƒÂ­culos registrados pertenecientes a residentes o propietarios.';
+ COMMENT ON TABLE "VISITAS"  IS 'Eventos de visita programados o espontÃ¡neos a una unidad.';
+ COMMENT ON TABLE "QR_ACCESOS"  IS 'Tokens de acceso efÃ­meros para validaciÃ³n en porterÃ­a.';
+ COMMENT ON TABLE "REGISTROS_ACCESO"  IS 'BitÃ¡cora inmutable de entradas y salidas efectivas en porterÃ­a.';
+ COMMENT ON TABLE "VEHICULOS"  IS 'VehÃ­culos registrados pertenecientes a residentes o propietarios.';
  COMMENT ON TABLE "PARQUEADEROS"  IS 'Celdas de estacionamiento de la copropiedad.';
- COMMENT ON TABLE "ASIGNACIONES_PARQUEADERO"  IS 'AsignaciÃƒÂ³n de parqueaderos a unidades privadas.';
- COMMENT ON TABLE "VEHICULOS_VISITA"  IS 'Trazabilidad y liquidaciÃƒÂ³n de vehÃƒÂ­culos de visitantes.';
+ COMMENT ON TABLE "ASIGNACIONES_PARQUEADERO"  IS 'AsignaciÃ³n de parqueaderos a unidades privadas.';
+ COMMENT ON TABLE "VEHICULOS_VISITA"  IS 'Trazabilidad y liquidaciÃ³n de vehÃ­culos de visitantes.';
  COMMENT ON TABLE "MASCOTAS"  IS 'Censo y registro de mascotas en unidades residenciales.';
- COMMENT ON TABLE "CATALOGO_ZONAS"  IS 'CatÃƒÂ¡logo maestro de tipos de zonas comunes.';
- COMMENT ON TABLE "ZONAS_COMUNES"  IS 'ÃƒÂreas comunes parametrizadas por propiedad.';
+ COMMENT ON TABLE "CATALOGO_ZONAS"  IS 'CatÃ¡logo maestro de tipos de zonas comunes.';
+ COMMENT ON TABLE "ZONAS_COMUNES"  IS 'Ãreas comunes parametrizadas por propiedad.';
  COMMENT ON TABLE "BLOQUEOS_ZONA"  IS 'Bloqueos temporales de zonas por mantenimiento.';
  COMMENT ON TABLE "RESERVAS"  IS 'Reservas de zonas comunes.';
  COMMENT ON TABLE "ACTIVOS"  IS 'Hoja de vida digital de equipos e infraestructura de la copropiedad.';
- COMMENT ON TABLE "MANTENIMIENTOS"  IS 'Ãƒâ€œrdenes de mantenimiento preventivo y correctivo.';
+ COMMENT ON TABLE "MANTENIMIENTOS"  IS 'Ã“rdenes de mantenimiento preventivo y correctivo.';
  COMMENT ON TABLE "PROVEEDORES"  IS 'Empresas contratistas y prestadores de servicios.';
  COMMENT ON TABLE "CONTRATOS_PROVEEDOR"  IS 'Contratos de servicios con proveedores.';
  COMMENT ON TABLE "TRABAJADORES"  IS 'Personal operativo de proveedores y contratistas con control de ARL.';
  COMMENT ON TABLE "OBRAS"  IS 'Remodelaciones locativas y obras autorizadas en unidades.';
- COMMENT ON TABLE "OBRA_TRABAJADORES"  IS 'Operarios habilitados para ingresar a una obra en porterÃƒÂ­a.';
- COMMENT ON TABLE "PQRS_SLA_CONFIGURACION"  IS 'ParÃƒÂ¡metros de tiempos mÃƒÂ¡ximos de respuesta (SLA) por prioridad.';
+ COMMENT ON TABLE "OBRA_TRABAJADORES"  IS 'Operarios habilitados para ingresar a una obra en porterÃ­a.';
+ COMMENT ON TABLE "PQRS_SLA_CONFIGURACION"  IS 'ParÃ¡metros de tiempos mÃ¡ximos de respuesta (SLA) por prioridad.';
  COMMENT ON TABLE "PQRS_TICKETS"  IS 'Tickets de peticiones, quejas, reclamos y sugerencias de la copropiedad.';
- COMMENT ON TABLE "PQRS_TRAZABILIDAD"  IS 'Historial cronolÃƒÂ³gico de respuestas y seguimiento de tickets.';
- COMMENT ON TABLE "PAQUETES"  IS 'Custodia, notificaciÃƒÂ³n y entrega de correspondencia y paquetes en porterÃƒÂ­a.';
+ COMMENT ON TABLE "PQRS_TRAZABILIDAD"  IS 'Historial cronolÃ³gico de respuestas y seguimiento de tickets.';
+ COMMENT ON TABLE "PAQUETES"  IS 'Custodia, notificaciÃ³n y entrega de correspondencia y paquetes en porterÃ­a.';
  COMMENT ON TABLE "INCIDENTES"  IS 'Libro de novedades de seguridad y afectaciones en la copropiedad.';
- COMMENT ON TABLE "INCIDENTE_INVOLUCRADOS"  IS 'Personas o vehÃƒÂ­culos relacionados en el reporte del incidente.';
+ COMMENT ON TABLE "INCIDENTE_INVOLUCRADOS"  IS 'Personas o vehÃ­culos relacionados en el reporte del incidente.';
  COMMENT ON TABLE "PLANTILLAS_NOTIFICACION"  IS 'Plantillas base para correos transaccionales y avisos.';
  COMMENT ON TABLE "COMUNICADOS"  IS 'Cartelera digital y circulares para residentes.';
  COMMENT ON TABLE "NOTIFICACIONES"  IS 'Bandeja individual de notificaciones.';
- COMMENT ON TABLE "ENCUESTAS"  IS 'Sondeos de opiniÃƒÂ³n de la comunidad.';
+ COMMENT ON TABLE "ENCUESTAS"  IS 'Sondeos de opiniÃ³n de la comunidad.';
  COMMENT ON TABLE "ENCUESTA_OPCIONES"  IS 'Opciones de respuesta disponibles.';
  COMMENT ON TABLE "ENCUESTA_RESPUESTAS"  IS 'Votos en encuestas.';
- COMMENT ON TABLE "EVENTOS_SISTEMA"  IS 'CatÃƒÂ¡logo maestro de eventos disparadores generados por el sistema.';
- COMMENT ON TABLE "REGLAS_AUTOMATIZACION"  IS 'Reglas de automatizaciÃƒÂ³n ECA (Evento-CondiciÃƒÂ³n-AcciÃƒÂ³n).';
- COMMENT ON TABLE "ACCIONES_AUTOMATIZACION"  IS 'Acciones ejecutadas por una regla de automatizaciÃƒÂ³n.';
- COMMENT ON TABLE "EJECUCIONES_AUTOMATIZACION"  IS 'Historial append-only de ejecuciones automÃƒÂ¡ticas.';
+ COMMENT ON TABLE "EVENTOS_SISTEMA"  IS 'CatÃ¡logo maestro de eventos disparadores generados por el sistema.';
+ COMMENT ON TABLE "REGLAS_AUTOMATIZACION"  IS 'Reglas de automatizaciÃ³n ECA (Evento-CondiciÃ³n-AcciÃ³n).';
+ COMMENT ON TABLE "ACCIONES_AUTOMATIZACION"  IS 'Acciones ejecutadas por una regla de automatizaciÃ³n.';
+ COMMENT ON TABLE "EJECUCIONES_AUTOMATIZACION"  IS 'Historial append-only de ejecuciones automÃ¡ticas.';
  COMMENT ON TABLE "DOCUMENTOS"  IS 'Repositorio centralizado de documentos institucionales.';
  COMMENT ON TABLE "VERSIONES_DOCUMENTO"  IS 'Control de versiones y almacenamiento de archivos binarios.';
  COMMENT ON TABLE "ASAMBLEAS"  IS 'Asambleas generales de copropietarios.';
- COMMENT ON TABLE "ASISTENCIAS_ASAMBLEA"  IS 'Registro y cÃƒÂ¡lculo de quÃƒÂ³rum en tiempo real.';
- COMMENT ON TABLE "PODERES_REPRESENTACION"  IS 'Poderes de representaciÃƒÂ³n otorgados para la asamblea.';
- COMMENT ON TABLE "VOTACIONES"  IS 'Puntos de votaciÃƒÂ³n formal en la asamblea.';
+ COMMENT ON TABLE "ASISTENCIAS_ASAMBLEA"  IS 'Registro y cÃ¡lculo de quÃ³rum en tiempo real.';
+ COMMENT ON TABLE "PODERES_REPRESENTACION"  IS 'Poderes de representaciÃ³n otorgados para la asamblea.';
+ COMMENT ON TABLE "VOTACIONES"  IS 'Puntos de votaciÃ³n formal en la asamblea.';
  COMMENT ON TABLE "VOTOS"  IS 'Votos individuales emitidos y ponderados por coeficiente.';
  COMMENT ON TABLE "ACTAS_ASAMBLEA"  IS 'Acta oficial de la asamblea.';
- COMMENT ON TABLE "SANCIONES"  IS 'Expedientes disciplinarios con debido proceso segÃƒÂºn Ley 675.';
+ COMMENT ON TABLE "SANCIONES"  IS 'Expedientes disciplinarios con debido proceso segÃºn Ley 675.';
  COMMENT ON TABLE "SANCION_DESCARGOS"  IS 'Alegatos de descargos y pruebas de defensa aportadas por el imputado.';
- COMMENT ON TABLE "POLIZAS_SEGURO"  IS 'PÃƒÂ³lizas de seguro obligatorias de ÃƒÂ¡reas comunes y responsabilidad civil.';
- COMMENT ON TABLE "PLANES_EMERGENCIA"  IS 'Planes de contingencia y protocolos de evacuaciÃƒÂ³n.';
- COMMENT ON TABLE "CONTACTOS_EMERGENCIA"  IS 'Directorio de emergencias rÃƒÂ¡pidas para porteros y administradores.';
- COMMENT ON TABLE "MEDICIONES_CONSUMO"  IS 'Lecturas de medidores individuales y comunales de servicios pÃƒÂºblicos.';
- COMMENT ON TABLE "REPORTES_CONFIGURADOS"  IS 'CatÃƒÂ¡logo maestro de reportes estÃƒÂ¡ndar del sistema.';
- COMMENT ON TABLE "HISTORIAL_REPORTES"  IS 'BitÃƒÂ¡cora inmutable de reportes exportados.';
+ COMMENT ON TABLE "POLIZAS_SEGURO"  IS 'PÃ³lizas de seguro obligatorias de Ã¡reas comunes y responsabilidad civil.';
+ COMMENT ON TABLE "PLANES_EMERGENCIA"  IS 'Planes de contingencia y protocolos de evacuaciÃ³n.';
+ COMMENT ON TABLE "CONTACTOS_EMERGENCIA"  IS 'Directorio de emergencias rÃ¡pidas para porteros y administradores.';
+ COMMENT ON TABLE "MEDICIONES_CONSUMO"  IS 'Lecturas de medidores individuales y comunales de servicios pÃºblicos.';
+ COMMENT ON TABLE "REPORTES_CONFIGURADOS"  IS 'CatÃ¡logo maestro de reportes estÃ¡ndar del sistema.';
+ COMMENT ON TABLE "HISTORIAL_REPORTES"  IS 'BitÃ¡cora inmutable de reportes exportados.';
 -- new object type path: SCHEMA_EXPORT/TABLE/RLS_POLICY/RLS_POLICY
 BEGIN DBMS_RLS.ADD_GROUPED_POLICY(NULL,'"CONTRATOS_PROVEEDOR"','"SYS_DEFAULT"','"POL_RLS_PROP_CONTRATOS_PROVE"',NULL,'"PKG_SAED_SECURITY_RLS"."FN_FILTRO_PROPIEDAD"','DELETE,UPDATE,INSERT,SELECT',TRUE,TRUE,FALSE,dbms_rls.DYNAMIC,FALSE,'',NULL); END;
 /
@@ -1906,7 +1906,7 @@ CREATE EDITIONABLE PROCEDURE SP_VALIDAR_CONSUMIR_QR (
 BEGIN
     p_valido := 'N';
 
-    -- Bloqueo pesimista de fila para evitar consumo concurrente en mÃƒÂºltiples puertas
+    -- Bloqueo pesimista de fila para evitar consumo concurrente en mÃºltiples puertas
     SELECT q.id_qr, q.id_visita, q.fecha_expiracion, q.usos_permitidos, q.usos_consumidos, q.estado,
            v.id_unidad, v.id_visitante, vis.id_persona, p.id_propiedad
     INTO v_id_qr, p_id_visita, v_fecha_exp, v_permitidos, v_consumidos, v_estado,
@@ -1920,17 +1920,17 @@ BEGIN
     FOR UPDATE OF q.usos_consumidos;
 
     IF v_estado != 'ACTIVO' THEN
-        p_mensaje := 'El cÃƒÂ³digo QR no se encuentra activo (Estado: ' || v_estado || ').';
+        p_mensaje := 'El cÃ³digo QR no se encuentra activo (Estado: ' || v_estado || ').';
         RETURN;
     END IF;
 
     IF v_fecha_exp < FROM_TZ(CAST(SYSTIMESTAMP AS TIMESTAMP), 'America/Bogota') THEN
         UPDATE QR_ACCESOS SET estado = 'EXPIRADO' WHERE id_qr = v_id_qr;
-        p_mensaje := 'El cÃƒÂ³digo QR ha expirado.';
+        p_mensaje := 'El cÃ³digo QR ha expirado.';
         RETURN;
     END IF;
 
-    -- Consumo atÃƒÂ³mico
+    -- Consumo atÃ³mico
     v_consumidos := v_consumidos + 1;
     UPDATE QR_ACCESOS
     SET usos_consumidos = v_consumidos,
@@ -1950,7 +1950,7 @@ BEGIN
     p_mensaje := 'Acceso autorizado exitosamente.';
 EXCEPTION
     WHEN NO_DATA_FOUND THEN
-        p_mensaje := 'CÃƒÂ³digo QR no encontrado o invÃƒÂ¡lido.';
+        p_mensaje := 'CÃ³digo QR no encontrado o invÃ¡lido.';
     WHEN OTHERS THEN
         p_mensaje := 'Error interno al validar QR: ' || SQLERRM;
 END SP_VALIDAR_CONSUMIR_QR;
@@ -2027,7 +2027,7 @@ FROM PROPIETARIOS_UNIDAD
 WHERE estado = 'ACTIVO'
 GROUP BY id_unidad;
 -- new object type path: SCHEMA_EXPORT/VIEW/COMMENT
- COMMENT ON TABLE "VW_PROPUNIDAD_PORCENTAJE_TOTAL"  IS 'ValidaciÃƒÂ³n de suma de porcentaje de copropiedad activa por unidad.';
+ COMMENT ON TABLE "VW_PROPUNIDAD_PORCENTAJE_TOTAL"  IS 'ValidaciÃ³n de suma de porcentaje de copropiedad activa por unidad.';
 -- new object type path: SCHEMA_EXPORT/PACKAGE/PACKAGE_BODY
 CREATE EDITIONABLE PACKAGE BODY                     PKG_SAED_SESSION AS
     PROCEDURE SET_BOOTSTRAP_CONTEXT(
@@ -4505,7 +4505,7 @@ BEGIN
 
     IF v_alcance = 'GLOBAL' THEN
         IF :NEW.id_organizacion IS NOT NULL OR :NEW.id_propiedad IS NOT NULL OR :NEW.id_unidad IS NOT NULL THEN
-            RAISE_APPLICATION_ERROR(-20010, 'Un rol de alcance GLOBAL no debe tener organizaciÃƒÂ³n/propiedad/unidad asociada.');
+            RAISE_APPLICATION_ERROR(-20010, 'Un rol de alcance GLOBAL no debe tener organizaciÃ³n/propiedad/unidad asociada.');
         END IF;
     ELSIF v_alcance IN ('ORGANIZACION', 'PROPIEDADES_SELECCIONADAS') THEN
         IF :NEW.id_organizacion IS NULL THEN
@@ -4547,7 +4547,7 @@ BEGIN
         END;
 
         IF :NEW.id_organizacion IS NOT NULL AND v_org_de_propiedad != :NEW.id_organizacion THEN
-            RAISE_APPLICATION_ERROR(-20021, 'La propiedad indicada no pertenece a la organizaciÃƒÂ³n indicada.');
+            RAISE_APPLICATION_ERROR(-20021, 'La propiedad indicada no pertenece a la organizaciÃ³n indicada.');
         END IF;
     END IF;
 
@@ -4695,7 +4695,7 @@ ALTER TRIGGER "TRG_HISTREP_INMUTABLE"
 WHENEVER SQLERROR EXIT SQL.SQLCODE ROLLBACK
 WHENEVER OSERROR EXIT FAILURE ROLLBACK
 
--- 1. Restaurar EspecificaciÃ³n Original
+-- 1. Restaurar Especificación Original
 CREATE OR REPLACE PACKAGE PKG_SAED_SESSION AS
     PROCEDURE SET_CONTEXT (
         p_id_usuario      IN NUMBER,
@@ -4867,8 +4867,8 @@ WHENEVER OSERROR EXIT FAILURE ROLLBACK
 -- ==============================================================================
 -- SAED 2.0 Database Migration: V4.0 Authentication Bootstrap
 -- Autor: Equipo de Arquitectura y Seguridad
--- MÃ³dulo: PKG_AUTH_BOOTSTRAP
--- Objetivo: Permitir consulta atÃ³mica de validaciÃ³n de credenciales (bypass RLS)
+-- Módulo: PKG_AUTH_BOOTSTRAP
+-- Objetivo: Permitir consulta atómica de validación de credenciales (bypass RLS)
 --           sin debilitar el modelo Zero-Trust.
 -- ==============================================================================
 
@@ -4877,7 +4877,7 @@ WHENEVER OSERROR EXIT FAILURE ROLLBACK
 --------------------------------------------------------------------------------
 CREATE OR REPLACE PACKAGE SAED_SEC_MASTER.PKG_AUTH_BOOTSTRAP AUTHID DEFINER AS
 
-    -- Extrae identidad mÃ­nima para Auth
+    -- Extrae identidad mínima para Auth
     PROCEDURE GET_AUTH_DATA(
         p_email       IN  VARCHAR2,
         p_id_usuario  OUT NUMBER,
@@ -4886,7 +4886,7 @@ CREATE OR REPLACE PACKAGE SAED_SEC_MASTER.PKG_AUTH_BOOTSTRAP AUTHID DEFINER AS
         p_intentos    OUT NUMBER
     );
 
-    -- Resuelve tenant tras validaciÃ³n JWT
+    -- Resuelve tenant tras validación JWT
     PROCEDURE GET_ASSIGNMENT_CONTEXT(
         p_id_usuario    IN  NUMBER,
         p_id_asignacion IN  NUMBER,
@@ -4897,13 +4897,13 @@ CREATE OR REPLACE PACKAGE SAED_SEC_MASTER.PKG_AUTH_BOOTSTRAP AUTHID DEFINER AS
         p_alcance       OUT VARCHAR2
     );
 
-    -- AuditorÃ­a fallida y bloqueo
+    -- Auditoría fallida y bloqueo
     PROCEDURE REGISTER_LOGIN_FAILURE(
         p_id_usuario IN NUMBER,
         p_ip_origen  IN VARCHAR2 DEFAULT NULL
     );
 
-    -- AuditorÃ­a exitosa
+    -- Auditoría exitosa
     PROCEDURE REGISTER_LOGIN_SUCCESS(
         p_id_usuario IN NUMBER,
         p_ip_origen  IN VARCHAR2 DEFAULT NULL
@@ -4928,7 +4928,7 @@ CREATE OR REPLACE PACKAGE BODY SAED_SEC_MASTER.PKG_AUTH_BOOTSTRAP AS
         p_intentos    OUT NUMBER
     ) IS
     BEGIN
-        -- BÃºsqueda atÃ³mica. Al tener EXEMPT ACCESS POLICY el esquema definidor,
+        -- Búsqueda atómica. Al tener EXEMPT ACCESS POLICY el esquema definidor,
         -- salta la barrera del RLS. Si no existe, lanza NO_DATA_FOUND.
         SELECT id_usuario, hash_password, estado, intentos_fallidos
           INTO p_id_usuario, p_hash, p_estado, p_intentos
@@ -5001,7 +5001,7 @@ CREATE OR REPLACE PACKAGE BODY SAED_SEC_MASTER.PKG_AUTH_BOOTSTRAP AS
              WHERE id_usuario = p_id_usuario;
         END IF;
 
-        -- Registrar AuditorÃ­a
+        -- Registrar Auditoría
         BEGIN
             INSERT INTO SAED_V39_FINAL_TEST.AUDITORIA_LOG (
                 id_usuario, accion, entidad, id_entidad_afectada, ip_origen, resultado
@@ -5010,7 +5010,7 @@ CREATE OR REPLACE PACKAGE BODY SAED_SEC_MASTER.PKG_AUTH_BOOTSTRAP AS
             );
         EXCEPTION
             WHEN OTHERS THEN
-                NULL; -- Prevenir que fallo de auditorÃ­a impacte a caller
+                NULL; -- Prevenir que fallo de auditoría impacte a caller
         END;
 
         COMMIT;
@@ -5029,14 +5029,14 @@ CREATE OR REPLACE PACKAGE BODY SAED_SEC_MASTER.PKG_AUTH_BOOTSTRAP AS
             RETURN;
         END IF;
 
-        -- Reiniciar contador y actualizar Ãºltimo login
+        -- Reiniciar contador y actualizar último login
         UPDATE SAED_V39_FINAL_TEST.USUARIOS 
            SET intentos_fallidos = 0,
                fecha_bloqueo = NULL,
                ultimo_login = SYSTIMESTAMP
          WHERE id_usuario = p_id_usuario;
 
-        -- Registrar AuditorÃ­a
+        -- Registrar Auditoría
         BEGIN
             INSERT INTO SAED_V39_FINAL_TEST.AUDITORIA_LOG (
                 id_usuario, accion, entidad, id_entidad_afectada, ip_origen, resultado
@@ -5062,14 +5062,14 @@ GRANT EXECUTE ON SAED_SEC_MASTER.PKG_AUTH_BOOTSTRAP TO SAED_V39_FINAL_TEST;
 EXIT;
 
 -- V4.1__core_session_patch.sql
--- Parche arquitectÃ³nico del Contexto de SesiÃ³n (State Machine)
+-- Parche arquitectónico del Contexto de Sesión (State Machine)
 -- Repara el deadlock de V3.9 al invocar SET_CONTEXT permitiendo un estado transitorio "BOOTSTRAP"
 
 -- ALTER SESSION REMOVED FOR ATP
 WHENEVER SQLERROR EXIT SQL.SQLCODE ROLLBACK
 WHENEVER OSERROR EXIT FAILURE ROLLBACK
 
--- 1. Actualizar EspecificaciÃ³n de PKG_SAED_SESSION
+-- 1. Actualizar Especificación de PKG_SAED_SESSION
 CREATE OR REPLACE PACKAGE SAED_V39_FINAL_TEST.PKG_SAED_SESSION AS
     PROCEDURE SET_BOOTSTRAP_CONTEXT(
         p_id_usuario IN NUMBER
@@ -5641,7 +5641,7 @@ CREATE OR REPLACE PACKAGE BODY SAED_ADMIN.PKG_SAED_SECURITY_RLS AS
 END PKG_SAED_SECURITY_RLS;
 /
 
--- V4.5: Parche de RLS para módulo de Paquetes y sandboxing estricto de Residentes
+-- V4.5: Parche de RLS para m�dulo de Paquetes y sandboxing estricto de Residentes
 -- 1. Transferir tabla PAQUETES a FN_FILTRO_UNIDAD para evitar context bleed
 -- 2. Restringir FN_FILTRO_UNIDAD y FN_FILTRO_PROPIEDAD para el rol RESIDENTE
 
@@ -5698,6 +5698,8 @@ CREATE OR REPLACE PACKAGE BODY SAED_V39_FINAL_TEST.PKG_SAED_SECURITY_RLS AS
                 RETURN 'id_persona IN (SELECT id_persona FROM USUARIOS WHERE id_usuario = ' || v_usr || ') OR id_persona IN (SELECT id_persona FROM VISITANTES WHERE id_persona = PERSONAS.id_persona AND id_visitante IN (SELECT id_visitante FROM VISITAS JOIN UNIDADES ON VISITAS.id_unidad = UNIDADES.id_unidad WHERE UNIDADES.id_unidad IN (SELECT id_unidad FROM USUARIO_ASIGNACIONES WHERE id_usuario = ' || v_usr || ' AND estado=''ACTIVA'')))';
             END IF;
             IF p_tab = 'VISITANTES' THEN RETURN 'id_visitante IN (SELECT id_visitante FROM VISITAS JOIN UNIDADES ON VISITAS.id_unidad = UNIDADES.id_unidad WHERE UNIDADES.id_unidad IN (SELECT id_unidad FROM USUARIO_ASIGNACIONES WHERE id_usuario = ' || v_usr || ' AND estado=''ACTIVA''))'; END IF;
+            IF p_tab = 'NOTIFICACIONES' THEN RETURN 'id_usuario_destinatario = ' || v_usr; END IF;
+            IF p_tab = 'ENCUESTA_OPCIONES' THEN RETURN 'id_encuesta IN (SELECT id_encuesta FROM ENCUESTAS WHERE id_propiedad IN (SELECT id_propiedad FROM USUARIO_ASIGNACIONES WHERE id_usuario = ' || v_usr || ' AND estado=''ACTIVA''))'; END IF;
             RETURN 'id_propiedad IN (SELECT id_propiedad FROM USUARIO_ASIGNACIONES WHERE id_usuario = ' || v_usr || ' AND estado = ''ACTIVA'')';
         END IF;
 
@@ -5961,5 +5963,7 @@ BEGIN
 END;
 /
 EXIT;
+
+
 
 
