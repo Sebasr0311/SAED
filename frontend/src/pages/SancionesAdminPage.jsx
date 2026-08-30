@@ -21,7 +21,7 @@ const ESTADO_BADGE = {
 export default function SancionesAdminPage() {
   const [page, setPage] = useState(0);
   const [filtroEstado, setFiltroEstado] = useState('');
-  const { data, loading, error, refetch } = useFetch(() => api.get('/api/v1/sanciones/todas');
+  const { data, loading, error, refetch } = useFetch(() => api.get('/api/v1/sanciones/todas'));
 
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState({ idUnidad: '', idPersonaImputada: '', tipoFalta: '', gravedad: 'LEVE', descripcionHechos: '' });

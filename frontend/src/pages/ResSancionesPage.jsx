@@ -15,7 +15,7 @@ const ESTADO_BADGE = {
 };
 
 export default function ResSancionesPage() {
-  const { data, loading, error, refetch } = useFetch(() => api.get('/api/v1/sanciones/mis-sanciones');
+  const { data, loading, error, refetch } = useFetch(() => api.get('/api/v1/sanciones/mis-sanciones'));
   const [detalle, setDetalle] = useState(null);
   const [descargos, setDescargos] = useState('');
   const [submitting, setSubmitting] = useState(false);

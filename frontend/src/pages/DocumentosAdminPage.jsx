@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 const CATEGORIAS = ['REGLAMENTO', 'ACTA', 'FINANZAS', 'CONTRATO', 'MANUAL', 'POLIZA', 'OTRO'];
 
 export default function DocumentosAdminPage() {
-  const { data, loading, error, refetch } = useFetch(() => api.get('/api/v1/documentos/admin');
+  const { data, loading, error, refetch } = useFetch(() => api.get('/api/v1/documentos/admin'));
   const [modalOpen, setModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({
