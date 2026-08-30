@@ -83,7 +83,7 @@ export default function VisitasPage() {
   const { tiposDoc } = useTiposDocumento();
   const { touch, fieldError } = useLiveValidation();
 
-  const residentes = (residentesRaw?.items || []).slice().sort(
+  const residentes = (residentesRaw?.items || residentesRaw || []).slice().sort(
     (a, b) => (parseInt(a.numeroApartamento, 10) || 0) - (parseInt(b.numeroApartamento, 10) || 0)
   );
 
@@ -413,7 +413,7 @@ export default function VisitasPage() {
                 {residentes.map((r) => (
                   <option key={r.id} value={r.id}>
                     {r.numeroApartamento ? `${r.numeroApartamento} - ` : ''}
-                    {r.nombres} {r.apellidos}
+                    {r.primerNombre || r.nombres} {r.primerApellido || r.apellidos}
                   </option>
                 ))}
               </Select>

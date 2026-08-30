@@ -244,7 +244,7 @@ export default function UsuariosPage() {
             <option value="">— Ninguno —</option>
             {(residentes?.items || residentes || []).map((r) => (
               <option key={r.id} value={r.id}>
-                {r.nombres} {r.apellidos}
+                {r.primerNombre || r.nombres} {r.primerApellido || r.apellidos}
               </option>
             ))}
           </Select>

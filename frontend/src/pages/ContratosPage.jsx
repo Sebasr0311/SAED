@@ -464,7 +464,7 @@ export default function ContratosPage() {
             <option value="">— Seleccionar —</option>
             {(residentes?.content || residentes?.items || residentes || []).map((r) => (
               <option key={r.id} value={r.id}>
-                {r.nombres} {r.apellidos}
+                {r.primerNombre || r.nombres} {r.primerApellido || r.apellidos}
               </option>
             ))}
           </Select>

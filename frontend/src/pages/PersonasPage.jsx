@@ -1,4 +1,4 @@
-﻿import { useState, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { toast } from 'sonner';
 import api from '../lib/api.js';
 import { useFetch, useLiveValidation } from '../lib/hooks.js';
@@ -28,7 +28,7 @@ const emptyForm = {
 export default function PersonasPage() {
   const [page, setPage] = useState(0);
   
-  const { data, loading, error, refetch } = useFetch(() => api.get(`/v1/personas?page=${page}&size=${PAGE_SIZE}`), [page]);
+  const { data, loading, error, refetch } = useFetch(() => api.get(`/personas?page=${page}&size=${PAGE_SIZE}`), [page]);
   const { items, totalItems, totalPages } = data || { items: [], totalItems: 0, totalPages: 1 };
   
   // Also fetch tipos de documento if exists, otherwise fallback to static for now
