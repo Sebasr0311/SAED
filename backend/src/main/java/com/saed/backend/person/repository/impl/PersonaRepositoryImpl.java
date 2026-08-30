@@ -82,4 +82,40 @@ public class PersonaRepositoryImpl implements PersonaRepository {
         
         return keyHolder.getKey().longValue();
     }
+
+    @Override
+    public void update(Long id, PersonaRequestDTO request) {
+        String sql = """
+            UPDATE PERSONAS SET
+                ID_TIPO_DOCUMENTO = :tipoDocumentoId,
+                NUMERO_DOCUMENTO = :numeroDocumento,
+                TIPO_PERSONA = :tipoPersona,
+                PRIMER_NOMBRE = :primerNombre,
+                SEGUNDO_NOMBRE = :segundoNombre,
+                PRIMER_APELLIDO = :primerApellido,
+                SEGUNDO_APELLIDO = :segundoApellido,
+                EMAIL = :email,
+                TELEFONO = :telefono
+            WHERE ID_PERSONA = :id
+            """;
+
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("id", id)
+                .addValue("tipoDocumentoId", request.tipoDocumentoId())
+                .addValue("numeroDocumento", request.numeroDocumento())
+                .addValue("tipoPersona", request.tipoPersona())
+                .addValue("primerNombre", request.primerNombre())
+                .addValue("segundoNombre", request.segundoNombre())
+                .addValue("primerApellido", request.primerApellido())
+                .addValue("segundoApellido", request.segundoApellido())
+                .addValue("email", request.email())
+                .addValue("telefono", request.telefono());
+
+        jdbcTemplate.update(sql, params);
+    }
+
+    @Override
+    public void delete(Long id) {
+        jdbcTemplate.update("DELETE FROM PERSONAS WHERE ID_PERSONA = :id", new MapSqlParameterSource("id", id));
+    }
 }

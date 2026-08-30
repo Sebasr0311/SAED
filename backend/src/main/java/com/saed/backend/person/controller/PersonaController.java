@@ -34,5 +34,22 @@ public class PersonaController {
         Long personaId = personaService.createPersona(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(personaId);
     }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<PersonaDTO> getPersona(@PathVariable Long id) {
+        return ResponseEntity.ok(personaService.getPersonaById(id));
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<Void> updatePersona(@PathVariable Long id, @Valid @RequestBody PersonaRequestDTO request) {
+        personaService.updatePersona(id, request);
+        return ResponseEntity.ok().build();
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deletePersona(@PathVariable Long id) {
+        personaService.deletePersona(id);
+        return ResponseEntity.noContent().build();
+    }
 }
 

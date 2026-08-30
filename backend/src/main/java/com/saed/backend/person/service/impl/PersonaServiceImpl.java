@@ -30,4 +30,23 @@ public class PersonaServiceImpl implements PersonaService {
     public Long createPersona(PersonaRequestDTO request) {
         return personaRepository.insert(request);
     }
+
+    @Override
+    @Transactional
+    public void updatePersona(Long id, PersonaRequestDTO request) {
+        personaRepository.update(id, request);
+    }
+
+    @Override
+    @Transactional
+    public void deletePersona(Long id) {
+        personaRepository.delete(id);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PersonaDTO getPersonaById(Long id) {
+        return personaRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Persona no encontrada con ID: " + id));
+    }
 }
