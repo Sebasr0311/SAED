@@ -37,6 +37,10 @@ public class DocumentoServiceImpl implements DocumentoService {
         Long idPropiedad = SaedContextHolder.getContext().getPropertyId();
         Long creadoPor = SaedContextHolder.getContext().getUserId();
 
+        if (idOrganizacion == null) {
+            throw new IllegalStateException("Contexto sin organizacion asignada");
+        }
+
         if (request.getTitulo() == null || request.getCategoria() == null) {
             throw new IllegalArgumentException("El titulo y categoria son obligatorios");
         }
