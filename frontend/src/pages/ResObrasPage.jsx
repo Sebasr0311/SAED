@@ -4,7 +4,7 @@ import { api } from '../lib/api';
 import { toast } from 'sonner';
 
 export default function ResObrasPage() {
-  const { data, loading, refetch } = useFetch(() => api.get('/api/v1/obras/mis-obras'));
+  const { data, loading, refetch } = useFetch(() => api.get('/obras/mis-obras'));
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState({ descripcion: '', fechaInicio: '', fechaFinEstimada: '', responsableObra: '', telefonoResponsable: '', depositoGarantia: 0 });
 
@@ -13,7 +13,7 @@ export default function ResObrasPage() {
   const handleCreate = async () => {
     try {
       // NOTE: We don't send idUnidad here; the secured backend automatically injects it from the context
-      await api.post('/api/v1/obras', form);
+      await api.post('/obras', form);
       toast.success('Solicitud de obra enviada correctamente');
       setModalOpen(false);
       refetch();

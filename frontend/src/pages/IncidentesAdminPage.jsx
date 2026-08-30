@@ -4,7 +4,7 @@ import { api } from '../lib/api';
 import { toast } from 'sonner';
 
 export default function IncidentesAdminPage() {
-  const { data, loading, refetch } = useFetch(() => api.get('/api/v1/incidentes/admin'));
+  const { data, loading, refetch } = useFetch(() => api.get('/incidentes/admin'));
   const [modalOpen, setModalOpen] = useState(false);
   const [cierreOpen, setCierreOpen] = useState(false);
   const [selectedIncidente, setSelectedIncidente] = useState(null);
@@ -23,7 +23,7 @@ export default function IncidentesAdminPage() {
 
   const handleCreate = async () => {
     try {
-      await api.post('/api/v1/incidentes', form);
+      await api.post('/incidentes', form);
       toast.success('Incidente reportado correctamente');
       setModalOpen(false);
       refetch();

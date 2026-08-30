@@ -1,4 +1,4 @@
-ï»¿import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { toast } from 'sonner';
 import { Button } from '../components/ui/Button.jsx';
 import { Input, Select } from '../components/ui/Form.jsx';
@@ -49,9 +49,9 @@ export default function ParqueaderosPage() {
     ...(filtroTipo ? { tipo: filtroTipo } : {}),
   });
   const { data, loading, refetch } = useFetch(() => api.get(`/parqueaderos?${qs}`), [filtroEstado, filtroTipo]);
-  const { data: apartamentos } = useFetch(() => api.get('/apartamentos'), []);
+  const { data: apartamentos } = useFetch(() => api.get('/units'), []);
 
-  // Auto-refresh cada 10s si la pestaÃ±a estÃ¡ visible
+  // Auto-refresh cada 10s si la pestaña está visible
   useEffect(() => {
     const interval = setInterval(() => {
       if (document.visibilityState === 'visible') refetch();
@@ -78,7 +78,7 @@ export default function ParqueaderosPage() {
 
   const columns = [
     { key: 'idParqueadero', label: 'ID', width: 60 },
-    { key: 'codigo', label: 'CÃ³digo' },
+    { key: 'codigo', label: 'Código' },
     { key: 'tipo', label: 'Tipo' },
     {
       key: 'estado',
@@ -156,7 +156,7 @@ export default function ParqueaderosPage() {
     if (!editing) {
       if (!form.numero) errs.numero = 'Requerido';
       else if (!/^\d{1,3}$/.test(String(form.numero).trim()))
-        errs.numero = 'El nÃºmero debe tener mÃ¡ximo 3 dÃ­gitos';
+        errs.numero = 'El número debe tener máximo 3 dígitos';
     }
     setErrors(errs);
     if (Object.keys(errs).length > 0) { savingRef.current = false; setSaving(false); return; }
@@ -201,7 +201,7 @@ export default function ParqueaderosPage() {
     <div>
       <PageHeader
         title="Parqueaderos"
-        subtitle="GestiÃ³n de parqueaderos de visitantes"
+        subtitle="Gestión de parqueaderos de visitantes"
         action={
           <div className="filters">
             <Select
@@ -249,7 +249,7 @@ export default function ParqueaderosPage() {
           </div>
         }
       />
-      <DataTable columns={columns} rows={rows} loading={loading} empty={{ icon: 'local_parking', title: 'No hay parqueaderos', subtitle: 'Registra el primer parqueadero desde el botÃ³n "Nuevo Parqueadero".' }} keyField="idParqueadero" />
+      <DataTable columns={columns} rows={rows} loading={loading} empty={{ icon: 'local_parking', title: 'No hay parqueaderos', subtitle: 'Registra el primer parqueadero desde el botón "Nuevo Parqueadero".' }} keyField="idParqueadero" />
       <Pagination
         page={safePage}
         totalPages={totalPages}
@@ -272,7 +272,7 @@ export default function ParqueaderosPage() {
         }
       >
         <div className="form-group">
-          <Input id="codigo" label="CÃ³digo (auto-generado)" value={editing ? form.numero : codigoGenerado} disabled />
+          <Input id="codigo" label="Código (auto-generado)" value={editing ? form.numero : codigoGenerado} disabled />
         </div>
         <div className="form-row">
           <Select
@@ -283,7 +283,7 @@ export default function ParqueaderosPage() {
             onBlur={() => touch('tipo')}
             error={fieldError('tipo', form.tipo ? { ok: true } : { ok: false, mensaje: 'Seleccione el tipo de parqueadero' }) || errors.tipo}
           >
-            <option value="VEHICULO">VehÃ­culo</option>
+            <option value="VEHICULO">Vehículo</option>
             <option value="MOTO">Moto</option>
             <option value="BICICLETA">Bicicleta</option>
           </Select>
@@ -333,7 +333,7 @@ export default function ParqueaderosPage() {
                 ) || errors.idApartamento
               }
             >
-              <option value="">â€” Seleccionar â€”</option>
+              <option value="">— Seleccionar —</option>
               {apartamentosDisponibles.map((a) => (
                 <option key={a.idApartamento} value={a.idApartamento}>
                   Apto {a.numero}
@@ -359,7 +359,7 @@ export default function ParqueaderosPage() {
           </>
         }
       >
-        <p>Â¿Eliminar parqueadero {confirmDel?.codigo}?</p>
+        <p>¿Eliminar parqueadero {confirmDel?.codigo}?</p>
       </Modal>
 
       <ConfirmPasswordDialog

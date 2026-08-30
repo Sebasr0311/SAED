@@ -1,4 +1,4 @@
-ï»¿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { useFetch } from '../lib/hooks.js';
@@ -16,12 +16,12 @@ const QUICK = [
   { label: 'Registrar Visita', icon: 'edit_note', path: '/visitas' },
   { label: 'Registrar Paquete', icon: 'inventory_2', path: '/paquetes' },
   { label: 'Gestionar Parqueaderos', icon: 'local_parking', path: '/parqueaderos' },
-  { label: 'EscÃ¡ner QR', icon: 'qr_code_scanner', path: '/escanner-qr' },
+  { label: 'Escáner QR', icon: 'qr_code_scanner', path: '/escanner-qr' },
 ];
 
 function ModalAvisoRuido({ open, onClose, onConfirm, apartamentos }) {
   const [idApartamento, setIdApartamento] = useState('');
-  const [cuerpo, setCuerpo] = useState('Ruido excesivo en zona comÃºn. Por favor moderar el volumen.');
+  const [cuerpo, setCuerpo] = useState('Ruido excesivo en zona común. Por favor moderar el volumen.');
   const [sending, setSending] = useState(false);
 
   async function send() {
@@ -61,7 +61,7 @@ function ModalAvisoRuido({ open, onClose, onConfirm, apartamentos }) {
           value={idApartamento}
           onChange={(e) => setIdApartamento(e.target.value)}
         >
-          <option value="">â€” Seleccionar â€”</option>
+          <option value="">— Seleccionar —</option>
           {(apartamentos?.items || apartamentos || [])
             .filter((a) => a.estado === 'OCUPADO')
             .map((a) => (
@@ -146,10 +146,10 @@ function ModalGenerarMulta({ open, onClose, onConfirm, apartamentos, quejasRuido
       {tipo === 'RUIDO' && quejasRuido && quejasRuido.length > 0 && (
         <div className="form-group">
           <Select id="idMensaje" label="Generar desde aviso de ruido previo (opcional)" value={idMensaje} onChange={(e) => setIdMensaje(e.target.value)}>
-            <option value="">â€” Generar multa directa â€”</option>
+            <option value="">— Generar multa directa —</option>
             {quejasRuido.map((q) => (
               <option key={q.idMensaje} value={q.idMensaje}>
-                {formatDate(q.fechaCreacion)} â€” Apto {q.numeroApartamento} â€” {q.titulo}
+                {formatDate(q.fechaCreacion)} — Apto {q.numeroApartamento} — {q.titulo}
               </option>
             ))}
           </Select>
@@ -166,7 +166,7 @@ function ModalGenerarMulta({ open, onClose, onConfirm, apartamentos, quejasRuido
           value={idApartamento}
           onChange={(e) => setIdApartamento(e.target.value)}
         >
-          <option value="">â€” Seleccionar â€”</option>
+          <option value="">— Seleccionar —</option>
           {(apartamentos?.items || apartamentos || [])
             .filter((a) => a.estado === 'OCUPADO')
             .map((a) => (
@@ -180,11 +180,11 @@ function ModalGenerarMulta({ open, onClose, onConfirm, apartamentos, quejasRuido
       <div className="form-group">
         <Textarea
           id="multaDesc"
-          label="DescripciÃ³n"
+          label="Descripción"
           rows={2}
           value={descripcion}
           onChange={(e) => setDescripcion(e.target.value)}
-          placeholder={tipo === 'RUIDO' ? 'Multa por ruido excesivo' : 'VehÃ­culo mal estacionado'}
+          placeholder={tipo === 'RUIDO' ? 'Multa por ruido excesivo' : 'Vehículo mal estacionado'}
         />
       </div>
 
@@ -272,7 +272,7 @@ function ModalPaquetes({ open, onClose, onConfirm }) {
           },
         ]}
         rows={paquetes?.items || paquetes || []}
-                empty={{ icon: 'inventory_2', title: 'No hay paquetes pendientes', subtitle: 'Los paquetes recibidos aparecerÃ¡n aquÃ­.' }}
+                empty={{ icon: 'inventory_2', title: 'No hay paquetes pendientes', subtitle: 'Los paquetes recibidos aparecerán aquí.' }}
         keyField="idMensaje"
       />
 
@@ -317,20 +317,20 @@ export default function PorteroDashboardPage() {
   const { data: visitasHoy } = useFetch(() => api.get('/visitas/hoy'), []);
   const { data: parqueaderos } = useFetch(() => api.get('/parqueaderos?estado=DISPONIBLE'), []);
   const { data: paquetes } = useFetch(() => api.get('/buzon/paquetes-pendientes'), []);
-  const { data: apartamentos } = useFetch(() => api.get('/apartamentos'), []);
+  const { data: apartamentos } = useFetch(() => api.get('/units'), []);
   const { data: quejasRuido } = useFetch(
     () => (modalMulta === 'RUIDO' ? api.get('/buzon/quejas-ruido-pendientes') : Promise.resolve([])),
     [modalMulta]
   );
 
-  const visitasHoyCount = visitasHoy?.items?.length ?? visitasHoy?.length ?? 'â€”';
+  const visitasHoyCount = visitasHoy?.items?.length ?? visitasHoy?.length ?? '—';
   const visitasActivas = (visitasHoy?.items || visitasHoy || []).filter((v) => v.estado === 'ACTIVA' || v.estado === 'PENDIENTE').length;
   const parqDisponibles = (parqueaderos?.items || parqueaderos || []).filter((p) => p.esVisitante).length;
   const paquetesCount = paquetes?.count ?? (Array.isArray(paquetes) ? paquetes.length : (paquetes?.items ? paquetes.items.length : 0));
 
   return (
     <div>
-      <PageHeader title="Panel de PorterÃ­a" />
+      <PageHeader title="Panel de Portería" />
       <div className="card-grid-4" style={{ marginBottom: '20px' }}>
         <StatCard icon="today" value={visitasHoyCount} label="Visitas Hoy" color="amber" />
         <StatCard icon="how_to_reg" value={visitasActivas} label="Visitas Activas" color="cyan" />
@@ -341,7 +341,7 @@ export default function PorteroDashboardPage() {
       <div className="card">
         <h3 className="card-title">
           <span className="material-symbols-outlined">dashboard</span>
-          Acciones RÃ¡pidas
+          Acciones Rápidas
         </h3>
         <div className="card-grid-4" style={{ marginTop: '12px' }}>
           <button onClick={() => setModalAviso(true)} className="action-card" style={{ border: 'none', cursor: 'pointer' }} aria-label="Enviar aviso de ruido">

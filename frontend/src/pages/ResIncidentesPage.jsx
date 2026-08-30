@@ -4,7 +4,7 @@ import { api } from '../lib/api';
 import { toast } from 'sonner';
 
 export default function ResIncidentesPage() {
-  const { data, loading, refetch } = useFetch(() => api.get('/api/v1/incidentes/mis-incidentes'));
+  const { data, loading, refetch } = useFetch(() => api.get('/incidentes/mis-incidentes'));
   const [modalOpen, setModalOpen] = useState(false);
   
   const [form, setForm] = useState({ 
@@ -21,7 +21,7 @@ export default function ResIncidentesPage() {
   const handleCreate = async () => {
     try {
       // NOTE: backend forcefully sets idUnidad and nullifies idPorteria/idZonaComun for residents
-      await api.post('/api/v1/incidentes', form);
+      await api.post('/incidentes', form);
       toast.success('Incidente reportado a la administración');
       setModalOpen(false);
       refetch();

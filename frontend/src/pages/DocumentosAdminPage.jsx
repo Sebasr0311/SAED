@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 const CATEGORIAS = ['REGLAMENTO', 'ACTA', 'FINANZAS', 'CONTRATO', 'MANUAL', 'POLIZA', 'OTRO'];
 
 export default function DocumentosAdminPage() {
-  const { data, loading, error, refetch } = useFetch(() => api.get('/api/v1/documentos/admin'));
+  const { data, loading, error, refetch } = useFetch(() => api.get('/documentos/admin'));
   const [modalOpen, setModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({
@@ -54,7 +54,7 @@ export default function DocumentosAdminPage() {
         payload.archivoUrl = `https://storage.saed.com/docs/${Date.now()}.pdf`;
       }
       
-      await api.post('/api/v1/documentos', payload);
+      await api.post('/documentos', payload);
       toast.success('Documento subido exitosamente');
       setModalOpen(false);
       setForm({ titulo: '', categoria: 'REGLAMENTO', descripcion: '', esPublicoResidentes: 'N', rolMinimoAcceso: 'ADMIN_PROPIEDAD', archivoUrl: '' });

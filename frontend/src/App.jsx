@@ -222,6 +222,8 @@ export default function App() {
               </ProtectedRoute>
             }
           />
+          <Route path="obras-admin" element={<ProtectedRoute roles={['ADMINISTRADOR']}><ObrasAdminPage /></ProtectedRoute>} />
+          <Route path="incidentes-admin" element={<ProtectedRoute roles={['ADMINISTRADOR', 'PORTERO']}><IncidentesAdminPage /></ProtectedRoute>} />
           <Route
             path="alertas"
             element={
@@ -440,6 +442,8 @@ export default function App() {
               </ProtectedRoute>
             }
           />
+          <Route path="res-obras" element={<ProtectedRoute roles={['RESIDENTE']}><ResObrasPage /></ProtectedRoute>} />
+          <Route path="res-incidentes" element={<ProtectedRoute roles={['RESIDENTE']}><ResIncidentesPage /></ProtectedRoute>} />
 
           {/* Portero */}
           <Route

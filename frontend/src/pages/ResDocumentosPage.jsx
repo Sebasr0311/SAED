@@ -4,7 +4,7 @@ import { useFetch } from '../lib/hooks';
 import { api } from '../lib/api';
 
 export default function ResDocumentosPage() {
-  const { data, loading, error } = useFetch(() => api.get('/api/v1/documentos/residente'));
+  const { data, loading, error } = useFetch(() => api.get('/documentos/residente'));
   const documentos = data?.items || [];
 
   const categorias = [...new Set(documentos.map(d => d.categoria))];

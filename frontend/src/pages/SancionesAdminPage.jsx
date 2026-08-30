@@ -21,7 +21,7 @@ const ESTADO_BADGE = {
 export default function SancionesAdminPage() {
   const [page, setPage] = useState(0);
   const [filtroEstado, setFiltroEstado] = useState('');
-  const { data, loading, error, refetch } = useFetch(() => api.get('/api/v1/sanciones/todas'));
+  const { data, loading, error, refetch } = useFetch(() => api.get('/sanciones/todas'));
 
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState({ idUnidad: '', idPersonaImputada: '', tipoFalta: '', gravedad: 'LEVE', descripcionHechos: '' });
@@ -57,7 +57,7 @@ export default function SancionesAdminPage() {
     e.preventDefault();
     setSubmitting(true);
     try {
-      await api.post('/api/v1/sanciones', { ...form, idUnidad: Number(form.idUnidad), idPersonaImputada: Number(form.idPersonaImputada) });
+      await api.post('/sanciones', { ...form, idUnidad: Number(form.idUnidad), idPersonaImputada: Number(form.idPersonaImputada) });
       toast.success('Sanción creada exitosamente');
       setModalOpen(false);
       setForm({ idUnidad: '', idPersonaImputada: '', tipoFalta: '', gravedad: 'LEVE', descripcionHechos: '' });

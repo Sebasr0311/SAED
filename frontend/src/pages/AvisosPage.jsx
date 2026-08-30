@@ -1,4 +1,4 @@
-ï»¿import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { Button } from '../components/ui/Button.jsx';
 import { Input, Textarea } from '../components/ui/Form.jsx';
@@ -94,7 +94,7 @@ function ApartamentoMultiSelect({ apartamentos, selected, onChange }) {
             onClick={toggleTodos}
             aria-pressed={isTodos}
           >
-            â€” Todos los apartamentos â€”
+            — Todos los apartamentos —
           </button>
           {pisos.map((piso) => {
             const idsDelPiso = porPiso[piso].map((a) => a.idApartamento);
@@ -139,19 +139,19 @@ export default function AvisosPage() {
   const { touch, fieldError } = useLiveValidation();
 
   const { data: avisos, loading, error, refetch } = useFetch(() => api.get('/buzon/avisos'), []);
-  const { data: apartamentos } = useFetch(() => api.get('/apartamentos'), []);
+  const { data: apartamentos } = useFetch(() => api.get('/units'), []);
 
   const columns = [
     { key: 'idMensaje', label: 'ID', width: 60 },
     { key: 'numeroApartamento', label: 'Apartamento', render: (r) => r.numeroApartamento || 'Todos' },
-    { key: 'titulo', label: 'TÃ­tulo' },
+    { key: 'titulo', label: 'Título' },
     { key: 'cuerpo', label: 'Mensaje' },
     { key: 'fechaCreacion', label: 'Fecha', render: (r) => formatDate(r.fechaCreacion) },
   ];
 
   async function send() {
     if (!form.titulo.trim() || !form.cuerpo.trim()) {
-      toast.error('TÃ­tulo y mensaje son obligatorios');
+      toast.error('Título y mensaje son obligatorios');
       return;
     }
     setSending(true);
@@ -184,7 +184,7 @@ export default function AvisosPage() {
         columns={columns}
         rows={avisos?.items || avisos || []}
         loading={loading}
-                empty={{ icon: 'campaign', title: 'No hay avisos enviados', subtitle: 'Los avisos que envÃ­es a los residentes aparecerÃ¡n aquÃ­.' }}
+                empty={{ icon: 'campaign', title: 'No hay avisos enviados', subtitle: 'Los avisos que envíes a los residentes aparecerán aquí.' }}
             error={error?.message}
         keyField="idMensaje"
         pageSize={10}
@@ -217,11 +217,11 @@ export default function AvisosPage() {
         <div className="form-group">
           <Input
             id="titulo"
-            label="TÃ­tulo"
+            label="Título"
             value={form.titulo}
             onChange={(e) => setForm((f) => ({ ...f, titulo: e.target.value }))}
             onBlur={() => touch('titulo')}
-            error={fieldError('titulo', form.titulo.trim() ? { ok: true } : { ok: false, mensaje: 'El tÃ­tulo es obligatorio' })}
+            error={fieldError('titulo', form.titulo.trim() ? { ok: true } : { ok: false, mensaje: 'El título es obligatorio' })}
           />
         </div>
         <div className="form-group">

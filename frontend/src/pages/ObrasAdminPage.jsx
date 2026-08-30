@@ -4,7 +4,7 @@ import { api } from '../lib/api';
 import { toast } from 'sonner';
 
 export default function ObrasAdminPage() {
-  const { data, loading, refetch } = useFetch(() => api.get('/api/v1/obras/admin'));
+  const { data, loading, refetch } = useFetch(() => api.get('/obras/admin'));
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState({ idUnidad: '', descripcion: '', fechaInicio: '', fechaFinEstimada: '', responsableObra: '', telefonoResponsable: '', depositoGarantia: 0 });
 
@@ -12,7 +12,7 @@ export default function ObrasAdminPage() {
 
   const handleCreate = async () => {
     try {
-      await api.post('/api/v1/obras', form);
+      await api.post('/obras', form);
       toast.success('Obra registrada correctamente');
       setModalOpen(false);
       refetch();
