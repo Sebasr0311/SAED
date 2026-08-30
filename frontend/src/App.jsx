@@ -64,11 +64,6 @@ const NotFoundPage = lazy(() => import('./pages/NotFoundPage.jsx'));
 // Fallback de las rutas lazy vive en AppShell (envuelve <Outlet />), de modo que
 // el shell (sidebar/topbar) permanezca visible mientras se carga la página.
 
-import ObrasAdminPage from './pages/ObrasAdminPage';
-import ResObrasPage from './pages/ResObrasPage';
-const ObrasAdminPage = lazy(() => import('./pages/ObrasAdminPage.jsx'));
-const ResObrasPage = lazy(() => import('./pages/ResObrasPage.jsx'));
-
 const IncidentesAdminPage = lazy(() => import('./pages/IncidentesAdminPage.jsx'));
 const ResIncidentesPage = lazy(() => import('./pages/ResIncidentesPage.jsx'));
 
