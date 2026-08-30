@@ -58,6 +58,7 @@ const NAV_BY_ROLE = {
         { path: '/ganancias', label: 'Ganancias', icon: 'trending_up' },
         { path: '/sanciones-admin', label: 'Sanciones', icon: 'gavel' },
           { path: '/obras-admin', label: 'Obras y Remodelaciones', icon: 'construction' },
+          { path: '/incidentes-admin', label: 'Incidentes', icon: 'warning' },
       ],
     },
     {
@@ -139,6 +140,7 @@ const NAV_BY_ROLE = {
         { path: '/res-reservas', label: 'Zonas Comunes', icon: 'event' },
         { path: '/res-sanciones', label: 'Sanciones', icon: 'gavel' },
           { path: '/res-obras', label: 'Mis Obras', icon: 'construction' },
+          { path: '/res-incidentes', label: 'Mis Incidentes', icon: 'warning' },
       ],
     },
   ],

@@ -69,6 +69,9 @@ import ResObrasPage from './pages/ResObrasPage';
 const ObrasAdminPage = lazy(() => import('./pages/ObrasAdminPage.jsx'));
 const ResObrasPage = lazy(() => import('./pages/ResObrasPage.jsx'));
 
+const IncidentesAdminPage = lazy(() => import('./pages/IncidentesAdminPage.jsx'));
+const ResIncidentesPage = lazy(() => import('./pages/ResIncidentesPage.jsx'));
+
 export default function App() {
   return (
     <AuthProvider>
