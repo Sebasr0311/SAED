@@ -55,8 +55,14 @@ public class TicketRepositoryImpl implements TicketRepository {
         return jdbcTemplate.query(sql, rowMapper);
     }
 
+    private Long getIdPersonaFromUsuario(Long idUsuario) {
+        String sql = "SELECT ID_PERSONA FROM USUARIOS WHERE ID_USUARIO = ?";
+        return jdbcTemplate.queryForObject(sql, Long.class, idUsuario);
+    }
+
     @Override
-    public List<TicketResponseDTO> findByPersona(Long idPersona) {
+    public List<TicketResponseDTO> findByPersona(Long idUsuario) {
+        Long idPersona = getIdPersonaFromUsuario(idUsuario);
         String sql = "SELECT * FROM PQRS_TICKETS WHERE ID_PERSONA_RADICA = ? ORDER BY FECHA_RADICACION DESC";
         return jdbcTemplate.query(sql, rowMapper, idPersona);
     }
@@ -69,7 +75,8 @@ public class TicketRepositoryImpl implements TicketRepository {
     }
 
     @Override
-    public Long create(TicketRequestDTO request, Long idPropiedad, Long idPersonaRadica, String numeroRadicado, ZonedDateTime fechaLimiteSla) {
+    public Long create(TicketRequestDTO request, Long idPropiedad, Long idUsuario, String numeroRadicado, ZonedDateTime fechaLimiteSla) {
+        Long idPersonaRadica = getIdPersonaFromUsuario(idUsuario);
         String sql = "INSERT INTO PQRS_TICKETS (ID_PROPIEDAD, ID_PERSONA_RADICA, NUMERO_RADICADO, TIPO, CATEGORIA, PRIORIDAD, ASUNTO, DESCRIPCION, FECHA_LIMITE_SLA) " +
                      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
         KeyHolder keyHolder = new GeneratedKeyHolder();

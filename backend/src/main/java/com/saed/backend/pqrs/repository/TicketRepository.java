@@ -8,8 +8,8 @@ import java.util.Optional;
 
 public interface TicketRepository {
     List<TicketResponseDTO> findAll();
-    List<TicketResponseDTO> findByPersona(Long idPersona);
+    List<TicketResponseDTO> findByPersona(Long idUsuario);
     Optional<TicketResponseDTO> findById(Long idTicket);
-    Long create(TicketRequestDTO request, Long idPropiedad, Long idPersonaRadica, String numeroRadicado, ZonedDateTime fechaLimiteSla);
+    Long create(TicketRequestDTO request, Long idPropiedad, Long idUsuario, String numeroRadicado, ZonedDateTime fechaLimiteSla);
     void updateEstado(Long idTicket, String estado);
 }

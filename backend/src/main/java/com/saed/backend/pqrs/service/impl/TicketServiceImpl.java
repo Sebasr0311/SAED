@@ -30,8 +30,8 @@ public class TicketServiceImpl implements TicketService {
 
     @Override
     public List<TicketResponseDTO> getMyTickets() {
-        Long idPersona = SaedContextHolder.getContext().getUserId();
-        return ticketRepository.findByPersona(idPersona);
+        Long idUsuario = SaedContextHolder.getContext().getUserId();
+        return ticketRepository.findByPersona(idUsuario);
     }
 
     @Override
@@ -42,18 +42,18 @@ public class TicketServiceImpl implements TicketService {
 
     @Override
     public Long createTicket(TicketRequestDTO request) {
-        Long idPersona = SaedContextHolder.getContext().getUserId();
+        Long idUsuario = SaedContextHolder.getContext().getUserId();
         Long idPropiedad = SaedContextHolder.getContext().getPropertyId(); 
 
-        if (idPersona == null || idPropiedad == null) {
+        if (idUsuario == null || idPropiedad == null) {
             throw new IllegalStateException("El usuario no tiene una propiedad asignada en su contexto.");
         }
 
-        String numeroRadicado = "PQRS-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        String numeroRadicado = "PQRS-" + java.util.UUID.randomUUID().toString().substring(0, 8).toUpperCase();
         // MVP: Add 24 hours for SLA. This should ideally come from PQRS_SLA_CONFIG
-        ZonedDateTime sla = ZonedDateTime.now(ZoneId.of("America/Bogota")).plusHours(24);
+        ZonedDateTime sla = ZonedDateTime.now(java.time.ZoneId.of("America/Bogota")).plusHours(24);
 
-        return ticketRepository.create(request, idPropiedad, idPersona, numeroRadicado, sla);
+        return ticketRepository.create(request, idPropiedad, idUsuario, numeroRadicado, sla);
     }
 
     @Override

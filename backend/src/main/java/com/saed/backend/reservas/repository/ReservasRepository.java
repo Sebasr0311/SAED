@@ -8,7 +8,7 @@ import java.util.Optional;
 public interface ReservasRepository {
     List<ZonaComunDTO> findAllZonas();
     List<ReservaDTO> findAllReservas();
-    List<ReservaDTO> findReservasByPersona(Long idPersona);
+    List<ReservaDTO> findReservasByPersona(Long idUsuario);
     Optional<ReservaDTO> findReservaById(Long idReserva);
     Long createReserva(ReservaDTO reserva, Long idPropiedad);
     void updateEstadoReserva(Long idReserva, String estado, Long aprobadoPor);

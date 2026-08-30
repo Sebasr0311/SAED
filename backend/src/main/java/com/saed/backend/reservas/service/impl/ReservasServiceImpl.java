@@ -29,8 +29,8 @@ public class ReservasServiceImpl implements ReservasService {
 
     @Override
     public List<ReservaDTO> getMyReservas() {
-        Long idPersona = SaedContextHolder.getContext().getUserId();
-        return reservasRepository.findReservasByPersona(idPersona);
+        Long idUsuario = SaedContextHolder.getContext().getUserId();
+        return reservasRepository.findReservasByPersona(idUsuario);
     }
 
     @Override
@@ -41,14 +41,14 @@ public class ReservasServiceImpl implements ReservasService {
 
     @Override
     public Long createReserva(ReservaDTO reserva) {
-        Long idPersona = SaedContextHolder.getContext().getUserId();
+        Long idUsuario = SaedContextHolder.getContext().getUserId();
         Long idPropiedad = SaedContextHolder.getContext().getPropertyId();
         
-        if (idPersona == null || idPropiedad == null) {
+        if (idUsuario == null || idPropiedad == null) {
             throw new IllegalStateException("Contexto de usuario inválido.");
         }
         
-        reserva.setIdPersonaSolicita(idPersona);
+        reserva.setIdPersonaSolicita(idUsuario); // We pass idUsuario to the repository which will translate it
         
         // Unidades might be missing in MVP Request, ideally we fetch the user's unit.
         // For MVP, we set a fallback or assume it is sent from frontend.

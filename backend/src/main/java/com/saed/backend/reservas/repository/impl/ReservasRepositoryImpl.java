@@ -79,8 +79,14 @@ public class ReservasRepositoryImpl implements ReservasRepository {
         return jdbcTemplate.query(sql, reservaMapper);
     }
 
+    private Long getIdPersonaFromUsuario(Long idUsuario) {
+        String sql = "SELECT ID_PERSONA FROM USUARIOS WHERE ID_USUARIO = ?";
+        return jdbcTemplate.queryForObject(sql, Long.class, idUsuario);
+    }
+
     @Override
-    public List<ReservaDTO> findReservasByPersona(Long idPersona) {
+    public List<ReservaDTO> findReservasByPersona(Long idUsuario) {
+        Long idPersona = getIdPersonaFromUsuario(idUsuario);
         String sql = "SELECT r.*, z.NOMBRE as NOMBRE_ZONA FROM RESERVAS r " +
                      "JOIN ZONAS_COMUNES z ON r.ID_ZONA = z.ID_ZONA " +
                      "WHERE r.ID_PERSONA_SOLICITA = ? ORDER BY r.FECHA_RESERVA DESC";
@@ -98,6 +104,7 @@ public class ReservasRepositoryImpl implements ReservasRepository {
 
     @Override
     public Long createReserva(ReservaDTO r, Long idPropiedad) {
+        Long idPersona = getIdPersonaFromUsuario(r.getIdPersonaSolicita()); // We passed idUsuario into getIdPersonaSolicita in the service
         String sql = "INSERT INTO RESERVAS (ID_ZONA, ID_UNIDAD, ID_PERSONA_SOLICITA, FECHA_RESERVA, " +
                      "HORA_INICIO, HORA_FIN, CANTIDAD_ASISTENTES, COSTO_TOTAL, OBSERVACIONES, ESTADO) " +
                      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
@@ -106,7 +113,7 @@ public class ReservasRepositoryImpl implements ReservasRepository {
             PreparedStatement ps = connection.prepareStatement(sql, new String[]{"ID_RESERVA"});
             ps.setLong(1, r.getIdZona());
             ps.setLong(2, r.getIdUnidad());
-            ps.setLong(3, r.getIdPersonaSolicita());
+            ps.setLong(3, idPersona);
             ps.setDate(4, Date.valueOf(r.getFechaReserva()));
             ps.setString(5, r.getHoraInicio());
             ps.setString(6, r.getHoraFin());
