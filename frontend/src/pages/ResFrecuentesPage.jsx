@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+ï»¿import { useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { useFetch, useTiposDocumento, useLiveValidation } from '../lib/hooks.js';
 import api from '../lib/api.js';
@@ -84,7 +84,7 @@ export default function ResFrecuentesPage() {
     }
     if (qrForm.medioTransporte === 'BICICLETA' || qrForm.medioTransporte === 'OTRO') {
       if (!qrForm.descripcion.trim()) {
-        e.descripcion = 'La descripción es requerida para ' + (qrForm.medioTransporte === 'BICICLETA' ? 'bicicleta' : 'otro medio');
+        e.descripcion = 'La descripciï¿½n es requerida para ' + (qrForm.medioTransporte === 'BICICLETA' ? 'bicicleta' : 'otro medio');
       }
     }
     setQrErrors(e);
@@ -94,7 +94,7 @@ export default function ResFrecuentesPage() {
   async function quitarFrecuente() {
     if (!confirmQuitar) return;
     try {
-      await api.del(`/residentes/${user?.idResidente}/frecuentes/${confirmQuitar.idFrecuente}`);
+      await (user?.idResidente ? api.del(`/residentes/${user.idResidente}/frecuentes/${confirmQuitar.idFrecuente}`) : Promise.resolve());
       toast.success('Visitante frecuente quitado');
       refetch();
     } catch (err) {
@@ -134,13 +134,13 @@ export default function ResFrecuentesPage() {
   }
 
   const { data, loading, refetch } = useFetch(
-    () => api.get(`/residentes/${user?.idResidente}/frecuentes`),
+    () => (user?.idResidente ? api.get(`/residentes/${user.idResidente}/frecuentes`) : Promise.resolve(null)),
     [user]
   );
 
   // Carga paralela de las ultimas QR del residente para mostrar placas
   const { data: qrs } = useFetch(
-    () => api.get(`/residentes/${user?.idResidente}/qr-activos`).catch(() => []),
+    () => (user?.idResidente ? api.get(`/residentes/${user.idResidente}/qr-activos`).catch(() => []) : Promise.resolve([])),
     [user]
   );
 
@@ -184,7 +184,7 @@ export default function ResFrecuentesPage() {
         email: form.email.trim() || null,
         activo: true,
       });
-      toast.success('Visitante creado. Para marcarlo como frecuente, genere un QR de "Visita Rápida" en /res-visita');
+      toast.success('Visitante creado. Para marcarlo como frecuente, genere un QR de "Visita Rï¿½pida" en /res-visita');
       setForm({
         idTipoDoc: 1,
         numeroDocumento: '',
@@ -208,7 +208,7 @@ export default function ResFrecuentesPage() {
     { key: 'nombreVisitante', label: 'Nombre' },
     { key: 'documento', label: 'Documento' },
     { key: 'ultimaPlaca', label: 'Placa' },
-    { key: 'ultimaVisita', label: 'Último Ingreso', render: (r) => formatDate(r.ultimaVisita) },
+    { key: 'ultimaVisita', label: 'ï¿½ltimo Ingreso', render: (r) => formatDate(r.ultimaVisita) },
   ];
 
   return (
@@ -255,10 +255,10 @@ export default function ResFrecuentesPage() {
               <span className="material-symbols-outlined">person</span>
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div className="name">{f.nombreVisitante || '—'}</div>
-              <div className="meta">Doc: {f.documento || '—'}</div>
+              <div className="name">{f.nombreVisitante || 'ï¿½'}</div>
+              <div className="meta">Doc: {f.documento || 'ï¿½'}</div>
               {f.ultimaPlaca && <div className="meta">Placa: {f.ultimaPlaca}</div>}
-              {f.ultimaVisita && <div className="meta">Última visita: {formatDate(f.ultimaVisita)}</div>}
+              {f.ultimaVisita && <div className="meta">ï¿½ltima visita: {formatDate(f.ultimaVisita)}</div>}
             </div>
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', flexShrink: 0 }}>
               <Button
@@ -317,7 +317,7 @@ export default function ResFrecuentesPage() {
           )}
           <Input
             id="numeroDocumento"
-            label="Número Documento"
+            label="Nï¿½mero Documento"
             value={form.numeroDocumento}
             onChange={(e) => setForm((f) => ({ ...f, numeroDocumento: e.target.value }))}
             error={errors.numeroDocumento}
@@ -342,7 +342,7 @@ export default function ResFrecuentesPage() {
         <div className="form-row">
           <Input
             id="telefono"
-            label="Teléfono (opcional)"
+            label="Telï¿½fono (opcional)"
             value={form.telefono}
             onChange={(e) => setForm((f) => ({ ...f, telefono: e.target.value }))}
             onBlur={() => touch('telefono')}
@@ -363,7 +363,7 @@ export default function ResFrecuentesPage() {
       <Modal
         open={qrModal !== null}
         onClose={() => setQrModal(null)}
-        title={qrGenerado ? 'QR generado' : `Generar QR — ${qrModal?.nombreVisitante || ''}`}
+        title={qrGenerado ? 'QR generado' : `Generar QR ï¿½ ${qrModal?.nombreVisitante || ''}`}
         size="md"
       >
         {qrGenerado ? (
@@ -385,7 +385,7 @@ export default function ResFrecuentesPage() {
               {qrGenerado.codigoQr}
             </div>
             <div style={{ fontSize: '12px', opacity: 0.7 }}>
-              Compartí este código con {qrModal?.nombreVisitante} para que el portero lo escanee.
+              Compartï¿½ este cï¿½digo con {qrModal?.nombreVisitante} para que el portero lo escanee.
               {qrGenerado.fechaExpiracion ? ` Expira el ${formatDate(qrGenerado.fechaExpiracion)}.` : ''}
             </div>
             <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginTop: '16px' }}>
@@ -401,13 +401,13 @@ export default function ResFrecuentesPage() {
           <>
             <div className="form-group">
               <div className="meta" style={{ fontSize: '13px' }}>
-                Visitante: <strong>{qrModal?.nombreVisitante}</strong> · Doc: {qrModal?.documento}
+                Visitante: <strong>{qrModal?.nombreVisitante}</strong> ï¿½ Doc: {qrModal?.documento}
               </div>
             </div>
             <div className="form-row">
               <Select
                 id="qr-medioTransporte"
-                label="¿En qué viene?"
+                label="ï¿½En quï¿½ viene?"
                 value={qrForm.medioTransporte}
                 onChange={(e) => setQrForm((f) => ({ ...f, medioTransporte: e.target.value }))}
               >
@@ -429,7 +429,7 @@ export default function ResFrecuentesPage() {
               {(qrForm.medioTransporte === 'BICICLETA' || qrForm.medioTransporte === 'OTRO') && (
                 <Input
                   id="qr-descripcion"
-                  label={qrForm.medioTransporte === 'BICICLETA' ? 'Descripción de la bicicleta' : 'Descripción del medio'}
+                  label={qrForm.medioTransporte === 'BICICLETA' ? 'Descripciï¿½n de la bicicleta' : 'Descripciï¿½n del medio'}
                   value={qrForm.descripcion}
                   onChange={(e) => setQrForm((f) => ({ ...f, descripcion: e.target.value }))}
                   error={qrErrors.descripcion}
@@ -457,7 +457,7 @@ export default function ResFrecuentesPage() {
             <div className="form-group">
               <Input
                 id="qr-notas"
-                label="Motivo / descripción (opcional)"
+                label="Motivo / descripciï¿½n (opcional)"
                 value={qrForm.notas}
                 onChange={(e) => setQrForm((f) => ({ ...f, notas: e.target.value }))}
               />
@@ -479,7 +479,7 @@ export default function ResFrecuentesPage() {
         onClose={() => setConfirmQuitar(null)}
         onConfirm={quitarFrecuente}
         title="Quitar visitante frecuente"
-        message={`¿Quitar a ${confirmQuitar?.nombreVisitante || ''} de tus visitantes frecuentes? Podrás volver a generarle un QR más adelante.`}
+        message={`ï¿½Quitar a ${confirmQuitar?.nombreVisitante || ''} de tus visitantes frecuentes? Podrï¿½s volver a generarle un QR mï¿½s adelante.`}
         confirmLabel="Quitar"
         danger
       />
@@ -489,7 +489,7 @@ export default function ResFrecuentesPage() {
         onClose={() => setConfirmQuitar(null)}
         onConfirm={quitarFrecuente}
         title="Quitar visitante frecuente"
-        message={`¿Quitar a ${confirmQuitar?.nombreVisitante || ''} de tus visitantes frecuentes? Podrás volver a generarle un QR más adelante.`}
+        message={`ï¿½Quitar a ${confirmQuitar?.nombreVisitante || ''} de tus visitantes frecuentes? Podrï¿½s volver a generarle un QR mï¿½s adelante.`}
         confirmLabel="Quitar"
         danger
       />

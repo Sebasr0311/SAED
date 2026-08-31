@@ -1,4 +1,4 @@
-import { useFetch } from '../lib/hooks.js';
+﻿import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
@@ -15,7 +15,7 @@ function DetailRow({ label, value }) {
 
 export default function ResApartamentoPage() {
   const { user } = useAuth();
-  const { data: info } = useFetch(() => api.get(`/residentes/${user?.idResidente}/dashboard`), [user]);
+  const { data: info } = useFetch(() => (user?.idResidente ? api.get(`/residentes/${user.idResidente}/dashboard`) : Promise.resolve(null)), [user]);
   const d = info?.raw || info || {};
   const apto = d.apartamento || {};
   const contrato = d.contrato || {};

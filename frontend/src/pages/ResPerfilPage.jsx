@@ -19,7 +19,7 @@ export default function ResPerfilPage() {
   const savingRef = useRef(false);
   const { touch, fieldError } = useLiveValidation();
 
-  const { data, refetch } = useFetch(() => api.get(`/residentes/${user?.idResidente}`), [user]);
+  const { data, refetch } = useFetch(() => (user?.idResidente ? api.get(`/personas/${user.idResidente}`) : Promise.resolve(null)), [user]);
   const perfil = data?.raw || data || {};
 
   function openEdit() {
@@ -42,7 +42,14 @@ export default function ResPerfilPage() {
     savingRef.current = true;
     setSaving(true);
     try {
-      await api.put(`/residentes/${user?.idResidente}/perfil`, {
+      await api.put(`/personas/${user?.idResidente}`, {
+          tipoDocumentoId: Number(perfil.tipoDocumentoId || perfil.idTipoDoc),
+          numeroDocumento: perfil.numeroDocumento,
+          tipoPersona: "NATURAL",
+          primerNombre: perfil.primerNombre || perfil.nombres || '',
+          segundoNombre: perfil.segundoNombre || '',
+          primerApellido: perfil.primerApellido || perfil.apellidos || '',
+          segundoApellido: perfil.segundoApellido || '',
         telefono: edit.telefono.replace(/\D/g, ''),
         email: edit.email || null,
       });
@@ -69,7 +76,7 @@ export default function ResPerfilPage() {
           <Input
             id="nombres"
             label="Nombres"
-            value={`${perfil.nombres || ''} ${perfil.apellidos || ''}`.trim()}
+            value={`${perfil.primerNombre || perfil.nombres || ''} ${perfil.segundoNombre || ''} ${perfil.primerApellido || perfil.apellidos || ''} ${perfil.segundoApellido || ''}`.trim()}
             readOnly
           />
           <Input id="documento" label="Documento" value={perfil.numeroDocumento || ''} readOnly />

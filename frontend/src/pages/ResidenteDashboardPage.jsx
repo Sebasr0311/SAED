@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+﻿import { useEffect, useRef, useState } from 'react';
 import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
 import { formatCurrency, formatDateTime, formatDate, imageSrc } from '../lib/utils.js';
@@ -178,7 +178,7 @@ export default function ResidenteDashboardPage() {
   );
   const perfil = perfilResidente?.raw || perfilResidente || {};
   const nombreResidente = `${perfil?.nombres || ''} ${perfil?.apellidos || ''}`.trim();
-  const { data, refetch: refetchDashboard } = useFetch(() => api.get(`/residentes/${user?.idResidente}/dashboard`), [user]);
+  const { data, refetch: refetchDashboard } = useFetch(() => (user?.idResidente ? api.get(`/residentes/${user.idResidente}/dashboard`) : Promise.resolve(null)), [user]);
   const { data: pagosPorMes } = useFetch(
     () => api.get(`/pagos/registrados`),
     []

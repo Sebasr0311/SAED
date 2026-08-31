@@ -15,7 +15,7 @@ const ESTADO_BADGE = {
 export default function ResCuotasPage() {
   const { user } = useAuth();
   const { data, loading, error } = useFetch(
-    () => api.get(`/residentes/${user?.idResidente}/dashboard`),
+    () => (user?.idResidente ? api.get(`/residentes/${user.idResidente}/dashboard`) : Promise.resolve(null)),
     [user]
   );
   const info = data?.raw || data || {};
