@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { PageHeader } from '../components/ui/PageHeader';
 import { DataTable } from '../components/ui/DataTable';
 import { Pagination } from '../components/ui/Pagination';
@@ -30,7 +30,7 @@ export default function SancionesAdminPage() {
   const [detalle, setDetalle] = useState(null);
   const [resolucionForm, setResolucionForm] = useState({ decision: 'APLICADA', resolucionFinal: '' });
 
-  const items = data?.items || [];
+  const items = data?.items || (Array.isArray(data) ? data : []);
   const filtered = filtroEstado ? items.filter(i => i.estado === filtroEstado) : items;
   
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE) || 1;

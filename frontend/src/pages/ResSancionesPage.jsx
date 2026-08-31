@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { PageHeader } from '../components/ui/PageHeader';
 import { DataTable } from '../components/ui/DataTable';
 import { Modal } from '../components/ui/Modal';
@@ -20,7 +20,7 @@ export default function ResSancionesPage() {
   const [descargos, setDescargos] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const rows = data?.items || [];
+  const rows = data?.items || (Array.isArray(data) ? data : []);
 
   const columns = [
     { key: 'numeroExpediente', label: 'Expediente', width: 140 },

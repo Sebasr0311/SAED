@@ -1,11 +1,11 @@
-import React from 'react';
+﻿import React from 'react';
 import { PageHeader } from '../components/ui/PageHeader';
 import { useFetch } from '../lib/hooks';
 import { api } from '../lib/api';
 
 export default function ResDocumentosPage() {
   const { data, loading, error } = useFetch(() => api.get('/documentos/residente'));
-  const documentos = data?.items || [];
+  const documentos = data?.items || (Array.isArray(data) ? data : []);
 
   const categorias = [...new Set(documentos.map(d => d.categoria))];
 
