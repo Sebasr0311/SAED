@@ -1,4 +1,4 @@
-Ôªøimport { useState } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 import { DataTable } from '../components/ui/DataTable.jsx';
 import { Pagination } from '../components/ui/Pagination.jsx';
@@ -22,7 +22,7 @@ export default function AlertasPage() {
   });
   const { data, loading, error, refetch } = useFetch(() => api.get(`/alertas?${qs}`), [soloNoLeidas]);
 
-  const items = (data?.items || []).filter((a) => {
+  const items = (Array.isArray(data) ? data : data?.items || []).filter((a) => {
     if (!search) return true;
     const term = search.toLowerCase();
     return [a.tipoAlerta, a.numeroApartamento, a.nombreResidente, a.estadoCuota]
@@ -40,7 +40,7 @@ export default function AlertasPage() {
     }
     try {
       await api.put(`/alertas/${selectedId}/leer`);
-      toast.success('Alerta marcada como le√≠da');
+      toast.success('Alerta marcada como leÌda');
       setSelectedId(null);
       refetch();
     } catch (err) {
@@ -62,9 +62,9 @@ export default function AlertasPage() {
     { key: 'canal', label: 'Canal' },
     {
       key: 'leida',
-      label: 'Le√≠da',
+      label: 'LeÌda',
       render: (r) => (
-        <span className={`badge ${r.leida ? 'badge-activo' : 'badge-pendiente-firma'}`}>{r.leida ? 'S√≠' : 'No'}</span>
+        <span className={`badge ${r.leida ? 'badge-activo' : 'badge-pendiente-firma'}`}>{r.leida ? 'SÌ' : 'No'}</span>
       ),
     },
     { key: 'enviadaEn', label: 'Enviada', render: (r) => formatDate(r.enviadaEn) },
@@ -79,10 +79,10 @@ export default function AlertasPage() {
           <>
             <label className="checkbox-label">
               <input type="checkbox" checked={soloNoLeidas} onChange={(e) => { setSoloNoLeidas(e.target.checked); setPage(0); }} />
-              <span>Solo no le√≠das</span>
+              <span>Solo no leÌdas</span>
             </label>
             <Input id="search" aria-label="Buscar" placeholder="Buscar..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(0); }} />
-            <Button onClick={marcarLeida}>Marcar Le√≠da</Button>
+            <Button onClick={marcarLeida}>Marcar LeÌda</Button>
           </>
         }
       />
@@ -90,7 +90,7 @@ export default function AlertasPage() {
         columns={columns}
         rows={rows}
         loading={loading}
-                empty={{ icon: 'notifications', title: 'No hay alertas', subtitle: 'Cuando se registre un pago o evento importante, aparecer√° aqu√≠.' }}
+                empty={{ icon: 'notifications', title: 'No hay alertas', subtitle: 'Cuando se registre un pago o evento importante, aparecer· aquÌ.' }}
             error={error?.message}
         keyField="idAlerta"
         selectedKey={selectedId}

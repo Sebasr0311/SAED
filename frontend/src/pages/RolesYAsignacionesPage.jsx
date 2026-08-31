@@ -63,12 +63,12 @@ export default function RolesYAsignacionesPage() {
   const { data: propsData } = useFetch(() => tenantApi.get('/properties'), [tenant.activeAssignmentId]);
   const { data: unitsData } = useFetch(() => tenantApi.get('/units'), [tenant.activeAssignmentId]);
 
-  const asignaciones = data?.data || data?.items || [];
-  const roles = rolesData?.items || [];
-  const usuarios = usuariosData?.items || [];
-  const organizaciones = orgsData?.items || [];
-  const propiedades = propsData?.items || [];
-  const unidades = unitsData?.items || [];
+  const asignaciones = data?.data || Array.isArray(data) ? data : data?.items || [];
+  const roles = rolesArray.isArray(data) ? data : data?.items || [];
+  const usuarios = usuariosArray.isArray(data) ? data : data?.items || [];
+  const organizaciones = orgsArray.isArray(data) ? data : data?.items || [];
+  const propiedades = propsArray.isArray(data) ? data : data?.items || [];
+  const unidades = unitsArray.isArray(data) ? data : data?.items || [];
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);

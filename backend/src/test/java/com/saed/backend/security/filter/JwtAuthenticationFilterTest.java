@@ -62,7 +62,7 @@ public class JwtAuthenticationFilterTest {
         jwtProvider = new JwtProvider();
         ReflectionTestUtils.setField(jwtProvider, "jwtSecret", "dGhpcy1pcy1hLXZlcnktc2VjdXJlLWtleS1mb3Itc2FlZC0yLjAtc2VjcmV0");
         ReflectionTestUtils.setField(jwtProvider, "jwtExpirationMs", 3600000);
-        filter = new JwtAuthenticationFilter(jwtProvider, objectMapper);
+        filter = new JwtAuthenticationFilter(jwtProvider, objectMapper, org.mockito.Mockito.mock(org.springframework.beans.factory.ObjectProvider.class), org.mockito.Mockito.mock(org.springframework.beans.factory.ObjectProvider.class));
     }
 
 
@@ -85,3 +85,4 @@ public class JwtAuthenticationFilterTest {
         verify(filterChain).doFilter(request, response);
     }
 }
+

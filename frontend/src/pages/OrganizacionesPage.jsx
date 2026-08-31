@@ -49,7 +49,7 @@ export default function OrganizacionesPage() {
     [tenant.activeAssignmentId]
   );
 
-  const organizaciones = data?.items || [];
+  const organizaciones = Array.isArray(data) ? data : data?.items || [];
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState(null);

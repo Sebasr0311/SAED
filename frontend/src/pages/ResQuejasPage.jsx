@@ -46,7 +46,7 @@ export default function ResQuejasPage() {
   const [modal, setModal] = useState(null);
 
   const { data, loading, refetch } = useFetch(() => api.get(`/pqrs/mis-tickets`), [user]);
-  const rows = data?.items || [];
+  const rows = Array.isArray(data) ? data : data?.items || [];
 
   const [errors, setErrors] = useState({});
 

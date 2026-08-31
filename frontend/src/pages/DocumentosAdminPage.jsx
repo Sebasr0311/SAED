@@ -87,7 +87,7 @@ export default function DocumentosAdminPage() {
 
       <DataTable
         columns={columns}
-        rows={data?.items || []}
+        rows={Array.isArray(data) ? data : data?.items || []}
         loading={loading}
         error={error?.message}
         keyField="idDocumento"

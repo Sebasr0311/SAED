@@ -67,7 +67,7 @@ export default function ResidentesPage() {
   const edad = calcularEdad(form.fechaNacimiento);
   const requiereTutor = edad !== null && edad >= 16 && edad < 18;
 
-  const items = useMemo(() => (data?.items || []).filter((r) => {
+  const items = useMemo(() => (Array.isArray(data) ? data : data?.items || []).filter((r) => {
     if (!search) return true;
     const term = search.toLowerCase();
     return [r.nombres, r.apellidos, r.numeroDocumento]

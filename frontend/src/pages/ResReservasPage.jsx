@@ -24,10 +24,10 @@ export default function ResReservasPage() {
   const [modal, setModal] = useState(null);
 
   const { data: zonasData } = useFetch(() => api.get('/zonas-comunes'), []);
-  const zonas = zonasData?.items || [];
+  const zonas = zonasArray.isArray(data) ? data : data?.items || [];
 
   const { data: reservasData, loading, refetch } = useFetch(() => api.get(`/reservas/mis-reservas`), [user]);
-  const rows = reservasData?.items || [];
+  const rows = reservasArray.isArray(data) ? data : data?.items || [];
 
   const [errors, setErrors] = useState({});
 

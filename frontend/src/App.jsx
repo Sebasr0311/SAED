@@ -31,7 +31,11 @@ const QuejasAdminPage = lazy(() => import('./pages/QuejasAdminPage.jsx'));
 const ReservasAdminPage = lazy(() => import('./pages/ReservasAdminPage.jsx'));
 const ResReservasPage = lazy(() => import('./pages/ResReservasPage.jsx'));
 const SancionesAdminPage = lazy(() => import('./pages/SancionesAdminPage.jsx'));
+const EmergenciasAdminPage = lazy(() => import('./pages/EmergenciasAdminPage.jsx'));
 const ResSancionesPage = lazy(() => import('./pages/ResSancionesPage.jsx'));
+const AsambleasAdminPage = lazy(() => import('./pages/AsambleasAdminPage.jsx'));
+const PolizasAdminPage = lazy(() => import('./pages/PolizasAdminPage.jsx'));
+const MantenimientoAdminPage = lazy(() => import('./pages/MantenimientoAdminPage.jsx'));
 const ObrasAdminPage = lazy(() => import('./pages/ObrasAdminPage.jsx'));
 const ResObrasPage = lazy(() => import('./pages/ResObrasPage.jsx'));
 const GananciasPage = lazy(() => import('./pages/GananciasPage.jsx'));
@@ -222,7 +226,10 @@ export default function App() {
               </ProtectedRoute>
             }
           />
-          <Route path="obras-admin" element={<ProtectedRoute roles={['ADMINISTRADOR']}><ObrasAdminPage /></ProtectedRoute>} />
+            <Route path="obras-admin" element={<ProtectedRoute roles={['ADMINISTRADOR']}><ObrasAdminPage /></ProtectedRoute>} />
+          <Route path="asambleas-admin" element={<ProtectedRoute roles={['ADMINISTRADOR']}><AsambleasAdminPage /></ProtectedRoute>} />
+          <Route path="polizas-admin" element={<ProtectedRoute roles={['ADMINISTRADOR']}><PolizasAdminPage /></ProtectedRoute>} />
+          <Route path="emergencias-admin" element={<ProtectedRoute roles={['ADMINISTRADOR']}><EmergenciasAdminPage /></ProtectedRoute>} />
           <Route path="incidentes-admin" element={<ProtectedRoute roles={['ADMINISTRADOR', 'PORTERO']}><IncidentesAdminPage /></ProtectedRoute>} />
           <Route
             path="alertas"
@@ -478,3 +485,4 @@ export default function App() {
     </AuthProvider>
   );
 }
+

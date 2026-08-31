@@ -57,8 +57,9 @@ const NAV_BY_ROLE = {
         { path: '/pagos', label: 'Pagos', icon: 'payments' },
         { path: '/ganancias', label: 'Ganancias', icon: 'trending_up' },
         { path: '/sanciones-admin', label: 'Sanciones', icon: 'gavel' },
-          { path: '/obras-admin', label: 'Obras y Remodelaciones', icon: 'construction' },
-          { path: '/incidentes-admin', label: 'Incidentes', icon: 'warning' },
+        { path: '/asambleas-admin', label: 'Asambleas', icon: 'groups' },
+        { path: '/obras-admin', label: 'Obras y Remodelaciones', icon: 'construction' },
+        { path: '/incidentes-admin', label: 'Incidentes', icon: 'warning' },
       ],
     },
     {
@@ -495,3 +496,5 @@ export default function AppShell() {
     </div>
   );
 }
+
+

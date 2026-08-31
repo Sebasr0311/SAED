@@ -37,10 +37,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final Logger log = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
 
     private final JwtProvider jwtProvider;
+    private final org.springframework.beans.factory.ObjectProvider<com.saed.backend.authorization.service.AssignmentService> assignmentServiceProvider;
+    private final org.springframework.beans.factory.ObjectProvider<com.saed.backend.identity.repository.AuthRepository> authRepositoryProvider;
     private final ObjectMapper objectMapper;
 
-    public JwtAuthenticationFilter(JwtProvider jwtProvider, ObjectMapper objectMapper) {
+    public JwtAuthenticationFilter(JwtProvider jwtProvider, ObjectMapper objectMapper, org.springframework.beans.factory.ObjectProvider<com.saed.backend.authorization.service.AssignmentService> assignmentServiceProvider, org.springframework.beans.factory.ObjectProvider<com.saed.backend.identity.repository.AuthRepository> authRepositoryProvider) {
         this.jwtProvider = jwtProvider;
+        this.assignmentServiceProvider = assignmentServiceProvider;
+        this.authRepositoryProvider = authRepositoryProvider;
         this.objectMapper = objectMapper;
     }
 
@@ -57,10 +61,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 SaedContext saedContext = null;
 
                 if (StringUtils.hasText(assignmentHeader)) {
-                    AssignmentService assignmentService =
-                        WebApplicationContextUtils
-                        .getRequiredWebApplicationContext(request.getServletContext())
-                        .getBean(AssignmentService.class);
+                    AssignmentService assignmentService = assignmentServiceProvider.getIfAvailable();
 
                     Long assignmentId;
                     try {
@@ -98,10 +99,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     // del usuario via PKG_AUTH_BOOTSTRAP (AUTHID DEFINER + EXEMPT,
                     // salta RLS). Esto da contexto RLS completo al dashboard del
                     // frontend legacy (que no envia el header).
-                    AuthRepository authRepository =
-                        WebApplicationContextUtils
-                        .getRequiredWebApplicationContext(request.getServletContext())
-                        .getBean(AuthRepository.class);
+                    AuthRepository authRepository = authRepositoryProvider.getIfAvailable();
                     AuthUserDTO perfil = authRepository.getUserProfile(userId);
 
                     if (perfil != null && perfil.getRol() != null) {
@@ -198,3 +196,4 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         response.getWriter().write(objectMapper.writeValueAsString(errorDetails));
     }
 }
+

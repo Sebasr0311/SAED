@@ -20,7 +20,7 @@ export default function ResSancionesPage() {
   const [descargos, setDescargos] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const rows = data?.items || [];
+  const rows = Array.isArray(data) ? data : data?.items || [];
 
   const columns = [
     { key: 'numeroExpediente', label: 'Expediente', width: 140 },

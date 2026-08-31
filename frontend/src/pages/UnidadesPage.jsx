@@ -59,7 +59,7 @@ export default function UnidadesPage() {
     [tenant.activeAssignmentId]
   );
 
-  const unidades = data?.items || [];
+  const unidades = Array.isArray(data) ? data : data?.items || [];
   const tipos = tiposUnidad?.items || [];
   const bloquesList = bloques?.items || [];
 

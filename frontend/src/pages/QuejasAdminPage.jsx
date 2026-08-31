@@ -32,7 +32,7 @@ export default function QuejasAdminPage() {
   const [saving, setSaving] = useState(false);
 
   const { data, loading, error, refetch } = useFetch(() => api.get('/pqrs/todos'), []);
-  const all = data?.items || [];
+  const all = Array.isArray(data) ? data : data?.items || [];
 
   const stats = {
     total: all.length,

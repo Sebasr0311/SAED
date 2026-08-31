@@ -58,9 +58,9 @@ export default function PropiedadesPage() {
     [tenant.activeAssignmentId]
   );
 
-  const propiedades = data?.items || [];
-  const organizaciones = orgsData?.items || [];
-  const tipos = tiposData?.items || [];
+  const propiedades = Array.isArray(data) ? data : data?.items || [];
+  const organizaciones = orgsArray.isArray(data) ? data : data?.items || [];
+  const tipos = tiposArray.isArray(data) ? data : data?.items || [];
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState(null);
