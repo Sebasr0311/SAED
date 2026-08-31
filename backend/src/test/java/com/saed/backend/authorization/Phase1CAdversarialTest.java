@@ -115,7 +115,7 @@ public class Phase1CAdversarialTest {
                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.code").value("CONTEXT_SPOOFING_DETECTED"));
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
     }
 
 

@@ -1,4 +1,4 @@
-﻿import { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTenant } from '../lib/TenantContext.jsx';
 import { useTenantApi } from '../lib/useTenantApi.js';
 import { useFetch } from '../lib/hooks.js';
@@ -78,7 +78,7 @@ export default function DashboardPage() {
       <div className="dashboard-cards-grid">
         <section className="dashboard-card">
           <div className="dashboard-card-header">
-            <h3>PrÃƒÂ³ximos Cobros</h3>
+            <h3>Próximos Cobros</h3>
             <span className="dashboard-card-sub">Contratos activos del tenant</span>
           </div>
           {cargando ? (

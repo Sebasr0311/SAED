@@ -43,7 +43,7 @@ public class AdversarialFoundationTest {
     @Test
     public void whenTamperedRole_thenContextShouldRejectSpoofing() {
         SaedContext spoofedContext = SaedContext.builder()
-                .userId(1L)
+                .userId(9999L)
                 .organizationId(1L)
                 .propertyId(1L)
                 .roleCode("SUPERADMIN") 

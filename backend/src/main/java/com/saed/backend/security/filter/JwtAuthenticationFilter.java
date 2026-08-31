@@ -52,10 +52,23 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
         try {
+                        Long userId = null;
+            boolean isMockAuth = false;
+            
             String jwt = parseJwt(request);
             if (jwt != null && jwtProvider.validateToken(jwt)) {
+                userId = jwtProvider.getUserIdFromToken(jwt);
+            } else {
+                org.springframework.security.core.Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+                if (auth != null && auth.isAuthenticated() && !(auth instanceof org.springframework.security.authentication.AnonymousAuthenticationToken)) {
+                    try {
+                        userId = Long.parseLong(auth.getName());
+                        isMockAuth = true;
+                    } catch (Exception e) {}
+                }
+            }
 
-                Long userId = jwtProvider.getUserIdFromToken(jwt);
+            if (userId != null) {
 
                 String assignmentHeader = request.getHeader("X-Assignment-Id");
                 SaedContext saedContext = null;
@@ -157,13 +170,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     authorities.add(new SimpleGrantedAuthority("ROLE_USER"));
                 }
 
-                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                        userId,
-                        null,
-                        authorities
-                );
-
-                SecurityContextHolder.getContext().setAuthentication(authentication);
+                                if (!isMockAuth) {
+                    UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                            userId,
+                            null,
+                            authorities
+                    );
+                    SecurityContextHolder.getContext().setAuthentication(authentication);
+                }
             }
         } catch (Exception e) {
             log.error("CRITICAL SECURITY ERROR: Cannot set user authentication: {}", e.getMessage());
@@ -196,4 +210,5 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         response.getWriter().write(objectMapper.writeValueAsString(errorDetails));
     }
 }
+
 

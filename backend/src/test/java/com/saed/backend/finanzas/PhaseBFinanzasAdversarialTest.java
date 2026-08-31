@@ -41,6 +41,7 @@ public class PhaseBFinanzasAdversarialTest {
 
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper objectMapper;
+    @Autowired private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
 
     @BeforeEach
     void setUp() {
@@ -52,6 +53,10 @@ public class PhaseBFinanzasAdversarialTest {
             .roleScope("GLOBAL")
             .build();
         SaedContextHolder.setContext(ctx);
+
+        // Forzar inicialización de contexto en la sesión Oracle abierta por @Transactional
+        jdbcTemplate.execute("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1); END;");
+        jdbcTemplate.execute("BEGIN PKG_SAED_SESSION.SET_CONTEXT(1, 1, 1, 'SUPERADMIN'); END;");
     }
 
     // ======================== CARTERA ========================

@@ -36,8 +36,8 @@ public class Phase1AAuthIntegrationTest {
     @Value("${jwt.secret:dGhpcy1pcy1hLXZlcnktc2VjdXJlLWtleS1mb3Itc2FlZC0yLjAtc2VjcmV0}")
     private String jwtSecret;
 
-    private static final String TEST_USERNAME = "integration.saed";
-    private static final String TEST_PASSWORD = "password123";
+    private static final String TEST_USERNAME = "admin_global";
+    private static final String TEST_PASSWORD = "Password123!";
 
     @BeforeEach
     public void setup() {
@@ -177,5 +177,6 @@ public class Phase1AAuthIntegrationTest {
         assertNull(com.saed.backend.context.SaedContextHolder.getContext(), "SaedContext should be null since authentication failed");
     }
 }
+
 
 
