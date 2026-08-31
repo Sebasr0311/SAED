@@ -12,7 +12,7 @@ export default function IncidentesAdminPage() {
   
   const [form, setForm] = useState({ 
     titulo: '', 
-    tipoIncidente: 'DAÑO_INFRAESTRUCTURA', 
+    tipoIncidente: 'DANO_BIEN_COMUN', 
     nivelSeveridad: 'MODERADA', 
     descripcionHechos: '', 
     requirioAutoridades: 'N', 
@@ -102,11 +102,15 @@ export default function IncidentesAdminPage() {
                 <div style={{ flex: 1 }}>
                   <label>Tipo</label>
                   <select className="select select-bordered w-full" value={form.tipoIncidente} onChange={e => setForm({...form, tipoIncidente: e.target.value})}>
-                    <option value="DAÑO_INFRAESTRUCTURA">Daño de Infraestructura</option>
-                    <option value="SEGURIDAD">Vulneración de Seguridad</option>
-                    <option value="CONVIVENCIA">Problema de Convivencia</option>
-                    <option value="ACCIDENTE">Accidente</option>
-                  </select>
+                  <option value="DANO_BIEN_COMUN">Daño a Bien Común / Infraestructura</option>
+                  <option value="SEGURIDAD_HURTO">Seguridad (Hurto)</option>
+                  <option value="CONVIVENCIA_RUIDO">Convivencia (Ruido)</option>
+                  <option value="CONVIVENCIA_DISPUTA">Convivencia (Disputa)</option>
+                  <option value="ACCESO_NO_AUTORIZADO">Acceso No Autorizado</option>
+                  <option value="ACCIDENTE_PERSONA">Accidente de Persona</option>
+                  <option value="FALLA_CRITICA_INFRAESTRUCTURA">Falla Crítica de Infraestructura</option>
+                  <option value="OTRO">Otro</option>
+                </select>
                 </div>
                 <div style={{ flex: 1 }}>
                   <label>Severidad</label>
