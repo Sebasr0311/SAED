@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { useFetch } from '../lib/hooks';
 import { api } from '../lib/api';
 import { toast } from 'sonner';
@@ -23,7 +23,7 @@ export default function IncidentesAdminPage() {
 
   const handleCreate = async () => {
     try {
-      await api.post('/incidentes', form);
+      await api.post('/incidentes', { ...form, fechaHoraIncidente: new Date().toISOString() });
       toast.success('Incidente reportado correctamente');
       setModalOpen(false);
       refetch();

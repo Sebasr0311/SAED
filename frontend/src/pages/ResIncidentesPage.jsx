@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { useFetch } from '../lib/hooks';
 import { api } from '../lib/api';
 import { toast } from 'sonner';
@@ -21,7 +21,7 @@ export default function ResIncidentesPage() {
   const handleCreate = async () => {
     try {
       // NOTE: backend forcefully sets idUnidad and nullifies idPorteria/idZonaComun for residents
-      await api.post('/incidentes', form);
+      await api.post('/incidentes', { ...form, fechaHoraIncidente: new Date().toISOString() });
       toast.success('Incidente reportado a la administración');
       setModalOpen(false);
       refetch();
