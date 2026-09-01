@@ -5,11 +5,13 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
@@ -37,6 +39,22 @@ public class SuperAdminAdversarialAuthorizationTest {
     @WithMockUser(authorities = {"SCOPE_SUPERADMIN"})
     public void superAdmin_cannotAccessQuejas() throws Exception {
         mockMvc.perform(get("/api/v1/quejas/todas"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("SUPERADMIN no puede consultar tickets PQRS operativos de copropiedad")
+    @WithMockUser(authorities = {"SCOPE_SUPERADMIN"})
+    public void superAdmin_cannotAccessPqrsTickets() throws Exception {
+        mockMvc.perform(get("/api/v1/pqrs/todos"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("SUPERADMIN no puede consultar pólizas de seguro de copropiedad")
+    @WithMockUser(authorities = {"SCOPE_SUPERADMIN"})
+    public void superAdmin_cannotAccessPolizasSeguro() throws Exception {
+        mockMvc.perform(get("/api/v1/seguros/polizas"))
                 .andExpect(status().isForbidden());
     }
 
@@ -155,6 +173,16 @@ public class SuperAdminAdversarialAuthorizationTest {
     }
 
     @Test
+    @DisplayName("ADMIN_PROPIEDAD no puede mutar planes SaaS de plataforma")
+    @WithMockUser(authorities = {"SCOPE_ADMIN_PROPIEDAD"})
+    public void adminPropiedad_cannotCreatePlatformPlans() throws Exception {
+        mockMvc.perform(post("/api/v1/platform/plans")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"nombre\":\"Plan Malicioso\"}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     @DisplayName("ADMIN_PROPIEDAD no puede consultar membresías SaaS de organizaciones")
     @WithMockUser(authorities = {"SCOPE_ADMIN_PROPIEDAD"})
     public void adminPropiedad_cannotAccessPlatformMemberships() throws Exception {
@@ -166,6 +194,42 @@ public class SuperAdminAdversarialAuthorizationTest {
     @DisplayName("ADMIN_PROPIEDAD no puede consultar operadores ni admins de plataforma")
     @WithMockUser(authorities = {"SCOPE_ADMIN_PROPIEDAD"})
     public void adminPropiedad_cannotAccessPlatformAdmins() throws Exception {
+        mockMvc.perform(get("/api/v1/platform/admins"))
+                .andExpect(status().isForbidden());
+    }
+
+    // ==========================================
+    // 4. RESIDENTE DENEGADO EN PLATAFORMA (403 FORBIDDEN)
+    // ==========================================
+
+    @Test
+    @DisplayName("RESIDENTE no puede consultar dashboard de plataforma")
+    @WithMockUser(authorities = {"SCOPE_RESIDENTE"})
+    public void residente_cannotAccessPlatformDashboard() throws Exception {
+        mockMvc.perform(get("/api/v1/platform/dashboard"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("RESIDENTE no puede consultar planes SaaS de plataforma")
+    @WithMockUser(authorities = {"SCOPE_RESIDENTE"})
+    public void residente_cannotAccessPlatformPlans() throws Exception {
+        mockMvc.perform(get("/api/v1/platform/plans"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("RESIDENTE no puede consultar membresías SaaS")
+    @WithMockUser(authorities = {"SCOPE_RESIDENTE"})
+    public void residente_cannotAccessPlatformMemberships() throws Exception {
+        mockMvc.perform(get("/api/v1/platform/memberships"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("RESIDENTE no puede consultar operadores de plataforma")
+    @WithMockUser(authorities = {"SCOPE_RESIDENTE"})
+    public void residente_cannotAccessPlatformAdmins() throws Exception {
         mockMvc.perform(get("/api/v1/platform/admins"))
                 .andExpect(status().isForbidden());
     }

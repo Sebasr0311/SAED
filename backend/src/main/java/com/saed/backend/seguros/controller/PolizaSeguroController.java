@@ -9,12 +9,14 @@ import com.saed.backend.seguros.service.PolizaSeguroService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import io.swagger.v3.oas.annotations.tags.Tag;
 
 import java.util.List;
 
+@Tag(name = "Pólizas de Seguro", description = "Gestión de pólizas de seguro de copropiedad")
 @RestController
 @RequestMapping("/api/v1/seguros/polizas")
-@PreAuthorize("isAuthenticated()")
+@PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
 public class PolizaSeguroController {
 
     private final PolizaSeguroService service;

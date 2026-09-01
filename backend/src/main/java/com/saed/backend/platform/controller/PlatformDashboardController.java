@@ -14,7 +14,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-@Tag(name = "Platform Dashboard", description = "KPIs y métricas exclusivas del SUPERADMIN para la plataforma SAED SaaS")
+@Tag(name = "Platform Dashboard", description = "KPIs y métricas exclusivas del SUPERADMIN para la plataforma SAED SaaS (Cálculos reales Oracle)")
 @RestController
 @RequestMapping("/api/v1/platform/dashboard")
 @PreAuthorize("hasAuthority('SCOPE_SUPERADMIN')")
@@ -73,11 +73,26 @@ public class PlatformDashboardController {
             userStats.put("activos", 0);
         }
 
-        // 4. Planes y Membresías SaaS
+        // 4. Planes y Membresías SaaS (Cálculo real en Oracle ATP)
         Map<String, Object> planesMembresias = new HashMap<>();
-        planesMembresias.put("planesDisponibles", 3);
-        planesMembresias.put("membresiasActivas", orgStats.get("activas"));
-        planesMembresias.put("ingresosMensualesEstimados", 4500000);
+        try {
+            Number planesActivos = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM PLANES WHERE ESTADO = 'ACTIVO'", new MapSqlParameterSource(), Number.class);
+            Number membresiasActivas = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM MEMBRESIAS WHERE ESTADO = 'ACTIVA'", new MapSqlParameterSource(), Number.class);
+            Number mrr = jdbcTemplate.queryForObject("""
+                SELECT NVL(SUM(p.PRECIO_MENSUAL), 0)
+                FROM MEMBRESIAS m
+                JOIN PLANES p ON m.ID_PLAN = p.ID_PLAN
+                WHERE m.ESTADO = 'ACTIVA'
+                """, new MapSqlParameterSource(), Number.class);
+
+            planesMembresias.put("planesDisponibles", planesActivos != null ? planesActivos.longValue() : 0);
+            planesMembresias.put("membresiasActivas", membresiasActivas != null ? membresiasActivas.longValue() : 0);
+            planesMembresias.put("ingresosMensualesEstimados", mrr != null ? mrr.doubleValue() : 0.0);
+        } catch (Exception e) {
+            planesMembresias.put("planesDisponibles", 0);
+            planesMembresias.put("membresiasActivas", 0);
+            planesMembresias.put("ingresosMensualesEstimados", 0.0);
+        }
 
         // 5. Plataforma
         Map<String, Object> plataforma = new HashMap<>();

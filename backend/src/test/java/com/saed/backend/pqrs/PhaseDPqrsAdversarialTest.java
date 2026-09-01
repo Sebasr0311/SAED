@@ -1,6 +1,6 @@
 package com.saed.backend.pqrs;
 
-import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -20,15 +20,19 @@ public class PhaseDPqrsAdversarialTest {
     @Autowired
     private MockMvc mockMvc;
 
-    @AfterEach
-    public void tearDown() {
-        // Limpiar contexto manual si fue alterado, manejado por los filtros
+    @Test
+    @DisplayName("ADMIN_PROPIEDAD puede consultar tickets PQRS de su copropiedad")
+    @WithMockUser(username = "admin_prop1", authorities = {"SCOPE_ADMIN_PROPIEDAD"})
+    public void adminPropiedad_debeVerPqrsDeSuCopropiedad() throws Exception {
+        mockMvc.perform(get("/api/v1/pqrs/todos"))
+                .andExpect(status().isOk());
     }
 
     @Test
-    @WithMockUser(username = "admin_org1", roles = {"SUPERADMIN"})
-    public void adminOrg1_NoDebeVerPqrsDeOrg2() throws Exception {
+    @DisplayName("SUPERADMIN denegado en tickets PQRS operativos de copropiedad")
+    @WithMockUser(username = "superadmin_user", authorities = {"SCOPE_SUPERADMIN"})
+    public void superAdmin_noDebeVerPqrsDeCopropiedad() throws Exception {
         mockMvc.perform(get("/api/v1/pqrs/todos"))
-                .andExpect(status().isOk());
+                .andExpect(status().isForbidden());
     }
 }

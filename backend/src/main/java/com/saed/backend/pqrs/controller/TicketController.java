@@ -7,9 +7,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import io.swagger.v3.oas.annotations.tags.Tag;
 
 import java.util.List;
 
+@Tag(name = "PQRS Tickets", description = "Gestión operativa de tickets PQRS de copropiedad")
 @RestController
 @RequestMapping("/api/v1/pqrs")
 public class TicketController {
@@ -21,31 +23,31 @@ public class TicketController {
     }
 
     @GetMapping("/todos")
-    @PreAuthorize("hasAnyRole('SUPERADMIN', 'ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<List<TicketResponseDTO>> getAllTickets() {
         return ResponseEntity.ok(ticketService.getAllTickets());
     }
 
     @GetMapping("/mis-tickets")
-    @PreAuthorize("hasRole('RESIDENTE')")
+    @PreAuthorize("hasAuthority('SCOPE_RESIDENTE')")
     public ResponseEntity<List<TicketResponseDTO>> getMyTickets() {
         return ResponseEntity.ok(ticketService.getMyTickets());
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('SUPERADMIN', 'ADMIN_PROPIEDAD', 'RESIDENTE')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE')")
     public ResponseEntity<TicketResponseDTO> getTicketById(@PathVariable Long id) {
         return ResponseEntity.ok(ticketService.getTicketById(id));
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('RESIDENTE', 'ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE')")
     public ResponseEntity<Long> createTicket(@RequestBody TicketRequestDTO request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(ticketService.createTicket(request));
     }
 
     @PutMapping("/{id}/estado")
-    @PreAuthorize("hasAnyRole('SUPERADMIN', 'ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<Void> updateStatus(@PathVariable Long id, @RequestParam String estado) {
         ticketService.updateTicketStatus(id, estado);
         return ResponseEntity.ok().build();

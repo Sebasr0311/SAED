@@ -20,12 +20,10 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
-import org.springframework.web.context.support.WebApplicationContextUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -37,11 +35,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final Logger log = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
 
     private final JwtProvider jwtProvider;
-    private final org.springframework.beans.factory.ObjectProvider<com.saed.backend.authorization.service.AssignmentService> assignmentServiceProvider;
-    private final org.springframework.beans.factory.ObjectProvider<com.saed.backend.identity.repository.AuthRepository> authRepositoryProvider;
+    private final org.springframework.beans.factory.ObjectProvider<AssignmentService> assignmentServiceProvider;
+    private final org.springframework.beans.factory.ObjectProvider<AuthRepository> authRepositoryProvider;
     private final ObjectMapper objectMapper;
 
-    public JwtAuthenticationFilter(JwtProvider jwtProvider, ObjectMapper objectMapper, org.springframework.beans.factory.ObjectProvider<com.saed.backend.authorization.service.AssignmentService> assignmentServiceProvider, org.springframework.beans.factory.ObjectProvider<com.saed.backend.identity.repository.AuthRepository> authRepositoryProvider) {
+    public JwtAuthenticationFilter(JwtProvider jwtProvider,
+                                   ObjectMapper objectMapper,
+                                   org.springframework.beans.factory.ObjectProvider<AssignmentService> assignmentServiceProvider,
+                                   org.springframework.beans.factory.ObjectProvider<AuthRepository> authRepositoryProvider) {
         this.jwtProvider = jwtProvider;
         this.assignmentServiceProvider = assignmentServiceProvider;
         this.authRepositoryProvider = authRepositoryProvider;
@@ -52,9 +53,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
         try {
-                        Long userId = null;
+            Long userId = null;
             boolean isMockAuth = false;
-            
+
             String jwt = parseJwt(request);
             if (jwt != null && jwtProvider.validateToken(jwt)) {
                 userId = jwtProvider.getUserIdFromToken(jwt);
@@ -64,18 +65,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     try {
                         userId = Long.parseLong(auth.getName());
                         isMockAuth = true;
-                    } catch (Exception e) {}
+                    } catch (Exception ignored) {}
                 }
             }
 
             if (userId != null) {
-
                 String assignmentHeader = request.getHeader("X-Assignment-Id");
                 SaedContext saedContext = null;
 
                 if (StringUtils.hasText(assignmentHeader)) {
-                  SaedContextHolder.setContext(SaedContext.builder().userId(userId).build());
-                  AssignmentService assignmentService = assignmentServiceProvider.getIfAvailable();
+                    SaedContextHolder.setContext(SaedContext.builder().userId(userId).build());
+                    AssignmentService assignmentService = assignmentServiceProvider.getIfAvailable();
 
                     Long assignmentId;
                     try {
@@ -85,36 +85,37 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         return;
                     }
 
-                    Optional<AssignmentResponseDTO> optAssign = assignmentService.validateAssignment(assignmentId, userId);
-                    if (optAssign.isEmpty()) {
-                        sendJsonError(response, HttpStatus.FORBIDDEN, "Invalid or inactive assignment");
-                        return;
-                    }
+                    if (assignmentService != null) {
+                        Optional<AssignmentResponseDTO> optAssign = assignmentService.validateAssignment(assignmentId, userId);
+                        if (optAssign.isEmpty()) {
+                            sendJsonError(response, HttpStatus.FORBIDDEN, "Invalid or inactive assignment");
+                            return;
+                        }
 
-                    AssignmentResponseDTO assign = optAssign.get();
+                        AssignmentResponseDTO assign = optAssign.get();
 
-                    SaedContext.Builder builder = SaedContext.builder()
-                            .userId(userId)
-                            .roleCode(assign.getRol().getCodigo())
-                            .roleScope(assign.getRol().getAlcance());
+                        SaedContext.Builder builder = SaedContext.builder()
+                                .userId(userId)
+                                .roleCode(assign.getRol().getCodigo())
+                                .roleScope(assign.getRol().getAlcance());
 
-                    if (assign.getOrganizacion() != null) {
-                        builder.organizationId(assign.getOrganizacion().getId());
+                        if (assign.getOrganizacion() != null) {
+                            builder.organizationId(assign.getOrganizacion().getId());
+                        }
+                        if (assign.getPropiedad() != null) {
+                            builder.propertyId(assign.getPropiedad().getId());
+                        }
+                        if (assign.getUnidad() != null) {
+                            builder.unitId(assign.getUnidad().getId());
+                        }
+                        saedContext = builder.build();
+                    } else {
+                        saedContext = SaedContext.builder().userId(userId).build();
                     }
-                    if (assign.getPropiedad() != null) {
-                        builder.propertyId(assign.getPropiedad().getId());
-                    }
-                    if (assign.getUnidad() != null) {
-                        builder.unitId(assign.getUnidad().getId());
-                    }
-                    saedContext = builder.build();
                 } else {
-                    // Sin X-Assignment-Id: resolver la asignacion ACTIVA principal
-                    // del usuario via PKG_AUTH_BOOTSTRAP (AUTHID DEFINER + EXEMPT,
-                    // salta RLS). Esto da contexto RLS completo al dashboard del
-                    // frontend legacy (que no envia el header).
+                    // Sin X-Assignment-Id: resolver la asignacion ACTIVA principal del usuario via PKG_AUTH_BOOTSTRAP
                     AuthRepository authRepository = authRepositoryProvider.getIfAvailable();
-                    AuthUserDTO perfil = authRepository.getUserProfile(userId);
+                    AuthUserDTO perfil = authRepository != null ? authRepository.getUserProfile(userId) : null;
 
                     if (perfil != null && perfil.getRol() != null) {
                         SaedContext.Builder builder = SaedContext.builder()
@@ -132,7 +133,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         }
                         saedContext = builder.build();
                     } else {
-                        // STATE 1: purely identity context
                         saedContext = SaedContext.builder().userId(userId).build();
                     }
                 }
@@ -141,37 +141,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 SaedContextHolder.setContext(saedContext);
 
                 // Set into Spring Security for @PreAuthorize:
-                // - ROLE_<codigo> por compatibilidad
-                // - SCOPE_<codigo> + SCOPE_<ALCANCE> como exigen los controllers 2.0
+                // Strict isolation: users receive ONLY their exact role and scope
                 List<SimpleGrantedAuthority> authorities = new ArrayList<>();
                 if (saedContext.getRoleCode() != null) {
                     String code = saedContext.getRoleCode();
                     authorities.add(new SimpleGrantedAuthority("ROLE_" + code));
                     authorities.add(new SimpleGrantedAuthority("SCOPE_" + code));
                 }
-                // Scopes derivados por alcance/rol (modelo 2.0)
                 if (saedContext.getRoleScope() != null) {
                     authorities.add(new SimpleGrantedAuthority("SCOPE_" + saedContext.getRoleScope()));
-                }
-                if (saedContext.getRoleCode() != null) {
-                    switch (saedContext.getRoleCode()) {
-                        case "SUPERADMIN":
-                            authorities.add(new SimpleGrantedAuthority("SCOPE_ADMIN_PROPIEDAD"));
-                            authorities.add(new SimpleGrantedAuthority("SCOPE_ADMIN_ORGANIZACION"));
-                            authorities.add(new SimpleGrantedAuthority("SCOPE_RESIDENTE"));
-                            break;
-                        case "ADMIN_ORGANIZACION":
-                            authorities.add(new SimpleGrantedAuthority("SCOPE_ADMIN_PROPIEDAD"));
-                            break;
-                        default:
-                            break;
-                    }
                 }
                 if (authorities.isEmpty()) {
                     authorities.add(new SimpleGrantedAuthority("ROLE_USER"));
                 }
 
-                                if (!isMockAuth) {
+                if (!isMockAuth) {
                     UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                             userId,
                             null,
@@ -182,13 +166,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             }
         } catch (Exception e) {
             log.error("CRITICAL SECURITY ERROR: Cannot set user authentication: {}", e.getMessage());
-            // Chain continues unauthenticated
         }
 
         try {
             filterChain.doFilter(request, response);
         } finally {
-            // ALWAYS clean up ThreadLocal (STATE 3 / CLEARING)
             SaedContextHolder.clearContext();
             SecurityContextHolder.clearContext();
         }
@@ -211,5 +193,3 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         response.getWriter().write(objectMapper.writeValueAsString(errorDetails));
     }
 }
-
-

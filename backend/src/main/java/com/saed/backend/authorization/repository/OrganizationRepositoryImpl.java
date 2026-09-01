@@ -62,12 +62,18 @@ public class OrganizationRepositoryImpl implements OrganizationRepository {
 
     @Override
     public List<OrganizationDTO> findAll() {
-        String sql = "SELECT id_organizacion, nombre, identificacion_fiscal, estado FROM ORGANIZACIONES";
+        String sql = "SELECT id_organizacion, nombre, identificacion_fiscal, email_contacto, " +
+                     "telefono_contacto, direccion, ciudad, pais, estado FROM ORGANIZACIONES ORDER BY id_organizacion";
         return jdbcTemplate.query(sql, (rs, rowNum) -> {
             OrganizationDTO dto = new OrganizationDTO();
             dto.setId(rs.getLong("id_organizacion"));
             dto.setNombre(rs.getString("nombre"));
             dto.setIdentificacionFiscal(rs.getString("identificacion_fiscal"));
+            dto.setEmailContacto(rs.getString("email_contacto"));
+            dto.setTelefonoContacto(rs.getString("telefono_contacto"));
+            dto.setDireccion(rs.getString("direccion"));
+            dto.setCiudad(rs.getString("ciudad"));
+            dto.setPais(rs.getString("pais"));
             dto.setEstado(rs.getString("estado"));
             return dto;
         });
