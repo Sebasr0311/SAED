@@ -74,7 +74,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 SaedContext saedContext = null;
 
                 if (StringUtils.hasText(assignmentHeader)) {
-                    AssignmentService assignmentService = assignmentServiceProvider.getIfAvailable();
+                  SaedContextHolder.setContext(SaedContext.builder().userId(userId).build());
+                  AssignmentService assignmentService = assignmentServiceProvider.getIfAvailable();
 
                     Long assignmentId;
                     try {

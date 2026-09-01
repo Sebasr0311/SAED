@@ -3,6 +3,8 @@ package com.saed.backend.porteria.controller;
 import com.saed.backend.common.dto.ApiResponse;
 import com.saed.backend.porteria.dto.*;
 import com.saed.backend.porteria.service.PorteriaService;
+import com.saed.backend.common.service.EmailService;
+import com.saed.backend.context.SaedContextHolder;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -10,38 +12,48 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
+import java.util.HashMap;
+import java.util.UUID;
+import java.time.ZonedDateTime;
+import java.util.logging.Logger;
 
 @Tag(name = "Porteria", description = "API para la gestion de Porteria")
 @RestController
 @RequestMapping("/api/v1/porteria")
 public class PorteriaController {
 
+    private static final Logger log = Logger.getLogger(PorteriaController.class.getName());
     private final PorteriaService porteriaService;
+    private final EmailService emailService;
+    private final NamedParameterJdbcTemplate jdbcTemplate;
 
-    public PorteriaController(PorteriaService porteriaService) {
+    public PorteriaController(PorteriaService porteriaService, EmailService emailService, NamedParameterJdbcTemplate jdbcTemplate) {
         this.porteriaService = porteriaService;
+        this.emailService = emailService;
+        this.jdbcTemplate = jdbcTemplate;
     }
 
-    // --- ADMIN CRUD PORTERÍAS ---
-    @Operation(summary = "Listar porterías de la propiedad")
+    // --- ADMIN CRUD PORTERIAS ---
+    @Operation(summary = "Listar porterias de la propiedad")
     @GetMapping
     @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<ApiResponse<List<PorteriaDTO>>> listar() {
         return ResponseEntity.ok(ApiResponse.success(porteriaService.listarPorterias()));
     }
 
-    @Operation(summary = "Obtener portería por ID")
+    @Operation(summary = "Obtener porteria por ID")
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<ApiResponse<PorteriaDTO>> obtener(@PathVariable Long id) {
         return ResponseEntity.ok(ApiResponse.success(porteriaService.getPorteriaById(id)));
     }
 
-    @Operation(summary = "Crear portería")
+    @Operation(summary = "Crear porteria")
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
@@ -49,14 +61,14 @@ public class PorteriaController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(porteriaService.crearPorteria(request)));
     }
 
-    @Operation(summary = "Actualizar portería")
+    @Operation(summary = "Actualizar porteria")
     @PutMapping("/{id}")
     @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<ApiResponse<PorteriaDTO>> actualizar(@PathVariable Long id, @RequestBody @Valid PorteriaCreateDTO request) {
         return ResponseEntity.ok(ApiResponse.success(porteriaService.actualizarPorteria(id, request)));
     }
 
-    @Operation(summary = "Eliminar portería")
+    @Operation(summary = "Eliminar porteria")
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<ApiResponse<Void>> eliminar(@PathVariable Long id) {
@@ -68,8 +80,45 @@ public class PorteriaController {
     @PostMapping("/visitas")
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_RESIDENTE') or hasAuthority('SCOPE_PORTERO')")
-    public VisitaDTO programarVisita(@RequestBody @Valid VisitaRequestDTO request) {
-        return porteriaService.programarVisita(request);
+    public Map<String, Object> programarVisita(@RequestBody @Valid VisitaRequestDTO request) {
+        VisitaDTO visita = porteriaService.programarVisita(request);
+        
+        // Fase E: Generar QR automatico y notificar al VISITANTE
+        String token = UUID.randomUUID().toString();
+        QrAccesoRequestDTO qrReq = new QrAccesoRequestDTO(
+            visita.idVisita(),
+            token,
+            ZonedDateTime.now().plusHours(24),
+            1,
+            "ACTIVO",
+            SaedContextHolder.getContext().getUserId()
+        );
+        
+        // Lo guardamos en DB
+        QrAccesoDTO qr = porteriaService.generarQrAcceso(qrReq);
+        
+        // Buscamos el email del VISITANTE y enviamos
+        try {
+            List<Map<String, Object>> visitantes = jdbcTemplate.queryForList(
+                "SELECT EMAIL FROM PERSONAS WHERE ID_PERSONA = :p AND EMAIL IS NOT NULL", 
+                Map.of("p", request.visitanteId())
+            );
+            if (!visitantes.isEmpty()) {
+                String email = (String) visitantes.get(0).get("EMAIL");
+                if (email != null && !email.isBlank()) {
+                    emailService.enviarCorreoQR(email, token, qr.fechaExpiracion().toString(), "Visitante SAED");
+                    log.info("QR enviado exitosamente al visitante: " + email);
+                }
+            }
+        } catch (Exception e) {
+            log.warning("Fallo al enviar correo QR a visitante: " + e.getMessage());
+        }
+
+        // Devolver respuesta unificada para que VisitasPage.jsx de React no falle
+        Map<String, Object> response = new HashMap<>();
+        response.put("idVisita", visita.idVisita());
+        response.put("codigoQr", token);
+        return response;
     }
 
     @GetMapping("/visitas/{id}")
@@ -174,7 +223,3 @@ public class PorteriaController {
         porteriaService.registrarSalidaVehiculo(id, body.getOrDefault("costoTotal", BigDecimal.ZERO));
     }
 }
-
-
-
-

@@ -29,7 +29,7 @@ public class AuthRepositoryImpl implements AuthRepository {
                 .withCatalogName("SAED_SEC_MASTER.PKG_AUTH_BOOTSTRAP")
                 .withProcedureName("GET_AUTH_DATA").withoutProcedureColumnMetaDataAccess()
                 .declareParameters(
-                        new SqlParameter("p_username", Types.VARCHAR),
+                        new SqlParameter("p_email", Types.VARCHAR),
                         new SqlOutParameter("p_id_usuario", Types.NUMERIC),
                         new SqlOutParameter("p_hash", Types.VARCHAR),
                         new SqlOutParameter("p_estado", Types.VARCHAR),
@@ -69,7 +69,7 @@ public class AuthRepositoryImpl implements AuthRepository {
 
     @Override
     public Optional<AuthData> getAuthData(String username) {
-        Map<String, Object> out = getAuthDataCall.execute(Map.of("p_username", username));
+        Map<String, Object> out = getAuthDataCall.execute(Map.of("p_email", username));
 
         Number idUsuario = (Number) out.get("p_id_usuario");
         if (idUsuario == null) {

@@ -86,7 +86,7 @@ public class GlobalExceptionHandler {
         if (message != null && message.contains("ORA-2008")) {
             registrarAccesoDenegado("Contexto spoofing detectado (PKG_SAED_SESSION)", "SEGURIDAD");
             response.put("code", "CONTEXT_SPOOFING_DETECTED");
-            response.put("message", "Intento de establecer un contexto de seguridad no autorizado.");
+            response.put("message", "Error de seguridad Oracle: " + message);
             return new ResponseEntity<>(response, HttpStatus.FORBIDDEN);
         }
 
@@ -97,6 +97,7 @@ public class GlobalExceptionHandler {
         }
 
         if (message != null && (message.contains("ORA-00001") || message.contains("UIX_ASIGNACION_UNICA"))) {
+            ex.printStackTrace();
             response.put("code", "CONFLICT");
             response.put("message", "El registro ya existe o la asignaci\u00f3n est\u00e1 duplicada.");
             return new ResponseEntity<>(response, HttpStatus.CONFLICT);
@@ -159,7 +160,7 @@ public class GlobalExceptionHandler {
         if (message != null && message.contains("ORA-2008")) {
             registrarAccesoDenegado("Contexto spoofing en transaccion", "SEGURIDAD");
             response.put("code", "CONTEXT_SPOOFING_DETECTED");
-            response.put("message", "Intento de establecer un contexto de seguridad no autorizado.");
+            response.put("message", "Error de seguridad Oracle: " + message);
             return new ResponseEntity<>(response, HttpStatus.FORBIDDEN);
         }
 

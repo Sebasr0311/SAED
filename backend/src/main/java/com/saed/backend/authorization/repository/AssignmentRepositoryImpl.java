@@ -15,6 +15,8 @@ import java.util.Optional;
 @Repository
 public class AssignmentRepositoryImpl implements AssignmentRepository {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(AssignmentRepositoryImpl.class);
+
     private final JdbcTemplate jdbcTemplate;
 
     public AssignmentRepositoryImpl(JdbcTemplate jdbcTemplate) {
@@ -114,6 +116,7 @@ public class AssignmentRepositoryImpl implements AssignmentRepository {
             }
             return Optional.of(dto);
         } catch (Exception e) {
+            log.error("GET_ASSIGNMENT_CONTEXT fallo para usuario={} asignacion={}", idUsuario, idAsignacion, e);
             return Optional.empty();
         }
     }

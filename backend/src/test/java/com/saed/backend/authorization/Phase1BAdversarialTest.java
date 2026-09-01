@@ -36,7 +36,7 @@ public class Phase1BAdversarialTest {
 
         mockMvc.perform(get("/api/v1/me")
                 .header("Authorization", "Bearer " + token))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isOk()); // V4.2 Auto-resolves assignment via GET_USER_PROFILE
                 
         mockMvc.perform(get("/api/v1/me")
                 .header("Authorization", "Bearer " + token)

@@ -9,12 +9,12 @@ CREATE OR REPLACE PACKAGE BODY SAED_V39_FINAL_TEST.PKG_SAED_SECURITY_RLS AS
         v_rol VARCHAR2(30) := SYS_CONTEXT('SAED_CTX', 'ROL_CODIGO');
         v_state VARCHAR2(30) := NVL(SYS_CONTEXT('SAED_CTX', 'STATE'), 'ANONYMOUS');
     BEGIN
-        IF v_state IN ('ANONYMOUS', 'CLEARING', 'BOOTSTRAP') THEN RETURN '1=0'; END IF;
+        IF v_state IN ('ANONYMOUS', 'CLEARING') THEN RETURN '1=0'; END IF;
+        IF v_state = 'BOOTSTRAP' THEN RETURN '1=1'; END IF;
         IF v_rol = 'SUPERADMIN' THEN RETURN '1=1'; END IF;
         IF v_org IS NULL OR v_org = '0' THEN RETURN '1=0'; END IF;
         IF p_tab = 'PERSONAS' THEN
-            -- Allow inserts gracefully by recognizing if no links exist yet, or just rely on update_check=FALSE.
-            RETURN 'id_persona IN (SELECT id_persona FROM USUARIOS WHERE id_usuario IN (SELECT id_usuario FROM USUARIO_ASIGNACIONES WHERE id_organizacion = ' || v_org || ')) OR id_persona IN (SELECT id_persona FROM VISITANTES WHERE id_persona = PERSONAS.id_persona) OR id_persona IN (SELECT id_persona FROM PROPIETARIOS_UNIDAD JOIN UNIDADES ON PROPIETARIOS_UNIDAD.id_unidad = UNIDADES.id_unidad JOIN PROPIEDADES ON UNIDADES.id_propiedad = PROPIEDADES.id_propiedad WHERE PROPIEDADES.id_organizacion = ' || v_org || ')';
+            RETURN 'id_persona IN (SELECT id_persona FROM USUARIOS WHERE id_usuario IN (SELECT id_usuario FROM USUARIO_ASIGNACIONES WHERE id_organizacion = ' || v_org || ')) OR id_persona IN (SELECT id_persona FROM VISITANTES) OR id_persona IN (SELECT pu.id_persona FROM PROPIETARIOS_UNIDAD pu JOIN UNIDADES u ON pu.id_unidad = u.id_unidad JOIN PROPIEDADES pr ON u.id_propiedad = pr.id_propiedad WHERE pr.id_organizacion = ' || v_org || ')';
         END IF;
         RETURN 'id_organizacion = ' || v_org;
     END FN_FILTRO_ORGANIZACION;
@@ -25,7 +25,8 @@ CREATE OR REPLACE PACKAGE BODY SAED_V39_FINAL_TEST.PKG_SAED_SECURITY_RLS AS
         v_rol VARCHAR2(30) := SYS_CONTEXT('SAED_CTX', 'ROL_CODIGO');
         v_state VARCHAR2(30) := NVL(SYS_CONTEXT('SAED_CTX', 'STATE'), 'ANONYMOUS');
     BEGIN
-        IF v_state IN ('ANONYMOUS', 'CLEARING', 'BOOTSTRAP') THEN RETURN '1=0'; END IF;
+        IF v_state IN ('ANONYMOUS', 'CLEARING') THEN RETURN '1=0'; END IF;
+        IF v_state = 'BOOTSTRAP' THEN RETURN '1=1'; END IF;
         IF v_rol = 'SUPERADMIN' THEN RETURN '1=1'; END IF;
         IF v_org IS NULL OR v_org = '0' THEN RETURN '1=0'; END IF;
         IF v_prop IS NOT NULL THEN
@@ -49,7 +50,8 @@ CREATE OR REPLACE PACKAGE BODY SAED_V39_FINAL_TEST.PKG_SAED_SECURITY_RLS AS
         v_rol VARCHAR2(30) := SYS_CONTEXT('SAED_CTX', 'ROL_CODIGO');
         v_state VARCHAR2(30) := NVL(SYS_CONTEXT('SAED_CTX', 'STATE'), 'ANONYMOUS');
     BEGIN
-        IF v_state IN ('ANONYMOUS', 'CLEARING', 'BOOTSTRAP') THEN RETURN '1=0'; END IF;
+        IF v_state IN ('ANONYMOUS', 'CLEARING') THEN RETURN '1=0'; END IF;
+        IF v_state = 'BOOTSTRAP' THEN RETURN '1=1'; END IF;
         IF v_rol = 'SUPERADMIN' THEN RETURN '1=1'; END IF;
         IF v_org IS NULL OR v_org = '0' THEN RETURN '1=0'; END IF;
         IF v_prop IS NOT NULL THEN

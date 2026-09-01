@@ -4,23 +4,34 @@ import com.saed.backend.identity.dto.AuthResponse;
 import com.saed.backend.identity.dto.LoginRequest;
 import com.saed.backend.identity.service.AuthService;
 import com.saed.backend.security.jwt.JwtProvider;
+import com.saed.backend.context.SaedContext;
+import com.saed.backend.context.SaedContextHolder;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.MediaType;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
-import org.springframework.beans.factory.annotation.Value;
 
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
-@org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
+@AutoConfigureMockMvc
 @ActiveProfiles("dev")
 public class Phase1AAuthIntegrationTest {
 
@@ -33,20 +44,46 @@ public class Phase1AAuthIntegrationTest {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
+    @Autowired
+    private MockMvc mockMvc;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
     @Value("${jwt.secret:dGhpcy1pcy1hLXZlcnktc2VjdXJlLWtleS1mb3Itc2FlZC0yLjAtc2VjcmV0}")
     private String jwtSecret;
 
-    private static final String TEST_USERNAME = "admin_global";
+    private static final String TEST_USERNAME = "admin_global@saed.com";
     private static final String TEST_PASSWORD = "Password123!";
 
     @BeforeEach
     public void setup() {
+        SaedContextHolder.setContext(SaedContext.builder().userId(1L).organizationId(1L).propertyId(1L).roleCode("SUPERADMIN").roleScope("GLOBAL").build());
+        jdbcTemplate.execute("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1); PKG_SAED_SESSION.SET_CONTEXT(1, 1, 1, 'SUPERADMIN'); END;");
+        
+        org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder encoder = new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder();
+        String hash = encoder.encode(TEST_PASSWORD);
+        
+        try { jdbcTemplate.update("UPDATE PERSONAS SET EMAIL = ? WHERE ID_PERSONA = 1", TEST_USERNAME); } catch (Exception e) {}
+        try { jdbcTemplate.update("UPDATE USUARIOS SET HASH_PASSWORD = ?, NOMBRE_USUARIO = 'admin_global', EMAIL = ?, ESTADO = 'ACTIVO' WHERE ID_USUARIO = 1", hash, TEST_USERNAME); } catch (Exception e) {}
+        try { jdbcTemplate.update("UPDATE ADMINISTRADORES_SAED SET NIVEL = 'SUPERADMIN', ESTADO = 'ACTIVO' WHERE ID_USUARIO = 1"); } catch (Exception e) {}
+        try { jdbcTemplate.update("INSERT INTO ADMINISTRADORES_SAED (ID_ADMINISTRADOR_SAED, ID_USUARIO, NIVEL, ESTADO) VALUES (1, 1, 'SUPERADMIN', 'ACTIVO')"); } catch (Exception e) {}
+
         Long userId = getTestUserId();
+        
         if (userId != null) {
             jdbcTemplate.update("CALL SAED_SEC_MASTER.PKG_AUTH_BOOTSTRAP.REGISTER_LOGIN_SUCCESS(?, ?)", userId, "TEST_SETUP");
         }
+        
+        jdbcTemplate.execute("BEGIN PKG_SAED_SESSION.CLEAR_CONTEXT; END;");
+        SaedContextHolder.clearContext();
     }
-    
+
+    @AfterEach
+    public void tearDown() {
+        SaedContextHolder.clearContext();
+    }
+
     private Long getTestUserId() {
         try {
             var call = new org.springframework.jdbc.core.simple.SimpleJdbcCall(jdbcTemplate)
@@ -54,16 +91,17 @@ public class Phase1AAuthIntegrationTest {
                 .withProcedureName("GET_AUTH_DATA")
                 .withoutProcedureColumnMetaDataAccess()
                 .declareParameters(
-                    new org.springframework.jdbc.core.SqlParameter("p_username", java.sql.Types.VARCHAR), 
+                    new org.springframework.jdbc.core.SqlParameter("p_email", java.sql.Types.VARCHAR), 
                     new org.springframework.jdbc.core.SqlOutParameter("p_id_usuario", java.sql.Types.NUMERIC), 
                     new org.springframework.jdbc.core.SqlOutParameter("p_hash", java.sql.Types.VARCHAR), 
                     new org.springframework.jdbc.core.SqlOutParameter("p_estado", java.sql.Types.VARCHAR), 
                     new org.springframework.jdbc.core.SqlOutParameter("p_intentos", java.sql.Types.NUMERIC)
                 );
-            Map<String, Object> out = call.execute(Map.of("p_username", TEST_USERNAME));
+            Map<String, Object> out = call.execute(Map.of("p_email", TEST_USERNAME));
             Number id = (Number) out.get("p_id_usuario");
             return id != null ? id.longValue() : null;
-        } catch(Exception e) {
+        } catch (Exception e) {
+            e.printStackTrace();
             return null;
         }
     }
@@ -138,10 +176,6 @@ public class Phase1AAuthIntegrationTest {
         int count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM SAED_V39_FINAL_TEST.USUARIOS", Integer.class);
         assertEquals(0, count, "El backend no deberia poder hacer SELECT directo a USUARIOS debido a RLS");
     }
-    @Autowired
-    private org.springframework.test.web.servlet.MockMvc mockMvc;
-    @Autowired
-    private com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 
     @Test
     public void testHttp401OnInvalidCredentials() throws Exception {
@@ -149,13 +183,13 @@ public class Phase1AAuthIntegrationTest {
         req.setUsername("notexists.saed");
         req.setPassword("wrong");
 
-        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/v1/auth/login")
-                .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+        mockMvc.perform(post("/api/v1/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(req)))
-                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isUnauthorized())
-                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.success").value(false))
-                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.code").value("UNAUTHORIZED"))
-                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.message").value("Credenciales invalidas"));
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"))
+                .andExpect(jsonPath("$.message").value("Credenciales invalidas"));
     }
 
     @Test
@@ -163,20 +197,17 @@ public class Phase1AAuthIntegrationTest {
         java.util.Date now = new java.util.Date();
         java.util.Date past = new java.util.Date(now.getTime() - 3600000); 
         
-        String expiredJwt = io.jsonwebtoken.Jwts.builder()
+        String expiredJwt = Jwts.builder()
                 .subject("100")
                 .issuedAt(past)
                 .expiration(past)
-                .signWith(io.jsonwebtoken.security.Keys.hmacShaKeyFor(jwtSecret.getBytes()))
+                .signWith(Keys.hmacShaKeyFor(jwtSecret.getBytes()))
                 .compact();
 
-        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/v1/me/contexts")
+        mockMvc.perform(get("/api/v1/me/contexts")
                 .header("Authorization", "Bearer " + expiredJwt))
-                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isUnauthorized());
+                .andExpect(status().isUnauthorized());
                 
-        assertNull(com.saed.backend.context.SaedContextHolder.getContext(), "SaedContext should be null since authentication failed");
+        assertNull(SaedContextHolder.getContext(), "SaedContext should be null since authentication failed");
     }
 }
-
-
-

@@ -50,17 +50,17 @@ public class PaquetesRepositoryImpl implements PaquetesRepository {
             toZDT(rs.getTimestamp("FECHA_ENTREGA")),
             rs.getString("nombrePersonaRecibe"),
             rs.getString("nombrePorteroEntrega"),
-            rs.getString("FIRMA_URL"),
+            rs.getString("FOTO_COMPROBANTE_URL"),
             rs.getString("ESTADO")
     );
 
     private String getBaseQuery() {
         return "SELECT p.*, " +
-               "u.NUMERO as numeroApartamento, " +
-               "(dest.NOMBRES || ' ' || dest.APELLIDOS) as nombreDestinatario, " +
-               "(port_recibe.NOMBRES || ' ' || port_recibe.APELLIDOS) as nombrePorteroRecibe, " +
-               "(port_entrega.NOMBRES || ' ' || port_entrega.APELLIDOS) as nombrePorteroEntrega, " +
-               "(pers_recibe.NOMBRES || ' ' || pers_recibe.APELLIDOS) as nombrePersonaRecibe " +
+               "u.IDENTIFICADOR as \"numeroApartamento\", " +
+               "(dest.PRIMER_NOMBRE || ' ' || dest.PRIMER_APELLIDO) as \"nombreDestinatario\", " +
+               "(port_recibe.PRIMER_NOMBRE || ' ' || port_recibe.PRIMER_APELLIDO) as \"nombrePorteroRecibe\", " +
+               "(port_entrega.PRIMER_NOMBRE || ' ' || port_entrega.PRIMER_APELLIDO) as \"nombrePorteroEntrega\", " +
+               "(pers_recibe.PRIMER_NOMBRE || ' ' || pers_recibe.PRIMER_APELLIDO) as \"nombrePersonaRecibe\" " +
                "FROM PAQUETES p " +
                "JOIN UNIDADES u ON p.ID_UNIDAD = u.ID_UNIDAD " +
                "LEFT JOIN PERSONAS dest ON p.ID_PERSONA_DESTINATARIO = dest.ID_PERSONA " +
@@ -72,7 +72,7 @@ public class PaquetesRepositoryImpl implements PaquetesRepository {
     @Override
     public PaqueteDTO registrarPaquete(PaqueteRequestDTO request, Long idPropiedad, String codigoRetiro, Long idPorteroRegistra) {
         String sql = "INSERT INTO PAQUETES (ID_PROPIEDAD, ID_PORTERIA, ID_UNIDAD, ID_PERSONA_DESTINATARIO, EMPRESA_MENSAJERIA, NUMERO_GUIA, DESCRIPCION, TAMANO, FOTO_PAQUETE_URL, CODIGO_RETIRO_PIN, RECIBIDO_POR_PORTERO, ESTADO) " +
-                     "VALUES (:propiedad, :porteria, :unidad, :destinatario, :empresa, :guia, :descripcion, :tamano, :foto, :pin, (SELECT ID_PERSONA FROM USUARIOS WHERE ID_USUARIO = :portero), 'RECIBIDO')";
+                     "VALUES (:propiedad, :porteria, :unidad, :destinatario, :empresa, :guia, :descripcion, :tamano, :foto, :pin, :portero, 'RECIBIDO')";
 
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("propiedad", idPropiedad)

@@ -43,8 +43,13 @@ public class SaedDataSourceProxy extends DelegatingDataSource {
         SaedContext context = SaedContextHolder.getContext();
         
         if (context == null || context.getUserId() == null) {
+            try (CallableStatement cs = connection.prepareCall("{call PKG_SAED_SESSION.CLEAR_CONTEXT()}")) {
+                cs.execute();
+            }
             return;
         }
+
+        System.out.println("SAED CONTEXT TO ORACLE: userId=" + context.getUserId() + " orgId=" + context.getOrganizationId() + " propId=" + context.getPropertyId() + " role=" + context.getRoleCode());
 
         try (CallableStatement cs = connection.prepareCall("{call PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(?)}")) {
             cs.setLong(1, context.getUserId());
