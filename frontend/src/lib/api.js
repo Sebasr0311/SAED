@@ -155,12 +155,19 @@ async function request(endpoint, options = {}) {
 }
 
 export const api = {
-  get: (url) => request(url),
-  post: (url, body) => request(url, { method: 'POST', body: JSON.stringify(body) }),
-  put: (url, body) => request(url, { method: 'PUT', body: JSON.stringify(body) }),
-  patch: (url, body) => request(url, { method: 'PATCH', body: JSON.stringify(body) }),
-  del: (url, body) =>
-    request(url, { method: 'DELETE', body: body ? JSON.stringify(body) : undefined }),
+  get: (url, options = {}) => request(url, options),
+  post: (url, body, options = {}) =>
+    request(url, { ...options, method: 'POST', body: JSON.stringify(body) }),
+  put: (url, body, options = {}) =>
+    request(url, { ...options, method: 'PUT', body: JSON.stringify(body) }),
+  patch: (url, body, options = {}) =>
+    request(url, { ...options, method: 'PATCH', body: JSON.stringify(body) }),
+  delete: (url, options = {}) =>
+    request(url, { ...options, method: 'DELETE' }),
+  del: (url, body, options = {}) =>
+    typeof body === 'object' && !Array.isArray(body) && (body?.headers || body?.signal)
+      ? request(url, { ...body, method: 'DELETE' })
+      : request(url, { ...(options || {}), method: 'DELETE', body: body ? JSON.stringify(body) : undefined }),
 };
 
 export { clearAuth, setTokens };

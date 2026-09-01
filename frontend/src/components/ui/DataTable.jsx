@@ -4,18 +4,19 @@ import EmptyState from './EmptyState.jsx';
 import { Button } from './Button.jsx';
 import { Skeleton } from './skeleton.tsx';
 
-export const DataTable = memo(function DataTable({ columns, rows, loading, empty, onRowClick, keyField = 'id', selectedKey, error, onRetry, pageSize }) {
+export const DataTable = memo(function DataTable({ columns = [], rows, data, loading, empty, onRowClick, keyField = 'id', selectedKey, error, onRetry, pageSize }) {
   const [page, setPage] = useState(1);
+  const actualRows = rows || data || [];
 
   // Si cambian los datos (refetch, filtro), volver a la primera pagina.
-  const totalRows = rows?.length || 0;
+  const totalRows = actualRows?.length || 0;
   useEffect(() => {
     setPage(1);
   }, [totalRows]);
 
   const totalPaginas = pageSize && pageSize > 0 ? Math.max(1, Math.ceil(totalRows / pageSize)) : 1;
   const paginaSegura = Math.min(page, totalPaginas);
-  const filasVisibles = pageSize && pageSize > 0 ? rows.slice((paginaSegura - 1) * pageSize, paginaSegura * pageSize) : rows;
+  const filasVisibles = pageSize && pageSize > 0 ? actualRows.slice((paginaSegura - 1) * pageSize, paginaSegura * pageSize) : actualRows;
 
   if (loading) {
     return (
@@ -57,7 +58,7 @@ export const DataTable = memo(function DataTable({ columns, rows, loading, empty
       </div>
     );
   }
-  if (!rows || rows.length === 0) {
+  if (!actualRows || actualRows.length === 0) {
     // `empty` acepta string (titulo) u objeto { icon, title, subtitle }.
     const emptyTitle = typeof empty === 'string' ? empty : empty?.title;
     const emptyObj = typeof empty === 'string' ? { title: empty } : empty || {};
@@ -76,9 +77,9 @@ export const DataTable = memo(function DataTable({ columns, rows, loading, empty
       <table className="data-table">
         <thead>
           <tr>
-            {columns.map((col) => (
-              <th key={col.key} scope="col" style={col.width ? { width: col.width } : undefined}>
-                {col.label}
+            {columns.map((col, cIdx) => (
+              <th key={col.key || col.accessor || col.accessorKey || col.field || cIdx} scope="col" style={col.width ? { width: col.width } : undefined}>
+                {col.label || col.header || col.name}
               </th>
             ))}
           </tr>
@@ -107,9 +108,9 @@ export const DataTable = memo(function DataTable({ columns, rows, loading, empty
               )}
               style={selectedKey != null && row[keyField] === selectedKey ? { background: 'var(--surface-selected)' } : undefined}
             >
-              {columns.map((col) => (
-                <td key={col.key} className={classNames(col.cellClassName)}>
-                  {col.render ? col.render(row) : row[col.key]}
+              {columns.map((col, cIdx) => (
+                <td key={col.key || col.accessor || col.accessorKey || col.field || cIdx} className={classNames(col.cellClassName)}>
+                  {col.render ? col.render(row) : (row[col.key || col.accessor || col.accessorKey || col.field] ?? '')}
                 </td>
               ))}
             </tr>

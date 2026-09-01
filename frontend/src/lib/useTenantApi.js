@@ -55,7 +55,7 @@ export function useTenantApi() {
     [headers]
   );
 
-  return { get, post, put, del, patch };
+  return { get, post, put, del, delete: del, patch };
 }
 
 export default useTenantApi;

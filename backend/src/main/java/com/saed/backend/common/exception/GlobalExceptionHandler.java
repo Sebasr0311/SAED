@@ -97,7 +97,7 @@ public class GlobalExceptionHandler {
         }
 
         if (message != null && (message.contains("ORA-00001") || message.contains("UIX_ASIGNACION_UNICA"))) {
-            ex.printStackTrace();
+            log.warn("Conflicto de base de datos detectado: {}", message);
             response.put("code", "CONFLICT");
             response.put("message", "El registro ya existe o la asignaci\u00f3n est\u00e1 duplicada.");
             return new ResponseEntity<>(response, HttpStatus.CONFLICT);

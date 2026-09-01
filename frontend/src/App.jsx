@@ -226,10 +226,15 @@ export default function App() {
               </ProtectedRoute>
             }
           />
-            <Route path="obras-admin" element={<ProtectedRoute roles={['ADMINISTRADOR']}><ObrasAdminPage /></ProtectedRoute>} />
+          <Route path="obras-admin" element={<ProtectedRoute roles={['ADMINISTRADOR']}><ObrasAdminPage /></ProtectedRoute>} />
+          <Route path="mantenimiento-admin" element={<ProtectedRoute roles={['ADMINISTRADOR']}><MantenimientoAdminPage /></ProtectedRoute>} />
+          <Route path="mantenimientos" element={<ProtectedRoute roles={['ADMINISTRADOR']}><MantenimientoAdminPage /></ProtectedRoute>} />
           <Route path="asambleas-admin" element={<ProtectedRoute roles={['ADMINISTRADOR']}><AsambleasAdminPage /></ProtectedRoute>} />
+          <Route path="asambleas" element={<ProtectedRoute roles={['ADMINISTRADOR']}><AsambleasAdminPage /></ProtectedRoute>} />
           <Route path="polizas-admin" element={<ProtectedRoute roles={['ADMINISTRADOR']}><PolizasAdminPage /></ProtectedRoute>} />
+          <Route path="polizas" element={<ProtectedRoute roles={['ADMINISTRADOR']}><PolizasAdminPage /></ProtectedRoute>} />
           <Route path="emergencias-admin" element={<ProtectedRoute roles={['ADMINISTRADOR']}><EmergenciasAdminPage /></ProtectedRoute>} />
+          <Route path="emergencias" element={<ProtectedRoute roles={['ADMINISTRADOR']}><EmergenciasAdminPage /></ProtectedRoute>} />
           <Route path="incidentes-admin" element={<ProtectedRoute roles={['ADMINISTRADOR', 'PORTERO']}><IncidentesAdminPage /></ProtectedRoute>} />
           <Route
             path="alertas"
