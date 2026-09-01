@@ -39,6 +39,8 @@ public class SaedDataSourceProxy extends DelegatingDataSource {
         }
     }
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(SaedDataSourceProxy.class);
+
     private void applySaedContext(Connection connection) throws SQLException {
         SaedContext context = SaedContextHolder.getContext();
         
@@ -49,7 +51,10 @@ public class SaedDataSourceProxy extends DelegatingDataSource {
             return;
         }
 
-        System.out.println("SAED CONTEXT TO ORACLE: userId=" + context.getUserId() + " orgId=" + context.getOrganizationId() + " propId=" + context.getPropertyId() + " role=" + context.getRoleCode());
+        if (log.isDebugEnabled()) {
+            log.debug("SAED CONTEXT TO ORACLE: userId={} orgId={} propId={} role={}",
+                    context.getUserId(), context.getOrganizationId(), context.getPropertyId(), context.getRoleCode());
+        }
 
         try (CallableStatement cs = connection.prepareCall("{call PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(?)}")) {
             cs.setLong(1, context.getUserId());

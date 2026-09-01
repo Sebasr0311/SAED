@@ -6,6 +6,8 @@ import com.saed.backend.finanzas.service.FinanzasService;
 import com.saed.backend.common.service.PdfService;
 import com.saed.backend.common.service.EmailService;
 import com.saed.backend.common.service.TemplateRenderService;
+import com.saed.backend.context.SaedContext;
+import com.saed.backend.context.SaedContextHolder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -103,6 +105,9 @@ public class FinanzasServiceImpl implements FinanzasService {
 
     @Override
     public ResidenteDashboardDTO getDashboardResidente(Long idResidente) {
+        SaedContext ctx = SaedContextHolder.getContext();
+        String role = ctx.getRoleCode();
+
         List<CuotaDTO> cuotas = finanzasRepository.getCuotasByResidente(idResidente);
         return new ResidenteDashboardDTO(idResidente, cuotas);
     }

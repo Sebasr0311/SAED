@@ -17,7 +17,11 @@ public class DashboardController {
     @GetMapping("/{id}/frecuentes")
     @PreAuthorize("hasAuthority('SCOPE_RESIDENTE')")
     public List<Map<String, Object>> getFrecuentes(@PathVariable Long id) {
-        return jdbcTemplate.queryForList("SELECT * FROM VISITANTES WHERE ES_FRECUENTE = 'S'", Map.of());
+        return jdbcTemplate.queryForList(
+                "SELECT DISTINCT v.ID_VISITANTE, v.ID_PERSONA, v.EMPRESA, v.ES_FRECUENTE " +
+                "FROM VISITANTES v " +
+                "JOIN VISITAS vi ON v.ID_VISITANTE = vi.ID_VISITANTE " +
+                "WHERE v.ES_FRECUENTE = 'S'", Map.of());
     }
 
     @DeleteMapping("/{id}/frecuentes/{idFrecuente}")
@@ -30,11 +34,13 @@ public class DashboardController {
     @GetMapping("/{id}/qr-activos")
     @PreAuthorize("hasAuthority('SCOPE_RESIDENTE')")
     public List<Map<String, Object>> getQrActivos(@PathVariable Long id) {
-        return jdbcTemplate.queryForList("SELECT * FROM QR_ACCESOS WHERE ESTADO = 'ACTIVO'", Map.of());
+        return jdbcTemplate.queryForList(
+                "SELECT q.ID_QR, q.ID_VISITA, q.TOKEN_HASH, q.FECHA_EXPIRACION, q.ESTADO " +
+                "FROM QR_ACCESOS q JOIN VISITAS v ON q.ID_VISITA = v.ID_VISITA WHERE q.ESTADO = 'ACTIVO'", Map.of());
     }
     
     @PostMapping("/{id}/asignar-apartamento")
-    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAuthority('SCOPE_SUPERADMIN') or hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<Void> asignarApartamento(@PathVariable Long id, @RequestBody Map<String, Object> payload) {
         return ResponseEntity.ok().build();
     }

@@ -70,31 +70,34 @@ public class WompiServiceImpl implements WompiService {
         }
 
         SaedContext ctx = SaedContextHolder.getContext();
-        Long idUnidad = ctx.getUnitId() != null ? ctx.getUnitId() : ctx.getPropertyId();
-        if (idUnidad == null) {
-            throw new RuntimeException("No tenant/unit context");
-        }
+        Long idUnidad = ctx.getUnitId();
 
         // Monto y validacion segun el esquema 2.0 real (CUOTAS / MULTAS)
         BigDecimal monto;
         Long idCuota = null;
         if ("CUOTA".equals(concepto)) {
-            List<Map<String, Object>> cuotas = jdbcTemplate.queryForList(
-                "SELECT ID_CUOTA, SALDO_PENDIENTE FROM CUOTAS " +
-                "WHERE ID_CUOTA = :id AND ID_UNIDAD = :u AND ESTADO = 'PENDIENTE'",
-                new MapSqlParameterSource("id", idItem).addValue("u", idUnidad)
-            );
+            String sqlCuota = (idUnidad != null)
+                ? "SELECT ID_CUOTA, ID_UNIDAD, SALDO_PENDIENTE FROM CUOTAS WHERE ID_CUOTA = :id AND ID_UNIDAD = :u AND ESTADO = 'PENDIENTE'"
+                : "SELECT ID_CUOTA, ID_UNIDAD, SALDO_PENDIENTE FROM CUOTAS WHERE ID_CUOTA = :id AND ESTADO = 'PENDIENTE'";
+            MapSqlParameterSource params = new MapSqlParameterSource("id", idItem);
+            if (idUnidad != null) params.addValue("u", idUnidad);
+
+            List<Map<String, Object>> cuotas = jdbcTemplate.queryForList(sqlCuota, params);
             if (cuotas.isEmpty()) throw new RuntimeException("Cuota no encontrada, ya pagada o sin acceso");
             idCuota = ((Number) cuotas.get(0).get("ID_CUOTA")).longValue();
+            idUnidad = ((Number) cuotas.get(0).get("ID_UNIDAD")).longValue();
             monto = (BigDecimal) cuotas.get(0).get("SALDO_PENDIENTE");
         } else {
-            List<Map<String, Object>> multas = jdbcTemplate.queryForList(
-                "SELECT ID_MULTA, MONTO FROM MULTAS " +
-                "WHERE ID_MULTA = :id AND ID_UNIDAD = :u AND ESTADO IN ('IMPUESTA','EN_DESCARGOS','RATIFICADA')",
-                new MapSqlParameterSource("id", idItem).addValue("u", idUnidad)
-            );
+            String sqlMulta = (idUnidad != null)
+                ? "SELECT ID_MULTA, ID_UNIDAD, MONTO FROM MULTAS WHERE ID_MULTA = :id AND ID_UNIDAD = :u AND ESTADO IN ('IMPUESTA','EN_DESCARGOS','RATIFICADA')"
+                : "SELECT ID_MULTA, ID_UNIDAD, MONTO FROM MULTAS WHERE ID_MULTA = :id AND ESTADO IN ('IMPUESTA','EN_DESCARGOS','RATIFICADA')";
+            MapSqlParameterSource params = new MapSqlParameterSource("id", idItem);
+            if (idUnidad != null) params.addValue("u", idUnidad);
+
+            List<Map<String, Object>> multas = jdbcTemplate.queryForList(sqlMulta, params);
             if (multas.isEmpty()) throw new RuntimeException("Multa no encontrada, ya pagada o sin acceso");
-            idCuota = ((Number) multas.get(0).get("ID_MULTA")).longValue(); // Reutilizamos ID_CUOTA como ID del item (CUOTA o MULTA)
+            idCuota = ((Number) multas.get(0).get("ID_MULTA")).longValue();
+            idUnidad = ((Number) multas.get(0).get("ID_UNIDAD")).longValue();
             monto = (BigDecimal) multas.get(0).get("MONTO");
         }
 
@@ -108,8 +111,7 @@ public class WompiServiceImpl implements WompiService {
 
         String firma = firmaIntegridad(referencia, montoCentavos);
 
-        // Esquema 2.0 real de TRANSACCIONES_PAGO (ID_TRANSACCION_PASARELA NOT NULL:
-        // placeholder temporal; el id real llega en el webhook transaction.updated)
+        // Esquema 2.0 real de TRANSACCIONES_PAGO
         String sql = "INSERT INTO TRANSACCIONES_PAGO " +
                      "(ID_UNIDAD, ID_PAGO, PASARELA, ID_TRANSACCION_PASARELA, REFERENCIA_INTERNA, MONTO_CENTAVOS, MONEDA, ESTADO_PASARELA, METODO_ORIGEN, FIRMA_CHECKSUM) " +
                      "VALUES (:u, NULL, 'WOMPI', :ref, :ref, :mc, 'COP', 'PENDIENTE', :concepto, :firma)";
@@ -191,46 +193,57 @@ public class WompiServiceImpl implements WompiService {
         String estadoActual = (String) intencion.get("ESTADO_PASARELA");
         if (!"PENDIENTE".equals(estadoActual)) return; // Idempotencia
 
+        // Validacion exacta de monto en centavos
+        Number amountInCents = (Number) tx.get("amount_in_cents");
+        long expectedCentavos = ((Number) intencion.get("MONTO_CENTAVOS")).longValue();
+        if (amountInCents == null || amountInCents.longValue() != expectedCentavos) {
+            log.warn("[Wompi] Monto en centavos no coincide: recibido={}, esperado={}", amountInCents, expectedCentavos);
+            return;
+        }
+
         String nuevoEstado = estadoInternoDe(status);
         boolean aprobada = "APROBADO".equals(nuevoEstado);
+        String metodoPagoReal = (String) tx.get("payment_method_type");
+        if (metodoPagoReal == null) metodoPagoReal = "WOMPI";
 
         jdbcTemplate.update(
-            "UPDATE TRANSACCIONES_PAGO SET ESTADO_PASARELA = :est, PAYLOAD_WEBHOOK = :pay, ID_TRANSACCION_PASARELA = :wompi WHERE ID_TRANSACCION = :id",
+            "UPDATE TRANSACCIONES_PAGO SET ESTADO_PASARELA = :est, PAYLOAD_WEBHOOK = :pay, ID_TRANSACCION_PASARELA = :wompi, METODO_ORIGEN = :metodo WHERE ID_TRANSACCION = :id",
             new MapSqlParameterSource("est", nuevoEstado)
                 .addValue("pay", payloadRaw)
                 .addValue("wompi", idWompi)
+                .addValue("metodo", metodoPagoReal)
                 .addValue("id", ((Number) intencion.get("ID_TRANSACCION")).longValue())
         );
 
         if (aprobada) {
-            Number montoObj = (Number) tx.get("amount_in_cents");
-            BigDecimal montoPesos = montoObj != null
-                ? new BigDecimal(montoObj.longValue()).divide(new BigDecimal(100))
-                : BigDecimal.ZERO;
+            BigDecimal montoPesos = new BigDecimal(expectedCentavos).divide(new BigDecimal(100));
             Long idUnidad = ((Number) intencion.get("ID_UNIDAD")).longValue();
 
-            String concepto = (String) intencion.get("METODO_ORIGEN");
+            // Extraer concepto e idItem desde la referencia "SAED-<CONCEPTO>-<ID>-<TIMESTAMP>"
+            String[] refParts = referencia.split("-");
+            String concepto = refParts.length >= 2 ? refParts[1] : "CUOTA";
+            Long idItem = refParts.length >= 3 ? Long.parseLong(refParts[2]) : null;
+
             try {
-                if ("CUOTA".equals(concepto)) {
+                if ("CUOTA".equals(concepto) && idItem != null) {
                     finanzasService.registrarPago(new PagoRequestDTO(
-                        ((Number) intencion.get("ID_PAGO")).longValue(),
+                        idItem,
                         java.time.LocalDate.now(),
                         montoPesos,
-                        "WOMPI",
+                        metodoPagoReal,
                         referencia
                     ));
-                } else if ("MULTA".equals(concepto)) {
-                    Long idMulta = ((Number) intencion.get("ID_PAGO")).longValue();
+                } else if ("MULTA".equals(concepto) && idItem != null) {
                     jdbcTemplate.update(
                         "UPDATE MULTAS SET ESTADO = 'PAGADA' WHERE ID_MULTA = :id AND ID_UNIDAD = :u",
-                        new MapSqlParameterSource("id", idMulta).addValue("u", idUnidad)
+                        new MapSqlParameterSource("id", idItem).addValue("u", idUnidad)
                     );
                 }
             } catch (Exception e) {
                 log.error("[Wompi] Error registrando pago aprobado", e);
             }
 
-            // Recibo por correo (modelo 2.0: RESIDENTES_UNIDAD)
+            // Recibo por correo
             try {
                 List<Map<String, Object>> residentes = jdbcTemplate.queryForList(
                     "SELECT P.EMAIL FROM PERSONAS P " +

@@ -4,6 +4,7 @@ import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.web.bind.annotation.*;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 import java.util.List;
 import java.util.Map;
@@ -25,6 +26,7 @@ public class CatalogoController {
     }
 
     @GetMapping("/tipos-unidad")
+    @PreAuthorize("isAuthenticated()")
     public List<Map<String, Object>> tiposUnidad() {
         return jdbcTemplate.queryForList(
                 "SELECT ID_TIPO_UNIDAD, CODIGO, NOMBRE FROM TIPOS_UNIDAD ORDER BY NOMBRE",
@@ -32,6 +34,7 @@ public class CatalogoController {
     }
 
     @GetMapping("/bloques")
+    @PreAuthorize("isAuthenticated()")
     public List<Map<String, Object>> bloques() {
         return jdbcTemplate.queryForList(
                 "SELECT ID_BLOQUE, ID_PROPIEDAD, CODIGO, NOMBRE, TIPO, ORDEN, ESTADO FROM BLOQUES ORDER BY ORDEN, CODIGO",
@@ -39,6 +42,7 @@ public class CatalogoController {
     }
 
     @GetMapping("/tipos-propiedad")
+    @PreAuthorize("isAuthenticated()")
     public List<Map<String, Object>> tiposPropiedad() {
         return jdbcTemplate.queryForList(
                 "SELECT ID_TIPO_PROPIEDAD, CODIGO, NOMBRE FROM TIPOS_PROPIEDAD ORDER BY NOMBRE",
@@ -46,6 +50,7 @@ public class CatalogoController {
     }
 
     @GetMapping("/tipos-documento")
+    @PreAuthorize("isAuthenticated()")
     public List<Map<String, Object>> tiposDocumento() {
         return jdbcTemplate.queryForList(
                 "SELECT ID_TIPO_DOCUMENTO, CODIGO, NOMBRE, APLICA_PERSONA_NATURAL, APLICA_PERSONA_JURIDICA FROM TIPOS_DOCUMENTO ORDER BY NOMBRE",
@@ -53,6 +58,7 @@ public class CatalogoController {
     }
 
     @GetMapping("/roles")
+    @PreAuthorize("isAuthenticated()")
     public List<Map<String, Object>> roles() {
         return jdbcTemplate.queryForList(
                 "SELECT ID_ROL, CODIGO, NOMBRE, ALCANCE, ESTADO FROM ROLES ORDER BY NOMBRE",
@@ -60,6 +66,7 @@ public class CatalogoController {
     }
 
     @GetMapping("/usuarios")
+    @PreAuthorize("hasAuthority('SCOPE_SUPERADMIN') or hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
     public List<Map<String, Object>> usuarios() {
         return jdbcTemplate.queryForList(
                 "SELECT u.ID_USUARIO, u.NOMBRE_USUARIO, u.EMAIL, u.ESTADO, " +

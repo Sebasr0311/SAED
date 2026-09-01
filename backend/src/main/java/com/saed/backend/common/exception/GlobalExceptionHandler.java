@@ -86,7 +86,7 @@ public class GlobalExceptionHandler {
         if (message != null && message.contains("ORA-2008")) {
             registrarAccesoDenegado("Contexto spoofing detectado (PKG_SAED_SESSION)", "SEGURIDAD");
             response.put("code", "CONTEXT_SPOOFING_DETECTED");
-            response.put("message", "Error de seguridad Oracle: " + message);
+            response.put("message", "Operaci\u00f3n rechazada por contexto de seguridad inv\u00e1lido.");
             return new ResponseEntity<>(response, HttpStatus.FORBIDDEN);
         }
 
@@ -108,6 +108,20 @@ public class GlobalExceptionHandler {
         response.put("code", "DATABASE_ERROR");
         response.put("message", "Ha ocurrido un error en la capa de datos.");
         return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    @ExceptionHandler(org.springframework.web.bind.MethodArgumentNotValidException.class)
+    public ResponseEntity<Map<String, Object>> handleValidationExceptions(org.springframework.web.bind.MethodArgumentNotValidException ex) {
+        Map<String, Object> response = new HashMap<>();
+        Map<String, String> errors = new HashMap<>();
+        ex.getBindingResult().getFieldErrors().forEach(error ->
+            errors.put(error.getField(), error.getDefaultMessage())
+        );
+        response.put("success", false);
+        response.put("code", "VALIDATION_FAILED");
+        response.put("message", "Error de validaci\u00f3n en los campos enviados");
+        response.put("errors", errors);
+        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
     }
 
     @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
@@ -160,7 +174,7 @@ public class GlobalExceptionHandler {
         if (message != null && message.contains("ORA-2008")) {
             registrarAccesoDenegado("Contexto spoofing en transaccion", "SEGURIDAD");
             response.put("code", "CONTEXT_SPOOFING_DETECTED");
-            response.put("message", "Error de seguridad Oracle: " + message);
+            response.put("message", "Operaci\u00f3n rechazada por contexto de seguridad inv\u00e1lido.");
             return new ResponseEntity<>(response, HttpStatus.FORBIDDEN);
         }
 

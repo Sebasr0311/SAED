@@ -90,6 +90,14 @@ public class AssignmentManagementService {
 
     @Transactional
     public void updateStatus(Long id, String estado) {
+        SaedContext ctx = SaedContextHolder.getContext();
+        String currentCode = ctx.getRoleCode();
+        String currentScope = ctx.getRoleScope();
+
+        if (!"SUPERADMIN".equals(currentCode) && !"ADMIN_ORGANIZACION".equals(currentCode) && !"ADMIN_PROPIEDAD".equals(currentCode)) {
+            throw new AccessDeniedException("No tiene permisos para modificar el estado de asignaciones");
+        }
+
         assignmentRepository.updateStatus(id, estado);
     }
 }
