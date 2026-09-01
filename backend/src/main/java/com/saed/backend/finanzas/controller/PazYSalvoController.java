@@ -1,5 +1,9 @@
 package com.saed.backend.finanzas.controller;
 
+import com.saed.backend.audit.Auditable;
+import com.saed.backend.audit.AuditCategory;
+import com.saed.backend.audit.AuditSeverity;
+
 import com.saed.backend.common.dto.ApiResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -51,6 +55,7 @@ public class PazYSalvoController {
     // --- GENERAR ---
 
     @PostMapping
+    @Auditable(action = "CREATE", resource = "PAZ_Y_SALVO", category = AuditCategory.FINANCIAL, severity = AuditSeverity.HIGH)
     public ResponseEntity<ApiResponse<Map<String, Object>>> generar(@RequestBody Map<String, Object> body) {
         Number idUnidad = (Number) body.get("idUnidad");
         String motivo = (String) body.getOrDefault("motivo", "");

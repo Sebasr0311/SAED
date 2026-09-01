@@ -1,5 +1,9 @@
 package com.saed.backend.porteria.service.impl;
 
+import com.saed.backend.audit.Auditable;
+import com.saed.backend.audit.AuditCategory;
+import com.saed.backend.audit.AuditSeverity;
+
 import com.saed.backend.common.service.EmailService;
 import com.saed.backend.porteria.dto.*;
 import com.saed.backend.porteria.repository.PorteriaRepository;
@@ -149,6 +153,7 @@ public class PorteriaServiceImpl implements PorteriaService {
     }
 
     @Override
+    @Auditable(action = "CHECKIN", resource = "ACCESO_PORTERIA", category = AuditCategory.SECURITY, severity = AuditSeverity.INFO)
     public RegistroAccesoDTO registrarEntrada(RegistroAccesoRequestDTO request) {
         if (!"ENTRADA".equals(request.tipoMovimiento())) {
             throw new IllegalArgumentException("El movimiento debe ser ENTRADA");
@@ -160,6 +165,7 @@ public class PorteriaServiceImpl implements PorteriaService {
     }
 
     @Override
+    @Auditable(action = "CHECKOUT", resource = "ACCESO_PORTERIA", category = AuditCategory.SECURITY, severity = AuditSeverity.INFO)
     public RegistroAccesoDTO registrarSalida(RegistroAccesoRequestDTO request) {
         if (!"SALIDA".equals(request.tipoMovimiento())) {
             throw new IllegalArgumentException("El movimiento debe ser SALIDA");
@@ -215,11 +221,13 @@ public class PorteriaServiceImpl implements PorteriaService {
     }
 
     @Override
+    @Auditable(action = "CHECKIN_VEHICULO", resource = "ACCESO_VEHICULO", category = AuditCategory.SECURITY, severity = AuditSeverity.INFO)
     public VehiculoVisitaDTO registrarIngresoVehiculo(VehiculoVisitaRequestDTO request) {
         return porteriaRepository.createVehiculoVisita(request);
     }
 
     @Override
+    @Auditable(action = "CHECKOUT_VEHICULO", resource = "ACCESO_VEHICULO", category = AuditCategory.SECURITY, severity = AuditSeverity.INFO)
     public void registrarSalidaVehiculo(Long vehiculoVisitaId, BigDecimal costoTotal) {
         porteriaRepository.registerSalidaVehiculo(vehiculoVisitaId, costoTotal);
     }

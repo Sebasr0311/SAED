@@ -1,5 +1,9 @@
 package com.saed.backend.finanzas.service.impl;
 
+import com.saed.backend.audit.Auditable;
+import com.saed.backend.audit.AuditCategory;
+import com.saed.backend.audit.AuditSeverity;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.saed.backend.finanzas.dto.PagoRequestDTO;
 import com.saed.backend.finanzas.service.FinanzasService;
@@ -61,6 +65,7 @@ public class WompiServiceImpl implements WompiService {
 
     @Override
     @Transactional
+    @Auditable(action = "CREATE_INTENTION", resource = "WOMPI_PAYMENT", category = AuditCategory.FINANCIAL, severity = AuditSeverity.CRITICAL)
     public Map<String, Object> crearIntencion(String concepto, Long idItem) throws Exception {
         if (WOMPI_PUBLIC_KEY == null || WOMPI_INTEGRITY_SECRET == null) {
             throw new RuntimeException("Wompi no configurado.");
@@ -155,6 +160,7 @@ public class WompiServiceImpl implements WompiService {
 
     @Override
     @Transactional
+    @Auditable(action = "PROCESS_WEBHOOK", resource = "WOMPI_WEBHOOK", category = AuditCategory.FINANCIAL, severity = AuditSeverity.CRITICAL)
     public void procesarWebhook(String payloadRaw) throws Exception {
         if (payloadRaw == null || payloadRaw.isBlank()) return;
 

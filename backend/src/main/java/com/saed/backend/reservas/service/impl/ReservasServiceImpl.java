@@ -1,5 +1,9 @@
 package com.saed.backend.reservas.service.impl;
 
+import com.saed.backend.audit.Auditable;
+import com.saed.backend.audit.AuditCategory;
+import com.saed.backend.audit.AuditSeverity;
+
 import com.saed.backend.context.SaedContextHolder;
 import com.saed.backend.reservas.dto.ReservaDTO;
 import com.saed.backend.reservas.dto.ZonaComunDTO;

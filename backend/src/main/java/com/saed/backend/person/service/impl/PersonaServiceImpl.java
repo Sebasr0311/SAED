@@ -1,5 +1,9 @@
 package com.saed.backend.person.service.impl;
 
+import com.saed.backend.audit.Auditable;
+import com.saed.backend.audit.AuditCategory;
+import com.saed.backend.audit.AuditSeverity;
+
 import com.saed.backend.person.dto.PersonaDTO;
 import com.saed.backend.person.dto.PersonaRequestDTO;
 import com.saed.backend.person.repository.PersonaRepository;

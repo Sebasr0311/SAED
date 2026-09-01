@@ -1,5 +1,9 @@
 package com.saed.backend.person.service.impl;
 
+import com.saed.backend.audit.Auditable;
+import com.saed.backend.audit.AuditCategory;
+import com.saed.backend.audit.AuditSeverity;
+
 import com.saed.backend.person.dto.*;
 import com.saed.backend.person.repository.DependentRepository;
 import com.saed.backend.person.service.DependentService;
@@ -20,6 +24,7 @@ public class DependentServiceImpl implements DependentService {
 
     // --- Mascotas ---
     @Override
+    @Auditable(action = "CREATE", resource = "MASCOTA", category = AuditCategory.OPERATIONAL, severity = AuditSeverity.INFO)
     public MascotaDTO createMascota(MascotaRequestDTO request) {
         return dependentRepository.createMascota(request);
     }
@@ -38,17 +43,20 @@ public class DependentServiceImpl implements DependentService {
     }
 
     @Override
+    @Auditable(action = "UPDATE", resource = "MASCOTA", category = AuditCategory.OPERATIONAL, severity = AuditSeverity.INFO)
     public MascotaDTO updateMascota(Long id, MascotaRequestDTO request) {
         return dependentRepository.updateMascota(id, request);
     }
 
     @Override
+    @Auditable(action = "DELETE", resource = "MASCOTA", category = AuditCategory.OPERATIONAL, severity = AuditSeverity.WARN)
     public void deleteMascota(Long id) {
         dependentRepository.deleteMascota(id);
     }
 
     // --- Vehiculos ---
     @Override
+    @Auditable(action = "CREATE", resource = "VEHICULO", category = AuditCategory.OPERATIONAL, severity = AuditSeverity.INFO)
     public VehiculoDTO createVehiculo(VehiculoRequestDTO request) {
         return dependentRepository.createVehiculo(request);
     }
@@ -67,17 +75,20 @@ public class DependentServiceImpl implements DependentService {
     }
 
     @Override
+    @Auditable(action = "UPDATE", resource = "VEHICULO", category = AuditCategory.OPERATIONAL, severity = AuditSeverity.INFO)
     public VehiculoDTO updateVehiculo(Long id, VehiculoRequestDTO request) {
         return dependentRepository.updateVehiculo(id, request);
     }
 
     @Override
+    @Auditable(action = "DELETE", resource = "VEHICULO", category = AuditCategory.OPERATIONAL, severity = AuditSeverity.WARN)
     public void deleteVehiculo(Long id) {
         dependentRepository.deleteVehiculo(id);
     }
 
     // --- Tutores ---
     @Override
+    @Auditable(action = "CREATE", resource = "TUTOR", category = AuditCategory.OPERATIONAL, severity = AuditSeverity.INFO)
     public TutorDTO createTutor(TutorRequestDTO request) {
         return dependentRepository.createTutor(request);
     }
@@ -96,17 +107,20 @@ public class DependentServiceImpl implements DependentService {
     }
 
     @Override
+    @Auditable(action = "UPDATE", resource = "TUTOR", category = AuditCategory.OPERATIONAL, severity = AuditSeverity.INFO)
     public TutorDTO updateTutor(Long id, TutorRequestDTO request) {
         return dependentRepository.updateTutor(id, request);
     }
 
     @Override
+    @Auditable(action = "DELETE", resource = "TUTOR", category = AuditCategory.OPERATIONAL, severity = AuditSeverity.WARN)
     public void deleteTutor(Long id) {
         dependentRepository.deleteTutor(id);
     }
 
     // --- Visitantes ---
     @Override
+    @Auditable(action = "CREATE", resource = "VISITANTE", category = AuditCategory.OPERATIONAL, severity = AuditSeverity.INFO)
     public VisitanteDTO createVisitante(VisitanteRequestDTO request) {
         return dependentRepository.createVisitante(request);
     }
@@ -126,11 +140,13 @@ public class DependentServiceImpl implements DependentService {
     }
 
     @Override
+    @Auditable(action = "UPDATE", resource = "VISITANTE", category = AuditCategory.OPERATIONAL, severity = AuditSeverity.INFO)
     public VisitanteDTO updateVisitante(Long id, VisitanteRequestDTO request) {
         return dependentRepository.updateVisitante(id, request);
     }
 
     @Override
+    @Auditable(action = "DELETE", resource = "VISITANTE", category = AuditCategory.OPERATIONAL, severity = AuditSeverity.WARN)
     public void deleteVisitante(Long id) {
         dependentRepository.deleteVisitante(id);
     }

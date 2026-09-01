@@ -1,5 +1,9 @@
 package com.saed.backend.person.service.impl;
 
+import com.saed.backend.audit.Auditable;
+import com.saed.backend.audit.AuditCategory;
+import com.saed.backend.audit.AuditSeverity;
+
 import com.saed.backend.person.dto.UnitOwnerDTO;
 import com.saed.backend.person.dto.UnitOwnerRequestDTO;
 import com.saed.backend.person.dto.UnitResidentDTO;
@@ -28,6 +32,7 @@ public class UnitInhabitantServiceImpl implements UnitInhabitantService {
 
     @Override
     @Transactional
+    @Auditable(action = "CREATE", resource = "PROPIETARIO_UNIDAD", category = AuditCategory.AUTHORIZATION, severity = AuditSeverity.HIGH)
     public Long addOwner(Long unitId, UnitOwnerRequestDTO request) {
         return unitInhabitantRepository.insertOwner(unitId, request);
     }
@@ -40,6 +45,7 @@ public class UnitInhabitantServiceImpl implements UnitInhabitantService {
 
     @Override
     @Transactional
+    @Auditable(action = "CREATE", resource = "RESIDENTE_UNIDAD", category = AuditCategory.AUTHORIZATION, severity = AuditSeverity.HIGH)
     public Long addResident(Long unitId, UnitResidentRequestDTO request) {
         return unitInhabitantRepository.insertResident(unitId, request);
     }

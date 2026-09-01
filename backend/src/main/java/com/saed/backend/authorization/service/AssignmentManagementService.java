@@ -1,5 +1,8 @@
 package com.saed.backend.authorization.service;
 
+import com.saed.backend.audit.AuditCategory;
+import com.saed.backend.audit.AuditSeverity;
+import com.saed.backend.audit.Auditable;
 import com.saed.backend.authorization.dto.AssignmentRequestDTO;
 import com.saed.backend.authorization.dto.RoleDTO;
 import com.saed.backend.authorization.repository.AssignmentRepository;
@@ -21,6 +24,7 @@ public class AssignmentManagementService {
         this.roleRepository = roleRepository;
     }
 
+    @Auditable(action = "CREATE", resource = "ASIGNACION", category = AuditCategory.AUTHORIZATION, severity = AuditSeverity.CRITICAL)
     @Transactional
     public Long create(AssignmentRequestDTO request) {
         RoleDTO targetRole = roleRepository.findById(request.getIdRol())
@@ -88,6 +92,7 @@ public class AssignmentManagementService {
         return assignmentRepository.create(request, ctx.getUserId());
     }
 
+    @Auditable(action = "UPDATE_STATUS", resource = "ASIGNACION", category = AuditCategory.AUTHORIZATION, severity = AuditSeverity.CRITICAL)
     @Transactional
     public void updateStatus(Long id, String estado) {
         SaedContext ctx = SaedContextHolder.getContext();

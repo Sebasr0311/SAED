@@ -1,5 +1,9 @@
 package com.saed.backend.incidentes.service.impl;
 
+import com.saed.backend.audit.Auditable;
+import com.saed.backend.audit.AuditCategory;
+import com.saed.backend.audit.AuditSeverity;
+
 import com.saed.backend.context.SaedContextHolder;
 import com.saed.backend.incidentes.dto.IncidenteDTO;
 import com.saed.backend.incidentes.repository.IncidenteRepository;
@@ -93,6 +97,7 @@ public class IncidenteServiceImpl implements IncidenteService {
     }
 
     @Override
+    @Auditable(action = "CLOSE", resource = "INCIDENTE", category = AuditCategory.SECURITY, severity = AuditSeverity.HIGH)
     public void cerrarIncidente(Long idIncidente, String conclusiones) {
         Long idPropiedad = SaedContextHolder.getContext().getPropertyId();
         

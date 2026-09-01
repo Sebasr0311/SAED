@@ -1,5 +1,9 @@
 package com.saed.backend.obras.service.impl;
 
+import com.saed.backend.audit.Auditable;
+import com.saed.backend.audit.AuditCategory;
+import com.saed.backend.audit.AuditSeverity;
+
 import com.saed.backend.context.SaedContextHolder;
 import com.saed.backend.obras.dto.ObraDTO;
 import com.saed.backend.obras.repository.ObraRepository;
@@ -90,16 +94,19 @@ public class ObraServiceImpl implements ObraService {
     }
 
     @Override
+    @Auditable(action = "APPROVE", resource = "OBRA", category = AuditCategory.OPERATIONAL, severity = AuditSeverity.HIGH)
     public void aprobarObra(Long idObra) {
         cambiarEstadoObra(idObra, "APROBADA");
     }
 
     @Override
+    @Auditable(action = "REJECT", resource = "OBRA", category = AuditCategory.OPERATIONAL, severity = AuditSeverity.HIGH)
     public void rechazarObra(Long idObra) {
         cambiarEstadoObra(idObra, "RECHAZADA");
     }
 
     @Override
+    @Auditable(action = "FINALIZE", resource = "OBRA", category = AuditCategory.OPERATIONAL, severity = AuditSeverity.INFO)
     public void finalizarObra(Long idObra) {
         cambiarEstadoObra(idObra, "FINALIZADA");
     }

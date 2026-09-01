@@ -1,5 +1,9 @@
 package com.saed.backend.finanzas.controller;
 
+import com.saed.backend.audit.Auditable;
+import com.saed.backend.audit.AuditCategory;
+import com.saed.backend.audit.AuditSeverity;
+
 import com.saed.backend.common.dto.ApiResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -92,6 +96,7 @@ public class PlanesController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
+    @Auditable(action = "CREATE", resource = "PLAN", category = AuditCategory.ADMINISTRATIVE, severity = AuditSeverity.HIGH)
     public ApiResponse<Map<String, Object>> crear(@RequestBody Map<String, Object> body) {
         String codigo    = (String) body.getOrDefault("codigo", "");
         String nombre    = (String) body.getOrDefault("nombre", "");
@@ -130,6 +135,7 @@ public class PlanesController {
     // ─── ACTUALIZAR ──────────────────────────────────────────────
 
     @PutMapping("/{id}")
+    @Auditable(action = "UPDATE", resource = "PLAN", category = AuditCategory.ADMINISTRATIVE, severity = AuditSeverity.HIGH)
     public ApiResponse<String> actualizar(@PathVariable Long id, @RequestBody Map<String, Object> body) {
         String nombre    = (String) body.getOrDefault("nombre", null);
         String desc      = (String) body.getOrDefault("descripcion", null);
@@ -162,6 +168,7 @@ public class PlanesController {
     // ─── CAMBIAR ESTADO ──────────────────────────────────────────
 
     @PatchMapping("/{id}/status")
+    @Auditable(action = "UPDATE_STATUS", resource = "PLAN", category = AuditCategory.ADMINISTRATIVE, severity = AuditSeverity.HIGH)
     public ApiResponse<String> cambiarEstado(@PathVariable Long id, @RequestBody Map<String, String> body) {
         String estado = body.getOrDefault("estado", "").toUpperCase();
         if (!List.of("ACTIVO", "INACTIVO").contains(estado)) {

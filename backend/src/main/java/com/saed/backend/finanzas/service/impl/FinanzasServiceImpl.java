@@ -1,5 +1,9 @@
 package com.saed.backend.finanzas.service.impl;
 
+import com.saed.backend.audit.Auditable;
+import com.saed.backend.audit.AuditCategory;
+import com.saed.backend.audit.AuditSeverity;
+
 import com.saed.backend.finanzas.dto.*;
 import com.saed.backend.finanzas.repository.FinanzasRepository;
 import com.saed.backend.finanzas.service.FinanzasService;
@@ -78,6 +82,7 @@ public class FinanzasServiceImpl implements FinanzasService {
 
     @Override
     @Transactional
+    @Auditable(action = "CREATE", resource = "PAGO", category = AuditCategory.FINANCIAL, severity = AuditSeverity.CRITICAL)
     public void registrarPago(PagoRequestDTO request) {
         List<CuotaDTO> pendientes = finanzasRepository.getCuotasPendientes();
         CuotaDTO cuota = pendientes.stream().filter(c -> c.id().equals(request.idCuota())).findFirst()

@@ -1,4 +1,8 @@
 package com.saed.backend.convivencia.service.impl;
+
+import com.saed.backend.audit.Auditable;
+import com.saed.backend.audit.AuditCategory;
+import com.saed.backend.audit.AuditSeverity;
 import com.saed.backend.convivencia.dto.MultaDTO;
 import com.saed.backend.convivencia.repository.MultaRepository;
 import com.saed.backend.convivencia.service.MultaService;

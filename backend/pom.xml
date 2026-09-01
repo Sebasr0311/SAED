@@ -31,6 +31,12 @@
 			<artifactId>spring-boot-starter-security</artifactId>
 		</dependency>
 
+		<!-- Spring Boot AOP for Centralized Audit Interception -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-aop</artifactId>
+		</dependency>
+
 		<!-- Spring JDBC (We use this instead of JPA for explicit context control) -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>

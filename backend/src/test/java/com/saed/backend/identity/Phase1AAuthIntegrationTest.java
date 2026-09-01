@@ -173,7 +173,7 @@ public class Phase1AAuthIntegrationTest {
 
     @Test
     public void testR_VerificacionRlsSelectDirecto() {
-        int count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM SAED_V39_FINAL_TEST.USUARIOS", Integer.class);
+        int count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM USUARIOS", Integer.class);
         assertEquals(0, count, "El backend no deberia poder hacer SELECT directo a USUARIOS debido a RLS");
     }
 

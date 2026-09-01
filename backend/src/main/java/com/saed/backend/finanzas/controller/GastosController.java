@@ -1,5 +1,9 @@
 package com.saed.backend.finanzas.controller;
 
+import com.saed.backend.audit.Auditable;
+import com.saed.backend.audit.AuditCategory;
+import com.saed.backend.audit.AuditSeverity;
+
 import com.saed.backend.common.dto.ApiResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpStatus;
@@ -60,6 +64,7 @@ public class GastosController {
     // --- CREAR ---
 
     @PostMapping
+    @Auditable(action = "CREATE", resource = "GASTO", category = AuditCategory.FINANCIAL, severity = AuditSeverity.HIGH)
     public ResponseEntity<ApiResponse<Map<String, Object>>> crear(@RequestBody Map<String, Object> body) {
         Number idPresupuesto = (Number) body.get("idPresupuesto");
         String categoria = (String) body.getOrDefault("categoria", "");
@@ -129,6 +134,7 @@ public class GastosController {
     // --- ACTUALIZAR ---
 
     @PutMapping("/{id}")
+    @Auditable(action = "UPDATE", resource = "GASTO", category = AuditCategory.FINANCIAL, severity = AuditSeverity.HIGH)
     public ResponseEntity<ApiResponse<String>> actualizar(@PathVariable Long id, @RequestBody Map<String, Object> body) {
         String categoria = (String) body.getOrDefault("categoria", null);
         String beneficiario = (String) body.getOrDefault("beneficiario", null);
@@ -183,6 +189,7 @@ public class GastosController {
     // --- ELIMINAR ---
 
     @DeleteMapping("/{id}")
+    @Auditable(action = "DELETE", resource = "GASTO", category = AuditCategory.FINANCIAL, severity = AuditSeverity.HIGH)
     public ResponseEntity<ApiResponse<String>> eliminar(@PathVariable Long id) {
         // Revert MONTO_EJECUTADO in PRESUPUESTOS before deleting
         List<Map<String, Object>> gastos = jdbcTemplate.queryForList(

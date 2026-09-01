@@ -1,5 +1,9 @@
 package com.saed.backend.authorization.controller;
 
+import com.saed.backend.audit.Auditable;
+import com.saed.backend.audit.AuditCategory;
+import com.saed.backend.audit.AuditSeverity;
+
 import com.saed.backend.authorization.dto.PropertyDTO;
 import com.saed.backend.authorization.dto.PropertyRequestDTO;
 import com.saed.backend.authorization.service.PropertyService;
@@ -36,6 +40,7 @@ public class PropertyController {
     }
 
     @PostMapping
+    @Auditable(action = "CREATE", resource = "PROPIEDAD", category = AuditCategory.ADMINISTRATIVE, severity = AuditSeverity.HIGH)
     public ResponseEntity<Map<String, Object>> create(@Valid @RequestBody PropertyRequestDTO request) {
         Long id = propertyService.create(request);
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -43,6 +48,7 @@ public class PropertyController {
     }
 
     @PutMapping("/{id}")
+    @Auditable(action = "UPDATE", resource = "PROPIEDAD", category = AuditCategory.ADMINISTRATIVE, severity = AuditSeverity.HIGH)
     public ResponseEntity<Map<String, Object>> update(@PathVariable Long id, @Valid @RequestBody PropertyRequestDTO request) {
         propertyService.update(id, request);
         return ResponseEntity.ok(Map.of("success", true));

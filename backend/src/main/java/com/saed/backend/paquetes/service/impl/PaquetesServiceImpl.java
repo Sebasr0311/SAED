@@ -1,5 +1,9 @@
 package com.saed.backend.paquetes.service.impl;
 
+import com.saed.backend.audit.Auditable;
+import com.saed.backend.audit.AuditCategory;
+import com.saed.backend.audit.AuditSeverity;
+
 import com.saed.backend.paquetes.dto.PaqueteDTO;
 import com.saed.backend.paquetes.dto.PaqueteEntregaDTO;
 import com.saed.backend.paquetes.dto.PaqueteRequestDTO;

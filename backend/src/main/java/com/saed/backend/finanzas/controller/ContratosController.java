@@ -1,4 +1,8 @@
 package com.saed.backend.finanzas.controller;
+
+import com.saed.backend.audit.Auditable;
+import com.saed.backend.audit.AuditCategory;
+import com.saed.backend.audit.AuditSeverity;
 import com.saed.backend.finanzas.dto.ContratoDTO;
 import com.saed.backend.finanzas.dto.ContratoRequestDTO;
 import com.saed.backend.finanzas.service.FinanzasService;

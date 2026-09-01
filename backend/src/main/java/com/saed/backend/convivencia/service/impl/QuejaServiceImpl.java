@@ -1,4 +1,8 @@
 package com.saed.backend.convivencia.service.impl;
+
+import com.saed.backend.audit.Auditable;
+import com.saed.backend.audit.AuditCategory;
+import com.saed.backend.audit.AuditSeverity;
 import com.saed.backend.convivencia.dto.QuejaDTO;
 import com.saed.backend.convivencia.dto.QuejaRequestDTO;
 import com.saed.backend.convivencia.repository.QuejaRepository;
@@ -49,6 +53,7 @@ public class QuejaServiceImpl implements QuejaService {
 
     @Override
     @Transactional
+    @Auditable(action = "RESPOND", resource = "QUEJA", category = AuditCategory.OPERATIONAL, severity = AuditSeverity.INFO)
     public void responder(Long id, String respuesta) {
         repo.updateRespuesta(id, respuesta);
         notificarPQRS(id, "RESPONDIDA", respuesta);

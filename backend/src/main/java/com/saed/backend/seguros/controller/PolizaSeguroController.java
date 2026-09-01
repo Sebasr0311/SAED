@@ -1,5 +1,9 @@
 package com.saed.backend.seguros.controller;
 
+import com.saed.backend.audit.Auditable;
+import com.saed.backend.audit.AuditCategory;
+import com.saed.backend.audit.AuditSeverity;
+
 import com.saed.backend.seguros.dto.PolizaSeguroDTO;
 import com.saed.backend.seguros.service.PolizaSeguroService;
 import org.springframework.http.ResponseEntity;
@@ -30,18 +34,21 @@ public class PolizaSeguroController {
     }
 
     @PostMapping
+    @Auditable(action = "CREATE", resource = "POLIZA_SEGURO", category = AuditCategory.OPERATIONAL, severity = AuditSeverity.INFO)
     public ResponseEntity<Void> create(@RequestBody PolizaSeguroDTO dto) {
         service.createPoliza(dto);
         return ResponseEntity.ok().build();
     }
 
     @PutMapping("/{id}")
+    @Auditable(action = "UPDATE", resource = "POLIZA_SEGURO", category = AuditCategory.OPERATIONAL, severity = AuditSeverity.INFO)
     public ResponseEntity<Void> update(@PathVariable Long id, @RequestBody PolizaSeguroDTO dto) {
         service.updatePoliza(id, dto);
         return ResponseEntity.ok().build();
     }
 
     @DeleteMapping("/{id}")
+    @Auditable(action = "DELETE", resource = "POLIZA_SEGURO", category = AuditCategory.OPERATIONAL, severity = AuditSeverity.WARN)
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         service.deletePoliza(id);
         return ResponseEntity.ok().build();

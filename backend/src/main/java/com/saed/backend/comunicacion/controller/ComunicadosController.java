@@ -1,4 +1,8 @@
 package com.saed.backend.comunicacion.controller;
+
+import com.saed.backend.audit.Auditable;
+import com.saed.backend.audit.AuditCategory;
+import com.saed.backend.audit.AuditSeverity;
 import com.saed.backend.common.service.EmailService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;

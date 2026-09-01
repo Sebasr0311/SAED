@@ -1,5 +1,9 @@
 package com.saed.backend.finanzas.controller;
 
+import com.saed.backend.audit.Auditable;
+import com.saed.backend.audit.AuditCategory;
+import com.saed.backend.audit.AuditSeverity;
+
 import com.saed.backend.common.dto.ApiResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -81,6 +85,7 @@ public class CarteraController {
     // --- RECALCULAR CARTERA DESDE CUOTAS ---
 
     @PostMapping("/recalcular")
+    @Auditable(action = "EXECUTE", resource = "CARTERA", category = AuditCategory.FINANCIAL, severity = AuditSeverity.HIGH)
     public ApiResponse<String> recalcular() {
         // 1. Compute aging buckets per unit from CUOTAS with pending/past-due status
         String sqlRecalc = "MERGE INTO CARTERA dest " +

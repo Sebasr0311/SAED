@@ -1,4 +1,8 @@
 package com.saed.backend.porteria.controller;
+
+import com.saed.backend.audit.Auditable;
+import com.saed.backend.audit.AuditCategory;
+import com.saed.backend.audit.AuditSeverity;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -15,6 +19,7 @@ public class PorteriaExtController {
 
     @PostMapping("/visitas/rapida")
     @PreAuthorize("hasAuthority('SCOPE_RESIDENTE') or hasAuthority('SCOPE_PORTERO')")
+    @Auditable(action = "CREATE", resource = "VISITA_RAPIDA", category = AuditCategory.SECURITY, severity = AuditSeverity.INFO)
     public ResponseEntity<Void> visitaRapida(@RequestBody Map<String, Object> payload) {
         return ResponseEntity.ok().build();
     }

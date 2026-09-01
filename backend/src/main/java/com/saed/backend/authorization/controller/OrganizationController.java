@@ -1,5 +1,9 @@
 package com.saed.backend.authorization.controller;
 
+import com.saed.backend.audit.Auditable;
+import com.saed.backend.audit.AuditCategory;
+import com.saed.backend.audit.AuditSeverity;
+
 import com.saed.backend.authorization.dto.OrganizationDTO;
 import com.saed.backend.authorization.dto.OrganizationRequestDTO;
 import com.saed.backend.authorization.dto.StatusUpdateRequestDTO;
@@ -37,6 +41,7 @@ public class OrganizationController {
     }
 
     @PostMapping
+    @Auditable(action = "CREATE", resource = "ORGANIZACION", category = AuditCategory.ADMINISTRATIVE, severity = AuditSeverity.HIGH)
     public ResponseEntity<Map<String, Object>> create(@Valid @RequestBody OrganizationRequestDTO request) {
         Long id = organizationService.create(request);
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -44,6 +49,7 @@ public class OrganizationController {
     }
 
     @PutMapping("/{id}")
+    @Auditable(action = "UPDATE", resource = "ORGANIZACION", category = AuditCategory.ADMINISTRATIVE, severity = AuditSeverity.HIGH)
     public ResponseEntity<Map<String, Object>> update(@PathVariable Long id, @Valid @RequestBody OrganizationRequestDTO request) {
         organizationService.update(id, request);
         return ResponseEntity.ok(Map.of("success", true));

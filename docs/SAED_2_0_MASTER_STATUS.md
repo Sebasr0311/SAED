@@ -12,12 +12,12 @@
 | :--- | :--- | :--- |
 | **Repositorio Git** | `Clean / Sincronizado` | Migración `V4.15`, tests y backend listos |
 | **Secretos / Credenciales** | `Controlados / 0 Expuestos` | Secret scan limpio en `src/main` y `frontend/src` |
-| **Backend Build & Tests** | `100% BUILD SUCCESS` | **127/127 tests pasando en `mvn clean test` (43.0s con JDK 24)** |
+| **Backend Build & Tests** | `100% BUILD SUCCESS` | **141/141 tests pasando en `mvn clean test` (40.8s con JDK 24)** |
 | **Suite Adversarial A–L** | `100% PASS` | **12/12 Ataques Mitigados y Probados en Oracle XE real** |
-| **Frontend Build** | `100% BUILD SUCCESS` | `npm run build` exitoso (0 errores, 2000 módulos en 7.79s) |
-| **Base de Datos Oracle XE** | `100% VALID` | 96 tablas, 336 índices, 1.228 constraints, 90 políticas RLS, **0 objetos inválidos** |
+| **Frontend Build** | `100% BUILD SUCCESS` | `npm run build` exitoso (0 errores, 2000 módulos en 7.15s) |
+| **Base de Datos Oracle XE** | `100% VALID` | 96 tablas, 338 índices, 1219 constraints, 9 triggers, 90 políticas RLS, **0 objetos inválidos** |
 | **Hallazgos P0** | **0 P0 PENDIENTES** | `SEC-001` resuelto y probado empíricamente |
-| **Porcentaje Estimado de Avance** | **~75% Real** | Núcleo de Seguridad, RLS y Autorización blindado |
+| **Porcentaje Estimado de Avance** | **~80% Real** | Núcleo de Seguridad, RLS, Baseline V5.0 y Auditoría AOP blindados |
 
 ---
 
@@ -27,10 +27,10 @@
 [X] FASE 0: Congelación y Auditoría Real (Baseline) -> APROBADO
 [X] FASE 1: Matriz Definitiva de Bugs y Deuda Técnica (BUG_LEDGER.md Revalidado) -> APROBADO
 [X] FASE 2: Auditoría Completa de Arquitectura (Backend / Frontend) -> APROBADO
-[X] FASE 3: Seguridad y Multi-Tenancy (Suite Adversarial A a L y Fix RLS SEC-001) -> COMPLETADO
-[ ] FASE 4: Auditoría de Oracle (Normalización de Baseline V5.0 y Migraciones DB-001) -> SIGUIENTE
-[ ] FASE 5: Auditoría y Trazabilidad (Log Central Append-Only AOP)
-[ ] FASE 6: Estabilización de Módulos Existentes (Identity, Auth, Personas, etc.)
+[X] FASE 3: Seguridad y Multi-Tenancy (Suite Adversarial A a L y Fix RLS SEC-001) -> APROBADO
+[X] FASE 4: Auditoría de Oracle (Normalización de Baseline V5.0 y Migraciones DB-001) -> APROBADO
+[X] FASE 5: Auditoría y Trazabilidad (Log Central Append-Only AOP) -> COMPLETADO (Listo para Revisión)
+[ ] FASE 6: Estabilización de Módulos Existentes (Identity, Auth, Personas, etc.) -> SIGUIENTE
 [ ] FASE 7: Wompi y Pagos (Integración Real + Webhooks + HMAC Fix SEC-002)
 [ ] FASE 8: Finanzas Completas (Cartera, Presupuesto, Flujo de Caja, Conciliación)
 [ ] FASE 9: Propiedades y Estructura Configurable (Edificios y Conjuntos)

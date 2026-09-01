@@ -1,5 +1,9 @@
 package com.saed.backend.finanzas.controller;
 
+import com.saed.backend.audit.Auditable;
+import com.saed.backend.audit.AuditCategory;
+import com.saed.backend.audit.AuditSeverity;
+
 import com.saed.backend.common.dto.ApiResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -77,6 +81,7 @@ public class PresupuestoController {
     // --- CREAR ---
 
     @PostMapping
+    @Auditable(action = "CREATE", resource = "PRESUPUESTO", category = AuditCategory.FINANCIAL, severity = AuditSeverity.HIGH)
     public ResponseEntity<ApiResponse<Map<String, Object>>> crear(@RequestBody Map<String, Object> body) {
         String rubro = (String) body.getOrDefault("rubro", "");
         String tipo = body.get("tipo") != null ? ((String) body.get("tipo")).toUpperCase() : "";
@@ -115,6 +120,7 @@ public class PresupuestoController {
     // --- ACTUALIZAR ---
 
     @PutMapping("/{id}")
+    @Auditable(action = "UPDATE", resource = "PRESUPUESTO", category = AuditCategory.FINANCIAL, severity = AuditSeverity.HIGH)
     public ApiResponse<String> actualizar(@PathVariable Long id, @RequestBody Map<String, Object> body) {
         String rubro = (String) body.getOrDefault("rubro", null);
         String tipo = body.get("tipo") != null ? ((String) body.get("tipo")).toUpperCase() : null;
@@ -160,6 +166,7 @@ public class PresupuestoController {
     // --- ELIMINAR ---
 
     @DeleteMapping("/{id}")
+    @Auditable(action = "DELETE", resource = "PRESUPUESTO", category = AuditCategory.FINANCIAL, severity = AuditSeverity.HIGH)
     public ApiResponse<String> eliminar(@PathVariable Long id) {
         int rows = jdbcTemplate.update("DELETE FROM PRESUPUESTOS WHERE ID_PRESUPUESTO = :id",
                 new MapSqlParameterSource("id", id));

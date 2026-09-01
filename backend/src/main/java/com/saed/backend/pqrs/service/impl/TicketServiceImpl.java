@@ -1,5 +1,9 @@
 package com.saed.backend.pqrs.service.impl;
 
+import com.saed.backend.audit.Auditable;
+import com.saed.backend.audit.AuditCategory;
+import com.saed.backend.audit.AuditSeverity;
+
 import com.saed.backend.context.SaedContextHolder;
 import com.saed.backend.pqrs.dto.TicketRequestDTO;
 import com.saed.backend.pqrs.dto.TicketResponseDTO;
@@ -41,6 +45,7 @@ public class TicketServiceImpl implements TicketService {
     }
 
     @Override
+    @Auditable(action = "CREATE", resource = "PQRS", category = AuditCategory.OPERATIONAL, severity = AuditSeverity.INFO)
     public Long createTicket(TicketRequestDTO request) {
         Long idUsuario = SaedContextHolder.getContext().getUserId();
         Long idPropiedad = SaedContextHolder.getContext().getPropertyId(); 

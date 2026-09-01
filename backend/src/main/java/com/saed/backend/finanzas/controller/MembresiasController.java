@@ -1,5 +1,9 @@
 package com.saed.backend.finanzas.controller;
 
+import com.saed.backend.audit.Auditable;
+import com.saed.backend.audit.AuditCategory;
+import com.saed.backend.audit.AuditSeverity;
+
 import com.saed.backend.common.dto.ApiResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -95,6 +99,7 @@ public class MembresiasController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
+    @Auditable(action = "CREATE", resource = "MEMBRESIA", category = AuditCategory.FINANCIAL, severity = AuditSeverity.HIGH)
     public ApiResponse<Map<String, Object>> crear(@RequestBody Map<String, Object> body) {
         Number idOrg  = (Number) body.get("idOrganizacion");
         Number idPlan = (Number) body.get("idPlan");
@@ -159,6 +164,7 @@ public class MembresiasController {
     // ─── CAMBIAR ESTADO ──────────────────────────────────────────
 
     @PatchMapping("/{id}/status")
+    @Auditable(action = "UPDATE_STATUS", resource = "MEMBRESIA", category = AuditCategory.FINANCIAL, severity = AuditSeverity.HIGH)
     public ApiResponse<String> cambiarEstado(@PathVariable Long id, @RequestBody Map<String, String> body) {
         String estado = body.getOrDefault("estado", "").toUpperCase();
         if (!List.of("ACTIVA", "INACTIVA", "PENDIENTE", "SUSPENDIDA", "PRUEBA").contains(estado)) {
@@ -199,6 +205,7 @@ public class MembresiasController {
     // ─── CANCELAR ────────────────────────────────────────────────
 
     @DeleteMapping("/{id}")
+    @Auditable(action = "CANCEL", resource = "MEMBRESIA", category = AuditCategory.FINANCIAL, severity = AuditSeverity.HIGH)
     public ApiResponse<String> cancelar(@PathVariable Long id) {
         // Obtener datos actuales para el historial
         Map<String, Object> membresiaActual;

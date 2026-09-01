@@ -1,5 +1,9 @@
 package com.saed.backend.authorization.controller;
 
+import com.saed.backend.audit.Auditable;
+import com.saed.backend.audit.AuditCategory;
+import com.saed.backend.audit.AuditSeverity;
+
 import com.saed.backend.authorization.dto.UnitDTO;
 import com.saed.backend.authorization.dto.UnitRequestDTO;
 import com.saed.backend.authorization.service.UnitService;
@@ -36,6 +40,7 @@ public class UnitController {
     }
 
     @PostMapping
+    @Auditable(action = "CREATE", resource = "UNIDAD", category = AuditCategory.ADMINISTRATIVE, severity = AuditSeverity.INFO)
     public ResponseEntity<Map<String, Object>> create(@Valid @RequestBody UnitRequestDTO request) {
         Long id = unitService.create(request);
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -43,6 +48,7 @@ public class UnitController {
     }
 
     @PutMapping("/{id}")
+    @Auditable(action = "UPDATE", resource = "UNIDAD", category = AuditCategory.ADMINISTRATIVE, severity = AuditSeverity.INFO)
     public ResponseEntity<Map<String, Object>> update(@PathVariable Long id, @Valid @RequestBody UnitRequestDTO request) {
         unitService.update(id, request);
         return ResponseEntity.ok(Map.of("success", true));

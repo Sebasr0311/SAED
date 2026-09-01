@@ -1,5 +1,9 @@
 package com.saed.backend.parqueaderos.service.impl;
 
+import com.saed.backend.audit.Auditable;
+import com.saed.backend.audit.AuditCategory;
+import com.saed.backend.audit.AuditSeverity;
+
 import com.saed.backend.context.SaedContext;
 import com.saed.backend.context.SaedContextHolder;
 import com.saed.backend.parqueaderos.dto.AsignacionParqueaderoDTO;
@@ -69,6 +73,7 @@ public class ParqueaderosServiceImpl implements ParqueaderosService {
 
     @Override
     @Transactional
+    @Auditable(action = "CREATE", resource = "ASIGNACION_PARQUEADERO", category = AuditCategory.OPERATIONAL, severity = AuditSeverity.INFO)
     public AsignacionParqueaderoDTO crearAsignacion(AsignacionParqueaderoRequestDTO request) {
         ParqueaderoDTO pq = getParqueaderoById(request.idParqueadero());
         if (!"DISPONIBLE".equals(pq.estado())) {
@@ -81,6 +86,7 @@ public class ParqueaderosServiceImpl implements ParqueaderosService {
 
     @Override
     @Transactional
+    @Auditable(action = "FINALIZE", resource = "ASIGNACION_PARQUEADERO", category = AuditCategory.OPERATIONAL, severity = AuditSeverity.INFO)
     public void finalizarAsignacion(Long id) {
         AsignacionParqueaderoDTO asignacion = getAsignacionById(id);
         parqueaderosRepository.finalizarAsignacion(id);

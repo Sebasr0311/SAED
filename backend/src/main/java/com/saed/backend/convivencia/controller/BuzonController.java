@@ -1,5 +1,9 @@
 package com.saed.backend.convivencia.controller;
 
+import com.saed.backend.audit.Auditable;
+import com.saed.backend.audit.AuditCategory;
+import com.saed.backend.audit.AuditSeverity;
+
 import com.saed.backend.convivencia.dto.NotificacionDTO;
 import com.saed.backend.convivencia.service.NotificacionService;
 import org.springframework.http.ResponseEntity;

@@ -1,5 +1,9 @@
 package com.saed.backend.documentos.controller;
 
+import com.saed.backend.audit.Auditable;
+import com.saed.backend.audit.AuditCategory;
+import com.saed.backend.audit.AuditSeverity;
+
 import com.saed.backend.documentos.dto.DocumentoDTO;
 import com.saed.backend.documentos.service.DocumentoService;
 import org.springframework.http.ResponseEntity;

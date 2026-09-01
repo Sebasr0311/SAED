@@ -1,5 +1,9 @@
 package com.saed.backend.sanciones.service.impl;
 
+import com.saed.backend.audit.Auditable;
+import com.saed.backend.audit.AuditCategory;
+import com.saed.backend.audit.AuditSeverity;
+
 import com.saed.backend.context.SaedContextHolder;
 import com.saed.backend.sanciones.dto.SancionDTO;
 import com.saed.backend.sanciones.repository.SancionRepository;
@@ -62,6 +66,7 @@ public class SancionServiceImpl implements SancionService {
     }
 
     @Override
+    @Auditable(action = "SUBMIT_DESCARGOS", resource = "SANCION", category = AuditCategory.OPERATIONAL, severity = AuditSeverity.HIGH)
     public void submitDescargos(Long idSancion, Map<String, String> payload) {
         SancionDTO sancion = getSancionById(idSancion);
         Long idUsuario = SaedContextHolder.getContext().getUserId();
@@ -88,6 +93,7 @@ public class SancionServiceImpl implements SancionService {
     }
 
     @Override
+    @Auditable(action = "RESOLVE", resource = "SANCION", category = AuditCategory.OPERATIONAL, severity = AuditSeverity.HIGH)
     public void emitirResolucion(Long idSancion, Map<String, String> payload) {
         SancionDTO sancion = getSancionById(idSancion);
         Long idPropiedad = SaedContextHolder.getContext().getPropertyId();
