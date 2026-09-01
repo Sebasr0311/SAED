@@ -23,7 +23,7 @@
 
 ```text
 [X] FASE 0: Congelación y Auditoría Real (Baseline) -> APROBADO
-[ ] FASE 1: Matriz Definitiva de Bugs y Deuda Técnica (BUG_LEDGER.md) -> EN PROGRESO
+[X] FASE 1: Matriz Definitiva de Bugs y Deuda Técnica (BUG_LEDGER.md) -> APROBADO
 [ ] FASE 2: Auditoría Completa de Arquitectura (Backend / Frontend)
 [ ] FASE 3: Seguridad y Multi-Tenancy (Ataques Adversariales A a L)
 [ ] FASE 4: Auditoría de Oracle (Normalización de Baseline V5.0 y Scripts)
