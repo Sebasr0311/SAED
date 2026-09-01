@@ -11,6 +11,42 @@ import TenantSwitcher from './TenantSwitcher.jsx';
  * Las rutas NO cambian: solo se reorganiza su presentación.
  */
 const NAV_BY_ROLE = {
+  SUPERADMIN: [
+    {
+      id: 'inicio',
+      label: 'Inicio',
+      icon: 'home',
+      items: [{ path: '/superadmin/dashboard', label: 'Dashboard Plataforma', icon: 'dashboard' }],
+    },
+    {
+      id: 'plataforma',
+      label: 'Plataforma SaaS',
+      icon: 'domain',
+      items: [
+        { path: '/superadmin/organizaciones', label: 'Organizaciones', icon: 'domain' },
+        { path: '/superadmin/propiedades', label: 'Propiedades Globales', icon: 'apartment' },
+        { path: '/superadmin/planes', label: 'Planes SaaS', icon: 'pricing_plan' },
+        { path: '/superadmin/membresias', label: 'Membresías', icon: 'card_membership' },
+      ],
+    },
+    {
+      id: 'seguridad',
+      label: 'Seguridad y Control',
+      icon: 'security',
+      items: [
+        { path: '/superadmin/administradores', label: 'Administradores SAED', icon: 'admin_panel_settings' },
+        { path: '/superadmin/auditoria', label: 'Pista de Auditoría', icon: 'policy' },
+      ],
+    },
+    {
+      id: 'analitica',
+      label: 'Analítica',
+      icon: 'assessment',
+      items: [
+        { path: '/superadmin/metricas', label: 'Métricas Globales', icon: 'analytics' },
+      ],
+    },
+  ],
   ADMINISTRADOR: [
     {
       id: 'inicio',
@@ -158,7 +194,7 @@ export default function AppShell() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const groups = NAV_BY_ROLE[user?.rol] || [];
+  const groups = NAV_BY_ROLE[user?.rol] || NAV_BY_ROLE[user?.rol?.toUpperCase()] || [];
   const allItems = groups.flatMap((g) => g.items);
 
   // Tema: localStorage gana; si no hay preferencia, se sigue la del sistema.
@@ -339,7 +375,7 @@ export default function AppShell() {
             </div>
             <div className="sidebar-logo-text">
               <span>SAED</span>
-              <small>Administración Residencial</small>
+              <small>{user?.rol === 'SUPERADMIN' ? 'Administración de Plataforma' : 'Administración Residencial'}</small>
             </div>
           </div>
 

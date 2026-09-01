@@ -69,7 +69,22 @@ const NotFoundPage = lazy(() => import('./pages/NotFoundPage.jsx'));
 // el shell (sidebar/topbar) permanezca visible mientras se carga la página.
 
 const IncidentesAdminPage = lazy(() => import('./pages/IncidentesAdminPage.jsx'));
-const ResIncidentesPage = lazy(() => import('./pages/ResIncidentesPage.jsx'));
+const SuperAdminDashboardPage = lazy(() => import('./pages/SuperAdminDashboardPage.jsx'));
+const SuperAdminOrganizacionesPage = lazy(() => import('./pages/SuperAdminOrganizacionesPage.jsx'));
+const SuperAdminPlanesPage = lazy(() => import('./pages/SuperAdminPlanesPage.jsx'));
+const SuperAdminMembresiasPage = lazy(() => import('./pages/SuperAdminMembresiasPage.jsx'));
+const SuperAdminAdminsPage = lazy(() => import('./pages/SuperAdminAdminsPage.jsx'));
+const SuperAdminAuditoriaPage = lazy(() => import('./pages/SuperAdminAuditoriaPage.jsx'));
+
+import { useAuth } from './lib/AuthContext.jsx';
+
+function RoleIndexRedirect() {
+  const { user } = useAuth();
+  if (user?.rol === 'SUPERADMIN') return <Navigate to="/superadmin/dashboard" replace />;
+  if (user?.rol === 'PORTERO') return <Navigate to="/portero-dashboard" replace />;
+  if (user?.rol === 'RESIDENTE') return <Navigate to="/residente-dashboard" replace />;
+  return <Navigate to="/dashboard" replace />;
+}
 
 export default function App() {
   return (
@@ -87,13 +102,87 @@ export default function App() {
             </ProtectedRoute>
           }
         >
-          <Route index element={<Navigate to="/dashboard" replace />} />
+          <Route index element={<RoleIndexRedirect />} />
+
+          {/* SuperAdmin SaaS Platform Routes */}
+          <Route
+            path="superadmin/dashboard"
+            element={
+              <ProtectedRoute roles={['SUPERADMIN']}>
+                <SuperAdminDashboardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="superadmin/organizaciones"
+            element={
+              <ProtectedRoute roles={['SUPERADMIN']}>
+                <SuperAdminOrganizacionesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="superadmin/propiedades"
+            element={
+              <ProtectedRoute roles={['SUPERADMIN']}>
+                <PropiedadesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="superadmin/planes"
+            element={
+              <ProtectedRoute roles={['SUPERADMIN']}>
+                <SuperAdminPlanesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="superadmin/membresias"
+            element={
+              <ProtectedRoute roles={['SUPERADMIN']}>
+                <SuperAdminMembresiasPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="superadmin/administradores"
+            element={
+              <ProtectedRoute roles={['SUPERADMIN']}>
+                <SuperAdminAdminsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="superadmin/auditoria"
+            element={
+              <ProtectedRoute roles={['SUPERADMIN']}>
+                <SuperAdminAuditoriaPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="superadmin/metricas"
+            element={
+              <ProtectedRoute roles={['SUPERADMIN']}>
+                <SuperAdminDashboardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="superadmin/configuracion"
+            element={
+              <ProtectedRoute roles={['SUPERADMIN']}>
+                <SuperAdminDashboardPage />
+              </ProtectedRoute>
+            }
+          />
 
           {/* Admin */}
           <Route
             path="dashboard"
             element={
-              <ProtectedRoute roles={['ADMINISTRADOR']}>
+              <ProtectedRoute roles={['ADMINISTRADOR', 'ADMIN_PROPIEDAD']}>
                 <DashboardPage />
               </ProtectedRoute>
             }

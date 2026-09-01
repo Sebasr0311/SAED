@@ -1,11 +1,17 @@
-// Normaliza roles de SAED 2.0 a los roles que entiende la UI (SAED 1.0).
-// Backend devuelve: SUPERADMIN, ADMIN_ORGANIZACION, ADMIN_PROPIEDAD, RESIDENTE
-// La UI usa: ADMINISTRADOR (admin), PORTERO (acceso parcial), RESIDENTE.
+// SAED 2.0 Identity & Access Control Layer
+// Separation of Platform SaaS (SUPERADMIN) from Property Operations (ADMIN_PROPIEDAD, PORTERO, RESIDENTE)
+
 export function normalizeRole(rol) {
   if (!rol) return rol;
   const r = String(rol).toUpperCase();
-  if (r === 'SUPERADMIN' || r === 'ADMIN_ORGANIZACION' || r === 'ADMIN_PROPIEDAD') {
-    return 'ADMINISTRADOR';
+  if (r === 'SUPERADMIN') {
+    return 'SUPERADMIN';
+  }
+  if (r === 'ADMIN_ORGANIZACION') {
+    return 'ADMIN_ORGANIZACION';
+  }
+  if (r === 'ADMIN_PROPIEDAD' || r === 'ADMIN' || r === 'ADMINISTRADOR') {
+    return 'ADMIN_PROPIEDAD';
   }
   if (r === 'PORTERO' || r === 'VIGILANTE') {
     return 'PORTERO';
@@ -17,12 +23,52 @@ export function normalizeRole(rol) {
 }
 
 export const ROLE_HOME = {
+  SUPERADMIN: '/superadmin/dashboard',
+  ADMIN_ORGANIZACION: '/superadmin/organizaciones',
+  ADMIN_PROPIEDAD: '/dashboard',
   ADMINISTRADOR: '/dashboard',
   PORTERO: '/portero-dashboard',
   RESIDENTE: '/residente-dashboard',
 };
 
 const ACCESS_BY_ROLE = {
+  SUPERADMIN: [
+    '/superadmin/dashboard',
+    '/superadmin/organizaciones',
+    '/superadmin/propiedades',
+    '/superadmin/planes',
+    '/superadmin/membresias',
+    '/superadmin/administradores',
+    '/superadmin/auditoria',
+    '/superadmin/metricas',
+    '/superadmin/configuracion',
+  ],
+  ADMIN_ORGANIZACION: [
+    '/superadmin/organizaciones',
+    '/superadmin/propiedades',
+  ],
+  ADMIN_PROPIEDAD: [
+    '/dashboard',
+    '/residentes',
+    '/apartamentos',
+    '/contratos',
+    '/usuarios',
+    '/historial-visitas',
+    '/paquetes-admin',
+    '/pagos',
+    '/ganancias',
+    '/multas',
+    '/alertas',
+    '/avisos',
+    '/quejas-admin',
+    '/visitas',
+    '/parqueaderos',
+    '/escanner-qr',
+    '/mantenimiento',
+    '/asambleas',
+    '/polizas',
+    '/emergencias',
+  ],
   ADMINISTRADOR: [
     '/dashboard',
     '/residentes',
@@ -40,6 +86,10 @@ const ACCESS_BY_ROLE = {
     '/visitas',
     '/parqueaderos',
     '/escanner-qr',
+    '/mantenimiento',
+    '/asambleas',
+    '/polizas',
+    '/emergencias',
   ],
   PORTERO: [
     '/portero-dashboard',
@@ -62,7 +112,8 @@ const ACCESS_BY_ROLE = {
 
 export function roleCanAccess(pathname, rol) {
   if (!pathname || !rol) return false;
-  const allowed = ACCESS_BY_ROLE[normalizeRole(rol)];
+  const norm = normalizeRole(rol);
+  const allowed = ACCESS_BY_ROLE[norm];
   if (!allowed) return false;
   return allowed.some((path) => pathname === path || pathname.startsWith(path + '/'));
 }

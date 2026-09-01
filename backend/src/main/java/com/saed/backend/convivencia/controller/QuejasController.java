@@ -36,7 +36,7 @@ public class QuejasController {
     }
 
     @GetMapping("/api/v1/quejas/todas")
-    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_SUPERADMIN')")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<List<QuejaDTO>> getAllQuejas() {
         return ResponseEntity.ok(service.findAll());
     }

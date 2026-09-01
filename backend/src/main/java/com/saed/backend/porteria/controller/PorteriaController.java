@@ -122,38 +122,38 @@ public class PorteriaController {
     }
 
     @GetMapping("/visitas/{id}")
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_PORTERO')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_PORTERO')")
     public VisitaDTO getVisitaById(@PathVariable Long id) {
         return porteriaService.getVisitaById(id);
     }
 
     @GetMapping("/unidades/{unidadId}/visitas")
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE')")
     public List<VisitaDTO> getVisitasByUnidad(@PathVariable Long unidadId) {
         return porteriaService.getVisitasByUnidad(unidadId);
     }
 
     @PutMapping("/visitas/{id}")
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE')")
     public VisitaDTO actualizarVisita(@PathVariable Long id, @RequestBody @Valid VisitaRequestDTO request) {
         return porteriaService.actualizarVisita(id, request);
     }
 
     @PutMapping("/visitas/{id}/salida")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_PORTERO')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_PORTERO')")
     public void registrarSalidaVisita(@PathVariable Long id) {
         porteriaService.registrarSalidaVisita(id);
     }
 
     @GetMapping("/visitas-resumen")
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_PORTERO')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_PORTERO')")
     public List<VisitaListDTO> getVisitasResumen() {
         return porteriaService.getVisitasResumen();
     }
 
     @GetMapping("/visitas/historial")
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
     public List<VisitaHistorialDTO> getVisitasHistorial(
             @RequestParam String fechaInicio,
             @RequestParam String fechaFin) {
@@ -161,7 +161,7 @@ public class PorteriaController {
     }
 
     @GetMapping("/visitas/{id}/detalle")
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_PORTERO')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_PORTERO')")
     public VisitaDetalleDTO getVisitaDetalle(@PathVariable Long id) {
         return porteriaService.getVisitaDetalle(id);
     }
@@ -182,7 +182,7 @@ public class PorteriaController {
     }
 
     @GetMapping("/propiedades/{propiedadId}/registros")
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_PORTERO')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_PORTERO')")
     public List<RegistroAccesoDTO> getRegistrosByPropiedad(@PathVariable Long propiedadId) {
         return porteriaService.getRegistrosByPropiedad(propiedadId);
     }
@@ -196,13 +196,13 @@ public class PorteriaController {
     }
 
     @GetMapping("/qr/{id}")
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_PORTERO')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_PORTERO')")
     public QrAccesoDTO getQrAccesoById(@PathVariable Long id) {
         return porteriaService.getQrAccesoById(id);
     }
 
     @PostMapping("/qr/validar")
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_PORTERO')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_PORTERO')")
     public Map<String, Boolean> validarQr(@RequestBody Map<String, String> body) {
         boolean valid = porteriaService.validarQr(body.get("token"));
         return Map.of("valido", valid);

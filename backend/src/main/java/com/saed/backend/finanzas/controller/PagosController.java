@@ -24,13 +24,13 @@ public class PagosController {
     public PagosController(FinanzasService finanzasService, com.saed.backend.finanzas.service.WompiService wompiService) { this.finanzasService = finanzasService; this.wompiService = wompiService; }
 
     @GetMapping("/cuotas")
-    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_SUPERADMIN')")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<List<CuotaDTO>> getCuotasPendientes(@RequestParam(required = false) Boolean pendientes) {
         return ResponseEntity.ok(finanzasService.getCuotasPendientes());
     }
 
     @PostMapping("/pagos")
-    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_SUPERADMIN') or hasAuthority('SCOPE_RESIDENTE')")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_RESIDENTE')")
     public ResponseEntity<Map<String, Object>> registrarPago(@Valid @RequestBody PagoRequestDTO request) {
         finanzasService.registrarPago(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("success", true));

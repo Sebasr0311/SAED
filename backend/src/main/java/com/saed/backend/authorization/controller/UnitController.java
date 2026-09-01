@@ -20,7 +20,7 @@ import java.util.Map;
 @Tag(name = "Unit", description = "API para la gestion de Unit")
 @RestController
 @RequestMapping("/api/v1/units")
-@PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_PROPIEDAD')")
+@PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
 public class UnitController {
 
     private final UnitService unitService;

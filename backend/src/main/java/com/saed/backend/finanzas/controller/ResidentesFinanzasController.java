@@ -9,7 +9,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 @Tag(name = "ResidentesFinanzas", description = "API para la gestion de ResidentesFinanzas")
 @RestController
 @RequestMapping("/api/v1/residentes")
-@PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE')")
+@PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE')")
 public class ResidentesFinanzasController {
     private final FinanzasService finanzasService;
     public ResidentesFinanzasController(FinanzasService finanzasService) { this.finanzasService = finanzasService; }

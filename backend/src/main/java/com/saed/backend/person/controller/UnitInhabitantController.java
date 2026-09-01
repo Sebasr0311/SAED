@@ -26,13 +26,13 @@ public class UnitInhabitantController {
     }
 
     @GetMapping("/owners")
-    @PreAuthorize("hasAuthority('SCOPE_SUPERADMIN') or hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_PORTERO') or hasAuthority('SCOPE_RESIDENTE')")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_PORTERO') or hasAuthority('SCOPE_RESIDENTE')")
     public ResponseEntity<List<UnitOwnerDTO>> getOwners(@PathVariable Long unitId) {
         return ResponseEntity.ok(unitInhabitantService.getOwnersByUnitId(unitId));
     }
 
     @PostMapping("/owners")
-    @PreAuthorize("hasAuthority('SCOPE_SUPERADMIN') or hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<Long> addOwner(
             @PathVariable Long unitId, 
             @Valid @RequestBody UnitOwnerRequestDTO request) {
@@ -41,13 +41,13 @@ public class UnitInhabitantController {
     }
 
     @GetMapping("/residents")
-    @PreAuthorize("hasAuthority('SCOPE_SUPERADMIN') or hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_PORTERO') or hasAuthority('SCOPE_RESIDENTE')")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_PORTERO') or hasAuthority('SCOPE_RESIDENTE')")
     public ResponseEntity<List<UnitResidentDTO>> getResidents(@PathVariable Long unitId) {
         return ResponseEntity.ok(unitInhabitantService.getResidentsByUnitId(unitId));
     }
 
     @PostMapping("/residents")
-    @PreAuthorize("hasAuthority('SCOPE_SUPERADMIN') or hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<Long> addResident(
             @PathVariable Long unitId, 
             @Valid @RequestBody UnitResidentRequestDTO request) {

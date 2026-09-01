@@ -21,26 +21,26 @@ public class MultasController {
 
 
     @GetMapping("/todas")
-    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_SUPERADMIN')")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<List<MultaDTO>> getAllMultas() {
         return ResponseEntity.ok(service.findAll());
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_SUPERADMIN')")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<MultaDTO> getMultaById(@PathVariable Long id) {
         return ResponseEntity.ok(service.findById(id));
     }
 
     @PutMapping("/{id}/pagar")
-    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_SUPERADMIN')")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<Void> pagarMulta(@PathVariable Long id, @RequestBody Map<String, String> payload) {
         service.pagar(id, payload.getOrDefault("metodoPago", "EFECTIVO"));
         return ResponseEntity.ok().build();
     }
 
     @PutMapping("/{id}/anular")
-    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_SUPERADMIN')")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<Void> anularMulta(@PathVariable Long id) {
         service.anular(id);
         return ResponseEntity.ok().build();

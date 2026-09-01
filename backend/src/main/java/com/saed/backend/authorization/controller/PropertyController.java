@@ -40,6 +40,7 @@ public class PropertyController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
     @Auditable(action = "CREATE", resource = "PROPIEDAD", category = AuditCategory.ADMINISTRATIVE, severity = AuditSeverity.HIGH)
     public ResponseEntity<Map<String, Object>> create(@Valid @RequestBody PropertyRequestDTO request) {
         Long id = propertyService.create(request);
@@ -48,6 +49,7 @@ public class PropertyController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
     @Auditable(action = "UPDATE", resource = "PROPIEDAD", category = AuditCategory.ADMINISTRATIVE, severity = AuditSeverity.HIGH)
     public ResponseEntity<Map<String, Object>> update(@PathVariable Long id, @Valid @RequestBody PropertyRequestDTO request) {
         propertyService.update(id, request);
