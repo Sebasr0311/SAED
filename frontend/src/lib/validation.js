@@ -267,13 +267,13 @@ export function valTelefono(value, opts = {}) {
   return { ok: true };
 }
 
-/** Valida username: 3-50, solo [a-zA-Z0-9_.] */
+/** Valida username o email: 3-100 caracteres, [a-zA-Z0-9_.@+-] */
 export function valUsername(value) {
   const v = (value || '').trim();
-  if (!v) return { ok: false, mensaje: 'El usuario es obligatorio' };
-  if (!/^[a-zA-Z0-9_.]{3,50}$/.test(v))
-    return { ok: false, mensaje: 'Usuario: 3-50 caracteres, solo letras, números, punto y guion bajo' };
-  return { ok: true };
+  if (!v) return { ok: false, mensaje: 'El usuario o correo es obligatorio' };
+  if (!/^[a-zA-Z0-9_.@+-]{3,100}$/.test(v))
+    return { ok: false, mensaje: 'Usuario o correo no válido' };
+  return { ok: true, username: v };
 }
 
 /** Valida password: 6-100. */
