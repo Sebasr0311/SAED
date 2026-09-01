@@ -9,4 +9,6 @@ public interface PersonaRepository {
     List<PersonaDTO> findAll(int limit, int offset);
     Optional<PersonaDTO> findById(Long id);
     Long insert(PersonaRequestDTO request);
+    void update(Long id, PersonaRequestDTO request);
+    void delete(Long id);
 }

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { useFetch } from '../lib/hooks';
 import { api } from '../lib/api';
 import { toast } from 'sonner';
@@ -9,7 +9,7 @@ export default function ResIncidentesPage() {
   
   const [form, setForm] = useState({ 
     titulo: '', 
-    tipoIncidente: 'DAÑO_INFRAESTRUCTURA', 
+    tipoIncidente: 'DANO_BIEN_COMUN', 
     nivelSeveridad: 'MODERADA', 
     descripcionHechos: '', 
     requirioAutoridades: 'N', 
@@ -21,7 +21,7 @@ export default function ResIncidentesPage() {
   const handleCreate = async () => {
     try {
       // NOTE: backend forcefully sets idUnidad and nullifies idPorteria/idZonaComun for residents
-      await api.post('/incidentes', form);
+      await api.post('/incidentes', { ...form, fechaHoraIncidente: new Date().toISOString() });
       toast.success('Incidente reportado a la administración');
       setModalOpen(false);
       refetch();
@@ -73,11 +73,15 @@ export default function ResIncidentesPage() {
               
               <label className="mt-2">Tipo de Problema</label>
               <select className="select select-bordered w-full" value={form.tipoIncidente} onChange={e => setForm({...form, tipoIncidente: e.target.value})}>
-                <option value="DAÑO_INFRAESTRUCTURA">Daño de Infraestructura</option>
-                <option value="SEGURIDAD">Vulneración de Seguridad</option>
-                <option value="CONVIVENCIA">Problema de Convivencia</option>
-                <option value="ACCIDENTE">Accidente</option>
-              </select>
+                  <option value="DANO_BIEN_COMUN">Daño a Bien Común / Infraestructura</option>
+                  <option value="SEGURIDAD_HURTO">Seguridad (Hurto)</option>
+                  <option value="CONVIVENCIA_RUIDO">Convivencia (Ruido)</option>
+                  <option value="CONVIVENCIA_DISPUTA">Convivencia (Disputa)</option>
+                  <option value="ACCESO_NO_AUTORIZADO">Acceso No Autorizado</option>
+                  <option value="ACCIDENTE_PERSONA">Accidente de Persona</option>
+                  <option value="FALLA_CRITICA_INFRAESTRUCTURA">Falla Crítica de Infraestructura</option>
+                  <option value="OTRO">Otro</option>
+                </select>
 
               <label className="mt-2">Descripción de los Hechos</label>
               <textarea className="textarea textarea-bordered h-24" value={form.descripcionHechos} onChange={e => setForm({...form, descripcionHechos: e.target.value})}></textarea>

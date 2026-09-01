@@ -73,7 +73,7 @@ export default function ParqueaderosPage() {
 
   const apartamentosDisponibles = useMemo(() => {
     const asignados = new Set(items.filter((p) => !p.esVisitante).map((p) => p.idApartamento));
-    return (apartamentos?.items || []).filter((a) => !asignados.has(a.idApartamento) || a.idApartamento === editing?.idApartamento);
+    return (apartamentos?.items || apartamentos || []).filter((a) => !asignados.has(a.idApartamento) || a.idApartamento === editing?.idApartamento);
   }, [apartamentos, items, editing]);
 
   const columns = [

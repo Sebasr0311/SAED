@@ -135,7 +135,7 @@ export default function PaquetesPage() {
             }}
           >
             <option value="">— Seleccione apartamento —</option>
-            {(apartamentos?.items || []).map((a) => (
+            {(apartamentos?.items || apartamentos || []).map((a) => (
               <option key={a.idApartamento} value={a.idApartamento}>
                 Apto {a.numero}
               </option>

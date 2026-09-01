@@ -101,7 +101,7 @@ public class ParqueaderosRepositoryImpl implements ParqueaderosRepository {
 
     @Override
     public List<AsignacionParqueaderoDTO> getAsignaciones() {
-        String sql = "SELECT a.*, p.NUMERO_PARQUEADERO as numeroParqueadero, u.NUMERO as numeroApartamento, v.PLACA as placaVehiculo " +
+        String sql = "SELECT a.*, p.NUMERO_PARQUEADERO as numeroParqueadero, u.IDENTIFICADOR as numeroApartamento, v.PLACA as placaVehiculo " +
                      "FROM ASIGNACIONES_PARQUEADERO a " +
                      "JOIN PARQUEADEROS p ON a.ID_PARQUEADERO = p.ID_PARQUEADERO " +
                      "JOIN UNIDADES u ON a.ID_UNIDAD = u.ID_UNIDAD " +
@@ -112,7 +112,7 @@ public class ParqueaderosRepositoryImpl implements ParqueaderosRepository {
 
     @Override
     public Optional<AsignacionParqueaderoDTO> getAsignacionById(Long id) {
-        String sql = "SELECT a.*, p.NUMERO_PARQUEADERO as numeroParqueadero, u.NUMERO as numeroApartamento, v.PLACA as placaVehiculo " +
+        String sql = "SELECT a.*, p.NUMERO_PARQUEADERO as numeroParqueadero, u.IDENTIFICADOR as numeroApartamento, v.PLACA as placaVehiculo " +
                      "FROM ASIGNACIONES_PARQUEADERO a " +
                      "JOIN PARQUEADEROS p ON a.ID_PARQUEADERO = p.ID_PARQUEADERO " +
                      "JOIN UNIDADES u ON a.ID_UNIDAD = u.ID_UNIDAD " +

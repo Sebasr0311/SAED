@@ -30,7 +30,7 @@ export default function SancionesAdminPage() {
   const [detalle, setDetalle] = useState(null);
   const [resolucionForm, setResolucionForm] = useState({ decision: 'APLICADA', resolucionFinal: '' });
 
-  const items = Array.isArray(data) ? data : Array.isArray(data) ? data : data?.items || [];
+  const items = Array.isArray(data) ? data : data?.items || [];
   const filtered = filtroEstado ? items.filter(i => i.estado === filtroEstado) : items;
   
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE) || 1;
