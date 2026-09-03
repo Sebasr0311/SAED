@@ -29,10 +29,16 @@ GRANT EXEMPT ACCESS POLICY TO SAED_SEC_MASTER;
 ALTER USER SAED_SEC_MASTER QUOTA UNLIMITED ON USERS;
 
 -- Contexto Global SAED_CTX vinculado al paquete del esquema activo
+-- [C5][H-01] NEVER silence failures here — if SAED_CTX cannot be created,
+-- the entire RLS multi-tenant isolation is inoperative. Fail loudly.
 BEGIN
     EXECUTE IMMEDIATE 'CREATE OR REPLACE CONTEXT SAED_CTX USING ' || USER || '.PKG_SAED_SESSION ACCESSED GLOBALLY';
 EXCEPTION
-    WHEN OTHERS THEN NULL;
+    WHEN OTHERS THEN
+        RAISE_APPLICATION_ERROR(-20099,
+            'CRITICO [C5]: No se pudo crear el contexto Oracle SAED_CTX. ' ||
+            'El aislamiento RLS multi-tenant esta inoperativo. ' ||
+            'Error Oracle: ' || SQLERRM);
 END;
 /
 
@@ -5016,7 +5022,10 @@ CREATE OR REPLACE PACKAGE BODY SAED_SEC_MASTER.PKG_AUTH_BOOTSTRAP AS
 
 END PKG_AUTH_BOOTSTRAP;
 /
-
-GRANT EXECUTE ON SAED_SEC_MASTER.PKG_AUTH_BOOTSTRAP TO PUBLIC;
+-- [C5][H-03] SECURITY FIX: Revoke public access to PKG_AUTH_BOOTSTRAP.
+-- TO PUBLIC exposed GET_AUTH_DATA (returns hash_password) and REGISTER_LOGIN_FAILURE
+-- (can lock any account) to all database users. Restrict to application user only.
+REVOKE EXECUTE ON SAED_SEC_MASTER.PKG_AUTH_BOOTSTRAP FROM PUBLIC;
+GRANT EXECUTE ON SAED_SEC_MASTER.PKG_AUTH_BOOTSTRAP TO SAED_APP;
 
 EXIT;

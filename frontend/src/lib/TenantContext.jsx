@@ -74,9 +74,7 @@ export function TenantProvider({ children }) {
   );
 
   const canSwitchTenant = useMemo(() => {
-    const scopes = assignments.map((a) => a.scope);
-    // Solo SUPERADMIN / ADMIN_ORGANIZACION pueden cambiar de tenant
-    return scopes.includes('GLOBAL') || scopes.filter((s) => s === 'ORGANIZACION').length > 1;
+    return assignments.length > 1;
   }, [assignments]);
 
   const value = useMemo(

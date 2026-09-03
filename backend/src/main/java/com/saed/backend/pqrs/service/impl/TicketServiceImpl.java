@@ -22,9 +22,11 @@ import java.util.UUID;
 public class TicketServiceImpl implements TicketService {
 
     private final TicketRepository ticketRepository;
+    private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
 
-    public TicketServiceImpl(TicketRepository ticketRepository) {
+    public TicketServiceImpl(TicketRepository ticketRepository, org.springframework.jdbc.core.JdbcTemplate jdbcTemplate) {
         this.ticketRepository = ticketRepository;
+        this.jdbcTemplate = jdbcTemplate;
     }
 
     @Override
@@ -40,8 +42,22 @@ public class TicketServiceImpl implements TicketService {
 
     @Override
     public TicketResponseDTO getTicketById(Long id) {
-        return ticketRepository.findById(id)
+        TicketResponseDTO ticket = ticketRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Ticket no encontrado"));
+        com.saed.backend.context.SaedContext ctx = SaedContextHolder.getContext();
+        if ("RESIDENTE".equals(ctx.getRoleCode()) || "UNIDAD".equals(ctx.getRoleScope())) {
+            Long userId = ctx.getUserId();
+            if (userId != null) {
+                try {
+                    Long myPersonaId = jdbcTemplate.queryForObject(
+                        "SELECT ID_PERSONA FROM USUARIOS WHERE ID_USUARIO = ?", Long.class, userId);
+                    if (ticket.getIdPersonaRadica() != null && !ticket.getIdPersonaRadica().equals(myPersonaId)) {
+                        throw new org.springframework.security.access.AccessDeniedException("No tiene permisos para ver este ticket");
+                    }
+                } catch (org.springframework.dao.EmptyResultDataAccessException ignored) {}
+            }
+        }
+        return ticket;
     }
 
     @Override

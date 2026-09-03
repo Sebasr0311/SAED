@@ -30,22 +30,26 @@ public class DependentController {
     }
 
     @GetMapping("/mascotas/{id}")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_RESIDENTE')")
     public MascotaDTO getMascotaById(@PathVariable Long id) {
         return dependentService.getMascotaById(id);
     }
 
     @GetMapping("/unidades/{unidadId}/mascotas")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_RESIDENTE')")
     public List<MascotaDTO> getMascotasByUnidad(@PathVariable Long unidadId) {
         return dependentService.getMascotasByUnidad(unidadId);
     }
 
     @PutMapping("/mascotas/{id}")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_RESIDENTE')")
     public MascotaDTO updateMascota(@PathVariable Long id, @RequestBody @Valid MascotaRequestDTO request) {
         return dependentService.updateMascota(id, request);
     }
 
     @DeleteMapping("/mascotas/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_RESIDENTE')")
     public void deleteMascota(@PathVariable Long id) {
         dependentService.deleteMascota(id);
     }
@@ -59,22 +63,26 @@ public class DependentController {
     }
 
     @GetMapping("/vehiculos/{id}")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_RESIDENTE')")
     public VehiculoDTO getVehiculoById(@PathVariable Long id) {
         return dependentService.getVehiculoById(id);
     }
 
     @GetMapping("/unidades/{unidadId}/vehiculos")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_RESIDENTE')")
     public List<VehiculoDTO> getVehiculosByUnidad(@PathVariable Long unidadId) {
         return dependentService.getVehiculosByUnidad(unidadId);
     }
 
     @PutMapping("/vehiculos/{id}")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_RESIDENTE')")
     public VehiculoDTO updateVehiculo(@PathVariable Long id, @RequestBody @Valid VehiculoRequestDTO request) {
         return dependentService.updateVehiculo(id, request);
     }
 
     @DeleteMapping("/vehiculos/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_RESIDENTE')")
     public void deleteVehiculo(@PathVariable Long id) {
         dependentService.deleteVehiculo(id);
     }
@@ -88,22 +96,26 @@ public class DependentController {
     }
 
     @GetMapping("/tutores/{id}")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_RESIDENTE')")
     public TutorDTO getTutorById(@PathVariable Long id) {
         return dependentService.getTutorById(id);
     }
 
     @GetMapping("/personas/{menorId}/tutores")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_RESIDENTE')")
     public List<TutorDTO> getTutoresByMenor(@PathVariable Long menorId) {
         return dependentService.getTutoresByMenor(menorId);
     }
 
     @PutMapping("/tutores/{id}")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_RESIDENTE')")
     public TutorDTO updateTutor(@PathVariable Long id, @RequestBody @Valid TutorRequestDTO request) {
         return dependentService.updateTutor(id, request);
     }
 
     @DeleteMapping("/tutores/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_RESIDENTE')")
     public void deleteTutor(@PathVariable Long id) {
         dependentService.deleteTutor(id);
     }
@@ -117,22 +129,26 @@ public class DependentController {
     }
 
     @GetMapping("/visitantes/{id}")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_PORTERO') or hasAuthority('SCOPE_RESIDENTE')")
     public VisitanteDTO getVisitanteById(@PathVariable Long id) {
         return dependentService.getVisitanteById(id);
     }
 
     @GetMapping("/personas/{personaId}/visitante")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_PORTERO') or hasAuthority('SCOPE_RESIDENTE')")
     public VisitanteDTO getVisitanteByPersona(@PathVariable Long personaId) {
         return dependentService.getVisitanteByPersona(personaId);
     }
 
     @PutMapping("/visitantes/{id}")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_PORTERO') or hasAuthority('SCOPE_RESIDENTE')")
     public VisitanteDTO updateVisitante(@PathVariable Long id, @RequestBody @Valid VisitanteRequestDTO request) {
         return dependentService.updateVisitante(id, request);
     }
 
     @DeleteMapping("/visitantes/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_PORTERO') or hasAuthority('SCOPE_RESIDENTE')")
     public void deleteVisitante(@PathVariable Long id) {
         dependentService.deleteVisitante(id);
     }

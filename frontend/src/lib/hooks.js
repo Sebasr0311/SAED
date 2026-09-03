@@ -2,29 +2,101 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import api from './api.js';
 
 /**
- * Normaliza la respuesta del backend a un objeto { items, totalItems, totalPages, raw }.
- * Acepta: array directo, { items, ... }, o null.
+ * Normaliza la respuesta del backend a un contrato estándar de datos:
+ * - Desenvuelve transparentemente ApiResponse<T> ({ status: 'success', data: ... } o { success: true, data: ... })
+ * - Listas: { items: Array, totalItems: Number, totalPages: Number, raw: Array, data: Array }
+ * - Objetos/Resúmenes: { ...Payload, items: null, totalItems: 0, totalPages: 1, raw: Payload, data: Payload }
+ * - Paginados: { ...Payload, items: Array, totalItems: Number, totalPages: Number, raw: Payload, data: Payload }
+ * - Vacíos/204: { items: [], totalItems: 0, totalPages: 1, raw: null, data: null }
  */
-function normalize(data) {
-  if (data == null) {
-    return { items: [], totalItems: 0, totalPages: 1, raw: null };
+export function normalize(response) {
+  if (response == null || response === '') {
+    return { items: [], totalItems: 0, totalPages: 1, raw: null, data: null };
   }
-  if (Array.isArray(data)) {
+
+  // Desempaquetar ApiResponse<T> si viene envuelto
+  let payload = response;
+  let isEnvelope = false;
+
+  if (
+    typeof response === 'object' &&
+    !Array.isArray(response) &&
+    response !== null &&
+    ('data' in response || 'status' in response || 'success' in response) &&
+    response.data !== undefined
+  ) {
+    payload = response.data;
+    isEnvelope = true;
+  }
+
+  if (payload == null) {
+    return { items: [], totalItems: 0, totalPages: 1, raw: response, data: null };
+  }
+
+  // Caso 1: Array directo o lista desenvuelta
+  if (Array.isArray(payload)) {
     return {
-      items: data,
-      totalItems: data.length,
+      items: payload,
+      totalItems: payload.length,
       totalPages: 1,
-      raw: data,
+      raw: payload,
+      data: payload,
+      _envelope: isEnvelope ? response : null,
     };
   }
-  if (data.items) {
+
+  // Caso 2 & 3: Objeto (Paginado o DTO / Mapa / Resumen)
+  if (typeof payload === 'object') {
+    const list = Array.isArray(payload.content)
+      ? payload.content
+      : Array.isArray(payload.items)
+      ? payload.items
+      : null;
+
+    if (list !== null) {
+      const total =
+        payload.totalElements ??
+        payload.totalItems ??
+        payload.total ??
+        list.length;
+      const pages =
+        payload.totalPages ??
+        payload.pages ??
+        (payload.size ? Math.ceil(total / payload.size) : 1);
+
+      return {
+        ...payload,
+        items: list,
+        totalItems: total,
+        totalPages: pages,
+        raw: payload,
+        data: payload,
+        _envelope: isEnvelope ? response : null,
+      };
+    }
+
+    // Objeto único, mapa de resumen, métricas o DTO
     return {
-      ...data,
-      items: data.items,
-      raw: data,
+      ...payload,
+      items: null,
+      totalItems: 0,
+      totalPages: 1,
+      raw: payload,
+      data: payload,
+      _envelope: isEnvelope ? response : null,
     };
   }
-  return { items: [], totalItems: 0, totalPages: 1, raw: data };
+
+  // Caso 4: Primitivo (String, Number, Boolean)
+  return {
+    items: [],
+    totalItems: 0,
+    totalPages: 1,
+    raw: payload,
+    data: payload,
+    value: payload,
+    _envelope: isEnvelope ? response : null,
+  };
 }
 
 export function useFetch(fetcher, deps = []) {

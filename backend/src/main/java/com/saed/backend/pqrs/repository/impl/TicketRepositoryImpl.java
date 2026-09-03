@@ -45,6 +45,9 @@ public class TicketRepositoryImpl implements TicketRepository {
         long responsable = rs.getLong("RESPONSABLE_ASIGNADO");
         if (!rs.wasNull()) dto.setResponsableAsignado(responsable);
         
+        long personaRadica = rs.getLong("ID_PERSONA_RADICA");
+        if (!rs.wasNull()) dto.setIdPersonaRadica(personaRadica);
+        
         return dto;
     };
 

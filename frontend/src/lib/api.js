@@ -119,13 +119,23 @@ async function request(endpoint, options = {}) {
           signal: AbortSignal.timeout(TIMEOUT_MS),
         });
         clearTimeout(timer);
+        if (retryRes.status === 204) return null;
         const retryContentType = retryRes.headers.get('content-type') || '';
         if (retryContentType.includes('application/json')) {
           const retryData = await retryRes.json();
-          if (!retryRes.ok) throw new Error(retryData.message || retryData.mensaje || retryData.error || 'No se pudo completar la operación. Intente de nuevo.');
+          if (!retryRes.ok) {
+            const err = new Error(retryData.message || retryData.mensaje || retryData.error || 'No se pudo completar la operación. Intente de nuevo.');
+            err.status = retryRes.status;
+            err.response = { status: retryRes.status, data: retryData };
+            throw err;
+          }
           return retryData;
         }
-        if (!retryRes.ok) throw new Error('No se pudo completar la operación. Intente de nuevo.');
+        if (!retryRes.ok) {
+          const err = new Error('No se pudo completar la operación. Intente de nuevo.');
+          err.status = retryRes.status;
+          throw err;
+        }
         return await retryRes.text();
       }
 
@@ -136,20 +146,39 @@ async function request(endpoint, options = {}) {
       } else {
         window.location.href = `${import.meta.env.BASE_URL}login`;
       }
-      throw new Error('Sesión expirada');
+      const err = new Error('Sesión expirada');
+      err.status = 401;
+      throw err;
+    }
+
+    if (res.status === 204) {
+      return null;
     }
 
     const contentType = res.headers.get('content-type') || '';
     if (contentType.includes('application/json')) {
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || data.mensaje || data.error || 'No se pudo completar la operación. Intente de nuevo.');
+      if (!res.ok) {
+        const err = new Error(data.message || data.mensaje || data.error || 'No se pudo completar la operación. Intente de nuevo.');
+        err.status = res.status;
+        err.response = { status: res.status, data };
+        throw err;
+      }
       return data;
     }
-    if (!res.ok) throw new Error('No se pudo completar la operación. Intente de nuevo.');
+    if (!res.ok) {
+      const err = new Error('No se pudo completar la operación. Intente de nuevo.');
+      err.status = res.status;
+      throw err;
+    }
     return await res.text();
   } catch (err) {
     clearTimeout(timer);
-    if (err.name === 'AbortError') throw new Error('La solicitud tardó demasiado, intente de nuevo', { cause: err });
+    if (err.name === 'AbortError') {
+      const abortErr = new Error('La solicitud tardó demasiado, intente de nuevo', { cause: err });
+      abortErr.status = 408;
+      throw abortErr;
+    }
     throw err;
   }
 }

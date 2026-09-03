@@ -41,14 +41,14 @@ public class PorteriaController {
     // --- ADMIN CRUD PORTERIAS ---
     @Operation(summary = "Listar porterias de la propiedad")
     @GetMapping
-    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_PORTERO')")
     public ResponseEntity<ApiResponse<List<PorteriaDTO>>> listar() {
         return ResponseEntity.ok(ApiResponse.success(porteriaService.listarPorterias()));
     }
 
     @Operation(summary = "Obtener porteria por ID")
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_PORTERO')")
     public ResponseEntity<ApiResponse<PorteriaDTO>> obtener(@PathVariable Long id) {
         return ResponseEntity.ok(ApiResponse.success(porteriaService.getPorteriaById(id)));
     }
@@ -153,7 +153,7 @@ public class PorteriaController {
     }
 
     @GetMapping("/visitas/historial")
-    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_PORTERO')")
     public List<VisitaHistorialDTO> getVisitasHistorial(
             @RequestParam String fechaInicio,
             @RequestParam String fechaFin) {

@@ -20,7 +20,7 @@ import java.util.Map;
 @Tag(name = "Property", description = "API para la gestion de Property")
 @RestController
 @RequestMapping("/api/v1/properties")
-@PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_PROPIEDAD')")
+@PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
 public class PropertyController {
 
     private final PropertyService propertyService;
@@ -40,7 +40,7 @@ public class PropertyController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION')")
     @Auditable(action = "CREATE", resource = "PROPIEDAD", category = AuditCategory.ADMINISTRATIVE, severity = AuditSeverity.HIGH)
     public ResponseEntity<Map<String, Object>> create(@Valid @RequestBody PropertyRequestDTO request) {
         Long id = propertyService.create(request);
@@ -49,10 +49,22 @@ public class PropertyController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
     @Auditable(action = "UPDATE", resource = "PROPIEDAD", category = AuditCategory.ADMINISTRATIVE, severity = AuditSeverity.HIGH)
     public ResponseEntity<Map<String, Object>> update(@PathVariable Long id, @Valid @RequestBody PropertyRequestDTO request) {
         propertyService.update(id, request);
+        return ResponseEntity.ok(Map.of("success", true));
+    }
+
+    @PatchMapping("/{id}/status")
+    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION')")
+    @Auditable(action = "UPDATE_STATUS", resource = "PROPIEDAD", category = AuditCategory.ADMINISTRATIVE, severity = AuditSeverity.HIGH)
+    public ResponseEntity<Map<String, Object>> updateStatus(@PathVariable Long id, @RequestBody Map<String, String> body) {
+        String estado = body.get("estado");
+        if (estado == null || estado.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "El campo estado es requerido"));
+        }
+        propertyService.updateStatus(id, estado.toUpperCase());
         return ResponseEntity.ok(Map.of("success", true));
     }
 }

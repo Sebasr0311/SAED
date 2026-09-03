@@ -36,7 +36,7 @@ public class PagosController {
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("success", true));
     }
 
-    @PostMapping("/pagos/wompi/webhook")
+    @PostMapping({"/pagos/wompi/webhook", "/pagos/notificacion"})
     @PreAuthorize("permitAll()")
     public ResponseEntity<Void> wompiWebhook(@RequestBody String payload) {
         try {

@@ -87,4 +87,31 @@ public class PropertyRepositoryImpl implements PropertyRepository {
                 .addValue("tipoOcupacion", request.getTipoOcupacionPredominante());
         jdbcTemplate.update(sql, params);
     }
+
+    @Override
+    public void updateStatus(Long id, String estado) {
+        String sql = "UPDATE PROPIEDADES SET estado = :estado WHERE id_propiedad = :id";
+        jdbcTemplate.update(sql, new MapSqlParameterSource("id", id).addValue("estado", estado));
+    }
+
+    @Override
+    public long countByOrganization(Long orgId) {
+        String sql = "SELECT COUNT(*) FROM PROPIEDADES WHERE id_organizacion = :orgId AND estado = 'ACTIVA'";
+        Number n = jdbcTemplate.queryForObject(sql, new MapSqlParameterSource("orgId", orgId), Number.class);
+        return n != null ? n.longValue() : 0L;
+    }
+
+    @Override
+    public Optional<Long> getPropertyLimit(Long orgId) {
+        String sql = """
+            SELECT p.limite_propiedades
+            FROM MEMBRESIAS m
+            JOIN PLANES p ON m.id_plan = p.id_plan
+            WHERE m.id_organizacion = :orgId AND m.estado IN ('ACTIVA', 'PRUEBA')
+            ORDER BY m.fecha_inicio DESC
+            FETCH FIRST 1 ROWS ONLY
+        """;
+        List<Long> limits = jdbcTemplate.query(sql, new MapSqlParameterSource("orgId", orgId), (rs, i) -> rs.getLong("limite_propiedades"));
+        return limits.stream().findFirst();
+    }
 }

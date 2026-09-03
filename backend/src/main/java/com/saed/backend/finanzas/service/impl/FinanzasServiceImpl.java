@@ -112,6 +112,19 @@ public class FinanzasServiceImpl implements FinanzasService {
     public ResidenteDashboardDTO getDashboardResidente(Long idResidente) {
         SaedContext ctx = SaedContextHolder.getContext();
         String role = ctx.getRoleCode();
+        if ("RESIDENTE".equals(role) || "UNIDAD".equals(ctx.getRoleScope())) {
+            Long userId = ctx.getUserId();
+            if (userId != null) {
+                try {
+                    Long myPersonaId = jdbcTemplate.queryForObject(
+                        "SELECT ID_PERSONA FROM USUARIOS WHERE ID_USUARIO = :u",
+                        new MapSqlParameterSource("u", userId), Long.class);
+                    if (myPersonaId != null && !myPersonaId.equals(idResidente)) {
+                        throw new org.springframework.security.access.AccessDeniedException("No tiene permisos para ver las finanzas de otro residente");
+                    }
+                } catch (org.springframework.dao.EmptyResultDataAccessException ignored) {}
+            }
+        }
 
         List<CuotaDTO> cuotas = finanzasRepository.getCuotasByResidente(idResidente);
         return new ResidenteDashboardDTO(idResidente, cuotas);

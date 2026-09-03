@@ -5,7 +5,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 public class PropertyRequestDTO {
-    @NotNull private Long idOrganizacion;
+    private Long idOrganizacion;
     @NotNull private Long idTipoPropiedad;
     @NotBlank @Size(max = 150) private String nombre;
     @NotBlank @Size(max = 200) private String direccion;

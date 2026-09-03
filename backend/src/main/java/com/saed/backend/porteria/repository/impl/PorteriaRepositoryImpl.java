@@ -278,7 +278,7 @@ public class PorteriaRepositoryImpl implements PorteriaRepository {
     @Override
     public List<RegistroAccesoDTO> getRegistrosByPropiedad(Long propiedadId) {
         String sql = "SELECT * FROM REGISTROS_ACCESO WHERE ID_PROPIEDAD = :propiedadId";
-        return jdbcTemplate.query(sql,  registroMapper);
+        return jdbcTemplate.query(sql, new MapSqlParameterSource("propiedadId", propiedadId), registroMapper);
     }
 
     // --- QR_ACCESOS ---

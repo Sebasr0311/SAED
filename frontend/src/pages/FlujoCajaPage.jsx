@@ -21,9 +21,9 @@ export default function FlujoCajaPage() {
         api.get('/flujo-caja/movimientos?limite=20'),
         api.get('/flujo-caja/proyeccion')
       ]);
-      setResumen(resumenRes.data);
-      setMovimientos(movRes.data || []);
-      setProyeccion(proyRes.data || []);
+      setResumen(resumenRes?.data ?? resumenRes ?? {});
+      setMovimientos(Array.isArray(movRes?.data) ? movRes.data : Array.isArray(movRes) ? movRes : []);
+      setProyeccion(Array.isArray(proyRes?.data) ? proyRes.data : Array.isArray(proyRes) ? proyRes : []);
     } catch (e) {
       toast.error('No se pudo cargar el flujo de caja');
     } finally {

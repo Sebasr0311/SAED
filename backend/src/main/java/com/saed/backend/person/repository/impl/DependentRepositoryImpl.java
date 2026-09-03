@@ -46,7 +46,7 @@ public class DependentRepositoryImpl implements DependentRepository {
                 .addValue("estado", request.estado() != null ? request.estado() : "ACTIVO");
 
         KeyHolder keyHolder = new GeneratedKeyHolder();
-        jdbcTemplate.update(sql, params, keyHolder, new String[]{"id_mascota"});
+        jdbcTemplate.update(sql, params, keyHolder, new String[]{"ID_MASCOTA"});
         return getMascotaById(keyHolder.getKey().longValue()).orElseThrow();
     }
 
@@ -63,7 +63,7 @@ public class DependentRepositoryImpl implements DependentRepository {
                 rs.getString("color"),
                 rs.getString("genero"),
                 rs.getDate("fecha_nacimiento_aprox") != null ? rs.getDate("fecha_nacimiento_aprox").toLocalDate() : null,
-                rs.getDouble("peso_kg"),
+                rs.getObject("peso_kg") != null ? rs.getDouble("peso_kg") : null,
                 rs.getString("numero_microchip"),
                 rs.getString("es_raza_manejo_especial"),
                 rs.getString("poliza_responsabilidad_url"),
@@ -86,7 +86,7 @@ public class DependentRepositoryImpl implements DependentRepository {
                 rs.getString("color"),
                 rs.getString("genero"),
                 rs.getDate("fecha_nacimiento_aprox") != null ? rs.getDate("fecha_nacimiento_aprox").toLocalDate() : null,
-                rs.getDouble("peso_kg"),
+                rs.getObject("peso_kg") != null ? rs.getDouble("peso_kg") : null,
                 rs.getString("numero_microchip"),
                 rs.getString("es_raza_manejo_especial"),
                 rs.getString("poliza_responsabilidad_url"),
@@ -139,7 +139,7 @@ public class DependentRepositoryImpl implements DependentRepository {
                 .addValue("tagRfid", request.tagRfid())
                 .addValue("estado", request.estado() != null ? request.estado() : "ACTIVO");
         KeyHolder keyHolder = new GeneratedKeyHolder();
-        jdbcTemplate.update(sql, params, keyHolder, new String[]{"id_vehiculo"});
+        jdbcTemplate.update(sql, params, keyHolder, new String[]{"ID_VEHICULO"});
         return getVehiculoById(keyHolder.getKey().longValue()).orElseThrow();
     }
 
@@ -212,7 +212,7 @@ public class DependentRepositoryImpl implements DependentRepository {
                 .addValue("documento", request.documentoSoporteUrl())
                 .addValue("estado", request.estado() != null ? request.estado() : "ACTIVO");
         KeyHolder keyHolder = new GeneratedKeyHolder();
-        jdbcTemplate.update(sql, params, keyHolder, new String[]{"id_tutor"});
+        jdbcTemplate.update(sql, params, keyHolder, new String[]{"ID_TUTOR"});
         return getTutorById(keyHolder.getKey().longValue()).orElseThrow();
     }
 
@@ -226,7 +226,7 @@ public class DependentRepositoryImpl implements DependentRepository {
                 rs.getString("parentesco"),
                 rs.getString("documento_soporte_url"),
                 rs.getString("estado"),
-                rs.getTimestamp("fecha_registro") != null ? ZonedDateTime.ofInstant(rs.getTimestamp("fecha_registro").toInstant(), ZoneId.of("America/Bogota")) : null
+                rs.getTimestamp("fecha_creacion") != null ? ZonedDateTime.ofInstant(rs.getTimestamp("fecha_creacion").toInstant(), ZoneId.of("America/Bogota")) : null
         )).stream().findFirst();
     }
 
@@ -240,7 +240,7 @@ public class DependentRepositoryImpl implements DependentRepository {
                 rs.getString("parentesco"),
                 rs.getString("documento_soporte_url"),
                 rs.getString("estado"),
-                rs.getTimestamp("fecha_registro") != null ? ZonedDateTime.ofInstant(rs.getTimestamp("fecha_registro").toInstant(), ZoneId.of("America/Bogota")) : null
+                rs.getTimestamp("fecha_creacion") != null ? ZonedDateTime.ofInstant(rs.getTimestamp("fecha_creacion").toInstant(), ZoneId.of("America/Bogota")) : null
         ));
     }
 
@@ -274,7 +274,7 @@ public class DependentRepositoryImpl implements DependentRepository {
                 .addValue("obs", request.observaciones())
                 .addValue("estado", request.estado() != null ? request.estado() : "ACTIVO");
         KeyHolder keyHolder = new GeneratedKeyHolder();
-        jdbcTemplate.update(sql, params, keyHolder, new String[]{"id_visitante"});
+        jdbcTemplate.update(sql, params, keyHolder, new String[]{"ID_VISITANTE"});
         return getVisitanteById(keyHolder.getKey().longValue()).orElseThrow();
     }
 

@@ -42,7 +42,7 @@ export default function NotificationBell() {
   const [visto, setVisto] = useState(() => {
     try { return Number(localStorage.getItem(VISTO_KEY)) || 0; } catch { return 0; }
   });
-  const esAdmin = user?.rol === 'ADMINISTRADOR';
+  const esAdmin = user?.rol === 'ADMIN_PROPIEDAD' || user?.rol === 'ADMIN_ORGANIZACION' || user?.rol === 'SUPERADMIN';
   const verMasRuta = esAdmin ? '/quejas-admin' : '/res-buzon';
 
   const cargar = useCallback(async () => {

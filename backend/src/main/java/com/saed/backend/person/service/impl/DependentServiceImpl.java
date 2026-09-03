@@ -26,6 +26,12 @@ public class DependentServiceImpl implements DependentService {
     @Override
     @Auditable(action = "CREATE", resource = "MASCOTA", category = AuditCategory.OPERATIONAL, severity = AuditSeverity.INFO)
     public MascotaDTO createMascota(MascotaRequestDTO request) {
+        com.saed.backend.context.SaedContext ctx = com.saed.backend.context.SaedContextHolder.getContext();
+        if ("RESIDENTE".equals(ctx.getRoleCode()) || "UNIDAD".equals(ctx.getRoleScope())) {
+            if (ctx.getUnitId() != null && !ctx.getUnitId().equals(request.unidadId())) {
+                throw new org.springframework.security.access.AccessDeniedException("No tiene permisos para registrar mascotas en otra unidad");
+            }
+        }
         return dependentRepository.createMascota(request);
     }
 
@@ -39,6 +45,12 @@ public class DependentServiceImpl implements DependentService {
     @Override
     @Transactional(readOnly = true)
     public List<MascotaDTO> getMascotasByUnidad(Long unidadId) {
+        com.saed.backend.context.SaedContext ctx = com.saed.backend.context.SaedContextHolder.getContext();
+        if ("RESIDENTE".equals(ctx.getRoleCode()) || "UNIDAD".equals(ctx.getRoleScope())) {
+            if (ctx.getUnitId() != null && !ctx.getUnitId().equals(unidadId)) {
+                throw new org.springframework.security.access.AccessDeniedException("No tiene permisos para consultar mascotas de otra unidad");
+            }
+        }
         return dependentRepository.getMascotasByUnidad(unidadId);
     }
 
@@ -58,6 +70,12 @@ public class DependentServiceImpl implements DependentService {
     @Override
     @Auditable(action = "CREATE", resource = "VEHICULO", category = AuditCategory.OPERATIONAL, severity = AuditSeverity.INFO)
     public VehiculoDTO createVehiculo(VehiculoRequestDTO request) {
+        com.saed.backend.context.SaedContext ctx = com.saed.backend.context.SaedContextHolder.getContext();
+        if ("RESIDENTE".equals(ctx.getRoleCode()) || "UNIDAD".equals(ctx.getRoleScope())) {
+            if (ctx.getUnitId() != null && !ctx.getUnitId().equals(request.unidadId())) {
+                throw new org.springframework.security.access.AccessDeniedException("No tiene permisos para registrar vehículos en otra unidad");
+            }
+        }
         return dependentRepository.createVehiculo(request);
     }
 
@@ -71,6 +89,12 @@ public class DependentServiceImpl implements DependentService {
     @Override
     @Transactional(readOnly = true)
     public List<VehiculoDTO> getVehiculosByUnidad(Long unidadId) {
+        com.saed.backend.context.SaedContext ctx = com.saed.backend.context.SaedContextHolder.getContext();
+        if ("RESIDENTE".equals(ctx.getRoleCode()) || "UNIDAD".equals(ctx.getRoleScope())) {
+            if (ctx.getUnitId() != null && !ctx.getUnitId().equals(unidadId)) {
+                throw new org.springframework.security.access.AccessDeniedException("No tiene permisos para consultar vehículos de otra unidad");
+            }
+        }
         return dependentRepository.getVehiculosByUnidad(unidadId);
     }
 

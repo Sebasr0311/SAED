@@ -12,11 +12,12 @@ import { ActionButtons } from '../components/ui/ActionButtons.jsx';
 import { useFetch, useLiveValidation } from '../lib/hooks.js';
 import api from '../lib/api.js';
 
-const ROLES = ['ADMINISTRADOR', 'PORTERO', 'RESIDENTE'];
+const ROLES = ['ADMIN_PROPIEDAD', 'PORTERO', 'RESIDENTE'];
 const PAGE_SIZE = 15;
 const emptyForm = { username: '', password: '', rol: 'RESIDENTE', idResidente: '', activo: true };
 
 const ROL_BADGE = {
+  ADMIN_PROPIEDAD: 'badge-navy',
   ADMINISTRADOR: 'badge-navy',
   PORTERO: 'badge-info',
   RESIDENTE: 'badge-success',

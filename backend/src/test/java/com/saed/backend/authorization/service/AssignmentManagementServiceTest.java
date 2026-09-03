@@ -29,6 +29,9 @@ class AssignmentManagementServiceTest {
     @Mock
     private RoleRepository roleRepository;
 
+    @Mock
+    private com.saed.backend.authorization.repository.PropertyRepository propertyRepository;
+
     @InjectMocks
     private AssignmentManagementService service;
 
@@ -135,6 +138,11 @@ class AssignmentManagementServiceTest {
         targetRole.setIdRol(3L);
         when(roleRepository.findById(3L)).thenReturn(Optional.of(targetRole));
         when(assignmentRepository.create(any(), eq(2L))).thenReturn(99L);
+
+        com.saed.backend.authorization.dto.PropertyDTO propDTO = new com.saed.backend.authorization.dto.PropertyDTO();
+        propDTO.setId(1L);
+        propDTO.setIdOrganizacion(5L);
+        when(propertyRepository.findById(1L)).thenReturn(Optional.of(propDTO));
 
         AssignmentRequestDTO request = new AssignmentRequestDTO();
         request.setIdUsuario(10L);

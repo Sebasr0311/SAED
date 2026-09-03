@@ -62,7 +62,7 @@ public class FinanzasRepositoryImpl implements FinanzasRepository {
 
     @Override
     public List<CuotaDTO> getCuotasPendientes() {
-        Long propId = SaedContextHolder.getContext().getPropertyId();
+        Long propId = (SaedContextHolder.getContext() != null) ? SaedContextHolder.getContext().getPropertyId() : null;
         String sql = "SELECT c.ID_CUOTA, c.ID_UNIDAD, u.IDENTIFICADOR as numeroApartamento, p.PRIMER_NOMBRE || ' ' || p.PRIMER_APELLIDO as nombreResidente, c.ID_CONTRATO, " +
                      "co.NOMBRE as concepto, c.PERIODO, c.VALOR_BASE, c.VALOR_TOTAL, c.SALDO_PENDIENTE, c.FECHA_VENCIMIENTO as FECHA_LIMITE, c.ESTADO " +
                      "FROM CUOTAS c " +
@@ -70,8 +70,10 @@ public class FinanzasRepositoryImpl implements FinanzasRepository {
                      "JOIN CONCEPTOS_COBRO co ON c.ID_CONCEPTO = co.ID_CONCEPTO " +
                      "LEFT JOIN CONTRATOS con ON c.ID_CONTRATO = con.ID_CONTRATO " +
                      "LEFT JOIN PERSONAS p ON con.ID_ARRENDATARIO_PRINCIPAL = p.ID_PERSONA " +
-                     "WHERE c.ESTADO = 'PENDIENTE' AND u.ID_PROPIEDAD = :propId";
-        return jdbcTemplate.query(sql, new MapSqlParameterSource("propId", propId), (rs, rowNum) -> new CuotaDTO(
+                     "WHERE c.ESTADO = 'PENDIENTE'" + (propId != null ? " AND u.ID_PROPIEDAD = :propId" : "");
+        MapSqlParameterSource params = new MapSqlParameterSource();
+        if (propId != null) params.addValue("propId", propId);
+        return jdbcTemplate.query(sql, params, (rs, rowNum) -> new CuotaDTO(
             rs.getLong("ID_CUOTA"), rs.getLong("ID_UNIDAD"), rs.getString("numeroApartamento"), rs.getString("nombreResidente"),
             rs.getLong("ID_CONTRATO"), rs.getString("concepto"), rs.getString("PERIODO"),
             rs.getBigDecimal("VALOR_BASE"), rs.getBigDecimal("VALOR_TOTAL"), rs.getBigDecimal("SALDO_PENDIENTE"),
@@ -81,7 +83,7 @@ public class FinanzasRepositoryImpl implements FinanzasRepository {
 
     @Override
     public List<CuotaDTO> getCuotasByResidente(Long idResidente) {
-        Long propId = SaedContextHolder.getContext().getPropertyId();
+        Long propId = (SaedContextHolder.getContext() != null) ? SaedContextHolder.getContext().getPropertyId() : null;
         String sql = "SELECT c.ID_CUOTA, c.ID_UNIDAD, u.IDENTIFICADOR as numeroApartamento, p.PRIMER_NOMBRE || ' ' || p.PRIMER_APELLIDO as nombreResidente, c.ID_CONTRATO, " +
                      "co.NOMBRE as concepto, c.PERIODO, c.VALOR_BASE, c.VALOR_TOTAL, c.SALDO_PENDIENTE, c.FECHA_VENCIMIENTO as FECHA_LIMITE, c.ESTADO " +
                      "FROM CUOTAS c " +
@@ -89,9 +91,12 @@ public class FinanzasRepositoryImpl implements FinanzasRepository {
                      "JOIN CONCEPTOS_COBRO co ON c.ID_CONCEPTO = co.ID_CONCEPTO " +
                      "JOIN CONTRATOS con ON c.ID_CONTRATO = con.ID_CONTRATO " +
                      "JOIN PERSONAS p ON con.ID_ARRENDATARIO_PRINCIPAL = p.ID_PERSONA " +
-                     "WHERE con.ID_ARRENDATARIO_PRINCIPAL = :idRes AND u.ID_PROPIEDAD = :propId " +
+                     "WHERE con.ID_ARRENDATARIO_PRINCIPAL = :idRes" +
+                     (propId != null ? " AND u.ID_PROPIEDAD = :propId " : " ") +
                      "ORDER BY c.FECHA_VENCIMIENTO DESC";
-        return jdbcTemplate.query(sql, new MapSqlParameterSource("idRes", idResidente).addValue("propId", propId), (rs, rowNum) -> new CuotaDTO(
+        MapSqlParameterSource params = new MapSqlParameterSource("idRes", idResidente);
+        if (propId != null) params.addValue("propId", propId);
+        return jdbcTemplate.query(sql, params, (rs, rowNum) -> new CuotaDTO(
             rs.getLong("ID_CUOTA"), rs.getLong("ID_UNIDAD"), rs.getString("numeroApartamento"), rs.getString("nombreResidente"),
             rs.getLong("ID_CONTRATO"), rs.getString("concepto"), rs.getString("PERIODO"),
             rs.getBigDecimal("VALOR_BASE"), rs.getBigDecimal("VALOR_TOTAL"), rs.getBigDecimal("SALDO_PENDIENTE"),
@@ -121,14 +126,16 @@ public class FinanzasRepositoryImpl implements FinanzasRepository {
 
     @Override
     public void actualizarSaldoCuota(Long idCuota, BigDecimal montoAplicado) {
-        Long propId = SaedContextHolder.getContext().getPropertyId();
+        Long propId = (SaedContextHolder.getContext() != null) ? SaedContextHolder.getContext().getPropertyId() : null;
         String sql = "UPDATE CUOTAS SET SALDO_PENDIENTE = GREATEST(SALDO_PENDIENTE - :monto, 0), " +
                      "ESTADO = CASE WHEN SALDO_PENDIENTE - :monto <= 0 THEN 'PAGADA' ELSE ESTADO END " +
-                     "WHERE ID_CUOTA = :idCuota AND ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD = :propId)";
-        jdbcTemplate.update(sql, new MapSqlParameterSource()
+                     "WHERE ID_CUOTA = :idCuota" +
+                     (propId != null ? " AND ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD = :propId)" : "");
+        MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("monto", montoAplicado)
-                .addValue("idCuota", idCuota)
-                .addValue("propId", propId));
+                .addValue("idCuota", idCuota);
+        if (propId != null) params.addValue("propId", propId);
+        jdbcTemplate.update(sql, params);
     }
 
     @Override

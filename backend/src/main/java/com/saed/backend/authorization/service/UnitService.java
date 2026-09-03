@@ -35,6 +35,12 @@ public class UnitService {
     }
 
     public UnitDTO findById(Long id) {
+        SaedContext ctx = SaedContextHolder.getContext();
+        if ("RESIDENTE".equals(ctx.getRoleCode()) || "UNIDAD".equals(ctx.getRoleScope())) {
+            if (ctx.getUnitId() != null && !ctx.getUnitId().equals(id)) {
+                throw new AccessDeniedException("No tiene permisos para consultar otra unidad");
+            }
+        }
         return unitRepository.findById(id)
                 .orElseThrow(() -> new java.util.NoSuchElementException("Unit not found"));
     }

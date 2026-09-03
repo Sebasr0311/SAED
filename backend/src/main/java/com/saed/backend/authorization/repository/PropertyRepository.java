@@ -10,4 +10,7 @@ public interface PropertyRepository {
     Optional<PropertyDTO> findById(Long id);
     List<PropertyDTO> findAll();
     void update(Long id, PropertyRequestDTO request);
+    void updateStatus(Long id, String estado);
+    long countByOrganization(Long orgId);
+    Optional<Long> getPropertyLimit(Long orgId);
 }

@@ -47,7 +47,7 @@ public class QuejaRepositoryImpl implements QuejaRepository {
     @Override
     public List<QuejaDTO> findAll() {
         String sql = "SELECT q.ID_TICKET, q.NUMERO_RADICADO, q.TIPO, q.CATEGORIA, q.PRIORIDAD, q.ASUNTO, q.DESCRIPCION, q.ESTADO, q.FECHA_RADICACION, " +
-                     "(SELECT t.CONTENIDO FROM PQRS_TRAZABILIDAD t WHERE t.ID_TICKET = q.ID_TICKET ORDER BY t.FECHA_ACCION DESC FETCH FIRST 1 ROWS ONLY) as RESPUESTA, " +
+                     "(SELECT t.COMENTARIO FROM PQRS_TRAZABILIDAD t WHERE t.ID_TICKET = q.ID_TICKET ORDER BY t.FECHA_HORA DESC FETCH FIRST 1 ROWS ONLY) as RESPUESTA, " +
                      "p.PRIMER_NOMBRE || ' ' || p.PRIMER_APELLIDO as autor, u.IDENTIFICADOR as apartamento " +
                      "FROM PQRS_TICKETS q " +
                      "JOIN PERSONAS p ON q.ID_PERSONA_RADICA = p.ID_PERSONA " +
@@ -59,7 +59,7 @@ public class QuejaRepositoryImpl implements QuejaRepository {
     @Override
     public List<QuejaDTO> findByUserId(Long idUsuario) {
         String sql = "SELECT q.ID_TICKET, q.NUMERO_RADICADO, q.TIPO, q.CATEGORIA, q.PRIORIDAD, q.ASUNTO, q.DESCRIPCION, q.ESTADO, q.FECHA_RADICACION, " +
-                     "(SELECT t.CONTENIDO FROM PQRS_TRAZABILIDAD t WHERE t.ID_TICKET = q.ID_TICKET ORDER BY t.FECHA_ACCION DESC FETCH FIRST 1 ROWS ONLY) as RESPUESTA, " +
+                     "(SELECT t.COMENTARIO FROM PQRS_TRAZABILIDAD t WHERE t.ID_TICKET = q.ID_TICKET ORDER BY t.FECHA_HORA DESC FETCH FIRST 1 ROWS ONLY) as RESPUESTA, " +
                      "p.PRIMER_NOMBRE || ' ' || p.PRIMER_APELLIDO as autor, u.IDENTIFICADOR as apartamento " +
                      "FROM PQRS_TICKETS q " +
                      "JOIN PERSONAS p ON q.ID_PERSONA_RADICA = p.ID_PERSONA " +
@@ -85,7 +85,7 @@ public class QuejaRepositoryImpl implements QuejaRepository {
 
     @Override
     public void updateRespuesta(Long id, String respuesta) {
-        String sql = "INSERT INTO PQRS_TRAZABILIDAD (ID_TICKET, ID_USUARIO_ACCION, TIPO_ACCION, ESTADO_ANTERIOR, ESTADO_NUEVO, CONTENIDO) " +
+        String sql = "INSERT INTO PQRS_TRAZABILIDAD (ID_TICKET, ID_USUARIO, TIPO_INTERVENCION, ESTADO_ANTERIOR, ESTADO_NUEVO, COMENTARIO) " +
                      "VALUES (:id, SYS_CONTEXT('SAED_CTX','ID_USUARIO'), 'RESPUESTA', " +
                      "(SELECT ESTADO FROM PQRS_TICKETS WHERE ID_TICKET = :id), " +
                      "(SELECT ESTADO FROM PQRS_TICKETS WHERE ID_TICKET = :id), :respuesta)";

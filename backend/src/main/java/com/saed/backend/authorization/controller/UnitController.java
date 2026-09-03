@@ -20,7 +20,6 @@ import java.util.Map;
 @Tag(name = "Unit", description = "API para la gestion de Unit")
 @RestController
 @RequestMapping("/api/v1/units")
-@PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
 public class UnitController {
 
     private final UnitService unitService;
@@ -30,16 +29,19 @@ public class UnitController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_PORTERO', 'SCOPE_RESIDENTE')")
     public ResponseEntity<List<UnitDTO>> findAll() {
         return ResponseEntity.ok(unitService.findAll());
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_PORTERO', 'SCOPE_RESIDENTE')")
     public ResponseEntity<UnitDTO> findById(@PathVariable Long id) {
         return ResponseEntity.ok(unitService.findById(id));
     }
 
     @PostMapping
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
     @Auditable(action = "CREATE", resource = "UNIDAD", category = AuditCategory.ADMINISTRATIVE, severity = AuditSeverity.INFO)
     public ResponseEntity<Map<String, Object>> create(@Valid @RequestBody UnitRequestDTO request) {
         Long id = unitService.create(request);
@@ -48,6 +50,7 @@ public class UnitController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
     @Auditable(action = "UPDATE", resource = "UNIDAD", category = AuditCategory.ADMINISTRATIVE, severity = AuditSeverity.INFO)
     public ResponseEntity<Map<String, Object>> update(@PathVariable Long id, @Valid @RequestBody UnitRequestDTO request) {
         unitService.update(id, request);

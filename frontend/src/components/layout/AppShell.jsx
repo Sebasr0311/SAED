@@ -47,7 +47,34 @@ const NAV_BY_ROLE = {
       ],
     },
   ],
-  ADMINISTRADOR: [
+  ADMIN_ORGANIZACION: [
+    {
+      id: 'inicio',
+      label: 'Inicio',
+      icon: 'home',
+      items: [{ path: '/org/dashboard', label: 'Dashboard', icon: 'dashboard' }],
+    },
+    {
+      id: 'organizacion',
+      label: 'Organización',
+      icon: 'domain',
+      items: [
+        { path: '/org/organizacion', label: 'Mi Organización', icon: 'domain' },
+        { path: '/org/propiedades', label: 'Propiedades', icon: 'apartment' },
+        { path: '/org/admins', label: 'Administradores', icon: 'admin_panel_settings' },
+      ],
+    },
+    {
+      id: 'comercial',
+      label: 'Plan y Control',
+      icon: 'pricing_plan',
+      items: [
+        { path: '/org/plan', label: 'Plan y Suscripción', icon: 'card_membership' },
+        { path: '/org/auditoria', label: 'Pista de Auditoría', icon: 'policy' },
+      ],
+    },
+  ],
+  ADMIN_PROPIEDAD: [
     {
       id: 'inicio',
       label: 'Inicio',
@@ -59,16 +86,12 @@ const NAV_BY_ROLE = {
       label: 'Administración',
       icon: 'domain',
       items: [
-        { path: '/organizaciones', label: 'Organizaciones', icon: 'domain' },
-        { path: '/propiedades', label: 'Propiedades', icon: 'apartment' },
         { path: '/personas', label: 'Personas', icon: 'person' },
         { path: '/residentes', label: 'Residentes', icon: 'groups' },
         { path: '/unidades', label: 'Unidades', icon: 'apartment' },
         { path: '/contratos', label: 'Contratos', icon: 'description' },
         { path: '/usuarios', label: 'Usuarios', icon: 'manage_accounts' },
         { path: '/roles-asignaciones', label: 'Roles y Asignaciones', icon: 'admin_panel_settings' },
-        { path: '/planes', label: 'Planes', icon: 'pricing_plan' },
-        { path: '/membresias', label: 'Membresías', icon: 'card_membership' },
         { path: '/reportes', label: 'Reportes', icon: 'assessment' },
       ],
     },
@@ -90,9 +113,25 @@ const NAV_BY_ROLE = {
       icon: 'payments',
       items: [
         { path: '/pagos', label: 'Pagos', icon: 'payments' },
+        { path: '/cartera', label: 'Cartera', icon: 'account_balance_wallet' },
+        { path: '/presupuestos', label: 'Presupuestos', icon: 'calculate' },
+        { path: '/gastos', label: 'Gastos', icon: 'receipt_long' },
+        { path: '/flujo-caja', label: 'Flujo de Caja', icon: 'show_chart' },
+        { path: '/conciliaciones', label: 'Conciliaciones', icon: 'fact_check' },
+        { path: '/paz-y-salvos', label: 'Paz y Salvos', icon: 'verified' },
         { path: '/ganancias', label: 'Ganancias', icon: 'trending_up' },
-        { path: '/sanciones-admin', label: 'Sanciones', icon: 'gavel' },
+      ],
+    },
+    {
+      id: 'mantenimiento-control',
+      label: 'Mantenimiento y Control',
+      icon: 'build',
+      items: [
+        { path: '/mantenimiento-admin', label: 'Mantenimientos', icon: 'build' },
         { path: '/asambleas-admin', label: 'Asambleas', icon: 'groups' },
+        { path: '/polizas-admin', label: 'Pólizas y Seguros', icon: 'policy' },
+        { path: '/emergencias-admin', label: 'Planes Emergencia', icon: 'emergency' },
+        { path: '/sanciones-admin', label: 'Sanciones', icon: 'gavel' },
         { path: '/obras-admin', label: 'Obras y Remodelaciones', icon: 'construction' },
         { path: '/incidentes-admin', label: 'Incidentes', icon: 'warning' },
       ],
@@ -112,7 +151,7 @@ const NAV_BY_ROLE = {
       icon: 'support_agent',
       items: [
         { path: '/quejas-admin', label: 'PQRS (Tickets)', icon: 'support_agent' },
-        { path: '/reservas-admin', label: 'Reservas Z.C.', icon: 'event' }
+        { path: '/reservas-admin', label: 'Reservas Z.C.', icon: 'event' },
       ],
     },
   ],

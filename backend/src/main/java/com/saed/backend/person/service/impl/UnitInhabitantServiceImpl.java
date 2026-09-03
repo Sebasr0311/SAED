@@ -27,6 +27,12 @@ public class UnitInhabitantServiceImpl implements UnitInhabitantService {
     @Override
     @Transactional(readOnly = true)
     public List<UnitOwnerDTO> getOwnersByUnitId(Long unitId) {
+        com.saed.backend.context.SaedContext ctx = com.saed.backend.context.SaedContextHolder.getContext();
+        if ("RESIDENTE".equals(ctx.getRoleCode()) || "UNIDAD".equals(ctx.getRoleScope())) {
+            if (ctx.getUnitId() != null && !ctx.getUnitId().equals(unitId)) {
+                throw new org.springframework.security.access.AccessDeniedException("No tiene permisos para consultar habitantes de otra unidad");
+            }
+        }
         return unitInhabitantRepository.findOwnersByUnitId(unitId);
     }
 
@@ -40,6 +46,12 @@ public class UnitInhabitantServiceImpl implements UnitInhabitantService {
     @Override
     @Transactional(readOnly = true)
     public List<UnitResidentDTO> getResidentsByUnitId(Long unitId) {
+        com.saed.backend.context.SaedContext ctx = com.saed.backend.context.SaedContextHolder.getContext();
+        if ("RESIDENTE".equals(ctx.getRoleCode()) || "UNIDAD".equals(ctx.getRoleScope())) {
+            if (ctx.getUnitId() != null && !ctx.getUnitId().equals(unitId)) {
+                throw new org.springframework.security.access.AccessDeniedException("No tiene permisos para consultar habitantes de otra unidad");
+            }
+        }
         return unitInhabitantRepository.findResidentsByUnitId(unitId);
     }
 

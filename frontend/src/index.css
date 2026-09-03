@@ -2088,6 +2088,7 @@ input:-webkit-autofill:focus {
 .user-info:hover .user-avatar {
   transform: scale(1.06);
 }
+.badge-role[data-rol="ADMIN_PROPIEDAD"],
 .badge-role[data-rol="ADMINISTRADOR"] {
   background: var(--tint-navy-bg);
   color: var(--tint-navy-fg);

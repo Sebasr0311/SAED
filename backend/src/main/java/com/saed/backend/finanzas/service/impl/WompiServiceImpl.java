@@ -47,9 +47,14 @@ public class WompiServiceImpl implements WompiService {
 
     private static final Logger log = LoggerFactory.getLogger(WompiServiceImpl.class);
 
-    private static final String WOMPI_PUBLIC_KEY = System.getenv("WOMPI_PUBLIC_KEY");
-    private static final String WOMPI_INTEGRITY_SECRET = System.getenv("WOMPI_INTEGRITY_SECRET");
-    private static final String WOMPI_EVENTS_SECRET = System.getenv("WOMPI_EVENTS_SECRET");
+    @org.springframework.beans.factory.annotation.Value("${wompi.public-key:${WOMPI_PUBLIC_KEY:}}")
+    private String wompiPublicKey;
+
+    @org.springframework.beans.factory.annotation.Value("${wompi.integrity-secret:${WOMPI_INTEGRITY_SECRET:}}")
+    private String wompiIntegritySecret;
+
+    @org.springframework.beans.factory.annotation.Value("${wompi.events-secret:${WOMPI_EVENTS_SECRET:}}")
+    private String wompiEventsSecret;
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
     private final FinanzasService finanzasService;
@@ -63,11 +68,40 @@ public class WompiServiceImpl implements WompiService {
         this.emailService = emailService;
     }
 
+    public String getPublicKey() {
+        if (wompiPublicKey != null && !wompiPublicKey.isBlank()) return wompiPublicKey;
+        return System.getenv("WOMPI_PUBLIC_KEY");
+    }
+
+    public void setPublicKey(String key) {
+        this.wompiPublicKey = key;
+    }
+
+    public String getIntegritySecret() {
+        if (wompiIntegritySecret != null && !wompiIntegritySecret.isBlank()) return wompiIntegritySecret;
+        return System.getenv("WOMPI_INTEGRITY_SECRET");
+    }
+
+    public void setIntegritySecret(String secret) {
+        this.wompiIntegritySecret = secret;
+    }
+
+    public String getEventsSecret() {
+        if (wompiEventsSecret != null && !wompiEventsSecret.isBlank()) return wompiEventsSecret;
+        return System.getenv("WOMPI_EVENTS_SECRET");
+    }
+
+    public void setEventsSecret(String secret) {
+        this.wompiEventsSecret = secret;
+    }
+
     @Override
     @Transactional
     @Auditable(action = "CREATE_INTENTION", resource = "WOMPI_PAYMENT", category = AuditCategory.FINANCIAL, severity = AuditSeverity.CRITICAL)
     public Map<String, Object> crearIntencion(String concepto, Long idItem) throws Exception {
-        if (WOMPI_PUBLIC_KEY == null || WOMPI_INTEGRITY_SECRET == null) {
+        String pubKey = getPublicKey();
+        String integritySec = getIntegritySecret();
+        if (pubKey == null || pubKey.isBlank() || integritySec == null || integritySec.isBlank()) {
             throw new RuntimeException("Wompi no configurado.");
         }
         if (!"CUOTA".equals(concepto) && !"MULTA".equals(concepto)) {
@@ -131,7 +165,7 @@ public class WompiServiceImpl implements WompiService {
         Map<String, Object> resp = new HashMap<>();
         resp.put("referencia", referencia);
         resp.put("montoCentavos", montoCentavos);
-        resp.put("publicKey", WOMPI_PUBLIC_KEY);
+        resp.put("publicKey", pubKey);
         resp.put("firmaIntegridad", firma);
         return resp;
     }
@@ -154,7 +188,7 @@ public class WompiServiceImpl implements WompiService {
     }
 
     private String firmaIntegridad(String referencia, long montoCentavos) throws Exception {
-        String s = referencia + montoCentavos + "COP" + WOMPI_INTEGRITY_SECRET;
+        String s = referencia + montoCentavos + "COP" + getIntegritySecret();
         return sha256Hex(s);
     }
 
@@ -168,6 +202,7 @@ public class WompiServiceImpl implements WompiService {
         String event = (String) evento.get("event");
         if (!"transaction.updated".equals(event)) return;
 
+        // 1. Verificación matemática de firma con WOMPI_EVENTS_SECRET antes de interactuar con BD
         if (!verificarChecksum(evento)) {
             log.warn("[Wompi] Checksum invalido");
             return;
@@ -181,88 +216,166 @@ public class WompiServiceImpl implements WompiService {
         String referencia = (String) tx.get("reference");
         String idWompi = (String) tx.get("id");
         String status = (String) tx.get("status");
-
-        if (referencia == null || status == null) return;
-
-        List<Map<String, Object>> txs = jdbcTemplate.queryForList(
-            "SELECT ID_TRANSACCION, ID_UNIDAD, ID_PAGO, PASARELA, ESTADO_PASARELA, METODO_ORIGEN, MONTO_CENTAVOS " +
-            "FROM TRANSACCIONES_PAGO WHERE REFERENCIA_INTERNA = :ref",
-            new MapSqlParameterSource("ref", referencia)
-        );
-
-        if (txs.isEmpty()) {
-            log.warn("[Wompi] Referencia no encontrada: {}", referencia);
-            return;
-        }
-
-        Map<String, Object> intencion = txs.get(0);
-        String estadoActual = (String) intencion.get("ESTADO_PASARELA");
-        if (!"PENDIENTE".equals(estadoActual)) return; // Idempotencia
-
-        // Validacion exacta de monto en centavos
+        String currency = (String) tx.get("currency");
         Number amountInCents = (Number) tx.get("amount_in_cents");
-        long expectedCentavos = ((Number) intencion.get("MONTO_CENTAVOS")).longValue();
-        if (amountInCents == null || amountInCents.longValue() != expectedCentavos) {
-            log.warn("[Wompi] Monto en centavos no coincide: recibido={}, esperado={}", amountInCents, expectedCentavos);
+
+        if (referencia == null || status == null || idWompi == null || amountInCents == null) return;
+
+        // 2. Validación de moneda
+        if (currency != null && !"COP".equalsIgnoreCase(currency)) {
+            log.warn("[Wompi] Moneda no coincide: {}", currency);
             return;
         }
 
-        String nuevoEstado = estadoInternoDe(status);
-        boolean aprobada = "APROBADO".equals(nuevoEstado);
-        String metodoPagoReal = (String) tx.get("payment_method_type");
-        if (metodoPagoReal == null) metodoPagoReal = "WOMPI";
-
-        jdbcTemplate.update(
-            "UPDATE TRANSACCIONES_PAGO SET ESTADO_PASARELA = :est, PAYLOAD_WEBHOOK = :pay, ID_TRANSACCION_PASARELA = :wompi, METODO_ORIGEN = :metodo WHERE ID_TRANSACCION = :id",
-            new MapSqlParameterSource("est", nuevoEstado)
-                .addValue("pay", payloadRaw)
-                .addValue("wompi", idWompi)
-                .addValue("metodo", metodoPagoReal)
-                .addValue("id", ((Number) intencion.get("ID_TRANSACCION")).longValue())
-        );
-
-        if (aprobada) {
-            BigDecimal montoPesos = new BigDecimal(expectedCentavos).divide(new BigDecimal(100));
-            Long idUnidad = ((Number) intencion.get("ID_UNIDAD")).longValue();
-
-            // Extraer concepto e idItem desde la referencia "SAED-<CONCEPTO>-<ID>-<TIMESTAMP>"
-            String[] refParts = referencia.split("-");
-            String concepto = refParts.length >= 2 ? refParts[1] : "CUOTA";
-            Long idItem = refParts.length >= 3 ? Long.parseLong(refParts[2]) : null;
-
+        // 3. Establecer contexto de ejecución seguro para consultar TRANSACCIONES_PAGO
+        SaedContext prevCtx = SaedContextHolder.getContext();
+        try {
+            SaedContext systemCtx = SaedContext.builder()
+                .userId(1L)
+                .organizationId(1L)
+                .propertyId(1L)
+                .roleCode("SUPERADMIN")
+                .roleScope("GLOBAL")
+                .build();
+            SaedContextHolder.setContext(systemCtx);
             try {
-                if ("CUOTA".equals(concepto) && idItem != null) {
-                    finanzasService.registrarPago(new PagoRequestDTO(
-                        idItem,
-                        java.time.LocalDate.now(),
-                        montoPesos,
-                        metodoPagoReal,
-                        referencia
-                    ));
-                } else if ("MULTA".equals(concepto) && idItem != null) {
-                    jdbcTemplate.update(
-                        "UPDATE MULTAS SET ESTADO = 'PAGADA' WHERE ID_MULTA = :id AND ID_UNIDAD = :u",
-                        new MapSqlParameterSource("id", idItem).addValue("u", idUnidad)
-                    );
-                }
-            } catch (Exception e) {
-                log.error("[Wompi] Error registrando pago aprobado", e);
+                jdbcTemplate.getJdbcOperations().execute("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1); END;");
+                jdbcTemplate.getJdbcOperations().execute("BEGIN PKG_SAED_SESSION.SET_CONTEXT(1, 1, 1, 'SUPERADMIN'); END;");
+            } catch (Exception ignored) {}
+
+            List<Map<String, Object>> txs = jdbcTemplate.queryForList(
+                "SELECT ID_TRANSACCION, ID_UNIDAD, ID_PAGO, PASARELA, ESTADO_PASARELA, METODO_ORIGEN, MONTO_CENTAVOS " +
+                "FROM TRANSACCIONES_PAGO WHERE REFERENCIA_INTERNA = :ref",
+                new MapSqlParameterSource("ref", referencia)
+            );
+
+            if (txs.isEmpty()) {
+                log.warn("[Wompi] Referencia no encontrada: {}", referencia);
+                return;
             }
 
-            // Recibo por correo
+            Map<String, Object> intencion = txs.get(0);
+            Long idTransaccion = ((Number) intencion.get("ID_TRANSACCION")).longValue();
+            Long idUnidad = ((Number) intencion.get("ID_UNIDAD")).longValue();
+            long expectedCentavos = ((Number) intencion.get("MONTO_CENTAVOS")).longValue();
+
+            // 4. Validación exacta de monto en centavos
+            if (amountInCents.longValue() != expectedCentavos) {
+                log.warn("[Wompi] Monto en centavos no coincide: recibido={}, esperado={}", amountInCents, expectedCentavos);
+                return;
+            }
+
+            // 5. Determinar nuevo estado y resolver inquilino (propiedad y organización)
+            String nuevoEstado = estadoInternoDe(status);
+            boolean aprobada = "APROBADO".equals(nuevoEstado);
+            String metodoPagoReal = (String) tx.get("payment_method_type");
+            if (metodoPagoReal == null) metodoPagoReal = "WOMPI";
+
+            Long idPropiedad = null;
+            Long idOrganizacion = null;
             try {
-                List<Map<String, Object>> residentes = jdbcTemplate.queryForList(
-                    "SELECT P.EMAIL FROM PERSONAS P " +
-                    "JOIN RESIDENTES_UNIDAD RU ON RU.ID_PERSONA = P.ID_PERSONA " +
-                    "WHERE RU.ID_UNIDAD = :u AND P.EMAIL IS NOT NULL",
+                List<Map<String, Object>> uProps = jdbcTemplate.queryForList(
+                    "SELECT u.ID_PROPIEDAD, p.ID_ORGANIZACION FROM UNIDADES u " +
+                    "JOIN PROPIEDADES p ON u.ID_PROPIEDAD = p.ID_PROPIEDAD WHERE u.ID_UNIDAD = :u",
                     new MapSqlParameterSource("u", idUnidad)
                 );
-                if (!residentes.isEmpty()) {
-                    String destinatario = (String) residentes.get(0).get("EMAIL");
-                    emailService.enviarReciboPago(destinatario, concepto, montoPesos, referencia, java.time.LocalDate.now().toString());
+                if (!uProps.isEmpty()) {
+                    idPropiedad = ((Number) uProps.get(0).get("ID_PROPIEDAD")).longValue();
+                    idOrganizacion = ((Number) uProps.get(0).get("ID_ORGANIZACION")).longValue();
                 }
+            } catch (Exception ignored) {}
+
+            if (idPropiedad != null && idOrganizacion != null) {
+                SaedContext tenantCtx = SaedContext.builder()
+                    .userId(1L)
+                    .organizationId(idOrganizacion)
+                    .propertyId(idPropiedad)
+                    .unitId(idUnidad)
+                    .roleCode("SUPERADMIN")
+                    .roleScope("GLOBAL")
+                    .build();
+                SaedContextHolder.setContext(tenantCtx);
+                try {
+                    jdbcTemplate.getJdbcOperations().execute(String.format(
+                        "BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1); PKG_SAED_SESSION.SET_CONTEXT(1, %d, %d, 'SUPERADMIN'); END;",
+                        idOrganizacion, idPropiedad
+                    ));
+                } catch (Exception ignored) {}
+            }
+
+            // 6. Transición Atómica de Estado (Idempotencia y Replay Protection)
+            int updated = jdbcTemplate.update(
+                "UPDATE TRANSACCIONES_PAGO SET ESTADO_PASARELA = :est, PAYLOAD_WEBHOOK = :pay, ID_TRANSACCION_PASARELA = :wompi, METODO_ORIGEN = :metodo " +
+                "WHERE ID_TRANSACCION = :id AND ESTADO_PASARELA = 'PENDIENTE'",
+                new MapSqlParameterSource("est", nuevoEstado)
+                    .addValue("pay", payloadRaw)
+                    .addValue("wompi", idWompi)
+                    .addValue("metodo", metodoPagoReal)
+                    .addValue("id", idTransaccion)
+            );
+
+            if (updated == 0) {
+                log.info("[Wompi] Transaccion {} ya no esta PENDIENTE (evento duplicado/idempotente ignorado).", referencia);
+                return;
+            }
+
+            // 7. Si fue aprobada, asentar el pago en el libro contable
+            if (aprobada) {
+                BigDecimal montoPesos = new BigDecimal(expectedCentavos).divide(new BigDecimal(100));
+
+                // Extraer concepto e idItem desde la referencia "SAED-<CONCEPTO>-<ID>-<TIMESTAMP>"
+                String[] refParts = referencia.split("-");
+                String concepto = refParts.length >= 2 ? refParts[1] : "CUOTA";
+                Long idItem = refParts.length >= 3 ? Long.parseLong(refParts[2]) : null;
+
+                try {
+                    if ("CUOTA".equals(concepto) && idItem != null) {
+                        finanzasService.registrarPago(new PagoRequestDTO(
+                            idItem,
+                            java.time.LocalDate.now(),
+                            montoPesos,
+                            "PASARELA_WOMPI",
+                            referencia
+                        ));
+                    } else if ("MULTA".equals(concepto) && idItem != null) {
+                        jdbcTemplate.update(
+                            "UPDATE MULTAS SET ESTADO = 'PAGADA' WHERE ID_MULTA = :id AND ID_UNIDAD = :u",
+                            new MapSqlParameterSource("id", idItem).addValue("u", idUnidad)
+                        );
+                    }
+                } catch (Exception e) {
+                    log.error("[Wompi] Error registrando pago aprobado", e);
+                }
+
+                // Recibo por correo
+                try {
+                    List<Map<String, Object>> residentes = jdbcTemplate.queryForList(
+                        "SELECT P.EMAIL FROM PERSONAS P " +
+                        "JOIN RESIDENTES_UNIDAD RU ON RU.ID_PERSONA = P.ID_PERSONA " +
+                        "WHERE RU.ID_UNIDAD = :u AND P.EMAIL IS NOT NULL",
+                        new MapSqlParameterSource("u", idUnidad)
+                    );
+                    if (!residentes.isEmpty()) {
+                        String destinatario = (String) residentes.get(0).get("EMAIL");
+                        emailService.enviarReciboPago(destinatario, concepto, montoPesos, referencia, java.time.LocalDate.now().toString());
+                    }
+                } catch (Exception e) {
+                    log.error("[Wompi] Error enviando recibo de pago", e);
+                }
+            }
+        } finally {
+            try {
+                jdbcTemplate.getJdbcOperations().execute("BEGIN PKG_SAED_SESSION.CLEAR_CONTEXT(); END;");
             } catch (Exception e) {
-                log.error("[Wompi] Error enviando recibo de pago", e);
+                // [C5][H-07] DO NOT silence — a failed CLEAR_CONTEXT leaves the Oracle session with
+                // SUPERADMIN context in the connection pool. Log for production alerting.
+                log.error("[SECURITY][C5] CRITICAL: failed to CLEAR Oracle session context after Wompi webhook. "
+                        + "Possible SUPERADMIN context bleed in connection pool. Error: {}", e.getMessage());
+            }
+            if (prevCtx != null) {
+                SaedContextHolder.setContext(prevCtx);
+            } else {
+                SaedContextHolder.clearContext();
             }
         }
     }
@@ -276,7 +389,8 @@ public class WompiServiceImpl implements WompiService {
     }
 
     private boolean verificarChecksum(Map<String, Object> evento) throws Exception {
-        if (WOMPI_EVENTS_SECRET == null || WOMPI_EVENTS_SECRET.isBlank()) return false;
+        String eventsSecret = getEventsSecret();
+        if (eventsSecret == null || eventsSecret.isBlank()) return false;
 
         Map<String, Object> signature = (Map<String, Object>) evento.get("signature");
         if (signature == null) return false;
@@ -294,7 +408,7 @@ public class WompiServiceImpl implements WompiService {
             sb.append(valor == null ? "" : normalizarNumero(valor));
         }
         sb.append(normalizarNumero(timestamp));
-        sb.append(WOMPI_EVENTS_SECRET);
+        sb.append(eventsSecret);
 
         String calc = sha256Hex(sb.toString());
         return calc.equalsIgnoreCase(String.valueOf(checksum));

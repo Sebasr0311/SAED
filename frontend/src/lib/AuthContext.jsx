@@ -46,7 +46,10 @@ export function AuthProvider({ children }) {
     login,
     logout,
     isAuthenticated: !!user,
-    isAdmin: user?.rol === 'ADMINISTRADOR',
+    isAdmin: user?.rol === 'ADMIN_PROPIEDAD' || user?.rol === 'ADMIN_ORGANIZACION' || user?.rol === 'SUPERADMIN',
+    isPropiedadAdmin: user?.rol === 'ADMIN_PROPIEDAD',
+    isOrgAdmin: user?.rol === 'ADMIN_ORGANIZACION',
+    isSuperAdmin: user?.rol === 'SUPERADMIN',
     isPortero: user?.rol === 'PORTERO',
     isResidente: user?.rol === 'RESIDENTE',
   };

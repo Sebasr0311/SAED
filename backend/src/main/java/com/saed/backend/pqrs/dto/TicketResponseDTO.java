@@ -14,8 +14,12 @@ public class TicketResponseDTO {
     private ZonedDateTime fechaRadicacion;
     private ZonedDateTime fechaLimiteSla;
     private Long responsableAsignado;
+    private Long idPersonaRadica;
     
     // Getters and Setters
+    public Long getIdPersonaRadica() { return idPersonaRadica; }
+    public void setIdPersonaRadica(Long idPersonaRadica) { this.idPersonaRadica = idPersonaRadica; }
+    
     public Long getIdTicket() { return idTicket; }
     public void setIdTicket(Long idTicket) { this.idTicket = idTicket; }
     

@@ -53,7 +53,7 @@ class PropertyServiceTest {
 
         PropertyRequestDTO request = new PropertyRequestDTO();
         request.setNombre("Test Property");
-        request.setIdOrganizacion(99L); // Malicious attempt to create property for another org
+        request.setIdOrganizacion(null);
 
         when(propertyRepository.create(any())).thenReturn(101L);
 
@@ -61,6 +61,19 @@ class PropertyServiceTest {
         
         assertEquals(101L, id);
         assertEquals(5L, request.getIdOrganizacion()); // Anti-spoofing should reset to 5
+    }
+
+    @Test
+    void create_withOrgAdmin_spoofedOrg_shouldThrowAccessDenied() {
+        SaedContextHolder.setContext(SaedContext.builder()
+                .userId(2L).roleCode("ADMIN_ORGANIZACION").roleScope("ORGANIZACION")
+                .organizationId(5L).build());
+
+        PropertyRequestDTO request = new PropertyRequestDTO();
+        request.setNombre("Test Property");
+        request.setIdOrganizacion(99L); // Malicious attempt to create property for another org
+
+        assertThrows(AccessDeniedException.class, () -> propertyService.create(request));
     }
 
     @Test
