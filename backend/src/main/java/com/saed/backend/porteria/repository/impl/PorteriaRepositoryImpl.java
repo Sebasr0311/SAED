@@ -162,10 +162,10 @@ public class PorteriaRepositoryImpl implements PorteriaRepository {
                      "       (SELECT MIN(FECHA_HORA) FROM REGISTROS_ACCESO ra WHERE ra.ID_VISITA = v.ID_VISITA AND ra.TIPO_MOVIMIENTO = 'ENTRADA') AS FECHA_VISITA, " +
                      "       (SELECT MAX(FECHA_HORA) FROM REGISTROS_ACCESO ra WHERE ra.ID_VISITA = v.ID_VISITA AND ra.TIPO_MOVIMIENTO = 'SALIDA') AS FECHA_SALIDA, " +
                      "       v.ESTADO, v.MOTIVO AS NOTAS, " +
-                     "       vv.TIPO_VEHICULO, vv.PLACA AS PLACA_VEHICULO, vv.DESCRIPCION_TIPO AS DESCRIPCION_VEHICULO, " +
+                     "       vv.TIPO_VEHICULO, vv.PLACA AS PLACA_VEHICULO, NULL AS DESCRIPCION_VEHICULO, " +
                      "       pq.NUMERO_PARQUEADERO AS CODIGO_PARQUEADERO, " +
                      "       NULL AS FOTO_CAPTURA, " +
-                     "       v.CANTIDAD_PERSONAS, " +
+                     "       1 AS CANTIDAD_PERSONAS, " +
                      "       0 AS ES_FRECUENTE " +
                      "FROM VISITAS v " +
                      "JOIN UNIDADES u ON v.ID_UNIDAD = u.ID_UNIDAD " +

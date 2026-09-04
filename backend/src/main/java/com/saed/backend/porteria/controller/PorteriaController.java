@@ -203,9 +203,39 @@ public class PorteriaController {
 
     @PostMapping("/qr/validar")
     @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_PORTERO')")
-    public Map<String, Boolean> validarQr(@RequestBody Map<String, String> body) {
-        boolean valid = porteriaService.validarQr(body.get("token"));
-        return Map.of("valido", valid);
+    public Map<String, Object> validarQr(@RequestBody Map<String, String> body) {
+        String token = body.get("token");
+        if (token == null || token.isBlank()) {
+            token = body.get("codigoQr");
+        }
+        if (token == null || token.isBlank()) {
+            return Map.of("valido", false, "mensaje", "Token o código QR no proporcionado");
+        }
+        return porteriaService.validarQrDetalle(token);
+    }
+
+    @PostMapping("/qr/notificar")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_PORTERO')")
+    public Map<String, Object> notificarVisita(@RequestBody Map<String, String> body) {
+        String token = body.get("codigoQr");
+        if (token == null || token.isBlank()) {
+            token = body.get("token");
+        }
+        String fotoCaptura = body.get("fotoCaptura");
+        return porteriaService.notificarVisitaQr(token, fotoCaptura);
+    }
+
+    @PostMapping("/qr/entrada")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_PORTERO')")
+    public Map<String, Object> registrarEntradaQr(@RequestBody Map<String, String> body) {
+        String token = body.get("codigoQr");
+        if (token == null || token.isBlank()) {
+            token = body.get("token");
+        }
+        String medioTransporte = body.get("medioTransporte");
+        String placa = body.get("placa");
+        String descripcion = body.get("descripcion");
+        return porteriaService.registrarEntradaQr(token, medioTransporte, placa, descripcion);
     }
 
     // --- VEHICULOS VISITA ---

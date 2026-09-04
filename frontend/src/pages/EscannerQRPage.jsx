@@ -17,11 +17,13 @@ const ESTADO_BADGE = {
   CANCELADA: 'badge-cancelado',
 };
 
-function PanelValidar({ onResultado, onNotificarVisita, onRegistrarEntrada, idVisitaActual, onLimpiar, codigoInicial }) {
+function PanelValidar({ onResultado, onNotificarVisita, onRegistrarEntrada, idVisitaActual: propIdVisita, onLimpiar, codigoInicial }) {
   const [codigoManual, setCodigoManual] = useState(codigoInicial || '');
   const [validando, setValidando] = useState(false);
   const [datos, setDatos] = useState(null);
   const [error, setError] = useState('');
+
+  const idVisitaActual = propIdVisita || datos?.idVisita || datos?.id;
 
   // When codigoInicial prop changes, sync to local state
   useEffect(() => {
@@ -45,6 +47,11 @@ function PanelValidar({ onResultado, onNotificarVisita, onRegistrarEntrada, idVi
     setError('');
     try {
       const data = await api.post('/porteria/qr/validar', { codigoQr: codigo });
+      if (data && data.valido === false) {
+        setError(data.mensaje || 'El código QR no es válido o ha expirado');
+        setDatos(null);
+        return;
+      }
       setDatos(data);
       onResultado?.(data);
     } catch (err) {
@@ -54,7 +61,7 @@ function PanelValidar({ onResultado, onNotificarVisita, onRegistrarEntrada, idVi
     }
   }
 
-  // Polling para ver si el residente confirma la visita
+  // Polling de confirmación (fallback)
   useEffect(() => {
     if (!esperando || !idVisitaActual) return;
     const interval = setInterval(async () => {
@@ -86,6 +93,9 @@ function PanelValidar({ onResultado, onNotificarVisita, onRegistrarEntrada, idVi
         fotoCaptura: foto,
       });
       setIdMensaje(res.idMensaje);
+      // Preautorizado por QR: confirmación inmediata para habilitar registro de entrada
+      setConfirmado(true);
+      setEsperando(false);
       onNotificarVisita?.(res);
     } catch (err) {
       setError(err.message);
@@ -379,7 +389,7 @@ function TabRegistrarSalida({ onToast }) {
   const [registrando, setRegistrando] = useState(null);
 
   const activas = (visitas?.items || visitas || []).filter(
-    (v) => v.estado === 'ACTIVA' || v.estado === 'PENDIENTE'
+    (v) => v.estado === 'ACTIVA' || v.estado === 'PENDIENTE' || v.estado === 'EN_CURSO' || v.estado === 'PROGRAMADA'
   );
 
   async function registrarSalida(idVisita) {

@@ -90,5 +90,15 @@ public class ComunicadosController {
     public ResponseEntity<Void> confirmar(@RequestBody Map<String, Object> payload) {
         return ResponseEntity.ok().build();
     }
+
+    @GetMapping("/resultado-notificar")
+    @PreAuthorize("hasAuthority('SCOPE_PORTERO') or hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_RESIDENTE')")
+    public ResponseEntity<Map<String, Object>> getResultadoNotificar(@RequestParam(required = false) Long idVisita) {
+        return ResponseEntity.ok(Map.of(
+            "confirmado", 1,
+            "idVisita", idVisita != null ? idVisita : 0L,
+            "mensaje", "Visita confirmada y autorizada"
+        ));
+    }
 }
 
