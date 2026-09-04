@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useFetch } from '../lib/hooks.js';
-import { api } from '../lib/api.js';
+import { useTenantApi } from '../lib/useTenantApi.js';
+import { useTenant } from '../lib/TenantContext.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { Button } from '../components/ui/Button.jsx';
 import { Badge } from '../components/ui/badge.tsx';
@@ -21,20 +22,22 @@ const TABS = [
 ];
 
 export default function CarteraPage() {
+  const tenant = useTenant();
+  const tenantApi = useTenantApi();
   const [tabActiva, setTabActiva] = useState('unidades');
   const [recalculando, setRecalculando] = useState(false);
 
-  const { data: carteraData, loading: carteraLoading } = useFetch(
-    () => api.get('/cartera'),
-    [tabActiva === 'unidades']
+  const { data: carteraData, loading: carteraLoading, refetch: refetchCartera } = useFetch(
+    () => tenantApi.get('/cartera'),
+    [tenant.activeAssignmentId, tabActiva === 'unidades']
   );
-  const { data: resumenData, loading: resumenLoading } = useFetch(
-    () => api.get('/cartera/resumen'),
-    [tabActiva === 'resumen']
+  const { data: resumenData, loading: resumenLoading, refetch: refetchResumen } = useFetch(
+    () => tenantApi.get('/cartera/resumen'),
+    [tenant.activeAssignmentId, tabActiva === 'resumen']
   );
-  const { data: antiguedadData, loading: antiguedadLoading } = useFetch(
-    () => api.get('/cartera/antiguedad'),
-    [tabActiva === 'antiguedad']
+  const { data: antiguedadData, loading: antiguedadLoading, refetch: refetchAntiguedad } = useFetch(
+    () => tenantApi.get('/cartera/antiguedad'),
+    [tenant.activeAssignmentId, tabActiva === 'antiguedad']
   );
 
   const unidades = carteraData?.items || carteraData || [];
@@ -44,8 +47,11 @@ export default function CarteraPage() {
   async function recalcular() {
     setRecalculando(true);
     try {
-      await api.post('/cartera/recalcular');
+      await tenantApi.post('/cartera/recalcular');
       toast.success('Cartera recalculada exitosamente');
+      refetchCartera();
+      refetchResumen();
+      refetchAntiguedad();
     } catch (err) {
       toast.error(err.message || 'Error al recalcular cartera');
     } finally {
@@ -114,7 +120,7 @@ export default function CarteraPage() {
                   <TableBody>
                     {unidades.map((u, i) => (
                       <TableRow key={u.ID_CARTERA || u.id || i}>
-                        <TableCell className="font-mono text-sm">{u.ID_UNIDAD || u.id_unidad}</TableCell>
+                        <TableCell className="font-medium text-sm">{u.NUMERO_APARTAMENTO || u.ID_UNIDAD || u.id_unidad}</TableCell>
                         <TableCell className="text-right">{fmtCOP.format(Number(u.SALDO_CORRIENTE || 0))}</TableCell>
                         <TableCell className="text-right text-amber-600">{fmtCOP.format(Number(u.SALDO_MORA_30 || 0))}</TableCell>
                         <TableCell className="text-right text-orange-600">{fmtCOP.format(Number(u.SALDO_MORA_60 || 0))}</TableCell>

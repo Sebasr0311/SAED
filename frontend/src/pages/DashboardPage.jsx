@@ -27,8 +27,12 @@ export default function DashboardPage() {
     () => tenantApi.get('/personas'),
     [tenant.activeAssignmentId]
   );
-  const { data: contratos, loading: loadingContratos } = useFetch(
-    () => tenantApi.get('/contratos'),
+  const { data: cuotasRaw, loading: loadingCuotas } = useFetch(
+    () => tenantApi.get('/cuotas'),
+    [tenant.activeAssignmentId]
+  );
+  const { data: carteraResumenRaw, loading: loadingCartera } = useFetch(
+    () => tenantApi.get('/cartera/resumen'),
     [tenant.activeAssignmentId]
   );
   const { data: multasRaw, loading: loadingMultas } = useFetch(
@@ -38,18 +42,20 @@ export default function DashboardPage() {
 
   const unidadesList = unidades?.items || [];
   const personasList = personas?.items || [];
-  const contratosList = contratos?.items || [];
+  const cuotasList = cuotasRaw?.items || cuotasRaw?.data || (Array.isArray(cuotasRaw) ? cuotasRaw : []);
   const multasList = multasRaw?.items || [];
+  const carteraResumen = carteraResumenRaw?.data || carteraResumenRaw?.raw || carteraResumenRaw || {};
 
-  const contratosActivos = contratosList.filter((c) => c.estado === 'ACTIVO').length;
-  const multasPendientes = multasList.filter((m) => m.estado === 'PENDIENTE').length;
-
-  // Proximos cobros: multas + contratos activos (sin cuotas endpoint, se
-  // muestran los contratos activos como indicador).
-  const proximosCobros = useMemo(
-    () => contratosList.filter((c) => c.estado === 'ACTIVO'),
-    [contratosList]
+  const cuotasPendientes = useMemo(
+    () => cuotasList.filter((c) => c.estado === 'PENDIENTE' || Number(c.saldoPendiente || 0) > 0),
+    [cuotasList]
   );
+  const totalCartera = Number(
+    carteraResumen.TOTAL_CARTERA != null
+      ? carteraResumen.TOTAL_CARTERA
+      : cuotasPendientes.reduce((acc, c) => acc + Number(c.saldoPendiente || c.valorTotal || 0), 0)
+  );
+  const multasPendientes = multasList.filter((m) => m.estado === 'PENDIENTE').length;
 
   const contextoLabel = [
     tenant.activeOrgId ? `Org ${tenant.activeOrgId}` : null,
@@ -57,46 +63,48 @@ export default function DashboardPage() {
     tenant.activeUnitId ? `Unidad ${tenant.activeUnitId}` : null,
   ]
     .filter(Boolean)
-    .join(' Ã‚Â· ');
+    .join(' · ');
 
-  const cargando = loadingUnidades || loadingPersonas || loadingContratos || loadingMultas;
+  const cargando = loadingUnidades || loadingPersonas || loadingCuotas || loadingCartera || loadingMultas;
 
   return (
     <div className="dashboard-page">
       <PageHeader
         title="Dashboard"
-        subtitle={contextoLabel ? `Resumen del contexto: ${contextoLabel}` : 'Vista rÃƒÂ¡pida de los indicadores del tenant'}
+        subtitle={contextoLabel ? `Resumen del contexto: ${contextoLabel}` : 'Vista rápida de los indicadores del tenant'}
       />
 
       <div className="stat-grid">
         <StatCard icon="groups" value={personasList.length} label="Personas" color="primary" />
         <StatCard icon="domain" value={unidadesList.length} label="Unidades" color="secondary" />
-        <StatCard icon="description" value={contratosActivos} label="Contratos Activos" color="success" />
+        <StatCard icon="payments" value={formatCurrency(totalCartera)} label="Cartera Pendiente" color="success" />
         <StatCard icon="gavel" value={multasPendientes} label="Multas Pendientes" color="warning" />
       </div>
 
       <div className="dashboard-cards-grid">
         <section className="dashboard-card">
           <div className="dashboard-card-header">
-            <h3>Próximos Cobros</h3>
-            <span className="dashboard-card-sub">Contratos activos del tenant</span>
+            <h3>Cobros Pendientes</h3>
+            <span className="dashboard-card-sub">Cuotas y obligaciones del tenant</span>
           </div>
           {cargando ? (
             <p className="dashboard-empty">Cargando...</p>
-          ) : proximosCobros.length === 0 ? (
-            <p className="dashboard-empty">Sin contratos activos</p>
+          ) : cuotasPendientes.length === 0 ? (
+            <p className="dashboard-empty">Sin cuotas pendientes</p>
           ) : (
             <ul className="dashboard-list">
-              {proximosCobros.slice(0, 8).map((c) => (
-                <li key={c.idContrato || c.id}>
+              {cuotasPendientes.slice(0, 8).map((c) => (
+                <li key={c.id || c.idCuota}>
                   <div>
-                    <strong>{c.numeroContrato || `Contrato #${c.idContrato || c.id}`}</strong>
+                    <strong>{c.concepto || `Cuota #${c.id || c.idCuota}`}</strong>
                     <span className="dashboard-list-sub">
-                      {c.unidad?.identificador || c.numeroApartamento || 'Unidad'}
+                      {c.numeroApartamento || 'Unidad'}
+                      {c.nombreResidente ? ` · ${c.nombreResidente}` : ''}
+                      {c.periodo ? ` · ${c.periodo}` : ''}
                     </span>
                   </div>
                   <span className="dashboard-list-value">
-                    {c.canonMensual != null ? formatCurrency(c.canonMensual) : 'Ã¢â‚¬â€'}
+                    {formatCurrency(c.saldoPendiente != null ? c.saldoPendiente : c.valorBase || 0)}
                   </span>
                 </li>
               ))}
@@ -124,7 +132,7 @@ export default function DashboardPage() {
                       <strong>{m.tipo || 'Multa'}</strong>
                       <span className="dashboard-list-sub">
                         {m.numeroApartamento || 'Unidad'}
-                        {m.nombreResidente ? ` Ã‚Â· ${m.nombreResidente}` : ''}
+                        {m.nombreResidente ? ` · ${m.nombreResidente}` : ''}
                       </span>
                     </div>
                     <span className="dashboard-list-value">{formatCurrency(m.monto)}</span>
