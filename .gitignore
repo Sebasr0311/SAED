@@ -27,6 +27,8 @@ dist-ssr/
 
 # Environment & Secrets (Root & Subpackages)
 .env
+.env*
+*.bak
 .env.local
 .env.*.local
 *.pem
@@ -56,6 +58,8 @@ yarn-error.log*
 pnpm-debug.log*
 dev-*.log
 preview.log
+fix*.js
+temp.*
 
 # OS generated files
 .DS_Store
