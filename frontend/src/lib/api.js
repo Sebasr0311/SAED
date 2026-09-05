@@ -11,7 +11,7 @@ const RAW_BASE_URL =
   (typeof window !== 'undefined' && window._API_BASE_URL) ||
   (isLocalhost
     ? 'http://localhost:8080/api/v1'
-    : 'https://sistema-administracion-edificios.onrender.com/api/v1');
+    : 'https://saed-backend.onrender.com/api/v1');
 
 export const BASE_URL = RAW_BASE_URL.replace(/\/+$/, '');
 const TIMEOUT_MS = 30000;

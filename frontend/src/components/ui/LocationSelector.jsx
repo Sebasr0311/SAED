@@ -36,10 +36,15 @@ export default function LocationSelector({
     return COLOMBIA_LOCATIONS[effectiveDept] || ['Bogotá'];
   }, [effectiveDept]);
 
+  const strip = (s) => (s ? s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase() : '');
+
   // Ensure ciudad matches one of the available cities or fallback
   const effectiveCity = useMemo(() => {
-    if (ciudad && availableCities.includes(ciudad)) {
-      return ciudad;
+    if (ciudad) {
+      if (availableCities.includes(ciudad)) return ciudad;
+      const stripped = strip(ciudad);
+      const match = availableCities.find((c) => strip(c) === stripped);
+      if (match) return match;
     }
     return availableCities[0] || '';
   }, [ciudad, availableCities]);

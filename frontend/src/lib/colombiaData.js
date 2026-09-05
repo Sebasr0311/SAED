@@ -112,16 +112,17 @@ export const COLOMBIA_LOCATIONS = {
 
 export const DEPARTAMENTOS_COLOMBIA = Object.keys(COLOMBIA_LOCATIONS).sort((a, b) => a.localeCompare(b, 'es'));
 
-/**
- * Helper to infer the department from a city string if possible.
- */
+const stripAccents = (str) =>
+  str ? str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase() : '';
+
 export function findDepartamentoByCiudad(ciudad) {
   if (!ciudad) return 'Bogotá D.C.';
-  const cleanCity = ciudad.trim().toLowerCase();
+  const cleanCity = stripAccents(ciudad);
   for (const [dept, cities] of Object.entries(COLOMBIA_LOCATIONS)) {
-    if (cities.some((c) => c.toLowerCase() === cleanCity)) {
+    if (cities.some((c) => stripAccents(c) === cleanCity)) {
       return dept;
     }
   }
   return 'Bogotá D.C.';
 }
+
