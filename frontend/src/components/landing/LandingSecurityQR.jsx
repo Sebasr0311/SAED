@@ -1,108 +1,153 @@
-import { ShieldCheck, ArrowRight, UserCheck, Lock } from 'lucide-react';
+import { QrCode, ShieldCheck, CheckCircle2, UserCheck, ArrowRight, Smartphone } from 'lucide-react';
 
-const QR_STEPS = [
+const QR_FLOW = [
   {
     step: '01',
-    title: 'Residente genera el pase',
-    desc: 'Ingresa los datos del invitado en su portal y define vigencia temporal o número de usos.',
-    tag: 'Portal Residente',
+    role: 'Residente',
+    title: 'Genera el pase',
+    desc: 'Registra los datos del invitado en su portal web y define si es de uso único o temporal.',
   },
   {
     step: '02',
-    title: 'Visitante recibe la invitación',
-    desc: 'Recibe el enlace o código digital para presentarlo en la portería al momento de llegar.',
-    tag: 'Pase Digital',
+    role: 'Visitante',
+    title: 'Recibe el código',
+    desc: 'Obtiene el pase digital seguro para presentarlo en pantalla al llegar a la garita.',
   },
   {
     step: '03',
-    title: 'Portería valida en pantalla',
-    desc: 'El guardia escanea el código en la consola web, confirmando validez y unidad anfitriona.',
-    tag: 'Escáner Garita',
+    role: 'Portero',
+    title: 'Valida en pantalla',
+    desc: 'La consola de garita escanea el código, confirma vigencia y muestra la unidad de destino.',
   },
   {
     step: '04',
-    title: 'Registro y acceso autorizado',
-    desc: 'Se asocia la placa vehicular si aplica, asignando parqueadero y sellando la bitácora.',
-    tag: 'Acceso Concedido',
+    role: 'Sistema',
+    title: 'Entrada registrada',
+    desc: 'Se asienta el ingreso en la bitácora inmutable con operador, placa y parqueadero asignado.',
   },
 ];
 
 export default function LandingSecurityQR() {
   return (
-    <section id="seguridad" className="py-20 bg-[#0A1628] text-white relative border-t border-slate-800">
+    <section
+      id="seguridad"
+      className="py-24 sm:py-32 lg:py-36 bg-[#0A1628] text-white relative border-t border-slate-800/80"
+    >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="text-center max-w-3xl mx-auto space-y-4">
-          <span className="text-xs font-bold uppercase tracking-widest text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20 inline-block">
-            SEGURIDAD DIGITAL & TRAZABILIDAD
+        {/* Editorial Header */}
+        <div className="max-w-3xl mx-auto text-center space-y-5">
+          <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold uppercase tracking-widest text-emerald-400 bg-emerald-500/10 border border-emerald-500/20">
+            CONTROL DE ACCESO INTELIGENTE
           </span>
-          <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight font-['Plus_Jakarta_Sans']">
-            Control de acceso inteligente con código QR
+
+          <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-white leading-tight font-['Plus_Jakarta_Sans']">
+            El acceso empieza antes de llegar a la portería.
           </h2>
-          <p className="text-base sm:text-lg text-slate-300 leading-relaxed">
-            Elimina las llamadas telefónicas interminables y las minutas físicas. Cada ingreso cuenta con registro de fecha, hora y trazabilidad en tiempo real.
+
+          <p className="text-base sm:text-lg text-slate-300 font-normal leading-relaxed max-w-2xl mx-auto">
+            Sustituye llamadas telefónicas e interrupciones por validaciones digitales verificables y trazables en tiempo real.
           </p>
         </div>
 
-        {/* Step-by-Step Flow */}
-        <div className="mt-14 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {QR_STEPS.map((item, idx) => (
+        {/* 4-Step Sequence Flow */}
+        <div className="mt-16 sm:mt-24 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 max-w-6xl mx-auto">
+          {QR_FLOW.map((item, idx) => (
             <div
               key={item.step}
-              className="relative p-6 rounded-2xl bg-slate-900/80 border border-slate-800 hover:border-emerald-500/40 transition-colors flex flex-col justify-between"
+              className="p-6 sm:p-7 rounded-2xl bg-slate-900/80 border border-slate-800 hover:border-emerald-500/40 transition-colors flex flex-col justify-between"
             >
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-2xl font-extrabold text-emerald-400/80 font-mono">
+                  <span className="text-3xl font-extrabold font-mono text-emerald-400">
                     {item.step}
                   </span>
-                  <span className="text-xs font-semibold uppercase px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
-                    {item.tag}
+                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-slate-800 text-slate-300 border border-slate-700">
+                    {item.role}
                   </span>
                 </div>
 
-                <h3 className="text-base font-bold text-white">{item.title}</h3>
+                <h3 className="text-lg font-bold text-white">{item.title}</h3>
                 <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">{item.desc}</p>
               </div>
 
-              <div className="mt-4 pt-3 border-t border-slate-800/60 flex items-center justify-between text-xs text-emerald-400 font-semibold">
-                <span>Paso {idx + 1}</span>
-                {idx < QR_STEPS.length - 1 && <ArrowRight className="w-3.5 h-3.5 text-slate-500 hidden lg:block" />}
+              <div className="mt-6 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs font-semibold text-emerald-400">
+                <span>Fase {idx + 1}</span>
+                {idx < QR_FLOW.length - 1 && <ArrowRight className="w-4 h-4 text-slate-600 hidden lg:block" />}
               </div>
             </div>
           ))}
         </div>
 
-        {/* Security Highlights Banner */}
-        <div className="mt-12 p-6 sm:p-8 rounded-2xl bg-gradient-to-r from-emerald-950/40 via-slate-900/80 to-[#0F2044] border border-emerald-500/30">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="flex items-start gap-3">
-              <ShieldCheck className="w-5 h-5 text-emerald-400 shrink-0 mt-1" />
-              <div>
-                <h4 className="font-bold text-white text-sm">Prevención de Suplantación</h4>
-                <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">
-                  Tokens con vigencia y límite de usos que previenen la reutilización de capturas de pantalla antiguas.
-                </p>
+        {/* Grand Visual Flow Mockup */}
+        <div className="mt-12 sm:mt-16 max-w-5xl mx-auto rounded-3xl bg-gradient-to-br from-[#0F2044] via-slate-900 to-[#0A1628] border border-emerald-500/30 p-6 sm:p-10 shadow-2xl">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+            {/* Left: Resident View */}
+            <div className="bg-slate-950/80 rounded-2xl p-6 border border-slate-800 space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-200">
+                  <Smartphone className="w-4 h-4 text-emerald-400" />
+                  <span>Portal del Residente · Apto 101</span>
+                </div>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300">
+                  Emisión Inmediata
+                </span>
               </div>
+
+              <div className="flex items-center gap-4 bg-slate-900/90 p-4 rounded-xl border border-slate-800">
+                <div className="w-20 h-20 bg-white rounded-xl p-1.5 flex items-center justify-center shrink-0 shadow-md">
+                  <QrCode className="w-full h-full text-slate-950" />
+                </div>
+                <div className="space-y-1 text-xs">
+                  <span className="text-[10px] font-mono text-emerald-400 uppercase tracking-wider block">
+                    Pase de Acceso Único
+                  </span>
+                  <p className="font-bold text-white text-sm">Visitante Demo</p>
+                  <p className="text-slate-400">Doc: C.C. 1000000010</p>
+                  <p className="text-slate-400">Válido hasta: 11:59 PM (Hoy)</p>
+                </div>
+              </div>
+
+              <p className="text-xs text-slate-400 leading-relaxed">
+                El invitado presenta este código digital sin necesidad de bajarse del vehículo ni dictar datos sensibles en voz alta.
+              </p>
             </div>
 
-            <div className="flex items-start gap-3">
-              <UserCheck className="w-5 h-5 text-teal-400 shrink-0 mt-1" />
-              <div>
-                <h4 className="font-bold text-white text-sm">Aislamiento por Rol y Unidad</h4>
-                <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">
-                  Los residentes gestionan únicamente las visitas de su apartamento con total privacidad.
-                </p>
+            {/* Right: Guard Station Verification Outcome */}
+            <div className="bg-slate-950/80 rounded-2xl p-6 border border-slate-800 space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-200">
+                  <ShieldCheck className="w-4 h-4 text-teal-400" />
+                  <span>Consola Garita · Validación Instantánea</span>
+                </div>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-teal-500/20 text-teal-300">
+                  Bitácora OK
+                </span>
               </div>
-            </div>
 
-            <div className="flex items-start gap-3">
-              <Lock className="w-5 h-5 text-blue-400 shrink-0 mt-1" />
-              <div>
-                <h4 className="font-bold text-white text-sm">Bitácora y Auditoría</h4>
-                <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">
-                  Registro sellado con operador de turno, fecha/hora y placa vehicular para respaldo de convivencia.
-                </p>
+              <div className="space-y-2.5 text-xs bg-slate-900/90 p-4 rounded-xl border border-slate-800">
+                <div className="flex justify-between py-1 border-b border-slate-800">
+                  <span className="text-slate-400">Resultado de Lectura:</span>
+                  <span className="text-emerald-400 font-bold flex items-center gap-1">
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Token Válido & Autorizado
+                  </span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-slate-800">
+                  <span className="text-slate-400">Unidad Anfitriona:</span>
+                  <span className="text-white font-semibold">Apartamento 101 (Torre A)</span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-slate-800">
+                  <span className="text-slate-400">Vehículo Asociado:</span>
+                  <span className="text-amber-300 font-mono font-bold">DEM-123</span>
+                </div>
+                <div className="flex justify-between py-1">
+                  <span className="text-slate-400">Puesto Asignado:</span>
+                  <span className="text-teal-400 font-bold">V-01 (Visitantes)</span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 text-[11px] text-slate-400 pt-1">
+                <UserCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <span>Registrado por Portero 01 con sello de fecha y hora exacta.</span>
               </div>
             </div>
           </div>

@@ -4,40 +4,36 @@ import { Link } from 'react-router-dom';
 
 const FAQS = [
   {
-    q: '¿Cómo puedo implementar SAED en mi copropiedad?',
-    a: 'SAED utiliza un modelo de implementación y cotización adaptado al número de unidades y a las necesidades operativas de cada copropiedad.',
+    q: '¿Qué es SAED 2.0 y en qué se diferencia de un software tradicional?',
+    a: 'SAED 2.0 es una plataforma integral de gestión operativa y control de acceso diseñada para copropiedades y edificios residenciales. A diferencia de un sistema contable aislado, SAED conecta en tiempo real la portería (control QR de visitas, bitácora y custodia de paquetes por PIN), la administración (cartera, unidades, residentes y asambleas) y a los residentes en una sola experiencia web unificada.',
   },
   {
-    q: '¿Cuánto cuesta SAED?',
-    a: 'El precio se determina según la escala de la copropiedad y las capacidades requeridas. Solicita una cotización para conocer el plan adecuado.',
+    q: '¿Los residentes deben descargar una aplicación móvil pesada?',
+    a: 'No. SAED 2.0 fue concebido bajo arquitectura web moderna y responsiva. Funciona de manera inmediata en cualquier navegador (Chrome, Safari, Edge) en smartphones, tablets o computadores, sin agotar almacenamiento en el dispositivo ni lidiar con actualizaciones en tiendas de apps.',
   },
   {
-    q: '¿Qué es SAED 2.0 y en qué se diferencia de un software contable tradicional?',
-    a: 'SAED 2.0 es una plataforma integral de gestión operativa y seguridad para copropiedades. Conecta en tiempo real la portería (control QR, bitácora y paquetería con PIN), la administración (cartera, unidades y asambleas) y a los residentes en una sola experiencia web unificada.',
+    q: '¿Cómo funciona el control de acceso de visitas con código QR?',
+    a: 'El residente genera la invitación desde su portal ingresando los datos básicos del visitante. El sistema emite un pase con código QR temporal y seguro. Al presentarse en portería, el guardia lee el código desde la consola web; el sistema valida al instante su vigencia, muestra la unidad destino y asienta automáticamente el ingreso en la bitácora de auditoría.',
   },
   {
-    q: '¿Los residentes deben descargar aplicaciones pesadas de tiendas de apps?',
-    a: 'No. SAED 2.0 fue diseñado bajo arquitectura web moderna y responsiva. Funciona de manera inmediata en cualquier navegador (Chrome, Safari, Edge) en smartphones o computadores, sin agotar almacenamiento en el dispositivo ni lidiar con actualizaciones de tiendas.',
+    q: '¿Cómo se garantiza la entrega segura de paquetes y encomiendas?',
+    a: 'Al recibir una encomienda, el portero registra la empresa de mensajería y la unidad destinataria. El sistema asigna un código PIN criptográfico único visible únicamente en el portal del residente. Para retirar el paquete, el residente debe presentar dicho PIN en portería, garantizando custodia verificable y cero entregas erróneas.',
   },
   {
-    q: '¿Cómo se garantiza el aislamiento y la privacidad de los datos entre copropiedades?',
-    a: 'SAED 2.0 implementa una arquitectura Multi-Tenant con políticas estrictas de aislamiento de datos en el motor relacional y validación segura de sesiones. Cada copropiedad opera en un espacio lógico blindado: ningún usuario puede ver, filtrar ni consultar datos de otra copropiedad.',
+    q: '¿Cómo se administra el pago de la cuota de administración?',
+    a: 'Los estados de cuenta se emiten digitalmente para cada unidad. Los residentes pueden realizar el pago en línea mediante PSE, tarjetas de crédito o débito a través de la pasarela de pagos integrada Wompi. Al completarse la transacción, el sistema actualiza el saldo de cartera al instante y permite descargar el comprobante oficial.',
   },
   {
-    q: '¿Cómo funciona la validación de visitas con código QR en portería?',
-    a: 'El residente genera la invitación desde su portal ingresando los datos del visitante. El sistema crea un pase con código QR seguro. Al llegar a la portería, el guardia lee el código en pantalla; el sistema valida inmediatamente su vigencia, muestra la unidad destino y registra el ingreso en la bitácora de auditoría.',
+    q: '¿Qué requisitos técnicos o equipos se necesitan en la portería?',
+    a: 'Solo se requiere un computador de escritorio, portátil o tablet con conexión a internet y un navegador web estándar. Para la lectura de códigos QR se puede utilizar la cámara del equipo o cualquier lector óptico USB convencional.',
   },
   {
-    q: '¿Cómo previene el sistema la entrega equivocada de encomiendas?',
-    a: 'Al recibir un paquete, el portero registra la empresa transportadora y la unidad destinataria. El sistema genera un PIN criptográfico único visible únicamente en el portal del residente. Para retirar el paquete, el residente debe presentar dicho PIN en portería, garantizando custodia transparente y entrega verificada.',
+    q: '¿Cómo se garantiza la seguridad y privacidad de los datos de la copropiedad?',
+    a: 'SAED 2.0 implementa una arquitectura Multi-Tenant con políticas estrictas de aislamiento de datos en el motor relacional (Row Level Security / VPD). Cada copropiedad opera en un entorno lógico blindado: ningún usuario puede ver, filtrar ni consultar datos de otra copropiedad bajo ninguna circunstancia.',
   },
   {
-    q: '¿Cómo se integra el recaudo de cartera con la pasarela Wompi?',
-    a: 'Los estados de cuenta de administración se emiten de forma digital. Los residentes pueden pagar en línea mediante PSE, tarjetas de crédito/débito o botón Bancolombia a través de Wompi. Al completarse la transacción, el sistema actualiza el saldo al instante y genera el certificado de paz y salvo.',
-  },
-  {
-    q: '¿Qué requisitos técnicos o hardware se necesitan en la portería del edificio?',
-    a: 'Solo se requiere un computador de escritorio, portátil o tablet con conexión a internet y un navegador web moderno. Para la lectura de códigos QR se puede utilizar la cámara del equipo o un lector óptico USB estándar.',
+    q: '¿Cómo puedo implementar SAED en mi edificio o conjunto residencial?',
+    a: 'La implementación se realiza mediante un proceso ágil de parametrización de unidades y roles. Nuestro equipo comercial estructura una cotización adaptada a la escala de tu copropiedad y brinda acompañamiento y capacitación inicial para el personal de administración y seguridad.',
   },
 ];
 
@@ -49,43 +45,43 @@ export default function LandingFAQ() {
   }
 
   return (
-    <section id="faq" className="py-24 bg-background border-t border-border relative">
+    <section id="faq" className="py-28 sm:py-36 bg-slate-50 dark:bg-[#080E1A] border-t border-slate-200/80 dark:border-slate-800/80 relative">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="text-center mb-16">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider bg-primary/10 text-primary border border-primary/20">
+        {/* Section Header */}
+        <div className="text-center mb-16 sm:mb-20 space-y-4">
+          <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold uppercase tracking-widest bg-primary/10 text-primary border border-primary/20">
             <HelpCircle className="w-3.5 h-3.5" />
-            Preguntas Frecuentes
+            PREGUNTAS FRECUENTES
           </span>
-          <h2 className="mt-4 text-3xl sm:text-4xl font-extrabold text-foreground tracking-tight">
+          <h2 className="text-3xl sm:text-5xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-tight font-['Plus_Jakarta_Sans']">
             Todo lo que necesitas saber sobre SAED 2.0
           </h2>
-          <p className="mt-4 text-base sm:text-lg text-muted-foreground leading-relaxed">
-            Respuestas claras sobre la implementación, arquitectura y funcionamiento de la plataforma en tu comunidad.
+          <p className="text-base sm:text-lg text-slate-600 dark:text-slate-400 leading-relaxed max-w-2xl mx-auto">
+            Respuestas claras sobre la operación diaria, arquitectura tecnológica y puesta en marcha de la plataforma en tu comunidad.
           </p>
         </div>
 
-        {/* Accordion */}
-        <div className="space-y-3 sm:space-y-4">
+        {/* Accordion List */}
+        <div className="space-y-4">
           {FAQS.map((faq, idx) => {
             const isOpen = openIdx === idx;
             return (
               <div
                 key={idx}
-                className="bg-card border border-border rounded-2xl overflow-hidden transition-all duration-200"
+                className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/90 rounded-2xl overflow-hidden transition-all duration-200 shadow-sm"
               >
                 <button
                   type="button"
                   onClick={() => toggle(idx)}
-                  className="w-full text-left p-5 sm:p-6 flex items-center justify-between gap-4 hover:bg-muted/30 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary min-h-[56px]"
+                  className="w-full text-left p-6 sm:p-7 flex items-center justify-between gap-4 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary min-h-[64px]"
                   aria-expanded={isOpen}
                 >
-                  <span className="text-base sm:text-lg font-bold text-foreground pr-2">
+                  <span className="text-base sm:text-lg font-bold text-slate-900 dark:text-white pr-2">
                     {faq.q}
                   </span>
                   <div
-                    className={`w-8 h-8 rounded-lg bg-muted flex items-center justify-center shrink-0 text-muted-foreground transition-transform duration-200 ${
-                      isOpen ? 'rotate-180 text-primary bg-primary/10' : ''
+                    className={`w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center shrink-0 text-slate-500 dark:text-slate-400 transition-transform duration-200 ${
+                      isOpen ? 'rotate-180 text-primary bg-primary/10 dark:bg-primary/20' : ''
                     }`}
                   >
                     <ChevronDown className="w-4 h-4" />
@@ -93,7 +89,7 @@ export default function LandingFAQ() {
                 </button>
 
                 {isOpen && (
-                  <div className="px-5 pb-5 sm:px-6 sm:pb-6 text-sm sm:text-base text-muted-foreground leading-relaxed border-t border-border/60 pt-4 bg-muted/10">
+                  <div className="px-6 pb-6 sm:px-7 sm:pb-7 text-sm sm:text-base text-slate-600 dark:text-slate-300 leading-relaxed border-t border-slate-100 dark:border-slate-800 pt-5 bg-slate-50/50 dark:bg-slate-800/20">
                     {faq.a}
                   </div>
                 )}
@@ -102,19 +98,19 @@ export default function LandingFAQ() {
           })}
         </div>
 
-        {/* Support Callout */}
-        <div className="mt-12 text-center p-6 sm:p-8 rounded-2xl bg-muted/40 border border-border flex flex-col sm:flex-row items-center justify-between gap-6">
-          <div className="text-left">
-            <h4 className="text-base font-bold text-foreground">
-              ¿Tienes una pregunta sobre tu caso particular?
+        {/* Help & Support Callout */}
+        <div className="mt-14 p-7 sm:p-9 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-6 shadow-sm">
+          <div className="text-left space-y-1">
+            <h4 className="text-lg font-bold text-slate-900 dark:text-white">
+              ¿Tienes una consulta específica sobre tu edificio?
             </h4>
-            <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-              Nuestro equipo está disponible para asesorarte sobre las características y planes para tu conjunto.
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">
+              Nuestro equipo está a tu disposición para asesorarte y mostrarte el sistema con los datos de tu conjunto.
             </p>
           </div>
           <Link
             to="/login"
-            className="shrink-0 inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 transition-colors min-h-[44px]"
+            className="shrink-0 inline-flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-primary text-primary-foreground font-bold text-sm hover:bg-primary/90 transition-all min-h-[48px] shadow-sm"
           >
             <span>Iniciar sesión</span>
             <ArrowRight className="w-4 h-4" />

@@ -7,59 +7,63 @@ import LandingFeatures from '../components/landing/LandingFeatures.jsx';
 import LandingSecurityQR from '../components/landing/LandingSecurityQR.jsx';
 import LandingParcelsParking from '../components/landing/LandingParcelsParking.jsx';
 import LandingAudience from '../components/landing/LandingAudience.jsx';
-import LandingBenefits from '../components/landing/LandingBenefits.jsx';
+import LandingSecurity from '../components/landing/LandingSecurity.jsx';
 import LandingPricing from '../components/landing/LandingPricing.jsx';
 import LandingShowcase from '../components/landing/LandingShowcase.jsx';
 import LandingFAQ from '../components/landing/LandingFAQ.jsx';
+import LandingCTA from '../components/landing/LandingCTA.jsx';
 import LandingFooter from '../components/landing/LandingFooter.jsx';
 
 export default function LandingPage() {
   useEffect(() => {
-    document.title = 'SAED 2.0 — Plataforma SaaS de Gestión y Seguridad para Copropiedades';
+    document.title = 'SAED 2.0 — Plataforma PropTech de Gestión y Seguridad para Copropiedades';
   }, []);
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col selection:bg-primary/20 selection:text-primary">
-      {/* 1. Sticky Navigation Header */}
+      {/* 1. Minimalist Translucent Sticky Navigation Header */}
       <LandingNavbar />
 
-      {/* Main Content Sections */}
+      {/* Main Editorial Storytelling Content */}
       <main className="flex-1">
-        {/* 2. Hero Section with Interactive Live Dashboard Mockup */}
+        {/* 2. Hero Section with Monumental Typography & Live Grand Product Showcase */}
         <LandingHero />
 
-        {/* 3. About & Mathematical Formula Formula */}
+        {/* 3. About & The Unified Architecture Equation */}
         <LandingAbout />
 
-        {/* 4. Problem vs Solution Comparative Grid */}
+        {/* 4. Problem vs Solution Editorial Comparative Flow */}
         <LandingProblemSolution />
 
-        {/* 5. Core Platform Features Grid */}
+        {/* 5. Core Platform Features & Micro-Mockup Previews */}
         <LandingFeatures />
 
-        {/* 6. Deep Dive: QR Security & Visitor Control */}
+        {/* 6. Deep Dive: QR Security & Visitor Control Flow */}
         <LandingSecurityQR />
 
-        {/* 7. Deep Dive: Parcels with PIN & Visitor Parking Flow */}
+        {/* 7. Deep Dive: Parcels with PIN & Real-Time Visitor Parking */}
         <LandingParcelsParking />
 
-        {/* 8. Target Audience Profiles (Admin, Guard, Resident, Multi-Building) */}
+        {/* 8. Target Audience Profiles & Strict Role Hierarchy */}
         <LandingAudience />
 
-        {/* 9. Strategic Benefits & Regulatory Compliance */}
-        <LandingBenefits />
+        {/* 9. Certified Architecture & Enterprise Security (Multi-Tenant RLS / Ley 675) */}
+        <LandingSecurity />
 
-        {/* 10. Commercial SaaS Pricing Tiers & Comparison Matrix */}
+        {/* 10. Commercial SaaS Pricing Tiers & Full Capability Matrix */}
         <LandingPricing />
 
-        {/* 11. Immersive Metrics & Conversion Showcase */}
+        {/* 11. Certified Software Architecture & Platform Highlights */}
         <LandingShowcase />
 
         {/* 12. Interactive Accordion FAQ */}
         <LandingFAQ />
+
+        {/* 13. Monumental Final CTA: Una propiedad. Una plataforma. SAED. */}
+        <LandingCTA />
       </main>
 
-      {/* 13. Comprehensive Enterprise Footer */}
+      {/* 14. Comprehensive Enterprise Footer */}
       <LandingFooter />
     </div>
   );
