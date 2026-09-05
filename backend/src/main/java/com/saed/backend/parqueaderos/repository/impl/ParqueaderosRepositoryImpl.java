@@ -26,13 +26,29 @@ public class ParqueaderosRepositoryImpl implements ParqueaderosRepository {
         this.jdbcTemplate = jdbcTemplate;
     }
 
-    private final RowMapper<ParqueaderoDTO> parqueaderoRowMapper = (rs, rowNum) -> new ParqueaderoDTO(
+    private final RowMapper<ParqueaderoDTO> parqueaderoRowMapper = (rs, rowNum) -> {
+        String tipoVal = rs.getString("TIPO");
+        String numVal = rs.getString("NUMERO_PARQUEADERO");
+        String placa = null;
+        try { placa = rs.getString("PLACA_VEHICULO"); } catch (Exception ignored) {}
+        String numApto = null;
+        try { numApto = rs.getString("NUMERO_APARTAMENTO"); } catch (Exception ignored) {}
+        Long idApto = null;
+        try { idApto = rs.getObject("ID_APARTAMENTO") != null ? rs.getLong("ID_APARTAMENTO") : null; } catch (Exception ignored) {}
+
+        return new ParqueaderoDTO(
             rs.getLong("ID_PARQUEADERO"),
             rs.getLong("ID_PROPIEDAD"),
-            rs.getString("NUMERO_PARQUEADERO"),
-            rs.getString("TIPO"),
-            rs.getString("ESTADO")
-    );
+            numVal,
+            tipoVal,
+            rs.getString("ESTADO"),
+            numVal,
+            "VISITANTES".equalsIgnoreCase(tipoVal),
+            placa,
+            numApto,
+            idApto
+        );
+    };
 
     private final RowMapper<AsignacionParqueaderoDTO> asignacionRowMapper = (rs, rowNum) -> {
         Date fechaFinSql = rs.getDate("FECHA_FIN");
@@ -54,15 +70,42 @@ public class ParqueaderosRepositoryImpl implements ParqueaderosRepository {
         );
     };
 
+    private String getBaseParqueaderoQuery() {
+        return "SELECT p.ID_PARQUEADERO, p.ID_PROPIEDAD, p.NUMERO_PARQUEADERO, p.TIPO, p.ESTADO, " +
+               "       COALESCE(vv.PLACA, v.PLACA) AS PLACA_VEHICULO, " +
+               "       u.IDENTIFICADOR AS NUMERO_APARTAMENTO, " +
+               "       u.ID_UNIDAD AS ID_APARTAMENTO " +
+               "FROM PARQUEADEROS p " +
+               "LEFT JOIN VEHICULOS_VISITA vv ON p.ID_PARQUEADERO = vv.ID_PARQUEADERO AND vv.ESTADO = 'DENTRO' " +
+               "LEFT JOIN ASIGNACIONES_PARQUEADERO ap ON p.ID_PARQUEADERO = ap.ID_PARQUEADERO AND ap.ESTADO = 'ACTIVA' " +
+               "LEFT JOIN UNIDADES u ON ap.ID_UNIDAD = u.ID_UNIDAD " +
+               "LEFT JOIN VEHICULOS v ON ap.ID_VEHICULO = v.ID_VEHICULO ";
+    }
+
     @Override
     public List<ParqueaderoDTO> getParqueaderos() {
-        String sql = "SELECT * FROM PARQUEADEROS ORDER BY NUMERO_PARQUEADERO ASC";
-        return jdbcTemplate.query(sql, parqueaderoRowMapper);
+        return getParqueaderos(null, null);
+    }
+
+    @Override
+    public List<ParqueaderoDTO> getParqueaderos(String estado, String tipo) {
+        StringBuilder sql = new StringBuilder(getBaseParqueaderoQuery()).append("WHERE 1=1 ");
+        MapSqlParameterSource params = new MapSqlParameterSource();
+        if (estado != null && !estado.isBlank()) {
+            sql.append("AND UPPER(p.ESTADO) = :estado ");
+            params.addValue("estado", estado.trim().toUpperCase());
+        }
+        if (tipo != null && !tipo.isBlank()) {
+            sql.append("AND UPPER(p.TIPO) = :tipo ");
+            params.addValue("tipo", tipo.trim().toUpperCase());
+        }
+        sql.append("ORDER BY p.NUMERO_PARQUEADERO ASC");
+        return jdbcTemplate.query(sql.toString(), params, parqueaderoRowMapper);
     }
 
     @Override
     public Optional<ParqueaderoDTO> getParqueaderoById(Long id) {
-        String sql = "SELECT * FROM PARQUEADEROS WHERE ID_PARQUEADERO = :id";
+        String sql = getBaseParqueaderoQuery() + "WHERE p.ID_PARQUEADERO = :id";
         List<ParqueaderoDTO> list = jdbcTemplate.query(sql, new MapSqlParameterSource("id", id), parqueaderoRowMapper);
         return list.isEmpty() ? Optional.empty() : Optional.of(list.get(0));
     }

@@ -64,6 +64,13 @@ public class WompiPaymentFlowAdversarialTest {
         } catch (Exception ignored) {}
     }
 
+    private void procesarWebhookTest(String rawPayload) throws Exception {
+        wompiService.procesarWebhook(rawPayload);
+        try {
+            jdbcTemplate.execute("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1); PKG_SAED_SESSION.SET_CONTEXT(1, 1, 1, 'SUPERADMIN'); END;");
+        } catch (Exception ignored) {}
+    }
+
     private Long ensureTestCuota() {
         List<Map<String, Object>> cuotas = jdbcTemplate.queryForList(
             "SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD = 1 AND ESTADO = 'PENDIENTE'"
@@ -180,7 +187,7 @@ public class WompiPaymentFlowAdversarialTest {
         Map<String, Object> webhookPayload = buildWompiPayload(idWompi, referencia, "APPROVED", montoCentavos, "COP", checksum, ts);
         String rawPayload = objectMapper.writeValueAsString(webhookPayload);
 
-        wompiService.procesarWebhook(rawPayload);
+        procesarWebhookTest(rawPayload);
 
         List<Map<String, Object>> txs = jdbcTemplate.queryForList(
             "SELECT ESTADO_PASARELA, ID_TRANSACCION_PASARELA FROM TRANSACCIONES_PAGO WHERE REFERENCIA_INTERNA = ?",
@@ -216,10 +223,10 @@ public class WompiPaymentFlowAdversarialTest {
         String rawPayload = objectMapper.writeValueAsString(webhookPayload);
 
         // Primera llamada
-        wompiService.procesarWebhook(rawPayload);
+        procesarWebhookTest(rawPayload);
 
         // Segunda llamada (reintento del webhook de Wompi)
-        wompiService.procesarWebhook(rawPayload);
+        procesarWebhookTest(rawPayload);
 
         // Verificar que solo existe UN pago registrado
         List<Map<String, Object>> pagos = jdbcTemplate.queryForList(
@@ -247,7 +254,7 @@ public class WompiPaymentFlowAdversarialTest {
         Map<String, Object> webhookPayload = buildWompiPayload(idWompi, referencia, "APPROVED", montoCentavos, "COP", checksumInvalido, ts);
         String rawPayload = objectMapper.writeValueAsString(webhookPayload);
 
-        wompiService.procesarWebhook(rawPayload);
+        procesarWebhookTest(rawPayload);
 
         List<Map<String, Object>> txs = jdbcTemplate.queryForList(
             "SELECT ESTADO_PASARELA FROM TRANSACCIONES_PAGO WHERE REFERENCIA_INTERNA = ?",
@@ -281,7 +288,7 @@ public class WompiPaymentFlowAdversarialTest {
         Map<String, Object> webhookPayload = buildWompiPayload(idWompi, referencia, "APPROVED", montoFalsificado, "COP", checksum, ts);
         String rawPayload = objectMapper.writeValueAsString(webhookPayload);
 
-        wompiService.procesarWebhook(rawPayload);
+        procesarWebhookTest(rawPayload);
 
         List<Map<String, Object>> txs = jdbcTemplate.queryForList(
             "SELECT ESTADO_PASARELA FROM TRANSACCIONES_PAGO WHERE REFERENCIA_INTERNA = ?",
@@ -308,7 +315,7 @@ public class WompiPaymentFlowAdversarialTest {
         Map<String, Object> webhookPayload = buildWompiPayload(idWompi, referencia, "APPROVED", montoCentavos, "USD", checksum, ts);
         String rawPayload = objectMapper.writeValueAsString(webhookPayload);
 
-        wompiService.procesarWebhook(rawPayload);
+        procesarWebhookTest(rawPayload);
 
         List<Map<String, Object>> txs = jdbcTemplate.queryForList(
             "SELECT ESTADO_PASARELA FROM TRANSACCIONES_PAGO WHERE REFERENCIA_INTERNA = ?",
@@ -335,7 +342,7 @@ public class WompiPaymentFlowAdversarialTest {
         Map<String, Object> webhookPayload = buildWompiPayload(idWompi, referencia, "DECLINED", montoCentavos, "COP", checksum, ts);
         String rawPayload = objectMapper.writeValueAsString(webhookPayload);
 
-        wompiService.procesarWebhook(rawPayload);
+        procesarWebhookTest(rawPayload);
 
         List<Map<String, Object>> txs = jdbcTemplate.queryForList(
             "SELECT ESTADO_PASARELA FROM TRANSACCIONES_PAGO WHERE REFERENCIA_INTERNA = ?",
@@ -368,7 +375,7 @@ public class WompiPaymentFlowAdversarialTest {
         Map<String, Object> webhookPayload = buildWompiPayload(idWompi, referencia, "ERROR", montoCentavos, "COP", checksum, ts);
         String rawPayload = objectMapper.writeValueAsString(webhookPayload);
 
-        wompiService.procesarWebhook(rawPayload);
+        procesarWebhookTest(rawPayload);
 
         List<Map<String, Object>> txs = jdbcTemplate.queryForList(
             "SELECT ESTADO_PASARELA FROM TRANSACCIONES_PAGO WHERE REFERENCIA_INTERNA = ?",

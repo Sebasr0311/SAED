@@ -11,6 +11,7 @@ import java.util.Optional;
 public interface ParqueaderosRepository {
     // Parqueaderos
     List<ParqueaderoDTO> getParqueaderos();
+    List<ParqueaderoDTO> getParqueaderos(String estado, String tipo);
     Optional<ParqueaderoDTO> getParqueaderoById(Long id);
     ParqueaderoDTO registrarParqueadero(ParqueaderoRequestDTO request, Long idPropiedad);
     ParqueaderoDTO actualizarParqueadero(Long id, ParqueaderoRequestDTO request);

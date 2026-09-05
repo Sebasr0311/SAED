@@ -34,6 +34,12 @@ public class ParqueaderosServiceImpl implements ParqueaderosService {
 
     @Override
     @Transactional(readOnly = true)
+    public List<ParqueaderoDTO> getParqueaderos(String estado, String tipo) {
+        return parqueaderosRepository.getParqueaderos(estado, tipo);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public ParqueaderoDTO getParqueaderoById(Long id) {
         return parqueaderosRepository.getParqueaderoById(id)
                 .orElseThrow(() -> new RuntimeException("Parqueadero no encontrado"));

@@ -64,8 +64,10 @@ public class PaquetesRepositoryImpl implements PaquetesRepository {
                "FROM PAQUETES p " +
                "JOIN UNIDADES u ON p.ID_UNIDAD = u.ID_UNIDAD " +
                "LEFT JOIN PERSONAS dest ON p.ID_PERSONA_DESTINATARIO = dest.ID_PERSONA " +
-               "LEFT JOIN PERSONAS port_recibe ON p.RECIBIDO_POR_PORTERO = port_recibe.ID_PERSONA " +
-               "LEFT JOIN PERSONAS port_entrega ON p.ENTREGADO_POR_PORTERO = port_entrega.ID_PERSONA " +
+               "LEFT JOIN USUARIOS u_recibe ON p.RECIBIDO_POR_PORTERO = u_recibe.ID_USUARIO " +
+               "LEFT JOIN PERSONAS port_recibe ON u_recibe.ID_PERSONA = port_recibe.ID_PERSONA " +
+               "LEFT JOIN USUARIOS u_entrega ON p.ENTREGADO_POR_PORTERO = u_entrega.ID_USUARIO " +
+               "LEFT JOIN PERSONAS port_entrega ON u_entrega.ID_PERSONA = port_entrega.ID_PERSONA " +
                "LEFT JOIN PERSONAS pers_recibe ON p.ENTREGADO_A_PERSONA = pers_recibe.ID_PERSONA ";
     }
 
@@ -98,6 +100,12 @@ public class PaquetesRepositoryImpl implements PaquetesRepository {
     }
 
     @Override
+    public List<PaqueteDTO> getPaquetesByUnidad(Long idUnidad) {
+        String sql = getBaseQuery() + " WHERE p.ID_UNIDAD = :unidad ORDER BY p.FECHA_RECEPCION DESC";
+        return jdbcTemplate.query(sql, new MapSqlParameterSource("unidad", idUnidad), rowMapper);
+    }
+
+    @Override
     public Optional<PaqueteDTO> getPaqueteById(Long idPaquete) {
         String sql = getBaseQuery() + " WHERE p.ID_PAQUETE = :id";
         List<PaqueteDTO> list = jdbcTemplate.query(sql, new MapSqlParameterSource("id", idPaquete), rowMapper);
@@ -122,7 +130,7 @@ public class PaquetesRepositoryImpl implements PaquetesRepository {
 
     @Override
     public void registrarEntrega(Long idPaquete, PaqueteEntregaDTO entregaDTO, Long idPorteroEntrega) {
-        String sql = "UPDATE PAQUETES SET ESTADO = 'ENTREGADO', FECHA_ENTREGA = CURRENT_TIMESTAMP, ENTREGADO_A_PERSONA = :persona, ENTREGADO_POR_PORTERO = (SELECT ID_PERSONA FROM USUARIOS WHERE ID_USUARIO = :portero), FIRMA_URL = :firma WHERE ID_PAQUETE = :id";
+        String sql = "UPDATE PAQUETES SET ESTADO = 'ENTREGADO', FECHA_ENTREGA = CURRENT_TIMESTAMP, ENTREGADO_A_PERSONA = :persona, ENTREGADO_POR_PORTERO = :portero, FOTO_COMPROBANTE_URL = :firma WHERE ID_PAQUETE = :id";
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("id", idPaquete)
                 .addValue("persona", entregaDTO.idPersonaRecibe())
@@ -130,6 +138,10 @@ public class PaquetesRepositoryImpl implements PaquetesRepository {
                 .addValue("firma", entregaDTO.firmaUrl());
         jdbcTemplate.update(sql, params);
     }
+
+    @Override
+    public void marcarEntregadoDirecto(Long idPaquete, Long idPortero) {
+        String sql = "UPDATE PAQUETES SET ESTADO = 'ENTREGADO', FECHA_ENTREGA = CURRENT_TIMESTAMP, ENTREGADO_POR_PORTERO = :portero WHERE ID_PAQUETE = :id";
+        jdbcTemplate.update(sql, new MapSqlParameterSource("id", idPaquete).addValue("portero", idPortero));
+    }
 }
-
-

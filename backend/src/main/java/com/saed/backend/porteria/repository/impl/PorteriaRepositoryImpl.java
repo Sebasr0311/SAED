@@ -370,7 +370,7 @@ public class PorteriaRepositoryImpl implements PorteriaRepository {
 
     @Override
     public void registerSalidaVehiculo(Long id, BigDecimal costoTotal) {
-        String sql = "UPDATE VEHICULOS_VISITA SET FECHA_SALIDA = CURRENT_TIMESTAMP, COSTO_TOTAL = :costoTotal, ESTADO = 'AFUERA' WHERE ID_VEHICULO_VISITA = :id";
+        String sql = "UPDATE VEHICULOS_VISITA SET FECHA_SALIDA = CURRENT_TIMESTAMP, COSTO_TOTAL = :costoTotal, ESTADO = 'SALIO' WHERE ID_VEHICULO_VISITA = :id";
         jdbcTemplate.update(sql, new MapSqlParameterSource("id", id).addValue("costoTotal", costoTotal));
     }
 }

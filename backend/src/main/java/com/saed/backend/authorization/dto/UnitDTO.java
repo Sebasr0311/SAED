@@ -25,6 +25,8 @@ public class UnitDTO {
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
+    public Long getIdApartamento() { return id; }
+    public String getNumero() { return identificador; }
     public Long getIdPropiedad() { return idPropiedad; }
     public void setIdPropiedad(Long idPropiedad) { this.idPropiedad = idPropiedad; }
     public Long getIdBloque() { return idBloque; }

@@ -27,8 +27,10 @@ public class ParqueaderosController {
 
     @GetMapping
     @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_PORTERO', 'SCOPE_RESIDENTE')")
-    public ResponseEntity<List<ParqueaderoDTO>> getParqueaderos() {
-        return ResponseEntity.ok(parqueaderosService.getParqueaderos());
+    public ResponseEntity<List<ParqueaderoDTO>> getParqueaderos(
+            @RequestParam(required = false) String estado,
+            @RequestParam(required = false) String tipo) {
+        return ResponseEntity.ok(parqueaderosService.getParqueaderos(estado, tipo));
     }
 
     @GetMapping("/{id}")
@@ -44,7 +46,7 @@ public class ParqueaderosController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_PORTERO')")
     public ResponseEntity<ParqueaderoDTO> actualizarParqueadero(@PathVariable Long id, @Valid @RequestBody ParqueaderoRequestDTO request) {
         return ResponseEntity.ok(parqueaderosService.actualizarParqueadero(id, request));
     }

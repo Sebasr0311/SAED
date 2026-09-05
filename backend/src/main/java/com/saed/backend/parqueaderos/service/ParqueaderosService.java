@@ -9,6 +9,7 @@ import java.util.List;
 
 public interface ParqueaderosService {
     List<ParqueaderoDTO> getParqueaderos();
+    List<ParqueaderoDTO> getParqueaderos(String estado, String tipo);
     ParqueaderoDTO getParqueaderoById(Long id);
     ParqueaderoDTO registrarParqueadero(ParqueaderoRequestDTO request);
     ParqueaderoDTO actualizarParqueadero(Long id, ParqueaderoRequestDTO request);
