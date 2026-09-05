@@ -5,6 +5,8 @@ import { Badge } from '../components/ui/badge.tsx';
 import { Skeleton } from '../components/ui/skeleton.tsx';
 import { Button } from '../components/ui/button.tsx';
 import { Building2, Mail, Phone, MapPin, Globe, Calendar, Edit3, CheckCircle2, AlertCircle } from 'lucide-react';
+import LocationSelector from '../components/ui/LocationSelector';
+import { findDepartamentoByCiudad } from '../lib/colombiaData';
 
 export default function OrgOrganizacionPage() {
   const [profile, setProfile] = useState(null);
@@ -18,8 +20,9 @@ export default function OrgOrganizacionPage() {
     emailContacto: '',
     telefonoContacto: '',
     direccion: '',
-    ciudad: '',
-    pais: '',
+    departamento: 'Bogotá D.C.',
+    ciudad: 'Bogotá',
+    pais: 'Colombia',
   });
 
   async function loadProfile() {
@@ -33,8 +36,9 @@ export default function OrgOrganizacionPage() {
         emailContacto: data.emailContacto || '',
         telefonoContacto: data.telefonoContacto || '',
         direccion: data.direccion || '',
-        ciudad: data.ciudad || '',
-        pais: data.pais || '',
+        departamento: findDepartamentoByCiudad(data.ciudad),
+        ciudad: data.ciudad || 'Bogotá',
+        pais: data.pais || 'Colombia',
       });
     } catch (err) {
       console.error('Error loading org profile:', err);
@@ -174,26 +178,15 @@ export default function OrgOrganizacionPage() {
                     className="w-full px-3 py-2 border border-input rounded-lg bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                 </div>
-                <div>
-                  <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1.5">
-                    Ciudad
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.ciudad}
-                    onChange={(e) => setFormData({ ...formData, ciudad: e.target.value })}
-                    className="w-full px-3 py-2 border border-input rounded-lg bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1.5">
-                    País
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.pais}
-                    onChange={(e) => setFormData({ ...formData, pais: e.target.value })}
-                    className="w-full px-3 py-2 border border-input rounded-lg bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                <div className="sm:col-span-2">
+                  <LocationSelector
+                    idPrefix="org-profile"
+                    pais={formData.pais || 'Colombia'}
+                    departamento={formData.departamento}
+                    ciudad={formData.ciudad || 'Bogotá'}
+                    onChange={({ pais, departamento, ciudad }) =>
+                      setFormData((prev) => ({ ...prev, pais, departamento, ciudad }))
+                    }
                   />
                 </div>
               </div>

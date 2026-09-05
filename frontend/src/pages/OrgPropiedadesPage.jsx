@@ -5,6 +5,7 @@ import { Badge } from '../components/ui/badge.tsx';
 import { Skeleton } from '../components/ui/skeleton.tsx';
 import { Button } from '../components/ui/button.tsx';
 import { Home, Plus, Search, MapPin, Building, AlertCircle, CheckCircle2, Power, Eye } from 'lucide-react';
+import LocationSelector from '../components/ui/LocationSelector';
 
 export default function OrgPropiedadesPage() {
   const [properties, setProperties] = useState([]);
@@ -23,6 +24,7 @@ export default function OrgPropiedadesPage() {
     nombre: '',
     idTipoPropiedad: 1,
     direccion: '',
+    departamento: 'Bogotá D.C.',
     ciudad: 'Bogotá',
     pais: 'Colombia',
     tipoOcupacionPredominante: 'RESIDENCIAL',
@@ -57,13 +59,20 @@ export default function OrgPropiedadesPage() {
     try {
       setCreating(true);
       setCreateError(null);
-      await api.post('/properties', newProp);
+      await api.post('/properties', {
+        nombre: newProp.nombre.trim(),
+        idTipoPropiedad: Number(newProp.idTipoPropiedad),
+        direccion: newProp.direccion.trim(),
+        ciudad: newProp.ciudad || 'Bogotá',
+        tipoOcupacionPredominante: newProp.tipoOcupacionPredominante || 'RESIDENCIAL',
+      });
       setSuccessMsg('Propiedad registrada exitosamente.');
       setIsModalOpen(false);
       setNewProp({
         nombre: '',
         idTipoPropiedad: 1,
         direccion: '',
+        departamento: 'Bogotá D.C.',
         ciudad: 'Bogotá',
         pais: 'Colombia',
         tipoOcupacionPredominante: 'RESIDENCIAL',
@@ -334,30 +343,15 @@ export default function OrgPropiedadesPage() {
                     className="w-full px-3 py-2 border border-input rounded-lg bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">
-                      Ciudad
-                    </label>
-                    <input
-                      type="text"
-                      value={newProp.ciudad}
-                      onChange={(e) => setNewProp({ ...newProp, ciudad: e.target.value })}
-                      className="w-full px-3 py-2 border border-input rounded-lg bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">
-                      País
-                    </label>
-                    <input
-                      type="text"
-                      value={newProp.pais}
-                      onChange={(e) => setNewProp({ ...newProp, pais: e.target.value })}
-                      className="w-full px-3 py-2 border border-input rounded-lg bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                    />
-                  </div>
-                </div>
+                <LocationSelector
+                  idPrefix="org-prop"
+                  pais={newProp.pais}
+                  departamento={newProp.departamento}
+                  ciudad={newProp.ciudad}
+                  onChange={({ pais, departamento, ciudad }) =>
+                    setNewProp((prev) => ({ ...prev, pais, departamento, ciudad }))
+                  }
+                />
 
                 <div className="flex justify-end gap-3 pt-4 border-t border-border">
                   <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>

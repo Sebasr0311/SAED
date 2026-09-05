@@ -17,6 +17,8 @@ import { Input } from '../components/ui/input.tsx';
 import { Label } from '../components/ui/label.tsx';
 import { Skeleton } from '../components/ui/skeleton.tsx';
 import { toast } from 'sonner';
+import LocationSelector from '../components/ui/LocationSelector';
+import { findDepartamentoByCiudad } from '../lib/colombiaData';
 
 /**
  * OrganizacionesPage 2.0 — CRUD de organizaciones (tenants).
@@ -37,7 +39,9 @@ const emptyForm = {
   emailContacto: '',
   telefonoContacto: '',
   direccion: '',
-  ciudad: '',
+  departamento: 'Bogotá D.C.',
+  ciudad: 'Bogotá',
+  pais: 'Colombia',
 };
 
 export default function OrganizacionesPage() {
@@ -183,7 +187,7 @@ export default function OrganizacionesPage() {
                         <Badge variant={ESTADO_BADGE[o.estado] || 'default'}>{o.estado}</Badge>
                       </TableCell>
                       <TableCell className="text-right whitespace-nowrap">
-                        <Button variant="ghost" size="sm" onClick={() => { setEditing(o); setForm({ nombre: o.nombre || '', identificacionFiscal: o.identificacionFiscal || '', emailContacto: o.emailContacto || '', telefonoContacto: o.telefonoContacto || '', direccion: o.direccion || '', ciudad: o.ciudad || '' }); setDialogOpen(true); }} aria-label={`Editar ${o.nombre}`}>
+                        <Button variant="ghost" size="sm" onClick={() => { setEditing(o); setForm({ nombre: o.nombre || '', identificacionFiscal: o.identificacionFiscal || '', emailContacto: o.emailContacto || '', telefonoContacto: o.telefonoContacto || '', direccion: o.direccion || '', departamento: findDepartamentoByCiudad(o.ciudad), ciudad: o.ciudad || 'Bogotá', pais: o.pais || 'Colombia' }); setDialogOpen(true); }} aria-label={`Editar ${o.nombre}`}>
                           <span className="material-symbols-outlined text-base">edit</span>
                         </Button>
                         {o.estado === 'ACTIVA' ? (
@@ -234,14 +238,19 @@ export default function OrganizacionesPage() {
                 <Input id="org-tel" value={form.telefonoContacto} onChange={(e) => setForm((f) => ({ ...f, telefonoContacto: e.target.value }))} placeholder="Ej: 3001234567" />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="org-ciudad">Ciudad</Label>
-                <Input id="org-ciudad" value={form.ciudad} onChange={(e) => setForm((f) => ({ ...f, ciudad: e.target.value }))} placeholder="Ej: Bogot\u00e1" />
+                <Label htmlFor="org-dir">Direcci\u00f3n</Label>
+                <Input id="org-dir" value={form.direccion} onChange={(e) => setForm((f) => ({ ...f, direccion: e.target.value }))} placeholder="Ej: Av 123 #45-67" />
               </div>
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="org-dir">Direcci\u00f3n</Label>
-              <Input id="org-dir" value={form.direccion} onChange={(e) => setForm((f) => ({ ...f, direccion: e.target.value }))} placeholder="Ej: Av 123 #45-67" />
-            </div>
+            <LocationSelector
+              idPrefix="tenant-org"
+              pais={form.pais}
+              departamento={form.departamento}
+              ciudad={form.ciudad}
+              onChange={({ pais, departamento, ciudad }) =>
+                setForm((f) => ({ ...f, pais, departamento, ciudad }))
+              }
+            />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>

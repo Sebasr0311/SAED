@@ -14,6 +14,7 @@ import {
   DialogFooter,
 } from '../components/ui/dialog.tsx';
 import { toast } from 'sonner';
+import LocationSelector from '../components/ui/LocationSelector';
 
 export default function SuperAdminOrganizacionesPage() {
   const [items, setItems] = useState([]);
@@ -28,6 +29,7 @@ export default function SuperAdminOrganizacionesPage() {
     emailContacto: '',
     telefonoContacto: '',
     direccion: '',
+    departamento: 'Bogotá D.C.',
     ciudad: 'Bogotá',
     pais: 'Colombia',
   });
@@ -70,7 +72,14 @@ export default function SuperAdminOrganizacionesPage() {
     }
     try {
       setSubmitting(true);
-      await api.post('/organizations', form);
+      await api.post('/organizations', {
+        nombre: form.nombre.trim(),
+        identificacionFiscal: form.identificacionFiscal.trim(),
+        emailContacto: form.emailContacto.trim(),
+        telefonoContacto: form.telefonoContacto?.trim() || null,
+        direccion: form.direccion?.trim() || null,
+        ciudad: form.ciudad || 'Bogotá',
+      });
       toast.success('Organización creada exitosamente');
       setShowModal(false);
       setForm({
@@ -79,6 +88,7 @@ export default function SuperAdminOrganizacionesPage() {
         emailContacto: '',
         telefonoContacto: '',
         direccion: '',
+        departamento: 'Bogotá D.C.',
         ciudad: 'Bogotá',
         pais: 'Colombia',
       });
@@ -269,33 +279,15 @@ export default function SuperAdminOrganizacionesPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="org-ciudad" className="text-xs font-semibold uppercase text-muted-foreground">
-                  Ciudad
-                </Label>
-                <Input
-                  id="org-ciudad"
-                  value={form.ciudad}
-                  onChange={(e) => setForm({ ...form, ciudad: e.target.value })}
-                  placeholder="Bogotá"
-                  className="text-sm"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="org-pais" className="text-xs font-semibold uppercase text-muted-foreground">
-                  País
-                </Label>
-                <Input
-                  id="org-pais"
-                  value={form.pais}
-                  onChange={(e) => setForm({ ...form, pais: e.target.value })}
-                  placeholder="Colombia"
-                  className="text-sm"
-                />
-              </div>
-            </div>
+            <LocationSelector
+              idPrefix="org"
+              pais={form.pais}
+              departamento={form.departamento}
+              ciudad={form.ciudad}
+              onChange={({ pais, departamento, ciudad }) =>
+                setForm((prev) => ({ ...prev, pais, departamento, ciudad }))
+              }
+            />
 
             <div className="space-y-1.5">
               <Label htmlFor="org-dir" className="text-xs font-semibold uppercase text-muted-foreground">

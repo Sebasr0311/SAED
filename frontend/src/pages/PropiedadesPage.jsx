@@ -20,6 +20,8 @@ import {
 } from '../components/ui/select.tsx';
 import { Skeleton } from '../components/ui/skeleton.tsx';
 import { toast } from 'sonner';
+import LocationSelector from '../components/ui/LocationSelector';
+import { findDepartamentoByCiudad } from '../lib/colombiaData';
 
 /**
  * PropiedadesPage 2.0 — propiedades dentro de una organizacion.
@@ -37,7 +39,9 @@ const emptyForm = {
   idTipoPropiedad: '',
   nombre: '',
   direccion: '',
-  ciudad: '',
+  departamento: 'Bogotá D.C.',
+  ciudad: 'Bogotá',
+  pais: 'Colombia',
   tipoOcupacionPredominante: 'MIXTA',
 };
 
@@ -59,8 +63,8 @@ export default function PropiedadesPage() {
   );
 
   const propiedades = Array.isArray(data) ? data : data?.items || [];
-  const organizaciones = orgsArray.isArray(data) ? data : data?.items || [];
-  const tipos = tiposArray.isArray(data) ? data : data?.items || [];
+  const organizaciones = Array.isArray(orgsData) ? orgsData : orgsData?.items || [];
+  const tipos = Array.isArray(tiposData) ? tiposData : tiposData?.items || [];
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -185,7 +189,7 @@ export default function PropiedadesPage() {
                         <Badge variant={ESTADO_BADGE[p.estado] || 'default'}>{p.estado}</Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button variant="ghost" size="sm" onClick={() => { setEditing(p); setForm({ idOrganizacion: p.idOrganizacion != null ? String(p.idOrganizacion) : '', idTipoPropiedad: p.idTipoPropiedad != null ? String(p.idTipoPropiedad) : '', nombre: p.nombre || '', direccion: p.direccion || '', ciudad: p.ciudad || '', tipoOcupacionPredominante: p.tipoOcupacionPredominante || 'MIXTA' }); setDialogOpen(true); }} aria-label={`Editar ${p.nombre}`}>
+                        <Button variant="ghost" size="sm" onClick={() => { setEditing(p); setForm({ idOrganizacion: p.idOrganizacion != null ? String(p.idOrganizacion) : '', idTipoPropiedad: p.idTipoPropiedad != null ? String(p.idTipoPropiedad) : '', nombre: p.nombre || '', direccion: p.direccion || '', departamento: findDepartamentoByCiudad(p.ciudad), ciudad: p.ciudad || 'Bogotá', pais: p.pais || 'Colombia', tipoOcupacionPredominante: p.tipoOcupacionPredominante || 'MIXTA' }); setDialogOpen(true); }} aria-label={`Editar ${p.nombre}`}>
                           <span className="material-symbols-outlined text-base">edit</span>
                         </Button>
                       </TableCell>
@@ -239,22 +243,26 @@ export default function PropiedadesPage() {
               <Label htmlFor="prop-dir">Direcci\u00f3n *</Label>
               <Input id="prop-dir" value={form.direccion} onChange={(e) => setForm((f) => ({ ...f, direccion: e.target.value }))} placeholder="Ej: Av 123 #45-67" />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="prop-ciudad">Ciudad *</Label>
-                <Input id="prop-ciudad" value={form.ciudad} onChange={(e) => setForm((f) => ({ ...f, ciudad: e.target.value }))} placeholder="Ej: Bogot\u00e1" />
-              </div>
-              <div className="grid gap-2">
-                <Label>Ocupaci\u00f3n</Label>
-                <Select value={form.tipoOcupacionPredominante} onValueChange={(v) => setForm((f) => ({ ...f, tipoOcupacionPredominante: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="RESIDENCIAL">Residencial</SelectItem>
-                    <SelectItem value="COMERCIAL">Comercial</SelectItem>
-                    <SelectItem value="MIXTA">Mixta</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            <LocationSelector
+              idPrefix="prop-modal"
+              pais={form.pais}
+              departamento={form.departamento}
+              ciudad={form.ciudad}
+              required
+              onChange={({ pais, departamento, ciudad }) =>
+                setForm((f) => ({ ...f, pais, departamento, ciudad }))
+              }
+            />
+            <div className="grid gap-2">
+              <Label>Ocupaci\u00f3n</Label>
+              <Select value={form.tipoOcupacionPredominante} onValueChange={(v) => setForm((f) => ({ ...f, tipoOcupacionPredominante: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="RESIDENCIAL">Residencial</SelectItem>
+                  <SelectItem value="COMERCIAL">Comercial</SelectItem>
+                  <SelectItem value="MIXTA">Mixta</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <DialogFooter>
