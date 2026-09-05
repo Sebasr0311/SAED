@@ -28,9 +28,10 @@ spring:
     username: ${DB_USERNAME:SAED_BASELINE_TEST_01}
     password: ${DB_PASSWORD}
     hikari:
-      maximum-pool-size: 20
-      minimum-idle: 5
+      maximum-pool-size: 30
+      minimum-idle: 10
       connection-timeout: 60000
+      leak-detection-threshold: 30000
 
 jwt:
   secret: ${JWT_SECRET}

@@ -7,27 +7,31 @@
  * No manipulan el DOM: reciben el valor y devuelven el veredicto.
  */
 
-/** Regex de documento por código de tipo (Colombia). */
+/** Regex de documento por código de tipo (Normativa Colombiana). */
 const DOC_PATTERNS = {
-  CC: /^\d{7,10}$/,            // Cédula de Ciudadanía: solo números, 7-10
-  TI: /^\d{7,10}$/,            // Tarjeta de Identidad: solo números, 7-10
-  RC: /^\d{7,10}$/,            // Registro Civil: solo números, 7-10
-  CE: /^[A-Za-z]\d{5,11}$/,    // Cédula de Extranjería: letra + 5-11 dígitos
-  PP: /^[A-Z0-9]{7,15}$/i,     // Pasaporte
-  PASAPORTE: /^[A-Z0-9]{7,15}$/i,
-  PEP: /^[A-Z0-9]{8,15}$/i,    // Permiso Especial de Permanencia
-  NIT: /^\d{9,13}$/,           // NIT
+  CC: /^\d{6,10}$/,               // Cédula de Ciudadanía: solo números, 6 a 10 dígitos
+  TI: /^\d{8,11}$/,               // Tarjeta de Identidad: solo números, 8 a 11 dígitos (NUIP)
+  RC: /^\d{10,11}$/,              // Registro Civil: solo números, 10 a 11 dígitos
+  CE: /^[A-Za-z0-9]{5,11}$/,      // Cédula de Extranjería: 5 a 11 caracteres alfanuméricos
+  PAS: /^[A-Za-z0-9]{6,16}$/i,    // Pasaporte
+  PP: /^[A-Za-z0-9]{6,16}$/i,     // Pasaporte abreviado
+  PASAPORTE: /^[A-Za-z0-9]{6,16}$/i,
+  PPT: /^[A-Za-z0-9]{6,12}$/i,    // Permiso por Protección Temporal
+  PEP: /^[A-Za-z0-9]{8,15}$/i,    // Permiso Especial de Permanencia
+  NIT: /^\d{8,10}(-\d)?$/,        // NIT: 8 a 10 dígitos, con o sin dígito de verificación
 };
 
 const DOC_MESSAGES = {
-  CC: 'Cédula: solo números, entre 7 y 10 dígitos',
-  TI: 'TI: solo números, entre 7 y 10 dígitos',
-  RC: 'Registro Civil: solo números, entre 7 y 10 dígitos',
-  CE: 'CE: letra seguida de 5 a 11 dígitos (ej: E123456)',
-  PP: 'Pasaporte: letras y números, entre 7 y 15 caracteres',
-  PASAPORTE: 'Pasaporte: letras y números, entre 7 y 15 caracteres',
-  PEP: 'PEP: alfanumérico, entre 8 y 15 caracteres',
-  NIT: 'NIT: solo números, entre 9 y 13 dígitos',
+  CC: 'Cédula de Ciudadanía: solo números, entre 6 y 10 dígitos',
+  TI: 'Tarjeta de Identidad: solo números, entre 8 y 11 dígitos',
+  RC: 'Registro Civil: solo números, entre 10 y 11 dígitos',
+  CE: 'Cédula de Extranjería: entre 5 y 11 caracteres alfanuméricos',
+  PAS: 'Pasaporte: entre 6 y 16 caracteres alfanuméricos',
+  PP: 'Pasaporte: entre 6 y 16 caracteres alfanuméricos',
+  PASAPORTE: 'Pasaporte: entre 6 y 16 caracteres alfanuméricos',
+  PPT: 'Permiso por Protección Temporal (PPT): entre 6 y 12 caracteres',
+  PEP: 'Permiso Especial de Permanencia (PEP): entre 8 y 15 caracteres',
+  NIT: 'NIT: entre 8 y 10 dígitos (ej: 900123456 o 900123456-1)',
 };
 
 /**

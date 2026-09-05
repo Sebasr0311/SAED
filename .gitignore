@@ -70,3 +70,5 @@ desktop.ini
 .atl/
 .codegraph/
 .playwright-mcp/
+test-results/
+**/test-results/

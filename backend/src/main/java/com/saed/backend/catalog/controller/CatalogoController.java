@@ -52,9 +52,19 @@ public class CatalogoController {
     @GetMapping("/tipos-documento")
     @PreAuthorize("isAuthenticated()")
     public List<Map<String, Object>> tiposDocumento() {
-        return jdbcTemplate.queryForList(
-                "SELECT ID_TIPO_DOCUMENTO, CODIGO, NOMBRE, APLICA_PERSONA_NATURAL, APLICA_PERSONA_JURIDICA FROM TIPOS_DOCUMENTO ORDER BY NOMBRE",
+        List<Map<String, Object>> raw = jdbcTemplate.queryForList(
+                "SELECT ID_TIPO_DOCUMENTO, CODIGO, NOMBRE, APLICA_PERSONA_NATURAL, APLICA_PERSONA_JURIDICA FROM TIPOS_DOCUMENTO WHERE ESTADO = 'ACTIVO' ORDER BY ID_TIPO_DOCUMENTO",
                 new MapSqlParameterSource());
+        return raw.stream().map(row -> {
+            Map<String, Object> map = new java.util.LinkedHashMap<>(row);
+            map.put("idTipoDoc", row.get("ID_TIPO_DOCUMENTO"));
+            map.put("idTipoDocumento", row.get("ID_TIPO_DOCUMENTO"));
+            map.put("codigo", row.get("CODIGO"));
+            map.put("nombre", row.get("NOMBRE"));
+            map.put("aplicaPersonaNatural", "S".equalsIgnoreCase(String.valueOf(row.get("APLICA_PERSONA_NATURAL"))));
+            map.put("aplicaPersonaJuridica", "S".equalsIgnoreCase(String.valueOf(row.get("APLICA_PERSONA_JURIDICA"))));
+            return map;
+        }).toList();
     }
 
     @GetMapping("/roles")

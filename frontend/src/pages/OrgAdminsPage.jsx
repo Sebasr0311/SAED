@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import api from '../lib/api.js';
+import { useTiposDocumento } from '../lib/hooks.js';
+import { valDocumento } from '../lib/validation.js';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card.tsx';
 import { Badge } from '../components/ui/badge.tsx';
 import { Skeleton } from '../components/ui/skeleton.tsx';
@@ -14,6 +16,8 @@ export default function OrgAdminsPage() {
   const [successMsg, setSuccessMsg] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
 
+  const { tiposDoc } = useTiposDocumento();
+
   // Create modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -21,6 +25,7 @@ export default function OrgAdminsPage() {
   const [newAdmin, setNewAdmin] = useState({
     primerNombre: '',
     primerApellido: '',
+    idTipoDocumento: 1,
     numeroDocumento: '',
     telefono: '',
     email: '',
@@ -61,6 +66,17 @@ export default function OrgAdminsPage() {
     try {
       setCreating(true);
       setCreateError(null);
+
+      // Validar documento según norma colombiana
+      const selectedDoc = tiposDoc.find((t) => Number(t.idTipoDoc) === Number(newAdmin.idTipoDocumento));
+      const cod = selectedDoc?.codigo || 'CC';
+      const docErr = valDocumento(newAdmin.numeroDocumento, cod, 'El número de documento');
+      if (docErr) {
+        setCreateError(docErr);
+        setCreating(false);
+        return;
+      }
+
       await api.post('/org/admins', {
         ...newAdmin,
         idPropiedad: newAdmin.idRol === 3 ? Number(newAdmin.idPropiedad) : null,
@@ -70,6 +86,7 @@ export default function OrgAdminsPage() {
       setNewAdmin({
         primerNombre: '',
         primerApellido: '',
+        idTipoDocumento: 1,
         numeroDocumento: '',
         telefono: '',
         email: '',
@@ -311,7 +328,23 @@ export default function OrgAdminsPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">
-                      Número de Cédula / Doc *
+                      Tipo de Documento *
+                    </label>
+                    <select
+                      value={newAdmin.idTipoDocumento}
+                      onChange={(e) => setNewAdmin({ ...newAdmin, idTipoDocumento: Number(e.target.value) })}
+                      className="w-full px-3 py-2 border border-input rounded-lg bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    >
+                      {tiposDoc.map((t) => (
+                        <option key={t.idTipoDoc} value={t.idTipoDoc}>
+                          {t.codigo} - {t.nombre}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">
+                      Número de Documento *
                     </label>
                     <input
                       type="text"
@@ -322,6 +355,9 @@ export default function OrgAdminsPage() {
                       className="w-full px-3 py-2 border border-input rounded-lg bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                     />
                   </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">
                       Teléfono
@@ -334,20 +370,19 @@ export default function OrgAdminsPage() {
                       className="w-full px-3 py-2 border border-input rounded-lg bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                     />
                   </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">
-                    Correo Electrónico *
-                  </label>
-                  <input
-                    type="email"
-                    required
-                    placeholder="admin@ejemplo.com"
-                    value={newAdmin.email}
-                    onChange={(e) => setNewAdmin({ ...newAdmin, email: e.target.value })}
-                    className="w-full px-3 py-2 border border-input rounded-lg bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                  />
+                  <div>
+                    <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">
+                      Correo Electrónico *
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      placeholder="admin@ejemplo.com"
+                      value={newAdmin.email}
+                      onChange={(e) => setNewAdmin({ ...newAdmin, email: e.target.value })}
+                      className="w-full px-3 py-2 border border-input rounded-lg bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

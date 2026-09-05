@@ -14,12 +14,20 @@ import javax.sql.DataSource;
 public class DataSourceConfig {
 
     @Bean
-    @Primary
     @ConfigurationProperties("spring.datasource.hikari")
-    public DataSource dataSource(DataSourceProperties properties) {
-        HikariDataSource hikariDataSource = properties.initializeDataSourceBuilder()
+    public HikariDataSource hikariDataSource(DataSourceProperties properties) {
+        HikariDataSource ds = properties.initializeDataSourceBuilder()
                 .type(HikariDataSource.class).build();
-        
+        ds.setMaximumPoolSize(35);
+        ds.setMinimumIdle(5);
+        ds.setConnectionTimeout(30000);
+        ds.setLeakDetectionThreshold(15000);
+        return ds;
+    }
+
+    @Bean
+    @Primary
+    public DataSource dataSource(HikariDataSource hikariDataSource) {
         // Wrap Hikari with our SAED context proxy
         return new SaedDataSourceProxy(hikariDataSource);
     }

@@ -10,6 +10,8 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.transaction.CannotCreateTransactionException;
+import com.saed.backend.context.SaedContext;
+import com.saed.backend.context.SaedContextHolder;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -37,34 +39,25 @@ public class GlobalExceptionHandler {
     /** Registra un intento denegado en AUDITORIA_LOG (best-effort, nunca rompe la respuesta). */
     private void registrarAccesoDenegado(String motivo, String entidad) {
         try {
+            SaedContext ctx = SaedContextHolder.getContext();
+            Long usr = (ctx != null) ? ctx.getUserId() : null;
+            Long org = (ctx != null) ? ctx.getOrganizationId() : null;
+            Long prop = (ctx != null) ? ctx.getPropertyId() : null;
+
             jdbcTemplate.update(
                 "CALL SP_REGISTRAR_AUDITORIA(" +
                 "p_id_usuario => :usr, p_id_organizacion => :org, p_id_propiedad => :prop, " +
                 "p_accion => 'ACCESO_DENEGADO', p_entidad => :ent, " +
                 "p_resultado => 'FALLIDO', p_estado_nuevo => :motivo)",
                 new MapSqlParameterSource()
-                    .addValue("usr", ctxNumber("ID_USUARIO"))
-                    .addValue("org", ctxNumber("ID_ORGANIZACION"))
-                    .addValue("prop", ctxNumber("ID_PROPIEDAD"))
+                    .addValue("usr", usr)
+                    .addValue("org", org)
+                    .addValue("prop", prop)
                     .addValue("ent", entidad)
                     .addValue("motivo", "{\"motivo\":\"" + motivo.replace("\"", "'") + "\"}")
             );
         } catch (Exception ignored) {
             // La auditoria nunca debe impedir responder el error
-        }
-    }
-
-    /** Lee un atributo de SAED_CTX desde la BD (la sesion ya lo tiene seteado). */
-    private Long ctxNumber(String attr) {
-        try {
-            String v = jdbcTemplate.queryForObject(
-                "SELECT SYS_CONTEXT('SAED_CTX', :attr) FROM DUAL",
-                new MapSqlParameterSource("attr", attr),
-                String.class
-            );
-            return v != null && !v.isBlank() && !"null".equals(v) ? Long.valueOf(v) : null;
-        } catch (Exception e) {
-            return null;
         }
     }
 
@@ -104,7 +97,7 @@ public class GlobalExceptionHandler {
         }
 
         // Generic fallback for DB
-        log.error("DB Error: {}", message);
+        log.error("DB Error: " + message, ex);
         response.put("code", "DATABASE_ERROR");
         response.put("message", "Ha ocurrido un error en la capa de datos.");
         return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);

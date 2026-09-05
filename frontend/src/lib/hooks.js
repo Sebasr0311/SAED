@@ -130,14 +130,29 @@ export function useFetch(fetcher, deps = []) {
   return { data, loading, error, refetch };
 }
 
+export const DEFAULT_TIPOS_DOCUMENTO = [
+  { idTipoDoc: 1, idTipoDocumento: 1, codigo: 'CC', nombre: 'Cédula de Ciudadanía', descripcion: 'Cédula de Ciudadanía', aplicaPersonaNatural: true, aplicaPersonaJuridica: false },
+  { idTipoDoc: 2, idTipoDocumento: 2, codigo: 'NIT', nombre: 'Número de Identificación Tributaria (NIT)', descripcion: 'NIT', aplicaPersonaNatural: true, aplicaPersonaJuridica: true },
+  { idTipoDoc: 3, idTipoDocumento: 3, codigo: 'CE', nombre: 'Cédula de Extranjería', descripcion: 'Cédula de Extranjería', aplicaPersonaNatural: true, aplicaPersonaJuridica: false },
+  { idTipoDoc: 4, idTipoDocumento: 4, codigo: 'TI', nombre: 'Tarjeta de Identidad', descripcion: 'Tarjeta de Identidad', aplicaPersonaNatural: true, aplicaPersonaJuridica: false },
+  { idTipoDoc: 5, idTipoDocumento: 5, codigo: 'PAS', nombre: 'Pasaporte', descripcion: 'Pasaporte', aplicaPersonaNatural: true, aplicaPersonaJuridica: false },
+  { idTipoDoc: 6, idTipoDocumento: 6, codigo: 'PPT', nombre: 'Permiso por Protección Temporal (PPT)', descripcion: 'PPT', aplicaPersonaNatural: true, aplicaPersonaJuridica: false },
+  { idTipoDoc: 7, idTipoDocumento: 7, codigo: 'PEP', nombre: 'Permiso Especial de Permanencia (PEP)', descripcion: 'PEP', aplicaPersonaNatural: true, aplicaPersonaJuridica: false },
+  { idTipoDoc: 8, idTipoDocumento: 8, codigo: 'RC', nombre: 'Registro Civil', descripcion: 'Registro Civil', aplicaPersonaNatural: true, aplicaPersonaJuridica: false },
+];
+
 export function useTiposDocumento() {
   const { data, loading, error } = useFetch(() => api.get('/tipos-documento'), []);
   const rawList = Array.isArray(data?.items) ? data.items : (Array.isArray(data) ? data : (data?.data || []));
-  const tiposDoc = rawList.map((t) => ({
+  const listToUse = rawList.length > 0 ? rawList : DEFAULT_TIPOS_DOCUMENTO;
+  const tiposDoc = listToUse.map((t) => ({
     ...t,
-    idTipoDoc: t.idTipoDoc ?? t.id ?? t.ID_TIPO_DOCUMENTO ?? t.value,
+    idTipoDoc: t.idTipoDoc ?? t.idTipoDocumento ?? t.id ?? t.ID_TIPO_DOCUMENTO ?? t.value,
     codigo: t.codigo ?? t.CODIGO,
-    nombre: t.nombre ?? t.NOMBRE,
+    nombre: t.nombre ?? t.NOMBRE ?? t.descripcion,
+    descripcion: t.descripcion ?? t.nombre ?? t.NOMBRE,
+    aplicaPersonaNatural: t.aplicaPersonaNatural ?? (t.APLICA_PERSONA_NATURAL === 'S' || t.APLICA_PERSONA_NATURAL === true),
+    aplicaPersonaJuridica: t.aplicaPersonaJuridica ?? (t.APLICA_PERSONA_JURIDICA === 'S' || t.APLICA_PERSONA_JURIDICA === true),
   }));
   return { tiposDoc, loading, error };
 }

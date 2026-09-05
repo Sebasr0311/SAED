@@ -20,10 +20,16 @@ public class SaedDataSourceProxy extends DelegatingDataSource {
         Connection connection = super.getConnection();
         try {
             applySaedContext(connection);
-            return SaedConnectionProxy.createProxy(connection);
-        } catch (SQLException e) {
-            connection.close();
-            throw e;
+            return connection;
+        } catch (Exception e) {
+            try {
+                connection.close();
+            } catch (SQLException ignored) {
+            }
+            if (e instanceof SQLException) {
+                throw (SQLException) e;
+            }
+            throw new SQLException("Failed to apply SAED context", e);
         }
     }
 
@@ -32,10 +38,16 @@ public class SaedDataSourceProxy extends DelegatingDataSource {
         Connection connection = super.getConnection(username, password);
         try {
             applySaedContext(connection);
-            return SaedConnectionProxy.createProxy(connection);
-        } catch (SQLException e) {
-            connection.close();
-            throw e;
+            return connection;
+        } catch (Exception e) {
+            try {
+                connection.close();
+            } catch (SQLException ignored) {
+            }
+            if (e instanceof SQLException) {
+                throw (SQLException) e;
+            }
+            throw new SQLException("Failed to apply SAED context", e);
         }
     }
 
