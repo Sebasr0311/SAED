@@ -1,4 +1,4 @@
-import { lazy } from 'react';
+import { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import LoginPage from './pages/LoginPage.jsx';
@@ -83,6 +83,7 @@ const OrgPropiedadesPage = lazy(() => import('./pages/OrgPropiedadesPage.jsx'));
 const OrgAdminsPage = lazy(() => import('./pages/OrgAdminsPage.jsx'));
 const OrgPlanPage = lazy(() => import('./pages/OrgPlanPage.jsx'));
 const OrgAuditoriaPage = lazy(() => import('./pages/OrgAuditoriaPage.jsx'));
+const LandingPage = lazy(() => import('./pages/LandingPage.jsx'));
 
 import { useAuth } from './lib/AuthContext.jsx';
 
@@ -100,9 +101,22 @@ export default function App() {
     <AuthProvider>
       <Toaster position="top-right" richColors />
       <Routes>
-        <Route path="/login" element={<LoginPage />} />
         <Route
           path="/"
+          element={
+            <Suspense
+              fallback={
+                <div className="min-h-screen bg-[#0A1628] flex items-center justify-center">
+                  <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                </div>
+              }
+            >
+              <LandingPage />
+            </Suspense>
+          }
+        />
+        <Route path="/login" element={<LoginPage />} />
+        <Route
           element={
             <ProtectedRoute>
               <TenantProvider>
@@ -111,7 +125,7 @@ export default function App() {
             </ProtectedRoute>
           }
         >
-          <Route index element={<RoleIndexRedirect />} />
+          <Route path="app" element={<RoleIndexRedirect />} />
 
           {/* SuperAdmin SaaS Platform Routes */}
           <Route
