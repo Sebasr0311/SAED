@@ -43,9 +43,20 @@ export const Button = memo(function Button({
       className={cn(touchTarget, accentBg, className)}
     >
       {loading ? (
-        <span className="material-symbols-outlined animate-spin text-base leading-none">progress_activity</span>
+        <span
+          className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent mr-1.5 shrink-0"
+          aria-hidden="true"
+        />
       ) : icon ? (
-        <span className="material-symbols-outlined text-lg leading-none">{icon}</span>
+        typeof icon === 'string' ? (
+          <span className="material-symbols-outlined text-lg leading-none mr-1.5 shrink-0" aria-hidden="true">
+            {icon}
+          </span>
+        ) : (
+          <span className="inline-flex shrink-0 mr-1.5" aria-hidden="true">
+            {icon}
+          </span>
+        )
       ) : null}
       {children}
     </ShadcnButton>

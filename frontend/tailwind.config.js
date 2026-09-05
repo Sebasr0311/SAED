@@ -140,6 +140,15 @@ export default {
         // Anillos de foco con alpha fijo (RGB triplets).
         'ring-primary': 'rgb(var(--ring-primary) / 0.25)',
         'ring-error': 'rgb(var(--ring-error) / 0.25)',
+        warning: {
+          DEFAULT: 'var(--warn)',
+          50: '#FFFBEB',
+          100: '#FEF3C7',
+          500: '#D97706',
+          600: '#B45309',
+          700: '#92400E',
+        },
+        'background-subtle': 'var(--background-subtle, #EEF2F8)',
         // ---- Tokens shadcn/ui (mapeados a la paleta SAED existente) ----
         // Los componentes shadcn usan estos nombres; resuelven a las mismas
         // variables que el kit propio (single source of truth en index.css).
@@ -174,6 +183,23 @@ export default {
         'chart-4': 'var(--chart-4)',
         'chart-5': 'var(--chart-5)',
       },
+      screens: {
+        xs: '360px',
+        mobile: '390px',
+        tablet: '768px',
+        desktop: '1024px',
+        wide: '1440px',
+      },
+      fontSize: {
+        display: ['2.25rem', { lineHeight: '2.75rem', fontWeight: '800' }],
+        h1: ['1.875rem', { lineHeight: '2.25rem', fontWeight: '700' }],
+        h2: ['1.5rem', { lineHeight: '2rem', fontWeight: '700' }],
+        h3: ['1.25rem', { lineHeight: '1.75rem', fontWeight: '600' }],
+        body: ['0.875rem', { lineHeight: '1.375rem', fontWeight: '400' }],
+        'body-sm': ['0.8125rem', { lineHeight: '1.25rem', fontWeight: '400' }],
+        label: ['0.75rem', { lineHeight: '1rem', fontWeight: '600' }],
+        caption: ['0.6875rem', { lineHeight: '0.875rem', fontWeight: '500' }],
+      },
       borderRadius: {
         xs: '4px',
         sm: '8px',
@@ -199,8 +225,10 @@ export default {
         DEFAULT: 'cubic-bezier(0.4, 0, 0.2, 1)',
       },
       transitionDuration: {
+        fast: '150ms',
         DEFAULT: '180ms',
-        slow: '280ms',
+        normal: '200ms',
+        slow: '300ms',
       },
       spacing: {
         sidebar: '72px',

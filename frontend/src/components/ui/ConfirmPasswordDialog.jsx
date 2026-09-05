@@ -44,17 +44,27 @@ export function ConfirmPasswordDialog({ open, onClose, onConfirmed, descripcion 
       onClose={handleClose}
       title="Confirmar acción"
       footer={
-        <>
-          <Button variant="outline" onClick={handleClose} disabled={verificando}>
+        <div className="flex items-center justify-end gap-2">
+          <Button
+            variant="outline"
+            onClick={handleClose}
+            disabled={verificando}
+            className="text-xs min-h-[44px] sm:min-h-9"
+          >
             Cancelar
           </Button>
-          <Button onClick={confirmar} disabled={verificando}>
+          <Button
+            variant="primary"
+            onClick={confirmar}
+            disabled={verificando}
+            className="text-xs min-h-[44px] sm:min-h-9"
+          >
             {verificando ? 'Verificando...' : 'Confirmar'}
           </Button>
-        </>
+        </div>
       }
     >
-      <p style={{ marginBottom: '12px', fontSize: '13px', color: 'var(--on-surface-variant)' }}>
+      <p className="mb-3 text-xs sm:text-sm text-muted-foreground">
         Para {descripcion || 'continuar con esta acción'}, ingrese su contraseña de administrador.
       </p>
       <Input
