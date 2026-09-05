@@ -255,7 +255,7 @@ export default function ParqueaderosPage() {
         <div className="space-y-1">
           <div className="flex items-center gap-2.5">
             <h1 className="text-2xl font-bold tracking-tight text-foreground">
-              Control y Cupos de Parqueadero
+              Control y Cupos de Parqueaderos
             </h1>
             <span className="px-2 py-0.5 text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded border border-slate-200 dark:border-slate-700">
               {isPortero ? 'PORTERO' : 'ADMIN_PROPIEDAD'}

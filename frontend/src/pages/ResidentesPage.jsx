@@ -190,11 +190,12 @@ export default function ResidentesPage() {
   // Apertura de Modales
   const openCreate = useCallback(() => {
     setEditing(null);
-    setForm(emptyForm);
+    const ccId = tiposDoc.find((t) => t.codigo === 'CC')?.idTipoDoc || tiposDoc[0]?.idTipoDoc || 1;
+    setForm({ ...emptyForm, idTipoDoc: ccId });
     setTutorForm(emptyTutorForm);
     setErrors({});
     setModalOpen(true);
-  }, []);
+  }, [tiposDoc]);
 
   const openEdit = useCallback(
     (row) => {
@@ -317,7 +318,7 @@ export default function ResidentesPage() {
         toast.success('Residente actualizado con éxito');
       } else {
         const res = await tenantApi.post('/personas', payload);
-        idResidente = res.id;
+        idResidente = res?.id || (typeof res === 'number' ? res : res?.data?.id || res?.data);
         toast.success('Residente registrado con éxito');
       }
 

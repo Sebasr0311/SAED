@@ -345,13 +345,15 @@ export default function CarteraPage() {
       </div>
 
       {/* 3. Navegación por Tabs Enterprise */}
-      <div className="flex items-center gap-2 border-b border-border/70 overflow-x-auto pb-1">
+      <div role="tablist" className="flex items-center gap-2 border-b border-border/70 overflow-x-auto pb-1">
         {TABS.map((tab) => {
           const IconComp = tab.icon;
           const isActiva = tabActiva === tab.id;
           return (
             <button
               key={tab.id}
+              role="tab"
+              aria-selected={isActiva}
               type="button"
               onClick={() => setTabActiva(tab.id)}
               className={`flex items-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-semibold rounded-t-lg transition-all border-b-2 whitespace-nowrap min-h-[44px] sm:min-h-9 ${

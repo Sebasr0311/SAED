@@ -1,4 +1,4 @@
-﻿import { useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
@@ -6,7 +6,7 @@ import { useAuth } from '../lib/AuthContext.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { Button } from '../components/ui/Button.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
-import { formatDate, formatMiles, imageSrc } from '../lib/utils.js';
+import { formatDate, imageSrc } from '../lib/utils.js';
 
 export default function ResBuzonPage() {
   const { user } = useAuth();
@@ -40,7 +40,7 @@ export default function ResBuzonPage() {
   async function vaciar() {
     try {
       await api.put('/buzon/vaciar');
-      toast.success('Buz�n vaciado');
+      toast.success('Buzón vaciado');
       refetch();
     } catch (err) {
       toast.error(err.message);
@@ -80,7 +80,7 @@ export default function ResBuzonPage() {
   return (
     <div>
       <PageHeader
-        title="Buz�n"
+        title="Buzón"
         subtitle="Notificaciones del administrador"
         action={
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -96,7 +96,7 @@ export default function ResBuzonPage() {
             )}
             {items.length > 0 && (
               <Button variant="danger" onClick={() => setConfirmVaciar(true)}>
-                Vaciar buz�n
+                Vaciar buzón
               </Button>
             )}
           </div>

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import api from './api.js';
 
 /**
@@ -132,7 +132,14 @@ export function useFetch(fetcher, deps = []) {
 
 export function useTiposDocumento() {
   const { data, loading, error } = useFetch(() => api.get('/tipos-documento'), []);
-  return { tiposDoc: data?.items || [], loading, error };
+  const rawList = Array.isArray(data?.items) ? data.items : (Array.isArray(data) ? data : (data?.data || []));
+  const tiposDoc = rawList.map((t) => ({
+    ...t,
+    idTipoDoc: t.idTipoDoc ?? t.id ?? t.ID_TIPO_DOCUMENTO ?? t.value,
+    codigo: t.codigo ?? t.CODIGO,
+    nombre: t.nombre ?? t.NOMBRE,
+  }));
+  return { tiposDoc, loading, error };
 }
 
 /**
