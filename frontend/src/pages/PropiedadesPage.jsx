@@ -423,33 +423,47 @@ export default function PropiedadesPage() {
           </DialogHeader>
 
           <div className="grid gap-4 py-2">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="grid gap-1.5">
-                <Label htmlFor="prop-org" className="text-xs font-semibold">Organización *</Label>
-                <Select
-                  value={form.idOrganizacion ? String(form.idOrganizacion) : undefined}
-                  onValueChange={(v) => setForm((f) => ({ ...f, idOrganizacion: v }))}
-                >
-                  <SelectTrigger id="prop-org" className="h-9 text-sm">
-                    <SelectValue placeholder="Seleccione organización" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableOrgs.map((o) => (
-                      <SelectItem key={o.id} value={String(o.id)}>
-                        {o.nombre}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            {/* Organización - Ancho completo para soportar nombres largos sin desborde */}
+            <div className="grid gap-1.5 w-full min-w-0">
+              <Label htmlFor="prop-org" className="text-xs font-semibold">Organización *</Label>
+              <Select
+                value={form.idOrganizacion ? String(form.idOrganizacion) : undefined}
+                onValueChange={(v) => setForm((f) => ({ ...f, idOrganizacion: v }))}
+              >
+                <SelectTrigger id="prop-org" className="h-9 text-sm w-full max-w-full overflow-hidden">
+                  <SelectValue placeholder="Seleccione organización" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableOrgs.map((o) => (
+                    <SelectItem key={o.id} value={String(o.id)}>
+                      {o.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-              <div className="grid gap-1.5">
+            {/* Nombre de la Propiedad */}
+            <div className="grid gap-1.5 w-full min-w-0">
+              <Label htmlFor="prop-nombre" className="text-xs font-semibold">Nombre de la Propiedad *</Label>
+              <Input
+                id="prop-nombre"
+                value={form.nombre}
+                onChange={(e) => setForm((f) => ({ ...f, nombre: e.target.value }))}
+                placeholder="Ej: Torre Norte, Conjunto Residencial Los Pinos"
+                className="h-9 text-sm w-full"
+              />
+            </div>
+
+            {/* Tipo de Propiedad y Ocupación en 2 columnas con min-w-0 */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid gap-1.5 min-w-0">
                 <Label htmlFor="prop-tipo" className="text-xs font-semibold">Tipo de Propiedad *</Label>
                 <Select
                   value={form.idTipoPropiedad ? String(form.idTipoPropiedad) : undefined}
                   onValueChange={(v) => setForm((f) => ({ ...f, idTipoPropiedad: v }))}
                 >
-                  <SelectTrigger id="prop-tipo" className="h-9 text-sm">
+                  <SelectTrigger id="prop-tipo" className="h-9 text-sm w-full max-w-full overflow-hidden">
                     <SelectValue placeholder="Seleccione tipo" />
                   </SelectTrigger>
                   <SelectContent>
@@ -461,27 +475,34 @@ export default function PropiedadesPage() {
                   </SelectContent>
                 </Select>
               </div>
+
+              <div className="grid gap-1.5 min-w-0">
+                <Label htmlFor="prop-ocupacion" className="text-xs font-semibold">Tipo de Ocupación</Label>
+                <Select
+                  value={form.tipoOcupacionPredominante || 'MIXTA'}
+                  onValueChange={(v) => setForm((f) => ({ ...f, tipoOcupacionPredominante: v }))}
+                >
+                  <SelectTrigger id="prop-ocupacion" className="h-9 text-sm w-full max-w-full overflow-hidden">
+                    <SelectValue placeholder="Seleccione ocupación" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="RESIDENCIAL">Residencial</SelectItem>
+                    <SelectItem value="COMERCIAL">Comercial</SelectItem>
+                    <SelectItem value="MIXTA">Mixta</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
-            <div className="grid gap-1.5">
-              <Label htmlFor="prop-nombre" className="text-xs font-semibold">Nombre de la Propiedad *</Label>
-              <Input
-                id="prop-nombre"
-                value={form.nombre}
-                onChange={(e) => setForm((f) => ({ ...f, nombre: e.target.value }))}
-                placeholder="Ej: Torre Norte, Conjunto Residencial Los Pinos"
-                className="h-9 text-sm"
-              />
-            </div>
-
-            <div className="grid gap-1.5">
+            {/* Dirección */}
+            <div className="grid gap-1.5 w-full min-w-0">
               <Label htmlFor="prop-dir" className="text-xs font-semibold">Dirección *</Label>
               <Input
                 id="prop-dir"
                 value={form.direccion}
                 onChange={(e) => setForm((f) => ({ ...f, direccion: e.target.value }))}
                 placeholder="Ej: Carrera 15 # 85-20"
-                className="h-9 text-sm"
+                className="h-9 text-sm w-full"
               />
             </div>
 
@@ -496,23 +517,6 @@ export default function PropiedadesPage() {
                 setForm((f) => ({ ...f, pais, departamento, ciudad }))
               }
             />
-
-            <div className="grid gap-1.5">
-              <Label htmlFor="prop-ocupacion" className="text-xs font-semibold">Tipo de Ocupación</Label>
-              <Select
-                value={form.tipoOcupacionPredominante || 'MIXTA'}
-                onValueChange={(v) => setForm((f) => ({ ...f, tipoOcupacionPredominante: v }))}
-              >
-                <SelectTrigger id="prop-ocupacion" className="h-9 text-sm">
-                  <SelectValue placeholder="Seleccione ocupación" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="RESIDENCIAL">Residencial</SelectItem>
-                  <SelectItem value="COMERCIAL">Comercial</SelectItem>
-                  <SelectItem value="MIXTA">Mixta</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
           </div>
 
           <DialogFooter className="gap-2 sm:gap-0 pt-2">
