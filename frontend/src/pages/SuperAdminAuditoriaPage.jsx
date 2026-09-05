@@ -4,12 +4,15 @@ import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card.
 import { Badge } from '../components/ui/badge.tsx';
 import { Skeleton } from '../components/ui/skeleton.tsx';
 import { Input } from '../components/ui/input.tsx';
+import { Button } from '../components/ui/button.tsx';
 import { toast } from 'sonner';
 
 export default function SuperAdminAuditoriaPage() {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 10;
 
   useEffect(() => {
     async function load() {
@@ -41,6 +44,12 @@ export default function SuperAdminAuditoriaPage() {
     );
   }, [logs, search]);
 
+  const totalPages = Math.max(1, Math.ceil(filteredLogs.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages - 1);
+  const paginatedLogs = useMemo(() => {
+    return filteredLogs.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
+  }, [filteredLogs, safePage]);
+
   return (
     <div className="p-6 space-y-6 animate-fadeIn">
       <div className="border-b border-border pb-6">
@@ -64,7 +73,10 @@ export default function SuperAdminAuditoriaPage() {
             type="search"
             placeholder="Buscar por acción, recurso, IP o resultado…"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(0);
+            }}
             className="pl-9 text-sm"
           />
         </div>
@@ -104,7 +116,7 @@ export default function SuperAdminAuditoriaPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {filteredLogs.map((log, i) => (
+                  {paginatedLogs.map((log, i) => (
                     <tr key={log.ID_LOG || log.id || i} className="hover:bg-muted/40 transition-colors">
                       <td className="py-3.5 px-4 font-mono text-xs text-muted-foreground">
                         {log.FECHA_HORA || log.fechaHora || 'Reciente'}
@@ -134,6 +146,51 @@ export default function SuperAdminAuditoriaPage() {
                   ))}
                 </tbody>
               </table>
+
+              {filteredLogs.length > 0 && (
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-border mt-4">
+                  <div className="text-xs text-muted-foreground">
+                    Mostrando{' '}
+                    <span className="font-semibold text-foreground">
+                      {safePage * PAGE_SIZE + 1}
+                    </span>{' '}
+                    a{' '}
+                    <span className="font-semibold text-foreground">
+                      {Math.min((safePage + 1) * PAGE_SIZE, filteredLogs.length)}
+                    </span>{' '}
+                    de{' '}
+                    <span className="font-semibold text-foreground">
+                      {filteredLogs.length}
+                    </span>{' '}
+                    eventos
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={safePage === 0}
+                      onClick={() => setPage((p) => Math.max(0, p - 1))}
+                      className="h-8 px-2.5 text-xs gap-1"
+                    >
+                      <span className="material-symbols-outlined text-sm">chevron_left</span>
+                      Anterior
+                    </Button>
+                    <span className="px-3 text-xs font-medium text-muted-foreground">
+                      Página {safePage + 1} de {totalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={safePage >= totalPages - 1}
+                      onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                      className="h-8 px-2.5 text-xs gap-1"
+                    >
+                      Siguiente
+                      <span className="material-symbols-outlined text-sm">chevron_right</span>
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </CardContent>

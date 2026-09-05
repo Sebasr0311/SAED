@@ -402,21 +402,21 @@ export default function AppShell() {
     });
   }
 
-  // Rail colapsado por defecto; el usuario puede fijarlo abierto (persistido).
+  // Barra lateral expandida por defecto en desktop; el usuario puede colapsarla.
   const [collapsed, setCollapsed] = useState(() => {
     try {
-      return localStorage.getItem(COLLAPSED_KEY) !== 'false';
+      return localStorage.getItem(COLLAPSED_KEY) === 'true';
     } catch {
       return false;
     }
   });
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  // Grupos abiertos: por defecto, el grupo que contiene la ruta activa.
+  // Todos los grupos abiertos por defecto para acceso directo a todos los módulos.
   const [openGroups, setOpenGroups] = useState(() => {
     const initial = new Set();
     for (const group of groups) {
-      if (group.items.some((i) => isItemActive(location.pathname, i.path))) initial.add(group.id);
+      initial.add(group.id);
     }
     return initial;
   });
@@ -610,23 +610,71 @@ export default function AppShell() {
                     />
                   </button>
                 ) : (
-                  // Ícono indicador en modo rail colapsado
-                  <div
-                    className="flex justify-center py-1 text-slate-400"
-                    title={group.label}
+                  // Ícono indicador en modo rail colapsado: botón interactivo para expandir
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCollapsed(false);
+                      toggleGroup(group.id);
+                    }}
+                    className="w-full flex justify-center py-1.5 text-slate-400 hover:text-white hover:bg-slate-800/60 rounded-lg transition-colors"
+                    title={`Expandir categoría: ${group.label}`}
+                    aria-label={`Expandir categoría: ${group.label}`}
                   >
                     {renderNavIcon(group.icon, 'h-4 w-4')}
-                  </div>
+                  </button>
                 )}
 
                 {/* Sub-items del grupo */}
-                {(!collapsed || mobileOpen || isOpen) && (
-                  <div
-                    className={cn(
-                      'space-y-0.5 pl-1',
-                      collapsed && !mobileOpen && 'lg:pl-0'
-                    )}
-                  >
+                {(!collapsed || mobileOpen) ? (
+                  isOpen && (
+                    <div className="space-y-0.5 pl-1">
+                      {group.items.map((item) => {
+                        const active = isItemActive(location.pathname, item.path);
+
+                        return (
+                          <button
+                            key={item.path}
+                            type="button"
+                            onClick={() => {
+                              navigate(item.path);
+                              setMobileOpen(false);
+                            }}
+                            className={cn(
+                              'relative w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-all group/item',
+                              active
+                                ? 'bg-primary/20 text-white font-semibold shadow-sm'
+                                : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+                            )}
+                            title={item.label}
+                            aria-current={active ? 'page' : undefined}
+                          >
+                            {/* Indicador de activo */}
+                            {active && (
+                              <span
+                                className="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-r-full bg-primary"
+                                aria-hidden="true"
+                              />
+                            )}
+
+                            <span
+                              className={cn(
+                                'flex-shrink-0 transition-colors',
+                                active ? 'text-primary' : 'text-slate-400 group-hover/item:text-slate-200'
+                              )}
+                            >
+                              {renderNavIcon(item.icon, 'h-4 w-4')}
+                            </span>
+
+                            <span className="truncate flex-1 text-left">{item.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )
+                ) : (
+                  // Modo rail colapsado: siempre muestra todos los ítems como botones de íconos con tooltip
+                  <div className="space-y-1">
                     {group.items.map((item) => {
                       const active = isItemActive(location.pathname, item.path);
 
@@ -639,23 +687,21 @@ export default function AppShell() {
                             setMobileOpen(false);
                           }}
                           className={cn(
-                            'relative w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-all group/item',
-                            collapsed && !mobileOpen ? 'lg:justify-center lg:px-2' : '',
+                            'relative w-full flex items-center justify-center p-2 rounded-lg text-xs font-medium transition-all group/item',
                             active
                               ? 'bg-primary/20 text-white font-semibold shadow-sm'
-                              : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+                              : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
                           )}
                           title={item.label}
+                          aria-label={item.label}
                           aria-current={active ? 'page' : undefined}
                         >
-                          {/* Indicador de activo */}
                           {active && (
                             <span
                               className="absolute left-0 top-1.5 bottom-1.5 w-1 rounded-r-full bg-primary"
                               aria-hidden="true"
                             />
                           )}
-
                           <span
                             className={cn(
                               'flex-shrink-0 transition-colors',
@@ -664,10 +710,6 @@ export default function AppShell() {
                           >
                             {renderNavIcon(item.icon, 'h-4 w-4')}
                           </span>
-
-                          {(!collapsed || mobileOpen) && (
-                            <span className="truncate flex-1 text-left">{item.label}</span>
-                          )}
                         </button>
                       );
                     })}

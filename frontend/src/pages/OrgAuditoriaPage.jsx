@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import api from '../lib/api.js';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card.tsx';
 import { Badge } from '../components/ui/badge.tsx';
 import { Skeleton } from '../components/ui/skeleton.tsx';
 import { Button } from '../components/ui/button.tsx';
-import { ShieldCheck, Search, Filter, Calendar, User, Eye, AlertCircle, Clock } from 'lucide-react';
+import { ShieldCheck, Search, Eye, AlertCircle, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function OrgAuditoriaPage() {
   const [logs, setLogs] = useState([]);
@@ -13,6 +13,8 @@ export default function OrgAuditoriaPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [actionFilter, setActionFilter] = useState('ALL');
   const [selectedLog, setSelectedLog] = useState(null);
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 10;
 
   useEffect(() => {
     async function load() {
@@ -41,6 +43,12 @@ export default function OrgAuditoriaPage() {
     const matchesAction = actionFilter === 'ALL' || l.accion === actionFilter;
     return matchesSearch && matchesAction;
   });
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages - 1);
+  const paginatedLogs = useMemo(() => {
+    return filtered.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
+  }, [filtered, safePage]);
 
   const getActionBadgeClass = (action) => {
     switch (action) {
@@ -100,14 +108,20 @@ export default function OrgAuditoriaPage() {
             type="text"
             placeholder="Buscar por recurso, usuario o IP..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setPage(0);
+            }}
             className="w-full pl-9 pr-3 py-2 border border-input rounded-lg bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
           />
         </div>
         <div className="flex items-center gap-2 w-full sm:w-auto">
           <select
             value={actionFilter}
-            onChange={(e) => setActionFilter(e.target.value)}
+            onChange={(e) => {
+              setActionFilter(e.target.value);
+              setPage(0);
+            }}
             className="px-3 py-2 border border-input rounded-lg bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
           >
             <option value="ALL">Todas las Acciones</option>
@@ -143,7 +157,7 @@ export default function OrgAuditoriaPage() {
                     </td>
                   </tr>
                 ) : (
-                  filtered.map((l) => (
+                  paginatedLogs.map((l) => (
                     <tr key={l.idAuditoria} className="hover:bg-muted/20 transition-colors">
                       <td className="px-6 py-4 text-xs font-mono text-muted-foreground whitespace-nowrap">
                         <div className="flex items-center gap-1.5">
@@ -189,6 +203,52 @@ export default function OrgAuditoriaPage() {
               </tbody>
             </table>
           </div>
+
+          {/* Pagination Controls (10 items per page) */}
+          {filtered.length > 0 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-6 py-4 border-t border-border">
+              <div className="text-xs text-muted-foreground">
+                Mostrando{' '}
+                <span className="font-semibold text-foreground">
+                  {safePage * PAGE_SIZE + 1}
+                </span>{' '}
+                a{' '}
+                <span className="font-semibold text-foreground">
+                  {Math.min((safePage + 1) * PAGE_SIZE, filtered.length)}
+                </span>{' '}
+                de{' '}
+                <span className="font-semibold text-foreground">
+                  {filtered.length}
+                </span>{' '}
+                eventos
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={safePage === 0}
+                  onClick={() => setPage((p) => Math.max(0, p - 1))}
+                  className="h-8 px-2.5 text-xs gap-1"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                  <span>Anterior</span>
+                </Button>
+                <span className="px-3 text-xs font-medium text-muted-foreground">
+                  Página {safePage + 1} de {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={safePage >= totalPages - 1}
+                  onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                  className="h-8 px-2.5 text-xs gap-1"
+                >
+                  <span>Siguiente</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

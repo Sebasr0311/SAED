@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useTenant } from '../lib/TenantContext.jsx';
 import { useTenantApi } from '../lib/useTenantApi.js';
 import { useFetch } from '../lib/hooks.js';
@@ -63,12 +63,12 @@ export default function RolesYAsignacionesPage() {
   const { data: propsData } = useFetch(() => tenantApi.get('/properties'), [tenant.activeAssignmentId]);
   const { data: unitsData } = useFetch(() => tenantApi.get('/units'), [tenant.activeAssignmentId]);
 
-  const asignaciones = data?.data || Array.isArray(data) ? data : data?.items || [];
-  const roles = rolesArray.isArray(data) ? data : data?.items || [];
-  const usuarios = usuariosArray.isArray(data) ? data : data?.items || [];
-  const organizaciones = orgsArray.isArray(data) ? data : data?.items || [];
-  const propiedades = propsArray.isArray(data) ? data : data?.items || [];
-  const unidades = unitsArray.isArray(data) ? data : data?.items || [];
+  const asignaciones = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : data?.items || [];
+  const roles = Array.isArray(rolesData) ? rolesData : rolesData?.items || [];
+  const usuarios = Array.isArray(usuariosData) ? usuariosData : usuariosData?.items || [];
+  const organizaciones = Array.isArray(orgsData) ? orgsData : orgsData?.items || [];
+  const propiedades = Array.isArray(propsData) ? propsData : propsData?.items || [];
+  const unidades = Array.isArray(unitsData) ? unitsData : unitsData?.items || [];
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
