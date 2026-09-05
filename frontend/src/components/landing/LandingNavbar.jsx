@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { Building2, Menu, X, ArrowRight, LogIn } from 'lucide-react';
 
 const NAV_LINKS = [
-  { name: 'Producto', href: '#hero' },
+  { name: 'Producto', href: '#producto' },
   { name: 'Soluciones', href: '#soluciones' },
   { name: 'Seguridad', href: '#seguridad' },
   { name: 'Planes', href: '#planes' },
@@ -40,8 +40,8 @@ export default function LandingNavbar() {
     <header
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
         isScrolled
-          ? 'bg-[#0A1628]/90 backdrop-blur-xl border-b border-slate-800/80 shadow-lg shadow-black/25 py-3.5'
-          : 'bg-[#0A1628]/60 backdrop-blur-md border-b border-white/5 py-4 sm:py-5'
+          ? 'bg-[#0A1628]/95 backdrop-blur-xl border-b border-slate-800/90 shadow-lg shadow-black/25 py-3.5'
+          : 'bg-[#0A1628]/70 backdrop-blur-md border-b border-white/5 py-4 sm:py-5'
       }`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -68,7 +68,7 @@ export default function LandingNavbar() {
 
           {/* Desktop Minimalist Navigation */}
           <nav
-            className="hidden md:flex items-center gap-1 lg:gap-2 px-3 py-1.5 rounded-full bg-white/[0.03] border border-white/5 backdrop-blur-md"
+            className="hidden md:flex items-center gap-1 lg:gap-2 px-4 py-1.5 rounded-full bg-white/[0.04] border border-white/10 backdrop-blur-md"
             aria-label="Navegación principal"
           >
             {NAV_LINKS.map((link) => (
@@ -76,7 +76,7 @@ export default function LandingNavbar() {
                 key={link.name}
                 href={link.href}
                 onClick={(e) => handleLinkClick(e, link.href)}
-                className="px-3.5 py-1.5 text-xs lg:text-sm font-medium text-slate-300 hover:text-white rounded-full hover:bg-white/10 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
+                className="px-4 py-1.5 text-xs lg:text-sm font-medium text-slate-300 hover:text-white rounded-full hover:bg-white/10 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 min-h-[36px] flex items-center"
               >
                 {link.name}
               </a>
@@ -87,77 +87,69 @@ export default function LandingNavbar() {
           <div className="hidden sm:flex items-center gap-3">
             <Link
               to="/login"
-              className="px-4 py-2 text-xs sm:text-sm font-semibold text-slate-200 hover:text-white hover:bg-white/5 rounded-xl border border-transparent hover:border-slate-800 transition-all flex items-center gap-1.5 min-h-[42px]"
+              className="px-4 py-2 text-xs sm:text-sm font-semibold text-slate-200 hover:text-white hover:bg-white/5 rounded-xl border border-transparent hover:border-slate-800 transition-all flex items-center gap-1.5 min-h-[44px]"
             >
-              <LogIn className="w-3.5 h-3.5 opacity-80" />
+              <LogIn className="w-4 h-4 text-emerald-400" />
               <span>Iniciar sesión</span>
             </Link>
 
             <a
-              href="#que-es-saed"
-              onClick={(e) => handleLinkClick(e, '#que-es-saed')}
-              className="inline-flex items-center gap-2 px-4 sm:px-5 py-2 text-xs sm:text-sm font-semibold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 rounded-xl shadow-md shadow-emerald-950/40 hover:shadow-emerald-700/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 transition-all transform active:scale-95 min-h-[42px]"
+              href="#producto"
+              onClick={(e) => handleLinkClick(e, '#producto')}
+              className="px-5 py-2.5 text-xs sm:text-sm font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 rounded-xl shadow-md shadow-emerald-950/40 hover:shadow-emerald-900/50 transition-all flex items-center gap-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 min-h-[44px]"
             >
               <span>Conocer SAED</span>
-              <ArrowRight className="w-3.5 h-3.5 opacity-90" />
+              <ArrowRight className="w-3.5 h-3.5" />
             </a>
           </div>
 
-          {/* Mobile Actions & Toggle */}
-          <div className="flex items-center gap-2 sm:hidden">
-            <Link
-              to="/login"
-              className="px-3.5 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-500 rounded-lg shadow-sm flex items-center gap-1 min-h-[40px]"
-            >
-              <LogIn className="w-3.5 h-3.5" />
-              <span>Ingresar</span>
-            </Link>
-
-            <button
-              type="button"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="min-h-[40px] min-w-[40px] p-2 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
-              aria-label={mobileMenuOpen ? 'Cerrar menú' : 'Abrir menú'}
-              aria-expanded={mobileMenuOpen}
-            >
-              {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-            </button>
-          </div>
+          {/* Mobile Hamburger Button */}
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen((open) => !open)}
+            className="md:hidden p-2.5 rounded-xl text-slate-300 hover:text-white bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 min-w-[44px] min-h-[44px] flex items-center justify-center"
+            aria-expanded={mobileMenuOpen}
+            aria-label={mobileMenuOpen ? 'Cerrar menú' : 'Abrir menú'}
+          >
+            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
         </div>
       </div>
 
-      {/* Mobile Drawer Menu */}
+      {/* Mobile Drawer Navigation */}
       {mobileMenuOpen && (
-        <div className="sm:hidden bg-[#0A1628]/95 backdrop-blur-2xl border-b border-slate-800/80 px-4 pt-4 pb-6 space-y-3 animate-fadeIn">
-          <nav className="space-y-1" aria-label="Menú móvil">
+        <div className="md:hidden fixed inset-x-0 top-[65px] bg-[#0A1628]/98 border-b border-slate-800 shadow-2xl p-5 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200 backdrop-blur-2xl">
+          <nav className="flex flex-col space-y-2">
             {NAV_LINKS.map((link) => (
               <a
                 key={link.name}
                 href={link.href}
                 onClick={(e) => handleLinkClick(e, link.href)}
-                className="block px-3.5 py-2.5 text-base font-medium text-slate-200 hover:text-white hover:bg-white/5 rounded-xl transition-colors min-h-[44px] flex items-center"
+                className="px-4 py-3 rounded-xl text-sm font-medium text-slate-200 hover:text-white hover:bg-slate-800/80 transition-colors flex items-center justify-between min-h-[44px]"
               >
-                {link.name}
+                <span>{link.name}</span>
+                <ArrowRight className="w-4 h-4 text-emerald-400" />
               </a>
             ))}
           </nav>
 
-          <div className="pt-3 border-t border-slate-800/80 space-y-2">
+          <div className="pt-4 border-t border-slate-800/80 flex flex-col gap-3">
             <Link
               to="/login"
               onClick={() => setMobileMenuOpen(false)}
-              className="w-full min-h-[44px] flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-500 rounded-xl shadow-md transition-colors"
+              className="w-full py-3.5 px-4 rounded-xl text-sm font-semibold text-center text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-colors flex items-center justify-center gap-2 min-h-[48px]"
             >
-              <LogIn className="w-4 h-4" />
-              <span>Iniciar sesión en SAED</span>
+              <LogIn className="w-4 h-4 text-emerald-400" />
+              <span>Iniciar sesión</span>
             </Link>
 
             <a
-              href="#que-es-saed"
-              onClick={(e) => handleLinkClick(e, '#que-es-saed')}
-              className="w-full min-h-[44px] flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 rounded-xl transition-colors"
+              href="#producto"
+              onClick={(e) => handleLinkClick(e, '#producto')}
+              className="w-full py-3.5 px-4 rounded-xl text-sm font-bold text-center text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-lg shadow-emerald-950/50 transition-all flex items-center justify-center gap-2 min-h-[48px]"
             >
-              <span>Conocer más de la plataforma</span>
+              <span>Conocer SAED</span>
+              <ArrowRight className="w-4 h-4" />
             </a>
           </div>
         </div>

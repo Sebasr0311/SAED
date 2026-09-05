@@ -1,175 +1,194 @@
-import { ArrowRight, CheckCircle2 } from 'lucide-react';
+import { Building2, LogIn } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export default function LandingFooter() {
   const currentYear = new Date().getFullYear();
 
+  const scrollTo = (id) => {
+    const el = document.querySelector(id);
+    if (el) {
+      const topOffset = 84;
+      const elementPosition = el.getBoundingClientRect().top;
+      const offsetPosition = elementPosition + window.pageYOffset - topOffset;
+      window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
+    }
+  };
+
   return (
-    <footer className="bg-white dark:bg-[#060B14] border-t border-slate-200/80 dark:border-slate-800/80 text-slate-800 dark:text-slate-200 pt-20 pb-12">
+    <footer className="bg-[#070D18] border-t border-slate-800 text-slate-400 pt-16 pb-12 text-xs">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Top Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 pb-16 border-b border-slate-200 dark:border-slate-800/80">
-          {/* Brand Column */}
-          <div className="lg:col-span-2 space-y-5">
+        
+        {/* Main Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 pb-12 border-b border-slate-800/80">
+          
+          {/* Brand Identity Column */}
+          <div className="lg:col-span-2 space-y-4">
             <div className="flex items-center gap-3">
-              <img
-                src={`${import.meta.env.BASE_URL}imagenes/saed_logo_final_blue.png`}
-                alt="SAED Logo"
-                className="h-10 w-auto object-contain"
-                onError={(e) => {
-                  e.currentTarget.style.display = 'none';
-                }}
-              />
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#1E4080] to-[#0A1628] border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                <Building2 className="w-5 h-5" />
+              </div>
               <div className="flex items-center gap-2">
-                <span className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">SAED</span>
-                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                <span className="text-xl font-extrabold text-white font-['Plus_Jakarta_Sans']">SAED</span>
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/25">
                   2.0
                 </span>
               </div>
             </div>
 
-            <p className="text-sm text-slate-600 dark:text-slate-400 max-w-sm leading-relaxed">
-              Plataforma PropTech de gestión integral, control de acceso y finanzas para copropiedades y edificios residenciales en Colombia.
+            <p className="text-slate-400 max-w-sm leading-relaxed text-xs">
+              Plataforma PropTech de gestión integral, control de acceso y finanzas para propiedades horizontales y conjuntos residenciales en Colombia.
             </p>
 
-            <div className="flex items-center gap-2 text-xs font-semibold text-emerald-600 dark:text-emerald-400 pt-1">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+            <div className="flex items-center gap-2 text-emerald-400 font-medium pt-1">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
               <span>Infraestructura Cloud Operativa</span>
             </div>
 
             <div className="pt-2">
               <Link
                 to="/login"
-                className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-all shadow-md shadow-primary/20 min-h-[44px]"
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold transition-colors border border-slate-700 min-h-[44px]"
               >
+                <LogIn className="w-4 h-4 text-emerald-400" />
                 <span>Acceder a la plataforma</span>
-                <ArrowRight className="w-4 h-4" />
               </Link>
             </div>
           </div>
 
-          {/* Column 1: Plataforma */}
-          <div>
-            <h4 className="text-xs font-bold uppercase tracking-widest text-slate-900 dark:text-white mb-4">
-              Módulos Principales
-            </h4>
-            <ul className="space-y-3 text-sm text-slate-600 dark:text-slate-400">
+          {/* Navigation: Producto */}
+          <div className="space-y-3">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-white">Producto</h4>
+            <ul className="space-y-2">
               <li>
-                <a href="#seguridad-acceso" className="hover:text-primary transition-colors py-1 block">
+                <a
+                  href="#producto"
+                  onClick={(e) => { e.preventDefault(); scrollTo('#producto'); }}
+                  className="hover:text-emerald-300 transition-colors py-1 block"
+                >
+                  Showcase Interactivo
+                </a>
+              </li>
+              <li>
+                <a
+                  href="#soluciones"
+                  onClick={(e) => { e.preventDefault(); scrollTo('#soluciones'); }}
+                  className="hover:text-emerald-300 transition-colors py-1 block"
+                >
+                  El Reto y la Solución
+                </a>
+              </li>
+              <li>
+                <a
+                  href="#acceso"
+                  onClick={(e) => { e.preventDefault(); scrollTo('#acceso'); }}
+                  className="hover:text-emerald-300 transition-colors py-1 block"
+                >
                   Control de Visitas QR
                 </a>
               </li>
               <li>
-                <a href="#operacion-fisica" className="hover:text-primary transition-colors py-1 block">
-                  Consola de Portería
-                </a>
-              </li>
-              <li>
-                <a href="#operacion-fisica" className="hover:text-primary transition-colors py-1 block">
+                <a
+                  href="#paqueteria"
+                  onClick={(e) => { e.preventDefault(); scrollTo('#paqueteria'); }}
+                  className="hover:text-emerald-300 transition-colors py-1 block"
+                >
                   Paquetería con PIN
                 </a>
               </li>
               <li>
-                <a href="#operacion-fisica" className="hover:text-primary transition-colors py-1 block">
-                  Parqueaderos de Visitantes
-                </a>
-              </li>
-              <li>
-                <a href="#capacidades" className="hover:text-primary transition-colors py-1 block">
-                  Recaudo con Wompi
-                </a>
-              </li>
-              <li>
-                <a href="#capacidades" className="hover:text-primary transition-colors py-1 block">
-                  Portal del Residente
+                <a
+                  href="#parqueaderos"
+                  onClick={(e) => { e.preventDefault(); scrollTo('#parqueaderos'); }}
+                  className="hover:text-emerald-300 transition-colors py-1 block"
+                >
+                  Parqueaderos en Vivo
                 </a>
               </li>
             </ul>
           </div>
 
-          {/* Column 2: Perfiles & Soluciones */}
-          <div>
-            <h4 className="text-xs font-bold uppercase tracking-widest text-slate-900 dark:text-white mb-4">
-              Perfiles y Cobertura
-            </h4>
-            <ul className="space-y-3 text-sm text-slate-600 dark:text-slate-400">
+          {/* Navigation: Seguridad & Marco */}
+          <div className="space-y-3">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-white">Seguridad</h4>
+            <ul className="space-y-2">
               <li>
-                <a href="#audiencia" className="hover:text-primary transition-colors py-1 block">
-                  Administración de Copropiedad
+                <a
+                  href="#seguridad"
+                  onClick={(e) => { e.preventDefault(); scrollTo('#seguridad'); }}
+                  className="hover:text-emerald-300 transition-colors py-1 block"
+                >
+                  Aislamiento Multi-Tenant
                 </a>
               </li>
               <li>
-                <a href="#audiencia" className="hover:text-primary transition-colors py-1 block">
-                  Personal de Seguridad y Porteros
+                <a
+                  href="#seguridad"
+                  onClick={(e) => { e.preventDefault(); scrollTo('#seguridad'); }}
+                  className="hover:text-emerald-300 transition-colors py-1 block"
+                >
+                  Políticas RLS en Base de Datos
                 </a>
               </li>
               <li>
-                <a href="#audiencia" className="hover:text-primary transition-colors py-1 block">
-                  Residentes y Propietarios
+                <a
+                  href="#seguridad"
+                  onClick={(e) => { e.preventDefault(); scrollTo('#seguridad'); }}
+                  className="hover:text-emerald-300 transition-colors py-1 block"
+                >
+                  Marco Legal Ley 675
                 </a>
               </li>
               <li>
-                <a href="#audiencia" className="hover:text-primary transition-colors py-1 block">
-                  Administradoras Multi-Edificio
-                </a>
-              </li>
-              <li>
-                <a href="#planes" className="hover:text-primary transition-colors py-1 block">
-                  Planes Comerciales
-                </a>
-              </li>
-              <li>
-                <a href="#faq" className="hover:text-primary transition-colors py-1 block">
+                <a
+                  href="#faq"
+                  onClick={(e) => { e.preventDefault(); scrollTo('#faq'); }}
+                  className="hover:text-emerald-300 transition-colors py-1 block"
+                >
                   Preguntas Frecuentes
                 </a>
               </li>
             </ul>
           </div>
 
-          {/* Column 3: Seguridad & Conformidad */}
-          <div>
-            <h4 className="text-xs font-bold uppercase tracking-widest text-slate-900 dark:text-white mb-4">
-              Seguridad & Conformidad
-            </h4>
-            <ul className="space-y-3 text-sm text-slate-600 dark:text-slate-400">
-              <li className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                <span>Aislamiento Multi-Tenant</span>
+          {/* Navigation: Planes & Acceso */}
+          <div className="space-y-3">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-white">Comunidad</h4>
+            <ul className="space-y-2">
+              <li>
+                <a
+                  href="#planes"
+                  onClick={(e) => { e.preventDefault(); scrollTo('#planes'); }}
+                  className="hover:text-emerald-300 transition-colors py-1 block"
+                >
+                  Planes por Unidades
+                </a>
               </li>
-              <li className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                <span>Control de roles RBAC</span>
+              <li>
+                <Link to="/login" className="hover:text-emerald-300 transition-colors py-1 block">
+                  Portal de Administradores
+                </Link>
               </li>
-              <li className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                <span>Bitácora inmutable de eventos</span>
+              <li>
+                <Link to="/login" className="hover:text-emerald-300 transition-colors py-1 block">
+                  Consola de Garita
+                </Link>
               </li>
-              <li className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                <span>Régimen Ley 675 de 2001</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                <span>Cifrado de datos en tránsito</span>
+              <li>
+                <Link to="/login" className="hover:text-emerald-300 transition-colors py-1 block">
+                  Portal de Copropietarios
+                </Link>
               </li>
             </ul>
           </div>
+
         </div>
 
         {/* Bottom Bar */}
-        <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500 dark:text-slate-400">
-          <p>
-            &copy; {currentYear} SAED 2.0 — Sistema Automatizado para Edificios Digitales. Todos los derechos reservados.
-          </p>
-          <div className="flex items-center gap-6">
-            <Link to="/login" className="hover:text-primary transition-colors font-bold py-1 min-h-[36px] flex items-center">
-              Iniciar sesión
-            </Link>
-            <a href="#hero" className="hover:text-primary transition-colors py-1 min-h-[36px] flex items-center">
-              Volver al inicio ↑
-            </a>
-          </div>
+        <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-slate-500 text-[11px]">
+          <p>© {currentYear} SAED 2.0 — Sistema Automatizado para Edificios Digitales.</p>
+          <p>PropTech para propiedad horizontal · Diseñado bajo el marco operativo colombiano.</p>
         </div>
+
       </div>
     </footer>
   );

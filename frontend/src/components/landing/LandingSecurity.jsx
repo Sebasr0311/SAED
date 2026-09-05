@@ -1,47 +1,58 @@
-import { ShieldCheck, Lock, Database, FileText, CheckCircle2 } from 'lucide-react';
+import {
+  Lock,
+  Database,
+  Key,
+  Layers,
+  Scale,
+} from 'lucide-react';
+
+const SECURITY_PIPELINE = [
+  { step: '01', name: 'Usuario', detail: 'Credenciales verificadas' },
+  { step: '02', name: 'JWT Stateless', detail: 'Firma HMAC-SHA256' },
+  { step: '03', name: 'Contexto de Sesión', detail: 'X-Assignment-Id' },
+  { step: '04', name: 'RLS / VPD', detail: 'Políticas en BD' },
+  { step: '05', name: 'Tenant Aislado', detail: 'Filtro por Propiedad' },
+  { step: '06', name: 'Datos Protegidos', detail: 'Cero fuga de información' },
+];
 
 const SECURITY_PILLARS = [
   {
     icon: Database,
-    title: 'Aislamiento Multi-Tenant',
-    highlight: 'Cada organización opera dentro de su propio contexto.',
-    description:
-      'Políticas estrictas de seguridad a nivel de motor de datos (Row Level Security / VPD). Ninguna copropiedad puede consultar, filtrar ni visualizar información de otra.',
+    title: 'Aislamiento Multi-Tenant en BD',
+    desc: 'Políticas de Virtual Private Database (VPD / RLS) a nivel de motor relacional. Ninguna consulta SQL puede acceder a registros de otra copropiedad.',
   },
   {
     icon: Lock,
-    title: 'Control de Acceso Riguroso',
-    highlight: 'Permisos delimitados por perfil operativo.',
-    description:
-      'Autenticación basada en tokens criptográficos (JWT) con validación contextual en cada petición. SuperAdmin, administradores, guardias y residentes acceden solo a su área.',
+    title: 'Autenticación Criptográfica JWT',
+    desc: 'Tokens de sesión sin estado (stateless) protegidos con firmas criptográficas, expiración controlada y resolución de identidad en cada petición API.',
   },
   {
-    icon: FileText,
-    title: 'Bitácora de Auditoría Inmutable',
-    highlight: 'Trazabilidad completa con sello de tiempo.',
-    description:
-      'Cada ingreso QR validado, paquete recibido, asignación de parqueadero o recaudo asentado queda registrado con fecha, hora exacta y operador responsable.',
+    icon: Key,
+    title: 'Control de Acceso por Roles (RBAC)',
+    desc: 'Matriz estricta de autorización para los 5 perfiles del sistema. La interfaz y los endpoints validan permisos de manera independiente.',
   },
   {
-    icon: ShieldCheck,
-    title: 'Gobernanza bajo Ley 675',
-    highlight: 'Conforme al marco legal colombiano.',
-    description:
-      'Estructura diseñada para responder al régimen de propiedad horizontal: coeficientes de copropiedad, quórum de asambleas, cuotas ordinarias y paz y salvos oficiales.',
+    icon: Layers,
+    title: 'Trazabilidad y Auditoría Transaccional',
+    desc: 'Registro cronológico con operador, fecha y contexto para cada evento sensible: validaciones de QR, retiros de paquetes y conciliaciones de cartera.',
   },
 ];
 
 export default function LandingSecurity() {
   return (
     <section
-      id="seguridad-arquitectura"
-      className="py-24 sm:py-32 lg:py-36 bg-[#0F172A] text-white relative border-t border-slate-800/80"
+      id="seguridad"
+      className="py-20 sm:py-28 lg:py-32 bg-[#0A1628] text-white relative border-t border-slate-800/80 overflow-hidden"
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="max-w-3xl mx-auto text-center space-y-5">
+      {/* Subtle glow accents */}
+      <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[350px] bg-blue-600/5 blur-[150px] rounded-full pointer-events-none" />
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+        
+        {/* Section Header */}
+        <div className="max-w-3xl mx-auto text-center space-y-4 mb-16 sm:mb-20">
           <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold uppercase tracking-widest text-emerald-400 bg-emerald-500/10 border border-emerald-500/20">
-            INTEGRIDAD & PROTECCIÓN
+            SEGURIDAD Y AISLAMIENTO
           </span>
 
           <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-white leading-tight font-['Plus_Jakarta_Sans']">
@@ -49,46 +60,76 @@ export default function LandingSecurity() {
           </h2>
 
           <p className="text-base sm:text-lg text-slate-300 font-normal leading-relaxed max-w-2xl mx-auto">
-            La privacidad de tu comunidad no es una capa superficial; está incorporada desde el modelo de datos hasta la interfaz del usuario.
+            El aislamiento de cada propiedad no depende únicamente de la interfaz. Diseñado con aislamiento Multi-Tenant y controles de autorización a nivel de aplicación y base de datos.
           </p>
         </div>
 
+        {/* The Security Pipeline Flow */}
+        <div className="max-w-5xl mx-auto mb-16 sm:mb-20">
+          <div className="p-6 sm:p-8 rounded-3xl bg-slate-900/90 border border-slate-800 shadow-2xl space-y-6">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <span className="text-xs font-bold uppercase tracking-wider text-emerald-400">
+                Flujo de Aislamiento y Resolución de Datos
+              </span>
+              <span className="text-xs font-mono text-slate-500">Pipeline de Consulta</span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+              {SECURITY_PIPELINE.map((p) => (
+                <div
+                  key={p.step}
+                  className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 text-center space-y-1 relative"
+                >
+                  <span className="text-[10px] font-mono text-emerald-400 font-bold block">{p.step}</span>
+                  <p className="text-xs font-bold text-white">{p.name}</p>
+                  <p className="text-[10px] text-slate-400 leading-tight">{p.detail}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
         {/* 4 Pillars Grid */}
-        <div className="mt-16 sm:mt-24 grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 max-w-5xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 max-w-5xl mx-auto mb-16 sm:mb-20">
           {SECURITY_PILLARS.map((p) => {
             const Icon = p.icon;
             return (
               <div
                 key={p.title}
-                className="p-7 sm:p-9 rounded-3xl bg-slate-900/80 border border-slate-800 hover:border-emerald-500/40 transition-colors shadow-2xl flex flex-col justify-between space-y-6 group"
+                className="p-6 sm:p-7 rounded-2xl bg-slate-900/80 border border-slate-800 hover:border-slate-700 transition-colors space-y-3"
               >
-                <div className="space-y-4">
-                  <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 group-hover:scale-105 transition-transform">
-                    <Icon className="w-6 h-6" />
-                  </div>
-
-                  <div>
-                    <h3 className="text-xl font-bold text-white tracking-tight">
-                      {p.title}
-                    </h3>
-                    <p className="text-xs sm:text-sm text-emerald-400 font-medium mt-1">
-                      {p.highlight}
-                    </p>
-                  </div>
-
-                  <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-                    {p.description}
-                  </p>
+                <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+                  <Icon className="w-5 h-5" />
                 </div>
-
-                <div className="pt-4 border-t border-slate-800/80 flex items-center gap-2 text-xs text-slate-400">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                  <span>Estándar certificado en SAED 2.0</span>
-                </div>
+                <h3 className="text-base font-bold text-white font-['Plus_Jakarta_Sans']">
+                  {p.title}
+                </h3>
+                <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                  {p.desc}
+                </p>
               </div>
             );
           })}
         </div>
+
+        {/* Ley 675 Institutional Block */}
+        <div className="max-w-4xl mx-auto p-6 sm:p-8 rounded-2xl bg-gradient-to-r from-slate-900 via-slate-900/90 to-slate-900 border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center gap-5">
+          <div className="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shrink-0">
+            <Scale className="w-6 h-6" />
+          </div>
+          <div className="space-y-1">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-amber-400 block">
+              Marco Legal Colombiano
+            </span>
+            <h4 className="text-base font-bold text-white font-['Plus_Jakarta_Sans']">
+              Diseñado bajo el marco operativo de la propiedad horizontal en Colombia (Ley 675 de 2001)
+            </h4>
+            <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
+              Estructurado para respaldar el censo de copropietarios, coeficientes de copropiedad, quórum de asambleas y rendición de cuentas conforme a las exigencias jurídicas colombianas.
+            </p>
+          </div>
+        </div>
+
       </div>
     </section>
   );
