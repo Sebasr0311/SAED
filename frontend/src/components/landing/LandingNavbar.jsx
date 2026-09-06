@@ -22,6 +22,17 @@ export default function LandingNavbar() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [mobileMenuOpen]);
+
   const handleLinkClick = (e, link) => {
     if (link.isRoute || link.href.startsWith('/')) {
       // Let standard router Link or navigate handle it
@@ -44,7 +55,9 @@ export default function LandingNavbar() {
   return (
     <header
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        isScrolled
+        mobileMenuOpen
+          ? 'bg-[#070B14] border-b border-slate-800 py-3.5 shadow-2xl'
+          : isScrolled
           ? 'bg-[#070B14]/90 backdrop-blur-xl border-b border-slate-800/80 shadow-2xl shadow-black/60 py-3.5'
           : 'bg-[#070B14]/60 backdrop-blur-md border-b border-white/[0.06] py-4 sm:py-5'
       }`}
@@ -131,56 +144,68 @@ export default function LandingNavbar() {
         </div>
       </div>
 
-      {/* Mobile Drawer Navigation */}
+      {/* Mobile Backdrop & Drawer Navigation */}
       {mobileMenuOpen && (
-        <div className="md:hidden fixed inset-x-0 top-[65px] bg-[#0A1628]/98 border-b border-slate-800 shadow-2xl p-5 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200 backdrop-blur-2xl">
-          <nav className="flex flex-col space-y-2">
-            {NAV_LINKS.map((link) =>
-              link.isRoute ? (
-                <Link
-                  key={link.name}
-                  to={link.href}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="px-4 py-3 rounded-xl text-sm font-medium text-slate-200 hover:text-white hover:bg-slate-800/80 transition-colors flex items-center justify-between min-h-[44px]"
-                >
-                  <span>{link.name}</span>
-                  <ArrowRight className="w-4 h-4 text-sky-400" />
-                </Link>
-              ) : (
-                <a
-                  key={link.name}
-                  href={link.href}
-                  onClick={(e) => handleLinkClick(e, link)}
-                  className="px-4 py-3 rounded-xl text-sm font-medium text-slate-200 hover:text-white hover:bg-slate-800/80 transition-colors flex items-center justify-between min-h-[44px]"
-                >
-                  <span>{link.name}</span>
-                  <ArrowRight className="w-4 h-4 text-sky-400" />
-                </a>
-              )
-            )}
-          </nav>
+        <>
+          {/* Backdrop oscurecido total para evitar que el texto del landing se vea o colisione */}
+          <div
+            className="md:hidden fixed inset-0 bg-black/80 backdrop-blur-md z-40 transition-opacity"
+            onClick={() => setMobileMenuOpen(false)}
+            aria-hidden="true"
+          />
 
-          <div className="pt-4 border-t border-slate-800/80 flex flex-col gap-3">
-            <Link
-              to="/login"
-              onClick={() => setMobileMenuOpen(false)}
-              className="w-full py-3.5 px-4 rounded-xl text-sm font-semibold text-center text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-colors flex items-center justify-center gap-2 min-h-[48px]"
-            >
-              <LogIn className="w-4 h-4 text-sky-400" />
-              <span>Iniciar sesión</span>
-            </Link>
+          {/* Menú móvil 100% opaco y pegado al navbar */}
+          <div
+            className="md:hidden fixed inset-x-0 top-[60px] sm:top-[68px] bg-[#070B14] border-b border-slate-800 shadow-2xl p-5 space-y-4 z-50 animate-in fade-in slide-in-from-top-2 duration-200 max-h-[calc(100vh-70px)] overflow-y-auto"
+          >
+            <nav className="flex flex-col space-y-2">
+              {NAV_LINKS.map((link) =>
+                link.isRoute ? (
+                  <Link
+                    key={link.name}
+                    to={link.href}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="px-4 py-3 rounded-xl text-base font-medium text-slate-200 hover:text-white bg-slate-900/50 hover:bg-slate-800 border border-slate-800/60 transition-colors flex items-center justify-between min-h-[48px]"
+                  >
+                    <span>{link.name}</span>
+                    <ArrowRight className="w-4 h-4 text-sky-400" />
+                  </Link>
+                ) : (
+                  <a
+                    key={link.name}
+                    href={link.href}
+                    onClick={(e) => handleLinkClick(e, link)}
+                    className="px-4 py-3 rounded-xl text-base font-medium text-slate-200 hover:text-white bg-slate-900/50 hover:bg-slate-800 border border-slate-800/60 transition-colors flex items-center justify-between min-h-[48px]"
+                  >
+                    <span>{link.name}</span>
+                    <ArrowRight className="w-4 h-4 text-sky-400" />
+                  </a>
+                )
+              )}
+            </nav>
 
-            <Link
-              to="/suscripciones"
-              onClick={() => setMobileMenuOpen(false)}
-              className="w-full py-3.5 px-4 rounded-xl text-sm font-bold text-center text-slate-950 bg-gradient-to-r from-cyan-400 via-sky-400 to-cyan-400 hover:from-cyan-300 hover:to-sky-300 shadow-lg shadow-sky-950/50 transition-all flex items-center justify-center gap-2 min-h-[48px]"
-            >
-              <Sparkles className="w-4 h-4" />
-              <span>Suscripciones</span>
-              <ArrowRight className="w-4 h-4" />
-            </Link>
+            <div className="pt-4 border-t border-slate-800 flex flex-col gap-3">
+              <Link
+                to="/login"
+                onClick={() => setMobileMenuOpen(false)}
+                className="w-full py-3.5 px-4 rounded-xl text-sm font-semibold text-center text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-colors flex items-center justify-center gap-2 min-h-[48px]"
+              >
+                <LogIn className="w-4 h-4 text-sky-400" />
+                <span>Iniciar sesión</span>
+              </Link>
+
+              <Link
+                to="/suscripciones"
+                onClick={() => setMobileMenuOpen(false)}
+                className="w-full py-3.5 px-4 rounded-xl text-sm font-bold text-center text-slate-950 bg-gradient-to-r from-cyan-400 via-sky-400 to-cyan-400 hover:from-cyan-300 hover:to-sky-300 shadow-lg shadow-sky-950/50 transition-all flex items-center justify-center gap-2 min-h-[48px]"
+              >
+                <Sparkles className="w-4 h-4" />
+                <span>Suscripciones</span>
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
           </div>
-        </div>
+        </>
       )}
     </header>
   );
