@@ -178,9 +178,7 @@ export default function ResPerfilPage() {
   const listaHabitantes = useMemo(() => {
     const rawList = Array.isArray(unitResidentsData)
       ? unitResidentsData
-      : Array.isArray(aptoResidentesLegacy)
-      ? aptoResidentesLegacy
-      : [];
+      : unitResidentsData?.items || [];
     if (rawList.length > 0) return rawList;
     // Si no hay lista del backend, reflejar al menos al titular
     return [
@@ -193,7 +191,7 @@ export default function ResPerfilPage() {
         estado: 'ACTIVO',
       },
     ];
-  }, [unitResidentsData, aptoResidentesLegacy, perfil, residentId]);
+  }, [unitResidentsData, perfil, residentId]);
 
   // Cuotas y estado financiero
   const cuotasPendientes = useMemo(() => {
