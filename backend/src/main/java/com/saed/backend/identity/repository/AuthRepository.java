@@ -10,4 +10,5 @@ public interface AuthRepository {
     AuthUserDTO getUserProfile(Long userId);
     void registerLoginFailure(Long userId, String ipAddress);
     void registerLoginSuccess(Long userId, String ipAddress);
+    Optional<String> getPasswordHash(Long userId);
 }

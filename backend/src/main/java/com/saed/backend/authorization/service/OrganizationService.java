@@ -57,4 +57,13 @@ public class OrganizationService {
         }
         organizationRepository.updateStatus(id, status);
     }
+
+    @Transactional
+    public void delete(Long id) {
+        SaedContext ctx = SaedContextHolder.getContext();
+        if (!"SUPERADMIN".equals(ctx.getRoleCode()) && !"GLOBAL".equals(ctx.getRoleScope())) {
+            throw new AccessDeniedException("Only GLOBAL scope admins can delete organizations");
+        }
+        organizationRepository.delete(id);
+    }
 }

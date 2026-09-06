@@ -160,7 +160,17 @@ export default function PersonasPage() {
     setSaving(true);
     
     try {
-      await api.post('/personas', form);
+      await api.post('/personas', {
+        tipoDocumentoId: Number(form.idTipoDocumento),
+        numeroDocumento: form.numeroDocumento,
+        tipoPersona: form.tipoPersona,
+        primerNombre: form.primerNombre || '',
+        segundoNombre: form.segundoNombre || '',
+        primerApellido: form.primerApellido || '',
+        segundoApellido: form.segundoApellido || '',
+        email: form.correoElectronico || '',
+        telefono: form.telefono || '',
+      });
       toast.success('Persona registrada correctamente');
       setModalOpen(false);
       refetch();

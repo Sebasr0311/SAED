@@ -83,6 +83,7 @@ const OrgAdminsPage = lazy(() => import('./pages/OrgAdminsPage.jsx'));
 const OrgPlanPage = lazy(() => import('./pages/OrgPlanPage.jsx'));
 const OrgAuditoriaPage = lazy(() => import('./pages/OrgAuditoriaPage.jsx'));
 const LandingPage = lazy(() => import('./pages/LandingPage.jsx'));
+const SuscripcionesPage = lazy(() => import('./pages/SuscripcionesPage.jsx'));
 
 import { useAuth } from './lib/AuthContext.jsx';
 
@@ -114,6 +115,21 @@ export default function App() {
             </Suspense>
           }
         />
+        <Route
+          path="/suscripciones"
+          element={
+            <Suspense
+              fallback={
+                <div className="min-h-screen bg-[#070B14] flex items-center justify-center">
+                  <div className="w-8 h-8 border-2 border-sky-400 border-t-transparent rounded-full animate-spin" />
+                </div>
+              }
+            >
+              <SuscripcionesPage />
+            </Suspense>
+          }
+        />
+        <Route path="/planes" element={<Navigate to="/suscripciones" replace />} />
         <Route path="/login" element={<LoginPage />} />
         <Route
           element={

@@ -61,18 +61,18 @@ export default function LandingFooter() {
             <ul className="space-y-2">
               <li>
                 <a
-                  href="#producto"
-                  onClick={(e) => { e.preventDefault(); scrollTo('#producto'); }}
-                  className="hover:text-emerald-300 transition-colors py-1 block"
+                  href="#roles"
+                  onClick={(e) => { e.preventDefault(); scrollTo('#roles'); }}
+                  className="hover:text-sky-400 transition-colors py-1 block"
                 >
-                  Showcase Interactivo
+                  Roles y Perfiles
                 </a>
               </li>
               <li>
                 <a
                   href="#soluciones"
                   onClick={(e) => { e.preventDefault(); scrollTo('#soluciones'); }}
-                  className="hover:text-emerald-300 transition-colors py-1 block"
+                  className="hover:text-sky-400 transition-colors py-1 block"
                 >
                   El Reto y la Solución
                 </a>
@@ -81,7 +81,7 @@ export default function LandingFooter() {
                 <a
                   href="#acceso"
                   onClick={(e) => { e.preventDefault(); scrollTo('#acceso'); }}
-                  className="hover:text-emerald-300 transition-colors py-1 block"
+                  className="hover:text-sky-400 transition-colors py-1 block"
                 >
                   Control de Visitas QR
                 </a>
@@ -90,7 +90,7 @@ export default function LandingFooter() {
                 <a
                   href="#paqueteria"
                   onClick={(e) => { e.preventDefault(); scrollTo('#paqueteria'); }}
-                  className="hover:text-emerald-300 transition-colors py-1 block"
+                  className="hover:text-sky-400 transition-colors py-1 block"
                 >
                   Paquetería con PIN
                 </a>
@@ -99,7 +99,7 @@ export default function LandingFooter() {
                 <a
                   href="#parqueaderos"
                   onClick={(e) => { e.preventDefault(); scrollTo('#parqueaderos'); }}
-                  className="hover:text-emerald-300 transition-colors py-1 block"
+                  className="hover:text-sky-400 transition-colors py-1 block"
                 >
                   Parqueaderos en Vivo
                 </a>
@@ -107,42 +107,42 @@ export default function LandingFooter() {
             </ul>
           </div>
 
-          {/* Navigation: Seguridad & Marco */}
+          {/* Navigation: Beneficios & Marco */}
           <div className="space-y-3">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-white">Seguridad</h4>
+            <h4 className="text-xs font-bold uppercase tracking-wider text-white">Beneficios</h4>
             <ul className="space-y-2">
               <li>
                 <a
-                  href="#seguridad"
-                  onClick={(e) => { e.preventDefault(); scrollTo('#seguridad'); }}
-                  className="hover:text-emerald-300 transition-colors py-1 block"
+                  href="#beneficios"
+                  onClick={(e) => { e.preventDefault(); scrollTo('#beneficios'); }}
+                  className="hover:text-sky-400 transition-colors py-1 block"
                 >
-                  Aislamiento Multi-Tenant
+                  Ahorro y Retorno de Inversión
                 </a>
               </li>
               <li>
                 <a
-                  href="#seguridad"
-                  onClick={(e) => { e.preventDefault(); scrollTo('#seguridad'); }}
-                  className="hover:text-emerald-300 transition-colors py-1 block"
+                  href="#beneficios"
+                  onClick={(e) => { e.preventDefault(); scrollTo('#beneficios'); }}
+                  className="hover:text-sky-400 transition-colors py-1 block"
                 >
-                  Políticas RLS en Base de Datos
+                  Blindaje Legal Ley 675
                 </a>
               </li>
               <li>
                 <a
-                  href="#seguridad"
-                  onClick={(e) => { e.preventDefault(); scrollTo('#seguridad'); }}
-                  className="hover:text-emerald-300 transition-colors py-1 block"
+                  href="#beneficios"
+                  onClick={(e) => { e.preventDefault(); scrollTo('#beneficios'); }}
+                  className="hover:text-sky-400 transition-colors py-1 block"
                 >
-                  Marco Legal Ley 675
+                  Protección de Datos (Ley 1581)
                 </a>
               </li>
               <li>
                 <a
                   href="#faq"
                   onClick={(e) => { e.preventDefault(); scrollTo('#faq'); }}
-                  className="hover:text-emerald-300 transition-colors py-1 block"
+                  className="hover:text-sky-400 transition-colors py-1 block"
                 >
                   Preguntas Frecuentes
                 </a>
@@ -155,13 +155,12 @@ export default function LandingFooter() {
             <h4 className="text-xs font-bold uppercase tracking-wider text-white">Comunidad</h4>
             <ul className="space-y-2">
               <li>
-                <a
-                  href="#planes"
-                  onClick={(e) => { e.preventDefault(); scrollTo('#planes'); }}
-                  className="hover:text-emerald-300 transition-colors py-1 block"
+                <Link
+                  to="/suscripciones"
+                  className="hover:text-sky-400 transition-colors py-1 block"
                 >
-                  Planes por Unidades
-                </a>
+                  Planes y Suscripciones
+                </Link>
               </li>
               <li>
                 <Link to="/login" className="hover:text-emerald-300 transition-colors py-1 block">

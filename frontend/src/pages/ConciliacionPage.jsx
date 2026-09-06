@@ -59,12 +59,20 @@ export default function ConciliacionPage() {
     }
     const sb = Number(form.saldoBanco);
     const sl = Number(form.saldoLibros);
-    if (form.saldoBanco === '' || Number.isNaN(sb) || !Number.isFinite(sb)) {
-      toast.error('El saldo en banco debe ser un número válido');
+    if (form.saldoBanco === '' || form.saldoBanco == null) {
+      toast.error('El saldo en banco es obligatorio');
       return;
     }
-    if (form.saldoLibros === '' || Number.isNaN(sl) || !Number.isFinite(sl)) {
-      toast.error('El saldo en libros debe ser un número válido');
+    if (Number.isNaN(sb) || !Number.isFinite(sb)) {
+      toast.error('El saldo en banco debe ser un número válido (no ingrese letras)');
+      return;
+    }
+    if (form.saldoLibros === '' || form.saldoLibros == null) {
+      toast.error('El saldo en libros es obligatorio');
+      return;
+    }
+    if (Number.isNaN(sl) || !Number.isFinite(sl)) {
+      toast.error('El saldo en libros debe ser un número válido (no ingrese letras)');
       return;
     }
     setSaving(true);
@@ -200,13 +208,31 @@ export default function ConciliacionPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <label className="text-sm font-medium">Saldo Banco (COP)</label>
-                <input type="number" className="border rounded px-3 py-2 text-sm" value={form.saldoBanco}
-                  onChange={(e) => setForm((f) => ({ ...f, saldoBanco: e.target.value }))} />
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  className="border rounded px-3 py-2 text-sm bg-background text-foreground"
+                  value={form.saldoBanco}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (/^[0-9.-]*$/.test(v)) setForm((f) => ({ ...f, saldoBanco: v }));
+                  }}
+                  placeholder="Ej: 5000000"
+                />
               </div>
               <div className="grid gap-2">
                 <label className="text-sm font-medium">Saldo Libros (COP)</label>
-                <input type="number" className="border rounded px-3 py-2 text-sm" value={form.saldoLibros}
-                  onChange={(e) => setForm((f) => ({ ...f, saldoLibros: e.target.value }))} />
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  className="border rounded px-3 py-2 text-sm bg-background text-foreground"
+                  value={form.saldoLibros}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (/^[0-9.-]*$/.test(v)) setForm((f) => ({ ...f, saldoLibros: v }));
+                  }}
+                  placeholder="Ej: 5000000"
+                />
               </div>
             </div>
             <div className="grid gap-2">

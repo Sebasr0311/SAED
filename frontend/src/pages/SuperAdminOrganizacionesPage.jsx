@@ -9,6 +9,7 @@ import { Label } from '../components/ui/label.tsx';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -22,17 +23,32 @@ export default function SuperAdminOrganizacionesPage() {
   const [showModal, setShowModal] = useState(false);
   const [search, setSearch] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [orgToDelete, setOrgToDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
-  const [form, setForm] = useState({
+  const INITIAL_FORM = {
     nombre: '',
     identificacionFiscal: '',
     emailContacto: '',
     telefonoContacto: '',
     direccion: '',
-    departamento: 'Bogotá D.C.',
-    ciudad: 'Bogotá',
+    departamento: '',
+    ciudad: '',
     pais: 'Colombia',
-  });
+  };
+
+  const [form, setForm] = useState(INITIAL_FORM);
+
+  function resetForm() {
+    setForm(INITIAL_FORM);
+  }
+
+  function handleOpenChange(open) {
+    setShowModal(open);
+    if (!open) {
+      resetForm();
+    }
+  }
 
   async function loadData() {
     try {
@@ -64,40 +80,91 @@ export default function SuperAdminOrganizacionesPage() {
     );
   }, [items, search]);
 
+  const NIT_REGEX = /^\d{7,10}(-\d)?$/;
+  const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+
   async function handleCreate(e) {
     e.preventDefault();
-    if (!form.nombre.trim() || !form.identificacionFiscal.trim() || !form.emailContacto.trim()) {
+    const cleanNit = form.identificacionFiscal.trim();
+    if (!form.nombre.trim() || !cleanNit || !form.emailContacto.trim()) {
       toast.error('Por favor completa los campos obligatorios (*)');
       return;
     }
+    if (!EMAIL_REGEX.test(form.emailContacto.trim())) {
+      toast.error('Por favor ingrese un correo electrónico válido (ej. nombre@dominio.com)');
+      return;
+    }
+    if (!NIT_REGEX.test(cleanNit)) {
+      toast.error('El NIT debe ser numérico válido (ej. 901234567 o 901234567-8)');
+      return;
+    }
+    if (form.telefonoContacto && form.telefonoContacto.replace(/[^0-9]/g, '').length < 7) {
+      toast.error('El teléfono debe tener al menos 7 dígitos');
+      return;
+    }
+    if (!form.departamento || !form.ciudad) {
+      toast.error('Por favor selecciona el departamento y ciudad/municipio de ubicación');
+      return;
+    }
+
     try {
       setSubmitting(true);
       await api.post('/organizations', {
         nombre: form.nombre.trim(),
-        identificacionFiscal: form.identificacionFiscal.trim(),
+        identificacionFiscal: cleanNit,
         emailContacto: form.emailContacto.trim(),
         telefonoContacto: form.telefonoContacto?.trim() || null,
         direccion: form.direccion?.trim() || null,
-        ciudad: form.ciudad || 'Bogotá',
+        ciudad: form.ciudad,
+        departamento: form.departamento,
+        pais: form.pais || 'Colombia',
       });
       toast.success('Organización creada exitosamente');
       setShowModal(false);
-      setForm({
-        nombre: '',
-        identificacionFiscal: '',
-        emailContacto: '',
-        telefonoContacto: '',
-        direccion: '',
-        departamento: 'Bogotá D.C.',
-        ciudad: 'Bogotá',
-        pais: 'Colombia',
-      });
+      resetForm();
       loadData();
     } catch (err) {
       console.error(err);
       toast.error('Error al crear la organización');
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleToggleStatus(org) {
+    const nextStatus = org.estado === 'ACTIVA' ? 'INACTIVA' : 'ACTIVA';
+    try {
+      await api.patch(`/organizations/${org.id || org.idOrganizacion}/status`, { estado: nextStatus });
+      toast.success(`Organización ${nextStatus === 'ACTIVA' ? 'activada' : 'desactivada'}`);
+      loadData();
+    } catch (err) {
+      console.error(err);
+      toast.error('No se pudo actualizar el estado de la organización');
+    }
+  }
+
+  async function handleDeleteOrg() {
+    if (!orgToDelete) return;
+    const orgId = orgToDelete.id || orgToDelete.idOrganizacion;
+    try {
+      setDeleting(true);
+      await api.delete(`/organizations/${orgId}`);
+      toast.success(`Organización "${orgToDelete.nombre}" eliminada correctamente`);
+      setOrgToDelete(null);
+      loadData();
+    } catch (err) {
+      console.warn('DELETE directo falló, intentando desactivación lógica:', err);
+      try {
+        await api.patch(`/organizations/${orgId}/status`, { estado: 'INACTIVA' });
+        toast.success(`Organización "${orgToDelete.nombre}" inactivada (posee historial asociado)`);
+        setOrgToDelete(null);
+        loadData();
+      } catch (patchErr) {
+        console.error(patchErr);
+        toast.error(err.response?.data?.message || err.message || 'No se pudo eliminar ni inactivar la organización');
+      }
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -170,6 +237,7 @@ export default function SuperAdminOrganizacionesPage() {
                     <th className="py-3 px-4">Contacto</th>
                     <th className="py-3 px-4">Ubicación</th>
                     <th className="py-3 px-4 text-center">Estado</th>
+                    <th className="py-3 px-4 text-right">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -201,6 +269,34 @@ export default function SuperAdminOrganizacionesPage() {
                           {org.estado || 'ACTIVA'}
                         </Badge>
                       </td>
+                      <td className="py-3.5 px-4 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleToggleStatus(org)}
+                            title={org.estado === 'ACTIVA' ? 'Desactivar organización' : 'Activar organización'}
+                            className="h-8 px-2 text-xs"
+                          >
+                            <span
+                              className={`material-symbols-outlined text-base ${
+                                org.estado === 'ACTIVA' ? 'text-amber-500' : 'text-emerald-500'
+                              }`}
+                            >
+                              {org.estado === 'ACTIVA' ? 'pause_circle' : 'play_circle'}
+                            </span>
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setOrgToDelete(org)}
+                            title="Eliminar organización"
+                            className="h-8 px-2 text-xs text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10"
+                          >
+                            <span className="material-symbols-outlined text-base">delete</span>
+                          </Button>
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -211,7 +307,7 @@ export default function SuperAdminOrganizacionesPage() {
       </Card>
 
       {/* Modal Accesible con Radix UI Dialog */}
-      <Dialog open={showModal} onOpenChange={setShowModal}>
+      <Dialog open={showModal} onOpenChange={handleOpenChange}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-lg font-bold">
@@ -272,7 +368,7 @@ export default function SuperAdminOrganizacionesPage() {
                 <Input
                   id="org-tel"
                   value={form.telefonoContacto}
-                  onChange={(e) => setForm({ ...form, telefonoContacto: e.target.value })}
+                  onChange={(e) => setForm({ ...form, telefonoContacto: e.target.value.replace(/[^0-9+\s()\-]/g, '').slice(0, 20) })}
                   placeholder="+57 300 123 4567"
                   className="text-sm"
                 />
@@ -303,7 +399,7 @@ export default function SuperAdminOrganizacionesPage() {
             </div>
 
             <DialogFooter className="pt-3 gap-2">
-              <Button type="button" variant="outline" onClick={() => setShowModal(false)}>
+              <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
                 Cancelar
               </Button>
               <Button type="submit" disabled={submitting} className="gap-2">
@@ -311,6 +407,35 @@ export default function SuperAdminOrganizacionesPage() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de confirmación para eliminar organización */}
+      <Dialog open={Boolean(orgToDelete)} onOpenChange={(open) => !open && setOrgToDelete(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-foreground font-semibold">
+              <span className="material-symbols-outlined text-rose-500">delete</span>
+              ¿Eliminar Organización?
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground text-sm">
+              ¿Estás seguro de que deseas eliminar o inactivar la organización{' '}
+              <strong className="text-foreground">"{orgToDelete?.nombre}"</strong> (NIT: {orgToDelete?.identificacionFiscal || orgToDelete?.nit})?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0 pt-2">
+            <Button variant="outline" onClick={() => setOrgToDelete(null)} disabled={deleting}>
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteOrg}
+              disabled={deleting}
+              className="bg-rose-600 hover:bg-rose-700 text-white"
+            >
+              {deleting ? 'Eliminando…' : 'Sí, eliminar'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

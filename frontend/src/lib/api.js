@@ -99,11 +99,10 @@ async function request(endpoint, options = {}) {
     });
     clearTimeout(timer);
 
-    // Un 401 en /auth/login significa credenciales invalidas (el backend
-    // devuelve el motivo real); solo se trata como sesion expirada en el
-    // resto de endpoints.
-    const isLogin = endpoint.startsWith('/auth/login');
-    if (res.status === 401 && !isLogin) {
+    // Un 401 en /auth/login o /auth/verify-password significa credenciales invalidas;
+    // solo se trata como sesion expirada en el resto de endpoints.
+    const isAuthVerify = endpoint.startsWith('/auth/login') || endpoint.startsWith('/auth/verify-password');
+    if (res.status === 401 && !isAuthVerify) {
       // Attempt token refresh before clearing session
       const refreshed = await tryRefreshToken();
       if (refreshed) {

@@ -1,5 +1,13 @@
 import { useEffect, useRef } from 'react';
-import { ArrowRight, ChevronDown, Sparkles } from 'lucide-react';
+import {
+  ArrowRight,
+  ChevronDown,
+  Sparkles,
+  ShieldCheck,
+  Building,
+  CheckCircle2,
+  Lock,
+} from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { animate, createTimeline } from 'animejs';
 
@@ -10,6 +18,7 @@ export default function LandingHero() {
   const subtitleRef = useRef(null);
   const ctaRef = useRef(null);
   const loginRef = useRef(null);
+  const statsRef = useRef(null);
   const scrollBtnRef = useRef(null);
   const orb1Ref = useRef(null);
   const orb2Ref = useRef(null);
@@ -18,27 +27,27 @@ export default function LandingHero() {
     // 1. Ambient atmospheric breathing animations with Anime.js v4
     if (orb1Ref.current && orb2Ref.current) {
       animate(orb1Ref.current, {
-        translateY: [-18, 18],
-        translateX: [-12, 12],
-        scale: [1, 1.08],
-        duration: 7000,
+        translateY: [-22, 22],
+        translateX: [-16, 16],
+        scale: [1, 1.12],
+        duration: 8000,
         direction: 'alternate',
         loop: true,
         ease: 'inOutSine',
       });
 
       animate(orb2Ref.current, {
-        translateY: [15, -15],
-        translateX: [10, -10],
-        scale: [1.05, 0.95],
-        duration: 8500,
+        translateY: [20, -20],
+        translateX: [14, -14],
+        scale: [1.08, 0.94],
+        duration: 9500,
         direction: 'alternate',
         loop: true,
         ease: 'inOutSine',
       });
     }
 
-    // 2. Orchestrated Hero Entrance Timeline (Vimeo-inspired cinematic reveal)
+    // 2. Orchestrated Hero Entrance Timeline
     const tl = createTimeline({
       defaults: {
         ease: 'outExpo',
@@ -103,6 +112,18 @@ export default function LandingHero() {
       );
     }
 
+    if (statsRef.current) {
+      tl.add(
+        statsRef.current,
+        {
+          opacity: [0, 1],
+          translateY: [16, 0],
+          duration: 750,
+        },
+        '-=350'
+      );
+    }
+
     if (scrollBtnRef.current) {
       tl.add(
         scrollBtnRef.current,
@@ -136,11 +157,11 @@ export default function LandingHero() {
       
       <div
         ref={orb1Ref}
-        className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[340px] bg-gradient-to-tr from-cyan-500/15 to-emerald-500/10 blur-[140px] rounded-full pointer-events-none"
+        className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[720px] h-[360px] bg-gradient-to-tr from-cyan-500/15 to-sky-500/10 blur-[150px] rounded-full pointer-events-none"
       />
       <div
         ref={orb2Ref}
-        className="absolute bottom-10 right-10 w-[500px] h-[280px] bg-gradient-to-tl from-sky-600/15 to-blue-600/10 blur-[130px] rounded-full pointer-events-none"
+        className="absolute bottom-10 right-10 w-[520px] h-[300px] bg-gradient-to-tl from-sky-600/15 to-blue-600/10 blur-[140px] rounded-full pointer-events-none"
       />
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
@@ -180,26 +201,15 @@ export default function LandingHero() {
             className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2"
           >
             <a
-              href="#producto"
+              href="#roles"
               onClick={(e) => {
                 e.preventDefault();
-                scrollTo('#producto');
+                scrollTo('#roles');
               }}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-8 py-4 text-base font-bold text-slate-950 bg-gradient-to-r from-cyan-400 via-sky-400 to-cyan-400 hover:from-cyan-300 hover:to-sky-300 rounded-xl shadow-xl shadow-sky-500/25 hover:shadow-sky-400/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 transition-all transform active:scale-[0.98] min-h-[50px]"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-9 py-4 text-base font-bold text-slate-950 bg-gradient-to-r from-cyan-400 via-sky-400 to-cyan-400 hover:from-cyan-300 hover:to-sky-300 rounded-xl shadow-xl shadow-sky-500/25 hover:shadow-sky-400/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 transition-all transform active:scale-[0.98] min-h-[50px]"
             >
-              <span>Conocer SAED</span>
+              <span>Ver cómo funciona</span>
               <ArrowRight className="w-4 h-4" />
-            </a>
-
-            <a
-              href="#planes"
-              onClick={(e) => {
-                e.preventDefault();
-                scrollTo('#planes');
-              }}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-4 text-base font-semibold text-slate-200 hover:text-white bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 hover:border-white/20 rounded-xl backdrop-blur-md transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 min-h-[50px]"
-            >
-              <span>Ver planes</span>
             </a>
           </div>
 
@@ -214,8 +224,46 @@ export default function LandingHero() {
             </Link>
           </div>
 
+          {/* Live Operational Ticker Strip */}
+          <div
+            ref={statsRef}
+            className="pt-6 max-w-3xl mx-auto grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs"
+          >
+            <div className="p-3 rounded-xl bg-slate-900/70 border border-slate-800/80 backdrop-blur-md flex items-center gap-2.5">
+              <Building className="w-4 h-4 text-sky-400 shrink-0" />
+              <div className="text-left">
+                <span className="font-bold text-white font-mono block">130+ Unidades</span>
+                <span className="text-[10px] text-slate-400">Entorno Demo Activo</span>
+              </div>
+            </div>
+
+            <div className="p-3 rounded-xl bg-slate-900/70 border border-slate-800/80 backdrop-blur-md flex items-center gap-2.5">
+              <Lock className="w-4 h-4 text-emerald-400 shrink-0" />
+              <div className="text-left">
+                <span className="font-bold text-white font-mono block">0 Fugas RLS</span>
+                <span className="text-[10px] text-slate-400">Oracle VPD Aislado</span>
+              </div>
+            </div>
+
+            <div className="p-3 rounded-xl bg-slate-900/70 border border-slate-800/80 backdrop-blur-md flex items-center gap-2.5">
+              <CheckCircle2 className="w-4 h-4 text-teal-400 shrink-0" />
+              <div className="text-left">
+                <span className="font-bold text-white font-mono block">PSE &amp; Tarjetas</span>
+                <span className="text-[10px] text-slate-400">Pasarela Wompi</span>
+              </div>
+            </div>
+
+            <div className="p-3 rounded-xl bg-slate-900/70 border border-slate-800/80 backdrop-blur-md flex items-center gap-2.5">
+              <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
+              <div className="text-left">
+                <span className="font-bold text-white font-mono block">Ley 675 / 2001</span>
+                <span className="text-[10px] text-slate-400">Marco Legal CO</span>
+              </div>
+            </div>
+          </div>
+
           {/* Scroll Down Indicator */}
-          <div ref={scrollBtnRef} className="pt-10 flex justify-center">
+          <div ref={scrollBtnRef} className="pt-6 flex justify-center">
             <button
               type="button"
               onClick={() => scrollTo('#producto')}

@@ -22,23 +22,44 @@ public class PersonaRepositoryImpl implements PersonaRepository {
         this.jdbcTemplate = jdbcTemplate;
     }
 
-    private final RowMapper<PersonaDTO> rowMapper = (rs, rowNum) -> new PersonaDTO(
-            rs.getLong("ID_PERSONA"),
-            rs.getLong("ID_TIPO_DOCUMENTO"),
-            rs.getString("NUMERO_DOCUMENTO"),
-            rs.getString("TIPO_PERSONA"),
-            rs.getString("PRIMER_NOMBRE"),
-            rs.getString("SEGUNDO_NOMBRE"),
-            rs.getString("PRIMER_APELLIDO"),
-            rs.getString("SEGUNDO_APELLIDO"),
-            rs.getString("EMAIL"),
-            rs.getString("TELEFONO"),
-            rs.getString("ESTADO")
-    );
+    private final RowMapper<PersonaDTO> rowMapper = (rs, rowNum) -> {
+        Long idApto = null;
+        String numApto = null;
+        try {
+            long val = rs.getLong("ID_APARTAMENTO");
+            if (!rs.wasNull()) idApto = val;
+        } catch (Exception ignored) {}
+        try {
+            numApto = rs.getString("NUMERO_APARTAMENTO");
+        } catch (Exception ignored) {}
+
+        return new PersonaDTO(
+                rs.getLong("ID_PERSONA"),
+                rs.getLong("ID_TIPO_DOCUMENTO"),
+                rs.getString("NUMERO_DOCUMENTO"),
+                rs.getString("TIPO_PERSONA"),
+                rs.getString("PRIMER_NOMBRE"),
+                rs.getString("SEGUNDO_NOMBRE"),
+                rs.getString("PRIMER_APELLIDO"),
+                rs.getString("SEGUNDO_APELLIDO"),
+                rs.getString("EMAIL"),
+                rs.getString("TELEFONO"),
+                rs.getString("ESTADO"),
+                idApto,
+                numApto
+        );
+    };
 
     @Override
     public List<PersonaDTO> findAll(int limit, int offset) {
-        String sql = "SELECT * FROM PERSONAS ORDER BY ID_PERSONA OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY";
+        String sql = """
+            SELECT p.*,
+                   (SELECT ru.ID_UNIDAD FROM RESIDENTES_UNIDAD ru WHERE ru.ID_PERSONA = p.ID_PERSONA AND ROWNUM = 1) AS ID_APARTAMENTO,
+                   (SELECT u.IDENTIFICADOR FROM UNIDADES u JOIN RESIDENTES_UNIDAD ru ON u.ID_UNIDAD = ru.ID_UNIDAD WHERE ru.ID_PERSONA = p.ID_PERSONA AND ROWNUM = 1) AS NUMERO_APARTAMENTO
+            FROM PERSONAS p
+            ORDER BY p.ID_PERSONA DESC
+            OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
+            """;
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("limit", limit)
                 .addValue("offset", offset);
@@ -47,7 +68,13 @@ public class PersonaRepositoryImpl implements PersonaRepository {
 
     @Override
     public Optional<PersonaDTO> findById(Long id) {
-        String sql = "SELECT * FROM PERSONAS WHERE ID_PERSONA = :id";
+        String sql = """
+            SELECT p.*,
+                   (SELECT ru.ID_UNIDAD FROM RESIDENTES_UNIDAD ru WHERE ru.ID_PERSONA = p.ID_PERSONA AND ROWNUM = 1) AS ID_APARTAMENTO,
+                   (SELECT u.IDENTIFICADOR FROM UNIDADES u JOIN RESIDENTES_UNIDAD ru ON u.ID_UNIDAD = ru.ID_UNIDAD WHERE ru.ID_PERSONA = p.ID_PERSONA AND ROWNUM = 1) AS NUMERO_APARTAMENTO
+            FROM PERSONAS p
+            WHERE p.ID_PERSONA = :id
+            """;
         List<PersonaDTO> results = jdbcTemplate.query(sql, new MapSqlParameterSource("id", id), rowMapper);
         return results.stream().findFirst();
     }

@@ -105,8 +105,8 @@ export default function UsuariosPage() {
       label: 'Usuario',
       render: (r) => (
         <div>
-          <div className="font-semibold text-gray-900">{r.username}</div>
-          {r.email && <div className="text-xs text-gray-500">{r.email}</div>}
+          <div className="font-semibold text-foreground">{r.username}</div>
+          {r.email && <div className="text-xs text-muted-foreground">{r.email}</div>}
         </div>
       ),
     },
@@ -124,11 +124,11 @@ export default function UsuariosPage() {
       label: 'Persona Vinculada',
       render: (r) => (
         <div>
-          <div className="text-sm font-medium text-gray-900">
-            {r.nombreResidente || <span className="text-gray-400 italic">Sin vincular</span>}
+          <div className="text-sm font-medium text-foreground">
+            {r.nombreResidente || <span className="text-muted-foreground italic">Sin vincular</span>}
           </div>
           {r.numeroDocumento && (
-            <div className="text-xs text-gray-500">Doc: {r.numeroDocumento}</div>
+            <div className="text-xs text-muted-foreground">Doc: {r.numeroDocumento}</div>
           )}
         </div>
       ),
@@ -315,21 +315,21 @@ export default function UsuariosPage() {
 
       {/* Tarjetas métricas */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white border rounded-xl p-4 shadow-sm">
-          <div className="text-xs text-gray-500 font-medium">Total Usuarios</div>
-          <div className="text-2xl font-bold text-gray-900 mt-1">{metrics.total}</div>
+        <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
+          <div className="text-xs text-muted-foreground font-medium">Total Usuarios</div>
+          <div className="text-2xl font-bold text-foreground mt-1">{metrics.total}</div>
         </div>
-        <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-4 shadow-sm">
-          <div className="text-xs text-blue-700 font-medium">Porteros</div>
-          <div className="text-2xl font-bold text-blue-900 mt-1">{metrics.porteros}</div>
+        <div className="bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/40 rounded-xl p-4 shadow-sm">
+          <div className="text-xs text-blue-700 dark:text-blue-300 font-medium">Porteros</div>
+          <div className="text-2xl font-bold text-blue-900 dark:text-blue-100 mt-1">{metrics.porteros}</div>
         </div>
-        <div className="bg-emerald-50/50 border border-emerald-100 rounded-xl p-4 shadow-sm">
-          <div className="text-xs text-emerald-700 font-medium">Residentes</div>
-          <div className="text-2xl font-bold text-emerald-900 mt-1">{metrics.residentesCount}</div>
+        <div className="bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/40 rounded-xl p-4 shadow-sm">
+          <div className="text-xs text-emerald-700 dark:text-emerald-300 font-medium">Residentes</div>
+          <div className="text-2xl font-bold text-emerald-900 dark:text-emerald-100 mt-1">{metrics.residentesCount}</div>
         </div>
-        <div className="bg-indigo-50/50 border border-indigo-100 rounded-xl p-4 shadow-sm">
-          <div className="text-xs text-indigo-700 font-medium">Administradores</div>
-          <div className="text-2xl font-bold text-indigo-900 mt-1">{metrics.admins}</div>
+        <div className="bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/40 rounded-xl p-4 shadow-sm">
+          <div className="text-xs text-indigo-700 dark:text-indigo-300 font-medium">Administradores</div>
+          <div className="text-2xl font-bold text-indigo-900 dark:text-indigo-100 mt-1">{metrics.admins}</div>
         </div>
       </div>
 
@@ -346,8 +346,8 @@ export default function UsuariosPage() {
               }}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                 filtroRol === rol
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'bg-white border text-gray-700 hover:bg-gray-50'
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'bg-card border border-border text-foreground hover:bg-muted'
               }`}
             >
               {rol === 'TODOS'
@@ -370,7 +370,7 @@ export default function UsuariosPage() {
               setBusqueda(e.target.value);
               setPage(0);
             }}
-            className="w-full border rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full border border-border rounded-lg px-3 py-1.5 text-sm bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
           />
         </div>
       </div>
@@ -430,12 +430,12 @@ export default function UsuariosPage() {
           </div>
 
           {!editing && (
-            <div className="border border-blue-100 bg-blue-50/50 p-3 rounded-lg space-y-3">
-              <div className="text-xs font-semibold text-blue-900 uppercase tracking-wider">
+            <div className="border border-blue-100 dark:border-blue-900/40 bg-blue-50/50 dark:bg-blue-950/20 p-3 rounded-lg space-y-3">
+              <div className="text-xs font-semibold text-blue-900 dark:text-blue-200 uppercase tracking-wider">
                 Datos de la Persona Asignada
               </div>
               <div className="flex gap-4 text-sm">
-                <label className="flex items-center gap-1.5 cursor-pointer text-gray-700">
+                <label className="flex items-center gap-1.5 cursor-pointer text-foreground">
                   <input
                     type="radio"
                     name="modoPersona"
@@ -447,7 +447,7 @@ export default function UsuariosPage() {
                     {form.rol === 'PORTERO' ? 'Nuevo Portero (Datos Personales)' : 'Nueva Persona'}
                   </span>
                 </label>
-                <label className="flex items-center gap-1.5 cursor-pointer text-gray-700">
+                <label className="flex items-center gap-1.5 cursor-pointer text-foreground">
                   <input
                     type="radio"
                     name="modoPersona"
@@ -532,7 +532,7 @@ export default function UsuariosPage() {
 
           {/* Credenciales de Acceso */}
           <div className="space-y-3">
-            <div className="text-xs font-semibold text-gray-700 uppercase tracking-wider">
+            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
               Credenciales de Acceso al Sistema
             </div>
             <div className="form-row">
@@ -570,7 +570,7 @@ export default function UsuariosPage() {
                 checked={form.activo}
                 onChange={(e) => update('activo', e.target.checked)}
               />
-              <span className="text-sm font-medium text-gray-800">Usuario activo en el sistema</span>
+              <span className="text-sm font-medium text-foreground">Usuario activo en el sistema</span>
             </label>
           </div>
         </div>

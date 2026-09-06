@@ -54,6 +54,15 @@ import NotificationBell from '../ui/NotificationBell.jsx';
 import BreadcrumbNav from '../ui/Breadcrumb.jsx';
 import TenantSwitcher from './TenantSwitcher.jsx';
 import { cn } from '../../lib/utils.js';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../ui/dialog.tsx';
+import { Button } from '../ui/button.tsx';
 
 /**
  * Navegación agrupada por relación funcional, por rol (SAED 2.0).
@@ -392,9 +401,12 @@ export default function AppShell() {
     };
   }, []);
 
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+
   function toggleTheme() {
     setDark((prev) => {
       const next = !prev;
+      applyTheme(next ? 'dark' : 'light');
       persistTheme(next ? 'dark' : 'light');
       return next;
     });
@@ -468,6 +480,11 @@ export default function AppShell() {
   }
 
   function handleLogout() {
+    setShowLogoutModal(true);
+  }
+
+  function confirmLogout() {
+    setShowLogoutModal(false);
     logout();
     navigate('/login', { replace: true });
   }
@@ -879,6 +896,33 @@ export default function AppShell() {
           </ErrorBoundary>
         </main>
       </div>
+
+      {/* Modal de confirmación para cerrar sesión */}
+      <Dialog open={showLogoutModal} onOpenChange={setShowLogoutModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-foreground font-semibold">
+              <LogOut className="h-5 w-5 text-rose-500" aria-hidden="true" />
+              ¿Cerrar sesión?
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground text-sm">
+              ¿Estás seguro de que deseas salir del sistema? Se guardará tu sesión actual y tendrás que ingresar tus credenciales nuevamente.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0 pt-2">
+            <Button variant="outline" onClick={() => setShowLogoutModal(false)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmLogout}
+              className="bg-rose-600 hover:bg-rose-700 text-white"
+            >
+              Sí, cerrar sesión
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

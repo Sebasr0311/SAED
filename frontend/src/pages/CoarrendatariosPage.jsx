@@ -116,37 +116,37 @@ export default function CoarrendatariosPage() {
           </div>
 
           {coarrendatarios.length === 0 ? (
-            <div className="bg-white rounded-lg shadow p-8 text-center text-gray-500">
+            <div className="bg-card border border-border rounded-lg shadow-sm p-8 text-center text-muted-foreground">
               No hay coarrendatarios en este contrato
             </div>
           ) : (
-            <div className="bg-white rounded-lg shadow overflow-hidden">
+            <div className="bg-card border border-border rounded-lg shadow-sm overflow-hidden">
               <table className="w-full">
-                <thead className="bg-gray-50">
+                <thead className="bg-muted/50 border-b border-border">
                   <tr>
-                    <th className="px-4 py-3 text-left text-sm font-medium">ID Persona</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium">Vínculo</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium">Responsable Pago</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium">Estado</th>
-                    <th className="px-4 py-3 text-right text-sm font-medium">Acciones</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">ID Persona</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Vínculo</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Responsable Pago</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Estado</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium text-muted-foreground">Acciones</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y">
+                <tbody className="divide-y divide-border">
                   {coarrendatarios.map((c) => (
-                    <tr key={c.idContratoResidente} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm">{c.idPersona}</td>
-                      <td className="px-4 py-3 text-sm">{c.tipoVinculo}</td>
-                      <td className="px-4 py-3 text-sm">{c.esResponsablePago === 'S' ? 'Sí' : 'No'}</td>
+                    <tr key={c.idContratoResidente} className="hover:bg-muted/50 transition-colors">
+                      <td className="px-4 py-3 text-sm text-foreground">{c.idPersona}</td>
+                      <td className="px-4 py-3 text-sm text-foreground">{c.tipoVinculo}</td>
+                      <td className="px-4 py-3 text-sm text-foreground">{c.esResponsablePago === 'S' ? 'Sí' : 'No'}</td>
                       <td className="px-4 py-3 text-sm">
                         <span className={`px-2 py-1 rounded text-xs font-medium ${
-                          c.estado === 'ACTIVO' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                          c.estado === 'ACTIVO' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20' : 'bg-destructive/10 text-destructive border border-destructive/20'
                         }`}>{c.estado}</span>
                       </td>
                       <td className="px-4 py-3 text-sm text-right space-x-2">
-                        <button onClick={() => toggleEstado(c)} className="text-yellow-600 hover:underline">
+                        <button onClick={() => toggleEstado(c)} className="text-amber-500 hover:underline">
                           {c.estado === 'ACTIVO' ? 'Desactivar' : 'Activar'}
                         </button>
-                        <button onClick={() => setDeleteTarget(c)} className="text-red-600 hover:underline">Eliminar</button>
+                        <button onClick={() => setDeleteTarget(c)} className="text-destructive hover:underline">Eliminar</button>
                       </td>
                     </tr>
                   ))}
@@ -159,14 +159,14 @@ export default function CoarrendatariosPage() {
 
       {/* Dialog Crear */}
       {dialog && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-lg font-semibold mb-4">Agregar Coarrendatario</h2>
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-card border border-border rounded-xl p-6 w-full max-w-md shadow-xl text-foreground">
+            <h2 className="text-lg font-semibold mb-4 text-foreground">Agregar Coarrendatario</h2>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1">ID Persona *</label>
+                <label className="block text-sm font-medium mb-1 text-foreground">ID Persona *</label>
                 <input type="number" value={form.idPersona} onChange={(e) => setForm({ ...form, idPersona: e.target.value })}
-                  className="w-full border rounded-lg px-3 py-2" placeholder="ID de la persona" />
+                  className="w-full border border-border bg-background text-foreground rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" placeholder="ID de la persona" />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Tipo de Vínculo</label>

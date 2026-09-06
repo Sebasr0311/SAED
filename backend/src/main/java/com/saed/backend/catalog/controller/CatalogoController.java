@@ -5,6 +5,7 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.web.bind.annotation.*;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.security.access.prepost.PreAuthorize;
+import com.saed.backend.context.SaedContextHolder;
 
 import java.util.List;
 import java.util.Map;
@@ -36,6 +37,14 @@ public class CatalogoController {
     @GetMapping("/bloques")
     @PreAuthorize("isAuthenticated()")
     public List<Map<String, Object>> bloques() {
+        Long propiedadId = (SaedContextHolder.getContext() != null)
+                ? SaedContextHolder.getContext().getPropertyId() : null;
+        if (propiedadId != null) {
+            return jdbcTemplate.queryForList(
+                    "SELECT ID_BLOQUE, ID_PROPIEDAD, CODIGO, NOMBRE, TIPO, ORDEN, ESTADO FROM BLOQUES " +
+                    "WHERE ID_PROPIEDAD = :propiedadId ORDER BY ORDEN, CODIGO",
+                    new MapSqlParameterSource("propiedadId", propiedadId));
+        }
         return jdbcTemplate.queryForList(
                 "SELECT ID_BLOQUE, ID_PROPIEDAD, CODIGO, NOMBRE, TIPO, ORDEN, ESTADO FROM BLOQUES ORDER BY ORDEN, CODIGO",
                 new MapSqlParameterSource());

@@ -60,8 +60,16 @@ export default function UnidadesPage() {
   );
 
   const unidades = Array.isArray(data) ? data : data?.items || [];
-  const tipos = tiposUnidad?.items || [];
-  const bloquesList = bloques?.items || [];
+  const tipos = (tiposUnidad?.items || (Array.isArray(tiposUnidad) ? tiposUnidad : [])).map((t) => ({
+    idTipoUnidad: t.idTipoUnidad ?? t.ID_TIPO_UNIDAD ?? t.id,
+    nombre: t.nombre ?? t.NOMBRE ?? '',
+    codigo: t.codigo ?? t.CODIGO ?? '',
+  }));
+  const bloquesList = (bloques?.items || (Array.isArray(bloques) ? bloques : [])).map((b) => ({
+    idBloque: b.idBloque ?? b.ID_BLOQUE ?? b.id,
+    nombre: b.nombre ?? b.NOMBRE ?? '',
+    codigo: b.codigo ?? b.CODIGO ?? '',
+  }));
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -210,7 +218,17 @@ export default function UnidadesPage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => { setEditing(u); setForm({ identificador: u.identificador || '', idBloque: u.idBloque != null ? String(u.idBloque) : '', idTipoUnidad: u.idTipoUnidad != null ? String(u.idTipoUnidad) : '', areaM2: u.areaM2 != null ? String(u.areaM2) : '', coeficienteCopropiedad: u.coeficienteCopropiedad != null ? String(u.coeficienteCopropiedad) : '' }); setDialogOpen(true); }}
+                          onClick={() => {
+                            setEditing(u);
+                            setForm({
+                              identificador: u.identificador || u.IDENTIFICADOR || '',
+                              idBloque: u.idBloque != null ? String(u.idBloque) : (u.ID_BLOQUE != null ? String(u.ID_BLOQUE) : ''),
+                              idTipoUnidad: u.idTipoUnidad != null ? String(u.idTipoUnidad) : (u.ID_TIPO_UNIDAD != null ? String(u.ID_TIPO_UNIDAD) : ''),
+                              areaM2: u.areaM2 != null ? String(u.areaM2) : (u.AREA_M2 != null ? String(u.AREA_M2) : ''),
+                              coeficienteCopropiedad: u.coeficienteCopropiedad != null ? String(u.coeficienteCopropiedad) : (u.COEFICIENTE_COPROPIEDAD != null ? String(u.COEFICIENTE_COPROPIEDAD) : ''),
+                            });
+                            setDialogOpen(true);
+                          }}
                           aria-label={`Editar ${u.identificador}`}
                         >
                           <span className="material-symbols-outlined text-base">edit</span>
@@ -257,7 +275,7 @@ export default function UnidadesPage() {
                 <SelectContent>
                   {tipos.map((t) => (
                     <SelectItem key={t.idTipoUnidad} value={String(t.idTipoUnidad)}>
-                      {t.nombre} ({t.codigo})
+                      {t.nombre || t.codigo || 'Tipo de Unidad'}{t.codigo && t.nombre ? ` (${t.codigo})` : ''}
                     </SelectItem>
                   ))}
                 </SelectContent>

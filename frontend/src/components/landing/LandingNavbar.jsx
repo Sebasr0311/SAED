@@ -1,17 +1,18 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { Building2, Menu, X, ArrowRight, LogIn } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Building2, Menu, X, ArrowRight, LogIn, Sparkles } from 'lucide-react';
 
 const NAV_LINKS = [
-  { name: 'Producto', href: '#producto' },
-  { name: 'Soluciones', href: '#soluciones' },
-  { name: 'Seguridad', href: '#seguridad' },
-  { name: 'Planes', href: '#planes' },
+  { name: 'Perfiles', href: '#roles' },
+  { name: 'Módulos', href: '#soluciones' },
+  { name: 'Beneficios', href: '#beneficios' },
+  { name: 'Preguntas', href: '#faq' },
 ];
 
 export default function LandingNavbar() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -21,10 +22,14 @@ export default function LandingNavbar() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const handleLinkClick = (e, href) => {
+  const handleLinkClick = (e, link) => {
+    if (link.isRoute || link.href.startsWith('/')) {
+      // Let standard router Link or navigate handle it
+      return;
+    }
     e.preventDefault();
     setMobileMenuOpen(false);
-    const target = document.querySelector(href);
+    const target = document.querySelector(link.href);
     if (target) {
       const topOffset = 84;
       const elementPosition = target.getBoundingClientRect().top;
@@ -49,7 +54,7 @@ export default function LandingNavbar() {
           {/* Brand Identity */}
           <a
             href="#hero"
-            onClick={(e) => handleLinkClick(e, '#hero')}
+            onClick={(e) => handleLinkClick(e, { href: '#hero' })}
             className="flex items-center gap-3 group focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 rounded-xl py-1 px-1.5 transition-colors"
             aria-label="Ir al inicio de SAED 2.0"
           >
@@ -71,16 +76,26 @@ export default function LandingNavbar() {
             className="hidden md:flex items-center gap-1 lg:gap-2 px-4 py-1.5 rounded-full bg-white/[0.04] border border-white/10 backdrop-blur-md"
             aria-label="Navegación principal"
           >
-            {NAV_LINKS.map((link) => (
-              <a
-                key={link.name}
-                href={link.href}
-                onClick={(e) => handleLinkClick(e, link.href)}
-                className="px-4 py-1.5 text-xs lg:text-sm font-medium text-slate-300 hover:text-white rounded-full hover:bg-white/10 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 min-h-[36px] flex items-center"
-              >
-                {link.name}
-              </a>
-            ))}
+            {NAV_LINKS.map((link) =>
+              link.isRoute ? (
+                <Link
+                  key={link.name}
+                  to={link.href}
+                  className="px-3.5 py-1.5 text-xs lg:text-sm font-medium text-slate-300 hover:text-white rounded-full hover:bg-white/10 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 min-h-[36px] flex items-center"
+                >
+                  {link.name}
+                </Link>
+              ) : (
+                <a
+                  key={link.name}
+                  href={link.href}
+                  onClick={(e) => handleLinkClick(e, link)}
+                  className="px-3.5 py-1.5 text-xs lg:text-sm font-medium text-slate-300 hover:text-white rounded-full hover:bg-white/10 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 min-h-[36px] flex items-center"
+                >
+                  {link.name}
+                </a>
+              )
+            )}
           </nav>
 
           {/* Actions & Login CTA */}
@@ -93,14 +108,14 @@ export default function LandingNavbar() {
               <span>Iniciar sesión</span>
             </Link>
 
-            <a
-              href="#producto"
-              onClick={(e) => handleLinkClick(e, '#producto')}
+            <Link
+              to="/suscripciones"
               className="px-5 py-2.5 text-xs sm:text-sm font-bold text-slate-950 bg-gradient-to-r from-cyan-400 via-sky-400 to-cyan-400 hover:from-cyan-300 hover:to-sky-300 rounded-xl shadow-md shadow-sky-500/20 hover:shadow-sky-400/35 transition-all flex items-center gap-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 min-h-[44px]"
             >
-              <span>Conocer SAED</span>
+              <Sparkles className="w-3.5 h-3.5 text-slate-950" />
+              <span>Suscripciones</span>
               <ArrowRight className="w-3.5 h-3.5" />
-            </a>
+            </Link>
           </div>
 
           {/* Mobile Hamburger Button */}
@@ -120,17 +135,29 @@ export default function LandingNavbar() {
       {mobileMenuOpen && (
         <div className="md:hidden fixed inset-x-0 top-[65px] bg-[#0A1628]/98 border-b border-slate-800 shadow-2xl p-5 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200 backdrop-blur-2xl">
           <nav className="flex flex-col space-y-2">
-            {NAV_LINKS.map((link) => (
-              <a
-                key={link.name}
-                href={link.href}
-                onClick={(e) => handleLinkClick(e, link.href)}
-                className="px-4 py-3 rounded-xl text-sm font-medium text-slate-200 hover:text-white hover:bg-slate-800/80 transition-colors flex items-center justify-between min-h-[44px]"
-              >
-                <span>{link.name}</span>
-                <ArrowRight className="w-4 h-4 text-emerald-400" />
-              </a>
-            ))}
+            {NAV_LINKS.map((link) =>
+              link.isRoute ? (
+                <Link
+                  key={link.name}
+                  to={link.href}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="px-4 py-3 rounded-xl text-sm font-medium text-slate-200 hover:text-white hover:bg-slate-800/80 transition-colors flex items-center justify-between min-h-[44px]"
+                >
+                  <span>{link.name}</span>
+                  <ArrowRight className="w-4 h-4 text-sky-400" />
+                </Link>
+              ) : (
+                <a
+                  key={link.name}
+                  href={link.href}
+                  onClick={(e) => handleLinkClick(e, link)}
+                  className="px-4 py-3 rounded-xl text-sm font-medium text-slate-200 hover:text-white hover:bg-slate-800/80 transition-colors flex items-center justify-between min-h-[44px]"
+                >
+                  <span>{link.name}</span>
+                  <ArrowRight className="w-4 h-4 text-sky-400" />
+                </a>
+              )
+            )}
           </nav>
 
           <div className="pt-4 border-t border-slate-800/80 flex flex-col gap-3">
@@ -139,18 +166,19 @@ export default function LandingNavbar() {
               onClick={() => setMobileMenuOpen(false)}
               className="w-full py-3.5 px-4 rounded-xl text-sm font-semibold text-center text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-colors flex items-center justify-center gap-2 min-h-[48px]"
             >
-              <LogIn className="w-4 h-4 text-emerald-400" />
+              <LogIn className="w-4 h-4 text-sky-400" />
               <span>Iniciar sesión</span>
             </Link>
 
-            <a
-              href="#producto"
-              onClick={(e) => handleLinkClick(e, '#producto')}
-              className="w-full py-3.5 px-4 rounded-xl text-sm font-bold text-center text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-lg shadow-emerald-950/50 transition-all flex items-center justify-center gap-2 min-h-[48px]"
+            <Link
+              to="/suscripciones"
+              onClick={() => setMobileMenuOpen(false)}
+              className="w-full py-3.5 px-4 rounded-xl text-sm font-bold text-center text-slate-950 bg-gradient-to-r from-cyan-400 via-sky-400 to-cyan-400 hover:from-cyan-300 hover:to-sky-300 shadow-lg shadow-sky-950/50 transition-all flex items-center justify-center gap-2 min-h-[48px]"
             >
-              <span>Conocer SAED</span>
+              <Sparkles className="w-4 h-4" />
+              <span>Suscripciones</span>
               <ArrowRight className="w-4 h-4" />
-            </a>
+            </Link>
           </div>
         </div>
       )}

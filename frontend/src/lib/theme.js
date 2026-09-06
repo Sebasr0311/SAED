@@ -18,7 +18,13 @@ export function getInitialTheme() {
 }
 
 export function applyTheme(theme) {
+  if (typeof document === 'undefined') return;
   document.documentElement.setAttribute('data-theme', theme);
+  if (theme === 'dark') {
+    document.documentElement.classList.add('dark');
+  } else {
+    document.documentElement.classList.remove('dark');
+  }
 }
 
 export function persistTheme(theme) {

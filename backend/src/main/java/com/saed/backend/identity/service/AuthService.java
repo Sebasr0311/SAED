@@ -86,4 +86,15 @@ public class AuthService {
     public void logout(Long userId) {
         refreshTokenService.invalidateAllForUser(userId);
     }
+
+    public boolean verifyPassword(Long userId, String rawPassword) {
+        if (userId == null || rawPassword == null || rawPassword.isBlank()) {
+            return false;
+        }
+        Optional<String> hashOpt = authRepository.getPasswordHash(userId);
+        if (hashOpt.isEmpty()) {
+            return false;
+        }
+        return passwordEncoder.matches(rawPassword, hashOpt.get());
+    }
 }

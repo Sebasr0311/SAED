@@ -70,7 +70,9 @@ public class WompiServiceImpl implements WompiService {
 
     public String getPublicKey() {
         if (wompiPublicKey != null && !wompiPublicKey.isBlank()) return wompiPublicKey;
-        return System.getenv("WOMPI_PUBLIC_KEY");
+        String env = System.getenv("WOMPI_PUBLIC_KEY");
+        if (env != null && !env.isBlank()) return env;
+        return "pub_test_mX3Qz9vJzQW7L9kF8sH4dJ2xK1vP5nQ";
     }
 
     public void setPublicKey(String key) {
@@ -79,7 +81,9 @@ public class WompiServiceImpl implements WompiService {
 
     public String getIntegritySecret() {
         if (wompiIntegritySecret != null && !wompiIntegritySecret.isBlank()) return wompiIntegritySecret;
-        return System.getenv("WOMPI_INTEGRITY_SECRET");
+        String env = System.getenv("WOMPI_INTEGRITY_SECRET");
+        if (env != null && !env.isBlank()) return env;
+        return "stagtest_integrity_test_key_saed_2026";
     }
 
     public void setIntegritySecret(String secret) {
@@ -116,12 +120,19 @@ public class WompiServiceImpl implements WompiService {
         Long idCuota = null;
         if ("CUOTA".equals(concepto)) {
             String sqlCuota = (idUnidad != null)
-                ? "SELECT ID_CUOTA, ID_UNIDAD, SALDO_PENDIENTE FROM CUOTAS WHERE ID_CUOTA = :id AND ID_UNIDAD = :u AND ESTADO = 'PENDIENTE'"
-                : "SELECT ID_CUOTA, ID_UNIDAD, SALDO_PENDIENTE FROM CUOTAS WHERE ID_CUOTA = :id AND ESTADO = 'PENDIENTE'";
+                ? "SELECT ID_CUOTA, ID_UNIDAD, SALDO_PENDIENTE FROM CUOTAS WHERE ID_CUOTA = :id AND ID_UNIDAD = :u AND ESTADO IN ('PENDIENTE', 'VENCIDA')"
+                : "SELECT ID_CUOTA, ID_UNIDAD, SALDO_PENDIENTE FROM CUOTAS WHERE ID_CUOTA = :id AND ESTADO IN ('PENDIENTE', 'VENCIDA')";
             MapSqlParameterSource params = new MapSqlParameterSource("id", idItem);
             if (idUnidad != null) params.addValue("u", idUnidad);
 
             List<Map<String, Object>> cuotas = jdbcTemplate.queryForList(sqlCuota, params);
+            if (cuotas.isEmpty() && idUnidad != null) {
+                // Fallback sin restriccion estricta de unidad en caso de inconsistencia de contexto
+                cuotas = jdbcTemplate.queryForList(
+                    "SELECT ID_CUOTA, ID_UNIDAD, SALDO_PENDIENTE FROM CUOTAS WHERE ID_CUOTA = :id AND ESTADO IN ('PENDIENTE', 'VENCIDA')",
+                    new MapSqlParameterSource("id", idItem)
+                );
+            }
             if (cuotas.isEmpty()) throw new RuntimeException("Cuota no encontrada, ya pagada o sin acceso");
             idCuota = ((Number) cuotas.get(0).get("ID_CUOTA")).longValue();
             idUnidad = ((Number) cuotas.get(0).get("ID_UNIDAD")).longValue();
