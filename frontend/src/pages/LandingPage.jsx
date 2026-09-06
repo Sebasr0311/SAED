@@ -9,7 +9,7 @@ import LandingPackages from '../components/landing/LandingPackages.jsx';
 import LandingParking from '../components/landing/LandingParking.jsx';
 import LandingFinance from '../components/landing/LandingFinance.jsx';
 import LandingSecurity from '../components/landing/LandingSecurity.jsx';
-import LandingPricing from '../components/landing/LandingPricing.jsx';
+import LandingPricingTeaser from '../components/landing/LandingPricingTeaser.jsx';
 import LandingFAQ from '../components/landing/LandingFAQ.jsx';
 import LandingCTA from '../components/landing/LandingCTA.jsx';
 import LandingFooter from '../components/landing/LandingFooter.jsx';
@@ -61,8 +61,8 @@ export default function LandingPage() {
         {/* 10. Architectural Security, Isolation Pipeline & Ley 675 */}
         <LandingSecurity />
 
-        {/* 11. Transparent Pricing & Expandable Capability Matrix */}
-        <LandingPricing />
+        {/* 11. Teaser Compacto de Suscripciones & Planes */}
+        <LandingPricingTeaser />
 
         {/* 12. Accessible FAQ Accordion */}
         <LandingFAQ />

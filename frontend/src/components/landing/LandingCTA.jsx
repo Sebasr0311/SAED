@@ -47,17 +47,13 @@ export default function LandingCTA() {
 
         {/* Action CTAs */}
         <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
-          <a
-            href="#producto"
-            onClick={(e) => {
-              e.preventDefault();
-              scrollTo('#producto');
-            }}
+          <Link
+            to="/suscripciones"
             className="w-full sm:w-auto px-9 py-4 rounded-xl bg-gradient-to-r from-cyan-400 via-sky-400 to-cyan-400 hover:from-cyan-300 hover:to-sky-300 text-slate-950 font-bold text-base shadow-xl shadow-sky-500/25 hover:shadow-sky-400/40 transition-all flex items-center justify-center gap-2 min-h-[50px] transform active:scale-[0.98]"
           >
-            <span>Conocer SAED</span>
+            <span>Ver planes y suscripciones</span>
             <ArrowRight className="w-4 h-4" />
-          </a>
+          </Link>
 
           <Link
             to="/login"

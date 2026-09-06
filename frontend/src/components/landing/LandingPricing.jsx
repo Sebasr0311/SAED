@@ -242,90 +242,9 @@ export default function LandingPricing() {
         </div>
 
         {/* ========================================================================= */}
-        {/* Interactive Unit Scale Estimator Widget */}
+        {/* 1. 3 Tier Plan Cards (Aparecen de primero como solicitó el usuario) */}
         {/* ========================================================================= */}
-        <div className="max-w-4xl mx-auto mb-16 p-6 sm:p-8 rounded-3xl bg-slate-900/80 border border-slate-800/90 shadow-2xl backdrop-blur-xl">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-5">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400">
-                <Sliders className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-white font-['Plus_Jakarta_Sans']">
-                  Estimador Interactivo de Escala
-                </h3>
-                <p className="text-xs text-slate-400">Desplaza para calcular la inversión estimada de tu conjunto</p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-mono text-slate-400">Plan Recomendado:</span>
-              <span className="px-3 py-1 rounded-full text-xs font-bold bg-sky-500/20 text-sky-300 border border-sky-500/30">
-                {PLANS.find((p) => p.id === recommendedPlanId)?.name}
-              </span>
-            </div>
-          </div>
-
-          <div className="pt-6 space-y-6">
-            {/* Slider Value Heading */}
-            <div className="flex items-baseline justify-between">
-              <span className="text-xs sm:text-sm font-semibold text-slate-300">
-                Número de Unidades Habitacionales (Apartamentos / Casas):
-              </span>
-              <div className="text-right">
-                <span className="text-3xl font-extrabold font-mono text-sky-400">
-                  {unitsCount}
-                </span>
-                <span className="text-xs text-slate-400 ml-1.5 font-medium">unidades</span>
-              </div>
-            </div>
-
-            {/* Custom Range Slider */}
-            <div className="space-y-2">
-              <input
-                type="range"
-                min="20"
-                max="500"
-                step="5"
-                value={unitsCount}
-                onChange={(e) => setUnitsCount(Number(e.target.value))}
-                className="w-full h-2.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-sky-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
-              />
-              <div className="flex justify-between text-[11px] font-mono text-slate-500">
-                <span>20 (Torre Única)</span>
-                <span>80 (Conjunto Promedio)</span>
-                <span>200 (Multi-Torre)</span>
-                <span>500+ (Macro-Proyecto)</span>
-              </div>
-            </div>
-
-            {/* Estimated Total Bar */}
-            <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="space-y-1">
-                <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
-                  <Calendar className="w-3.5 h-3.5 text-emerald-400" />
-                  Inversión Mensual Estimada para {unitsCount} Unidades:
-                </span>
-                <p className="text-[11px] text-slate-400">
-                  Tarifa base por unidad: {formatCOP(BASE_RATES[recommendedPlanId][billingCycle])} COP / mes
-                  {billingCycle === 'annual' && ' (con 20% de descuento anual aplicado)'}.
-                </p>
-              </div>
-
-              <div className="text-left sm:text-right">
-                <div className="text-2xl sm:text-3xl font-extrabold font-mono text-emerald-400">
-                  {formatCOP(unitsCount * BASE_RATES[recommendedPlanId][billingCycle])}
-                </div>
-                <span className="text-[10px] font-mono text-slate-500">COP / Mes (Liquidación {billingCycle === 'annual' ? 'Anual' : 'Mensual'})</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* ========================================================================= */}
-        {/* 3 Tier Plan Cards with Dynamic Highlight */}
-        {/* ========================================================================= */}
-        <div ref={cardsRef} className="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-6xl mx-auto mb-14">
+        <div ref={cardsRef} className="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-6xl mx-auto mb-16">
           {PLANS.map((plan) => {
             const Icon = plan.icon;
             const isRecommended = plan.id === recommendedPlanId;
@@ -420,6 +339,84 @@ export default function LandingPricing() {
               </div>
             );
           })}
+        </div>
+
+        {/* ========================================================================= */}
+        {/* 2. Interactive Unit Scale Estimator Widget (Aparece luego de los planes) */}
+        {/* ========================================================================= */}
+        <div className="max-w-4xl mx-auto mb-16 p-6 sm:p-8 rounded-3xl bg-slate-900/80 border border-slate-800/90 shadow-2xl backdrop-blur-xl">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-5">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400">
+                <Sliders className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white font-['Plus_Jakarta_Sans']">
+                  Estimador Interactivo de Escala
+                </h3>
+                <p className="text-xs text-slate-400">Desplaza para calcular la inversión estimada de tu conjunto</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-400 font-mono">Plan Recomendado:</span>
+              <span className="px-3 py-1 rounded-full text-xs font-bold bg-sky-500/15 text-sky-300 border border-sky-500/30">
+                {PLANS.find((p) => p.id === recommendedPlanId)?.name}
+              </span>
+            </div>
+          </div>
+
+          <div className="pt-6 space-y-6">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold text-slate-200">
+                Número de Unidades Habitacionales (Apartamentos / Casas):
+              </span>
+              <span className="text-2xl font-extrabold font-mono text-sky-400">
+                {unitsCount} <span className="text-xs font-sans text-slate-400 font-normal">unidades</span>
+              </span>
+            </div>
+
+            {/* Slider */}
+            <div className="space-y-2">
+              <input
+                type="range"
+                min="20"
+                max="500"
+                step="5"
+                value={unitsCount}
+                onChange={(e) => setUnitsCount(Number(e.target.value))}
+                className="w-full h-2.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-sky-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
+                aria-label="Ajustar número de unidades habitacionales"
+              />
+              <div className="flex justify-between text-[11px] text-slate-500 font-mono">
+                <span>20 (Torre Única)</span>
+                <span>80 (Conjunto Promedio)</span>
+                <span>200 (Multi-Torre)</span>
+                <span>500+ (Macro-Proyecto)</span>
+              </div>
+            </div>
+
+            {/* Dynamic Calculated Strip */}
+            <div className="p-4 rounded-2xl bg-[#070D18] border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="space-y-1">
+                <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-sky-400" />
+                  Inversión Mensual Estimada para {unitsCount} Unidades:
+                </span>
+                <p className="text-[11px] text-slate-400">
+                  Tarifa base por unidad: {formatCOP(BASE_RATES[recommendedPlanId][billingCycle])} COP / mes
+                  {billingCycle === 'annual' && ' (con 20% de descuento anual aplicado)'}.
+                </p>
+              </div>
+
+              <div className="text-left sm:text-right">
+                <div className="text-2xl sm:text-3xl font-extrabold font-mono text-emerald-400">
+                  {formatCOP(unitsCount * BASE_RATES[recommendedPlanId][billingCycle])}
+                </div>
+                <span className="text-[10px] font-mono text-slate-500">COP / Mes (Liquidación {billingCycle === 'annual' ? 'Anual' : 'Mensual'})</span>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* ========================================================================= */}

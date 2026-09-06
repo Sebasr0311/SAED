@@ -155,13 +155,12 @@ export default function LandingFooter() {
             <h4 className="text-xs font-bold uppercase tracking-wider text-white">Comunidad</h4>
             <ul className="space-y-2">
               <li>
-                <a
-                  href="#planes"
-                  onClick={(e) => { e.preventDefault(); scrollTo('#planes'); }}
+                <Link
+                  to="/suscripciones"
                   className="hover:text-sky-400 transition-colors py-1 block"
                 >
-                  Planes por Unidades
-                </a>
+                  Planes y Suscripciones
+                </Link>
               </li>
               <li>
                 <Link to="/login" className="hover:text-emerald-300 transition-colors py-1 block">

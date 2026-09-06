@@ -208,20 +208,17 @@ export default function LandingHero() {
               }}
               className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-8 py-4 text-base font-bold text-slate-950 bg-gradient-to-r from-cyan-400 via-sky-400 to-cyan-400 hover:from-cyan-300 hover:to-sky-300 rounded-xl shadow-xl shadow-sky-500/25 hover:shadow-sky-400/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 transition-all transform active:scale-[0.98] min-h-[50px]"
             >
-              <span>Conocer SAED</span>
+              <span>Ver demostración interactiva</span>
               <ArrowRight className="w-4 h-4" />
             </a>
 
-            <a
-              href="#planes"
-              onClick={(e) => {
-                e.preventDefault();
-                scrollTo('#planes');
-              }}
+            <Link
+              to="/suscripciones"
               className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-4 text-base font-semibold text-slate-200 hover:text-white bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 hover:border-white/20 rounded-xl backdrop-blur-md transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 min-h-[50px]"
             >
-              <span>Ver planes</span>
-            </a>
+              <Sparkles className="w-4 h-4 text-sky-400" />
+              <span>Ver planes y tarifas</span>
+            </Link>
           </div>
 
           {/* Direct Login Link */}
