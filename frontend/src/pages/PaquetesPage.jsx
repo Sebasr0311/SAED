@@ -178,7 +178,7 @@ export default function PaquetesPage() {
     if (!file) return;
     const reader = new window.FileReader();
     reader.onload = (evt) => {
-      const img = new Image();
+      const img = new window.Image();
       img.onload = () => {
         const compressed = comprimirImagen(img);
         setFoto(compressed);
