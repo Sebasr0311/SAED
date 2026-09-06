@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useMemo } from 'react';
 import { Button } from '../components/ui/Button.jsx';
 import { Input, Select, Textarea } from '../components/ui/Form.jsx';
 import { DataTable } from '../components/ui/DataTable.jsx';
@@ -7,8 +7,8 @@ import { Modal } from '../components/ui/Modal.jsx';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog.jsx';
 import { toast } from 'sonner';
 import { useFetch, useTiposDocumento, useLiveValidation } from '../lib/hooks.js';
-import api from '../lib/api.js';
-import { formatDate, imageSrc } from '../lib/utils.js';
+import { useTenantApi } from '../lib/useTenantApi.js';
+import { formatDate, formatApto, imageSrc } from '../lib/utils.js';
 import {
   soloNumeros,
   soloLetras,
@@ -44,8 +44,9 @@ function configDocumento(codigo) {
 }
 
 const emptyForm = {
+  unidadId: '',
   idResidente: '',
-  tiempoValidezMin: '30',
+  tiempoValidezMin: '60',
   cantidadPersonas: '1',
   tipoDoc: '',
   documento: '',
@@ -60,6 +61,7 @@ const emptyForm = {
 };
 
 export default function VisitasPage() {
+  const api = useTenantApi();
   const [filtroEstado, setFiltroEstado] = useState('');
   const [filtroFecha, setFiltroFecha] = useState('');
   const [detalle, setDetalle] = useState(null);
@@ -74,19 +76,28 @@ export default function VisitasPage() {
   const savingRef = useRef(false);
 
   const { data: dataRaw, loading, refetch } = useFetch(() => api.get('/porteria/visitas-resumen'), []);
-  // Residentes para el selector del formulario: se cargan solo al abrir el modal
-  // (evita un request innecesario al montar la página de listado).
+  // Residentes y unidades para el selector del formulario: se cargan al abrir el modal
   const [residentesCargados, setResidentesCargados] = useState(false);
   const { data: residentesRaw } = useFetch(
     () => (residentesCargados ? api.get('/personas') : Promise.resolve([])),
     [residentesCargados]
   );
+  const { data: unidadesRaw } = useFetch(
+    () => (residentesCargados ? api.get('/units') : Promise.resolve([])),
+    [residentesCargados]
+  );
   const { tiposDoc } = useTiposDocumento();
   const { touch, touchAll, resetTouched, fieldError } = useLiveValidation();
 
-  const residentes = (residentesRaw?.items || residentesRaw || []).slice().sort(
-    (a, b) => (parseInt(a.numeroApartamento, 10) || 0) - (parseInt(b.numeroApartamento, 10) || 0)
-  );
+  const unidades = useMemo(() => {
+    const list = unidadesRaw?.items || unidadesRaw || [];
+    return Array.isArray(list) ? list : [];
+  }, [unidadesRaw]);
+
+  const residentes = useMemo(() => {
+    const list = residentesRaw?.items || residentesRaw || [];
+    return Array.isArray(list) ? list : [];
+  }, [residentesRaw]);
 
   const filtradas = (dataRaw?.items || dataRaw || []).filter((v) => {
     if (filtroEstado && (!v.estado || v.estado !== filtroEstado)) return false;
@@ -98,7 +109,7 @@ export default function VisitasPage() {
   async function verDetalle(row) {
     setLoadingDetalle(true);
     try {
-      const d = await api.get(`/porteria/visitas/${row.idVisita}`);
+      const d = await api.get(`/porteria/visitas/${row.idVisita}/detalle`);
       setDetalle(d);
     } catch (err) {
       toast.error(err.message);
@@ -157,8 +168,9 @@ export default function VisitasPage() {
 
   function validate() {
     const e = {};
-    const rRes = valSelect(form.idResidente, 'Seleccione el residente autorizante');
-    if (!rRes.ok) e.idResidente = rRes.mensaje;
+    if (!form.unidadId && !form.idResidente) {
+      e.unidadId = 'Seleccione el apartamento de destino o el residente autorizante';
+    }
     const rTipo = valSelect(form.tipoDoc, 'Seleccione el tipo de documento');
     if (!rTipo.ok) e.tipoDoc = rTipo.mensaje;
     const rDoc = valDocumento(form.documento, codigoTipoDoc(form.tipoDoc), 'El documento del visitante');
@@ -189,6 +201,7 @@ export default function VisitasPage() {
   async function registrar() {
     if (savingRef.current) return; // doble submit
     const fieldsToTouch = [
+      'unidadId',
       'idResidente',
       'tiempoValidezMin',
       'cantidadPersonas',
@@ -206,12 +219,13 @@ export default function VisitasPage() {
     savingRef.current = true;
     setSending(true);
     try {
-      const d = {
-        idResidente: Number(form.idResidente),
-        tiempoValidezMin: Number(form.tiempoValidezMin),
-        cantidadPersonas: Number(form.cantidadPersonas),
+      const payload = {
+        unidadId: form.unidadId ? Number(form.unidadId) : undefined,
+        idResidente: form.idResidente ? Number(form.idResidente) : undefined,
+        tiempoValidezMin: Number(form.tiempoValidezMin || 60),
+        cantidadPersonas: Number(form.cantidadPersonas || 1),
         visitante: {
-          idTipoDoc: Number(form.tipoDoc),
+          idTipoDoc: form.tipoDoc ? Number(form.tipoDoc) : 1,
           numeroDocumento: form.documento.trim(),
           nombres: form.nombres.trim(),
           apellidos: form.apellidos.trim(),
@@ -221,19 +235,18 @@ export default function VisitasPage() {
         notas: form.notas.trim(),
       };
       if (form.tipoVehiculo === 'BICICLETA') {
-        d.vehiculo = { tipo: form.tipoVehiculo, descripcion: form.descripcion.trim() };
+        payload.vehiculo = { tipo: form.tipoVehiculo, descripcion: form.descripcion.trim() };
       } else if (form.tipoVehiculo && form.placa.trim()) {
-        d.vehiculo = { placa: form.placa.trim().toUpperCase(), tipo: form.tipoVehiculo };
+        payload.vehiculo = { placa: form.placa.trim().toUpperCase(), tipo: form.tipoVehiculo };
       }
-      const res = await api.post('/porteria/visitas', { unidadId: d.unidadId, visitanteId: d.visitante.idPersona, metodoIngreso: d.metodoIngreso || 'PEATONAL', motivo: d.motivo, fechaProgramada: d.fechaVisita, estado: 'PROGRAMADA' });
-      setQrGenerado({ ...res, emailVisitante: d.visitante.email });
-      toast.success('Visita registrada exitosamente');
+      const res = await api.post('/porteria/visitas', payload);
+      setQrGenerado({ ...res, emailVisitante: payload.visitante.email });
+      toast.success('Visita registrada y código QR generado');
       setForm(emptyForm);
       setErrors({});
       resetTouched();
       refetch();
     } catch (err) {
-      // Conservar los datos introducidos para permitir corregir y reintentar
       toast.error(err.message || 'Error al registrar la visita');
       const apiErrors = err.errors || err.response?.data?.errors;
       if (apiErrors && typeof apiErrors === 'object') {
@@ -282,7 +295,7 @@ export default function VisitasPage() {
     { key: 'idVisita', label: 'ID', width: 60 },
     { key: 'nombreVisitante', label: 'Visitante' },
     { key: 'documentoVisitante', label: 'Documento' },
-    { key: 'numeroApartamento', label: 'Apartamento' },
+    { key: 'numeroApartamento', label: 'Apartamento', render: (r) => formatApto(r.numeroApartamento) },
     {
       key: 'fechaIngreso',
       label: 'Ingreso',
@@ -425,37 +438,50 @@ export default function VisitasPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <div className="form-row">
               <Select
-                id="vis-residente"
-                label="Residente Autorizante"
-                value={form.idResidente}
-                onChange={(e) => update('idResidente', e.target.value)}
-                onBlur={() => touch('idResidente')}
-                error={fieldError('idResidente', valSelect(form.idResidente, 'Seleccione el residente autorizante')) || errors.idResidente}
+                id="vis-unidad"
+                label="Apartamento Destino"
+                value={form.unidadId}
+                onChange={(e) => update('unidadId', e.target.value)}
+                onBlur={() => touch('unidadId')}
+                error={fieldError('unidadId', !form.unidadId && !form.idResidente ? { ok: false, mensaje: 'Seleccione un apartamento de destino' } : { ok: true }) || errors.unidadId}
                 required
               >
-                <option value="">Seleccione...</option>
+                <option value="">Seleccione apartamento...</option>
+                {unidades.map((u) => (
+                  <option key={u.id || u.idApartamento} value={u.id || u.idApartamento}>
+                    {formatApto(u.numero || u.identificador)}
+                  </option>
+                ))}
+              </Select>
+              <Select
+                id="vis-residente"
+                label="Residente Autorizante (Opcional)"
+                value={form.idResidente}
+                onChange={(e) => update('idResidente', e.target.value)}
+              >
+                <option value="">Cualquier residente / Portería</option>
                 {residentes.map((r) => (
                   <option key={r.id} value={r.id}>
-                    {r.numeroApartamento ? `${r.numeroApartamento} - ` : ''}
+                    {r.numeroApartamento ? `${formatApto(r.numeroApartamento)} - ` : ''}
                     {r.primerNombre || r.nombres} {r.primerApellido || r.apellidos}
                   </option>
                 ))}
               </Select>
+            </div>
+            <div className="form-row">
               <Input
                 id="vis-validez"
                 label="Tiempo Validez (min)"
                 type="number"
                 min="5"
                 max="1440"
-                placeholder="30"
+                placeholder="60"
                 value={form.tiempoValidezMin}
                 onChange={(e) => update('tiempoValidezMin', e.target.value)}
                 onBlur={() => touch('tiempoValidezMin')}
                 error={fieldError('tiempoValidezMin', valEntero(form.tiempoValidezMin, { min: 5, max: 1440, label: 'El tiempo de validez' })) || errors.tiempoValidezMin}
                 required
               />
-            </div>
-            <div className="form-row">
               <Input
                 id="vis-personas"
                 label="Cantidad Personas"
@@ -631,7 +657,7 @@ export default function VisitasPage() {
             </div>
             <div className="detail-row">
               <span>Apartamento</span>
-              <span>{detalle.numeroApartamento}</span>
+              <span>{formatApto(detalle.numeroApartamento)}</span>
             </div>
             <div className="detail-row">
               <span>Ingreso</span>

@@ -32,7 +32,7 @@ public class PersonaController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_PORTERO')")
     public ResponseEntity<Long> createPersona(@Valid @RequestBody PersonaRequestDTO request) {
         Long personaId = personaService.createPersona(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(personaId);

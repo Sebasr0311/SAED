@@ -14,6 +14,14 @@ export function formatCurrency(value) {
   }).format(value);
 }
 
+/** Formatea número o identificador de apartamento evitando duplicación 'Apto Apto'. */
+export function formatApto(val, defaultVal = '-') {
+  if (!val) return defaultVal;
+  const str = String(val).trim();
+  if (str.toLowerCase().startsWith('apto')) return str;
+  return `Apto ${str}`;
+}
+
 export function classNames(...parts) {
   return parts.filter(Boolean).join(' ');
 }

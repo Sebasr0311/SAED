@@ -28,7 +28,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card.
 import { Select, Textarea } from '../components/ui/Form.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
 import { DataTable } from '../components/ui/DataTable.jsx';
-import { formatDate, imageSrc } from '../lib/utils.js';
+import { formatDate, formatApto, imageSrc } from '../lib/utils.js';
 import { VideoCamara } from '../components/ui/VideoCamara.jsx';
 
 const ACCIONES_OPERATIVAS = [
@@ -62,7 +62,7 @@ const ACCIONES_OPERATIVAS = [
   },
 ];
 
-function ModalAvisoRuido({ open, onClose, onConfirm, apartamentos }) {
+function ModalAvisoRuido({ open, onClose, onConfirm, apartamentos, tenantApi }) {
   const [idApartamento, setIdApartamento] = useState('');
   const [cuerpo, setCuerpo] = useState('Ruido excesivo en zona común. Por favor moderar el volumen.');
   const [sending, setSending] = useState(false);
@@ -71,11 +71,14 @@ function ModalAvisoRuido({ open, onClose, onConfirm, apartamentos }) {
     if (!idApartamento) return;
     setSending(true);
     try {
-      await api.post('/buzon/aviso-ruido', {
+      await tenantApi.post('/buzon/aviso-ruido', {
         idApartamento: Number(idApartamento),
         cuerpo,
       });
+      toast.success('Aviso de ruido notificado al residente');
       onConfirm();
+    } catch (err) {
+      toast.error(err.message || 'Error al enviar aviso');
     } finally {
       setSending(false);
     }
@@ -107,10 +110,10 @@ function ModalAvisoRuido({ open, onClose, onConfirm, apartamentos }) {
           >
             <option value="">- Seleccionar apartamento -</option>
             {(apartamentos?.items || apartamentos || [])
-              .filter((a) => a.estado === 'OCUPADO')
+              .filter((a) => a.estado === 'ACTIVA' || a.estado === 'OCUPADO' || !a.estado)
               .map((a) => (
-                <option key={a.idApartamento} value={a.idApartamento}>
-                  Apto {a.numero}
+                <option key={a.idApartamento || a.id} value={a.idApartamento || a.id}>
+                  {formatApto(a.numero || a.identificador)}
                 </option>
               ))}
           </Select>
@@ -129,10 +132,9 @@ function ModalAvisoRuido({ open, onClose, onConfirm, apartamentos }) {
   );
 }
 
-function ModalGenerarMulta({ open, onClose, onConfirm, apartamentos, quejasRuido, tipoInicial }) {
+function ModalGenerarMulta({ open, onClose, onConfirm, apartamentos, tipoInicial, tenantApi }) {
   const [tipo, setTipo] = useState(tipoInicial || 'RUIDO');
   const [idApartamento, setIdApartamento] = useState('');
-  const [idMensaje, setIdMensaje] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [foto, setFoto] = useState(null);
   const [sending, setSending] = useState(false);
@@ -144,19 +146,28 @@ function ModalGenerarMulta({ open, onClose, onConfirm, apartamentos, quejasRuido
       return;
     }
     if (tipo === 'PARQUEADERO' && !foto) {
-      setError('La foto de evidencia es obligatoria para multa de parqueadero');
+      setError('La foto de evidencia es obligatoria para reporte de parqueadero');
       return;
     }
     setSending(true);
     setError('');
     try {
-      const payload = { tipo, idApartamento: Number(idApartamento), descripcion };
-      if (idMensaje) payload.idMensaje = Number(idMensaje);
-      if (foto) payload.fotoEvidencia = foto;
-      await api.post('/multas/generar', payload);
+      const payload = {
+        idUnidad: Number(idApartamento),
+        titulo: tipo === 'RUIDO' ? 'Infracción por Ruido Excesivo' : 'Infracción por Uso Indebido de Parqueadero',
+        tipoIncidente: tipo === 'RUIDO' ? 'CONVIVENCIA' : 'PARQUEADERO',
+        nivelSeveridad: 'MEDIA',
+        descripcionHechos: descripcion.trim() || (tipo === 'RUIDO' ? 'Ruido excesivo reiterado reportado desde portería' : 'Infracción de parqueadero reportada desde portería'),
+        fechaHoraIncidente: new Date().toISOString(),
+        evidenciasUrls: foto || null,
+        requirioAutoridades: 'N',
+        estado: 'ABIERTO',
+      };
+      await tenantApi.post('/incidentes', payload);
+      toast.success('Infracción reportada a administración');
       onConfirm();
     } catch (err) {
-      setError(err.message || 'Error al generar multa');
+      setError(err.message || 'Error al reportar la infracción');
     } finally {
       setSending(false);
     }
@@ -166,7 +177,7 @@ function ModalGenerarMulta({ open, onClose, onConfirm, apartamentos, quejasRuido
     <Modal
       open={open}
       onClose={onClose}
-      title={`Generar Multa (${tipo === 'RUIDO' ? 'Ruido Excesivo' : 'Parqueadero'})`}
+      title={`Reportar Infracción (${tipo === 'RUIDO' ? 'Ruido Excesivo' : 'Parqueadero'})`}
       size="md"
       footer={
         <div className="flex justify-end gap-2">
@@ -174,7 +185,7 @@ function ModalGenerarMulta({ open, onClose, onConfirm, apartamentos, quejasRuido
             Cancelar
           </Button>
           <Button onClick={send} disabled={sending}>
-            {sending ? 'Generando...' : 'Generar Multa'}
+            {sending ? 'Reportando...' : 'Reportar a Administración'}
           </Button>
         </div>
       }
@@ -188,41 +199,25 @@ function ModalGenerarMulta({ open, onClose, onConfirm, apartamentos, quejasRuido
         )}
 
         <div className="form-group">
-          <Select id="multaTipo" label="Tipo de Multa" value={tipo} onChange={(e) => setTipo(e.target.value)}>
-            <option value="RUIDO">Ruido Excesivo</option>
+          <Select id="multaTipo" label="Tipo de Infracción" value={tipo} onChange={(e) => setTipo(e.target.value)}>
+            <option value="RUIDO">Ruido Excesivo / Convivencia</option>
             <option value="PARQUEADERO">Infracción de Parqueadero</option>
           </Select>
         </div>
 
-        {tipo === 'RUIDO' && quejasRuido && quejasRuido.length > 0 && (
-          <div className="form-group">
-            <Select id="idMensaje" label="Vincular a aviso previo (opcional)" value={idMensaje} onChange={(e) => setIdMensaje(e.target.value)}>
-              <option value="">- Multa directa sin aviso previo -</option>
-              {quejasRuido.map((q) => (
-                <option key={q.idMensaje} value={q.idMensaje}>
-                  {formatDate(q.fechaCreacion)} - Apto {q.numeroApartamento} - {q.titulo}
-                </option>
-              ))}
-            </Select>
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              Deben haber transcurrido al menos 20 minutos desde el aviso (validado en backend).
-            </p>
-          </div>
-        )}
-
         <div className="form-group">
           <Select
             id="multaApto"
-            label="Apartamento Sancionado"
+            label="Apartamento Involucrado"
             value={idApartamento}
             onChange={(e) => setIdApartamento(e.target.value)}
           >
             <option value="">- Seleccionar apartamento -</option>
             {(apartamentos?.items || apartamentos || [])
-              .filter((a) => a.estado === 'OCUPADO')
+              .filter((a) => a.estado === 'ACTIVA' || a.estado === 'OCUPADO' || !a.estado)
               .map((a) => (
-                <option key={a.idApartamento} value={a.idApartamento}>
-                  Apto {a.numero}
+                <option key={a.idApartamento || a.id} value={a.idApartamento || a.id}>
+                  {formatApto(a.numero || a.identificador)}
                 </option>
               ))}
           </Select>
@@ -231,11 +226,11 @@ function ModalGenerarMulta({ open, onClose, onConfirm, apartamentos, quejasRuido
         <div className="form-group">
           <Textarea
             id="multaDesc"
-            label="Descripción del Suceso"
+            label="Descripción de los Hechos"
             rows={2}
             value={descripcion}
             onChange={(e) => setDescripcion(e.target.value)}
-            placeholder={tipo === 'RUIDO' ? 'Música a alto volumen reiterada...' : 'Vehículo invadiendo zona de maniobra o cupo ajeno...'}
+            placeholder={tipo === 'RUIDO' ? 'Música a alto volumen reiterada en zona común o apartamento...' : 'Vehículo ocupando zona de maniobra o parqueadero ajeno...'}
           />
         </div>
 
@@ -260,9 +255,9 @@ function ModalGenerarMulta({ open, onClose, onConfirm, apartamentos, quejasRuido
   );
 }
 
-function ModalPaquetes({ open, onClose, onConfirm }) {
+function ModalPaquetes({ open, onClose, onConfirm, tenantApi }) {
   const { data: paquetes, loading, refetch } = useFetch(
-    () => (open ? api.get('/buzon/paquetes') : Promise.resolve([])),
+    () => (open ? tenantApi.get('/buzon/paquetes') : Promise.resolve([])),
     [open]
   );
   const [detalle, setDetalle] = useState(null);
@@ -271,7 +266,8 @@ function ModalPaquetes({ open, onClose, onConfirm }) {
   async function marcarEntregado(idMensaje) {
     setMarcaId(idMensaje);
     try {
-      await api.put(`/buzon/${idMensaje}/entregado`);
+      await tenantApi.put(`/buzon/${idMensaje}/entregado`);
+      toast.success('Encomienda entregada exitosamente');
       onConfirm();
       refetch();
     } catch (err) {
@@ -301,7 +297,7 @@ function ModalPaquetes({ open, onClose, onConfirm }) {
         <DataTable
           columns={[
             { key: 'idMensaje', label: 'ID', width: 60 },
-            { key: 'numeroApartamento', label: 'Apto' },
+            { key: 'numeroApartamento', label: 'Apto', render: (r) => formatApto(r.numeroApartamento) },
             { key: 'nombreResidente', label: 'Destinatario' },
             { key: 'fechaCreacion', label: 'Recibido', render: (r) => formatDate(r.fechaCreacion) },
             {
@@ -348,7 +344,7 @@ function ModalPaquetes({ open, onClose, onConfirm }) {
           <div className="space-y-3">
             <div className="flex justify-between border-b border-border/60 pb-2 text-xs">
               <span className="text-muted-foreground">Apartamento:</span>
-              <span className="font-bold text-foreground">Apto {detalle.numeroApartamento}</span>
+              <span className="font-bold text-foreground">{formatApto(detalle.numeroApartamento)}</span>
             </div>
             <div className="flex justify-between border-b border-border/60 pb-2 text-xs">
               <span className="text-muted-foreground">Destinatario:</span>
@@ -391,12 +387,8 @@ export default function PorteroDashboardPage() {
     () => tenantApi.get('/parqueaderos'),
     []
   );
-  const { data: paquetesRaw } = useFetch(() => api.get('/buzon/paquetes-pendientes'), []);
-  const { data: apartamentos } = useFetch(() => api.get('/units'), []);
-  const { data: quejasRuido } = useFetch(
-    () => (modalMulta === 'RUIDO' ? api.get('/buzon/quejas-ruido-pendientes') : Promise.resolve([])),
-    [modalMulta]
-  );
+  const { data: paquetesRaw } = useFetch(() => tenantApi.get('/buzon/paquetes-pendientes'), []);
+  const { data: apartamentos } = useFetch(() => tenantApi.get('/units'), []);
 
   const visitas = useMemo(() => {
     const list = Array.isArray(visitasRaw) ? visitasRaw : visitasRaw?.items ?? [];
@@ -644,9 +636,9 @@ export default function PorteroDashboardPage() {
         onClose={() => setModalAviso(false)}
         onConfirm={() => {
           setModalAviso(false);
-          toast.success('Aviso de ruido notificado al residente');
         }}
         apartamentos={apartamentos?.items || apartamentos || []}
+        tenantApi={tenantApi}
       />
 
       <ModalGenerarMulta
@@ -654,17 +646,17 @@ export default function PorteroDashboardPage() {
         onClose={() => setModalMulta(null)}
         onConfirm={() => {
           setModalMulta(null);
-          toast.success('Multa generada con éxito');
         }}
         apartamentos={apartamentos?.items || apartamentos || []}
-        quejasRuido={quejasRuido?.items || quejasRuido || []}
         tipoInicial={modalMulta}
+        tenantApi={tenantApi}
       />
 
       <ModalPaquetes
         open={modalPaquetes}
         onClose={() => setModalPaquetes(false)}
         onConfirm={() => toast.success('Encomienda entregada exitosamente')}
+        tenantApi={tenantApi}
       />
     </PageContainer>
   );

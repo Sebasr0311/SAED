@@ -25,7 +25,7 @@ import {
 import { useTenantApi } from '../lib/useTenantApi.js';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { useFetch } from '../lib/hooks.js';
-import { formatDate, imageSrc } from '../lib/utils.js';
+import { formatDate, formatApto, imageSrc } from '../lib/utils.js';
 import PageContainer from '../components/layout/PageContainer.jsx';
 import { MetricCard } from '../components/ui/MetricCard.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
@@ -501,7 +501,7 @@ export default function PaquetesPage() {
                         const num = u.numero || u.numeroApartamento || u.identificador;
                         return (
                           <option key={id} value={id}>
-                            Apto {num} {u.torre ? `(Torre ${u.torre})` : ''}
+                            {formatApto(num)} {u.torre ? `(Torre ${u.torre})` : ''}
                           </option>
                         );
                       })}
@@ -858,7 +858,7 @@ export default function PaquetesPage() {
                     return (
                       <tr key={id} className="hover:bg-muted/30 transition-colors">
                         <td className="px-4 py-3 font-semibold text-foreground whitespace-nowrap">
-                          Apto {p.numeroApartamento || 'N/A'}
+                          {formatApto(p.numeroApartamento)}
                         </td>
                         <td className="px-4 py-3 text-foreground whitespace-nowrap">
                           {p.nombreResidente || p.nombreDestinatario || 'Residente'}
@@ -956,7 +956,7 @@ export default function PaquetesPage() {
                     <div className="flex items-center justify-between border-b border-border/60 pb-2">
                       <div className="flex items-center gap-2">
                         <span className="text-base font-bold text-foreground">
-                          Apto {p.numeroApartamento || 'N/A'}
+                          {formatApto(p.numeroApartamento)}
                         </span>
                         <span className="text-xs text-muted-foreground">
                           • {p.nombreResidente || p.nombreDestinatario || 'Residente'}

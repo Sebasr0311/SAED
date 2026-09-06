@@ -69,13 +69,41 @@ public class ComunicadosController {
     }
 
     @PostMapping("/aviso-ruido")
-    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_PORTERO')")
     public ResponseEntity<Void> postAvisoRuido(@RequestBody Map<String, Object> payload) {
+        Long idResidente = payload.get("idResidente") != null ? Long.valueOf(payload.get("idResidente").toString()) : null;
+        Long idApartamento = payload.get("idApartamento") != null ? Long.valueOf(payload.get("idApartamento").toString()) : null;
+        String cuerpo = payload.get("cuerpo") != null ? payload.get("cuerpo").toString() : "Por favor modere el ruido en su apartamento.";
+
+        List<Long> userIds = new java.util.ArrayList<>();
+        if (idResidente != null) {
+            userIds.add(idResidente);
+        } else if (idApartamento != null) {
+            try {
+                userIds = jdbcTemplate.query(
+                    "SELECT u.ID_USUARIO FROM UNIDADES_HABITANTES uh " +
+                    "JOIN USUARIOS u ON uh.ID_PERSONA = u.ID_PERSONA " +
+                    "WHERE uh.ID_UNIDAD = :idUnidad AND uh.ACTIVO = 'S'",
+                    Map.of("idUnidad", idApartamento),
+                    (rs, rowNum) -> rs.getLong("ID_USUARIO")
+                );
+            } catch (Exception e) {
+                log.warning("No se pudieron resolver usuarios para aviso de ruido: " + e.getMessage());
+            }
+        }
+
         String sql = "INSERT INTO NOTIFICACIONES (ID_USUARIO_DESTINATARIO, CANAL, TITULO, MENSAJE, ESTADO_ENVIO) " +
-                     "VALUES (:idUsuario, 'ALERTA', 'Aviso por Ruido', 'Por favor modere el ruido en su apartamento.', 'ENVIADO')";
-        Map<String, Object> params = new HashMap<>();
-        params.put("idUsuario", payload.get("idResidente"));
-        jdbcTemplate.update(sql, params);
+                     "VALUES (:idUsuario, 'ALERTA', 'Aviso por Ruido', :mensaje, 'ENVIADO')";
+        for (Long uid : userIds) {
+            try {
+                Map<String, Object> params = new HashMap<>();
+                params.put("idUsuario", uid);
+                params.put("mensaje", cuerpo);
+                jdbcTemplate.update(sql, params);
+            } catch (Exception e) {
+                log.warning("Error insertando notificacion de aviso de ruido: " + e.getMessage());
+            }
+        }
         return ResponseEntity.ok().build();
     }
 
