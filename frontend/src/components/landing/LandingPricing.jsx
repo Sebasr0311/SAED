@@ -1,6 +1,7 @@
 import { useState, Fragment } from 'react';
-import { Check, ArrowRight, Building2, Layers, Crown, ChevronDown } from 'lucide-react';
+import { Check, ArrowRight, Building2, Layers, Crown, ChevronDown, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useScrollReveal } from '../../lib/animations.js';
 
 const PLANS = [
   {
@@ -96,17 +97,25 @@ const MATRIX_CATEGORIES = [
 
 export default function LandingPricing() {
   const [showMatrix, setShowMatrix] = useState(false);
+  const cardsRef = useScrollReveal({
+    selector: '.pricing-card',
+    stagger: 100,
+    distance: 28,
+  });
 
   return (
     <section
       id="planes"
-      className="py-20 sm:py-28 lg:py-32 bg-[#0F172A] text-white relative border-t border-slate-800/80"
+      className="py-20 sm:py-28 lg:py-32 bg-[#070B14] text-white relative border-t border-slate-800/80 overflow-hidden"
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[750px] h-[400px] bg-sky-500/5 blur-[160px] rounded-full pointer-events-none" />
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         
         {/* Section Header */}
         <div className="max-w-3xl mx-auto text-center space-y-4 mb-16 sm:mb-20">
-          <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold uppercase tracking-widest text-emerald-400 bg-emerald-500/10 border border-emerald-500/20">
+          <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold uppercase tracking-widest text-sky-400 bg-sky-500/10 border border-sky-500/20">
+            <Sparkles className="w-3.5 h-3.5 text-sky-400" />
             ESCALABILIDAD Y ALCANCE
           </span>
 
@@ -120,16 +129,16 @@ export default function LandingPricing() {
         </div>
 
         {/* 3 Editorial Tiers Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-6xl mx-auto mb-12">
+        <div ref={cardsRef} className="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-6xl mx-auto mb-12">
           {PLANS.map((plan) => {
             const Icon = plan.icon;
             return (
               <div
                 key={plan.name}
-                className={`p-7 sm:p-8 rounded-3xl border flex flex-col justify-between transition-all ${
+                className={`pricing-card p-7 sm:p-8 rounded-3xl border flex flex-col justify-between transition-all duration-300 ${
                   plan.highlighted
-                    ? 'bg-gradient-to-b from-[#102347] to-[#0A1628] border-emerald-500/50 shadow-2xl shadow-emerald-950/40 relative lg:-translate-y-2'
-                    : 'bg-slate-900/80 border-slate-800 hover:border-slate-700'
+                    ? 'bg-gradient-to-b from-[#0F224A] via-[#09152E] to-[#070E1E] border-sky-400/50 shadow-2xl shadow-sky-950/40 relative lg:-translate-y-2 hover:border-sky-400 hover:shadow-sky-500/10'
+                    : 'bg-slate-900/60 backdrop-blur-md border-slate-800 hover:border-slate-700 hover:shadow-xl hover:-translate-y-1'
                 }`}
               >
                 <div className="space-y-5">

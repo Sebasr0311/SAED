@@ -15,7 +15,7 @@ export default function LandingFooter() {
   };
 
   return (
-    <footer className="bg-[#070D18] border-t border-slate-800 text-slate-400 pt-16 pb-12 text-xs">
+    <footer className="bg-[#050810] border-t border-slate-800/80 text-slate-400 pt-16 pb-12 text-xs">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* Main Grid */}
@@ -24,12 +24,12 @@ export default function LandingFooter() {
           {/* Brand Identity Column */}
           <div className="lg:col-span-2 space-y-4">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#1E4080] to-[#0A1628] border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#122347] to-[#070B14] border border-sky-500/30 flex items-center justify-center text-sky-400 shadow-sm shadow-sky-500/10">
                 <Building2 className="w-5 h-5" />
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-xl font-extrabold text-white font-['Plus_Jakarta_Sans']">SAED</span>
-                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/25">
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-400 border border-sky-500/25">
                   2.0
                 </span>
               </div>
@@ -39,17 +39,17 @@ export default function LandingFooter() {
               Plataforma PropTech de gestión integral, control de acceso y finanzas para propiedades horizontales y conjuntos residenciales en Colombia.
             </p>
 
-            <div className="flex items-center gap-2 text-emerald-400 font-medium pt-1">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <div className="flex items-center gap-2 text-sky-400 font-medium pt-1">
+              <span className="w-2 h-2 rounded-full bg-sky-400 animate-pulse" />
               <span>Infraestructura Cloud Operativa</span>
             </div>
 
             <div className="pt-2">
               <Link
                 to="/login"
-                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold transition-colors border border-slate-700 min-h-[44px]"
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] text-white font-semibold transition-all border border-white/10 hover:border-white/20 backdrop-blur-md min-h-[44px]"
               >
-                <LogIn className="w-4 h-4 text-emerald-400" />
+                <LogIn className="w-4 h-4 text-sky-400" />
                 <span>Acceder a la plataforma</span>
               </Link>
             </div>
