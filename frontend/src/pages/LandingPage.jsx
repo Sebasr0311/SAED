@@ -28,7 +28,7 @@ export default function LandingPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#0A1628] text-white flex flex-col selection:bg-emerald-500/20 selection:text-emerald-400">
+    <div className="min-h-screen bg-[#070B14] text-slate-100 flex flex-col selection:bg-sky-500/25 selection:text-sky-300">
       {/* 1. Minimalist Translucent Sticky Navigation Header */}
       <LandingNavbar />
 

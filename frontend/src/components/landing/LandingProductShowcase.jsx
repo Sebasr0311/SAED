@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   BarChart3,
   QrCode,
@@ -11,10 +11,13 @@ import {
   CreditCard,
   Users,
   KeyRound,
+  Sparkles,
 } from 'lucide-react';
+import { animate, stagger } from 'animejs';
 
 export default function LandingProductShowcase() {
   const [activeTab, setActiveTab] = useState('dashboard');
+  const tabContentRef = useRef(null);
 
   const tabs = [
     { id: 'dashboard', label: '01 Dashboard & Cartera', icon: BarChart3 },
@@ -22,19 +25,33 @@ export default function LandingProductShowcase() {
     { id: 'operacion', label: '03 Paquetería & Parqueaderos', icon: Package },
   ];
 
+  // Trigger Anime.js staggered reveal whenever activeTab changes
+  useEffect(() => {
+    if (tabContentRef.current) {
+      animate(tabContentRef.current.children, {
+        opacity: [0, 1],
+        translateY: [18, 0],
+        duration: 550,
+        delay: stagger(70),
+        ease: 'outExpo',
+      });
+    }
+  }, [activeTab]);
+
   return (
     <section
       id="producto"
-      className="py-20 sm:py-28 lg:py-32 bg-[#0A1628] text-white relative border-t border-slate-800/80 overflow-hidden"
+      className="py-20 sm:py-28 lg:py-32 bg-[#070B14] text-white relative border-t border-slate-800/80 overflow-hidden"
     >
       {/* Background ambient lighting */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] bg-emerald-500/5 blur-[150px] rounded-full pointer-events-none" />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[850px] h-[420px] bg-sky-500/10 blur-[160px] rounded-full pointer-events-none" />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         
         {/* Section Header */}
         <div className="max-w-3xl mx-auto text-center space-y-4 mb-12 sm:mb-16">
-          <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold uppercase tracking-widest text-emerald-400 bg-emerald-500/10 border border-emerald-500/20">
+          <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold uppercase tracking-widest text-sky-400 bg-sky-500/10 border border-sky-500/20">
+            <Sparkles className="w-3.5 h-3.5 text-sky-400" />
             EXPERIENCIA DE PRODUCTO
           </span>
           <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-white leading-tight font-['Plus_Jakarta_Sans']">
@@ -46,10 +63,10 @@ export default function LandingProductShowcase() {
         </div>
 
         {/* Browser Frame */}
-        <div className="max-w-6xl mx-auto rounded-2xl sm:rounded-3xl border border-slate-700/80 bg-[#0F172A] shadow-2xl shadow-black/80 overflow-hidden">
+        <div className="max-w-6xl mx-auto rounded-2xl sm:rounded-3xl border border-slate-800/90 bg-[#090E17] shadow-2xl shadow-black/90 overflow-hidden">
           
           {/* Top Browser Frame Chrome */}
-          <div className="px-4 py-3 bg-[#0A1628] border-b border-slate-800 flex items-center justify-between flex-wrap gap-3">
+          <div className="px-4 py-3 bg-[#060910] border-b border-slate-800/90 flex items-center justify-between flex-wrap gap-3">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-rose-500/80" />
               <div className="w-3 h-3 rounded-full bg-amber-500/80" />
@@ -59,14 +76,14 @@ export default function LandingProductShowcase() {
               </span>
             </div>
 
-            <div className="flex items-center gap-2 text-xs text-slate-400 bg-slate-900/90 px-3 py-1 rounded-full border border-slate-800">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <div className="flex items-center gap-2 text-xs text-slate-300 bg-slate-900/90 px-3 py-1 rounded-full border border-slate-800">
+              <span className="w-2 h-2 rounded-full bg-sky-400 animate-pulse" />
               <span>Entorno Demo Activo</span>
             </div>
           </div>
 
           {/* Interactive Navigation Tabs */}
-          <div className="bg-slate-900/90 border-b border-slate-800 px-4 sm:px-6 pt-3 flex items-center gap-2 overflow-x-auto no-scrollbar" role="tablist">
+          <div className="bg-slate-950/90 border-b border-slate-800 px-4 sm:px-6 pt-3 flex items-center gap-2 overflow-x-auto no-scrollbar" role="tablist">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
@@ -79,11 +96,11 @@ export default function LandingProductShowcase() {
                   onClick={() => setActiveTab(tab.id)}
                   className={`flex items-center gap-2.5 px-4 sm:px-5 py-3 rounded-t-xl text-xs sm:text-sm font-bold transition-all whitespace-nowrap border-b-2 min-h-[44px] ${
                     isActive
-                      ? 'bg-[#0F172A] text-white border-emerald-400 shadow-sm'
-                      : 'text-slate-400 hover:text-slate-200 border-transparent hover:bg-slate-800/40'
+                      ? 'bg-[#090E17] text-white border-sky-400 shadow-sm'
+                      : 'text-slate-400 hover:text-slate-200 border-transparent hover:bg-slate-900/40'
                   }`}
                 >
-                  <Icon className={`w-4 h-4 ${isActive ? 'text-emerald-400' : 'text-slate-500'}`} />
+                  <Icon className={`w-4 h-4 ${isActive ? 'text-sky-400' : 'text-slate-500'}`} />
                   <span>{tab.label}</span>
                 </button>
               );
@@ -91,7 +108,7 @@ export default function LandingProductShowcase() {
           </div>
 
           {/* Mockup Workspace Area */}
-          <div className="p-4 sm:p-6 lg:p-8 min-h-[440px] bg-[#0F172A]">
+          <div ref={tabContentRef} className="p-4 sm:p-6 lg:p-8 min-h-[440px] bg-[#090E17]">
             
             {/* TAB 01: DASHBOARD & CARTERA */}
             {activeTab === 'dashboard' && (

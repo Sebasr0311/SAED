@@ -1,4 +1,5 @@
-import { ShieldAlert, Building2, Building, ShieldCheck, UserCheck } from 'lucide-react';
+import { ShieldAlert, Building2, Building, ShieldCheck, UserCheck, Sparkles } from 'lucide-react';
+import { useScrollReveal } from '../../lib/animations.js';
 
 const ROLES = [
   {
@@ -43,26 +44,35 @@ const ROLES = [
     scope: 'Unidad Privada',
     description: 'Portal web ágil: emisión de invitaciones QR, pago de cuotas con Wompi, casillero y radicación de PQRS.',
     icon: UserCheck,
-    badgeColor: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
-    borderColor: 'border-amber-500/20',
+    badgeColor: 'bg-sky-500/10 text-sky-400 border-sky-500/20',
+    borderColor: 'border-sky-500/20',
   },
 ];
 
 export default function LandingTrust() {
+  const containerRef = useScrollReveal({
+    selector: '.role-card',
+    stagger: 90,
+    distance: 24,
+  });
+
   return (
-    <section className="py-20 sm:py-28 lg:py-32 bg-[#0A1628] text-white relative border-t border-slate-800/80">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <section className="py-20 sm:py-28 lg:py-32 bg-[#070B14] text-white relative border-t border-slate-800/80 overflow-hidden">
+      <div className="absolute top-1/3 right-1/4 w-[500px] h-[300px] bg-sky-500/5 blur-[140px] rounded-full pointer-events-none" />
+      
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         
         {/* Editorial Section Header */}
         <div className="max-w-3xl mx-auto text-center space-y-4 mb-16 sm:mb-20">
-          <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold uppercase tracking-widest text-emerald-400 bg-emerald-500/10 border border-emerald-500/20">
+          <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold uppercase tracking-widest text-sky-400 bg-sky-500/10 border border-sky-500/20">
+            <Sparkles className="w-3.5 h-3.5 text-sky-400" />
             GOBERNANZA Y AUTORIZACIÓN
           </span>
 
           <h2 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-tight font-['Plus_Jakarta_Sans']">
             Una plataforma.<br />
             Cinco roles.<br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-300">
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-cyan-200 to-sky-400">
               Una operación conectada.
             </span>
           </h2>
@@ -73,16 +83,16 @@ export default function LandingTrust() {
         </div>
 
         {/* Hierarchical Role Composition */}
-        <div className="max-w-5xl mx-auto space-y-4">
+        <div ref={containerRef} className="max-w-5xl mx-auto space-y-4">
           {ROLES.map((role) => {
             const Icon = role.icon;
             return (
               <div
                 key={role.code}
-                className={`p-5 sm:p-6 rounded-2xl bg-[#0F172A]/90 border ${role.borderColor} hover:border-emerald-500/40 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-lg`}
+                className={`role-card p-5 sm:p-6 rounded-2xl bg-slate-900/60 backdrop-blur-md border ${role.borderColor} hover:border-sky-500/40 transition-all duration-300 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xl hover:shadow-sky-500/5 hover:-translate-y-0.5`}
               >
                 <div className="flex items-start sm:items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-emerald-400 shrink-0">
+                  <div className="w-12 h-12 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-center text-sky-400 shrink-0 shadow-inner">
                     <Icon className="w-6 h-6" />
                   </div>
                   <div>
@@ -101,7 +111,7 @@ export default function LandingTrust() {
                 </div>
 
                 <div className="sm:text-right shrink-0">
-                  <span className="text-xs font-semibold text-slate-400 bg-slate-900/80 px-3 py-1.5 rounded-lg border border-slate-800 inline-block">
+                  <span className="text-xs font-semibold text-slate-400 bg-slate-950/80 px-3 py-1.5 rounded-lg border border-slate-800 inline-block">
                     {role.scope}
                   </span>
                 </div>
