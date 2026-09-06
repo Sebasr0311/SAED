@@ -385,6 +385,11 @@ export default function ResVisitasPage() {
       });
     } catch (err) {
       toast.error(err.message || 'Error al registrar la visita');
+      const apiErrors = err.errors || err.response?.data?.errors;
+      if (apiErrors && typeof apiErrors === 'object') {
+        setErrors((prev) => ({ ...prev, ...apiErrors }));
+        touchAll(Object.keys(apiErrors));
+      }
     } finally {
       sendingRef.current = false;
       setSending(false);
@@ -513,6 +518,10 @@ export default function ResVisitasPage() {
       });
     } catch (err) {
       toast.error(err.message || 'Error al generar el pase de visita rápida');
+      const apiErrors = err.errors || err.response?.data?.errors;
+      if (apiErrors && typeof apiErrors === 'object') {
+        setRapidoErrors((prev) => ({ ...prev, ...apiErrors }));
+      }
     } finally {
       rapidoRef.current = false;
       setGenerandoRapido(false);

@@ -2315,3 +2315,21 @@ input:-webkit-autofill:focus {
   box-shadow: 0 8px 24px -4px rgba(15, 23, 42, 0.08);
 }
 
+/* ==== Global Invalid Form Controls — Visual Feedback (Red Border & Focus Ring) ==== */
+input[aria-invalid="true"],
+select[aria-invalid="true"],
+textarea[aria-invalid="true"],
+[data-state="invalid"],
+.is-invalid {
+  border-color: var(--error, #e11d48) !important;
+  outline-color: var(--error, #e11d48) !important;
+  box-shadow: 0 0 0 1px var(--error, #e11d48), 0 0 0 3px rgba(225, 29, 72, 0.18) !important;
+}
+
+input[aria-invalid="true"]:focus-visible,
+select[aria-invalid="true"]:focus-visible,
+textarea[aria-invalid="true"]:focus-visible {
+  border-color: var(--error, #e11d48) !important;
+  box-shadow: 0 0 0 1.5px var(--error, #e11d48), 0 0 0 3.5px rgba(225, 29, 72, 0.28) !important;
+}
+

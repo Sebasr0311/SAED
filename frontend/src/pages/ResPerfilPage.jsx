@@ -134,13 +134,6 @@ export default function ResPerfilPage() {
     () => (unitId ? api.get(`/units/${unitId}/residents`) : Promise.resolve([])),
     [unitId]
   );
-  const { data: aptoResidentesLegacy } = useFetch(
-    () =>
-      !unitResidentsData?.length && (aptoInfo?.idApartamento || unitId)
-        ? api.get(`/residentes?idApartamento=${aptoInfo?.idApartamento || unitId}`)
-        : Promise.resolve([]),
-    [aptoInfo?.idApartamento, unitId, unitResidentsData]
-  );
 
   // 5. Asignaciones de parqueadero
   const { data: asignacionesParqueadero } = useFetch(() => api.get('/parqueaderos/asignaciones'), []);

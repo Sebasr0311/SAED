@@ -77,6 +77,7 @@ export default function PaquetesPage() {
   const [tamano, setTamano] = useState('MEDIANO');
   const [foto, setFoto] = useState(null);
   const [registrando, setRegistrando] = useState(false);
+  const [errors, setErrors] = useState({});
 
   // Cámara
   const [camaraActiva, setCamaraActiva] = useState(false);
@@ -111,10 +112,30 @@ export default function PaquetesPage() {
     return Array.isArray(list) ? list : [];
   }, [paquetesRaw]);
 
-  // Manejo de Cámara
+  // Manejo de Cámara y Compresión Ligera
   useEffect(() => {
     return () => detenerCamara();
   }, []);
+
+  function comprimirImagen(source, maxDim = 360, quality = 0.5) {
+    const canvas = document.createElement('canvas');
+    let w = source.videoWidth || source.naturalWidth || source.width || 640;
+    let h = source.videoHeight || source.naturalHeight || source.height || 480;
+    if (w > maxDim || h > maxDim) {
+      if (w > h) {
+        h = Math.round((h * maxDim) / w);
+        w = maxDim;
+      } else {
+        w = Math.round((w * maxDim) / h);
+        h = maxDim;
+      }
+    }
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(source, 0, 0, w, h);
+    return canvas.toDataURL('image/jpeg', quality);
+  }
 
   async function abrirCamara() {
     try {
@@ -146,13 +167,8 @@ export default function PaquetesPage() {
 
   function capturarFoto() {
     const video = videoRef.current;
-    const canvas = canvasRef.current;
-    if (!video || !canvas) return;
-    canvas.width = video.videoWidth || 640;
-    canvas.height = video.videoHeight || 480;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+    if (!video) return;
+    const dataUrl = comprimirImagen(video);
     setFoto(dataUrl);
     detenerCamara();
   }
@@ -162,7 +178,12 @@ export default function PaquetesPage() {
     if (!file) return;
     const reader = new window.FileReader();
     reader.onload = (evt) => {
-      setFoto(evt.target?.result);
+      const img = new Image();
+      img.onload = () => {
+        const compressed = comprimirImagen(img);
+        setFoto(compressed);
+      };
+      img.src = evt.target?.result;
     };
     reader.readAsDataURL(file);
   }
@@ -179,12 +200,16 @@ export default function PaquetesPage() {
   // Registrar Paquete
   async function handleRegistrar(e) {
     e.preventDefault();
+    const newErrors = {};
     if (!selectedUnidad) {
-      toast.error('Seleccione el apartamento destinatario');
-      return;
+      newErrors.selectedUnidad = 'Seleccione el apartamento destinatario';
     }
     if (!descripcion.trim()) {
-      toast.error('Ingrese una breve descripción del paquete');
+      newErrors.descripcion = 'Ingrese una breve descripción del paquete';
+    }
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      toast.error('Complete los campos obligatorios resaltados en rojo');
       return;
     }
 
@@ -192,6 +217,7 @@ export default function PaquetesPage() {
       empresaMensajeria === 'Otro' ? otraEmpresa.trim() || 'Servicio de Envíos' : empresaMensajeria;
 
     setRegistrando(true);
+    setErrors({});
     try {
       const payload = {
         idUnidad: Number(selectedUnidad),
@@ -221,9 +247,14 @@ export default function PaquetesPage() {
       setNumeroGuia('');
       setDescripcion('');
       setFoto(null);
+      setErrors({});
       refetchPaquetes();
     } catch (err) {
       toast.error(err.message || 'Error al registrar el paquete');
+      const apiErrors = err.errors || err.response?.data?.errors;
+      if (apiErrors && typeof apiErrors === 'object') {
+        setErrors((prev) => ({ ...prev, ...apiErrors }));
+      }
     } finally {
       setRegistrando(false);
     }
@@ -452,9 +483,17 @@ export default function PaquetesPage() {
                     </label>
                     <select
                       value={selectedUnidad}
-                      onChange={(e) => handleSelectUnidad(e.target.value)}
+                      onChange={(e) => {
+                        handleSelectUnidad(e.target.value);
+                        setErrors((prev) => ({ ...prev, selectedUnidad: undefined }));
+                      }}
                       required
-                      className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                      aria-invalid={Boolean(errors.selectedUnidad)}
+                      className={`w-full px-3 py-2.5 text-sm rounded-lg border bg-background text-foreground focus:outline-none focus:ring-2 ${
+                        errors.selectedUnidad
+                          ? '!border-destructive focus:!ring-destructive/30'
+                          : 'border-border focus:ring-emerald-500/20 focus:border-emerald-500'
+                      }`}
                     >
                       <option value="">Seleccionar unidad...</option>
                       {unidades.map((u) => {
@@ -467,6 +506,12 @@ export default function PaquetesPage() {
                         );
                       })}
                     </select>
+                    {errors.selectedUnidad && (
+                      <p role="alert" className="text-xs text-destructive font-medium flex items-center gap-1.5 mt-1 animate-fadeIn">
+                        <span className="inline-block w-1.5 h-1.5 rounded-full bg-destructive shrink-0" />
+                        <span>{errors.selectedUnidad}</span>
+                      </p>
+                    )}
                   </div>
 
                   <div>
@@ -565,10 +610,24 @@ export default function PaquetesPage() {
                     rows={2}
                     placeholder="Ej. Caja mediana de cartón sellada con cinta Mercado Libre"
                     value={descripcion}
-                    onChange={(e) => setDescripcion(e.target.value)}
+                    onChange={(e) => {
+                      setDescripcion(e.target.value);
+                      setErrors((prev) => ({ ...prev, descripcion: undefined }));
+                    }}
                     required
-                    className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                    aria-invalid={Boolean(errors.descripcion)}
+                    className={`w-full px-3 py-2 text-sm rounded-lg border bg-background text-foreground focus:outline-none focus:ring-2 ${
+                      errors.descripcion
+                        ? '!border-destructive focus:!ring-destructive/30'
+                        : 'border-border focus:ring-emerald-500/20 focus:border-emerald-500'
+                    }`}
                   />
+                  {errors.descripcion && (
+                    <p role="alert" className="text-xs text-destructive font-medium flex items-center gap-1.5 mt-1 animate-fadeIn">
+                      <span className="inline-block w-1.5 h-1.5 rounded-full bg-destructive shrink-0" />
+                      <span>{errors.descripcion}</span>
+                    </p>
+                  )}
                 </div>
               </div>
 

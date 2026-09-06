@@ -129,6 +129,8 @@ async function request(endpoint, options = {}) {
             const err = new Error(sanitizeEncoding(rawMsg));
             err.status = retryRes.status;
             err.response = { status: retryRes.status, data: sanitizeData(retryData) };
+            err.errors = retryData.errors || null;
+            err.code = retryData.code || null;
             throw err;
           }
           return sanitizeData(retryData);
@@ -165,6 +167,8 @@ async function request(endpoint, options = {}) {
         const err = new Error(sanitizeEncoding(rawMsg));
         err.status = res.status;
         err.response = { status: res.status, data: sanitizeData(data) };
+        err.errors = data.errors || null;
+        err.code = data.code || null;
         throw err;
       }
       return sanitizeData(data);

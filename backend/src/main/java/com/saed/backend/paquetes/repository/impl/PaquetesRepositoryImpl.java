@@ -9,21 +9,70 @@ import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import jakarta.annotation.PostConstruct;
 import org.springframework.stereotype.Repository;
 
 import java.sql.Timestamp;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Repository
 public class PaquetesRepositoryImpl implements PaquetesRepository {
 
+    private static final Logger log = LoggerFactory.getLogger(PaquetesRepositoryImpl.class);
     private final NamedParameterJdbcTemplate jdbcTemplate;
+    private boolean isFotoClob = false;
+    private boolean isComprobanteClob = false;
 
     public PaquetesRepositoryImpl(NamedParameterJdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
+    }
+
+    @PostConstruct
+    public void checkOrUpgradeColumns() {
+        try {
+            jdbcTemplate.getJdbcTemplate().execute("ALTER TABLE PAQUETES MODIFY (FOTO_PAQUETE_URL CLOB)");
+            isFotoClob = true;
+            log.info("Columna PAQUETES.FOTO_PAQUETE_URL configurada exitosamente como CLOB");
+        } catch (Exception e) {
+            try {
+                String type = jdbcTemplate.queryForObject(
+                    "SELECT DATA_TYPE FROM USER_TAB_COLS WHERE TABLE_NAME = 'PAQUETES' AND COLUMN_NAME = 'FOTO_PAQUETE_URL'",
+                    Map.of(), String.class);
+                isFotoClob = "CLOB".equalsIgnoreCase(type);
+            } catch (Exception ignored) {
+                isFotoClob = false;
+            }
+        }
+
+        try {
+            jdbcTemplate.getJdbcTemplate().execute("ALTER TABLE PAQUETES MODIFY (FOTO_COMPROBANTE_URL CLOB)");
+            isComprobanteClob = true;
+            log.info("Columna PAQUETES.FOTO_COMPROBANTE_URL configurada exitosamente como CLOB");
+        } catch (Exception e) {
+            try {
+                String type = jdbcTemplate.queryForObject(
+                    "SELECT DATA_TYPE FROM USER_TAB_COLS WHERE TABLE_NAME = 'PAQUETES' AND COLUMN_NAME = 'FOTO_COMPROBANTE_URL'",
+                    Map.of(), String.class);
+                isComprobanteClob = "CLOB".equalsIgnoreCase(type);
+            } catch (Exception ignored) {
+                isComprobanteClob = false;
+            }
+        }
+    }
+
+    private String sanitizeFoto(String foto, boolean isClob) {
+        if (foto == null) return null;
+        if (!isClob && foto.length() > 500) {
+            log.warn("Foto truncada/descartada para prevenir ORA-12899 (columna en BD no es CLOB, actual: {} chars)", foto.length());
+            return null;
+        }
+        return foto;
     }
 
     private ZonedDateTime toZDT(Timestamp ts) {
@@ -85,7 +134,7 @@ public class PaquetesRepositoryImpl implements PaquetesRepository {
                 .addValue("guia", request.numeroGuia())
                 .addValue("descripcion", request.descripcion())
                 .addValue("tamano", request.tamano())
-                .addValue("foto", request.fotoPaqueteUrl())
+                .addValue("foto", sanitizeFoto(request.fotoPaqueteUrl(), isFotoClob))
                 .addValue("pin", codigoRetiro)
                 .addValue("portero", idPorteroRegistra);
 
@@ -123,7 +172,7 @@ public class PaquetesRepositoryImpl implements PaquetesRepository {
                 .addValue("guia", request.numeroGuia())
                 .addValue("descripcion", request.descripcion())
                 .addValue("tamano", request.tamano())
-                .addValue("foto", request.fotoPaqueteUrl());
+                .addValue("foto", sanitizeFoto(request.fotoPaqueteUrl(), isFotoClob));
         jdbcTemplate.update(sql, params);
         return getPaqueteById(idPaquete).orElseThrow();
     }
@@ -135,7 +184,7 @@ public class PaquetesRepositoryImpl implements PaquetesRepository {
                 .addValue("id", idPaquete)
                 .addValue("persona", entregaDTO.idPersonaRecibe())
                 .addValue("portero", idPorteroEntrega)
-                .addValue("firma", entregaDTO.firmaUrl());
+                .addValue("firma", sanitizeFoto(entregaDTO.firmaUrl(), isComprobanteClob));
         jdbcTemplate.update(sql, params);
     }
 

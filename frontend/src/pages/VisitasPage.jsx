@@ -136,6 +136,7 @@ export default function VisitasPage() {
       next[path] = value;
       return next;
     });
+    setErrors((prev) => (prev[path] ? { ...prev, [path]: undefined } : prev));
   }
 
   function codigoTipoDoc(idTipoDoc) {
@@ -170,10 +171,10 @@ export default function VisitasPage() {
     if (!rTel.ok) e.telefono = rTel.mensaje;
     const rEmail = valEmail(form.email, { required: false });
     if (!rEmail.ok) e.email = rEmail.mensaje;
-    const rVal = valEntero(form.tiempoValidezMin, { positivo: true });
-    if (!rVal.ok) e.tiempoValidezMin = 'El tiempo de validez debe ser un entero mayor que 0';
-    const rPer = valEntero(form.cantidadPersonas, { positivo: true });
-    if (!rPer.ok) e.cantidadPersonas = 'La cantidad de personas debe ser un entero mayor que 0';
+    const rVal = valEntero(form.tiempoValidezMin, { min: 5, max: 1440, label: 'El tiempo de validez' });
+    if (!rVal.ok) e.tiempoValidezMin = rVal.mensaje || 'El tiempo de validez debe ser entre 5 y 1440 minutos';
+    const rPer = valEntero(form.cantidadPersonas, { min: 1, max: 99, label: 'La cantidad de personas' });
+    if (!rPer.ok) e.cantidadPersonas = rPer.mensaje || 'La cantidad de personas debe ser entre 1 y 99';
     if (form.tipoVehiculo === 'BICICLETA' && !form.descripcion.trim()) {
       e.descripcion = 'La descripción es obligatoria para bicicletas';
     }
@@ -233,7 +234,12 @@ export default function VisitasPage() {
       refetch();
     } catch (err) {
       // Conservar los datos introducidos para permitir corregir y reintentar
-      toast.error(err.message);
+      toast.error(err.message || 'Error al registrar la visita');
+      const apiErrors = err.errors || err.response?.data?.errors;
+      if (apiErrors && typeof apiErrors === 'object') {
+        setErrors((prev) => ({ ...prev, ...apiErrors }));
+        touchAll(Object.keys(apiErrors));
+      }
     } finally {
       savingRef.current = false;
       setSending(false);
@@ -445,7 +451,7 @@ export default function VisitasPage() {
                 value={form.tiempoValidezMin}
                 onChange={(e) => update('tiempoValidezMin', e.target.value)}
                 onBlur={() => touch('tiempoValidezMin')}
-                error={fieldError('tiempoValidezMin', valEntero(form.tiempoValidezMin, { positivo: true })) || errors.tiempoValidezMin}
+                error={fieldError('tiempoValidezMin', valEntero(form.tiempoValidezMin, { min: 5, max: 1440, label: 'El tiempo de validez' })) || errors.tiempoValidezMin}
                 required
               />
             </div>
@@ -460,7 +466,7 @@ export default function VisitasPage() {
                 value={form.cantidadPersonas}
                 onChange={(e) => update('cantidadPersonas', e.target.value)}
                 onBlur={() => touch('cantidadPersonas')}
-                error={fieldError('cantidadPersonas', valEntero(form.cantidadPersonas, { positivo: true })) || errors.cantidadPersonas}
+                error={fieldError('cantidadPersonas', valEntero(form.cantidadPersonas, { min: 1, max: 99, label: 'La cantidad de personas' })) || errors.cantidadPersonas}
                 required
               />
             </div>

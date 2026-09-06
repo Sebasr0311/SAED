@@ -28,7 +28,7 @@ public class ComunicadosController {
     }
 
     @GetMapping("/avisos")
-    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_RESIDENTE')")
+    @PreAuthorize("isAuthenticated()")
     public List<Map<String, Object>> getAvisos() {
         return jdbcTemplate.queryForList("SELECT * FROM COMUNICADOS ORDER BY FECHA_PUBLICACION DESC", Map.of());
     }

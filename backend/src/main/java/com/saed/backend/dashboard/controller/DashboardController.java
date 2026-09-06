@@ -14,6 +14,21 @@ public class DashboardController {
     private final NamedParameterJdbcTemplate jdbcTemplate;
     public DashboardController(NamedParameterJdbcTemplate jdbcTemplate) { this.jdbcTemplate = jdbcTemplate; }
 
+    @GetMapping
+    @PreAuthorize("isAuthenticated()")
+    public List<Map<String, Object>> getResidentes(@RequestParam(required = false) Long idApartamento) {
+        if (idApartamento == null) {
+            return List.of();
+        }
+        return jdbcTemplate.queryForList(
+            "SELECT p.ID_PERSONA, p.NUMERO_DOCUMENTO, p.NOMBRES, p.APELLIDOS, p.TELEFONO, p.EMAIL " +
+            "FROM UNIDADES_HABITANTES uh " +
+            "JOIN PERSONAS p ON uh.ID_PERSONA = p.ID_PERSONA " +
+            "WHERE uh.ID_UNIDAD = :idApto AND uh.ACTIVO = 'S'",
+            Map.of("idApto", idApartamento)
+        );
+    }
+
     @GetMapping("/{id}/frecuentes")
     @PreAuthorize("hasAuthority('SCOPE_RESIDENTE')")
     public List<Map<String, Object>> getFrecuentes(@PathVariable Long id) {

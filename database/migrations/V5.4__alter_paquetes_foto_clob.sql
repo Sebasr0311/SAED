@@ -1,0 +1,7 @@
+-- Migración V5.4: Permitir fotos base64 en FOTO_PAQUETE_URL y FOTO_COMPROBANTE_URL
+-- Solución para ORA-12899 en registro de paquetes y comprobantes de entrega
+
+ALTER TABLE PAQUETES MODIFY (FOTO_PAQUETE_URL CLOB);
+ALTER TABLE PAQUETES MODIFY (FOTO_COMPROBANTE_URL CLOB);
+
+COMMIT;

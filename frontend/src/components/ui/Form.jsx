@@ -17,17 +17,17 @@ function FieldShell({ label, id, required, error, children, className }) {
           htmlFor={id}
           className={cn(
             'text-sm font-medium transition-colors',
-            error ? 'text-danger-600 dark:text-danger-400 font-semibold' : 'text-foreground'
+            error ? 'text-destructive font-semibold' : 'text-foreground'
           )}
         >
           {label}
-          {required && <span className="ml-1 text-danger-500 font-bold" aria-hidden="true">*</span>}
+          {required && <span className="ml-1 text-destructive font-bold" aria-hidden="true">*</span>}
         </Label>
       )}
       {children}
       {error && (
-        <p id={id ? `${id}-error` : undefined} className="text-xs text-danger-600 dark:text-danger-400 font-medium flex items-center gap-1 mt-0.5 animate-fadeIn">
-          <span className="inline-block w-1.5 h-1.5 rounded-full bg-danger-500 shrink-0" />
+        <p id={id ? `${id}-error` : undefined} role="alert" className="text-xs text-destructive font-medium flex items-center gap-1.5 mt-1 animate-fadeIn">
+          <span className="inline-block w-1.5 h-1.5 rounded-full bg-destructive shrink-0" />
           <span>{error}</span>
         </p>
       )}
@@ -41,11 +41,11 @@ export function Input({ label, error, id, className = '', ...props }) {
       <ShadcnInput
         id={id}
         {...props}
-        aria-invalid={error ? true : undefined}
+        aria-invalid={Boolean(error)}
         aria-describedby={error && id ? `${id}-error` : undefined}
         className={cn(
           error
-            ? '!border-danger-500 focus-visible:!ring-danger-500 ring-1 !ring-danger-500 bg-danger-50/10'
+            ? '!border-destructive focus-visible:!ring-destructive ring-1 !ring-destructive/30 bg-destructive/5 text-foreground'
             : '',
           className
         )}
@@ -61,14 +61,14 @@ export function Select({ label, error, id, children, className = '', ...props })
         <select
           id={id}
           {...props}
-          aria-invalid={error ? true : undefined}
+          aria-invalid={Boolean(error)}
           aria-describedby={error && id ? `${id}-error` : undefined}
           className={cn(
             'flex h-9 w-full appearance-none rounded-md border border-input bg-background px-3 py-1 pr-8 text-sm shadow-sm transition-colors text-foreground',
             'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
             'disabled:cursor-not-allowed disabled:opacity-50',
             error
-              ? '!border-danger-500 focus-visible:!ring-danger-500 ring-1 !ring-danger-500 bg-danger-50/10'
+              ? '!border-destructive focus-visible:!ring-destructive ring-1 !ring-destructive/30 bg-destructive/5'
               : '',
             className
           )}
@@ -89,11 +89,11 @@ export function Textarea({ label, error, id, className = '', ...props }) {
       <ShadcnTextarea
         id={id}
         {...props}
-        aria-invalid={error ? true : undefined}
+        aria-invalid={Boolean(error)}
         aria-describedby={error && id ? `${id}-error` : undefined}
         className={cn(
           error
-            ? '!border-danger-500 focus-visible:!ring-danger-500 ring-1 !ring-danger-500 bg-danger-50/10'
+            ? '!border-destructive focus-visible:!ring-destructive ring-1 !ring-destructive/30 bg-destructive/5 text-foreground'
             : '',
           className
         )}
