@@ -61,11 +61,11 @@ export default function LandingFooter() {
             <ul className="space-y-2">
               <li>
                 <a
-                  href="#producto"
-                  onClick={(e) => { e.preventDefault(); scrollTo('#producto'); }}
+                  href="#roles"
+                  onClick={(e) => { e.preventDefault(); scrollTo('#roles'); }}
                   className="hover:text-sky-400 transition-colors py-1 block"
                 >
-                  Showcase Interactivo
+                  Roles y Perfiles
                 </a>
               </li>
               <li>
@@ -109,33 +109,33 @@ export default function LandingFooter() {
 
           {/* Navigation: Seguridad & Marco */}
           <div className="space-y-3">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-white">Seguridad</h4>
+            <h4 className="text-xs font-bold uppercase tracking-wider text-white">Seguridad y Ahorro</h4>
             <ul className="space-y-2">
               <li>
                 <a
-                  href="#seguridad"
-                  onClick={(e) => { e.preventDefault(); scrollTo('#seguridad'); }}
+                  href="#ahorro-seguridad"
+                  onClick={(e) => { e.preventDefault(); scrollTo('#ahorro-seguridad'); }}
                   className="hover:text-sky-400 transition-colors py-1 block"
                 >
-                  Aislamiento Multi-Tenant
+                  Ahorro y Retorno de Inversión
                 </a>
               </li>
               <li>
                 <a
-                  href="#seguridad"
-                  onClick={(e) => { e.preventDefault(); scrollTo('#seguridad'); }}
+                  href="#ahorro-seguridad"
+                  onClick={(e) => { e.preventDefault(); scrollTo('#ahorro-seguridad'); }}
                   className="hover:text-sky-400 transition-colors py-1 block"
                 >
-                  Políticas RLS en Base de Datos
+                  Blindaje Legal Ley 675
                 </a>
               </li>
               <li>
                 <a
-                  href="#seguridad"
-                  onClick={(e) => { e.preventDefault(); scrollTo('#seguridad'); }}
+                  href="#ahorro-seguridad"
+                  onClick={(e) => { e.preventDefault(); scrollTo('#ahorro-seguridad'); }}
                   className="hover:text-sky-400 transition-colors py-1 block"
                 >
-                  Marco Legal Ley 675
+                  Protección de Datos (Ley 1581)
                 </a>
               </li>
               <li>

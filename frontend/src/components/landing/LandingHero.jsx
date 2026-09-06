@@ -201,14 +201,14 @@ export default function LandingHero() {
             className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2"
           >
             <a
-              href="#producto"
+              href="#soluciones"
               onClick={(e) => {
                 e.preventDefault();
-                scrollTo('#producto');
+                scrollTo('#soluciones');
               }}
               className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-8 py-4 text-base font-bold text-slate-950 bg-gradient-to-r from-cyan-400 via-sky-400 to-cyan-400 hover:from-cyan-300 hover:to-sky-300 rounded-xl shadow-xl shadow-sky-500/25 hover:shadow-sky-400/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 transition-all transform active:scale-[0.98] min-h-[50px]"
             >
-              <span>Ver demostración interactiva</span>
+              <span>Explorar soluciones</span>
               <ArrowRight className="w-4 h-4" />
             </a>
 
