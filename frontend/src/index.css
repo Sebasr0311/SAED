@@ -2259,3 +2259,59 @@ input:-webkit-autofill:focus {
 .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .w-full { width: 100%; }
 .min-w-0 { min-width: 0; }
+
+/* ==== SAED Premium Animations & Micro-interactions ==== */
+@keyframes saedFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes saedSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes saedGlowPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(61, 107, 191, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(61, 107, 191, 0);
+  }
+}
+
+.animate-saed-fade {
+  animation: saedFadeIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-saed-slide {
+  animation: saedSlideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.saed-glow-badge {
+  animation: saedGlowPulse 2.5s infinite;
+}
+
+.saed-card-interactive {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.2s ease;
+}
+
+.saed-card-interactive:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px -4px rgba(15, 23, 42, 0.08);
+}
+

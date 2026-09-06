@@ -426,7 +426,7 @@ export default function ResidenteDashboardPage() {
   return (
     <PageContainer>
       {/* 1. HERO OPERATIVO DEL RESIDENTE (Sin ficha estática repetida) */}
-      <div className="relative overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-slate-900 via-primary/95 to-slate-900 text-white shadow-xl">
+      <div className="relative overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-slate-900 via-primary/95 to-slate-900 text-white shadow-xl animate-saed-slide">
         <div
           className="absolute inset-0 opacity-5 pointer-events-none"
           style={{
@@ -508,7 +508,7 @@ export default function ResidenteDashboardPage() {
         {/* KPI 1: Cartera & Obligaciones */}
         <Card
           onClick={() => navigate('/res-cuotas')}
-          className="hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 border-border/70 cursor-pointer group"
+          className="saed-card-interactive animate-saed-fade border-border/70 cursor-pointer group"
         >
           <CardContent className="p-5 flex items-center gap-4">
             <div
@@ -539,7 +539,7 @@ export default function ResidenteDashboardPage() {
         {/* KPI 2: Paquetería en Portería */}
         <Card
           onClick={() => navigate('/res-buzon')}
-          className="hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 border-border/70 cursor-pointer group"
+          className="saed-card-interactive animate-saed-fade border-border/70 cursor-pointer group"
         >
           <CardContent className="p-5 flex items-center gap-4">
             <div
@@ -570,7 +570,7 @@ export default function ResidenteDashboardPage() {
         {/* KPI 3: Control de Visitas QR */}
         <Card
           onClick={() => navigate('/res-visitas')}
-          className="hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 border-border/70 cursor-pointer group"
+          className="saed-card-interactive animate-saed-fade border-border/70 cursor-pointer group"
         >
           <CardContent className="p-5 flex items-center gap-4">
             <div className="p-3 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 shrink-0 transition-transform group-hover:scale-105">
@@ -592,7 +592,7 @@ export default function ResidenteDashboardPage() {
         {/* KPI 4: Gestiones y Solicitudes en Curso */}
         <Card
           onClick={() => navigate('/res-quejas')}
-          className="hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 border-border/70 cursor-pointer group"
+          className="saed-card-interactive animate-saed-fade border-border/70 cursor-pointer group"
         >
           <CardContent className="p-5 flex items-center gap-4">
             <div className="p-3 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 shrink-0 transition-transform group-hover:scale-105">
