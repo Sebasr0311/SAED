@@ -347,6 +347,14 @@ export default function App() {
             }
           />
           <Route
+            path="porterias"
+            element={
+              <ProtectedRoute roles={['ADMIN_PROPIEDAD']}>
+                <PorteriasPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="visitas"
             element={
               <ProtectedRoute roles={['ADMIN_PROPIEDAD', 'PORTERO']}>

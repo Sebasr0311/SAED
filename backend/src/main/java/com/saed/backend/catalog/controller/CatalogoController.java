@@ -74,21 +74,4 @@ public class CatalogoController {
                 "SELECT ID_ROL, CODIGO, NOMBRE, ALCANCE, ESTADO FROM ROLES ORDER BY NOMBRE",
                 new MapSqlParameterSource());
     }
-
-    @GetMapping("/usuarios")
-    @PreAuthorize("hasAuthority('SCOPE_SUPERADMIN') or hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
-    public List<Map<String, Object>> usuarios() {
-        return jdbcTemplate.queryForList(
-                "SELECT u.ID_USUARIO, u.NOMBRE_USUARIO, u.EMAIL, u.ESTADO, " +
-                "r.CODIGO AS ROL, " +
-                "p.ID_PERSONA, " +
-                "p.PRIMER_NOMBRE || ' ' || COALESCE(p.SEGUNDO_NOMBRE, '') || ' ' || " +
-                "p.PRIMER_APELLIDO || ' ' || COALESCE(p.SEGUNDO_APELLIDO, '') AS NOMBRE_COMPLETO " +
-                "FROM USUARIOS u " +
-                "LEFT JOIN USUARIO_ASIGNACIONES ua ON ua.ID_USUARIO = u.ID_USUARIO AND ua.ESTADO = 'ACTIVO' " +
-                "LEFT JOIN ROLES r ON r.ID_ROL = ua.ID_ROL " +
-                "LEFT JOIN PERSONAS p ON p.ID_PERSONA = u.ID_PERSONA " +
-                "ORDER BY u.NOMBRE_USUARIO",
-                new MapSqlParameterSource());
-    }
 }

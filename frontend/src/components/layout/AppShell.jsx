@@ -154,6 +154,7 @@ const NAV_BY_ROLE = {
         { path: '/paquetes-admin', label: 'Paquetes', icon: 'inventory_2' },
         { path: '/parqueaderos', label: 'Parqueaderos', icon: 'local_parking' },
         { path: '/escanner-qr', label: 'Escáner QR', icon: 'qr_code_scanner' },
+        { path: '/porterias', label: 'Puntos de Portería', icon: 'door_sliding' },
       ],
     },
     {
