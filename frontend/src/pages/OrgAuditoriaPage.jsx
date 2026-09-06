@@ -50,6 +50,22 @@ export default function OrgAuditoriaPage() {
     return filtered.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
   }, [filtered, safePage]);
 
+  const formatAction = (action) => {
+    switch (action) {
+      case 'CREATE':
+      case 'INSERT':
+        return 'Creación';
+      case 'UPDATE':
+        return 'Modificación';
+      case 'DELETE':
+        return 'Eliminación';
+      case 'STATUS_CHANGE':
+        return 'Cambio de Estado';
+      default:
+        return action;
+    }
+  };
+
   const getActionBadgeClass = (action) => {
     switch (action) {
       case 'CREATE':
@@ -61,7 +77,7 @@ export default function OrgAuditoriaPage() {
       case 'STATUS_CHANGE':
         return 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/20';
       default:
-        return 'bg-muted text-muted-foreground';
+        return 'bg-muted text-muted-foreground border-border';
     }
   };
 
@@ -125,10 +141,10 @@ export default function OrgAuditoriaPage() {
             className="px-3 py-2 border border-input rounded-lg bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
           >
             <option value="ALL">Todas las Acciones</option>
-            <option value="CREATE">CREATE</option>
-            <option value="UPDATE">UPDATE</option>
-            <option value="DELETE">DELETE</option>
-            <option value="STATUS_CHANGE">STATUS_CHANGE</option>
+            <option value="CREATE">Creación</option>
+            <option value="UPDATE">Modificación</option>
+            <option value="DELETE">Eliminación</option>
+            <option value="STATUS_CHANGE">Cambio de Estado</option>
           </select>
         </div>
       </div>
@@ -171,7 +187,7 @@ export default function OrgAuditoriaPage() {
                       </td>
                       <td className="px-6 py-4">
                         <Badge variant="outline" className={`text-[11px] font-semibold ${getActionBadgeClass(l.accion)}`}>
-                          {l.accion}
+                          {formatAction(l.accion)}
                         </Badge>
                       </td>
                       <td className="px-6 py-4 font-medium text-foreground text-xs">

@@ -11,4 +11,5 @@ public interface OrganizationRepository {
     List<OrganizationDTO> findAll();
     void update(Long id, OrganizationRequestDTO request);
     void updateStatus(Long id, String status);
+    void delete(Long id);
 }

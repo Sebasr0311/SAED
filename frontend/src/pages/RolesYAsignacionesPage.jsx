@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useAuth } from '../lib/AuthContext.jsx';
 import { useTenant } from '../lib/TenantContext.jsx';
 import { useTenantApi } from '../lib/useTenantApi.js';
 import { useFetch } from '../lib/hooks.js';
@@ -52,6 +53,8 @@ const emptyForm = {
 export default function RolesYAsignacionesPage() {
   const tenant = useTenant();
   const tenantApi = useTenantApi();
+  const { user } = useAuth();
+  const esSuperAdmin = user?.rol === 'SUPERADMIN' || user?.rol === 'ROLE_SUPERADMIN';
 
   const { data, loading, refetch } = useFetch(
     () => tenantApi.get('/auth/assignments'),
@@ -59,7 +62,10 @@ export default function RolesYAsignacionesPage() {
   );
   const { data: rolesData } = useFetch(() => tenantApi.get('/roles'), [tenant.activeAssignmentId]);
   const { data: usuariosData } = useFetch(() => tenantApi.get('/usuarios'), [tenant.activeAssignmentId]);
-  const { data: orgsData } = useFetch(() => tenantApi.get('/organizations'), [tenant.activeAssignmentId]);
+  const { data: orgsData } = useFetch(
+    () => (esSuperAdmin ? tenantApi.get('/organizations') : Promise.resolve([])),
+    [tenant.activeAssignmentId, esSuperAdmin]
+  );
   const { data: propsData } = useFetch(() => tenantApi.get('/properties'), [tenant.activeAssignmentId]);
   const { data: unitsData } = useFetch(() => tenantApi.get('/units'), [tenant.activeAssignmentId]);
 
@@ -169,17 +175,33 @@ export default function RolesYAsignacionesPage() {
                       <TableCell>
                         <Badge variant={ESTADO_BADGE[a.estado] || 'default'}>{a.estado || 'ACTIVA'}</Badge>
                       </TableCell>
-                      <TableCell className="text-right">
+                      <td className="py-3.5 px-4 text-right">
                         {a.estado === 'ACTIVA' ? (
-                          <Button variant="ghost" size="sm" onClick={() => cambiarEstado(a, 'INACTIVA')} aria-label="Desactivar">
-                            <span className="material-symbols-outlined text-base text-amber-600">pause_circle</span>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => cambiarEstado(a, 'INACTIVA')}
+                            title="Desactivar asignación"
+                            aria-label="Desactivar asignación"
+                            className="text-xs h-8 gap-1.5 border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10"
+                          >
+                            <span className="material-symbols-outlined text-sm">pause_circle</span>
+                            <span>Desactivar</span>
                           </Button>
                         ) : (
-                          <Button variant="ghost" size="sm" onClick={() => cambiarEstado(a, 'ACTIVA')} aria-label="Activar">
-                            <span className="material-symbols-outlined text-base text-green-600">play_circle</span>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => cambiarEstado(a, 'ACTIVA')}
+                            title="Activar asignación"
+                            aria-label="Activar asignación"
+                            className="text-xs h-8 gap-1.5 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10"
+                          >
+                            <span className="material-symbols-outlined text-sm">play_circle</span>
+                            <span>Activar</span>
                           </Button>
                         )}
-                      </TableCell>
+                      </td>
                     </TableRow>
                   ))}
                 </TableBody>

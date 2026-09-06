@@ -126,7 +126,22 @@ export function useFetch(fetcher, deps = []) {
     };
   }, deps);
 
-  const refetch = useCallback(() => fetcher().then((d) => setData(normalize(d))).catch(setError), [fetcher]);
+  const refetch = useCallback(() => {
+    setLoading(true);
+    return fetcher()
+      .then((d) => {
+        setData(normalize(d));
+        setError(null);
+        return d;
+      })
+      .catch((err) => {
+        setError(err);
+        throw err;
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, [fetcher]);
 
   return { data, loading, error, refetch };
 }

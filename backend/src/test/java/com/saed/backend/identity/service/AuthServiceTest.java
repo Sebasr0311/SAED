@@ -113,4 +113,29 @@ public class AuthServiceTest {
         Exception ex = assertThrows(com.saed.backend.identity.exception.InvalidCredentialsException.class, () -> authService.login(request));
         assertEquals("Credenciales invalidas", ex.getMessage());
     }
+
+    @Test
+    void whenVerifyPasswordCorrect_thenReturnsTrue() {
+        when(authRepository.getPasswordHash(1L)).thenReturn(Optional.of("hashed_pw"));
+        when(passwordEncoder.matches("secret123", "hashed_pw")).thenReturn(true);
+
+        boolean result = authService.verifyPassword(1L, "secret123");
+        assertTrue(result);
+    }
+
+    @Test
+    void whenVerifyPasswordIncorrect_thenReturnsFalse() {
+        when(authRepository.getPasswordHash(1L)).thenReturn(Optional.of("hashed_pw"));
+        when(passwordEncoder.matches("wrong_pw", "hashed_pw")).thenReturn(false);
+
+        boolean result = authService.verifyPassword(1L, "wrong_pw");
+        assertFalse(result);
+    }
+
+    @Test
+    void whenVerifyPasswordNullOrEmpty_thenReturnsFalse() {
+        assertFalse(authService.verifyPassword(null, "secret"));
+        assertFalse(authService.verifyPassword(1L, null));
+        assertFalse(authService.verifyPassword(1L, "   "));
+    }
 }

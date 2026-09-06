@@ -9,6 +9,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
+import java.util.Map;
+import org.springframework.http.HttpStatus;
+
 @Tag(name = "Auth", description = "API para la gestion de Auth")
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -39,6 +42,26 @@ public class AuthController {
             authService.logout(userId);
         }
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/verify-password")
+    public ResponseEntity<Map<String, Object>> verifyPassword(@RequestBody(required = false) Map<String, String> body) {
+        Long userId = SaedContextHolder.getContext().getUserId();
+        if (userId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("valid", false, "error", "Usuario no autenticado"));
+        }
+        String password = body != null ? body.get("password") : null;
+        if (password == null || password.isBlank()) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("valid", false, "error", "La contraseña es requerida"));
+        }
+        boolean valid = authService.verifyPassword(userId, password);
+        if (!valid) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("valid", false, "error", "Contraseña incorrecta"));
+        }
+        return ResponseEntity.ok(Map.of("valid", true, "message", "Contraseña verificada con éxito"));
     }
 }
 

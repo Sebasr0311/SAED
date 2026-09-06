@@ -180,6 +180,12 @@ export default function NotificationBell() {
   const esNoLeida = useCallback(
     (it) => {
       if (it.leido) return false;
+      try {
+        const saved = JSON.parse(localStorage.getItem('saed_admin_read_notifs') || '[]');
+        if (saved.includes(it.id)) return false;
+      } catch {
+        /* noop */
+      }
       if (esAdmin) {
         if (!visto) return true;
         const f = new Date(it.fecha);
@@ -204,6 +210,7 @@ export default function NotificationBell() {
       setVisto(ahora);
       try {
         localStorage.setItem(VISTO_KEY, String(ahora));
+        localStorage.removeItem('saed_admin_read_notifs');
       } catch {
         /* noop */
       }
@@ -219,8 +226,22 @@ export default function NotificationBell() {
 
   const irA = (it) => {
     setOpen(false);
+    setItems((prev) =>
+      prev.map((item) => (item.id === it.id ? { ...item, leido: true } : item))
+    );
     if (!esAdmin && !it.leido && it.idMensaje) {
       api.put(`/buzon/${it.idMensaje}/leido`).catch(() => {});
+    }
+    if (esAdmin) {
+      try {
+        const saved = JSON.parse(localStorage.getItem('saed_admin_read_notifs') || '[]');
+        if (!saved.includes(it.id)) {
+          saved.push(it.id);
+          localStorage.setItem('saed_admin_read_notifs', JSON.stringify(saved));
+        }
+      } catch {
+        /* noop */
+      }
     }
     navigate(it.ruta || verMasRuta);
   };

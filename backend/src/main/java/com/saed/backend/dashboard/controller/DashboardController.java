@@ -89,7 +89,47 @@ public class DashboardController {
     
     @PostMapping("/{id}/asignar-apartamento")
     @PreAuthorize("hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
-    public ResponseEntity<Void> asignarApartamento(@PathVariable Long id, @RequestBody Map<String, Object> payload) {
+    public ResponseEntity<Void> asignarApartamento(@PathVariable Long id, @RequestBody(required = false) Map<String, Object> payload) {
+        if (payload == null || !payload.containsKey("idApartamento")) {
+            return ResponseEntity.badRequest().build();
+        }
+        Object aptVal = payload.get("idApartamento");
+        Long unitId = null;
+        if (aptVal instanceof Number num) {
+            unitId = num.longValue();
+        } else if (aptVal != null) {
+            try {
+                unitId = Long.parseLong(aptVal.toString().trim());
+            } catch (NumberFormatException ignored) {}
+        }
+        if (unitId == null) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        String rol = payload.containsKey("rolEnContrato") && payload.get("rolEnContrato") != null
+                ? payload.get("rolEnContrato").toString()
+                : (payload.containsKey("tipoResidente") && payload.get("tipoResidente") != null
+                ? payload.get("tipoResidente").toString()
+                : "RESIDENTE");
+
+        // Verify if relationship already exists
+        Integer count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM RESIDENTES_UNIDAD WHERE ID_UNIDAD = :unitId AND ID_PERSONA = :personaId",
+                Map.of("unitId", unitId, "personaId", id),
+                Integer.class
+        );
+
+        if (count == null || count == 0) {
+            jdbcTemplate.update(
+                    "INSERT INTO RESIDENTES_UNIDAD (ID_UNIDAD, ID_PERSONA, TIPO_RESIDENTE) VALUES (:unitId, :personaId, :tipoResidente)",
+                    Map.of("unitId", unitId, "personaId", id, "tipoResidente", rol)
+            );
+        } else {
+            jdbcTemplate.update(
+                    "UPDATE RESIDENTES_UNIDAD SET TIPO_RESIDENTE = :tipoResidente WHERE ID_UNIDAD = :unitId AND ID_PERSONA = :personaId",
+                    Map.of("unitId", unitId, "personaId", id, "tipoResidente", rol)
+            );
+        }
         return ResponseEntity.ok().build();
     }
 }

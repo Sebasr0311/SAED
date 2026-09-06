@@ -355,12 +355,8 @@ export default function ResidentesPage() {
         try {
           await tenantApi.post(`/residentes/${idResidente}/asignar-apartamento`, {
             idApartamento: Number(form.idApartamento),
-            rolEnContrato: 'OTRO',
+            rolEnContrato: 'RESIDENTE',
           });
-          const verif = await tenantApi.get(`/personas/${idResidente}`);
-          if (Number(verif?.idApartamento) !== Number(form.idApartamento)) {
-            throw new Error('La asignación no se pudo confirmar en el servidor');
-          }
         } catch (err) {
           toast.error(
             `Residente guardado, pero la asignación al apartamento falló: ${err.message}`
@@ -569,7 +565,7 @@ export default function ResidentesPage() {
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="border-b border-border/70 bg-muted/30 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-                      <th className="py-3 px-4 w-12">ID</th>
+                      <th className="py-3 px-4 w-12 text-center">#</th>
                       <th className="py-3 px-4">Residente</th>
                       <th className="py-3 px-4">Identificación</th>
                       <th className="py-3 px-4">Unidad / Apto</th>
@@ -578,21 +574,22 @@ export default function ResidentesPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/50 text-xs">
-                    {rows.map((r) => {
+                    {rows.map((r, idx) => {
                       const initial = (r.nombres?.[0] || 'R').toUpperCase();
                       const tipoDocLabel = tipoDocMap.get(Number(r.idTipoDoc)) || 'DOC';
                       const unidadDesc =
                         r.numeroApartamento
                           ? `Apto ${r.numeroApartamento}`
                           : unitMap.get(Number(r.idApartamento));
+                      const rowNum = safePage * PAGE_SIZE + idx + 1;
 
                       return (
                         <tr
                           key={r.id}
                           className="hover:bg-muted/40 transition-colors group"
                         >
-                          <td className="py-3.5 px-4 font-mono text-[11px] text-muted-foreground">
-                            #{r.id}
+                          <td className="py-3.5 px-4 font-mono text-[11px] text-muted-foreground text-center">
+                            {rowNum}
                           </td>
                           <td className="py-3.5 px-4">
                             <div className="flex items-center gap-3">
@@ -603,9 +600,14 @@ export default function ResidentesPage() {
                                 {initial}
                               </div>
                               <div className="min-w-0">
-                                <p className="font-semibold text-foreground group-hover:text-primary transition-colors truncate">
-                                  {r.nombres} {r.apellidos}
-                                </p>
+                                <div className="flex items-center gap-2">
+                                  <p className="font-semibold text-foreground group-hover:text-primary transition-colors truncate">
+                                    {r.nombres} {r.apellidos}
+                                  </p>
+                                  <span className="text-[10px] font-mono text-muted-foreground/80 bg-muted px-1.5 py-0.5 rounded border border-border/40">
+                                    ID #{r.id}
+                                  </span>
+                                </div>
                                 <p className="text-[11px] text-muted-foreground flex items-center gap-1.5 mt-0.5">
                                   {r.tipoPersona && (
                                     <span className="capitalize">{r.tipoPersona.toLowerCase()}</span>

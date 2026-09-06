@@ -60,5 +60,12 @@ public class OrganizationController {
         organizationService.updateStatus(id, request.getEstado());
         return ResponseEntity.ok(Map.of("success", true));
     }
+
+    @DeleteMapping("/{id}")
+    @Auditable(action = "DELETE", resource = "ORGANIZACION", category = AuditCategory.ADMINISTRATIVE, severity = AuditSeverity.CRITICAL)
+    public ResponseEntity<Map<String, Object>> delete(@PathVariable Long id) {
+        organizationService.delete(id);
+        return ResponseEntity.ok(Map.of("success", true, "message", "Organización eliminada exitosamente"));
+    }
 }
 

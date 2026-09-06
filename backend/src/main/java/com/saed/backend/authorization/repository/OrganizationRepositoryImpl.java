@@ -101,4 +101,10 @@ public class OrganizationRepositoryImpl implements OrganizationRepository {
         String sql = "UPDATE ORGANIZACIONES SET estado = :estado WHERE id_organizacion = :id";
         jdbcTemplate.update(sql, new MapSqlParameterSource("id", id).addValue("estado", status));
     }
+
+    @Override
+    public void delete(Long id) {
+        String sql = "DELETE FROM ORGANIZACIONES WHERE id_organizacion = :id";
+        jdbcTemplate.update(sql, new MapSqlParameterSource("id", id));
+    }
 }

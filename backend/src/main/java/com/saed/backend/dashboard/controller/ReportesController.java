@@ -24,7 +24,7 @@ import java.util.Map;
 @Tag(name = "Reportes", description = "Reportes de negocio del sistema")
 @RestController
 @RequestMapping("/api/v1/reportes")
-@PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
+@PreAuthorize("hasAuthority('SCOPE_SUPERADMIN') or hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
 public class ReportesController {
 
     private final NamedParameterJdbcTemplate jdbcTemplate;

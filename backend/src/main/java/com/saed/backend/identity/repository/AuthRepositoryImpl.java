@@ -118,4 +118,27 @@ public class AuthRepositoryImpl implements AuthRepository {
             "p_ip_origen", ipAddress != null ? ipAddress : ""
         ));
     }
+
+    @Override
+    public Optional<String> getPasswordHash(Long userId) {
+        if (userId == null) {
+            return Optional.empty();
+        }
+        try {
+            java.util.List<String> list = jdbcTemplate.query(
+                "SELECT HASH_PASSWORD FROM USUARIOS WHERE ID_USUARIO = ?",
+                (rs, rowNum) -> rs.getString("HASH_PASSWORD"),
+                userId
+            );
+            if (!list.isEmpty() && list.get(0) != null) {
+                return Optional.of(list.get(0));
+            }
+        } catch (Exception ignored) {}
+
+        AuthUserDTO profile = getUserProfile(userId);
+        if (profile != null && profile.getEmail() != null) {
+            return getAuthData(profile.getEmail()).map(AuthData::getHashPassword);
+        }
+        return Optional.empty();
+    }
 }
