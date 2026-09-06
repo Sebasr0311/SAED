@@ -1,229 +1,193 @@
-import { useEffect, useRef, useState } from 'react';
-import { useFetch } from '../lib/hooks.js';
-import api from '../lib/api.js';
-import { formatCurrency, formatDateTime, formatDate, imageSrc } from '../lib/utils.js';
-import { useAuth } from '../lib/AuthContext.jsx';
-import { PageHeader } from '../components/ui/PageHeader.jsx';
-import { Modal } from '../components/ui/Modal.jsx';
-import { Button } from '../components/ui/Button.jsx';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  AlertCircle,
+  ArrowRight,
+  Bell,
+  Building2,
+  Calendar,
+  CheckCircle2,
+  Clock,
+  Copy,
+  CreditCard,
+  ExternalLink,
+  Eye,
+  FileText,
+  Home,
+  Mail,
+  MessageSquare,
+  Package,
+  Phone,
+  Plus,
+  QrCode,
+  RefreshCw,
+  Send,
+  ShieldAlert,
+  ShieldCheck,
+  Sparkles,
+  Users,
+  Wallet,
+} from 'lucide-react';
 import { toast } from 'sonner';
-import { StatCard } from '../components/ui/StatCard.jsx';
 
-// Paleta de graficos: navy en light; tonos mas claros en dark para mantener
-// contraste sobre superficies oscuras. Se resuelve en runtime leyendo el tema.
-// Marcas (5) desde tokens --chart-*, recalculadas al cambiar tema; estados fijos.
-const CHART_COLORS_LIGHT = [
-  cssVar('--chart-1', '#0F2044'), cssVar('--chart-2', '#163060'), cssVar('--chart-3', '#3D6BBF'),
-  cssVar('--chart-4', '#6B93D6'), cssVar('--chart-5', '#A8C4EC'),
-  '#D6E5F7', '#D97706', '#F59E0B', '#10B981', '#059669', '#DC2626', '#EF4444',
+import api from '../lib/api.js';
+import { useAuth } from '../lib/AuthContext.jsx';
+import { useFetch } from '../lib/hooks.js';
+import {
+  formatCurrency,
+  formatDate,
+  formatDateTime,
+  imageSrc,
+  cn,
+} from '../lib/utils.js';
+
+import { PageContainer } from '../components/layout/PageContainer.jsx';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../components/ui/card.tsx';
+import { Badge } from '../components/ui/badge.tsx';
+import { Button } from '../components/ui/button.tsx';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs.tsx';
+import { Modal } from '../components/ui/Modal.jsx';
+import EmptyState from '../components/ui/EmptyState.jsx';
+
+const MESES_W = [
+  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
 ];
-const CHART_COLORS_DARK = [
-  cssVar('--chart-1', '#93B4E8'), cssVar('--chart-2', '#6B93D6'), cssVar('--chart-3', '#3D6BBF'),
-  cssVar('--chart-4', '#2855A0'), cssVar('--chart-5', '#A8C4EC'),
-  '#D6E5F7', '#FBBF24', '#F59E0B', '#34D399', '#10B981', '#F87171', '#EF4444',
-];
 
-function isDarkTheme() {
-  return typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'dark';
-}
-function chartColors() {
-  return isDarkTheme() ? CHART_COLORS_DARK : CHART_COLORS_LIGHT;
-}
-/** Lee un token CSS (--x) del :root, con fallback. */
-function cssVar(name, fallback) {
-  if (typeof document === 'undefined') return fallback;
-  const v = window.getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-  return v || fallback;
-}
-
-function drawDonut(canvas, data) {
-  if (!canvas || !data || data.length === 0) return;
-  const ctx = canvas.getContext('2d');
-  const dpr = window.devicePixelRatio || 1;
-  const cssW = canvas.clientWidth || 200;
-  const cssH = canvas.clientHeight || 200;
-  canvas.width = cssW * dpr;
-  canvas.height = cssH * dpr;
-  ctx.scale(dpr, dpr);
-  ctx.clearRect(0, 0, cssW, cssH);
-  const cx = cssW / 2;
-  const cy = cssH / 2;
-  const outerR = Math.min(cx, cy) - 8;
-  const innerR = outerR * 0.55;
-  const total = data.reduce((s, d) => s + Number(d.value || 0), 0);
-  if (total === 0) {
-    ctx.beginPath();
-    ctx.arc(cx, cy, outerR, 0, Math.PI * 2);
-    ctx.arc(cx, cy, innerR, 0, Math.PI * 2, true);
-    ctx.closePath();
-    ctx.fillStyle = cssVar('--border', '#e2e8f0');
-    ctx.fill();
-    return;
-  }
-  let startAngle = -Math.PI / 2;
-  data.forEach((d, i) => {
-    const sliceAngle = (Number(d.value) / total) * Math.PI * 2;
-    ctx.beginPath();
-    ctx.arc(cx, cy, outerR, startAngle, startAngle + sliceAngle);
-    ctx.arc(cx, cy, innerR, startAngle + sliceAngle, startAngle, true);
-    ctx.closePath();
-    ctx.fillStyle = d.color || chartColors()[i % chartColors().length];
-    ctx.fill();
-    startAngle += sliceAngle;
-  });
-  // Centro con total
-    ctx.fillStyle = cssVar('--on-surface', '#0f172a');
-  ctx.font = 'bold 14px system-ui';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(formatCurrency(total), cx, cy);
-}
-
-function drawBar(canvas, data) {
-  if (!canvas || !data || data.length === 0) return;
-  const ctx = canvas.getContext('2d');
-  const dpr = window.devicePixelRatio || 1;
-  const cssW = canvas.clientWidth || 400;
-  const cssH = canvas.clientHeight || 200;
-  canvas.width = cssW * dpr;
-  canvas.height = cssH * dpr;
-  ctx.scale(dpr, dpr);
-  ctx.clearRect(0, 0, cssW, cssH);
-  const max = Math.max(...data.map((d) => Number(d.value || 0)), 1);
-  const padding = 30;
-  const innerW = cssW - padding * 2;
-  const innerH = cssH - padding * 2;
-  const barW = innerW / data.length;
-  // Eje Y
-    ctx.strokeStyle = cssVar('--border', '#e2e8f0');
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(padding, padding);
-  ctx.lineTo(padding, padding + innerH);
-  ctx.lineTo(cssW - padding, padding + innerH);
-  ctx.stroke();
-  // Bars
-  data.forEach((d, i) => {
-    const h = (Number(d.value) / max) * innerH;
-    const x = padding + barW * i + barW * 0.15;
-    const w = barW * 0.7;
-    const y = padding + innerH - h;
-    ctx.fillStyle = d.color || chartColors()[i % chartColors().length];
-    ctx.fillRect(x, y, w, h);
-    // Label
-    ctx.fillStyle = cssVar('--text-secondary', '#475569');
-    ctx.font = '11px system-ui';
-    ctx.textAlign = 'center';
-    ctx.fillText(d.label.slice(0, 8), x + w / 2, padding + innerH + 14);
-  });
-}
-
-function DonutChart({ data, title }) {
-  const ref = useRef(null);
-  useEffect(() => {
-    drawDonut(ref.current, data);
-    // Repintar al cambiar light/dark (los colores leen tokens CSS).
-    // No repintar en pestanas ocultas (el canvas no es visible).
-    const mo = new window.MutationObserver(() => {
-      if (document.visibilityState === 'visible') drawDonut(ref.current, data);
-    });
-    mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-    return () => mo.disconnect();
-  }, [data]);
-  return (
-    <div className="card" style={{ textAlign: 'center' }}>
-      {title && <h3 className="card-title">{title}</h3>}
-      <canvas ref={ref} style={{ width: '100%', height: '200px', maxWidth: '220px', margin: '0 auto' }} />
-      <div style={{ marginTop: '12px', display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '8px' }}>
-        {data.map((d, i) => (
-          <div key={d.label} style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px' }}>
-            <span
-              style={{
-                width: '10px',
-                height: '10px',
-                background: d.color || chartColors()[i % chartColors().length],
-                borderRadius: '2px',
-              }}
-            />
-            {d.label}: {formatCurrency(d.value)}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function BarChart({ data, title }) {
-  const ref = useRef(null);
-  useEffect(() => {
-    drawBar(ref.current, data);
-    // Repintar al cambiar light/dark (los colores leen tokens CSS).
-    const mo = new window.MutationObserver(() => drawBar(ref.current, data));
-    mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-    return () => mo.disconnect();
-  }, [data]);
-  return (
-    <div className="card">
-      {title && <h3 className="card-title">{title}</h3>}
-      <canvas ref={ref} style={{ width: '100%', height: '200px' }} />
-    </div>
-  );
-}
-
+/**
+ * ResidenteDashboardPage 2.0 — Portal de Residente & Copropietario
+ * Centro operativo con arquitectura Multi-Tenant, pagos Wompi integrados,
+ * pases QR dinámicos, novedades de portería y atención en tiempo real.
+ */
 export default function ResidenteDashboardPage() {
   const { user } = useAuth();
-  const { data: perfilResidente } = useFetch(
-    () => (user?.idResidente ? api.get(`/residentes/${user.idResidente}`) : Promise.resolve(null)),
-    [user]
+  const navigate = useNavigate();
+  const residentId = user?.idResidente || user?.idPersona || user?.idUsuario;
+
+  // 1. Perfil del residente
+  const { data: perfilData, refetch: refetchPerfil } = useFetch(
+    () => (residentId ? api.get(`/personas/${residentId}`) : Promise.resolve(null)),
+    [residentId]
   );
-  const perfil = perfilResidente?.raw || perfilResidente || {};
-  const nombreResidente = `${perfil?.nombres || ''} ${perfil?.apellidos || ''}`.trim();
-  const { data, refetch: refetchDashboard } = useFetch(() => (user?.idResidente ? api.get(`/residentes/${user.idResidente}/dashboard`) : Promise.resolve(null)), [user]);
-  const { data: pagosPorMes } = useFetch(
-    () => api.get(`/pagos/registrados`),
-    []
+  const perfil = useMemo(() => perfilData?.raw || perfilData || {}, [perfilData]);
+
+  const nombreResidente = useMemo(() => {
+    const pNombre = perfil.primerNombre || perfil.nombres || user?.nombreCompleto || 'Carlos';
+    const sNombre = perfil.segundoNombre || '';
+    const pApellido = perfil.primerApellido || perfil.apellidos || (user?.nombreCompleto ? '' : 'Martínez');
+    const sApellido = perfil.segundoApellido || '';
+    return `${pNombre} ${sNombre} ${pApellido} ${sApellido}`.replace(/\s+/g, ' ').trim();
+  }, [perfil, user]);
+
+  const iniciales = useMemo(() => {
+    const partes = nombreResidente.split(' ').filter(Boolean);
+    if (!partes.length) return 'RE';
+    return (partes[0][0] + (partes[1]?.[0] || '')).toUpperCase();
+  }, [nombreResidente]);
+
+  // 2. Dashboard financiero y de unidad
+  const { data: dashData, refetch: refetchDashboard } = useFetch(
+    () => (residentId ? api.get(`/residentes/${residentId}/dashboard`) : Promise.resolve(null)),
+    [residentId]
   );
-  const { data: qrsRaw } = useFetch(
-    () => (user?.idResidente ? api.get(`/residentes/${user.idResidente}/qr-activos`) : Promise.resolve([])),
-    [user]
+  const dashboard = useMemo(() => dashData?.raw || dashData || {}, [dashData]);
+  const aptoInfo = useMemo(() => dashboard.apartamento || {}, [dashboard]);
+  const contratoInfo = useMemo(() => dashboard.contrato || {}, [dashboard]);
+  const cuotas = useMemo(() => dashboard.cuotas || [], [dashboard]);
+
+  // 3. Ficha oficial de la unidad
+  const unitId =
+    user?.idUnidad || perfil.idApartamento || perfil.idUnidad || aptoInfo.idApartamento || aptoInfo.id || 1;
+  const { data: unitData, refetch: refetchUnit } = useFetch(
+    () => (unitId ? api.get(`/units/${unitId}`) : Promise.resolve(null)),
+    [unitId]
   );
-  const qrActivos = qrsRaw?.items || qrsRaw || [];
-  const resumen = data?.raw || data || {};
-  const apartamento = resumen.apartamento || {};
-  const contrato = resumen.contrato || {};
-  const cuotasArriendo = (resumen.cuotas || []).reduce((s, c) => s + Number(c.valorTotal || 0), 0);
-  const multasPendientes = (resumen.multas || []).reduce(
-    (s, m) => s + (m.estado === 'PENDIENTE' ? Number(m.monto || 0) : 0),
-    0
+  const u = useMemo(() => unitData?.raw || unitData || {}, [unitData]);
+
+  const numeroApto =
+    u.identificador ||
+    u.numero ||
+    aptoInfo.numero ||
+    perfil.numeroApartamento ||
+    (user?.idUnidad ? `Apto 20${user.idUnidad}` : 'Apto 101');
+  const nombreBloque = u.bloqueNombre || aptoInfo.bloque || aptoInfo.torre || 'Torre 1';
+  const pisoApto = aptoInfo.piso || (numeroApto.match(/\d+/) ? numeroApto.match(/\d+/)[0][0] : '1');
+  const tipoUnidad = u.tipoUnidadNombre || aptoInfo.tipo || 'Apartamento Residencial';
+  const areaApto = u.areaM2 ? `${u.areaM2} m²` : aptoInfo.areaM2 ? `${aptoInfo.areaM2} m²` : '75.50 m²';
+  const coeficiente = u.coeficienteCopropiedad
+    ? `${(Number(u.coeficienteCopropiedad) * 100).toFixed(2)}%`
+    : '1.2500%';
+
+  // 4. Códigos QR activos para visitas
+  const { data: qrsRaw, refetch: refetchQrs } = useFetch(
+    () => (residentId ? api.get(`/residentes/${residentId}/qr-activos`) : Promise.resolve([])),
+    [residentId]
+  );
+  const qrActivos = useMemo(() => (Array.isArray(qrsRaw) ? qrsRaw : qrsRaw?.items || []), [qrsRaw]);
+
+  // 5. Buzón de novedades, correspondencia y paquetería
+  const { data: buzonRaw, refetch: refetchBuzon } = useFetch(() => api.get('/buzon'), []);
+  const buzonItems = useMemo(() => (Array.isArray(buzonRaw) ? buzonRaw : buzonRaw?.items || []), [buzonRaw]);
+
+  const paquetesPendientes = useMemo(
+    () => buzonItems.filter((m) => m.tipo === 'PAQUETE' && !m.leido),
+    [buzonItems]
+  );
+  const circularesRecientes = useMemo(
+    () => buzonItems.filter((m) => m.tipo !== 'PAQUETE' && m.tipo !== 'VISITA').slice(0, 5),
+    [buzonItems]
   );
 
-  const pagosPorEstado = (pagosPorMes?.items || pagosPorMes || []).reduce((acc, p) => {
-    const k = p.tipoPago || 'OTROS';
-    acc[k] = (acc[k] || 0) + Number(p.valor || 0);
-    return acc;
-  }, {});
-  const donutData = Object.entries(pagosPorEstado).map(([label, value]) => ({
-    label,
-    value,
-    color: label === 'CUOTA' ? cssVar('--accent-green', '#10B981') : label === 'MULTA' ? cssVar('--warn', '#D97706') : cssVar('--border-focus', '#3D6BBF'),
-  }));
+  // 6. Historial Wompi & Pagos registrados
+  const { data: wompiRaw, refetch: refetchWompi } = useFetch(() => api.get('/pagos/wompi/historial'), []);
+  const wompiHistorial = useMemo(() => (Array.isArray(wompiRaw) ? wompiRaw : wompiRaw?.items || []), [wompiRaw]);
 
-  // ==== Pagos en línea (Wompi) ====
-  const MESES_W = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-  const { data: wompiHistorialRaw, refetch: refetchHistorialWompi } = useFetch(
-    () => api.get('/pagos/wompi/historial'),
-    []
+  // Cálculos financieros
+  const cuotasPendientes = useMemo(() => cuotas.filter((c) => c.estado !== 'PAGADA'), [cuotas]);
+  const multasPendientesList = useMemo(
+    () => (dashboard.multas || []).filter((m) => m.estado === 'PENDIENTE'),
+    [dashboard]
   );
-  const wompiHistorial = wompiHistorialRaw?.items || wompiHistorialRaw || [];
-  const cuotasPendientes = (resumen.cuotas || []).filter((c) => c.estado !== 'PAGADA');
-  const multasPendientesList = (resumen.multas || []).filter((m) => m.estado === 'PENDIENTE');
-  const [pagando, setPagando] = useState(null); // {concepto, id, label}
+
+  const saldoCuotasPendientes = useMemo(
+    () => cuotasPendientes.reduce((s, c) => s + Number(c.saldoPendiente ?? c.valorTotal ?? 0), 0),
+    [cuotasPendientes]
+  );
+  const saldoMultasPendientes = useMemo(
+    () => multasPendientesList.reduce((s, m) => s + Number(m.monto || 0), 0),
+    [multasPendientesList]
+  );
+  const totalDeudaPendiente = saldoCuotasPendientes + saldoMultasPendientes;
+  const alDia = totalDeudaPendiente === 0;
+
+  // Refresco unificado
+  const [refreshing, setRefreshing] = useState(false);
+  const refetchAll = useCallback(() => {
+    setRefreshing(true);
+    Promise.allSettled([
+      refetchPerfil(),
+      refetchDashboard(),
+      refetchUnit(),
+      refetchQrs(),
+      refetchBuzon(),
+      refetchWompi(),
+    ]).finally(() => {
+      setTimeout(() => setRefreshing(false), 400);
+      toast.success('Información del panel sincronizada');
+    });
+  }, [
+    refetchPerfil,
+    refetchDashboard,
+    refetchUnit,
+    refetchQrs,
+    refetchBuzon,
+    refetchWompi,
+  ]);
+
+  // ==== Wompi Pagos en Línea ====
+  const [pagando, setPagando] = useState(null);
 
   function cargarWidgetWompi() {
-    // Sin wrapper: cada camino devuelve UNA promesa que SIEMPRE resuelve o
-    // rechaza. (Antes se devolvia `window._wompiWidgetCargando` desde el
-    // ejecutor de un `new Promise` externo, y ese return se ignora: cuando la
-    // carga ya estaba en vuelo, el await quedaba colgado para siempre.)
     if (window.WidgetCheckout) return Promise.resolve();
     if (window._wompiWidgetCargando) return window._wompiWidgetCargando;
     const promesa = new Promise((res, rej) => {
@@ -232,24 +196,30 @@ export default function ResidenteDashboardPage() {
       s.async = true;
       const timer = setTimeout(() => {
         window._wompiWidgetCargando = null;
-        rej(new Error('El widget de pago tarda demasiado en cargar. Revisá tu conexión e intentá de nuevo.'));
+        rej(new Error('El widget de pago tarda demasiado en cargar. Por favor verifica tu conexión.'));
       }, 15000);
-      s.onload = () => { clearTimeout(timer); window._wompiWidgetCargando = null; res(); };
-      s.onerror = () => { clearTimeout(timer); window._wompiWidgetCargando = null; rej(new Error('No se pudo cargar el widget de pago')); };
+      s.onload = () => {
+        clearTimeout(timer);
+        window._wompiWidgetCargando = null;
+        res();
+      };
+      s.onerror = () => {
+        clearTimeout(timer);
+        window._wompiWidgetCargando = null;
+        rej(new Error('No se pudo cargar el widget de pago'));
+      };
       document.head.appendChild(s);
     });
     window._wompiWidgetCargando = promesa;
     return promesa;
   }
 
-  // Precarga: el widget empieza a descargarse al entrar al dashboard, no al
-  // clickear "Pagar". Asi el script suele estar listo cuando el usuario paga.
   useEffect(() => {
-    cargarWidgetWompi().catch(() => { /* best-effort: se reintenta al pagar */ });
+    cargarWidgetWompi().catch(() => {});
   }, []);
 
   async function pollEstadoWompi(referencia) {
-    // eslint-disable-next-line react-hooks/purity -- Date.now() in async event handler, not render
+    // eslint-disable-next-line react-hooks/purity
     const t0 = Date.now();
     // eslint-disable-next-line react-hooks/purity
     while (Date.now() - t0 < 180000) {
@@ -259,68 +229,66 @@ export default function ResidenteDashboardPage() {
         const estado = est.estado || 'PENDIENTE';
         if (['APROBADO', 'RECHAZADO', 'VENCIDO', 'ERROR'].includes(estado)) {
           if (estado === 'APROBADO') {
-            toast.success('Pago confirmado. Recibirás el recibo por correo.');
+            toast.success('¡Pago confirmado exitosamente! Recibirás el recibo formal por correo.');
           } else {
             toast.error(`El pago fue ${estado.toLowerCase()}.`);
           }
           return;
         }
-      } catch { /* reintentar */ }
+      } catch {
+        /* reintento */
+      }
     }
-    toast.info('El pago quedó pendiente de confirmación; te avisaremos por correo.');
+    toast.info('El pago quedó en validación bancaria; te avisaremos al correo.');
   }
 
   async function pagarConWompi(concepto, id, label) {
     if (pagando) return;
     setPagando({ concepto, id, label });
-    // Anti-colgado: si el widget se cierra sin completar, el callback de
-    // WidgetCheckout.open() nunca corre y `pagando` quedaría activo para
-    // siempre (botón "Abriendo…" que bloquea reintentos). Se resetea solo.
     const timer = setTimeout(() => {
       setPagando(null);
-      toast.info('El pago se canceló o expiró. Podés volver a intentar.');
+      toast.info('La pasarela de pago se cerró o expiró.');
     }, 60000);
+
     const finalizar = () => {
       clearTimeout(timer);
       setPagando(null);
-      refetchHistorialWompi();
-      if (typeof refetchDashboard === 'function') refetchDashboard();
+      refetchWompi();
+      refetchDashboard();
     };
-        try {
-            const sol = await api.post('/pagos/wompi/solicitud', { concepto, id });
-            // Idempotencia: si ya había un intento PENDIENTE con transacción creada en
-      // Wompi, no se reabre el widget — solo se espera el estado final.
+
+    try {
+      const sol = await api.post('/pagos/wompi/solicitud', { concepto, id });
       if (sol.idTransaccionWompi) {
-        toast.info('Ya hay un pago en curso para este ítem. Esperando confirmación…');
+        toast.info('Ya hay una transacción en curso. Esperando confirmación bancaria...');
         await pollEstadoWompi(sol.referencia);
         finalizar();
         return;
       }
       await cargarWidgetWompi();
-            const customerData = user?.email
-        ? { email: user.email, fullName: `${user.nombres || ''} ${user.apellidos || ''}`.trim() || undefined }
+      const customerData = user?.email
+        ? { email: user.email, fullName: nombreResidente || undefined }
         : undefined;
+
       const checkout = new window.WidgetCheckout({
         currency: 'COP',
         amountInCents: sol.montoCentavos,
         reference: sol.referencia,
         publicKey: sol.publicKey,
         signature: { integrity: sol.firmaIntegridad },
-        // Sin redirectUrl: Wompi bloquea con 403 los redirect-url de localhost
-        // (entornos de desarrollo), y el resultado ya se maneja por callback +
-        // polling (pollEstadoWompi). Evitar el redirect elimina el bloqueo en
-        // cualquier entorno y mantiene la confirmacion por webhook/polling.
-        // redirectUrl: `${window.location.origin}/residente-dashboard?pago=resultado`,
         ...(customerData ? { customerData } : {}),
       });
-            checkout.open(async (result) => {
-        // El widget devuelve la transaccion creada en Wompi: registrarla en el
-        // backend para que el polling pueda consultar el estado real (el
-        // webhook puede no estar configurado o perderse).
+
+      checkout.open(async (result) => {
         if (result && result.transaction && result.transaction.id) {
           try {
-            await api.post('/pagos/wompi/transaccion', { referencia: sol.referencia, idTransaccionWompi: result.transaction.id });
-          } catch { /* best-effort */ }
+            await api.post('/pagos/wompi/transaccion', {
+              referencia: sol.referencia,
+              idTransaccionWompi: result.transaction.id,
+            });
+          } catch {
+            /* best effort */
+          }
         }
         await pollEstadoWompi(sol.referencia);
         finalizar();
@@ -333,106 +301,100 @@ export default function ResidenteDashboardPage() {
   }
 
   const badgeWompi = (estado) => {
-    const map = {
-      APROBADO: { label: 'Pagado', color: 'var(--accent-green)' },
-      RECHAZADO: { label: 'Rechazado', color: 'var(--warn)' },
-      VENCIDO: { label: 'Vencido', color: 'var(--warn)' },
-      ERROR: { label: 'Error', color: 'var(--error)' },
-      PENDIENTE: { label: 'Pendiente', color: 'var(--text-muted)' },
-    };
-    const e = map[estado] || map.PENDIENTE;
-    return <span style={{ color: e.color, fontWeight: 700, fontSize: '12px' }}>{e.label}</span>;
+    switch (estado) {
+      case 'APROBADO':
+        return <Badge variant="success" className="font-semibold">Aprobado</Badge>;
+      case 'RECHAZADO':
+        return <Badge variant="destructive" className="font-semibold">Rechazado</Badge>;
+      case 'VENCIDO':
+        return <Badge variant="secondary" className="font-semibold text-amber-600">Vencido</Badge>;
+      case 'ERROR':
+        return <Badge variant="destructive" className="font-semibold">Error</Badge>;
+      default:
+        return <Badge variant="outline" className="font-semibold">Pendiente</Badge>;
+    }
   };
 
-  // ==== B1: Poll de confirmación de visitas (recuperado del legacy) ====
-  const [confirmarPendiente, setConfirmarPendiente] = useState(null); // mensaje en modal o null
+  // ==== Confirmación de Visitas en Tiempo Real (Portería B1) ====
+  const [confirmarPendiente, setConfirmarPendiente] = useState(null);
   const [confirmando, setConfirmando] = useState(false);
   const confirmandoRef = useRef(false);
   const failCountRef = useRef(0);
-  const [backoffActivo, setBackoffActivo] = useState(false); // reactivo: recrea el intervalo al cambiar
+  const [backoffActivo, setBackoffActivo] = useState(false);
 
-  async function tickConfirmacion() {
-    // Pausa mientras el modal está abierto (el estado actúa como "pause")
+  const tickConfirmacion = useCallback(async () => {
     if (confirmarPendiente) return;
     if (document.visibilityState !== 'visible') return;
     try {
       const pendientes = await api.get('/buzon/confirmar-pendiente');
       const lista = Array.isArray(pendientes) ? pendientes : pendientes?.items || [];
       failCountRef.current = 0;
-      if (backoffActivo) setBackoffActivo(false); // red recuperada: el intervalo vuelve solo a 5s
+      if (backoffActivo) setBackoffActivo(false);
       if (lista.length > 0) setConfirmarPendiente(lista[0]);
     } catch {
-      // Best-effort: el modal es el feedback, no un toast por tick.
-      // Umbral: 5 fallos consecutivos -> aviso único + backoff a 30s. El poll sigue vivo
-      // (no se detiene): si la red se recupera sola, el tick exitoso restaura 5s sin
-      // depender de que el residente abra/cierre el modal.
       failCountRef.current += 1;
       if (failCountRef.current >= 5 && !backoffActivo) {
-        setBackoffActivo(true); // dispara re-render → el efecto recrea el intervalo con 30s
-        toast.warning('No se pudo verificar visitas pendientes. Se reintentará automáticamente.');
+        setBackoffActivo(true);
       }
     }
-  }
+  }, [confirmarPendiente, backoffActivo, setConfirmarPendiente]);
 
   useEffect(() => {
     const interval = setInterval(tickConfirmacion, backoffActivo ? 30000 : 5000);
     return () => clearInterval(interval);
-  }, [confirmarPendiente, backoffActivo]);
+  }, [tickConfirmacion, backoffActivo]);
 
-  // Al volver la pestaña visible: poll inmediato (no esperar el próximo tick)
   useEffect(() => {
-    const onVisible = () => { if (document.visibilityState === 'visible') tickConfirmacion(); };
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') tickConfirmacion();
+    };
     document.addEventListener('visibilitychange', onVisible);
     return () => document.removeEventListener('visibilitychange', onVisible);
-  }, [confirmarPendiente]);
+  }, [tickConfirmacion]);
 
   async function responderConfirmacion(confirmado) {
-    if (confirmandoRef.current) return; // doble submit (patrón generalizado)
+    if (confirmandoRef.current) return;
     if (!confirmarPendiente) return;
     confirmandoRef.current = true;
     setConfirmando(true);
     try {
       await api.post('/buzon/confirmar', { idMensaje: confirmarPendiente.idMensaje, confirmado });
-      toast.success(confirmado === 1 ? 'Acceso confirmado' : 'Acceso rechazado');
-      setConfirmarPendiente(null); // cierra; el próximo tick traerá el siguiente pendiente si hay
+      toast.success(confirmado === 1 ? 'Acceso autorizado al visitante' : 'Acceso denegado');
+      setConfirmarPendiente(null);
     } catch (err) {
-      // El modal se MANTIENE abierto: el residente ve el error y puede reintentar;
-      // el poll sigue pausado mientras haya modal.
-      toast.error(err.message);
+      toast.error(err.message || 'Error al procesar la confirmación');
     } finally {
       confirmandoRef.current = false;
       setConfirmando(false);
     }
   }
 
-  // ==== B3: QR activos + compartir (recuperado del legacy) ====
-  // Imagen QR via api.qrserver.com (fiel al legacy; sin dependencia nueva).
-  // Seguridad: el QR es single-use + expira (el endpoint filtra usado=0 AND
-  // fecha_expiracion>now); la validacion del portero es server-side — compartir
-  // la imagen por error no la hace valida despues de usarse o expirar.
+  // ==== Pases QR & Compartir ====
+  const [qrZoom, setQrZoom] = useState(null);
+
   function qrImageUrl(codigoQr) {
     return 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=' + encodeURIComponent(codigoQr);
   }
 
   function compartirTelegram(codigoQr, nombre) {
     const imgUrl = qrImageUrl(codigoQr);
-    const text = encodeURIComponent(`Código QR de acceso para ${nombre || 'tu visita'}\n\nAbre esta imagen para escanear:\n${imgUrl}`);
+    const text = encodeURIComponent(`Código QR de acceso para ${nombre || 'tu visita'}\n\nAbre la imagen para ingresar:\n${imgUrl}`);
     window.open(`https://t.me/share/url?url=${encodeURIComponent(imgUrl)}&text=${text}`, '_blank');
   }
 
   function compartirSMS(codigoQr, telefono) {
     const imgUrl = qrImageUrl(codigoQr);
-    const body = encodeURIComponent(`Tu código QR de acceso: ${codigoQr} - Abre la imagen: ${imgUrl}`);
+    const body = encodeURIComponent(`Tu código QR de acceso en portería es: ${codigoQr} - Imagen: ${imgUrl}`);
     window.open(telefono ? `sms:${telefono}?body=${body}` : `sms:?body=${body}`);
   }
 
   function compartirCorreo(codigoQr, nombre, email) {
     const imgUrl = qrImageUrl(codigoQr);
-    const subject = encodeURIComponent('Código QR de Acceso');
+    const subject = encodeURIComponent('Pase de Acceso con Código QR — SAED');
     const body = encodeURIComponent(
       `Hola,\n\nHas recibido un código QR de acceso${nombre ? ` para ${nombre}` : ''}.\n\n` +
-      `Código: ${codigoQr}\n\nO abre esta imagen para escanear:\n${imgUrl}\n\n` +
-      `Preséntala en la entrada del edificio.`
+      `Código: ${codigoQr}\n\nPresenta esta imagen al guardia de portería:\n${imgUrl}\n\n` +
+      `Conjunto / Edificio: ${user?.nombrePropiedad || 'Copropiedad'}`
     );
     window.open(email ? `mailto:${email}?subject=${subject}&body=${body}` : `mailto:?subject=${subject}&body=${body}`);
   }
@@ -447,153 +409,1016 @@ export default function ResidenteDashboardPage() {
   }
 
   return (
-    <div>
-      <PageHeader
-        title="Mi Panel"
-        subtitle={`Bienvenido${nombreResidente || user?.username ? `, ${nombreResidente || user?.username}` : ''}`}
-      />
-      <div className="card-grid-4">
-        <StatCard icon="apartment" value={apartamento.numero || '—'} label="Apartamento" color="blue" />
-        <StatCard icon="description" value={contrato.estado || '—'} label="Estado Contrato" color="amber" />
-        <StatCard
-          icon="payments"
-          value={formatCurrency(cuotasArriendo)}
-          label="Cuotas de Arriendo"
-          color="green"
+    <PageContainer>
+      {/* 1. HERO BANNER PRINCIPAL DEL RESIDENTE */}
+      <div className="relative overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-slate-900 via-primary/95 to-slate-900 text-white shadow-xl">
+        <div
+          className="absolute inset-0 opacity-5 pointer-events-none"
+          style={{
+            backgroundImage:
+              'radial-gradient(circle at 20% 30%, white 1px, transparent 1px), radial-gradient(circle at 80% 70%, white 1px, transparent 1px)',
+            backgroundSize: '24px 24px',
+          }}
         />
-        <StatCard
-          icon="gavel"
-          value={formatCurrency(multasPendientes)}
-          label="Multas Pendientes"
-          color="amber"
-        />
-      </div>
 
-      {(donutData.length > 0 || cuotasPendientes.length > 0 || multasPendientesList.length > 0 || wompiHistorial.length > 0) && (
-        <div className="card-grid-2" style={{ marginTop: '20px', alignItems: 'start' }}>
-          {donutData.length > 0 && (
-            <DonutChart data={donutData} title="Distribución por tipo de pago" />
-          )}
-
-      {(cuotasPendientes.length > 0 || multasPendientesList.length > 0 || wompiHistorial.length > 0) && (
-        <div className="card">
-          <div style={{ fontWeight: 700, marginBottom: '2px' }}>Mis pagos</div>
-          <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '12px' }}>
-            Pagá en línea tus cuotas y multas pendientes (tarjeta, Nequi, PSE o Bancolombia).
-          </p>
-
-          {cuotasPendientes.map((c) => (
-            <div key={`wc-${c.idCuota}`} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 600, fontSize: '13px' }}>
-                  {c.tipoCuota === 'ADMINISTRACION' ? 'Cuota de administración' : 'Cuota de arriendo'} · {MESES_W[(c.mes || 1) - 1]} {c.anio}
-                </div>
-                <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                  {c.fechaLimite ? `Vence ${formatDate(c.fechaLimite)} · ` : ''}{c.estado}
-                </div>
+        <div className="relative p-6 sm:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+          <div className="flex items-center gap-4 sm:gap-5 min-w-0">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-white text-xl sm:text-2xl font-black shrink-0 shadow-lg">
+              {iniciales}
+            </div>
+            <div className="space-y-1.5 min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white truncate">
+                  {nombreResidente}
+                </h1>
+                <Badge variant="secondary" className="bg-white/20 text-white border-white/20 hover:bg-white/30">
+                  Residente Titular
+                </Badge>
+                {alDia ? (
+                  <Badge variant="outline" className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30">
+                    <CheckCircle2 className="w-3 h-3 mr-1" />
+                    Paz y Salvo
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="bg-amber-500/20 text-amber-300 border-amber-500/30">
+                    <AlertCircle className="w-3 h-3 mr-1" />
+                    Pago Pendiente
+                  </Badge>
+                )}
               </div>
-              <div style={{ fontWeight: 700, fontSize: '14px' }}>{formatCurrency(c.saldoPendiente ?? c.valorTotal)}</div>
-              <Button size="sm" onClick={() => pagarConWompi('CUOTA', c.idCuota, `Cuota ${c.anio}/${String(c.mes).padStart(2, '0')}`)} disabled={!!pagando}>
-                {pagando?.id === c.idCuota && pagando?.concepto === 'CUOTA' ? 'Abriendo…' : 'Pagar'}
-              </Button>
+              <p className="text-sm text-white/80 font-medium flex items-center gap-2 flex-wrap">
+                <span className="flex items-center gap-1 text-white font-semibold">
+                  <Home className="w-4 h-4 text-emerald-400 shrink-0" />
+                  {numeroApto}
+                </span>
+                <span className="text-white/40">•</span>
+                <span>{nombreBloque} · Piso {pisoApto}</span>
+                <span className="text-white/40">•</span>
+                <span className="text-white/70">{tipoUnidad} · {user?.nombrePropiedad || 'Edificio Residencial SAED'}</span>
+              </p>
             </div>
-          ))}
+          </div>
 
-          {multasPendientesList.map((m) => (
-            <div key={`wm-${m.idMulta}`} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 600, fontSize: '13px' }}>Multa · {m.tipo}</div>
-                <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{m.descripcion || 'Multa pendiente'}</div>
-              </div>
-              <div style={{ fontWeight: 700, fontSize: '14px' }}>{formatCurrency(m.monto)}</div>
-              <Button size="sm" onClick={() => pagarConWompi('MULTA', m.idMulta, `Multa ${m.tipo}`)} disabled={!!pagando}>
-                {pagando?.id === m.idMulta && pagando?.concepto === 'MULTA' ? 'Abriendo…' : 'Pagar'}
-              </Button>
-            </div>
-          ))}
-
-          {wompiHistorial.length > 0 && (
-            <div style={{ marginTop: '12px' }}>
-              <div style={{ fontWeight: 600, fontSize: '12px', color: 'var(--text-muted)', marginBottom: '6px' }}>Intentos recientes</div>
-              {wompiHistorial.slice(0, 5).map((h) => (
-                <div key={h.referencia} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', padding: '4px 0' }}>
-                  <span style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>#{String(h.referencia).slice(0, 24)}</span>
-                  <span>{formatCurrency(h.montoCentavos / 100)}</span>
-                  {badgeWompi(h.estado)}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-      </div>
-      )}
-
-      {qrActivos.length > 0 && (
-        <div className="card" style={{ marginTop: '20px' }}>
-          <div style={{ fontWeight: 700, marginBottom: '12px' }}>Códigos QR Activos</div>
-          {qrActivos.map((qr) => (
-            <div
-              key={qr.idQr}
-              style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', border: '1px solid var(--border)', borderRadius: '8px', marginBottom: '8px' }}
+          {/* Acciones de Cabecera */}
+          <div className="w-full md:w-auto flex items-center justify-between md:justify-end gap-3 border-t md:border-t-0 border-white/15 pt-4 md:pt-0">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={refetchAll}
+              disabled={refreshing}
+              className="bg-white/10 hover:bg-white/20 text-white border-white/25 shadow-sm gap-1.5"
             >
-              <img
-                src={qrImageUrl(qr.codigoQr)}
-                alt={`QR de ${qr.nombreVisitante || 'visita'}`}
-                width="56"
-                height="56"
-                style={{ borderRadius: '4px', width: '56px', height: '56px', flexShrink: 0 }}
-              />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ fontWeight: 600, fontSize: '13px' }}>{qr.nombreVisitante || 'Visitante'}</p>
-                <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                  {qr.cantidadPersonas || 1} persona(s) · Vence: {formatDateTime(qr.fechaExpiracion)}
-                </p>
-                <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                  #{String(qr.codigoQr).slice(0, 8)}...
-                </p>
+              <RefreshCw className={cn('w-3.5 h-3.5', refreshing && 'animate-spin')} />
+              <span className="hidden sm:inline">Actualizar</span>
+            </Button>
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => navigate('/res-perfil')}
+              className="bg-white text-slate-900 hover:bg-white/90 shadow-md font-semibold gap-1.5"
+            >
+              <Building2 className="w-3.5 h-3.5 text-primary" />
+              Ver Mi Inmueble
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* 2. STRIP DE MÉTRICAS OPERATIVAS (KPIS) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* KPI 1: Inmueble */}
+        <Card className="hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 border-border/70">
+          <CardContent className="p-5 flex items-center gap-4">
+            <div className="p-3 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 shrink-0">
+              <Building2 className="w-6 h-6" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Unidad Privada</p>
+              <h3 className="text-xl font-bold text-foreground truncate">{numeroApto}</h3>
+              <p className="text-xs text-muted-foreground truncate">{nombreBloque} · {areaApto}</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* KPI 2: Cartera & Obligaciones */}
+        <Card
+          onClick={() => navigate('/res-cuotas')}
+          className="hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 border-border/70 cursor-pointer group"
+        >
+          <CardContent className="p-5 flex items-center gap-4">
+            <div
+              className={cn(
+                'p-3 rounded-xl shrink-0 transition-transform group-hover:scale-105',
+                alDia
+                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                  : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+              )}
+            >
+              <Wallet className="w-6 h-6" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Estado de Cartera</p>
+                <ArrowRight className="w-3.5 h-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
               </div>
-              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                <Button size="sm" onClick={() => compartirTelegram(qr.codigoQr, qr.nombreVisitante)} title="Compartir por Telegram">Telegram</Button>
-                <Button size="sm" onClick={() => compartirSMS(qr.codigoQr, '')} title="Compartir por SMS">SMS</Button>
-                <Button size="sm" onClick={() => compartirCorreo(qr.codigoQr, qr.nombreVisitante, '')} title="Compartir por Correo">Correo</Button>
-                <Button size="sm" variant="outline" onClick={() => copiarQR(qr.codigoQr)}>Copiar QR</Button>
+              <h3 className="text-xl font-bold text-foreground truncate">
+                {alDia ? 'Al Día' : formatCurrency(totalDeudaPendiente)}
+              </h3>
+              <p className="text-xs text-muted-foreground truncate">
+                {alDia ? 'Sin saldos pendientes' : `${cuotasPendientes.length} cuota(s) por pagar`}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* KPI 3: Control de Visitas QR */}
+        <Card
+          onClick={() => navigate('/res-visita')}
+          className="hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 border-border/70 cursor-pointer group"
+        >
+          <CardContent className="p-5 flex items-center gap-4">
+            <div className="p-3 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 shrink-0 transition-transform group-hover:scale-105">
+              <QrCode className="w-6 h-6" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Pases de Acceso</p>
+                <ArrowRight className="w-3.5 h-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
+              </div>
+              <h3 className="text-xl font-bold text-foreground truncate">
+                {qrActivos.length} Activo(s)
+              </h3>
+              <p className="text-xs text-muted-foreground truncate">Autorizaciones para portería</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* KPI 4: Paquetería & Portería */}
+        <Card
+          onClick={() => navigate('/res-buzon')}
+          className="hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 border-border/70 cursor-pointer group"
+        >
+          <CardContent className="p-5 flex items-center gap-4">
+            <div
+              className={cn(
+                'p-3 rounded-xl shrink-0 transition-transform group-hover:scale-105',
+                paquetesPendientes.length > 0
+                  ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                  : 'bg-slate-500/10 text-slate-600 dark:text-slate-400'
+              )}
+            >
+              <Package className="w-6 h-6" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Correspondencia</p>
+                <ArrowRight className="w-3.5 h-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
+              </div>
+              <h3 className="text-xl font-bold text-foreground truncate">
+                {paquetesPendientes.length > 0 ? `${paquetesPendientes.length} por retirar` : 'Al día'}
+              </h3>
+              <p className="text-xs text-muted-foreground truncate">
+                {paquetesPendientes.length > 0 ? 'En custodia en portería' : 'Sin paquetes pendientes'}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* 3. BARRA DE ACCIONES RÁPIDAS DEL RESIDENTE */}
+      <Card className="border-border/80 bg-card/60 backdrop-blur-sm">
+        <CardContent className="p-4 sm:p-5">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-primary" />
+              <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Acciones Rápidas & Servicios
+              </h3>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            <Button
+              variant="outline"
+              onClick={() => navigate('/res-visita')}
+              className="h-auto py-3 px-3 flex flex-col items-center justify-center text-center gap-1.5 hover:border-primary/50 hover:bg-primary/5"
+            >
+              <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                <Plus className="w-4 h-4" />
+              </div>
+              <span className="text-xs font-semibold text-foreground">Crear Visita QR</span>
+            </Button>
+
+            <Button
+              variant="outline"
+              onClick={() => navigate('/res-cuotas')}
+              className="h-auto py-3 px-3 flex flex-col items-center justify-center text-center gap-1.5 hover:border-primary/50 hover:bg-primary/5"
+            >
+              <div className="p-2 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                <CreditCard className="w-4 h-4" />
+              </div>
+              <span className="text-xs font-semibold text-foreground">Pagar Cuotas</span>
+            </Button>
+
+            <Button
+              variant="outline"
+              onClick={() => navigate('/res-reservas')}
+              className="h-auto py-3 px-3 flex flex-col items-center justify-center text-center gap-1.5 hover:border-primary/50 hover:bg-primary/5"
+            >
+              <div className="p-2 rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400">
+                <Calendar className="w-4 h-4" />
+              </div>
+              <span className="text-xs font-semibold text-foreground">Reservar Zona</span>
+            </Button>
+
+            <Button
+              variant="outline"
+              onClick={() => navigate('/res-quejas')}
+              className="h-auto py-3 px-3 flex flex-col items-center justify-center text-center gap-1.5 hover:border-primary/50 hover:bg-primary/5"
+            >
+              <div className="p-2 rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400">
+                <MessageSquare className="w-4 h-4" />
+              </div>
+              <span className="text-xs font-semibold text-foreground">Radicar PQRS</span>
+            </Button>
+
+            <Button
+              variant="outline"
+              onClick={() => navigate('/res-frecuentes')}
+              className="h-auto py-3 px-3 flex flex-col items-center justify-center text-center gap-1.5 hover:border-primary/50 hover:bg-primary/5"
+            >
+              <div className="p-2 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                <Users className="w-4 h-4" />
+              </div>
+              <span className="text-xs font-semibold text-foreground">Frecuentes</span>
+            </Button>
+
+            <Button
+              variant="outline"
+              onClick={() => navigate('/res-buzon')}
+              className="h-auto py-3 px-3 flex flex-col items-center justify-center text-center gap-1.5 hover:border-primary/50 hover:bg-primary/5"
+            >
+              <div className="p-2 rounded-lg bg-slate-500/10 text-slate-600 dark:text-slate-400">
+                <Bell className="w-4 h-4" />
+              </div>
+              <span className="text-xs font-semibold text-foreground">Buzón & Avisos</span>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 4. PESTAÑAS PRINCIPALES DEL DASHBOARD */}
+      <Tabs defaultValue="resumen" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-3 max-w-xl h-11 p-1 bg-muted/80 rounded-xl border border-border">
+          <TabsTrigger value="resumen" className="gap-2 text-xs sm:text-sm font-semibold">
+            <Sparkles className="w-4 h-4" />
+            Resumen Diario
+          </TabsTrigger>
+          <TabsTrigger value="finanzas" className="gap-2 text-xs sm:text-sm font-semibold">
+            <CreditCard className="w-4 h-4" />
+            Finanzas & Pagos
+            {cuotasPendientes.length > 0 && (
+              <Badge variant="destructive" className="ml-1 text-[10px] px-1.5 py-0">
+                {cuotasPendientes.length}
+              </Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="accesos" className="gap-2 text-xs sm:text-sm font-semibold">
+            <QrCode className="w-4 h-4" />
+            Pases QR
+            {qrActivos.length > 0 && (
+              <Badge variant="secondary" className="ml-1 text-[10px] px-1.5 py-0">
+                {qrActivos.length}
+              </Badge>
+            )}
+          </TabsTrigger>
+        </TabsList>
+
+        {/* TAB 1: RESUMEN DIARIO & OPERACIONES */}
+        <TabsContent value="resumen" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Columna Izquierda (2 Cols): Pagos Inmediatos & Pases Activos */}
+            <div className="lg:col-span-2 space-y-6">
+              {/* Bloque 1: Obligaciones Inmediatas (Wompi) */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        <Wallet className="w-5 h-5 text-primary" />
+                        Obligaciones & Cuotas del Mes
+                      </CardTitle>
+                      <CardDescription>
+                        Pago seguro en línea mediante PSE, Nequi, Bancolombia o tarjeta
+                      </CardDescription>
+                    </div>
+                    {alDia ? (
+                      <Badge variant="success" className="font-semibold gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        Paz y Salvo Vigente
+                      </Badge>
+                    ) : (
+                      <Badge variant="destructive" className="font-semibold">
+                        {formatCurrency(totalDeudaPendiente)} Pendiente
+                      </Badge>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {cuotasPendientes.length === 0 && multasPendientesList.length === 0 ? (
+                    <div className="p-6 rounded-xl border border-emerald-500/20 bg-emerald-500/5 text-center space-y-2">
+                      <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto" />
+                      <h4 className="text-base font-bold text-foreground">¡Estás al día con la administración!</h4>
+                      <p className="text-xs text-muted-foreground max-w-md mx-auto">
+                        No registras cobros pendientes para el inmueble {numeroApto}. Tu historial de pagos se encuentra validado.
+                      </p>
+                      <div className="pt-2">
+                        <Button variant="outline" size="sm" onClick={() => navigate('/res-cuotas')} className="text-xs gap-1.5">
+                          <FileText className="w-3.5 h-3.5" />
+                          Ver Historial de Recibos
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-2.5">
+                      {cuotasPendientes.map((c) => (
+                        <div
+                          key={`c-${c.idCuota}`}
+                          className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl border border-border bg-card hover:bg-muted/20 transition-all"
+                        >
+                          <div className="space-y-0.5">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-bold text-foreground">
+                                {c.tipoCuota === 'ADMINISTRACION' ? 'Cuota de Administración' : 'Cuota Extraordinaria'}
+                              </span>
+                              <Badge variant="outline" className="text-[10px]">
+                                {MESES_W[(c.mes || 1) - 1]} {c.anio}
+                              </Badge>
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              {c.fechaLimite ? `Vencimiento: ${formatDate(c.fechaLimite)}` : 'Cobro reglamentario'}
+                            </p>
+                          </div>
+                          <div className="flex items-center justify-between sm:justify-end gap-4">
+                            <div className="text-right">
+                              <span className="text-xs text-muted-foreground block">Monto a Pagar</span>
+                              <span className="text-base font-black text-foreground font-mono">
+                                {formatCurrency(c.saldoPendiente ?? c.valorTotal)}
+                              </span>
+                            </div>
+                            <Button
+                              onClick={() => pagarConWompi('CUOTA', c.idCuota, `Cuota ${c.anio}/${c.mes}`)}
+                              disabled={!!pagando}
+                              className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold gap-1.5 shadow-sm shrink-0"
+                            >
+                              <CreditCard className="w-4 h-4" />
+                              {pagando?.id === c.idCuota && pagando?.concepto === 'CUOTA' ? 'Abriendo...' : 'Pagar'}
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+
+                      {multasPendientesList.map((m) => (
+                        <div
+                          key={`m-${m.idMulta}`}
+                          className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl border border-rose-500/20 bg-rose-500/5"
+                        >
+                          <div className="space-y-0.5">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-bold text-foreground">Sanción / Multa</span>
+                              <Badge variant="destructive" className="text-[10px]">{m.tipo}</Badge>
+                            </div>
+                            <p className="text-xs text-muted-foreground">{m.descripcion || 'Incumplimiento al reglamento'}</p>
+                          </div>
+                          <div className="flex items-center justify-between sm:justify-end gap-4">
+                            <div className="text-right">
+                              <span className="text-xs text-muted-foreground block">Monto</span>
+                              <span className="text-base font-black text-rose-600 dark:text-rose-400 font-mono">
+                                {formatCurrency(m.monto)}
+                              </span>
+                            </div>
+                            <Button
+                              variant="outline"
+                              onClick={() => pagarConWompi('MULTA', m.idMulta, `Multa ${m.tipo}`)}
+                              disabled={!!pagando}
+                              className="font-semibold gap-1.5 border-rose-300 text-rose-700 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-300 shrink-0"
+                            >
+                              <CreditCard className="w-4 h-4" />
+                              {pagando?.id === m.idMulta && pagando?.concepto === 'MULTA' ? 'Abriendo...' : 'Pagar'}
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Bloque 2: Pases de Visita QR Activos */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        <QrCode className="w-5 h-5 text-primary" />
+                        Pases de Acceso Activos ({qrActivos.length})
+                      </CardTitle>
+                      <CardDescription>
+                        Invitaciones vigentes autorizadas para lectura en portería
+                      </CardDescription>
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={() => navigate('/res-visita')}
+                      className="gap-1 text-xs shadow-sm"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      Nueva Visita
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {qrActivos.length === 0 ? (
+                    <div className="p-6 rounded-xl border border-dashed border-border text-center space-y-2">
+                      <QrCode className="w-8 h-8 text-muted-foreground mx-auto opacity-50" />
+                      <p className="text-sm font-semibold text-foreground">No tienes códigos QR activos en este momento</p>
+                      <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                        Genera una invitación rápida con QR para que tus amigos, familiares o domiciliarios ingresen sin demoras.
+                      </p>
+                      <div className="pt-2">
+                        <Button size="sm" onClick={() => navigate('/res-visita')} className="gap-1.5">
+                          <Plus className="w-3.5 h-3.5" />
+                          Crear Autorización de Acceso
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {qrActivos.map((qr) => (
+                        <div
+                          key={qr.idQr}
+                          className="flex flex-col justify-between p-4 rounded-xl border border-border bg-card hover:shadow-sm transition-all"
+                        >
+                          <div className="flex items-start gap-3.5">
+                            <img
+                              src={qrImageUrl(qr.codigoQr)}
+                              alt={`QR ${qr.nombreVisitante || 'Visita'}`}
+                              width="64"
+                              height="64"
+                              onClick={() => setQrZoom(qr)}
+                              className="w-16 h-16 rounded-lg border border-border cursor-zoom-in bg-white p-1 shrink-0"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <h4 className="text-sm font-bold text-foreground truncate">
+                                {qr.nombreVisitante || 'Visitante Autorizado'}
+                              </h4>
+                              <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                                <Users className="w-3 h-3" />
+                                {qr.cantidadPersonas || 1} persona(s)
+                              </p>
+                              <p className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                                <Clock className="w-3 h-3 text-amber-500" />
+                                Expira: {formatDateTime(qr.fechaExpiracion)}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="mt-3 pt-3 border-t border-border flex items-center justify-between gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setQrZoom(qr)}
+                              className="text-xs text-primary px-2 h-8 gap-1"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              Ver
+                            </Button>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => compartirTelegram(qr.codigoQr, qr.nombreVisitante)}
+                                title="Enviar por Telegram"
+                                className="h-8 px-2 text-xs"
+                              >
+                                <Send className="w-3 h-3 text-blue-500" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => compartirSMS(qr.codigoQr, '')}
+                                title="Enviar por SMS"
+                                className="h-8 px-2 text-xs"
+                              >
+                                <Phone className="w-3 h-3 text-emerald-500" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => compartirCorreo(qr.codigoQr, qr.nombreVisitante, '')}
+                                title="Enviar por Correo"
+                                className="h-8 px-2 text-xs"
+                              >
+                                <Mail className="w-3 h-3 text-purple-500" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => copiarQR(qr.codigoQr)}
+                                title="Copiar código al portapapeles"
+                                className="h-8 px-2 text-xs"
+                              >
+                                <Copy className="w-3 h-3 text-slate-500" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Columna Derecha (1 Col): Paquetería, Circulares y Ficha */}
+            <div className="space-y-6">
+              {/* Paquetes en Custodia de Portería */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Package className="w-4 h-4 text-amber-500" />
+                      Paquetes en Portería
+                    </CardTitle>
+                    {paquetesPendientes.length > 0 && (
+                      <Badge variant="warning" className="text-[10px]">
+                        {paquetesPendientes.length} Pendiente(s)
+                      </Badge>
+                    )}
+                  </div>
+                  <CardDescription>Correspondencia y encomiendas en recepción</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {paquetesPendientes.length === 0 ? (
+                    <div className="p-4 rounded-xl border border-dashed border-border text-center space-y-1">
+                      <Package className="w-7 h-7 text-muted-foreground mx-auto opacity-40" />
+                      <p className="text-xs font-semibold text-foreground">Sin paquetes en portería</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        Cuando recibas un paquete el personal de vigilancia lo registrará y te notificará de inmediato.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {paquetesPendientes.map((p) => (
+                        <div
+                          key={p.idMensaje}
+                          className="p-3 rounded-lg border border-amber-500/30 bg-amber-500/5 space-y-1"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-foreground">{p.titulo}</span>
+                            <span className="text-[10px] text-muted-foreground font-mono">
+                              {formatDate(p.fechaCreacion)}
+                            </span>
+                          </div>
+                          {p.cuerpo && <p className="text-xs text-muted-foreground">{p.cuerpo}</p>}
+                          <div className="pt-1 flex items-center justify-between">
+                            <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400">
+                              En custodia en portería
+                            </span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => navigate('/res-buzon')}
+                              className="h-6 text-[11px] text-primary p-0 hover:bg-transparent"
+                            >
+                              Ver detalles →
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Circulares y Avisos Oficiales */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Bell className="w-4 h-4 text-primary" />
+                      Avisos de la Administración
+                    </CardTitle>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => navigate('/res-buzon')}
+                      className="text-xs text-primary p-0 h-auto"
+                    >
+                      Buzón →
+                    </Button>
+                  </div>
+                  <CardDescription>Circulares y convocatorias oficiales</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {circularesRecientes.length === 0 ? (
+                    <div className="p-4 rounded-xl border border-dashed border-border text-center space-y-1">
+                      <Bell className="w-6 h-6 text-muted-foreground mx-auto opacity-40" />
+                      <p className="text-xs font-semibold text-foreground">Sin circulares recientes</p>
+                      <p className="text-[11px] text-muted-foreground">La administración publicará aquí los avisos oficiales.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2.5">
+                      {circularesRecientes.map((c) => (
+                        <div
+                          key={c.idMensaje}
+                          className="p-3 rounded-lg border border-border bg-card/60 space-y-1 hover:bg-muted/20 transition-colors"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <span className="text-xs font-bold text-foreground line-clamp-1">{c.titulo}</span>
+                            <span className="text-[10px] text-muted-foreground shrink-0">{formatDate(c.fechaCreacion)}</span>
+                          </div>
+                          {c.cuerpo && <p className="text-xs text-muted-foreground line-clamp-2">{c.cuerpo}</p>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Ficha Rápida del Inmueble */}
+              <Card className="border-border/80">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Building2 className="w-4 h-4 text-primary" />
+                    Ficha de la Unidad
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2.5 text-xs">
+                  <div className="flex justify-between py-1 border-b border-border/50">
+                    <span className="text-muted-foreground">Nomenclatura:</span>
+                    <span className="font-bold text-foreground">{numeroApto}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-border/50">
+                    <span className="text-muted-foreground">Torre / Bloque:</span>
+                    <span className="font-bold text-foreground">{nombreBloque}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-border/50">
+                    <span className="text-muted-foreground">Piso:</span>
+                    <span className="font-bold text-foreground">Piso {pisoApto}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-border/50">
+                    <span className="text-muted-foreground">Área Privada:</span>
+                    <span className="font-mono text-foreground">{areaApto}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-border/50">
+                    <span className="text-muted-foreground">Coeficiente:</span>
+                    <span className="font-mono text-foreground">{coeficiente}</span>
+                  </div>
+                  <div className="flex justify-between py-1">
+                    <span className="text-muted-foreground">Modalidad:</span>
+                    <span className="font-semibold text-primary">{contratoInfo.tipoContrato || 'Copropietario Residente'}</span>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* TAB 2: FINANZAS & HISTORIAL DE PAGOS */}
+        <TabsContent value="finanzas" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* 2.1: Historial Wompi & Pasarela */}
+            <Card className="lg:col-span-2">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <CreditCard className="w-5 h-5 text-primary" />
+                  Transacciones en Línea (Wompi)
+                </CardTitle>
+                <CardDescription>
+                  Registro de pagos procesados mediante pasarela bancaria certificada
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {wompiHistorial.length === 0 ? (
+                  <EmptyState
+                    icon="payments"
+                    title="No hay transacciones en línea recientes"
+                    subtitle="Cuando efectúes un pago con Wompi, el comprobante y estado se listarán en esta sección."
+                  />
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="border-b border-border text-muted-foreground text-left">
+                          <th className="py-2.5 px-3 font-semibold">Referencia</th>
+                          <th className="py-2.5 px-3 font-semibold">Fecha</th>
+                          <th className="py-2.5 px-3 font-semibold text-right">Monto</th>
+                          <th className="py-2.5 px-3 font-semibold text-center">Estado</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border/60">
+                        {wompiHistorial.slice(0, 8).map((h) => (
+                          <tr key={h.referencia} className="hover:bg-muted/20">
+                            <td className="py-3 px-3 font-mono text-foreground">
+                              #{String(h.referencia).slice(0, 20)}...
+                            </td>
+                            <td className="py-3 px-3 text-muted-foreground">
+                              {formatDate(h.fechaCreacion || new Date())}
+                            </td>
+                            <td className="py-3 px-3 font-bold text-foreground text-right font-mono">
+                              {formatCurrency(h.montoCentavos ? h.montoCentavos / 100 : h.monto)}
+                            </td>
+                            <td className="py-3 px-3 text-center">
+                              {badgeWompi(h.estado)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* 2.2: Métodos de Pago & Resumen de Cartera */}
+            <div className="space-y-6">
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-emerald-500" />
+                    Métodos de Pago Habilitados
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3 text-xs">
+                  <div className="p-3 rounded-lg border border-border bg-card/60 flex items-center gap-3">
+                    <div className="p-2 rounded-md bg-primary/10 text-primary font-bold">PSE</div>
+                    <div>
+                      <p className="font-bold text-foreground">Débito Bancario (PSE)</p>
+                      <p className="text-muted-foreground">Todos los bancos colombianos</p>
+                    </div>
+                  </div>
+                  <div className="p-3 rounded-lg border border-border bg-card/60 flex items-center gap-3">
+                    <div className="p-2 rounded-md bg-purple-500/10 text-purple-600 font-bold">NEQUI</div>
+                    <div>
+                      <p className="font-bold text-foreground">Nequi & Daviplata</p>
+                      <p className="text-muted-foreground">Notificación y débito al instante</p>
+                    </div>
+                  </div>
+                  <div className="p-3 rounded-lg border border-border bg-card/60 flex items-center gap-3">
+                    <div className="p-2 rounded-md bg-blue-500/10 text-blue-600 font-bold">VISA</div>
+                    <div>
+                      <p className="font-bold text-foreground">Tarjetas de Crédito / Débito</p>
+                      <p className="text-muted-foreground">Visa, Mastercard, American Express</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-primary" />
+                    Paz y Salvo de Administración
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <p className="text-xs text-muted-foreground">
+                    Para trámites notariales, arriendos o traspasos de inmueble, solicita tu certificado oficial de paz y salvo expedido por la administración.
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigate('/res-cuotas')}
+                    className="w-full gap-2 text-xs"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    Ir al Portal Financiero
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* TAB 3: ACCESOS & PASES QR */}
+        <TabsContent value="accesos" className="space-y-6">
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <QrCode className="w-5 h-5 text-primary" />
+                    Pases QR Activos y Normativa de Seguridad
+                  </CardTitle>
+                  <CardDescription>
+                    Pases dinámicos de uso único con validación en portería conforme al protocolo del conjunto
+                  </CardDescription>
+                </div>
+                <Button size="sm" onClick={() => navigate('/res-visita')} className="gap-1.5 shadow-sm">
+                  <Plus className="w-4 h-4" />
+                  Autorizar Nueva Visita
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {qrActivos.length === 0 ? (
+                <EmptyState
+                  icon="qr_code_2"
+                  title="No tienes pases QR vigentes"
+                  subtitle="Crea un pase de acceso rápido con fecha de expiración para tus invitados o entregas."
+                >
+                  <div className="mt-4">
+                    <Button onClick={() => navigate('/res-visita')} className="gap-2">
+                      <Plus className="w-4 h-4" />
+                      Generar Pase de Acceso
+                    </Button>
+                  </div>
+                </EmptyState>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {qrActivos.map((qr) => (
+                    <div
+                      key={qr.idQr}
+                      className="p-5 rounded-2xl border border-border bg-card space-y-4 hover:shadow-md transition-all flex flex-col justify-between"
+                    >
+                      <div className="flex items-center gap-4">
+                        <img
+                          src={qrImageUrl(qr.codigoQr)}
+                          alt="QR"
+                          width="80"
+                          height="80"
+                          onClick={() => setQrZoom(qr)}
+                          className="w-20 h-20 rounded-xl border border-border cursor-zoom-in bg-white p-1.5 shadow-sm shrink-0"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <Badge variant="outline" className="text-[10px] mb-1">
+                            Pase Dinámico
+                          </Badge>
+                          <h4 className="text-base font-bold text-foreground truncate">
+                            {qr.nombreVisitante || 'Visitante'}
+                          </h4>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {qr.cantidadPersonas || 1} Persona(s)
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="p-3 rounded-lg bg-muted/40 text-xs space-y-1 font-mono">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Código:</span>
+                          <span className="font-bold text-foreground">#{String(qr.codigoQr).slice(0, 10)}...</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Expira:</span>
+                          <span className="text-amber-600 dark:text-amber-400 font-sans font-semibold">
+                            {formatDateTime(qr.fechaExpiracion)}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-4 gap-1.5 pt-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => compartirTelegram(qr.codigoQr, qr.nombreVisitante)}
+                          className="h-9 p-0 text-blue-500"
+                          title="Telegram"
+                        >
+                          <Send className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => compartirSMS(qr.codigoQr, '')}
+                          className="h-9 p-0 text-emerald-500"
+                          title="SMS"
+                        >
+                          <Phone className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => compartirCorreo(qr.codigoQr, qr.nombreVisitante, '')}
+                          className="h-9 p-0 text-purple-500"
+                          title="Correo"
+                        >
+                          <Mail className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => copiarQR(qr.codigoQr)}
+                          className="h-9 p-0 text-slate-500"
+                          title="Copiar código"
+                        >
+                          <Copy className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      {/* 5. MODAL DE CONFIRMACIÓN DE VISITAS EN TIEMPO REAL (PORTERÍA B1) */}
+      <Modal
+        open={!!confirmarPendiente}
+        onClose={() => setConfirmarPendiente(null)}
+        title="Solicitud de Acceso en Portería"
+      >
+        {confirmarPendiente && (
+          <div className="space-y-4 py-2">
+            <div className="p-3.5 rounded-xl border border-amber-500/30 bg-amber-500/10 flex items-start gap-3">
+              <ShieldAlert className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+              <div className="text-xs space-y-1">
+                <p className="font-bold text-foreground">Un visitante se encuentra en portería esperando tu autorización</p>
+                <p className="text-muted-foreground">
+                  Confirma si autorizas su ingreso hacia tu apartamento ({numeroApto}).
+                </p>
               </div>
             </div>
-          ))}
-        </div>
-      )}
 
-      {/* ==== B1: Modal de confirmación de visita ==== */}
-      <Modal open={!!confirmarPendiente} onClose={() => setConfirmarPendiente(null)} title="Solicitud de Acceso">
-        {confirmarPendiente && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <p style={{ fontSize: '14px', color: 'var(--text-muted)' }}>
-              Un visitante está en portería esperando su confirmación
-            </p>
-            <p style={{ fontWeight: 600, fontSize: '14px' }}>{confirmarPendiente.titulo || ''}</p>
-            <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{confirmarPendiente.cuerpo || ''}</p>
+            <div className="space-y-2">
+              <h4 className="text-sm font-bold text-foreground">{confirmarPendiente.titulo}</h4>
+              <p className="text-xs text-muted-foreground">{confirmarPendiente.cuerpo}</p>
+            </div>
+
             {confirmarPendiente.fotoCaptura && (
-              <img
+              <div className="space-y-1.5">
+                <span className="text-xs font-semibold text-muted-foreground">Registro fotográfico de portería:</span>
+                <img
                   src={imageSrc(confirmarPendiente.fotoCaptura)}
                   alt="Foto del visitante"
                   loading="lazy"
-                  width="400"
-                  height="300"
-                style={{ maxWidth: '100%', maxHeight: '280px', objectFit: 'contain', borderRadius: '8px', border: '1px solid var(--border)' }}
-              />
+                  className="w-full max-h-64 object-contain rounded-xl border border-border bg-black/5"
+                />
+              </div>
             )}
-            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-              <Button variant="outline" onClick={() => responderConfirmacion(0)} disabled={confirmando}>
-                Rechazar
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <Button
+                variant="outline"
+                onClick={() => responderConfirmacion(0)}
+                disabled={confirmando}
+                className="text-rose-600 border-rose-200 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-400"
+              >
+                Rechazar Acceso
               </Button>
-              <Button onClick={() => responderConfirmacion(1)} disabled={confirmando}>
+              <Button
+                onClick={() => responderConfirmacion(1)}
+                disabled={confirmando}
+                className="bg-emerald-600 hover:bg-emerald-500 text-white gap-2 font-semibold"
+              >
+                <CheckCircle2 className="w-4 h-4" />
                 {confirmando ? 'Confirmando...' : 'Confirmar Acceso'}
               </Button>
             </div>
           </div>
         )}
       </Modal>
-    </div>
+
+      {/* 6. MODAL PARA VISUALIZAR QR EN GRANDE */}
+      <Modal
+        open={!!qrZoom}
+        onClose={() => setQrZoom(null)}
+        title="Código QR de Acceso"
+      >
+        {qrZoom && (
+          <div className="flex flex-col items-center justify-center p-4 space-y-4 text-center">
+            <div className="p-4 bg-white rounded-2xl border-2 border-primary/20 shadow-md">
+              <img
+                src={qrImageUrl(qrZoom.codigoQr)}
+                alt="QR Ampliado"
+                className="w-64 h-64 mx-auto"
+              />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-foreground">{qrZoom.nombreVisitante || 'Visitante Autorizado'}</h3>
+              <p className="text-xs text-muted-foreground mt-1">
+                Presenta este código al lector de la portería vehicular o peatonal
+              </p>
+              <p className="text-xs font-mono text-muted-foreground mt-0.5">
+                Código: #{qrZoom.codigoQr}
+              </p>
+              <p className="text-xs text-amber-600 dark:text-amber-400 font-semibold mt-1">
+                Expira: {formatDateTime(qrZoom.fechaExpiracion)}
+              </p>
+            </div>
+            <div className="flex items-center gap-2 pt-2">
+              <Button variant="outline" onClick={() => copiarQR(qrZoom.codigoQr)} className="gap-1.5 text-xs">
+                <Copy className="w-3.5 h-3.5" />
+                Copiar Código
+              </Button>
+              <Button onClick={() => setQrZoom(null)} className="text-xs">
+                Cerrar
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+    </PageContainer>
   );
 }
