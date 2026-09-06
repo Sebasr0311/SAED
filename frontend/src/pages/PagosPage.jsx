@@ -1,4 +1,4 @@
-﻿import { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '../components/ui/Button.jsx';
 import { Input, Select } from '../components/ui/Form.jsx';
@@ -43,7 +43,7 @@ export default function PagosPage() {
   const [search, setSearch] = useState('');
   const [detalle, setDetalle] = useState(null);
   const [pagoModal, setPagoModal] = useState(null); // { tipo: 'cuota'|'multa', item }
-  const { touch, fieldError } = useLiveValidation();
+  const { touch, touchAll, resetTouched, fieldError } = useLiveValidation();
   const [pagoForm, setPagoForm] = useState({ fecha: todayStr(), valor: '', metodo: 'EFECTIVO', referencia: '', notas: '' });
   const [saving, setSaving] = useState(false);
   // Guard anti doble-submit: mismo patron que VisitasPage (FASE 4.2-P2).
@@ -101,6 +101,7 @@ export default function PagosPage() {
   ];
 
   function abrirPagoCuota(cuota) {
+    resetTouched();
     setPagoModal({ tipo: 'cuota', item: cuota });
     const saldo = Number(cuota.saldoPendiente ?? cuota.valorTotal ?? 0);
     setPagoForm({
@@ -112,6 +113,7 @@ export default function PagosPage() {
     });
   }
   function abrirPagoMulta(multa) {
+    resetTouched();
     setPagoModal({ tipo: 'multa', item: multa });
     setPagoForm({ fecha: todayStr(), valor: '', metodo: 'EFECTIVO', referencia: '', notas: '' });
   }
@@ -119,6 +121,8 @@ export default function PagosPage() {
   async function confirmarPago() {
     if (savingRef.current) return; // doble submit
     if (!pagoModal) return;
+    const fieldsToTouch = ['valor', ...(pagoModal.tipo === 'cuota' && pagoForm.metodo === 'TRANSFERENCIA' ? ['referencia'] : [])];
+    touchAll(fieldsToTouch);
     const valor = parseMiles(pagoForm.valor);
     if (valor <= 0) {
       toast.error('El valor pagado debe ser mayor que 0');
@@ -154,6 +158,7 @@ export default function PagosPage() {
         await api.put(`/multas/${pagoModal.item.idMulta}/pagar`, { metodoPago: pagoForm.metodo });
       }
       toast.success('Pago registrado');
+      resetTouched();
       setPagoModal(null);
       refetchCuotas();
       refetchMultas();
@@ -279,11 +284,21 @@ export default function PagosPage() {
 
       <Modal
         open={!!pagoModal}
-        onClose={() => setPagoModal(null)}
+        onClose={() => {
+          setPagoModal(null);
+          resetTouched();
+        }}
         title={pagoModal?.tipo === 'cuota' ? 'Registrar Pago de Cuota' : 'Registrar Pago de Multa'}
         footer={
           <>
-            <Button variant="outline" onClick={() => setPagoModal(null)} disabled={saving}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setPagoModal(null);
+                resetTouched();
+              }}
+              disabled={saving}
+            >
               Cancelar
             </Button>
             <Button onClick={confirmarPago} disabled={saving}>
@@ -302,10 +317,13 @@ export default function PagosPage() {
                 value={pagoForm.fecha}
                 onChange={(e) => setPagoForm((f) => ({ ...f, fecha: e.target.value }))}
                 max={todayStr()}
+                required
               />
               <Input
                 id="valor"
                 label="Valor pagado"
+                placeholder="Ej. 250.000"
+                inputMode="numeric"
                 value={pagoForm.valor}
                 onChange={(e) => setPagoForm((f) => ({ ...f, valor: formatMiles(e.target.value) }))}
                 onBlur={() => touch('valor')}
@@ -319,6 +337,7 @@ export default function PagosPage() {
                         : { ok: true }
                   ) || undefined
                 }
+                required
               />
             </div>
           </>
@@ -338,9 +357,20 @@ export default function PagosPage() {
           <div className="form-group">
             <Input
               id="referencia"
-              label="Referencia"
+              label="Referencia de transferencia"
+              placeholder="Ej. TRANSF-98231"
               value={pagoForm.referencia}
               onChange={(e) => setPagoForm((f) => ({ ...f, referencia: e.target.value }))}
+              onBlur={() => touch('referencia')}
+              error={
+                fieldError(
+                  'referencia',
+                  /^[A-Za-z0-9-]{4,50}$/.test(pagoForm.referencia.trim())
+                    ? { ok: true }
+                    : { ok: false, mensaje: 'La referencia debe tener entre 4 y 50 caracteres (letras, números o guiones)' }
+                ) || undefined
+              }
+              required
             />
           </div>
         )}
@@ -349,6 +379,7 @@ export default function PagosPage() {
             <Input
               id="notas"
               label="Notas (opcional)"
+              placeholder="Ej. Pago correspondiente al mes actual"
               value={pagoForm.notas}
               onChange={(e) => setPagoForm((f) => ({ ...f, notas: e.target.value }))}
             />

@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '../components/ui/Button.jsx';
 import { Select, Textarea } from '../components/ui/Form.jsx';
@@ -237,6 +237,7 @@ export default function QuejasAdminPage() {
                 label="Actualizar Estado"
                 value={form.estado}
                 onChange={(e) => setForm((f) => ({ ...f, estado: e.target.value }))}
+                required
               >
                 {ESTADOS.map((e) => (
                   <option key={e} value={e}>
@@ -245,6 +246,18 @@ export default function QuejasAdminPage() {
                 ))}
               </Select>
             </div>
+            {(form.estado === 'RESUELTO' || form.estado === 'CERRADO') && (
+              <div className="form-group">
+                <Textarea
+                  id="observacion"
+                  label="Observaciones de Cierre (opcional)"
+                  placeholder="Detalle la solución dada o motivo de cierre para el residente..."
+                  rows={3}
+                  value={form.observacion}
+                  onChange={(e) => setForm((f) => ({ ...f, observacion: e.target.value }))}
+                />
+              </div>
+            )}
           </>
         )}
       </Modal>

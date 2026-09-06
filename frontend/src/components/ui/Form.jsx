@@ -13,15 +13,22 @@ function FieldShell({ label, id, required, error, children, className }) {
   return (
     <div className={cn('grid gap-1.5', className)}>
       {label && (
-        <Label htmlFor={id} className="text-sm font-medium">
+        <Label
+          htmlFor={id}
+          className={cn(
+            'text-sm font-medium transition-colors',
+            error ? 'text-danger-600 dark:text-danger-400 font-semibold' : 'text-foreground'
+          )}
+        >
           {label}
-          {required && <span className="ml-1 text-error">*</span>}
+          {required && <span className="ml-1 text-danger-500 font-bold" aria-hidden="true">*</span>}
         </Label>
       )}
       {children}
       {error && (
-        <p id={id ? `${id}-error` : undefined} className="text-xs text-error">
-          {error}
+        <p id={id ? `${id}-error` : undefined} className="text-xs text-danger-600 dark:text-danger-400 font-medium flex items-center gap-1 mt-0.5 animate-fadeIn">
+          <span className="inline-block w-1.5 h-1.5 rounded-full bg-danger-500 shrink-0" />
+          <span>{error}</span>
         </p>
       )}
     </div>
@@ -36,7 +43,12 @@ export function Input({ label, error, id, className = '', ...props }) {
         {...props}
         aria-invalid={error ? true : undefined}
         aria-describedby={error && id ? `${id}-error` : undefined}
-        className={cn(error && 'border-destructive focus-visible:ring-destructive', className)}
+        className={cn(
+          error
+            ? '!border-danger-500 focus-visible:!ring-danger-500 ring-1 !ring-danger-500 bg-danger-50/10'
+            : '',
+          className
+        )}
       />
     </FieldShell>
   );
@@ -52,10 +64,12 @@ export function Select({ label, error, id, children, className = '', ...props })
           aria-invalid={error ? true : undefined}
           aria-describedby={error && id ? `${id}-error` : undefined}
           className={cn(
-            'flex h-9 w-full appearance-none rounded-md border border-input bg-transparent px-3 py-1 pr-8 text-sm shadow-sm transition-colors',
+            'flex h-9 w-full appearance-none rounded-md border border-input bg-background px-3 py-1 pr-8 text-sm shadow-sm transition-colors text-foreground',
             'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
             'disabled:cursor-not-allowed disabled:opacity-50',
-            error && 'border-destructive focus-visible:ring-destructive',
+            error
+              ? '!border-danger-500 focus-visible:!ring-danger-500 ring-1 !ring-danger-500 bg-danger-50/10'
+              : '',
             className
           )}
         >
@@ -77,7 +91,12 @@ export function Textarea({ label, error, id, className = '', ...props }) {
         {...props}
         aria-invalid={error ? true : undefined}
         aria-describedby={error && id ? `${id}-error` : undefined}
-        className={cn(error && 'border-destructive focus-visible:ring-destructive', className)}
+        className={cn(
+          error
+            ? '!border-danger-500 focus-visible:!ring-danger-500 ring-1 !ring-danger-500 bg-danger-50/10'
+            : '',
+          className
+        )}
       />
     </FieldShell>
   );

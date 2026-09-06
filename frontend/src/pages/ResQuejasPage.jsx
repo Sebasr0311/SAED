@@ -41,6 +41,7 @@ const ESTADO_BADGE = {
 
 export default function ResQuejasPage() {
   const { user } = useAuth();
+  const { touch, touchAll, resetTouched, fieldError } = useLiveValidation();
   const [form, setForm] = useState({ tipo: 'PETICION', categoria: 'ADMINISTRACION', prioridad: 'MEDIA', asunto: '', descripcion: '' });
   const [saving, setSaving] = useState(false);
   const [modal, setModal] = useState(null);
@@ -52,14 +53,19 @@ export default function ResQuejasPage() {
 
   const validate = () => {
     const newErrors = {};
-    if (!form.asunto?.trim()) newErrors.asunto = 'El asunto es obligatorio';
-    if (!form.descripcion?.trim()) newErrors.descripcion = 'La descripción es obligatoria';
+    if (!form.asunto?.trim() || form.asunto.trim().length < 5) {
+      newErrors.asunto = 'El asunto debe tener al menos 5 caracteres';
+    }
+    if (!form.descripcion?.trim() || form.descripcion.trim().length < 10) {
+      newErrors.descripcion = 'La descripción debe tener al menos 10 caracteres';
+    }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const onSubmit = async (e) => {
     e.preventDefault();
+    touchAll(['asunto', 'descripcion']);
     if (!validate()) return;
     setSaving(true);
     try {
@@ -67,6 +73,7 @@ export default function ResQuejasPage() {
       await api.post('/pqrs', payload);
       toast.success('PQRS radicada exitosamente');
       setForm({ tipo: 'PETICION', categoria: 'ADMINISTRACION', prioridad: 'MEDIA', asunto: '', descripcion: '' });
+      resetTouched();
       refetch();
     } catch (err) {
       toast.error('Error al enviar la PQRS');
@@ -137,20 +144,24 @@ export default function ResQuejasPage() {
           <Input
             id="asunto"
             label="Asunto"
-            placeholder="Breve título descriptivo..."
+            placeholder="Ej. Filtración de agua en zona común de piso 3"
             value={form.asunto}
             onChange={(e) => setForm((f) => ({ ...f, asunto: e.target.value }))}
-            error={errors.asunto}
+            onBlur={() => touch('asunto')}
+            error={fieldError('asunto', form.asunto.trim().length >= 5 ? { ok: true } : { ok: false, mensaje: 'El asunto debe tener al menos 5 caracteres' }) || errors.asunto}
+            required
           />
           <div style={{ gridColumn: '1 / -1' }}>
             <Textarea
               id="descripcion"
               label="Descripción detallada"
               rows={4}
-              placeholder="Explique su solicitud con claridad..."
+              placeholder="Explique su solicitud con claridad indicando detalles, ubicación y antecedentes..."
               value={form.descripcion}
               onChange={(e) => setForm((f) => ({ ...f, descripcion: e.target.value }))}
-              error={errors.descripcion}
+              onBlur={() => touch('descripcion')}
+              error={fieldError('descripcion', form.descripcion.trim().length >= 10 ? { ok: true } : { ok: false, mensaje: 'La descripción debe tener al menos 10 caracteres' }) || errors.descripcion}
+              required
             />
           </div>
           

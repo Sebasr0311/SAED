@@ -40,7 +40,7 @@ export default function AlertasPage() {
     }
     try {
       await api.put(`/alertas/${selectedId}/leer`);
-      toast.success('Alerta marcada como leÌda');
+      toast.success('Alerta marcada como le√≠da');
       setSelectedId(null);
       refetch();
     } catch (err) {
@@ -62,9 +62,9 @@ export default function AlertasPage() {
     { key: 'canal', label: 'Canal' },
     {
       key: 'leida',
-      label: 'LeÌda',
+      label: 'Le√≠da',
       render: (r) => (
-        <span className={`badge ${r.leida ? 'badge-activo' : 'badge-pendiente-firma'}`}>{r.leida ? 'SÌ' : 'No'}</span>
+        <span className={`badge ${r.leida ? 'badge-activo' : 'badge-pendiente-firma'}`}>{r.leida ? 'S√≠' : 'No'}</span>
       ),
     },
     { key: 'enviadaEn', label: 'Enviada', render: (r) => formatDate(r.enviadaEn) },
@@ -79,10 +79,10 @@ export default function AlertasPage() {
           <>
             <label className="checkbox-label">
               <input type="checkbox" checked={soloNoLeidas} onChange={(e) => { setSoloNoLeidas(e.target.checked); setPage(0); }} />
-              <span>Solo no leÌdas</span>
+              <span>Solo no le√≠das</span>
             </label>
             <Input id="search" aria-label="Buscar" placeholder="Buscar..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(0); }} />
-            <Button onClick={marcarLeida}>Marcar LeÌda</Button>
+            <Button onClick={marcarLeida}>Marcar Le√≠da</Button>
           </>
         }
       />
@@ -90,7 +90,7 @@ export default function AlertasPage() {
         columns={columns}
         rows={rows}
         loading={loading}
-                empty={{ icon: 'notifications', title: 'No hay alertas', subtitle: 'Cuando se registre un pago o evento importante, aparecer· aquÌ.' }}
+                empty={{ icon: 'notifications', title: 'No hay alertas', subtitle: 'Cuando se registre un pago o evento importante, aparecer√°n aqu√≠.' }}
             error={error?.message}
         keyField="idAlerta"
         selectedKey={selectedId}

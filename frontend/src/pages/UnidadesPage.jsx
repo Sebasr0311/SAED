@@ -23,7 +23,7 @@ import { toast } from 'sonner';
 import { formatMiles } from '../lib/utils.js';
 
 /**
- * UnidadesPage 2.0 â€” jerarquia Propiedad -> Bloque -> Unidad.
+ * UnidadesPage 2.0 — jerarquía Propiedad -> Bloque -> Unidad.
  *
  * Consume /units (API 2.0 enriquecida: tipo, bloque, area, estado) con
  * useTenantApi (X-Assignment-Id) para que el RLS filtre por tenant.
@@ -136,7 +136,7 @@ export default function UnidadesPage() {
     <div className="unidades-page space-y-6">
       <PageHeader
         title="Unidades"
-        subtitle="Jerarquía Propiedad â†’ Bloque â†’ Unidad del tenant activo"
+        subtitle="Jerarquía Propiedad → Bloque → Unidad del tenant activo"
       >
         <Button onClick={() => { setEditing(null); setForm(emptyForm); setDialogOpen(true); }}>
           <span className="material-symbols-outlined text-base mr-1">add</span>
@@ -183,7 +183,7 @@ export default function UnidadesPage() {
                     <TableHead>Identificador</TableHead>
                     <TableHead>Tipo</TableHead>
                     <TableHead>Bloque</TableHead>
-                    <TableHead>Área (mÂ²)</TableHead>
+                    <TableHead>Área (m²)</TableHead>
                     <TableHead>Estado</TableHead>
                     <TableHead className="text-right">Acciones</TableHead>
                   </TableRow>
@@ -193,17 +193,17 @@ export default function UnidadesPage() {
                     <TableRow key={u.id}>
                       <TableCell className="font-medium">{u.identificador}</TableCell>
                       <TableCell>
-                        {u.tipoUnidadNombre || u.tipoUnidadCodigo || 'â€”'}
+                        {u.tipoUnidadNombre || u.tipoUnidadCodigo || '—'}
                       </TableCell>
                       <TableCell>
-                        {u.bloqueNombre || u.bloqueCodigo || 'â€”'}
+                        {u.bloqueNombre || u.bloqueCodigo || '—'}
                       </TableCell>
                       <TableCell>
-                        {u.areaM2 != null ? formatMiles(u.areaM2) : 'â€”'}
+                        {u.areaM2 != null ? formatMiles(u.areaM2) : '—'}
                       </TableCell>
                       <TableCell>
                         <Badge variant={ESTADO_BADGE[u.estado] || 'default'}>
-                          {u.estado || 'â€”'}
+                          {u.estado || '—'}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
@@ -283,7 +283,7 @@ export default function UnidadesPage() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="areaM2">Área (mÂ²)</Label>
+                <Label htmlFor="areaM2">Área (m²)</Label>
                 <Input
                   id="areaM2"
                   type="number"
@@ -313,7 +313,7 @@ export default function UnidadesPage() {
               Cancelar
             </Button>
             <Button onClick={guardar} disabled={saving}>
-              {saving ? 'Guardandoâ€¦' : editing ? 'Guardar cambios' : 'Crear unidad'}
+              {saving ? 'Guardando…' : editing ? 'Guardar cambios' : 'Crear unidad'}
             </Button>
           </DialogFooter>
         </DialogContent>

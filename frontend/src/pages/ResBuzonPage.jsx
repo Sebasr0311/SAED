@@ -15,7 +15,7 @@ export default function ResBuzonPage() {
   const [fotoGrande, setFotoGrande] = useState(null);
   const [seleccionados, setSeleccionados] = useState([]);
   const [vaciandoSel, setVaciandoSel] = useState(false);
-  const vaciandoSelRef = useRef(false); // patr�n anti doble-submit generalizado
+  const vaciandoSelRef = useRef(false); // patrón anti doble-submit generalizado
 
   const { data, loading, error, refetch } = useFetch(
     () => api.get(`/buzon`),
@@ -105,10 +105,10 @@ export default function ResBuzonPage() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         {loading && <div className="card empty-state">Cargando...</div>}
         {!loading && error && (
-          <div className="card empty-state" style={{ color: 'var(--error)' }}>Error al cargar el buz�n: {error?.message}</div>
+          <div className="card empty-state" style={{ color: 'var(--error)' }}>Error al cargar el buzón: {error?.message}</div>
         )}
         {!loading && !error && items.length === 0 && (
-          <div className="card empty-state">Buz�n vac�o</div>
+          <div className="card empty-state">Buzón vacío</div>
         )}
         {items.map((it) => {
           const leido = it.leido || leidosLocalmente.includes(it.idMensaje);
@@ -177,7 +177,7 @@ export default function ResBuzonPage() {
       <Modal
         open={confirmVaciar}
         onClose={() => setConfirmVaciar(false)}
-        title="Vaciar buz�n"
+        title="Vaciar buzón"
         footer={
           <>
             <Button variant="outline" onClick={() => setConfirmVaciar(false)}>
@@ -189,7 +189,7 @@ export default function ResBuzonPage() {
           </>
         }
       >
-        <p>�Marcar todos los mensajes como le�dos y entregados? Esta acci�n no se puede deshacer.</p>
+        <p>¿Marcar todos los mensajes como leídos y entregados? Esta acción no se puede deshacer.</p>
       </Modal>
 
       <Modal
@@ -207,7 +207,7 @@ export default function ResBuzonPage() {
           </>
         }
       >
-        <p>�Marcar los {seleccionados.length} mensajes seleccionados como le�dos y entregados? Esta acci�n no se puede deshacer.</p>
+        <p>¿Marcar los {seleccionados.length} mensajes seleccionados como leídos y entregados? Esta acción no se puede deshacer.</p>
       </Modal>
 
       {fotoGrande && (

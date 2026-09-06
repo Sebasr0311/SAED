@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { Button } from '../components/ui/Button.jsx';
 import { Input, Textarea } from '../components/ui/Form.jsx';
@@ -94,7 +94,7 @@ function ApartamentoMultiSelect({ apartamentos, selected, onChange }) {
             onClick={toggleTodos}
             aria-pressed={isTodos}
           >
-            � Todos los apartamentos �
+            — Todos los apartamentos —
           </button>
           {pisos.map((piso) => {
             const idsDelPiso = porPiso[piso].map((a) => a.idApartamento);
@@ -136,7 +136,7 @@ export default function AvisosPage() {
   const [form, setForm] = useState({ titulo: '', cuerpo: '' });
   const [selectedApts, setSelectedApts] = useState('TODOS');
   const [sending, setSending] = useState(false);
-  const { touch, fieldError } = useLiveValidation();
+  const { touch, touchAll, resetTouched, fieldError } = useLiveValidation();
 
   const { data: avisos, loading, error, refetch } = useFetch(() => api.get('/buzon/avisos'), []);
   const { data: apartamentos } = useFetch(() => api.get('/units'), []);
@@ -144,14 +144,15 @@ export default function AvisosPage() {
   const columns = [
     { key: 'idMensaje', label: 'ID', width: 60 },
     { key: 'numeroApartamento', label: 'Apartamento', render: (r) => r.numeroApartamento || 'Todos' },
-    { key: 'titulo', label: 'T�tulo' },
+    { key: 'titulo', label: 'Título' },
     { key: 'cuerpo', label: 'Mensaje' },
     { key: 'fechaCreacion', label: 'Fecha', render: (r) => formatDate(r.fechaCreacion) },
   ];
 
   async function send() {
+    touchAll(['titulo', 'cuerpo']);
     if (!form.titulo.trim() || !form.cuerpo.trim()) {
-      toast.error('T�tulo y mensaje son obligatorios');
+      toast.error('Título y mensaje son obligatorios');
       return;
     }
     setSending(true);
@@ -164,6 +165,7 @@ export default function AvisosPage() {
       toast.success('Aviso enviado');
       setForm({ titulo: '', cuerpo: '' });
       setSelectedApts('TODOS');
+      resetTouched();
       setModalOpen(false);
       refetch();
     } catch (err) {
@@ -171,6 +173,12 @@ export default function AvisosPage() {
     } finally {
       setSending(false);
     }
+  }
+
+  function handleCloseModal() {
+    setModalOpen(false);
+    resetTouched();
+    setForm({ titulo: '', cuerpo: '' });
   }
 
   return (
@@ -184,24 +192,24 @@ export default function AvisosPage() {
         columns={columns}
         rows={avisos?.items || avisos || []}
         loading={loading}
-                empty={{ icon: 'campaign', title: 'No hay avisos enviados', subtitle: 'Los avisos que env�es a los residentes aparecer�n aqu�.' }}
-            error={error?.message}
+        empty={{ icon: 'campaign', title: 'No hay avisos enviados', subtitle: 'Los avisos que envíes a los residentes aparecerán aquí.' }}
+        error={error?.message}
         keyField="idMensaje"
         pageSize={10}
       />
 
       <Modal
         open={modalOpen}
-        onClose={() => setModalOpen(false)}
+        onClose={handleCloseModal}
         title="Nuevo Aviso"
         size="lg"
         footer={
           <>
-            <Button variant="outline" onClick={() => setModalOpen(false)} disabled={sending}>
+            <Button variant="outline" onClick={handleCloseModal} disabled={sending}>
               Cancelar
             </Button>
             <Button onClick={send} disabled={sending}>
-              {sending ? 'Enviando...' : 'Enviar'}
+              {sending ? 'Enviando...' : 'Enviar Comunicado'}
             </Button>
           </>
         }
@@ -217,22 +225,26 @@ export default function AvisosPage() {
         <div className="form-group">
           <Input
             id="titulo"
-            label="T�tulo"
+            label="Título del comunicado"
+            placeholder="Ej. Mantenimiento programado de tanques de agua"
             value={form.titulo}
             onChange={(e) => setForm((f) => ({ ...f, titulo: e.target.value }))}
             onBlur={() => touch('titulo')}
-            error={fieldError('titulo', form.titulo.trim() ? { ok: true } : { ok: false, mensaje: 'El t�tulo es obligatorio' })}
+            error={fieldError('titulo', form.titulo.trim() ? { ok: true } : { ok: false, mensaje: 'El título es obligatorio' })}
+            required
           />
         </div>
         <div className="form-group">
           <Textarea
             id="cuerpo"
-            label="Mensaje"
+            label="Mensaje del comunicado"
+            placeholder="Escriba aquí los detalles del comunicado para los residentes..."
             rows={5}
             value={form.cuerpo}
             onChange={(e) => setForm((f) => ({ ...f, cuerpo: e.target.value }))}
             onBlur={() => touch('cuerpo')}
             error={fieldError('cuerpo', form.cuerpo.trim() ? { ok: true } : { ok: false, mensaje: 'El mensaje es obligatorio' })}
+            required
           />
         </div>
       </Modal>

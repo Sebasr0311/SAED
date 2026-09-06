@@ -8,7 +8,7 @@ import { ConfirmDialog } from '../components/ui/ConfirmDialog.jsx';
 import { toast } from 'sonner';
 import { useFetch, useTiposDocumento, useLiveValidation } from '../lib/hooks.js';
 import api from '../lib/api.js';
-import { formatDate, formatMiles, imageSrc } from '../lib/utils.js';
+import { formatDate, imageSrc } from '../lib/utils.js';
 import {
   soloNumeros,
   soloLetras,
@@ -74,14 +74,14 @@ export default function VisitasPage() {
 
   const { data: dataRaw, loading, refetch } = useFetch(() => api.get('/porteria/visitas-resumen'), []);
   // Residentes para el selector del formulario: se cargan solo al abrir el modal
-  // (evita un request innecesario al montar la página de listado).
+  // (evita un request innecesario al montar la pÃ¡gina de listado).
   const [residentesCargados, setResidentesCargados] = useState(false);
   const { data: residentesRaw } = useFetch(
     () => (residentesCargados ? api.get('/personas') : Promise.resolve([])),
     [residentesCargados]
   );
   const { tiposDoc } = useTiposDocumento();
-  const { touch, fieldError } = useLiveValidation();
+  const { touch, touchAll, resetTouched, fieldError } = useLiveValidation();
 
   const residentes = (residentesRaw?.items || residentesRaw || []).slice().sort(
     (a, b) => (parseInt(a.numeroApartamento, 10) || 0) - (parseInt(b.numeroApartamento, 10) || 0)
@@ -174,7 +174,7 @@ export default function VisitasPage() {
     const rPer = valEntero(form.cantidadPersonas, { positivo: true });
     if (!rPer.ok) e.cantidadPersonas = 'La cantidad de personas debe ser un entero mayor que 0';
     if (form.tipoVehiculo === 'BICICLETA' && !form.descripcion.trim()) {
-      e.descripcion = 'La descripción es obligatoria para bicicletas';
+      e.descripcion = 'La descripciÃ³n es obligatoria para bicicletas';
     }
     if (form.tipoVehiculo && form.tipoVehiculo !== 'BICICLETA' && form.placa.trim()) {
       const rPlaca = valPlaca(form.placa, form.tipoVehiculo);
@@ -186,6 +186,20 @@ export default function VisitasPage() {
 
   async function registrar() {
     if (savingRef.current) return; // doble submit
+    const fieldsToTouch = [
+      'idResidente',
+      'tiempoValidezMin',
+      'cantidadPersonas',
+      'tipoDoc',
+      'documento',
+      'nombres',
+      'apellidos',
+      'telefono',
+      'email',
+      ...(form.tipoVehiculo && form.tipoVehiculo !== 'BICICLETA' ? ['placa'] : []),
+      ...(form.tipoVehiculo === 'BICICLETA' ? ['descripcion'] : []),
+    ];
+    touchAll(fieldsToTouch);
     if (!validate()) return;
     savingRef.current = true;
     setSending(true);
@@ -214,6 +228,7 @@ export default function VisitasPage() {
       toast.success('Visita registrada exitosamente');
       setForm(emptyForm);
       setErrors({});
+      resetTouched();
       refetch();
     } catch (err) {
       // Conservar los datos introducidos para permitir corregir y reintentar
@@ -229,6 +244,7 @@ export default function VisitasPage() {
     setModalRegistro(false);
     setQrGenerado(null);
     setErrors({});
+    resetTouched();
     setForm(emptyForm);
   }
 
@@ -236,8 +252,8 @@ export default function VisitasPage() {
     if (!qrGenerado?.codigoQr) return;
     navigator.clipboard
       .writeText(qrGenerado.codigoQr)
-      .then(() => toast.success('Código QR copiado al portapapeles'))
-      .catch(() => toast.error('No se pudo copiar el código'));
+      .then(() => toast.success('CÃ³digo QR copiado al portapapeles'))
+      .catch(() => toast.error('No se pudo copiar el cÃ³digo'));
   }
 
   function compartirCorreo() {
@@ -356,7 +372,7 @@ export default function VisitasPage() {
         columns={columns}
         rows={filtradas}
         loading={loading}
-                empty={{ icon: 'how_to_reg', title: 'No hay visitas', subtitle: 'Las visitas registradas aparecerán aquí.' }}
+                empty={{ icon: 'how_to_reg', title: 'No hay visitas', subtitle: 'Las visitas registradas aparecerÃ¡n aquÃ­.' }}
         keyField="idVisita"
         onRowClick={verDetalle}
       />
@@ -406,7 +422,8 @@ export default function VisitasPage() {
                 label="Residente Autorizante"
                 value={form.idResidente}
                 onChange={(e) => update('idResidente', e.target.value)}
-                error={errors.idResidente}
+                onBlur={() => touch('idResidente')}
+                error={fieldError('idResidente', valSelect(form.idResidente, 'Seleccione el residente autorizante')) || errors.idResidente}
                 required
               >
                 <option value="">Seleccione...</option>
@@ -421,10 +438,13 @@ export default function VisitasPage() {
                 id="vis-validez"
                 label="Tiempo Validez (min)"
                 type="number"
-                min="1"
+                min="5"
+                max="1440"
+                placeholder="30"
                 value={form.tiempoValidezMin}
                 onChange={(e) => update('tiempoValidezMin', e.target.value)}
-                error={errors.tiempoValidezMin}
+                onBlur={() => touch('tiempoValidezMin')}
+                error={fieldError('tiempoValidezMin', valEntero(form.tiempoValidezMin, { positivo: true })) || errors.tiempoValidezMin}
                 required
               />
             </div>
@@ -434,9 +454,12 @@ export default function VisitasPage() {
                 label="Cantidad Personas"
                 type="number"
                 min="1"
+                max="99"
+                placeholder="1"
                 value={form.cantidadPersonas}
                 onChange={(e) => update('cantidadPersonas', e.target.value)}
-                error={errors.cantidadPersonas}
+                onBlur={() => touch('cantidadPersonas')}
+                error={fieldError('cantidadPersonas', valEntero(form.cantidadPersonas, { positivo: true })) || errors.cantidadPersonas}
                 required
               />
             </div>
@@ -449,7 +472,8 @@ export default function VisitasPage() {
                 label="Tipo Documento"
                 value={form.tipoDoc}
                 onChange={(e) => onTipoDocChange(e.target.value)}
-                error={errors.tipoDoc}
+                onBlur={() => touch('tipoDoc')}
+                error={fieldError('tipoDoc', valSelect(form.tipoDoc, 'Seleccione el tipo de documento')) || errors.tipoDoc}
                 required
               >
                 <option value="">Seleccione...</option>
@@ -461,10 +485,12 @@ export default function VisitasPage() {
               </Select>
               <Input
                 id="vis-documento"
-                label="Número Documento"
+                label="NÃºmero Documento"
+                placeholder="Ej. 1020304050"
                 value={form.documento}
                 onChange={(e) => onDocumentoChange(e.target.value)}
-                error={errors.documento}
+                onBlur={() => touch('documento')}
+                error={fieldError('documento', valDocumento(form.documento, codigoTipoDoc(form.tipoDoc), 'El documento del visitante')) || errors.documento}
                 required
               />
             </div>
@@ -472,24 +498,31 @@ export default function VisitasPage() {
               <Input
                 id="vis-nombres"
                 label="Nombres"
+                placeholder="Ej. Carlos Alberto"
                 value={form.nombres}
                 onChange={(e) => update('nombres', soloLetras(e.target.value, 25))}
-                error={errors.nombres}
+                onBlur={() => touch('nombres')}
+                error={fieldError('nombres', valNombre(form.nombres, 'El nombre del visitante')) || errors.nombres}
                 required
               />
               <Input
                 id="vis-apellidos"
                 label="Apellidos"
+                placeholder="Ej. GÃ³mez PÃ©rez"
                 value={form.apellidos}
                 onChange={(e) => update('apellidos', soloLetras(e.target.value, 25))}
-                error={errors.apellidos}
+                onBlur={() => touch('apellidos')}
+                error={fieldError('apellidos', valApellido(form.apellidos, 'El apellido del visitante')) || errors.apellidos}
                 required
               />
             </div>
             <div className="form-row">
               <Input
                 id="vis-telefono"
-                label="Teléfono"
+                label="TelÃ©fono celular (opcional)"
+                placeholder="Ej. 300 123 4567"
+                inputMode="numeric"
+                maxLength={10}
                 value={form.telefono}
                 onChange={(e) => update('telefono', soloNumeros(e.target.value, 10))}
                 onBlur={() => touch('telefono')}
@@ -497,7 +530,8 @@ export default function VisitasPage() {
               />
               <Input
                 id="vis-email"
-                label="Email"
+                label="Email (opcional)"
+                placeholder="Ej. visitante@correo.com"
                 type="email"
                 value={form.email}
                 onChange={(e) => update('email', e.target.value)}
@@ -506,7 +540,7 @@ export default function VisitasPage() {
               />
             </div>
             <h3 className="card-title mt-1">
-              Vehículo (opcional)
+              VehÃ­culo (opcional)
             </h3>
             <div className="form-row">
               <Select
@@ -518,7 +552,7 @@ export default function VisitasPage() {
                   setErrors((er) => ({ ...er, placa: undefined, descripcion: undefined }));
                 }}
               >
-                <option value="">Sin vehículo</option>
+                <option value="">Sin vehÃ­culo</option>
                 {TIPOS_VEHICULO.map((t) => (
                   <option key={t} value={t}>
                     {t}
@@ -528,12 +562,13 @@ export default function VisitasPage() {
               {form.tipoVehiculo === 'BICICLETA' ? (
                 <Input
                   id="vis-descripcion"
-                  label="Descripción"
+                  label="DescripciÃ³n"
                   maxLength="100"
                   value={form.descripcion}
                   onChange={(e) => update('descripcion', e.target.value)}
-                  error={errors.descripcion}
-                  placeholder="Descripción del vehículo"
+                  onBlur={() => touch('descripcion')}
+                  error={fieldError('descripcion', form.descripcion.trim() ? { ok: true } : { ok: false, mensaje: 'La descripciÃ³n es obligatoria para bicicletas' }) || errors.descripcion}
+                  placeholder="Ej. Bicicleta de ruta GW"
                 />
               ) : (
                 <Input
@@ -541,9 +576,10 @@ export default function VisitasPage() {
                   label={form.tipoVehiculo === 'MOTO' ? 'Placa (Moto)' : 'Placa (Carro)'}
                   maxLength="10"
                   value={form.placa}
-                  onChange={(e) => update('placa', e.target.value.toUpperCase().replace(/[^A-Z0-9\s]/g, ''))}
-                  error={errors.placa}
-                  placeholder="Ej: ABC 123"
+                  onChange={(e) => update('placa', e.target.value.toUpperCase().replace(/[^A-Z0-9\s-]/g, ''))}
+                  onBlur={() => touch('placa')}
+                  error={fieldError('placa', form.placa.trim() ? valPlaca(form.placa, form.tipoVehiculo) : { ok: true }) || errors.placa}
+                  placeholder={form.tipoVehiculo === 'MOTO' ? 'Ej. ABC12D' : 'Ej. DEM-123'}
                 />
               )}
             </div>
@@ -596,13 +632,13 @@ export default function VisitasPage() {
             </div>
             <div className="detail-row">
               <span>Salida</span>
-              <span>{formatDate(detalle.fechaSalida) || 'Aún dentro'}</span>
+              <span>{formatDate(detalle.fechaSalida) || 'AÃºn dentro'}</span>
             </div>
             {detalle.placaVehiculo && (
               <div className="detail-row">
-                <span>Vehículo</span>
+                <span>VehÃ­culo</span>
                 <span>
-                  {detalle.tipoVehiculo} — {detalle.placaVehiculo}
+                  {detalle.tipoVehiculo} â€¢ {detalle.placaVehiculo}
                 </span>
               </div>
             )}
@@ -665,7 +701,7 @@ export default function VisitasPage() {
         onClose={() => setConfirmCancelar(null)}
         onConfirm={cancelarVisita}
         title="Cancelar visita"
-        message={`¿Cancelar la visita #${confirmCancelar?.idVisita}?`}
+        message={`Â¿Cancelar la visita #${confirmCancelar?.idVisita}?`}
         confirmLabel="Cancelar visita"
         danger
       />

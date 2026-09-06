@@ -112,10 +112,16 @@
     /* Radio unico para controles interactivos (estilo shadcn, no pildoras).
        Consistente con el token Tailwind `rounded` (DEFAULT 12px). */
     --radius-control: 12px;
+    --error: #e11d48;
+    --error-container: #ffe4e6;
+    --destructive: #e11d48;
   }
 
   [data-theme='dark'] {
     color-scheme: dark;
+    --error: #f43f5e;
+    --error-container: #4c0519;
+    --destructive: #f43f5e;
     --background: #0b1220;
     --on-background: #e7ecf5;
     --surface: #151e30;
@@ -2227,12 +2233,12 @@ input:-webkit-autofill:focus {
   margin-top: 6px;
 }
 
-/* ==== impeccable: adapt � touch targets 44px en movil (WCAG 2.5.8) ==== */
+/* ==== impeccable: adapt — touch targets 44px en móvil (WCAG 2.5.8) ==== */
 @media (max-width: 640px) {
   .btn-sm, .btn-xs { min-height: 44px; }
 }
 
-/* ==== impeccable: polish � iconos decorativos de botones legacy ==== */
+/* ==== impeccable: polish — iconos decorativos de botones legacy ==== */
 .btn .material-symbols-outlined, .btn-icon .material-symbols-outlined {
   font-size: 18px;
 }

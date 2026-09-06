@@ -179,10 +179,24 @@ export function useLiveValidation() {
     setTouched((t) => (t[name] ? t : { ...t, [name]: true }));
   }
 
+  function touchAll(fields) {
+    if (Array.isArray(fields)) {
+      const all = {};
+      fields.forEach((f) => {
+        all[f] = true;
+      });
+      setTouched((t) => ({ ...t, ...all }));
+    }
+  }
+
+  function resetTouched() {
+    setTouched({});
+  }
+
   /** Devuelve el mensaje de error solo si el campo fue tocado y la validación falló. */
   function fieldError(name, result) {
     return touched[name] && result && !result.ok ? result.mensaje : undefined;
   }
 
-  return { touched, touch, fieldError };
+  return { touched, touch, touchAll, resetTouched, fieldError };
 }

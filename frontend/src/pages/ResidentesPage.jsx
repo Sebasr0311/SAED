@@ -112,11 +112,22 @@ export default function ResidentesPage() {
 
   // 3. Catálogo de Tipos de Documento
   const { tiposDoc, error: errorTiposDoc } = useTiposDocumento();
-  const { touch, fieldError } = useLiveValidation();
+  const { touch, touchAll, resetTouched, fieldError } = useLiveValidation();
 
   // Validación menor de edad / tutor
   const edad = calcularEdad(form.fechaNacimiento);
   const requiereTutor = edad !== null && edad >= 16 && edad < 18;
+
+  const activeCodigoDoc = useMemo(() => {
+    return tiposDoc.find((t) => Number(t.idTipoDoc) === Number(form.idTipoDoc))?.codigo || 'CC';
+  }, [tiposDoc, form.idTipoDoc]);
+
+  const maxBirthDate = useMemo(() => new Date().toISOString().split('T')[0], []);
+  const minBirthDate = useMemo(() => {
+    const d = new Date();
+    d.setFullYear(d.getFullYear() - 115);
+    return d.toISOString().split('T')[0];
+  }, []);
 
   // Mapa rápido de unidades
   const unitMap = useMemo(() => {
@@ -194,8 +205,9 @@ export default function ResidentesPage() {
     setForm({ ...emptyForm, idTipoDoc: ccId });
     setTutorForm(emptyTutorForm);
     setErrors({});
+    resetTouched();
     setModalOpen(true);
-  }, [tiposDoc]);
+  }, [tiposDoc, resetTouched]);
 
   const openEdit = useCallback(
     (row) => {
@@ -212,6 +224,7 @@ export default function ResidentesPage() {
       });
       setTutorForm(emptyTutorForm);
       setErrors({});
+      resetTouched();
       setModalOpen(true);
 
       if (row.esMenorEdad) {
@@ -237,7 +250,7 @@ export default function ResidentesPage() {
           });
       }
     },
-    [tenantApi]
+    [tenantApi, resetTouched]
   );
 
   const update = useCallback((k, v) => {
@@ -250,44 +263,55 @@ export default function ResidentesPage() {
 
   // Validación
   const validate = useCallback(() => {
+    touchAll(['numeroDocumento', 'nombres', 'apellidos', 'fechaNacimiento', 'telefono', 'email']);
+    if (requiereTutor) {
+      touchAll([
+        'tutor.numeroDocumento',
+        'tutor.nombres',
+        'tutor.apellidos',
+        'tutor.telefono',
+        'tutor.email',
+        'tutor.parentesco',
+      ]);
+    }
     const e = {};
     const codigoDoc =
-      tiposDoc.find((t) => Number(t.idTipoDoc) === Number(form.idTipoDoc))?.codigo || '';
-    const rNombre = valNombre(form.nombres, 'El nombre');
+      tiposDoc.find((t) => Number(t.idTipoDoc) === Number(form.idTipoDoc))?.codigo || 'CC';
+    const rNombre = valNombre(form.nombres, 'Los nombres');
     if (!rNombre.ok) e.nombres = rNombre.mensaje;
-    const rApellido = valApellido(form.apellidos, 'El apellido');
+    const rApellido = valApellido(form.apellidos, 'Los apellidos');
     if (!rApellido.ok) e.apellidos = rApellido.mensaje;
-    const rDoc = valDocumento(form.numeroDocumento, codigoDoc, 'El documento');
+    const rDoc = valDocumento(form.numeroDocumento, codigoDoc, 'El número de documento');
     if (!rDoc.ok) e.numeroDocumento = rDoc.mensaje;
     const rFecha = valFechaNacimiento(form.fechaNacimiento, { edadMin: 0, edadMax: 115 });
     if (!rFecha.ok) e.fechaNacimiento = rFecha.mensaje;
     const rTel = valTelefono(form.telefono, { required: false });
     if (!rTel.ok) e.telefono = rTel.mensaje;
-    const rEmail = valEmail(form.email);
+    const rEmail = valEmail(form.email, { required: false });
     if (!rEmail.ok) e.email = rEmail.mensaje;
 
     if (requiereTutor) {
       const tCodigo =
-        tiposDoc.find((t) => Number(t.idTipoDoc) === Number(tutorForm.idTipoDoc))?.codigo || '';
-      const rTN = valNombre(tutorForm.nombres, 'El nombre del tutor');
+        tiposDoc.find((t) => Number(t.idTipoDoc) === Number(tutorForm.idTipoDoc))?.codigo || 'CC';
+      const rTN = valNombre(tutorForm.nombres, 'Los nombres del tutor');
       if (!rTN.ok) e['tutor.nombres'] = rTN.mensaje;
-      const rTA = valApellido(tutorForm.apellidos, 'El apellido del tutor');
+      const rTA = valApellido(tutorForm.apellidos, 'Los apellidos del tutor');
       if (!rTA.ok) e['tutor.apellidos'] = rTA.mensaje;
       const rTDoc = valDocumento(tutorForm.numeroDocumento, tCodigo, 'El documento del tutor');
       if (!rTDoc.ok) e['tutor.numeroDocumento'] = rTDoc.mensaje;
       const rTTel = valTelefono(tutorForm.telefono);
       if (!rTTel.ok) e['tutor.telefono'] = rTTel.mensaje;
-      const rTEmail = valEmail(tutorForm.email);
+      const rTEmail = valEmail(tutorForm.email, { required: false });
       if (!rTEmail.ok) e['tutor.email'] = rTEmail.mensaje;
-      const rParent = valSelect(tutorForm.parentesco, 'Seleccione el parentesco');
+      const rParent = valSelect(tutorForm.parentesco, 'Selecciona el parentesco');
       if (!rParent.ok) e['tutor.parentesco'] = rParent.mensaje;
       if (tutorForm.parentesco === 'OTRO' && !tutorForm.otroParentesco.trim()) {
-        e['tutor.otroParentesco'] = 'Especifique el parentesco';
+        e['tutor.otroParentesco'] = 'Especifica el parentesco del tutor';
       }
     }
     setErrors(e);
     return Object.keys(e).length === 0;
-  }, [form, requiereTutor, tiposDoc, tutorForm]);
+  }, [form, requiereTutor, tiposDoc, tutorForm, touchAll]);
 
   // Guardado CRUD
   const save = useCallback(async () => {
@@ -821,7 +845,7 @@ export default function ResidentesPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Select
               id="idTipoDoc"
-              label="Tipo de Documento"
+              label="Tipo de Documento *"
               value={form.idTipoDoc}
               onChange={(e) => update('idTipoDoc', Number(e.target.value))}
             >
@@ -830,22 +854,28 @@ export default function ResidentesPage() {
                   key={t.idTipoDoc ?? t.id ?? t.value}
                   value={t.idTipoDoc ?? t.id ?? t.value}
                 >
-                  {t.descripcion || t.nombre}
+                  {t.nombre} ({t.codigo})
                 </option>
               ))}
             </Select>
             <Input
               id="numeroDocumento"
-              label="Número de Documento"
+              label="Número de Documento *"
               value={form.numeroDocumento}
               onChange={(e) => update('numeroDocumento', e.target.value)}
-              error={errors.numeroDocumento}
-              placeholder="Ej. 1020304050"
+              onBlur={() => touch('numeroDocumento')}
+              error={
+                fieldError(
+                  'numeroDocumento',
+                  valDocumento(form.numeroDocumento, activeCodigoDoc, 'El número de documento')
+                ) || errors.numeroDocumento
+              }
+              placeholder={activeCodigoDoc === 'NIT' ? 'Ej. 900123456-1' : 'Ej. 1020304050'}
             />
           </div>
 
           {errorTiposDoc && !tiposDoc.length && (
-            <p className="text-xs text-destructive">
+            <p className="text-xs text-danger-600 font-medium">
               Error al consultar el catálogo de tipos de documento.
             </p>
           )}
@@ -853,18 +883,20 @@ export default function ResidentesPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input
               id="nombres"
-              label="Nombres"
+              label="Nombres *"
               value={form.nombres}
               onChange={(e) => update('nombres', e.target.value)}
-              error={errors.nombres}
+              onBlur={() => touch('nombres')}
+              error={fieldError('nombres', valNombre(form.nombres, 'Los nombres')) || errors.nombres}
               placeholder="Ej. Carlos Alberto"
             />
             <Input
               id="apellidos"
-              label="Apellidos"
+              label="Apellidos *"
               value={form.apellidos}
               onChange={(e) => update('apellidos', e.target.value)}
-              error={errors.apellidos}
+              onBlur={() => touch('apellidos')}
+              error={fieldError('apellidos', valApellido(form.apellidos, 'Los apellidos')) || errors.apellidos}
               placeholder="Ej. Martínez Gómez"
             />
           </div>
@@ -872,15 +904,24 @@ export default function ResidentesPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input
               id="fechaNacimiento"
-              label="Fecha de Nacimiento"
+              label="Fecha de Nacimiento *"
               type="date"
+              max={maxBirthDate}
+              min={minBirthDate}
               value={form.fechaNacimiento}
               onChange={(e) => update('fechaNacimiento', e.target.value)}
-              error={errors.fechaNacimiento}
+              onBlur={() => touch('fechaNacimiento')}
+              error={
+                fieldError('fechaNacimiento', valFechaNacimiento(form.fechaNacimiento)) ||
+                errors.fechaNacimiento
+              }
             />
             <Input
               id="telefono"
-              label="Teléfono Móvil"
+              label="Teléfono Celular"
+              type="tel"
+              inputMode="numeric"
+              maxLength={10}
               value={form.telefono}
               onChange={(e) => update('telefono', e.target.value)}
               onBlur={() => touch('telefono')}
@@ -888,7 +929,7 @@ export default function ResidentesPage() {
                 fieldError('telefono', valTelefono(form.telefono, { required: false })) ||
                 errors.telefono
               }
-              placeholder="Ej. 3001234567"
+              placeholder="Ej. 300 123 4567"
             />
           </div>
 
@@ -897,13 +938,15 @@ export default function ResidentesPage() {
               id="email"
               label="Correo Electrónico"
               type="email"
+              inputMode="email"
+              autoComplete="email"
               value={form.email}
               onChange={(e) => update('email', e.target.value)}
               onBlur={() => touch('email')}
               error={
                 fieldError('email', valEmail(form.email, { required: false })) || errors.email
               }
-              placeholder="Ej. residente@dominio.com"
+              placeholder="Ej. residente@correo.com"
             />
             <Select
               id="idApartamento"
@@ -945,7 +988,7 @@ export default function ResidentesPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                 <Select
                   id="tutor-idTipoDoc"
-                  label="Tipo Documento Tutor"
+                  label="Tipo Documento Tutor *"
                   value={tutorForm.idTipoDoc}
                   onChange={(e) => updateTutor('idTipoDoc', Number(e.target.value))}
                   error={errors['tutor.idTipoDoc']}
@@ -956,51 +999,87 @@ export default function ResidentesPage() {
                       key={t.idTipoDoc ?? t.id ?? t.value}
                       value={t.idTipoDoc ?? t.id ?? t.value}
                     >
-                      {t.descripcion || t.nombre}
+                      {t.nombre} ({t.codigo})
                     </option>
                   ))}
                 </Select>
                 <Input
                   id="tutor-numeroDocumento"
-                  label="Documento Tutor"
+                  label="Documento Tutor *"
                   value={tutorForm.numeroDocumento}
                   onChange={(e) => updateTutor('numeroDocumento', e.target.value)}
-                  error={errors['tutor.numeroDocumento']}
+                  onBlur={() => touch('tutor.numeroDocumento')}
+                  error={
+                    fieldError(
+                      'tutor.numeroDocumento',
+                      valDocumento(
+                        tutorForm.numeroDocumento,
+                        tiposDoc.find((t) => Number(t.idTipoDoc) === Number(tutorForm.idTipoDoc))?.codigo || 'CC',
+                        'El documento del tutor'
+                      )
+                    ) || errors['tutor.numeroDocumento']
+                  }
+                  placeholder="Ej. 1020304050"
                 />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Input
                   id="tutor-nombres"
-                  label="Nombres Tutor"
+                  label="Nombres Tutor *"
                   value={tutorForm.nombres}
                   onChange={(e) => updateTutor('nombres', e.target.value)}
-                  error={errors['tutor.nombres']}
+                  onBlur={() => touch('tutor.nombres')}
+                  error={
+                    fieldError('tutor.nombres', valNombre(tutorForm.nombres, 'Los nombres del tutor')) ||
+                    errors['tutor.nombres']
+                  }
+                  placeholder="Ej. María Elena"
                 />
                 <Input
                   id="tutor-apellidos"
-                  label="Apellidos Tutor"
+                  label="Apellidos Tutor *"
                   value={tutorForm.apellidos}
                   onChange={(e) => updateTutor('apellidos', e.target.value)}
-                  error={errors['tutor.apellidos']}
+                  onBlur={() => touch('tutor.apellidos')}
+                  error={
+                    fieldError('tutor.apellidos', valApellido(tutorForm.apellidos, 'Los apellidos del tutor')) ||
+                    errors['tutor.apellidos']
+                  }
+                  placeholder="Ej. Gómez Silva"
                 />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Input
                   id="tutor-telefono"
-                  label="Teléfono Tutor"
+                  label="Teléfono Celular Tutor *"
+                  type="tel"
+                  inputMode="numeric"
+                  maxLength={10}
                   value={tutorForm.telefono}
                   onChange={(e) => updateTutor('telefono', e.target.value)}
-                  error={errors['tutor.telefono']}
+                  onBlur={() => touch('tutor.telefono')}
+                  error={
+                    fieldError('tutor.telefono', valTelefono(tutorForm.telefono)) ||
+                    errors['tutor.telefono']
+                  }
+                  placeholder="Ej. 300 123 4567"
                 />
                 <Input
                   id="tutor-email"
-                  label="Email Tutor"
+                  label="Correo Electrónico Tutor"
                   type="email"
+                  inputMode="email"
+                  autoComplete="email"
                   value={tutorForm.email}
                   onChange={(e) => updateTutor('email', e.target.value)}
-                  error={errors['tutor.email']}
+                  onBlur={() => touch('tutor.email')}
+                  error={
+                    fieldError('tutor.email', valEmail(tutorForm.email, { required: false })) ||
+                    errors['tutor.email']
+                  }
+                  placeholder="Ej. tutor@correo.com"
                 />
               </div>
 

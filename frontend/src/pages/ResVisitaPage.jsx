@@ -31,12 +31,12 @@ const emptyForm = {
 export default function ResVisitaPage() {
   const { user } = useAuth();
   const { tiposDoc, error: errorTiposDoc } = useTiposDocumento();
-  const { touch, fieldError } = useLiveValidation();
+  const { touch, touchAll, resetTouched, fieldError } = useLiveValidation();
   const [form, setForm] = useState(emptyForm);
   const [errors, setErrors] = useState({});
   const [sending, setSending] = useState(false);
   // Guard anti doble-submit: mismo patron que VisitasPage (FASE 4.2-P2).
-  // disabled={state} NO bloquea clicks sincronicos (re-render asincrono) ó el ref es la barrera real.
+  // disabled={state} NO bloquea clicks sincronicos (re-render as√≠ncrono) ‚Äî el ref es la barrera real.
   const sendingRef = useRef(false);
   const [qrGenerado, setQrGenerado] = useState(null);
   const [buscarDoc, setBuscarDoc] = useState('');
@@ -112,7 +112,7 @@ export default function ResVisitaPage() {
       if (!rPlaca.ok) e.placa = rPlaca.mensaje;
     }
     if (form.medioTransporte === 'BICICLETA' || form.medioTransporte === 'OTRO') {
-      if (!form.descripcion.trim()) e.descripcion = 'La descripciÛn es requerida para ' + (form.medioTransporte === 'BICICLETA' ? 'bicicleta' : 'otro medio');
+      if (!form.descripcion.trim()) e.descripcion = 'La descripci√≥n es requerida para ' + (form.medioTransporte === 'BICICLETA' ? 'bicicleta' : 'otro medio');
     }
     const validez = Number(form.tiempoValidezMin);
     if (!form.tiempoValidezMin || Number.isNaN(validez) || validez < 5 || validez > 60) {
@@ -126,8 +126,23 @@ export default function ResVisitaPage() {
     return Object.keys(e).length === 0;
   }
 
+  const codigoDoc = tiposDoc.find((t) => Number(t.idTipoDoc) === Number(form.visitante.idTipoDoc))?.codigo || '';
+
   async function send() {
     if (sendingRef.current) return; // doble submit
+    const fieldsToTouch = [
+      'visitante.idTipoDoc',
+      'visitante.numeroDocumento',
+      'visitante.nombres',
+      'visitante.apellidos',
+      'visitante.telefono',
+      'visitante.email',
+      'tiempoValidezMin',
+      'cantidadPersonas',
+      ...(form.medioTransporte === 'CARRO' || form.medioTransporte === 'MOTO' ? ['placa'] : []),
+      ...(form.medioTransporte === 'BICICLETA' || form.medioTransporte === 'OTRO' ? ['descripcion'] : []),
+    ];
+    touchAll(fieldsToTouch);
     if (!validate()) return;
     sendingRef.current = true;
     setSending(true);
@@ -157,6 +172,7 @@ export default function ResVisitaPage() {
       setQrGenerado(res);
       toast.success('Visita registrada, QR generado');
       setForm(emptyForm);
+      resetTouched();
     } catch (err) {
       toast.error(err.message);
     } finally {
@@ -176,7 +192,7 @@ export default function ResVisitaPage() {
             {qrGenerado.codigoQr}
           </div>
           <div style={{ fontSize: '12px', opacity: 0.7, marginTop: '8px' }}>
-            Comparte este codigo con tu visita para que el portero lo escanee
+            Comparte este c√≥digo con tu visita para que el portero lo escanee
           </div>
           <Button
             variant="outline"
@@ -197,7 +213,9 @@ export default function ResVisitaPage() {
               label="Tipo Documento"
               value={form.visitante.idTipoDoc}
               onChange={(e) => update('visitante.idTipoDoc', Number(e.target.value))}
-              error={errors['visitante.idTipoDoc']}
+              onBlur={() => touch('visitante.idTipoDoc')}
+              error={fieldError('visitante.idTipoDoc', form.visitante.idTipoDoc || visitanteEncontrado?.nombres ? { ok: true } : { ok: false, mensaje: 'Seleccione el tipo de documento del visitante' }) || errors['visitante.idTipoDoc']}
+              required
             >
               <option value="">Seleccione tipo de documento</option>
               {tiposDoc.map((t) => (
@@ -211,10 +229,13 @@ export default function ResVisitaPage() {
             )}
             <Input
               id="numeroDocumento"
-              label="N˙mero Documento"
+              label="N√∫mero Documento"
+              placeholder="Ej. 1020304050"
               value={form.visitante.numeroDocumento}
               onChange={(e) => onDocumentoChange(e.target.value)}
-              error={errors['visitante.numeroDocumento']}
+              onBlur={() => touch('visitante.numeroDocumento')}
+              error={fieldError('visitante.numeroDocumento', valDocumento(form.visitante.numeroDocumento, codigoDoc, 'El documento del visitante')) || errors['visitante.numeroDocumento']}
+              required
             />
           </div>
           {visitanteEncontrado && visitanteEncontrado.nombres && (
@@ -226,22 +247,31 @@ export default function ResVisitaPage() {
             <Input
               id="nombres"
               label="Nombres"
+              placeholder="Ej. Carlos Alberto"
               value={form.visitante.nombres}
               onChange={(e) => update('visitante.nombres', e.target.value)}
-              error={errors['visitante.nombres']}
+              onBlur={() => touch('visitante.nombres')}
+              error={fieldError('visitante.nombres', valNombre(form.visitante.nombres, 'El nombre del visitante')) || errors['visitante.nombres']}
+              required
             />
             <Input
               id="apellidos"
               label="Apellidos"
+              placeholder="Ej. G√≥mez P√©rez"
               value={form.visitante.apellidos}
               onChange={(e) => update('visitante.apellidos', e.target.value)}
-              error={errors['visitante.apellidos']}
+              onBlur={() => touch('visitante.apellidos')}
+              error={fieldError('visitante.apellidos', valApellido(form.visitante.apellidos, 'El apellido del visitante')) || errors['visitante.apellidos']}
+              required
             />
           </div>
           <div className="form-row">
             <Input
               id="telefono"
-              label="TelÈfono (opcional)"
+              label="Tel√©fono celular (opcional)"
+              placeholder="Ej. 300 123 4567"
+              inputMode="numeric"
+              maxLength={10}
               value={form.visitante.telefono}
               onChange={(e) => update('visitante.telefono', e.target.value)}
               onBlur={() => touch('visitante.telefono')}
@@ -250,6 +280,7 @@ export default function ResVisitaPage() {
             <Input
               id="email"
               label="Email (opcional)"
+              placeholder="Ej. visitante@correo.com"
               type="email"
               value={form.visitante.email}
               onChange={(e) => update('visitante.email', e.target.value)}
@@ -263,26 +294,36 @@ export default function ResVisitaPage() {
           </h3>
           <div className="form-row">
             <Input
-                id="tiempoValidezMin"
-                label="Validez (minutos)"
-                type="number"
-                value={form.tiempoValidezMin}
-                onChange={(e) => update('tiempoValidezMin', e.target.value)}
-                error={errors.tiempoValidezMin}
-              />
-              <Input
-                id="cantidadPersonas"
-                label="Cantidad de personas"
-                type="number"
-                value={form.cantidadPersonas}
-                onChange={(e) => update('cantidadPersonas', e.target.value)}
-                error={errors.cantidadPersonas}
-              />
+              id="tiempoValidezMin"
+              label="Validez (minutos)"
+              placeholder="30"
+              type="number"
+              min="5"
+              max="60"
+              value={form.tiempoValidezMin}
+              onChange={(e) => update('tiempoValidezMin', e.target.value)}
+              onBlur={() => touch('tiempoValidezMin')}
+              error={fieldError('tiempoValidezMin', !form.tiempoValidezMin || Number(form.tiempoValidezMin) < 5 || Number(form.tiempoValidezMin) > 60 ? { ok: false, mensaje: 'La validez debe ser entre 5 y 60 minutos' } : { ok: true }) || errors.tiempoValidezMin}
+              required
+            />
+            <Input
+              id="cantidadPersonas"
+              label="Cantidad de personas"
+              placeholder="1"
+              type="number"
+              min="1"
+              max="99"
+              value={form.cantidadPersonas}
+              onChange={(e) => update('cantidadPersonas', e.target.value)}
+              onBlur={() => touch('cantidadPersonas')}
+              error={fieldError('cantidadPersonas', !form.cantidadPersonas || Number(form.cantidadPersonas) < 1 || Number(form.cantidadPersonas) > 99 ? { ok: false, mensaje: 'Debe ser entre 1 y 99 personas' } : { ok: true }) || errors.cantidadPersonas}
+              required
+            />
           </div>
           <div className="form-row">
             <Select
               id="medioTransporte"
-              label="øEn quÈ viene?"
+              label="¬øEn qu√© viene?"
               value={form.medioTransporte}
               onChange={(e) => update('medioTransporte', e.target.value)}
             >
@@ -295,19 +336,27 @@ export default function ResVisitaPage() {
             {(form.medioTransporte === 'CARRO' || form.medioTransporte === 'MOTO') && (
               <Input
                 id="placa"
-                label="Placa"
+                label={form.medioTransporte === 'MOTO' ? 'Placa (Moto)' : 'Placa (Carro)'}
+                placeholder={form.medioTransporte === 'MOTO' ? 'Ej. ABC12D' : 'Ej. DEM-123'}
+                maxLength="8"
                 value={form.placa}
                 onChange={(e) => update('placa', e.target.value.toUpperCase())}
-                error={errors.placa}
+                onBlur={() => touch('placa')}
+                error={fieldError('placa', valPlaca(form.placa, form.medioTransporte === 'CARRO' ? 'CARRO' : form.medioTransporte === 'MOTO' ? 'MOTO' : 'OTRO')) || errors.placa}
+                required
               />
             )}
             {(form.medioTransporte === 'BICICLETA' || form.medioTransporte === 'OTRO') && (
               <Input
                 id="descripcion"
-                label={form.medioTransporte === 'BICICLETA' ? 'DescripciÛn de la bicicleta' : 'DescripciÛn del medio'}
+                label={form.medioTransporte === 'BICICLETA' ? 'Descripci√≥n de la bicicleta' : 'Descripci√≥n del medio'}
+                placeholder={form.medioTransporte === 'BICICLETA' ? 'Ej. Bicicleta de ruta GW' : 'Ej. Patineta el√©ctrica'}
+                maxLength="100"
                 value={form.descripcion}
                 onChange={(e) => update('descripcion', e.target.value)}
-                error={errors.descripcion}
+                onBlur={() => touch('descripcion')}
+                error={fieldError('descripcion', form.descripcion.trim() ? { ok: true } : { ok: false, mensaje: 'La descripci√≥n es requerida para ' + (form.medioTransporte === 'BICICLETA' ? 'bicicleta' : 'otro medio') }) || errors.descripcion}
+                required
               />
             )}
           </div>
@@ -315,6 +364,7 @@ export default function ResVisitaPage() {
             <Input
               id="motivo"
               label="Motivo (opcional)"
+              placeholder="Ej. Visita familiar / Almuerzo"
               value={form.motivo}
               onChange={(e) => update('motivo', e.target.value)}
             />
