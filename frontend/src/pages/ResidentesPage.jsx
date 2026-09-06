@@ -24,6 +24,7 @@ import {
   valTelefono,
   valEmail,
   valSelect,
+  getDocPlaceholder,
 } from '../lib/validation.js';
 import { useTenant } from '../lib/TenantContext.jsx';
 import { useTenantApi } from '../lib/useTenantApi.js';
@@ -870,7 +871,7 @@ export default function ResidentesPage() {
                   valDocumento(form.numeroDocumento, activeCodigoDoc, 'El número de documento')
                 ) || errors.numeroDocumento
               }
-              placeholder={activeCodigoDoc === 'NIT' ? 'Ej. 900123456-1' : 'Ej. 1020304050'}
+              placeholder={getDocPlaceholder(activeCodigoDoc)}
             />
           </div>
 
@@ -1019,7 +1020,7 @@ export default function ResidentesPage() {
                       )
                     ) || errors['tutor.numeroDocumento']
                   }
-                  placeholder="Ej. 1020304050"
+                  placeholder={getDocPlaceholder(tiposDoc.find((t) => Number(t.idTipoDoc) === Number(tutorForm.idTipoDoc))?.codigo || 'CC')}
                 />
               </div>
 

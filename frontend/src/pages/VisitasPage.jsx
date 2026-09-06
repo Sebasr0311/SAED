@@ -21,6 +21,7 @@ import {
   valEmail,
   valEntero,
   valPlaca,
+  getDocPlaceholder,
 } from '../lib/validation.js';
 
 const ESTADOS = ['', 'ACTIVA', 'FINALIZADA', 'CANCELADA'];
@@ -486,7 +487,7 @@ export default function VisitasPage() {
               <Input
                 id="vis-documento"
                 label="Número Documento"
-                placeholder="Ej. 1020304050"
+                placeholder={getDocPlaceholder(codigoTipoDoc(form.tipoDoc))}
                 value={form.documento}
                 onChange={(e) => onDocumentoChange(e.target.value)}
                 onBlur={() => touch('documento')}

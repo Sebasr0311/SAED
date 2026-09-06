@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import api from '../lib/api.js';
 import { useTiposDocumento } from '../lib/hooks.js';
-import { valDocumento } from '../lib/validation.js';
+import { valDocumento, getDocPlaceholder } from '../lib/validation.js';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card.tsx';
 import { Badge } from '../components/ui/badge.tsx';
 import { Skeleton } from '../components/ui/skeleton.tsx';
@@ -349,7 +349,7 @@ export default function OrgAdminsPage() {
                     <input
                       type="text"
                       required
-                      placeholder="Ej. 1020304050"
+                      placeholder={getDocPlaceholder(tiposDoc.find((t) => Number(t.idTipoDoc) === Number(newAdmin.idTipoDocumento))?.codigo || 'CC')}
                       value={newAdmin.numeroDocumento}
                       onChange={(e) => setNewAdmin({ ...newAdmin, numeroDocumento: e.target.value })}
                       className="w-full px-3 py-2 border border-input rounded-lg bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"

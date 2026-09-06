@@ -2,7 +2,7 @@ import { useState, useRef, useMemo } from 'react';
 import { toast } from 'sonner';
 import api from '../lib/api.js';
 import { useFetch, useTiposDocumento, useLiveValidation } from '../lib/hooks.js';
-import { valEmail, valTelefono, valDocumento, valNombre, valApellido } from '../lib/validation.js';
+import { valEmail, valTelefono, valDocumento, valNombre, valApellido, getDocPlaceholder } from '../lib/validation.js';
 
 import { Button } from '../components/ui/Button.jsx';
 import { Input, Select } from '../components/ui/Form.jsx';
@@ -250,7 +250,7 @@ export default function PersonasPage() {
             <Input
               id="numeroDocumento"
               label="Número de Documento *"
-              placeholder={activeCodigoDoc === 'NIT' ? 'Ej. 900123456-1' : 'Ej. 1020304050'}
+              placeholder={getDocPlaceholder(activeCodigoDoc)}
               value={form.numeroDocumento}
               onChange={(e) => update('numeroDocumento', e.target.value)}
               onBlur={() => touch('numeroDocumento')}

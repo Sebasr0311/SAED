@@ -6,7 +6,7 @@ import { PageHeader } from '../components/ui/PageHeader.jsx';
 import api from '../lib/api.js';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { useFetch, useTiposDocumento, useLiveValidation } from '../lib/hooks.js';
-import { valNombre, valApellido, valDocumento, valTelefono, valEmail, valPlaca } from '../lib/validation.js';
+import { valNombre, valApellido, valDocumento, valTelefono, valEmail, valPlaca, getDocPlaceholder } from '../lib/validation.js';
 
 const emptyVisitante = {
   idTipoDoc: '',
@@ -230,7 +230,7 @@ export default function ResVisitaPage() {
             <Input
               id="numeroDocumento"
               label="Número Documento"
-              placeholder="Ej. 1020304050"
+              placeholder={getDocPlaceholder(codigoDoc)}
               value={form.visitante.numeroDocumento}
               onChange={(e) => onDocumentoChange(e.target.value)}
               onBlur={() => touch('visitante.numeroDocumento')}

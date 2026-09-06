@@ -36,6 +36,68 @@ export const DOC_MESSAGES = {
   NIT: 'NIT: ingresa entre 8 y 10 dígitos (ej: 900123456 o 900123456-1).',
 };
 
+export const DOC_PLACEHOLDERS = {
+  CC: 'Ej. 1098765432 (Cédula)',
+  TI: 'Ej. 1023456789 (Tarjeta Identidad)',
+  RC: 'Ej. 10234567890 (Registro Civil)',
+  CE: 'Ej. 987654 (Cédula Extranjería)',
+  PAS: 'Ej. AB123456 (Pasaporte)',
+  PP: 'Ej. AB123456 (Pasaporte)',
+  PASAPORTE: 'Ej. AB123456 (Pasaporte)',
+  PPT: 'Ej. 1234567 (PPT)',
+  PEP: 'Ej. 12345678 (PEP)',
+  NIT: 'Ej. 900123456-1 (NIT con DV)',
+};
+
+export const DOC_HINTS = {
+  CC: '6 a 10 dígitos numéricos',
+  TI: '8 a 11 dígitos numéricos (NUIP)',
+  RC: '10 a 11 dígitos numéricos',
+  CE: '5 a 11 caracteres alfanuméricos',
+  PAS: '6 a 16 caracteres alfanuméricos',
+  PP: '6 a 16 caracteres alfanuméricos',
+  PASAPORTE: '6 a 16 caracteres alfanuméricos',
+  PPT: '6 a 12 caracteres alfanuméricos',
+  PEP: '8 a 15 caracteres alfanuméricos',
+  NIT: '8 a 10 dígitos, opcional guion y dígito de verificación',
+};
+
+/**
+ * Retorna el placeholder adaptativo según el tipo de documento.
+ * @param {string} tipoDocCodigo - Código (CC, TI, CE, NIT, etc.)
+ * @param {boolean} [conciso=false] - Si es true, retorna solo el formato numérico/alfanumérico sin texto adicional
+ */
+export function getDocPlaceholder(tipoDocCodigo, conciso = false) {
+  if (!tipoDocCodigo) return conciso ? 'Ej. 1098765432' : 'Ej. 1098765432 (Cédula)';
+  const cod = String(tipoDocCodigo).trim().toUpperCase();
+  if (conciso) {
+    const map = {
+      CC: 'Ej. 1098765432',
+      TI: 'Ej. 1023456789',
+      RC: 'Ej. 10234567890',
+      CE: 'Ej. 987654',
+      PAS: 'Ej. AB123456',
+      PP: 'Ej. AB123456',
+      PASAPORTE: 'Ej. AB123456',
+      PPT: 'Ej. 1234567',
+      PEP: 'Ej. 12345678',
+      NIT: 'Ej. 900123456-1',
+    };
+    return map[cod] || 'Ej. 1098765432';
+  }
+  return DOC_PLACEHOLDERS[cod] || 'Ej. 1098765432';
+}
+
+/**
+ * Retorna la descripción del formato normativo esperado para el tipo de documento.
+ * @param {string} tipoDocCodigo - Código del documento
+ */
+export function getDocHint(tipoDocCodigo) {
+  if (!tipoDocCodigo) return 'Número de documento de identidad';
+  const cod = String(tipoDocCodigo).trim().toUpperCase();
+  return DOC_HINTS[cod] || 'Número de documento válido';
+}
+
 /**
  * Valida un documento según el código de tipo de documento colombiano.
  * @param {string} value

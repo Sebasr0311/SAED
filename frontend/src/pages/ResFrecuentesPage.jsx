@@ -8,7 +8,7 @@ import { Button } from '../components/ui/Button.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog.jsx';
 import { Input, Select } from '../components/ui/Form.jsx';
-import { valNombre, valApellido, valDocumento, valTelefono, valEmail, valPlaca } from '../lib/validation.js';
+import { valNombre, valApellido, valDocumento, valTelefono, valEmail, valPlaca, getDocPlaceholder } from '../lib/validation.js';
 import { formatDate } from '../lib/utils.js';
 
 export default function ResFrecuentesPage() {
@@ -318,9 +318,11 @@ export default function ResFrecuentesPage() {
           <Input
             id="numeroDocumento"
             label="Número Documento"
+            placeholder={getDocPlaceholder(tiposDoc.find((t) => Number(t.idTipoDoc) === Number(form.idTipoDoc))?.codigo || 'CC')}
             value={form.numeroDocumento}
             onChange={(e) => setForm((f) => ({ ...f, numeroDocumento: e.target.value }))}
-            error={errors.numeroDocumento}
+            onBlur={() => touch('numeroDocumento')}
+            error={fieldError('numeroDocumento', valDocumento(form.numeroDocumento, tiposDoc.find((t) => Number(t.idTipoDoc) === Number(form.idTipoDoc))?.codigo || 'CC', 'El documento')) || errors.numeroDocumento}
           />
         </div>
         <div className="form-row">
