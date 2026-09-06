@@ -72,7 +72,7 @@ export function valApellido(value, label = 'El apellido') {
   return valNombre(value, label);
 }
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const EMAIL_RE = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 
 /**
  * Valida email: formato + longitud máxima 40 (regla legacy).
@@ -87,15 +87,24 @@ export function valEmail(value, opts = {}) {
     return { ok: true };
   }
   if (v.length > max) return { ok: false, mensaje: `El email no puede superar ${max} caracteres` };
-  if (!EMAIL_RE.test(v)) return { ok: false, mensaje: 'Email inválido' };
+  if (v.includes('..') || !EMAIL_RE.test(v)) return { ok: false, mensaje: 'Email inválido' };
   return { ok: true };
 }
 
-/** Convierte fecha ISO 'YYYY-MM-DD' a Date local sin desfase de zona. */
+/** Convierte fecha ISO 'YYYY-MM-DD' a Date local verificando no-rollover de calendario. */
 function parseISO(value) {
-  const parts = String(value).split('-').map(Number);
+  if (!value || typeof value !== 'string') return new Date(NaN);
+  const parts = value.split('-').map(Number);
   if (parts.length !== 3 || parts.some(Number.isNaN)) return new Date(NaN);
-  return new Date(parts[0], parts[1] - 1, parts[2]);
+  const [year, month, day] = parts;
+  if (month < 1 || month > 12 || day < 1 || day > 31) return new Date(NaN);
+  const d = new Date(year, month - 1, day);
+  if (Number.isNaN(d.getTime())) return new Date(NaN);
+  // Verificación estricta de no-rollover de calendario (ej: 30 de febrero o 31 de abril)
+  if (d.getFullYear() !== year || d.getMonth() !== month - 1 || d.getDate() !== day) {
+    return new Date(NaN);
+  }
+  return d;
 }
 
 /** Calcula edad a partir de fecha ISO. */
@@ -155,9 +164,11 @@ export function valSelect(value, label = 'Seleccione una opción') {
  */
 export function valNumero(value, opts = {}) {
   const { min, max, positivo = false } = opts;
-  if (value == null || value === '') return { ok: false, mensaje: 'Este campo es obligatorio' };
+  if (value == null || value === '' || (typeof value === 'string' && value.trim() === '')) {
+    return { ok: false, mensaje: 'Este campo es obligatorio' };
+  }
   const n = Number(value);
-  if (Number.isNaN(n)) return { ok: false, mensaje: 'Debe ser un número' };
+  if (Number.isNaN(n) || !Number.isFinite(n)) return { ok: false, mensaje: 'Debe ser un número válido' };
   if (positivo && n <= 0) return { ok: false, mensaje: 'Debe ser mayor que 0' };
   if (min != null && n < min) return { ok: false, mensaje: `Mínimo ${min}` };
   if (max != null && n > max) return { ok: false, mensaje: `Máximo ${max}` };
