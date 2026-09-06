@@ -111,23 +111,23 @@ export default function ResPerfilPage() {
     () => (residentId ? api.get(`/personas/${residentId}`) : Promise.resolve(null)),
     [residentId]
   );
-  const perfil = personaData?.raw || personaData || {};
+  const perfil = useMemo(() => personaData?.raw || personaData || {}, [personaData]);
 
   // 2. Dashboard financiero y de unidad del residente
   const { data: dashboardData, refetch: refetchDashboard } = useFetch(
     () => (residentId ? api.get(`/residentes/${residentId}/dashboard`) : Promise.resolve(null)),
     [residentId]
   );
-  const dashboard = dashboardData?.raw || dashboardData || {};
-  const aptoInfo = dashboard.apartamento || {};
-  const contratoInfo = dashboard.contrato || {};
-  const cuotas = dashboard.cuotas || [];
+  const dashboard = useMemo(() => dashboardData?.raw || dashboardData || {}, [dashboardData]);
+  const aptoInfo = useMemo(() => dashboard.apartamento || {}, [dashboard]);
+  const contratoInfo = useMemo(() => dashboard.contrato || {}, [dashboard]);
+  const cuotas = useMemo(() => dashboard.cuotas || [], [dashboard]);
 
   // 3. Ficha de la unidad oficial
   const unitId =
     user?.idUnidad || perfil.idApartamento || perfil.idUnidad || aptoInfo.idApartamento || aptoInfo.id || 1;
   const { data: unitData } = useFetch(() => (unitId ? api.get(`/units/${unitId}`) : Promise.resolve(null)), [unitId]);
-  const u = unitData?.raw || unitData || {};
+  const u = useMemo(() => unitData?.raw || unitData || {}, [unitData]);
 
   // 4. Residentes / cohabitantes de la unidad
   const { data: unitResidentsData } = useFetch(
@@ -280,12 +280,6 @@ export default function ResPerfilPage() {
       <PageHeader
         title="Mi Perfil & Apartamento"
         subtitle="Centro de gestión integral del copropietario y residente"
-        action={
-          <Button onClick={openEdit} className="gap-2 shadow-sm">
-            <Pencil className="w-4 h-4" />
-            Editar Contacto
-          </Button>
-        }
       />
 
       {/* HERO BANNER DEL RESIDENTE */}
@@ -368,15 +362,6 @@ export default function ResPerfilPage() {
               <div className="text-2xl font-black text-white tracking-tight">{numeroApto}</div>
               <div className="text-xs text-white/70">{tipoUnidad}</div>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={openEdit}
-              className="bg-white/10 hover:bg-white/20 text-white border-white/25 shadow-sm"
-            >
-              <Pencil className="w-3.5 h-3.5 mr-1.5" />
-              Modificar
-            </Button>
           </div>
         </div>
       </div>
@@ -639,9 +624,14 @@ export default function ResPerfilPage() {
                 </div>
 
                 <div className="pt-2 border-t border-border">
-                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-                    Relación de Tenencia y Cuota de Administración
-                  </h4>
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      Relación de Tenencia y Cuota de Administración
+                    </h4>
+                    <span className="text-[11px] text-muted-foreground bg-muted px-2 py-0.5 rounded-full font-medium">
+                      Información registrada por administración · Solo lectura
+                    </span>
+                  </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <DetailItem
                       icon={FileText}

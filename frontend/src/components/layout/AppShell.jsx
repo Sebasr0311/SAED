@@ -234,10 +234,7 @@ const NAV_BY_ROLE = {
       id: 'mi-cuenta',
       label: 'Mi Cuenta',
       icon: 'account_circle',
-      items: [
-        { path: '/res-perfil', label: 'Mi Perfil', icon: 'person' },
-        { path: '/res-apartamento', label: 'Mi Apartamento', icon: 'apartment' },
-      ],
+      items: [{ path: '/res-perfil', label: 'Mi Perfil', icon: 'person' }],
     },
     {
       id: 'finanzas',
