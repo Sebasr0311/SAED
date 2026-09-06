@@ -33,13 +33,14 @@ export default function PazYSalvoPage() {
   const unidades = unidadesData?.items || unidadesData || [];
 
   async function generar() {
-    if (!form.unidadId) {
-      toast.error('Seleccione una unidad');
+    const uid = Number(form.unidadId);
+    if (!form.unidadId || Number.isNaN(uid) || uid <= 0) {
+      toast.error('Seleccione una unidad válida');
       return;
     }
     setGenerando(true);
     try {
-      await api.post('/paz-y-salvos', { idUnidad: Number(form.unidadId), motivo: form.motivo });
+      await api.post('/paz-y-salvos', { idUnidad: uid, motivo: form.motivo?.trim() || '' });
       toast.success('Paz y salvo generado exitosamente');
       setDialogOpen(false);
       setForm({ unidadId: '', motivo: '' });

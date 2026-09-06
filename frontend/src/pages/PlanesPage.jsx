@@ -52,21 +52,26 @@ export default function PlanesPage() {
   }
 
   async function guardar() {
-    if (!form.codigo || !form.nombre) {
+    if (!form.codigo?.trim() || !form.nombre?.trim()) {
       toast.error('Código y nombre son obligatorios');
+      return;
+    }
+    const precio = Number(form.precioMensual);
+    if (form.precioMensual === '' || Number.isNaN(precio) || !Number.isFinite(precio) || precio < 0) {
+      toast.error('El precio mensual debe ser un número válido mayor o igual a 0');
       return;
     }
     setSaving(true);
     try {
       const payload = {
-        codigo: form.codigo,
-        nombre: form.nombre,
-        descripcion: form.descripcion,
-        precioMensual: Number(form.precioMensual),
-        limitePropiedades: form.limitePropiedades ? Number(form.limitePropiedades) : null,
-        limiteUnidades: form.limiteUnidades ? Number(form.limiteUnidades) : null,
-        limiteUsuarios: form.limiteUsuarios ? Number(form.limiteUsuarios) : null,
-        limiteAlmacenamientoGb: form.limiteAlmacenamientoGb ? Number(form.limiteAlmacenamientoGb) : null,
+        codigo: form.codigo.trim().toUpperCase(),
+        nombre: form.nombre.trim(),
+        descripcion: form.descripcion?.trim() || '',
+        precioMensual: precio,
+        limitePropiedades: form.limitePropiedades && !isNaN(Number(form.limitePropiedades)) ? Number(form.limitePropiedades) : null,
+        limiteUnidades: form.limiteUnidades && !isNaN(Number(form.limiteUnidades)) ? Number(form.limiteUnidades) : null,
+        limiteUsuarios: form.limiteUsuarios && !isNaN(Number(form.limiteUsuarios)) ? Number(form.limiteUsuarios) : null,
+        limiteAlmacenamientoGb: form.limiteAlmacenamientoGb && !isNaN(Number(form.limiteAlmacenamientoGb)) ? Number(form.limiteAlmacenamientoGb) : null,
       };
 
       if (editando) {

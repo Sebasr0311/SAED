@@ -53,17 +53,27 @@ export default function ConciliacionPage() {
   }
 
   async function guardar() {
-    if (!form.periodo || !form.cuentaBanco) {
+    if (!form.periodo?.trim() || !form.cuentaBanco?.trim()) {
       toast.error('Período y cuenta banco son obligatorios');
+      return;
+    }
+    const sb = Number(form.saldoBanco);
+    const sl = Number(form.saldoLibros);
+    if (form.saldoBanco === '' || Number.isNaN(sb) || !Number.isFinite(sb)) {
+      toast.error('El saldo en banco debe ser un número válido');
+      return;
+    }
+    if (form.saldoLibros === '' || Number.isNaN(sl) || !Number.isFinite(sl)) {
+      toast.error('El saldo en libros debe ser un número válido');
       return;
     }
     setSaving(true);
     try {
       const payload = {
-        periodo: form.periodo,
-        cuentaBanco: form.cuentaBanco,
-        saldoBanco: Number(form.saldoBanco),
-        saldoLibros: Number(form.saldoLibros),
+        periodo: form.periodo.trim(),
+        cuentaBanco: form.cuentaBanco.trim(),
+        saldoBanco: sb,
+        saldoLibros: sl,
         estado: form.estado,
       };
       if (editando) {

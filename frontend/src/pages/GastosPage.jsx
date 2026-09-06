@@ -66,13 +66,18 @@ export default function GastosPage() {
       toast.error('Categoría y beneficiario son obligatorios');
       return;
     }
+    const montoNum = Number(form.monto);
+    if (form.monto === '' || Number.isNaN(montoNum) || !Number.isFinite(montoNum) || montoNum <= 0) {
+      toast.error('El monto debe ser un número válido mayor a 0');
+      return;
+    }
     setSaving(true);
     try {
       const payload = {
         fechaGasto: form.fecha || undefined,
-        categoria: form.categoria,
-        beneficiario: form.beneficiario,
-        monto: Number(form.monto),
+        categoria: form.categoria.trim(),
+        beneficiario: form.beneficiario.trim(),
+        monto: montoNum,
         metodoPago: form.metodoPago,
         estado: form.estado,
         idPresupuesto: form.presupuestoId ? Number(form.presupuestoId) : undefined,

@@ -11,10 +11,22 @@ export default function ObrasAdminPage() {
   const items = data?.items || (Array.isArray(data) ? data : []);
 
   const handleCreate = async () => {
+    if (!form.idUnidad || isNaN(Number(form.idUnidad))) {
+      toast.error('El ID de unidad debe ser un número válido');
+      return;
+    }
+    if (!form.descripcion?.trim()) {
+      toast.error('La descripción de la obra es obligatoria');
+      return;
+    }
     try {
-      await api.post('/obras', form);
+      await api.post('/obras', {
+        ...form,
+        idUnidad: Number(form.idUnidad),
+      });
       toast.success('Obra registrada correctamente');
       setModalOpen(false);
+      setForm({ idUnidad: '', descripcion: '', fechaInicio: '', fechaFinEstimada: '', responsableObra: '', telefonoResponsable: '', depositoGarantia: 0 });
       refetch();
     } catch (e) {
       toast.error('Error al crear la obra: ' + e.message);
@@ -24,9 +36,9 @@ export default function ObrasAdminPage() {
   const cambiarEstado = async (id, estadoStr) => {
     try {
       let url = '';
-      if (estadoStr === 'APROBADA') url = `/api/v1/obras/${id}/aprobar`;
-      if (estadoStr === 'RECHAZADA') url = `/api/v1/obras/${id}/rechazar`;
-      if (estadoStr === 'FINALIZADA') url = `/api/v1/obras/${id}/finalizar`;
+      if (estadoStr === 'APROBADA') url = `/obras/${id}/aprobar`;
+      if (estadoStr === 'RECHAZADA') url = `/obras/${id}/rechazar`;
+      if (estadoStr === 'FINALIZADA') url = `/obras/${id}/finalizar`;
       
       await api.post(url);
       toast.success('Estado actualizado correctamente');
@@ -90,8 +102,16 @@ export default function ObrasAdminPage() {
           <div className="modal-box">
             <h3 className="font-bold text-lg">Registrar Obra</h3>
             <div className="py-4 form-control">
-              <label>ID Unidad</label>
-              <input type="number" className="input input-bordered" value={form.idUnidad} onChange={e => setForm({...form, idUnidad: parseInt(e.target.value)})} />
+              <label>ID Unidad *</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                placeholder="Ej. 101"
+                className="input input-bordered"
+                value={form.idUnidad}
+                onChange={e => setForm({...form, idUnidad: e.target.value.replace(/\D/g, '')})}
+              />
               <label className="mt-2">Descripción</label>
               <textarea className="textarea textarea-bordered" value={form.descripcion} onChange={e => setForm({...form, descripcion: e.target.value})}></textarea>
               

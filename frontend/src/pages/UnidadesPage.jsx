@@ -77,6 +77,22 @@ export default function UnidadesPage() {
       toast.error('Seleccione el tipo de unidad');
       return;
     }
+    let areaVal = null;
+    if (form.areaM2 !== '' && form.areaM2 != null) {
+      areaVal = Number(form.areaM2);
+      if (Number.isNaN(areaVal) || !Number.isFinite(areaVal) || areaVal <= 0) {
+        toast.error('El área debe ser un número positivo mayor a 0');
+        return;
+      }
+    }
+    let coefVal = null;
+    if (form.coeficienteCopropiedad !== '' && form.coeficienteCopropiedad != null) {
+      coefVal = Number(form.coeficienteCopropiedad);
+      if (Number.isNaN(coefVal) || !Number.isFinite(coefVal) || coefVal <= 0 || coefVal > 1) {
+        toast.error('El coeficiente debe ser un número entre 0 y 1 (ej: 0.0035)');
+        return;
+      }
+    }
     setSaving(true);
     try {
       const payload = {
@@ -84,8 +100,8 @@ export default function UnidadesPage() {
         idTipoUnidad: Number(form.idTipoUnidad),
         identificador: form.identificador.trim(),
         idBloque: form.idBloque ? Number(form.idBloque) : null,
-        areaM2: form.areaM2 ? Number(form.areaM2) : null,
-        coeficienteCopropiedad: form.coeficienteCopropiedad ? Number(form.coeficienteCopropiedad) : null,
+        areaM2: areaVal,
+        coeficienteCopropiedad: coefVal,
       };
       if (editing) {
         await tenantApi.put(`/units/${editing.id}`, payload);

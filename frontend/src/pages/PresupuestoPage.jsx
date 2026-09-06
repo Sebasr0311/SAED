@@ -62,17 +62,27 @@ export default function PresupuestoPage() {
   }
 
   async function guardar() {
-    if (!form.rubro) {
+    if (!form.rubro?.trim()) {
       toast.error('El rubro es obligatorio');
+      return;
+    }
+    const monto = Number(form.montoPresupuestado);
+    if (form.montoPresupuestado === '' || Number.isNaN(monto) || !Number.isFinite(monto) || monto <= 0) {
+      toast.error('El monto presupuestado debe ser un número positivo mayor a 0');
+      return;
+    }
+    const anio = Number(form.vigenciaAnio);
+    if (form.vigenciaAnio === '' || Number.isNaN(anio) || !Number.isInteger(anio) || anio < 2000 || anio > 2100) {
+      toast.error('La vigencia debe ser un año válido (ej: 2026)');
       return;
     }
     setSaving(true);
     try {
       const payload = {
-        rubro: form.rubro,
+        rubro: form.rubro.trim(),
         tipo: form.tipo,
-        montoPresupuestado: Number(form.montoPresupuestado),
-        vigenciaAnio: Number(form.vigenciaAnio),
+        montoPresupuestado: monto,
+        vigenciaAnio: anio,
       };
       if (editando) {
         await api.put(`/presupuestos/${editando.ID || editando.id}`, payload);
