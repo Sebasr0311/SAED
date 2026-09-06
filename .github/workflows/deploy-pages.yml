@@ -22,9 +22,12 @@ jobs:
         with:
           node-version: 20
           cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
       - name: Install dependencies
+        working-directory: frontend
         run: pnpm install --frozen-lockfile
       - name: Build frontend
+        working-directory: frontend
         run: set -o pipefail; pnpm run build 2>&1 | tail -120
         env:
           VITE_BASE_PATH: /sistema-administracion-edificios/
@@ -32,7 +35,7 @@ jobs:
       - name: Upload frontend
         uses: actions/upload-pages-artifact@v3
         with:
-          path: dist
+          path: frontend/dist
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4
