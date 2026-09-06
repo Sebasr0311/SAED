@@ -1,7 +1,16 @@
+function withOpacity(variableName, fallback) {
+  return ({ opacityValue }) => {
+    if (opacityValue !== undefined) {
+      return `color-mix(in srgb, var(${variableName}${fallback ? `, ${fallback}` : ''}) calc(${opacityValue} * 100%), transparent)`;
+    }
+    return `var(${variableName}${fallback ? `, ${fallback}` : ''})`;
+  };
+}
+
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{js,jsx,ts,tsx}'],
-  darkMode: ['selector', '[data-theme="dark"]'],
+  darkMode: ['selector', '[data-theme="dark"], .dark'],
   theme: {
     extend: {
       colors: {
@@ -83,105 +92,109 @@ export default {
           100: '#CCFBF1',
           50: '#F0FDFA',
         },
-        // Semantic aliases
         // Semantic aliases (vinculados a :root / [data-theme=dark] en index.css)
-        surface: 'var(--surface)',
-        'surface-dim': 'var(--surface-dim)',
-        'surface-container': 'var(--surface-container)',
-        'surface-muted': 'var(--surface-dim)',
-    'surface-selected': 'var(--surface-selected)',
-    'preview-bg': 'var(--preview-bg)',
+        surface: withOpacity('--surface'),
+        'surface-dim': withOpacity('--surface-dim'),
+        'surface-container': withOpacity('--surface-container'),
+        'surface-muted': withOpacity('--surface-dim'),
+        'surface-selected': withOpacity('--surface-selected'),
+        'preview-bg': withOpacity('--preview-bg'),
         primary: {
-          DEFAULT: 'var(--primary)',
-          hover: 'var(--primary-hover)',
+          DEFAULT: withOpacity('--primary'),
+          hover: withOpacity('--primary-hover'),
+          foreground: withOpacity('--on-primary'),
         },
-        'on-primary': 'var(--on-primary)',
+        'on-primary': withOpacity('--on-primary'),
         accent: {
-          DEFAULT: 'var(--warn)',
-          hover: 'var(--btn-warn-hover)',
+          DEFAULT: withOpacity('--warn'),
+          hover: withOpacity('--btn-warn-hover'),
         },
         // Material-token aliases used by the React kit (Button/Form/Modal/Toast).
         // Kept in sync with index.css :root so inline `var(--x)` styles resolve
         // to the same values as Tailwind utilities (single source of truth).
-        'on-surface': 'var(--on-surface)',
-        'on-surface-variant': 'var(--on-surface-variant)',
-        'outline-variant': 'var(--border)',
+        'on-surface': withOpacity('--on-surface'),
+        'on-surface-variant': withOpacity('--on-surface-variant'),
+        'outline-variant': withOpacity('--outline-variant', '#1E293B'),
         'on-error': '#FFFFFF',
-        'error-container': 'var(--error-container)',
-        'accent-green': 'var(--accent-green)',
-        'accent-green-bg': 'var(--accent-green-bg)',
-        'warn-amber': 'var(--warn)',
-        'warn-amber-bg': 'var(--warn-amber-bg)',
+        'error-container': withOpacity('--error-container'),
+        'accent-green': withOpacity('--accent-green'),
+        'accent-green-bg': withOpacity('--accent-green-bg'),
+        'warn-amber': withOpacity('--warn'),
+        'warn-amber-bg': withOpacity('--warn-amber-bg'),
         // Botones solidos: profundos en ambos modos (texto blanco AA).
-        'btn-accent': 'var(--btn-accent)',
-        'btn-accent-hover': 'var(--btn-accent-hover)',
-        'btn-danger': 'var(--btn-danger)',
-        'btn-danger-hover': 'var(--btn-danger-hover)',
-        'btn-warn': 'var(--btn-warn)',
-        'btn-warn-hover': 'var(--btn-warn-hover)',
-        'btn-success': 'var(--btn-success)',
+        'btn-accent': withOpacity('--btn-accent'),
+        'btn-accent-hover': withOpacity('--btn-accent-hover'),
+        'btn-danger': withOpacity('--btn-danger'),
+        'btn-danger-hover': withOpacity('--btn-danger-hover'),
+        'btn-warn': withOpacity('--btn-warn'),
+        'btn-warn-hover': withOpacity('--btn-warn-hover'),
+        'btn-success': withOpacity('--btn-success'),
         error: {
-          DEFAULT: 'var(--error)',
-          container: 'var(--error-container)',
+          DEFAULT: withOpacity('--error'),
+          container: withOpacity('--error-container'),
         },
         info: {
-          DEFAULT: 'var(--info)',
-          container: 'var(--info-bg)',
+          DEFAULT: withOpacity('--info'),
+          container: withOpacity('--info-bg'),
         },
-        'success-strong': 'var(--success-strong)',
-        background: 'var(--background)',
-        'on-background': 'var(--on-background)',
-        'text-secondary': 'var(--text-secondary)',
-        'text-muted': 'var(--text-muted)',
-        'text-hint': 'var(--text-hint)',
-        border: { DEFAULT: 'var(--border)', focus: 'var(--border-focus)', subtle: 'var(--border-subtle)' },
-        'border-focus': 'var(--border-focus)',
-        'border-subtle': 'var(--border-subtle)',
-        // Anillos de foco con alpha fijo (RGB triplets).
-        'ring-primary': 'rgb(var(--ring-primary) / 0.25)',
-        'ring-error': 'rgb(var(--ring-error) / 0.25)',
+        'success-strong': withOpacity('--success-strong'),
+        background: withOpacity('--background'),
+        'background-subtle': withOpacity('--background-subtle', '#0B1120'),
+        'on-background': withOpacity('--on-background'),
+        'text-secondary': withOpacity('--text-secondary'),
+        'text-muted': withOpacity('--text-muted'),
+        'text-hint': withOpacity('--text-hint'),
+        border: {
+          DEFAULT: withOpacity('--border'),
+          focus: withOpacity('--border-focus'),
+          subtle: withOpacity('--border-subtle'),
+        },
+        'border-focus': withOpacity('--border-focus'),
+        'border-subtle': withOpacity('--border-subtle'),
+        // Anillos de foco con alpha
+        'ring-primary': withOpacity('--primary'),
+        'ring-error': withOpacity('--error'),
         warning: {
-          DEFAULT: 'var(--warn)',
+          DEFAULT: withOpacity('--warn'),
           50: '#FFFBEB',
           100: '#FEF3C7',
           500: '#D97706',
           600: '#B45309',
           700: '#92400E',
         },
-        'background-subtle': 'var(--background-subtle, #EEF2F8)',
         // ---- Tokens shadcn/ui (mapeados a la paleta SAED existente) ----
-        // Los componentes shadcn usan estos nombres; resuelven a las mismas
-        // variables que el kit propio (single source of truth en index.css).
-        foreground: 'var(--on-background)',
+        foreground: withOpacity('--on-background'),
         card: {
-          DEFAULT: 'var(--surface)',
-          foreground: 'var(--on-background)',
+          DEFAULT: withOpacity('--surface'),
+          foreground: withOpacity('--on-background'),
         },
-        'primary-foreground': 'var(--on-primary)',
+        'primary-foreground': withOpacity('--on-primary'),
         secondary: {
-          DEFAULT: 'var(--surface-dim)',
-          foreground: 'var(--on-surface)',
+          DEFAULT: withOpacity('--surface-dim'),
+          foreground: withOpacity('--on-surface'),
         },
         muted: {
-          DEFAULT: 'var(--surface-dim)',
-          foreground: 'var(--text-muted)',
+          DEFAULT: withOpacity('--surface-dim'),
+          foreground: withOpacity('--text-muted'),
         },
-        'accent-foreground': 'var(--on-surface)',
+        'muted-foreground': withOpacity('--text-muted'),
+        'accent-foreground': withOpacity('--on-surface'),
         destructive: {
-          DEFAULT: 'var(--btn-danger)',
-          foreground: 'var(--on-primary)',
+          DEFAULT: withOpacity('--btn-danger'),
+          foreground: withOpacity('--on-primary'),
         },
-        input: 'var(--outline-variant)',
-        ring: 'var(--border-focus)',
+        'destructive-foreground': withOpacity('--on-primary'),
+        input: withOpacity('--outline-variant', '#1E293B'),
+        ring: withOpacity('--border-focus'),
         popover: {
-          DEFAULT: 'var(--surface)',
-          foreground: 'var(--on-background)',
+          DEFAULT: withOpacity('--surface'),
+          foreground: withOpacity('--on-background'),
         },
-        'chart-1': 'var(--chart-1)',
-        'chart-2': 'var(--chart-2)',
-        'chart-3': 'var(--chart-3)',
-        'chart-4': 'var(--chart-4)',
-        'chart-5': 'var(--chart-5)',
+        'chart-1': withOpacity('--chart-1'),
+        'chart-2': withOpacity('--chart-2'),
+        'chart-3': withOpacity('--chart-3'),
+        'chart-4': withOpacity('--chart-4'),
+        'chart-5': withOpacity('--chart-5'),
       },
       screens: {
         xs: '360px',

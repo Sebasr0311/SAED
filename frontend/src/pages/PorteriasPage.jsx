@@ -127,8 +127,8 @@ export default function PorteriasPage() {
       label: 'Nombre de la Garita / Punto',
       render: (r) => (
         <div>
-          <div className="font-semibold text-gray-900">🚪 {r.nombre}</div>
-          {r.ubicacion && <div className="text-xs text-gray-500">📍 {r.ubicacion}</div>}
+          <div className="font-semibold text-foreground">🚪 {r.nombre}</div>
+          {r.ubicacion && <div className="text-xs text-muted-foreground">📍 {r.ubicacion}</div>}
         </div>
       ),
     },
@@ -136,7 +136,7 @@ export default function PorteriasPage() {
       key: 'telefonoContacto',
       label: 'Teléfono / Radio',
       render: (r) => (
-        <span className="text-sm text-gray-700">
+        <span className="text-sm text-foreground/80">
           {r.telefonoContacto ? `📞 ${r.telefonoContacto}` : '—'}
         </span>
       ),
@@ -182,7 +182,7 @@ export default function PorteriasPage() {
       />
 
       <div className="flex flex-col sm:flex-row gap-3 items-center justify-between mb-4">
-        <div className="text-xs text-gray-500 font-medium">
+        <div className="text-xs text-muted-foreground font-medium">
           Total de garitas registradas: <strong>{items.length}</strong>
         </div>
         <div className="w-full sm:w-72">
@@ -191,7 +191,7 @@ export default function PorteriasPage() {
             placeholder="Buscar portería o ubicación..."
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
-            className="w-full border rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full border border-border rounded-lg px-3 py-1.5 text-sm bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
           />
         </div>
       </div>
