@@ -107,14 +107,14 @@ export default function LandingFooter() {
             </ul>
           </div>
 
-          {/* Navigation: Seguridad & Marco */}
+          {/* Navigation: Beneficios & Marco */}
           <div className="space-y-3">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-white">Seguridad y Ahorro</h4>
+            <h4 className="text-xs font-bold uppercase tracking-wider text-white">Beneficios</h4>
             <ul className="space-y-2">
               <li>
                 <a
-                  href="#ahorro-seguridad"
-                  onClick={(e) => { e.preventDefault(); scrollTo('#ahorro-seguridad'); }}
+                  href="#beneficios"
+                  onClick={(e) => { e.preventDefault(); scrollTo('#beneficios'); }}
                   className="hover:text-sky-400 transition-colors py-1 block"
                 >
                   Ahorro y Retorno de Inversión
@@ -122,8 +122,8 @@ export default function LandingFooter() {
               </li>
               <li>
                 <a
-                  href="#ahorro-seguridad"
-                  onClick={(e) => { e.preventDefault(); scrollTo('#ahorro-seguridad'); }}
+                  href="#beneficios"
+                  onClick={(e) => { e.preventDefault(); scrollTo('#beneficios'); }}
                   className="hover:text-sky-400 transition-colors py-1 block"
                 >
                   Blindaje Legal Ley 675
@@ -131,8 +131,8 @@ export default function LandingFooter() {
               </li>
               <li>
                 <a
-                  href="#ahorro-seguridad"
-                  onClick={(e) => { e.preventDefault(); scrollTo('#ahorro-seguridad'); }}
+                  href="#beneficios"
+                  onClick={(e) => { e.preventDefault(); scrollTo('#beneficios'); }}
                   className="hover:text-sky-400 transition-colors py-1 block"
                 >
                   Protección de Datos (Ley 1581)

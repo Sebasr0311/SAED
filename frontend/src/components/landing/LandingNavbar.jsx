@@ -3,11 +3,10 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Building2, Menu, X, ArrowRight, LogIn, Sparkles } from 'lucide-react';
 
 const NAV_LINKS = [
-  { name: 'Soluciones', href: '#soluciones' },
-  { name: 'Roles', href: '#roles' },
-  { name: 'Accesos QR', href: '#acceso' },
-  { name: 'Paquetería', href: '#paqueteria' },
-  { name: 'Ahorro y Ley 675', href: '#ahorro-seguridad' },
+  { name: 'Perfiles', href: '#roles' },
+  { name: 'Módulos', href: '#soluciones' },
+  { name: 'Beneficios', href: '#beneficios' },
+  { name: 'Preguntas', href: '#faq' },
 ];
 
 export default function LandingNavbar() {

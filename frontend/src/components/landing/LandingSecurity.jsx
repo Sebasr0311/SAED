@@ -96,7 +96,7 @@ export default function LandingSecurity() {
 
   return (
     <section
-      id="ahorro-seguridad"
+      id="beneficios"
       className="py-20 sm:py-28 bg-[#0A1628] text-white relative border-t border-slate-800/80 overflow-hidden"
     >
       {/* Ambient Glow */}
@@ -108,7 +108,7 @@ export default function LandingSecurity() {
         <div className="max-w-3xl mx-auto text-center space-y-4 mb-14 sm:mb-16">
           <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold uppercase tracking-widest text-emerald-400 bg-emerald-500/10 border border-emerald-500/20">
             <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-            RETORNO DE INVERSIÓN Y BLINDAJE
+            BENEFICIOS E IMPACTO
           </span>
 
           <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-white leading-tight font-['Plus_Jakarta_Sans']">
