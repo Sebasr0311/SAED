@@ -58,6 +58,7 @@ const ResVisitasPage = lazy(() => import('./pages/ResVisitasPage.jsx'));
 const ResBuzonPage = lazy(() => import('./pages/ResBuzonPage.jsx'));
 const ResQuejasPage = lazy(() => import('./pages/ResQuejasPage.jsx'));
 const ResIncidentesPage = lazy(() => import('./pages/ResIncidentesPage.jsx'));
+const ResDocumentosPage = lazy(() => import('./pages/ResDocumentosPage.jsx'));
 
 const PorteriasPage = lazy(() => import('./pages/PorteriasPage.jsx'));
 const PorteroDashboardPage = lazy(() => import('./pages/PorteroDashboardPage.jsx'));
@@ -620,6 +621,7 @@ export default function App() {
           />
           <Route path="res-obras" element={<ProtectedRoute roles={['RESIDENTE']}><ResObrasPage /></ProtectedRoute>} />
           <Route path="res-incidentes" element={<ProtectedRoute roles={['RESIDENTE']}><ResIncidentesPage /></ProtectedRoute>} />
+          <Route path="res-documentos" element={<ProtectedRoute roles={['RESIDENTE']}><ResDocumentosPage /></ProtectedRoute>} />
 
           {/* Portero */}
           <Route

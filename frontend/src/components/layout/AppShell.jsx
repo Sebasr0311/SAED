@@ -262,6 +262,7 @@ const NAV_BY_ROLE = {
         { path: '/res-sanciones', label: 'Sanciones', icon: 'gavel' },
         { path: '/res-obras', label: 'Mis Obras', icon: 'construction' },
         { path: '/res-incidentes', label: 'Mis Incidentes', icon: 'warning' },
+        { path: '/res-documentos', label: 'Documentos', icon: 'description' },
       ],
     },
   ],
