@@ -15,7 +15,18 @@ const RAW_BASE_URL =
     : 'https://saed-backend.onrender.com/api/v1');
 
 export const BASE_URL = RAW_BASE_URL.replace(/\/+$/, '');
-const TIMEOUT_MS = 30000;
+const TIMEOUT_MS = 90000; // 90s para absorber el cold start de Render sin abortar
+
+let hasWarmedUp = false;
+export function warmUpBackend() {
+  if (hasWarmedUp || typeof window === 'undefined') return;
+  hasWarmedUp = true;
+  try {
+    fetch(`${BASE_URL}/health`, { method: 'GET', keepalive: true }).catch(() => {});
+  } catch {
+    // Silent catch
+  }
+}
 
 let onUnauthorized = null;
 

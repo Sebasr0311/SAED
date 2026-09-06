@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import LoginPage from './pages/LoginPage.jsx';
@@ -6,6 +6,7 @@ import AppShell from './components/layout/AppShell.jsx';
 import { AuthProvider } from './lib/AuthContext.jsx';
 import { TenantProvider } from './lib/TenantContext.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
+import { warmUpBackend } from './lib/api.js';
 
 // Code-splitting por ruta: cada página carga solo cuando se visita, reduciendo
 // el bundle inicial (~1.2MB -> fracciones). Login queda eager (entry point).
@@ -97,6 +98,10 @@ function RoleIndexRedirect() {
 }
 
 export default function App() {
+  useEffect(() => {
+    warmUpBackend();
+  }, []);
+
   return (
     <AuthProvider>
       <Toaster position="top-right" richColors />

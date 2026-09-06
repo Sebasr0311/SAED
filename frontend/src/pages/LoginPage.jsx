@@ -20,6 +20,7 @@ import {
 import { useAuth } from '../lib/AuthContext.jsx';
 import { ROLE_HOME, roleCanAccess } from '../lib/access.js';
 import { valUsername, valPassword } from '../lib/validation.js';
+import { warmUpBackend } from '../lib/api.js';
 
 export default function LoginPage() {
   const { login, loading, isAuthenticated, user } = useAuth();
@@ -31,10 +32,22 @@ export default function LoginPage() {
   const [remember, setRemember] = useState(() => !!localStorage.getItem('remembered_user'));
   const [showPwd, setShowPwd] = useState(false);
   const [error, setError] = useState('');
+  const [slowNotice, setSlowNotice] = useState(false);
 
   useEffect(() => {
     document.title = 'Iniciar sesión — SAED';
+    warmUpBackend();
   }, []);
+
+  useEffect(() => {
+    let t;
+    if (loading) {
+      t = setTimeout(() => setSlowNotice(true), 3500);
+    } else {
+      setSlowNotice(false);
+    }
+    return () => clearTimeout(t);
+  }, [loading]);
 
   useEffect(() => {
     if (isAuthenticated && user) {
@@ -229,6 +242,14 @@ export default function LoginPage() {
                     </>
                   )}
                 </button>
+
+                {/* Cold start / waking up notice */}
+                {slowNotice && (
+                  <div className="mt-3 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs flex items-center gap-2.5 animate-fadeIn">
+                    <Loader2 className="w-4 h-4 text-emerald-400 animate-spin shrink-0" />
+                    <span>Conectando con el servidor seguro... Si estuvo inactivo, puede tardar unos instantes en inicializarse.</span>
+                  </div>
+                )}
               </form>
 
               {/* Card Footer */}
