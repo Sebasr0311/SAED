@@ -54,9 +54,8 @@ const ContratosProveedorPage = lazy(() => import('./pages/ContratosProveedorPage
 const ResidenteDashboardPage = lazy(() => import('./pages/ResidenteDashboardPage.jsx'));
 const ResPerfilPage = lazy(() => import('./pages/ResPerfilPage.jsx'));
 const ResCuotasPage = lazy(() => import('./pages/ResCuotasPage.jsx'));
-const ResFrecuentesPage = lazy(() => import('./pages/ResFrecuentesPage.jsx'));
+const ResVisitasPage = lazy(() => import('./pages/ResVisitasPage.jsx'));
 const ResBuzonPage = lazy(() => import('./pages/ResBuzonPage.jsx'));
-const ResVisitaPage = lazy(() => import('./pages/ResVisitaPage.jsx'));
 const ResQuejasPage = lazy(() => import('./pages/ResQuejasPage.jsx'));
 const ResIncidentesPage = lazy(() => import('./pages/ResIncidentesPage.jsx'));
 
@@ -564,26 +563,26 @@ export default function App() {
             }
           />
           <Route
-            path="res-frecuentes"
+            path="res-visitas"
             element={
               <ProtectedRoute roles={['RESIDENTE']}>
-                <ResFrecuentesPage />
+                <ResVisitasPage />
               </ProtectedRoute>
             }
+          />
+          <Route
+            path="res-frecuentes"
+            element={<Navigate to="/res-visitas" replace />}
+          />
+          <Route
+            path="res-visita"
+            element={<Navigate to="/res-visitas" replace />}
           />
           <Route
             path="res-buzon"
             element={
               <ProtectedRoute roles={['RESIDENTE']}>
                 <ResBuzonPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="res-visita"
-            element={
-              <ProtectedRoute roles={['RESIDENTE']}>
-                <ResVisitaPage />
               </ProtectedRoute>
             }
           />

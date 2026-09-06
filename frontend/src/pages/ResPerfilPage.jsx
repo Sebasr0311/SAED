@@ -780,7 +780,7 @@ export default function ResPerfilPage() {
 
             {/* Atajo 2: Visitas & Códigos QR */}
             <Card
-              onClick={() => navigate('/res-visita')}
+              onClick={() => navigate('/res-visitas')}
               className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:-translate-y-1 group border-border/70"
             >
               <CardContent className="p-6 space-y-3">
@@ -804,7 +804,7 @@ export default function ResPerfilPage() {
 
             {/* Atajo 3: Visitantes Frecuentes */}
             <Card
-              onClick={() => navigate('/res-frecuentes')}
+              onClick={() => navigate('/res-visitas')}
               className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:-translate-y-1 group border-border/70"
             >
               <CardContent className="p-6 space-y-3">

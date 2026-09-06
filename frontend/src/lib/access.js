@@ -107,6 +107,7 @@ const ACCESS_BY_ROLE = {
     '/res-perfil',
     '/res-apartamento',
     '/res-cuotas',
+    '/res-visitas',
     '/res-frecuentes',
     '/res-buzon',
     '/res-visita',

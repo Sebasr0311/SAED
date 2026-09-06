@@ -247,8 +247,7 @@ const NAV_BY_ROLE = {
       label: 'Visitas',
       icon: 'how_to_reg',
       items: [
-        { path: '/res-frecuentes', label: 'Frecuentes', icon: 'group_add' },
-        { path: '/res-visita', label: 'Nueva Visita', icon: 'add_circle' },
+        { path: '/res-visitas', label: 'Visitas', icon: 'how_to_reg' },
       ],
     },
     {

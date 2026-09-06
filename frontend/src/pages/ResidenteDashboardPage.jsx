@@ -569,7 +569,7 @@ export default function ResidenteDashboardPage() {
 
         {/* KPI 3: Control de Visitas QR */}
         <Card
-          onClick={() => navigate('/res-visita')}
+          onClick={() => navigate('/res-visitas')}
           className="hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 border-border/70 cursor-pointer group"
         >
           <CardContent className="p-5 flex items-center gap-4">
@@ -628,13 +628,13 @@ export default function ResidenteDashboardPage() {
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             <Button
               variant="outline"
-              onClick={() => navigate('/res-visita')}
+              onClick={() => navigate('/res-visitas')}
               className="h-auto py-3 px-3 flex flex-col items-center justify-center text-center gap-1.5 hover:border-primary/50 hover:bg-primary/5"
             >
               <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
                 <Plus className="w-4 h-4" />
               </div>
-              <span className="text-xs font-semibold text-foreground">Crear Visita QR</span>
+              <span className="text-xs font-semibold text-foreground">Nueva Visita</span>
             </Button>
 
             <Button
@@ -672,13 +672,13 @@ export default function ResidenteDashboardPage() {
 
             <Button
               variant="outline"
-              onClick={() => navigate('/res-frecuentes')}
+              onClick={() => navigate('/res-visitas')}
               className="h-auto py-3 px-3 flex flex-col items-center justify-center text-center gap-1.5 hover:border-primary/50 hover:bg-primary/5"
             >
               <div className="p-2 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
                 <Users className="w-4 h-4" />
               </div>
-              <span className="text-xs font-semibold text-foreground">Frecuentes</span>
+              <span className="text-xs font-semibold text-foreground">Visitas</span>
             </Button>
 
             <Button
@@ -857,7 +857,7 @@ export default function ResidenteDashboardPage() {
                     </div>
                     <Button
                       size="sm"
-                      onClick={() => navigate('/res-visita')}
+                      onClick={() => navigate('/res-visitas')}
                       className="gap-1 text-xs shadow-sm"
                     >
                       <Plus className="w-3.5 h-3.5" />
@@ -874,7 +874,7 @@ export default function ResidenteDashboardPage() {
                         Genera una invitación rápida con QR para que tus amigos, familiares o domiciliarios ingresen sin demoras.
                       </p>
                       <div className="pt-2">
-                        <Button size="sm" onClick={() => navigate('/res-visita')} className="gap-1.5">
+                        <Button size="sm" onClick={() => navigate('/res-visitas')} className="gap-1.5">
                           <Plus className="w-3.5 h-3.5" />
                           Crear Autorización de Acceso
                         </Button>
