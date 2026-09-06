@@ -55,9 +55,10 @@ const MESES_W = [
 ];
 
 /**
- * ResidenteDashboardPage 2.0 — Portal de Residente & Copropietario
- * Centro operativo con arquitectura Multi-Tenant, pagos Wompi integrados,
- * pases QR dinámicos, novedades de portería y atención en tiempo real.
+ * ResidenteDashboardPage 2.0 — Centro Operativo del Residente
+ * Foco exclusivo en operaciones del día a día: pagos Wompi, pases QR,
+ * paquetería en portería, solicitudes PQRS en curso y avisos de comunidad.
+ * (La ficha técnica estática del inmueble vive en Mi Perfil para evitar redundancia).
  */
 export default function ResidenteDashboardPage() {
   const { user } = useAuth();
@@ -92,10 +93,9 @@ export default function ResidenteDashboardPage() {
   );
   const dashboard = useMemo(() => dashData?.raw || dashData || {}, [dashData]);
   const aptoInfo = useMemo(() => dashboard.apartamento || {}, [dashboard]);
-  const contratoInfo = useMemo(() => dashboard.contrato || {}, [dashboard]);
   const cuotas = useMemo(() => dashboard.cuotas || [], [dashboard]);
 
-  // 3. Ficha oficial de la unidad
+  // 3. Ficha básica de la unidad para el saludo
   const unitId =
     user?.idUnidad || perfil.idApartamento || perfil.idUnidad || aptoInfo.idApartamento || aptoInfo.id || 1;
   const { data: unitData, refetch: refetchUnit } = useFetch(
@@ -110,13 +110,6 @@ export default function ResidenteDashboardPage() {
     aptoInfo.numero ||
     perfil.numeroApartamento ||
     (user?.idUnidad ? `Apto 20${user.idUnidad}` : 'Apto 101');
-  const nombreBloque = u.bloqueNombre || aptoInfo.bloque || aptoInfo.torre || 'Torre 1';
-  const pisoApto = aptoInfo.piso || (numeroApto.match(/\d+/) ? numeroApto.match(/\d+/)[0][0] : '1');
-  const tipoUnidad = u.tipoUnidadNombre || aptoInfo.tipo || 'Apartamento Residencial';
-  const areaApto = u.areaM2 ? `${u.areaM2} m²` : aptoInfo.areaM2 ? `${aptoInfo.areaM2} m²` : '75.50 m²';
-  const coeficiente = u.coeficienteCopropiedad
-    ? `${(Number(u.coeficienteCopropiedad) * 100).toFixed(2)}%`
-    : '1.2500%';
 
   // 4. Códigos QR activos para visitas
   const { data: qrsRaw, refetch: refetchQrs } = useFetch(
@@ -125,7 +118,7 @@ export default function ResidenteDashboardPage() {
   );
   const qrActivos = useMemo(() => (Array.isArray(qrsRaw) ? qrsRaw : qrsRaw?.items || []), [qrsRaw]);
 
-  // 5. Buzón de novedades, correspondencia y paquetería
+  // 5. Buzón de novedades y paquetería
   const { data: buzonRaw, refetch: refetchBuzon } = useFetch(() => api.get('/buzon'), []);
   const buzonItems = useMemo(() => (Array.isArray(buzonRaw) ? buzonRaw : buzonRaw?.items || []), [buzonRaw]);
 
@@ -133,12 +126,28 @@ export default function ResidenteDashboardPage() {
     () => buzonItems.filter((m) => m.tipo === 'PAQUETE' && !m.leido),
     [buzonItems]
   );
-  const circularesRecientes = useMemo(
-    () => buzonItems.filter((m) => m.tipo !== 'PAQUETE' && m.tipo !== 'VISITA').slice(0, 5),
-    [buzonItems]
+
+  // 6. Avisos y comunicados oficiales de la administración
+  const { data: avisosRaw, refetch: refetchAvisos } = useFetch(() => api.get('/buzon/avisos'), []);
+  const avisosOficiales = useMemo(() => (Array.isArray(avisosRaw) ? avisosRaw : avisosRaw?.items || []), [avisosRaw]);
+
+  // 7. Mis Solicitudes PQRS
+  const { data: pqrsRaw, refetch: refetchPqrs } = useFetch(() => api.get('/pqrs/mis-tickets'), [user]);
+  const misTickets = useMemo(() => (Array.isArray(pqrsRaw) ? pqrsRaw : pqrsRaw?.items || []), [pqrsRaw]);
+  const ticketsEnTramite = useMemo(
+    () => misTickets.filter((t) => t.estado !== 'CERRADO' && t.estado !== 'RESUELTO'),
+    [misTickets]
   );
 
-  // 6. Historial Wompi & Pagos registrados
+  // 8. Mis Reservas de Zonas Comunes
+  const { data: reservasRaw, refetch: refetchReservas } = useFetch(() => api.get('/reservas/mis-reservas'), [user]);
+  const misReservas = useMemo(() => (Array.isArray(reservasRaw) ? reservasRaw : reservasRaw?.items || []), [reservasRaw]);
+  const reservasFuturas = useMemo(
+    () => misReservas.filter((r) => r.estado === 'PENDIENTE' || r.estado === 'APROBADA'),
+    [misReservas]
+  );
+
+  // 9. Historial Wompi
   const { data: wompiRaw, refetch: refetchWompi } = useFetch(() => api.get('/pagos/wompi/historial'), []);
   const wompiHistorial = useMemo(() => (Array.isArray(wompiRaw) ? wompiRaw : wompiRaw?.items || []), [wompiRaw]);
 
@@ -170,10 +179,13 @@ export default function ResidenteDashboardPage() {
       refetchUnit(),
       refetchQrs(),
       refetchBuzon(),
+      refetchAvisos(),
+      refetchPqrs(),
+      refetchReservas(),
       refetchWompi(),
     ]).finally(() => {
       setTimeout(() => setRefreshing(false), 400);
-      toast.success('Información del panel sincronizada');
+      toast.success('Información operativa actualizada');
     });
   }, [
     refetchPerfil,
@@ -181,6 +193,9 @@ export default function ResidenteDashboardPage() {
     refetchUnit,
     refetchQrs,
     refetchBuzon,
+    refetchAvisos,
+    refetchPqrs,
+    refetchReservas,
     refetchWompi,
   ]);
 
@@ -410,7 +425,7 @@ export default function ResidenteDashboardPage() {
 
   return (
     <PageContainer>
-      {/* 1. HERO BANNER PRINCIPAL DEL RESIDENTE */}
+      {/* 1. HERO OPERATIVO DEL RESIDENTE (Sin ficha estática repetida) */}
       <div className="relative overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-slate-900 via-primary/95 to-slate-900 text-white shadow-xl">
         <div
           className="absolute inset-0 opacity-5 pointer-events-none"
@@ -431,30 +446,34 @@ export default function ResidenteDashboardPage() {
                 <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white truncate">
                   {nombreResidente}
                 </h1>
-                <Badge variant="secondary" className="bg-white/20 text-white border-white/20 hover:bg-white/30">
+                <Badge variant="secondary" className="bg-white/20 text-white border-white/20">
                   Residente Titular
                 </Badge>
                 {alDia ? (
                   <Badge variant="outline" className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30">
                     <CheckCircle2 className="w-3 h-3 mr-1" />
-                    Paz y Salvo
+                    Paz y Salvo Vigente
                   </Badge>
                 ) : (
                   <Badge variant="outline" className="bg-amber-500/20 text-amber-300 border-amber-500/30">
                     <AlertCircle className="w-3 h-3 mr-1" />
-                    Pago Pendiente
+                    {formatCurrency(totalDeudaPendiente)} Pendiente
                   </Badge>
                 )}
               </div>
               <p className="text-sm text-white/80 font-medium flex items-center gap-2 flex-wrap">
-                <span className="flex items-center gap-1 text-white font-semibold">
+                <span className="flex items-center gap-1.5 text-white font-semibold">
                   <Home className="w-4 h-4 text-emerald-400 shrink-0" />
                   {numeroApto}
                 </span>
                 <span className="text-white/40">•</span>
-                <span>{nombreBloque} · Piso {pisoApto}</span>
+                <span className="text-white/70">{user?.nombrePropiedad || 'Edificio Residencial SAED'}</span>
                 <span className="text-white/40">•</span>
-                <span className="text-white/70">{tipoUnidad} · {user?.nombrePropiedad || 'Edificio Residencial SAED'}</span>
+                <span className="text-emerald-300 text-xs">
+                  {paquetesPendientes.length > 0
+                    ? `${paquetesPendientes.length} paquete(s) por retirar`
+                    : 'Sin entregas pendientes'}
+                </span>
               </p>
             </div>
           </div>
@@ -478,29 +497,15 @@ export default function ResidenteDashboardPage() {
               className="bg-white text-slate-900 hover:bg-white/90 shadow-md font-semibold gap-1.5"
             >
               <Building2 className="w-3.5 h-3.5 text-primary" />
-              Ver Mi Inmueble
+              Mi Perfil Completo
             </Button>
           </div>
         </div>
       </div>
 
-      {/* 2. STRIP DE MÉTRICAS OPERATIVAS (KPIS) */}
+      {/* 2. STRIP DE 4 KPIS OPERATIVOS (Enfocados en el día a día) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* KPI 1: Inmueble */}
-        <Card className="hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 border-border/70">
-          <CardContent className="p-5 flex items-center gap-4">
-            <div className="p-3 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 shrink-0">
-              <Building2 className="w-6 h-6" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Unidad Privada</p>
-              <h3 className="text-xl font-bold text-foreground truncate">{numeroApto}</h3>
-              <p className="text-xs text-muted-foreground truncate">{nombreBloque} · {areaApto}</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* KPI 2: Cartera & Obligaciones */}
+        {/* KPI 1: Cartera & Obligaciones */}
         <Card
           onClick={() => navigate('/res-cuotas')}
           className="hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 border-border/70 cursor-pointer group"
@@ -525,7 +530,38 @@ export default function ResidenteDashboardPage() {
                 {alDia ? 'Al Día' : formatCurrency(totalDeudaPendiente)}
               </h3>
               <p className="text-xs text-muted-foreground truncate">
-                {alDia ? 'Sin saldos pendientes' : `${cuotasPendientes.length} cuota(s) por pagar`}
+                {alDia ? 'Paz y Salvo vigente' : `${cuotasPendientes.length} cuota(s) pendiente(s)`}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* KPI 2: Paquetería en Portería */}
+        <Card
+          onClick={() => navigate('/res-buzon')}
+          className="hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 border-border/70 cursor-pointer group"
+        >
+          <CardContent className="p-5 flex items-center gap-4">
+            <div
+              className={cn(
+                'p-3 rounded-xl shrink-0 transition-transform group-hover:scale-105',
+                paquetesPendientes.length > 0
+                  ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                  : 'bg-slate-500/10 text-slate-600 dark:text-slate-400'
+              )}
+            >
+              <Package className="w-6 h-6" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Correspondencia</p>
+                <ArrowRight className="w-3.5 h-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
+              </div>
+              <h3 className="text-xl font-bold text-foreground truncate">
+                {paquetesPendientes.length > 0 ? `${paquetesPendientes.length} en espera` : '0 paquetes'}
+              </h3>
+              <p className="text-xs text-muted-foreground truncate">
+                {paquetesPendientes.length > 0 ? 'En custodia en portería' : 'Recepción al día'}
               </p>
             </div>
           </CardContent>
@@ -548,51 +584,44 @@ export default function ResidenteDashboardPage() {
               <h3 className="text-xl font-bold text-foreground truncate">
                 {qrActivos.length} Activo(s)
               </h3>
-              <p className="text-xs text-muted-foreground truncate">Autorizaciones para portería</p>
+              <p className="text-xs text-muted-foreground truncate">Invitaciones para portería</p>
             </div>
           </CardContent>
         </Card>
 
-        {/* KPI 4: Paquetería & Portería */}
+        {/* KPI 4: Gestiones y Solicitudes en Curso */}
         <Card
-          onClick={() => navigate('/res-buzon')}
+          onClick={() => navigate('/res-quejas')}
           className="hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 border-border/70 cursor-pointer group"
         >
           <CardContent className="p-5 flex items-center gap-4">
-            <div
-              className={cn(
-                'p-3 rounded-xl shrink-0 transition-transform group-hover:scale-105',
-                paquetesPendientes.length > 0
-                  ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
-                  : 'bg-slate-500/10 text-slate-600 dark:text-slate-400'
-              )}
-            >
-              <Package className="w-6 h-6" />
+            <div className="p-3 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 shrink-0 transition-transform group-hover:scale-105">
+              <FileText className="w-6 h-6" />
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Correspondencia</p>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Gestiones en Curso</p>
                 <ArrowRight className="w-3.5 h-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
               </div>
               <h3 className="text-xl font-bold text-foreground truncate">
-                {paquetesPendientes.length > 0 ? `${paquetesPendientes.length} por retirar` : 'Al día'}
+                {ticketsEnTramite.length + reservasFuturas.length} Trámite(s)
               </h3>
               <p className="text-xs text-muted-foreground truncate">
-                {paquetesPendientes.length > 0 ? 'En custodia en portería' : 'Sin paquetes pendientes'}
+                {ticketsEnTramite.length} PQRS · {reservasFuturas.length} Reserva(s)
               </p>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* 3. BARRA DE ACCIONES RÁPIDAS DEL RESIDENTE */}
+      {/* 3. BARRA DE ACCIONES RÁPIDAS DE AUTOSERVICIO */}
       <Card className="border-border/80 bg-card/60 backdrop-blur-sm">
         <CardContent className="p-4 sm:p-5">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-primary" />
               <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Acciones Rápidas & Servicios
+                Acciones Rápidas & Autoservicio
               </h3>
             </div>
           </div>
@@ -675,30 +704,30 @@ export default function ResidenteDashboardPage() {
           </TabsTrigger>
           <TabsTrigger value="finanzas" className="gap-2 text-xs sm:text-sm font-semibold">
             <CreditCard className="w-4 h-4" />
-            Finanzas & Pagos
+            Finanzas & Wompi
             {cuotasPendientes.length > 0 && (
               <Badge variant="destructive" className="ml-1 text-[10px] px-1.5 py-0">
                 {cuotasPendientes.length}
               </Badge>
             )}
           </TabsTrigger>
-          <TabsTrigger value="accesos" className="gap-2 text-xs sm:text-sm font-semibold">
-            <QrCode className="w-4 h-4" />
-            Pases QR
-            {qrActivos.length > 0 && (
+          <TabsTrigger value="comunidad" className="gap-2 text-xs sm:text-sm font-semibold">
+            <Bell className="w-4 h-4" />
+            Avisos de Administración
+            {avisosOficiales.length > 0 && (
               <Badge variant="secondary" className="ml-1 text-[10px] px-1.5 py-0">
-                {qrActivos.length}
+                {avisosOficiales.length}
               </Badge>
             )}
           </TabsTrigger>
         </TabsList>
 
-        {/* TAB 1: RESUMEN DIARIO & OPERACIONES */}
+        {/* TAB 1: RESUMEN DIARIO & OPERACIONES (Sin ficha estática) */}
         <TabsContent value="resumen" className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Columna Izquierda (2 Cols): Pagos Inmediatos & Pases Activos */}
+            {/* Columna Izquierda (2 Cols): Pagos, Pases y Solicitudes en curso */}
             <div className="lg:col-span-2 space-y-6">
-              {/* Bloque 1: Obligaciones Inmediatas (Wompi) */}
+              {/* 1.1: Pagos y Cuotas Inmediatas (Wompi) */}
               <Card>
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
@@ -708,7 +737,7 @@ export default function ResidenteDashboardPage() {
                         Obligaciones & Cuotas del Mes
                       </CardTitle>
                       <CardDescription>
-                        Pago seguro en línea mediante PSE, Nequi, Bancolombia o tarjeta
+                        Pago directo en línea con PSE, Nequi, Bancolombia o tarjeta
                       </CardDescription>
                     </div>
                     {alDia ? (
@@ -813,7 +842,7 @@ export default function ResidenteDashboardPage() {
                 </CardContent>
               </Card>
 
-              {/* Bloque 2: Pases de Visita QR Activos */}
+              {/* 1.2: Pases de Visita QR Activos */}
               <Card>
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
@@ -937,11 +966,89 @@ export default function ResidenteDashboardPage() {
                   )}
                 </CardContent>
               </Card>
+
+              {/* 1.3: Mis Solicitudes PQRS en Trámite */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        <MessageSquare className="w-5 h-5 text-primary" />
+                        Mis Solicitudes & Reportes en Trámite ({ticketsEnTramite.length})
+                      </CardTitle>
+                      <CardDescription>
+                        Seguimiento en tiempo real a peticiones y quejas enviadas a la administración
+                      </CardDescription>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => navigate('/res-quejas')}
+                      className="gap-1 text-xs"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      Radicar PQRS
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {ticketsEnTramite.length === 0 ? (
+                    <div className="p-4 rounded-xl border border-dashed border-border text-center space-y-1">
+                      <CheckCircle2 className="w-7 h-7 text-emerald-500 mx-auto opacity-60" />
+                      <p className="text-xs font-semibold text-foreground">No tienes solicitudes pendientes</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        Todas tus peticiones o reportes anteriores han sido atendidos y cerrados.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2.5">
+                      {ticketsEnTramite.slice(0, 4).map((t) => (
+                        <div
+                          key={t.idTicket}
+                          className="flex items-center justify-between p-3.5 rounded-xl border border-border bg-card hover:bg-muted/20 transition-colors"
+                        >
+                          <div className="space-y-1 min-w-0 flex-1 pr-3">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-xs font-bold text-foreground truncate">{t.asunto}</span>
+                              <Badge
+                                variant={
+                                  t.estado === 'RESUELTO'
+                                    ? 'success'
+                                    : t.estado === 'EN_REVISION'
+                                    ? 'default'
+                                    : 'secondary'
+                                }
+                                className="text-[10px]"
+                              >
+                                {t.estado === 'EN_REVISION' ? 'En Revisión' : t.estado}
+                              </Badge>
+                            </div>
+                            <p className="text-xs text-muted-foreground line-clamp-1">
+                              {t.descripcion || 'Sin detalles'}
+                            </p>
+                            <span className="text-[10px] text-muted-foreground block">
+                              Radicado: {formatDate(t.fechaCreacion)} · Categoría: {t.categoria || 'Administración'}
+                            </span>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => navigate('/res-quejas')}
+                            className="h-8 text-xs text-primary shrink-0"
+                          >
+                            Ver →
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
             </div>
 
-            {/* Columna Derecha (1 Col): Paquetería, Circulares y Ficha */}
+            {/* Columna Derecha (1 Col): Paquetería, Reservas y Contacto Rápido */}
             <div className="space-y-6">
-              {/* Paquetes en Custodia de Portería */}
+              {/* 1. Paquetes en Custodia de Portería */}
               <Card>
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
@@ -1000,44 +1107,56 @@ export default function ResidenteDashboardPage() {
                 </CardContent>
               </Card>
 
-              {/* Circulares y Avisos Oficiales */}
+              {/* 2. Próximas Reservas de Zonas Comunes */}
               <Card>
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-base flex items-center gap-2">
-                      <Bell className="w-4 h-4 text-primary" />
-                      Avisos de la Administración
+                      <Calendar className="w-4 h-4 text-purple-500" />
+                      Mis Próximas Reservas
                     </CardTitle>
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => navigate('/res-buzon')}
+                      onClick={() => navigate('/res-reservas')}
                       className="text-xs text-primary p-0 h-auto"
                     >
-                      Buzón →
+                      Reservar →
                     </Button>
                   </div>
-                  <CardDescription>Circulares y convocatorias oficiales</CardDescription>
+                  <CardDescription>Zonas sociales y áreas comunes</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {circularesRecientes.length === 0 ? (
+                  {reservasFuturas.length === 0 ? (
                     <div className="p-4 rounded-xl border border-dashed border-border text-center space-y-1">
-                      <Bell className="w-6 h-6 text-muted-foreground mx-auto opacity-40" />
-                      <p className="text-xs font-semibold text-foreground">Sin circulares recientes</p>
-                      <p className="text-[11px] text-muted-foreground">La administración publicará aquí los avisos oficiales.</p>
+                      <Calendar className="w-6 h-6 text-muted-foreground mx-auto opacity-40" />
+                      <p className="text-xs font-semibold text-foreground">Sin reservas programadas</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        Reserva el salón social, zona BBQ o cancha para tus eventos.
+                      </p>
                     </div>
                   ) : (
                     <div className="space-y-2.5">
-                      {circularesRecientes.map((c) => (
+                      {reservasFuturas.slice(0, 3).map((r) => (
                         <div
-                          key={c.idMensaje}
+                          key={r.idReserva}
                           className="p-3 rounded-lg border border-border bg-card/60 space-y-1 hover:bg-muted/20 transition-colors"
                         >
-                          <div className="flex items-start justify-between gap-2">
-                            <span className="text-xs font-bold text-foreground line-clamp-1">{c.titulo}</span>
-                            <span className="text-[10px] text-muted-foreground shrink-0">{formatDate(c.fechaCreacion)}</span>
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-foreground">
+                              {r.nombreZona || 'Zona Común'}
+                            </span>
+                            <Badge
+                              variant={r.estado === 'APROBADA' ? 'success' : 'secondary'}
+                              className="text-[10px]"
+                            >
+                              {r.estado}
+                            </Badge>
                           </div>
-                          {c.cuerpo && <p className="text-xs text-muted-foreground line-clamp-2">{c.cuerpo}</p>}
+                          <p className="text-xs text-muted-foreground flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            {formatDate(r.fechaReserva)} · {r.horaInicio || '14:00'} - {r.horaFin || '18:00'}
+                          </p>
                         </div>
                       ))}
                     </div>
@@ -1045,38 +1164,43 @@ export default function ResidenteDashboardPage() {
                 </CardContent>
               </Card>
 
-              {/* Ficha Rápida del Inmueble */}
+              {/* 3. Canales de Asistencia, Portería & Emergencias */}
               <Card className="border-border/80">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base flex items-center gap-2">
-                    <Building2 className="w-4 h-4 text-primary" />
-                    Ficha de la Unidad
+                    <Phone className="w-4 h-4 text-primary" />
+                    Canales de Asistencia Inmediata
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2.5 text-xs">
-                  <div className="flex justify-between py-1 border-b border-border/50">
-                    <span className="text-muted-foreground">Nomenclatura:</span>
-                    <span className="font-bold text-foreground">{numeroApto}</span>
+                  <div className="flex justify-between items-center py-2 border-b border-border/50">
+                    <div>
+                      <p className="font-bold text-foreground">Portería Principal (24/7)</p>
+                      <p className="text-muted-foreground">Citofonía directa</p>
+                    </div>
+                    <span className="font-mono font-bold text-primary bg-primary/10 px-2 py-0.5 rounded">
+                      Ext. 100
+                    </span>
                   </div>
-                  <div className="flex justify-between py-1 border-b border-border/50">
-                    <span className="text-muted-foreground">Torre / Bloque:</span>
-                    <span className="font-bold text-foreground">{nombreBloque}</span>
+
+                  <div className="flex justify-between items-center py-2 border-b border-border/50">
+                    <div>
+                      <p className="font-bold text-foreground">Oficina de Administración</p>
+                      <p className="text-muted-foreground">Lunes a Viernes 8am - 5pm</p>
+                    </div>
+                    <span className="font-mono font-semibold text-foreground">
+                      (601) 321 4567
+                    </span>
                   </div>
-                  <div className="flex justify-between py-1 border-b border-border/50">
-                    <span className="text-muted-foreground">Piso:</span>
-                    <span className="font-bold text-foreground">Piso {pisoApto}</span>
-                  </div>
-                  <div className="flex justify-between py-1 border-b border-border/50">
-                    <span className="text-muted-foreground">Área Privada:</span>
-                    <span className="font-mono text-foreground">{areaApto}</span>
-                  </div>
-                  <div className="flex justify-between py-1 border-b border-border/50">
-                    <span className="text-muted-foreground">Coeficiente:</span>
-                    <span className="font-mono text-foreground">{coeficiente}</span>
-                  </div>
-                  <div className="flex justify-between py-1">
-                    <span className="text-muted-foreground">Modalidad:</span>
-                    <span className="font-semibold text-primary">{contratoInfo.tipoContrato || 'Copropietario Residente'}</span>
+
+                  <div className="flex justify-between items-center py-2">
+                    <div>
+                      <p className="font-bold text-rose-600 dark:text-rose-400">Línea Única de Emergencias</p>
+                      <p className="text-muted-foreground">Policía / Bomberos / Ambulancias</p>
+                    </div>
+                    <span className="font-mono font-bold text-rose-600 dark:text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded">
+                      123
+                    </span>
                   </div>
                 </CardContent>
               </Card>
@@ -1084,7 +1208,7 @@ export default function ResidenteDashboardPage() {
           </div>
         </TabsContent>
 
-        {/* TAB 2: FINANZAS & HISTORIAL DE PAGOS */}
+        {/* TAB 2: FINANZAS & HISTORIAL WOMPI */}
         <TabsContent value="finanzas" className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* 2.1: Historial Wompi & Pasarela */}
@@ -1103,7 +1227,7 @@ export default function ResidenteDashboardPage() {
                   <EmptyState
                     icon="payments"
                     title="No hay transacciones en línea recientes"
-                    subtitle="Cuando efectúes un pago con Wompi, el comprobante y estado se listarán en esta sección."
+                    subtitle="Cuando efectúes un pago con Wompi, el comprobante y estado bancario se listarán aquí."
                   />
                 ) : (
                   <div className="overflow-x-auto">
@@ -1154,7 +1278,7 @@ export default function ResidenteDashboardPage() {
                     <div className="p-2 rounded-md bg-primary/10 text-primary font-bold">PSE</div>
                     <div>
                       <p className="font-bold text-foreground">Débito Bancario (PSE)</p>
-                      <p className="text-muted-foreground">Todos los bancos colombianos</p>
+                      <p className="text-muted-foreground">Todos los bancos de Colombia</p>
                     </div>
                   </div>
                   <div className="p-3 rounded-lg border border-border bg-card/60 flex items-center gap-3">
@@ -1200,119 +1324,66 @@ export default function ResidenteDashboardPage() {
           </div>
         </TabsContent>
 
-        {/* TAB 3: ACCESOS & PASES QR */}
-        <TabsContent value="accesos" className="space-y-6">
+        {/* TAB 3: COMUNIDAD & AVISOS DE ADMINISTRACIÓN */}
+        <TabsContent value="comunidad" className="space-y-6">
           <Card>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="text-lg flex items-center gap-2">
-                    <QrCode className="w-5 h-5 text-primary" />
-                    Pases QR Activos y Normativa de Seguridad
+                    <Bell className="w-5 h-5 text-primary" />
+                    Circulares y Comunicados de la Administración
                   </CardTitle>
                   <CardDescription>
-                    Pases dinámicos de uso único con validación en portería conforme al protocolo del conjunto
+                    Información oficial sobre mantenimientos, asambleas y convivencia
                   </CardDescription>
                 </div>
-                <Button size="sm" onClick={() => navigate('/res-visita')} className="gap-1.5 shadow-sm">
-                  <Plus className="w-4 h-4" />
-                  Autorizar Nueva Visita
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={refetchAvisos}
+                  className="gap-1 text-xs"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  Actualizar
                 </Button>
               </div>
             </CardHeader>
             <CardContent>
-              {qrActivos.length === 0 ? (
+              {avisosOficiales.length === 0 ? (
                 <EmptyState
-                  icon="qr_code_2"
-                  title="No tienes pases QR vigentes"
-                  subtitle="Crea un pase de acceso rápido con fecha de expiración para tus invitados o entregas."
-                >
-                  <div className="mt-4">
-                    <Button onClick={() => navigate('/res-visita')} className="gap-2">
-                      <Plus className="w-4 h-4" />
-                      Generar Pase de Acceso
-                    </Button>
-                  </div>
-                </EmptyState>
+                  icon="campaign"
+                  title="No hay circulares publicadas recientemente"
+                  subtitle="Cuando la administración emita comunicados o convocatorias oficiales, aparecerán en este tablón."
+                />
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {qrActivos.map((qr) => (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {avisosOficiales.map((aviso, idx) => (
                     <div
-                      key={qr.idQr}
-                      className="p-5 rounded-2xl border border-border bg-card space-y-4 hover:shadow-md transition-all flex flex-col justify-between"
+                      key={aviso.idMensaje || aviso.idComunicado || `aviso-${idx}`}
+                      className="p-5 rounded-xl border border-border bg-card hover:shadow-sm transition-all space-y-2.5 flex flex-col justify-between"
                     >
-                      <div className="flex items-center gap-4">
-                        <img
-                          src={qrImageUrl(qr.codigoQr)}
-                          alt="QR"
-                          width="80"
-                          height="80"
-                          onClick={() => setQrZoom(qr)}
-                          className="w-20 h-20 rounded-xl border border-border cursor-zoom-in bg-white p-1.5 shadow-sm shrink-0"
-                        />
-                        <div className="min-w-0 flex-1">
-                          <Badge variant="outline" className="text-[10px] mb-1">
-                            Pase Dinámico
-                          </Badge>
-                          <h4 className="text-base font-bold text-foreground truncate">
-                            {qr.nombreVisitante || 'Visitante'}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <h4 className="text-sm font-bold text-foreground">
+                            {aviso.titulo || aviso.TITULO || 'Comunicado Oficial'}
                           </h4>
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            {qr.cantidadPersonas || 1} Persona(s)
-                          </p>
+                          <Badge variant="outline" className="text-[10px] shrink-0">
+                            {formatDate(aviso.fechaCreacion || aviso.FECHA_PUBLICACION || new Date())}
+                          </Badge>
                         </div>
+                        <p className="text-xs text-muted-foreground whitespace-pre-line leading-relaxed">
+                          {aviso.cuerpo || aviso.CONTENIDO || aviso.mensaje || ''}
+                        </p>
                       </div>
-
-                      <div className="p-3 rounded-lg bg-muted/40 text-xs space-y-1 font-mono">
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Código:</span>
-                          <span className="font-bold text-foreground">#{String(qr.codigoQr).slice(0, 10)}...</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Expira:</span>
-                          <span className="text-amber-600 dark:text-amber-400 font-sans font-semibold">
-                            {formatDateTime(qr.fechaExpiracion)}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-4 gap-1.5 pt-1">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => compartirTelegram(qr.codigoQr, qr.nombreVisitante)}
-                          className="h-9 p-0 text-blue-500"
-                          title="Telegram"
-                        >
-                          <Send className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => compartirSMS(qr.codigoQr, '')}
-                          className="h-9 p-0 text-emerald-500"
-                          title="SMS"
-                        >
-                          <Phone className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => compartirCorreo(qr.codigoQr, qr.nombreVisitante, '')}
-                          className="h-9 p-0 text-purple-500"
-                          title="Correo"
-                        >
-                          <Mail className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => copiarQR(qr.codigoQr)}
-                          className="h-9 p-0 text-slate-500"
-                          title="Copiar código"
-                        >
-                          <Copy className="w-4 h-4" />
-                        </Button>
+                      <div className="pt-2 border-t border-border/50 flex items-center justify-between text-[11px] text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <Building2 className="w-3 h-3 text-primary" />
+                          Administración SAED
+                        </span>
+                        <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                          Vigente
+                        </span>
                       </div>
                     </div>
                   ))}
