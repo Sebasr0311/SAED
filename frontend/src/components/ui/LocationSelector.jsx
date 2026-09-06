@@ -28,25 +28,28 @@ export default function LocationSelector({
     if (departamento && COLOMBIA_LOCATIONS[departamento]) {
       return departamento;
     }
-    return findDepartamentoByCiudad(ciudad);
+    if (ciudad) {
+      return findDepartamentoByCiudad(ciudad);
+    }
+    return '';
   }, [departamento, ciudad]);
 
   // Available cities for the active department
   const availableCities = useMemo(() => {
-    return COLOMBIA_LOCATIONS[effectiveDept] || ['Bogotá'];
+    return effectiveDept ? (COLOMBIA_LOCATIONS[effectiveDept] || []) : [];
   }, [effectiveDept]);
 
   const strip = (s) => (s ? s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase() : '');
 
   // Ensure ciudad matches one of the available cities or fallback
   const effectiveCity = useMemo(() => {
-    if (ciudad) {
+    if (ciudad && availableCities.length > 0) {
       if (availableCities.includes(ciudad)) return ciudad;
       const stripped = strip(ciudad);
       const match = availableCities.find((c) => strip(c) === stripped);
       if (match) return match;
     }
-    return availableCities[0] || '';
+    return ciudad || '';
   }, [ciudad, availableCities]);
 
   // Handle department change
@@ -126,6 +129,7 @@ export default function LocationSelector({
           disabled={disabled}
           className={selectClasses}
         >
+          <option value="">-- Seleccionar departamento --</option>
           {DEPARTAMENTOS_COLOMBIA.map((dept) => (
             <option key={dept} value={dept}>
               {dept}
@@ -143,9 +147,12 @@ export default function LocationSelector({
           id={`${idPrefix}-ciudad`}
           value={effectiveCity}
           onChange={handleCityChange}
-          disabled={disabled}
+          disabled={disabled || !effectiveDept}
           className={selectClasses}
         >
+          <option value="">
+            {effectiveDept ? '-- Seleccionar ciudad --' : '-- Primero seleccione departamento --'}
+          </option>
           {availableCities.map((c) => (
             <option key={c} value={c}>
               {c}

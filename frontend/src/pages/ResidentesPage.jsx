@@ -579,7 +579,7 @@ export default function ResidentesPage() {
                       const tipoDocLabel = tipoDocMap.get(Number(r.idTipoDoc)) || 'DOC';
                       const unidadDesc =
                         r.numeroApartamento
-                          ? `Apto ${r.numeroApartamento}`
+                          ? (/^apto/i.test(r.numeroApartamento.trim()) ? r.numeroApartamento.trim() : `Apto ${r.numeroApartamento.trim()}`)
                           : unitMap.get(Number(r.idApartamento));
                       const rowNum = safePage * PAGE_SIZE + idx + 1;
 
@@ -709,7 +709,7 @@ export default function ResidentesPage() {
                   const tipoDocLabel = tipoDocMap.get(Number(r.idTipoDoc)) || 'DOC';
                   const unidadDesc =
                     r.numeroApartamento
-                      ? `Apto ${r.numeroApartamento}`
+                      ? (/^apto/i.test(r.numeroApartamento.trim()) ? r.numeroApartamento.trim() : `Apto ${r.numeroApartamento.trim()}`)
                       : unitMap.get(Number(r.idApartamento));
 
                   return (
