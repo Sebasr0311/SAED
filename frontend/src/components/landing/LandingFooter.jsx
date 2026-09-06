@@ -63,7 +63,7 @@ export default function LandingFooter() {
                 <a
                   href="#producto"
                   onClick={(e) => { e.preventDefault(); scrollTo('#producto'); }}
-                  className="hover:text-emerald-300 transition-colors py-1 block"
+                  className="hover:text-sky-400 transition-colors py-1 block"
                 >
                   Showcase Interactivo
                 </a>
@@ -72,7 +72,7 @@ export default function LandingFooter() {
                 <a
                   href="#soluciones"
                   onClick={(e) => { e.preventDefault(); scrollTo('#soluciones'); }}
-                  className="hover:text-emerald-300 transition-colors py-1 block"
+                  className="hover:text-sky-400 transition-colors py-1 block"
                 >
                   El Reto y la Solución
                 </a>
@@ -81,7 +81,7 @@ export default function LandingFooter() {
                 <a
                   href="#acceso"
                   onClick={(e) => { e.preventDefault(); scrollTo('#acceso'); }}
-                  className="hover:text-emerald-300 transition-colors py-1 block"
+                  className="hover:text-sky-400 transition-colors py-1 block"
                 >
                   Control de Visitas QR
                 </a>
@@ -90,7 +90,7 @@ export default function LandingFooter() {
                 <a
                   href="#paqueteria"
                   onClick={(e) => { e.preventDefault(); scrollTo('#paqueteria'); }}
-                  className="hover:text-emerald-300 transition-colors py-1 block"
+                  className="hover:text-sky-400 transition-colors py-1 block"
                 >
                   Paquetería con PIN
                 </a>
@@ -99,7 +99,7 @@ export default function LandingFooter() {
                 <a
                   href="#parqueaderos"
                   onClick={(e) => { e.preventDefault(); scrollTo('#parqueaderos'); }}
-                  className="hover:text-emerald-300 transition-colors py-1 block"
+                  className="hover:text-sky-400 transition-colors py-1 block"
                 >
                   Parqueaderos en Vivo
                 </a>
@@ -115,7 +115,7 @@ export default function LandingFooter() {
                 <a
                   href="#seguridad"
                   onClick={(e) => { e.preventDefault(); scrollTo('#seguridad'); }}
-                  className="hover:text-emerald-300 transition-colors py-1 block"
+                  className="hover:text-sky-400 transition-colors py-1 block"
                 >
                   Aislamiento Multi-Tenant
                 </a>
@@ -124,7 +124,7 @@ export default function LandingFooter() {
                 <a
                   href="#seguridad"
                   onClick={(e) => { e.preventDefault(); scrollTo('#seguridad'); }}
-                  className="hover:text-emerald-300 transition-colors py-1 block"
+                  className="hover:text-sky-400 transition-colors py-1 block"
                 >
                   Políticas RLS en Base de Datos
                 </a>
@@ -133,7 +133,7 @@ export default function LandingFooter() {
                 <a
                   href="#seguridad"
                   onClick={(e) => { e.preventDefault(); scrollTo('#seguridad'); }}
-                  className="hover:text-emerald-300 transition-colors py-1 block"
+                  className="hover:text-sky-400 transition-colors py-1 block"
                 >
                   Marco Legal Ley 675
                 </a>
@@ -142,7 +142,7 @@ export default function LandingFooter() {
                 <a
                   href="#faq"
                   onClick={(e) => { e.preventDefault(); scrollTo('#faq'); }}
-                  className="hover:text-emerald-300 transition-colors py-1 block"
+                  className="hover:text-sky-400 transition-colors py-1 block"
                 >
                   Preguntas Frecuentes
                 </a>
@@ -158,7 +158,7 @@ export default function LandingFooter() {
                 <a
                   href="#planes"
                   onClick={(e) => { e.preventDefault(); scrollTo('#planes'); }}
-                  className="hover:text-emerald-300 transition-colors py-1 block"
+                  className="hover:text-sky-400 transition-colors py-1 block"
                 >
                   Planes por Unidades
                 </a>

@@ -5,6 +5,8 @@ import { Building2, Menu, X, ArrowRight, LogIn } from 'lucide-react';
 const NAV_LINKS = [
   { name: 'Producto', href: '#producto' },
   { name: 'Soluciones', href: '#soluciones' },
+  { name: 'Acceso QR', href: '#acceso' },
+  { name: 'Paquetería', href: '#paqueteria' },
   { name: 'Seguridad', href: '#seguridad' },
   { name: 'Planes', href: '#planes' },
 ];
@@ -76,7 +78,7 @@ export default function LandingNavbar() {
                 key={link.name}
                 href={link.href}
                 onClick={(e) => handleLinkClick(e, link.href)}
-                className="px-4 py-1.5 text-xs lg:text-sm font-medium text-slate-300 hover:text-white rounded-full hover:bg-white/10 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 min-h-[36px] flex items-center"
+                className="px-3.5 py-1.5 text-xs lg:text-sm font-medium text-slate-300 hover:text-white rounded-full hover:bg-white/10 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 min-h-[36px] flex items-center"
               >
                 {link.name}
               </a>
@@ -128,7 +130,7 @@ export default function LandingNavbar() {
                 className="px-4 py-3 rounded-xl text-sm font-medium text-slate-200 hover:text-white hover:bg-slate-800/80 transition-colors flex items-center justify-between min-h-[44px]"
               >
                 <span>{link.name}</span>
-                <ArrowRight className="w-4 h-4 text-emerald-400" />
+                <ArrowRight className="w-4 h-4 text-sky-400" />
               </a>
             ))}
           </nav>
@@ -139,14 +141,14 @@ export default function LandingNavbar() {
               onClick={() => setMobileMenuOpen(false)}
               className="w-full py-3.5 px-4 rounded-xl text-sm font-semibold text-center text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-colors flex items-center justify-center gap-2 min-h-[48px]"
             >
-              <LogIn className="w-4 h-4 text-emerald-400" />
+              <LogIn className="w-4 h-4 text-sky-400" />
               <span>Iniciar sesión</span>
             </Link>
 
             <a
               href="#producto"
               onClick={(e) => handleLinkClick(e, '#producto')}
-              className="w-full py-3.5 px-4 rounded-xl text-sm font-bold text-center text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-lg shadow-emerald-950/50 transition-all flex items-center justify-center gap-2 min-h-[48px]"
+              className="w-full py-3.5 px-4 rounded-xl text-sm font-bold text-center text-slate-950 bg-gradient-to-r from-cyan-400 via-sky-400 to-cyan-400 hover:from-cyan-300 hover:to-sky-300 shadow-lg shadow-sky-950/50 transition-all flex items-center justify-center gap-2 min-h-[48px]"
             >
               <span>Conocer SAED</span>
               <ArrowRight className="w-4 h-4" />
