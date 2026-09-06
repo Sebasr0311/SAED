@@ -1,4 +1,4 @@
-﻿import { useFetch } from '../lib/hooks.js';
+import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';

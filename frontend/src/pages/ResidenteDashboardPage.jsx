@@ -1,4 +1,4 @@
-﻿import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
 import { formatCurrency, formatDateTime, formatDate, imageSrc } from '../lib/utils.js';

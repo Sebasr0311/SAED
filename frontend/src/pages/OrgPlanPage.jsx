@@ -3,7 +3,6 @@ import api from '../lib/api.js';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card.tsx';
 import { Badge } from '../components/ui/badge.tsx';
 import { Skeleton } from '../components/ui/skeleton.tsx';
-import { Button } from '../components/ui/button.tsx';
 import { CreditCard, Check, Sparkles, HardDrive, Building, Users, Calendar, AlertCircle } from 'lucide-react';
 
 export default function OrgPlanPage() {
@@ -121,7 +120,7 @@ export default function OrgPlanPage() {
                 </span>
               </div>
               <div className="flex items-center justify-between text-muted-foreground">
-                <span className="flex items-center gap-1.5"><CreditCard className="w-3.5 h-3.5" /> Tipo Periodo</span>
+                <span className="flex items-center gap-1.5"><CreditCard className="w-3.5 h-3.5" /> Tipo Período</span>
                 <span className="font-medium text-foreground">{sub?.tipoPeriodo || 'MENSUAL'}</span>
               </div>
             </div>

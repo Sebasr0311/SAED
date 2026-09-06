@@ -55,7 +55,7 @@ export default function AlertasPage() {
     { key: 'nombreResidente', label: 'Residente' },
     {
       key: 'periodo',
-      label: 'Periodo',
+      label: 'Período',
       render: (r) => periodoLabel(r.anio, r.mes),
     },
     { key: 'estadoCuota', label: 'Estado Cuota' },

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import api from './api.js';
+import { sanitizeEncoding } from './utils.js';
 
 /**
  * Normaliza la respuesta del backend a un contrato estándar de datos:
@@ -149,8 +150,8 @@ export function useTiposDocumento() {
     ...t,
     idTipoDoc: t.idTipoDoc ?? t.idTipoDocumento ?? t.id ?? t.ID_TIPO_DOCUMENTO ?? t.value,
     codigo: t.codigo ?? t.CODIGO,
-    nombre: t.nombre ?? t.NOMBRE ?? t.descripcion,
-    descripcion: t.descripcion ?? t.nombre ?? t.NOMBRE,
+    nombre: sanitizeEncoding(t.nombre ?? t.NOMBRE ?? t.descripcion),
+    descripcion: sanitizeEncoding(t.descripcion ?? t.nombre ?? t.NOMBRE),
     aplicaPersonaNatural: t.aplicaPersonaNatural ?? (t.APLICA_PERSONA_NATURAL === 'S' || t.APLICA_PERSONA_NATURAL === true),
     aplicaPersonaJuridica: t.aplicaPersonaJuridica ?? (t.APLICA_PERSONA_JURIDICA === 'S' || t.APLICA_PERSONA_JURIDICA === true),
   }));

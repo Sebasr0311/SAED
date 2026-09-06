@@ -1,4 +1,5 @@
 import { TOKEN_KEY, REFRESH_TOKEN_KEY, USER_KEY } from './storage.js';
+import { sanitizeData, sanitizeEncoding } from './utils.js';
 
 const isLocalhost =
   typeof window !== 'undefined' &&
@@ -124,19 +125,20 @@ async function request(endpoint, options = {}) {
         if (retryContentType.includes('application/json')) {
           const retryData = await retryRes.json();
           if (!retryRes.ok) {
-            const err = new Error(retryData.message || retryData.mensaje || retryData.error || 'No se pudo completar la operación. Intente de nuevo.');
+            const rawMsg = retryData.message || retryData.mensaje || retryData.error || 'No se pudo completar la operación. Intente de nuevo.';
+            const err = new Error(sanitizeEncoding(rawMsg));
             err.status = retryRes.status;
-            err.response = { status: retryRes.status, data: retryData };
+            err.response = { status: retryRes.status, data: sanitizeData(retryData) };
             throw err;
           }
-          return retryData;
+          return sanitizeData(retryData);
         }
         if (!retryRes.ok) {
           const err = new Error('No se pudo completar la operación. Intente de nuevo.');
           err.status = retryRes.status;
           throw err;
         }
-        return await retryRes.text();
+        return sanitizeEncoding(await retryRes.text());
       }
 
       // Refresh failed — clear session and redirect
@@ -159,19 +161,20 @@ async function request(endpoint, options = {}) {
     if (contentType.includes('application/json')) {
       const data = await res.json();
       if (!res.ok) {
-        const err = new Error(data.message || data.mensaje || data.error || 'No se pudo completar la operación. Intente de nuevo.');
+        const rawMsg = data.message || data.mensaje || data.error || 'No se pudo completar la operación. Intente de nuevo.';
+        const err = new Error(sanitizeEncoding(rawMsg));
         err.status = res.status;
-        err.response = { status: res.status, data };
+        err.response = { status: res.status, data: sanitizeData(data) };
         throw err;
       }
-      return data;
+      return sanitizeData(data);
     }
     if (!res.ok) {
       const err = new Error('No se pudo completar la operación. Intente de nuevo.');
       err.status = res.status;
       throw err;
     }
-    return await res.text();
+    return sanitizeEncoding(await res.text());
   } catch (err) {
     clearTimeout(timer);
     if (err.name === 'AbortError') {

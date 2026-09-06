@@ -1,4 +1,3 @@
-import React, { useState } from 'react';
 import { PageHeader } from '../components/ui/PageHeader';
 import { DataTable } from '../components/ui/DataTable';
 import { useFetch } from '../lib/hooks';
@@ -10,15 +9,15 @@ export default function PolizasAdminPage() {
   
   const columns = [
     { key: 'idPoliza', label: 'ID' },
-    { key: 'companiaAseguradora', label: 'Compania' },
-    { key: 'numeroPoliza', label: 'Numero Poliza' },
+    { key: 'companiaAseguradora', label: 'Compañía' },
+    { key: 'numeroPoliza', label: 'Número de Póliza' },
     { key: 'fechaVencimiento', label: 'Vencimiento' },
     { key: 'montoAsegurado', label: 'Monto Asegurado' }
   ];
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Administracion de Polizas de Seguro" description="Gestiona los seguros de la propiedad" />
+      <PageHeader title="Administración de Pólizas de Seguro" description="Gestiona los seguros de la propiedad" />
       {error && <div className="text-red-500">{error.message || 'Error cargando datos'}</div>}
       <DataTable columns={columns} data={items} loading={loading} />
     </div>

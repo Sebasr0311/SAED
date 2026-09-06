@@ -1,4 +1,4 @@
-﻿import { DataTable } from '../components/ui/DataTable.jsx';
+import { DataTable } from '../components/ui/DataTable.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
@@ -25,7 +25,7 @@ export default function ResCuotasPage() {
     { key: 'id', label: 'ID', width: 60, render: (r) => r.id || r.idCuota },
     {
       key: 'periodo',
-      label: 'Periodo',
+      label: 'Período',
       render: (r) => periodoLabel(r.anio, r.mes),
     },
     {

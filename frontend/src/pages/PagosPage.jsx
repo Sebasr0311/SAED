@@ -215,7 +215,7 @@ export default function PagosPage() {
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th>Periodo</th>
+                    <th>Período</th>
                     <th>Monto</th>
                     <th>Vencimiento</th>
                     <th></th>

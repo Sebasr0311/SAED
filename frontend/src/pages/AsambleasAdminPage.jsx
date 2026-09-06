@@ -1,4 +1,3 @@
-import React, { useState } from 'react';
 import { PageHeader } from '../components/ui/PageHeader';
 import { DataTable } from '../components/ui/DataTable';
 import { useFetch } from '../lib/hooks';
@@ -23,7 +22,7 @@ export default function AsambleasAdminPage() {
     <div className="space-y-6">
       <PageHeader 
         title="Gestión de Asambleas" 
-        description="Módulo para crear y administrar asambleas (Fantasma)."
+        description="Módulo para crear y administrar asambleas de copropietarios."
       />
 
       <div className="bg-base-100 p-4 rounded-box shadow-sm">

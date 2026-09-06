@@ -656,7 +656,7 @@ export default function CarteraPage() {
                       <th className="py-3 px-4 w-14">ID</th>
                       <th className="py-3 px-4">Concepto / Obligación</th>
                       <th className="py-3 px-4">Inmueble / Titular</th>
-                      <th className="py-3 px-4 text-center">Periodo</th>
+                      <th className="py-3 px-4 text-center">Período</th>
                       <th className="py-3 px-4 text-right">Valor Total</th>
                       <th className="py-3 px-4 text-right">Saldo Pendiente</th>
                       <th className="py-3 px-4 text-center">Estado</th>
