@@ -92,8 +92,40 @@ public class GlobalExceptionHandler {
         if (message != null && (message.contains("ORA-00001") || message.contains("UIX_ASIGNACION_UNICA"))) {
             log.warn("Conflicto de base de datos detectado: {}", message);
             response.put("code", "CONFLICT");
-            response.put("message", "El registro ya existe o la asignaci\u00f3n est\u00e1 duplicada.");
+            response.put("message", "El registro ya existe o la asignación está duplicada.");
             return new ResponseEntity<>(response, HttpStatus.CONFLICT);
+        }
+
+        // ORA-01839 / ORA-01843 / ORA-01847 Date format or invalid date value
+        if (message != null && (message.contains("ORA-01839") || message.contains("ORA-01843") || message.contains("ORA-01847") || message.contains("ORA-01861"))) {
+            log.warn("Error de fecha detectado en base de datos: {}", message);
+            response.put("code", "INVALID_DATE_FORMAT");
+            response.put("message", "Formato o valor de fecha no válido en la solicitud.");
+            return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+        }
+
+        // ORA-01722 Invalid number
+        if (message != null && message.contains("ORA-01722")) {
+            log.warn("Error de conversión numérica detectado en base de datos: {}", message);
+            response.put("code", "INVALID_NUMBER");
+            response.put("message", "Se envió un valor no numérico en un campo que requiere número.");
+            return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+        }
+
+        // ORA-12899 Value too large for column
+        if (message != null && message.contains("ORA-12899")) {
+            log.warn("Desborde de longitud de columna detectado: {}", message);
+            response.put("code", "FIELD_TOO_LONG");
+            response.put("message", "Uno de los textos enviados supera la longitud máxima permitida.");
+            return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+        }
+
+        // ORA-02290 Check constraint violated (ej: montos positivos)
+        if (message != null && message.contains("ORA-02290")) {
+            log.warn("Violación de restricción de validación detectada: {}", message);
+            response.put("code", "CONSTRAINT_VIOLATION");
+            response.put("message", "Los valores enviados violan una restricción de validación.");
+            return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
         }
 
         // Generic fallback for DB
@@ -101,6 +133,35 @@ public class GlobalExceptionHandler {
         response.put("code", "DATABASE_ERROR");
         response.put("message", "Ha ocurrido un error en la capa de datos.");
         return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    @ExceptionHandler(org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<Map<String, Object>> handleTypeMismatch(org.springframework.web.method.annotation.MethodArgumentTypeMismatchException ex) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", false);
+        response.put("code", "TYPE_MISMATCH");
+        String param = ex.getName();
+        String expectedType = ex.getRequiredType() != null ? ex.getRequiredType().getSimpleName() : "número";
+        response.put("message", "El parámetro '" + param + "' debe ser de tipo " + expectedType + ".");
+        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class)
+    public ResponseEntity<Map<String, Object>> handleHttpMessageNotReadable(org.springframework.http.converter.HttpMessageNotReadableException ex) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", false);
+        response.put("code", "MALFORMED_JSON");
+        response.put("message", "El cuerpo de la petición contiene formato JSON inválido o tipos de datos incompatibles.");
+        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(ClassCastException.class)
+    public ResponseEntity<Map<String, Object>> handleClassCastException(ClassCastException ex) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", false);
+        response.put("code", "INVALID_DATA_TYPE");
+        response.put("message", "Uno o más campos contienen un tipo de dato incompatible con el esperado.");
+        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
     }
 
     @ExceptionHandler(org.springframework.web.bind.MethodArgumentNotValidException.class)
