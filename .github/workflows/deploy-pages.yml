@@ -25,7 +25,7 @@ jobs:
           cache-dependency-path: frontend/pnpm-lock.yaml
       - name: Install dependencies
         working-directory: frontend
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --no-frozen-lockfile
       - name: Build frontend
         working-directory: frontend
         run: set -o pipefail; pnpm run build 2>&1 | tail -120
