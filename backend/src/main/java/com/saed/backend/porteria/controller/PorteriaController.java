@@ -105,7 +105,6 @@ public class PorteriaController {
         // Si viene idResidente y no unidadId, resolver unidad del residente
         if (unidadId == null && body.get("idResidente") != null) {
             Long idRes = Long.valueOf(body.get("idResidente").toString());
-            if (autorizadoPor == null) autorizadoPor = idRes;
             try {
                 List<Long> uids = jdbcTemplate.query(
                     "SELECT ID_UNIDAD FROM UNIDADES_HABITANTES WHERE ID_PERSONA = :id AND ACTIVO = 'S'",
@@ -124,11 +123,41 @@ public class PorteriaController {
                 log.warning("No se pudo resolver unidad para idResidente: " + e.getMessage());
             }
         }
-        if (unidadId == null) {
+        if (unidadId == null && SaedContextHolder.getContext() != null) {
             unidadId = SaedContextHolder.getContext().getUnitId();
         }
         if (unidadId == null) {
+            Long propId = SaedContextHolder.getContext() != null ? SaedContextHolder.getContext().getPropertyId() : null;
+            if (propId != null) {
+                List<Long> firstUnit = jdbcTemplate.query(
+                    "SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD = :p AND ROWNUM = 1",
+                    Map.of("p", propId), (rs, r) -> rs.getLong("ID_UNIDAD")
+                );
+                if (!firstUnit.isEmpty()) {
+                    unidadId = firstUnit.get(0);
+                }
+            }
+        }
+        if (unidadId == null) {
             unidadId = 1L;
+        }
+
+        // Resolver autorizadoPor garantizando que sea un ID_USUARIO valido (FK_VISITAS_AUTORIZADOR)
+        Long currentUserId = SaedContextHolder.getContext() != null ? SaedContextHolder.getContext().getUserId() : null;
+        if (autorizadoPor != null) {
+            try {
+                List<Long> uCheck = jdbcTemplate.query(
+                    "SELECT ID_USUARIO FROM USUARIOS WHERE ID_USUARIO = :u",
+                    Map.of("u", autorizadoPor), (rs, r) -> rs.getLong("ID_USUARIO")
+                );
+                if (uCheck.isEmpty()) {
+                    autorizadoPor = currentUserId;
+                }
+            } catch (Exception ignored) {
+                autorizadoPor = currentUserId;
+            }
+        } else {
+            autorizadoPor = currentUserId;
         }
 
         // Si viene mapa de visitante y no visitanteId, resolver/crear persona y visitante
@@ -201,7 +230,19 @@ public class PorteriaController {
         }
 
         if (visitanteId == null) {
-            visitanteId = 1L;
+            try {
+                List<Long> firstVis = jdbcTemplate.query(
+                    "SELECT ID_VISITANTE FROM VISITANTES WHERE ROWNUM = 1",
+                    (rs, r) -> rs.getLong("ID_VISITANTE")
+                );
+                if (!firstVis.isEmpty()) {
+                    visitanteId = firstVis.get(0);
+                } else {
+                    visitanteId = 1L;
+                }
+            } catch (Exception ignored) {
+                visitanteId = 1L;
+            }
         }
 
         if (body.get("vehiculo") != null) {

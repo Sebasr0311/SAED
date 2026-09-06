@@ -57,7 +57,7 @@ public class PersonaRepositoryImpl implements PersonaRepository {
                    (SELECT ru.ID_UNIDAD FROM RESIDENTES_UNIDAD ru WHERE ru.ID_PERSONA = p.ID_PERSONA AND ROWNUM = 1) AS ID_APARTAMENTO,
                    (SELECT u.IDENTIFICADOR FROM UNIDADES u JOIN RESIDENTES_UNIDAD ru ON u.ID_UNIDAD = ru.ID_UNIDAD WHERE ru.ID_PERSONA = p.ID_PERSONA AND ROWNUM = 1) AS NUMERO_APARTAMENTO
             FROM PERSONAS p
-            ORDER BY p.ID_PERSONA
+            ORDER BY p.ID_PERSONA DESC
             OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
             """;
         MapSqlParameterSource params = new MapSqlParameterSource()

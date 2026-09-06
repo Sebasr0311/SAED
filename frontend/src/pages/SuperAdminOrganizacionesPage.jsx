@@ -81,6 +81,7 @@ export default function SuperAdminOrganizacionesPage() {
   }, [items, search]);
 
   const NIT_REGEX = /^\d{7,10}(-\d)?$/;
+  const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 
   async function handleCreate(e) {
     e.preventDefault();
@@ -89,8 +90,16 @@ export default function SuperAdminOrganizacionesPage() {
       toast.error('Por favor completa los campos obligatorios (*)');
       return;
     }
+    if (!EMAIL_REGEX.test(form.emailContacto.trim())) {
+      toast.error('Por favor ingrese un correo electrónico válido (ej. nombre@dominio.com)');
+      return;
+    }
     if (!NIT_REGEX.test(cleanNit)) {
       toast.error('El NIT debe ser numérico válido (ej. 901234567 o 901234567-8)');
+      return;
+    }
+    if (form.telefonoContacto && form.telefonoContacto.replace(/[^0-9]/g, '').length < 7) {
+      toast.error('El teléfono debe tener al menos 7 dígitos');
       return;
     }
     if (!form.departamento || !form.ciudad) {
@@ -359,7 +368,7 @@ export default function SuperAdminOrganizacionesPage() {
                 <Input
                   id="org-tel"
                   value={form.telefonoContacto}
-                  onChange={(e) => setForm({ ...form, telefonoContacto: e.target.value })}
+                  onChange={(e) => setForm({ ...form, telefonoContacto: e.target.value.replace(/[^0-9+\s()\-]/g, '').slice(0, 20) })}
                   placeholder="+57 300 123 4567"
                   className="text-sm"
                 />

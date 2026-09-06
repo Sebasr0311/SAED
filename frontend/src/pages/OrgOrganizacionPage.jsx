@@ -163,7 +163,8 @@ export default function OrgOrganizacionPage() {
                   <input
                     type="text"
                     value={formData.telefonoContacto}
-                    onChange={(e) => setFormData({ ...formData, telefonoContacto: e.target.value })}
+                    onChange={(e) => setFormData({ ...formData, telefonoContacto: e.target.value.replace(/[^0-9+\s()\-]/g, '').slice(0, 20) })}
+                    placeholder="+57 300 123 4567"
                     className="w-full px-3 py-2 border border-input rounded-lg bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                 </div>

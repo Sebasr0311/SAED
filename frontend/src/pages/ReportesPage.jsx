@@ -18,6 +18,15 @@ const ACCION_COLORS = {
 
 const fmtCOP = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' });
 
+function parseEstado(raw) {
+  if (!raw) return '-';
+  try {
+    const obj = JSON.parse(raw);
+    if (obj && typeof obj === 'object') return obj.estado || obj.ESTADO || JSON.stringify(obj);
+  } catch { /* not JSON, use as-is */ }
+  return String(raw);
+}
+
 export default function ReportesPage() {
   const [filtro, setFiltro] = useState({ tabla: '', accion: '', limite: 50 });
   const [tabActiva, setTabActiva] = useState('audit');
@@ -155,10 +164,10 @@ export default function ReportesPage() {
                           <TableCell className="font-mono text-xs">{r.ID_REGISTRO || r.idRegistro}</TableCell>
                           <TableCell className="text-xs">{r.USUARIO || r.usuario}</TableCell>
                           <TableCell className="text-xs max-w-[120px] truncate">
-                            {r.ESTADO_ANTERIOR || r.estadoAnterior || '-'}
+                            {parseEstado(r.ESTADO_ANTERIOR || r.estadoAnterior)}
                           </TableCell>
                           <TableCell className="text-xs max-w-[120px] truncate">
-                            {r.ESTADO_NUEVO || r.estadoNuevo || '-'}
+                            {parseEstado(r.ESTADO_NUEVO || r.estadoNuevo)}
                           </TableCell>
                         </TableRow>
                       ))}

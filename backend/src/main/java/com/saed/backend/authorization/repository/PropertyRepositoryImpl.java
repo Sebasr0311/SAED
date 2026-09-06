@@ -78,13 +78,16 @@ public class PropertyRepositoryImpl implements PropertyRepository {
     @Override
     public void update(Long id, PropertyRequestDTO request) {
         String sql = "UPDATE PROPIEDADES SET nombre = :nombre, direccion = :direccion, ciudad = :ciudad, " +
-                     "tipo_ocupacion_predominante = :tipoOcupacion WHERE id_propiedad = :id";
+                     "tipo_ocupacion_predominante = :tipoOcupacion, id_tipo_propiedad = :idTipoPropiedad, " +
+                     "id_organizacion = :idOrganizacion WHERE id_propiedad = :id";
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("id", id)
                 .addValue("nombre", request.getNombre())
                 .addValue("direccion", request.getDireccion())
                 .addValue("ciudad", request.getCiudad())
-                .addValue("tipoOcupacion", request.getTipoOcupacionPredominante());
+                .addValue("tipoOcupacion", request.getTipoOcupacionPredominante())
+                .addValue("idTipoPropiedad", request.getIdTipoPropiedad())
+                .addValue("idOrganizacion", request.getIdOrganizacion());
         jdbcTemplate.update(sql, params);
     }
 

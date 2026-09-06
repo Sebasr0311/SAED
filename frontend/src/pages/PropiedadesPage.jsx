@@ -486,8 +486,8 @@ export default function PropiedadesPage() {
                     <SelectValue placeholder="Seleccione ocupación" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="RESIDENCIAL">Residencial</SelectItem>
-                    <SelectItem value="COMERCIAL">Comercial</SelectItem>
+                    <SelectItem value="PROPIETARIOS">Propietarios</SelectItem>
+                    <SelectItem value="ARRENDATARIOS">Arrendatarios</SelectItem>
                     <SelectItem value="MIXTA">Mixta</SelectItem>
                   </SelectContent>
                 </Select>

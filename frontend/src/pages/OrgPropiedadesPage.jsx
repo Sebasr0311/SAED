@@ -27,7 +27,7 @@ export default function OrgPropiedadesPage() {
     departamento: 'Bogotá D.C.',
     ciudad: 'Bogotá',
     pais: 'Colombia',
-    tipoOcupacionPredominante: 'RESIDENCIAL',
+    tipoOcupacionPredominante: 'MIXTA',
   });
 
   async function loadData() {
@@ -64,7 +64,7 @@ export default function OrgPropiedadesPage() {
         idTipoPropiedad: Number(newProp.idTipoPropiedad),
         direccion: newProp.direccion.trim(),
         ciudad: newProp.ciudad || 'Bogotá',
-        tipoOcupacionPredominante: newProp.tipoOcupacionPredominante || 'RESIDENCIAL',
+        tipoOcupacionPredominante: newProp.tipoOcupacionPredominante || 'MIXTA',
       });
       setSuccessMsg('Propiedad registrada exitosamente.');
       setIsModalOpen(false);
@@ -75,7 +75,7 @@ export default function OrgPropiedadesPage() {
         departamento: 'Bogotá D.C.',
         ciudad: 'Bogotá',
         pais: 'Colombia',
-        tipoOcupacionPredominante: 'RESIDENCIAL',
+        tipoOcupacionPredominante: 'MIXTA',
       });
       await loadData();
       setTimeout(() => setSuccessMsg(null), 4000);
@@ -250,7 +250,7 @@ export default function OrgPropiedadesPage() {
                 </div>
                 <div className="text-xs text-muted-foreground flex items-center gap-1.5">
                   <Building className="w-3.5 h-3.5 flex-shrink-0" />
-                  <span>Ocupación: {prop.tipoOcupacionPredominante || 'RESIDENCIAL'}</span>
+                  <span>Ocupación: {prop.tipoOcupacionPredominante || 'MIXTA'}</span>
                 </div>
               </CardContent>
               <div className="p-4 pt-0 border-t border-border/40 flex items-center justify-between mt-auto">
@@ -325,8 +325,8 @@ export default function OrgPropiedadesPage() {
                       onChange={(e) => setNewProp({ ...newProp, tipoOcupacionPredominante: e.target.value })}
                       className="w-full px-3 py-2 border border-input rounded-lg bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                     >
-                      <option value="RESIDENCIAL">Residencial</option>
-                      <option value="COMERCIAL">Comercial</option>
+                      <option value="PROPIETARIOS">Propietarios</option>
+                      <option value="ARRENDATARIOS">Arrendatarios</option>
                       <option value="MIXTA">Mixta</option>
                     </select>
                   </div>

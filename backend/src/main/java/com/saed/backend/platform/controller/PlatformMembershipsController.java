@@ -98,7 +98,7 @@ public class PlatformMembershipsController {
         // Desactivar membresías previas activas de la organización
         String updateOldSql = """
             UPDATE MEMBRESIAS
-            SET ESTADO = 'INACTIVA'
+            SET ESTADO = 'CANCELADA'
             WHERE ID_ORGANIZACION = :idOrg AND ESTADO IN ('ACTIVA', 'PRUEBA')
             """;
         jdbcTemplate.update(updateOldSql, new MapSqlParameterSource("idOrg", idOrg));

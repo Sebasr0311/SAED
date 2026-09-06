@@ -53,7 +53,11 @@ public class WompiController {
     public Map<String, Object> postSolicitud(@RequestBody Map<String, Object> payload) {
         try {
             String concepto = (String) payload.getOrDefault("concepto", "CUOTA");
-            Long idItem = Long.valueOf(String.valueOf(payload.get("idItem")));
+            Object idObj = payload.get("idItem") != null ? payload.get("idItem") : payload.get("id");
+            if (idObj == null) {
+                throw new IllegalArgumentException("idItem o id es requerido");
+            }
+            Long idItem = Long.valueOf(String.valueOf(idObj));
             return wompiService.crearIntencion(concepto, idItem);
         } catch (Exception e) {
             throw new RuntimeException(e.getMessage());

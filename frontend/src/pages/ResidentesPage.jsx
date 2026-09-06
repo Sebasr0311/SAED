@@ -103,7 +103,7 @@ export default function ResidentesPage() {
     loading,
     error: errorPersonas,
     refetch,
-  } = useFetch(() => tenantApi.get('/personas'), [tenant.activeAssignmentId]);
+  } = useFetch(() => tenantApi.get('/personas?page=0&size=200'), [tenant.activeAssignmentId]);
 
   // 2. Unidades Habitacionales de la propiedad activa
   const { data: apartamentos } = useFetch(

@@ -141,6 +141,10 @@ export default function AvisosPage() {
   const { data: avisos, loading, error, refetch } = useFetch(() => api.get('/buzon/avisos'), []);
   const { data: apartamentos } = useFetch(() => api.get('/units'), []);
 
+  const avisosRows = Array.isArray(avisos?.items) ? avisos.items
+    : Array.isArray(avisos) ? avisos
+    : [];
+
   const columns = [
     { key: 'idMensaje', label: 'ID', width: 60 },
     { key: 'numeroApartamento', label: 'Apartamento', render: (r) => r.numeroApartamento || 'Todos' },
@@ -190,7 +194,7 @@ export default function AvisosPage() {
       />
       <DataTable
         columns={columns}
-        rows={avisos?.items || avisos || []}
+        rows={avisosRows}
         loading={loading}
         empty={{ icon: 'campaign', title: 'No hay avisos enviados', subtitle: 'Los avisos que envíes a los residentes aparecerán aquí.' }}
         error={error?.message}

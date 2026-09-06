@@ -60,7 +60,7 @@ public class FlujoCajaRepository {
 
     public BigDecimal getTotalEgresos() {
         try {
-            String sql = "SELECT NVL(SUM(monto), 0) FROM gastos WHERE (:propId IS NULL OR id_propiedad = :propId) AND estado != 'ANULADO'";
+            String sql = "SELECT NVL(SUM(monto), 0) FROM GASTOS WHERE (:propId IS NULL OR id_propiedad = :propId) AND estado != 'ANULADO'";
             BigDecimal val = jdbc.queryForObject(sql, tenantParams(), BigDecimal.class);
             return val != null ? val : BigDecimal.ZERO;
         } catch (Exception e) {
@@ -86,7 +86,7 @@ public class FlujoCajaRepository {
 
     public BigDecimal getGastosProgramados() {
         try {
-            String sql = "SELECT NVL(SUM(monto_presupuestado - NVL(monto_ejecutado, 0)), 0) FROM presupuestos " +
+            String sql = "SELECT NVL(SUM(monto_presupuestado - NVL(monto_ejecutado, 0)), 0) FROM PRESUPUESTOS " +
                          "WHERE (:propId IS NULL OR id_propiedad = :propId) AND tipo = 'EGRESO'";
             BigDecimal val = jdbc.queryForObject(sql, tenantParams(), BigDecimal.class);
             return val != null ? val : BigDecimal.ZERO;
