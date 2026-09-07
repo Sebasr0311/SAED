@@ -184,7 +184,7 @@ export default function LandingPricing() {
   return (
     <section
       id="planes"
-      className="py-20 sm:py-28 lg:py-32 bg-[#070B14] text-white relative border-t border-slate-800/80 overflow-hidden"
+      className="py-20 sm:py-28 lg:py-32 bg-[#061018] text-white relative border-t border-cyan-400/10 overflow-hidden"
     >
       {/* Ambient Breathing Background Glow */}
       <div
@@ -233,7 +233,7 @@ export default function LandingPricing() {
                 }`}
               >
                 <span>Facturación Anual</span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500 text-slate-950">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-cyan-400 text-slate-950">
                   -20% DCTO
                 </span>
               </button>
@@ -328,7 +328,7 @@ export default function LandingPricing() {
                     to="/login"
                     className={`w-full py-3.5 px-4 rounded-xl text-xs sm:text-sm font-bold text-center transition-all flex items-center justify-center gap-2 min-h-[48px] ${
                       isRecommended
-                        ? 'bg-gradient-to-r from-sky-500 to-emerald-500 hover:from-sky-400 hover:to-emerald-400 text-slate-950 shadow-lg shadow-sky-950/50'
+                        ? 'bg-gradient-to-r from-cyan-400 to-sky-500 hover:from-cyan-300 hover:to-sky-400 text-slate-950 shadow-lg shadow-sky-950/50'
                         : 'bg-slate-800 hover:bg-slate-700 text-white border border-slate-700'
                     }`}
                   >
