@@ -45,7 +45,7 @@ export default function LandingHero() {
           <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-sky-400/45 bg-slate-950/35 px-3.5 py-1.5 text-[10px] font-bold tracking-[.16em] text-sky-300 backdrop-blur-md sm:text-xs">
             <Sparkles className="h-3.5 w-3.5" /> PLATAFORMA PROPTECH ENTERPRISE
           </div>
-          <h1 className="max-w-2xl text-balance text-5xl font-extrabold leading-[.98] tracking-[-.045em] sm:text-7xl lg:text-[5.35rem]">
+          <h1 className="max-w-2xl text-balance text-[2.65rem] font-extrabold leading-[.98] tracking-[-.045em] sm:text-7xl lg:text-[5.35rem]">
             Todo tu conjunto.<br />
             En un <span className="text-sky-300">solo lugar.</span>
           </h1>
@@ -69,7 +69,7 @@ export default function LandingHero() {
 
         <div className="absolute bottom-8 left-5 right-5 grid grid-cols-2 overflow-hidden rounded-2xl border border-white/15 bg-slate-950/60 backdrop-blur-xl sm:left-8 sm:right-8 sm:grid-cols-4 lg:left-12 lg:right-12">
           {metrics.map(({ icon: Icon, value, label, detail, tone }, index) => (
-            <div key={value} className={`flex items-center gap-3 px-4 py-4 sm:px-6 ${index > 0 ? 'border-t border-white/10 lg:border-l lg:border-t-0' : ''}`}>
+            <div key={value} className={`flex min-w-0 items-center gap-2 px-3 py-3 sm:gap-3 sm:px-6 sm:py-4 ${index > 0 ? 'border-t border-white/10 lg:border-l lg:border-t-0' : ''}`}>
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sky-400/10"><Icon className={`h-5 w-5 ${tone}`} /></div>
               <div className="min-w-0"><div className="truncate text-sm font-bold text-white">{value}</div><div className="truncate text-[11px] text-slate-300">{label}</div>{detail && <div className="truncate text-[10px] text-sky-300">{detail}</div>}</div>
             </div>
