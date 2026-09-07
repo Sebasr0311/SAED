@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import jsQR from 'jsqr';
 import { toast } from 'sonner';
 import {
   AlertTriangle,
@@ -90,10 +91,10 @@ export default function EscannerQRPage() {
 
   // Estados de cámara web / móvil
   const videoRef = useRef(null);
+  const streamRef = useRef(null);
   const canvasRef = useRef(null);
   const [streaming, setStreaming] = useState(false);
   const [errorCamara, setErrorCamara] = useState('');
-  const [jsqrListo, setJsqrListo] = useState(typeof window !== 'undefined' && !!window.jsQR);
 
   // Búsquedas y filtros en listas
   const [searchActivas, setSearchActivas] = useState('');
@@ -159,29 +160,21 @@ export default function EscannerQRPage() {
     return parqVisitantes.filter((p) => p.estado === 'OCUPADO');
   }, [parqVisitantes]);
 
-  // Carga bajo demanda de jsQR
-  useEffect(() => {
-    if (typeof window === 'undefined' || window.jsQR) {
-      setJsqrListo(true);
-      return undefined;
-    }
-    const script = document.createElement('script');
-    script.src = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js';
-    script.onload = () => setJsqrListo(true);
-    script.onerror = () => setJsqrListo(false);
-    document.head.appendChild(script);
-    return () => {
-      script.onload = null;
-      script.onerror = null;
-    };
-  }, []);
-
   // Control de cámara: Detener
   const detenerCamara = useCallback(() => {
-    if (videoRef.current && videoRef.current.srcObject) {
-      const tracks = videoRef.current.srcObject.getTracks();
-      tracks.forEach((track) => track.stop());
-      videoRef.current.srcObject = null;
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
+      if (videoRef.current.srcObject) {
+        try {
+          videoRef.current.srcObject.getTracks().forEach((t) => t.stop());
+        } catch {
+          // ignore
+        }
+        videoRef.current.srcObject = null;
+      }
     }
     setStreaming(false);
   }, []);
@@ -228,31 +221,29 @@ export default function EscannerQRPage() {
     [codigoManual, tenantApi]
   );
 
-  // Loop de escaneo con requestAnimationFrame
+  // Loop de escaneo con requestAnimationFrame y jsQR bundled
   useEffect(() => {
     if (!streaming) return undefined;
     let animId;
     const tick = () => {
       const v = videoRef.current;
       const c = canvasRef.current;
-      if (v && c && v.videoWidth > 0 && v.videoHeight > 0) {
+      if (v && c && v.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA && v.videoWidth > 0 && v.videoHeight > 0) {
         c.width = v.videoWidth;
         c.height = v.videoHeight;
         const ctx = c.getContext('2d', { willReadFrequently: true });
         if (ctx) {
           ctx.drawImage(v, 0, 0, c.width, c.height);
           const imgData = ctx.getImageData(0, 0, c.width, c.height);
-          if (typeof window !== 'undefined' && window.jsQR) {
-            const qr = window.jsQR(imgData.data, imgData.width, imgData.height, {
-              inversionAttempts: 'dontInvert',
-            });
-            if (qr && qr.data && qr.data.trim().length >= 4) {
-              detenerCamara();
-              const found = qr.data.trim();
-              setCodigoManual(found);
-              ejecutarValidacion(found);
-              return;
-            }
+          const qr = jsQR(imgData.data, imgData.width, imgData.height, {
+            inversionAttempts: 'dontInvert',
+          });
+          if (qr && qr.data && qr.data.trim().length >= 4) {
+            detenerCamara();
+            const found = qr.data.trim();
+            setCodigoManual(found);
+            ejecutarValidacion(found);
+            return;
           }
         }
       }
@@ -264,26 +255,62 @@ export default function EscannerQRPage() {
     };
   }, [streaming, detenerCamara, ejecutarValidacion]);
 
-  // Iniciar cámara
+  // Iniciar cámara con fallback inteligente para móviles y webcams
   const iniciarCamara = useCallback(async () => {
     setErrorCamara('');
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+
+    if (!navigator?.mediaDevices?.getUserMedia) {
+      setErrorCamara('Tu navegador o dispositivo no soporta acceso a la cámara o requiere HTTPS.');
+      return;
+    }
+
+    let stream = null;
     try {
-      if (!navigator?.mediaDevices?.getUserMedia) {
-        throw new Error('La cámara no es soportada en este navegador');
-      }
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment' },
+      // Intento 1: Cámara trasera en dispositivos móviles
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' } },
         audio: false,
       });
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-        setStreaming(true);
+    } catch {
+      try {
+        // Intento 2: Cualquier cámara disponible (webcams desktop, laptop, etc.)
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: false,
+        });
+      } catch (fallbackErr) {
+        console.error('Error al acceder a la cámara:', fallbackErr);
+        if (fallbackErr.name === 'NotAllowedError' || fallbackErr.name === 'PermissionDeniedError') {
+          setErrorCamara('Permiso denegado. Permite el acceso a la cámara en los ajustes de tu navegador.');
+        } else if (fallbackErr.name === 'NotFoundError' || fallbackErr.name === 'DevicesNotFoundError') {
+          setErrorCamara('No se detectó ninguna cámara disponible en tu dispositivo.');
+        } else if (fallbackErr.name === 'NotReadableError' || fallbackErr.name === 'TrackStartError') {
+          setErrorCamara('La cámara está siendo usada por otra aplicación o pestaña.');
+        } else {
+          setErrorCamara('No se pudo iniciar la cámara: ' + (fallbackErr.message || 'Error desconocido'));
+        }
+        setStreaming(false);
+        return;
       }
-    } catch (err) {
-      setErrorCamara('No se pudo acceder a la cámara: ' + (err.message || 'Permiso denegado'));
-      setStreaming(false);
     }
+
+    streamRef.current = stream;
+    const v = videoRef.current;
+    if (v) {
+      v.srcObject = stream;
+      v.setAttribute('playsinline', 'true');
+      v.setAttribute('muted', 'true');
+      try {
+        await v.play();
+      } catch (playErr) {
+        console.warn('Error al reproducir video:', playErr);
+      }
+    }
+    setStreaming(true);
   }, []);
 
   // Registro de Entrada
@@ -595,15 +622,17 @@ export default function EscannerQRPage() {
                 {modoEscaneo === 'camara' && (
                   <div className="space-y-3">
                     <div className="relative mx-auto flex h-64 w-full max-w-sm flex-col items-center justify-center overflow-hidden rounded-xl border-2 border-dashed border-border/80 bg-slate-950/90 text-slate-100 shadow-inner">
+                      {/* Video siempre montado en el DOM para evitar refs nulas al activar */}
+                      <video
+                        ref={videoRef}
+                        autoPlay
+                        playsInline
+                        muted
+                        className={`h-full w-full object-cover ${streaming ? 'block' : 'hidden'}`}
+                      />
+
                       {streaming ? (
                         <>
-                          <video
-                            ref={videoRef}
-                            autoPlay
-                            playsInline
-                            muted
-                            className="h-full w-full object-cover"
-                          />
                           {/* HUD Visor Overlay */}
                           <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
                             <div className="relative h-44 w-44 rounded-lg border-2 border-emerald-400/80 shadow-[0_0_20px_rgba(52,211,153,0.3)]">
@@ -638,12 +667,6 @@ export default function EscannerQRPage() {
                       )}
                       <canvas ref={canvasRef} className="hidden" />
                     </div>
-
-                    {!jsqrListo && (
-                      <p className="text-center text-xs text-muted-foreground">
-                        Cargando motor de reconocimiento de escaneo...
-                      </p>
-                    )}
 
                     {errorCamara && (
                       <div className="flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-xs font-medium text-amber-700 dark:text-amber-400">
