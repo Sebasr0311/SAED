@@ -254,7 +254,7 @@ export default function LandingPricing() {
             return (
               <div
                 key={plan.id}
-                className={`pricing-card p-7 sm:p-8 rounded-3xl border flex flex-col justify-between transition-all duration-300 relative ${
+                className={`pricing-card p-5 sm:p-8 rounded-3xl border flex flex-col justify-between transition-all duration-300 relative ${
                   isRecommended
                     ? 'bg-gradient-to-b from-[#0F224A] via-[#09152E] to-[#070E1E] border-sky-400/80 shadow-2xl shadow-sky-950/60 lg:-translate-y-2 ring-1 ring-sky-400/40'
                     : 'bg-slate-900/60 backdrop-blur-md border-slate-800 hover:border-slate-700 hover:shadow-xl hover:-translate-y-1'
@@ -367,7 +367,7 @@ export default function LandingPricing() {
           </div>
 
           <div className="pt-6 space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <span className="text-sm font-semibold text-slate-200">
                 Número de Unidades Habitacionales (Apartamentos / Casas):
               </span>
