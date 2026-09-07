@@ -107,12 +107,12 @@ public class PorteriaController {
             Long idRes = Long.valueOf(body.get("idResidente").toString());
             try {
                 List<Long> uids = jdbcTemplate.query(
-                    "SELECT ID_UNIDAD FROM UNIDADES_HABITANTES WHERE ID_PERSONA = :id AND ACTIVO = 'S'",
+                    "SELECT ID_UNIDAD FROM RESIDENTES_UNIDAD WHERE ID_PERSONA = :id AND ESTADO = 'ACTIVO'",
                     Map.of("id", idRes), (rs, r) -> rs.getLong("ID_UNIDAD")
                 );
                 if (uids.isEmpty()) {
                     uids = jdbcTemplate.query(
-                        "SELECT ID_UNIDAD FROM RESIDENTES_UNIDAD WHERE ID_PERSONA = :id",
+                        "SELECT ID_UNIDAD FROM USUARIO_ASIGNACIONES WHERE ID_USUARIO = :id AND ESTADO IN ('ACTIVA', 'ACTIVO') AND ID_UNIDAD IS NOT NULL",
                         Map.of("id", idRes), (rs, r) -> rs.getLong("ID_UNIDAD")
                     );
                 }

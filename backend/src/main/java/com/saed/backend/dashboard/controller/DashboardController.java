@@ -21,10 +21,13 @@ public class DashboardController {
             return List.of();
         }
         return jdbcTemplate.queryForList(
-            "SELECT p.ID_PERSONA, p.NUMERO_DOCUMENTO, p.NOMBRES, p.APELLIDOS, p.TELEFONO, p.EMAIL " +
-            "FROM UNIDADES_HABITANTES uh " +
-            "JOIN PERSONAS p ON uh.ID_PERSONA = p.ID_PERSONA " +
-            "WHERE uh.ID_UNIDAD = :idApto AND uh.ACTIVO = 'S'",
+            "SELECT p.ID_PERSONA, p.NUMERO_DOCUMENTO, " +
+            "TRIM(p.PRIMER_NOMBRE || ' ' || COALESCE(p.SEGUNDO_NOMBRE, '')) AS NOMBRES, " +
+            "TRIM(p.PRIMER_APELLIDO || ' ' || COALESCE(p.SEGUNDO_APELLIDO, '')) AS APELLIDOS, " +
+            "p.TELEFONO, p.EMAIL " +
+            "FROM RESIDENTES_UNIDAD ru " +
+            "JOIN PERSONAS p ON ru.ID_PERSONA = p.ID_PERSONA " +
+            "WHERE ru.ID_UNIDAD = :idApto AND ru.ESTADO = 'ACTIVO'",
             Map.of("idApto", idApartamento)
         );
     }
