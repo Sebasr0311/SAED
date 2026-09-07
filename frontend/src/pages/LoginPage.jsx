@@ -23,7 +23,6 @@ import { valUsername, valPassword } from '../lib/validation.js';
 import { warmUpBackend } from '../lib/api.js';
 
 const SAED_LOGO = 'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/saed_logo_final_blue%20%281%29-RiV76ZtVQPCe5rZu3uEXDaXwmdxT7w.png';
-const LOGIN_REFERENCE = 'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/ChatGPT%20Image%206%20sept%202026%2C%2019_13_07-KdobT5jafEgQkNmANxuRNIOsaaKOe4.png';
 
 export default function LoginPage() {
   const { login, loading, isAuthenticated, user } = useAuth();
@@ -261,10 +260,23 @@ export default function LoginPage() {
 
           {/* Value Panel (Desktop: Priority 2 / Hidden on Tablet & Mobile) */}
           <div className="max-md:hidden flex flex-col justify-between p-6 xl:p-8 space-y-6">
-            <div className="relative overflow-hidden rounded-2xl border border-cyan-400/20 bg-[#071a32]/70 p-4 shadow-2xl shadow-cyan-950/30">
+            <section aria-label="Vista previa de la plataforma SAED" className="relative overflow-hidden rounded-2xl border border-cyan-400/20 bg-[#071a32]/80 p-3 shadow-2xl shadow-cyan-950/30">
               <div className="absolute inset-0 bg-gradient-to-br from-cyan-400/10 via-transparent to-blue-700/20" aria-hidden="true" />
-              <img src={LOGIN_REFERENCE} alt="Panel de gestión SAED" className="relative w-full rounded-xl border border-white/10 object-cover opacity-90" />
-            </div>
+              <div className="relative overflow-hidden rounded-xl border border-white/10 bg-[#081426]">
+                <div className="flex items-center justify-between border-b border-white/10 px-3 py-2">
+                  <div className="flex items-center gap-2"><img src={SAED_LOGO} alt="SAED" className="h-5 w-auto rounded bg-white px-1 object-contain" /><span className="text-[9px] text-cyan-300">2.0</span></div>
+                  <div className="flex items-center gap-2"><div className="hidden h-5 w-28 rounded-full border border-white/10 bg-white/5 sm:block" /><span className="h-5 w-5 rounded-full bg-cyan-400/30" /></div>
+                </div>
+                <div className="flex min-h-[295px]">
+                  <aside className="hidden w-28 shrink-0 border-r border-white/10 p-2 sm:block"><p className="mb-3 px-2 text-[8px] font-semibold uppercase tracking-wider text-slate-500">Menú</p>{['Inicio','Residentes','Visitas','Cartera','Pagos','Portería','Reportes'].map((item, index) => <div key={item} className={`mb-1 rounded-md px-2 py-1.5 text-[9px] ${index === 0 ? 'bg-cyan-400/15 text-cyan-200' : 'text-slate-500'}`}>{item}</div>)}</aside>
+                  <div className="min-w-0 flex-1 space-y-3 p-3"><div><p className="text-[9px] text-slate-500">Resumen de comunidad</p><h3 className="text-sm font-bold text-white">Hola, administrador</h3></div>
+                    <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">{[['Residentes','248','text-cyan-300'],['Visitas hoy','18','text-emerald-300'],['Paquetes','23','text-blue-300'],['Cartera','$12.480.000','text-amber-300']].map(([label,value,color]) => <div key={label} className="rounded-lg border border-white/10 bg-white/[.04] p-2"><p className="text-[8px] text-slate-500">{label}</p><p className={`mt-1 text-xs font-bold ${color}`}>{value}</p></div>)}</div>
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1.25fr_.75fr]"><div className="rounded-lg border border-white/10 bg-white/[.03] p-2"><div className="mb-2 flex items-center justify-between"><p className="text-[9px] font-semibold text-slate-300">Actividad de la comunidad</p><span className="text-[8px] text-slate-500">Últimos 7 días</span></div><div className="flex h-24 items-end gap-1 px-1">{[35,48,42,66,54,76,68,88,72,92,80,96].map((height,index) => <span key={index} className={`flex-1 rounded-t-sm ${index % 3 === 0 ? 'bg-cyan-400' : index % 3 === 1 ? 'bg-blue-500' : 'bg-emerald-400'}`} style={{height: `${height}%`}} />)}</div></div><div className="rounded-lg border border-white/10 bg-white/[.03] p-2"><p className="mb-2 text-[9px] font-semibold text-slate-300">Actividad reciente</p>{['Visita autorizada','Paquete recibido','Pago realizado'].map((item,index) => <div key={item} className="flex items-center gap-2 border-b border-white/5 py-2 last:border-0"><span className={`h-5 w-5 rounded-md ${index === 0 ? 'bg-cyan-400/20' : index === 1 ? 'bg-amber-400/20' : 'bg-rose-400/20'}`} /><span className="truncate text-[8px] text-slate-400">{item}</span></div>)}</div></div>
+                    <div className="flex gap-2">{['Registrar visita','Nuevo residente','Registrar pago'].map(item => <div key={item} className="flex-1 rounded-lg border border-white/10 bg-white/[.03] p-2 text-center text-[8px] text-slate-400">{item}</div>)}</div>
+                  </div>
+                </div>
+              </div>
+            </section>
             <div className="space-y-6">
               <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-cyan-400/10 border border-cyan-400/20 text-cyan-300 text-xs font-semibold tracking-wide">
                 <Sparkles className="w-3.5 h-3.5" />
