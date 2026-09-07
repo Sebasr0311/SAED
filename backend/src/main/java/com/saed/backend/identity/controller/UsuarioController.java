@@ -35,12 +35,17 @@ public class UsuarioController {
         this.passwordEncoder = passwordEncoder;
     }
 
-    @Operation(summary = "Listar usuarios del sistema con sus roles y personas vinculadas")
+    @Operation(summary = "Listar usuarios del sistema con sus roles y personas vinculadas dentro del perímetro del tenant")
     @GetMapping
     @PreAuthorize("hasAuthority('SCOPE_SUPERADMIN') or hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
     public List<Map<String, Object>> listarUsuarios() {
-        String sql = """
-            SELECT u.ID_USUARIO,
+        SaedContext ctx = SaedContextHolder.getContext();
+        String roleCode = ctx != null ? ctx.getRoleCode() : "";
+        Long orgId = ctx != null ? ctx.getOrganizationId() : null;
+        Long propId = ctx != null ? ctx.getPropertyId() : null;
+
+        StringBuilder sql = new StringBuilder("""
+            SELECT DISTINCT u.ID_USUARIO,
                    u.NOMBRE_USUARIO,
                    u.EMAIL,
                    u.ESTADO,
@@ -57,9 +62,37 @@ public class UsuarioController {
             LEFT JOIN USUARIO_ASIGNACIONES ua ON ua.ID_USUARIO = u.ID_USUARIO AND ua.ESTADO IN ('ACTIVA', 'ACTIVO')
             LEFT JOIN ROLES r ON r.ID_ROL = ua.ID_ROL
             LEFT JOIN PERSONAS p ON p.ID_PERSONA = u.ID_PERSONA
-            ORDER BY u.ID_USUARIO DESC
-            """;
-        return jdbcTemplate.queryForList(sql, new MapSqlParameterSource());
+            WHERE 1=1
+            """);
+
+        MapSqlParameterSource params = new MapSqlParameterSource();
+
+        if ("ADMIN_PROPIEDAD".equals(roleCode)) {
+            if (propId != null) {
+                sql.append(" AND ua.ID_PROPIEDAD = :propId");
+                params.addValue("propId", propId);
+            } else {
+                sql.append(" AND 1=0");
+            }
+        } else if ("ADMIN_ORGANIZACION".equals(roleCode)) {
+            if (orgId != null) {
+                sql.append(" AND ua.ID_ORGANIZACION = :orgId");
+                params.addValue("orgId", orgId);
+            } else {
+                sql.append(" AND 1=0");
+            }
+        } else if (!"SUPERADMIN".equals(roleCode)) {
+            Long userId = ctx != null ? ctx.getUserId() : null;
+            if (userId != null) {
+                sql.append(" AND u.ID_USUARIO = :userId");
+                params.addValue("userId", userId);
+            } else {
+                sql.append(" AND 1=0");
+            }
+        }
+
+        sql.append(" ORDER BY u.ID_USUARIO DESC");
+        return jdbcTemplate.queryForList(sql.toString(), params);
     }
 
     @Operation(summary = "Crear nuevo usuario (Portero, Residente o Administrador)")
@@ -96,14 +129,31 @@ public class UsuarioController {
         }
 
         SaedContext ctx = SaedContextHolder.getContext();
-        Long orgId = ctx.getOrganizationId() != null ? ctx.getOrganizationId() : 1L;
-        Long propId = ctx.getPropertyId() != null ? ctx.getPropertyId() : 1L;
+        String callerRole = ctx != null ? ctx.getRoleCode() : "";
+        Long orgId = ctx != null ? ctx.getOrganizationId() : null;
+        Long propId = ctx != null ? ctx.getPropertyId() : null;
 
-        // Anti-escalamiento: ADMIN_PROPIEDAD solo puede crear PORTERO o RESIDENTE
-        if ("ADMIN_PROPIEDAD".equals(ctx.getRoleCode()) && ("SUPERADMIN".equals(rol) || "ADMIN_ORGANIZACION".equals(rol))) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(ApiResponse.error("No tiene permisos para asignar roles de nivel organización o plataforma"));
+        // Anti-escalamiento de privilegios por rol
+        if ("ADMIN_PROPIEDAD".equals(callerRole)) {
+            if (!"PORTERO".equals(rol) && !"RESIDENTE".equals(rol)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(ApiResponse.error("Como Administrador de Propiedad solo puede registrar Porteros o Residentes"));
+            }
+            if (propId == null) {
+                return ResponseEntity.badRequest().body(ApiResponse.error("No se encontró el identificador de la propiedad en el contexto"));
+            }
+        } else if ("ADMIN_ORGANIZACION".equals(callerRole)) {
+            if ("SUPERADMIN".equals(rol) || "ADMIN_ORGANIZACION".equals(rol)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(ApiResponse.error("No tiene permisos para asignar roles de nivel organización o plataforma"));
+            }
+            if (orgId == null) {
+                return ResponseEntity.badRequest().body(ApiResponse.error("No se encontró el identificador de la organización en el contexto"));
+            }
         }
+
+        if (orgId == null) orgId = 1L;
+        if (propId == null) propId = 1L;
 
         // 1. Resolver o Crear PERSONA
         Long idPersona = null;
@@ -111,28 +161,41 @@ public class UsuarioController {
         if (idPersonaObj != null && !idPersonaObj.toString().isBlank()) {
             idPersona = Long.valueOf(idPersonaObj.toString());
         } else {
-            // Crear Persona automáticamente
-            String primerNombre = (String) payload.getOrDefault("primerNombre", username);
-            String primerApellido = (String) payload.getOrDefault("primerApellido", "PORTERO".equals(rol) ? "Vigilancia" : "Usuario");
-            String doc = (String) payload.getOrDefault("numeroDocumento", "DOC-" + System.currentTimeMillis());
-            String tel = (String) payload.getOrDefault("telefono", "");
-            String email = (String) payload.getOrDefault("email", username + "@saed.com");
+            String doc = (String) payload.getOrDefault("numeroDocumento", "");
+            if (doc != null && !doc.trim().isBlank()) {
+                List<Long> existing = jdbcTemplate.query(
+                        "SELECT ID_PERSONA FROM PERSONAS WHERE NUMERO_DOCUMENTO = :doc",
+                        Map.of("doc", doc.trim()),
+                        (rs, rowNum) -> rs.getLong("ID_PERSONA")
+                );
+                if (!existing.isEmpty()) {
+                    idPersona = existing.get(0);
+                }
+            }
 
-            KeyHolder khPersona = new GeneratedKeyHolder();
-            String sqlPersona = """
-                INSERT INTO PERSONAS (ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, PRIMER_NOMBRE, PRIMER_APELLIDO, EMAIL, TELEFONO, ESTADO)
-                VALUES (1, :doc, 'NATURAL', :nombre, :apellido, :email, :tel, 'ACTIVO')
-                """;
-            MapSqlParameterSource paramP = new MapSqlParameterSource()
-                    .addValue("doc", doc)
-                    .addValue("nombre", primerNombre)
-                    .addValue("apellido", primerApellido)
-                    .addValue("email", email)
-                    .addValue("tel", tel);
-            jdbcTemplate.update(sqlPersona, paramP, khPersona, new String[]{"ID_PERSONA"});
-            Number pKey = khPersona.getKey();
-            if (pKey != null) {
-                idPersona = pKey.longValue();
+            if (idPersona == null) {
+                String primerNombre = (String) payload.getOrDefault("primerNombre", username);
+                String primerApellido = (String) payload.getOrDefault("primerApellido", "PORTERO".equals(rol) ? "Vigilancia" : "Usuario");
+                String docFinal = (doc != null && !doc.trim().isBlank()) ? doc.trim() : "DOC-" + System.currentTimeMillis();
+                String tel = (String) payload.getOrDefault("telefono", "");
+                String email = (String) payload.getOrDefault("email", username + "@saed.com");
+
+                KeyHolder khPersona = new GeneratedKeyHolder();
+                String sqlPersona = """
+                    INSERT INTO PERSONAS (ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, PRIMER_NOMBRE, PRIMER_APELLIDO, EMAIL, TELEFONO, ESTADO)
+                    VALUES (1, :doc, 'NATURAL', :nombre, :apellido, :email, :tel, 'ACTIVO')
+                    """;
+                MapSqlParameterSource paramP = new MapSqlParameterSource()
+                        .addValue("doc", docFinal)
+                        .addValue("nombre", primerNombre)
+                        .addValue("apellido", primerApellido)
+                        .addValue("email", email)
+                        .addValue("tel", tel);
+                jdbcTemplate.update(sqlPersona, paramP, khPersona, new String[]{"ID_PERSONA"});
+                Number pKey = khPersona.getKey();
+                if (pKey != null) {
+                    idPersona = pKey.longValue();
+                }
             }
         }
 
@@ -206,12 +269,68 @@ public class UsuarioController {
         )));
     }
 
-    @Operation(summary = "Actualizar estado, contraseña o rol de un usuario")
+    @Operation(summary = "Actualizar estado, contraseña o rol de un usuario dentro del perímetro del tenant")
     @PutMapping("/{id}")
     @Transactional
     @Auditable(action = "UPDATE", resource = "USUARIO", category = AuditCategory.SECURITY, severity = AuditSeverity.HIGH)
     @PreAuthorize("hasAuthority('SCOPE_SUPERADMIN') or hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<ApiResponse<Void>> actualizarUsuario(@PathVariable Long id, @RequestBody Map<String, Object> payload) {
+        SaedContext ctx = SaedContextHolder.getContext();
+        String callerRole = ctx != null ? ctx.getRoleCode() : "";
+        Long callerOrgId = ctx != null ? ctx.getOrganizationId() : null;
+        Long callerPropId = ctx != null ? ctx.getPropertyId() : null;
+
+        // Validar perímetro y permisos sobre el usuario destino
+        if (!"SUPERADMIN".equals(callerRole)) {
+            String checkSql = """
+                SELECT ua.ID_ORGANIZACION, ua.ID_PROPIEDAD, r.CODIGO AS ROL_CODIGO
+                FROM USUARIO_ASIGNACIONES ua
+                JOIN ROLES r ON r.ID_ROL = ua.ID_ROL
+                WHERE ua.ID_USUARIO = :id AND ua.ESTADO IN ('ACTIVA', 'ACTIVO')
+                """;
+            List<Map<String, Object>> asigs = jdbcTemplate.queryForList(checkSql, Map.of("id", id));
+            if (asigs.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(ApiResponse.error("Usuario no encontrado en su ámbito de gestión"));
+            }
+
+            boolean isTargetSuperAdmin = asigs.stream().anyMatch(a -> "SUPERADMIN".equals(a.get("ROL_CODIGO")));
+            if (isTargetSuperAdmin) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(ApiResponse.error("No tiene permisos para modificar un Superadministrador"));
+            }
+
+            if ("ADMIN_PROPIEDAD".equals(callerRole)) {
+                boolean belongsToProp = asigs.stream().anyMatch(a -> {
+                    Object p = a.get("ID_PROPIEDAD");
+                    return p != null && callerPropId != null && callerPropId.equals(((Number) p).longValue());
+                });
+                if (!belongsToProp) {
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                            .body(ApiResponse.error("El usuario no pertenece a la propiedad asignada"));
+                }
+
+                // Evitar que modifique a otros administradores a menos que sea su propia cuenta
+                boolean isOtherAdmin = asigs.stream().anyMatch(a ->
+                    "ADMIN_ORGANIZACION".equals(a.get("ROL_CODIGO")) || "ADMIN_PROPIEDAD".equals(a.get("ROL_CODIGO"))
+                );
+                Long callerUserId = ctx != null ? ctx.getUserId() : null;
+                if (isOtherAdmin && (callerUserId == null || !callerUserId.equals(id))) {
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                            .body(ApiResponse.error("No tiene permisos para modificar credenciales de otros administradores"));
+                }
+            } else if ("ADMIN_ORGANIZACION".equals(callerRole)) {
+                boolean belongsToOrg = asigs.stream().anyMatch(a -> {
+                    Object o = a.get("ID_ORGANIZACION");
+                    return o != null && callerOrgId != null && callerOrgId.equals(((Number) o).longValue());
+                });
+                if (!belongsToOrg) {
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                            .body(ApiResponse.error("El usuario no pertenece a su organización"));
+                }
+            }
+        }
+
         String estado = (String) payload.get("estado");
         if (payload.containsKey("activo")) {
             estado = Boolean.TRUE.equals(payload.get("activo")) ? "ACTIVO" : "INACTIVO";
@@ -219,6 +338,19 @@ public class UsuarioController {
 
         String rawPassword = (String) payload.getOrDefault("password", payload.get("passwordHash"));
         String rol = (String) payload.get("rol");
+
+        // Anti-escalamiento de rol
+        if (rol != null && !rol.trim().isBlank()) {
+            rol = rol.trim().toUpperCase();
+            if ("ADMIN_PROPIEDAD".equals(callerRole) && ("SUPERADMIN".equals(rol) || "ADMIN_ORGANIZACION".equals(rol) || "ADMIN_PROPIEDAD".equals(rol))) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(ApiResponse.error("No tiene permisos para otorgar roles administrativos"));
+            }
+            if ("ADMIN_ORGANIZACION".equals(callerRole) && "SUPERADMIN".equals(rol)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(ApiResponse.error("No tiene permisos para asignar rol Superadministrador"));
+            }
+        }
 
         if (rawPassword != null && !rawPassword.trim().isBlank()) {
             jdbcTemplate.update(
@@ -228,42 +360,149 @@ public class UsuarioController {
         }
 
         if (estado != null) {
-            jdbcTemplate.update(
-                    "UPDATE USUARIOS SET ESTADO = :est WHERE ID_USUARIO = :id",
-                    Map.of("est", estado, "id", id)
-            );
             String asignacionEstado = "ACTIVO".equals(estado) ? "ACTIVA" : "INACTIVA";
-            jdbcTemplate.update(
-                    "UPDATE USUARIO_ASIGNACIONES SET ESTADO = :est WHERE ID_USUARIO = :id",
-                    Map.of("est", asignacionEstado, "id", id)
-            );
+            if ("ADMIN_PROPIEDAD".equals(callerRole) && callerPropId != null) {
+                jdbcTemplate.update(
+                        "UPDATE USUARIO_ASIGNACIONES SET ESTADO = :est WHERE ID_USUARIO = :id AND ID_PROPIEDAD = :propId",
+                        Map.of("est", asignacionEstado, "id", id, "propId", callerPropId)
+                );
+            } else if ("ADMIN_ORGANIZACION".equals(callerRole) && callerOrgId != null) {
+                jdbcTemplate.update(
+                        "UPDATE USUARIO_ASIGNACIONES SET ESTADO = :est WHERE ID_USUARIO = :id AND ID_ORGANIZACION = :orgId",
+                        Map.of("est", asignacionEstado, "id", id, "orgId", callerOrgId)
+                );
+            } else {
+                jdbcTemplate.update(
+                        "UPDATE USUARIO_ASIGNACIONES SET ESTADO = :est WHERE ID_USUARIO = :id",
+                        Map.of("est", asignacionEstado, "id", id)
+                );
+            }
+
+            // Actualizar estado global del usuario solo si no quedan asignaciones activas o si se activa
+            if ("ACTIVO".equals(estado)) {
+                jdbcTemplate.update("UPDATE USUARIOS SET ESTADO = 'ACTIVO' WHERE ID_USUARIO = :id", Map.of("id", id));
+            } else {
+                Integer remainingActive = jdbcTemplate.queryForObject(
+                        "SELECT COUNT(1) FROM USUARIO_ASIGNACIONES WHERE ID_USUARIO = :id AND ESTADO IN ('ACTIVA', 'ACTIVO')",
+                        Map.of("id", id),
+                        Integer.class
+                );
+                if (remainingActive == null || remainingActive == 0) {
+                    jdbcTemplate.update("UPDATE USUARIOS SET ESTADO = 'INACTIVO' WHERE ID_USUARIO = :id", Map.of("id", id));
+                }
+            }
         }
 
         if (rol != null && !rol.trim().isBlank()) {
             Long idRol = jdbcTemplate.queryForObject(
                     "SELECT ID_ROL FROM ROLES WHERE CODIGO = :cod",
-                    new MapSqlParameterSource("cod", rol.trim().toUpperCase()),
+                    new MapSqlParameterSource("cod", rol),
                     Long.class
             );
             if (idRol != null) {
-                jdbcTemplate.update(
-                        "UPDATE USUARIO_ASIGNACIONES SET ID_ROL = :idRol WHERE ID_USUARIO = :id AND ESTADO = 'ACTIVA'",
-                        Map.of("idRol", idRol, "id", id)
-                );
+                if ("ADMIN_PROPIEDAD".equals(callerRole) && callerPropId != null) {
+                    jdbcTemplate.update(
+                            "UPDATE USUARIO_ASIGNACIONES SET ID_ROL = :idRol WHERE ID_USUARIO = :id AND ID_PROPIEDAD = :propId AND ESTADO = 'ACTIVA'",
+                            Map.of("idRol", idRol, "id", id, "propId", callerPropId)
+                    );
+                } else if ("ADMIN_ORGANIZACION".equals(callerRole) && callerOrgId != null) {
+                    jdbcTemplate.update(
+                            "UPDATE USUARIO_ASIGNACIONES SET ID_ROL = :idRol WHERE ID_USUARIO = :id AND ID_ORGANIZACION = :orgId AND ESTADO = 'ACTIVA'",
+                            Map.of("idRol", idRol, "id", id, "orgId", callerOrgId)
+                    );
+                } else {
+                    jdbcTemplate.update(
+                            "UPDATE USUARIO_ASIGNACIONES SET ID_ROL = :idRol WHERE ID_USUARIO = :id AND ESTADO = 'ACTIVA'",
+                            Map.of("idRol", idRol, "id", id)
+                    );
+                }
             }
         }
 
         return ResponseEntity.ok(ApiResponse.success(null));
     }
 
-    @Operation(summary = "Desactivar un usuario del sistema")
+    @Operation(summary = "Desactivar un usuario del sistema dentro del ámbito del tenant")
     @DeleteMapping("/{id}")
     @Transactional
     @Auditable(action = "DELETE", resource = "USUARIO", category = AuditCategory.SECURITY, severity = AuditSeverity.CRITICAL)
     @PreAuthorize("hasAuthority('SCOPE_SUPERADMIN') or hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<ApiResponse<Void>> eliminarUsuario(@PathVariable Long id) {
-        jdbcTemplate.update("UPDATE USUARIOS SET ESTADO = 'INACTIVO' WHERE ID_USUARIO = :id", Map.of("id", id));
-        jdbcTemplate.update("UPDATE USUARIO_ASIGNACIONES SET ESTADO = 'INACTIVA' WHERE ID_USUARIO = :id", Map.of("id", id));
+        SaedContext ctx = SaedContextHolder.getContext();
+        String callerRole = ctx != null ? ctx.getRoleCode() : "";
+        Long callerOrgId = ctx != null ? ctx.getOrganizationId() : null;
+        Long callerPropId = ctx != null ? ctx.getPropertyId() : null;
+        Long callerUserId = ctx != null ? ctx.getUserId() : null;
+
+        if (callerUserId != null && callerUserId.equals(id)) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("No puede desactivar su propia cuenta de usuario"));
+        }
+
+        if (!"SUPERADMIN".equals(callerRole)) {
+            String checkSql = """
+                SELECT ua.ID_ORGANIZACION, ua.ID_PROPIEDAD, r.CODIGO AS ROL_CODIGO
+                FROM USUARIO_ASIGNACIONES ua
+                JOIN ROLES r ON r.ID_ROL = ua.ID_ROL
+                WHERE ua.ID_USUARIO = :id AND ua.ESTADO IN ('ACTIVA', 'ACTIVO')
+                """;
+            List<Map<String, Object>> asigs = jdbcTemplate.queryForList(checkSql, Map.of("id", id));
+            if (asigs.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(ApiResponse.error("Usuario no encontrado en su ámbito de gestión"));
+            }
+
+            boolean isTargetSuperAdmin = asigs.stream().anyMatch(a -> "SUPERADMIN".equals(a.get("ROL_CODIGO")));
+            if (isTargetSuperAdmin) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(ApiResponse.error("No tiene permisos para desactivar un Superadministrador"));
+            }
+
+            if ("ADMIN_PROPIEDAD".equals(callerRole)) {
+                boolean belongsToProp = asigs.stream().anyMatch(a -> {
+                    Object p = a.get("ID_PROPIEDAD");
+                    return p != null && callerPropId != null && callerPropId.equals(((Number) p).longValue());
+                });
+                if (!belongsToProp) {
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                            .body(ApiResponse.error("El usuario no pertenece a la propiedad asignada"));
+                }
+
+                // Desactivar asignación para la propiedad
+                jdbcTemplate.update(
+                        "UPDATE USUARIO_ASIGNACIONES SET ESTADO = 'INACTIVA' WHERE ID_USUARIO = :id AND ID_PROPIEDAD = :propId",
+                        Map.of("id", id, "propId", callerPropId)
+                );
+            } else if ("ADMIN_ORGANIZACION".equals(callerRole)) {
+                boolean belongsToOrg = asigs.stream().anyMatch(a -> {
+                    Object o = a.get("ID_ORGANIZACION");
+                    return o != null && callerOrgId != null && callerOrgId.equals(((Number) o).longValue());
+                });
+                if (!belongsToOrg) {
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                            .body(ApiResponse.error("El usuario no pertenece a su organización"));
+                }
+
+                jdbcTemplate.update(
+                        "UPDATE USUARIO_ASIGNACIONES SET ESTADO = 'INACTIVA' WHERE ID_USUARIO = :id AND ID_ORGANIZACION = :orgId",
+                        Map.of("id", id, "orgId", callerOrgId)
+                );
+            }
+
+            // Si ya no quedan asignaciones activas, desactivar el usuario globalmente
+            Integer remainingActive = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(1) FROM USUARIO_ASIGNACIONES WHERE ID_USUARIO = :id AND ESTADO IN ('ACTIVA', 'ACTIVO')",
+                    Map.of("id", id),
+                    Integer.class
+            );
+            if (remainingActive == null || remainingActive == 0) {
+                jdbcTemplate.update("UPDATE USUARIOS SET ESTADO = 'INACTIVO' WHERE ID_USUARIO = :id", Map.of("id", id));
+            }
+        } else {
+            // SUPERADMIN
+            jdbcTemplate.update("UPDATE USUARIOS SET ESTADO = 'INACTIVO' WHERE ID_USUARIO = :id", Map.of("id", id));
+            jdbcTemplate.update("UPDATE USUARIO_ASIGNACIONES SET ESTADO = 'INACTIVA' WHERE ID_USUARIO = :id", Map.of("id", id));
+        }
+
         return ResponseEntity.ok(ApiResponse.success(null));
     }
 }
