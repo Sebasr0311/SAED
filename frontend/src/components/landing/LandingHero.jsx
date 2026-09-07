@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { animate, createTimeline } from 'animejs';
 
 const HERO_IMAGE = 'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/WhatsApp%20Image%202026-09-06%20at%206.39.14%20PM-ujE9VaFjw7dhhyJKvkWpJiEpKmtoaM.jpeg';
+const SAED_EMBLEM = 'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/saed_logo_emblem_only%20%281%29-f69pKiXJhvmpHezDHIpHBhzbADaXx7.png';
 
 const metrics = [
   { icon: Building2, value: '+138', label: 'Unidades en gestión', tone: 'text-sky-300' },
@@ -40,6 +41,7 @@ export default function LandingHero() {
 
       <div className="mx-auto flex min-h-[760px] max-w-7xl flex-col justify-center px-5 pb-32 pt-36 sm:px-8 lg:px-12">
         <div ref={contentRef} className="max-w-2xl">
+          <img src={SAED_EMBLEM} alt="Emblema SAED" className="mb-6 h-14 w-14 rounded-2xl bg-white/95 p-1 object-contain shadow-lg shadow-cyan-950/30" />
           <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-sky-400/45 bg-slate-950/35 px-3.5 py-1.5 text-[10px] font-bold tracking-[.16em] text-sky-300 backdrop-blur-md sm:text-xs">
             <Sparkles className="h-3.5 w-3.5" /> PLATAFORMA PROPTECH ENTERPRISE
           </div>

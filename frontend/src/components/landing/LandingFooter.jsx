@@ -1,4 +1,6 @@
-import { Building2, LogIn } from 'lucide-react';
+import { LogIn } from 'lucide-react';
+
+const SAED_LOGO = 'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/saed_logo_final_blue%20%281%29-RiV76ZtVQPCe5rZu3uEXDaXwmdxT7w.png';
 import { Link } from 'react-router-dom';
 
 export default function LandingFooter() {
@@ -24,15 +26,12 @@ export default function LandingFooter() {
           {/* Brand Identity Column */}
           <div className="lg:col-span-2 space-y-4">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#122347] to-[#070B14] border border-sky-500/30 flex items-center justify-center text-sky-400 shadow-sm shadow-sky-500/10">
-                <Building2 className="w-5 h-5" />
+              <div className="rounded-xl bg-white px-3 py-2 shadow-sm shadow-sky-500/10">
+                <img src={SAED_LOGO} alt="SAED" className="h-12 w-auto object-contain" />
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xl font-extrabold text-white font-['Plus_Jakarta_Sans']">SAED</span>
-                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-400 border border-sky-500/25">
-                  2.0
-                </span>
-              </div>
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-400 border border-sky-500/25">
+                2.0
+              </span>
             </div>
 
             <p className="text-slate-400 max-w-sm leading-relaxed text-xs">
