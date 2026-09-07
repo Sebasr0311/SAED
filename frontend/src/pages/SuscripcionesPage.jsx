@@ -48,7 +48,7 @@ export default function SuscripcionesPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#070B14] text-slate-100 flex flex-col selection:bg-sky-500/25 selection:text-sky-300">
+    <div className="min-h-screen bg-[#061018] text-slate-100 flex flex-col selection:bg-cyan-500/25 selection:text-cyan-300">
       {/* 1. Header Minimalista Dedicado */}
       <header className="sticky top-0 z-50 bg-[#070B14]/90 backdrop-blur-xl border-b border-slate-800/80 shadow-2xl py-3.5 sm:py-4">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
@@ -95,7 +95,7 @@ export default function SuscripcionesPage() {
       {/* Main Content */}
       <main className="flex-1">
         {/* 2. Hero de Suscripciones */}
-        <section className="relative pt-16 pb-12 sm:pt-24 sm:pb-16 overflow-hidden bg-gradient-to-b from-[#070B14] via-[#0D1527] to-[#070B14]">
+        <section className="relative pt-16 pb-12 sm:pt-24 sm:pb-16 overflow-hidden bg-gradient-to-b from-[#061018] via-[#0B1B27] to-[#061018]">
           {/* Subtle grid accent */}
           <div className="absolute inset-0 bg-[radial-gradient(#1E3A6E_1px,transparent_1px)] [background-size:36px_36px] opacity-15 pointer-events-none" />
 

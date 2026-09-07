@@ -77,7 +77,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0A1628] text-white flex flex-col justify-between relative overflow-x-hidden selection:bg-emerald-500/20 selection:text-emerald-400">
+    <div className="min-h-screen bg-[#061018] text-white flex flex-col justify-between relative overflow-x-hidden selection:bg-cyan-500/20 selection:text-cyan-300">
       {/* Background Decorative Accents */}
       <div className="absolute inset-0 bg-[radial-gradient(#1E4080_1px,transparent_1px)] [background-size:24px_24px] opacity-25 pointer-events-none" />
       <div className="absolute top-1/4 left-1/4 w-[500px] h-[350px] bg-emerald-500/10 blur-[130px] rounded-full pointer-events-none" />
@@ -148,7 +148,7 @@ export default function LoginPage() {
                       placeholder="Nombre de usuario"
                       autoComplete="username"
                       required
-                      className="w-full h-12 pl-10 pr-4 rounded-xl bg-slate-900/90 border border-slate-700/80 text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-colors"
+                      className="w-full h-12 pl-10 pr-4 rounded-xl bg-slate-900/90 border border-slate-700/80 text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-400/50 focus:border-cyan-400 transition-colors"
                     />
                   </div>
                 </div>
@@ -173,7 +173,7 @@ export default function LoginPage() {
                       placeholder="••••••••"
                       autoComplete="current-password"
                       required
-                      className="w-full h-12 pl-10 pr-12 rounded-xl bg-slate-900/90 border border-slate-700/80 text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-colors"
+                      className="w-full h-12 pl-10 pr-12 rounded-xl bg-slate-900/90 border border-slate-700/80 text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-400/50 focus:border-cyan-400 transition-colors"
                     />
                     <button
                       type="button"
@@ -228,7 +228,7 @@ export default function LoginPage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full min-h-[48px] px-6 py-3.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-sm sm:text-base shadow-lg shadow-emerald-950/40 hover:shadow-emerald-900/50 transition-all flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-emerald-400 disabled:opacity-60 disabled:cursor-not-allowed transform active:scale-[0.99]"
+                  className="w-full min-h-[48px] px-6 py-3.5 rounded-xl bg-gradient-to-r from-cyan-400 to-sky-500 hover:from-cyan-300 hover:to-sky-400 text-white font-bold text-sm sm:text-base shadow-lg shadow-emerald-950/40 hover:shadow-emerald-900/50 transition-all flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-emerald-400 disabled:opacity-60 disabled:cursor-not-allowed transform active:scale-[0.99]"
                 >
                   {loading ? (
                     <>
@@ -264,7 +264,7 @@ export default function LoginPage() {
           {/* Value Panel (Desktop: Priority 2 / Hidden on Tablet & Mobile) */}
           <div className="max-lg:hidden flex flex-col justify-between p-6 xl:p-8 space-y-6">
             <div className="space-y-6">
-              <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold tracking-wide">
+              <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-cyan-400/10 border border-cyan-400/20 text-cyan-300 text-xs font-semibold tracking-wide">
                 <Sparkles className="w-3.5 h-3.5" />
                 <span>ECOSISTEMA INTEGRAL DE COPROPIEDAD</span>
               </div>

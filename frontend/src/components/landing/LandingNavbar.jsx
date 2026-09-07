@@ -58,8 +58,8 @@ export default function LandingNavbar() {
         mobileMenuOpen
           ? 'bg-[#070B14] border-b border-slate-800 py-3.5 shadow-2xl'
           : isScrolled
-          ? 'bg-[#070B14]/90 backdrop-blur-xl border-b border-slate-800/80 shadow-2xl shadow-black/60 py-3.5'
-          : 'bg-[#070B14]/60 backdrop-blur-md border-b border-white/[0.06] py-4 sm:py-5'
+          ? 'bg-slate-950/80 backdrop-blur-xl border-b border-white/10 shadow-2xl shadow-black/60 py-3.5'
+          : 'bg-slate-950/25 backdrop-blur-md border-b border-white/[0.10] py-4 sm:py-5'
       }`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
