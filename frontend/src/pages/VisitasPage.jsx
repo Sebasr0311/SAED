@@ -222,6 +222,7 @@ export default function VisitasPage() {
       const payload = {
         unidadId: form.unidadId ? Number(form.unidadId) : undefined,
         idResidente: form.idResidente ? Number(form.idResidente) : undefined,
+        metodoIngreso: 'CODIGO_QR',
         tiempoValidezMin: Number(form.tiempoValidezMin || 60),
         cantidadPersonas: Number(form.cantidadPersonas || 1),
         visitante: {
@@ -229,10 +230,10 @@ export default function VisitasPage() {
           numeroDocumento: form.documento.trim(),
           nombres: form.nombres.trim(),
           apellidos: form.apellidos.trim(),
-          telefono: form.telefono.trim(),
-          email: form.email.trim(),
+          telefono: form.telefono.trim() || null,
+          email: form.email.trim() || null,
         },
-        notas: form.notas.trim(),
+        notas: form.notas.trim() || null,
       };
       if (form.tipoVehiculo === 'BICICLETA') {
         payload.vehiculo = { tipo: form.tipoVehiculo, descripcion: form.descripcion.trim() };

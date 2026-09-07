@@ -22,10 +22,10 @@ const emptyForm = {
   motivo: '',
   tiempoValidezMin: 30,
   cantidadPersonas: 1,
-  medioTransporte: 'CARRO',
+  medioTransporte: 'A_PIE',
   placa: '',
   descripcion: '',
-  tipoVehiculo: 'CARRO',
+  tipoVehiculo: '',
 };
 
 export default function ResVisitaPage() {
@@ -107,8 +107,8 @@ export default function ResVisitaPage() {
     if (!rTel.ok) e['visitante.telefono'] = rTel.mensaje;
     const rEmail = valEmail(form.visitante.email, { required: false });
     if (!rEmail.ok) e['visitante.email'] = rEmail.mensaje;
-    if (form.medioTransporte === 'CARRO' || form.medioTransporte === 'MOTO' || form.medioTransporte === 'BICICLETA' || form.medioTransporte === 'OTRO') {
-      const rPlaca = valPlaca(form.placa, form.medioTransporte === 'CARRO' ? 'CARRO' : form.medioTransporte === 'MOTO' ? 'MOTO' : 'OTRO');
+    if ((form.medioTransporte === 'CARRO' || form.medioTransporte === 'MOTO') && form.placa?.trim()) {
+      const rPlaca = valPlaca(form.placa, form.medioTransporte === 'CARRO' ? 'CARRO' : 'MOTO');
       if (!rPlaca.ok) e.placa = rPlaca.mensaje;
     }
     if (form.medioTransporte === 'BICICLETA' || form.medioTransporte === 'OTRO') {
@@ -148,21 +148,28 @@ export default function ResVisitaPage() {
     setSending(true);
     try {
       const payload = {
-        visitante: { ...form.visitante },
-        idResidente: user.idResidente,
+        unidadId: user?.idUnidad || user?.unidadId || undefined,
+        metodoIngreso: 'CODIGO_QR',
+        visitante: {
+          idTipoDoc: form.visitante.idTipoDoc ? Number(form.visitante.idTipoDoc) : undefined,
+          numeroDocumento: form.visitante.numeroDocumento?.trim(),
+          nombres: form.visitante.nombres?.trim(),
+          apellidos: form.visitante.apellidos?.trim(),
+          telefono: form.visitante.telefono?.trim() || null,
+          email: form.visitante.email?.trim() || null,
+        },
+        idResidente: user?.idResidente || user?.idPersona || user?.idUsuario,
         tiempoValidezMin: Number(form.tiempoValidezMin),
         cantidadPersonas: Number(form.cantidadPersonas),
-        notas: form.motivo,
+        notas: form.motivo?.trim() || null,
       };
       if (!payload.visitante.idTipoDoc) delete payload.visitante.idTipoDoc;
-      // Solo incluir vehiculo si hay placa o descripcion; el backend explota si la key llega null
-      if (form.medioTransporte === 'CARRO' || form.medioTransporte === 'MOTO') {
+      if ((form.medioTransporte === 'CARRO' || form.medioTransporte === 'MOTO') && form.placa?.trim()) {
         payload.vehiculo = {
-          placa: form.placa.toUpperCase(),
-          // El enum TipoVehiculo no tiene CARRO: el backend hace TipoVehiculo.valueOf(...)
+          placa: form.placa.trim().toUpperCase(),
           tipo: form.medioTransporte === 'CARRO' ? 'VEHICULO' : form.medioTransporte,
         };
-      } else if (form.medioTransporte === 'BICICLETA' || form.medioTransporte === 'OTRO') {
+      } else if ((form.medioTransporte === 'BICICLETA' || form.medioTransporte === 'OTRO') && form.descripcion?.trim()) {
         payload.vehiculo = {
           tipo: form.medioTransporte,
           descripcion: form.descripcion.trim(),
@@ -336,14 +343,13 @@ export default function ResVisitaPage() {
             {(form.medioTransporte === 'CARRO' || form.medioTransporte === 'MOTO') && (
               <Input
                 id="placa"
-                label={form.medioTransporte === 'MOTO' ? 'Placa (Moto)' : 'Placa (Carro)'}
+                label={form.medioTransporte === 'MOTO' ? 'Placa (Moto - Opcional)' : 'Placa (Carro - Opcional)'}
                 placeholder={form.medioTransporte === 'MOTO' ? 'Ej. ABC12D' : 'Ej. DEM-123'}
                 maxLength="8"
                 value={form.placa}
                 onChange={(e) => update('placa', e.target.value.toUpperCase())}
                 onBlur={() => touch('placa')}
-                error={fieldError('placa', valPlaca(form.placa, form.medioTransporte === 'CARRO' ? 'CARRO' : form.medioTransporte === 'MOTO' ? 'MOTO' : 'OTRO')) || errors.placa}
-                required
+                error={form.placa?.trim() ? (fieldError('placa', valPlaca(form.placa, form.medioTransporte === 'CARRO' ? 'CARRO' : 'MOTO')) || errors.placa) : undefined}
               />
             )}
             {(form.medioTransporte === 'BICICLETA' || form.medioTransporte === 'OTRO') && (

@@ -251,8 +251,8 @@ export default function ResVisitasPage() {
     if (!rEmail.ok) e['visitante.email'] = rEmail.mensaje;
 
     if (
-      form.medioTransporte === 'CARRO' ||
-      form.medioTransporte === 'MOTO'
+      (form.medioTransporte === 'CARRO' || form.medioTransporte === 'MOTO') &&
+      form.placa?.trim()
     ) {
       const rPlaca = valPlaca(
         form.placa,
@@ -323,27 +323,36 @@ export default function ResVisitasPage() {
 
     try {
       const payload = {
-        visitante: { ...form.visitante },
+        unidadId: user?.idUnidad || user?.unidadId || undefined,
+        metodoIngreso: 'CODIGO_QR',
+        visitante: {
+          idTipoDoc: form.visitante.idTipoDoc ? Number(form.visitante.idTipoDoc) : undefined,
+          numeroDocumento: form.visitante.numeroDocumento?.trim(),
+          nombres: form.visitante.nombres?.trim(),
+          apellidos: form.visitante.apellidos?.trim(),
+          telefono: form.visitante.telefono?.trim() || null,
+          email: form.visitante.email?.trim() || null,
+        },
         idResidente: residentId,
         tiempoValidezMin: Number(form.tiempoValidezMin),
         cantidadPersonas: Number(form.cantidadPersonas),
-        notas: form.motivo || null,
+        notas: form.motivo?.trim() || null,
       };
 
       if (!payload.visitante.idTipoDoc) delete payload.visitante.idTipoDoc;
 
       if (
-        form.medioTransporte === 'CARRO' ||
-        form.medioTransporte === 'MOTO'
+        (form.medioTransporte === 'CARRO' || form.medioTransporte === 'MOTO') &&
+        form.placa?.trim()
       ) {
         payload.vehiculo = {
-          placa: form.placa.toUpperCase(),
+          placa: form.placa.trim().toUpperCase(),
           tipo:
             form.medioTransporte === 'CARRO' ? 'VEHICULO' : form.medioTransporte,
         };
       } else if (
-        form.medioTransporte === 'BICICLETA' ||
-        form.medioTransporte === 'OTRO'
+        (form.medioTransporte === 'BICICLETA' || form.medioTransporte === 'OTRO') &&
+        form.descripcion?.trim()
       ) {
         payload.vehiculo = {
           tipo: form.medioTransporte,
@@ -1282,22 +1291,23 @@ export default function ResVisitasPage() {
               {(form.medioTransporte === 'CARRO' || form.medioTransporte === 'MOTO') && (
                 <Input
                   id="placa"
-                  label={form.medioTransporte === 'MOTO' ? 'Placa (Moto)' : 'Placa (Carro)'}
+                  label={form.medioTransporte === 'MOTO' ? 'Placa (Moto - Opcional)' : 'Placa (Carro - Opcional)'}
                   placeholder={form.medioTransporte === 'MOTO' ? 'Ej. ABC12D' : 'Ej. DEM-123'}
                   maxLength="8"
                   value={form.placa}
                   onChange={(e) => updateForm('placa', e.target.value.toUpperCase())}
                   onBlur={() => touch('placa')}
                   error={
-                    fieldError(
-                      'placa',
-                      valPlaca(
-                        form.placa,
-                        form.medioTransporte === 'CARRO' ? 'CARRO' : 'MOTO'
-                      )
-                    ) || errors.placa
+                    form.placa?.trim()
+                      ? fieldError(
+                          'placa',
+                          valPlaca(
+                            form.placa,
+                            form.medioTransporte === 'CARRO' ? 'CARRO' : 'MOTO'
+                          )
+                        ) || errors.placa
+                      : undefined
                   }
-                  required
                 />
               )}
 

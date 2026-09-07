@@ -91,8 +91,17 @@ public class PorteriaController {
             visitanteId = Long.valueOf(body.get("visitanteId").toString());
         }
 
-        String metodoIngreso = body.get("metodoIngreso") != null ? body.get("metodoIngreso").toString() : "PEATONAL";
-        String motivo = body.get("motivo") != null ? body.get("motivo").toString() : (body.get("notas") != null ? body.get("notas").toString() : "Visita programada");
+        String rawMetodo = body.get("metodoIngreso") != null ? body.get("metodoIngreso").toString().trim().toUpperCase() : "CODIGO_QR";
+        String metodoIngreso;
+        if ("LLAMADA_PORTERIA".equals(rawMetodo) || "PREAUTORIZADA".equals(rawMetodo) || "EMERGENCIA".equals(rawMetodo)) {
+            metodoIngreso = rawMetodo;
+        } else {
+            metodoIngreso = "CODIGO_QR";
+        }
+
+        String rawMotivo = body.get("motivo") != null ? body.get("motivo").toString() : (body.get("notas") != null ? body.get("notas").toString() : "Visita programada");
+        String motivo = (rawMotivo != null && rawMotivo.length() > 200) ? rawMotivo.substring(0, 200) : rawMotivo;
+
         Long autorizadoPor = body.get("autorizadoPor") != null ? Long.valueOf(body.get("autorizadoPor").toString()) : null;
         ZonedDateTime fechaProgramada = ZonedDateTime.now();
         if (body.get("fechaProgramada") != null) {
@@ -100,9 +109,23 @@ public class PorteriaController {
                 fechaProgramada = ZonedDateTime.parse(body.get("fechaProgramada").toString());
             } catch (Exception ignored) {}
         }
-        String estado = body.get("estado") != null ? body.get("estado").toString() : "PROGRAMADA";
 
-        // Si viene idResidente y no unidadId, resolver unidad del residente
+        String rawEstado = body.get("estado") != null ? body.get("estado").toString().trim().toUpperCase() : "PROGRAMADA";
+        String estado;
+        if ("EN_CURSO".equals(rawEstado) || "FINALIZADA".equals(rawEstado) || "CANCELADA".equals(rawEstado) || "RECHAZADA".equals(rawEstado)) {
+            estado = rawEstado;
+        } else {
+            estado = "PROGRAMADA";
+        }
+
+        // Si el contexto actual es de RESIDENTE y tiene unidad asignada, vincularla directamente
+        if (SaedContextHolder.getContext() != null && "RESIDENTE".equals(SaedContextHolder.getContext().getRoleCode())) {
+            if (SaedContextHolder.getContext().getUnitId() != null) {
+                unidadId = SaedContextHolder.getContext().getUnitId();
+            }
+        }
+
+        // Si viene idResidente y aun no tenemos unidadId, resolver unidad del residente
         if (unidadId == null && body.get("idResidente") != null) {
             Long idRes = Long.valueOf(body.get("idResidente").toString());
             try {
@@ -113,6 +136,12 @@ public class PorteriaController {
                 if (uids.isEmpty()) {
                     uids = jdbcTemplate.query(
                         "SELECT ID_UNIDAD FROM RESIDENTES_UNIDAD WHERE ID_PERSONA = :id",
+                        Map.of("id", idRes), (rs, r) -> rs.getLong("ID_UNIDAD")
+                    );
+                }
+                if (uids.isEmpty()) {
+                    uids = jdbcTemplate.query(
+                        "SELECT ID_UNIDAD FROM USUARIO_ASIGNACIONES WHERE ID_USUARIO = :id AND ESTADO = 'ACTIVA' AND ID_UNIDAD IS NOT NULL",
                         Map.of("id", idRes), (rs, r) -> rs.getLong("ID_UNIDAD")
                     );
                 }
@@ -142,7 +171,7 @@ public class PorteriaController {
             unidadId = 1L;
         }
 
-        // Resolver autorizadoPor garantizando que sea un ID_USUARIO valido (FK_VISITAS_AUTORIZADOR)
+        // Resolver autorizadoPor garantizando que sea un ID_USUARIO valido en USUARIOS (FK_VISITAS_AUTORIZADOR)
         Long currentUserId = SaedContextHolder.getContext() != null ? SaedContextHolder.getContext().getUserId() : null;
         if (autorizadoPor != null) {
             try {
@@ -151,13 +180,22 @@ public class PorteriaController {
                     Map.of("u", autorizadoPor), (rs, r) -> rs.getLong("ID_USUARIO")
                 );
                 if (uCheck.isEmpty()) {
-                    autorizadoPor = currentUserId;
+                    autorizadoPor = null;
                 }
             } catch (Exception ignored) {
-                autorizadoPor = currentUserId;
+                autorizadoPor = null;
             }
-        } else {
-            autorizadoPor = currentUserId;
+        }
+        if (autorizadoPor == null && currentUserId != null) {
+            try {
+                List<Long> uCheck = jdbcTemplate.query(
+                    "SELECT ID_USUARIO FROM USUARIOS WHERE ID_USUARIO = :u",
+                    Map.of("u", currentUserId), (rs, r) -> rs.getLong("ID_USUARIO")
+                );
+                if (!uCheck.isEmpty()) {
+                    autorizadoPor = currentUserId;
+                }
+            } catch (Exception ignored) {}
         }
 
         // Si viene mapa de visitante y no visitanteId, resolver/crear persona y visitante
@@ -192,9 +230,9 @@ public class PorteriaController {
                         .addValue("idTipo", idTipoDoc)
                         .addValue("doc", !doc.isEmpty() ? doc : "V-" + System.currentTimeMillis())
                         .addValue("nom", nom)
-                        .addValue("ape", ape)
-                        .addValue("tel", tel)
-                        .addValue("email", email);
+                        .addValue("ape", ape.isBlank() ? "N/A" : ape)
+                        .addValue("tel", tel.isBlank() ? null : tel)
+                        .addValue("email", email.isBlank() ? null : email);
                     jdbcTemplate.update(
                         "INSERT INTO PERSONAS (ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, PRIMER_NOMBRE, PRIMER_APELLIDO, TELEFONO, EMAIL, ESTADO) " +
                         "VALUES (:idTipo, :doc, 'NATURAL', :nom, :ape, :tel, :email, 'ACTIVO')",
@@ -245,10 +283,6 @@ public class PorteriaController {
             }
         }
 
-        if (body.get("vehiculo") != null) {
-            metodoIngreso = "VEHICULAR";
-        }
-
         VisitaRequestDTO request = new VisitaRequestDTO(
             unidadId,
             visitanteId,
@@ -275,19 +309,21 @@ public class PorteriaController {
             ZonedDateTime.now().plusMinutes(validezMin),
             1,
             "ACTIVO",
-            SaedContextHolder.getContext().getUserId()
+            autorizadoPor
         );
 
         QrAccesoDTO qr = porteriaService.generarQrAcceso(qrReq);
 
-        // Vehiculo si vino en payload
+        // Vehiculo si vino en payload con placa
         if (body.get("vehiculo") instanceof Map<?, ?> vehMap) {
-            try {
-                String placa = vehMap.get("placa") != null ? vehMap.get("placa").toString().toUpperCase() : "";
-                String tipoV = vehMap.get("tipo") != null ? vehMap.get("tipo").toString() : "VEHICULO";
-                porteriaService.registrarIngresoVehiculo(new VehiculoVisitaRequestDTO(visita.idVisita(), null, placa, tipoV, "DENTRO"));
-            } catch (Exception e) {
-                log.warning("No se pudo registrar vehiculo de visita: " + e.getMessage());
+            String placa = vehMap.get("placa") != null ? vehMap.get("placa").toString().trim().toUpperCase() : "";
+            if (!placa.isBlank()) {
+                try {
+                    String tipoV = vehMap.get("tipo") != null ? vehMap.get("tipo").toString() : "VEHICULO";
+                    porteriaService.registrarIngresoVehiculo(new VehiculoVisitaRequestDTO(visita.idVisita(), null, placa, tipoV, "DENTRO"));
+                } catch (Exception e) {
+                    log.warning("No se pudo registrar vehiculo de visita: " + e.getMessage());
+                }
             }
         }
 
@@ -314,6 +350,17 @@ public class PorteriaController {
         response.put("codigoQr", token);
         response.put("token", token);
         return response;
+    }
+
+    @PostMapping("/visitas/rapida")
+    @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_RESIDENTE') or hasAuthority('SCOPE_PORTERO')")
+    public Map<String, Object> programarVisitaRapida(@RequestBody Map<String, Object> body) {
+        if (body.get("motivo") == null && body.get("notas") == null) {
+            body.put("motivo", "Visita frecuente rápida");
+        }
+        body.put("metodoIngreso", "CODIGO_QR");
+        return programarVisita(body);
     }
 
     @GetMapping("/visitas/{id}")
