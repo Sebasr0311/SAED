@@ -1,281 +1,82 @@
 import { useEffect, useRef } from 'react';
-import {
-  ArrowRight,
-  ChevronDown,
-  Sparkles,
-  ShieldCheck,
-  Building,
-  CheckCircle2,
-  Lock,
-} from 'lucide-react';
+import { ArrowRight, Building2, ChevronDown, CheckCircle2, Lock, ShieldCheck, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { animate, createTimeline } from 'animejs';
 
+const HERO_IMAGE = 'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/WhatsApp%20Image%202026-09-06%20at%206.39.14%20PM-ujE9VaFjw7dhhyJKvkWpJiEpKmtoaM.jpeg';
+const SAED_EMBLEM = 'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/saed_logo_emblem_only%20%281%29-f69pKiXJhvmpHezDHIpHBhzbADaXx7.png';
+
+const metrics = [
+  { icon: Building2, value: '+138', label: 'Unidades en gestión', tone: 'text-sky-300' },
+  { icon: Lock, value: '8', label: 'Fugas RLS', detail: 'Oracle VPD Aislado', tone: 'text-sky-300' },
+  { icon: ShieldCheck, value: 'PSE & Tarjetas', label: 'Pasarela Wompi', tone: 'text-sky-300' },
+  { icon: CheckCircle2, value: 'Ley 675 / 2001', label: 'Marco Legal CO', tone: 'text-sky-300' },
+];
+
 export default function LandingHero() {
-  const heroRef = useRef(null);
-  const badgeRef = useRef(null);
-  const titleRef = useRef(null);
-  const subtitleRef = useRef(null);
-  const ctaRef = useRef(null);
-  const loginRef = useRef(null);
-  const statsRef = useRef(null);
-  const scrollBtnRef = useRef(null);
-  const orb1Ref = useRef(null);
-  const orb2Ref = useRef(null);
+  const contentRef = useRef(null);
+  const panelRef = useRef(null);
 
   useEffect(() => {
-    // 1. Ambient atmospheric breathing animations with Anime.js v4
-    if (orb1Ref.current && orb2Ref.current) {
-      animate(orb1Ref.current, {
-        translateY: [-22, 22],
-        translateX: [-16, 16],
-        scale: [1, 1.12],
-        duration: 8000,
-        direction: 'alternate',
-        loop: true,
-        ease: 'inOutSine',
-      });
-
-      animate(orb2Ref.current, {
-        translateY: [20, -20],
-        translateX: [14, -14],
-        scale: [1.08, 0.94],
-        duration: 9500,
-        direction: 'alternate',
-        loop: true,
-        ease: 'inOutSine',
-      });
+    const timeline = createTimeline({ defaults: { ease: 'outExpo' } });
+    if (contentRef.current) {
+      timeline.add(contentRef.current, { opacity: [0, 1], translateY: [28, 0], duration: 900 });
     }
-
-    // 2. Orchestrated Hero Entrance Timeline
-    const tl = createTimeline({
-      defaults: {
-        ease: 'outExpo',
-      },
-    });
-
-    if (badgeRef.current) {
-      tl.add(badgeRef.current, {
-        opacity: [0, 1],
-        translateY: [-16, 0],
-        scale: [0.94, 1],
-        duration: 750,
-      });
+    if (panelRef.current) {
+      timeline.add(panelRef.current, { opacity: [0, 1], translateX: [24, 0], duration: 800 }, '-=600');
     }
-
-    if (titleRef.current) {
-      tl.add(
-        titleRef.current,
-        {
-          opacity: [0, 1],
-          translateY: [32, 0],
-          duration: 900,
-        },
-        '-=450'
-      );
-    }
-
-    if (subtitleRef.current) {
-      tl.add(
-        subtitleRef.current,
-        {
-          opacity: [0, 1],
-          translateY: [20, 0],
-          duration: 800,
-        },
-        '-=600'
-      );
-    }
-
-    if (ctaRef.current) {
-      tl.add(
-        ctaRef.current,
-        {
-          opacity: [0, 1],
-          translateY: [16, 0],
-          scale: [0.97, 1],
-          duration: 700,
-        },
-        '-=500'
-      );
-    }
-
-    if (loginRef.current) {
-      tl.add(
-        loginRef.current,
-        {
-          opacity: [0, 1],
-          translateY: [10, 0],
-          duration: 600,
-        },
-        '-=450'
-      );
-    }
-
-    if (statsRef.current) {
-      tl.add(
-        statsRef.current,
-        {
-          opacity: [0, 1],
-          translateY: [16, 0],
-          duration: 750,
-        },
-        '-=350'
-      );
-    }
-
-    if (scrollBtnRef.current) {
-      tl.add(
-        scrollBtnRef.current,
-        {
-          opacity: [0, 1],
-          duration: 700,
-        },
-        '-=300'
-      );
-    }
+    return () => timeline.pause();
   }, []);
 
   const scrollTo = (id) => {
-    const el = document.querySelector(id);
-    if (el) {
-      const topOffset = 84;
-      const elementPosition = el.getBoundingClientRect().top;
-      const offsetPosition = elementPosition + window.pageYOffset - topOffset;
-      window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
-    }
+    const element = document.querySelector(id);
+    if (element) element.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   return (
-    <section
-      id="hero"
-      ref={heroRef}
-      className="relative pt-32 pb-20 sm:pt-40 sm:pb-28 lg:pt-48 lg:pb-32 overflow-hidden bg-gradient-to-b from-[#070B14] via-[#0D1527] to-[#070B14] text-white"
-    >
-      {/* Subtle Atmospheric Accents with Ambient Anime.js floating motion */}
-      <div className="absolute inset-0 bg-[radial-gradient(#1E3A6E_1px,transparent_1px)] [background-size:36px_36px] opacity-15 pointer-events-none" />
-      
-      <div
-        ref={orb1Ref}
-        className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[720px] h-[360px] bg-gradient-to-tr from-cyan-500/15 to-sky-500/10 blur-[150px] rounded-full pointer-events-none"
-      />
-      <div
-        ref={orb2Ref}
-        className="absolute bottom-10 right-10 w-[520px] h-[300px] bg-gradient-to-tl from-sky-600/15 to-blue-600/10 blur-[140px] rounded-full pointer-events-none"
-      />
+    <section id="hero" className="relative isolate min-h-[760px] overflow-hidden bg-[#071016] text-white">
+      <div className="absolute inset-0 -z-20 bg-cover bg-center" style={{ backgroundImage: `url(${HERO_IMAGE})` }} aria-hidden="true" />
+      <div className="absolute inset-0 -z-10 bg-[linear-gradient(90deg,rgba(3,10,14,1)_0%,rgba(3,10,14,.98)_28%,rgba(3,10,14,.45)_65%,rgba(3,10,14,.5)_100%)]" aria-hidden="true" />
+      <div className="absolute inset-0 -z-10 bg-[linear-gradient(180deg,rgba(3,10,14,.3),rgba(3,10,14,.08)_52%,#071016_100%)]" aria-hidden="true" />
 
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-        <div className="max-w-4xl mx-auto space-y-6 sm:space-y-8">
-          
-          {/* Eyebrow badge */}
-          <div
-            ref={badgeRef}
-            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-900/80 border border-sky-500/30 text-sky-400 text-xs font-bold tracking-widest uppercase shadow-lg shadow-sky-950/40 backdrop-blur-xl"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-sky-400 animate-pulse" />
-            <span>PLATAFORMA PROPTECH ENTERPRISE</span>
+      <div className="mx-auto flex min-h-[760px] max-w-7xl flex-col justify-center px-5 pb-32 pt-36 sm:px-8 lg:px-12">
+        <div ref={contentRef} className="max-w-2xl">
+          <img src={SAED_EMBLEM} alt="Emblema SAED" className="mb-6 h-14 w-14 rounded-2xl bg-white/95 p-1 object-contain shadow-lg shadow-cyan-950/30" />
+          <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-sky-400/45 bg-slate-950/35 px-3.5 py-1.5 text-[10px] font-bold tracking-[.16em] text-sky-300 backdrop-blur-md sm:text-xs">
+            <Sparkles className="h-3.5 w-3.5" /> PLATAFORMA PROPTECH ENTERPRISE
           </div>
-
-          {/* Monumental Headline */}
-          <h1
-            ref={titleRef}
-            className="text-4xl sm:text-6xl md:text-7xl lg:text-[5.5rem] font-extrabold tracking-tight text-white leading-[1.06] font-['Plus_Jakarta_Sans']"
-          >
+          <h1 className="max-w-2xl text-balance text-[2.65rem] font-extrabold leading-[.98] tracking-[-.045em] sm:text-7xl lg:text-[5.35rem]">
             Todo tu conjunto.<br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-cyan-200 to-sky-400 drop-shadow-sm">
-              En un solo lugar.
-            </span>
+            En un <span className="text-sky-300">solo lugar.</span>
           </h1>
-
-          {/* Editorial Subheadline */}
-          <p
-            ref={subtitleRef}
-            className="text-lg sm:text-xl lg:text-2xl text-slate-300 font-normal leading-relaxed max-w-2xl mx-auto"
-          >
+          <p className="mt-7 max-w-xl text-pretty text-base leading-7 text-slate-200 sm:text-xl sm:leading-8">
             Administración, residentes, portería, cartera y operación conectados en una sola plataforma.
           </p>
-
-          {/* Primary Action Group */}
-          <div
-            ref={ctaRef}
-            className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2"
-          >
-            <a
-              href="#roles"
-              onClick={(e) => {
-                e.preventDefault();
-                scrollTo('#roles');
-              }}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-9 py-4 text-base font-bold text-slate-950 bg-gradient-to-r from-cyan-400 via-sky-400 to-cyan-400 hover:from-cyan-300 hover:to-sky-300 rounded-xl shadow-xl shadow-sky-500/25 hover:shadow-sky-400/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 transition-all transform active:scale-[0.98] min-h-[50px]"
-            >
-              <span>Ver cómo funciona</span>
-              <ArrowRight className="w-4 h-4" />
+          <div className="mt-9 flex flex-col items-start gap-4 sm:flex-row sm:items-center">
+            <a href="#roles" onClick={(event) => { event.preventDefault(); scrollTo('#roles'); }} className="inline-flex min-h-14 items-center gap-3 rounded-full bg-sky-300 px-7 text-sm font-bold text-slate-950 shadow-[0_12px_35px_rgba(56,189,248,.24)] transition hover:bg-sky-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-200">
+              Ver cómo funciona <ArrowRight className="h-4 w-4" />
             </a>
-          </div>
-
-          {/* Direct Login Link */}
-          <div ref={loginRef} className="pt-2">
-            <Link
-              to="/login"
-              className="inline-flex items-center gap-1.5 text-xs sm:text-sm text-slate-400 hover:text-sky-300 transition-colors py-1.5 focus:outline-none focus-visible:underline"
-            >
-              <span>¿Ya eres usuario? Iniciar sesión</span>
-              <ArrowRight className="w-3.5 h-3.5 text-sky-400" />
+            <Link to="/login" className="inline-flex min-h-12 items-center gap-2 px-2 text-sm font-medium text-slate-200 transition hover:text-sky-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300">
+              Iniciar sesión <ArrowRight className="h-4 w-4 text-sky-300" />
             </Link>
           </div>
+        </div>
 
-          {/* Live Operational Ticker Strip */}
-          <div
-            ref={statsRef}
-            className="pt-6 max-w-3xl mx-auto grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs"
-          >
-            <div className="p-3 rounded-xl bg-slate-900/70 border border-slate-800/80 backdrop-blur-md flex items-center gap-2.5">
-              <Building className="w-4 h-4 text-sky-400 shrink-0" />
-              <div className="text-left">
-                <span className="font-bold text-white font-mono block">130+ Unidades</span>
-                <span className="text-[10px] text-slate-400">Entorno Demo Activo</span>
-              </div>
+        <div ref={panelRef} className="pointer-events-none absolute right-[5%] top-[29%] hidden w-44 rounded-2xl border border-white/15 bg-slate-950/55 p-4 text-sm shadow-2xl backdrop-blur-xl lg:block">
+          <div className="mb-4 flex items-center gap-2 text-sky-300"><Building2 className="h-4 w-4" /><span className="font-semibold">Inicio</span></div>
+          {['Residentes', 'Cartera', 'Operación', 'Reportes'].map((item) => <div key={item} className="flex items-center gap-2 py-2 text-xs text-slate-300"><span className="h-1.5 w-1.5 rounded-full bg-slate-500" />{item}</div>)}
+        </div>
+
+        <div className="absolute bottom-8 left-5 right-5 grid grid-cols-2 overflow-hidden rounded-2xl border border-white/15 bg-slate-950/60 backdrop-blur-xl sm:left-8 sm:right-8 sm:grid-cols-4 lg:left-12 lg:right-12">
+          {metrics.map(({ icon: Icon, value, label, detail, tone }, index) => (
+            <div key={value} className={`flex min-w-0 items-center gap-2 px-3 py-3 sm:gap-3 sm:px-6 sm:py-4 ${index > 0 ? 'border-t border-white/10 lg:border-l lg:border-t-0' : ''}`}>
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sky-400/10"><Icon className={`h-5 w-5 ${tone}`} /></div>
+              <div className="min-w-0"><div className="truncate text-sm font-bold text-white">{value}</div><div className="truncate text-[11px] text-slate-300">{label}</div>{detail && <div className="truncate text-[10px] text-sky-300">{detail}</div>}</div>
             </div>
-
-            <div className="p-3 rounded-xl bg-slate-900/70 border border-slate-800/80 backdrop-blur-md flex items-center gap-2.5">
-              <Lock className="w-4 h-4 text-emerald-400 shrink-0" />
-              <div className="text-left">
-                <span className="font-bold text-white font-mono block">0 Fugas RLS</span>
-                <span className="text-[10px] text-slate-400">Oracle VPD Aislado</span>
-              </div>
-            </div>
-
-            <div className="p-3 rounded-xl bg-slate-900/70 border border-slate-800/80 backdrop-blur-md flex items-center gap-2.5">
-              <CheckCircle2 className="w-4 h-4 text-teal-400 shrink-0" />
-              <div className="text-left">
-                <span className="font-bold text-white font-mono block">PSE &amp; Tarjetas</span>
-                <span className="text-[10px] text-slate-400">Pasarela Wompi</span>
-              </div>
-            </div>
-
-            <div className="p-3 rounded-xl bg-slate-900/70 border border-slate-800/80 backdrop-blur-md flex items-center gap-2.5">
-              <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
-              <div className="text-left">
-                <span className="font-bold text-white font-mono block">Ley 675 / 2001</span>
-                <span className="text-[10px] text-slate-400">Marco Legal CO</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Scroll Down Indicator */}
-          <div ref={scrollBtnRef} className="pt-6 flex justify-center">
-            <button
-              type="button"
-              onClick={() => scrollTo('#producto')}
-              className="p-2.5 rounded-full text-slate-400 hover:text-white hover:bg-white/5 transition-all animate-bounce focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
-              aria-label="Desplazarse hacia el showcase de producto"
-            >
-              <ChevronDown className="w-5 h-5" />
-            </button>
-          </div>
-
+          ))}
         </div>
       </div>
+      <button type="button" onClick={() => scrollTo('#producto')} className="absolute bottom-2 left-1/2 hidden -translate-x-1/2 p-2 text-slate-300 transition hover:text-white lg:block" aria-label="Desplazarse hacia el producto"><ChevronDown className="h-5 w-5 animate-bounce" /></button>
     </section>
   );
 }

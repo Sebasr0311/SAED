@@ -184,7 +184,7 @@ export default function LandingPricing() {
   return (
     <section
       id="planes"
-      className="py-20 sm:py-28 lg:py-32 bg-[#070B14] text-white relative border-t border-slate-800/80 overflow-hidden"
+      className="py-20 sm:py-28 lg:py-32 bg-[#061018] text-white relative border-t border-cyan-400/10 overflow-hidden"
     >
       {/* Ambient Breathing Background Glow */}
       <div
@@ -233,7 +233,7 @@ export default function LandingPricing() {
                 }`}
               >
                 <span>Facturación Anual</span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500 text-slate-950">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-cyan-400 text-slate-950">
                   -20% DCTO
                 </span>
               </button>
@@ -254,7 +254,7 @@ export default function LandingPricing() {
             return (
               <div
                 key={plan.id}
-                className={`pricing-card p-7 sm:p-8 rounded-3xl border flex flex-col justify-between transition-all duration-300 relative ${
+                className={`pricing-card p-5 sm:p-8 rounded-3xl border flex flex-col justify-between transition-all duration-300 relative ${
                   isRecommended
                     ? 'bg-gradient-to-b from-[#0F224A] via-[#09152E] to-[#070E1E] border-sky-400/80 shadow-2xl shadow-sky-950/60 lg:-translate-y-2 ring-1 ring-sky-400/40'
                     : 'bg-slate-900/60 backdrop-blur-md border-slate-800 hover:border-slate-700 hover:shadow-xl hover:-translate-y-1'
@@ -328,7 +328,7 @@ export default function LandingPricing() {
                     to="/login"
                     className={`w-full py-3.5 px-4 rounded-xl text-xs sm:text-sm font-bold text-center transition-all flex items-center justify-center gap-2 min-h-[48px] ${
                       isRecommended
-                        ? 'bg-gradient-to-r from-sky-500 to-emerald-500 hover:from-sky-400 hover:to-emerald-400 text-slate-950 shadow-lg shadow-sky-950/50'
+                        ? 'bg-gradient-to-r from-cyan-400 to-sky-500 hover:from-cyan-300 hover:to-sky-400 text-slate-950 shadow-lg shadow-sky-950/50'
                         : 'bg-slate-800 hover:bg-slate-700 text-white border border-slate-700'
                     }`}
                   >
@@ -367,7 +367,7 @@ export default function LandingPricing() {
           </div>
 
           <div className="pt-6 space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <span className="text-sm font-semibold text-slate-200">
                 Número de Unidades Habitacionales (Apartamentos / Casas):
               </span>
