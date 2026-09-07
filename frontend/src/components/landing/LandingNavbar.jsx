@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Building2, Menu, X, ArrowRight, LogIn, Sparkles } from 'lucide-react';
+import { Menu, X, ArrowRight, LogIn, Sparkles } from 'lucide-react';
+
+const SAED_EMBLEM = 'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/saed_logo_emblem_only%20%281%29-f69pKiXJhvmpHezDHIpHBhzbADaXx7.png';
 
 const NAV_LINKS = [
   { name: 'Perfiles', href: '#roles' },
@@ -71,8 +73,8 @@ export default function LandingNavbar() {
             className="flex items-center gap-3 group focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 rounded-xl py-1 px-1.5 transition-colors"
             aria-label="Ir al inicio de SAED 2.0"
           >
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-[#122347] to-[#070B14] border border-sky-500/30 flex items-center justify-center shadow-sm shadow-sky-500/10 group-hover:border-sky-400 transition-colors">
-              <Building2 className="w-4 h-4 sm:w-5 sm:h-5 text-sky-400" />
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-white/95 border border-sky-300/40 flex items-center justify-center overflow-hidden shadow-sm shadow-sky-500/10 group-hover:border-sky-300 transition-colors">
+              <img src={SAED_EMBLEM} alt="Emblema SAED" className="h-8 w-8 object-contain" />
             </div>
             <div className="flex items-center gap-2">
               <span className="text-xl sm:text-2xl font-extrabold tracking-tight text-white font-['Plus_Jakarta_Sans']">

@@ -22,6 +22,9 @@ import { ROLE_HOME, roleCanAccess } from '../lib/access.js';
 import { valUsername, valPassword } from '../lib/validation.js';
 import { warmUpBackend } from '../lib/api.js';
 
+const SAED_LOGO = 'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/saed_logo_final_blue%20%281%29-RiV76ZtVQPCe5rZu3uEXDaXwmdxT7w.png';
+const LOGIN_REFERENCE = 'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/ChatGPT%20Image%206%20sept%202026%2C%2019_13_07-KdobT5jafEgQkNmANxuRNIOsaaKOe4.png';
+
 export default function LoginPage() {
   const { login, loading, isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
@@ -96,7 +99,7 @@ export default function LoginPage() {
 
       {/* Main Grid: Form Card + Value Panel */}
       <main className="relative z-10 flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8">
-        <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
+        <div className="w-full max-w-6xl grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12 items-center">
           
           {/* Form Card (Priority 1) */}
           <div className="w-full max-w-md lg:max-w-lg mx-auto">
@@ -105,17 +108,12 @@ export default function LoginPage() {
               {/* Header */}
               <div className="text-center sm:text-left mb-8">
                 <div className="flex items-center justify-center sm:justify-start gap-3 mb-4">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#1E4080] to-[#0A1628] border border-emerald-500/30 flex items-center justify-center shadow-md shadow-emerald-500/10">
-                    <Building2 className="w-5 h-5 text-emerald-400" />
+                  <div className="rounded-xl bg-white px-3 py-2 shadow-md shadow-cyan-500/10">
+                    <img src={SAED_LOGO} alt="SAED" className="h-12 w-auto object-contain" />
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-2xl font-black tracking-tight text-white font-['Plus_Jakarta_Sans']">
-                      SAED
-                    </span>
-                    <span className="px-1.5 py-0.5 rounded text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                      2.0
-                    </span>
-                  </div>
+                  <span className="px-1.5 py-0.5 rounded text-xs font-bold bg-cyan-400/10 text-cyan-300 border border-cyan-400/20">
+                    2.0
+                  </span>
                 </div>
 
                 <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white font-['Plus_Jakarta_Sans']">
@@ -262,7 +260,11 @@ export default function LoginPage() {
           </div>
 
           {/* Value Panel (Desktop: Priority 2 / Hidden on Tablet & Mobile) */}
-          <div className="max-lg:hidden flex flex-col justify-between p-6 xl:p-8 space-y-6">
+          <div className="max-md:hidden flex flex-col justify-between p-6 xl:p-8 space-y-6">
+            <div className="relative overflow-hidden rounded-2xl border border-cyan-400/20 bg-[#071a32]/70 p-4 shadow-2xl shadow-cyan-950/30">
+              <div className="absolute inset-0 bg-gradient-to-br from-cyan-400/10 via-transparent to-blue-700/20" aria-hidden="true" />
+              <img src={LOGIN_REFERENCE} alt="Panel de gestión SAED" className="relative w-full rounded-xl border border-white/10 object-cover opacity-90" />
+            </div>
             <div className="space-y-6">
               <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-cyan-400/10 border border-cyan-400/20 text-cyan-300 text-xs font-semibold tracking-wide">
                 <Sparkles className="w-3.5 h-3.5" />
@@ -310,7 +312,7 @@ export default function LoginPage() {
                   <div>
                     <h3 className="text-xs sm:text-sm font-bold text-white">Paquetería con PIN & Parqueaderos</h3>
                     <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">
-                      Custodia de encomiendas por clave de seguridad y gestión dinámica de cupos.
+                      Custodia de encomiendas por clave de seguridad y gestión din��mica de cupos.
                     </p>
                   </div>
                 </div>
