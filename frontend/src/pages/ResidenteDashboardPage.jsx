@@ -900,10 +900,21 @@ export default function ResidenteDashboardPage() {
                               <h4 className="text-sm font-bold text-foreground truncate">
                                 {qr.nombreVisitante || 'Visitante Autorizado'}
                               </h4>
+                              {qr.documentoVisitante && (
+                                <p className="text-xs text-muted-foreground font-mono mt-0.5">
+                                  Doc: {qr.documentoVisitante}
+                                </p>
+                              )}
                               <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
                                 <Users className="w-3 h-3" />
                                 {qr.cantidadPersonas || 1} persona(s)
                               </p>
+                              {qr.fechaCreacion && (
+                                <p className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                                  <Calendar className="w-3 h-3" />
+                                  Generado: {formatDateTime(qr.fechaCreacion)}
+                                </p>
+                              )}
                               <p className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5">
                                 <Clock className="w-3 h-3 text-amber-500" />
                                 Expira: {formatDateTime(qr.fechaExpiracion)}

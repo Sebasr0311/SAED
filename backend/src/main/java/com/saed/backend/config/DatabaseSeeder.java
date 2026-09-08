@@ -172,6 +172,18 @@ public class DatabaseSeeder implements ApplicationRunner {
                 log.debug("Aviso al verificar RLS en VERSIONES_DOCUMENTO: {}", e.getMessage());
             }
 
+            // 13. Fix RLS en VISITANTES (permitir inserción de visitantes sin violación de check_option)
+            try {
+                jdbcTemplate.execute("BEGIN DBMS_RLS.DROP_POLICY(NULL, 'VISITANTES', 'POL_RLS_PROP_VISITANTES'); EXCEPTION WHEN OTHERS THEN NULL; END;");
+                jdbcTemplate.execute("BEGIN " +
+                    "DBMS_RLS.ADD_POLICY(NULL, 'VISITANTES', 'POL_RLS_PROP_VISITANTES', NULL, " +
+                    "'PKG_SAED_SECURITY_RLS.FN_FILTRO_PROPIEDAD', 'SELECT,UPDATE,DELETE', FALSE, TRUE); " +
+                    "EXCEPTION WHEN OTHERS THEN NULL; END;");
+                log.info("Ajustada política RLS POL_RLS_PROP_VISITANTES en VISITANTES (SELECT,UPDATE,DELETE)");
+            } catch (Exception e) {
+                log.debug("Aviso al ajustar RLS en VISITANTES: {}", e.getMessage());
+            }
+
             log.info("SAED Database Seeder completed successfully.");
         } catch (Exception ex) {
             log.warn("Database seeding encountered a non-fatal exception: {}", ex.getMessage());

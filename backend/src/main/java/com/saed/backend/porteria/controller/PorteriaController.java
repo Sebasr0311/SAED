@@ -13,6 +13,9 @@ import org.springframework.web.bind.annotation.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.support.GeneratedKeyHolder;
+import org.springframework.jdbc.support.KeyHolder;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -225,8 +228,8 @@ public class PorteriaController {
 
             if (personaId == null) {
                 try {
-                    org.springframework.jdbc.support.KeyHolder kh = new org.springframework.jdbc.support.GeneratedKeyHolder();
-                    org.springframework.jdbc.core.namedparam.MapSqlParameterSource pParams = new org.springframework.jdbc.core.namedparam.MapSqlParameterSource()
+                    KeyHolder kh = new GeneratedKeyHolder();
+                    MapSqlParameterSource pParams = new MapSqlParameterSource()
                         .addValue("idTipo", idTipoDoc)
                         .addValue("doc", !doc.isEmpty() ? doc : "V-" + System.currentTimeMillis())
                         .addValue("nom", nom)
@@ -238,9 +241,20 @@ public class PorteriaController {
                         "VALUES (:idTipo, :doc, 'NATURAL', :nom, :ape, :tel, :email, 'ACTIVO')",
                         pParams, kh, new String[]{"ID_PERSONA"}
                     );
-                    if (kh.getKey() != null) personaId = kh.getKey().longValue();
+                    personaId = extractGeneratedKey(kh, "ID_PERSONA");
                 } catch (Exception e) {
                     log.warning("Error creando persona para visitante: " + e.getMessage());
+                }
+                if (personaId == null && !doc.isEmpty()) {
+                    try {
+                        List<Long> pers = jdbcTemplate.query(
+                            "SELECT ID_PERSONA FROM PERSONAS WHERE NUMERO_DOCUMENTO = :doc",
+                            Map.of("doc", doc), (rs, r) -> rs.getLong("ID_PERSONA")
+                        );
+                        if (!pers.isEmpty()) {
+                            personaId = pers.get(0);
+                        }
+                    } catch (Exception ignored) {}
                 }
             }
 
@@ -253,39 +267,38 @@ public class PorteriaController {
                     if (!visList.isEmpty()) {
                         visitanteId = visList.get(0);
                     } else {
-                        org.springframework.jdbc.support.KeyHolder khVis = new org.springframework.jdbc.support.GeneratedKeyHolder();
+                        KeyHolder khVis = new GeneratedKeyHolder();
                         jdbcTemplate.update(
                             "INSERT INTO VISITANTES (ID_PERSONA, ES_FRECUENTE, ESTADO) VALUES (:p, 'N', 'ACTIVO')",
-                            new org.springframework.jdbc.core.namedparam.MapSqlParameterSource("p", personaId),
+                            new MapSqlParameterSource("p", personaId),
                             khVis, new String[]{"ID_VISITANTE"}
                         );
-                        if (khVis.getKey() != null) visitanteId = khVis.getKey().longValue();
+                        visitanteId = extractGeneratedKey(khVis, "ID_VISITANTE");
                     }
                 } catch (Exception e) {
                     log.warning("Error resolviendo ID_VISITANTE: " + e.getMessage());
+                }
+                if (visitanteId == null) {
+                    try {
+                        List<Long> visList = jdbcTemplate.query(
+                            "SELECT ID_VISITANTE FROM VISITANTES WHERE ID_PERSONA = :p",
+                            Map.of("p", personaId), (rs, r) -> rs.getLong("ID_VISITANTE")
+                        );
+                        if (!visList.isEmpty()) {
+                            visitanteId = visList.get(0);
+                        }
+                    } catch (Exception ignored) {}
                 }
             }
         }
 
         if (visitanteId == null) {
-            try {
-                List<Long> firstVis = jdbcTemplate.query(
-                    "SELECT ID_VISITANTE FROM VISITANTES WHERE ROWNUM = 1",
-                    (rs, r) -> rs.getLong("ID_VISITANTE")
-                );
-                if (!firstVis.isEmpty()) {
-                    visitanteId = firstVis.get(0);
-                } else {
-                    visitanteId = 1L;
-                }
-            } catch (Exception ignored) {
-                visitanteId = 1L;
-            }
+            throw new IllegalStateException("No fue posible registrar la información del visitante. Verifique que los datos del documento y nombre sean válidos.");
         }
 
         // Marcar como frecuente si se solicita en el registro de visita
         boolean esFrecuente = Boolean.TRUE.equals(body.get("guardarFrecuente")) || "true".equalsIgnoreCase(String.valueOf(body.get("guardarFrecuente")));
-        if (esFrecuente && visitanteId != null) {
+        if (esFrecuente) {
             try {
                 jdbcTemplate.update("UPDATE VISITANTES SET ES_FRECUENTE = 'S' WHERE ID_VISITANTE = :v", Map.of("v", visitanteId));
             } catch (Exception ignored) {}
@@ -531,5 +544,41 @@ public class PorteriaController {
     @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_PORTERO')")
     public void registrarSalidaVehiculo(@PathVariable Long id, @RequestBody Map<String, BigDecimal> body) {
         porteriaService.registrarSalidaVehiculo(id, body.getOrDefault("costoTotal", BigDecimal.ZERO));
+    }
+
+    private Long extractGeneratedKey(KeyHolder kh, String columnName) {
+        if (kh == null) return null;
+        try {
+            if (kh.getKey() != null) {
+                return kh.getKey().longValue();
+            }
+        } catch (Exception ignored) {}
+        if (kh.getKeys() != null) {
+            for (Map.Entry<String, Object> entry : kh.getKeys().entrySet()) {
+                if (entry.getKey().equalsIgnoreCase(columnName) && entry.getValue() instanceof Number num) {
+                    return num.longValue();
+                }
+            }
+            for (Map.Entry<String, Object> entry : kh.getKeys().entrySet()) {
+                if (!entry.getKey().equalsIgnoreCase("ROWID") && entry.getValue() instanceof Number num) {
+                    return num.longValue();
+                }
+            }
+        }
+        if (kh.getKeyList() != null && !kh.getKeyList().isEmpty()) {
+            for (Map<String, Object> map : kh.getKeyList()) {
+                for (Map.Entry<String, Object> entry : map.entrySet()) {
+                    if (entry.getKey().equalsIgnoreCase(columnName) && entry.getValue() instanceof Number num) {
+                        return num.longValue();
+                    }
+                }
+                for (Map.Entry<String, Object> entry : map.entrySet()) {
+                    if (!entry.getKey().equalsIgnoreCase("ROWID") && entry.getValue() instanceof Number num) {
+                        return num.longValue();
+                    }
+                }
+            }
+        }
+        return null;
     }
 }

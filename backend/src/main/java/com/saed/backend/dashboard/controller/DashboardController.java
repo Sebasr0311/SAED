@@ -35,7 +35,8 @@ public class DashboardController {
     @GetMapping("/{id}/frecuentes")
     @PreAuthorize("hasAuthority('SCOPE_RESIDENTE')")
     public List<Map<String, Object>> getFrecuentes(@PathVariable Long id) {
-        Long userId = com.saed.backend.context.SaedContextHolder.getContext().getUserId();
+        Long userId = com.saed.backend.context.SaedContextHolder.getContext() != null
+                ? com.saed.backend.context.SaedContextHolder.getContext().getUserId() : null;
         if (userId != null) {
             try {
                 Long myPersonaId = jdbcTemplate.queryForObject(
@@ -46,17 +47,192 @@ public class DashboardController {
                 }
             } catch (org.springframework.dao.EmptyResultDataAccessException ignored) {}
         }
-        return jdbcTemplate.queryForList(
-                "SELECT DISTINCT v.ID_VISITANTE, v.ID_PERSONA, v.EMPRESA, v.ES_FRECUENTE " +
-                "FROM VISITANTES v " +
-                "JOIN VISITAS vi ON v.ID_VISITANTE = vi.ID_VISITANTE " +
-                "WHERE v.ES_FRECUENTE = 'S'", Map.of());
+        String sql = """
+            SELECT 
+                v.ID_VISITANTE AS "idVisitante",
+                v.ID_VISITANTE AS "idFrecuente",
+                v.ID_PERSONA AS "idPersona",
+                p.NUMERO_DOCUMENTO AS "documento",
+                p.ID_TIPO_DOCUMENTO AS "idTipoDoc",
+                TRIM(p.PRIMER_NOMBRE || ' ' || NVL(p.PRIMER_APELLIDO, '')) AS "nombreVisitante",
+                p.TELEFONO AS "telefono",
+                p.EMAIL AS "email",
+                v.EMPRESA AS "empresa",
+                v.ES_FRECUENTE AS "esFrecuente",
+                (SELECT MAX(vv.PLACA) FROM VEHICULOS_VISITA vv JOIN VISITAS vi2 ON vv.ID_VISITA = vi2.ID_VISITA WHERE vi2.ID_VISITANTE = v.ID_VISITANTE) AS "ultimaPlaca",
+                (SELECT MAX(vv.TIPO_VEHICULO) FROM VEHICULOS_VISITA vv JOIN VISITAS vi2 ON vv.ID_VISITA = vi2.ID_VISITA WHERE vi2.ID_VISITANTE = v.ID_VISITANTE) AS "ultimoTipoVehiculo",
+                MAX(vi.FECHA_PROGRAMADA) AS "ultimaVisita"
+            FROM VISITANTES v
+            JOIN PERSONAS p ON v.ID_PERSONA = p.ID_PERSONA
+            JOIN VISITAS vi ON v.ID_VISITANTE = vi.ID_VISITANTE
+            WHERE v.ES_FRECUENTE = 'S'
+              AND (
+                  vi.ID_UNIDAD IN (SELECT ru.ID_UNIDAD FROM RESIDENTES_UNIDAD ru WHERE ru.ID_PERSONA = :id AND ru.ESTADO = 'ACTIVO')
+                  OR vi.ID_UNIDAD IN (SELECT ru2.ID_UNIDAD FROM RESIDENTES_UNIDAD ru2 JOIN USUARIOS u ON ru2.ID_PERSONA = u.ID_PERSONA WHERE u.ID_USUARIO = :id)
+                  OR (:userId IS NOT NULL AND vi.ID_UNIDAD IN (SELECT ua.ID_UNIDAD FROM USUARIO_ASIGNACIONES ua WHERE ua.ID_USUARIO = :userId AND ua.ESTADO IN ('ACTIVA', 'ACTIVO') AND ua.ID_UNIDAD IS NOT NULL))
+                  OR vi.AUTORIZADO_POR = :id
+                  OR (:userId IS NOT NULL AND vi.AUTORIZADO_POR = :userId)
+              )
+            GROUP BY v.ID_VISITANTE, v.ID_PERSONA, p.NUMERO_DOCUMENTO, p.ID_TIPO_DOCUMENTO, p.PRIMER_NOMBRE, p.PRIMER_APELLIDO, p.TELEFONO, p.EMAIL, v.EMPRESA, v.ES_FRECUENTE
+            ORDER BY MAX(vi.FECHA_PROGRAMADA) DESC NULLS LAST
+        """;
+        return jdbcTemplate.queryForList(sql, new org.springframework.jdbc.core.namedparam.MapSqlParameterSource()
+                .addValue("id", id)
+                .addValue("userId", userId));
+    }
+
+    @PostMapping("/{id}/frecuentes")
+    @PreAuthorize("hasAuthority('SCOPE_RESIDENTE')")
+    public ResponseEntity<Map<String, Object>> crearFrecuente(@PathVariable Long id, @RequestBody Map<String, Object> body) {
+        Long userId = com.saed.backend.context.SaedContextHolder.getContext() != null
+                ? com.saed.backend.context.SaedContextHolder.getContext().getUserId() : null;
+        if (userId != null) {
+            try {
+                Long myPersonaId = jdbcTemplate.queryForObject(
+                    "SELECT ID_PERSONA FROM USUARIOS WHERE ID_USUARIO = :u",
+                    Map.of("u", userId), Long.class);
+                if (myPersonaId != null && !myPersonaId.equals(id)) {
+                    throw new org.springframework.security.access.AccessDeniedException("No tiene permisos para modificar visitantes de otro residente");
+                }
+            } catch (org.springframework.dao.EmptyResultDataAccessException ignored) {}
+        }
+
+        String doc = body.get("numeroDocumento") != null ? body.get("numeroDocumento").toString().trim() : "";
+        String nom = body.get("nombres") != null ? body.get("nombres").toString().trim() : "Visitante";
+        String ape = body.get("apellidos") != null ? body.get("apellidos").toString().trim() : "";
+        String tel = body.get("telefono") != null ? body.get("telefono").toString().trim() : "";
+        String email = body.get("email") != null ? body.get("email").toString().trim() : "";
+        String empresa = body.get("empresa") != null ? body.get("empresa").toString().trim() : null;
+        Long idTipoDoc = 1L;
+        if (body.get("idTipoDoc") != null) {
+            try { idTipoDoc = Long.valueOf(body.get("idTipoDoc").toString()); } catch (Exception ignored) {}
+        }
+
+        Long personaId = null;
+        if (!doc.isEmpty()) {
+            try {
+                List<Long> pers = jdbcTemplate.query(
+                    "SELECT ID_PERSONA FROM PERSONAS WHERE NUMERO_DOCUMENTO = :doc",
+                    Map.of("doc", doc), (rs, r) -> rs.getLong("ID_PERSONA")
+                );
+                if (!pers.isEmpty()) {
+                    personaId = pers.get(0);
+                }
+            } catch (Exception ignored) {}
+        }
+
+        if (personaId == null) {
+            try {
+                org.springframework.jdbc.support.KeyHolder kh = new org.springframework.jdbc.support.GeneratedKeyHolder();
+                org.springframework.jdbc.core.namedparam.MapSqlParameterSource pParams = new org.springframework.jdbc.core.namedparam.MapSqlParameterSource()
+                    .addValue("idTipo", idTipoDoc)
+                    .addValue("doc", !doc.isEmpty() ? doc : "V-" + System.currentTimeMillis())
+                    .addValue("nom", nom)
+                    .addValue("ape", ape.isBlank() ? "N/A" : ape)
+                    .addValue("tel", tel.isBlank() ? null : tel)
+                    .addValue("email", email.isBlank() ? null : email);
+                jdbcTemplate.update(
+                    "INSERT INTO PERSONAS (ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, PRIMER_NOMBRE, PRIMER_APELLIDO, TELEFONO, EMAIL, ESTADO) " +
+                    "VALUES (:idTipo, :doc, 'NATURAL', :nom, :ape, :tel, :email, 'ACTIVO')",
+                    pParams, kh, new String[]{"ID_PERSONA"}
+                );
+                personaId = extractGeneratedKey(kh, "ID_PERSONA");
+            } catch (Exception ignored) {}
+            if (personaId == null && !doc.isEmpty()) {
+                try {
+                    List<Long> pers = jdbcTemplate.query(
+                        "SELECT ID_PERSONA FROM PERSONAS WHERE NUMERO_DOCUMENTO = :doc",
+                        Map.of("doc", doc), (rs, r) -> rs.getLong("ID_PERSONA")
+                    );
+                    if (!pers.isEmpty()) {
+                        personaId = pers.get(0);
+                    }
+                } catch (Exception ignored) {}
+            }
+        }
+
+        if (personaId == null) {
+            return ResponseEntity.badRequest().body(Map.of("error", "No se pudo registrar la persona del visitante"));
+        }
+
+        Long visitanteId = null;
+        try {
+            List<Long> visList = jdbcTemplate.query(
+                "SELECT ID_VISITANTE FROM VISITANTES WHERE ID_PERSONA = :p",
+                Map.of("p", personaId), (rs, r) -> rs.getLong("ID_VISITANTE")
+            );
+            if (!visList.isEmpty()) {
+                visitanteId = visList.get(0);
+                jdbcTemplate.update(
+                    "UPDATE VISITANTES SET ES_FRECUENTE = 'S', EMPRESA = NVL(:emp, EMPRESA) WHERE ID_VISITANTE = :v",
+                    new org.springframework.jdbc.core.namedparam.MapSqlParameterSource()
+                        .addValue("emp", empresa)
+                        .addValue("v", visitanteId)
+                );
+            } else {
+                org.springframework.jdbc.support.KeyHolder khVis = new org.springframework.jdbc.support.GeneratedKeyHolder();
+                jdbcTemplate.update(
+                    "INSERT INTO VISITANTES (ID_PERSONA, ES_FRECUENTE, EMPRESA, ESTADO) VALUES (:p, 'S', :emp, 'ACTIVO')",
+                    new org.springframework.jdbc.core.namedparam.MapSqlParameterSource()
+                        .addValue("p", personaId)
+                        .addValue("emp", empresa),
+                    khVis, new String[]{"ID_VISITANTE"}
+                );
+                visitanteId = extractGeneratedKey(khVis, "ID_VISITANTE");
+            }
+        } catch (Exception ignored) {}
+
+        if (visitanteId == null) {
+            try {
+                List<Long> visList = jdbcTemplate.query(
+                    "SELECT ID_VISITANTE FROM VISITANTES WHERE ID_PERSONA = :p",
+                    Map.of("p", personaId), (rs, r) -> rs.getLong("ID_VISITANTE")
+                );
+                if (!visList.isEmpty()) {
+                    visitanteId = visList.get(0);
+                }
+            } catch (Exception ignored) {}
+        }
+
+        // Vincular con unidad del residente
+        Long unidadId = null;
+        try {
+            List<Long> uids = jdbcTemplate.query(
+                "SELECT ID_UNIDAD FROM RESIDENTES_UNIDAD WHERE ID_PERSONA = :id AND ESTADO = 'ACTIVO'",
+                Map.of("id", id), (rs, r) -> rs.getLong("ID_UNIDAD")
+            );
+            if (!uids.isEmpty()) {
+                unidadId = uids.get(0);
+            }
+        } catch (Exception ignored) {}
+
+        if (unidadId != null && visitanteId != null) {
+            try {
+                List<Long> existingVisitas = jdbcTemplate.query(
+                    "SELECT ID_VISITA FROM VISITAS WHERE ID_UNIDAD = :u AND ID_VISITANTE = :v",
+                    Map.of("u", unidadId, "v", visitanteId), (rs, r) -> rs.getLong("ID_VISITA")
+                );
+                if (existingVisitas.isEmpty()) {
+                    jdbcTemplate.update(
+                        "INSERT INTO VISITAS (ID_UNIDAD, ID_VISITANTE, METODO_INGRESO, MOTIVO, AUTORIZADO_POR, FECHA_PROGRAMADA, ESTADO) " +
+                        "VALUES (:u, :v, 'MANUAL', 'Visitante frecuente autorizado', :aut, CURRENT_TIMESTAMP, 'PROGRAMADA')",
+                        new org.springframework.jdbc.core.namedparam.MapSqlParameterSource()
+                            .addValue("u", unidadId)
+                            .addValue("v", visitanteId)
+                            .addValue("aut", userId != null ? userId : id)
+                    );
+                }
+            } catch (Exception ignored) {}
+        }
+
+        return ResponseEntity.ok(Map.of("success", true, "idVisitante", visitanteId != null ? visitanteId : 0));
     }
 
     @DeleteMapping("/{id}/frecuentes/{idFrecuente}")
     @PreAuthorize("hasAuthority('SCOPE_RESIDENTE')")
     public ResponseEntity<Void> deleteFrecuente(@PathVariable Long id, @PathVariable Long idFrecuente) {
-        Long userId = com.saed.backend.context.SaedContextHolder.getContext().getUserId();
+        Long userId = com.saed.backend.context.SaedContextHolder.getContext() != null
+                ? com.saed.backend.context.SaedContextHolder.getContext().getUserId() : null;
         if (userId != null) {
             try {
                 Long myPersonaId = jdbcTemplate.queryForObject(
@@ -74,7 +250,8 @@ public class DashboardController {
     @GetMapping("/{id}/qr-activos")
     @PreAuthorize("hasAuthority('SCOPE_RESIDENTE')")
     public List<Map<String, Object>> getQrActivos(@PathVariable Long id) {
-        Long userId = com.saed.backend.context.SaedContextHolder.getContext().getUserId();
+        Long userId = com.saed.backend.context.SaedContextHolder.getContext() != null
+                ? com.saed.backend.context.SaedContextHolder.getContext().getUserId() : null;
         if (userId != null) {
             try {
                 Long myPersonaId = jdbcTemplate.queryForObject(
@@ -85,9 +262,38 @@ public class DashboardController {
                 }
             } catch (org.springframework.dao.EmptyResultDataAccessException ignored) {}
         }
-        return jdbcTemplate.queryForList(
-                "SELECT q.ID_QR, q.ID_VISITA, q.TOKEN_QR AS TOKEN, q.FECHA_EXPIRACION, q.ESTADO " +
-                "FROM QR_ACCESOS q JOIN VISITAS v ON q.ID_VISITA = v.ID_VISITA WHERE q.ESTADO = 'ACTIVO'", Map.of());
+        String sql = """
+            SELECT 
+                q.ID_QR AS "idQr",
+                q.ID_VISITA AS "idVisita",
+                q.TOKEN_QR AS "codigoQr",
+                q.TOKEN_QR AS "token",
+                q.FECHA_EXPIRACION AS "fechaExpiracion",
+                q.FECHA_GENERACION AS "fechaCreacion",
+                q.ESTADO AS "estado",
+                1 AS "cantidadPersonas",
+                v.MOTIVO AS "motivo",
+                TRIM(p.PRIMER_NOMBRE || ' ' || NVL(p.PRIMER_APELLIDO, '')) AS "nombreVisitante",
+                p.NUMERO_DOCUMENTO AS "documentoVisitante"
+            FROM QR_ACCESOS q
+            JOIN VISITAS v ON q.ID_VISITA = v.ID_VISITA
+            LEFT JOIN VISITANTES vis ON v.ID_VISITANTE = vis.ID_VISITANTE
+            LEFT JOIN PERSONAS p ON vis.ID_PERSONA = p.ID_PERSONA
+            WHERE q.ESTADO = 'ACTIVO'
+              AND (q.FECHA_EXPIRACION IS NULL OR q.FECHA_EXPIRACION > CURRENT_TIMESTAMP)
+              AND (q.USOS_PERMITIDOS IS NULL OR NVL(q.USOS_CONSUMIDOS, 0) < q.USOS_PERMITIDOS)
+              AND (
+                  v.ID_UNIDAD IN (SELECT ru.ID_UNIDAD FROM RESIDENTES_UNIDAD ru WHERE ru.ID_PERSONA = :id AND ru.ESTADO = 'ACTIVO')
+                  OR v.ID_UNIDAD IN (SELECT ru2.ID_UNIDAD FROM RESIDENTES_UNIDAD ru2 JOIN USUARIOS u ON ru2.ID_PERSONA = u.ID_PERSONA WHERE u.ID_USUARIO = :id)
+                  OR (:userId IS NOT NULL AND v.ID_UNIDAD IN (SELECT ua.ID_UNIDAD FROM USUARIO_ASIGNACIONES ua WHERE ua.ID_USUARIO = :userId AND ua.ESTADO IN ('ACTIVA', 'ACTIVO') AND ua.ID_UNIDAD IS NOT NULL))
+                  OR v.AUTORIZADO_POR = :id
+                  OR (:userId IS NOT NULL AND v.AUTORIZADO_POR = :userId)
+              )
+            ORDER BY q.ID_QR DESC
+        """;
+        return jdbcTemplate.queryForList(sql, new org.springframework.jdbc.core.namedparam.MapSqlParameterSource()
+                .addValue("id", id)
+                .addValue("userId", userId));
     }
     
     @PostMapping("/{id}/asignar-apartamento")
@@ -134,6 +340,42 @@ public class DashboardController {
             );
         }
         return ResponseEntity.ok().build();
+    }
+
+    private Long extractGeneratedKey(org.springframework.jdbc.support.KeyHolder kh, String columnName) {
+        if (kh == null) return null;
+        try {
+            if (kh.getKey() != null) {
+                return kh.getKey().longValue();
+            }
+        } catch (Exception ignored) {}
+        if (kh.getKeys() != null) {
+            for (Map.Entry<String, Object> entry : kh.getKeys().entrySet()) {
+                if (entry.getKey().equalsIgnoreCase(columnName) && entry.getValue() instanceof Number num) {
+                    return num.longValue();
+                }
+            }
+            for (Map.Entry<String, Object> entry : kh.getKeys().entrySet()) {
+                if (!entry.getKey().equalsIgnoreCase("ROWID") && entry.getValue() instanceof Number num) {
+                    return num.longValue();
+                }
+            }
+        }
+        if (kh.getKeyList() != null && !kh.getKeyList().isEmpty()) {
+            for (Map<String, Object> map : kh.getKeyList()) {
+                for (Map.Entry<String, Object> entry : map.entrySet()) {
+                    if (entry.getKey().equalsIgnoreCase(columnName) && entry.getValue() instanceof Number num) {
+                        return num.longValue();
+                    }
+                }
+                for (Map.Entry<String, Object> entry : map.entrySet()) {
+                    if (!entry.getKey().equalsIgnoreCase("ROWID") && entry.getValue() instanceof Number num) {
+                        return num.longValue();
+                    }
+                }
+            }
+        }
+        return null;
     }
 }
 
