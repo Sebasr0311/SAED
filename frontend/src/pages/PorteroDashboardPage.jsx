@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -20,7 +20,6 @@ import {
   Volume2,
 } from 'lucide-react';
 import { useFetch } from '../lib/hooks.js';
-import api from '../lib/api.js';
 import { useTenantApi } from '../lib/useTenantApi.js';
 import { PageContainer } from '../components/layout/PageContainer.jsx';
 import { MetricCard } from '../components/ui/MetricCard.jsx';
