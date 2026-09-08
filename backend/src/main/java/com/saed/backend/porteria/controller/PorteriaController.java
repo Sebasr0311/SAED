@@ -283,6 +283,14 @@ public class PorteriaController {
             }
         }
 
+        // Marcar como frecuente si se solicita en el registro de visita
+        boolean esFrecuente = Boolean.TRUE.equals(body.get("guardarFrecuente")) || "true".equalsIgnoreCase(String.valueOf(body.get("guardarFrecuente")));
+        if (esFrecuente && visitanteId != null) {
+            try {
+                jdbcTemplate.update("UPDATE VISITANTES SET ES_FRECUENTE = 'S' WHERE ID_VISITANTE = :v", Map.of("v", visitanteId));
+            } catch (Exception ignored) {}
+        }
+
         VisitaRequestDTO request = new VisitaRequestDTO(
             unidadId,
             visitanteId,
@@ -361,6 +369,36 @@ public class PorteriaController {
         }
         body.put("metodoIngreso", "CODIGO_QR");
         return programarVisita(body);
+    }
+
+    @GetMapping("/visitas/buscar")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_PORTERO')")
+    public ResponseEntity<Map<String, Object>> buscarVisitantePorDocumento(@RequestParam(required = false) String documento) {
+        if (documento == null || documento.trim().isEmpty()) {
+            return ResponseEntity.ok(Map.of());
+        }
+        try {
+            List<Map<String, Object>> list = jdbcTemplate.queryForList(
+                "SELECT p.ID_PERSONA, p.ID_TIPO_DOCUMENTO, p.NUMERO_DOCUMENTO, p.PRIMER_NOMBRE, p.PRIMER_APELLIDO, p.TELEFONO, p.EMAIL " +
+                "FROM PERSONAS p WHERE p.NUMERO_DOCUMENTO = :doc AND ROWNUM = 1",
+                Map.of("doc", documento.trim())
+            );
+            if (!list.isEmpty()) {
+                Map<String, Object> row = list.get(0);
+                Map<String, Object> res = new HashMap<>();
+                res.put("idPersona", row.get("ID_PERSONA"));
+                res.put("idTipoDoc", row.get("ID_TIPO_DOCUMENTO"));
+                res.put("numeroDocumento", row.get("NUMERO_DOCUMENTO"));
+                res.put("nombres", row.get("PRIMER_NOMBRE"));
+                res.put("apellidos", row.get("PRIMER_APELLIDO"));
+                res.put("telefono", row.get("TELEFONO"));
+                res.put("email", row.get("EMAIL"));
+                return ResponseEntity.ok(res);
+            }
+        } catch (Exception e) {
+            log.warning("Error buscando visitante por documento: " + e.getMessage());
+        }
+        return ResponseEntity.ok(Map.of());
     }
 
     @GetMapping("/visitas/{id}")

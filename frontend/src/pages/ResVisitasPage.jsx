@@ -337,6 +337,7 @@ export default function ResVisitasPage() {
         tiempoValidezMin: Number(form.tiempoValidezMin),
         cantidadPersonas: Number(form.cantidadPersonas),
         notas: form.motivo?.trim() || null,
+        guardarFrecuente: Boolean(form.guardarFrecuente),
       };
 
       if (!payload.visitante.idTipoDoc) delete payload.visitante.idTipoDoc;
