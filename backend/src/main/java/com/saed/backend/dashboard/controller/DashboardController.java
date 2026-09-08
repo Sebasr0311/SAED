@@ -121,68 +121,47 @@ public class DashboardController {
             } catch (Exception ignored) {}
         }
 
-        if (personaId == null) {
-            try {
-                org.springframework.jdbc.support.KeyHolder kh = new org.springframework.jdbc.support.GeneratedKeyHolder();
-                org.springframework.jdbc.core.namedparam.MapSqlParameterSource pParams = new org.springframework.jdbc.core.namedparam.MapSqlParameterSource()
-                    .addValue("idTipo", idTipoDoc)
-                    .addValue("doc", !doc.isEmpty() ? doc : "V-" + System.currentTimeMillis())
-                    .addValue("nom", nom)
-                    .addValue("ape", ape.isBlank() ? "N/A" : ape)
-                    .addValue("tel", tel.isBlank() ? null : tel)
-                    .addValue("email", email.isBlank() ? null : email);
-                jdbcTemplate.update(
-                    "INSERT INTO PERSONAS (ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, PRIMER_NOMBRE, PRIMER_APELLIDO, TELEFONO, EMAIL, ESTADO) " +
-                    "VALUES (:idTipo, :doc, 'NATURAL', :nom, :ape, :tel, :email, 'ACTIVO')",
-                    pParams, kh, new String[]{"ID_PERSONA"}
-                );
-                personaId = extractGeneratedKey(kh, "ID_PERSONA");
-            } catch (Exception ignored) {}
-            if (personaId == null && !doc.isEmpty()) {
-                try {
-                    List<Long> pers = jdbcTemplate.query(
-                        "SELECT ID_PERSONA FROM PERSONAS WHERE NUMERO_DOCUMENTO = :doc",
-                        Map.of("doc", doc), (rs, r) -> rs.getLong("ID_PERSONA")
-                    );
-                    if (!pers.isEmpty()) {
-                        personaId = pers.get(0);
-                    }
-                } catch (Exception ignored) {}
-            }
-        }
-
-        if (personaId == null) {
-            return ResponseEntity.badRequest().body(Map.of("error", "No se pudo registrar la persona del visitante"));
-        }
+        Long effectiveUserId = userId != null ? userId : 1L;
+        try {
+            jdbcTemplate.getJdbcOperations().execute("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(" + effectiveUserId + "); END;");
+        } catch (Exception ignored) {}
 
         Long visitanteId = null;
         try {
-            List<Long> visList = jdbcTemplate.query(
-                "SELECT ID_VISITANTE FROM VISITANTES WHERE ID_PERSONA = :p",
-                Map.of("p", personaId), (rs, r) -> rs.getLong("ID_VISITANTE")
-            );
-            if (!visList.isEmpty()) {
-                visitanteId = visList.get(0);
-                jdbcTemplate.update(
-                    "UPDATE VISITANTES SET ES_FRECUENTE = 'S', EMPRESA = NVL(:emp, EMPRESA) WHERE ID_VISITANTE = :v",
-                    new org.springframework.jdbc.core.namedparam.MapSqlParameterSource()
-                        .addValue("emp", empresa)
-                        .addValue("v", visitanteId)
-                );
-            } else {
-                org.springframework.jdbc.support.KeyHolder khVis = new org.springframework.jdbc.support.GeneratedKeyHolder();
-                jdbcTemplate.update(
-                    "INSERT INTO VISITANTES (ID_PERSONA, ES_FRECUENTE, EMPRESA, ESTADO) VALUES (:p, 'S', :emp, 'ACTIVO')",
-                    new org.springframework.jdbc.core.namedparam.MapSqlParameterSource()
-                        .addValue("p", personaId)
-                        .addValue("emp", empresa),
-                    khVis, new String[]{"ID_VISITANTE"}
-                );
-                visitanteId = extractGeneratedKey(khVis, "ID_VISITANTE");
+            if (personaId == null) {
+                try {
+                    org.springframework.jdbc.support.KeyHolder kh = new org.springframework.jdbc.support.GeneratedKeyHolder();
+                    org.springframework.jdbc.core.namedparam.MapSqlParameterSource pParams = new org.springframework.jdbc.core.namedparam.MapSqlParameterSource()
+                        .addValue("idTipo", idTipoDoc)
+                        .addValue("doc", !doc.isEmpty() ? doc : "V-" + System.currentTimeMillis())
+                        .addValue("nom", nom)
+                        .addValue("ape", ape.isBlank() ? "N/A" : ape)
+                        .addValue("tel", tel.isBlank() ? null : tel)
+                        .addValue("email", email.isBlank() ? null : email);
+                    jdbcTemplate.update(
+                        "INSERT INTO PERSONAS (ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, PRIMER_NOMBRE, PRIMER_APELLIDO, TELEFONO, EMAIL, ESTADO) " +
+                        "VALUES (:idTipo, :doc, 'NATURAL', :nom, :ape, :tel, :email, 'ACTIVO')",
+                        pParams, kh, new String[]{"ID_PERSONA"}
+                    );
+                    personaId = extractGeneratedKey(kh, "ID_PERSONA");
+                } catch (Exception ignored) {}
+                if (personaId == null && !doc.isEmpty()) {
+                    try {
+                        List<Long> pers = jdbcTemplate.query(
+                            "SELECT ID_PERSONA FROM PERSONAS WHERE NUMERO_DOCUMENTO = :doc",
+                            Map.of("doc", doc), (rs, r) -> rs.getLong("ID_PERSONA")
+                        );
+                        if (!pers.isEmpty()) {
+                            personaId = pers.get(0);
+                        }
+                    } catch (Exception ignored) {}
+                }
             }
-        } catch (Exception ignored) {}
 
-        if (visitanteId == null) {
+            if (personaId == null) {
+                return ResponseEntity.badRequest().body(Map.of("error", "No se pudo registrar la persona del visitante"));
+            }
+
             try {
                 List<Long> visList = jdbcTemplate.query(
                     "SELECT ID_VISITANTE FROM VISITANTES WHERE ID_PERSONA = :p",
@@ -190,8 +169,38 @@ public class DashboardController {
                 );
                 if (!visList.isEmpty()) {
                     visitanteId = visList.get(0);
+                    jdbcTemplate.update(
+                        "UPDATE VISITANTES SET ES_FRECUENTE = 'S', EMPRESA = NVL(:emp, EMPRESA) WHERE ID_VISITANTE = :v",
+                        new org.springframework.jdbc.core.namedparam.MapSqlParameterSource()
+                            .addValue("emp", empresa)
+                            .addValue("v", visitanteId)
+                    );
+                } else {
+                    org.springframework.jdbc.support.KeyHolder khVis = new org.springframework.jdbc.support.GeneratedKeyHolder();
+                    jdbcTemplate.update(
+                        "INSERT INTO VISITANTES (ID_PERSONA, ES_FRECUENTE, EMPRESA, ESTADO) VALUES (:p, 'S', :emp, 'ACTIVO')",
+                        new org.springframework.jdbc.core.namedparam.MapSqlParameterSource()
+                            .addValue("p", personaId)
+                            .addValue("emp", empresa),
+                        khVis, new String[]{"ID_VISITANTE"}
+                    );
+                    visitanteId = extractGeneratedKey(khVis, "ID_VISITANTE");
                 }
             } catch (Exception ignored) {}
+
+            if (visitanteId == null) {
+                try {
+                    List<Long> visList = jdbcTemplate.query(
+                        "SELECT ID_VISITANTE FROM VISITANTES WHERE ID_PERSONA = :p",
+                        Map.of("p", personaId), (rs, r) -> rs.getLong("ID_VISITANTE")
+                    );
+                    if (!visList.isEmpty()) {
+                        visitanteId = visList.get(0);
+                    }
+                } catch (Exception ignored) {}
+            }
+        } finally {
+            restoreSaedContext();
         }
 
         // Vincular con unidad del residente
@@ -376,6 +385,23 @@ public class DashboardController {
             }
         }
         return null;
+    }
+
+    private void restoreSaedContext() {
+        try {
+            com.saed.backend.context.SaedContext ctx = com.saed.backend.context.SaedContextHolder.getContext();
+            if (ctx != null && ctx.getUserId() != null && ctx.getRoleCode() != null) {
+                Long orgId = ctx.getOrganizationId() != null ? ctx.getOrganizationId() : 0L;
+                jdbcTemplate.update(
+                    "BEGIN PKG_SAED_SESSION.SET_CONTEXT(:u, :o, :p, :r); END;",
+                    new org.springframework.jdbc.core.namedparam.MapSqlParameterSource()
+                        .addValue("u", ctx.getUserId())
+                        .addValue("o", orgId)
+                        .addValue("p", ctx.getPropertyId())
+                        .addValue("r", ctx.getRoleCode())
+                );
+            }
+        } catch (Exception ignored) {}
     }
 }
 

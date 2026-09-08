@@ -116,7 +116,12 @@ public class IncidenteRepositoryImpl implements IncidenteRepository {
             
             ps.setString(5, incidente.getTitulo());
             ps.setString(6, incidente.getTipoIncidente());
-            ps.setString(7, incidente.getNivelSeveridad() != null ? incidente.getNivelSeveridad() : "MODERADA");
+            String sev = incidente.getNivelSeveridad() != null ? incidente.getNivelSeveridad().trim().toUpperCase() : "MODERADA";
+            if ("MEDIA".equals(sev)) sev = "MODERADA";
+            else if ("BAJA".equals(sev)) sev = "LEVE";
+            else if ("ALTA".equals(sev)) sev = "GRAVE";
+            else if (!java.util.List.of("LEVE", "MODERADA", "GRAVE", "CRITICA").contains(sev)) sev = "MODERADA";
+            ps.setString(7, sev);
             ps.setString(8, incidente.getDescripcionHechos());
             ps.setTimestamp(9, Timestamp.from(incidente.getFechaHoraIncidente().toInstant()));
             ps.setLong(10, registradoPor);

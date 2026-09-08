@@ -156,7 +156,7 @@ function ModalGenerarMulta({ open, onClose, onConfirm, apartamentos, tipoInicial
         idUnidad: Number(idApartamento),
         titulo: tipo === 'RUIDO' ? 'Infracción por Ruido Excesivo' : 'Infracción por Uso Indebido de Parqueadero',
         tipoIncidente: tipo === 'RUIDO' ? 'CONVIVENCIA' : 'PARQUEADERO',
-        nivelSeveridad: 'MEDIA',
+        nivelSeveridad: 'MODERADA',
         descripcionHechos: descripcion.trim() || (tipo === 'RUIDO' ? 'Ruido excesivo reiterado reportado desde portería' : 'Infracción de parqueadero reportada desde portería'),
         fechaHoraIncidente: new Date().toISOString(),
         evidenciasUrls: foto || null,

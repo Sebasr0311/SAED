@@ -226,59 +226,47 @@ public class PorteriaController {
                 } catch (Exception ignored) {}
             }
 
-            if (personaId == null) {
-                try {
-                    KeyHolder kh = new GeneratedKeyHolder();
-                    MapSqlParameterSource pParams = new MapSqlParameterSource()
-                        .addValue("idTipo", idTipoDoc)
-                        .addValue("doc", !doc.isEmpty() ? doc : "V-" + System.currentTimeMillis())
-                        .addValue("nom", nom)
-                        .addValue("ape", ape.isBlank() ? "N/A" : ape)
-                        .addValue("tel", tel.isBlank() ? null : tel)
-                        .addValue("email", email.isBlank() ? null : email);
-                    jdbcTemplate.update(
-                        "INSERT INTO PERSONAS (ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, PRIMER_NOMBRE, PRIMER_APELLIDO, TELEFONO, EMAIL, ESTADO) " +
-                        "VALUES (:idTipo, :doc, 'NATURAL', :nom, :ape, :tel, :email, 'ACTIVO')",
-                        pParams, kh, new String[]{"ID_PERSONA"}
-                    );
-                    personaId = extractGeneratedKey(kh, "ID_PERSONA");
-                } catch (Exception e) {
-                    log.warning("Error creando persona para visitante: " + e.getMessage());
-                }
-                if (personaId == null && !doc.isEmpty()) {
-                    try {
-                        List<Long> pers = jdbcTemplate.query(
-                            "SELECT ID_PERSONA FROM PERSONAS WHERE NUMERO_DOCUMENTO = :doc",
-                            Map.of("doc", doc), (rs, r) -> rs.getLong("ID_PERSONA")
-                        );
-                        if (!pers.isEmpty()) {
-                            personaId = pers.get(0);
-                        }
-                    } catch (Exception ignored) {}
-                }
-            }
+            // Cambiar a contexto BOOTSTRAP para que Oracle RLS no bloquee el INSERT
+            // de un visitante que aún no tiene registro en VISITAS (evita ORA-28115).
+            Long effectiveUserId = currentUserId != null ? currentUserId : (autorizadoPor != null ? autorizadoPor : 1L);
+            try {
+                jdbcTemplate.getJdbcOperations().execute("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(" + effectiveUserId + "); END;");
+            } catch (Exception ignored) {}
 
-            if (personaId != null) {
-                try {
-                    List<Long> visList = jdbcTemplate.query(
-                        "SELECT ID_VISITANTE FROM VISITANTES WHERE ID_PERSONA = :p",
-                        Map.of("p", personaId), (rs, r) -> rs.getLong("ID_VISITANTE")
-                    );
-                    if (!visList.isEmpty()) {
-                        visitanteId = visList.get(0);
-                    } else {
-                        KeyHolder khVis = new GeneratedKeyHolder();
+            try {
+                if (personaId == null) {
+                    try {
+                        KeyHolder kh = new GeneratedKeyHolder();
+                        MapSqlParameterSource pParams = new MapSqlParameterSource()
+                            .addValue("idTipo", idTipoDoc)
+                            .addValue("doc", !doc.isEmpty() ? doc : "V-" + System.currentTimeMillis())
+                            .addValue("nom", nom)
+                            .addValue("ape", ape.isBlank() ? "N/A" : ape)
+                            .addValue("tel", tel.isBlank() ? null : tel)
+                            .addValue("email", email.isBlank() ? null : email);
                         jdbcTemplate.update(
-                            "INSERT INTO VISITANTES (ID_PERSONA, ES_FRECUENTE, ESTADO) VALUES (:p, 'N', 'ACTIVO')",
-                            new MapSqlParameterSource("p", personaId),
-                            khVis, new String[]{"ID_VISITANTE"}
+                            "INSERT INTO PERSONAS (ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, PRIMER_NOMBRE, PRIMER_APELLIDO, TELEFONO, EMAIL, ESTADO) " +
+                            "VALUES (:idTipo, :doc, 'NATURAL', :nom, :ape, :tel, :email, 'ACTIVO')",
+                            pParams, kh, new String[]{"ID_PERSONA"}
                         );
-                        visitanteId = extractGeneratedKey(khVis, "ID_VISITANTE");
+                        personaId = extractGeneratedKey(kh, "ID_PERSONA");
+                    } catch (Exception e) {
+                        log.warning("Error creando persona para visitante: " + e.getMessage());
                     }
-                } catch (Exception e) {
-                    log.warning("Error resolviendo ID_VISITANTE: " + e.getMessage());
+                    if (personaId == null && !doc.isEmpty()) {
+                        try {
+                            List<Long> pers = jdbcTemplate.query(
+                                "SELECT ID_PERSONA FROM PERSONAS WHERE NUMERO_DOCUMENTO = :doc",
+                                Map.of("doc", doc), (rs, r) -> rs.getLong("ID_PERSONA")
+                            );
+                            if (!pers.isEmpty()) {
+                                personaId = pers.get(0);
+                            }
+                        } catch (Exception ignored) {}
+                    }
                 }
-                if (visitanteId == null) {
+
+                if (personaId != null) {
                     try {
                         List<Long> visList = jdbcTemplate.query(
                             "SELECT ID_VISITANTE FROM VISITANTES WHERE ID_PERSONA = :p",
@@ -286,22 +274,37 @@ public class PorteriaController {
                         );
                         if (!visList.isEmpty()) {
                             visitanteId = visList.get(0);
+                        } else {
+                            KeyHolder khVis = new GeneratedKeyHolder();
+                            jdbcTemplate.update(
+                                "INSERT INTO VISITANTES (ID_PERSONA, ES_FRECUENTE, ESTADO) VALUES (:p, 'N', 'ACTIVO')",
+                                new MapSqlParameterSource("p", personaId),
+                                khVis, new String[]{"ID_VISITANTE"}
+                            );
+                            visitanteId = extractGeneratedKey(khVis, "ID_VISITANTE");
                         }
-                    } catch (Exception ignored) {}
+                    } catch (Exception e) {
+                        log.warning("Error resolviendo ID_VISITANTE: " + e.getMessage());
+                    }
+                    if (visitanteId == null) {
+                        try {
+                            List<Long> visList = jdbcTemplate.query(
+                                "SELECT ID_VISITANTE FROM VISITANTES WHERE ID_PERSONA = :p",
+                                Map.of("p", personaId), (rs, r) -> rs.getLong("ID_VISITANTE")
+                            );
+                            if (!visList.isEmpty()) {
+                                visitanteId = visList.get(0);
+                            }
+                        } catch (Exception ignored) {}
+                    }
                 }
+            } finally {
+                restoreSaedContext();
             }
         }
 
         if (visitanteId == null) {
             throw new IllegalStateException("No fue posible registrar la información del visitante. Verifique que los datos del documento y nombre sean válidos.");
-        }
-
-        // Marcar como frecuente si se solicita en el registro de visita
-        boolean esFrecuente = Boolean.TRUE.equals(body.get("guardarFrecuente")) || "true".equalsIgnoreCase(String.valueOf(body.get("guardarFrecuente")));
-        if (esFrecuente) {
-            try {
-                jdbcTemplate.update("UPDATE VISITANTES SET ES_FRECUENTE = 'S' WHERE ID_VISITANTE = :v", Map.of("v", visitanteId));
-            } catch (Exception ignored) {}
         }
 
         VisitaRequestDTO request = new VisitaRequestDTO(
@@ -315,6 +318,14 @@ public class PorteriaController {
         );
 
         VisitaDTO visita = porteriaService.programarVisita(request);
+
+        // Marcar como frecuente si se solicita en el registro de visita
+        boolean esFrecuente = Boolean.TRUE.equals(body.get("guardarFrecuente")) || "true".equalsIgnoreCase(String.valueOf(body.get("guardarFrecuente")));
+        if (esFrecuente) {
+            try {
+                jdbcTemplate.update("UPDATE VISITANTES SET ES_FRECUENTE = 'S' WHERE ID_VISITANTE = :v", Map.of("v", visitanteId));
+            } catch (Exception ignored) {}
+        }
 
         // Duración QR
         int validezMin = 1440;
@@ -580,5 +591,22 @@ public class PorteriaController {
             }
         }
         return null;
+    }
+
+    private void restoreSaedContext() {
+        try {
+            com.saed.backend.context.SaedContext ctx = SaedContextHolder.getContext();
+            if (ctx != null && ctx.getUserId() != null && ctx.getRoleCode() != null) {
+                Long orgId = ctx.getOrganizationId() != null ? ctx.getOrganizationId() : 0L;
+                jdbcTemplate.update(
+                    "BEGIN PKG_SAED_SESSION.SET_CONTEXT(:u, :o, :p, :r); END;",
+                    new MapSqlParameterSource()
+                        .addValue("u", ctx.getUserId())
+                        .addValue("o", orgId)
+                        .addValue("p", ctx.getPropertyId())
+                        .addValue("r", ctx.getRoleCode())
+                );
+            }
+        } catch (Exception ignored) {}
     }
 }

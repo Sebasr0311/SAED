@@ -174,14 +174,29 @@ public class DatabaseSeeder implements ApplicationRunner {
 
             // 13. Fix RLS en VISITANTES (permitir inserción de visitantes sin violación de check_option)
             try {
-                jdbcTemplate.execute("BEGIN DBMS_RLS.DROP_POLICY(NULL, 'VISITANTES', 'POL_RLS_PROP_VISITANTES'); EXCEPTION WHEN OTHERS THEN NULL; END;");
-                jdbcTemplate.execute("BEGIN " +
-                    "DBMS_RLS.ADD_POLICY(NULL, 'VISITANTES', 'POL_RLS_PROP_VISITANTES', NULL, " +
-                    "'PKG_SAED_SECURITY_RLS.FN_FILTRO_PROPIEDAD', 'SELECT,UPDATE,DELETE', FALSE, TRUE); " +
-                    "EXCEPTION WHEN OTHERS THEN NULL; END;");
+                jdbcTemplate.execute("DECLARE " +
+                    "BEGIN " +
+                    "  BEGIN DBMS_RLS.DROP_GROUPED_POLICY(USER, 'VISITANTES', 'SYS_DEFAULT', 'POL_RLS_PROP_VISITANTES'); EXCEPTION WHEN OTHERS THEN NULL; END; " +
+                    "  BEGIN DBMS_RLS.DROP_GROUPED_POLICY(NULL, 'VISITANTES', 'SYS_DEFAULT', 'POL_RLS_PROP_VISITANTES'); EXCEPTION WHEN OTHERS THEN NULL; END; " +
+                    "  BEGIN DBMS_RLS.DROP_POLICY(USER, 'VISITANTES', 'POL_RLS_PROP_VISITANTES'); EXCEPTION WHEN OTHERS THEN NULL; END; " +
+                    "  BEGIN DBMS_RLS.DROP_POLICY(NULL, 'VISITANTES', 'POL_RLS_PROP_VISITANTES'); EXCEPTION WHEN OTHERS THEN NULL; END; " +
+                    "  BEGIN " +
+                    "    DBMS_RLS.ADD_POLICY( " +
+                    "      object_schema   => USER, " +
+                    "      object_name     => 'VISITANTES', " +
+                    "      policy_name     => 'POL_RLS_PROP_VISITANTES', " +
+                    "      function_schema => USER, " +
+                    "      policy_function => 'PKG_SAED_SECURITY_RLS.FN_FILTRO_PROPIEDAD', " +
+                    "      statement_types => 'SELECT,UPDATE,DELETE', " +
+                    "      update_check    => FALSE, " +
+                    "      enable          => TRUE " +
+                    "    ); " +
+                    "  EXCEPTION WHEN OTHERS THEN NULL; " +
+                    "  END; " +
+                    "END;");
                 log.info("Ajustada política RLS POL_RLS_PROP_VISITANTES en VISITANTES (SELECT,UPDATE,DELETE)");
             } catch (Exception e) {
-                log.debug("Aviso al ajustar RLS en VISITANTES: {}", e.getMessage());
+                log.warn("Aviso al ajustar RLS en VISITANTES: {}", e.getMessage());
             }
 
             log.info("SAED Database Seeder completed successfully.");
