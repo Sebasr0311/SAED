@@ -20,13 +20,13 @@ public class DocumentoServiceImpl implements DocumentoService {
 
     @Override
     public List<DocumentoDTO> getDocumentosAdmin() {
-        Long idPropiedad = SaedContextHolder.getContext().getPropertyId();
+        Long idPropiedad = SaedContextHolder.getContext() != null ? SaedContextHolder.getContext().getPropertyId() : null;
         return documentoRepository.findAllByPropiedad(idPropiedad);
     }
 
     @Override
     public List<DocumentoDTO> getDocumentosResidente() {
-        Long idPropiedad = SaedContextHolder.getContext().getPropertyId();
+        Long idPropiedad = SaedContextHolder.getContext() != null ? SaedContextHolder.getContext().getPropertyId() : null;
         return documentoRepository.findPublicosByPropiedad(idPropiedad);
     }
 

@@ -77,16 +77,41 @@ public class ComunicadosController {
 
         List<Long> userIds = new java.util.ArrayList<>();
         if (idResidente != null) {
-            userIds.add(idResidente);
-        } else if (idApartamento != null) {
             try {
-                userIds = jdbcTemplate.query(
-                    "SELECT u.ID_USUARIO FROM UNIDADES_HABITANTES uh " +
-                    "JOIN USUARIOS u ON uh.ID_PERSONA = u.ID_PERSONA " +
-                    "WHERE uh.ID_UNIDAD = :idUnidad AND uh.ACTIVO = 'S'",
+                List<Long> uCheck = jdbcTemplate.query(
+                    "SELECT ID_USUARIO FROM USUARIOS WHERE ID_USUARIO = :id",
+                    Map.of("id", idResidente), (rs, r) -> rs.getLong("ID_USUARIO")
+                );
+                if (!uCheck.isEmpty()) {
+                    userIds.add(idResidente);
+                } else {
+                    List<Long> pUids = jdbcTemplate.query(
+                        "SELECT ID_USUARIO FROM USUARIOS WHERE ID_PERSONA = :id",
+                        Map.of("id", idResidente), (rs, r) -> rs.getLong("ID_USUARIO")
+                    );
+                    userIds.addAll(pUids);
+                }
+            } catch (Exception ignored) {
+                userIds.add(idResidente);
+            }
+        }
+        if (idApartamento != null) {
+            try {
+                List<Long> aptUsers = jdbcTemplate.query(
+                    "SELECT ua.ID_USUARIO FROM USUARIO_ASIGNACIONES ua " +
+                    "WHERE ua.ID_UNIDAD = :idUnidad AND ua.ESTADO IN ('ACTIVA', 'ACTIVO') " +
+                    "UNION " +
+                    "SELECT u.ID_USUARIO FROM RESIDENTES_UNIDAD ru " +
+                    "JOIN USUARIOS u ON ru.ID_PERSONA = u.ID_PERSONA " +
+                    "WHERE ru.ID_UNIDAD = :idUnidad AND ru.ESTADO = 'ACTIVO'",
                     Map.of("idUnidad", idApartamento),
                     (rs, rowNum) -> rs.getLong("ID_USUARIO")
                 );
+                for (Long uid : aptUsers) {
+                    if (!userIds.contains(uid)) {
+                        userIds.add(uid);
+                    }
+                }
             } catch (Exception e) {
                 log.warning("No se pudieron resolver usuarios para aviso de ruido: " + e.getMessage());
             }

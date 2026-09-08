@@ -164,6 +164,14 @@ public class DatabaseSeeder implements ApplicationRunner {
                    "WHERE LOWER(u.NOMBRE_USUARIO) = 'residente_hor' AND r.CODIGO = 'RESIDENTE' " +
                    "AND NOT EXISTS (SELECT 1 FROM USUARIO_ASIGNACIONES ua WHERE ua.ID_USUARIO = u.ID_USUARIO AND ua.ID_ROL = r.ID_ROL AND ua.ESTADO = 'ACTIVA')");
 
+            // 12. Fix RLS en VERSIONES_DOCUMENTO (remover politica con ORA-00904 en tabla sin ID_PROPIEDAD)
+            try {
+                jdbcTemplate.execute("BEGIN DBMS_RLS.DROP_POLICY(NULL, 'VERSIONES_DOCUMENTO', 'POL_RLS_PROP_VERSIONES_DOCUM'); EXCEPTION WHEN OTHERS THEN NULL; END;");
+                log.info("Verificada/eliminada política RLS conflictiva POL_RLS_PROP_VERSIONES_DOCUM de VERSIONES_DOCUMENTO");
+            } catch (Exception e) {
+                log.debug("Aviso al verificar RLS en VERSIONES_DOCUMENTO: {}", e.getMessage());
+            }
+
             log.info("SAED Database Seeder completed successfully.");
         } catch (Exception ex) {
             log.warn("Database seeding encountered a non-fatal exception: {}", ex.getMessage());
