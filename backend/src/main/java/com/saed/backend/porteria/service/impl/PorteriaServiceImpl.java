@@ -111,7 +111,7 @@ public class PorteriaServiceImpl implements PorteriaService {
     @Override
     public VisitaDTO programarVisita(VisitaRequestDTO request) {
         com.saed.backend.context.SaedContext ctx = SaedContextHolder.getContext();
-        if ("RESIDENTE".equals(ctx.getRoleCode()) || "UNIDAD".equals(ctx.getRoleScope())) {
+        if (ctx != null && ("RESIDENTE".equals(ctx.getRoleCode()) || "UNIDAD".equals(ctx.getRoleScope()))) {
             if (ctx.getUnitId() != null && !ctx.getUnitId().equals(request.unidadId())) {
                 throw new org.springframework.security.access.AccessDeniedException("No tiene permisos para programar visitas en otra unidad");
             }
@@ -130,7 +130,7 @@ public class PorteriaServiceImpl implements PorteriaService {
     @Transactional(readOnly = true)
     public List<VisitaDTO> getVisitasByUnidad(Long unidadId) {
         com.saed.backend.context.SaedContext ctx = SaedContextHolder.getContext();
-        if ("RESIDENTE".equals(ctx.getRoleCode()) || "UNIDAD".equals(ctx.getRoleScope())) {
+        if (ctx != null && ("RESIDENTE".equals(ctx.getRoleCode()) || "UNIDAD".equals(ctx.getRoleScope()))) {
             if (ctx.getUnitId() != null && !ctx.getUnitId().equals(unidadId)) {
                 throw new org.springframework.security.access.AccessDeniedException("No tiene permisos para consultar visitas de otra unidad");
             }

@@ -28,7 +28,7 @@ import {
 import { useTenant } from '../lib/TenantContext.jsx';
 import { useTenantApi } from '../lib/useTenantApi.js';
 import { useFetch } from '../lib/hooks.js';
-import { formatDate } from '../lib/utils.js';
+import { formatDate, formatDateTime } from '../lib/utils.js';
 import { valPlaca } from '../lib/validation.js';
 import { PageContainer } from '../components/layout/PageContainer.jsx';
 import { MetricCard } from '../components/ui/MetricCard.jsx';
@@ -851,7 +851,7 @@ export default function EscannerQRPage() {
                           Vigencia de la credencial:
                         </span>
                         <span className="font-mono font-semibold text-foreground">
-                          {formatDate(resultadoQr.fechaExpiracion)}
+                          {formatDateTime(resultadoQr.fechaExpiracion)}
                         </span>
                       </div>
                     )}

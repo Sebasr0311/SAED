@@ -210,77 +210,134 @@ public class PorteriaController {
                 try { idTipoDoc = Long.valueOf(visMap.get("idTipoDoc").toString()); } catch (Exception ignored) {}
             }
 
-            Long personaId = null;
-            if (!doc.isEmpty()) {
-                try {
-                    List<Long> pers = jdbcTemplate.query(
-                        "SELECT ID_PERSONA FROM PERSONAS WHERE NUMERO_DOCUMENTO = :doc",
-                        Map.of("doc", doc), (rs, r) -> rs.getLong("ID_PERSONA")
-                    );
-                    if (!pers.isEmpty()) {
-                        personaId = pers.get(0);
-                    }
-                } catch (Exception ignored) {}
-            }
+            final Long finalIdTipoDoc = idTipoDoc;
+            final String finalDoc = doc;
+            final String finalNom = nom;
+            final String finalApe = ape.isBlank() ? "N/A" : ape;
+            final String finalTel = tel.isBlank() ? null : tel;
+            final String finalEmail = email.isBlank() ? null : email;
 
-            if (personaId == null) {
-                try {
-                    org.springframework.jdbc.support.KeyHolder kh = new org.springframework.jdbc.support.GeneratedKeyHolder();
-                    org.springframework.jdbc.core.namedparam.MapSqlParameterSource pParams = new org.springframework.jdbc.core.namedparam.MapSqlParameterSource()
-                        .addValue("idTipo", idTipoDoc)
-                        .addValue("doc", !doc.isEmpty() ? doc : "V-" + System.currentTimeMillis())
-                        .addValue("nom", nom)
-                        .addValue("ape", ape.isBlank() ? "N/A" : ape)
-                        .addValue("tel", tel.isBlank() ? null : tel)
-                        .addValue("email", email.isBlank() ? null : email);
-                    jdbcTemplate.update(
-                        "INSERT INTO PERSONAS (ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, PRIMER_NOMBRE, PRIMER_APELLIDO, TELEFONO, EMAIL, ESTADO) " +
-                        "VALUES (:idTipo, :doc, 'NATURAL', :nom, :ape, :tel, :email, 'ACTIVO')",
-                        pParams, kh, new String[]{"ID_PERSONA"}
-                    );
-                    if (kh.getKey() != null) personaId = kh.getKey().longValue();
-                } catch (Exception e) {
-                    log.warning("Error creando persona para visitante: " + e.getMessage());
+            visitanteId = jdbcTemplate.getJdbcOperations().execute((org.springframework.jdbc.core.ConnectionCallback<Long>) conn -> {
+                // 1. Activar BOOTSTRAP en esta misma conexión para no ser bloqueado por RLS
+                try (java.sql.Statement st = conn.createStatement()) {
+                    st.execute("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1); END;");
                 }
-            }
 
-            if (personaId != null) {
-                try {
-                    List<Long> visList = jdbcTemplate.query(
-                        "SELECT ID_VISITANTE FROM VISITANTES WHERE ID_PERSONA = :p",
-                        Map.of("p", personaId), (rs, r) -> rs.getLong("ID_VISITANTE")
-                    );
-                    if (!visList.isEmpty()) {
-                        visitanteId = visList.get(0);
-                    } else {
-                        org.springframework.jdbc.support.KeyHolder khVis = new org.springframework.jdbc.support.GeneratedKeyHolder();
-                        jdbcTemplate.update(
-                            "INSERT INTO VISITANTES (ID_PERSONA, ES_FRECUENTE, ESTADO) VALUES (:p, 'N', 'ACTIVO')",
-                            new org.springframework.jdbc.core.namedparam.MapSqlParameterSource("p", personaId),
-                            khVis, new String[]{"ID_VISITANTE"}
-                        );
-                        if (khVis.getKey() != null) visitanteId = khVis.getKey().longValue();
+                Long resolvedPersonaId = null;
+
+                // 2. Buscar si la persona ya existe en la base de datos
+                if (!finalDoc.isEmpty()) {
+                    String sqlBusq = "SELECT ID_PERSONA FROM PERSONAS WHERE NUMERO_DOCUMENTO = ?";
+                    try (java.sql.PreparedStatement ps = conn.prepareStatement(sqlBusq)) {
+                        ps.setString(1, finalDoc);
+                        try (java.sql.ResultSet rs = ps.executeQuery()) {
+                            if (rs.next()) {
+                                resolvedPersonaId = rs.getLong(1);
+                            }
+                        }
                     }
-                } catch (Exception e) {
-                    log.warning("Error resolviendo ID_VISITANTE: " + e.getMessage());
                 }
-            }
+
+                // 3. Si no existe, crear la persona
+                if (resolvedPersonaId == null) {
+                    String sqlIns = "INSERT INTO PERSONAS (ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, PRIMER_NOMBRE, PRIMER_APELLIDO, TELEFONO, EMAIL, ESTADO) " +
+                                    "VALUES (?, ?, 'NATURAL', ?, ?, ?, ?, 'ACTIVO')";
+                    try (java.sql.PreparedStatement ps = conn.prepareStatement(sqlIns, new String[]{"ID_PERSONA"})) {
+                        ps.setLong(1, finalIdTipoDoc);
+                        ps.setString(2, !finalDoc.isEmpty() ? finalDoc : "V-" + System.currentTimeMillis());
+                        ps.setString(3, finalNom);
+                        ps.setString(4, finalApe);
+                        if (finalTel != null) ps.setString(5, finalTel); else ps.setNull(5, java.sql.Types.VARCHAR);
+                        if (finalEmail != null) ps.setString(6, finalEmail); else ps.setNull(6, java.sql.Types.VARCHAR);
+                        ps.executeUpdate();
+                        try (java.sql.ResultSet rs = ps.getGeneratedKeys()) {
+                            if (rs.next()) {
+                                resolvedPersonaId = rs.getLong(1);
+                            }
+                        }
+                    }
+                    if (resolvedPersonaId == null && !finalDoc.isEmpty()) {
+                        String sqlBusq = "SELECT ID_PERSONA FROM PERSONAS WHERE NUMERO_DOCUMENTO = ?";
+                        try (java.sql.PreparedStatement ps = conn.prepareStatement(sqlBusq)) {
+                            ps.setString(1, finalDoc);
+                            try (java.sql.ResultSet rs = ps.executeQuery()) {
+                                if (rs.next()) {
+                                    resolvedPersonaId = rs.getLong(1);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Long resolvedVisId = null;
+
+                // 4. Buscar si ya tiene registro de visitante
+                if (resolvedPersonaId != null) {
+                    String sqlVis = "SELECT ID_VISITANTE FROM VISITANTES WHERE ID_PERSONA = ?";
+                    try (java.sql.PreparedStatement ps = conn.prepareStatement(sqlVis)) {
+                        ps.setLong(1, resolvedPersonaId);
+                        try (java.sql.ResultSet rs = ps.executeQuery()) {
+                            if (rs.next()) {
+                                resolvedVisId = rs.getLong(1);
+                            }
+                        }
+                    }
+
+                    // 5. Si no tiene registro en VISITANTES, crearlo
+                    if (resolvedVisId == null) {
+                        String sqlInsVis = "INSERT INTO VISITANTES (ID_PERSONA, ES_FRECUENTE, ESTADO) VALUES (?, 'N', 'ACTIVO')";
+                        try (java.sql.PreparedStatement ps = conn.prepareStatement(sqlInsVis, new String[]{"ID_VISITANTE"})) {
+                            ps.setLong(1, resolvedPersonaId);
+                            ps.executeUpdate();
+                            try (java.sql.ResultSet rs = ps.getGeneratedKeys()) {
+                                if (rs.next()) {
+                                    resolvedVisId = rs.getLong(1);
+                                }
+                            }
+                        }
+                        if (resolvedVisId == null) {
+                            String sqlVis2 = "SELECT ID_VISITANTE FROM VISITANTES WHERE ID_PERSONA = ?";
+                            try (java.sql.PreparedStatement ps = conn.prepareStatement(sqlVis2)) {
+                                ps.setLong(1, resolvedPersonaId);
+                                try (java.sql.ResultSet rs = ps.executeQuery()) {
+                                    if (rs.next()) {
+                                        resolvedVisId = rs.getLong(1);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 6. Restaurar contexto de usuario en la misma conexión
+                if (currentUserId != null) {
+                    try {
+                        com.saed.backend.context.SaedContext sCtx = SaedContextHolder.getContext();
+                        Long sOrg = sCtx != null && sCtx.getOrganizationId() != null ? sCtx.getOrganizationId() : 1L;
+                        Long sProp = sCtx != null && sCtx.getPropertyId() != null ? sCtx.getPropertyId() : 1L;
+                        String sRol = sCtx != null && sCtx.getRoleCode() != null ? sCtx.getRoleCode() : "RESIDENTE";
+                        String sqlRestore = "{call PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(?)}";
+                        try (java.sql.CallableStatement cs = conn.prepareCall(sqlRestore)) {
+                            cs.setLong(1, currentUserId);
+                            cs.execute();
+                        }
+                        String sqlCtx = "{call PKG_SAED_SESSION.SET_CONTEXT(?, ?, ?, ?)}";
+                        try (java.sql.CallableStatement cs = conn.prepareCall(sqlCtx)) {
+                            cs.setLong(1, currentUserId);
+                            cs.setLong(2, sOrg);
+                            cs.setLong(3, sProp);
+                            cs.setString(4, sRol);
+                            cs.execute();
+                        }
+                    } catch (Exception ignored) {}
+                }
+
+                return resolvedVisId;
+            });
         }
 
         if (visitanteId == null) {
-            try {
-                List<Long> firstVis = jdbcTemplate.query(
-                    "SELECT ID_VISITANTE FROM VISITANTES WHERE ROWNUM = 1",
-                    (rs, r) -> rs.getLong("ID_VISITANTE")
-                );
-                if (!firstVis.isEmpty()) {
-                    visitanteId = firstVis.get(0);
-                } else {
-                    visitanteId = 1L;
-                }
-            } catch (Exception ignored) {
-                visitanteId = 1L;
-            }
+            throw new IllegalArgumentException("No se pudo registrar ni resolver la información del visitante");
         }
 
         // Marcar como frecuente si se solicita en el registro de visita

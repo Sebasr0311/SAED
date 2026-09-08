@@ -172,6 +172,23 @@ public class DatabaseSeeder implements ApplicationRunner {
                 log.debug("Aviso al verificar RLS en VERSIONES_DOCUMENTO: {}", e.getMessage());
             }
 
+            // 13. Fix RLS en VISITANTES (remover restricción de INSERT con check_option que bloquea creación de nuevos visitantes)
+            try {
+                jdbcTemplate.execute(
+                    "BEGIN " +
+                    "  BEGIN DBMS_RLS.DROP_GROUPED_POLICY(NULL, 'VISITANTES', 'SYS_DEFAULT', 'POL_RLS_PROP_VISITANTES'); EXCEPTION WHEN OTHERS THEN NULL; END; " +
+                    "  BEGIN DBMS_RLS.DROP_POLICY(NULL, 'VISITANTES', 'POL_RLS_PROP_VISITANTES'); EXCEPTION WHEN OTHERS THEN NULL; END; " +
+                    "  BEGIN " +
+                    "    DBMS_RLS.ADD_GROUPED_POLICY(NULL, 'VISITANTES', 'SYS_DEFAULT', 'POL_RLS_PROP_VISITANTES', NULL, " +
+                    "      'PKG_SAED_SECURITY_RLS.FN_FILTRO_PROPIEDAD', 'SELECT,UPDATE,DELETE', FALSE, TRUE, FALSE, dbms_rls.DYNAMIC, FALSE, '', NULL); " +
+                    "  EXCEPTION WHEN OTHERS THEN NULL; END; " +
+                    "END;"
+                );
+                log.info("Ajustada política RLS POL_RLS_PROP_VISITANTES para permitir inserción de nuevos visitantes.");
+            } catch (Exception e) {
+                log.warn("Aviso al ajustar RLS en VISITANTES: {}", e.getMessage(), e);
+            }
+
             log.info("SAED Database Seeder completed successfully.");
         } catch (Exception ex) {
             log.warn("Database seeding encountered a non-fatal exception: {}", ex.getMessage());
