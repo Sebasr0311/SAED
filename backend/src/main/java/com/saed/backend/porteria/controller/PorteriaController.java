@@ -5,6 +5,7 @@ import com.saed.backend.porteria.dto.*;
 import com.saed.backend.porteria.service.PorteriaService;
 import com.saed.backend.common.service.EmailService;
 import com.saed.backend.context.SaedContextHolder;
+import com.saed.backend.context.SaedContext;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -201,6 +202,9 @@ public class PorteriaController {
             } catch (Exception ignored) {}
         }
 
+        // Marcar como frecuente si se solicita en el registro de visita
+        boolean esFrecuente = Boolean.TRUE.equals(body.get("guardarFrecuente")) || "true".equalsIgnoreCase(String.valueOf(body.get("guardarFrecuente")));
+
         // Si viene mapa de visitante y no visitanteId, resolver/crear persona y visitante
         if (visitanteId == null && body.get("visitante") instanceof Map<?, ?> visMap) {
             String doc = visMap.get("numeroDocumento") != null ? visMap.get("numeroDocumento").toString().trim() : "";
@@ -212,28 +216,45 @@ public class PorteriaController {
             if (visMap.get("idTipoDoc") != null) {
                 try { idTipoDoc = Long.valueOf(visMap.get("idTipoDoc").toString()); } catch (Exception ignored) {}
             }
-
+            if (visMap.get("idVisitante") != null) {
+                try { visitanteId = Long.valueOf(visMap.get("idVisitante").toString()); } catch (Exception ignored) {}
+            }
             Long personaId = null;
-            if (!doc.isEmpty()) {
-                try {
-                    List<Long> pers = jdbcTemplate.query(
-                        "SELECT ID_PERSONA FROM PERSONAS WHERE NUMERO_DOCUMENTO = :doc",
-                        Map.of("doc", doc), (rs, r) -> rs.getLong("ID_PERSONA")
-                    );
-                    if (!pers.isEmpty()) {
-                        personaId = pers.get(0);
-                    }
-                } catch (Exception ignored) {}
+            if (visMap.get("idPersona") != null) {
+                try { personaId = Long.valueOf(visMap.get("idPersona").toString()); } catch (Exception ignored) {}
             }
 
-            // Cambiar a contexto BOOTSTRAP para que Oracle RLS no bloquee el INSERT
-            // de un visitante que aún no tiene registro en VISITAS (evita ORA-28115).
-            Long effectiveUserId = currentUserId != null ? currentUserId : (autorizadoPor != null ? autorizadoPor : 1L);
+            SaedContext prevCtx = SaedContextHolder.getContext();
             try {
-                jdbcTemplate.getJdbcOperations().execute("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(" + effectiveUserId + "); END;");
-            } catch (Exception ignored) {}
+                Long orgId = prevCtx != null && prevCtx.getOrganizationId() != null ? prevCtx.getOrganizationId() : 1L;
+                Long propId = prevCtx != null && prevCtx.getPropertyId() != null ? prevCtx.getPropertyId() : 1L;
+                SaedContext systemCtx = SaedContext.builder()
+                    .userId(1L)
+                    .organizationId(orgId)
+                    .propertyId(propId)
+                    .roleCode("SUPERADMIN")
+                    .roleScope("GLOBAL")
+                    .build();
+                SaedContextHolder.setContext(systemCtx);
+                try {
+                    jdbcTemplate.getJdbcOperations().execute("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1); END;");
+                    jdbcTemplate.getJdbcOperations().execute(
+                        String.format("BEGIN PKG_SAED_SESSION.SET_CONTEXT(1, %d, %d, 'SUPERADMIN'); END;", orgId, propId)
+                    );
+                } catch (Exception ignored) {}
 
-            try {
+                if (personaId == null && !doc.isEmpty()) {
+                    try {
+                        List<Long> pers = jdbcTemplate.query(
+                            "SELECT ID_PERSONA FROM PERSONAS WHERE NUMERO_DOCUMENTO = :doc ORDER BY CASE WHEN ID_TIPO_DOCUMENTO = :idTipoDoc THEN 0 ELSE 1 END, ID_PERSONA ASC",
+                            Map.of("doc", doc, "idTipoDoc", idTipoDoc), (rs, r) -> rs.getLong("ID_PERSONA")
+                        );
+                        if (!pers.isEmpty()) {
+                            personaId = pers.get(0);
+                        }
+                    } catch (Exception ignored) {}
+                }
+
                 if (personaId == null) {
                     try {
                         KeyHolder kh = new GeneratedKeyHolder();
@@ -256,8 +277,8 @@ public class PorteriaController {
                     if (personaId == null && !doc.isEmpty()) {
                         try {
                             List<Long> pers = jdbcTemplate.query(
-                                "SELECT ID_PERSONA FROM PERSONAS WHERE NUMERO_DOCUMENTO = :doc",
-                                Map.of("doc", doc), (rs, r) -> rs.getLong("ID_PERSONA")
+                                "SELECT ID_PERSONA FROM PERSONAS WHERE NUMERO_DOCUMENTO = :doc ORDER BY CASE WHEN ID_TIPO_DOCUMENTO = :idTipoDoc THEN 0 ELSE 1 END, ID_PERSONA ASC",
+                                Map.of("doc", doc, "idTipoDoc", idTipoDoc), (rs, r) -> rs.getLong("ID_PERSONA")
                             );
                             if (!pers.isEmpty()) {
                                 personaId = pers.get(0);
@@ -266,7 +287,7 @@ public class PorteriaController {
                     }
                 }
 
-                if (personaId != null) {
+                if (personaId != null && visitanteId == null) {
                     try {
                         List<Long> visList = jdbcTemplate.query(
                             "SELECT ID_VISITANTE FROM VISITANTES WHERE ID_PERSONA = :p",
@@ -274,11 +295,16 @@ public class PorteriaController {
                         );
                         if (!visList.isEmpty()) {
                             visitanteId = visList.get(0);
+                            if (esFrecuente) {
+                                jdbcTemplate.update("UPDATE VISITANTES SET ES_FRECUENTE = 'S' WHERE ID_VISITANTE = :v", Map.of("v", visitanteId));
+                            }
                         } else {
                             KeyHolder khVis = new GeneratedKeyHolder();
                             jdbcTemplate.update(
-                                "INSERT INTO VISITANTES (ID_PERSONA, ES_FRECUENTE, ESTADO) VALUES (:p, 'N', 'ACTIVO')",
-                                new MapSqlParameterSource("p", personaId),
+                                "INSERT INTO VISITANTES (ID_PERSONA, ES_FRECUENTE, ESTADO) VALUES (:p, :frec, 'ACTIVO')",
+                                new MapSqlParameterSource()
+                                    .addValue("p", personaId)
+                                    .addValue("frec", esFrecuente ? "S" : "N"),
                                 khVis, new String[]{"ID_VISITANTE"}
                             );
                             visitanteId = extractGeneratedKey(khVis, "ID_VISITANTE");
@@ -299,7 +325,7 @@ public class PorteriaController {
                     }
                 }
             } finally {
-                restoreSaedContext();
+                restoreSaedContext(prevCtx);
             }
         }
 
@@ -320,7 +346,6 @@ public class PorteriaController {
         VisitaDTO visita = porteriaService.programarVisita(request);
 
         // Marcar como frecuente si se solicita en el registro de visita
-        boolean esFrecuente = Boolean.TRUE.equals(body.get("guardarFrecuente")) || "true".equalsIgnoreCase(String.valueOf(body.get("guardarFrecuente")));
         if (esFrecuente) {
             try {
                 jdbcTemplate.update("UPDATE VISITANTES SET ES_FRECUENTE = 'S' WHERE ID_VISITANTE = :v", Map.of("v", visitanteId));
@@ -401,16 +426,36 @@ public class PorteriaController {
         if (documento == null || documento.trim().isEmpty()) {
             return ResponseEntity.ok(Map.of());
         }
+        SaedContext prevCtx = SaedContextHolder.getContext();
         try {
+            Long orgId = prevCtx != null && prevCtx.getOrganizationId() != null ? prevCtx.getOrganizationId() : 1L;
+            Long propId = prevCtx != null && prevCtx.getPropertyId() != null ? prevCtx.getPropertyId() : 1L;
+            SaedContext systemCtx = SaedContext.builder()
+                .userId(1L)
+                .organizationId(orgId)
+                .propertyId(propId)
+                .roleCode("SUPERADMIN")
+                .roleScope("GLOBAL")
+                .build();
+            SaedContextHolder.setContext(systemCtx);
+            try {
+                jdbcTemplate.getJdbcOperations().execute("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1); END;");
+                jdbcTemplate.getJdbcOperations().execute(
+                    String.format("BEGIN PKG_SAED_SESSION.SET_CONTEXT(1, %d, %d, 'SUPERADMIN'); END;", orgId, propId)
+                );
+            } catch (Exception ignored) {}
+
             List<Map<String, Object>> list = jdbcTemplate.queryForList(
-                "SELECT p.ID_PERSONA, p.ID_TIPO_DOCUMENTO, p.NUMERO_DOCUMENTO, p.PRIMER_NOMBRE, p.PRIMER_APELLIDO, p.TELEFONO, p.EMAIL " +
-                "FROM PERSONAS p WHERE p.NUMERO_DOCUMENTO = :doc AND ROWNUM = 1",
+                "SELECT p.ID_PERSONA, p.ID_TIPO_DOCUMENTO, p.NUMERO_DOCUMENTO, p.PRIMER_NOMBRE, p.PRIMER_APELLIDO, p.TELEFONO, p.EMAIL, v.ID_VISITANTE " +
+                "FROM PERSONAS p LEFT JOIN VISITANTES v ON p.ID_PERSONA = v.ID_PERSONA " +
+                "WHERE p.NUMERO_DOCUMENTO = :doc AND ROWNUM = 1",
                 Map.of("doc", documento.trim())
             );
             if (!list.isEmpty()) {
                 Map<String, Object> row = list.get(0);
                 Map<String, Object> res = new HashMap<>();
                 res.put("idPersona", row.get("ID_PERSONA"));
+                res.put("idVisitante", row.get("ID_VISITANTE"));
                 res.put("idTipoDoc", row.get("ID_TIPO_DOCUMENTO"));
                 res.put("numeroDocumento", row.get("NUMERO_DOCUMENTO"));
                 res.put("nombres", row.get("PRIMER_NOMBRE"));
@@ -421,6 +466,8 @@ public class PorteriaController {
             }
         } catch (Exception e) {
             log.warning("Error buscando visitante por documento: " + e.getMessage());
+        } finally {
+            restoreSaedContext(prevCtx);
         }
         return ResponseEntity.ok(Map.of());
     }
@@ -593,20 +640,25 @@ public class PorteriaController {
         return null;
     }
 
-    private void restoreSaedContext() {
-        try {
-            com.saed.backend.context.SaedContext ctx = SaedContextHolder.getContext();
-            if (ctx != null && ctx.getUserId() != null && ctx.getRoleCode() != null) {
-                Long orgId = ctx.getOrganizationId() != null ? ctx.getOrganizationId() : 0L;
-                jdbcTemplate.update(
-                    "BEGIN PKG_SAED_SESSION.SET_CONTEXT(:u, :o, :p, :r); END;",
-                    new MapSqlParameterSource()
-                        .addValue("u", ctx.getUserId())
-                        .addValue("o", orgId)
-                        .addValue("p", ctx.getPropertyId())
-                        .addValue("r", ctx.getRoleCode())
-                );
+    private void restoreSaedContext(SaedContext prevCtx) {
+        if (prevCtx != null) {
+            SaedContextHolder.setContext(prevCtx);
+            if (prevCtx.getUserId() != null && prevCtx.getRoleCode() != null) {
+                try {
+                    Long orgId = prevCtx.getOrganizationId() != null ? prevCtx.getOrganizationId() : 0L;
+                    Long propId = prevCtx.getPropertyId() != null ? prevCtx.getPropertyId() : 0L;
+                    String role = prevCtx.getRoleCode();
+                    jdbcTemplate.getJdbcOperations().execute(
+                        String.format("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(%d); PKG_SAED_SESSION.SET_CONTEXT(%d, %d, %d, '%s'); END;",
+                            prevCtx.getUserId(), prevCtx.getUserId(), orgId, propId, role)
+                    );
+                } catch (Exception ignored) {}
             }
-        } catch (Exception ignored) {}
+        } else {
+            SaedContextHolder.clearContext();
+            try {
+                jdbcTemplate.getJdbcOperations().execute("BEGIN PKG_SAED_SESSION.CLEAR_CONTEXT(); END;");
+            } catch (Exception ignored) {}
+        }
     }
 }

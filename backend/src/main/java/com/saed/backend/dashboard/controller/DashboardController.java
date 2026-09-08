@@ -109,25 +109,38 @@ public class DashboardController {
         }
 
         Long personaId = null;
-        if (!doc.isEmpty()) {
-            try {
-                List<Long> pers = jdbcTemplate.query(
-                    "SELECT ID_PERSONA FROM PERSONAS WHERE NUMERO_DOCUMENTO = :doc",
-                    Map.of("doc", doc), (rs, r) -> rs.getLong("ID_PERSONA")
-                );
-                if (!pers.isEmpty()) {
-                    personaId = pers.get(0);
-                }
-            } catch (Exception ignored) {}
-        }
-
-        Long effectiveUserId = userId != null ? userId : 1L;
-        try {
-            jdbcTemplate.getJdbcOperations().execute("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(" + effectiveUserId + "); END;");
-        } catch (Exception ignored) {}
-
         Long visitanteId = null;
+        com.saed.backend.context.SaedContext prevCtx = com.saed.backend.context.SaedContextHolder.getContext();
         try {
+            Long orgId = prevCtx != null && prevCtx.getOrganizationId() != null ? prevCtx.getOrganizationId() : 1L;
+            Long propId = prevCtx != null && prevCtx.getPropertyId() != null ? prevCtx.getPropertyId() : 1L;
+            com.saed.backend.context.SaedContext systemCtx = com.saed.backend.context.SaedContext.builder()
+                .userId(1L)
+                .organizationId(orgId)
+                .propertyId(propId)
+                .roleCode("SUPERADMIN")
+                .roleScope("GLOBAL")
+                .build();
+            com.saed.backend.context.SaedContextHolder.setContext(systemCtx);
+            try {
+                jdbcTemplate.getJdbcOperations().execute("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1); END;");
+                jdbcTemplate.getJdbcOperations().execute(
+                    String.format("BEGIN PKG_SAED_SESSION.SET_CONTEXT(1, %d, %d, 'SUPERADMIN'); END;", orgId, propId)
+                );
+            } catch (Exception ignored) {}
+
+            if (!doc.isEmpty()) {
+                try {
+                    List<Long> pers = jdbcTemplate.query(
+                        "SELECT ID_PERSONA FROM PERSONAS WHERE NUMERO_DOCUMENTO = :doc ORDER BY CASE WHEN ID_TIPO_DOCUMENTO = :idTipoDoc THEN 0 ELSE 1 END, ID_PERSONA ASC",
+                        Map.of("doc", doc, "idTipoDoc", idTipoDoc), (rs, r) -> rs.getLong("ID_PERSONA")
+                    );
+                    if (!pers.isEmpty()) {
+                        personaId = pers.get(0);
+                    }
+                } catch (Exception ignored) {}
+            }
+
             if (personaId == null) {
                 try {
                     org.springframework.jdbc.support.KeyHolder kh = new org.springframework.jdbc.support.GeneratedKeyHolder();
@@ -148,8 +161,8 @@ public class DashboardController {
                 if (personaId == null && !doc.isEmpty()) {
                     try {
                         List<Long> pers = jdbcTemplate.query(
-                            "SELECT ID_PERSONA FROM PERSONAS WHERE NUMERO_DOCUMENTO = :doc",
-                            Map.of("doc", doc), (rs, r) -> rs.getLong("ID_PERSONA")
+                            "SELECT ID_PERSONA FROM PERSONAS WHERE NUMERO_DOCUMENTO = :doc ORDER BY CASE WHEN ID_TIPO_DOCUMENTO = :idTipoDoc THEN 0 ELSE 1 END, ID_PERSONA ASC",
+                            Map.of("doc", doc, "idTipoDoc", idTipoDoc), (rs, r) -> rs.getLong("ID_PERSONA")
                         );
                         if (!pers.isEmpty()) {
                             personaId = pers.get(0);
@@ -200,7 +213,7 @@ public class DashboardController {
                 } catch (Exception ignored) {}
             }
         } finally {
-            restoreSaedContext();
+            restoreSaedContext(prevCtx);
         }
 
         // Vincular con unidad del residente
@@ -387,21 +400,26 @@ public class DashboardController {
         return null;
     }
 
-    private void restoreSaedContext() {
-        try {
-            com.saed.backend.context.SaedContext ctx = com.saed.backend.context.SaedContextHolder.getContext();
-            if (ctx != null && ctx.getUserId() != null && ctx.getRoleCode() != null) {
-                Long orgId = ctx.getOrganizationId() != null ? ctx.getOrganizationId() : 0L;
-                jdbcTemplate.update(
-                    "BEGIN PKG_SAED_SESSION.SET_CONTEXT(:u, :o, :p, :r); END;",
-                    new org.springframework.jdbc.core.namedparam.MapSqlParameterSource()
-                        .addValue("u", ctx.getUserId())
-                        .addValue("o", orgId)
-                        .addValue("p", ctx.getPropertyId())
-                        .addValue("r", ctx.getRoleCode())
-                );
+    private void restoreSaedContext(com.saed.backend.context.SaedContext prevCtx) {
+        if (prevCtx != null) {
+            com.saed.backend.context.SaedContextHolder.setContext(prevCtx);
+            if (prevCtx.getUserId() != null && prevCtx.getRoleCode() != null) {
+                try {
+                    Long orgId = prevCtx.getOrganizationId() != null ? prevCtx.getOrganizationId() : 0L;
+                    Long propId = prevCtx.getPropertyId() != null ? prevCtx.getPropertyId() : 0L;
+                    String role = prevCtx.getRoleCode();
+                    jdbcTemplate.getJdbcOperations().execute(
+                        String.format("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(%d); PKG_SAED_SESSION.SET_CONTEXT(%d, %d, %d, '%s'); END;",
+                            prevCtx.getUserId(), prevCtx.getUserId(), orgId, propId, role)
+                    );
+                } catch (Exception ignored) {}
             }
-        } catch (Exception ignored) {}
+        } else {
+            com.saed.backend.context.SaedContextHolder.clearContext();
+            try {
+                jdbcTemplate.getJdbcOperations().execute("BEGIN PKG_SAED_SESSION.CLEAR_CONTEXT(); END;");
+            } catch (Exception ignored) {}
+        }
     }
 }
 
