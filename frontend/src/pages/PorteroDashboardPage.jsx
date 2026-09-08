@@ -5,8 +5,10 @@ import {
   AlertTriangle,
   ArrowRight,
   Car,
+  CheckCircle2,
   ChevronRight,
   ClipboardList,
+  Clock,
   Gavel,
   LogIn,
   Package,
@@ -139,11 +141,66 @@ function ModalGenerarMulta({ open, onClose, onConfirm, apartamentos, tipoInicial
   const [foto, setFoto] = useState(null);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
+  const [estadoAviso, setEstadoAviso] = useState(null);
+  const [checkingAviso, setCheckingAviso] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setTipo(tipoInicial || 'RUIDO');
+      setIdApartamento('');
+      setDescripcion('');
+      setFoto(null);
+      setError('');
+      setEstadoAviso(null);
+    }
+  }, [open, tipoInicial]);
+
+  useEffect(() => {
+    if (!open || tipo !== 'RUIDO' || !idApartamento) {
+      setEstadoAviso(null);
+      return;
+    }
+    let cancel = false;
+    setCheckingAviso(true);
+    tenantApi
+      .get(`/buzon/aviso-ruido/estado?idApartamento=${idApartamento}`)
+      .then((res) => {
+        if (!cancel) setEstadoAviso(res);
+      })
+      .catch((err) => {
+        if (!cancel) {
+          setEstadoAviso({
+            tieneAviso: false,
+            puedeMultar: false,
+            mensaje: err.message || 'No fue posible verificar el aviso de ruido.',
+          });
+        }
+      })
+      .finally(() => {
+        if (!cancel) setCheckingAviso(false);
+      });
+    return () => {
+      cancel = true;
+    };
+  }, [open, tipo, idApartamento, tenantApi]);
 
   async function send() {
     if (!idApartamento) {
       setError('Seleccione un apartamento');
       return;
+    }
+    if (tipo === 'RUIDO') {
+      if (!estadoAviso || !estadoAviso.tieneAviso) {
+        setError('Debe hacer el aviso primero antes de poder generar la multa.');
+        return;
+      }
+      if (!estadoAviso.puedeMultar) {
+        setError(
+          estadoAviso.mensaje ||
+            'No puede aplicar la multa aún. Deben transcurrir al menos 30 minutos desde el aviso de ruido.'
+        );
+        return;
+      }
     }
     if (tipo === 'PARQUEADERO' && !foto) {
       setError('La foto de evidencia es obligatoria para reporte de parqueadero');
@@ -173,6 +230,8 @@ function ModalGenerarMulta({ open, onClose, onConfirm, apartamentos, tipoInicial
     }
   }
 
+  const bloqueoRuido = tipo === 'RUIDO' && idApartamento && (!estadoAviso || !estadoAviso.puedeMultar);
+
   return (
     <Modal
       open={open}
@@ -184,7 +243,7 @@ function ModalGenerarMulta({ open, onClose, onConfirm, apartamentos, tipoInicial
           <Button variant="outline" onClick={onClose} disabled={sending}>
             Cancelar
           </Button>
-          <Button onClick={send} disabled={sending}>
+          <Button onClick={send} disabled={sending || checkingAviso || Boolean(bloqueoRuido)}>
             {sending ? 'Reportando...' : 'Reportar a Administración'}
           </Button>
         </div>
@@ -210,7 +269,10 @@ function ModalGenerarMulta({ open, onClose, onConfirm, apartamentos, tipoInicial
             id="multaApto"
             label="Apartamento Involucrado"
             value={idApartamento}
-            onChange={(e) => setIdApartamento(e.target.value)}
+            onChange={(e) => {
+              setIdApartamento(e.target.value);
+              setError('');
+            }}
           >
             <option value="">- Seleccionar apartamento -</option>
             {(apartamentos?.items || apartamentos || [])
@@ -222,6 +284,43 @@ function ModalGenerarMulta({ open, onClose, onConfirm, apartamentos, tipoInicial
               ))}
           </Select>
         </div>
+
+        {/* Verificación de precedentes de aviso de ruido */}
+        {tipo === 'RUIDO' && idApartamento && (
+          <div className="space-y-2">
+            {checkingAviso ? (
+              <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 p-3 text-xs text-muted-foreground animate-pulse">
+                <Clock className="h-4 w-4 shrink-0" />
+                <span>Verificando precedentes de aviso de ruido...</span>
+              </div>
+            ) : estadoAviso && !estadoAviso.tieneAviso ? (
+              <div className="flex items-start gap-2.5 rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-xs font-medium text-rose-700 dark:text-rose-300">
+                <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-rose-600 dark:text-rose-400" />
+                <div className="space-y-1">
+                  <p className="font-bold">Debe hacer el aviso de ruido primero</p>
+                  <p className="text-[11px] leading-relaxed">
+                    No se encontró ningún aviso de ruido previo para este apartamento. El protocolo exige enviar primero el aviso al residente.
+                  </p>
+                </div>
+              </div>
+            ) : estadoAviso && estadoAviso.tieneAviso && !estadoAviso.puedeMultar ? (
+              <div className="flex items-start gap-2.5 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs font-medium text-amber-700 dark:text-amber-300">
+                <Clock className="h-4 w-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+                <div className="space-y-1">
+                  <p className="font-bold">Tiempo de espera reglamentario en curso</p>
+                  <p className="text-[11px] leading-relaxed">
+                    {estadoAviso.mensaje}
+                  </p>
+                </div>
+              </div>
+            ) : estadoAviso && estadoAviso.puedeMultar ? (
+              <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs font-medium text-emerald-700 dark:text-emerald-300">
+                <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                <span>{estadoAviso.mensaje}</span>
+              </div>
+            ) : null}
+          </div>
+        )}
 
         <div className="form-group">
           <Textarea
@@ -642,6 +741,7 @@ export default function PorteroDashboardPage() {
       />
 
       <ModalGenerarMulta
+        key={modalMulta || 'closed'}
         open={!!modalMulta}
         onClose={() => setModalMulta(null)}
         onConfirm={() => {

@@ -117,19 +117,82 @@ public class ComunicadosController {
             }
         }
 
-        String sql = "INSERT INTO NOTIFICACIONES (ID_USUARIO_DESTINATARIO, CANAL, TITULO, MENSAJE, ESTADO_ENVIO) " +
-                     "VALUES (:idUsuario, 'ALERTA', 'Aviso por Ruido', :mensaje, 'ENVIADO')";
+        if (userIds.isEmpty() && idApartamento != null) {
+            Long currentUserId = com.saed.backend.context.SaedContextHolder.getContext() != null
+                ? com.saed.backend.context.SaedContextHolder.getContext().getUserId() : 1L;
+            userIds.add(currentUserId != null ? currentUserId : 1L);
+        }
+
+        String sql = "INSERT INTO NOTIFICACIONES (ID_USUARIO_DESTINATARIO, CANAL, TITULO, MENSAJE, ENLACE_DESTINO, ESTADO_ENVIO) " +
+                     "VALUES (:idUsuario, 'ALERTA', 'Aviso por Ruido', :mensaje, :enlace, 'ENVIADO')";
+        String enlace = idApartamento != null ? "UNIDAD:" + idApartamento : null;
         for (Long uid : userIds) {
             try {
                 Map<String, Object> params = new HashMap<>();
                 params.put("idUsuario", uid);
                 params.put("mensaje", cuerpo);
+                params.put("enlace", enlace);
                 jdbcTemplate.update(sql, params);
             } catch (Exception e) {
                 log.warning("Error insertando notificacion de aviso de ruido: " + e.getMessage());
             }
         }
         return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/aviso-ruido/estado")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_PORTERO')")
+    public ResponseEntity<Map<String, Object>> getEstadoAvisoRuido(@RequestParam Long idApartamento) {
+        String sql = "SELECT MAX(FECHA_ENVIO) AS ULTIMA_FECHA FROM NOTIFICACIONES " +
+                     "WHERE TITULO = 'Aviso por Ruido' AND (" +
+                     "  ENLACE_DESTINO = :enlace " +
+                     "  OR ID_USUARIO_DESTINATARIO IN (" +
+                     "    SELECT ua.ID_USUARIO FROM USUARIO_ASIGNACIONES ua WHERE ua.ID_UNIDAD = :idApto " +
+                     "    UNION " +
+                     "    SELECT u.ID_USUARIO FROM RESIDENTES_UNIDAD ru JOIN USUARIOS u ON ru.ID_PERSONA = u.ID_PERSONA WHERE ru.ID_UNIDAD = :idApto" +
+                     "  )" +
+                     ")";
+        try {
+            List<java.sql.Timestamp> list = jdbcTemplate.query(
+                sql,
+                Map.of("enlace", "UNIDAD:" + idApartamento, "idApto", idApartamento),
+                (rs, r) -> rs.getTimestamp("ULTIMA_FECHA")
+            );
+            java.sql.Timestamp ultimaFecha = (list != null && !list.isEmpty()) ? list.get(0) : null;
+            if (ultimaFecha == null) {
+                return ResponseEntity.ok(Map.of(
+                    "tieneAviso", false,
+                    "puedeMultar", false,
+                    "minutosTranscurridos", 0,
+                    "minutosRestantes", 30,
+                    "mensaje", "Debe realizar el aviso de ruido primero antes de aplicar una multa."
+                ));
+            }
+
+            long diffMillis = System.currentTimeMillis() - ultimaFecha.getTime();
+            long minutosTranscurridos = Math.max(0, diffMillis / (60 * 1000));
+            boolean puedeMultar = minutosTranscurridos >= 30;
+            long minutosRestantes = puedeMultar ? 0 : (30 - minutosTranscurridos);
+
+            Map<String, Object> resp = new HashMap<>();
+            resp.put("tieneAviso", true);
+            resp.put("puedeMultar", puedeMultar);
+            resp.put("fechaAviso", ultimaFecha.toInstant().toString());
+            resp.put("minutosTranscurridos", minutosTranscurridos);
+            resp.put("minutosRestantes", minutosRestantes);
+            resp.put("mensaje", puedeMultar
+                ? "Precedente verificado: Aviso de ruido enviado hace " + minutosTranscurridos + " minutos. Puede proceder con la multa."
+                : "No puede aplicar la multa aún. Deben transcurrir al menos 30 minutos desde el aviso de ruido (faltan " + minutosRestantes + " minutos)."
+            );
+            return ResponseEntity.ok(resp);
+        } catch (Exception e) {
+            log.warning("Error consultando estado de aviso de ruido: " + e.getMessage());
+            return ResponseEntity.ok(Map.of(
+                "tieneAviso", false,
+                "puedeMultar", false,
+                "mensaje", "No fue posible verificar el aviso de ruido: " + e.getMessage()
+            ));
+        }
     }
 
     @GetMapping("/confirmar-pendiente")

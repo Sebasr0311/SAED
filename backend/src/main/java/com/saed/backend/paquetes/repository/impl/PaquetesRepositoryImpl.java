@@ -132,7 +132,7 @@ public class PaquetesRepositoryImpl implements PaquetesRepository {
                 .addValue("destinatario", request.idPersonaDestinatario())
                 .addValue("empresa", request.empresaMensajeria())
                 .addValue("guia", request.numeroGuia())
-                .addValue("descripcion", request.descripcion())
+                .addValue("descripcion", (request.descripcion() != null && !request.descripcion().isBlank()) ? request.descripcion() : "Paquete recibido en portería")
                 .addValue("tamano", request.tamano())
                 .addValue("foto", sanitizeFoto(request.fotoPaqueteUrl(), isFotoClob))
                 .addValue("pin", codigoRetiro)

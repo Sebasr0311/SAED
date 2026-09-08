@@ -69,6 +69,9 @@ export default function PaquetesPage() {
 
   // Formulario de recepción
   const [selectedUnidad, setSelectedUnidad] = useState('');
+  const [residentesUnidad, setResidentesUnidad] = useState([]);
+  const [loadingResidentes, setLoadingResidentes] = useState(false);
+  const [idPersonaDestinatario, setIdPersonaDestinatario] = useState('');
   const [destinatario, setDestinatario] = useState('');
   const [empresaMensajeria, setEmpresaMensajeria] = useState('Servientrega');
   const [otraEmpresa, setOtraEmpresa] = useState('');
@@ -139,21 +142,29 @@ export default function PaquetesPage() {
 
   async function abrirCamara() {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } },
-        audio: false,
-      });
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } },
+          audio: false,
+        });
+      } catch (e) {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: false,
+        });
+      }
       streamRef.current = stream;
       setCamaraActiva(true);
       setFoto(null);
       setTimeout(() => {
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
-          videoRef.current.play();
+          videoRef.current.play().catch(() => {});
         }
       }, 50);
     } catch (err) {
-      toast.error('No se pudo acceder a la cámara: ' + err.message);
+      toast.error('No se pudo acceder a la cámara: ' + err.message + '. Puede subir una foto desde archivo.');
     }
   }
 
@@ -188,12 +199,35 @@ export default function PaquetesPage() {
     reader.readAsDataURL(file);
   }
 
-  // Auto-completar nombre destinatario cuando se elige unidad
-  function handleSelectUnidad(val) {
+  // Cargar residentes destinatarios cuando se elige unidad
+  async function handleSelectUnidad(val) {
     setSelectedUnidad(val);
-    const u = unidades.find((x) => String(x.idApartamento || x.idUnidad) === String(val));
-    if (u?.nombrePropietario) {
-      setDestinatario(u.nombrePropietario);
+    setIdPersonaDestinatario('');
+    setDestinatario('');
+    if (!val) {
+      setResidentesUnidad([]);
+      return;
+    }
+    setLoadingResidentes(true);
+    try {
+      const res = await api.get('/residentes', { params: { idApartamento: val } });
+      const list = Array.isArray(res) ? res : res?.items || [];
+      setResidentesUnidad(list);
+      if (list.length > 0) {
+        const primer = list[0];
+        const nom = `${primer.NOMBRES || primer.primerNombre || ''} ${primer.APELLIDOS || primer.primerApellido || ''}`.trim();
+        setIdPersonaDestinatario(String(primer.ID_PERSONA || primer.idPersona || ''));
+        setDestinatario(nom);
+      } else {
+        const u = unidades.find((x) => String(x.idApartamento || x.idUnidad) === String(val));
+        if (u?.nombrePropietario) {
+          setDestinatario(u.nombrePropietario);
+        }
+      }
+    } catch {
+      setResidentesUnidad([]);
+    } finally {
+      setLoadingResidentes(false);
     }
   }
 
@@ -204,27 +238,27 @@ export default function PaquetesPage() {
     if (!selectedUnidad) {
       newErrors.selectedUnidad = 'Seleccione el apartamento destinatario';
     }
-    if (!descripcion.trim()) {
-      newErrors.descripcion = 'Ingrese una breve descripción del paquete';
-    }
+    // La descripción y número de guía ya no son obligatorios; la foto o datos básicos bastan
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
-      toast.error('Complete los campos obligatorios resaltados en rojo');
+      toast.error('Seleccione el apartamento destinatario');
       return;
     }
 
     const companyFinal =
       empresaMensajeria === 'Otro' ? otraEmpresa.trim() || 'Servicio de Envíos' : empresaMensajeria;
 
+    const descFinal = descripcion.trim() || (foto ? 'Paquete verificado con foto de evidencia' : 'Paquete recibido en portería');
+
     setRegistrando(true);
     setErrors({});
     try {
       const payload = {
         idUnidad: Number(selectedUnidad),
-        idPersonaDestinatario: null,
+        idPersonaDestinatario: idPersonaDestinatario ? Number(idPersonaDestinatario) : null,
         empresaMensajeria: companyFinal,
         numeroGuia: numeroGuia.trim() || null,
-        descripcion: descripcion.trim(),
+        descripcion: descFinal,
         tamano: tamano,
         fotoPaqueteUrl: foto || null,
         idPorteria: 1,
@@ -243,6 +277,8 @@ export default function PaquetesPage() {
 
       // Limpiar form
       setSelectedUnidad('');
+      setResidentesUnidad([]);
+      setIdPersonaDestinatario('');
       setDestinatario('');
       setNumeroGuia('');
       setDescripcion('');
@@ -516,18 +552,61 @@ export default function PaquetesPage() {
 
                   <div>
                     <label className="block text-xs font-semibold text-foreground mb-1.5">
-                      Destinatario (Residente)
+                      Destinatario (Residente de la unidad)
                     </label>
-                    <div className="relative">
-                      <User className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
-                      <input
-                        type="text"
-                        placeholder="Nombre o dejar para la unidad"
-                        value={destinatario}
-                        onChange={(e) => setDestinatario(e.target.value)}
-                        className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
-                      />
-                    </div>
+                    {loadingResidentes ? (
+                      <div className="flex items-center gap-2 px-3 py-2.5 text-xs text-muted-foreground rounded-lg border border-border bg-background">
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin text-emerald-500 shrink-0" />
+                        <span>Cargando residentes...</span>
+                      </div>
+                    ) : residentesUnidad.length > 0 ? (
+                      <div className="space-y-1.5">
+                        <select
+                          value={idPersonaDestinatario}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setIdPersonaDestinatario(val);
+                            const r = residentesUnidad.find((x) => String(x.ID_PERSONA || x.idPersona) === String(val));
+                            if (r) {
+                              const nom = `${r.NOMBRES || r.primerNombre || ''} ${r.APELLIDOS || r.primerApellido || ''}`.trim();
+                              setDestinatario(nom);
+                            } else {
+                              setDestinatario('');
+                            }
+                          }}
+                          className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                        >
+                          <option value="">- Toda la unidad / General -</option>
+                          {residentesUnidad.map((r) => {
+                            const idPers = r.ID_PERSONA || r.idPersona;
+                            const nom = `${r.NOMBRES || r.primerNombre || ''} ${r.APELLIDOS || r.primerApellido || ''}`.trim();
+                            const doc = r.NUMERO_DOCUMENTO || r.numeroDocumento;
+                            return (
+                              <option key={idPers} value={idPers}>
+                                {nom} {doc ? `(${doc})` : ''}
+                              </option>
+                            );
+                          })}
+                        </select>
+                        {destinatario && (
+                          <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+                            <Check className="w-3 h-3 text-emerald-500" />
+                            <span>Destinatario: <strong>{destinatario}</strong></span>
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="relative">
+                        <User className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
+                        <input
+                          type="text"
+                          placeholder={selectedUnidad ? 'Nombre o dejar para toda la unidad' : 'Seleccione primero el apartamento'}
+                          value={destinatario}
+                          onChange={(e) => setDestinatario(e.target.value)}
+                          className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -569,13 +648,13 @@ export default function PaquetesPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-semibold text-foreground mb-1.5">
-                      Número de Guía / Tracking
+                      Número de Guía / Tracking (Opcional)
                     </label>
                     <div className="relative">
                       <Hash className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
                       <input
                         type="text"
-                        placeholder="Ej. TRK-99214"
+                        placeholder="Opcional - ej. TRK-99214"
                         value={numeroGuia}
                         onChange={(e) => setNumeroGuia(e.target.value)}
                         className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-mono"
@@ -604,23 +683,17 @@ export default function PaquetesPage() {
                 {/* Descripción */}
                 <div>
                   <label className="block text-xs font-semibold text-foreground mb-1.5">
-                    Descripción del Paquete / Contenido *
+                    Descripción del Paquete / Contenido (Opcional)
                   </label>
                   <textarea
                     rows={2}
-                    placeholder="Ej. Caja mediana de cartón sellada con cinta Mercado Libre"
+                    placeholder="Opcional - con la fotografía basta, o describa brevemente el paquete"
                     value={descripcion}
                     onChange={(e) => {
                       setDescripcion(e.target.value);
                       setErrors((prev) => ({ ...prev, descripcion: undefined }));
                     }}
-                    required
-                    aria-invalid={Boolean(errors.descripcion)}
-                    className={`w-full px-3 py-2 text-sm rounded-lg border bg-background text-foreground focus:outline-none focus:ring-2 ${
-                      errors.descripcion
-                        ? '!border-destructive focus:!ring-destructive/30'
-                        : 'border-border focus:ring-emerald-500/20 focus:border-emerald-500'
-                    }`}
+                    className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
                   />
                   {errors.descripcion && (
                     <p role="alert" className="text-xs text-destructive font-medium flex items-center gap-1.5 mt-1 animate-fadeIn">

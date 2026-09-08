@@ -39,9 +39,16 @@ public class BuzonController {
     }
 
     @PutMapping("/{id}/leido")
-    @PreAuthorize("hasAnyAuthority('SCOPE_RESIDENTE', 'SCOPE_ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_RESIDENTE', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_PORTERO')")
     public ResponseEntity<Void> marcarLeido(@PathVariable Long id) {
         service.marcarLeido(id);
+        return ResponseEntity.ok().build();
+    }
+
+    @PutMapping("/marcar-todas-leidas")
+    @PreAuthorize("hasAnyAuthority('SCOPE_RESIDENTE', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_PORTERO')")
+    public ResponseEntity<Void> marcarTodasLeidas() {
+        service.marcarTodasLeidas();
         return ResponseEntity.ok().build();
     }
 

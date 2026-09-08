@@ -9,7 +9,7 @@ public record PaqueteRequestDTO(
     Long idPersonaDestinatario,
     @NotBlank @Size(max=100) String empresaMensajeria,
     @Size(max=80) String numeroGuia,
-    @NotBlank @Size(max=300) String descripcion,
+    @Size(max=300) String descripcion,
     @NotBlank @Size(max=20) String tamano,
     String fotoPaqueteUrl,
     @NotNull Long idPorteria
