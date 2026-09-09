@@ -85,6 +85,8 @@ public class PorteriaController {
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_RESIDENTE') or hasAuthority('SCOPE_PORTERO')")
     public Map<String, Object> programarVisita(@RequestBody Map<String, Object> body) {
+        Long currentUserId = SaedContextHolder.getContext() != null ? SaedContextHolder.getContext().getUserId() : null;
+
         Long unidadId = null;
         if (body.get("unidadId") != null && !body.get("unidadId").toString().isBlank()) {
             unidadId = Long.valueOf(body.get("unidadId").toString());
@@ -93,6 +95,28 @@ public class PorteriaController {
         Long visitanteId = null;
         if (body.get("visitanteId") != null && !body.get("visitanteId").toString().isBlank()) {
             visitanteId = Long.valueOf(body.get("visitanteId").toString());
+        } else if (body.get("idVisitante") != null && !body.get("idVisitante").toString().isBlank()) {
+            visitanteId = Long.valueOf(body.get("idVisitante").toString());
+        } else if (body.get("idFrecuente") != null && !body.get("idFrecuente").toString().isBlank()) {
+            visitanteId = Long.valueOf(body.get("idFrecuente").toString());
+        }
+
+        if (visitanteId != null) {
+            try {
+                List<Long> vCheck = jdbcTemplate.query(
+                    "SELECT ID_VISITANTE FROM VISITANTES WHERE ID_VISITANTE = :v",
+                    Map.of("v", visitanteId), (rs, r) -> rs.getLong("ID_VISITANTE")
+                );
+                if (vCheck.isEmpty()) {
+                    List<Long> vByPersona = jdbcTemplate.query(
+                        "SELECT ID_VISITANTE FROM VISITANTES WHERE ID_PERSONA = :p",
+                        Map.of("p", visitanteId), (rs, r) -> rs.getLong("ID_VISITANTE")
+                    );
+                    if (!vByPersona.isEmpty()) {
+                        visitanteId = vByPersona.get(0);
+                    }
+                }
+            } catch (Exception ignored) {}
         }
 
         String rawMetodo = body.get("metodoIngreso") != null ? body.get("metodoIngreso").toString().trim().toUpperCase() : "CODIGO_QR";
@@ -145,7 +169,7 @@ public class PorteriaController {
                 }
                 if (uids.isEmpty()) {
                     uids = jdbcTemplate.query(
-                        "SELECT ID_UNIDAD FROM USUARIO_ASIGNACIONES WHERE ID_USUARIO = :id AND ESTADO = 'ACTIVA' AND ID_UNIDAD IS NOT NULL",
+                        "SELECT ru.ID_UNIDAD FROM RESIDENTES_UNIDAD ru JOIN USUARIOS u ON ru.ID_PERSONA = u.ID_PERSONA WHERE u.ID_USUARIO = :id AND ru.ESTADO = 'ACTIVO'",
                         Map.of("id", idRes), (rs, r) -> rs.getLong("ID_UNIDAD")
                     );
                 }
@@ -156,9 +180,28 @@ public class PorteriaController {
                 log.warning("No se pudo resolver unidad para idResidente: " + e.getMessage());
             }
         }
-        if (unidadId == null && SaedContextHolder.getContext() != null) {
-            unidadId = SaedContextHolder.getContext().getUnitId();
+
+        // Si aún no tenemos unidadId pero tenemos currentUserId (residente logueado)
+        if (unidadId == null && currentUserId != null) {
+            try {
+                List<Long> uids = jdbcTemplate.query(
+                    "SELECT ID_UNIDAD FROM USUARIO_ASIGNACIONES WHERE ID_USUARIO = :u AND ESTADO IN ('ACTIVA', 'ACTIVO') AND ID_UNIDAD IS NOT NULL",
+                    Map.of("u", currentUserId), (rs, r) -> rs.getLong("ID_UNIDAD")
+                );
+                if (uids.isEmpty()) {
+                    uids = jdbcTemplate.query(
+                        "SELECT ru.ID_UNIDAD FROM RESIDENTES_UNIDAD ru JOIN USUARIOS u ON ru.ID_PERSONA = u.ID_PERSONA WHERE u.ID_USUARIO = :u AND ru.ESTADO = 'ACTIVO'",
+                        Map.of("u", currentUserId), (rs, r) -> rs.getLong("ID_UNIDAD")
+                    );
+                }
+                if (!uids.isEmpty()) {
+                    unidadId = uids.get(0);
+                }
+            } catch (Exception e) {
+                log.warning("No se pudo resolver unidad para currentUserId: " + e.getMessage());
+            }
         }
+
         if (unidadId == null) {
             Long propId = SaedContextHolder.getContext() != null ? SaedContextHolder.getContext().getPropertyId() : null;
             if (propId != null) {
@@ -176,7 +219,6 @@ public class PorteriaController {
         }
 
         // Resolver autorizadoPor garantizando que sea un ID_USUARIO valido en USUARIOS (FK_VISITAS_AUTORIZADOR)
-        Long currentUserId = SaedContextHolder.getContext() != null ? SaedContextHolder.getContext().getUserId() : null;
         if (autorizadoPor != null) {
             try {
                 List<Long> uCheck = jdbcTemplate.query(
@@ -371,16 +413,25 @@ public class PorteriaController {
 
         QrAccesoDTO qr = porteriaService.generarQrAcceso(qrReq);
 
-        // Vehiculo si vino en payload con placa
+        // Vehiculo si vino en payload con placa (objeto vehiculo o campos planos en raíz)
+        String placa = null;
+        String tipoV = "VEHICULO";
         if (body.get("vehiculo") instanceof Map<?, ?> vehMap) {
-            String placa = vehMap.get("placa") != null ? vehMap.get("placa").toString().trim().toUpperCase() : "";
-            if (!placa.isBlank()) {
-                try {
-                    String tipoV = vehMap.get("tipo") != null ? vehMap.get("tipo").toString() : "VEHICULO";
-                    porteriaService.registrarIngresoVehiculo(new VehiculoVisitaRequestDTO(visita.idVisita(), null, placa, tipoV, "DENTRO"));
-                } catch (Exception e) {
-                    log.warning("No se pudo registrar vehiculo de visita: " + e.getMessage());
-                }
+            placa = vehMap.get("placa") != null ? vehMap.get("placa").toString().trim().toUpperCase() : null;
+            if (vehMap.get("tipo") != null) {
+                tipoV = vehMap.get("tipo").toString();
+            }
+        } else if (body.get("placa") != null && !body.get("placa").toString().isBlank()) {
+            placa = body.get("placa").toString().trim().toUpperCase();
+            if (body.get("tipoVehiculo") != null && !body.get("tipoVehiculo").toString().isBlank()) {
+                tipoV = body.get("tipoVehiculo").toString();
+            }
+        }
+        if (placa != null && !placa.isBlank()) {
+            try {
+                porteriaService.registrarIngresoVehiculo(new VehiculoVisitaRequestDTO(visita.idVisita(), null, placa, tipoV, "DENTRO"));
+            } catch (Exception e) {
+                log.warning("No se pudo registrar vehiculo de visita: " + e.getMessage());
             }
         }
 
