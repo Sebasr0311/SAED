@@ -143,7 +143,7 @@ public class OrgDashboardController {
         Map<String, Object> finanzasStats = new HashMap<>();
         try {
             Number totalPagos = jdbcTemplate.queryForObject("""
-                SELECT NVL(SUM(pg.monto), 0)
+                SELECT NVL(SUM(pg.monto_total), 0)
                 FROM PAGOS pg
                 JOIN UNIDADES u ON pg.id_unidad = u.id_unidad
                 JOIN PROPIEDADES p ON u.id_propiedad = p.id_propiedad
@@ -152,7 +152,7 @@ public class OrgDashboardController {
 
             Number totalCartera = jdbcTemplate.queryForObject("""
                 SELECT NVL(SUM(c.saldo_pendiente), 0)
-                FROM CARTERA c
+                FROM CUOTAS c
                 JOIN UNIDADES u ON c.id_unidad = u.id_unidad
                 JOIN PROPIEDADES p ON u.id_propiedad = p.id_propiedad
                 WHERE p.id_organizacion = :orgId AND c.estado IN ('PENDIENTE', 'VENCIDA', 'EN_MORA')
@@ -200,9 +200,9 @@ public class OrgDashboardController {
         String sql = """
             SELECT p.id_propiedad, p.nombre, p.ciudad, p.estado,
                    (SELECT COUNT(*) FROM UNIDADES u WHERE u.id_propiedad = p.id_propiedad) AS total_unidades,
-                   NVL((SELECT SUM(pg.monto) FROM PAGOS pg JOIN UNIDADES u1 ON pg.id_unidad = u1.id_unidad WHERE u1.id_propiedad = p.id_propiedad AND pg.estado = 'APROBADO'), 0) AS total_recaudado,
-                   NVL((SELECT SUM(c.saldo_pendiente) FROM CARTERA c JOIN UNIDADES u2 ON c.id_unidad = u2.id_unidad WHERE u2.id_propiedad = p.id_propiedad AND c.estado IN ('PENDIENTE', 'VENCIDA', 'EN_MORA')), 0) AS cartera_pendiente,
-                   NVL((SELECT SUM(c.saldo_pendiente) FROM CARTERA c JOIN UNIDADES u3 ON c.id_unidad = u3.id_unidad WHERE u3.id_propiedad = p.id_propiedad AND c.estado = 'EN_MORA'), 0) AS cartera_mora
+                   NVL((SELECT SUM(pg.monto_total) FROM PAGOS pg JOIN UNIDADES u1 ON pg.id_unidad = u1.id_unidad WHERE u1.id_propiedad = p.id_propiedad AND pg.estado = 'APROBADO'), 0) AS total_recaudado,
+                   NVL((SELECT SUM(c.saldo_pendiente) FROM CUOTAS c JOIN UNIDADES u2 ON c.id_unidad = u2.id_unidad WHERE u2.id_propiedad = p.id_propiedad AND c.estado IN ('PENDIENTE', 'VENCIDA', 'EN_MORA')), 0) AS cartera_pendiente,
+                   NVL((SELECT SUM(c.saldo_pendiente) FROM CUOTAS c JOIN UNIDADES u3 ON c.id_unidad = u3.id_unidad WHERE u3.id_propiedad = p.id_propiedad AND c.estado = 'EN_MORA'), 0) AS cartera_mora
             FROM PROPIEDADES p
             WHERE p.id_organizacion = :orgId
             ORDER BY cartera_pendiente DESC
@@ -224,8 +224,8 @@ public class OrgDashboardController {
             SELECT p.id_propiedad, p.nombre, p.ciudad, p.estado,
                    (SELECT COUNT(*) FROM UNIDADES u WHERE u.id_propiedad = p.id_propiedad) AS unidades,
                    (SELECT COUNT(DISTINCT ua.id_usuario) FROM USUARIO_ASIGNACIONES ua WHERE ua.id_propiedad = p.id_propiedad AND ua.estado = 'ACTIVA') AS admins,
-                   NVL((SELECT SUM(pg.monto) FROM PAGOS pg JOIN UNIDADES u1 ON pg.id_unidad = u1.id_unidad WHERE u1.id_propiedad = p.id_propiedad AND pg.estado = 'APROBADO'), 0) AS recaudo,
-                   NVL((SELECT SUM(c.saldo_pendiente) FROM CARTERA c JOIN UNIDADES u2 ON c.id_unidad = u2.id_unidad WHERE u2.id_propiedad = p.id_propiedad AND c.estado IN ('PENDIENTE', 'VENCIDA', 'EN_MORA')), 0) AS cartera
+                   NVL((SELECT SUM(pg.monto_total) FROM PAGOS pg JOIN UNIDADES u1 ON pg.id_unidad = u1.id_unidad WHERE u1.id_propiedad = p.id_propiedad AND pg.estado = 'APROBADO'), 0) AS recaudo,
+                   NVL((SELECT SUM(c.saldo_pendiente) FROM CUOTAS c JOIN UNIDADES u2 ON c.id_unidad = u2.id_unidad WHERE u2.id_propiedad = p.id_propiedad AND c.estado IN ('PENDIENTE', 'VENCIDA', 'EN_MORA')), 0) AS cartera
             FROM PROPIEDADES p
             WHERE p.id_organizacion = :orgId
             ORDER BY unidades DESC
