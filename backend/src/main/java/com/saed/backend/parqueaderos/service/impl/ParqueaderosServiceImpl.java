@@ -9,6 +9,7 @@ import com.saed.backend.context.SaedContextHolder;
 import com.saed.backend.parqueaderos.dto.AsignacionParqueaderoDTO;
 import com.saed.backend.parqueaderos.dto.AsignacionParqueaderoRequestDTO;
 import com.saed.backend.parqueaderos.dto.ParqueaderoDTO;
+import com.saed.backend.parqueaderos.dto.ParqueaderoMasivoRequestDTO;
 import com.saed.backend.parqueaderos.dto.ParqueaderoRequestDTO;
 import com.saed.backend.parqueaderos.repository.ParqueaderosRepository;
 import com.saed.backend.parqueaderos.service.ParqueaderosService;
@@ -50,6 +51,13 @@ public class ParqueaderosServiceImpl implements ParqueaderosService {
     public ParqueaderoDTO registrarParqueadero(ParqueaderoRequestDTO request) {
         SaedContext ctx = SaedContextHolder.getContext();
         return parqueaderosRepository.registrarParqueadero(request, ctx.getPropertyId());
+    }
+
+    @Override
+    @Transactional
+    public List<ParqueaderoDTO> registrarParqueaderosMasivo(ParqueaderoMasivoRequestDTO request) {
+        SaedContext ctx = SaedContextHolder.getContext();
+        return parqueaderosRepository.registrarParqueaderosMasivo(request, ctx.getPropertyId());
     }
 
     @Override

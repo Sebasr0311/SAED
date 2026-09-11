@@ -18,6 +18,7 @@ import {
   Wrench,
   ShieldCheck,
   Hash,
+  Layers,
 } from 'lucide-react';
 import { useTenantApi } from '../lib/useTenantApi.js';
 import { useAuth } from '../lib/AuthContext.jsx';
@@ -93,6 +94,36 @@ export default function ParqueaderosPage() {
   const [confirmDel, setConfirmDel] = useState(null);
   const [pwdConfirmOpen, setPwdConfirmOpen] = useState(false);
   const [formErrors, setFormErrors] = useState({});
+
+  // Creación masiva
+  const [modalMasivoOpen, setModalMasivoOpen] = useState(false);
+  const [formMasivo, setFormMasivo] = useState({
+    prefijo: 'P',
+    cantidad: 10,
+    numeroInicial: 1,
+    tipo: 'PRIVADO',
+    estado: 'DISPONIBLE',
+  });
+  const [savingMasivo, setSavingMasivo] = useState(false);
+  const savingMasivoRef = useRef(false);
+
+  const { masivoPreviewList, masivoUltimoItem } = useMemo(() => {
+    const pref = (formMasivo.prefijo || '').trim();
+    const cant = Math.min(500, Math.max(1, Number(formMasivo.cantidad) || 1));
+    const start = Math.max(1, Number(formMasivo.numeroInicial) || 1);
+    const getNum = (n) => {
+      if (!pref) return String(n);
+      if (pref.endsWith('-') || pref.endsWith('_') || pref.endsWith(' ')) return `${pref}${n}`;
+      return `${pref}-${n}`;
+    };
+    const list = [];
+    const limit = Math.min(cant, 8);
+    for (let i = 0; i < limit; i++) {
+      list.push(getNum(start + i));
+    }
+    const last = getNum(start + cant - 1);
+    return { masivoPreviewList: list, masivoUltimoItem: last };
+  }, [formMasivo.prefijo, formMasivo.cantidad, formMasivo.numeroInicial]);
 
   // Carga de datos
   const qs = new URLSearchParams({
@@ -233,6 +264,34 @@ export default function ParqueaderosPage() {
     }
   }
 
+  // Creación Masiva
+  async function handleSaveMasivo(e) {
+    e?.preventDefault();
+    if (savingMasivoRef.current) return;
+    savingMasivoRef.current = true;
+    setSavingMasivo(true);
+
+    try {
+      const payload = {
+        prefijo: (formMasivo.prefijo || '').trim(),
+        cantidad: Math.min(500, Math.max(1, Number(formMasivo.cantidad) || 1)),
+        numeroInicial: Math.max(1, Number(formMasivo.numeroInicial) || 1),
+        tipo: formMasivo.tipo,
+        estado: formMasivo.estado,
+      };
+
+      await api.post('/parqueaderos/masivo', payload);
+      toast.success(`Se generaron ${payload.cantidad} cupos de parqueadero exitosamente`);
+      setModalMasivoOpen(false);
+      refetch();
+    } catch (err) {
+      toast.error(err.message || 'Error al generar parqueaderos masivos');
+    } finally {
+      savingMasivoRef.current = false;
+      setSavingMasivo(false);
+    }
+  }
+
   return (
     <PageContainer>
       {/* 1. Breadcrumb */}
@@ -303,18 +362,29 @@ export default function ParqueaderosPage() {
           </button>
 
           {!isPortero && (
-            <button
-              onClick={() => {
-                setEditing(null);
-                setForm(emptyForm);
-                setFormErrors({});
-                setModalOpen(true);
-              }}
-              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition-colors shadow-sm min-h-[44px]"
-            >
-              <Plus className="w-4 h-4" />
-              Nuevo Cupo
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  setEditing(null);
+                  setForm(emptyForm);
+                  setFormErrors({});
+                  setModalOpen(true);
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg border border-border bg-card hover:bg-muted text-foreground transition-colors shadow-sm min-h-[44px]"
+              >
+                <Plus className="w-4 h-4" />
+                Individual
+              </button>
+              <button
+                onClick={() => {
+                  setModalMasivoOpen(true);
+                }}
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition-colors shadow-sm min-h-[44px]"
+              >
+                <Layers className="w-4 h-4" />
+                Lote Masivo
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -866,6 +936,144 @@ export default function ParqueaderosPage() {
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   {editing ? 'Actualizar' : 'Crear Cupo'}
                 </>
+              )}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* 7.1 Modal Creación Masiva de Parqueaderos */}
+      <Modal
+        open={modalMasivoOpen}
+        onClose={() => setModalMasivoOpen(false)}
+        title="Creación Masiva de Bahías de Parqueadero"
+      >
+        <form onSubmit={handleSaveMasivo} className="space-y-4 p-1">
+          <p className="text-xs text-muted-foreground">
+            Genere consecutivamente lotes de parqueaderos para la copropiedad especificando prefijo, cantidad y numeración inicial.
+          </p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-foreground mb-1.5">
+                Prefijo (ej: P, V, MOTO, B)
+              </label>
+              <input
+                type="text"
+                value={formMasivo.prefijo}
+                onChange={(e) => setFormMasivo({ ...formMasivo, prefijo: e.target.value.toUpperCase() })}
+                placeholder="P"
+                className="w-full px-3 py-2 text-sm font-mono uppercase rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+              />
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Opcional. Se agregará guión automáticamente si aplica.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-foreground mb-1.5">
+                Tipo de Bahía *
+              </label>
+              <select
+                value={formMasivo.tipo}
+                onChange={(e) => setFormMasivo({ ...formMasivo, tipo: e.target.value })}
+                className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+              >
+                <option value="PRIVADO">Privado (Residente)</option>
+                <option value="VISITANTES">Visitantes</option>
+                <option value="MOTOS">Motos</option>
+                <option value="BICICLETAS">Bicicletas</option>
+                <option value="DISCAPACITADOS">Accesibilidad (PMR)</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-foreground mb-1.5">
+                Número Inicial *
+              </label>
+              <input
+                type="number"
+                min="1"
+                value={formMasivo.numeroInicial}
+                onChange={(e) => setFormMasivo({ ...formMasivo, numeroInicial: Math.max(1, parseInt(e.target.value) || 1) })}
+                className="w-full px-3 py-2 text-sm font-mono rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-foreground mb-1.5">
+                Cantidad a Generar *
+              </label>
+              <input
+                type="number"
+                min="1"
+                max="500"
+                value={formMasivo.cantidad}
+                onChange={(e) => setFormMasivo({ ...formMasivo, cantidad: Math.min(500, Math.max(1, parseInt(e.target.value) || 1)) })}
+                className="w-full px-3 py-2 text-sm font-mono rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-foreground mb-1.5">
+              Estado Inicial *
+            </label>
+            <select
+              value={formMasivo.estado}
+              onChange={(e) => setFormMasivo({ ...formMasivo, estado: e.target.value })}
+              className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+            >
+              <option value="DISPONIBLE">Disponible</option>
+              <option value="MANTENIMIENTO">Mantenimiento</option>
+              <option value="INACTIVO">Inactivo</option>
+            </select>
+          </div>
+
+          {/* Vista previa en tiempo real */}
+          <div className="p-3 bg-muted/50 rounded-lg border border-border/80">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-xs font-medium text-foreground">Vista Previa del Lote:</span>
+              <span className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400 font-semibold">
+                {formMasivo.cantidad} cupos
+              </span>
+            </div>
+            <div className="text-xs font-mono text-muted-foreground flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
+              {masivoPreviewList.map((item, idx) => (
+                <span key={idx} className="px-2 py-0.5 bg-background rounded border border-border text-foreground">
+                  {item}
+                </span>
+              ))}
+              {formMasivo.cantidad > 8 && (
+                <span className="text-xs text-muted-foreground self-center">
+                  ... hasta {masivoUltimoItem}
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-4 border-t border-border/60">
+            <button
+              type="button"
+              onClick={() => setModalMasivoOpen(false)}
+              className="px-4 py-2 text-xs font-semibold rounded-lg border border-border bg-card hover:bg-muted text-foreground min-h-[44px]"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={savingMasivo}
+              className="inline-flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm min-h-[44px] disabled:opacity-50"
+            >
+              {savingMasivo ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  Creando {formMasivo.cantidad} cupos...
+                </>
+              ) : (
+                `Crear ${formMasivo.cantidad} Parqueaderos`
               )}
             </button>
           </div>

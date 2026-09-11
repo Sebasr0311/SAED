@@ -49,6 +49,7 @@ const emptyForm = {
   telefono: '',
   email: '',
   idApartamento: '',
+  tipoRelacion: 'RESIDENTE',
 };
 
 const emptyTutorForm = {
@@ -355,7 +356,7 @@ export default function ResidentesPage() {
         try {
           await tenantApi.post(`/residentes/${idResidente}/asignar-apartamento`, {
             idApartamento: Number(form.idApartamento),
-            rolEnContrato: 'RESIDENTE',
+            rolEnContrato: form.tipoRelacion === 'PROPIETARIO_NO_RESIDENTE' ? 'PROPIETARIO' : 'RESIDENTE',
           });
         } catch (err) {
           toast.error(
@@ -972,6 +973,28 @@ export default function ResidentesPage() {
               )}
             </Select>
           </div>
+
+          {form.idApartamento && (
+            <div className="space-y-2 pt-1">
+              <Select
+                id="tipoRelacion"
+                label="Condición del Residente en la Unidad"
+                value={form.tipoRelacion || 'RESIDENTE'}
+                onChange={(e) => update('tipoRelacion', e.target.value)}
+              >
+                <option value="RESIDENTE">Habitante / Residente Activo (Arrendatario o Propietario residente)</option>
+                <option value="PROPIETARIO_NO_RESIDENTE">Propietario No Residente (Inversionista sin residencia física)</option>
+              </Select>
+              {form.tipoRelacion === 'PROPIETARIO_NO_RESIDENTE' && (
+                <div className="text-[11px] bg-blue-500/10 border border-blue-500/20 text-blue-700 dark:text-blue-300 p-2.5 rounded-lg flex items-start gap-2">
+                  <span className="material-symbols-outlined text-sm shrink-0 mt-0.5">info</span>
+                  <span>
+                    <strong>Regla de Dominio:</strong> El propietario no residente se vincula jurídicamente a la unidad para asambleas y cartera, pero <strong>no</strong> recibe rol de residente activo en el portal ni autorizaciones de acceso cotidiano.
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Sección Condicional: Tutor Legal */}
           {requiereTutor && (

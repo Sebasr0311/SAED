@@ -3,6 +3,7 @@ package com.saed.backend.parqueaderos.repository.impl;
 import com.saed.backend.parqueaderos.dto.AsignacionParqueaderoDTO;
 import com.saed.backend.parqueaderos.dto.AsignacionParqueaderoRequestDTO;
 import com.saed.backend.parqueaderos.dto.ParqueaderoDTO;
+import com.saed.backend.parqueaderos.dto.ParqueaderoMasivoRequestDTO;
 import com.saed.backend.parqueaderos.dto.ParqueaderoRequestDTO;
 import com.saed.backend.parqueaderos.repository.ParqueaderosRepository;
 import org.springframework.jdbc.core.RowMapper;
@@ -14,8 +15,11 @@ import org.springframework.stereotype.Repository;
 
 import java.sql.Date;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @Repository
 public class ParqueaderosRepositoryImpl implements ParqueaderosRepository {
@@ -122,6 +126,58 @@ public class ParqueaderosRepositoryImpl implements ParqueaderosRepository {
         KeyHolder keyHolder = new GeneratedKeyHolder();
         jdbcTemplate.update(sql, params, keyHolder, new String[]{"ID_PARQUEADERO"});
         return getParqueaderoById(keyHolder.getKey().longValue()).orElseThrow();
+    }
+
+    @Override
+    public List<ParqueaderoDTO> registrarParqueaderosMasivo(ParqueaderoMasivoRequestDTO request, Long idPropiedad) {
+        String cleanPrefijo = request.prefijo() != null ? request.prefijo().trim() : "";
+        int cantidad = request.cantidad();
+        int inicial = request.numeroInicial();
+        String tipo = request.tipo();
+        String estado = request.estado();
+
+        List<String> generatedNumbers = new ArrayList<>(cantidad);
+        for (int i = 0; i < cantidad; i++) {
+            int currentNum = inicial + i;
+            String numero;
+            if (cleanPrefijo.isEmpty()) {
+                numero = String.valueOf(currentNum);
+            } else if (cleanPrefijo.endsWith("-") || cleanPrefijo.endsWith("_") || cleanPrefijo.endsWith(" ")) {
+                numero = cleanPrefijo + currentNum;
+            } else {
+                numero = cleanPrefijo + "-" + currentNum;
+            }
+            generatedNumbers.add(numero);
+        }
+
+        // Check for existing parking spots to prevent unique constraint conflict
+        String checkSql = "SELECT UPPER(NUMERO_PARQUEADERO) FROM PARQUEADEROS WHERE ID_PROPIEDAD = :propiedad";
+        List<String> existing = jdbcTemplate.query(
+                checkSql,
+                new MapSqlParameterSource("propiedad", idPropiedad),
+                (rs, rowNum) -> rs.getString(1)
+        );
+        Set<String> existingSet = new HashSet<>(existing);
+
+        for (String num : generatedNumbers) {
+            if (existingSet.contains(num.toUpperCase())) {
+                throw new IllegalArgumentException("El parqueadero '" + num + "' ya existe en esta propiedad.");
+            }
+        }
+
+        String insertSql = "INSERT INTO PARQUEADEROS (ID_PROPIEDAD, NUMERO_PARQUEADERO, TIPO, ESTADO) VALUES (:propiedad, :numero, :tipo, :estado)";
+        List<MapSqlParameterSource> batchParams = new ArrayList<>(cantidad);
+        for (String num : generatedNumbers) {
+            batchParams.add(new MapSqlParameterSource()
+                    .addValue("propiedad", idPropiedad)
+                    .addValue("numero", num)
+                    .addValue("tipo", tipo)
+                    .addValue("estado", estado));
+        }
+
+        jdbcTemplate.batchUpdate(insertSql, batchParams.toArray(new MapSqlParameterSource[0]));
+
+        return getParqueaderos(null, null);
     }
 
     @Override

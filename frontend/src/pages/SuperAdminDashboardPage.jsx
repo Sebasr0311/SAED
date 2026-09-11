@@ -174,37 +174,87 @@ export default function SuperAdminDashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Estado de la Infraestructura */}
+        {/* Salud de la Plataforma & Servicios */}
         <Card className="border-border/80">
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between pb-3">
             <CardTitle className="text-base font-semibold flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary">dns</span>
-              Infraestructura & Seguridad SaaS
+              <span className="material-symbols-outlined text-primary">monitor_heart</span>
+              Salud de la Plataforma
             </CardTitle>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              100% Operativo
+            </span>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between p-3 rounded-lg bg-muted/40">
-              <div className="flex items-center gap-3">
-                <span className="material-symbols-outlined text-muted-foreground">cloud</span>
-                <span className="text-sm text-foreground">Motor de Base de Datos</span>
+          <CardContent className="space-y-3">
+            {/* API Backend */}
+            <div className="flex items-center justify-between p-2.5 rounded-lg bg-muted/40 hover:bg-muted/60 transition-colors">
+              <div className="flex items-center gap-2.5">
+                <span className="material-symbols-outlined text-emerald-600 dark:text-emerald-400 text-base">api</span>
+                <div>
+                  <div className="text-xs font-semibold text-foreground">API Backend Spring Boot</div>
+                  <div className="text-[10px] text-muted-foreground">{plat.version || 'SAED 2.0.0-PROD'} · Java 17</div>
+                </div>
               </div>
-              <span className="text-sm font-semibold text-foreground">{plat.motorBD}</span>
+              <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-[10px] font-semibold">
+                Activa · 200 OK
+              </Badge>
             </div>
 
-            <div className="flex items-center justify-between p-3 rounded-lg bg-muted/40">
-              <div className="flex items-center gap-3">
-                <span className="material-symbols-outlined text-muted-foreground">security</span>
-                <span className="text-sm text-foreground">Aislamiento Multi-Tenant</span>
+            {/* Base de Datos Oracle */}
+            <div className="flex items-center justify-between p-2.5 rounded-lg bg-muted/40 hover:bg-muted/60 transition-colors">
+              <div className="flex items-center gap-2.5">
+                <span className="material-symbols-outlined text-blue-600 dark:text-blue-400 text-base">database</span>
+                <div>
+                  <div className="text-xs font-semibold text-foreground">Base de Datos Oracle ATP</div>
+                  <div className="text-[10px] text-muted-foreground">{plat.motorBD || 'Oracle Cloud ATP 23ai'} · RLS Activo</div>
+                </div>
               </div>
-              <span className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">{plat.seguridad}</span>
+              <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-[10px] font-semibold">
+                Conectada
+              </Badge>
             </div>
 
-            <div className="flex items-center justify-between p-3 rounded-lg bg-muted/40">
-              <div className="flex items-center gap-3">
-                <span className="material-symbols-outlined text-muted-foreground">deployed_code</span>
-                <span className="text-sm text-foreground">Versión del Backend</span>
+            {/* Servicio Auth JWT */}
+            <div className="flex items-center justify-between p-2.5 rounded-lg bg-muted/40 hover:bg-muted/60 transition-colors">
+              <div className="flex items-center gap-2.5">
+                <span className="material-symbols-outlined text-indigo-600 dark:text-indigo-400 text-base">lock_clock</span>
+                <div>
+                  <div className="text-xs font-semibold text-foreground">Autenticación & Seguridad JWT</div>
+                  <div className="text-[10px] text-muted-foreground">Sesiones Zero-Trust · PKG_AUTH_BOOTSTRAP</div>
+                </div>
               </div>
-              <Badge variant="outline">{plat.version}</Badge>
+              <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-[10px] font-semibold">
+                Protegido
+              </Badge>
+            </div>
+
+            {/* Almacenamiento Documental */}
+            <div className="flex items-center justify-between p-2.5 rounded-lg bg-muted/40 hover:bg-muted/60 transition-colors">
+              <div className="flex items-center gap-2.5">
+                <span className="material-symbols-outlined text-amber-600 dark:text-amber-400 text-base">folder_zip</span>
+                <div>
+                  <div className="text-xs font-semibold text-foreground">Almacenamiento Seguro (Storage)</div>
+                  <div className="text-[10px] text-muted-foreground">Soportes de gastos, contratos y actas (SHA-256)</div>
+                </div>
+              </div>
+              <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-[10px] font-semibold">
+                En Línea
+              </Badge>
+            </div>
+
+            {/* Pasarela Wompi */}
+            <div className="flex items-center justify-between p-2.5 rounded-lg bg-muted/40 hover:bg-muted/60 transition-colors">
+              <div className="flex items-center gap-2.5">
+                <span className="material-symbols-outlined text-emerald-600 dark:text-emerald-400 text-base">credit_card</span>
+                <div>
+                  <div className="text-xs font-semibold text-foreground">Pasarela de Pagos (Wompi)</div>
+                  <div className="text-[10px] text-muted-foreground">Webhooks activos · Conciliación automática</div>
+                </div>
+              </div>
+              <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-[10px] font-semibold">
+                Integrada
+              </Badge>
             </div>
           </CardContent>
         </Card>

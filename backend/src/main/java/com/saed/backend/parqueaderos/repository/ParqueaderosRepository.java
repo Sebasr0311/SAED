@@ -3,6 +3,7 @@ package com.saed.backend.parqueaderos.repository;
 import com.saed.backend.parqueaderos.dto.AsignacionParqueaderoDTO;
 import com.saed.backend.parqueaderos.dto.AsignacionParqueaderoRequestDTO;
 import com.saed.backend.parqueaderos.dto.ParqueaderoDTO;
+import com.saed.backend.parqueaderos.dto.ParqueaderoMasivoRequestDTO;
 import com.saed.backend.parqueaderos.dto.ParqueaderoRequestDTO;
 
 import java.util.List;
@@ -14,6 +15,7 @@ public interface ParqueaderosRepository {
     List<ParqueaderoDTO> getParqueaderos(String estado, String tipo);
     Optional<ParqueaderoDTO> getParqueaderoById(Long id);
     ParqueaderoDTO registrarParqueadero(ParqueaderoRequestDTO request, Long idPropiedad);
+    List<ParqueaderoDTO> registrarParqueaderosMasivo(ParqueaderoMasivoRequestDTO request, Long idPropiedad);
     ParqueaderoDTO actualizarParqueadero(Long id, ParqueaderoRequestDTO request);
     void eliminarParqueadero(Long id);
 

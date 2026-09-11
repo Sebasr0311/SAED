@@ -15,6 +15,7 @@ export default function OrgPropiedadesPage() {
   const [successMsg, setSuccessMsg] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const [statusConfirmProp, setStatusConfirmProp] = useState(null);
 
   // Modal create state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -93,11 +94,20 @@ export default function OrgPropiedadesPage() {
     }
   }
 
-  async function toggleStatus(prop) {
+  function handleToggleStatus(prop) {
+    if (prop.estado === 'ACTIVA') {
+      setStatusConfirmProp(prop);
+    } else {
+      executeToggleStatus(prop);
+    }
+  }
+
+  async function executeToggleStatus(prop) {
     const nextStatus = prop.estado === 'ACTIVA' ? 'INACTIVA' : 'ACTIVA';
     try {
       await api.patch(`/properties/${prop.id}/status`, { estado: nextStatus });
       setSuccessMsg(`Propiedad ${prop.nombre} ahora se encuentra ${nextStatus}.`);
+      setStatusConfirmProp(null);
       await loadData();
       setTimeout(() => setSuccessMsg(null), 4000);
     } catch (err) {
@@ -260,7 +270,7 @@ export default function OrgPropiedadesPage() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => toggleStatus(prop)}
+                  onClick={() => handleToggleStatus(prop)}
                   className="text-xs gap-1"
                 >
                   <Power className="w-3.5 h-3.5" />
@@ -362,6 +372,56 @@ export default function OrgPropiedadesPage() {
                   </Button>
                 </div>
               </form>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Confirmation Modal for Suspension / Deactivation */}
+      {statusConfirmProp && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
+          <Card className="w-full max-w-md bg-background border-border shadow-xl">
+            <CardHeader className="border-b border-border pb-4">
+              <CardTitle className="text-base font-bold text-foreground flex items-center gap-2">
+                <AlertCircle className="w-5 h-5 text-amber-500 shrink-0" />
+                Suspender Operaciones de Copropiedad
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-4 space-y-3 text-xs text-muted-foreground">
+              <p>
+                Está a punto de cambiar el estado de la copropiedad{' '}
+                <strong className="text-foreground">{statusConfirmProp.nombre}</strong> a{' '}
+                <span className="font-semibold text-amber-600 dark:text-amber-400">INACTIVA</span>.
+              </p>
+              <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300 space-y-1.5 text-[11px]">
+                <div className="font-semibold flex items-center gap-1.5">
+                  <AlertCircle className="w-3.5 h-3.5" />
+                  Impacto Operativo:
+                </div>
+                <ul className="list-disc list-inside space-y-0.5">
+                  <li>Se congelarán las operaciones de residentes, cartera y visitas para esta propiedad.</li>
+                  <li>El historial y registros contables/auditoría se mantendrán intactos.</li>
+                  <li>Podrá reactivar la copropiedad en cualquier momento desde esta consola.</li>
+                </ul>
+              </div>
+              <div className="flex justify-end gap-2 pt-3 border-t border-border">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setStatusConfirmProp(null)}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => executeToggleStatus(statusConfirmProp)}
+                >
+                  Confirmar Suspensión
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </div>

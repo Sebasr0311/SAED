@@ -3,6 +3,7 @@ package com.saed.backend.parqueaderos.controller;
 import com.saed.backend.parqueaderos.dto.AsignacionParqueaderoDTO;
 import com.saed.backend.parqueaderos.dto.AsignacionParqueaderoRequestDTO;
 import com.saed.backend.parqueaderos.dto.ParqueaderoDTO;
+import com.saed.backend.parqueaderos.dto.ParqueaderoMasivoRequestDTO;
 import com.saed.backend.parqueaderos.dto.ParqueaderoRequestDTO;
 import com.saed.backend.parqueaderos.service.ParqueaderosService;
 import jakarta.validation.Valid;
@@ -43,6 +44,12 @@ public class ParqueaderosController {
     @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<ParqueaderoDTO> registrarParqueadero(@Valid @RequestBody ParqueaderoRequestDTO request) {
         return new ResponseEntity<>(parqueaderosService.registrarParqueadero(request), HttpStatus.CREATED);
+    }
+
+    @PostMapping("/masivo")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
+    public ResponseEntity<List<ParqueaderoDTO>> registrarParqueaderosMasivo(@Valid @RequestBody ParqueaderoMasivoRequestDTO request) {
+        return new ResponseEntity<>(parqueaderosService.registrarParqueaderosMasivo(request), HttpStatus.CREATED);
     }
 
     @PutMapping("/{id}")
