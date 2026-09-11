@@ -9,7 +9,7 @@ test.describe('17 - QA-08: Auditoría y Validación Global de Formularios SAED 2
 
   test('17.1: Formulario de Residentes - Validaciones estatutarias colombianas y estados visuales', async ({ page }) => {
     await page.goto('/residentes');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Abrir modal de nuevo residente
     const nuevoBtn = page.getByRole('button', { name: /Nuevo Residente|Registrar Residente/i }).first();
@@ -68,7 +68,7 @@ test.describe('17 - QA-08: Auditoría y Validación Global de Formularios SAED 2
 
   test('17.2: Formulario de Visitas - Validaciones de visitante y placa vehicular', async ({ page }) => {
     await page.goto('/visitas');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const nuevaVisitaBtn = page.getByRole('button', { name: /Nueva Visita|Registrar Visita/i }).first();
     await nuevaVisitaBtn.click();

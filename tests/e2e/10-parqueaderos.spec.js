@@ -6,7 +6,7 @@ test.describe('10 - Gestión de Parqueaderos y Bahías', () => {
   test('10.1: Carga de mapa y cuadrícula de bahías de parqueadero', async ({ page }) => {
     await loginAs(page, 'ADMIN_PROPIEDAD');
     await page.goto('/parqueaderos');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     await expect(page.locator('h1, h2, [role="heading"]').filter({ hasText: /Parqueadero/i }).first()).toBeVisible();
 
@@ -21,7 +21,7 @@ test.describe('10 - Gestión de Parqueaderos y Bahías', () => {
   test('10.2: Filtrado por tipo de parqueadero (Visitantes / Residentes)', async ({ page }) => {
     await loginAs(page, 'PORTERO');
     await page.goto('/parqueaderos');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Cambiar filtro a visitantes
     const filterSelect = page.locator('select, [role="combobox"]').first();

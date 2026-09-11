@@ -6,7 +6,7 @@ test.describe('07 - Control y Registro de Visitas', () => {
   test('07.1: ADMIN_PROPIEDAD consulta módulo de visitas', async ({ page }) => {
     await loginAs(page, 'ADMIN_PROPIEDAD');
     await page.goto('/visitas');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     await expect(page.locator('h1, h2, [role="heading"]').filter({ hasText: /Visitas/i }).first()).toBeVisible();
     const tableOEmpty = page.locator('table, .data-table').or(page.getByText(/No hay visitas/i)).first();
@@ -16,7 +16,7 @@ test.describe('07 - Control y Registro de Visitas', () => {
   test('07.2: RESIDENTE puede registrar una visita programada', async ({ page }) => {
     await loginAs(page, 'RESIDENTE');
     await page.goto('/res-visita');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     await expect(page.locator('h1, h2, [role="heading"]').filter({ hasText: /Visita/i }).first()).toBeVisible();
 

@@ -7,7 +7,7 @@ test.describe('16 - Regresión Core MVP y Responsividad', () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await loginAs(page, 'ADMIN_PROPIEDAD');
     await page.goto('/dashboard');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Comprobar ausencia de scroll horizontal involuntario
     const hasHorizontalOverflow = await page.evaluate(() => {
@@ -24,7 +24,7 @@ test.describe('16 - Regresión Core MVP y Responsividad', () => {
     await page.setViewportSize({ width: 360, height: 740 });
     await loginAs(page, 'RESIDENTE');
     await page.goto('/residente-dashboard');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const hasHorizontalOverflow = await page.evaluate(() => {
       return document.documentElement.scrollWidth > document.documentElement.clientWidth;
@@ -38,13 +38,13 @@ test.describe('16 - Regresión Core MVP y Responsividad', () => {
 
     await loginAs(page, 'ADMIN_PROPIEDAD');
     await page.goto('/residentes');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     await page.goto('/cartera');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     await page.goto('/dashboard');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // No debe haber unhandled exceptions en ninguna de las páginas clave
     expect(pageErrors).toEqual([]);

@@ -6,7 +6,7 @@ test.describe('05 - Gestión y Balance de Cartera', () => {
   test.beforeEach(async ({ page }) => {
     await loginAs(page, 'ADMIN_PROPIEDAD');
     await page.goto('/cartera');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
   });
 
   test('05.1: Módulo de Cartera carga métricas consolidadas y pestañas', async ({ page }) => {

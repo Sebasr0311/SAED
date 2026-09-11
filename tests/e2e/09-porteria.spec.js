@@ -6,7 +6,7 @@ test.describe('09 - Consola y Operación de Portería', () => {
   test.beforeEach(async ({ page }) => {
     await loginAs(page, 'PORTERO');
     await page.goto('/escanner-qr');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
   });
 
   test('09.1: Consola de portería carga pestañas y accesos rápidos', async ({ page }) => {

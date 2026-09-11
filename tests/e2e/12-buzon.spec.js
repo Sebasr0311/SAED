@@ -6,7 +6,7 @@ test.describe('12 - Centro de Notificaciones y Comunicaciones', () => {
   test('12.1: Campana de notificaciones abre popover flotante con tabs Todas y No leídas', async ({ page }) => {
     await loginAs(page, 'ADMIN_PROPIEDAD');
     await page.goto('/dashboard');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Localizar botón de campana
     const bellBtn = page.locator('#notification-bell-button');
@@ -32,7 +32,7 @@ test.describe('12 - Centro de Notificaciones y Comunicaciones', () => {
   test('12.2: RESIDENTE accede al buzón de comunicados de la comunidad', async ({ page }) => {
     await loginAs(page, 'RESIDENTE');
     await page.goto('/res-buzon');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     await expect(page.locator('h1, h2, [role="heading"]').filter({ hasText: /Buzón|Avisos/i }).first()).toBeVisible();
   });

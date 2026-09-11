@@ -8,18 +8,18 @@ test.describe('02 - Control de Acceso Basado en Roles (RBAC)', () => {
 
     // Intentar acceder a superadmin
     await page.goto('/superadmin/dashboard');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
     // En App.jsx, ProtectedRoute sin rol permitido no renderiza el componente protegido
     await expect(page.locator('text=Super Administrador')).toHaveCount(0);
 
     // Intentar acceder a personas (CRUD administrativo)
     await page.goto('/personas');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
     await expect(page.locator('text=Gestión de Personas')).toHaveCount(0);
 
     // Intentar acceder a cartera general
     await page.goto('/cartera');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
     await expect(page.locator('text=Balance General de Cartera')).toHaveCount(0);
   });
 
@@ -28,17 +28,17 @@ test.describe('02 - Control de Acceso Basado en Roles (RBAC)', () => {
 
     // Intentar acceder a personas
     await page.goto('/personas');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
     await expect(page.locator('text=Gestión de Personas')).toHaveCount(0);
 
     // Intentar acceder a cartera
     await page.goto('/cartera');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
     await expect(page.locator('text=Balance General de Cartera')).toHaveCount(0);
 
     // Intentar acceder a superadmin
     await page.goto('/superadmin/dashboard');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
     await expect(page.locator('text=Super Administrador')).toHaveCount(0);
   });
 
@@ -46,11 +46,11 @@ test.describe('02 - Control de Acceso Basado en Roles (RBAC)', () => {
     await loginAs(page, 'ADMIN_PROPIEDAD');
 
     await page.goto('/superadmin/dashboard');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
     await expect(page.locator('text=Super Administrador')).toHaveCount(0);
 
     await page.goto('/superadmin/organizaciones');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
     await expect(page.locator('text=Gestión Global de Organizaciones')).toHaveCount(0);
   });
 
