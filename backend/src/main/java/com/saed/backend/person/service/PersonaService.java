@@ -1,5 +1,7 @@
 package com.saed.backend.person.service;
 
+import com.saed.backend.person.dto.PersonaBatchItemDTO;
+import com.saed.backend.person.dto.PersonaBatchResultDTO;
 import com.saed.backend.person.dto.PersonaDTO;
 import com.saed.backend.person.dto.PersonaRequestDTO;
 import java.util.List;
@@ -10,4 +12,5 @@ public interface PersonaService {
     void updatePersona(Long id, PersonaRequestDTO request);
     void deletePersona(Long id);
     PersonaDTO getPersonaById(Long id);
+    PersonaBatchResultDTO importarBatch(List<PersonaBatchItemDTO> items);
 }

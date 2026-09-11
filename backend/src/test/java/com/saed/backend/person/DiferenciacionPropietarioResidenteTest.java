@@ -36,6 +36,9 @@ public class DiferenciacionPropietarioResidenteTest {
     private PersonaRepository personaRepository;
 
     @Autowired
+    private com.saed.backend.person.service.PersonaService personaService;
+
+    @Autowired
     private JdbcTemplate jdbcTemplate;
 
     private static final Long TEST_UNIT_ID = 1L;
@@ -159,5 +162,52 @@ public class DiferenciacionPropietarioResidenteTest {
         );
         assertEquals("PROPIETARIO_NO_RESIDENTE", dto.tipoRelacion());
         assertEquals("101", dto.numeroApartamento());
+    }
+
+    @Test
+    public void testDesvinculacionProtegida_SoftDeletePreservaHistorico() {
+        // Requisitos #14 y #15: No destrucción física, soft-delete y preservación de auditoría
+        personaRepository.delete(TEST_PERSONA_ID);
+
+        String estadoPersona = jdbcTemplate.queryForObject(
+                "SELECT ESTADO FROM PERSONAS WHERE ID_PERSONA = ?",
+                String.class,
+                TEST_PERSONA_ID
+        );
+        assertEquals("INACTIVO", estadoPersona, "El habitante debe pasar a estado INACTIVO");
+
+        Integer resActivos = jdbcTemplate.queryForObject(
+                "SELECT COUNT(1) FROM RESIDENTES_UNIDAD WHERE ID_PERSONA = ? AND ESTADO = 'ACTIVO'",
+                Integer.class,
+                TEST_PERSONA_ID
+        );
+        assertEquals(0, resActivos != null ? resActivos : 0, "No deben quedar registros activos en RESIDENTES_UNIDAD");
+    }
+
+    @Test
+    public void testImportarBatch_CreacionYAsignacion() {
+        // Requisito #16: Carga masiva por lotes (Batch Ingestion)
+        String docTest = "BATCH_" + System.currentTimeMillis();
+        com.saed.backend.person.dto.PersonaBatchItemDTO item = new com.saed.backend.person.dto.PersonaBatchItemDTO(
+                "CC",
+                docTest,
+                "Maria Camila",
+                "Restrepo Ochoa",
+                "maria.batch@saed.com",
+                "3119876543",
+                "101",
+                "PROPIETARIO_RESIDENTE"
+        );
+
+        com.saed.backend.person.dto.PersonaBatchResultDTO resultado = personaService.importarBatch(java.util.List.of(item));
+        assertNotNull(resultado);
+        assertEquals(1, resultado.total());
+        assertEquals(1, resultado.procesados());
+        assertEquals(0, resultado.fallidos());
+
+        // Verificar que la persona se haya creado y asignado
+        java.util.Optional<PersonaDTO> creada = personaRepository.findByNumeroDocumento(docTest);
+        assertTrue(creada.isPresent(), "La persona debe haber sido persistida");
+        assertEquals("PROPIETARIO_RESIDENTE", creada.get().tipoRelacion());
     }
 }

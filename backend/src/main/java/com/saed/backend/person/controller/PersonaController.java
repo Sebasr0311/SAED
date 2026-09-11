@@ -51,6 +51,13 @@ public class PersonaController {
         return ResponseEntity.ok().build();
     }
 
+    @PostMapping("/importar")
+    @PreAuthorize("hasAuthority('SCOPE_SUPERADMIN') or hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
+    public ResponseEntity<com.saed.backend.person.dto.PersonaBatchResultDTO> importarPersonas(
+            @RequestBody List<com.saed.backend.person.dto.PersonaBatchItemDTO> items) {
+        return ResponseEntity.ok(personaService.importarBatch(items));
+    }
+
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAuthority('SCOPE_SUPERADMIN') or hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<Void> deletePersona(@PathVariable Long id) {

@@ -15,6 +15,15 @@ import {
   UserPlus,
   Users,
   X,
+  Upload,
+  Download,
+  FileSpreadsheet,
+  AlertCircle,
+  CheckCircle2,
+  FileUp,
+  AlertTriangle,
+  UserMinus,
+  Info,
 } from 'lucide-react';
 import {
   valNombre,
@@ -155,6 +164,15 @@ export default function ResidentesPage() {
   const [editing, setEditing] = useState(null);
   const [confirmDel, setConfirmDel] = useState(null);
   const [pwdConfirmOpen, setPwdConfirmOpen] = useState(false);
+
+  // Estados para Carga Masiva (Requisito #16)
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importFile, setImportFile] = useState(null);
+  const [parsedRows, setParsedRows] = useState([]);
+  const [importResult, setImportResult] = useState(null);
+  const [dragActive, setDragActive] = useState(false);
+  const fileInputRef = useRef(null);
 
   // 1. Censo de Personas/Residentes
   const {
@@ -473,19 +491,202 @@ export default function ResidentesPage() {
     }
   }, [editing, form, refetch, tenantApi, validate]);
 
-  // Eliminación CRUD
+  // Desvinculación Protegida (Requisitos #14 y #15)
   const handleDelete = useCallback(async () => {
     if (!confirmDel) return;
     try {
       await tenantApi.del(`/personas/${confirmDel.id}`);
-      toast.success('Residente eliminado correctamente');
+      toast.success('Habitante desvinculado con éxito. Su historial y registros de auditoría fueron preservados.');
       refetch();
     } catch (err) {
-      toast.error(err.message || 'No se pudo eliminar el residente');
+      toast.error(err.message || 'No se pudo desvincular al habitante');
     } finally {
       setConfirmDel(null);
     }
   }, [confirmDel, refetch, tenantApi]);
+
+  // Descarga de Plantilla Oficial Excel para Censo (Requisito #16)
+  const handleDownloadTemplate = useCallback(async () => {
+    try {
+      const XLSX = await import('xlsx-js-style');
+      const headers = [
+        'TIPO_DOCUMENTO',
+        'NUMERO_DOCUMENTO',
+        'NOMBRES',
+        'APELLIDOS',
+        'EMAIL',
+        'TELEFONO',
+        'NUMERO_UNIDAD',
+        'TIPO_RELACION',
+      ];
+
+      const rows = [
+        ['CC', '1020304050', 'Carlos Andrés', 'Pérez Gómez', 'carlos.perez@ejemplo.com', '3001234567', '101', 'PROPIETARIO_RESIDENTE'],
+        ['CC', '1030405060', 'María Elena', 'Rodríguez López', 'maria.rodriguez@ejemplo.com', '3109876543', '102', 'ARRENDATARIO'],
+        ['CE', '90807060', 'John David', 'Smith', 'john.smith@ejemplo.com', '3205551234', '201', 'PROPIETARIO_NO_RESIDENTE'],
+        ['TI', '1122334455', 'Sofía', 'Pérez Morales', '', '3001234567', '101', 'CONVIVIENTE'],
+      ];
+
+      const headerStyle = {
+        font: { bold: true, color: { rgb: 'FFFFFF' }, sz: 11 },
+        fill: { fgColor: { rgb: '1E293B' } },
+        alignment: { horizontal: 'center', vertical: 'center' },
+      };
+
+      const dataStyle = {
+        font: { sz: 10 },
+        alignment: { vertical: 'center' },
+      };
+
+      const wsData = [
+        headers.map((h) => ({ t: 's', v: h, s: headerStyle })),
+        ...rows.map((row) => row.map((val) => ({ t: 's', v: val, s: dataStyle }))),
+      ];
+
+      const ws = XLSX.utils.aoa_to_sheet(wsData);
+      ws['!cols'] = [
+        { wch: 18 },
+        { wch: 20 },
+        { wch: 22 },
+        { wch: 22 },
+        { wch: 30 },
+        { wch: 16 },
+        { wch: 18 },
+        { wch: 28 },
+      ];
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Censo_Residentes');
+      XLSX.writeFile(wb, 'Plantilla_Censo_Residentes_SAED.xlsx');
+      toast.success('Plantilla descargada correctamente');
+    } catch (err) {
+      toast.error('No se pudo generar la plantilla: ' + (err.message || 'error desconocido'));
+    }
+  }, []);
+
+  // Procesamiento y pre-validación de archivo Excel / CSV (Requisito #16)
+  const processSpreadsheet = useCallback(async (file) => {
+    if (!file) return;
+    try {
+      const XLSX = await import('xlsx-js-style');
+      const buffer = await file.arrayBuffer();
+      const wb = XLSX.read(buffer, { type: 'array' });
+      const wsName = wb.SheetNames[0];
+      if (!wsName) {
+        toast.error('El archivo no contiene hojas de cálculo');
+        return;
+      }
+      const ws = wb.Sheets[wsName];
+      const rawRows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+
+      if (!rawRows || rawRows.length === 0) {
+        toast.error('El archivo está vacío o no tiene filas legibles');
+        return;
+      }
+
+      const normalized = rawRows.map((r, index) => {
+        const getVal = (...possibleKeys) => {
+          for (const key of Object.keys(r)) {
+            const cleanKey = key.trim().toUpperCase().replace(/[\s_]+/g, '');
+            for (const pk of possibleKeys) {
+              const cleanPk = pk.trim().toUpperCase().replace(/[\s_]+/g, '');
+              if (cleanKey === cleanPk) return String(r[key]).trim();
+            }
+          }
+          return '';
+        };
+
+        const tipoDoc = (getVal('TIPO_DOCUMENTO', 'TIPODOCUMENTO', 'TIPODOC', 'TIPO') || 'CC').toUpperCase();
+        const numeroDocumento = getVal('NUMERO_DOCUMENTO', 'NUMERODOCUMENTO', 'DOCUMENTO', 'CEDULA', 'IDENTIFICACION', 'NUMERO');
+        const nombres = getVal('NOMBRES', 'NOMBRE', 'PRIMERNOMBRE');
+        const apellidos = getVal('APELLIDOS', 'APELLIDO', 'PRIMERAPELLIDO');
+        const email = getVal('EMAIL', 'CORREO', 'CORREOELECTRONICO');
+        const telefono = getVal('TELEFONO', 'TEL', 'CELULAR', 'MOVIL');
+        const numeroUnidad = getVal('NUMERO_UNIDAD', 'NUMEROUNIDAD', 'UNIDAD', 'APARTAMENTO', 'APTO', 'INMUEBLE');
+        let tipoRelacion = (getVal('TIPO_RELACION', 'TIPORELACION', 'RELACION', 'CONDICION', 'ROL') || '').toUpperCase();
+
+        if (tipoRelacion.includes('NO_RESIDENTE') || tipoRelacion.includes('NO RESIDENTE')) {
+          tipoRelacion = 'PROPIETARIO_NO_RESIDENTE';
+        } else if (tipoRelacion.includes('PROPIETARIO')) {
+          tipoRelacion = 'PROPIETARIO_RESIDENTE';
+        } else if (tipoRelacion.includes('ARRENDATARIO') || tipoRelacion.includes('INQUILINO')) {
+          tipoRelacion = 'ARRENDATARIO';
+        } else if (tipoRelacion.includes('CONVIVIENTE') || tipoRelacion.includes('FAMILIAR') || tipoRelacion.includes('HIJ')) {
+          tipoRelacion = 'CONVIVIENTE';
+        } else {
+          tipoRelacion = 'ARRENDATARIO';
+        }
+
+        const errorsList = [];
+        if (!numeroDocumento) errorsList.push('Falta número de documento');
+        if (!nombres) errorsList.push('Falta nombre');
+        if (!numeroUnidad) errorsList.push('Sin unidad habitacional (se creará habitante sin asignar)');
+
+        const status = errorsList.some((e) => e.startsWith('Falta')) ? 'INVALID' : errorsList.length > 0 ? 'WARNING' : 'VALID';
+
+        return {
+          rowNumber: index + 2,
+          tipoDocumento: tipoDoc,
+          numeroDocumento,
+          nombres,
+          apellidos,
+          email,
+          telefono,
+          numeroUnidad,
+          tipoRelacion,
+          status,
+          validationMsg: errorsList.join(' · '),
+        };
+      });
+
+      setImportFile(file);
+      setParsedRows(normalized);
+      setImportResult(null);
+    } catch (err) {
+      toast.error('Error al leer el archivo Excel: ' + (err.message || 'formato inválido'));
+    }
+  }, []);
+
+  // Enviar lote validado al backend (Requisito #16)
+  const handleExecuteImport = useCallback(async () => {
+    const validItems = parsedRows.filter((r) => r.status !== 'INVALID');
+    if (validItems.length === 0) {
+      toast.error('No hay filas válidas para procesar');
+      return;
+    }
+
+    setImporting(true);
+    try {
+      const payload = validItems.map((r) => ({
+        tipoDocumento: r.tipoDocumento,
+        numeroDocumento: r.numeroDocumento,
+        nombres: r.nombres,
+        apellidos: r.apellidos,
+        email: r.email,
+        telefono: r.telefono,
+        numeroUnidad: r.numeroUnidad,
+        tipoRelacion: r.tipoRelacion,
+      }));
+
+      const res = await tenantApi.post('/personas/importar', payload);
+      setImportResult(res);
+      toast.success(`Censo procesado: ${res?.totalExitosos || 0} exitosos de ${res?.totalProcesados || payload.length}`);
+      refetch();
+    } catch (err) {
+      toast.error(err.message || 'Error durante la importación masiva');
+    } finally {
+      setImporting(false);
+    }
+  }, [parsedRows, refetch, tenantApi]);
+
+  const resetImportModal = useCallback(() => {
+    setImportModalOpen(false);
+    setImportFile(null);
+    setParsedRows([]);
+    setImportResult(null);
+    setDragActive(false);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }, []);
 
   return (
     <PageContainer className="space-y-6">
@@ -522,6 +723,20 @@ export default function ResidentesPage() {
               aria-hidden="true"
             />
             Actualizar
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setImportResult(null);
+              setImportFile(null);
+              setParsedRows([]);
+              setImportModalOpen(true);
+            }}
+            className="text-xs min-h-[44px] sm:min-h-9 border-primary/30 text-primary hover:bg-primary/5"
+          >
+            <Upload className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
+            Carga Masiva (Excel)
           </Button>
           <Button
             variant="primary"
@@ -1379,11 +1594,11 @@ export default function ResidentesPage() {
         </div>
       </Modal>
 
-      {/* 5. Modal Confirmación de Eliminación */}
+      {/* 5. Modal Confirmación de Desvinculación Protegida (Requisitos #14 y #15) */}
       <Modal
         open={!!confirmDel}
         onClose={() => setConfirmDel(null)}
-        title="Eliminar residente"
+        title="Desvinculación protegida del habitante"
         footer={
           <>
             <Button
@@ -1398,23 +1613,39 @@ export default function ResidentesPage() {
               onClick={() => setPwdConfirmOpen(true)}
               className="text-xs min-h-[44px] sm:min-h-9"
             >
-              Continuar a Confirmación
+              <UserMinus className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
+              Continuar a Desvinculación
             </Button>
           </>
         }
       >
-        <div className="space-y-2 py-2">
-          <p className="text-sm text-foreground">
-            ¿Está seguro de que desea eliminar del censo a{' '}
-            <strong className="font-semibold">
-              {confirmDel?.nombres} {confirmDel?.apellidos}
-            </strong>
-            ?
-          </p>
-          <p className="text-xs text-muted-foreground">
-            Esta acción revocará su vinculación a la copropiedad y sus permisos de acceso. Por
-            política de seguridad RLS, deberá ingresar su contraseña de administrador en el siguiente
-            paso.
+        <div className="space-y-3 py-2 text-xs sm:text-sm">
+          <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-900 dark:text-amber-200 flex items-start gap-2.5">
+            <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" aria-hidden="true" />
+            <div className="space-y-1">
+              <p className="font-semibold">Baja administrativa del censo activo</p>
+              <p className="text-xs opacity-90">
+                ¿Está seguro de que desea desvincular a{' '}
+                <strong className="font-semibold">
+                  {confirmDel?.nombres} {confirmDel?.apellidos}
+                </strong>
+                ? Esta acción revocará sus credenciales de usuario y liberará su asignación en la unidad habitacional.
+              </p>
+            </div>
+          </div>
+
+          <div className="p-3 rounded-lg bg-muted/50 border border-border/60 text-muted-foreground space-y-1.5 text-xs">
+            <div className="flex items-center gap-2 font-medium text-foreground">
+              <ShieldCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+              <span>Garantía de Auditoría Histórica (Zero Data Loss)</span>
+            </div>
+            <p>
+              Conforme a los Requisitos #14 y #15, <strong>no se borrará físicamente ningún registro</strong>. Todo el historial de visitas, recepción de paquetes, pagos, estado de cuenta y solicitudes PQRS se mantendrá permanentemente íntegro.
+            </p>
+          </div>
+
+          <p className="text-xs text-muted-foreground pt-1">
+            Por política de seguridad Zero-Trust, deberá ingresar su contraseña de administrador en el siguiente paso para confirmar la operación.
           </p>
         </div>
       </Modal>
@@ -1427,8 +1658,290 @@ export default function ResidentesPage() {
           setPwdConfirmOpen(false);
           handleDelete();
         }}
-        descripcion={`eliminar a ${confirmDel?.nombres} ${confirmDel?.apellidos}`}
+        descripcion={`desvincular a ${confirmDel?.nombres} ${confirmDel?.apellidos}`}
       />
+
+      {/* 7. Modal Carga Masiva de Residentes (Requisito #16) */}
+      <Modal
+        open={importModalOpen}
+        onClose={resetImportModal}
+        title="Carga Masiva de Residentes (Censo Excel)"
+        className="max-w-4xl"
+        footer={
+          importResult ? (
+            <Button
+              variant="primary"
+              onClick={resetImportModal}
+              className="text-xs min-h-[44px] sm:min-h-9"
+            >
+              Finalizar y Ver Residentes
+            </Button>
+          ) : (
+            <>
+              <Button
+                variant="outline"
+                onClick={resetImportModal}
+                disabled={importing}
+                className="text-xs min-h-[44px] sm:min-h-9"
+              >
+                Cancelar
+              </Button>
+              {importFile && (
+                <Button
+                  variant="primary"
+                  onClick={handleExecuteImport}
+                  disabled={importing || parsedRows.filter((r) => r.status !== 'INVALID').length === 0}
+                  className="text-xs min-h-[44px] sm:min-h-9 shadow-xs"
+                >
+                  {importing ? (
+                    <>
+                      <RefreshCw className="h-3.5 w-3.5 mr-1.5 animate-spin" aria-hidden="true" />
+                      Procesando lote...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
+                      Confirmar e Importar ({parsedRows.filter((r) => r.status !== 'INVALID').length} registros)
+                    </>
+                  )}
+                </Button>
+              )}
+            </>
+          )
+        }
+      >
+        <div className="space-y-4 py-1 text-xs sm:text-sm">
+          {/* Instrucciones y Descarga de Plantilla */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl bg-muted/40 border border-border/60">
+            <div className="space-y-1">
+              <p className="font-semibold text-foreground flex items-center gap-1.5">
+                <FileSpreadsheet className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                Plantilla Oficial de Ingesta Masiva
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Descargue el formato con las columnas estandarizadas y ejemplos de las 4 condiciones de habitantes.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDownloadTemplate}
+              className="text-xs font-semibold shrink-0 border-emerald-500/30 text-emerald-700 hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-950/40"
+            >
+              <Download className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
+              Descargar Plantilla (.xlsx)
+            </Button>
+          </div>
+
+          {/* Resultado de Importación (si ya terminó) */}
+          {importResult ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="p-3 rounded-lg border border-border/70 bg-card text-center">
+                  <p className="text-xs text-muted-foreground">Total Filas Procesadas</p>
+                  <p className="text-2xl font-bold font-mono text-foreground mt-1">
+                    {importResult.totalProcesados}
+                  </p>
+                </div>
+                <div className="p-3 rounded-lg border border-emerald-200 bg-emerald-50/50 dark:bg-emerald-950/20 dark:border-emerald-800 text-center">
+                  <p className="text-xs text-emerald-700 dark:text-emerald-300">Exitosos</p>
+                  <p className="text-2xl font-bold font-mono text-emerald-700 dark:text-emerald-300 mt-1">
+                    {importResult.totalExitosos}
+                  </p>
+                </div>
+                <div className="p-3 rounded-lg border border-destructive/30 bg-destructive/5 text-center">
+                  <p className="text-xs text-destructive">Fallidos / Errores</p>
+                  <p className="text-2xl font-bold font-mono text-destructive mt-1">
+                    {importResult.totalFallidos}
+                  </p>
+                </div>
+              </div>
+
+              {importResult.errores?.length > 0 && (
+                <div className="border border-destructive/20 rounded-xl overflow-hidden">
+                  <div className="bg-destructive/10 px-4 py-2 font-semibold text-xs text-destructive flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4 shrink-0" />
+                    Detalle de Filas con Error
+                  </div>
+                  <div className="max-h-48 overflow-y-auto divide-y divide-border/50 text-xs">
+                    {importResult.errores.map((err, i) => (
+                      <div key={i} className="p-2.5 flex items-start justify-between gap-3 hover:bg-muted/30">
+                        <div className="font-mono text-muted-foreground shrink-0">
+                          Fila #{err.fila || (i + 2)}
+                        </div>
+                        <div className="font-medium text-foreground truncate max-w-xs">
+                          {err.identificador || 'Sin identificador'}
+                        </div>
+                        <div className="text-destructive text-right flex-1">
+                          {err.error}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
+              {/* Selector / Drag and drop */}
+              <input
+                type="file"
+                ref={fileInputRef}
+                accept=".xlsx,.xls,.csv"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) processSpreadsheet(file);
+                }}
+                className="hidden"
+                id="file-upload-excel"
+              />
+
+              {!importFile ? (
+                <div
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setDragActive(true);
+                  }}
+                  onDragLeave={() => setDragActive(false)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setDragActive(false);
+                    const file = e.dataTransfer.files?.[0];
+                    if (file) processSpreadsheet(file);
+                  }}
+                  onClick={() => fileInputRef.current?.click()}
+                  className={`p-8 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center text-center cursor-pointer transition-colors ${
+                    dragActive
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border/80 hover:border-primary/50 hover:bg-muted/30'
+                  }`}
+                >
+                  <div className="p-3 rounded-full bg-primary/10 text-primary mb-3">
+                    <FileUp className="h-7 w-7" aria-hidden="true" />
+                  </div>
+                  <p className="font-semibold text-foreground text-sm">
+                    Haga clic o arrastre el archivo aquí
+                  </p>
+                  <p className="text-xs text-muted-foreground max-w-xs mt-1">
+                    Soporta hojas de cálculo en formato Excel (.xlsx, .xls) o texto (.csv)
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {/* Resumen del Archivo y Métricas de Validación Previa */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl bg-card border border-border">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-600">
+                        <FileSpreadsheet className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-foreground text-xs sm:text-sm truncate max-w-[280px]">
+                          {importFile.name}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground">
+                          {(importFile.size / 1024).toFixed(1)} KB · {parsedRows.length} filas detectadas
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setImportFile(null);
+                        setParsedRows([]);
+                        if (fileInputRef.current) fileInputRef.current.value = '';
+                      }}
+                      className="text-xs"
+                    >
+                      Cambiar Archivo
+                    </Button>
+                  </div>
+
+                  {/* Badges de Validación Previa */}
+                  <div className="flex items-center gap-2 flex-wrap text-xs">
+                    <span className="px-2.5 py-1 rounded-full bg-muted font-medium text-foreground">
+                      Total: <strong>{parsedRows.length}</strong>
+                    </span>
+                    <span className="px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-medium">
+                      Válidas para importar: <strong>{parsedRows.filter((r) => r.status === 'VALID').length}</strong>
+                    </span>
+                    {parsedRows.filter((r) => r.status === 'WARNING').length > 0 && (
+                      <span className="px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300 font-medium">
+                        Con advertencia: <strong>{parsedRows.filter((r) => r.status === 'WARNING').length}</strong>
+                      </span>
+                    )}
+                    {parsedRows.filter((r) => r.status === 'INVALID').length > 0 && (
+                      <span className="px-2.5 py-1 rounded-full bg-destructive/10 text-destructive font-medium">
+                        Inválidas (se omitirán): <strong>{parsedRows.filter((r) => r.status === 'INVALID').length}</strong>
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Previsualización de Filas Parseadas */}
+                  <div className="border border-border/70 rounded-xl overflow-hidden">
+                    <div className="max-h-60 overflow-y-auto">
+                      <table className="w-full text-left border-collapse text-xs">
+                        <thead>
+                          <tr className="border-b border-border/70 bg-muted/40 text-[11px] font-semibold text-muted-foreground uppercase">
+                            <th className="py-2 px-3 w-10 text-center">#</th>
+                            <th className="py-2 px-3">Documento</th>
+                            <th className="py-2 px-3">Habitante</th>
+                            <th className="py-2 px-3">Unidad</th>
+                            <th className="py-2 px-3">Condición</th>
+                            <th className="py-2 px-3">Estado</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border/40">
+                          {parsedRows.map((r, i) => (
+                            <tr key={i} className="hover:bg-muted/20">
+                              <td className="py-2 px-3 text-center font-mono text-muted-foreground">
+                                {r.rowNumber}
+                              </td>
+                              <td className="py-2 px-3 font-mono">
+                                {r.tipoDocumento} {r.numeroDocumento || '—'}
+                              </td>
+                              <td className="py-2 px-3 font-medium text-foreground">
+                                {r.nombres} {r.apellidos}
+                              </td>
+                              <td className="py-2 px-3">
+                                {r.numeroUnidad ? (
+                                  <Badge variant="outline" className="text-[10px]">
+                                    Apto {r.numeroUnidad}
+                                  </Badge>
+                                ) : (
+                                  <span className="text-muted-foreground text-[10px]">Sin asignar</span>
+                                )}
+                              </td>
+                              <td className="py-2 px-3">
+                                {getRelacionBadge(r.tipoRelacion)}
+                              </td>
+                              <td className="py-2 px-3">
+                                {r.status === 'VALID' ? (
+                                  <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px]">
+                                    Válida
+                                  </Badge>
+                                ) : r.status === 'WARNING' ? (
+                                  <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-[10px]" title={r.validationMsg}>
+                                    Aviso
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20 text-[10px]" title={r.validationMsg}>
+                                    {r.validationMsg || 'Inválida'}
+                                  </Badge>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </Modal>
     </PageContainer>
   );
 }
