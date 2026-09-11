@@ -1,29 +1,35 @@
 package com.saed.backend.sanciones.dto;
 
 import java.time.LocalDate;
-import java.time.ZonedDateTime;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 public class SancionDTO {
     private Long idSancion;
     private Long idPropiedad;
     private Long idUnidad;
+    private String identificadorUnidad;
     private Long idPersonaImputada;
+    private String nombreImputado;
     private Long idIncidenteOrigen;
     private String numeroExpediente;
     private String tipoFalta;
-    private String gravedad; // LEVE, MODERADA, GRAVE
+    private String gravedad;
     private String descripcionHechos;
     private String articuloReglamentoViolado;
     private String evidenciasUrls;
     private String tipoSancionPropuesta;
-    private ZonedDateTime fechaAperturaPliego;
+    private LocalDateTime fechaAperturaPliego;
     private LocalDate fechaLimiteDescargos;
     private String resolucionFinal;
-    private ZonedDateTime fechaResolucion;
-    private String estado; // NOTIFICADA, EN_DESCARGOS, ARCHIVADA, SANCION_APLICADA
+    private LocalDateTime fechaResolucion;
+    private String estado;
     private Long creadoPor;
+    private List<DescargoDTO> descargos = new ArrayList<>();
 
-    // Getters and Setters
+    public SancionDTO() {}
+
     public Long getIdSancion() { return idSancion; }
     public void setIdSancion(Long idSancion) { this.idSancion = idSancion; }
 
@@ -33,8 +39,14 @@ public class SancionDTO {
     public Long getIdUnidad() { return idUnidad; }
     public void setIdUnidad(Long idUnidad) { this.idUnidad = idUnidad; }
 
+    public String getIdentificadorUnidad() { return identificadorUnidad; }
+    public void setIdentificadorUnidad(String identificadorUnidad) { this.identificadorUnidad = identificadorUnidad; }
+
     public Long getIdPersonaImputada() { return idPersonaImputada; }
     public void setIdPersonaImputada(Long idPersonaImputada) { this.idPersonaImputada = idPersonaImputada; }
+
+    public String getNombreImputado() { return nombreImputado; }
+    public void setNombreImputado(String nombreImputado) { this.nombreImputado = nombreImputado; }
 
     public Long getIdIncidenteOrigen() { return idIncidenteOrigen; }
     public void setIdIncidenteOrigen(Long idIncidenteOrigen) { this.idIncidenteOrigen = idIncidenteOrigen; }
@@ -60,8 +72,8 @@ public class SancionDTO {
     public String getTipoSancionPropuesta() { return tipoSancionPropuesta; }
     public void setTipoSancionPropuesta(String tipoSancionPropuesta) { this.tipoSancionPropuesta = tipoSancionPropuesta; }
 
-    public ZonedDateTime getFechaAperturaPliego() { return fechaAperturaPliego; }
-    public void setFechaAperturaPliego(ZonedDateTime fechaAperturaPliego) { this.fechaAperturaPliego = fechaAperturaPliego; }
+    public LocalDateTime getFechaAperturaPliego() { return fechaAperturaPliego; }
+    public void setFechaAperturaPliego(LocalDateTime fechaAperturaPliego) { this.fechaAperturaPliego = fechaAperturaPliego; }
 
     public LocalDate getFechaLimiteDescargos() { return fechaLimiteDescargos; }
     public void setFechaLimiteDescargos(LocalDate fechaLimiteDescargos) { this.fechaLimiteDescargos = fechaLimiteDescargos; }
@@ -69,12 +81,15 @@ public class SancionDTO {
     public String getResolucionFinal() { return resolucionFinal; }
     public void setResolucionFinal(String resolucionFinal) { this.resolucionFinal = resolucionFinal; }
 
-    public ZonedDateTime getFechaResolucion() { return fechaResolucion; }
-    public void setFechaResolucion(ZonedDateTime fechaResolucion) { this.fechaResolucion = fechaResolucion; }
+    public LocalDateTime getFechaResolucion() { return fechaResolucion; }
+    public void setFechaResolucion(LocalDateTime fechaResolucion) { this.fechaResolucion = fechaResolucion; }
 
     public String getEstado() { return estado; }
     public void setEstado(String estado) { this.estado = estado; }
 
     public Long getCreadoPor() { return creadoPor; }
     public void setCreadoPor(Long creadoPor) { this.creadoPor = creadoPor; }
+
+    public List<DescargoDTO> getDescargos() { return descargos; }
+    public void setDescargos(List<DescargoDTO> descargos) { this.descargos = descargos; }
 }
