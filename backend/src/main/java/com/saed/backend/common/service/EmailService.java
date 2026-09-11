@@ -118,6 +118,18 @@ public class EmailService {
         enviarHtml(destinatario, "Codigo QR de Acceso", html, null, null);
     }
 
+    /** Envío asíncrono no bloqueante para no demorar la respuesta de generación de QR. */
+    public void enviarCorreoQRAsync(String destinatario, String tokenQR, String fechaExp, String nombreVisitante) {
+        java.util.concurrent.CompletableFuture.runAsync(() -> {
+            try {
+                enviarCorreoQR(destinatario, tokenQR, fechaExp, nombreVisitante);
+            } catch (Exception e) {
+                org.slf4j.LoggerFactory.getLogger(EmailService.class)
+                    .warn("Fallo en envío asíncrono de correo QR a {}: {}", destinatario, e.getMessage());
+            }
+        });
+    }
+
     public void enviarNotificacionPQRS(String destinatario, String radicado, String estado, String respuesta) throws Exception {
         String html = "<!DOCTYPE html><html><head><meta charset=\"UTF-8\"></head>" +
                 "<body style=\"font-family: Arial; padding: 20px;\">" +

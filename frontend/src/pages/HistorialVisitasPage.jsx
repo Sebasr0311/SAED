@@ -384,10 +384,11 @@ export default function HistorialVisitasPage() {
         columns={columns}
         rows={filtradas}
         loading={loading}
-                empty={{ icon: 'history', title: 'No hay visitas en el rango seleccionado', subtitle: 'Prueba ampliando el rango de fechas.' }}
+        empty={{ icon: 'history', title: 'No hay visitas en el rango seleccionado', subtitle: 'Prueba ampliando el rango de fechas.' }}
         error={error?.message}
         keyField="idVisita"
         onRowClick={verDetalle}
+        pageSize={10}
       />
 
       <Modal open={!!detalle} onClose={() => setDetalle(null)} title="Detalle de Visita" size="md">

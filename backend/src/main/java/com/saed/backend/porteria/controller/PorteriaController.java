@@ -445,8 +445,8 @@ public class PorteriaController {
             if (!visitantes.isEmpty()) {
                 String email = (String) visitantes.get(0).get("EMAIL");
                 if (email != null && !email.isBlank()) {
-                    emailService.enviarCorreoQR(email, token, qr.fechaExpiracion().toString(), "Visitante SAED");
-                    log.info("QR enviado exitosamente al visitante: " + email);
+                    emailService.enviarCorreoQRAsync(email, token, qr.fechaExpiracion().toString(), "Visitante SAED");
+                    log.info("Despachado envio asincrono de QR a visitante: " + email);
                 }
             }
         } catch (Exception e) {

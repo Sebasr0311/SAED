@@ -11,9 +11,11 @@ import {
   Clock,
   Gavel,
   LogIn,
+  LogOut,
   Package,
   QrCode,
   RefreshCw,
+  Search,
   ShieldCheck,
   UserCheck,
   Users,
@@ -469,12 +471,136 @@ function ModalPaquetes({ open, onClose, onConfirm, tenantApi }) {
   );
 }
 
+function ModalVisitasActivas({ open, onClose, visitasActivas, onMarcarSalida, marcandoId }) {
+  const [search, setSearch] = useState('');
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return visitasActivas;
+    const q = search.toLowerCase();
+    return visitasActivas.filter((v) =>
+      (v.nombreVisitante || '').toLowerCase().includes(q) ||
+      (v.documentoVisitante || '').toLowerCase().includes(q) ||
+      String(v.numeroApartamento || '').toLowerCase().includes(q)
+    );
+  }, [visitasActivas, search]);
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Visitas Activas en Predio"
+      size="lg"
+      footer={
+        <div className="flex items-center justify-between w-full">
+          <span className="text-xs text-muted-foreground">
+            {visitasActivas.length} visitante(s) en curso
+          </span>
+          <Button variant="outline" onClick={onClose}>
+            Cerrar
+          </Button>
+        </div>
+      }
+    >
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Buscar por visitante, cédula o apartamento..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 rounded-lg border border-border bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
+          {search && (
+            <Button variant="ghost" size="sm" onClick={() => setSearch('')}>
+              Limpiar
+            </Button>
+          )}
+        </div>
+
+        <DataTable
+          columns={[
+            {
+              key: 'visitante',
+              label: 'Visitante',
+              render: (r) => (
+                <div>
+                  <p className="font-semibold text-foreground text-xs">{r.nombreVisitante || 'Visitante'}</p>
+                  {r.documentoVisitante && (
+                    <p className="text-[11px] text-muted-foreground font-mono">Doc: {r.documentoVisitante}</p>
+                  )}
+                </div>
+              ),
+            },
+            {
+              key: 'numeroApartamento',
+              label: 'Apto',
+              render: (r) => (
+                <Badge variant="outline" className="font-mono text-xs">
+                  {formatApto(r.numeroApartamento)}
+                </Badge>
+              ),
+            },
+            {
+              key: 'fechaIngreso',
+              label: 'Ingreso',
+              render: (r) => (
+                <span className="text-xs text-muted-foreground font-mono">
+                  {r.fechaIngreso ? formatDate(r.fechaIngreso) : 'En espera'}
+                </span>
+              ),
+            },
+            {
+              key: 'estado',
+              label: 'Estado',
+              render: (r) => (
+                <Badge variant={r.estado === 'ACTIVA' ? 'success' : 'warning'} className="text-[10px]">
+                  {r.estado}
+                </Badge>
+              ),
+            },
+            {
+              key: 'actions',
+              label: '',
+              render: (r) => (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => onMarcarSalida(r)}
+                  disabled={marcandoId === r.idVisita}
+                  className="text-xs py-1 px-2.5 h-auto font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30 border-rose-200 dark:border-rose-900/50 flex items-center gap-1.5"
+                >
+                  <LogOut className="h-3.5 w-3.5" />
+                  {marcandoId === r.idVisita ? 'Registrando...' : 'Marcar Salida'}
+                </Button>
+              ),
+            },
+          ]}
+          rows={filtered}
+          pageSize={5}
+          empty={{
+            icon: 'person_off',
+            title: 'No hay visitas activas',
+            subtitle: search ? 'Ningún visitante coincide con la búsqueda.' : 'No hay visitantes dentro del predio en este momento.',
+          }}
+          keyField="idVisita"
+        />
+      </div>
+    </Modal>
+  );
+}
+
 export default function PorteroDashboardPage() {
   const navigate = useNavigate();
   const tenantApi = useTenantApi();
   const [modalAviso, setModalAviso] = useState(false);
   const [modalMulta, setModalMulta] = useState(null); // 'RUIDO' | 'PARQUEADERO' | null
   const [modalPaquetes, setModalPaquetes] = useState(false);
+  const [modalVisitasActivas, setModalVisitasActivas] = useState(false);
+  const [searchVisitasActivas, setSearchVisitasActivas] = useState('');
+  const [registrandoSalidaId, setRegistrandoSalidaId] = useState(null);
 
   // Consume endpoints reales existentes
   const { data: visitasRaw, loading: loadingVisitas, refetch: refetchVisitas } = useFetch(
@@ -501,6 +627,30 @@ export default function PorteroDashboardPage() {
   const visitasActivas = useMemo(() => {
     return visitas.filter((v) => v.estado === 'ACTIVA' || v.estado === 'EN_CURSO' || v.estado === 'PENDIENTE');
   }, [visitas]);
+
+  const visitasActivasFiltradas = useMemo(() => {
+    if (!searchVisitasActivas.trim()) return visitasActivas;
+    const q = searchVisitasActivas.toLowerCase();
+    return visitasActivas.filter((v) =>
+      (v.nombreVisitante || '').toLowerCase().includes(q) ||
+      (v.documentoVisitante || '').toLowerCase().includes(q) ||
+      String(v.numeroApartamento || '').toLowerCase().includes(q)
+    );
+  }, [visitasActivas, searchVisitasActivas]);
+
+  async function handleRegistrarSalida(visita) {
+    if (!visita?.idVisita) return;
+    setRegistrandoSalidaId(visita.idVisita);
+    try {
+      await tenantApi.put(`/porteria/visitas/${visita.idVisita}/salida`);
+      toast.success(`Salida registrada para ${visita.nombreVisitante || 'visitante'}`);
+      await Promise.all([refetchVisitas(), refetchParq()]);
+    } catch (err) {
+      toast.error(err.message || 'Error al registrar salida de la visita');
+    } finally {
+      setRegistrandoSalidaId(null);
+    }
+  }
 
   const parqVisitantes = useMemo(() => {
     return parqueaderos.filter((p) => p.esVisitante);
@@ -570,9 +720,11 @@ export default function PorteroDashboardPage() {
         <MetricCard
           title="Visitas Activas / Dentro"
           value={visitasActivas.length}
-          subtitle="En predio o programadas hoy"
+          subtitle="En predio o programadas hoy · Clic para ver"
           icon={UserCheck}
           variant="primary"
+          onClick={() => setModalVisitasActivas(true)}
+          className="cursor-pointer transition-all hover:border-primary/50"
         />
         <MetricCard
           title="Total Pases Registrados"
@@ -626,6 +778,118 @@ export default function PorteroDashboardPage() {
               </Button>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Gestión Inmediata de Visitas Activas y Salidas */}
+      <Card className="border-border/80 shadow-xs">
+        <CardHeader className="pb-3 border-b border-border/60">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <CardTitle className="text-base font-bold flex items-center gap-2">
+                <UserCheck className="h-5 w-5 text-primary" />
+                Control de Visitas Activas en Garita
+                <Badge variant={visitasActivas.length > 0 ? 'success' : 'secondary'} className="ml-1 text-xs">
+                  {visitasActivas.length} dentro
+                </Badge>
+              </CardTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Registre la salida de visitantes directamente desde este panel sin navegar a otras secciones.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <input
+                  type="text"
+                  placeholder="Filtrar por nombre, doc o apto..."
+                  value={searchVisitasActivas}
+                  onChange={(e) => setSearchVisitasActivas(e.target.value)}
+                  className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-border bg-background text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate('/visitas')}
+                className="text-xs shrink-0 flex items-center gap-1"
+              >
+                <span>Ver Todas</span>
+                <ArrowRight className="h-3 w-3" />
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="pt-4">
+          <DataTable
+            columns={[
+              {
+                key: 'visitante',
+                label: 'Visitante',
+                render: (r) => (
+                  <div>
+                    <span className="font-semibold text-foreground text-xs">{r.nombreVisitante || 'Visitante'}</span>
+                    {r.documentoVisitante && (
+                      <span className="block text-[11px] text-muted-foreground font-mono">Doc: {r.documentoVisitante}</span>
+                    )}
+                  </div>
+                ),
+              },
+              {
+                key: 'numeroApartamento',
+                label: 'Apartamento',
+                render: (r) => (
+                  <Badge variant="outline" className="font-mono text-xs">
+                    {formatApto(r.numeroApartamento)}
+                  </Badge>
+                ),
+              },
+              {
+                key: 'fechaIngreso',
+                label: 'Hora Ingreso',
+                render: (r) => (
+                  <span className="text-xs text-muted-foreground font-mono">
+                    {r.fechaIngreso ? formatDate(r.fechaIngreso) : 'En espera'}
+                  </span>
+                ),
+              },
+              {
+                key: 'estado',
+                label: 'Estado',
+                render: (r) => (
+                  <Badge variant={r.estado === 'ACTIVA' ? 'success' : 'warning'} className="text-[10px]">
+                    {r.estado}
+                  </Badge>
+                ),
+              },
+              {
+                key: 'actions',
+                label: 'Acción Salida',
+                render: (r) => (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleRegistrarSalida(r)}
+                    disabled={registrandoSalidaId === r.idVisita}
+                    className="text-xs py-1 px-2.5 h-auto font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30 border-rose-200 dark:border-rose-900/50 flex items-center gap-1.5"
+                  >
+                    <LogOut className="h-3.5 w-3.5" />
+                    {registrandoSalidaId === r.idVisita ? 'Registrando...' : 'Marcar Salida'}
+                  </Button>
+                ),
+              },
+            ]}
+            rows={visitasActivasFiltradas}
+            pageSize={5}
+            empty={{
+              icon: 'person_off',
+              title: 'No hay visitas activas en el predio',
+              subtitle: searchVisitasActivas
+                ? 'No se encontraron resultados con ese filtro.'
+                : 'Cuando ingrese una visita autorizada, aparecerá aquí para registrar su salida.',
+            }}
+            keyField="idVisita"
+          />
         </CardContent>
       </Card>
 
@@ -729,6 +993,14 @@ export default function PorteroDashboardPage() {
       </Card>
 
       {/* Modales funcionales */}
+      <ModalVisitasActivas
+        open={modalVisitasActivas}
+        onClose={() => setModalVisitasActivas(false)}
+        visitasActivas={visitasActivas}
+        onMarcarSalida={handleRegistrarSalida}
+        marcandoId={registrandoSalidaId}
+      />
+
       <ModalAvisoRuido
         open={modalAviso}
         onClose={() => setModalAviso(false)}

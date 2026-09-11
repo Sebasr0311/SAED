@@ -213,7 +213,7 @@ public class PorteriaServiceImpl implements PorteriaService {
             );
             if (!residentes.isEmpty()) {
                 String destinatario = (String) residentes.get(0).get("EMAIL");
-                emailService.enviarCorreoQR(destinatario, qr.tokenQr(), qr.fechaExpiracion().toString(), "Visitante");
+                emailService.enviarCorreoQRAsync(destinatario, qr.tokenQr(), qr.fechaExpiracion().toString(), "Visitante");
             }
         } catch(Exception e) { log.error("Error sending QR email", e); }
         return qr;
