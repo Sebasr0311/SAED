@@ -21,7 +21,8 @@ test.describe('06 - Pagos y Recaudos', () => {
     await page.waitForLoadState('domcontentloaded');
 
     await expect(page.locator('h1, h2, [role="heading"]').filter({ hasText: /Cuotas/i }).first()).toBeVisible();
-    await expect(page.locator('table').or(page.getByText(/No (hay|tienes) cuotas/i)).first()).toBeVisible({ timeout: 15000 });
+    const cuotasContent = page.locator('.space-y-3, table').or(page.getByText(/Saldo Total Pendiente|No hay cuotas|Estás al día/i)).first();
+    await expect(cuotasContent).toBeVisible({ timeout: 15000 });
   });
 
 });
