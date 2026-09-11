@@ -28,6 +28,7 @@ const PagosPage = lazy(() => import('./pages/PagosPage.jsx'));
 const MultasPage = lazy(() => import('./pages/MultasPage.jsx'));
 const AlertasPage = lazy(() => import('./pages/AlertasPage.jsx'));
 const AvisosPage = lazy(() => import('./pages/AvisosPage.jsx'));
+const ComunicacionesPage = lazy(() => import('./pages/ComunicacionesPage.jsx'));
 const QuejasAdminPage = lazy(() => import('./pages/QuejasAdminPage.jsx'));
 const ReservasAdminPage = lazy(() => import('./pages/ReservasAdminPage.jsx'));
 const ResReservasPage = lazy(() => import('./pages/ResReservasPage.jsx'));
@@ -318,6 +319,14 @@ export default function App() {
             }
           />
           <Route
+            path="org/comunicaciones"
+            element={
+              <ProtectedRoute roles={['ADMIN_ORGANIZACION', 'SUPERADMIN']}>
+                <ComunicacionesPage initialTab="todos" />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="org/reportes"
             element={
               <ProtectedRoute roles={['ADMIN_ORGANIZACION']}>
@@ -486,18 +495,26 @@ export default function App() {
           <Route path="emergencias" element={<ProtectedRoute roles={['ADMIN_PROPIEDAD']}><EmergenciasAdminPage /></ProtectedRoute>} />
           <Route path="incidentes-admin" element={<ProtectedRoute roles={['ADMIN_PROPIEDAD', 'PORTERO']}><IncidentesAdminPage /></ProtectedRoute>} />
           <Route
+            path="comunicaciones"
+            element={
+              <ProtectedRoute roles={['ADMIN_PROPIEDAD', 'ADMIN_ORGANIZACION', 'SUPERADMIN']}>
+                <ComunicacionesPage initialTab="todos" />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="alertas"
             element={
-              <ProtectedRoute roles={['ADMIN_PROPIEDAD']}>
-                <AlertasPage />
+              <ProtectedRoute roles={['ADMIN_PROPIEDAD', 'ADMIN_ORGANIZACION', 'SUPERADMIN']}>
+                <ComunicacionesPage initialTab="alertas" />
               </ProtectedRoute>
             }
           />
           <Route
             path="avisos"
             element={
-              <ProtectedRoute roles={['ADMIN_PROPIEDAD']}>
-                <AvisosPage />
+              <ProtectedRoute roles={['ADMIN_PROPIEDAD', 'ADMIN_ORGANIZACION', 'SUPERADMIN']}>
+                <ComunicacionesPage initialTab="avisos" />
               </ProtectedRoute>
             }
           />

@@ -29,43 +29,85 @@ public class ComunicadosController {
 
     @GetMapping("/avisos")
     @PreAuthorize("isAuthenticated()")
-    public List<Map<String, Object>> getAvisos() {
-        return jdbcTemplate.queryForList("SELECT * FROM COMUNICADOS ORDER BY FECHA_PUBLICACION DESC", Map.of());
+    public List<Map<String, Object>> getAvisos(@RequestParam(required = false) Long idPropiedad) {
+        String sql = "SELECT * FROM COMUNICADOS WHERE NVL(ESTADO, 'PUBLICADO') != 'ARCHIVADO'";
+        Map<String, Object> params = new HashMap<>();
+        if (idPropiedad != null) {
+            sql += " AND ID_PROPIEDAD = :idPropiedad";
+            params.put("idPropiedad", idPropiedad);
+        }
+        sql += " ORDER BY FECHA_PUBLICACION DESC";
+        return jdbcTemplate.queryForList(sql, params);
     }
 
     @PostMapping("/aviso")
-    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
-    public ResponseEntity<Void> postAviso(@RequestBody Map<String, Object> payload) {
-        String titulo = (String) payload.getOrDefault("titulo", "Aviso");
-        String contenido = (String) payload.getOrDefault("mensaje", "");
+    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
+    public ResponseEntity<Map<String, Object>> postAviso(@RequestBody Map<String, Object> payload) {
+        String titulo = (String) payload.getOrDefault("titulo", "Aviso Oficial");
+        String contenido = (String) payload.getOrDefault("mensaje", payload.getOrDefault("contenido", ""));
+        String rawPrioridad = ((String) payload.getOrDefault("prioridad", "NORMAL")).toUpperCase();
+        String prioridad;
+        if ("ALTA".equals(rawPrioridad) || "IMPORTANTE".equals(rawPrioridad)) {
+            prioridad = "IMPORTANTE";
+        } else if ("URGENTE".equals(rawPrioridad)) {
+            prioridad = "URGENTE";
+        } else if ("BAJA".equals(rawPrioridad)) {
+            prioridad = "BAJA";
+        } else {
+            prioridad = "NORMAL";
+        }
+        String segmentacion = (String) payload.getOrDefault("tipoSegmentacion", "TODOS");
+        Long propId = payload.get("idPropiedad") != null
+            ? Long.valueOf(payload.get("idPropiedad").toString())
+            : null;
+        Long resolvedPropId = propId != null
+            ? propId
+            : (com.saed.backend.context.SaedContextHolder.getContext() != null && com.saed.backend.context.SaedContextHolder.getContext().getPropertyId() != null
+                ? com.saed.backend.context.SaedContextHolder.getContext().getPropertyId() : 1L);
+
         String sql = "INSERT INTO COMUNICADOS (ID_PROPIEDAD, TITULO, CONTENIDO, TIPO_SEGMENTACION, PRIORIDAD, ESTADO) " +
-                     "VALUES (SYS_CONTEXT('SAED_CTX', 'ID_PROPIEDAD'), :titulo, :contenido, 'TODOS', 'NORMAL', 'PUBLICADO')";
+                     "VALUES (:propId, :titulo, :contenido, :segmentacion, :prioridad, 'PUBLICADO')";
         Map<String, Object> params = new HashMap<>();
+        params.put("propId", resolvedPropId);
         params.put("titulo", titulo);
         params.put("contenido", contenido);
+        params.put("segmentacion", segmentacion);
+        params.put("prioridad", prioridad);
         jdbcTemplate.update(sql, params);
 
-        // Envío de email masivo a residentes de la propiedad
-        try {
-            String emailSql = "SELECT u.EMAIL FROM USUARIOS u " +
-                    "JOIN USUARIO_ASIGNACIONES ua ON u.ID_USUARIO = ua.ID_USUARIO " +
-                    "WHERE ua.ESTADO = 'ACTIVA' AND u.EMAIL IS NOT NULL " +
-                    "AND SYS_CONTEXT('SAED_CTX', 'ID_PROPIEDAD') IS NOT NULL";
-            List<Map<String, Object>> emails = jdbcTemplate.queryForList(emailSql, Map.of());
-            String asunto = "[SAED] " + titulo;
-            String html = "<h2>" + titulo + "</h2><p>" + contenido + "</p><hr><p style='color:#888;font-size:12px'>Enviado desde SAED</p>";
-            for (Map<String, Object> row : emails) {
-                String email = (String) row.get("EMAIL");
-                if (email != null && !email.isBlank()) {
-                    emailService.enviarHtmlPublico(email, asunto, html);
+        // Envío de email masivo a residentes de la propiedad (opcional según payload)
+        boolean enviarEmail = Boolean.TRUE.equals(payload.get("enviarEmail")) || !Boolean.FALSE.equals(payload.get("enviarEmail"));
+        if (enviarEmail) {
+            try {
+                String emailSql = "SELECT u.EMAIL FROM USUARIOS u " +
+                        "JOIN USUARIO_ASIGNACIONES ua ON u.ID_USUARIO = ua.ID_USUARIO " +
+                        "WHERE ua.ESTADO = 'ACTIVA' AND u.EMAIL IS NOT NULL " +
+                        "AND (ua.ID_PROPIEDAD = :propId OR (:propId IS NULL AND SYS_CONTEXT('SAED_CTX', 'ID_PROPIEDAD') IS NOT NULL))";
+                Map<String, Object> emailParams = new HashMap<>();
+                emailParams.put("propId", resolvedPropId);
+                List<Map<String, Object>> emails = jdbcTemplate.queryForList(emailSql, emailParams);
+                String asunto = "[SAED " + prioridad + "] " + titulo;
+                String html = "<h2>" + titulo + "</h2><p>" + contenido + "</p><hr><p style='color:#888;font-size:12px'>Enviado desde SAED — Centro de Comunicaciones</p>";
+                for (Map<String, Object> row : emails) {
+                    String email = (String) row.get("EMAIL");
+                    if (email != null && !email.isBlank()) {
+                        emailService.enviarHtmlPublico(email, asunto, html);
+                    }
                 }
+                log.info("Aviso enviado por email a " + emails.size() + " residentes");
+            } catch (Exception e) {
+                log.warning("No se pudieron enviar emails del aviso: " + e.getMessage());
             }
-            log.info("Aviso enviado por email a " + emails.size() + " residentes");
-        } catch (Exception e) {
-            log.warning("No se pudieron enviar emails del aviso: " + e.getMessage());
         }
 
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(Map.of("mensaje", "Aviso publicado exitosamente"));
+    }
+
+    @DeleteMapping("/aviso/{id}")
+    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
+    public ResponseEntity<Void> archivarAviso(@PathVariable Long id) {
+        jdbcTemplate.update("UPDATE COMUNICADOS SET ESTADO = 'ARCHIVADO' WHERE ID_COMUNICADO = :id", Map.of("id", id));
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/aviso-ruido")

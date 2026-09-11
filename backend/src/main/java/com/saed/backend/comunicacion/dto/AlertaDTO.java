@@ -7,12 +7,16 @@ public class AlertaDTO {
     private String numeroApartamento;
     private String nombreResidente;
     private String estadoCuota;
+    private String mensaje;
     private String leida;
     private ZonedDateTime fechaCreacion;
     
     public AlertaDTO() {}
     public AlertaDTO(Long idAlerta, Long idPropiedad, String tipoAlerta, String numeroApartamento, String nombreResidente, String estadoCuota, String leida, ZonedDateTime fechaCreacion) {
         this.idAlerta = idAlerta; this.idPropiedad = idPropiedad; this.tipoAlerta = tipoAlerta; this.numeroApartamento = numeroApartamento; this.nombreResidente = nombreResidente; this.estadoCuota = estadoCuota; this.leida = leida; this.fechaCreacion = fechaCreacion;
+    }
+    public AlertaDTO(Long idAlerta, Long idPropiedad, String tipoAlerta, String numeroApartamento, String nombreResidente, String estadoCuota, String mensaje, String leida, ZonedDateTime fechaCreacion) {
+        this.idAlerta = idAlerta; this.idPropiedad = idPropiedad; this.tipoAlerta = tipoAlerta; this.numeroApartamento = numeroApartamento; this.nombreResidente = nombreResidente; this.estadoCuota = estadoCuota; this.mensaje = mensaje; this.leida = leida; this.fechaCreacion = fechaCreacion;
     }
     public Long getIdAlerta() { return idAlerta; }
     public void setIdAlerta(Long idAlerta) { this.idAlerta = idAlerta; }
@@ -26,6 +30,8 @@ public class AlertaDTO {
     public void setNombreResidente(String nombreResidente) { this.nombreResidente = nombreResidente; }
     public String getEstadoCuota() { return estadoCuota; }
     public void setEstadoCuota(String estadoCuota) { this.estadoCuota = estadoCuota; }
+    public String getMensaje() { return mensaje; }
+    public void setMensaje(String mensaje) { this.mensaje = mensaje; }
     public String getLeida() { return leida; }
     public void setLeida(String leida) { this.leida = leida; }
     public ZonedDateTime getFechaCreacion() { return fechaCreacion; }

@@ -30,7 +30,7 @@ public class BuzonController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyAuthority('SCOPE_RESIDENTE', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_PORTERO')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_RESIDENTE', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_PORTERO', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_SUPERADMIN')")
     public ResponseEntity<?> getMyBuzon(@RequestParam(required = false) Long idApartamento) {
         if (idApartamento != null) {
             return ResponseEntity.ok(paquetesService.getPaquetesByUnidad(idApartamento));
@@ -39,28 +39,28 @@ public class BuzonController {
     }
 
     @PutMapping("/{id}/leido")
-    @PreAuthorize("hasAnyAuthority('SCOPE_RESIDENTE', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_PORTERO')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_RESIDENTE', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_PORTERO', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_SUPERADMIN')")
     public ResponseEntity<Void> marcarLeido(@PathVariable Long id) {
         service.marcarLeido(id);
         return ResponseEntity.ok().build();
     }
 
     @PutMapping("/marcar-todas-leidas")
-    @PreAuthorize("hasAnyAuthority('SCOPE_RESIDENTE', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_PORTERO')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_RESIDENTE', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_PORTERO', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_SUPERADMIN')")
     public ResponseEntity<Void> marcarTodasLeidas() {
         service.marcarTodasLeidas();
         return ResponseEntity.ok().build();
     }
 
     @PutMapping("/vaciar")
-    @PreAuthorize("hasAnyAuthority('SCOPE_RESIDENTE', 'SCOPE_ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_RESIDENTE', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_SUPERADMIN')")
     public ResponseEntity<Void> vaciarBuzon() {
         service.vaciarBuzon();
         return ResponseEntity.ok().build();
     }
 
     @PutMapping("/vaciar-multi")
-    @PreAuthorize("hasAnyAuthority('SCOPE_RESIDENTE', 'SCOPE_ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_RESIDENTE', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_SUPERADMIN')")
     public ResponseEntity<Void> vaciarMulti(@RequestBody Map<String, List<Long>> payload) {
         service.eliminarMensajes(payload.get("ids"));
         return ResponseEntity.ok().build();

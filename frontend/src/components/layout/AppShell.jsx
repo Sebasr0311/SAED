@@ -130,6 +130,7 @@ const NAV_BY_ROLE = {
       items: [
         { path: '/org/cartera', label: 'Cartera Consolidada', icon: 'account_balance_wallet' },
         { path: '/org/gastos', label: 'Gastos y Facturas', icon: 'receipt_long' },
+        { path: '/org/comunicaciones', label: 'Comunicaciones', icon: 'forum' },
         { path: '/org/reportes', label: 'Reportes Gerenciales', icon: 'description' },
         { path: '/org/analitica', label: 'Analítica Comparativa', icon: 'analytics' },
       ],
@@ -221,6 +222,7 @@ const NAV_BY_ROLE = {
       label: 'Comunicación',
       icon: 'campaign',
       items: [
+        { path: '/comunicaciones', label: 'Centro de Comunicaciones', icon: 'forum' },
         { path: '/avisos', label: 'Avisos', icon: 'campaign' },
         { path: '/alertas', label: 'Alertas', icon: 'notifications' },
       ],
