@@ -44,15 +44,18 @@ public class OrgAdminsController {
     private final PropertyRepository propertyRepository;
     private final AssignmentManagementService assignmentManagementService;
     private final PasswordEncoder passwordEncoder;
+    private final org.springframework.beans.factory.ObjectProvider<com.saed.backend.identity.service.TokenActivacionService> tokenServiceProvider;
 
     public OrgAdminsController(NamedParameterJdbcTemplate jdbcTemplate,
                                PropertyRepository propertyRepository,
                                AssignmentManagementService assignmentManagementService,
-                               PasswordEncoder passwordEncoder) {
+                               PasswordEncoder passwordEncoder,
+                               org.springframework.beans.factory.ObjectProvider<com.saed.backend.identity.service.TokenActivacionService> tokenServiceProvider) {
         this.jdbcTemplate = jdbcTemplate;
         this.propertyRepository = propertyRepository;
         this.assignmentManagementService = assignmentManagementService;
         this.passwordEncoder = passwordEncoder;
+        this.tokenServiceProvider = tokenServiceProvider;
     }
 
     @GetMapping
@@ -124,6 +127,11 @@ public class OrgAdminsController {
         Long idPersona = idPersonaNum.longValue();
 
         // 2. Insertar USUARIO
+        String rawPassword = request.getPassword();
+        if (rawPassword == null || rawPassword.trim().isBlank()) {
+            rawPassword = java.util.UUID.randomUUID().toString();
+        }
+
         String sqlUsuario = """
             INSERT INTO USUARIOS (id_persona, nombre_usuario, email, hash_password, estado, intentos_fallidos)
             VALUES (:idPersona, :username, :email, :pwd, 'ACTIVO', 0)
@@ -132,7 +140,7 @@ public class OrgAdminsController {
                 .addValue("idPersona", idPersona)
                 .addValue("username", request.getNombreUsuario())
                 .addValue("email", request.getEmail())
-                .addValue("pwd", passwordEncoder.encode(request.getPassword()));
+                .addValue("pwd", passwordEncoder.encode(rawPassword));
 
         KeyHolder khUsuario = new GeneratedKeyHolder();
         jdbcTemplate.update(sqlUsuario, paramUsuario, khUsuario, new String[]{"ID_USUARIO"});
@@ -151,11 +159,19 @@ public class OrgAdminsController {
 
         Long idAsignacion = assignmentManagementService.create(assignReq);
 
+        // 4. Enviar correo con token de activación y primer acceso
+        final Long finalIdUsuario = idUsuario;
+        tokenServiceProvider.ifAvailable(svc -> {
+            try {
+                svc.generarYEnviarTokenActivacion(finalIdUsuario, "0.0.0.0");
+            } catch (Exception ignored) {}
+        });
+
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
                 "success", true,
                 "idUsuario", idUsuario,
                 "idAsignacion", idAsignacion,
-                "message", "Administrador creado y asignado exitosamente"
+                "message", "Administrador creado y asignado exitosamente. Se ha enviado el enlace de activación."
         ));
     }
 

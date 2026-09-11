@@ -29,10 +29,15 @@ public class UsuarioController {
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
     private final PasswordEncoder passwordEncoder;
+    private final org.springframework.beans.factory.ObjectProvider<com.saed.backend.identity.service.TokenActivacionService> tokenServiceProvider;
 
-    public UsuarioController(NamedParameterJdbcTemplate jdbcTemplate, PasswordEncoder passwordEncoder) {
+    public UsuarioController(
+            NamedParameterJdbcTemplate jdbcTemplate,
+            PasswordEncoder passwordEncoder,
+            org.springframework.beans.factory.ObjectProvider<com.saed.backend.identity.service.TokenActivacionService> tokenServiceProvider) {
         this.jdbcTemplate = jdbcTemplate;
         this.passwordEncoder = passwordEncoder;
+        this.tokenServiceProvider = tokenServiceProvider;
     }
 
     @Operation(summary = "Listar usuarios del sistema con sus roles y personas vinculadas dentro del perímetro del tenant")
@@ -108,8 +113,13 @@ public class UsuarioController {
         username = username.trim().toLowerCase();
 
         String rawPassword = (String) payload.getOrDefault("password", payload.get("passwordHash"));
+        boolean enviarActivacion = Boolean.TRUE.equals(payload.get("enviarCorreoActivacion"))
+                || Boolean.TRUE.equals(payload.get("activacionPorCorreo"))
+                || "true".equalsIgnoreCase(String.valueOf(payload.get("enviarCorreoActivacion")));
+
         if (rawPassword == null || rawPassword.trim().isBlank()) {
-            return ResponseEntity.badRequest().body(ApiResponse.error("La contraseña es obligatoria"));
+            rawPassword = java.util.UUID.randomUUID().toString();
+            enviarActivacion = true;
         }
 
         String rol = (String) payload.getOrDefault("rol", "PORTERO");
@@ -260,6 +270,15 @@ public class UsuarioController {
                 .addValue("propId", propId)
                 .addValue("idUnidad", idUnidad);
         jdbcTemplate.update(sqlAsig, paramA);
+
+        if (enviarActivacion) {
+            final Long finalIdUsuario = idUsuario;
+            tokenServiceProvider.ifAvailable(svc -> {
+                try {
+                    svc.generarYEnviarTokenActivacion(finalIdUsuario, "0.0.0.0");
+                } catch (Exception ignored) {}
+            });
+        }
 
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(Map.of(
                 "idUsuario", idUsuario,

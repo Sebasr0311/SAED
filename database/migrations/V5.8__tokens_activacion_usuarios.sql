@@ -1,0 +1,49 @@
+-- ============================================================================
+-- SAED 2.0 - Migracion V5.8: Tokens Criptograficos de Activacion y Primer Acceso
+-- Requisito #21 del Plan Maestro:
+-- 1. Tokens unicos de un solo uso con expiracion para primer acceso seguro
+-- 2. Eliminacion de contrasenas temporales genericas
+-- 3. Almacenamiento seguro mediante hash SHA-256
+-- ============================================================================
+
+-- 1. Tabla de tokens de activacion y configuracion inicial de contrasena
+CREATE TABLE TOKENS_ACTIVACION (
+    ID_TOKEN NUMBER GENERATED ALWAYS AS IDENTITY MINVALUE 1 MAXVALUE 9999999999999999999999999999 INCREMENT BY 1 START WITH 1 CACHE 20 NOORDER NOCYCLE NOT NULL ENABLE,
+    ID_USUARIO NUMBER NOT NULL ENABLE,
+    TOKEN_HASH VARCHAR2(64 CHAR) NOT NULL ENABLE,
+    TIPO VARCHAR2(30 CHAR) DEFAULT 'ACTIVACION_INICIAL' NOT NULL ENABLE,
+    FECHA_EXPIRACION TIMESTAMP(6) WITH TIME ZONE NOT NULL ENABLE,
+    USADO NUMBER(1, 0) DEFAULT 0 NOT NULL ENABLE,
+    FECHA_USO TIMESTAMP(6) WITH TIME ZONE,
+    FECHA_CREACION TIMESTAMP(6) WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL ENABLE,
+    IP_SOLICITUD VARCHAR2(50 CHAR),
+    CONSTRAINT PK_TOKENS_ACTIVACION PRIMARY KEY (ID_TOKEN),
+    CONSTRAINT FK_TOKENS_ACT_USUARIO FOREIGN KEY (ID_USUARIO) REFERENCES USUARIOS(ID_USUARIO) ON DELETE CASCADE,
+    CONSTRAINT UQ_TOKENS_ACT_HASH UNIQUE (TOKEN_HASH),
+    CONSTRAINT CK_TOKENS_ACT_TIPO CHECK (TIPO IN ('ACTIVACION_INICIAL', 'RECUPERACION_PASSWORD')),
+    CONSTRAINT CK_TOKENS_ACT_USADO CHECK (USADO IN (0, 1))
+);
+
+COMMENT ON TABLE TOKENS_ACTIVACION IS 'Tokens criptograficos de un solo uso para activacion de cuenta, primer acceso y recuperacion';
+COMMENT ON COLUMN TOKENS_ACTIVACION.ID_TOKEN IS 'Identificador unico del registro de token';
+COMMENT ON COLUMN TOKENS_ACTIVACION.ID_USUARIO IS 'Usuario al cual pertenece el token de activacion';
+COMMENT ON COLUMN TOKENS_ACTIVACION.TOKEN_HASH IS 'Resumen SHA-256 del token plano entregado al usuario';
+COMMENT ON COLUMN TOKENS_ACTIVACION.TIPO IS 'Tipo de token: ACTIVACION_INICIAL o RECUPERACION_PASSWORD';
+COMMENT ON COLUMN TOKENS_ACTIVACION.FECHA_EXPIRACION IS 'Fecha y hora limite de validez del token';
+COMMENT ON COLUMN TOKENS_ACTIVACION.USADO IS 'Indicador de si el token ya fue consumido (1) o sigue disponible (0)';
+COMMENT ON COLUMN TOKENS_ACTIVACION.FECHA_USO IS 'Momento exacto en que fue consumido el token';
+
+-- 2. Indices para busquedas optimas
+CREATE INDEX IX_TOKENS_ACT_USER_TIPO ON TOKENS_ACTIVACION (ID_USUARIO, TIPO, USADO);
+CREATE INDEX IX_TOKENS_ACT_EXPIRACION ON TOKENS_ACTIVACION (FECHA_EXPIRACION, USADO);
+
+-- 3. Trigger opcional para auditoria de consumo de token
+CREATE OR REPLACE TRIGGER TRG_TOKENS_ACT_AUDIT
+BEFORE UPDATE OF USADO ON TOKENS_ACTIVACION
+FOR EACH ROW
+BEGIN
+    IF :NEW.USADO = 1 AND :OLD.USADO = 0 THEN
+        :NEW.FECHA_USO := CURRENT_TIMESTAMP;
+    END IF;
+END;
+/
