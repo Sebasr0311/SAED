@@ -186,6 +186,17 @@ public class DatabaseSeeder implements ApplicationRunner {
                 log.debug("Aviso al ajustar RLS en VISITANTES: {}", e.getMessage());
             }
 
+            // 14. Fix RLS en tablas hijas de ASAMBLEAS que no tienen columna ID_PROPIEDAD
+            String[] asambleaChildTables = {"ASISTENCIAS_ASAMBLEA", "PODERES_REPRESENTACION", "VOTACIONES", "VOTOS", "ACTAS_ASAMBLEA"};
+            String[] asambleaChildPolicies = {"POL_RLS_PROP_ASISTENCIAS_ASA", "POL_RLS_PROP_PODERES_REPRESE", "POL_RLS_PROP_VOTACIONES", "POL_RLS_PROP_VOTOS", "POL_RLS_PROP_ACTAS_ASAMBLEA"};
+            for (int i = 0; i < asambleaChildTables.length; i++) {
+                try {
+                    jdbcTemplate.execute("BEGIN DBMS_RLS.DROP_POLICY(NULL, '" + asambleaChildTables[i] + "', '" + asambleaChildPolicies[i] + "'); EXCEPTION WHEN OTHERS THEN NULL; END;");
+                } catch (Exception e) {
+                    log.debug("Aviso al verificar RLS en {}: {}", asambleaChildTables[i], e.getMessage());
+                }
+            }
+
             log.info("SAED Database Seeder completed successfully.");
         } catch (Exception ex) {
             log.warn("Database seeding encountered a non-fatal exception: {}", ex.getMessage());
