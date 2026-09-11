@@ -13,4 +13,5 @@ public interface PropertyRepository {
     void updateStatus(Long id, String estado);
     long countByOrganization(Long orgId);
     Optional<Long> getPropertyLimit(Long orgId);
+    Optional<String> getPropertyStatus(Long id);
 }

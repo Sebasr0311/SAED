@@ -27,11 +27,14 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final CorrelationIdFilter correlationIdFilter;
+    private final org.springframework.beans.factory.ObjectProvider<com.saed.backend.security.filter.InactivePropertyFilter> inactivePropertyFilterProvider;
 
     public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
-                          CorrelationIdFilter correlationIdFilter) {
+                          CorrelationIdFilter correlationIdFilter,
+                          org.springframework.beans.factory.ObjectProvider<com.saed.backend.security.filter.InactivePropertyFilter> inactivePropertyFilterProvider) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.correlationIdFilter = correlationIdFilter;
+        this.inactivePropertyFilterProvider = inactivePropertyFilterProvider;
     }
 
     @Bean
@@ -51,6 +54,12 @@ public class SecurityConfig {
 
         http.addFilterBefore(correlationIdFilter, UsernamePasswordAuthenticationFilter.class);
         http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+
+        com.saed.backend.security.filter.InactivePropertyFilter inactiveFilter = inactivePropertyFilterProvider.getIfAvailable();
+        if (inactiveFilter != null) {
+            http.addFilterAfter(inactiveFilter, JwtAuthenticationFilter.class);
+        }
+
         return http.build();
     }
 

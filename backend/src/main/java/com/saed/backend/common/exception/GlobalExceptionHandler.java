@@ -178,6 +178,16 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
     }
 
+    @ExceptionHandler(com.saed.backend.authorization.exception.InactivePropertyException.class)
+    public ResponseEntity<Map<String, Object>> handleInactiveProperty(com.saed.backend.authorization.exception.InactivePropertyException ex) {
+        registrarAccesoDenegado("Operación rechazada por copropiedad inactiva: " + ex.getMessage(), "PROPIEDAD_INACTIVA");
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", false);
+        response.put("code", "PROPERTY_INACTIVE");
+        response.put("message", ex.getMessage());
+        return new ResponseEntity<>(response, HttpStatus.FORBIDDEN);
+    }
+
     @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
     public ResponseEntity<Map<String, Object>> handleAccessDenied(org.springframework.security.access.AccessDeniedException ex) {
         registrarAccesoDenegado("AccessDeniedException: " + ex.getMessage(), "AUTORIZACION");

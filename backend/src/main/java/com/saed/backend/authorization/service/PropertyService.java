@@ -17,9 +17,11 @@ import java.util.List;
 public class PropertyService {
 
     private final PropertyRepository propertyRepository;
+    private final PropertyStatusService propertyStatusService;
 
-    public PropertyService(PropertyRepository propertyRepository) {
+    public PropertyService(PropertyRepository propertyRepository, PropertyStatusService propertyStatusService) {
         this.propertyRepository = propertyRepository;
+        this.propertyStatusService = propertyStatusService;
     }
 
     @Transactional
@@ -78,5 +80,6 @@ public class PropertyService {
     @Transactional
     public void updateStatus(Long id, String estado) {
         propertyRepository.updateStatus(id, estado);
+        propertyStatusService.updateCache(id, estado);
     }
 }

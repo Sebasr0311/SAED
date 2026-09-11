@@ -22,6 +22,9 @@ class PropertyServiceTest {
     @Mock
     private PropertyRepository propertyRepository;
 
+    @Mock
+    private PropertyStatusService propertyStatusService;
+
     @InjectMocks
     private PropertyService propertyService;
 
@@ -102,5 +105,13 @@ class PropertyServiceTest {
         
         verify(propertyRepository).update(eq(1L), any());
         assertEquals(5L, request.getIdOrganizacion());
+    }
+
+    @Test
+    void updateStatus_updatesRepositoryAndCache() {
+        propertyService.updateStatus(10L, "INACTIVA");
+
+        verify(propertyRepository).updateStatus(10L, "INACTIVA");
+        verify(propertyStatusService).updateCache(10L, "INACTIVA");
     }
 }

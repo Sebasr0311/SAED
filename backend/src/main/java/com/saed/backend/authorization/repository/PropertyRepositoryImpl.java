@@ -117,4 +117,15 @@ public class PropertyRepositoryImpl implements PropertyRepository {
         List<Long> limits = jdbcTemplate.query(sql, new MapSqlParameterSource("orgId", orgId), (rs, i) -> rs.getLong("limite_propiedades"));
         return limits.stream().findFirst();
     }
+
+    @Override
+    public Optional<String> getPropertyStatus(Long id) {
+        String sql = "SELECT estado FROM PROPIEDADES WHERE id_propiedad = :id";
+        List<String> list = jdbcTemplate.query(
+            sql,
+            new MapSqlParameterSource("id", id),
+            (rs, rowNum) -> rs.getString("estado")
+        );
+        return list.stream().findFirst();
+    }
 }
