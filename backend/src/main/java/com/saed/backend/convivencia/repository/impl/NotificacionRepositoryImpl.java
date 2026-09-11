@@ -43,6 +43,13 @@ public class NotificacionRepositoryImpl implements NotificacionRepository {
     }
 
     @Override
+    public void marcarTodasLeidas(Long idUsuario) {
+        String sql = "UPDATE NOTIFICACIONES SET FECHA_LEIDO = CURRENT_TIMESTAMP " +
+                     "WHERE ID_USUARIO_DESTINATARIO = :user AND FECHA_LEIDO IS NULL";
+        jdbc.update(sql, new MapSqlParameterSource("user", idUsuario));
+    }
+
+    @Override
     public void vaciarBuzon(Long idUsuario) {
         String sql = "DELETE FROM NOTIFICACIONES WHERE ID_USUARIO_DESTINATARIO = :user";
         jdbc.update(sql, new MapSqlParameterSource("user", idUsuario));

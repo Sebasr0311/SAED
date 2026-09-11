@@ -83,7 +83,7 @@ test.describe('01 - Autenticación y Ciclo de Sesión', () => {
     await expect(page).toHaveURL(/dashboard/);
 
     await page.reload();
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Sigue autenticado y no redirige a login
     await expect(page).toHaveURL(/dashboard/);

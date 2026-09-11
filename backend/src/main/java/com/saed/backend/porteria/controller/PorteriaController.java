@@ -5,6 +5,7 @@ import com.saed.backend.porteria.dto.*;
 import com.saed.backend.porteria.service.PorteriaService;
 import com.saed.backend.common.service.EmailService;
 import com.saed.backend.context.SaedContextHolder;
+import com.saed.backend.context.SaedContext;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -13,6 +14,9 @@ import org.springframework.web.bind.annotation.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.support.GeneratedKeyHolder;
+import org.springframework.jdbc.support.KeyHolder;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -20,6 +24,7 @@ import java.util.Map;
 import java.util.HashMap;
 import java.util.UUID;
 import java.time.ZonedDateTime;
+import java.time.ZoneId;
 import java.util.logging.Logger;
 
 @Tag(name = "Porteria", description = "API para la gestion de Porteria")
@@ -81,6 +86,8 @@ public class PorteriaController {
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_RESIDENTE') or hasAuthority('SCOPE_PORTERO')")
     public Map<String, Object> programarVisita(@RequestBody Map<String, Object> body) {
+        Long currentUserId = SaedContextHolder.getContext() != null ? SaedContextHolder.getContext().getUserId() : null;
+
         Long unidadId = null;
         if (body.get("unidadId") != null && !body.get("unidadId").toString().isBlank()) {
             unidadId = Long.valueOf(body.get("unidadId").toString());
@@ -89,6 +96,28 @@ public class PorteriaController {
         Long visitanteId = null;
         if (body.get("visitanteId") != null && !body.get("visitanteId").toString().isBlank()) {
             visitanteId = Long.valueOf(body.get("visitanteId").toString());
+        } else if (body.get("idVisitante") != null && !body.get("idVisitante").toString().isBlank()) {
+            visitanteId = Long.valueOf(body.get("idVisitante").toString());
+        } else if (body.get("idFrecuente") != null && !body.get("idFrecuente").toString().isBlank()) {
+            visitanteId = Long.valueOf(body.get("idFrecuente").toString());
+        }
+
+        if (visitanteId != null) {
+            try {
+                List<Long> vCheck = jdbcTemplate.query(
+                    "SELECT ID_VISITANTE FROM VISITANTES WHERE ID_VISITANTE = :v",
+                    Map.of("v", visitanteId), (rs, r) -> rs.getLong("ID_VISITANTE")
+                );
+                if (vCheck.isEmpty()) {
+                    List<Long> vByPersona = jdbcTemplate.query(
+                        "SELECT ID_VISITANTE FROM VISITANTES WHERE ID_PERSONA = :p",
+                        Map.of("p", visitanteId), (rs, r) -> rs.getLong("ID_VISITANTE")
+                    );
+                    if (!vByPersona.isEmpty()) {
+                        visitanteId = vByPersona.get(0);
+                    }
+                }
+            } catch (Exception ignored) {}
         }
 
         String rawMetodo = body.get("metodoIngreso") != null ? body.get("metodoIngreso").toString().trim().toUpperCase() : "CODIGO_QR";
@@ -141,7 +170,7 @@ public class PorteriaController {
                 }
                 if (uids.isEmpty()) {
                     uids = jdbcTemplate.query(
-                        "SELECT ID_UNIDAD FROM USUARIO_ASIGNACIONES WHERE ID_USUARIO = :id AND ESTADO = 'ACTIVA' AND ID_UNIDAD IS NOT NULL",
+                        "SELECT ru.ID_UNIDAD FROM RESIDENTES_UNIDAD ru JOIN USUARIOS u ON ru.ID_PERSONA = u.ID_PERSONA WHERE u.ID_USUARIO = :id AND ru.ESTADO = 'ACTIVO'",
                         Map.of("id", idRes), (rs, r) -> rs.getLong("ID_UNIDAD")
                     );
                 }
@@ -152,9 +181,28 @@ public class PorteriaController {
                 log.warning("No se pudo resolver unidad para idResidente: " + e.getMessage());
             }
         }
-        if (unidadId == null && SaedContextHolder.getContext() != null) {
-            unidadId = SaedContextHolder.getContext().getUnitId();
+
+        // Si aún no tenemos unidadId pero tenemos currentUserId (residente logueado)
+        if (unidadId == null && currentUserId != null) {
+            try {
+                List<Long> uids = jdbcTemplate.query(
+                    "SELECT ID_UNIDAD FROM USUARIO_ASIGNACIONES WHERE ID_USUARIO = :u AND ESTADO IN ('ACTIVA', 'ACTIVO') AND ID_UNIDAD IS NOT NULL",
+                    Map.of("u", currentUserId), (rs, r) -> rs.getLong("ID_UNIDAD")
+                );
+                if (uids.isEmpty()) {
+                    uids = jdbcTemplate.query(
+                        "SELECT ru.ID_UNIDAD FROM RESIDENTES_UNIDAD ru JOIN USUARIOS u ON ru.ID_PERSONA = u.ID_PERSONA WHERE u.ID_USUARIO = :u AND ru.ESTADO = 'ACTIVO'",
+                        Map.of("u", currentUserId), (rs, r) -> rs.getLong("ID_UNIDAD")
+                    );
+                }
+                if (!uids.isEmpty()) {
+                    unidadId = uids.get(0);
+                }
+            } catch (Exception e) {
+                log.warning("No se pudo resolver unidad para currentUserId: " + e.getMessage());
+            }
         }
+
         if (unidadId == null) {
             Long propId = SaedContextHolder.getContext() != null ? SaedContextHolder.getContext().getPropertyId() : null;
             if (propId != null) {
@@ -172,7 +220,6 @@ public class PorteriaController {
         }
 
         // Resolver autorizadoPor garantizando que sea un ID_USUARIO valido en USUARIOS (FK_VISITAS_AUTORIZADOR)
-        Long currentUserId = SaedContextHolder.getContext() != null ? SaedContextHolder.getContext().getUserId() : null;
         if (autorizadoPor != null) {
             try {
                 List<Long> uCheck = jdbcTemplate.query(
@@ -198,6 +245,9 @@ public class PorteriaController {
             } catch (Exception ignored) {}
         }
 
+        // Marcar como frecuente si se solicita en el registro de visita
+        boolean esFrecuente = Boolean.TRUE.equals(body.get("guardarFrecuente")) || "true".equalsIgnoreCase(String.valueOf(body.get("guardarFrecuente")));
+
         // Si viene mapa de visitante y no visitanteId, resolver/crear persona y visitante
         if (visitanteId == null && body.get("visitante") instanceof Map<?, ?> visMap) {
             String doc = visMap.get("numeroDocumento") != null ? visMap.get("numeroDocumento").toString().trim() : "";
@@ -209,143 +259,121 @@ public class PorteriaController {
             if (visMap.get("idTipoDoc") != null) {
                 try { idTipoDoc = Long.valueOf(visMap.get("idTipoDoc").toString()); } catch (Exception ignored) {}
             }
+            if (visMap.get("idVisitante") != null) {
+                try { visitanteId = Long.valueOf(visMap.get("idVisitante").toString()); } catch (Exception ignored) {}
+            }
+            Long personaId = null;
+            if (visMap.get("idPersona") != null) {
+                try { personaId = Long.valueOf(visMap.get("idPersona").toString()); } catch (Exception ignored) {}
+            }
 
-            final Long finalIdTipoDoc = idTipoDoc;
-            final String finalDoc = doc;
-            final String finalNom = nom;
-            final String finalApe = ape.isBlank() ? "N/A" : ape;
-            final String finalTel = tel.isBlank() ? null : tel;
-            final String finalEmail = email.isBlank() ? null : email;
+            SaedContext prevCtx = SaedContextHolder.getContext();
+            try {
+                Long orgId = prevCtx != null && prevCtx.getOrganizationId() != null ? prevCtx.getOrganizationId() : 1L;
+                Long propId = prevCtx != null && prevCtx.getPropertyId() != null ? prevCtx.getPropertyId() : 1L;
+                SaedContext systemCtx = SaedContext.builder()
+                    .userId(1L)
+                    .organizationId(orgId)
+                    .propertyId(propId)
+                    .roleCode("SUPERADMIN")
+                    .roleScope("GLOBAL")
+                    .build();
+                SaedContextHolder.setContext(systemCtx);
+                try {
+                    jdbcTemplate.getJdbcOperations().execute("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1); END;");
+                    jdbcTemplate.getJdbcOperations().execute(
+                        String.format("BEGIN PKG_SAED_SESSION.SET_CONTEXT(1, %d, %d, 'SUPERADMIN'); END;", orgId, propId)
+                    );
+                } catch (Exception ignored) {}
 
-            visitanteId = jdbcTemplate.getJdbcOperations().execute((org.springframework.jdbc.core.ConnectionCallback<Long>) conn -> {
-                // 1. Activar BOOTSTRAP en esta misma conexión para no ser bloqueado por RLS
-                try (java.sql.Statement st = conn.createStatement()) {
-                    st.execute("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1); END;");
-                }
-
-                Long resolvedPersonaId = null;
-
-                // 2. Buscar si la persona ya existe en la base de datos
-                if (!finalDoc.isEmpty()) {
-                    String sqlBusq = "SELECT ID_PERSONA FROM PERSONAS WHERE NUMERO_DOCUMENTO = ?";
-                    try (java.sql.PreparedStatement ps = conn.prepareStatement(sqlBusq)) {
-                        ps.setString(1, finalDoc);
-                        try (java.sql.ResultSet rs = ps.executeQuery()) {
-                            if (rs.next()) {
-                                resolvedPersonaId = rs.getLong(1);
-                            }
-                        }
-                    }
-                }
-
-                // 3. Si no existe, crear la persona
-                if (resolvedPersonaId == null) {
-                    String sqlIns = "INSERT INTO PERSONAS (ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, PRIMER_NOMBRE, PRIMER_APELLIDO, TELEFONO, EMAIL, ESTADO) " +
-                                    "VALUES (?, ?, 'NATURAL', ?, ?, ?, ?, 'ACTIVO')";
-                    try (java.sql.PreparedStatement ps = conn.prepareStatement(sqlIns, new String[]{"ID_PERSONA"})) {
-                        ps.setLong(1, finalIdTipoDoc);
-                        ps.setString(2, !finalDoc.isEmpty() ? finalDoc : "V-" + System.currentTimeMillis());
-                        ps.setString(3, finalNom);
-                        ps.setString(4, finalApe);
-                        if (finalTel != null) ps.setString(5, finalTel); else ps.setNull(5, java.sql.Types.VARCHAR);
-                        if (finalEmail != null) ps.setString(6, finalEmail); else ps.setNull(6, java.sql.Types.VARCHAR);
-                        ps.executeUpdate();
-                        try (java.sql.ResultSet rs = ps.getGeneratedKeys()) {
-                            if (rs.next()) {
-                                resolvedPersonaId = rs.getLong(1);
-                            }
-                        }
-                    }
-                    if (resolvedPersonaId == null && !finalDoc.isEmpty()) {
-                        String sqlBusq = "SELECT ID_PERSONA FROM PERSONAS WHERE NUMERO_DOCUMENTO = ?";
-                        try (java.sql.PreparedStatement ps = conn.prepareStatement(sqlBusq)) {
-                            ps.setString(1, finalDoc);
-                            try (java.sql.ResultSet rs = ps.executeQuery()) {
-                                if (rs.next()) {
-                                    resolvedPersonaId = rs.getLong(1);
-                                }
-                            }
-                        }
-                    }
-                }
-
-                Long resolvedVisId = null;
-
-                // 4. Buscar si ya tiene registro de visitante
-                if (resolvedPersonaId != null) {
-                    String sqlVis = "SELECT ID_VISITANTE FROM VISITANTES WHERE ID_PERSONA = ?";
-                    try (java.sql.PreparedStatement ps = conn.prepareStatement(sqlVis)) {
-                        ps.setLong(1, resolvedPersonaId);
-                        try (java.sql.ResultSet rs = ps.executeQuery()) {
-                            if (rs.next()) {
-                                resolvedVisId = rs.getLong(1);
-                            }
-                        }
-                    }
-
-                    // 5. Si no tiene registro en VISITANTES, crearlo
-                    if (resolvedVisId == null) {
-                        String sqlInsVis = "INSERT INTO VISITANTES (ID_PERSONA, ES_FRECUENTE, ESTADO) VALUES (?, 'N', 'ACTIVO')";
-                        try (java.sql.PreparedStatement ps = conn.prepareStatement(sqlInsVis, new String[]{"ID_VISITANTE"})) {
-                            ps.setLong(1, resolvedPersonaId);
-                            ps.executeUpdate();
-                            try (java.sql.ResultSet rs = ps.getGeneratedKeys()) {
-                                if (rs.next()) {
-                                    resolvedVisId = rs.getLong(1);
-                                }
-                            }
-                        }
-                        if (resolvedVisId == null) {
-                            String sqlVis2 = "SELECT ID_VISITANTE FROM VISITANTES WHERE ID_PERSONA = ?";
-                            try (java.sql.PreparedStatement ps = conn.prepareStatement(sqlVis2)) {
-                                ps.setLong(1, resolvedPersonaId);
-                                try (java.sql.ResultSet rs = ps.executeQuery()) {
-                                    if (rs.next()) {
-                                        resolvedVisId = rs.getLong(1);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // 6. Restaurar contexto de usuario en la misma conexión
-                if (currentUserId != null) {
+                if (personaId == null && !doc.isEmpty()) {
                     try {
-                        com.saed.backend.context.SaedContext sCtx = SaedContextHolder.getContext();
-                        Long sOrg = sCtx != null && sCtx.getOrganizationId() != null ? sCtx.getOrganizationId() : 1L;
-                        Long sProp = sCtx != null && sCtx.getPropertyId() != null ? sCtx.getPropertyId() : 1L;
-                        String sRol = sCtx != null && sCtx.getRoleCode() != null ? sCtx.getRoleCode() : "RESIDENTE";
-                        String sqlRestore = "{call PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(?)}";
-                        try (java.sql.CallableStatement cs = conn.prepareCall(sqlRestore)) {
-                            cs.setLong(1, currentUserId);
-                            cs.execute();
-                        }
-                        String sqlCtx = "{call PKG_SAED_SESSION.SET_CONTEXT(?, ?, ?, ?)}";
-                        try (java.sql.CallableStatement cs = conn.prepareCall(sqlCtx)) {
-                            cs.setLong(1, currentUserId);
-                            cs.setLong(2, sOrg);
-                            cs.setLong(3, sProp);
-                            cs.setString(4, sRol);
-                            cs.execute();
+                        List<Long> pers = jdbcTemplate.query(
+                            "SELECT ID_PERSONA FROM PERSONAS WHERE NUMERO_DOCUMENTO = :doc ORDER BY CASE WHEN ID_TIPO_DOCUMENTO = :idTipoDoc THEN 0 ELSE 1 END, ID_PERSONA ASC",
+                            Map.of("doc", doc, "idTipoDoc", idTipoDoc), (rs, r) -> rs.getLong("ID_PERSONA")
+                        );
+                        if (!pers.isEmpty()) {
+                            personaId = pers.get(0);
                         }
                     } catch (Exception ignored) {}
                 }
 
-                return resolvedVisId;
-            });
+                if (personaId == null) {
+                    try {
+                        KeyHolder kh = new GeneratedKeyHolder();
+                        MapSqlParameterSource pParams = new MapSqlParameterSource()
+                            .addValue("idTipo", idTipoDoc)
+                            .addValue("doc", !doc.isEmpty() ? doc : "V-" + System.currentTimeMillis())
+                            .addValue("nom", nom)
+                            .addValue("ape", ape.isBlank() ? "N/A" : ape)
+                            .addValue("tel", tel.isBlank() ? null : tel)
+                            .addValue("email", email.isBlank() ? null : email);
+                        jdbcTemplate.update(
+                            "INSERT INTO PERSONAS (ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, PRIMER_NOMBRE, PRIMER_APELLIDO, TELEFONO, EMAIL, ESTADO) " +
+                            "VALUES (:idTipo, :doc, 'NATURAL', :nom, :ape, :tel, :email, 'ACTIVO')",
+                            pParams, kh, new String[]{"ID_PERSONA"}
+                        );
+                        personaId = extractGeneratedKey(kh, "ID_PERSONA");
+                    } catch (Exception e) {
+                        log.warning("Error creando persona para visitante: " + e.getMessage());
+                    }
+                    if (personaId == null && !doc.isEmpty()) {
+                        try {
+                            List<Long> pers = jdbcTemplate.query(
+                                "SELECT ID_PERSONA FROM PERSONAS WHERE NUMERO_DOCUMENTO = :doc ORDER BY CASE WHEN ID_TIPO_DOCUMENTO = :idTipoDoc THEN 0 ELSE 1 END, ID_PERSONA ASC",
+                                Map.of("doc", doc, "idTipoDoc", idTipoDoc), (rs, r) -> rs.getLong("ID_PERSONA")
+                            );
+                            if (!pers.isEmpty()) {
+                                personaId = pers.get(0);
+                            }
+                        } catch (Exception ignored) {}
+                    }
+                }
+
+                if (personaId != null && visitanteId == null) {
+                    try {
+                        List<Long> visList = jdbcTemplate.query(
+                            "SELECT ID_VISITANTE FROM VISITANTES WHERE ID_PERSONA = :p",
+                            Map.of("p", personaId), (rs, r) -> rs.getLong("ID_VISITANTE")
+                        );
+                        if (!visList.isEmpty()) {
+                            visitanteId = visList.get(0);
+                            if (esFrecuente) {
+                                jdbcTemplate.update("UPDATE VISITANTES SET ES_FRECUENTE = 'S' WHERE ID_VISITANTE = :v", Map.of("v", visitanteId));
+                            }
+                        } else {
+                            KeyHolder khVis = new GeneratedKeyHolder();
+                            jdbcTemplate.update(
+                                "INSERT INTO VISITANTES (ID_PERSONA, ES_FRECUENTE, ESTADO) VALUES (:p, :frec, 'ACTIVO')",
+                                new MapSqlParameterSource()
+                                    .addValue("p", personaId)
+                                    .addValue("frec", esFrecuente ? "S" : "N"),
+                                khVis, new String[]{"ID_VISITANTE"}
+                            );
+                            visitanteId = extractGeneratedKey(khVis, "ID_VISITANTE");
+                        }
+                    } catch (Exception e) {
+                        log.warning("Error resolviendo ID_VISITANTE: " + e.getMessage());
+                    }
+                    if (visitanteId == null) {
+                        try {
+                            List<Long> visList = jdbcTemplate.query(
+                                "SELECT ID_VISITANTE FROM VISITANTES WHERE ID_PERSONA = :p",
+                                Map.of("p", personaId), (rs, r) -> rs.getLong("ID_VISITANTE")
+                            );
+                            if (!visList.isEmpty()) {
+                                visitanteId = visList.get(0);
+                            }
+                        } catch (Exception ignored) {}
+                    }
+                }
+            } finally {
+                restoreSaedContext(prevCtx);
+            }
         }
 
         if (visitanteId == null) {
-            throw new IllegalArgumentException("No se pudo registrar ni resolver la información del visitante");
-        }
-
-        // Marcar como frecuente si se solicita en el registro de visita
-        boolean esFrecuente = Boolean.TRUE.equals(body.get("guardarFrecuente")) || "true".equalsIgnoreCase(String.valueOf(body.get("guardarFrecuente")));
-        if (esFrecuente && visitanteId != null) {
-            try {
-                jdbcTemplate.update("UPDATE VISITANTES SET ES_FRECUENTE = 'S' WHERE ID_VISITANTE = :v", Map.of("v", visitanteId));
-            } catch (Exception ignored) {}
+            throw new IllegalStateException("No fue posible registrar la información del visitante. Verifique que los datos del documento y nombre sean válidos.");
         }
 
         VisitaRequestDTO request = new VisitaRequestDTO(
@@ -360,6 +388,13 @@ public class PorteriaController {
 
         VisitaDTO visita = porteriaService.programarVisita(request);
 
+        // Marcar como frecuente si se solicita en el registro de visita
+        if (esFrecuente) {
+            try {
+                jdbcTemplate.update("UPDATE VISITANTES SET ES_FRECUENTE = 'S' WHERE ID_VISITANTE = :v", Map.of("v", visitanteId));
+            } catch (Exception ignored) {}
+        }
+
         // Duración QR
         int validezMin = 1440;
         if (body.get("tiempoValidezMin") != null) {
@@ -371,7 +406,7 @@ public class PorteriaController {
         QrAccesoRequestDTO qrReq = new QrAccesoRequestDTO(
             visita.idVisita(),
             token,
-            ZonedDateTime.now().plusMinutes(validezMin),
+            ZonedDateTime.now(ZoneId.of("America/Bogota")).plusMinutes(validezMin),
             1,
             "ACTIVO",
             autorizadoPor
@@ -379,16 +414,25 @@ public class PorteriaController {
 
         QrAccesoDTO qr = porteriaService.generarQrAcceso(qrReq);
 
-        // Vehiculo si vino en payload con placa
+        // Vehiculo si vino en payload con placa (objeto vehiculo o campos planos en raíz)
+        String placa = null;
+        String tipoV = "VEHICULO";
         if (body.get("vehiculo") instanceof Map<?, ?> vehMap) {
-            String placa = vehMap.get("placa") != null ? vehMap.get("placa").toString().trim().toUpperCase() : "";
-            if (!placa.isBlank()) {
-                try {
-                    String tipoV = vehMap.get("tipo") != null ? vehMap.get("tipo").toString() : "VEHICULO";
-                    porteriaService.registrarIngresoVehiculo(new VehiculoVisitaRequestDTO(visita.idVisita(), null, placa, tipoV, "DENTRO"));
-                } catch (Exception e) {
-                    log.warning("No se pudo registrar vehiculo de visita: " + e.getMessage());
-                }
+            placa = vehMap.get("placa") != null ? vehMap.get("placa").toString().trim().toUpperCase() : null;
+            if (vehMap.get("tipo") != null) {
+                tipoV = vehMap.get("tipo").toString();
+            }
+        } else if (body.get("placa") != null && !body.get("placa").toString().isBlank()) {
+            placa = body.get("placa").toString().trim().toUpperCase();
+            if (body.get("tipoVehiculo") != null && !body.get("tipoVehiculo").toString().isBlank()) {
+                tipoV = body.get("tipoVehiculo").toString();
+            }
+        }
+        if (placa != null && !placa.isBlank()) {
+            try {
+                porteriaService.registrarIngresoVehiculo(new VehiculoVisitaRequestDTO(visita.idVisita(), null, placa, tipoV, "DENTRO"));
+            } catch (Exception e) {
+                log.warning("No se pudo registrar vehiculo de visita: " + e.getMessage());
             }
         }
 
@@ -401,8 +445,8 @@ public class PorteriaController {
             if (!visitantes.isEmpty()) {
                 String email = (String) visitantes.get(0).get("EMAIL");
                 if (email != null && !email.isBlank()) {
-                    emailService.enviarCorreoQR(email, token, qr.fechaExpiracion().toString(), "Visitante SAED");
-                    log.info("QR enviado exitosamente al visitante: " + email);
+                    emailService.enviarCorreoQRAsync(email, token, qr.fechaExpiracion().toString(), "Visitante SAED");
+                    log.info("Despachado envio asincrono de QR a visitante: " + email);
                 }
             }
         } catch (Exception e) {
@@ -434,16 +478,36 @@ public class PorteriaController {
         if (documento == null || documento.trim().isEmpty()) {
             return ResponseEntity.ok(Map.of());
         }
+        SaedContext prevCtx = SaedContextHolder.getContext();
         try {
+            Long orgId = prevCtx != null && prevCtx.getOrganizationId() != null ? prevCtx.getOrganizationId() : 1L;
+            Long propId = prevCtx != null && prevCtx.getPropertyId() != null ? prevCtx.getPropertyId() : 1L;
+            SaedContext systemCtx = SaedContext.builder()
+                .userId(1L)
+                .organizationId(orgId)
+                .propertyId(propId)
+                .roleCode("SUPERADMIN")
+                .roleScope("GLOBAL")
+                .build();
+            SaedContextHolder.setContext(systemCtx);
+            try {
+                jdbcTemplate.getJdbcOperations().execute("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1); END;");
+                jdbcTemplate.getJdbcOperations().execute(
+                    String.format("BEGIN PKG_SAED_SESSION.SET_CONTEXT(1, %d, %d, 'SUPERADMIN'); END;", orgId, propId)
+                );
+            } catch (Exception ignored) {}
+
             List<Map<String, Object>> list = jdbcTemplate.queryForList(
-                "SELECT p.ID_PERSONA, p.ID_TIPO_DOCUMENTO, p.NUMERO_DOCUMENTO, p.PRIMER_NOMBRE, p.PRIMER_APELLIDO, p.TELEFONO, p.EMAIL " +
-                "FROM PERSONAS p WHERE p.NUMERO_DOCUMENTO = :doc AND ROWNUM = 1",
+                "SELECT p.ID_PERSONA, p.ID_TIPO_DOCUMENTO, p.NUMERO_DOCUMENTO, p.PRIMER_NOMBRE, p.PRIMER_APELLIDO, p.TELEFONO, p.EMAIL, v.ID_VISITANTE " +
+                "FROM PERSONAS p LEFT JOIN VISITANTES v ON p.ID_PERSONA = v.ID_PERSONA " +
+                "WHERE p.NUMERO_DOCUMENTO = :doc AND ROWNUM = 1",
                 Map.of("doc", documento.trim())
             );
             if (!list.isEmpty()) {
                 Map<String, Object> row = list.get(0);
                 Map<String, Object> res = new HashMap<>();
                 res.put("idPersona", row.get("ID_PERSONA"));
+                res.put("idVisitante", row.get("ID_VISITANTE"));
                 res.put("idTipoDoc", row.get("ID_TIPO_DOCUMENTO"));
                 res.put("numeroDocumento", row.get("NUMERO_DOCUMENTO"));
                 res.put("nombres", row.get("PRIMER_NOMBRE"));
@@ -454,6 +518,8 @@ public class PorteriaController {
             }
         } catch (Exception e) {
             log.warning("Error buscando visitante por documento: " + e.getMessage());
+        } finally {
+            restoreSaedContext(prevCtx);
         }
         return ResponseEntity.ok(Map.of());
     }
@@ -588,5 +654,63 @@ public class PorteriaController {
     @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_PORTERO')")
     public void registrarSalidaVehiculo(@PathVariable Long id, @RequestBody Map<String, BigDecimal> body) {
         porteriaService.registrarSalidaVehiculo(id, body.getOrDefault("costoTotal", BigDecimal.ZERO));
+    }
+
+    private Long extractGeneratedKey(KeyHolder kh, String columnName) {
+        if (kh == null) return null;
+        try {
+            if (kh.getKey() != null) {
+                return kh.getKey().longValue();
+            }
+        } catch (Exception ignored) {}
+        if (kh.getKeys() != null) {
+            for (Map.Entry<String, Object> entry : kh.getKeys().entrySet()) {
+                if (entry.getKey().equalsIgnoreCase(columnName) && entry.getValue() instanceof Number num) {
+                    return num.longValue();
+                }
+            }
+            for (Map.Entry<String, Object> entry : kh.getKeys().entrySet()) {
+                if (!entry.getKey().equalsIgnoreCase("ROWID") && entry.getValue() instanceof Number num) {
+                    return num.longValue();
+                }
+            }
+        }
+        if (kh.getKeyList() != null && !kh.getKeyList().isEmpty()) {
+            for (Map<String, Object> map : kh.getKeyList()) {
+                for (Map.Entry<String, Object> entry : map.entrySet()) {
+                    if (entry.getKey().equalsIgnoreCase(columnName) && entry.getValue() instanceof Number num) {
+                        return num.longValue();
+                    }
+                }
+                for (Map.Entry<String, Object> entry : map.entrySet()) {
+                    if (!entry.getKey().equalsIgnoreCase("ROWID") && entry.getValue() instanceof Number num) {
+                        return num.longValue();
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    private void restoreSaedContext(SaedContext prevCtx) {
+        if (prevCtx != null) {
+            SaedContextHolder.setContext(prevCtx);
+            if (prevCtx.getUserId() != null && prevCtx.getRoleCode() != null) {
+                try {
+                    Long orgId = prevCtx.getOrganizationId() != null ? prevCtx.getOrganizationId() : 0L;
+                    Long propId = prevCtx.getPropertyId() != null ? prevCtx.getPropertyId() : 0L;
+                    String role = prevCtx.getRoleCode();
+                    jdbcTemplate.getJdbcOperations().execute(
+                        String.format("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(%d); PKG_SAED_SESSION.SET_CONTEXT(%d, %d, %d, '%s'); END;",
+                            prevCtx.getUserId(), prevCtx.getUserId(), orgId, propId, role)
+                    );
+                } catch (Exception ignored) {}
+            }
+        } else {
+            SaedContextHolder.clearContext();
+            try {
+                jdbcTemplate.getJdbcOperations().execute("BEGIN PKG_SAED_SESSION.CLEAR_CONTEXT(); END;");
+            } catch (Exception ignored) {}
+        }
     }
 }

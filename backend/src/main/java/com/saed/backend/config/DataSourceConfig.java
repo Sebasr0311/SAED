@@ -21,7 +21,9 @@ public class DataSourceConfig {
         ds.setMaximumPoolSize(35);
         ds.setMinimumIdle(5);
         ds.setConnectionTimeout(30000);
-        ds.setLeakDetectionThreshold(15000);
+        // leakDetectionThreshold is set per-profile in application.yml
+        // (dev: 30000, prod: 60000). Do NOT hardcode here.
+
         return ds;
     }
 

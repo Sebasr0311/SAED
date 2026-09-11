@@ -115,9 +115,9 @@ export default function IncidentesAdminPage() {
                 <div style={{ flex: 1 }}>
                   <label>Severidad</label>
                   <select className="select select-bordered w-full" value={form.nivelSeveridad} onChange={e => setForm({...form, nivelSeveridad: e.target.value})}>
-                    <option value="BAJA">Baja</option>
+                    <option value="LEVE">Leve</option>
                     <option value="MODERADA">Moderada</option>
-                    <option value="ALTA">Alta</option>
+                    <option value="GRAVE">Grave</option>
                     <option value="CRITICA">Crítica</option>
                   </select>
                 </div>

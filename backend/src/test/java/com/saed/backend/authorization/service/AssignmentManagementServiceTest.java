@@ -77,6 +77,23 @@ class AssignmentManagementServiceTest {
     }
 
     @Test
+    void create_propertyScope_cannotAssignAdminPropiedadRole() {
+        SaedContextHolder.setContext(SaedContext.builder()
+                .userId(2L).roleCode("ADMIN_PROPIEDAD").roleScope("PROPIEDAD")
+                .organizationId(1L).propertyId(1L).build());
+
+        RoleDTO targetRole = new RoleDTO("ADMIN_PROPIEDAD", "PROPIEDAD");
+        targetRole.setIdRol(3L);
+        when(roleRepository.findById(3L)).thenReturn(Optional.of(targetRole));
+
+        AssignmentRequestDTO request = new AssignmentRequestDTO();
+        request.setIdUsuario(10L);
+        request.setIdRol(3L);
+
+        assertThrows(AccessDeniedException.class, () -> service.create(request));
+    }
+
+    @Test
     void create_residente_cannotCreateAssignments() {
         SaedContextHolder.setContext(SaedContext.builder()
                 .userId(3L).roleCode("RESIDENTE").roleScope("UNIDAD")

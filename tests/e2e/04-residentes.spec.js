@@ -6,7 +6,7 @@ test.describe('04 - Gestión de Residentes (CRUD Completo)', () => {
   test.beforeEach(async ({ page }) => {
     await loginAs(page, 'ADMIN_PROPIEDAD');
     await page.goto('/residentes');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
   });
 
   test('04.1: Listado y KPIs de residentes cargan con datos reales', async ({ page }) => {
@@ -108,7 +108,7 @@ test.describe('04 - Gestión de Residentes (CRUD Completo)', () => {
 
     // Recargar página para verificar persistencia real en Oracle DB
     await page.reload();
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
     const searchAfterReload = page.locator('#search-residentes');
     await searchAfterReload.fill(docNum);
     await page.waitForTimeout(500);

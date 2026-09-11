@@ -8,6 +8,11 @@ export const USERS = {
     password: 'admin_global123',
     homeUrl: '/superadmin/dashboard',
   },
+  ADMIN_ORGANIZACION: {
+    username: 'admin_org',
+    password: 'admin123',
+    homeUrl: '/org/dashboard',
+  },
   ADMIN_PROPIEDAD: {
     username: 'admin',
     password: 'admin123',
@@ -37,10 +42,11 @@ export async function loginAs(page, userRole) {
     } catch (_) {}
   });
   await page.goto('/login');
-  await page.waitForLoadState('networkidle');
+  await page.waitForLoadState('domcontentloaded');
 
   // Rellenar formulario de login
   const userInput = page.locator('input[type="text"], input[name="username"], input[id="username"]').first();
+  await userInput.waitFor({ state: 'visible', timeout: 15000 });
   const passInput = page.locator('input[type="password"]').first();
   const submitBtn = page.locator('button[type="submit"]').first();
 
@@ -50,7 +56,7 @@ export async function loginAs(page, userRole) {
 
   // Esperar navegación fuera de /login (absorbe cold start de Render si ocurre)
   await page.waitForURL((url) => !url.pathname.includes('/login'), { timeout: 35000 });
-  await page.waitForLoadState('networkidle');
+  await page.waitForLoadState('domcontentloaded');
 }
 
 export async function logout(page) {

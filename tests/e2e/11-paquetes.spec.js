@@ -6,7 +6,7 @@ test.describe('11 - Paquetería y Encomiendas con PIN', () => {
   test('11.1: PORTERO carga consola de paquetería y abre modal de recepción', async ({ page }) => {
     await loginAs(page, 'PORTERO');
     await page.goto('/paquetes');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     await expect(page.locator('h1, h2, [role="heading"]').filter({ hasText: /Paquet|Encomiendas/i }).first()).toBeVisible();
 
@@ -22,7 +22,7 @@ test.describe('11 - Paquetería y Encomiendas con PIN', () => {
   test('11.2: RESIDENTE consulta correspondencia y paquetes en buzón', async ({ page }) => {
     await loginAs(page, 'RESIDENTE');
     await page.goto('/res-buzon');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     await expect(page.locator('h1, h2, [role="heading"]').filter({ hasText: /Buz|Correspondencia|Paquet/i }).first()).toBeVisible();
   });

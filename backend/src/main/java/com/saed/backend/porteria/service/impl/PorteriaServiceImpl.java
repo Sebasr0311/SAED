@@ -15,6 +15,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.ZonedDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -211,7 +213,7 @@ public class PorteriaServiceImpl implements PorteriaService {
             );
             if (!residentes.isEmpty()) {
                 String destinatario = (String) residentes.get(0).get("EMAIL");
-                emailService.enviarCorreoQR(destinatario, qr.tokenQr(), qr.fechaExpiracion().toString(), "Visitante");
+                emailService.enviarCorreoQRAsync(destinatario, qr.tokenQr(), qr.fechaExpiracion().toString(), "Visitante");
             }
         } catch(Exception e) { log.error("Error sending QR email", e); }
         return qr;
@@ -261,7 +263,12 @@ public class PorteriaServiceImpl implements PorteriaService {
         result.put("mensaje", "Código QR válido");
         result.put("codigoQr", qr.tokenQr());
         result.put("idVisita", qr.visitaId());
-        result.put("fechaExpiracion", qr.fechaExpiracion() != null ? qr.fechaExpiracion().toString() : null);
+        result.put("fechaExpiracion", qr.fechaExpiracion() != null ? qr.fechaExpiracion().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME) : null);
+        result.put("fechaGeneracion", qr.fechaGeneracion() != null ? qr.fechaGeneracion().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME) : null);
+        if (qr.fechaExpiracion() != null) {
+            long minRestantes = java.time.Duration.between(ZonedDateTime.now(ZoneId.of("America/Bogota")), qr.fechaExpiracion()).toMinutes();
+            result.put("minutosRestantes", minRestantes);
+        }
 
         VisitaDetalleDTO detalle = qr.visitaId() != null ? porteriaRepository.getVisitaDetalle(qr.visitaId()).orElse(null) : null;
         if (detalle != null) {
@@ -360,12 +367,20 @@ public class PorteriaServiceImpl implements PorteriaService {
                 .orElseThrow(() -> new IllegalArgumentException("Código QR no encontrado"));
 
         if (!"ACTIVO".equalsIgnoreCase(qr.estado())) {
+            Map<String, Object> yaRegistrado = checkExistingEntry(qr);
+            if (yaRegistrado != null) {
+                return yaRegistrado;
+            }
             throw new IllegalStateException("El código QR no se encuentra activo (Estado: " + qr.estado() + ")");
         }
-        if (qr.fechaExpiracion() != null && qr.fechaExpiracion().isBefore(ZonedDateTime.now())) {
+        if (qr.fechaExpiracion() != null && qr.fechaExpiracion().isBefore(ZonedDateTime.now(ZoneId.of("America/Bogota")))) {
             throw new IllegalStateException("El código QR ha expirado");
         }
         if (qr.usosPermitidos() != null && qr.usosConsumidos() != null && qr.usosConsumidos() >= qr.usosPermitidos()) {
+            Map<String, Object> yaRegistrado = checkExistingEntry(qr);
+            if (yaRegistrado != null) {
+                return yaRegistrado;
+            }
             throw new IllegalStateException("El código QR ya alcanzó el límite de usos permitidos");
         }
 
@@ -493,6 +508,37 @@ public class PorteriaServiceImpl implements PorteriaService {
     @Auditable(action = "CHECKOUT_VEHICULO", resource = "ACCESO_VEHICULO", category = AuditCategory.SECURITY, severity = AuditSeverity.INFO)
     public void registrarSalidaVehiculo(Long vehiculoVisitaId, BigDecimal costoTotal) {
         porteriaRepository.registerSalidaVehiculo(vehiculoVisitaId, costoTotal);
+    }
+
+    private Map<String, Object> checkExistingEntry(QrAccesoDTO qr) {
+        if (qr == null || qr.visitaId() == null) {
+            return null;
+        }
+        try {
+            List<Map<String, Object>> existing = jdbcTemplate.queryForList(
+                "SELECT ra.ID_REGISTRO_ACCESO, p.NUMERO_PARQUEADERO " +
+                "FROM REGISTROS_ACCESO ra " +
+                "LEFT JOIN VEHICULOS_VISITA vv ON vv.ID_VISITA = ra.ID_VISITA AND vv.ESTADO = 'DENTRO' " +
+                "LEFT JOIN PARQUEADEROS p ON p.ID_PARQUEADERO = vv.ID_PARQUEADERO " +
+                "WHERE ra.ID_QR = :idQr AND ra.TIPO_ACCESO = 'ENTRADA' " +
+                "ORDER BY ra.FECHA_ACCESO DESC",
+                new MapSqlParameterSource("idQr", qr.idQr())
+            );
+            if (!existing.isEmpty()) {
+                Map<String, Object> resp = new HashMap<>();
+                resp.put("success", true);
+                resp.put("mensaje", "Entrada ya registrada previamente para este visitante");
+                resp.put("idVisita", qr.visitaId());
+                Object parqObj = existing.get(0).get("NUMERO_PARQUEADERO");
+                String parq = parqObj != null ? parqObj.toString() : null;
+                resp.put("parqueadero", parq);
+                resp.put("yaRegistrado", true);
+                return resp;
+            }
+        } catch (Exception e) {
+            log.debug("Aviso al verificar entrada existente para QR {}: {}", qr.idQr(), e.getMessage());
+        }
+        return null;
     }
 }
 

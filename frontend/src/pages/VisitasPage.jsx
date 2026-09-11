@@ -393,9 +393,10 @@ export default function VisitasPage() {
         columns={columns}
         rows={filtradas}
         loading={loading}
-                empty={{ icon: 'how_to_reg', title: 'No hay visitas', subtitle: 'Las visitas registradas aparecerán aquí.' }}
+        empty={{ icon: 'how_to_reg', title: 'No hay visitas', subtitle: 'Las visitas registradas aparecerán aquí.' }}
         keyField="idVisita"
         onRowClick={verDetalle}
+        pageSize={10}
       />
 
       <Modal open={modalRegistro} onClose={cerrarRegistro} title="Registrar Nueva Visita" size="lg">

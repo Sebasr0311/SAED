@@ -173,18 +173,17 @@ export default function ResFrecuentesPage() {
     savingRef.current = true;
     setSaving(true);
     try {
-      // POST /api/visitantes crea el visitante; la vinculacion como frecuente
-      // se hace via flujo de QR/libera visita
-      await api.post('/visitantes', {
+      const residentId = user?.idResidente || user?.idPersona || user?.idUsuario;
+      await api.post(`/residentes/${residentId}/frecuentes`, {
         idTipoDoc: Number(form.idTipoDoc),
         numeroDocumento: form.numeroDocumento.trim(),
         nombres: form.nombres.trim(),
         apellidos: form.apellidos.trim(),
         telefono: form.telefono.replace(/\D/g, '') || null,
         email: form.email.trim() || null,
-        activo: true,
+        placa: form.placa ? form.placa.trim().toUpperCase() : null,
       });
-      toast.success('Visitante creado. Para marcarlo como frecuente, genere un QR de "Visita Rápida" en /res-visita');
+      toast.success('Visitante frecuente registrado con éxito');
       setForm({
         idTipoDoc: 1,
         numeroDocumento: '',

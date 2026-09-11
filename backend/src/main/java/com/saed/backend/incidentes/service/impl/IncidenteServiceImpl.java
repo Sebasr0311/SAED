@@ -17,9 +17,11 @@ import java.util.List;
 public class IncidenteServiceImpl implements IncidenteService {
 
     private final IncidenteRepository incidenteRepository;
+    private final org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbcTemplate;
 
-    public IncidenteServiceImpl(IncidenteRepository incidenteRepository) {
+    public IncidenteServiceImpl(IncidenteRepository incidenteRepository, org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbcTemplate) {
         this.incidenteRepository = incidenteRepository;
+        this.jdbcTemplate = jdbcTemplate;
     }
 
     @Override
@@ -91,6 +93,38 @@ public class IncidenteServiceImpl implements IncidenteService {
 
         if (request.getFechaHoraIncidente() == null) {
             request.setFechaHoraIncidente(ZonedDateTime.now());
+        }
+
+        if ("PORTERO".equals(roleCode) && request.getIdUnidad() != null &&
+            (request.getTitulo().toLowerCase().contains("ruido") || 
+             (request.getDescripcionHechos() != null && request.getDescripcionHechos().toLowerCase().contains("ruido")))) {
+            String sql = "SELECT MAX(FECHA_ENVIO) AS ULTIMA_FECHA FROM NOTIFICACIONES " +
+                         "WHERE TITULO = 'Aviso por Ruido' AND (" +
+                         "  ENLACE_DESTINO = :enlace " +
+                         "  OR ID_USUARIO_DESTINATARIO IN (" +
+                         "    SELECT ua.ID_USUARIO FROM USUARIO_ASIGNACIONES ua WHERE ua.ID_UNIDAD = :idApto " +
+                         "    UNION " +
+                         "    SELECT u.ID_USUARIO FROM RESIDENTES_UNIDAD ru JOIN USUARIOS u ON ru.ID_PERSONA = u.ID_PERSONA WHERE ru.ID_UNIDAD = :idApto" +
+                         "  )" +
+                         ")";
+            try {
+                List<java.sql.Timestamp> list = jdbcTemplate.query(
+                    sql,
+                    java.util.Map.of("enlace", "UNIDAD:" + request.getIdUnidad(), "idApto", request.getIdUnidad()),
+                    (rs, r) -> rs.getTimestamp("ULTIMA_FECHA")
+                );
+                java.sql.Timestamp ultimaFecha = (list != null && !list.isEmpty()) ? list.get(0) : null;
+                if (ultimaFecha == null) {
+                    throw new IllegalArgumentException("Debe realizar el aviso de ruido primero antes de poder reportar la infracción.");
+                }
+                long diffMillis = System.currentTimeMillis() - ultimaFecha.getTime();
+                long minutos = Math.max(0, diffMillis / (60 * 1000));
+                if (minutos < 30) {
+                    throw new IllegalArgumentException("No puede aplicar la multa aún. Deben transcurrir al menos 30 minutos desde el aviso de ruido (faltan " + (30 - minutos) + " minutos).");
+                }
+            } catch (IllegalArgumentException ex) {
+                throw ex;
+            } catch (Exception ignored) {}
         }
 
         return incidenteRepository.createIncidente(request, idPropiedad, registradoPor);

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import {
+  Calendar,
   Car,
   CheckCircle2,
   Clock,
@@ -362,23 +363,6 @@ export default function ResVisitasPage() {
       }
 
       const res = await api.post('/porteria/visitas', payload);
-
-      // Si seleccionó marcar como frecuente, intentar registrar en la lista de frecuentes
-      if (form.guardarFrecuente) {
-        try {
-          await api.post('/visitantes', {
-            idTipoDoc: Number(form.visitante.idTipoDoc) || 1,
-            numeroDocumento: form.visitante.numeroDocumento.trim(),
-            nombres: form.visitante.nombres.trim(),
-            apellidos: form.visitante.apellidos.trim(),
-            telefono: form.visitante.telefono?.replace(/\D/g, '') || null,
-            email: form.visitante.email?.trim() || null,
-            activo: true,
-          });
-        } catch {
-          // Si ya existe en frecuentes, no romper el flujo del QR
-        }
-      }
 
       toast.success('¡Visita registrada y código QR generado con éxito!');
       setModalNuevaVisita(false);
@@ -978,10 +962,21 @@ export default function ResVisitasPage() {
                           <h4 className="text-sm font-bold text-foreground truncate">
                             {qr.nombreVisitante || 'Visitante Autorizado'}
                           </h4>
+                          {qr.documentoVisitante && (
+                            <p className="text-xs text-muted-foreground font-mono mt-0.5">
+                              Doc: {qr.documentoVisitante}
+                            </p>
+                          )}
                           <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
                             <Users className="w-3 h-3" />
                             {qr.cantidadPersonas || 1} Persona(s)
                           </p>
+                          {qr.fechaCreacion && (
+                            <p className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                              <Calendar className="w-3 h-3" />
+                              Generado: {formatDateTime(qr.fechaCreacion)}
+                            </p>
+                          )}
                           <p className="text-[11px] text-amber-600 dark:text-amber-400 font-semibold flex items-center gap-1 mt-0.5">
                             <Clock className="w-3 h-3" />
                             Expira: {formatDateTime(qr.fechaExpiracion)}

@@ -18,7 +18,6 @@ import api from '../../lib/api.js';
 import { useAuth } from '../../lib/AuthContext.jsx';
 
 const MAX_VISIBLES = 12;
-const VISTO_KEY = 'saed_notif_visto';
 
 function formatoTiempo(iso) {
   if (!iso) return '';
@@ -104,13 +103,9 @@ export default function NotificationBell() {
   const containerRef = useRef(null);
   const buttonRef = useRef(null);
 
-  const [visto, setVisto] = useState(() => {
-    try {
-      return Number(localStorage.getItem(VISTO_KEY)) || 0;
-    } catch {
-      return 0;
-    }
-  });
+  const userKey = user?.id || user?.username || 'anon';
+  const vistoKey = `saed_notif_visto_${userKey}`;
+  const readKey = `saed_read_notifs_${userKey}`;
 
   const esAdmin =
     user?.rol === 'ADMIN_PROPIEDAD' ||
@@ -118,33 +113,93 @@ export default function NotificationBell() {
     user?.rol === 'SUPERADMIN';
   const verMasRuta = esAdmin ? '/quejas-admin' : '/res-buzon';
 
+  const [visto, setVisto] = useState(() => {
+    try {
+      return Number(localStorage.getItem(vistoKey)) || 0;
+    } catch {
+      return 0;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      setVisto(Number(localStorage.getItem(vistoKey)) || 0);
+    } catch {
+      /* noop */
+    }
+  }, [vistoKey]);
+
   const cargar = useCallback(async () => {
     if (!user) return;
     setLoading(true);
     setError(false);
     try {
-      const res = await api.get('/buzon/avisos');
-      const lista = res?.items || res || [];
-      const raw = Array.isArray(lista) ? lista : [];
-      setItems(
-        raw.map((it) => ({
-          id: it.idComunicado ?? it.id,
+      let locallyReadIds = new Set();
+      try {
+        locallyReadIds = new Set(JSON.parse(localStorage.getItem(readKey) || '[]'));
+      } catch {
+        /* noop */
+      }
+
+      // Cargar notificaciones personales y avisos generales en paralelo
+      const [buzonRes, avisosRes] = await Promise.allSettled([
+        api.get('/buzon'),
+        api.get('/buzon/avisos'),
+      ]);
+
+      const buzonRaw = buzonRes.status === 'fulfilled' ? (buzonRes.value?.items || buzonRes.value || []) : [];
+      const avisosRaw = avisosRes.status === 'fulfilled' ? (avisosRes.value?.items || avisosRes.value || []) : [];
+
+      const buzonList = Array.isArray(buzonRaw) ? buzonRaw : [];
+      const avisosList = Array.isArray(avisosRaw) ? avisosRaw : [];
+
+      const personalMapped = buzonList.map((it) => {
+        const idStr = String(it.idMensaje || it.id);
+        const leidoDb = it.leido === true || it.estado === 'LEIDO' || Boolean(it.fechaLeido);
+        const leidoLocal = locallyReadIds.has(`msg-${idStr}`) || locallyReadIds.has(idStr);
+        return {
+          id: `msg-${idStr}`,
+          idMensaje: it.idMensaje || it.id,
+          tipo: it.tipo || clasificarTipo({ titulo: it.titulo, cuerpo: it.cuerpo }),
+          titulo: it.titulo || 'Notificación',
+          cuerpo: it.cuerpo || it.mensaje || '',
+          fecha: it.fecha || it.fechaEnvio,
+          leido: leidoDb || leidoLocal,
+          esPersonal: true,
+          ruta: user?.rol === 'RESIDENTE' ? '/res-buzon' : (esAdmin ? '/quejas-admin' : '/portero-dashboard'),
+        };
+      });
+
+      const avisosMapped = avisosList.map((it) => {
+        const idStr = String(it.idComunicado ?? it.id);
+        const leidoLocal = locallyReadIds.has(`aviso-${idStr}`) || locallyReadIds.has(idStr);
+        return {
+          id: `aviso-${idStr}`,
+          idComunicado: it.idComunicado ?? it.id,
           tipo: it.tipo || 'AVISO',
-          titulo: it.titulo || it.tituloComunicado || 'Aviso',
+          titulo: it.titulo || it.tituloComunicado || 'Aviso oficial',
           cuerpo: it.contenido || it.mensaje || '',
           fecha: it.fechaPublicacion || it.fecha_publicacion || it.fecha,
-          leido: it.estado === 'LEIDO' || it.leido === true,
+          leido: leidoLocal,
+          esPersonal: false,
           ruta: '/avisos',
-          idMensaje: it.idMensaje,
-        }))
-      );
+        };
+      });
+
+      const todos = [...personalMapped, ...avisosMapped].sort((a, b) => {
+        const tA = new Date(a.fecha || 0).getTime();
+        const tB = new Date(b.fecha || 0).getTime();
+        return tB - tA;
+      });
+
+      setItems(todos);
     } catch {
       setError(true);
       setItems([]);
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, esAdmin, readKey]);
 
   useEffect(() => {
     cargar();
@@ -152,17 +207,24 @@ export default function NotificationBell() {
     return () => clearInterval(t);
   }, [cargar]);
 
-  // Click outside listener
+  // Click outside listener: al cerrar el popover persistimos visto para limpiar badge de campana
   useEffect(() => {
     if (!open) return;
     function handleClickOutside(e) {
       if (containerRef.current && !containerRef.current.contains(e.target)) {
         setOpen(false);
+        const ahora = Date.now();
+        setVisto(ahora);
+        try {
+          localStorage.setItem(vistoKey, String(ahora));
+        } catch {
+          /* noop */
+        }
       }
     }
     document.addEventListener('pointerdown', handleClickOutside);
     return () => document.removeEventListener('pointerdown', handleClickOutside);
-  }, [open]);
+  }, [open, vistoKey]);
 
   // Escape key listener
   useEffect(() => {
@@ -171,29 +233,43 @@ export default function NotificationBell() {
       if (e.key === 'Escape') {
         setOpen(false);
         buttonRef.current?.focus();
+        const ahora = Date.now();
+        setVisto(ahora);
+        try {
+          localStorage.setItem(vistoKey, String(ahora));
+        } catch {
+          /* noop */
+        }
       }
     }
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [open]);
+  }, [open, vistoKey]);
 
   const esNoLeida = useCallback(
     (it) => {
       if (it.leido) return false;
       try {
-        const saved = JSON.parse(localStorage.getItem('saed_admin_read_notifs') || '[]');
-        if (saved.includes(it.id)) return false;
+        const saved = JSON.parse(localStorage.getItem(readKey) || '[]');
+        if (
+          saved.includes(it.id) ||
+          (it.idMensaje && saved.includes(String(it.idMensaje))) ||
+          (it.idComunicado && saved.includes(String(it.idComunicado)))
+        ) {
+          return false;
+        }
       } catch {
         /* noop */
       }
-      if (esAdmin) {
-        if (!visto) return true;
+      if (visto) {
         const f = new Date(it.fecha);
-        return !Number.isNaN(f.getTime()) && f.getTime() > visto;
+        if (!Number.isNaN(f.getTime()) && f.getTime() <= visto) {
+          return false;
+        }
       }
-      return !it.leido;
+      return true;
     },
-    [esAdmin, visto]
+    [readKey, visto]
   );
 
   const noLeidasCount = useMemo(() => {
@@ -201,48 +277,73 @@ export default function NotificationBell() {
   }, [items, esNoLeida]);
 
   const alAbrir = () => {
-    setOpen((prev) => !prev);
+    setOpen((prev) => {
+      const next = !prev;
+      if (!next) {
+        const ahora = Date.now();
+        setVisto(ahora);
+        try {
+          localStorage.setItem(vistoKey, String(ahora));
+        } catch {
+          /* noop */
+        }
+      }
+      return next;
+    });
   };
 
   const marcarTodasLeidas = () => {
-    if (esAdmin) {
-      const ahora = Date.now();
-      setVisto(ahora);
-      try {
-        localStorage.setItem(VISTO_KEY, String(ahora));
-        localStorage.removeItem('saed_admin_read_notifs');
-      } catch {
-        /* noop */
-      }
-    } else {
+    const ahora = Date.now();
+    setVisto(ahora);
+
+    try {
+      localStorage.setItem(vistoKey, String(ahora));
+      const saved = JSON.parse(localStorage.getItem(readKey) || '[]');
+      const set = new Set(saved);
+      items.forEach((it) => {
+        set.add(it.id);
+        if (it.idMensaje) set.add(String(it.idMensaje));
+        if (it.idComunicado) set.add(String(it.idComunicado));
+      });
+      localStorage.setItem(readKey, JSON.stringify(Array.from(set)));
+    } catch {
+      /* noop */
+    }
+
+    // Actualizar backend
+    api.put('/buzon/marcar-todas-leidas').catch(() => {
       items.forEach((it) => {
         if (!it.leido && it.idMensaje) {
           api.put(`/buzon/${it.idMensaje}/leido`).catch(() => {});
         }
       });
-      setItems((prev) => prev.map((it) => ({ ...it, leido: true })));
-    }
+    });
+
+    setItems((prev) => prev.map((it) => ({ ...it, leido: true })));
   };
 
   const irA = (it) => {
     setOpen(false);
+
+    try {
+      const saved = JSON.parse(localStorage.getItem(readKey) || '[]');
+      const set = new Set(saved);
+      set.add(it.id);
+      if (it.idMensaje) set.add(String(it.idMensaje));
+      if (it.idComunicado) set.add(String(it.idComunicado));
+      localStorage.setItem(readKey, JSON.stringify(Array.from(set)));
+    } catch {
+      /* noop */
+    }
+
+    if (it.idMensaje) {
+      api.put(`/buzon/${it.idMensaje}/leido`).catch(() => {});
+    }
+
     setItems((prev) =>
       prev.map((item) => (item.id === it.id ? { ...item, leido: true } : item))
     );
-    if (!esAdmin && !it.leido && it.idMensaje) {
-      api.put(`/buzon/${it.idMensaje}/leido`).catch(() => {});
-    }
-    if (esAdmin) {
-      try {
-        const saved = JSON.parse(localStorage.getItem('saed_admin_read_notifs') || '[]');
-        if (!saved.includes(it.id)) {
-          saved.push(it.id);
-          localStorage.setItem('saed_admin_read_notifs', JSON.stringify(saved));
-        }
-      } catch {
-        /* noop */
-      }
-    }
+
     navigate(it.ruta || verMasRuta);
   };
 

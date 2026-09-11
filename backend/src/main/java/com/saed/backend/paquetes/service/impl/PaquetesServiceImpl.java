@@ -74,7 +74,8 @@ public class PaquetesServiceImpl implements PaquetesService {
             for (Long resUserId : residentUserIds) {
                 String notifSql = "INSERT INTO NOTIFICACIONES (ID_COMUNICADO, ID_USUARIO_DESTINATARIO, CANAL, TITULO, MENSAJE, ESTADO_ENVIO) " +
                                   "VALUES (:comunicadoId, :dest, 'IN_APP', 'Paquete recibido en portería', :msg, 'ENVIADO')";
-                String msg = "Se ha recibido un paquete (" + request.descripcion() + ") de " +
+                String descNotif = (request.descripcion() != null && !request.descripcion().isBlank()) ? request.descripcion() : "encomienda";
+                String msg = "Se ha recibido un paquete (" + descNotif + ") de " +
                              (request.empresaMensajeria() != null ? request.empresaMensajeria() : "mensajería") +
                              ". Código de entrega PIN: " + pin + ".";
                 jdbcTemplate.update(notifSql, new MapSqlParameterSource()

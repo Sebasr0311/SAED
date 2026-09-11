@@ -6,7 +6,7 @@ test.describe('08 - Sistema de Códigos QR de Acceso', () => {
   test('08.1: Módulo de Escáner QR carga correctamente en consola de portería', async ({ page }) => {
     await loginAs(page, 'PORTERO');
     await page.goto('/escanner-qr');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     await expect(page.locator('h1, h2, [role="heading"]').filter({ hasText: /Escáner|QR|Acceso/i }).first()).toBeVisible();
 
@@ -18,7 +18,7 @@ test.describe('08 - Sistema de Códigos QR de Acceso', () => {
   test('08.2: Rechazo semántico de código QR inválido o inexistente', async ({ page }) => {
     await loginAs(page, 'PORTERO');
     await page.goto('/escanner-qr');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const inputToken = page.locator('input[placeholder*="token" i], input[placeholder*="código" i], input[type="text"]').first();
     await inputToken.fill('QR_TOTALMENTE_INVALIDO_XYZ_000');

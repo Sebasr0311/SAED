@@ -31,6 +31,13 @@ public class NotificacionServiceImpl implements NotificacionService {
 
     @Override
     @Transactional
+    public void marcarTodasLeidas() {
+        Long idUsuario = SaedContextHolder.getContext().getUserId();
+        repo.marcarTodasLeidas(idUsuario);
+    }
+
+    @Override
+    @Transactional
     public void vaciarBuzon() {
         Long idUsuario = SaedContextHolder.getContext().getUserId();
         repo.vaciarBuzon(idUsuario);

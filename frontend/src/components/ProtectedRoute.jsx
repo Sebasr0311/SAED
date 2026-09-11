@@ -1,6 +1,6 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../lib/AuthContext.jsx';
-import { ROLE_HOME } from '../lib/access.js';
+import { ROLE_HOME, normalizeRole } from '../lib/access.js';
 
 export default function ProtectedRoute({ children, roles }) {
   const { isAuthenticated, loading, user } = useAuth();
@@ -18,9 +18,14 @@ export default function ProtectedRoute({ children, roles }) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (roles && roles.length > 0 && !roles.includes(user?.rol)) {
-    const home = ROLE_HOME[user?.rol] || '/login';
-    return <Navigate to={home} replace />;
+  const userRole = normalizeRole(user?.rol);
+
+  if (roles && roles.length > 0) {
+    const normalizedRoles = roles.map(normalizeRole);
+    if (!normalizedRoles.includes(userRole)) {
+      const home = ROLE_HOME[userRole] || '/login';
+      return <Navigate to={home} replace />;
+    }
   }
 
   return children;

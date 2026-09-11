@@ -82,7 +82,11 @@ const OrgOrganizacionPage = lazy(() => import('./pages/OrgOrganizacionPage.jsx')
 const OrgPropiedadesPage = lazy(() => import('./pages/OrgPropiedadesPage.jsx'));
 const OrgAdminsPage = lazy(() => import('./pages/OrgAdminsPage.jsx'));
 const OrgPlanPage = lazy(() => import('./pages/OrgPlanPage.jsx'));
+const OrgCarteraPage = lazy(() => import('./pages/OrgCarteraPage.jsx'));
+const OrgReportesPage = lazy(() => import('./pages/OrgReportesPage.jsx'));
+const OrgAnaliticaPage = lazy(() => import('./pages/OrgAnaliticaPage.jsx'));
 const OrgAuditoriaPage = lazy(() => import('./pages/OrgAuditoriaPage.jsx'));
+const DocumentosAdminPage = lazy(() => import('./pages/DocumentosAdminPage.jsx'));
 const LandingPage = lazy(() => import('./pages/LandingPage.jsx'));
 const SuscripcionesPage = lazy(() => import('./pages/SuscripcionesPage.jsx'));
 
@@ -94,6 +98,13 @@ function RoleIndexRedirect() {
   if (user?.rol === 'ADMIN_ORGANIZACION') return <Navigate to="/org/dashboard" replace />;
   if (user?.rol === 'PORTERO') return <Navigate to="/portero-dashboard" replace />;
   if (user?.rol === 'RESIDENTE') return <Navigate to="/residente-dashboard" replace />;
+  return <Navigate to="/dashboard" replace />;
+}
+
+function PropiedadesRedirect() {
+  const { user } = useAuth();
+  if (user?.rol === 'SUPERADMIN') return <Navigate to="/superadmin/propiedades" replace />;
+  if (user?.rol === 'ADMIN_ORGANIZACION') return <Navigate to="/org/propiedades" replace />;
   return <Navigate to="/dashboard" replace />;
 }
 
@@ -225,7 +236,7 @@ export default function App() {
           <Route
             path="org/dashboard"
             element={
-              <ProtectedRoute roles={['ADMIN_ORGANIZACION', 'SUPERADMIN']}>
+              <ProtectedRoute roles={['ADMIN_ORGANIZACION']}>
                 <OrgDashboardPage />
               </ProtectedRoute>
             }
@@ -233,7 +244,7 @@ export default function App() {
           <Route
             path="org/organizacion"
             element={
-              <ProtectedRoute roles={['ADMIN_ORGANIZACION', 'SUPERADMIN']}>
+              <ProtectedRoute roles={['ADMIN_ORGANIZACION']}>
                 <OrgOrganizacionPage />
               </ProtectedRoute>
             }
@@ -241,7 +252,7 @@ export default function App() {
           <Route
             path="org/propiedades"
             element={
-              <ProtectedRoute roles={['ADMIN_ORGANIZACION', 'SUPERADMIN']}>
+              <ProtectedRoute roles={['ADMIN_ORGANIZACION']}>
                 <OrgPropiedadesPage />
               </ProtectedRoute>
             }
@@ -249,7 +260,7 @@ export default function App() {
           <Route
             path="org/admins"
             element={
-              <ProtectedRoute roles={['ADMIN_ORGANIZACION', 'SUPERADMIN']}>
+              <ProtectedRoute roles={['ADMIN_ORGANIZACION']}>
                 <OrgAdminsPage />
               </ProtectedRoute>
             }
@@ -257,15 +268,39 @@ export default function App() {
           <Route
             path="org/plan"
             element={
-              <ProtectedRoute roles={['ADMIN_ORGANIZACION', 'SUPERADMIN']}>
+              <ProtectedRoute roles={['ADMIN_ORGANIZACION']}>
                 <OrgPlanPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="org/cartera"
+            element={
+              <ProtectedRoute roles={['ADMIN_ORGANIZACION']}>
+                <OrgCarteraPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="org/reportes"
+            element={
+              <ProtectedRoute roles={['ADMIN_ORGANIZACION']}>
+                <OrgReportesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="org/analitica"
+            element={
+              <ProtectedRoute roles={['ADMIN_ORGANIZACION']}>
+                <OrgAnaliticaPage />
               </ProtectedRoute>
             }
           />
           <Route
             path="org/auditoria"
             element={
-              <ProtectedRoute roles={['ADMIN_ORGANIZACION', 'SUPERADMIN']}>
+              <ProtectedRoute roles={['ADMIN_ORGANIZACION']}>
                 <OrgAuditoriaPage />
               </ProtectedRoute>
             }
@@ -305,6 +340,10 @@ export default function App() {
             }
           />
           <Route
+            path="apartamentos"
+            element={<Navigate to="/unidades" replace />}
+          />
+          <Route
             path="contratos"
             element={
               <ProtectedRoute roles={['ADMIN_PROPIEDAD']}>
@@ -314,43 +353,27 @@ export default function App() {
           />
           <Route
             path="organizaciones"
-            element={
-              <ProtectedRoute roles={['SUPERADMIN']}>
-                <OrganizacionesPage />
-              </ProtectedRoute>
-            }
+            element={<Navigate to="/superadmin/organizaciones" replace />}
           />
           <Route
             path="propiedades"
-            element={
-              <ProtectedRoute roles={['SUPERADMIN', 'ADMIN_ORGANIZACION', 'ADMIN_PROPIEDAD']}>
-                <PropiedadesPage />
-              </ProtectedRoute>
-            }
+            element={<PropiedadesRedirect />}
           />
           <Route
             path="roles-asignaciones"
             element={
-              <ProtectedRoute roles={['SUPERADMIN', 'ADMIN_ORGANIZACION', 'ADMIN_PROPIEDAD']}>
+              <ProtectedRoute roles={['ADMIN_PROPIEDAD']}>
                 <RolesYAsignacionesPage />
               </ProtectedRoute>
             }
           />
           <Route
             path="planes"
-            element={
-              <ProtectedRoute roles={['SUPERADMIN']}>
-                <PlanesPage />
-              </ProtectedRoute>
-            }
+            element={<Navigate to="/superadmin/planes" replace />}
           />
           <Route
             path="membresias"
-            element={
-              <ProtectedRoute roles={['SUPERADMIN']}>
-                <MembresiasPage />
-              </ProtectedRoute>
-            }
+            element={<Navigate to="/superadmin/membresias" replace />}
           />
           <Route
             path="reportes"
@@ -417,13 +440,13 @@ export default function App() {
             }
           />
           <Route path="obras-admin" element={<ProtectedRoute roles={['ADMIN_PROPIEDAD']}><ObrasAdminPage /></ProtectedRoute>} />
-          <Route path="mantenimiento-admin" element={<ProtectedRoute roles={['ADMIN_PROPIEDAD']}><MantenimientoAdminPage /></ProtectedRoute>} />
+          <Route path="mantenimiento-admin" element={<Navigate to="/mantenimientos" replace />} />
           <Route path="mantenimientos" element={<ProtectedRoute roles={['ADMIN_PROPIEDAD']}><MantenimientoAdminPage /></ProtectedRoute>} />
-          <Route path="asambleas-admin" element={<ProtectedRoute roles={['ADMIN_PROPIEDAD']}><AsambleasAdminPage /></ProtectedRoute>} />
+          <Route path="asambleas-admin" element={<Navigate to="/asambleas" replace />} />
           <Route path="asambleas" element={<ProtectedRoute roles={['ADMIN_PROPIEDAD']}><AsambleasAdminPage /></ProtectedRoute>} />
-          <Route path="polizas-admin" element={<ProtectedRoute roles={['ADMIN_PROPIEDAD']}><PolizasAdminPage /></ProtectedRoute>} />
+          <Route path="polizas-admin" element={<Navigate to="/polizas" replace />} />
           <Route path="polizas" element={<ProtectedRoute roles={['ADMIN_PROPIEDAD']}><PolizasAdminPage /></ProtectedRoute>} />
-          <Route path="emergencias-admin" element={<ProtectedRoute roles={['ADMIN_PROPIEDAD']}><EmergenciasAdminPage /></ProtectedRoute>} />
+          <Route path="emergencias-admin" element={<Navigate to="/emergencias" replace />} />
           <Route path="emergencias" element={<ProtectedRoute roles={['ADMIN_PROPIEDAD']}><EmergenciasAdminPage /></ProtectedRoute>} />
           <Route path="incidentes-admin" element={<ProtectedRoute roles={['ADMIN_PROPIEDAD', 'PORTERO']}><IncidentesAdminPage /></ProtectedRoute>} />
           <Route
@@ -460,9 +483,13 @@ export default function App() {
           />
           <Route
             path="ganancias"
+            element={<Navigate to="/flujo-caja" replace />}
+          />
+          <Route
+            path="documentos"
             element={
               <ProtectedRoute roles={['ADMIN_PROPIEDAD']}>
-                <GananciasPage />
+                <DocumentosAdminPage />
               </ProtectedRoute>
             }
           />
@@ -540,11 +567,7 @@ export default function App() {
           />
           <Route
             path="porterias-admin"
-            element={
-              <ProtectedRoute roles={['ADMIN_PROPIEDAD']}>
-                <PorteriasPage />
-              </ProtectedRoute>
-            }
+            element={<Navigate to="/porterias" replace />}
           />
           <Route
             path="coarrendatarios"

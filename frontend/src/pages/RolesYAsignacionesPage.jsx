@@ -239,7 +239,15 @@ export default function RolesYAsignacionesPage() {
                 <Select value={form.idRol} onValueChange={(v) => setForm((f) => ({ ...f, idRol: v, idOrganizacion: '', idPropiedad: '', idUnidad: '' }))}>
                   <SelectTrigger><SelectValue placeholder="Seleccione" /></SelectTrigger>
                   <SelectContent>
-                    {roles.map((r) => (
+                    {roles
+                      .filter((r) => {
+                        const rolCodigo = r.codigo || r.CODIGO;
+                        if (user?.rol === 'ADMIN_PROPIEDAD') {
+                          return rolCodigo !== 'ADMIN_PROPIEDAD' && rolCodigo !== 'ADMIN_ORGANIZACION' && rolCodigo !== 'SUPERADMIN';
+                        }
+                        return true;
+                      })
+                      .map((r) => (
                       <SelectItem key={r.idRol || r.id_rol} value={String(r.idRol || r.id_rol)}>
                         {r.nombre || r.NOMBRE} ({r.codigo || r.CODIGO})
                       </SelectItem>

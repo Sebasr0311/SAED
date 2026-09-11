@@ -18,7 +18,7 @@ test.describe('03 - Dashboards por Rol', () => {
     const refreshBtn = page.locator('button:has-text("Actualizar"), button[title*="Actualizar"], button:has(.lucide-refresh-cw)').first();
     if (await refreshBtn.isVisible()) {
       await refreshBtn.click();
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('domcontentloaded');
     }
   });
 
