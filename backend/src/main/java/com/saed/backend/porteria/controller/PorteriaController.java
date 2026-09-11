@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.HashMap;
 import java.util.UUID;
 import java.time.ZonedDateTime;
+import java.time.ZoneId;
 import java.util.logging.Logger;
 
 @Tag(name = "Porteria", description = "API para la gestion de Porteria")
@@ -405,7 +406,7 @@ public class PorteriaController {
         QrAccesoRequestDTO qrReq = new QrAccesoRequestDTO(
             visita.idVisita(),
             token,
-            ZonedDateTime.now().plusMinutes(validezMin),
+            ZonedDateTime.now(ZoneId.of("America/Bogota")).plusMinutes(validezMin),
             1,
             "ACTIVO",
             autorizadoPor

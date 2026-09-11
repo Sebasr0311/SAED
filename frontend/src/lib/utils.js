@@ -1,7 +1,15 @@
+export function parseDateSafe(value) {
+  if (!value) return null;
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+  const str = String(value).replace(/\[.*?\]$/, '').trim();
+  const d = new Date(str);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
 export function formatDate(value) {
   if (!value) return '';
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return value;
+  const d = parseDateSafe(value);
+  if (!d) return typeof value === 'string' ? value.replace(/\[.*?\]$/, '') : '';
   return d.toLocaleDateString('es-CO', { year: 'numeric', month: '2-digit', day: '2-digit' });
 }
 
@@ -88,12 +96,19 @@ export function periodoLabel(anio, mes) {
 // NO eliminar sin verificar contra el legacy (FASE 4.3 lo eliminó por error).
 export function formatDateTime(value) {
   if (!value) return '';
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return value;
-  return d.toLocaleDateString('es-CO', {
+  const d = parseDateSafe(value);
+  if (!d) return typeof value === 'string' ? value.replace(/\[.*?\]$/, '') : '';
+  return d.toLocaleString('es-CO', {
     year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: true,
   });
+}
+
+export function formatTime(value) {
+  if (!value) return '';
+  const d = parseDateSafe(value);
+  if (!d) return '';
+  return d.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: true });
 }
 
 /**
