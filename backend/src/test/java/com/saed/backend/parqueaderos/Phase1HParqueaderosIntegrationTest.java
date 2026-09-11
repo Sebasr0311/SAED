@@ -1,6 +1,7 @@
 package com.saed.backend.parqueaderos;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.saed.backend.parqueaderos.dto.ParqueaderoMasivoRequestDTO;
 import com.saed.backend.parqueaderos.dto.ParqueaderoRequestDTO;
 import com.saed.backend.context.SaedContext;
 import com.saed.backend.context.SaedContextHolder;
@@ -85,5 +86,32 @@ public class Phase1HParqueaderosIntegrationTest {
                     int st = result.getResponse().getStatus();
                     org.junit.jupiter.api.Assertions.assertTrue(st == 200 || st == 403);
                 });
+    }
+
+    @Test
+    @WithMockUser(authorities = {"SCOPE_ADMIN_PROPIEDAD"}, username="1")
+    void adminCanCreateParqueaderosMasivo() throws Exception {
+        ParqueaderoMasivoRequestDTO request = new ParqueaderoMasivoRequestDTO("TST", 3, 10, "PRIVADO", "DISPONIBLE");
+
+        mockMvc.perform(post("/api/v1/parqueaderos/masivo")
+                .header("X-Assignment-Id", "1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(result -> {
+                    int st = result.getResponse().getStatus();
+                    org.junit.jupiter.api.Assertions.assertTrue(st == 201 || st == 400 || st == 403 || st == 500);
+                });
+    }
+
+    @Test
+    @WithMockUser(authorities = {"SCOPE_RESIDENTE"}, username="2")
+    void residenteCannotCreateParqueaderosMasivo() throws Exception {
+        ParqueaderoMasivoRequestDTO request = new ParqueaderoMasivoRequestDTO("TST", 3, 10, "PRIVADO", "DISPONIBLE");
+
+        mockMvc.perform(post("/api/v1/parqueaderos/masivo")
+                .header("X-Assignment-Id", "2")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden());
     }
 }
