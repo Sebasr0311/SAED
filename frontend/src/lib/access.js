@@ -1,13 +1,57 @@
 // SAED 2.0 Identity & Access Control Layer
-// Separation of Platform SaaS (SUPERADMIN) from Property Operations (ADMIN_PROPIEDAD, PORTERO, RESIDENTE)
+// Separation of Platform SaaS (SUPERADMIN) from Organization Management (ADMIN_ORGANIZACION)
+// and Property Operations (ADMIN_PROPIEDAD, PORTERO, RESIDENTE)
+
+export const ROLE_DEFINITIONS = {
+  SUPERADMIN: {
+    code: 'SUPERADMIN',
+    name: 'Superadministrador',
+    scope: 'GLOBAL',
+    domain: 'PLATFORM',
+    home: '/superadmin/dashboard',
+    description: 'Operador y administrador de la plataforma SaaS SAED',
+  },
+  ADMIN_ORGANIZACION: {
+    code: 'ADMIN_ORGANIZACION',
+    name: 'Administrador de Organización',
+    scope: 'ORGANIZACION',
+    domain: 'ORGANIZATION',
+    home: '/org/dashboard',
+    description: 'Gestor gerencial de cartera de propiedades de la organización',
+  },
+  ADMIN_PROPIEDAD: {
+    code: 'ADMIN_PROPIEDAD',
+    name: 'Administrador de Propiedad',
+    scope: 'PROPIEDAD',
+    domain: 'PROPERTY',
+    home: '/dashboard',
+    description: 'Administrador integral y operativo de una copropiedad',
+  },
+  PORTERO: {
+    code: 'PORTERO',
+    name: 'Portero / Vigilante',
+    scope: 'PORTERIA',
+    domain: 'GATEWAY',
+    home: '/portero-dashboard',
+    description: 'Operador de control de acceso, visitantes y paquetería',
+  },
+  RESIDENTE: {
+    code: 'RESIDENTE',
+    name: 'Residente / Propietario',
+    scope: 'UNIDAD',
+    domain: 'UNIT',
+    home: '/residente-dashboard',
+    description: 'Habitante o copropietario de una unidad residencial',
+  },
+};
 
 export function normalizeRole(rol) {
   if (!rol) return rol;
-  const r = String(rol).toUpperCase();
+  const r = String(rol).toUpperCase().trim();
   if (r === 'SUPERADMIN') {
     return 'SUPERADMIN';
   }
-  if (r === 'ADMIN_ORGANIZACION') {
+  if (r === 'ADMIN_ORGANIZACION' || r === 'ORG_ADMIN') {
     return 'ADMIN_ORGANIZACION';
   }
   if (r === 'ADMIN_PROPIEDAD' || r === 'ADMIN' || r === 'ADMINISTRADOR') {
@@ -19,7 +63,7 @@ export function normalizeRole(rol) {
   if (r === 'RESIDENTE' || r === 'PROPIETARIO' || r === 'PROPIETARIO_UNIDAD') {
     return 'RESIDENTE';
   }
-  return rol;
+  return r;
 }
 
 export const ROLE_HOME = {
@@ -30,7 +74,7 @@ export const ROLE_HOME = {
   RESIDENTE: '/residente-dashboard',
 };
 
-const ACCESS_BY_ROLE = {
+export const ACCESS_BY_ROLE = {
   SUPERADMIN: [
     '/superadmin/dashboard',
     '/superadmin/organizaciones',
@@ -48,6 +92,9 @@ const ACCESS_BY_ROLE = {
     '/org/propiedades',
     '/org/admins',
     '/org/plan',
+    '/org/cartera',
+    '/org/reportes',
+    '/org/analitica',
     '/org/auditoria',
   ],
   ADMIN_PROPIEDAD: [
@@ -58,10 +105,11 @@ const ACCESS_BY_ROLE = {
     '/apartamentos',
     '/contratos',
     '/contratos-proveedor',
-    '/propiedades',
     '/roles-asignaciones',
     '/reportes',
     '/usuarios',
+    '/porterias',
+    '/porterias-admin',
     '/visitas',
     '/historial-visitas',
     '/paquetes-admin',
@@ -71,28 +119,27 @@ const ACCESS_BY_ROLE = {
     '/cartera',
     '/presupuestos',
     '/gastos',
+    '/flujo-caja',
     '/conciliaciones',
     '/paz-y-salvos',
-    '/flujo-caja',
-    '/ganancias',
     '/multas',
     '/sanciones-admin',
     '/obras-admin',
-    '/mantenimiento-admin',
     '/mantenimientos',
-    '/asambleas-admin',
+    '/mantenimiento-admin',
     '/asambleas',
-    '/polizas-admin',
+    '/asambleas-admin',
     '/polizas',
-    '/emergencias-admin',
+    '/polizas-admin',
     '/emergencias',
+    '/emergencias-admin',
     '/incidentes-admin',
     '/alertas',
     '/avisos',
     '/quejas-admin',
     '/reservas-admin',
-    '/porterias-admin',
     '/coarrendatarios',
+    '/documentos',
   ],
   PORTERO: [
     '/portero-dashboard',
@@ -116,6 +163,7 @@ const ACCESS_BY_ROLE = {
     '/res-sanciones',
     '/res-obras',
     '/res-incidentes',
+    '/res-documentos',
   ],
 };
 

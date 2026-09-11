@@ -187,4 +187,50 @@ public class OrgDashboardController {
                 propStats, unitStats, adminStats, userStats, suscripcionStats, finanzasStats, recientes
         ));
     }
+
+    @GetMapping("/cartera-detalle")
+    public ApiResponse<List<Map<String, Object>>> getCarteraDetalle() {
+        SaedContext ctx = SaedContextHolder.getContext();
+        Long orgId = ctx.getOrganizationId();
+        if (orgId == null) {
+            throw new AccessDeniedException("No se encontró contexto de organización activo");
+        }
+
+        MapSqlParameterSource params = new MapSqlParameterSource("orgId", orgId);
+        String sql = """
+            SELECT p.id_propiedad, p.nombre, p.ciudad, p.estado,
+                   (SELECT COUNT(*) FROM UNIDADES u WHERE u.id_propiedad = p.id_propiedad) AS total_unidades,
+                   NVL((SELECT SUM(pg.monto) FROM PAGOS pg JOIN UNIDADES u1 ON pg.id_unidad = u1.id_unidad WHERE u1.id_propiedad = p.id_propiedad AND pg.estado = 'APROBADO'), 0) AS total_recaudado,
+                   NVL((SELECT SUM(c.saldo_pendiente) FROM CARTERA c JOIN UNIDADES u2 ON c.id_unidad = u2.id_unidad WHERE u2.id_propiedad = p.id_propiedad AND c.estado IN ('PENDIENTE', 'VENCIDA', 'EN_MORA')), 0) AS cartera_pendiente,
+                   NVL((SELECT SUM(c.saldo_pendiente) FROM CARTERA c JOIN UNIDADES u3 ON c.id_unidad = u3.id_unidad WHERE u3.id_propiedad = p.id_propiedad AND c.estado = 'EN_MORA'), 0) AS cartera_mora
+            FROM PROPIEDADES p
+            WHERE p.id_organizacion = :orgId
+            ORDER BY cartera_pendiente DESC
+        """;
+        List<Map<String, Object>> list = jdbcTemplate.queryForList(sql, params);
+        return ApiResponse.success(list);
+    }
+
+    @GetMapping("/analytics")
+    public ApiResponse<Map<String, Object>> getAnalytics() {
+        SaedContext ctx = SaedContextHolder.getContext();
+        Long orgId = ctx.getOrganizationId();
+        if (orgId == null) {
+            throw new AccessDeniedException("No se encontró contexto de organización activo");
+        }
+
+        MapSqlParameterSource params = new MapSqlParameterSource("orgId", orgId);
+        String sql = """
+            SELECT p.id_propiedad, p.nombre, p.ciudad, p.estado,
+                   (SELECT COUNT(*) FROM UNIDADES u WHERE u.id_propiedad = p.id_propiedad) AS unidades,
+                   (SELECT COUNT(DISTINCT ua.id_usuario) FROM USUARIO_ASIGNACIONES ua WHERE ua.id_propiedad = p.id_propiedad AND ua.estado = 'ACTIVA') AS admins,
+                   NVL((SELECT SUM(pg.monto) FROM PAGOS pg JOIN UNIDADES u1 ON pg.id_unidad = u1.id_unidad WHERE u1.id_propiedad = p.id_propiedad AND pg.estado = 'APROBADO'), 0) AS recaudo,
+                   NVL((SELECT SUM(c.saldo_pendiente) FROM CARTERA c JOIN UNIDADES u2 ON c.id_unidad = u2.id_unidad WHERE u2.id_propiedad = p.id_propiedad AND c.estado IN ('PENDIENTE', 'VENCIDA', 'EN_MORA')), 0) AS cartera
+            FROM PROPIEDADES p
+            WHERE p.id_organizacion = :orgId
+            ORDER BY unidades DESC
+        """;
+        List<Map<String, Object>> breakdown = jdbcTemplate.queryForList(sql, params);
+        return ApiResponse.success(Map.of("propiedades", breakdown));
+    }
 }
