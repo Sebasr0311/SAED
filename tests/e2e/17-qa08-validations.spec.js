@@ -15,11 +15,11 @@ test.describe('17 - QA-08: Auditoría y Validación Global de Formularios SAED 2
     const nuevoBtn = page.getByRole('button', { name: /Nuevo Residente|Registrar Residente/i }).first();
     await nuevoBtn.click();
 
-    const modal = page.locator('[role="dialog"]').filter({ hasText: /Registrar Residente|Nuevo Residente/i }).first();
+    const modal = page.locator('[role="dialog"], .fixed').filter({ hasText: /Registrar Residente|Nuevo Residente/i }).first();
     await expect(modal).toBeVisible();
 
     // 1. Probar campo Celular: rechaza letras y longitud incorrecta
-    const telInput = modal.locator('#res-telefono, input[name="telefono"]').first();
+    const telInput = modal.locator('input#telefono, #res-telefono, input[name="telefono"]').first();
     await telInput.fill('300123'); // 6 dígitos
     await telInput.blur();
 
@@ -38,7 +38,7 @@ test.describe('17 - QA-08: Auditoría y Validación Global de Formularios SAED 2
     await expect(telInput).toHaveAttribute('aria-invalid', 'false');
 
     // 2. Probar Nombres con números: rechaza números
-    const nomInput = modal.locator('#res-nombres, input[name="primerNombre"]').first();
+    const nomInput = modal.locator('input#nombres, #res-nombres, input[name="primerNombre"]').first();
     await nomInput.fill('Carlos123');
     await nomInput.blur();
     await expect(nomInput).toHaveAttribute('aria-invalid', 'true');
@@ -50,7 +50,7 @@ test.describe('17 - QA-08: Auditoría y Validación Global de Formularios SAED 2
     await expect(nomInput).toHaveAttribute('aria-invalid', 'false');
 
     // 3. Probar Email inválido
-    const emailInput = modal.locator('#res-email, input[name="email"]').first();
+    const emailInput = modal.locator('input#email, #res-email, input[name="email"]').first();
     await emailInput.fill('carlos@');
     await emailInput.blur();
     await expect(emailInput).toHaveAttribute('aria-invalid', 'true');
