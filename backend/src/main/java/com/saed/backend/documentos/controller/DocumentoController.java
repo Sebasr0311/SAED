@@ -34,7 +34,7 @@ public class DocumentoController {
     }
 
     @GetMapping("/residente")
-    @PreAuthorize("hasAuthority('SCOPE_RESIDENTE')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_RESIDENTE', 'SCOPE_PROPIETARIO')")
     public ResponseEntity<Map<String, Object>> getDocumentosResidente() {
         List<DocumentoDTO> docs = documentoService.getDocumentosResidente();
         Map<String, Object> response = new HashMap<>();

@@ -145,9 +145,9 @@ public class UsuarioController {
 
         // Anti-escalamiento de privilegios por rol
         if ("ADMIN_PROPIEDAD".equals(callerRole)) {
-            if (!"PORTERO".equals(rol) && !"RESIDENTE".equals(rol)) {
+            if (!"PORTERO".equals(rol) && !"RESIDENTE".equals(rol) && !"PROPIETARIO".equals(rol)) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                        .body(ApiResponse.error("Como Administrador de Propiedad solo puede registrar Porteros o Residentes"));
+                        .body(ApiResponse.error("Como Administrador de Propiedad solo puede registrar Porteros, Residentes o Propietarios"));
             }
             if (propId == null) {
                 return ResponseEntity.badRequest().body(ApiResponse.error("No se encontró el identificador de la propiedad en el contexto"));
@@ -241,7 +241,7 @@ public class UsuarioController {
 
         // 4. Crear Asignación
         Long idUnidad = null;
-        if ("RESIDENTE".equals(rol)) {
+        if ("RESIDENTE".equals(rol) || "PROPIETARIO".equals(rol)) {
             Object uObj = payload.get("idUnidad");
             if (uObj != null && !uObj.toString().isBlank()) {
                 idUnidad = Long.valueOf(uObj.toString());
@@ -251,6 +251,13 @@ public class UsuarioController {
                         Map.of("p", idPersona),
                         Long.class
                 );
+                if (uList.isEmpty()) {
+                    uList = jdbcTemplate.queryForList(
+                            "SELECT ID_UNIDAD FROM PROPIETARIOS_UNIDAD WHERE ID_PERSONA = :p AND ROWNUM = 1",
+                            Map.of("p", idPersona),
+                            Long.class
+                    );
+                }
                 if (!uList.isEmpty()) {
                     idUnidad = uList.get(0);
                 } else {

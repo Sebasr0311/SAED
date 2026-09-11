@@ -253,6 +253,20 @@ const NAV_BY_ROLE = {
       ],
     },
   ],
+  PROPIETARIO: [
+    {
+      id: 'mi-cuenta',
+      label: 'Mi Cuenta',
+      icon: 'account_circle',
+      items: [{ path: '/res-perfil', label: 'Mi Perfil e Inmuebles', icon: 'person' }],
+    },
+    {
+      id: 'documentos',
+      label: 'Documentación Oficial',
+      icon: 'folder',
+      items: [{ path: '/res-documentos', label: 'Documentos y Asambleas', icon: 'description' }],
+    },
+  ],
   RESIDENTE: [
     {
       id: 'inicio',

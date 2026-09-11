@@ -319,7 +319,7 @@ public class DashboardController {
     }
     
     @PostMapping("/{id}/asignar-apartamento")
-    @PreAuthorize("hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAuthority('SCOPE_SUPERADMIN') or hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<Void> asignarApartamento(@PathVariable Long id, @RequestBody(required = false) Map<String, Object> payload) {
         if (payload == null || !payload.containsKey("idApartamento")) {
             return ResponseEntity.badRequest().build();
@@ -337,28 +337,89 @@ public class DashboardController {
             return ResponseEntity.badRequest().build();
         }
 
-        String rol = payload.containsKey("rolEnContrato") && payload.get("rolEnContrato") != null
-                ? payload.get("rolEnContrato").toString()
+        String tipoRelacion = payload.containsKey("tipoRelacion") && payload.get("tipoRelacion") != null
+                ? payload.get("tipoRelacion").toString().trim().toUpperCase()
+                : (payload.containsKey("rolEnContrato") && payload.get("rolEnContrato") != null
+                ? payload.get("rolEnContrato").toString().trim().toUpperCase()
                 : (payload.containsKey("tipoResidente") && payload.get("tipoResidente") != null
-                ? payload.get("tipoResidente").toString()
-                : "RESIDENTE");
+                ? payload.get("tipoResidente").toString().trim().toUpperCase()
+                : "ARRENDATARIO"));
 
-        // Verify if relationship already exists
-        Integer count = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM RESIDENTES_UNIDAD WHERE ID_UNIDAD = :unitId AND ID_PERSONA = :personaId",
-                Map.of("unitId", unitId, "personaId", id),
-                Integer.class
-        );
+        if ("RESIDENTE".equals(tipoRelacion)) {
+            tipoRelacion = "ARRENDATARIO";
+        }
 
-        if (count == null || count == 0) {
-            jdbcTemplate.update(
-                    "INSERT INTO RESIDENTES_UNIDAD (ID_UNIDAD, ID_PERSONA, TIPO_RESIDENTE) VALUES (:unitId, :personaId, :tipoResidente)",
-                    Map.of("unitId", unitId, "personaId", id, "tipoResidente", rol)
+        boolean esPropietarioDominio = "PROPIETARIO_RESIDENTE".equals(tipoRelacion)
+                || "PROPIETARIO_NO_RESIDENTE".equals(tipoRelacion)
+                || "PROPIETARIO".equals(tipoRelacion);
+
+        boolean esHabitanteFisico = "PROPIETARIO_RESIDENTE".equals(tipoRelacion)
+                || "ARRENDATARIO".equals(tipoRelacion)
+                || "CONVIVIENTE".equals(tipoRelacion)
+                || "FAMILIAR".equals(tipoRelacion);
+
+        // 1. Gestionar Titularidad de Dominio en PROPIETARIOS_UNIDAD
+        if (esPropietarioDominio) {
+            Integer countProp = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM PROPIETARIOS_UNIDAD WHERE ID_UNIDAD = :unitId AND ID_PERSONA = :personaId",
+                    Map.of("unitId", unitId, "personaId", id),
+                    Integer.class
             );
+            if (countProp == null || countProp == 0) {
+                jdbcTemplate.update(
+                        "INSERT INTO PROPIETARIOS_UNIDAD (ID_UNIDAD, ID_PERSONA, PORCENTAJE_PROPIEDAD, ES_PRINCIPAL, ESTADO, FECHA_INICIO) " +
+                        "VALUES (:unitId, :personaId, 100, 'S', 'ACTIVO', TRUNC(SYSDATE))",
+                        Map.of("unitId", unitId, "personaId", id)
+                );
+            } else {
+                jdbcTemplate.update(
+                        "UPDATE PROPIETARIOS_UNIDAD SET ESTADO = 'ACTIVO', ES_PRINCIPAL = 'S' WHERE ID_UNIDAD = :unitId AND ID_PERSONA = :personaId",
+                        Map.of("unitId", unitId, "personaId", id)
+                );
+            }
         } else {
             jdbcTemplate.update(
-                    "UPDATE RESIDENTES_UNIDAD SET TIPO_RESIDENTE = :tipoResidente WHERE ID_UNIDAD = :unitId AND ID_PERSONA = :personaId",
-                    Map.of("unitId", unitId, "personaId", id, "tipoResidente", rol)
+                    "UPDATE PROPIETARIOS_UNIDAD SET ESTADO = 'INACTIVO' WHERE ID_UNIDAD = :unitId AND ID_PERSONA = :personaId",
+                    Map.of("unitId", unitId, "personaId", id)
+            );
+        }
+
+        // 2. Gestionar Habitante Físico en RESIDENTES_UNIDAD (Requisitos #11 y #12)
+        if (esHabitanteFisico) {
+            String tipoResidenteDb;
+            if ("PROPIETARIO_RESIDENTE".equals(tipoRelacion) || "PROPIETARIO".equals(tipoRelacion)) {
+                tipoResidenteDb = "PROPIETARIO";
+            } else if ("ARRENDATARIO".equals(tipoRelacion)) {
+                tipoResidenteDb = "ARRENDATARIO";
+            } else if ("CONVIVIENTE".equals(tipoRelacion) || "FAMILIAR".equals(tipoRelacion)) {
+                tipoResidenteDb = "FAMILIAR";
+            } else {
+                tipoResidenteDb = "OTRO";
+            }
+
+            Integer countRes = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM RESIDENTES_UNIDAD WHERE ID_UNIDAD = :unitId AND ID_PERSONA = :personaId",
+                    Map.of("unitId", unitId, "personaId", id),
+                    Integer.class
+            );
+
+            if (countRes == null || countRes == 0) {
+                jdbcTemplate.update(
+                        "INSERT INTO RESIDENTES_UNIDAD (ID_UNIDAD, ID_PERSONA, TIPO_RESIDENTE, ESTADO, FECHA_INICIO) " +
+                        "VALUES (:unitId, :personaId, :tipoResidente, 'ACTIVO', TRUNC(SYSDATE))",
+                        Map.of("unitId", unitId, "personaId", id, "tipoResidente", tipoResidenteDb)
+                );
+            } else {
+                jdbcTemplate.update(
+                        "UPDATE RESIDENTES_UNIDAD SET TIPO_RESIDENTE = :tipoResidente, ESTADO = 'ACTIVO' WHERE ID_UNIDAD = :unitId AND ID_PERSONA = :personaId",
+                        Map.of("unitId", unitId, "personaId", id, "tipoResidente", tipoResidenteDb)
+                );
+            }
+        } else {
+            // Requisito #12: Propietario No Residente no debe figurar como residente activo de la unidad
+            jdbcTemplate.update(
+                    "UPDATE RESIDENTES_UNIDAD SET ESTADO = 'INACTIVO' WHERE ID_UNIDAD = :unitId AND ID_PERSONA = :personaId",
+                    Map.of("unitId", unitId, "personaId", id)
             );
         }
         return ResponseEntity.ok().build();

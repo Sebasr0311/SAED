@@ -100,7 +100,9 @@ function RoleIndexRedirect() {
   const { user } = useAuth();
   if (user?.rol === 'SUPERADMIN') return <Navigate to="/superadmin/dashboard" replace />;
   if (user?.rol === 'ADMIN_ORGANIZACION') return <Navigate to="/org/dashboard" replace />;
+  if (user?.rol === 'ADMIN_PROPIEDAD') return <Navigate to="/dashboard" replace />;
   if (user?.rol === 'PORTERO') return <Navigate to="/portero-dashboard" replace />;
+  if (user?.rol === 'PROPIETARIO') return <Navigate to="/res-perfil" replace />;
   if (user?.rol === 'RESIDENTE') return <Navigate to="/residente-dashboard" replace />;
   return <Navigate to="/dashboard" replace />;
 }
@@ -632,7 +634,7 @@ export default function App() {
           <Route
             path="res-perfil"
             element={
-              <ProtectedRoute roles={['RESIDENTE']}>
+              <ProtectedRoute roles={['RESIDENTE', 'PROPIETARIO']}>
                 <ResPerfilPage />
               </ProtectedRoute>
             }
@@ -699,7 +701,7 @@ export default function App() {
           />
           <Route path="res-obras" element={<ProtectedRoute roles={['RESIDENTE']}><ResObrasPage /></ProtectedRoute>} />
           <Route path="res-incidentes" element={<ProtectedRoute roles={['RESIDENTE']}><ResIncidentesPage /></ProtectedRoute>} />
-          <Route path="res-documentos" element={<ProtectedRoute roles={['RESIDENTE']}><ResDocumentosPage /></ProtectedRoute>} />
+          <Route path="res-documentos" element={<ProtectedRoute roles={['RESIDENTE', 'PROPIETARIO']}><ResDocumentosPage /></ProtectedRoute>} />
 
           {/* Portero */}
           <Route

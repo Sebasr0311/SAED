@@ -49,7 +49,7 @@ const emptyForm = {
   telefono: '',
   email: '',
   idApartamento: '',
-  tipoRelacion: 'RESIDENTE',
+  tipoRelacion: 'ARRENDATARIO',
   crearContrato: false,
   idPlantilla: '',
   contratoCanon: '',
@@ -79,6 +79,57 @@ function calcularEdad(fechaNacimiento) {
   return edad;
 }
 
+function getRelacionBadge(tipoRelacion) {
+  switch (tipoRelacion) {
+    case 'PROPIETARIO_RESIDENTE':
+      return (
+        <Badge
+          variant="outline"
+          className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800 text-[10px] font-semibold"
+        >
+          Propietario Residente
+        </Badge>
+      );
+    case 'PROPIETARIO_NO_RESIDENTE':
+      return (
+        <Badge
+          variant="outline"
+          className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800 text-[10px] font-semibold"
+        >
+          Propietario No Residente
+        </Badge>
+      );
+    case 'ARRENDATARIO':
+      return (
+        <Badge
+          variant="outline"
+          className="bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800 text-[10px] font-semibold"
+        >
+          Arrendatario
+        </Badge>
+      );
+    case 'CONVIVIENTE':
+    case 'FAMILIAR':
+      return (
+        <Badge
+          variant="outline"
+          className="bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 text-[10px] font-medium"
+        >
+          Conviviente
+        </Badge>
+      );
+    default:
+      return (
+        <Badge
+          variant="outline"
+          className="bg-muted text-muted-foreground text-[10px]"
+        >
+          Residente
+        </Badge>
+      );
+  }
+}
+
 const PAGE_SIZE = 15;
 
 /**
@@ -94,6 +145,7 @@ export default function ResidentesPage() {
 
   const [page, setPage] = useState(0);
   const [search, setSearch] = useState('');
+  const [filterRelacion, setFilterRelacion] = useState('TODOS');
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
   const [modalOpen, setModalOpen] = useState(false);
@@ -170,7 +222,7 @@ export default function ResidentesPage() {
     return map;
   }, [tiposDoc]);
 
-  // Lista normalizada y filtrada
+  // Lista normalizada y filtrada (Requisitos #11 y #12)
   const items = useMemo(() => {
     const raw = Array.isArray(data) ? data : data?.items || [];
     return raw
@@ -185,27 +237,33 @@ export default function ResidentesPage() {
             ? (r.primerApellido + ' ' + (r.segundoApellido || '')).trim()
             : r.apellidos) || '',
         idTipoDoc: r.tipoDocumentoId || r.idTipoDoc,
+        tipoRelacion: r.tipoRelacion || 'RESIDENTE',
       }))
       .filter((r) => {
+        if (filterRelacion !== 'TODOS') {
+          if (filterRelacion === 'PROPIETARIO_RESIDENTE' && r.tipoRelacion !== 'PROPIETARIO_RESIDENTE') return false;
+          if (filterRelacion === 'PROPIETARIO_NO_RESIDENTE' && r.tipoRelacion !== 'PROPIETARIO_NO_RESIDENTE') return false;
+          if (filterRelacion === 'ARRENDATARIOS' && r.tipoRelacion !== 'ARRENDATARIO') return false;
+          if (filterRelacion === 'CONVIVIENTES' && r.tipoRelacion !== 'CONVIVIENTE' && r.tipoRelacion !== 'FAMILIAR') return false;
+        }
         if (!search) return true;
         const term = search.toLowerCase();
         return [r.nombres, r.apellidos, r.numeroDocumento]
           .filter(Boolean)
           .some((v) => String(v).toLowerCase().includes(term));
       });
-  }, [data, search]);
+  }, [data, search, filterRelacion]);
 
-  // KPIs calculados
+  // KPIs calculados (Requisitos #11 y #12)
   const kpis = useMemo(() => {
     const raw = Array.isArray(data) ? data : data?.items || [];
     const total = raw.length;
-    const conUnidad = raw.filter((r) => r.idApartamento || r.numeroApartamento).length;
-    const conEmail = raw.filter((r) => r.email || r.correoElectronico).length;
-    const menores = raw.filter(
-      (r) => r.esMenorEdad || (r.fechaNacimiento && calcularEdad(r.fechaNacimiento) < 18)
-    ).length;
+    const propResidentes = raw.filter((r) => r.tipoRelacion === 'PROPIETARIO_RESIDENTE').length;
+    const propNoResidentes = raw.filter((r) => r.tipoRelacion === 'PROPIETARIO_NO_RESIDENTE').length;
+    const arrendatarios = raw.filter((r) => r.tipoRelacion === 'ARRENDATARIO').length;
+    const convivientes = raw.filter((r) => r.tipoRelacion === 'CONVIVIENTE' || r.tipoRelacion === 'FAMILIAR').length;
 
-    return { total, conUnidad, conEmail, menores };
+    return { total, propResidentes, propNoResidentes, arrendatarios, convivientes };
   }, [data]);
 
   // Paginación
@@ -236,6 +294,13 @@ export default function ResidentesPage() {
         telefono: row.telefono || '',
         email: row.email || '',
         idApartamento: row.idApartamento || '',
+        tipoRelacion: row.tipoRelacion || 'ARRENDATARIO',
+        crearContrato: false,
+        idPlantilla: '',
+        contratoCanon: '',
+        contratoFechaInicio: '',
+        contratoFechaFin: '',
+        contratoTipo: 'INICIAL',
       });
       setTutorForm(emptyTutorForm);
       setErrors({});
@@ -364,12 +429,15 @@ export default function ResidentesPage() {
       const aptSeleccionado = form.idApartamento !== '';
       const asignacionCambia =
         aptSeleccionado &&
-        (!editing || Number(editing.idApartamento) !== Number(form.idApartamento));
+        (!editing ||
+          Number(editing.idApartamento) !== Number(form.idApartamento) ||
+          editing.tipoRelacion !== form.tipoRelacion);
       if (asignacionCambia) {
         try {
           await tenantApi.post(`/residentes/${idResidente}/asignar-apartamento`, {
             idApartamento: Number(form.idApartamento),
-            rolEnContrato: form.tipoRelacion === 'PROPIETARIO_NO_RESIDENTE' ? 'PROPIETARIO' : 'RESIDENTE',
+            tipoRelacion: form.tipoRelacion,
+            rolEnContrato: form.tipoRelacion?.startsWith('PROPIETARIO') ? 'PROPIETARIO' : 'RESIDENTE',
           });
         } catch (err) {
           toast.error(
@@ -467,42 +535,42 @@ export default function ResidentesPage() {
         </div>
       </div>
 
-      {/* 2. Grid de KPIs Operativos */}
+      {/* 2. Grid de KPIs Operativos (Requisitos #11 y #12) */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard
-          label="Total Residentes"
+          label="Total en Censo"
           value={kpis.total}
-          subtitle="Censo de la copropiedad"
+          subtitle="Censo general de personas"
           icon={Users}
           variant="primary"
         />
         <MetricCard
-          label="Con Unidad Asignada"
-          value={kpis.conUnidad}
-          subtitle="Habitantes vinculados"
-          icon={Building}
-          variant="info"
-        />
-        <MetricCard
-          label="Canal Digital Activo"
-          value={kpis.conEmail}
-          subtitle="Correos electrónicos registrados"
-          icon={Mail}
+          label="Propietarios Residentes"
+          value={kpis.propResidentes}
+          subtitle="Habitan y son titulares de dominio"
+          icon={ShieldCheck}
           variant="success"
         />
         <MetricCard
-          label="Menores en Censo"
-          value={kpis.menores}
-          subtitle="Con tutor legal requerido"
-          icon={ShieldCheck}
+          label="Propietarios No Residentes"
+          value={kpis.propNoResidentes}
+          subtitle="Inversionistas (patrimonial / asambleas)"
+          icon={ShieldAlert}
+          variant="info"
+        />
+        <MetricCard
+          label="Arrendatarios y Convivientes"
+          value={kpis.arrendatarios + kpis.convivientes}
+          subtitle={`${kpis.arrendatarios} arrendatarios · ${kpis.convivientes} convivientes`}
+          icon={Building}
           variant="secondary"
         />
       </div>
 
       {/* 3. Card Principal: Búsqueda, Filtro y Listado */}
       <Card className="border-border/80 shadow-xs overflow-hidden">
-        {/* Barra de Búsqueda y Herramientas */}
-        <CardHeader className="p-4 sm:p-5 border-b border-border/50 bg-card">
+        {/* Barra de Búsqueda, Filtros y Herramientas */}
+        <CardHeader className="p-4 sm:p-5 border-b border-border/50 bg-card space-y-3">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="relative flex-1 max-w-md">
               <Search
@@ -542,6 +610,42 @@ export default function ResidentesPage() {
                 <strong className="text-foreground">{items.length}</strong> residentes
               </span>
             </div>
+          </div>
+
+          {/* Filtro por Condición de Dominio / Residencia (Requisito #11) */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 pt-2 sm:pb-0 text-xs scrollbar-none border-t border-border/40">
+            {[
+              { id: 'TODOS', label: 'Todos', count: kpis.total },
+              { id: 'PROPIETARIO_RESIDENTE', label: 'Propietarios Residentes', count: kpis.propResidentes },
+              { id: 'PROPIETARIO_NO_RESIDENTE', label: 'Propietarios No Residentes', count: kpis.propNoResidentes },
+              { id: 'ARRENDATARIOS', label: 'Arrendatarios', count: kpis.arrendatarios },
+              { id: 'CONVIVIENTES', label: 'Convivientes', count: kpis.convivientes },
+            ].map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => {
+                  setFilterRelacion(f.id);
+                  setPage(0);
+                }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shrink-0 flex items-center gap-1.5 ${
+                  filterRelacion === f.id
+                    ? 'bg-primary text-primary-foreground shadow-xs'
+                    : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground'
+                }`}
+              >
+                <span>{f.label}</span>
+                <span
+                  className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                    filterRelacion === f.id
+                      ? 'bg-primary-foreground/20 text-primary-foreground'
+                      : 'bg-background text-muted-foreground'
+                  }`}
+                >
+                  {f.count}
+                </span>
+              </button>
+            ))}
           </div>
         </CardHeader>
 
@@ -639,11 +743,11 @@ export default function ResidentesPage() {
                                     ID #{r.id}
                                   </span>
                                 </div>
-                                <p className="text-[11px] text-muted-foreground flex items-center gap-1.5 mt-0.5">
+                                <div className="text-[11px] text-muted-foreground flex items-center gap-1.5 mt-1 flex-wrap">
+                                  {getRelacionBadge(r.tipoRelacion)}
                                   {r.tipoPersona && (
                                     <span className="capitalize">{r.tipoPersona.toLowerCase()}</span>
                                   )}
-                                  {r.tipo && <span>· {r.tipo}</span>}
                                   {r.esMenorEdad && (
                                     <Badge
                                       variant="warning"
@@ -652,7 +756,7 @@ export default function ResidentesPage() {
                                       Menor
                                     </Badge>
                                   )}
-                                </p>
+                                </div>
                               </div>
                             </div>
                           </td>
@@ -757,9 +861,12 @@ export default function ResidentesPage() {
                             <p className="text-sm font-semibold text-foreground truncate">
                               {r.nombres} {r.apellidos}
                             </p>
-                            <p className="text-[11px] text-muted-foreground font-mono">
-                              {tipoDocLabel} {r.numeroDocumento || '—'}
-                            </p>
+                            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                              {getRelacionBadge(r.tipoRelacion)}
+                              <span className="text-[11px] text-muted-foreground font-mono">
+                                {tipoDocLabel} {r.numeroDocumento || '—'}
+                              </span>
+                            </div>
                           </div>
                         </div>
                         {unidadDesc && (
@@ -1005,26 +1112,39 @@ export default function ResidentesPage() {
           </div>
 
           {form.idApartamento && (
-            <div className="space-y-2 pt-1">
+            <div className="space-y-3 pt-1">
               <Select
                 id="tipoRelacion"
-                label="Condición del Residente en la Unidad"
-                value={form.tipoRelacion || 'RESIDENTE'}
+                label="Condición y Alcance en la Unidad *"
+                value={form.tipoRelacion || 'ARRENDATARIO'}
                 onChange={(e) => update('tipoRelacion', e.target.value)}
               >
-                <option value="RESIDENTE">Habitante / Residente Activo (Arrendatario o Propietario residente)</option>
-                <option value="PROPIETARIO_NO_RESIDENTE">Propietario No Residente (Inversionista sin residencia física)</option>
+                <option value="PROPIETARIO_RESIDENTE">Propietario Residente (Habita la unidad y es titular de dominio)</option>
+                <option value="PROPIETARIO_NO_RESIDENTE">Propietario No Residente (Inversionista / Arrendador sin residencia física)</option>
+                <option value="ARRENDATARIO">Arrendatario / Inquilino (Habitante físico principal con contrato)</option>
+                <option value="CONVIVIENTE">Conviviente / Familiar (Habitante secundario sin titularidad ni contrato)</option>
               </Select>
+
               {form.tipoRelacion === 'PROPIETARIO_NO_RESIDENTE' && (
-                <div className="text-[11px] bg-blue-500/10 border border-blue-500/20 text-blue-700 dark:text-blue-300 p-2.5 rounded-lg flex items-start gap-2">
-                  <span className="material-symbols-outlined text-sm shrink-0 mt-0.5">info</span>
+                <div className="text-[11px] bg-blue-500/10 border border-blue-500/20 text-blue-700 dark:text-blue-300 p-3 rounded-lg flex items-start gap-2.5">
+                  <ShieldAlert className="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400 mt-0.5" aria-hidden="true" />
+                  <div>
+                    <strong className="font-semibold block mb-0.5">Aislamiento Zero-Trust Patrimonial:</strong>
+                    El propietario no residente tiene facultades patrimoniales (asambleas, reglamentos, actas y pólizas), pero <strong>no</strong> tiene acceso a la vida privada del inquilino (visitas, encomiendas, reservas ni llaves de acceso).
+                  </div>
+                </div>
+              )}
+
+              {form.tipoRelacion === 'PROPIETARIO_RESIDENTE' && (
+                <div className="text-[11px] bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300 p-2.5 rounded-lg flex items-start gap-2">
+                  <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400 mt-0.5" aria-hidden="true" />
                   <span>
-                    <strong>Regla de Dominio:</strong> El propietario no residente se vincula jurídicamente a la unidad para asambleas y cartera, pero <strong>no</strong> recibe rol de residente activo en el portal ni autorizaciones de acceso cotidiano.
+                    <strong>Titular Residente:</strong> Goza de plenas facultades como copropietario patrimonial (asambleas y cartera) y habitante residente en el portal.
                   </span>
                 </div>
               )}
 
-              {form.tipoRelacion === 'RESIDENTE' && !editing && (
+              {form.tipoRelacion === 'ARRENDATARIO' && !editing && (
                 <div className="rounded-xl border border-primary/20 bg-primary/5 p-3.5 space-y-3 mt-2">
                   <label className="flex items-center gap-2 cursor-pointer select-none">
                     <input

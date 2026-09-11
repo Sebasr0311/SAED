@@ -35,13 +35,21 @@ export const ROLE_DEFINITIONS = {
     home: '/portero-dashboard',
     description: 'Operador de control de acceso, visitantes y paquetería',
   },
+  PROPIETARIO: {
+    code: 'PROPIETARIO',
+    name: 'Propietario No Residente',
+    scope: 'UNIDAD',
+    domain: 'UNIT_OWNER',
+    home: '/res-perfil',
+    description: 'Titular de dominio legal sobre el inmueble sin residencia física',
+  },
   RESIDENTE: {
     code: 'RESIDENTE',
-    name: 'Residente / Propietario',
+    name: 'Residente / Inquilino',
     scope: 'UNIDAD',
     domain: 'UNIT',
     home: '/residente-dashboard',
-    description: 'Habitante o copropietario de una unidad residencial',
+    description: 'Habitante o copropietario residente de una unidad residencial',
   },
 };
 
@@ -60,7 +68,10 @@ export function normalizeRole(rol) {
   if (r === 'PORTERO' || r === 'VIGILANTE') {
     return 'PORTERO';
   }
-  if (r === 'RESIDENTE' || r === 'PROPIETARIO' || r === 'PROPIETARIO_UNIDAD') {
+  if (r === 'PROPIETARIO' || r === 'PROPIETARIO_NO_RESIDENTE' || r === 'PROPIETARIO_UNIDAD') {
+    return 'PROPIETARIO';
+  }
+  if (r === 'RESIDENTE' || r === 'ARRENDATARIO' || r === 'CONVIVIENTE') {
     return 'RESIDENTE';
   }
   return r;
@@ -71,6 +82,7 @@ export const ROLE_HOME = {
   ADMIN_ORGANIZACION: '/org/dashboard',
   ADMIN_PROPIEDAD: '/dashboard',
   PORTERO: '/portero-dashboard',
+  PROPIETARIO: '/res-perfil',
   RESIDENTE: '/residente-dashboard',
 };
 
@@ -150,6 +162,10 @@ export const ACCESS_BY_ROLE = {
     '/parqueaderos',
     '/escanner-qr',
     '/incidentes-admin',
+  ],
+  PROPIETARIO: [
+    '/res-perfil',
+    '/res-documentos',
   ],
   RESIDENTE: [
     '/residente-dashboard',
