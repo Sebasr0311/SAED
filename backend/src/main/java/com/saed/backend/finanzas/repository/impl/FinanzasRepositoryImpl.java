@@ -39,8 +39,6 @@ public class FinanzasRepositoryImpl implements FinanzasRepository {
 
     @Override
     public Long createContrato(ContratoRequestDTO req, String numContrato) {
-        String sql = "INSERT INTO CONTRATOS (ID_UNIDAD, ID_ARRENDATARIO_PRINCIPAL, NUMERO_CONTRATO, CANON_MENSUAL, FECHA_INICIO, FECHA_FIN, TIPO_CONTRATO, ESTADO) " +
-                     "VALUES (:idUnidad, :idArrendatario, :numContrato, :canon, :fInicio, :fFin, :tipo, 'ACTIVO')";
         MapSqlParameterSource params = new MapSqlParameterSource()
             .addValue("idUnidad", req.idApartamento())
             .addValue("idArrendatario", req.idResidente())
@@ -49,8 +47,29 @@ public class FinanzasRepositoryImpl implements FinanzasRepository {
             .addValue("fInicio", req.fechaInicio())
             .addValue("fFin", req.fechaFin())
             .addValue("tipo", req.tipoContrato());
+
+        String sql;
+        if (req.idPlantilla() != null) {
+            sql = "INSERT INTO CONTRATOS (ID_UNIDAD, ID_ARRENDATARIO_PRINCIPAL, NUMERO_CONTRATO, CANON_MENSUAL, FECHA_INICIO, FECHA_FIN, TIPO_CONTRATO, ESTADO, ID_PLANTILLA) " +
+                  "VALUES (:idUnidad, :idArrendatario, :numContrato, :canon, :fInicio, :fFin, :tipo, 'ACTIVO', :idPlantilla)";
+            params.addValue("idPlantilla", req.idPlantilla());
+        } else {
+            sql = "INSERT INTO CONTRATOS (ID_UNIDAD, ID_ARRENDATARIO_PRINCIPAL, NUMERO_CONTRATO, CANON_MENSUAL, FECHA_INICIO, FECHA_FIN, TIPO_CONTRATO, ESTADO) " +
+                  "VALUES (:idUnidad, :idArrendatario, :numContrato, :canon, :fInicio, :fFin, :tipo, 'ACTIVO')";
+        }
+
         KeyHolder keyHolder = new GeneratedKeyHolder();
-        jdbcTemplate.update(sql, params, keyHolder, new String[]{"ID_CONTRATO"});
+        try {
+            jdbcTemplate.update(sql, params, keyHolder, new String[]{"ID_CONTRATO"});
+        } catch (Exception ex) {
+            if (req.idPlantilla() != null) {
+                String fallbackSql = "INSERT INTO CONTRATOS (ID_UNIDAD, ID_ARRENDATARIO_PRINCIPAL, NUMERO_CONTRATO, CANON_MENSUAL, FECHA_INICIO, FECHA_FIN, TIPO_CONTRATO, ESTADO) " +
+                                     "VALUES (:idUnidad, :idArrendatario, :numContrato, :canon, :fInicio, :fFin, :tipo, 'ACTIVO')";
+                jdbcTemplate.update(fallbackSql, params, keyHolder, new String[]{"ID_CONTRATO"});
+            } else {
+                throw ex;
+            }
+        }
         return keyHolder.getKey().longValue();
     }
 

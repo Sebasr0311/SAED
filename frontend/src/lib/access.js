@@ -91,6 +91,7 @@ export const ACCESS_BY_ROLE = {
     '/org/organizacion',
     '/org/propiedades',
     '/org/admins',
+    '/org/plantillas',
     '/org/plan',
     '/org/cartera',
     '/org/gastos',

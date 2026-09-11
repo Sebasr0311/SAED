@@ -50,6 +50,12 @@ const emptyForm = {
   email: '',
   idApartamento: '',
   tipoRelacion: 'RESIDENTE',
+  crearContrato: false,
+  idPlantilla: '',
+  contratoCanon: '',
+  contratoFechaInicio: '',
+  contratoFechaFin: '',
+  contratoTipo: 'INICIAL',
 };
 
 const emptyTutorForm = {
@@ -111,6 +117,13 @@ export default function ResidentesPage() {
     () => tenantApi.get('/units'),
     [tenant.activeAssignmentId]
   );
+
+  // 2.1. Plantillas de Contratos activas de la organización
+  const { data: plantillasRaw } = useFetch(
+    () => tenantApi.get('/contratos/plantillas/activas'),
+    [tenant.activeAssignmentId]
+  );
+  const plantillas = useMemo(() => plantillasRaw?.data || (Array.isArray(plantillasRaw) ? plantillasRaw : []), [plantillasRaw]);
 
   // 3. Catálogo de Tipos de Documento
   const { tiposDoc, error: errorTiposDoc } = useTiposDocumento();
@@ -362,6 +375,23 @@ export default function ResidentesPage() {
           toast.error(
             `Residente guardado, pero la asignación al apartamento falló: ${err.message}`
           );
+        }
+      }
+
+      if (form.crearContrato && form.idApartamento && !editing) {
+        try {
+          await tenantApi.post('/contratos', {
+            idApartamento: Number(form.idApartamento),
+            idResidente,
+            fechaInicio: form.contratoFechaInicio || new Date().toISOString().split('T')[0],
+            fechaFin: form.contratoFechaFin || null,
+            tipoContrato: form.contratoTipo || 'INICIAL',
+            canonMensual: Number(form.contratoCanon || 0),
+            idPlantilla: form.idPlantilla ? Number(form.idPlantilla) : null,
+          });
+          toast.success('Contrato de arrendamiento vinculado y generado exitosamente.');
+        } catch (errContrato) {
+          toast.error(`Residente creado, pero falló la generación del contrato: ${errContrato.message}`);
         }
       }
 
@@ -991,6 +1021,88 @@ export default function ResidentesPage() {
                   <span>
                     <strong>Regla de Dominio:</strong> El propietario no residente se vincula jurídicamente a la unidad para asambleas y cartera, pero <strong>no</strong> recibe rol de residente activo en el portal ni autorizaciones de acceso cotidiano.
                   </span>
+                </div>
+              )}
+
+              {form.tipoRelacion === 'RESIDENTE' && !editing && (
+                <div className="rounded-xl border border-primary/20 bg-primary/5 p-3.5 space-y-3 mt-2">
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={form.crearContrato}
+                      onChange={(e) => update('crearContrato', e.target.checked)}
+                      className="rounded border-border text-primary focus:ring-primary/30 h-4 w-4"
+                    />
+                    <span className="text-xs font-semibold text-foreground">
+                      Vincular Contrato de Arrendamiento con Plantilla Organizacional (Requisito #10)
+                    </span>
+                  </label>
+
+                  {form.crearContrato && (
+                    <div className="space-y-3 pt-2 border-t border-primary/15">
+                      <div>
+                        <label className="text-xs font-medium text-foreground block mb-1">
+                          Plantilla de Contrato
+                        </label>
+                        <select
+                          value={form.idPlantilla}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            update('idPlantilla', val);
+                            if (val) {
+                              const p = plantillas.find((tpl) => String(tpl.idPlantilla) === String(val));
+                              if (p?.tipoContrato) update('contratoTipo', p.tipoContrato);
+                            }
+                          }}
+                          className="w-full text-xs bg-background border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                        >
+                          <option value="">— Plantilla Estándar del Sistema —</option>
+                          {plantillas.map((p) => (
+                            <option key={p.idPlantilla} value={p.idPlantilla}>
+                              {p.nombre} (v{p.version} · {p.tipoContrato})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                        <div>
+                          <label className="text-xs font-medium text-foreground block mb-1">
+                            Canon Mensual (COP) *
+                          </label>
+                          <input
+                            type="number"
+                            placeholder="Ej. 1500000"
+                            value={form.contratoCanon}
+                            onChange={(e) => update('contratoCanon', e.target.value)}
+                            className="w-full text-xs bg-background border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-foreground block mb-1">
+                            Fecha Inicio *
+                          </label>
+                          <input
+                            type="date"
+                            value={form.contratoFechaInicio}
+                            onChange={(e) => update('contratoFechaInicio', e.target.value)}
+                            className="w-full text-xs bg-background border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-foreground block mb-1">
+                            Fecha Fin
+                          </label>
+                          <input
+                            type="date"
+                            value={form.contratoFechaFin}
+                            onChange={(e) => update('contratoFechaFin', e.target.value)}
+                            className="w-full text-xs bg-background border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

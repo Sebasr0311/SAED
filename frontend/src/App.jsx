@@ -82,6 +82,7 @@ const OrgDashboardPage = lazy(() => import('./pages/OrgDashboardPage.jsx'));
 const OrgOrganizacionPage = lazy(() => import('./pages/OrgOrganizacionPage.jsx'));
 const OrgPropiedadesPage = lazy(() => import('./pages/OrgPropiedadesPage.jsx'));
 const OrgAdminsPage = lazy(() => import('./pages/OrgAdminsPage.jsx'));
+const OrgPlantillasContratosPage = lazy(() => import('./pages/OrgPlantillasContratosPage.jsx'));
 const OrgPlanPage = lazy(() => import('./pages/OrgPlanPage.jsx'));
 const OrgCarteraPage = lazy(() => import('./pages/OrgCarteraPage.jsx'));
 const OrgGastosPage = lazy(() => import('./pages/OrgGastosPage.jsx'));
@@ -264,6 +265,14 @@ export default function App() {
             element={
               <ProtectedRoute roles={['ADMIN_ORGANIZACION']}>
                 <OrgAdminsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="org/plantillas"
+            element={
+              <ProtectedRoute roles={['ADMIN_ORGANIZACION']}>
+                <OrgPlantillasContratosPage />
               </ProtectedRoute>
             }
           />

@@ -31,6 +31,7 @@ const emptyForm = {
   fechaInicio: '',
   fechaFin: '',
   tipoContrato: 'INICIAL',
+  idPlantilla: '',
   valorMensual: '',
   notas: '',
   enviarCorreo: true,
@@ -78,7 +79,9 @@ export default function ContratosPage() {
   const { data: contratosRaw, loading, refetch } = useFetch(() => api.get('/contratos'), []);
   const { data: apartamentos } = useFetch(() => api.get('/units'), []);
   const { data: residentes } = useFetch(() => api.get('/personas'), []);
+  const { data: plantillasRaw } = useFetch(() => api.get('/contratos/plantillas/activas'), []);
 
+  const plantillas = useMemo(() => plantillasRaw?.data || (Array.isArray(plantillasRaw) ? plantillasRaw : []), [plantillasRaw]);
   const contratos = useMemo(() => (contratosRaw?.items || []).filter((c) => !filtroEstado || c.estado === filtroEstado), [contratosRaw, filtroEstado]);
   const totalPages = Math.max(1, Math.ceil(contratos.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages - 1);
@@ -270,6 +273,7 @@ export default function ContratosPage() {
         fechaInicio: form.fechaInicio,
         fechaFin: form.fechaFin || null,
         tipoContrato: form.tipoContrato,
+        idPlantilla: form.idPlantilla ? Number(form.idPlantilla) : null,
         valorMensual: parseMiles(form.valorMensual),
         notas: form.notas,
         enviarCorreo: form.enviarCorreo,
@@ -439,6 +443,30 @@ export default function ContratosPage() {
           </>
         }
       >
+        <div className="form-group" style={{ marginBottom: '12px' }}>
+          <Select
+            id="idPlantilla"
+            label="Plantilla de Contrato (Configurada por Organización)"
+            value={form.idPlantilla}
+            onChange={(e) => {
+              const val = e.target.value;
+              update('idPlantilla', val);
+              if (val) {
+                const found = plantillas.find((p) => String(p.idPlantilla) === String(val));
+                if (found?.tipoContrato) {
+                  onTipoChange(found.tipoContrato);
+                }
+              }
+            }}
+          >
+            <option value="">— Plantilla Estándar del Sistema —</option>
+            {plantillas.map((p) => (
+              <option key={p.idPlantilla} value={p.idPlantilla}>
+                {p.nombre} (v{p.version} · {p.tipoContrato})
+              </option>
+            ))}
+          </Select>
+        </div>
         <div className="form-row">
           <Select
             id="idApartamento"

@@ -120,6 +120,7 @@ const NAV_BY_ROLE = {
         { path: '/org/organizacion', label: 'Mi Organización', icon: 'domain' },
         { path: '/org/propiedades', label: 'Propiedades', icon: 'apartment' },
         { path: '/org/admins', label: 'Administradores', icon: 'admin_panel_settings' },
+        { path: '/org/plantillas', label: 'Plantillas Contratos', icon: 'description' },
       ],
     },
     {
