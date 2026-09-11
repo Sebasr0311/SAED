@@ -52,8 +52,8 @@ public class AssignmentManagementService {
                 }
             }
             if ("PROPIEDAD".equals(currentScope) &&
-                    ("GLOBAL".equals(targetRole.getAlcance()) || "ORGANIZACION".equals(targetRole.getAlcance()))) {
-                throw new AccessDeniedException("Cannot assign higher scope than yours");
+                    ("GLOBAL".equals(targetRole.getAlcance()) || "ORGANIZACION".equals(targetRole.getAlcance()) || "ADMIN_PROPIEDAD".equals(targetRole.getCodigo()))) {
+                throw new AccessDeniedException("Cannot assign higher or administrative scope than yours");
             }
             if ("UNIDAD".equals(currentScope) || "RESIDENTE".equals(currentCode) || "PORTERO".equals(currentCode)) {
                 throw new AccessDeniedException("No permission to create assignments");

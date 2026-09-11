@@ -12,7 +12,7 @@ import { ActionButtons } from '../components/ui/ActionButtons.jsx';
 import { useFetch, useLiveValidation } from '../lib/hooks.js';
 import api from '../lib/api.js';
 
-const ROLES = ['PORTERO', 'RESIDENTE', 'ADMIN_PROPIEDAD'];
+const ROLES_CREABLES = ['PORTERO', 'RESIDENTE'];
 const PAGE_SIZE = 12;
 
 const emptyForm = {
@@ -223,7 +223,11 @@ export default function UsuariosPage() {
       }
     }
 
-    if (!form.rol) e.rol = 'Seleccione el rol';
+    if (!form.rol) {
+      e.rol = 'Seleccione el rol';
+    } else if (!editing && !ROLES_CREABLES.includes(form.rol)) {
+      e.rol = 'Como Administrador de Propiedad solo puede registrar Porteros o Residentes';
+    }
 
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -421,7 +425,7 @@ export default function UsuariosPage() {
               disabled={!!editing}
               error={errors.rol}
             >
-              {ROLES.map((r) => (
+              {(editing && !ROLES_CREABLES.includes(editing.rol) ? [...ROLES_CREABLES, editing.rol] : ROLES_CREABLES).map((r) => (
                 <option key={r} value={r}>
                   {r === 'PORTERO' ? 'Portero (Seguridad / Vigilancia)' : r === 'RESIDENTE' ? 'Residente' : 'Administrador de Propiedad'}
                 </option>
