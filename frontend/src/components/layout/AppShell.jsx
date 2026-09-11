@@ -128,6 +128,7 @@ const NAV_BY_ROLE = {
       icon: 'assessment',
       items: [
         { path: '/org/cartera', label: 'Cartera Consolidada', icon: 'account_balance_wallet' },
+        { path: '/org/gastos', label: 'Gastos y Facturas', icon: 'receipt_long' },
         { path: '/org/reportes', label: 'Reportes Gerenciales', icon: 'description' },
         { path: '/org/analitica', label: 'Analítica Comparativa', icon: 'analytics' },
       ],

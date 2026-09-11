@@ -141,17 +141,24 @@ export default function NotificationBell() {
         /* noop */
       }
 
-      // Cargar notificaciones personales y avisos generales en paralelo
-      const [buzonRes, avisosRes] = await Promise.allSettled([
+      // Cargar notificaciones personales, avisos generales y alertas operativas en paralelo
+      const requests = [
         api.get('/buzon'),
         api.get('/buzon/avisos'),
-      ]);
+      ];
+      if (esAdmin) {
+        requests.push(api.get('/alertas?soloNoLeidas=true'));
+      }
+
+      const [buzonRes, avisosRes, alertasRes] = await Promise.allSettled(requests);
 
       const buzonRaw = buzonRes.status === 'fulfilled' ? (buzonRes.value?.items || buzonRes.value || []) : [];
       const avisosRaw = avisosRes.status === 'fulfilled' ? (avisosRes.value?.items || avisosRes.value || []) : [];
+      const alertasRaw = alertasRes && alertasRes.status === 'fulfilled' ? (alertasRes.value?.items || alertasRes.value || []) : [];
 
       const buzonList = Array.isArray(buzonRaw) ? buzonRaw : [];
       const avisosList = Array.isArray(avisosRaw) ? avisosRaw : [];
+      const alertasList = Array.isArray(alertasRaw) ? alertasRaw : [];
 
       const personalMapped = buzonList.map((it) => {
         const idStr = String(it.idMensaje || it.id);
@@ -186,7 +193,24 @@ export default function NotificationBell() {
         };
       });
 
-      const todos = [...personalMapped, ...avisosMapped].sort((a, b) => {
+      const alertasMapped = alertasList.map((it) => {
+        const idStr = String(it.idAlerta ?? it.id);
+        const leidoDb = Boolean(it.leida);
+        const leidoLocal = locallyReadIds.has(`alerta-${idStr}`) || locallyReadIds.has(idStr);
+        return {
+          id: `alerta-${idStr}`,
+          idAlerta: it.idAlerta ?? it.id,
+          tipo: 'ALERTA',
+          titulo: `Alerta: ${it.tipoAlerta || 'Operativa'} - Apto ${it.numeroApartamento || ''}`,
+          cuerpo: `${it.nombreResidente ? `Residente: ${it.nombreResidente}. ` : ''}Estado: ${it.estadoCuota || 'Pendiente'}.`,
+          fecha: it.enviadaEn,
+          leido: leidoDb || leidoLocal,
+          esPersonal: false,
+          ruta: '/alertas',
+        };
+      });
+
+      const todos = [...personalMapped, ...avisosMapped, ...alertasMapped].sort((a, b) => {
         const tA = new Date(a.fecha || 0).getTime();
         const tB = new Date(b.fecha || 0).getTime();
         return tB - tA;

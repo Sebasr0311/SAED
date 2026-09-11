@@ -96,6 +96,9 @@ async function request(endpoint, options = {}) {
     'Content-Type': 'application/json',
     ...(options.headers || {}),
   };
+  if (options.body instanceof FormData) {
+    delete headers['Content-Type'];
+  }
   const token = getToken();
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
@@ -203,9 +206,13 @@ async function request(endpoint, options = {}) {
 export const api = {
   get: (url, options = {}) => request(url, options),
   post: (url, body, options = {}) =>
-    request(url, { ...options, method: 'POST', body: JSON.stringify(body) }),
+    request(url, { ...options, method: 'POST', body: body instanceof FormData ? body : JSON.stringify(body) }),
+  postFormData: (url, formData, options = {}) =>
+    request(url, { ...options, method: 'POST', body: formData }),
   put: (url, body, options = {}) =>
-    request(url, { ...options, method: 'PUT', body: JSON.stringify(body) }),
+    request(url, { ...options, method: 'PUT', body: body instanceof FormData ? body : JSON.stringify(body) }),
+  putFormData: (url, formData, options = {}) =>
+    request(url, { ...options, method: 'PUT', body: formData }),
   patch: (url, body, options = {}) =>
     request(url, { ...options, method: 'PATCH', body: JSON.stringify(body) }),
   delete: (url, options = {}) =>

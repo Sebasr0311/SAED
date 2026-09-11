@@ -1,0 +1,50 @@
+-- ============================================================================
+-- SAED 2.0 - Migracion V5.6: Gastos con Soporte Documental y Auditoria
+-- Permite adjuntar factura/recibo/soporte a cada gasto, registrar justificacion,
+-- NIT de proveedor, metadatos del archivo y mantener historial de reemplazos.
+-- ============================================================================
+
+-- 1. Ampliacion de la tabla GASTOS con campos documentales y auditoria
+ALTER TABLE GASTOS ADD (
+    JUSTIFICACION VARCHAR2(500 CHAR),
+    PROVEEDOR_NIT VARCHAR2(30 CHAR),
+    ARCHIVO_NOMBRE_ORIG VARCHAR2(255 CHAR),
+    ARCHIVO_MIME_TYPE VARCHAR2(100 CHAR),
+    ARCHIVO_TAMANO_BYTES NUMBER(12, 0),
+    ARCHIVO_SHA256 VARCHAR2(64 CHAR),
+    FECHA_MODIFICACION TIMESTAMP(6) WITH TIME ZONE,
+    MODIFICADO_POR NUMBER
+);
+
+COMMENT ON COLUMN GASTOS.JUSTIFICACION IS 'Motivo o justificacion del egreso operativo';
+COMMENT ON COLUMN GASTOS.PROVEEDOR_NIT IS 'NIT o identificador tributario del proveedor o beneficiario';
+COMMENT ON COLUMN GASTOS.ARCHIVO_NOMBRE_ORIG IS 'Nombre original del archivo de soporte adjunto';
+COMMENT ON COLUMN GASTOS.ARCHIVO_MIME_TYPE IS 'Tipo MIME validado del archivo (PDF, JPEG, PNG)';
+COMMENT ON COLUMN GASTOS.ARCHIVO_TAMANO_BYTES IS 'Tamano en bytes del archivo almacenado';
+COMMENT ON COLUMN GASTOS.ARCHIVO_SHA256 IS 'Hash criptografico SHA-256 para integridad documental';
+COMMENT ON COLUMN GASTOS.FECHA_MODIFICACION IS 'Timestamp de ultima modificacion del gasto o soporte';
+COMMENT ON COLUMN GASTOS.MODIFICADO_POR IS 'ID de usuario que realizo la ultima modificacion';
+
+-- 2. Tabla de historial de soportes documentales reemplazados (auditoria inmutable)
+CREATE TABLE GASTOS_SOPORTES_HISTORIAL (
+    ID_HISTORIAL NUMBER GENERATED ALWAYS AS IDENTITY MINVALUE 1 MAXVALUE 9999999999999999999999999999 INCREMENT BY 1 START WITH 1 CACHE 20 NOORDER NOCYCLE NOT NULL ENABLE,
+    ID_GASTO NUMBER NOT NULL ENABLE,
+    FACTURA_SOPORTE_URL VARCHAR2(500 CHAR) NOT NULL ENABLE,
+    ARCHIVO_NOMBRE_ORIG VARCHAR2(255 CHAR),
+    ARCHIVO_MIME_TYPE VARCHAR2(100 CHAR),
+    ARCHIVO_TAMANO_BYTES NUMBER(12, 0),
+    ARCHIVO_SHA256 VARCHAR2(64 CHAR),
+    REEMPLAZADO_POR NUMBER,
+    FECHA_REEMPLAZO TIMESTAMP(6) WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL ENABLE,
+    MOTIVO_REEMPLAZO VARCHAR2(500 CHAR),
+    CONSTRAINT PK_GASTOS_SOPORTES_HIST PRIMARY KEY (ID_HISTORIAL),
+    CONSTRAINT FK_HIST_GASTO FOREIGN KEY (ID_GASTO) REFERENCES GASTOS(ID_GASTO) ON DELETE CASCADE
+);
+
+COMMENT ON TABLE GASTOS_SOPORTES_HISTORIAL IS 'Registro historico de soportes reemplazados para trazabilidad financiera';
+
+-- 3. Indices de rendimiento para consultas consolidadas y filtros frecuentes
+CREATE INDEX IX_GASTOS_PROP_FECHA ON GASTOS(ID_PROPIEDAD, FECHA_GASTO);
+CREATE INDEX IX_GASTOS_CATEGORIA ON GASTOS(ID_PROPIEDAD, CATEGORIA);
+CREATE INDEX IX_GASTOS_ESTADO ON GASTOS(ID_PROPIEDAD, ESTADO);
+CREATE INDEX IX_HIST_GASTO ON GASTOS_SOPORTES_HISTORIAL(ID_GASTO);
