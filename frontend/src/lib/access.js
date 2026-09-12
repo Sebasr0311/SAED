@@ -98,6 +98,7 @@ export const ACCESS_BY_ROLE = {
     '/superadmin/metricas',
     '/superadmin/configuracion',
     '/comunicaciones',
+    '/automatizaciones',
   ],
   ADMIN_ORGANIZACION: [
     '/org/dashboard',
@@ -113,6 +114,7 @@ export const ACCESS_BY_ROLE = {
     '/org/analitica',
     '/org/auditoria',
     '/comunicaciones',
+    '/automatizaciones',
   ],
   ADMIN_PROPIEDAD: [
     '/dashboard',
@@ -150,6 +152,10 @@ export const ACCESS_BY_ROLE = {
     '/polizas-admin',
     '/emergencias',
     '/emergencias-admin',
+    '/consumos',
+    '/consumos-admin',
+    '/automatizaciones',
+    '/automatizaciones-admin',
     '/incidentes-admin',
     '/comunicaciones',
     '/alertas',
