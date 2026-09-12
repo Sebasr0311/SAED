@@ -24,7 +24,9 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Optional;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -198,6 +200,47 @@ public class PorteroPasswordChangeSecurityTest {
                 .andExpect(status().is(org.hamcrest.Matchers.not(403)));
     }
 
+    @Test
+    @DisplayName("TC-10: PORTERO attempt rejected and HASH_PASSWORD in DB remains strictly identical (Critical Test)")
+    public void tc10_portero_hash_remains_unchanged_in_db() throws Exception {
+        // 1. Establecer contexto administrativo para consultar estado inicial en BD
+        SaedContextHolder.setContext(SaedContext.builder().userId(1L).organizationId(1L)
+                .propertyId(1L).roleCode("SUPERADMIN").roleScope("GLOBAL").build());
+        String initialHash = jdbcTemplate.queryForObject(
+                "SELECT HASH_PASSWORD FROM USUARIOS WHERE ID_USUARIO = ?",
+                String.class, PORTERO_USER_ID);
+        Integer initialIntentos = jdbcTemplate.queryForObject(
+                "SELECT INTENTOS_FALLIDOS FROM USUARIOS WHERE ID_USUARIO = ?",
+                Integer.class, PORTERO_USER_ID);
+        SaedContextHolder.clearContext();
+
+        // 2. PORTERO intenta cambiar contraseña
+        mockMvc.perform(post("/api/v1/me/change-password")
+                .header("Authorization", "Bearer " + jwtProvider.generateIdentityToken(PORTERO_USER_ID))
+                .header("X-Assignment-Id", String.valueOf(PORTERO_ASSIGN_ID))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"passwordActual\":\"cualquierClave\",\"nuevaPassword\":\"hackedPassword2026!\"}"))
+                .andExpect(status().isForbidden());
+
+        // 3. Volver a consultar usuario en la base de datos con contexto administrativo
+        SaedContextHolder.setContext(SaedContext.builder().userId(1L).organizationId(1L)
+                .propertyId(1L).roleCode("SUPERADMIN").roleScope("GLOBAL").build());
+        String postAttemptHash = jdbcTemplate.queryForObject(
+                "SELECT HASH_PASSWORD FROM USUARIOS WHERE ID_USUARIO = ?",
+                String.class, PORTERO_USER_ID);
+        Integer postAttemptIntentos = jdbcTemplate.queryForObject(
+                "SELECT INTENTOS_FALLIDOS FROM USUARIOS WHERE ID_USUARIO = ?",
+                Integer.class, PORTERO_USER_ID);
+        SaedContextHolder.clearContext();
+
+        // 4. Aserciones de inmutabilidad estricta
+        assertNotNull(initialHash);
+        assertEquals(initialHash, postAttemptHash,
+                "El HASH_PASSWORD del PORTERO debe permanecer exactamente idéntico tras el rechazo");
+        assertEquals(initialIntentos, postAttemptIntentos,
+                "Los INTENTOS_FALLIDOS no deben mutar en una llamada rechazada por seguridad");
+    }
+
     // Helpers
 
     private void seedUser(long userId, String username, String email) {
@@ -213,8 +256,9 @@ public class PorteroPasswordChangeSecurityTest {
             jdbcTemplate.update(
                 "MERGE INTO USUARIOS u USING (SELECT ? AS id, ? AS p, ? AS u, ? AS em, '$2a$10$Y8yWwG2uR38jM8eIq0f6oOV3/1vM7Z13GkIefw7U9M/P0FqX3q4P3' AS h, 'ACTIVO' AS st FROM DUAL) " +
                 "s ON (u.ID_USUARIO = s.id) " +
-                "WHEN NOT MATCHED THEN INSERT (ID_USUARIO, ID_PERSONA, NOMBRE_USUARIO, EMAIL, HASH_PASSWORD, ESTADO) " +
-                "VALUES (s.id, s.p, s.u, s.em, s.h, s.st)",
+                "WHEN MATCHED THEN UPDATE SET HASH_PASSWORD = s.h, INTENTOS_FALLIDOS = 0, ESTADO = s.st " +
+                "WHEN NOT MATCHED THEN INSERT (ID_USUARIO, ID_PERSONA, NOMBRE_USUARIO, EMAIL, HASH_PASSWORD, ESTADO, INTENTOS_FALLIDOS) " +
+                "VALUES (s.id, s.p, s.u, s.em, s.h, s.st, 0)",
                 userId, userId, username, email);
         } catch (Exception ignored) {}
     }
