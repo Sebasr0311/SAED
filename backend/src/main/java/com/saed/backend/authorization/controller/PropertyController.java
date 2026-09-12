@@ -17,6 +17,10 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import java.util.Map;
 
+import com.saed.backend.authorization.dto.PropertyDeletionDTOs;
+import com.saed.backend.authorization.service.PropertyDeletionService;
+import jakarta.servlet.http.HttpServletRequest;
+
 @Tag(name = "Property", description = "API para la gestion de Property")
 @RestController
 @RequestMapping("/api/v1/properties")
@@ -24,9 +28,11 @@ import java.util.Map;
 public class PropertyController {
 
     private final PropertyService propertyService;
+    private final PropertyDeletionService propertyDeletionService;
 
-    public PropertyController(PropertyService propertyService) {
+    public PropertyController(PropertyService propertyService, PropertyDeletionService propertyDeletionService) {
         this.propertyService = propertyService;
+        this.propertyDeletionService = propertyDeletionService;
     }
 
     @GetMapping
@@ -66,6 +72,65 @@ public class PropertyController {
         }
         propertyService.updateStatus(id, estado.toUpperCase());
         return ResponseEntity.ok(Map.of("success", true));
+    }
+
+    /**
+     * PASO 1-4: Solicitar eliminación segura de propiedad con desafío OTP por correo.
+     * Exclusivo para ADMIN_ORGANIZACION.
+     */
+    @PostMapping("/{id}/deletion/request")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_ORGANIZACION')")
+    public ResponseEntity<PropertyDeletionDTOs.RequestResponse> requestDeletion(
+            @PathVariable Long id,
+            HttpServletRequest request
+    ) {
+        String ip = extractIp(request);
+        String userAgent = request.getHeader("User-Agent");
+        PropertyDeletionDTOs.RequestResponse response = propertyDeletionService.requestDeletion(id, ip, userAgent);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * PASO 7: Verificar código OTP de 6 dígitos.
+     * Exclusivo para ADMIN_ORGANIZACION.
+     */
+    @PostMapping("/{id}/deletion/verify")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_ORGANIZACION')")
+    public ResponseEntity<PropertyDeletionDTOs.VerifyResponse> verifyDeletionOtp(
+            @PathVariable Long id,
+            @Valid @RequestBody PropertyDeletionDTOs.VerifyRequest requestBody,
+            HttpServletRequest request
+    ) {
+        String ip = extractIp(request);
+        String userAgent = request.getHeader("User-Agent");
+        PropertyDeletionDTOs.VerifyResponse response = propertyDeletionService.verifyOtp(id, requestBody, ip, userAgent);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * PASO 9: Segunda confirmación obligatoria y ejecución final de la eliminación destructiva.
+     * Exclusivo para ADMIN_ORGANIZACION.
+     */
+    @PostMapping("/{id}/deletion/confirm")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_ORGANIZACION')")
+    public ResponseEntity<PropertyDeletionDTOs.ConfirmResponse> confirmDeletion(
+            @PathVariable Long id,
+            @Valid @RequestBody PropertyDeletionDTOs.ConfirmRequest requestBody,
+            HttpServletRequest request
+    ) {
+        String ip = extractIp(request);
+        String userAgent = request.getHeader("User-Agent");
+        PropertyDeletionDTOs.ConfirmResponse response = propertyDeletionService.confirmAndExecuteDeletion(id, requestBody, ip, userAgent);
+        return ResponseEntity.ok(response);
+    }
+
+    private String extractIp(HttpServletRequest request) {
+        if (request == null) return "127.0.0.1";
+        String xf = request.getHeader("X-Forwarded-For");
+        if (xf != null && !xf.isBlank()) {
+            return xf.split(",")[0].trim();
+        }
+        return request.getRemoteAddr() != null ? request.getRemoteAddr() : "127.0.0.1";
     }
 }
 

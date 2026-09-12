@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo, useCallback } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { toast } from 'sonner';
 import {
   Building,
@@ -244,6 +244,23 @@ export default function ResidentesPage() {
     return map;
   }, [tiposDoc]);
 
+  // 3b. Cupo de convivientes de la unidad seleccionada en el formulario (P2-01)
+  const [aptQuota, setAptQuota] = useState(null);
+  const [aptQuotaLoading, setAptQuotaLoading] = useState(false);
+
+  useEffect(() => {
+    if (form.idApartamento && form.tipoRelacion === 'CONVIVIENTE') {
+      setAptQuotaLoading(true);
+      tenantApi
+        .get(`/units/${form.idApartamento}/residents/quota`)
+        .then((q) => setAptQuota(q?.raw || q?.data || q || null))
+        .catch(() => setAptQuota(null))
+        .finally(() => setAptQuotaLoading(false));
+    } else {
+      setAptQuota(null);
+    }
+  }, [form.idApartamento, form.tipoRelacion, tenantApi]);
+
   // Lista normalizada y filtrada (Requisitos #11 y #12)
   const items = useMemo(() => {
     const raw = Array.isArray(data) ? data : data?.items || [];
@@ -411,9 +428,20 @@ export default function ResidentesPage() {
         e['tutor.otroParentesco'] = 'Especifica el parentesco del tutor';
       }
     }
+
+    // Validación preventiva de cupo de convivientes (P2-01)
+    const asignacionCambia =
+      form.idApartamento !== '' &&
+      (!editing ||
+        Number(editing.idApartamento) !== Number(form.idApartamento) ||
+        editing.tipoRelacion !== form.tipoRelacion);
+    if (asignacionCambia && form.tipoRelacion === 'CONVIVIENTE' && aptQuota?.limiteAlcanzado) {
+      e.idApartamento = `La unidad seleccionada ya alcanzó el cupo máximo de ${aptQuota.limiteConfigurado || 4} convivientes activos.`;
+    }
+
     setErrors(e);
     return Object.keys(e).length === 0;
-  }, [form, requiereTutor, tiposDoc, tutorForm, touchAll]);
+  }, [form, requiereTutor, tiposDoc, tutorForm, touchAll, aptQuota, editing]);
 
   // Guardado CRUD
   const save = useCallback(async () => {
@@ -462,9 +490,23 @@ export default function ResidentesPage() {
             rolEnContrato: form.tipoRelacion?.startsWith('PROPIETARIO') ? 'PROPIETARIO' : 'RESIDENTE',
           });
         } catch (err) {
-          toast.error(
-            `Residente guardado, pero la asignación al apartamento falló: ${err.message}`
-          );
+          const is409 =
+            err.status === 409 ||
+            err.response?.status === 409 ||
+            err.message?.includes('409') ||
+            err.message?.includes('límite') ||
+            err.message?.includes('limite') ||
+            err.message?.includes('cupo');
+
+          if (is409) {
+            toast.error(
+              'No se pudo asignar como conviviente: la unidad ya alcanzó el límite máximo de convivientes activos permitido.'
+            );
+          } else {
+            toast.error(
+              `Residente guardado, pero la asignación al apartamento falló: ${err.message}`
+            );
+          }
         }
       }
 
@@ -1339,6 +1381,7 @@ export default function ResidentesPage() {
             <Select
               id="idApartamento"
               label="Apartamento Asignado"
+              error={errors.idApartamento}
               value={form.idApartamento}
               onChange={(e) => update('idApartamento', e.target.value)}
             >
@@ -1388,6 +1431,41 @@ export default function ResidentesPage() {
                   <span>
                     <strong>Titular Residente:</strong> Goza de plenas facultades como copropietario patrimonial (asambleas y cartera) y habitante residente en el portal.
                   </span>
+                </div>
+              )}
+
+              {form.tipoRelacion === 'CONVIVIENTE' && (
+                <div className="space-y-2">
+                  <div className="text-[11px] bg-muted/40 border border-border p-2.5 rounded-lg flex items-start gap-2">
+                    <Info className="h-4 w-4 shrink-0 text-primary mt-0.5" aria-hidden="true" />
+                    <div className="space-y-1">
+                      <strong className="font-semibold block text-foreground">Habitante de Convivencia (Requisito P2-01):</strong>
+                      <span>El residente titular de la unidad no consume cupo. Los convivientes activos consumen cupo parametrizado de la unidad.</span>
+                      {aptQuota && (
+                        <div className="pt-1.5 flex items-center gap-2">
+                          <span className="text-muted-foreground">Cupo de unidad:</span>
+                          {aptQuota.limiteAlcanzado ? (
+                            <Badge variant="destructive" className="text-[10px] py-0 font-semibold">
+                              Límite alcanzado ({aptQuota.convivientesActivos}/{aptQuota.limiteConfigurado})
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[10px] py-0 font-semibold">
+                              {aptQuota.cuposDisponibles} disponible(s) ({aptQuota.convivientesActivos}/{aptQuota.limiteConfigurado})
+                            </Badge>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {aptQuota?.limiteAlcanzado && (
+                    <div className="text-[11px] bg-destructive/10 border border-destructive/20 text-destructive p-2.5 rounded-lg flex items-start gap-2">
+                      <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                      <span>
+                        <strong>Atención:</strong> Esta unidad ya alcanzó el cupo máximo de {aptQuota.limiteConfigurado} convivientes activos. La asignación será rechazada por el servidor (409 Conflict).
+                      </span>
+                    </div>
+                  )}
                 </div>
               )}
 

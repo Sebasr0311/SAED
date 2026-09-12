@@ -31,16 +31,19 @@ public class UsuarioController {
     private final PasswordEncoder passwordEncoder;
     private final org.springframework.beans.factory.ObjectProvider<com.saed.backend.identity.service.TokenActivacionService> tokenServiceProvider;
     private final com.saed.backend.common.service.EmailService emailService;
+    private final com.saed.backend.person.service.ConvivienteQuotaService convivienteQuotaService;
 
     public UsuarioController(
             NamedParameterJdbcTemplate jdbcTemplate,
             PasswordEncoder passwordEncoder,
             org.springframework.beans.factory.ObjectProvider<com.saed.backend.identity.service.TokenActivacionService> tokenServiceProvider,
-            com.saed.backend.common.service.EmailService emailService) {
+            com.saed.backend.common.service.EmailService emailService,
+            com.saed.backend.person.service.ConvivienteQuotaService convivienteQuotaService) {
         this.jdbcTemplate = jdbcTemplate;
         this.passwordEncoder = passwordEncoder;
         this.tokenServiceProvider = tokenServiceProvider;
         this.emailService = emailService;
+        this.convivienteQuotaService = convivienteQuotaService;
     }
 
     @Operation(summary = "Listar usuarios del sistema con sus roles y personas vinculadas dentro del perímetro del tenant")
@@ -147,6 +150,8 @@ public class UsuarioController {
         Long propId = ctx != null ? ctx.getPropertyId() : null;
         Long callerUnitId = ctx != null ? ctx.getUnitId() : null;
 
+        Long targetUnitId = null;
+
         // Anti-escalamiento de privilegios por rol
         if ("RESIDENTE".equals(callerRole)) {
             if (!"RESIDENTE_CONVIVENCIA".equals(rol) && !"RESIDENTE".equals(rol)) {
@@ -157,12 +162,27 @@ public class UsuarioController {
             if (callerUnitId == null && ctx.getUserId() != null) {
                 try {
                     List<Long> uList = jdbcTemplate.queryForList(
-                        "SELECT ID_UNIDAD FROM RESIDENTES_UNIDAD ru JOIN USUARIOS u ON ru.ID_PERSONA = u.ID_PERSONA WHERE u.ID_USUARIO = :uid AND ROWNUM = 1",
+                        "SELECT ID_UNIDAD FROM RESIDENTES_UNIDAD ru JOIN USUARIOS u ON ru.ID_PERSONA = u.ID_PERSONA WHERE u.ID_USUARIO = :uid AND ru.ESTADO = 'ACTIVO' AND ROWNUM = 1",
                         Map.of("uid", ctx.getUserId()), Long.class
                     );
                     if (!uList.isEmpty()) callerUnitId = uList.get(0);
                 } catch (Exception ignored) {}
             }
+            if (callerUnitId == null) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(ApiResponse.error("No se encontró una unidad asignada a su usuario de residente"));
+            }
+            Object reqUnit = payload.get("idUnidad");
+            if (reqUnit != null && !reqUnit.toString().isBlank()) {
+                try {
+                    Long sentUnitId = Long.parseLong(reqUnit.toString().trim());
+                    if (!callerUnitId.equals(sentUnitId)) {
+                        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                                .body(ApiResponse.error("Como residente solo puede registrar convivientes en su propia unidad"));
+                    }
+                } catch (NumberFormatException ignored) {}
+            }
+            targetUnitId = callerUnitId;
         } else if ("ADMIN_PROPIEDAD".equals(callerRole)) {
             if (!"PORTERO".equals(rol) && !"RESIDENTE".equals(rol) && !"PROPIETARIO".equals(rol) && !"RESIDENTE_CONVIVENCIA".equals(rol)) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN)
@@ -170,6 +190,11 @@ public class UsuarioController {
             }
             if (propId == null) {
                 return ResponseEntity.badRequest().body(ApiResponse.error("No se encontró el identificador de la propiedad en el contexto"));
+            }
+            if ("RESIDENTE_CONVIVENCIA".equals(rol) && payload.get("idUnidad") != null) {
+                try {
+                    targetUnitId = Long.parseLong(payload.get("idUnidad").toString().trim());
+                } catch (NumberFormatException ignored) {}
             }
         } else if ("ADMIN_ORGANIZACION".equals(callerRole)) {
             if ("SUPERADMIN".equals(rol) || "ADMIN_ORGANIZACION".equals(rol)) {
@@ -179,6 +204,22 @@ public class UsuarioController {
             if (orgId == null) {
                 return ResponseEntity.badRequest().body(ApiResponse.error("No se encontró el identificador de la organización en el contexto"));
             }
+            if ("RESIDENTE_CONVIVENCIA".equals(rol) && payload.get("idUnidad") != null) {
+                try {
+                    targetUnitId = Long.parseLong(payload.get("idUnidad").toString().trim());
+                } catch (NumberFormatException ignored) {}
+            }
+        } else if ("SUPERADMIN".equals(callerRole)) {
+            if ("RESIDENTE_CONVIVENCIA".equals(rol) && payload.get("idUnidad") != null) {
+                try {
+                    targetUnitId = Long.parseLong(payload.get("idUnidad").toString().trim());
+                } catch (NumberFormatException ignored) {}
+            }
+        }
+
+        // Si es registro de habitante de convivencia, validar y bloquear cuota con bloqueo pesimista
+        if ("RESIDENTE_CONVIVENCIA".equals(rol) && targetUnitId != null) {
+            convivienteQuotaService.validateAndLockQuota(targetUnitId);
         }
 
         if (orgId == null) orgId = 1L;
@@ -263,10 +304,8 @@ public class UsuarioController {
         }
 
         // 4. Crear Asignación
-        Long idUnidad = null;
-        if ("RESIDENTE_CONVIVENCIA".equals(rol) && callerUnitId != null) {
-            idUnidad = callerUnitId;
-        } else if ("RESIDENTE".equals(rol) || "PROPIETARIO".equals(rol) || "RESIDENTE_CONVIVENCIA".equals(rol)) {
+        Long idUnidad = targetUnitId;
+        if (idUnidad == null && ("RESIDENTE".equals(rol) || "PROPIETARIO".equals(rol) || "RESIDENTE_CONVIVENCIA".equals(rol))) {
             Object uObj = payload.get("idUnidad");
             if (uObj != null && !uObj.toString().isBlank()) {
                 idUnidad = Long.valueOf(uObj.toString());

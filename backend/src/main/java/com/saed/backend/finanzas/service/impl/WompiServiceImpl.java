@@ -48,13 +48,13 @@ public class WompiServiceImpl implements WompiService {
 
     private static final Logger log = LoggerFactory.getLogger(WompiServiceImpl.class);
 
-    @org.springframework.beans.factory.annotation.Value("${wompi.public-key:${WOMPI_PUBLIC_KEY:}}")
+    @org.springframework.beans.factory.annotation.Value("${wompi.public-key:${WOMPI_PUBLIC_KEY:pub_test_IZg6dmwtip4WYXjPP8G7zYvWzCU5wRaH}}")
     private String wompiPublicKey;
 
-    @org.springframework.beans.factory.annotation.Value("${wompi.integrity-secret:${WOMPI_INTEGRITY_SECRET:}}")
+    @org.springframework.beans.factory.annotation.Value("${wompi.integrity-secret:${WOMPI_INTEGRITY_SECRET:test_integrity_CT3taBwOqVtSQITYMGUTcrJftHdoLoPQ}}")
     private String wompiIntegritySecret;
 
-    @org.springframework.beans.factory.annotation.Value("${wompi.events-secret:${WOMPI_EVENTS_SECRET:}}")
+    @org.springframework.beans.factory.annotation.Value("${wompi.events-secret:${WOMPI_EVENTS_SECRET:test_events_VgrGtdTPd9q6XKtBz3iRTgTHJSUuwBBy}}")
     private String wompiEventsSecret;
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
@@ -85,7 +85,7 @@ public class WompiServiceImpl implements WompiService {
         if (wompiPublicKey != null && !wompiPublicKey.isBlank()) return wompiPublicKey;
         String env = System.getenv("WOMPI_PUBLIC_KEY");
         if (env != null && !env.isBlank()) return env;
-        return "pub_test_mX3Qz9vJzQW7L9kF8sH4dJ2xK1vP5nQ";
+        return "pub_test_IZg6dmwtip4WYXjPP8G7zYvWzCU5wRaH";
     }
 
     public void setPublicKey(String key) {
@@ -96,7 +96,7 @@ public class WompiServiceImpl implements WompiService {
         if (wompiIntegritySecret != null && !wompiIntegritySecret.isBlank()) return wompiIntegritySecret;
         String env = System.getenv("WOMPI_INTEGRITY_SECRET");
         if (env != null && !env.isBlank()) return env;
-        return "stagtest_integrity_test_key_saed_2026";
+        return "test_integrity_CT3taBwOqVtSQITYMGUTcrJftHdoLoPQ";
     }
 
     public void setIntegritySecret(String secret) {
@@ -105,7 +105,9 @@ public class WompiServiceImpl implements WompiService {
 
     public String getEventsSecret() {
         if (wompiEventsSecret != null && !wompiEventsSecret.isBlank()) return wompiEventsSecret;
-        return System.getenv("WOMPI_EVENTS_SECRET");
+        String env = System.getenv("WOMPI_EVENTS_SECRET");
+        if (env != null && !env.isBlank()) return env;
+        return "test_events_VgrGtdTPd9q6XKtBz3iRTgTHJSUuwBBy";
     }
 
     public void setEventsSecret(String secret) {

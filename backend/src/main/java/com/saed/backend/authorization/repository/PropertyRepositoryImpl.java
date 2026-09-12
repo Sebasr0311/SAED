@@ -7,6 +7,7 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
@@ -127,5 +128,45 @@ public class PropertyRepositoryImpl implements PropertyRepository {
             (rs, rowNum) -> rs.getString("estado")
         );
         return list.stream().findFirst();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public boolean deletePropertyCascade(Long propertyId, Long organizationId) {
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("propId", propertyId)
+                .addValue("orgId", organizationId);
+
+        String[] cleanupQueries = new String[] {
+            "DELETE FROM CONCILIACIONES WHERE ID_PROPIEDAD = :propId",
+            "DELETE FROM GASTOS WHERE ID_PROPIEDAD = :propId",
+            "DELETE FROM REGISTROS_ACCESO WHERE ID_PROPIEDAD = :propId",
+            "DELETE FROM PAQUETES WHERE ID_PROPIEDAD = :propId",
+            "DELETE FROM TRANSACCIONES_PAGO WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD = :propId)",
+            "DELETE FROM PAGO_DETALLE WHERE ID_PAGO IN (SELECT ID_PAGO FROM PAGOS WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD = :propId)) OR ID_CUOTA IN (SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD = :propId))",
+            "DELETE FROM PAGOS WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD = :propId)",
+            "DELETE FROM CUOTAS WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD = :propId)",
+            "DELETE FROM MULTAS WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD = :propId)",
+            "DELETE FROM SANCIONES WHERE ID_PROPIEDAD = :propId OR ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD = :propId)",
+            "DELETE FROM CONTRATOS WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD = :propId)",
+            "DELETE FROM RESERVAS WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD = :propId)",
+            "DELETE FROM PAZ_Y_SALVOS WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD = :propId)",
+            "DELETE FROM ASISTENCIAS_ASAMBLEA WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD = :propId)",
+            "DELETE FROM VOTOS WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD = :propId)",
+            "DELETE FROM PODERES_REPRESENTACION WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD = :propId)",
+            "DELETE FROM UNIDADES WHERE ID_PROPIEDAD = :propId"
+        };
+
+        for (String q : cleanupQueries) {
+            try {
+                jdbcTemplate.update(q, params);
+            } catch (Exception ignored) {
+                // Tablas opcionales o sin registros
+            }
+        }
+
+        String deleteSql = "DELETE FROM PROPIEDADES WHERE ID_PROPIEDAD = :propId AND ID_ORGANIZACION = :orgId";
+        int affected = jdbcTemplate.update(deleteSql, params);
+        return affected > 0;
     }
 }

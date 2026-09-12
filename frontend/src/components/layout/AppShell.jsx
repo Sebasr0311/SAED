@@ -799,6 +799,7 @@ export default function AppShell() {
             )}
           </div>
 
+          {user?.rol !== 'PORTERO' && (
           <button
             type="button"
             onClick={() => setShowChangePasswordModal(true)}
@@ -812,6 +813,7 @@ export default function AppShell() {
             <Key className="h-4 w-4 text-slate-400 group-hover/pwd:text-white transition-colors" aria-hidden="true" />
             {(!collapsed || mobileOpen) && <span>Cambiar clave</span>}
           </button>
+          )}
 
           <button
             type="button"
@@ -905,25 +907,41 @@ export default function AppShell() {
             <NotificationBell />
 
             {/* Pastilla de Usuario en Desktop */}
-            <button
-              type="button"
-              onClick={() => setShowChangePasswordModal(true)}
-              className="hidden md:flex items-center gap-2 pl-2 pr-2.5 py-1 rounded-lg border border-border/60 hover:bg-muted/60 transition-colors text-left group"
-              title="Mi Perfil / Cambiar Contraseña"
-            >
-              <div className="h-8 w-8 rounded-full bg-primary/10 border border-primary/20 text-primary font-bold flex items-center justify-center text-xs group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                {user?.username?.[0]?.toUpperCase() || 'U'}
+            {user?.rol === 'PORTERO' ? (
+              <div className="hidden md:flex items-center gap-2 pl-2 pr-2.5 py-1 rounded-lg border border-border/60 text-left">
+                <div className="h-8 w-8 rounded-full bg-primary/10 border border-primary/20 text-primary font-bold flex items-center justify-center text-xs">
+                  {user?.username?.[0]?.toUpperCase() || 'U'}
+                </div>
+                <div className="flex flex-col text-left">
+                  <span className="text-xs font-semibold text-foreground leading-none">
+                    {user?.username}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground font-medium uppercase mt-0.5">
+                    {user?.rol}
+                  </span>
+                </div>
               </div>
-              <div className="flex flex-col text-left">
-                <span className="text-xs font-semibold text-foreground leading-none">
-                  {user?.username}
-                </span>
-                <span className="text-[10px] text-muted-foreground font-medium uppercase mt-0.5">
-                  {user?.rol}
-                </span>
-              </div>
-              <Key className="w-3.5 h-3.5 text-muted-foreground ml-1 opacity-60 group-hover:opacity-100 group-hover:text-primary transition-opacity" />
-            </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowChangePasswordModal(true)}
+                className="hidden md:flex items-center gap-2 pl-2 pr-2.5 py-1 rounded-lg border border-border/60 hover:bg-muted/60 transition-colors text-left group"
+                title="Mi Perfil / Cambiar Contraseña"
+              >
+                <div className="h-8 w-8 rounded-full bg-primary/10 border border-primary/20 text-primary font-bold flex items-center justify-center text-xs group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                  {user?.username?.[0]?.toUpperCase() || 'U'}
+                </div>
+                <div className="flex flex-col text-left">
+                  <span className="text-xs font-semibold text-foreground leading-none">
+                    {user?.username}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground font-medium uppercase mt-0.5">
+                    {user?.rol}
+                  </span>
+                </div>
+                <Key className="w-3.5 h-3.5 text-muted-foreground ml-1 opacity-60 group-hover:opacity-100 group-hover:text-primary transition-opacity" />
+              </button>
+            )}
 
             {/* Botón Logout Rápido (Desktop) */}
             <button

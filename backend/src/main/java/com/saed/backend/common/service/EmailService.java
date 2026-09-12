@@ -160,6 +160,61 @@ public class EmailService {
         enviarHtml(destinatario, asunto, html, null, null);
     }
 
+    /**
+     * Envía el código OTP de seguridad para la eliminación definitiva de una copropiedad.
+     */
+    public void enviarCodigoOtpEliminacion(String destinatario, String nombrePropiedad, String codigoOtp, int minutosValidez) throws Exception {
+        String html = """
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <style>
+                    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f4f5f7; margin: 0; padding: 20px; color: #1e293b; }
+                    .card { max-width: 520px; margin: 0 auto; background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
+                    .header { background: #dc2626; color: #ffffff; padding: 24px; text-align: center; }
+                    .header h1 { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -0.5px; }
+                    .content { padding: 28px 24px; }
+                    .warning-box { background-color: #fef2f2; border-left: 4px solid #ef4444; padding: 14px; margin-bottom: 20px; border-radius: 4px; font-size: 13px; color: #991b1b; }
+                    .otp-box { background: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 8px; text-align: center; padding: 18px; margin: 24px 0; }
+                    .otp-code { font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 36px; font-weight: 800; letter-spacing: 8px; color: #0f172a; margin: 0; }
+                    .footer { padding: 16px 24px; background: #f8fafc; border-top: 1px solid #e2e8f0; font-size: 11px; text-align: center; color: #64748b; }
+                </style>
+            </head>
+            <body>
+                <div class="card">
+                    <div class="header">
+                        <h1>Confirmación de Eliminación Definitiva</h1>
+                    </div>
+                    <div class="content">
+                        <p>Estimado Administrador de Organización,</p>
+                        <p>Se ha iniciado una solicitud para <strong>eliminar definitivamente</strong> la siguiente propiedad de la plataforma SAED:</p>
+                        <p style="font-size: 16px; font-weight: 600; color: #0f172a; padding: 8px 12px; background: #f1f5f9; border-radius: 6px;">
+                            %s
+                        </p>
+                        <div class="warning-box">
+                            <strong>ADVERTENCIA:</strong> Esta acción es destructiva e irreversible. Todas las unidades, accesos, registros y operaciones vinculadas serán removidas de la organización.
+                        </div>
+                        <p>Para autorizar la verificación de esta operación, ingrese el siguiente código de seguridad:</p>
+                        <div class="otp-box">
+                            <div class="otp-code">%s</div>
+                            <div style="font-size: 12px; color: #64748b; margin-top: 6px;">Válido durante %d minutos</div>
+                        </div>
+                        <p style="font-size: 12px; color: #64748b;">
+                            Si usted no inició esta solicitud, ignore este correo inmediatamente y modifique sus credenciales de acceso de forma preventiva.
+                        </p>
+                    </div>
+                    <div class="footer">
+                        SAED 2.0 &bull; Sistema Avanzado de Edificios y Departamentos &bull; Mensaje de Seguridad
+                    </div>
+                </div>
+            </body>
+            </html>
+            """.formatted(nombrePropiedad, codigoOtp, minutosValidez);
+
+        enviarHtml(destinatario, "CÓDIGO DE SEGURIDAD: Eliminación de " + nombrePropiedad, html, null, null);
+    }
+
     public void enviarBienvenidaCredenciales(
             String destinatario,
             String nombreCompleto,

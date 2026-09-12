@@ -148,8 +148,8 @@ APIs EXTERNAS USADAS
   Oracle DB (JDBC)        | SI     | Conexión jdbc:oracle:thin al esquema
                           |        | RESIDENCIAL (XE local o ATP con wallet)
   Wompi                   | SI     | Pagos en línea del residente (widget de
-                          |        | checkout). Sandbox o producción según
-                          |        | WOMPI_ENV; claves WOMPI_PUBLIC_KEY,
+                          |        | checkout). Sandbox activo: pub_test_IZg6...,
+                          |        | WOMPI_PUBLIC_KEY, WOMPI_PRIVATE_KEY,
                           |        | WOMPI_INTEGRITY_SECRET, WOMPI_EVENTS_SECRET
   Brevo (ex Sendinblue)   | SI     | Envío automático de correos: contratos
                           |        | (crear/renovar/reenviar), QR de visitas y

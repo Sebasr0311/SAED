@@ -61,7 +61,7 @@ test.describe('Onboarding y Registro de Organización (SaaS Multi-tenant)', () =
             referencia: 'SAED-TX-TEST-E2E',
             montoCentavos: 143040000,
             moneda: 'COP',
-            wompiPublicKey: 'pub_test_Q5yDA9xoKdePzhSGeVe9HAez7HgGObFG',
+            wompiPublicKey: 'pub_test_IZg6dmwtip4WYXjPP8G7zYvWzCU5wRaH',
             firmaIntegridad: 'e2e_mock_hash',
           },
         }),

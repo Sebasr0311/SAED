@@ -12,7 +12,13 @@ import java.util.Map;
 @RequestMapping("/api/v1/residentes")
 public class DashboardController {
     private final NamedParameterJdbcTemplate jdbcTemplate;
-    public DashboardController(NamedParameterJdbcTemplate jdbcTemplate) { this.jdbcTemplate = jdbcTemplate; }
+    private final com.saed.backend.person.service.ConvivienteQuotaService convivienteQuotaService;
+
+    public DashboardController(NamedParameterJdbcTemplate jdbcTemplate,
+                               org.springframework.beans.factory.ObjectProvider<com.saed.backend.person.service.ConvivienteQuotaService> quotaServiceProvider) {
+        this.jdbcTemplate = jdbcTemplate;
+        this.convivienteQuotaService = quotaServiceProvider.getIfAvailable();
+    }
 
     @GetMapping
     @PreAuthorize("isAuthenticated()")
@@ -319,6 +325,7 @@ public class DashboardController {
     }
     
     @PostMapping("/{id}/asignar-apartamento")
+    @org.springframework.transaction.annotation.Transactional
     @PreAuthorize("hasAuthority('SCOPE_SUPERADMIN') or hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<Void> asignarApartamento(@PathVariable Long id, @RequestBody(required = false) Map<String, Object> payload) {
         if (payload == null || !payload.containsKey("idApartamento")) {
@@ -395,6 +402,19 @@ public class DashboardController {
                 tipoResidenteDb = "FAMILIAR";
             } else {
                 tipoResidenteDb = "OTRO";
+            }
+
+            if ("CONVIVIENTE".equals(tipoResidenteDb) || "FAMILIAR".equals(tipoResidenteDb) || "OTRO".equals(tipoResidenteDb)) {
+                Integer activeCountForPerson = jdbcTemplate.queryForObject(
+                        "SELECT COUNT(*) FROM RESIDENTES_UNIDAD WHERE ID_UNIDAD = :unitId AND ID_PERSONA = :personaId AND ESTADO = 'ACTIVO'",
+                        Map.of("unitId", unitId, "personaId", id),
+                        Integer.class
+                );
+                if (activeCountForPerson == null || activeCountForPerson == 0) {
+                    if (convivienteQuotaService != null) {
+                        convivienteQuotaService.validateAndLockQuota(unitId);
+                    }
+                }
             }
 
             Integer countRes = jdbcTemplate.queryForObject(

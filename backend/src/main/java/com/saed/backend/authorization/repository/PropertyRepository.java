@@ -14,4 +14,5 @@ public interface PropertyRepository {
     long countByOrganization(Long orgId);
     Optional<Long> getPropertyLimit(Long orgId);
     Optional<String> getPropertyStatus(Long id);
+    boolean deletePropertyCascade(Long propertyId, Long organizationId);
 }

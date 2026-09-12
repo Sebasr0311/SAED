@@ -12,8 +12,8 @@ import com.saed.backend.automatizaciones.repository.AutomatizacionRepository;
 import com.saed.backend.automatizaciones.service.AutomatizacionService;
 import com.saed.backend.context.SaedContext;
 import com.saed.backend.context.SaedContextHolder;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,12 +22,16 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.OffsetDateTime;
 import java.util.List;
 
-@Slf4j
 @Service
-@RequiredArgsConstructor
 public class AutomatizacionServiceImpl implements AutomatizacionService {
 
+    private static final Logger log = LoggerFactory.getLogger(AutomatizacionServiceImpl.class);
+
     private final AutomatizacionRepository repository;
+
+    public AutomatizacionServiceImpl(AutomatizacionRepository repository) {
+        this.repository = repository;
+    }
 
     private Long getRequiredOrgId() {
         SaedContext ctx = SaedContextHolder.getContext();
