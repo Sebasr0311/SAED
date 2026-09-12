@@ -462,12 +462,36 @@ public class PublicOnboardingController {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error("Referencia de pago no encontrada"));
             }
             Map<String, Object> tx = rows.get(0);
-            return ResponseEntity.ok(ApiResponse.success(Map.of(
-                    "referencia", tx.get("REFERENCIA_INTERNA"),
-                    "estado", tx.get("ESTADO_PASARELA"),
-                    "montoCentavos", tx.get("MONTO_CENTAVOS")
-            )));
+
+            // Verificar si la organización vinculada ya fue activada
+            String estadoOrg = null;
+            try {
+                String[] parts = referencia.split("-");
+                if (parts.length >= 3 && "SAED".equals(parts[0]) && "MEMBRESIA".equals(parts[1])) {
+                    Long orgId = Long.parseLong(parts[2]);
+                    List<String> orgEstList = jdbcTemplate.queryForList(
+                            "SELECT ESTADO FROM ORGANIZACIONES WHERE ID_ORGANIZACION = :idOrg",
+                            new MapSqlParameterSource("idOrg", orgId),
+                            String.class
+                    );
+                    if (!orgEstList.isEmpty()) {
+                        estadoOrg = orgEstList.get(0);
+                    }
+                }
+            } catch (Exception ignored) {}
+
+            Map<String, Object> resp = new HashMap<>();
+            resp.put("referencia", tx.get("REFERENCIA_INTERNA"));
+            resp.put("estado", tx.get("ESTADO_PASARELA"));
+            resp.put("estadoPasarela", tx.get("ESTADO_PASARELA"));
+            resp.put("montoCentavos", tx.get("MONTO_CENTAVOS"));
+            resp.put("estadoOrganizacion", estadoOrg);
+
+            return ResponseEntity.ok(ApiResponse.success(resp));
         } finally {
+            try {
+                jdbcTemplate.getJdbcOperations().execute("BEGIN PKG_SAED_SESSION.CLEAR_CONTEXT; END;");
+            } catch (Exception ignored) {}
             SaedContextHolder.setContext(prevCtx);
         }
     }
