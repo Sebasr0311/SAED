@@ -142,6 +142,7 @@ export default function RegistroOrganizacionPage() {
 
   // Submission & Payment State
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState(null);
   const [registroResultado, setRegistroResultado] = useState(null);
   const [pagoAprobado, setPagoAprobado] = useState(false);
   const [pollingPago, setPollingPago] = useState(false);
@@ -515,6 +516,7 @@ export default function RegistroOrganizacionPage() {
     }
 
     try {
+      setSubmitError(null);
       setSubmitting(true);
       const isNatural = tipoRegistro === 'NATURAL';
       const cleanNit = isNatural ? orgForm.numeroDocumentoDueno.trim() : orgForm.nit.trim();
@@ -555,7 +557,9 @@ export default function RegistroOrganizacionPage() {
       }
     } catch (err) {
       console.error('Error registrando organización:', err);
-      toast.error(err.message || 'Error al procesar el registro. Verifica los datos e intenta de nuevo.');
+      const errMsg = err.response?.data?.message || err.message || 'Error al procesar el registro. Verifica los datos e intenta de nuevo.';
+      setSubmitError(errMsg);
+      toast.error(errMsg);
     } finally {
       setSubmitting(false);
     }
@@ -1663,6 +1667,24 @@ export default function RegistroOrganizacionPage() {
                 </div>
               </div>
             </Card>
+
+            {submitError && (
+              <div className="p-4 rounded-2xl bg-rose-950/40 border border-rose-500/30 text-rose-200 text-xs flex items-start gap-3 animate-in fade-in slide-in-from-top-2 duration-200">
+                <AlertCircle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+                <div className="flex-1 space-y-1">
+                  <p className="font-semibold text-rose-300">No se pudo completar el registro</p>
+                  <p className="text-rose-200/90 leading-relaxed">{submitError}</p>
+                  <button
+                    type="button"
+                    onClick={() => { setSubmitError(null); setStep(2); }}
+                    className="inline-flex items-center gap-1 text-cyan-400 hover:text-cyan-300 underline font-semibold mt-1 cursor-pointer"
+                  >
+                    <span>Modificar datos de la organización o copropiedad (Paso 2)</span>
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            )}
 
             <div className="flex justify-between pt-2">
               <Button

@@ -92,7 +92,31 @@ public class GlobalExceptionHandler {
         if (message != null && (message.contains("ORA-00001") || message.contains("UIX_ASIGNACION_UNICA"))) {
             log.warn("Conflicto de base de datos detectado: {}", message);
             response.put("code", "CONFLICT");
-            response.put("message", "El registro ya existe o la asignación está duplicada.");
+            String conflictMsg = "El registro ya existe o la asignación está duplicada.";
+            if (message.contains("UQ_PERSONAS_DOCUMENTO")) {
+                conflictMsg = "El número de documento ya se encuentra registrado en el sistema.";
+            } else if (message.contains("UQ_ORGANIZACIONES_NIT")) {
+                conflictMsg = "El NIT o identificación fiscal ya se encuentra registrado para otra organización.";
+            } else if (message.contains("UQ_ORGANIZACIONES_EMAIL")) {
+                conflictMsg = "El correo electrónico de contacto ya se encuentra registrado para otra organización.";
+            } else if (message.contains("UQ_USUARIOS_EMAIL")) {
+                conflictMsg = "El correo electrónico ya se encuentra registrado para otro usuario.";
+            } else if (message.contains("UQ_USUARIOS_NOMBRE") || message.contains("UQ_USR_USERNAME")) {
+                conflictMsg = "El nombre de usuario ya se encuentra en uso.";
+            } else if (message.contains("UQ_USUARIOS_PERSONA") || message.contains("UQ_USR_RESIDENTE")) {
+                conflictMsg = "La persona ya cuenta con una cuenta de usuario vinculada en el sistema.";
+            } else if (message.contains("UIX_ASIGNACION_UNICA") || message.contains("UQ_ASIGNACIONES_ROLES")) {
+                conflictMsg = "La asignación de rol ya existe para este usuario en la organización o propiedad.";
+            } else if (message.contains("UQ_VEHICULOS_PLACA") || message.contains("UQ_VEH_PLACA_VISITA")) {
+                conflictMsg = "La placa del vehículo ya se encuentra registrada.";
+            } else if (message.contains("UQ_UNIDADES_NUMERO") || message.contains("UQ_APT_NUMERO")) {
+                conflictMsg = "El número o nomenclatura de la unidad ya existe en esta propiedad.";
+            } else if (message.contains("UQ_CUOTA_UNICA") || message.contains("UQ_CUOTA_PERIODO")) {
+                conflictMsg = "Ya existe una cuota generada para esta unidad y periodo.";
+            } else if (message.contains("UQ_QR_CODIGO") || message.contains("UQ_QR_VISITA")) {
+                conflictMsg = "El código QR ya se encuentra asignado.";
+            }
+            response.put("message", conflictMsg);
             return new ResponseEntity<>(response, HttpStatus.CONFLICT);
         }
 

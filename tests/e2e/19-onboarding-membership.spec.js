@@ -202,4 +202,55 @@ test.describe('Onboarding y Registro de Organización (SaaS Multi-tenant)', () =
     await expect(btnConfirmarPago).toBeVisible();
     await expect(btnConfirmarPago).toBeEnabled();
   });
+
+  test('Manejo de error y visualización de banner cuando el documento ya tiene usuario registrado', async ({ page }) => {
+    // Interceptar la petición de registro y simular conflicto 409
+    await page.route('**/api/v1/auth/onboarding/registro', async (route) => {
+      await route.fulfill({
+        status: 409,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: false,
+          code: 'CONFLICT',
+          message: "El número de documento 1067597863 ya se encuentra registrado con la cuenta de usuario 'srusso'. Si ya dispone de una cuenta en SAED, por favor inicie sesión o utilice otra identificación para el administrador.",
+        }),
+      });
+    });
+
+    await page.goto('/registro-organizacion?plan=PRO&cycle=ANUAL');
+    await page.waitForLoadState('domcontentloaded');
+
+    // Avanzar a paso 2
+    const btnContinuarPaso1 = page.getByRole('button', { name: /continuar a datos de la organización/i });
+    await expect(btnContinuarPaso1).toBeEnabled({ timeout: 10000 });
+    await btnContinuarPaso1.click();
+
+    // Llenar datos de organización
+    await page.locator('#nombreOrg').fill('Conjunto Residencial Test');
+    await page.locator('#nit').fill('901234567-8');
+    await page.locator('#emailContacto').fill('contacto@conjuntotest.com');
+    await page.locator('#telefonoContacto').fill('3112223344');
+    await page.locator('#direccion').fill('Calle 100 # 15-20');
+
+    // Avanzar a paso 3
+    const btnContinuarPaso2 = page.getByRole('button', { name: /continuar a administrador/i });
+    await btnContinuarPaso2.click();
+
+    // Llenar datos de admin
+    await page.locator('#pNombre').fill('Sebastian');
+    await page.locator('#pApellido').fill('Russo');
+    await page.locator('#numDoc').fill('1067597863');
+    await page.locator('#adminEmail').fill('sebastian@russo.com');
+    await page.locator('#adminTel').fill('3115556677');
+    await page.locator('#adminUsername').fill('srusso_new');
+
+    // Click en confirmar
+    const btnConfirmar = page.getByRole('button', { name: /confirmar y proceder al pago wompi/i });
+    await expect(btnConfirmar).toBeVisible();
+    await btnConfirmar.click();
+
+    // Verificar que aparece el banner de error con el mensaje exacto
+    await expect(page.locator('text=No se pudo completar el registro')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('text=El número de documento 1067597863 ya se encuentra registrado')).toBeVisible();
+  });
 });
