@@ -332,7 +332,7 @@ export default function App() {
           <Route
             path="org/gastos"
             element={
-              <ProtectedRoute roles={['ADMIN_ORGANIZACION', 'SUPERADMIN']}>
+              <ProtectedRoute roles={['ADMIN_ORGANIZACION']}>
                 <OrgGastosPage />
               </ProtectedRoute>
             }
@@ -340,7 +340,7 @@ export default function App() {
           <Route
             path="org/comunicaciones"
             element={
-              <ProtectedRoute roles={['ADMIN_ORGANIZACION', 'SUPERADMIN']}>
+              <ProtectedRoute roles={['ADMIN_ORGANIZACION']}>
                 <ComunicacionesPage initialTab="todos" />
               </ProtectedRoute>
             }

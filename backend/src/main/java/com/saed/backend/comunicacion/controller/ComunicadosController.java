@@ -41,7 +41,7 @@ public class ComunicadosController {
     }
 
     @PostMapping("/aviso")
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<Map<String, Object>> postAviso(@RequestBody Map<String, Object> payload) {
         String titulo = (String) payload.getOrDefault("titulo", "Aviso Oficial");
         String contenido = (String) payload.getOrDefault("mensaje", payload.getOrDefault("contenido", ""));
@@ -104,7 +104,7 @@ public class ComunicadosController {
     }
 
     @DeleteMapping("/aviso/{id}")
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<Void> archivarAviso(@PathVariable Long id) {
         jdbcTemplate.update("UPDATE COMUNICADOS SET ESTADO = 'ARCHIVADO' WHERE ID_COMUNICADO = :id", Map.of("id", id));
         return ResponseEntity.noContent().build();

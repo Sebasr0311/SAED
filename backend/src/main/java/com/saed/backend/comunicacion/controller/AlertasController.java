@@ -31,7 +31,7 @@ public class AlertasController {
     };
 
     @GetMapping
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
     public List<AlertaDTO> getAlertas(
             @RequestParam(required = false) String soloNoLeidas,
             @RequestParam(required = false) Long idPropiedad) {
@@ -49,7 +49,7 @@ public class AlertasController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<AlertaDTO> crearAlerta(@RequestBody Map<String, Object> payload) {
         Long propId = payload.get("idPropiedad") != null
             ? Long.valueOf(payload.get("idPropiedad").toString())
@@ -83,21 +83,21 @@ public class AlertasController {
     }
 
     @PutMapping("/{id}/leer")
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<Void> marcarLeida(@PathVariable Long id) {
         jdbcTemplate.update("UPDATE ALERTAS_ADMIN SET LEIDA = 'S' WHERE ID_ALERTA = :id", Map.of("id", id));
         return ResponseEntity.noContent().build();
     }
 
     @PutMapping("/{id}/atender")
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<Void> marcarAtendida(@PathVariable Long id) {
         jdbcTemplate.update("UPDATE ALERTAS_ADMIN SET LEIDA = 'S' WHERE ID_ALERTA = :id", Map.of("id", id));
         return ResponseEntity.noContent().build();
     }
 
     @PutMapping("/marcar-todas-leidas")
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<Void> marcarTodasLeidas(@RequestParam(required = false) Long idPropiedad) {
         String sql = "UPDATE ALERTAS_ADMIN SET LEIDA = 'S' WHERE LEIDA = 'N'";
         org.springframework.jdbc.core.namedparam.MapSqlParameterSource params = new org.springframework.jdbc.core.namedparam.MapSqlParameterSource();
