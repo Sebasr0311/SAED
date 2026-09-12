@@ -174,6 +174,10 @@ export default function ResidentesPage() {
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef(null);
 
+  // Vista previa de plantilla de contrato (Requisito #10)
+  const [previewHtml, setPreviewHtml] = useState(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+
   // 1. Censo de Personas/Residentes
   const {
     data,
@@ -490,6 +494,34 @@ export default function ResidentesPage() {
       setSaving(false);
     }
   }, [editing, form, refetch, tenantApi, validate]);
+
+  // Vista Previa de Plantilla de Contrato con Variables (Requisito #10)
+  const handlePreviewPlantilla = useCallback(async () => {
+    if (!form.idPlantilla) {
+      toast.error('Selecciona una plantilla para previsualizar');
+      return;
+    }
+    setPreviewLoading(true);
+    try {
+      const aptItem = (apartamentos?.items || (Array.isArray(apartamentos) ? apartamentos : [])).find(
+        (a) => String(a.idApartamento || a.id) === String(form.idApartamento)
+      );
+      const res = await tenantApi.post(`/contratos/plantillas/${form.idPlantilla}/preview`, {
+        nombre_residente: `${form.nombres} ${form.apellidos}`.trim() || 'NOMBRE_RESIDENTE',
+        numero_documento: form.numeroDocumento || 'NUMERO_DOCUMENTO',
+        identificador_unidad: aptItem?.identificador || aptItem?.numero || 'UNIDAD_HABITACIONAL',
+        canon_mensual: form.contratoCanon ? `$${Number(form.contratoCanon).toLocaleString('es-CO')}` : '$0',
+        fecha_inicio: form.contratoFechaInicio || new Date().toISOString().split('T')[0],
+        fecha_fin: form.contratoFechaFin || 'Indefinida',
+      });
+      const html = res?.data || res;
+      setPreviewHtml(typeof html === 'string' ? html : String(html || ''));
+    } catch (err) {
+      toast.error(err.message || 'Error al renderizar vista previa de la plantilla');
+    } finally {
+      setPreviewLoading(false);
+    }
+  }, [apartamentos, form, tenantApi]);
 
   // Desvinculación Protegida (Requisitos #14 y #15)
   const handleDelete = useCallback(async () => {
@@ -1359,7 +1391,7 @@ export default function ResidentesPage() {
                 </div>
               )}
 
-              {form.tipoRelacion === 'ARRENDATARIO' && !editing && (
+              {form.idApartamento && !editing && (
                 <div className="rounded-xl border border-primary/20 bg-primary/5 p-3.5 space-y-3 mt-2">
                   <label className="flex items-center gap-2 cursor-pointer select-none">
                     <input
@@ -1369,16 +1401,29 @@ export default function ResidentesPage() {
                       className="rounded border-border text-primary focus:ring-primary/30 h-4 w-4"
                     />
                     <span className="text-xs font-semibold text-foreground">
-                      Vincular Contrato de Arrendamiento con Plantilla Organizacional (Requisito #10)
+                      Vincular Contrato con Plantilla Organizacional (Requisito #10)
                     </span>
                   </label>
 
                   {form.crearContrato && (
                     <div className="space-y-3 pt-2 border-t border-primary/15">
                       <div>
-                        <label className="text-xs font-medium text-foreground block mb-1">
-                          Plantilla de Contrato
-                        </label>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-xs font-medium text-foreground block">
+                            Plantilla de Contrato
+                          </label>
+                          {form.idPlantilla && (
+                            <button
+                              type="button"
+                              onClick={handlePreviewPlantilla}
+                              disabled={previewLoading}
+                              className="text-[11px] font-semibold text-primary hover:underline flex items-center gap-1"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              {previewLoading ? 'Renderizando...' : 'Previsualizar'}
+                            </button>
+                          )}
+                        </div>
                         <select
                           value={form.idPlantilla}
                           onChange={(e) => {
@@ -1940,6 +1985,29 @@ export default function ResidentesPage() {
               )}
             </>
           )}
+        </div>
+      </Modal>
+
+      {/* 6. Modal Vista Previa de Plantilla de Contrato (Requisito #10) */}
+      <Modal
+        open={Boolean(previewHtml)}
+        onClose={() => setPreviewHtml(null)}
+        title="Vista Previa del Contrato Generado"
+        footer={
+          <Button
+            variant="outline"
+            onClick={() => setPreviewHtml(null)}
+            className="text-xs min-h-[44px] sm:min-h-9"
+          >
+            Cerrar Vista Previa
+          </Button>
+        }
+      >
+        <div className="max-h-[60vh] overflow-y-auto p-4 bg-muted/30 border border-border/60 rounded-xl">
+          <div
+            className="prose prose-sm dark:prose-invert max-w-none text-xs leading-relaxed"
+            dangerouslySetInnerHTML={{ __html: previewHtml || '' }}
+          />
         </div>
       </Modal>
     </PageContainer>

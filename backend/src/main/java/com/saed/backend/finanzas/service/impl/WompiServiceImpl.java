@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.saed.backend.finanzas.dto.PagoRequestDTO;
 import com.saed.backend.finanzas.service.FinanzasService;
 import com.saed.backend.finanzas.service.WompiService;
+import com.saed.backend.identity.service.TokenActivacionService;
 import com.saed.backend.common.service.EmailService;
 import com.saed.backend.context.SaedContext;
 import com.saed.backend.context.SaedContextHolder;
@@ -60,12 +61,18 @@ public class WompiServiceImpl implements WompiService {
     private final FinanzasService finanzasService;
     private final ObjectMapper mapper;
     private final EmailService emailService;
+    private final TokenActivacionService tokenActivacionService;
 
-    public WompiServiceImpl(NamedParameterJdbcTemplate jdbcTemplate, FinanzasService finanzasService, ObjectMapper mapper, EmailService emailService) {
+    public WompiServiceImpl(NamedParameterJdbcTemplate jdbcTemplate,
+                            FinanzasService finanzasService,
+                            ObjectMapper mapper,
+                            EmailService emailService,
+                            @org.springframework.context.annotation.Lazy TokenActivacionService tokenActivacionService) {
         this.jdbcTemplate = jdbcTemplate;
         this.finanzasService = finanzasService;
         this.mapper = mapper;
         this.emailService = emailService;
+        this.tokenActivacionService = tokenActivacionService;
     }
 
     public String getPublicKey() {
@@ -267,7 +274,7 @@ public class WompiServiceImpl implements WompiService {
 
             Map<String, Object> intencion = txs.get(0);
             Long idTransaccion = ((Number) intencion.get("ID_TRANSACCION")).longValue();
-            Long idUnidad = ((Number) intencion.get("ID_UNIDAD")).longValue();
+            Long idUnidad = intencion.get("ID_UNIDAD") != null ? ((Number) intencion.get("ID_UNIDAD")).longValue() : null;
             long expectedCentavos = ((Number) intencion.get("MONTO_CENTAVOS")).longValue();
 
             // 4. Validación exacta de monto en centavos
@@ -284,24 +291,33 @@ public class WompiServiceImpl implements WompiService {
 
             Long idPropiedad = null;
             Long idOrganizacion = null;
-            try {
-                List<Map<String, Object>> uProps = jdbcTemplate.queryForList(
-                    "SELECT u.ID_PROPIEDAD, p.ID_ORGANIZACION FROM UNIDADES u " +
-                    "JOIN PROPIEDADES p ON u.ID_PROPIEDAD = p.ID_PROPIEDAD WHERE u.ID_UNIDAD = :u",
-                    new MapSqlParameterSource("u", idUnidad)
-                );
-                if (!uProps.isEmpty()) {
-                    idPropiedad = ((Number) uProps.get(0).get("ID_PROPIEDAD")).longValue();
-                    idOrganizacion = ((Number) uProps.get(0).get("ID_ORGANIZACION")).longValue();
+            if (idUnidad != null) {
+                try {
+                    List<Map<String, Object>> uProps = jdbcTemplate.queryForList(
+                        "SELECT u.ID_PROPIEDAD, p.ID_ORGANIZACION FROM UNIDADES u " +
+                        "JOIN PROPIEDADES p ON u.ID_PROPIEDAD = p.ID_PROPIEDAD WHERE u.ID_UNIDAD = :u",
+                        new MapSqlParameterSource("u", idUnidad)
+                    );
+                    if (!uProps.isEmpty()) {
+                        idPropiedad = ((Number) uProps.get(0).get("ID_PROPIEDAD")).longValue();
+                        idOrganizacion = ((Number) uProps.get(0).get("ID_ORGANIZACION")).longValue();
+                    }
+                } catch (Exception ignored) {}
+            } else if (referencia.startsWith("SAED-MEMBRESIA-")) {
+                String[] parts = referencia.split("-");
+                if (parts.length >= 3) {
+                    try {
+                        idOrganizacion = Long.parseLong(parts[2]);
+                    } catch (Exception ignored) {}
                 }
-            } catch (Exception ignored) {}
+            }
 
-            if (idPropiedad != null && idOrganizacion != null) {
+            if (idOrganizacion != null) {
                 SaedContext tenantCtx = SaedContext.builder()
                     .userId(1L)
                     .organizationId(idOrganizacion)
-                    .propertyId(idPropiedad)
-                    .unitId(idUnidad)
+                    .propertyId(idPropiedad != null ? idPropiedad : 1L)
+                    .unitId(idUnidad != null ? idUnidad : 1L)
                     .roleCode("SUPERADMIN")
                     .roleScope("GLOBAL")
                     .build();
@@ -309,7 +325,7 @@ public class WompiServiceImpl implements WompiService {
                 try {
                     jdbcTemplate.getJdbcOperations().execute(String.format(
                         "BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1); PKG_SAED_SESSION.SET_CONTEXT(1, %d, %d, 'SUPERADMIN'); END;",
-                        idOrganizacion, idPropiedad
+                        idOrganizacion, idPropiedad != null ? idPropiedad : 1L
                     ));
                 } catch (Exception ignored) {}
             }
@@ -348,30 +364,77 @@ public class WompiServiceImpl implements WompiService {
                             "PASARELA_WOMPI",
                             referencia
                         ));
-                    } else if ("MULTA".equals(concepto) && idItem != null) {
+                    } else if ("MULTA".equals(concepto) && idItem != null && idUnidad != null) {
                         jdbcTemplate.update(
                             "UPDATE MULTAS SET ESTADO = 'PAGADA' WHERE ID_MULTA = :id AND ID_UNIDAD = :u",
                             new MapSqlParameterSource("id", idItem).addValue("u", idUnidad)
                         );
+                    } else if ("MEMBRESIA".equals(concepto) && idItem != null) {
+                        Long idOrg = idItem;
+                        jdbcTemplate.update(
+                            "UPDATE ORGANIZACIONES SET ESTADO = 'ACTIVA' WHERE ID_ORGANIZACION = :org",
+                            new MapSqlParameterSource("org", idOrg)
+                        );
+                        jdbcTemplate.update(
+                            "UPDATE MEMBRESIAS SET ESTADO = 'ACTIVA' WHERE ID_ORGANIZACION = :org AND (ESTADO = 'SUSPENDIDA' OR ESTADO = 'PENDIENTE')",
+                            new MapSqlParameterSource("org", idOrg)
+                        );
+
+                        // Buscar el usuario administrador principal de la organización
+                        List<Map<String, Object>> admins = jdbcTemplate.queryForList(
+                            "SELECT UA.ID_USUARIO, U.EMAIL " +
+                            "FROM USUARIO_ASIGNACIONES UA " +
+                            "JOIN USUARIOS U ON UA.ID_USUARIO = U.ID_USUARIO " +
+                            "JOIN ROLES R ON UA.ID_ROL = R.ID_ROL " +
+                            "WHERE UA.ID_ORGANIZACION = :org AND R.CODIGO = 'ADMIN_ORGANIZACION' AND UA.ESTADO = 'ACTIVO'",
+                            new MapSqlParameterSource("org", idOrg)
+                        );
+
+                        if (!admins.isEmpty()) {
+                            Long idAdmin = ((Number) admins.get(0).get("ID_USUARIO")).longValue();
+                            String emailAdmin = (String) admins.get(0).get("EMAIL");
+
+                            jdbcTemplate.update(
+                                "UPDATE USUARIOS SET ESTADO = 'ACTIVO' WHERE ID_USUARIO = :usr",
+                                new MapSqlParameterSource("usr", idAdmin)
+                            );
+
+                            if (tokenActivacionService != null) {
+                                try {
+                                    tokenActivacionService.generarYEnviarTokenActivacion(idAdmin, "WOMPI_WEBHOOK");
+                                    log.info("[Wompi] Token de activación generado y enviado al admin {} de la org {}", emailAdmin, idOrg);
+                                } catch (Exception exToken) {
+                                    log.error("[Wompi] Error al generar token de activación para admin {}", idAdmin, exToken);
+                                }
+                            }
+
+                            try {
+                                emailService.enviarReciboPago(emailAdmin, "MEMBRESIA_SAED", montoPesos, referencia, java.time.LocalDate.now().toString());
+                            } catch (Exception exEmail) {
+                                log.warn("[Wompi] Error enviando comprobante de membresía a {}", emailAdmin, exEmail);
+                            }
+                        }
                     }
                 } catch (Exception e) {
                     log.error("[Wompi] Error registrando pago aprobado", e);
                 }
 
-                // Recibo por correo
-                try {
-                    List<Map<String, Object>> residentes = jdbcTemplate.queryForList(
-                        "SELECT P.EMAIL FROM PERSONAS P " +
-                        "JOIN RESIDENTES_UNIDAD RU ON RU.ID_PERSONA = P.ID_PERSONA " +
-                        "WHERE RU.ID_UNIDAD = :u AND P.EMAIL IS NOT NULL",
-                        new MapSqlParameterSource("u", idUnidad)
-                    );
-                    if (!residentes.isEmpty()) {
-                        String destinatario = (String) residentes.get(0).get("EMAIL");
-                        emailService.enviarReciboPago(destinatario, concepto, montoPesos, referencia, java.time.LocalDate.now().toString());
+                // Recibo por correo para unidades residenciales
+                if (idUnidad != null && !"MEMBRESIA".equals(concepto)) {
+                    try {
+                        List<Map<String, Object>> residentes = jdbcTemplate.queryForList(
+                            "SELECT P.EMAIL FROM PERSONAS P " +
+                            "JOIN RESIDENTES_UNIDAD RU ON RU.ID_PERSONA = P.ID_PERSONA " +
+                            "WHERE RU.ID_UNIDAD = :u AND P.EMAIL IS NOT NULL",
+                            new MapSqlParameterSource("u", idUnidad)
+                        );
+                        if (!residentes.isEmpty()) {
+                            String destinatario = (String) residentes.get(0).get("EMAIL");
+                            emailService.enviarReciboPago(destinatario, concepto, montoPesos, referencia, java.time.LocalDate.now().toString());
+                        }
+                    } catch (Exception e) {
+                        log.error("[Wompi] Error enviando recibo de pago", e);
                     }
-                } catch (Exception e) {
-                    log.error("[Wompi] Error enviando recibo de pago", e);
                 }
             }
         } finally {

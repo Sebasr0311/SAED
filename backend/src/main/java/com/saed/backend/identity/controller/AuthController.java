@@ -63,5 +63,26 @@ public class AuthController {
         }
         return ResponseEntity.ok(Map.of("valid", true, "message", "Contraseña verificada con éxito"));
     }
+
+    @PostMapping("/verify-pin")
+    public ResponseEntity<Map<String, Object>> verifyPin(@RequestBody(required = false) Map<String, String> body) {
+        Long userId = SaedContextHolder.getContext().getUserId();
+        if (userId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("valid", false, "error", "Usuario no autenticado"));
+        }
+        String pin = body != null ? (body.get("pin") != null ? body.get("pin") : body.get("password")) : null;
+        if (pin == null || pin.isBlank()) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("valid", false, "error", "El PIN o clave de seguridad es requerido"));
+        }
+        // Valida el PIN de seguridad o la contraseña maestra del administrador
+        boolean valid = authService.verifyPassword(userId, pin);
+        if (!valid) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("valid", false, "error", "PIN o contraseña de seguridad incorrecta"));
+        }
+        return ResponseEntity.ok(Map.of("valid", true, "message", "PIN de seguridad verificado exitosamente"));
+    }
 }
 

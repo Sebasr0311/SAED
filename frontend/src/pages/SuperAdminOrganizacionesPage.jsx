@@ -25,6 +25,8 @@ export default function SuperAdminOrganizacionesPage() {
   const [submitting, setSubmitting] = useState(false);
   const [orgToDelete, setOrgToDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const [deletePin, setDeletePin] = useState('');
+  const [pinError, setPinError] = useState('');
 
   const INITIAL_FORM = {
     nombre: '',
@@ -146,11 +148,27 @@ export default function SuperAdminOrganizacionesPage() {
   async function handleDeleteOrg() {
     if (!orgToDelete) return;
     const orgId = orgToDelete.id || orgToDelete.idOrganizacion;
+    if (!deletePin || deletePin.trim().length < 4) {
+      setPinError('El PIN o clave de seguridad de administrador es requerido (mínimo 4 dígitos)');
+      return;
+    }
+
     try {
       setDeleting(true);
+      setPinError('');
+      await api.post('/auth/verify-pin', { pin: deletePin.trim() });
+    } catch {
+      setPinError('PIN o clave de seguridad incorrecta');
+      setDeleting(false);
+      return;
+    }
+
+    try {
       await api.delete(`/organizations/${orgId}`);
       toast.success(`Organización "${orgToDelete.nombre}" eliminada correctamente`);
       setOrgToDelete(null);
+      setDeletePin('');
+      setPinError('');
       loadData();
     } catch (err) {
       console.warn('DELETE directo falló, intentando desactivación lógica:', err);
@@ -158,6 +176,8 @@ export default function SuperAdminOrganizacionesPage() {
         await api.patch(`/organizations/${orgId}/status`, { estado: 'INACTIVA' });
         toast.success(`Organización "${orgToDelete.nombre}" inactivada (posee historial asociado)`);
         setOrgToDelete(null);
+        setDeletePin('');
+        setPinError('');
         loadData();
       } catch (patchErr) {
         console.error(patchErr);
@@ -423,14 +443,48 @@ export default function SuperAdminOrganizacionesPage() {
               <strong className="text-foreground">"{orgToDelete?.nombre}"</strong> (NIT: {orgToDelete?.identificacionFiscal || orgToDelete?.nit})?
             </DialogDescription>
           </DialogHeader>
+
+          <div className="py-2 space-y-2">
+            <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-xs text-amber-500">lock</span>
+              PIN o clave de seguridad requerida (Requisito #15):
+            </label>
+            <Input
+              type="password"
+              placeholder="Ingresa tu PIN o contraseña de administrador"
+              value={deletePin}
+              maxLength={20}
+              onChange={(e) => {
+                setDeletePin(e.target.value);
+                setPinError('');
+              }}
+              className="text-sm"
+              autoFocus
+            />
+            {pinError && (
+              <p className="text-xs text-rose-500 font-medium">{pinError}</p>
+            )}
+            <p className="text-[11px] text-muted-foreground">
+              Esta acción destructiva está protegida y será registrada de forma inmutable en la bitácora de auditoría.
+            </p>
+          </div>
+
           <DialogFooter className="gap-2 sm:gap-0 pt-2">
-            <Button variant="outline" onClick={() => setOrgToDelete(null)} disabled={deleting}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setOrgToDelete(null);
+                setDeletePin('');
+                setPinError('');
+              }}
+              disabled={deleting}
+            >
               Cancelar
             </Button>
             <Button
               variant="destructive"
               onClick={handleDeleteOrg}
-              disabled={deleting}
+              disabled={deleting || deletePin.trim().length < 4}
               className="bg-rose-600 hover:bg-rose-700 text-white"
             >
               {deleting ? 'Eliminando…' : 'Sí, eliminar'}

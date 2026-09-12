@@ -52,7 +52,7 @@ const PLANS = [
       'Directorio de unidades y copropietarios',
       'Aislamiento estricto de base de datos (RLS)',
     ],
-    ctaText: 'Solicitar cotización',
+    ctaText: 'Comenzar 14 días gratis',
   },
   {
     id: 'pro',
@@ -69,7 +69,7 @@ const PLANS = [
       'Emisión de estados de cuenta y paz y salvos',
       'Módulo de PQRS con trazabilidad de respuestas',
     ],
-    ctaText: 'Agendar demostración',
+    ctaText: 'Suscribir Plan Profesional',
   },
   {
     id: 'enterprise',
@@ -86,7 +86,7 @@ const PLANS = [
       'Exportación avanzada de auditoría y conciliación bancaria',
       'Acompañamiento y capacitación para personal de garita',
     ],
-    ctaText: 'Consultar corporativo',
+    ctaText: 'Suscribir Plan Empresarial',
   },
 ];
 
@@ -325,7 +325,7 @@ export default function LandingPricing() {
 
                 <div className="pt-8 mt-6 border-t border-slate-800/60">
                   <Link
-                    to="/login"
+                    to={`/registro-organizacion?plan=${plan.id === 'basic' ? 'FREE' : plan.id.toUpperCase()}&cycle=${billingCycle}`}
                     className={`w-full py-3.5 px-4 rounded-xl text-xs sm:text-sm font-bold text-center transition-all flex items-center justify-center gap-2 min-h-[48px] ${
                       isRecommended
                         ? 'bg-gradient-to-r from-cyan-400 to-sky-500 hover:from-cyan-300 hover:to-sky-400 text-slate-950 shadow-lg shadow-sky-950/50'

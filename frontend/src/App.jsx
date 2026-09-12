@@ -96,6 +96,7 @@ const DocumentosAdminPage = lazy(() => import('./pages/DocumentosAdminPage.jsx')
 const LandingPage = lazy(() => import('./pages/LandingPage.jsx'));
 const SuscripcionesPage = lazy(() => import('./pages/SuscripcionesPage.jsx'));
 const ActivarCuentaPage = lazy(() => import('./pages/ActivarCuentaPage.jsx'));
+const RegistroOrganizacionPage = lazy(() => import('./pages/RegistroOrganizacionPage.jsx'));
 
 import { useAuth } from './lib/AuthContext.jsx';
 
@@ -170,6 +171,22 @@ export default function App() {
             </Suspense>
           }
         />
+        <Route
+          path="/registro-organizacion"
+          element={
+            <Suspense
+              fallback={
+                <div className="min-h-screen bg-[#0A1628] flex items-center justify-center">
+                  <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                </div>
+              }
+            >
+              <RegistroOrganizacionPage />
+            </Suspense>
+          }
+        />
+        <Route path="/checkout-plan" element={<Navigate to="/registro-organizacion" replace />} />
+        <Route path="/onboarding" element={<Navigate to="/registro-organizacion" replace />} />
         <Route
           element={
             <ProtectedRoute>
