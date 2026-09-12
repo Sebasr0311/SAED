@@ -378,21 +378,38 @@ public class PublicOnboardingController {
     @Operation(summary = "Consultar estado de transacción de membresía")
     @GetMapping("/estado-pago")
     public ResponseEntity<ApiResponse<Map<String, Object>>> consultarEstadoPago(@RequestParam String referencia) {
-        String sql = """
-            SELECT ESTADO_PASARELA, MONTO_CENTAVOS, REFERENCIA_INTERNA, FECHA_REGISTRO
-            FROM TRANSACCIONES_PAGO
-            WHERE REFERENCIA_INTERNA = :ref
-            """;
-        List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql, new MapSqlParameterSource("ref", referencia));
-        if (rows.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error("Referencia de pago no encontrada"));
+        SaedContext prevCtx = SaedContextHolder.getContext();
+        try {
+            SaedContextHolder.setContext(SaedContext.builder()
+                    .userId(1L)
+                    .organizationId(1L)
+                    .propertyId(1L)
+                    .roleCode("SUPERADMIN")
+                    .roleScope("GLOBAL")
+                    .build());
+            try {
+                jdbcTemplate.getJdbcOperations().execute("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1); END;");
+                jdbcTemplate.getJdbcOperations().execute("BEGIN PKG_SAED_SESSION.SET_CONTEXT(1, 1, 1, 'SUPERADMIN'); END;");
+            } catch (Exception ignored) {}
+
+            String sql = """
+                SELECT ESTADO_PASARELA, MONTO_CENTAVOS, REFERENCIA_INTERNA, FECHA_REGISTRO
+                FROM TRANSACCIONES_PAGO
+                WHERE REFERENCIA_INTERNA = :ref
+                """;
+            List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql, new MapSqlParameterSource("ref", referencia));
+            if (rows.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error("Referencia de pago no encontrada"));
+            }
+            Map<String, Object> tx = rows.get(0);
+            return ResponseEntity.ok(ApiResponse.success(Map.of(
+                    "referencia", tx.get("REFERENCIA_INTERNA"),
+                    "estado", tx.get("ESTADO_PASARELA"),
+                    "montoCentavos", tx.get("MONTO_CENTAVOS")
+            )));
+        } finally {
+            SaedContextHolder.setContext(prevCtx);
         }
-        Map<String, Object> tx = rows.get(0);
-        return ResponseEntity.ok(ApiResponse.success(Map.of(
-                "referencia", tx.get("REFERENCIA_INTERNA"),
-                "estado", tx.get("ESTADO_PASARELA"),
-                "montoCentavos", tx.get("MONTO_CENTAVOS")
-        )));
     }
 
     private String getPublicKey() {
