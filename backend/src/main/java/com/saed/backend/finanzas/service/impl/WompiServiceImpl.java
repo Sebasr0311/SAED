@@ -63,19 +63,22 @@ public class WompiServiceImpl implements WompiService {
     private final EmailService emailService;
     private final TokenActivacionService tokenActivacionService;
     private final org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
+    private final com.saed.backend.platform.service.OnboardingService onboardingService;
 
     public WompiServiceImpl(NamedParameterJdbcTemplate jdbcTemplate,
                             FinanzasService finanzasService,
                             ObjectMapper mapper,
                             EmailService emailService,
                             @org.springframework.context.annotation.Lazy TokenActivacionService tokenActivacionService,
-                            org.springframework.security.crypto.password.PasswordEncoder passwordEncoder) {
+                            org.springframework.security.crypto.password.PasswordEncoder passwordEncoder,
+                            @org.springframework.context.annotation.Lazy com.saed.backend.platform.service.OnboardingService onboardingService) {
         this.jdbcTemplate = jdbcTemplate;
         this.finanzasService = finanzasService;
         this.mapper = mapper;
         this.emailService = emailService;
         this.tokenActivacionService = tokenActivacionService;
         this.passwordEncoder = passwordEncoder;
+        this.onboardingService = onboardingService;
     }
 
     public String getPublicKey() {
@@ -356,7 +359,10 @@ public class WompiServiceImpl implements WompiService {
                 // Extraer concepto e idItem desde la referencia "SAED-<CONCEPTO>-<ID>-<TIMESTAMP>"
                 String[] refParts = referencia.split("-");
                 String concepto = refParts.length >= 2 ? refParts[1] : "CUOTA";
-                Long idItem = refParts.length >= 3 ? Long.parseLong(refParts[2]) : null;
+                Long idItem = null;
+                try {
+                    idItem = refParts.length >= 3 ? Long.parseLong(refParts[2]) : null;
+                } catch (NumberFormatException ignored) {}
 
                 try {
                     if ("CUOTA".equals(concepto) && idItem != null) {
@@ -434,6 +440,8 @@ public class WompiServiceImpl implements WompiService {
                                 log.warn("[Wompi] Error enviando comprobante de membresía a {}", emailAdmin, exEmail);
                             }
                         }
+                    } else if ("ONBOARDING".equals(concepto) || referencia.contains("-ONB-")) {
+                        onboardingService.materializarOrganizacion(referencia, expectedCentavos, idWompi);
                     }
                 } catch (Exception e) {
                     log.error("[Wompi] Error registrando pago aprobado", e);
