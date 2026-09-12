@@ -43,7 +43,10 @@ import { Button } from '../components/ui/button.tsx';
 import { Input } from '../components/ui/input.tsx';
 import { Label } from '../components/ui/label.tsx';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '../components/ui/card.tsx';
+import { Badge } from '../components/ui/badge.tsx';
+import { Separator } from '../components/ui/separator.tsx';
 import { toast } from 'sonner';
+import { animate } from 'animejs';
 
 const FALLBACK_PLANES = [
   {
@@ -143,6 +146,67 @@ export default function RegistroOrganizacionPage() {
   const [pagoAprobado, setPagoAprobado] = useState(false);
   const [pollingPago, setPollingPago] = useState(false);
   const pollingRef = useRef(null);
+
+  // Animation references & micro-interactions (Anime.js v4)
+  const stepContainerRef = useRef(null);
+
+  // Microanimación de entrada al cambiar de paso
+  useEffect(() => {
+    if (stepContainerRef.current) {
+      try {
+        animate(stepContainerRef.current, {
+          opacity: [0, 1],
+          translateY: [12, 0],
+          duration: 350,
+          ease: 'outCubic',
+        });
+      } catch (e) {}
+    }
+  }, [step]);
+
+  // Microanimación de cambio de precio al alternar ciclo de facturación
+  useEffect(() => {
+    try {
+      const priceElements = document.querySelectorAll('.price-tag-anim');
+      if (priceElements && priceElements.length > 0) {
+        animate(priceElements, {
+          scale: [0.94, 1.04, 1],
+          opacity: [0.75, 1],
+          duration: 300,
+          ease: 'outQuad',
+        });
+      }
+    } catch (e) {}
+  }, [billingCycle]);
+
+  // Micro-interacción elástica al seleccionar tarjeta de plan
+  const handleSelectPlan = (planId, e) => {
+    setSelectedPlanId(planId);
+    if (e?.currentTarget) {
+      try {
+        animate(e.currentTarget, {
+          scale: [0.98, 1.015, 1],
+          duration: 250,
+          ease: 'outBack',
+        });
+      } catch (err) {}
+    }
+  };
+
+  // Micro-interacción al seleccionar modalidad de registro
+  const handleSelectTipoRegistro = (tipo, e) => {
+    setTipoRegistro(tipo);
+    setOrgForm((prev) => ({ ...prev, tipoPersona: tipo }));
+    if (e?.currentTarget) {
+      try {
+        animate(e.currentTarget, {
+          scale: [0.98, 1.015, 1],
+          duration: 250,
+          ease: 'outBack',
+        });
+      } catch (err) {}
+    }
+  };
 
   // 1. Fetch available plans
   useEffect(() => {
@@ -341,7 +405,7 @@ export default function RegistroOrganizacionPage() {
     const isErr = touched[touchedKey] && !!errorMsg;
     return `bg-slate-950 text-white rounded-xl text-xs py-3 transition-colors ${
       isErr
-        ? 'border-rose-500 focus:border-rose-400 focus:ring-1 focus:ring-rose-500/30'
+        ? 'border-rose-500 focus:border-rose-400 focus:ring-1 focus:ring-rose-500/30 field-error-shake'
         : 'border-slate-800 focus:border-cyan-400'
     }`;
   };
@@ -367,6 +431,20 @@ export default function RegistroOrganizacionPage() {
       setTouched((prev) => ({ ...prev, ...allTouched }));
       const firstError = Object.values(errs)[0];
       toast.error(firstError);
+
+      // Microanimación de sacudida (shake) en campos con error
+      setTimeout(() => {
+        try {
+          const errInputs = document.querySelectorAll('.field-error-shake');
+          if (errInputs && errInputs.length > 0) {
+            animate(errInputs, {
+              translateX: [-5, 5, -4, 4, -2, 2, 0],
+              duration: 340,
+              ease: 'inOutQuad',
+            });
+          }
+        } catch (e) {}
+      }, 50);
       return;
     }
 
@@ -419,6 +497,20 @@ export default function RegistroOrganizacionPage() {
       setTouched((prev) => ({ ...prev, ...allAdminTouched }));
       const firstError = Object.values(adminErrs)[0];
       toast.error(firstError);
+
+      // Microanimación de sacudida (shake) en campos con error
+      setTimeout(() => {
+        try {
+          const errInputs = document.querySelectorAll('.field-error-shake');
+          if (errInputs && errInputs.length > 0) {
+            animate(errInputs, {
+              translateX: [-5, 5, -4, 4, -2, 2, 0],
+              duration: 340,
+              ease: 'inOutQuad',
+            });
+          }
+        } catch (e) {}
+      }, 50);
       return;
     }
 
@@ -585,6 +677,7 @@ export default function RegistroOrganizacionPage() {
           </div>
         </div>
 
+        <div ref={stepContainerRef} key={step}>
         {/* ========================================================================= */}
         {/* PASO 1: Selección de Plan y Ciclo */}
         {/* ========================================================================= */}
@@ -623,9 +716,9 @@ export default function RegistroOrganizacionPage() {
                   }`}
                 >
                   <span>Facturación Anual</span>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  <Badge variant="success" className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30 text-[10px] font-black tracking-wide">
                     -20% DCTO
-                  </span>
+                  </Badge>
                 </button>
               </div>
             </div>
@@ -650,7 +743,7 @@ export default function RegistroOrganizacionPage() {
                   return (
                     <div
                       key={plan.idPlan}
-                      onClick={() => setSelectedPlanId(plan.idPlan)}
+                      onClick={(e) => handleSelectPlan(plan.idPlan, e)}
                       className={`relative rounded-3xl p-6 transition-all cursor-pointer border flex flex-col justify-between ${
                         isSelected
                           ? 'bg-slate-900/90 border-cyan-400 ring-2 ring-cyan-400/40 shadow-2xl shadow-cyan-950/40'
@@ -658,9 +751,9 @@ export default function RegistroOrganizacionPage() {
                       }`}
                     >
                       {plan.codigo === 'PRO' && (
-                        <div className="absolute -top-3 right-6 px-3 py-1 rounded-full bg-cyan-500 text-slate-950 text-[10px] font-black uppercase tracking-wider shadow-md">
+                        <Badge className="absolute -top-3 right-6 bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-[10px] font-black uppercase tracking-wider shadow-md">
                           Recomendado
-                        </div>
+                        </Badge>
                       )}
 
                       <div className="space-y-4">
@@ -674,9 +767,9 @@ export default function RegistroOrganizacionPage() {
                               <Building2 className="w-5 h-5" />
                             )}
                           </div>
-                          <span className="text-xs font-mono font-bold text-slate-400 uppercase">
+                          <Badge variant="outline" className="text-xs font-mono font-bold text-slate-400 border-slate-700 uppercase">
                             {plan.codigo}
-                          </span>
+                          </Badge>
                         </div>
 
                         <div>
@@ -688,8 +781,8 @@ export default function RegistroOrganizacionPage() {
                           </p>
                         </div>
 
-                        {/* Price Tag */}
-                        <div className="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800/80">
+                        {/* Price Tag with Micro-animation */}
+                        <div className="price-tag-anim p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800/80 transition-all">
                           {isCommercial ? (
                             <div>
                               <div className="flex items-baseline gap-1">
@@ -716,8 +809,9 @@ export default function RegistroOrganizacionPage() {
                           )}
                         </div>
 
-                        {/* Límites */}
-                        <div className="space-y-2 text-xs text-slate-300 pt-2 border-t border-slate-800">
+                        {/* Límites con Separador shadcn/ui */}
+                        <Separator className="bg-slate-800/80 my-1" />
+                        <div className="space-y-2 text-xs text-slate-300">
                           <div className="flex justify-between">
                             <span className="text-slate-400">Propiedades:</span>
                             <span className="font-semibold text-white font-mono">
@@ -798,10 +892,7 @@ export default function RegistroOrganizacionPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <button
                 type="button"
-                onClick={() => {
-                  setTipoRegistro('JURIDICA');
-                  setOrgForm((prev) => ({ ...prev, tipoPersona: 'JURIDICA' }));
-                }}
+                onClick={(e) => handleSelectTipoRegistro('JURIDICA', e)}
                 className={`p-4 rounded-2xl border text-left transition-all flex items-start gap-3.5 ${
                   tipoRegistro === 'JURIDICA'
                     ? 'bg-cyan-950/40 border-cyan-400 ring-1 ring-cyan-400/40 shadow-lg shadow-cyan-950/30'
@@ -815,14 +906,14 @@ export default function RegistroOrganizacionPage() {
                 >
                   <Building2 className="w-5 h-5" />
                 </div>
-                <div className="space-y-0.5">
-                  <div className="flex items-center gap-2">
+                <div className="space-y-1 w-full">
+                  <div className="flex items-center justify-between">
                     <span className={`text-xs font-bold ${tipoRegistro === 'JURIDICA' ? 'text-white' : 'text-slate-300'}`}>
                       Empresa / Persona Jurídica
                     </span>
-                    {tipoRegistro === 'JURIDICA' && (
-                      <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-                    )}
+                    <Badge variant="outline" className="text-[10px] text-cyan-400 border-cyan-500/30">
+                      Requiere NIT
+                    </Badge>
                   </div>
                   <p className="text-[11px] text-slate-400 leading-snug">
                     Inmobiliaria, Constructora o Administración PH con NIT.
@@ -832,10 +923,7 @@ export default function RegistroOrganizacionPage() {
 
               <button
                 type="button"
-                onClick={() => {
-                  setTipoRegistro('NATURAL');
-                  setOrgForm((prev) => ({ ...prev, tipoPersona: 'NATURAL' }));
-                }}
+                onClick={(e) => handleSelectTipoRegistro('NATURAL', e)}
                 className={`p-4 rounded-2xl border text-left transition-all flex items-start gap-3.5 ${
                   tipoRegistro === 'NATURAL'
                     ? 'bg-cyan-950/40 border-cyan-400 ring-1 ring-cyan-400/40 shadow-lg shadow-cyan-950/30'
@@ -849,14 +937,14 @@ export default function RegistroOrganizacionPage() {
                 >
                   <User className="w-5 h-5" />
                 </div>
-                <div className="space-y-0.5">
-                  <div className="flex items-center gap-2">
+                <div className="space-y-1 w-full">
+                  <div className="flex items-center justify-between">
                     <span className={`text-xs font-bold ${tipoRegistro === 'NATURAL' ? 'text-white' : 'text-slate-300'}`}>
-                      Persona Natural (Propietario / Dueño)
+                      Persona Natural (Dueño / Propietario)
                     </span>
-                    {tipoRegistro === 'NATURAL' && (
-                      <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-                    )}
+                    <Badge variant="outline" className="text-[10px] text-cyan-400 border-cyan-500/30">
+                      Cédula CC / CE
+                    </Badge>
                   </div>
                   <p className="text-[11px] text-slate-400 leading-snug">
                     Propietario particular o titular de edificio / copropiedad.
@@ -1182,11 +1270,17 @@ export default function RegistroOrganizacionPage() {
               )}
 
               {/* Ubicación Territorial Colombiana en Cascada (Común a ambos) */}
-              <div className="pt-2 border-t border-slate-800 space-y-3">
-                <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
-                  <MapPin className="w-3.5 h-3.5 text-cyan-400" />
-                  Ubicación Territorial (Colombia)
-                </span>
+              <Separator className="bg-slate-800/80 my-3" />
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5 text-cyan-400" />
+                    Ubicación Territorial (Colombia)
+                  </span>
+                  <Badge variant="outline" className="text-[10px] text-slate-400 border-slate-800 font-mono">
+                    32 Dptos + D.C.
+                  </Badge>
+                </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
@@ -1304,9 +1398,14 @@ export default function RegistroOrganizacionPage() {
             {tipoRegistro === 'NATURAL' && esMismoAdmin && (
               <div className="p-3.5 rounded-2xl bg-emerald-950/30 border border-emerald-800/40 text-xs text-emerald-300 flex items-start gap-2.5 animate-in fade-in duration-200">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                <div>
-                  <p className="font-semibold text-emerald-200">Datos personales transferidos de tu registro de propietario</p>
-                  <p className="text-emerald-300/80 text-[11px] mt-0.5">
+                <div className="space-y-1 w-full">
+                  <div className="flex items-center justify-between">
+                    <p className="font-semibold text-emerald-200">Datos personales transferidos de tu registro de propietario</p>
+                    <Badge variant="success" className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30 text-[10px] font-medium">
+                      Auto-transferido
+                    </Badge>
+                  </div>
+                  <p className="text-emerald-300/80 text-[11px]">
                     Hemos precargado tus datos. Por favor define tu <strong>nombre de usuario único</strong> para iniciar sesión en SAED.
                   </p>
                 </div>
@@ -1527,14 +1626,16 @@ export default function RegistroOrganizacionPage() {
               <div className="mt-4 p-4 rounded-2xl bg-slate-950/80 border border-slate-800 flex items-center justify-between">
                 <div>
                   <span className="text-[11px] text-slate-400">Plan Seleccionado:</span>
-                  <div className="text-sm font-bold text-white flex items-center gap-2">
+                  <div className="text-sm font-bold text-white flex items-center gap-2 mt-0.5">
                     <span>{currentPlan?.nombre}</span>
-                    <span className="text-[10px] text-cyan-400 font-mono">({billingCycle})</span>
+                    <Badge variant="outline" className="text-[10px] text-cyan-400 border-cyan-500/30 font-mono uppercase">
+                      {billingCycle}
+                    </Badge>
                   </div>
                 </div>
                 <div className="text-right">
                   <span className="text-[11px] text-slate-400">Total Inversión:</span>
-                  <div className="text-base font-black font-mono text-cyan-400">
+                  <div className="price-tag-anim text-base font-black font-mono text-cyan-400">
                     {pricing.totalPesos > 0 ? `$${pricing.totalPesos.toLocaleString('es-CO')} COP` : 'GRATIS (14 días)'}
                   </div>
                 </div>
@@ -1742,6 +1843,7 @@ export default function RegistroOrganizacionPage() {
             )}
           </div>
         )}
+        </div>
       </main>
     </div>
   );
