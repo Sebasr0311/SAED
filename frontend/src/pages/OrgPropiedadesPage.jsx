@@ -4,7 +4,10 @@ import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card.
 import { Badge } from '../components/ui/badge.tsx';
 import { Skeleton } from '../components/ui/skeleton.tsx';
 import { Button } from '../components/ui/button.tsx';
-import { Home, Plus, Search, MapPin, Building, AlertCircle, CheckCircle2, Power, Eye } from 'lucide-react';
+import {
+  Home, Plus, Search, MapPin, Building, AlertCircle, CheckCircle2, Power, Eye,
+  Trash2, ShieldAlert, KeyRound, Clock, AlertTriangle, RefreshCw, Check
+} from 'lucide-react';
 import LocationSelector from '../components/ui/LocationSelector';
 
 export default function OrgPropiedadesPage() {
@@ -16,6 +19,19 @@ export default function OrgPropiedadesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [statusConfirmProp, setStatusConfirmProp] = useState(null);
+
+  // Secure Deletion states (P1-01)
+  const [deleteModalProp, setDeleteModalProp] = useState(null);
+  const [deletePhase, setDeletePhase] = useState('INIT'); // 'INIT' | 'OTP' | 'CONFIRM' | 'SUCCESS'
+  const [deleteChallenge, setDeleteChallenge] = useState(null);
+  const [otpCode, setOtpCode] = useState('');
+  const [otpAttemptsLeft, setOtpAttemptsLeft] = useState(5);
+  const [deleteCountdown, setDeleteCountdown] = useState(300);
+  const [confirmPhraseInput, setConfirmPhraseInput] = useState('');
+  const [expectedConfirmPhrase, setExpectedConfirmPhrase] = useState('');
+  const [confirmChecked, setConfirmChecked] = useState(false);
+  const [deleteActionLoading, setDeleteActionLoading] = useState(false);
+  const [deleteModalError, setDeleteModalError] = useState(null);
 
   // Modal create state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -113,6 +129,142 @@ export default function OrgPropiedadesPage() {
     } catch (err) {
       console.error('Error updating property status:', err);
       setError('No se pudo cambiar el estado de la propiedad.');
+    }
+  }
+
+  // Secure Deletion Timer Effect
+  useEffect(() => {
+    let interval = null;
+    if (deleteModalProp && (deletePhase === 'OTP' || deletePhase === 'CONFIRM') && deleteCountdown > 0) {
+      interval = setInterval(() => {
+        setDeleteCountdown((prev) => {
+          if (prev <= 1) {
+            clearInterval(interval);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [deleteModalProp, deletePhase, deleteCountdown]);
+
+  function openDeleteModal(prop) {
+    setDeleteModalProp(prop);
+    setDeletePhase('INIT');
+    setDeleteChallenge(null);
+    setOtpCode('');
+    setOtpAttemptsLeft(5);
+    setDeleteCountdown(300);
+    setConfirmPhraseInput('');
+    setExpectedConfirmPhrase('');
+    setConfirmChecked(false);
+    setDeleteActionLoading(false);
+    setDeleteModalError(null);
+  }
+
+  function closeDeleteModal() {
+    setDeleteModalProp(null);
+    setDeletePhase('INIT');
+    setDeleteChallenge(null);
+    setOtpCode('');
+    setConfirmPhraseInput('');
+    setExpectedConfirmPhrase('');
+    setConfirmChecked(false);
+    setDeleteActionLoading(false);
+    setDeleteModalError(null);
+  }
+
+  function formatTime(seconds) {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  }
+
+  async function handleRequestDeletionOtp() {
+    if (!deleteModalProp) return;
+    try {
+      setDeleteActionLoading(true);
+      setDeleteModalError(null);
+      const res = await api.post(`/properties/${deleteModalProp.id}/deletion/request`);
+      const data = res?.data || res;
+      setDeleteChallenge(data);
+      setOtpAttemptsLeft(data?.maxAttempts ?? 5);
+      setDeleteCountdown(data?.expiresInSeconds ?? 300);
+      setDeletePhase('OTP');
+    } catch (err) {
+      console.error('Error requesting deletion OTP:', err);
+      const msg = err?.response?.data?.message || err?.message || 'Error al solicitar el código de seguridad OTP.';
+      setDeleteModalError(msg);
+    } finally {
+      setDeleteActionLoading(false);
+    }
+  }
+
+  async function handleVerifyDeletionOtp(e) {
+    if (e) e.preventDefault();
+    if (!deleteModalProp || !deleteChallenge || !otpCode.trim()) return;
+    try {
+      setDeleteActionLoading(true);
+      setDeleteModalError(null);
+      const res = await api.post(`/properties/${deleteModalProp.id}/deletion/verify`, {
+        challengeId: deleteChallenge.challengeId,
+        code: otpCode.trim(),
+      });
+      const data = res?.data || res;
+      if (data?.verified) {
+        setExpectedConfirmPhrase(data?.confirmationPhrase || `ELIMINAR DEFINITIVAMENTE ${deleteModalProp.nombre.toUpperCase()}`);
+        setDeletePhase('CONFIRM');
+      } else {
+        setOtpAttemptsLeft(data?.remainingAttempts ?? (otpAttemptsLeft - 1));
+        setDeleteModalError(data?.message || 'Código incorrecto. Verifíquelo e intente de nuevo.');
+      }
+    } catch (err) {
+      console.error('Error verifying deletion OTP:', err);
+      const data = err?.response?.data;
+      if (data?.remainingAttempts !== undefined) {
+        setOtpAttemptsLeft(data.remainingAttempts);
+      }
+      setDeleteModalError(data?.message || err?.message || 'Error al verificar el código OTP.');
+    } finally {
+      setDeleteActionLoading(false);
+    }
+  }
+
+  async function handleConfirmFinalDeletion(e) {
+    if (e) e.preventDefault();
+    if (!deleteModalProp || !deleteChallenge) return;
+    if (confirmPhraseInput.trim().toUpperCase() !== expectedConfirmPhrase.trim().toUpperCase()) {
+      setDeleteModalError('La frase de confirmación no coincide exactamente.');
+      return;
+    }
+    if (!confirmChecked) {
+      setDeleteModalError('Debe marcar la casilla de confirmación para continuar.');
+      return;
+    }
+    try {
+      setDeleteActionLoading(true);
+      setDeleteModalError(null);
+      await api.post(`/properties/${deleteModalProp.id}/deletion/confirm`, {
+        challengeId: deleteChallenge.challengeId,
+        confirmationPhrase: confirmPhraseInput.trim(),
+        understandIrreversible: true,
+      });
+      setDeletePhase('SUCCESS');
+      setSuccessMsg(`La copropiedad "${deleteModalProp.nombre}" ha sido eliminada permanentemente del sistema.`);
+      await loadData();
+      setTimeout(() => {
+        closeDeleteModal();
+        setTimeout(() => setSuccessMsg(null), 5000);
+      }, 2500);
+    } catch (err) {
+      console.error('Error confirming deletion:', err);
+      const msg = err?.response?.data?.message || err?.message || 'Error al ejecutar la eliminación destructiva.';
+      setDeleteModalError(msg);
+    } finally {
+      setDeleteActionLoading(false);
     }
   }
 
@@ -267,15 +419,27 @@ export default function OrgPropiedadesPage() {
                 <span className="text-[11px] font-mono text-muted-foreground">
                   ID: #{prop.id}
                 </span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleToggleStatus(prop)}
-                  className="text-xs gap-1"
-                >
-                  <Power className="w-3.5 h-3.5" />
-                  <span>{prop.estado === 'ACTIVA' ? 'Desactivar' : 'Activar'}</span>
-                </Button>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleToggleStatus(prop)}
+                    className="text-xs gap-1"
+                  >
+                    <Power className="w-3.5 h-3.5" />
+                    <span>{prop.estado === 'ACTIVA' ? 'Desactivar' : 'Activar'}</span>
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => openDeleteModal(prop)}
+                    className="text-xs gap-1 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    title="Eliminación segura con PIN/OTP"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Eliminar</span>
+                  </Button>
+                </div>
               </div>
             </Card>
           ))
@@ -422,6 +586,320 @@ export default function OrgPropiedadesPage() {
                   Confirmar Suspensión
                 </Button>
               </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Secure Property Deletion Modal with OTP Challenge (P1-01) */}
+      {deleteModalProp && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
+          <Card className="w-full max-w-lg bg-background border-destructive/40 shadow-2xl overflow-hidden">
+            {/* Modal Header */}
+            <CardHeader className="border-b border-border bg-destructive/5 pb-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-full bg-destructive/15 flex items-center justify-center text-destructive">
+                    {deletePhase === 'INIT' && <ShieldAlert className="w-5 h-5" />}
+                    {deletePhase === 'OTP' && <KeyRound className="w-5 h-5" />}
+                    {deletePhase === 'CONFIRM' && <AlertTriangle className="w-5 h-5" />}
+                    {deletePhase === 'SUCCESS' && <CheckCircle2 className="w-5 h-5 text-emerald-500" />}
+                  </div>
+                  <div>
+                    <CardTitle className="text-base font-bold text-foreground">
+                      {deletePhase === 'INIT' && 'Eliminación Segura de Copropiedad'}
+                      {deletePhase === 'OTP' && 'Verificación de Seguridad (OTP)'}
+                      {deletePhase === 'CONFIRM' && 'Confirmación Definitiva de Destrucción'}
+                      {deletePhase === 'SUCCESS' && 'Copropiedad Eliminada'}
+                    </CardTitle>
+                    <p className="text-xs text-muted-foreground">
+                      {deleteModalProp.nombre} • ID #{deleteModalProp.id}
+                    </p>
+                  </div>
+                </div>
+
+                {deletePhase !== 'SUCCESS' && (
+                  <Badge variant="outline" className="text-[10px] font-mono border-destructive/30 text-destructive bg-destructive/10">
+                    {deletePhase === 'INIT' && 'Paso 1 de 3'}
+                    {deletePhase === 'OTP' && 'Paso 2 de 3'}
+                    {deletePhase === 'CONFIRM' && 'Paso 3 de 3'}
+                  </Badge>
+                )}
+              </div>
+            </CardHeader>
+
+            <CardContent className="pt-5 space-y-4">
+              {/* Error banner */}
+              {deleteModalError && (
+                <div className="bg-destructive/15 border border-destructive text-destructive px-3 py-2.5 rounded-lg text-xs flex items-start gap-2 animate-fadeIn">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                  <span className="flex-1 font-medium">{deleteModalError}</span>
+                </div>
+              )}
+
+              {/* PHASE 1: INITIAL WARNING */}
+              {deletePhase === 'INIT' && (
+                <div className="space-y-4 text-xs">
+                  <div className="p-3.5 rounded-lg bg-destructive/10 border border-destructive/25 text-destructive space-y-2">
+                    <div className="font-semibold text-sm flex items-center gap-1.5">
+                      <AlertTriangle className="w-4 h-4 shrink-0" />
+                      Acción Crítica e Irreversible
+                    </div>
+                    <p className="text-[12px] leading-relaxed text-destructive/90">
+                      La eliminación de una copropiedad destruirá en cascada todos sus datos asociados. Esta acción no se puede deshacer.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2 text-muted-foreground text-xs">
+                    <p className="font-semibold text-foreground">Elementos que serán eliminados de la base de datos:</p>
+                    <ul className="grid grid-cols-2 gap-1.5 list-disc list-inside text-[11px]">
+                      <li>Unidades residenciales</li>
+                      <li>Asignaciones y residentes</li>
+                      <li>Historial de pagos y cuotas</li>
+                      <li>PQRS y quejas</li>
+                      <li>Registro de paquetes</li>
+                      <li>Visitas y códigos QR</li>
+                      <li>Asambleas y votos</li>
+                      <li>Pólizas y mantenimientos</li>
+                    </ul>
+                  </div>
+
+                  <div className="p-3 rounded-lg bg-muted border border-border text-[11px] text-muted-foreground space-y-1">
+                    <div className="font-semibold text-foreground flex items-center gap-1.5">
+                      <KeyRound className="w-3.5 h-3.5 text-primary" />
+                      Protocolo de Seguridad SAED:
+                    </div>
+                    <p>
+                      Para proceder, el sistema enviará un código de verificación de 6 dígitos (OTP) al correo del Administrador de la Organización.
+                    </p>
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-3 border-t border-border">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={closeDeleteModal}
+                      disabled={deleteActionLoading}
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      onClick={handleRequestDeletionOtp}
+                      disabled={deleteActionLoading}
+                      className="gap-1.5"
+                    >
+                      {deleteActionLoading ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          <span>Generando desafío...</span>
+                        </>
+                      ) : (
+                        <>
+                          <KeyRound className="w-3.5 h-3.5" />
+                          <span>Solicitar Código de Seguridad (OTP)</span>
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* PHASE 2: OTP VERIFICATION */}
+              {deletePhase === 'OTP' && (
+                <form onSubmit={handleVerifyDeletionOtp} className="space-y-4 text-xs">
+                  <div className="text-center space-y-1.5">
+                    <p className="text-muted-foreground">
+                      Hemos enviado un código PIN/OTP de 6 dígitos a su correo institucional:
+                    </p>
+                    <div className="inline-block font-mono font-bold text-foreground text-sm bg-muted px-3 py-1 rounded border border-border">
+                      {deleteChallenge?.maskedEmail || 'su correo registrado'}
+                    </div>
+                  </div>
+
+                  {/* Timer and attempts */}
+                  <div className="flex items-center justify-between px-2 py-1.5 rounded bg-muted/60 text-[11px] text-muted-foreground">
+                    <div className="flex items-center gap-1">
+                      <Clock className="w-3.5 h-3.5" />
+                      <span>Válido por:</span>
+                      <span className={`font-mono font-bold ${deleteCountdown < 60 ? 'text-destructive animate-pulse' : 'text-foreground'}`}>
+                        {formatTime(deleteCountdown)}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span>Intentos restantes:</span>
+                      <Badge variant={otpAttemptsLeft <= 2 ? 'destructive' : 'secondary'} className="text-[10px] px-1.5 py-0">
+                        {otpAttemptsLeft}
+                      </Badge>
+                    </div>
+                  </div>
+
+                  {/* OTP Input */}
+                  <div className="space-y-1 text-center">
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Ingrese el Código de 6 Dígitos
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      autoFocus
+                      maxLength={6}
+                      placeholder="• • • • • •"
+                      value={otpCode}
+                      onChange={(e) => setOtpCode(e.target.value.replace(/[^a-zA-Z0-9]/g, '').slice(0, 6))}
+                      className="w-48 mx-auto block text-center font-mono text-2xl font-bold tracking-[0.35em] px-3 py-2 border-2 border-primary/40 rounded-lg bg-background text-foreground focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 uppercase"
+                    />
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      Revise su bandeja de entrada o spam.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-3 border-t border-border">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleRequestDeletionOtp}
+                      disabled={deleteActionLoading || deleteCountdown > 240}
+                      className="text-xs text-muted-foreground gap-1"
+                      title={deleteCountdown > 240 ? 'Espere 60 segundos para reenviar' : 'Reenviar código OTP'}
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${deleteActionLoading ? 'animate-spin' : ''}`} />
+                      <span>Reenviar Código</span>
+                    </Button>
+
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={closeDeleteModal}
+                        disabled={deleteActionLoading}
+                      >
+                        Cancelar
+                      </Button>
+                      <Button
+                        type="submit"
+                        variant="default"
+                        size="sm"
+                        disabled={deleteActionLoading || otpCode.trim().length < 6 || deleteCountdown === 0 || otpAttemptsLeft === 0}
+                        className="gap-1.5"
+                      >
+                        {deleteActionLoading ? (
+                          <>
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                            <span>Validando...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Check className="w-3.5 h-3.5" />
+                            <span>Verificar Código</span>
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                </form>
+              )}
+
+              {/* PHASE 3: SECOND CONFIRMATION */}
+              {deletePhase === 'CONFIRM' && (
+                <form onSubmit={handleConfirmFinalDeletion} className="space-y-4 text-xs">
+                  <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                    <span className="font-medium">Identidad confirmada mediante OTP por correo.</span>
+                  </div>
+
+                  <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-xs space-y-1">
+                    <p className="font-bold">Propiedad a destruir definitivamente:</p>
+                    <p className="font-mono text-sm">{deleteModalProp.nombre} (ID: #{deleteModalProp.id})</p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="block text-[11px] font-semibold text-foreground">
+                      Para confirmar la destrucción final, escriba exactamente la siguiente frase:
+                    </label>
+                    <div className="p-2 rounded bg-muted border border-border font-mono font-bold text-center text-destructive text-xs select-all">
+                      {expectedConfirmPhrase}
+                    </div>
+                    <input
+                      type="text"
+                      autoFocus
+                      placeholder={expectedConfirmPhrase}
+                      value={confirmPhraseInput}
+                      onChange={(e) => setConfirmPhraseInput(e.target.value)}
+                      className="w-full px-3 py-2 border border-input rounded-lg bg-background text-sm font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-destructive"
+                    />
+                  </div>
+
+                  <label className="flex items-start gap-2.5 p-2.5 rounded-lg border border-destructive/30 bg-destructive/5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={confirmChecked}
+                      onChange={(e) => setConfirmChecked(e.target.checked)}
+                      className="mt-0.5 rounded border-destructive text-destructive focus:ring-destructive"
+                    />
+                    <span className="text-[11px] text-foreground font-medium leading-tight">
+                      Confirmo expresamente que deseo destruir esta propiedad, sus unidades y todos los datos asociados de forma definitiva. Entiendo que esta operación es irreversible.
+                    </span>
+                  </label>
+
+                  <div className="flex justify-end gap-2 pt-3 border-t border-border">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={closeDeleteModal}
+                      disabled={deleteActionLoading}
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      type="submit"
+                      variant="destructive"
+                      size="sm"
+                      disabled={
+                        deleteActionLoading ||
+                        !confirmChecked ||
+                        confirmPhraseInput.trim().toUpperCase() !== expectedConfirmPhrase.trim().toUpperCase()
+                      }
+                      className="gap-1.5"
+                    >
+                      {deleteActionLoading ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          <span>Destruyendo copropiedad...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Eliminar Definitivamente</span>
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </form>
+              )}
+
+              {/* PHASE 4: SUCCESS */}
+              {deletePhase === 'SUCCESS' && (
+                <div className="py-6 text-center space-y-3 animate-fadeIn">
+                  <div className="w-12 h-12 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto">
+                    <CheckCircle2 className="w-7 h-7" />
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-base font-bold text-foreground">
+                      Propiedad Eliminada Exitosamente
+                    </h3>
+                    <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                      La copropiedad ha sido removida del sistema. La bitácora de auditoría ha registrado el evento criptográficamente.
+                    </p>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
