@@ -1,13 +1,16 @@
 package com.saed.backend.seguros.repository;
 
 import com.saed.backend.seguros.dto.PolizaSeguroDTO;
+import com.saed.backend.seguros.dto.ResumenPolizasDTO;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Repository
@@ -44,9 +47,43 @@ public class PolizaSeguroRepository {
         }
     };
 
+    public void actualizarEstadosVencimiento(Long idPropiedad) {
+        String sql = "UPDATE POLIZAS_SEGURO SET ESTADO = CASE " +
+                     "WHEN FECHA_FIN < TRUNC(SYSDATE) THEN 'VENCIDA' " +
+                     "WHEN FECHA_FIN - TRUNC(SYSDATE) <= DIAS_ALERTA_VENCIMIENTO THEN 'POR_VENCER' " +
+                     "ELSE 'VIGENTE' END " +
+                     "WHERE ID_PROPIEDAD = ? AND ESTADO != 'CANCELADA'";
+        jdbcTemplate.update(sql, idPropiedad);
+    }
+
     public List<PolizaSeguroDTO> findAllByPropiedad(Long idPropiedad) {
-        String sql = "SELECT * FROM POLIZAS_SEGURO WHERE ID_PROPIEDAD = ?";
+        actualizarEstadosVencimiento(idPropiedad);
+        String sql = "SELECT * FROM POLIZAS_SEGURO WHERE ID_PROPIEDAD = ? ORDER BY FECHA_FIN ASC";
         return jdbcTemplate.query(sql, rowMapper, idPropiedad);
+    }
+
+    public ResumenPolizasDTO getResumenPolizas(Long idPropiedad) {
+        actualizarEstadosVencimiento(idPropiedad);
+        String sql = "SELECT " +
+                     "COUNT(*) AS TOTAL, " +
+                     "COUNT(CASE WHEN ESTADO = 'VIGENTE' THEN 1 END) AS VIGENTES, " +
+                     "COUNT(CASE WHEN ESTADO = 'POR_VENCER' THEN 1 END) AS POR_VENCER, " +
+                     "COUNT(CASE WHEN ESTADO = 'VENCIDA' THEN 1 END) AS VENCIDAS, " +
+                     "COUNT(CASE WHEN ESTADO = 'CANCELADA' THEN 1 END) AS CANCELADAS, " +
+                     "COALESCE(SUM(CASE WHEN ESTADO IN ('VIGENTE', 'POR_VENCER') THEN VALOR_ASEGURADO ELSE 0 END), 0) AS MONTO_ASEGURADO, " +
+                     "COALESCE(SUM(CASE WHEN ESTADO IN ('VIGENTE', 'POR_VENCER') THEN VALOR_PRIMA_ANUAL ELSE 0 END), 0) AS PRIMA_ANUAL " +
+                     "FROM POLIZAS_SEGURO WHERE ID_PROPIEDAD = ?";
+        return jdbcTemplate.queryForObject(sql, (rs, rowNum) -> {
+            ResumenPolizasDTO dto = new ResumenPolizasDTO();
+            dto.setTotalPolizas(rs.getInt("TOTAL"));
+            dto.setVigentes(rs.getInt("VIGENTES"));
+            dto.setPorVencer(rs.getInt("POR_VENCER"));
+            dto.setVencidas(rs.getInt("VENCIDAS"));
+            dto.setCanceladas(rs.getInt("CANCELADAS"));
+            dto.setValorAseguradoTotal(rs.getBigDecimal("MONTO_ASEGURADO"));
+            dto.setPrimaAnualTotal(rs.getBigDecimal("PRIMA_ANUAL"));
+            return dto;
+        }, idPropiedad);
     }
     
     public Optional<PolizaSeguroDTO> findByIdAndPropiedad(Long idPoliza, Long idPropiedad) {

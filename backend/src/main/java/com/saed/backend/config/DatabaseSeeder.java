@@ -197,6 +197,31 @@ public class DatabaseSeeder implements ApplicationRunner {
                 }
             }
 
+            // 15. Seed inicial de CONTACTOS_EMERGENCIA y PLANES_EMERGENCIA para propiedad 1
+            runSqlSafe("INSERT INTO CONTACTOS_EMERGENCIA (ID_PROPIEDAD, ENTIDAD, TIPO_SERVICIO, TELEFONO_PRINCIPAL, TELEFONO_ALTERNO, DIRECCION, ES_PRIORITARIO_MINUTA, ORDEN_VISUALIZACION) " +
+                   "SELECT 1, 'Cuerpo Oficial de Bomberos', 'BOMBEROS', '119', '123', 'Estacion Central', 'S', 1 FROM DUAL " +
+                   "WHERE NOT EXISTS (SELECT 1 FROM CONTACTOS_EMERGENCIA WHERE ID_PROPIEDAD = 1 AND TIPO_SERVICIO = 'BOMBEROS')");
+
+            runSqlSafe("INSERT INTO CONTACTOS_EMERGENCIA (ID_PROPIEDAD, ENTIDAD, TIPO_SERVICIO, TELEFONO_PRINCIPAL, TELEFONO_ALTERNO, DIRECCION, ES_PRIORITARIO_MINUTA, ORDEN_VISUALIZACION) " +
+                   "SELECT 1, 'Policia Nacional - Cuadrante', 'POLICIA', '123', '3001234567', 'CAI del Sector', 'S', 2 FROM DUAL " +
+                   "WHERE NOT EXISTS (SELECT 1 FROM CONTACTOS_EMERGENCIA WHERE ID_PROPIEDAD = 1 AND TIPO_SERVICIO = 'POLICIA')");
+
+            runSqlSafe("INSERT INTO CONTACTOS_EMERGENCIA (ID_PROPIEDAD, ENTIDAD, TIPO_SERVICIO, TELEFONO_PRINCIPAL, TELEFONO_ALTERNO, DIRECCION, ES_PRIORITARIO_MINUTA, ORDEN_VISUALIZACION) " +
+                   "SELECT 1, 'Emergencias Medicas / Ambulancia', 'AMBULANCIA', '125', '132', 'Red Hospitalaria', 'S', 3 FROM DUAL " +
+                   "WHERE NOT EXISTS (SELECT 1 FROM CONTACTOS_EMERGENCIA WHERE ID_PROPIEDAD = 1 AND TIPO_SERVICIO = 'AMBULANCIA')");
+
+            runSqlSafe("INSERT INTO CONTACTOS_EMERGENCIA (ID_PROPIEDAD, ENTIDAD, TIPO_SERVICIO, TELEFONO_PRINCIPAL, TELEFONO_ALTERNO, DIRECCION, ES_PRIORITARIO_MINUTA, ORDEN_VISUALIZACION) " +
+                   "SELECT 1, 'Empresa de Gas Natural', 'GAS_NATURAL', '164', '018000914040', 'Atencion Urgencias Gas', 'S', 4 FROM DUAL " +
+                   "WHERE NOT EXISTS (SELECT 1 FROM CONTACTOS_EMERGENCIA WHERE ID_PROPIEDAD = 1 AND TIPO_SERVICIO = 'GAS_NATURAL')");
+
+            runSqlSafe("INSERT INTO CONTACTOS_EMERGENCIA (ID_PROPIEDAD, ENTIDAD, TIPO_SERVICIO, TELEFONO_PRINCIPAL, TELEFONO_ALTERNO, DIRECCION, ES_PRIORITARIO_MINUTA, ORDEN_VISUALIZACION) " +
+                   "SELECT 1, 'Mantenimiento de Ascensores 24/7', 'ASCENSORES', '6013000000', '3109998877', 'Servicio Tecnico Especializado', 'S', 5 FROM DUAL " +
+                   "WHERE NOT EXISTS (SELECT 1 FROM CONTACTOS_EMERGENCIA WHERE ID_PROPIEDAD = 1 AND TIPO_SERVICIO = 'ASCENSORES')");
+
+            runSqlSafe("INSERT INTO PLANES_EMERGENCIA (ID_PROPIEDAD, TITULO, TIPO_CONTINGENCIA, PUNTOS_ENCUENTRO, RUTAS_EVACUACION_DESC, FECHA_ULTIMA_REVISION, ESTADO) " +
+                   "SELECT 1, 'Plan Integral de Evacuacion por Incendio', 'INCENDIO', 'Parque Central frente a la Porteria Principal', 'Descenso por escaleras de emergencia senalizadas hacia la salida vehicular y punto seguro exterior. Prohibido el uso de ascensores.', TRUNC(SYSDATE), 'ACTIVO' FROM DUAL " +
+                   "WHERE NOT EXISTS (SELECT 1 FROM PLANES_EMERGENCIA WHERE ID_PROPIEDAD = 1 AND TIPO_CONTINGENCIA = 'INCENDIO')");
+
             log.info("SAED Database Seeder completed successfully.");
         } catch (Exception ex) {
             log.warn("Database seeding encountered a non-fatal exception: {}", ex.getMessage());

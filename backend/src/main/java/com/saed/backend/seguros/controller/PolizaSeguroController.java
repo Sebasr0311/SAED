@@ -5,6 +5,7 @@ import com.saed.backend.audit.AuditCategory;
 import com.saed.backend.audit.AuditSeverity;
 
 import com.saed.backend.seguros.dto.PolizaSeguroDTO;
+import com.saed.backend.seguros.dto.ResumenPolizasDTO;
 import com.saed.backend.seguros.service.PolizaSeguroService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -23,6 +24,11 @@ public class PolizaSeguroController {
 
     public PolizaSeguroController(PolizaSeguroService service) {
         this.service = service;
+    }
+
+    @GetMapping("/resumen")
+    public ResponseEntity<ResumenPolizasDTO> getResumen() {
+        return ResponseEntity.ok(service.getResumen());
     }
 
     @GetMapping
