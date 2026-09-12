@@ -222,6 +222,22 @@ public class DatabaseSeeder implements ApplicationRunner {
                    "SELECT 1, 'Plan Integral de Evacuacion por Incendio', 'INCENDIO', 'Parque Central frente a la Porteria Principal', 'Descenso por escaleras de emergencia senalizadas hacia la salida vehicular y punto seguro exterior. Prohibido el uso de ascensores.', TRUNC(SYSDATE), 'ACTIVO' FROM DUAL " +
                    "WHERE NOT EXISTS (SELECT 1 FROM PLANES_EMERGENCIA WHERE ID_PROPIEDAD = 1 AND TIPO_CONTINGENCIA = 'INCENDIO')");
 
+            // 16. Seed inicial de MEDICIONES_CONSUMO para propiedad 1
+            runSqlSafe("INSERT INTO MEDICIONES_CONSUMO (ID_PROPIEDAD, ID_UNIDAD, TIPO_SERVICIO, NUMERO_MEDIDOR, PERIODO, " +
+                   "LECTURA_ANTERIOR, LECTURA_ACTUAL, UNIDAD_MEDIDA, TARIFA_UNITARIA, COSTO_TOTAL, ANOMALIA_DETECTADA, OBSERVACION_ANOMALIA, FECHA_TOMA_LECTURA) " +
+                   "SELECT 1, NULL, 'AGUA', 'MED-AGUA-GEN-01', '2026-08', 540.00, 620.00, 'M3', 6800.00, 544000.00, 'N', 'Lectura mensual zonas comunes', TO_DATE('2026-08-30','YYYY-MM-DD') FROM DUAL " +
+                   "WHERE NOT EXISTS (SELECT 1 FROM MEDICIONES_CONSUMO WHERE ID_PROPIEDAD = 1 AND NUMERO_MEDIDOR = 'MED-AGUA-GEN-01' AND PERIODO = '2026-08')");
+
+            runSqlSafe("INSERT INTO MEDICIONES_CONSUMO (ID_PROPIEDAD, ID_UNIDAD, TIPO_SERVICIO, NUMERO_MEDIDOR, PERIODO, " +
+                   "LECTURA_ANTERIOR, LECTURA_ACTUAL, UNIDAD_MEDIDA, TARIFA_UNITARIA, COSTO_TOTAL, ANOMALIA_DETECTADA, OBSERVACION_ANOMALIA, FECHA_TOMA_LECTURA) " +
+                   "SELECT 1, NULL, 'ENERGIA', 'MED-ENERGIA-GEN-01', '2026-08', 12400.00, 13850.00, 'KWH', 890.00, 1290500.00, 'N', 'Iluminacion comunal y bombas hidraulicas', TO_DATE('2026-08-30','YYYY-MM-DD') FROM DUAL " +
+                   "WHERE NOT EXISTS (SELECT 1 FROM MEDICIONES_CONSUMO WHERE ID_PROPIEDAD = 1 AND NUMERO_MEDIDOR = 'MED-ENERGIA-GEN-01' AND PERIODO = '2026-08')");
+
+            runSqlSafe("INSERT INTO MEDICIONES_CONSUMO (ID_PROPIEDAD, ID_UNIDAD, TIPO_SERVICIO, NUMERO_MEDIDOR, PERIODO, " +
+                   "LECTURA_ANTERIOR, LECTURA_ACTUAL, UNIDAD_MEDIDA, TARIFA_UNITARIA, COSTO_TOTAL, ANOMALIA_DETECTADA, OBSERVACION_ANOMALIA, FECHA_TOMA_LECTURA) " +
+                   "SELECT 1, 1, 'GAS', 'MED-GAS-APT-101', '2026-08', 310.00, 335.00, 'M3', 3400.00, 85000.00, 'N', 'Medidor individual caldera apto 101', TO_DATE('2026-08-30','YYYY-MM-DD') FROM DUAL " +
+                   "WHERE NOT EXISTS (SELECT 1 FROM MEDICIONES_CONSUMO WHERE ID_PROPIEDAD = 1 AND NUMERO_MEDIDOR = 'MED-GAS-APT-101' AND PERIODO = '2026-08')");
+
             log.info("SAED Database Seeder completed successfully.");
         } catch (Exception ex) {
             log.warn("Database seeding encountered a non-fatal exception: {}", ex.getMessage());

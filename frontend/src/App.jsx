@@ -37,6 +37,7 @@ const EmergenciasAdminPage = lazy(() => import('./pages/EmergenciasAdminPage.jsx
 const ResSancionesPage = lazy(() => import('./pages/ResSancionesPage.jsx'));
 const AsambleasAdminPage = lazy(() => import('./pages/AsambleasAdminPage.jsx'));
 const PolizasAdminPage = lazy(() => import('./pages/PolizasAdminPage.jsx'));
+const ConsumosAdminPage = lazy(() => import('./pages/ConsumosAdminPage.jsx'));
 const MantenimientoAdminPage = lazy(() => import('./pages/MantenimientoAdminPage.jsx'));
 const ObrasAdminPage = lazy(() => import('./pages/ObrasAdminPage.jsx'));
 const ResObrasPage = lazy(() => import('./pages/ResObrasPage.jsx'));
@@ -493,6 +494,8 @@ export default function App() {
           <Route path="polizas" element={<ProtectedRoute roles={['ADMIN_PROPIEDAD']}><PolizasAdminPage /></ProtectedRoute>} />
           <Route path="emergencias-admin" element={<Navigate to="/emergencias" replace />} />
           <Route path="emergencias" element={<ProtectedRoute roles={['ADMIN_PROPIEDAD']}><EmergenciasAdminPage /></ProtectedRoute>} />
+          <Route path="consumos-admin" element={<Navigate to="/consumos" replace />} />
+          <Route path="consumos" element={<ProtectedRoute roles={['ADMIN_PROPIEDAD']}><ConsumosAdminPage /></ProtectedRoute>} />
           <Route path="incidentes-admin" element={<ProtectedRoute roles={['ADMIN_PROPIEDAD', 'PORTERO']}><IncidentesAdminPage /></ProtectedRoute>} />
           <Route
             path="comunicaciones"
