@@ -842,9 +842,10 @@ Leyenda de Permisos: [A] Administrador, [P] Portero, [R] Residente, [*] Cualquie
   - WALLET_BASE64: Contenido en Base64 del archivo wallet.zip para conexión segura mTLS a Oracle ATP.
   - BREVO_API_KEY: Clave de API de Brevo (Sendinblue) para envío de correos transaccionales HTTPS.
   - GMAIL_FROM: Correo remitente verificado en Brevo (ej: saed.edificio@gmail.com).
-  - WOMPI_PUBLIC_KEY: Llave pública de Wompi (pub_prod_... o pub_test_...).
-  - WOMPI_INTEGRITY_SECRET: Secreto de integridad de Wompi para firmas de transacciones (prod_integrity_... o test_integrity_...).
-  - WOMPI_EVENTS_SECRET: Secreto de eventos de Wompi para validar autenticidad de webhooks.
+  - WOMPI_PUBLIC_KEY: Llave pública de Wompi (Sandbox: pub_test_IZg6dmwtip4WYXjPP8G7zYvWzCU5wRaH).
+  - WOMPI_PRIVATE_KEY: Llave privada de Wompi (Sandbox: prv_test_8Xm4mfTDIH6mGoOSFLWF9ZKn17BXxxk2).
+  - WOMPI_INTEGRITY_SECRET: Secreto de integridad de Wompi para firmas de transacciones (Sandbox: test_integrity_CT3taBwOqVtSQITYMGUTcrJftHdoLoPQ).
+  - WOMPI_EVENTS_SECRET: Secreto de eventos de Wompi para validar autenticidad de webhooks (Sandbox: test_events_VgrGtdTPd9q6XKtBz3iRTgTHJSUuwBBy).
   - WOMPI_ENV: Entorno de la pasarela ('production' o 'sandbox').
 
 10.2. VARIABLES DE ENTORNO DEL FRONTEND (Vite / Build)

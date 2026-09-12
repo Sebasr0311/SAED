@@ -41,10 +41,10 @@ public class PublicOnboardingController {
     private final PasswordEncoder passwordEncoder;
     private final com.saed.backend.common.service.EmailService emailService;
 
-    @Value("${wompi.public.key:pub_test_Q5yDA9xoKdePzhSGeVe9HAez7HgGObFG}")
+    @Value("${wompi.public.key:${WOMPI_PUBLIC_KEY:pub_test_IZg6dmwtip4WYXjPP8G7zYvWzCU5wRaH}}")
     private String wompiPublicKey;
 
-    @Value("${wompi.integrity.secret:stagtest_integrity_test_key_saed_2026}")
+    @Value("${wompi.integrity.secret:${WOMPI_INTEGRITY_SECRET:test_integrity_CT3taBwOqVtSQITYMGUTcrJftHdoLoPQ}}")
     private String wompiIntegritySecret;
 
     public PublicOnboardingController(
