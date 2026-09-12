@@ -51,6 +51,7 @@ function clearAuth() {
   sessionStorage.removeItem(TOKEN_KEY);
   sessionStorage.removeItem(REFRESH_TOKEN_KEY);
   sessionStorage.removeItem(USER_KEY);
+  sessionStorage.removeItem('saed_active_assignment_id');
 }
 
 let refreshTokenPromise = null;
@@ -101,6 +102,11 @@ async function request(endpoint, options = {}) {
   }
   const token = getToken();
   if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  const activeAssignment = typeof window !== 'undefined' ? sessionStorage.getItem('saed_active_assignment_id') : null;
+  if (activeAssignment && !headers['X-Assignment-Id']) {
+    headers['X-Assignment-Id'] = activeAssignment;
+  }
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);

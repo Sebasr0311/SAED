@@ -20,9 +20,23 @@ const TenantContext = createContext(null);
 export function TenantProvider({ children }) {
   const { user, isAuthenticated } = useAuth();
   const [assignmentsRaw, setAssignments] = useState([]);
-  const [activeAssignmentId, setActiveAssignmentId] = useState(null);
+  const [activeAssignmentId, setActiveAssignmentIdState] = useState(() => {
+    const saved = typeof window !== 'undefined' ? sessionStorage.getItem('saed_active_assignment_id') : null;
+    return saved ? Number(saved) : null;
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  const setActiveAssignmentId = useCallback((id) => {
+    setActiveAssignmentIdState(id);
+    if (typeof window !== 'undefined') {
+      if (id != null) {
+        sessionStorage.setItem('saed_active_assignment_id', String(id));
+      } else {
+        sessionStorage.removeItem('saed_active_assignment_id');
+      }
+    }
+  }, []);
 
   // Derived: empty when not authenticated (avoids setState inside useEffect)
   const assignments = useMemo(
@@ -32,7 +46,13 @@ export function TenantProvider({ children }) {
 
   // Cargar asignaciones cuando el usuario se autentica
   useEffect(() => {
-    if (!isAuthenticated || !user?.idUsuario) return;
+    if (!isAuthenticated || !user?.idUsuario) {
+      if (!isAuthenticated && typeof window !== 'undefined') {
+        sessionStorage.removeItem('saed_active_assignment_id');
+        setActiveAssignmentIdState(null);
+      }
+      return;
+    }
     let cancelled = false;
     setLoading(true);
     setError(null);
@@ -43,8 +63,13 @@ export function TenantProvider({ children }) {
         const list = Array.isArray(data) ? data : [];
         setAssignments(list);
         // Seleccionar por defecto:
-        // 1) la unica asignacion, 2) GLOBAL/SUPERADMIN, 3) la primera
-        if (list.length === 1) {
+        // 1) Si ya hay uno guardado y es valido, mantenerlo
+        // 2) Si hay una sola asignacion, seleccionarla
+        // 3) GLOBAL/SUPERADMIN, 4) la primera
+        const currentSaved = typeof window !== 'undefined' ? sessionStorage.getItem('saed_active_assignment_id') : null;
+        if (currentSaved && list.some((a) => a.idAsignacion === Number(currentSaved))) {
+          setActiveAssignmentId(Number(currentSaved));
+        } else if (list.length === 1) {
           setActiveAssignmentId(list[0].idAsignacion);
         } else {
           const global = list.find((a) => a.scope === 'GLOBAL' || a.roleCode === 'SUPERADMIN');
@@ -60,7 +85,7 @@ export function TenantProvider({ children }) {
     return () => {
       cancelled = true;
     };
-  }, [isAuthenticated, user?.idUsuario]);
+  }, [isAuthenticated, user?.idUsuario, setActiveAssignmentId]);
 
   const selectAssignment = useCallback((id) => {
     if (assignments.some((a) => a.idAsignacion === id)) {
