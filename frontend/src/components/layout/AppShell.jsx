@@ -214,6 +214,7 @@ const NAV_BY_ROLE = {
         { path: '/polizas', label: 'Pólizas y Seguros', icon: 'policy' },
         { path: '/emergencias', label: 'Planes Emergencia', icon: 'emergency' },
         { path: '/consumos', label: 'Consumos y Sostenibilidad', icon: 'energy_savings_leaf' },
+        { path: '/automatizaciones', label: 'Automatizaciones ECA', icon: 'smart_toy' },
         { path: '/incidentes-admin', label: 'Incidentes', icon: 'warning' },
         { path: '/asambleas', label: 'Asambleas', icon: 'groups' },
       ],

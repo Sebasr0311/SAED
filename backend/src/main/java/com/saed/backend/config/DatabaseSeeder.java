@@ -186,9 +186,9 @@ public class DatabaseSeeder implements ApplicationRunner {
                 log.debug("Aviso al ajustar RLS en VISITANTES: {}", e.getMessage());
             }
 
-            // 14. Fix RLS en tablas hijas de ASAMBLEAS que no tienen columna ID_PROPIEDAD
-            String[] asambleaChildTables = {"ASISTENCIAS_ASAMBLEA", "PODERES_REPRESENTACION", "VOTACIONES", "VOTOS", "ACTAS_ASAMBLEA"};
-            String[] asambleaChildPolicies = {"POL_RLS_PROP_ASISTENCIAS_ASA", "POL_RLS_PROP_PODERES_REPRESE", "POL_RLS_PROP_VOTACIONES", "POL_RLS_PROP_VOTOS", "POL_RLS_PROP_ACTAS_ASAMBLEA"};
+            // 14. Fix RLS en tablas hijas de ASAMBLEAS y AUTOMATIZACIONES que no tienen columna ID_PROPIEDAD
+            String[] asambleaChildTables = {"ASISTENCIAS_ASAMBLEA", "PODERES_REPRESENTACION", "VOTACIONES", "VOTOS", "ACTAS_ASAMBLEA", "ACCIONES_AUTOMATIZACION", "EJECUCIONES_AUTOMATIZACION"};
+            String[] asambleaChildPolicies = {"POL_RLS_PROP_ASISTENCIAS_ASA", "POL_RLS_PROP_PODERES_REPRESE", "POL_RLS_PROP_VOTACIONES", "POL_RLS_PROP_VOTOS", "POL_RLS_PROP_ACTAS_ASAMBLEA", "POL_RLS_PROP_ACCIONES_AUTOMA", "POL_RLS_PROP_EJECUCIONES_AUT"};
             for (int i = 0; i < asambleaChildTables.length; i++) {
                 try {
                     jdbcTemplate.execute("BEGIN DBMS_RLS.DROP_POLICY(NULL, '" + asambleaChildTables[i] + "', '" + asambleaChildPolicies[i] + "'); EXCEPTION WHEN OTHERS THEN NULL; END;");
@@ -237,6 +237,66 @@ public class DatabaseSeeder implements ApplicationRunner {
                    "LECTURA_ANTERIOR, LECTURA_ACTUAL, UNIDAD_MEDIDA, TARIFA_UNITARIA, COSTO_TOTAL, ANOMALIA_DETECTADA, OBSERVACION_ANOMALIA, FECHA_TOMA_LECTURA) " +
                    "SELECT 1, 1, 'GAS', 'MED-GAS-APT-101', '2026-08', 310.00, 335.00, 'M3', 3400.00, 85000.00, 'N', 'Medidor individual caldera apto 101', TO_DATE('2026-08-30','YYYY-MM-DD') FROM DUAL " +
                    "WHERE NOT EXISTS (SELECT 1 FROM MEDICIONES_CONSUMO WHERE ID_PROPIEDAD = 1 AND NUMERO_MEDIDOR = 'MED-GAS-APT-101' AND PERIODO = '2026-08')");
+
+            // 17. Seed inicial de EVENTOS_SISTEMA para motor de Automatizaciones
+            runSqlSafe("INSERT INTO EVENTOS_SISTEMA (CODIGO, NOMBRE, MODULO_ORIGEN, DESCRIPCION, VARIABLES_PAYLOAD) " +
+                   "SELECT 'CUOTA_VENCIDA', 'Cuota de Administracion en Mora', 'FINANZAS', " +
+                   "'Disparado cuando una cuota vence y pasa a cartera en mora', 'idCuota,idUnidad,monto,diasMora' FROM DUAL " +
+                   "WHERE NOT EXISTS (SELECT 1 FROM EVENTOS_SISTEMA WHERE CODIGO = 'CUOTA_VENCIDA')");
+
+            runSqlSafe("INSERT INTO EVENTOS_SISTEMA (CODIGO, NOMBRE, MODULO_ORIGEN, DESCRIPCION, VARIABLES_PAYLOAD) " +
+                   "SELECT 'CONTRATO_POR_VENCER', 'Contrato Proximo a Vencer (30 dias)', 'CONTRATOS', " +
+                   "'Disparado 30 dias antes de la fecha de terminacion de un contrato de arriendo', 'idContrato,idUnidad,diasRestantes' FROM DUAL " +
+                   "WHERE NOT EXISTS (SELECT 1 FROM EVENTOS_SISTEMA WHERE CODIGO = 'CONTRATO_POR_VENCER')");
+
+            runSqlSafe("INSERT INTO EVENTOS_SISTEMA (CODIGO, NOMBRE, MODULO_ORIGEN, DESCRIPCION, VARIABLES_PAYLOAD) " +
+                   "SELECT 'MANTENIMIENTO_PROGRAMADO', 'Mantenimiento Preventivo por Ejecutar', 'MANTENIMIENTO', " +
+                   "'Disparado cuando un activo comunal requiere mantenimiento agendado', 'idMantenimiento,idActivo,fechaProgramada' FROM DUAL " +
+                   "WHERE NOT EXISTS (SELECT 1 FROM EVENTOS_SISTEMA WHERE CODIGO = 'MANTENIMIENTO_PROGRAMADO')");
+
+            runSqlSafe("INSERT INTO EVENTOS_SISTEMA (CODIGO, NOMBRE, MODULO_ORIGEN, DESCRIPCION, VARIABLES_PAYLOAD) " +
+                   "SELECT 'QR_EXPIRADO', 'Codigo de Acceso QR Expirado', 'ACCESOS', " +
+                   "'Disparado al expirar la ventana de validez temporal de una invitacion QR', 'idQr,idVisitante,fechaExpiracion' FROM DUAL " +
+                   "WHERE NOT EXISTS (SELECT 1 FROM EVENTOS_SISTEMA WHERE CODIGO = 'QR_EXPIRADO')");
+
+            runSqlSafe("INSERT INTO EVENTOS_SISTEMA (CODIGO, NOMBRE, MODULO_ORIGEN, DESCRIPCION, VARIABLES_PAYLOAD) " +
+                   "SELECT 'PQRS_SLA_RIESGO', 'Ticket PQRS Proximo a Vencer SLA', 'PQRS', " +
+                   "'Disparado cuando una queja o peticion supera el 80% de su tiempo limite', 'idTicket,prioridad,tiempoRestante' FROM DUAL " +
+                   "WHERE NOT EXISTS (SELECT 1 FROM EVENTOS_SISTEMA WHERE CODIGO = 'PQRS_SLA_RIESGO')");
+
+            runSqlSafe("INSERT INTO EVENTOS_SISTEMA (CODIGO, NOMBRE, MODULO_ORIGEN, DESCRIPCION, VARIABLES_PAYLOAD) " +
+                   "SELECT 'POLIZA_POR_VENCER', 'Poliza de Seguros por Vencer', 'SEGUROS', " +
+                   "'Disparado cuando una poliza comunal esta a menos de 30 dias de vencimiento', 'idPoliza,numeroPoliza,diasRestantes' FROM DUAL " +
+                   "WHERE NOT EXISTS (SELECT 1 FROM EVENTOS_SISTEMA WHERE CODIGO = 'POLIZA_POR_VENCER')");
+
+            runSqlSafe("INSERT INTO EVENTOS_SISTEMA (CODIGO, NOMBRE, MODULO_ORIGEN, DESCRIPCION, VARIABLES_PAYLOAD) " +
+                   "SELECT 'CONSUMO_ANOMALO', 'Consumo Anomalo en Servicios Publicos', 'CONSUMOS', " +
+                   "'Disparado cuando una lectura supera en +50% el promedio historico de la copropiedad', 'idMedicion,tipoServicio,porcentajeExceso' FROM DUAL " +
+                   "WHERE NOT EXISTS (SELECT 1 FROM EVENTOS_SISTEMA WHERE CODIGO = 'CONSUMO_ANOMALO')");
+
+            runSqlSafe("INSERT INTO EVENTOS_SISTEMA (CODIGO, NOMBRE, MODULO_ORIGEN, DESCRIPCION, VARIABLES_PAYLOAD) " +
+                   "SELECT 'VISITA_REGISTRADA', 'Ingreso Efectivo de Visitante en Porteria', 'PORTERIA', " +
+                   "'Disparado cuando el vigilante valida y autoriza la entrada de un visitante', 'idVisita,idUnidad,nombreVisitante' FROM DUAL " +
+                   "WHERE NOT EXISTS (SELECT 1 FROM EVENTOS_SISTEMA WHERE CODIGO = 'VISITA_REGISTRADA')");
+
+            // 18. Actualizar TRG_EJECAUTO_INMUTABLE para permitir bypass a SUPERADMIN y BOOTSTRAP
+            try {
+                jdbcTemplate.execute(
+                    "CREATE OR REPLACE TRIGGER TRG_EJECAUTO_INMUTABLE " +
+                    "    BEFORE UPDATE OR DELETE ON EJECUCIONES_AUTOMATIZACION " +
+                    "    FOR EACH ROW " +
+                    "BEGIN " +
+                    "    IF SYS_CONTEXT('SAED_CTX', 'STATE') = 'BOOTSTRAP' " +
+                    "       OR SYS_CONTEXT('SAED_CTX', 'IS_BOOTSTRAP') = '1' " +
+                    "       OR SYS_CONTEXT('SAED_CTX', 'ROL_CODIGO') = 'SUPERADMIN' THEN " +
+                    "        RETURN; " +
+                    "    END IF; " +
+                    "    RAISE_APPLICATION_ERROR(-20050, 'EJECUCIONES_AUTOMATIZACION es una tabla append-only.'); " +
+                    "END;"
+                );
+            } catch (Exception e) {
+                log.debug("Notice on TRG_EJECAUTO_INMUTABLE: {}", e.getMessage());
+            }
 
             log.info("SAED Database Seeder completed successfully.");
         } catch (Exception ex) {
