@@ -269,18 +269,30 @@ export default function RegistroOrganizacionPage() {
   useEffect(() => {
     if (!pollingPago || !registroResultado?.referencia) return;
 
+    let attempts = 0;
+    const MAX_ATTEMPTS = 75; // 5 minutos máximo (75 * 4s)
+
     pollingRef.current = setInterval(async () => {
+      attempts++;
+      if (attempts > MAX_ATTEMPTS) {
+        setPollingPago(false);
+        clearInterval(pollingRef.current);
+        return;
+      }
       try {
         const res = await api.get(`/auth/onboarding/estado-pago?referencia=${encodeURIComponent(registroResultado.referencia)}`);
         const data = res?.data || res;
-        if (data && (data.estadoPasarela === 'APROBADO' || data.estadoOrganizacion === 'ACTIVA')) {
+        const status = data?.estadoPasarela || data?.estado;
+        if (status === 'APROBADO' || data?.estadoOrganizacion === 'ACTIVA') {
           setPagoAprobado(true);
           setPollingPago(false);
           clearInterval(pollingRef.current);
           toast.success('¡Pago confirmado con éxito! Tu organización ha sido activada.');
         }
       } catch (e) {
-        console.warn('Error consultando estado de transacción:', e);
+        if (attempts % 5 === 0) {
+          console.warn('Consultando estado de transacción en Wompi...', e?.message || e);
+        }
       }
     }, 4000);
 
@@ -569,25 +581,54 @@ export default function RegistroOrganizacionPage() {
   const lanzarWidgetWompi = (txData) => {
     try {
       if (typeof window.WidgetCheckout !== 'undefined') {
+        const rawPhone = (adminForm.telefono || '').replace(/\D/g, '');
+        const cleanPhone = rawPhone.length > 10 && rawPhone.startsWith('57')
+          ? rawPhone.slice(2)
+          : rawPhone;
+
+        const customerData = {
+          email: txData.adminEmail,
+          fullName: `${adminForm.primerNombre || ''} ${adminForm.primerApellido || ''}`.trim() || undefined,
+          ...(cleanPhone ? {
+            phoneNumber: cleanPhone,
+            phoneNumberPrefix: '+57',
+          } : {}),
+          ...(adminForm.numeroDocumento ? {
+            legalId: adminForm.numeroDocumento.trim(),
+            legalIdType: adminForm.tipoDocumento || 'CC',
+          } : {}),
+        };
+
         const checkout = new window.WidgetCheckout({
           currency: txData.moneda || 'COP',
           amountInCents: txData.montoCentavos,
           reference: txData.referencia,
           publicKey: txData.wompiPublicKey,
           signature: { integrity: txData.firmaIntegridad },
-          customerData: {
-            email: txData.adminEmail,
-            fullName: `${adminForm.primerNombre} ${adminForm.primerApellido}`,
-            phoneNumber: adminForm.telefono,
-          },
+          customerData,
         });
 
-        checkout.open((result) => {
+        checkout.open(async (result) => {
           const transaction = result?.transaction;
-          if (transaction && transaction.status === 'APPROVED') {
-            setPagoAprobado(true);
-            setPollingPago(false);
-            toast.success('¡Transacción aprobada!');
+          if (transaction) {
+            if (transaction.status === 'APPROVED') {
+              setPagoAprobado(true);
+              setPollingPago(false);
+              toast.success('¡Transacción aprobada!');
+            } else if (transaction.status === 'DECLINED') {
+              toast.error('La transacción fue rechazada por la entidad bancaria.');
+            } else if (transaction.status === 'ERROR') {
+              toast.error('Ocurrió un error procesando el pago en la pasarela.');
+            }
+            try {
+              const res = await api.get(`/auth/onboarding/estado-pago?referencia=${encodeURIComponent(txData.referencia)}`);
+              const data = res?.data || res;
+              const status = data?.estadoPasarela || data?.estado;
+              if (status === 'APROBADO' || data?.estadoOrganizacion === 'ACTIVA') {
+                setPagoAprobado(true);
+                setPollingPago(false);
+              }
+            } catch (ignored) {}
           }
         });
       } else {
@@ -604,6 +645,7 @@ export default function RegistroOrganizacionPage() {
       }
     } catch (e) {
       console.warn('Error inicializando widget Wompi:', e);
+      toast.error('No se pudo inicializar la pasarela de pagos. Por favor intenta abrirla nuevamente.');
     }
   };
 
@@ -1835,7 +1877,8 @@ export default function RegistroOrganizacionPage() {
                           try {
                             const res = await api.get(`/auth/onboarding/estado-pago?referencia=${encodeURIComponent(registroResultado.referencia)}`);
                             const data = res?.data || res;
-                            if (data?.estadoPasarela === 'APROBADO' || data?.estadoOrganizacion === 'ACTIVA') {
+                            const status = data?.estadoPasarela || data?.estado;
+                            if (status === 'APROBADO' || data?.estadoOrganizacion === 'ACTIVA') {
                               setPagoAprobado(true);
                               toast.success('¡Pago confirmado exitosamente!');
                             } else {
