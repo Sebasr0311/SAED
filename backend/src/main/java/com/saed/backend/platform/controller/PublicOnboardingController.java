@@ -163,8 +163,8 @@ public class PublicOnboardingController {
 
             // 5. Crear PERSONA para el administrador
             String insertPerSql = """
-                INSERT INTO PERSONAS (ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, PRIMER_NOMBRE, PRIMER_APELLIDO, EMAIL, TELEFONO, ESTADO)
-                VALUES (1, :doc, :nom, :ape, :email, :tel, 'ACTIVO')
+                INSERT INTO PERSONAS (ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, PRIMER_NOMBRE, PRIMER_APELLIDO, EMAIL, TELEFONO, ESTADO)
+                VALUES (1, :doc, 'NATURAL', :nom, :ape, :email, :tel, 'ACTIVO')
                 """;
             MapSqlParameterSource perParams = new MapSqlParameterSource()
                     .addValue("doc", request.getNumeroDocumento().trim())
@@ -197,8 +197,8 @@ public class PublicOnboardingController {
             Number usrIdNum = khUsr.getKey();
             Long idUsuario = usrIdNum != null ? usrIdNum.longValue() : 1L;
 
-            // 7. Crear Asignación de rol ADMIN_ORGANIZACION (id_rol = 1)
-            Long idRolAdminOrg = 1L;
+            // 7. Crear Asignación de rol ADMIN_ORGANIZACION (id_rol = 2)
+            Long idRolAdminOrg = 2L;
             try {
                 List<Long> rolIds = jdbcTemplate.query(
                         "SELECT ID_ROL FROM ROLES WHERE CODIGO = 'ADMIN_ORGANIZACION'",
@@ -265,6 +265,7 @@ public class PublicOnboardingController {
                 long montoCentavos = montoPesos * 100;
 
                 String referencia = "SAED-MEMBRESIA-" + idOrganizacion + "-" + System.currentTimeMillis();
+                String firmaIntegridad = calcularFirmaIntegridad(referencia, montoCentavos);
 
                 // Registrar en TRANSACCIONES_PAGO
                 Long unidadFallback = 1L;
@@ -276,16 +277,15 @@ public class PublicOnboardingController {
                 } catch (Exception ignored) {}
 
                 String insertTxSql = """
-                    INSERT INTO TRANSACCIONES_PAGO (ID_UNIDAD, REFERENCIA_INTERNA, ID_TRANSACCION_PASARELA, MONTO_CENTAVOS, ESTADO_PASARELA, PASARELA, FECHA_REGISTRO)
-                    VALUES (:u, :ref, :ref, :mc, 'PENDIENTE', 'WOMPI', CURRENT_TIMESTAMP)
+                    INSERT INTO TRANSACCIONES_PAGO (ID_UNIDAD, ID_PAGO, PASARELA, ID_TRANSACCION_PASARELA, REFERENCIA_INTERNA, MONTO_CENTAVOS, MONEDA, ESTADO_PASARELA, METODO_ORIGEN, FIRMA_CHECKSUM)
+                    VALUES (:u, NULL, 'WOMPI', :ref, :ref, :mc, 'COP', 'PENDIENTE', 'MEMBRESIA', :firma)
                     """;
                 jdbcTemplate.update(insertTxSql, new MapSqlParameterSource()
                         .addValue("u", unidadFallback)
                         .addValue("ref", referencia)
                         .addValue("mc", montoCentavos)
+                        .addValue("firma", firmaIntegridad)
                 );
-
-                String firmaIntegridad = calcularFirmaIntegridad(referencia, montoCentavos);
 
                 Map<String, Object> resp = new HashMap<>();
                 resp.put("idOrganizacion", idOrganizacion);
