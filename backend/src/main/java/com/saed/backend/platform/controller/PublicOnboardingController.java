@@ -141,6 +141,55 @@ public class PublicOnboardingController {
                         "El nombre de usuario '" + adminUsername + "' ya se encuentra en uso. Por favor elija otro."));
             }
 
+            // Consultar ID de tipo documento para el administrador
+            Long idTipoDoc = 1L;
+            try {
+                String docType = (request.getTipoDocumento() != null && !request.getTipoDocumento().isBlank())
+                        ? request.getTipoDocumento().trim().toUpperCase() : "CC";
+                List<Long> tdList = jdbcTemplate.queryForList(
+                        "SELECT ID_TIPO_DOCUMENTO FROM TIPOS_DOCUMENTO WHERE CODIGO = :cod",
+                        new MapSqlParameterSource("cod", docType),
+                        Long.class
+                );
+                if (!tdList.isEmpty() && tdList.get(0) != null) {
+                    idTipoDoc = tdList.get(0);
+                }
+            } catch (Exception ignored) {}
+
+            String cleanDoc = (request.getNumeroDocumento() != null) ? request.getNumeroDocumento().trim() : "";
+            if (cleanDoc.isBlank()) {
+                return ResponseEntity.badRequest().body(ApiResponse.error("El número de documento del administrador es obligatorio"));
+            }
+
+            // Validar unicidad en PERSONAS y verificar si ya está vinculada a un USUARIO
+            List<Map<String, Object>> existingPersonaRows = jdbcTemplate.queryForList("""
+                SELECT p.ID_PERSONA, p.PRIMER_NOMBRE, p.PRIMER_APELLIDO, u.ID_USUARIO, u.NOMBRE_USUARIO, u.EMAIL as USER_EMAIL
+                FROM PERSONAS p
+                LEFT JOIN USUARIOS u ON u.ID_PERSONA = p.ID_PERSONA
+                WHERE p.NUMERO_DOCUMENTO = :doc AND (p.ID_TIPO_DOCUMENTO = :tipoDoc OR :tipoDoc IS NULL)
+                """,
+                new MapSqlParameterSource()
+                    .addValue("doc", cleanDoc)
+                    .addValue("tipoDoc", idTipoDoc)
+            );
+
+            Long idPersonaExistente = null;
+            if (!existingPersonaRows.isEmpty()) {
+                Map<String, Object> firstRow = existingPersonaRows.get(0);
+                Object existingUserId = firstRow.get("ID_USUARIO");
+                if (existingUserId != null) {
+                    String existingUsername = (String) firstRow.get("NOMBRE_USUARIO");
+                    return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.error(
+                            "El número de documento " + cleanDoc + " ya se encuentra registrado con la cuenta de usuario '" +
+                            (existingUsername != null ? existingUsername : "existente") +
+                            "'. Si ya dispone de una cuenta en SAED, por favor inicie sesión o utilice otra identificación para el administrador."
+                    ));
+                }
+                // Si la persona ya existe en el sistema (ej. residente censado, visitante previo, etc.) pero no tiene usuario,
+                // reutilizamos su idPersona para asignarle la cuenta de usuario sin violar UQ_PERSONAS_DOCUMENTO.
+                idPersonaExistente = ((Number) firstRow.get("ID_PERSONA")).longValue();
+            }
+
             // 3. Consultar datos del plan
             List<Map<String, Object>> planRows = jdbcTemplate.queryForList(
                     "SELECT ID_PLAN, CODIGO, NOMBRE, PRECIO_MENSUAL FROM PLANES WHERE ID_PLAN = :p AND ESTADO = 'ACTIVO'",
@@ -189,46 +238,57 @@ public class PublicOnboardingController {
             }
             Long idOrganizacion = orgIdNum.longValue();
 
-            // 5. Crear PERSONA para el administrador
-            Long idTipoDoc = 1L;
-            try {
-                String docType = (request.getTipoDocumento() != null && !request.getTipoDocumento().isBlank())
-                        ? request.getTipoDocumento().trim().toUpperCase() : "CC";
-                List<Long> tdList = jdbcTemplate.queryForList(
-                        "SELECT ID_TIPO_DOCUMENTO FROM TIPOS_DOCUMENTO WHERE CODIGO = :cod",
-                        new MapSqlParameterSource("cod", docType),
-                        Long.class
-                );
-                if (!tdList.isEmpty() && tdList.get(0) != null) {
-                    idTipoDoc = tdList.get(0);
-                }
-            } catch (Exception ignored) {}
+            // 5. Crear o actualizar PERSONA para el administrador
+            Long idPersona;
+            if (idPersonaExistente != null) {
+                idPersona = idPersonaExistente;
+                String updatePerSql = """
+                    UPDATE PERSONAS
+                    SET PRIMER_NOMBRE = :nom,
+                        SEGUNDO_NOMBRE = :snom,
+                        PRIMER_APELLIDO = :ape,
+                        SEGUNDO_APELLIDO = :sape,
+                        EMAIL = :email,
+                        TELEFONO = :tel,
+                        ESTADO = 'ACTIVO'
+                    WHERE ID_PERSONA = :idPer
+                    """;
+                MapSqlParameterSource perParams = new MapSqlParameterSource()
+                        .addValue("idPer", idPersona)
+                        .addValue("nom", request.getPrimerNombre().trim())
+                        .addValue("snom", (request.getSegundoNombre() != null && !request.getSegundoNombre().isBlank()) ? request.getSegundoNombre().trim() : null)
+                        .addValue("ape", request.getPrimerApellido().trim())
+                        .addValue("sape", (request.getSegundoApellido() != null && !request.getSegundoApellido().isBlank()) ? request.getSegundoApellido().trim() : null)
+                        .addValue("email", adminEmail)
+                        .addValue("tel", request.getTelefonoAdmin());
+                jdbcTemplate.update(updatePerSql, perParams);
+            } else {
+                String insertPerSql = """
+                    INSERT INTO PERSONAS (
+                        ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA,
+                        PRIMER_NOMBRE, SEGUNDO_NOMBRE, PRIMER_APELLIDO, SEGUNDO_APELLIDO,
+                        EMAIL, TELEFONO, ESTADO
+                    ) VALUES (
+                        :tipoDoc, :doc, 'NATURAL',
+                        :nom, :snom, :ape, :sape,
+                        :email, :tel, 'ACTIVO'
+                    )
+                    """;
+                MapSqlParameterSource perParams = new MapSqlParameterSource()
+                        .addValue("tipoDoc", idTipoDoc)
+                        .addValue("doc", cleanDoc)
+                        .addValue("nom", request.getPrimerNombre().trim())
+                        .addValue("snom", (request.getSegundoNombre() != null && !request.getSegundoNombre().isBlank()) ? request.getSegundoNombre().trim() : null)
+                        .addValue("ape", request.getPrimerApellido().trim())
+                        .addValue("sape", (request.getSegundoApellido() != null && !request.getSegundoApellido().isBlank()) ? request.getSegundoApellido().trim() : null)
+                        .addValue("email", adminEmail)
+                        .addValue("tel", request.getTelefonoAdmin());
 
-            String insertPerSql = """
-                INSERT INTO PERSONAS (
-                    ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA,
-                    PRIMER_NOMBRE, SEGUNDO_NOMBRE, PRIMER_APELLIDO, SEGUNDO_APELLIDO,
-                    EMAIL, TELEFONO, ESTADO
-                ) VALUES (
-                    :tipoDoc, :doc, 'NATURAL',
-                    :nom, :snom, :ape, :sape,
-                    :email, :tel, 'ACTIVO'
-                )
-                """;
-            MapSqlParameterSource perParams = new MapSqlParameterSource()
-                    .addValue("tipoDoc", idTipoDoc)
-                    .addValue("doc", request.getNumeroDocumento().trim())
-                    .addValue("nom", request.getPrimerNombre().trim())
-                    .addValue("snom", (request.getSegundoNombre() != null && !request.getSegundoNombre().isBlank()) ? request.getSegundoNombre().trim() : null)
-                    .addValue("ape", request.getPrimerApellido().trim())
-                    .addValue("sape", (request.getSegundoApellido() != null && !request.getSegundoApellido().isBlank()) ? request.getSegundoApellido().trim() : null)
-                    .addValue("email", adminEmail)
-                    .addValue("tel", request.getTelefonoAdmin());
-
-            KeyHolder khPer = new GeneratedKeyHolder();
-            jdbcTemplate.update(insertPerSql, perParams, khPer, new String[]{"ID_PERSONA"});
-            Number perIdNum = khPer.getKey();
-            Long idPersona = perIdNum != null ? perIdNum.longValue() : 1L;
+                KeyHolder khPer = new GeneratedKeyHolder();
+                jdbcTemplate.update(insertPerSql, perParams, khPer, new String[]{"ID_PERSONA"});
+                Number perIdNum = khPer.getKey();
+                idPersona = perIdNum != null ? perIdNum.longValue() : 1L;
+            }
 
             // 6. Crear USUARIO con estado inicial
             String userEstado = esGratisOPrueba ? "ACTIVO" : "PENDIENTE_VERIFICACION";
