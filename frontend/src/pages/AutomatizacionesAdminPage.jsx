@@ -115,19 +115,19 @@ export default function AutomatizacionesAdminPage() {
     () => tenantApi.get('/automatizaciones/eventos'),
     [tenant.activeAssignmentId]
   );
-  const eventos = useMemo(() => (Array.isArray(eventosRaw) ? eventosRaw : []), [eventosRaw]);
+  const eventos = useMemo(() => eventosRaw?.items || (Array.isArray(eventosRaw) ? eventosRaw : []), [eventosRaw]);
 
   const { data: reglasRaw, isLoading: loadingReglas, mutate: mutateReglas } = useFetch(
     () => tenantApi.get('/automatizaciones/reglas'),
     [tenant.activeAssignmentId]
   );
-  const reglas = useMemo(() => (Array.isArray(reglasRaw) ? reglasRaw : []), [reglasRaw]);
+  const reglas = useMemo(() => reglasRaw?.items || (Array.isArray(reglasRaw) ? reglasRaw : []), [reglasRaw]);
 
   const { data: ejecucionesRaw, isLoading: loadingEjecuciones, mutate: mutateEjecuciones } = useFetch(
     () => tenantApi.get('/automatizaciones/ejecuciones?limit=50'),
     [tenant.activeAssignmentId]
   );
-  const ejecuciones = useMemo(() => (Array.isArray(ejecucionesRaw) ? ejecucionesRaw : []), [ejecucionesRaw]);
+  const ejecuciones = useMemo(() => ejecucionesRaw?.items || (Array.isArray(ejecucionesRaw) ? ejecucionesRaw : []), [ejecucionesRaw]);
 
   // Filtrado de reglas
   const filteredReglas = useMemo(() => {
