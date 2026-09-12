@@ -157,8 +157,8 @@ export default function SuperAdminOrganizacionesPage() {
       setDeleting(true);
       setPinError('');
       await api.post('/auth/verify-pin', { pin: deletePin.trim() });
-    } catch {
-      setPinError('PIN o clave de seguridad incorrecta');
+    } catch (err) {
+      setPinError(err.response?.data?.error || err.response?.data?.message || 'Contraseña de administrador incorrecta');
       setDeleting(false);
       return;
     }
@@ -447,13 +447,13 @@ export default function SuperAdminOrganizacionesPage() {
           <div className="py-2 space-y-2">
             <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
               <span className="material-symbols-outlined text-xs text-amber-500">lock</span>
-              PIN o clave de seguridad requerida (Requisito #15):
+              Contraseña de administrador requerida:
             </label>
             <Input
               type="password"
-              placeholder="Ingresa tu PIN o contraseña de administrador"
+              placeholder="Ingresa tu contraseña de administrador"
               value={deletePin}
-              maxLength={20}
+              maxLength={50}
               onChange={(e) => {
                 setDeletePin(e.target.value);
                 setPinError('');

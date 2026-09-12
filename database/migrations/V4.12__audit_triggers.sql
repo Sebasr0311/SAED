@@ -7,13 +7,9 @@
 -- ============================================================================
 SET PAGESIZE 0 FEEDBACK ON
 ALTER SESSION SET CURRENT_SCHEMA = SAED_APP;
--- helper: NULL si la org no existe (evita FK_AUDITORIA_ORG)
+-- helper: retorna p_org directamente (evita ORA-04091 mutating table durante eliminaciones)
 CREATE OR REPLACE FUNCTION SAED_APP.FN_AUDIT_ORG_SAFE(p_org NUMBER) RETURN NUMBER AS
-    v_count NUMBER;
 BEGIN
-    IF p_org IS NULL THEN RETURN NULL; END IF;
-    SELECT COUNT(*) INTO v_count FROM ORGANIZACIONES WHERE id_organizacion = p_org;
-    IF v_count = 0 THEN RETURN NULL; END IF;
     RETURN p_org;
 END;
 /

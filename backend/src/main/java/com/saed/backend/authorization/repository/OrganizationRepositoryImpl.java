@@ -104,7 +104,9 @@ public class OrganizationRepositoryImpl implements OrganizationRepository {
 
     @Override
     public void delete(Long id) {
+        MapSqlParameterSource params = new MapSqlParameterSource("id", id);
+        jdbcTemplate.update("DELETE FROM ORGANIZACION_PROPIEDAD WHERE id_organizacion = :id", params);
         String sql = "DELETE FROM ORGANIZACIONES WHERE id_organizacion = :id";
-        jdbcTemplate.update(sql, new MapSqlParameterSource("id", id));
+        jdbcTemplate.update(sql, params);
     }
 }
