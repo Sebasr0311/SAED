@@ -164,7 +164,7 @@ export default function SancionesAdminPage() {
             )}
 
             {detalle.resolucionFinal && (
-              <div style={{ padding: '12px', background: 'var(--surface-hover)', borderLeft: '4px solid var(--primary)', borderRadius: '8px', marginTop: '16px' }}>
+              <div style={{ padding: '12px', background: 'var(--surface-hover)', border: '1px solid var(--border)', borderRadius: '8px', marginTop: '16px' }}>
                 <strong style={{ fontSize: '12px' }}>Resolución Final:</strong>
                 <p style={{ margin: '4px 0 0 0', fontSize: '14px' }}>{detalle.resolucionFinal}</p>
               </div>

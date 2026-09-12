@@ -229,7 +229,7 @@ export default function LandingProductShowcase() {
                   aria-selected={isActive}
                   type="button"
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-2.5 px-4 sm:px-5 py-3 rounded-t-xl text-xs sm:text-sm font-bold transition-all whitespace-nowrap border-b-2 min-h-[44px] ${
+                  className={`flex items-center gap-2.5 px-4 sm:px-5 py-3 text-xs sm:text-sm font-bold transition-all whitespace-nowrap border-b-2 -mb-px min-h-[44px] ${
                     isActive
                       ? 'bg-[#090E17] text-white border-sky-400 shadow-sm'
                       : 'text-slate-400 hover:text-slate-200 border-transparent hover:bg-slate-900/40'

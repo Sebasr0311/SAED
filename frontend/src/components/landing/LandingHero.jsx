@@ -53,7 +53,7 @@ export default function LandingHero() {
             Administración, residentes, portería, cartera y operación conectados en una sola plataforma.
           </p>
           <div className="mt-9 flex flex-col items-start gap-4 sm:flex-row sm:items-center">
-            <a href="#roles" onClick={(event) => { event.preventDefault(); scrollTo('#roles'); }} className="inline-flex min-h-14 items-center gap-3 rounded-full bg-sky-300 px-7 text-sm font-bold text-slate-950 shadow-[0_12px_35px_rgba(56,189,248,.24)] transition hover:bg-sky-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-200">
+            <a href="#roles" onClick={(event) => { event.preventDefault(); scrollTo('#roles'); }} className="inline-flex min-h-14 items-center gap-3 rounded-full bg-sky-400 px-7 text-sm font-bold text-[#061525] shadow-[0_12px_35px_rgba(56,189,248,.24)] transition hover:bg-sky-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300">
               Ver cómo funciona <ArrowRight className="h-4 w-4" />
             </a>
             <Link to="/login" className="inline-flex min-h-12 items-center gap-2 px-2 text-sm font-medium text-slate-200 transition hover:text-sky-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300">
@@ -76,7 +76,7 @@ export default function LandingHero() {
           ))}
         </div>
       </div>
-      <button type="button" onClick={() => scrollTo('#producto')} className="absolute bottom-2 left-1/2 hidden -translate-x-1/2 p-2 text-slate-300 transition hover:text-white lg:block" aria-label="Desplazarse hacia el producto"><ChevronDown className="h-5 w-5 animate-bounce" /></button>
+      <button type="button" onClick={() => scrollTo('#producto')} className="absolute bottom-2 left-1/2 hidden -translate-x-1/2 p-2 text-slate-300 transition-all hover:text-white hover:translate-y-0.5 lg:block group" aria-label="Desplazarse hacia el producto"><ChevronDown className="h-5 w-5 motion-safe:animate-pulse" /></button>
     </section>
   );
 }

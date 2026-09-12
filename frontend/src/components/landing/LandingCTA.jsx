@@ -35,7 +35,7 @@ export default function LandingCTA() {
         <h2 className="text-4xl sm:text-6xl md:text-7xl lg:text-[5.5rem] font-extrabold tracking-tight text-white leading-[1.06] font-['Plus_Jakarta_Sans']">
           Una propiedad.<br />
           Una plataforma.<br />
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-cyan-200 to-sky-400">
+          <span className="text-sky-400 font-black">
             SAED.
           </span>
         </h2>

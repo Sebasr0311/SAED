@@ -356,7 +356,7 @@ export default function CarteraPage() {
               aria-selected={isActiva}
               type="button"
               onClick={() => setTabActiva(tab.id)}
-              className={`flex items-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-semibold rounded-t-lg transition-all border-b-2 whitespace-nowrap min-h-[44px] sm:min-h-9 ${
+              className={`flex items-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-semibold transition-all border-b-2 -mb-px whitespace-nowrap min-h-[44px] sm:min-h-9 ${
                 isActiva
                   ? 'border-primary text-primary bg-primary/5'
                   : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40'

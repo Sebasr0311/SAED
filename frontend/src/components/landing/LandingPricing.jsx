@@ -233,7 +233,7 @@ export default function LandingPricing() {
                 }`}
               >
                 <span>Facturación Anual</span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-cyan-400 text-slate-950">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-400 text-[#061525]">
                   -20% DCTO
                 </span>
               </button>

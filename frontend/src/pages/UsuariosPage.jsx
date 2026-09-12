@@ -331,9 +331,9 @@ export default function UsuariosPage() {
           <div className="text-xs text-emerald-700 dark:text-emerald-300 font-medium">Residentes</div>
           <div className="text-2xl font-bold text-emerald-900 dark:text-emerald-100 mt-1">{metrics.residentesCount}</div>
         </div>
-        <div className="bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/40 rounded-xl p-4 shadow-sm">
-          <div className="text-xs text-indigo-700 dark:text-indigo-300 font-medium">Administradores</div>
-          <div className="text-2xl font-bold text-indigo-900 dark:text-indigo-100 mt-1">{metrics.admins}</div>
+        <div className="bg-amber-50/50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/40 rounded-xl p-4 shadow-sm">
+          <div className="text-xs text-amber-700 dark:text-amber-300 font-medium">Administradores</div>
+          <div className="text-2xl font-bold text-amber-900 dark:text-amber-100 mt-1">{metrics.admins}</div>
         </div>
       </div>
 

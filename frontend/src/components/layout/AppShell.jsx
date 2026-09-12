@@ -800,13 +800,13 @@ export default function AppShell() {
             type="button"
             onClick={handleLogout}
             className={cn(
-              'w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold text-slate-300 hover:text-rose-400 hover:bg-rose-500/10 transition-colors group/logout',
+              'w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors group/logout',
               collapsed && !mobileOpen ? 'lg:justify-center lg:px-2' : ''
             )}
             title="Cerrar sesión"
             aria-label="Cerrar sesión"
           >
-            <LogOut className="h-4 w-4 text-slate-400 group-hover/logout:text-rose-400 transition-colors" aria-hidden="true" />
+            <LogOut className="h-4 w-4 text-muted-foreground group-hover/logout:text-destructive transition-colors" aria-hidden="true" />
             {(!collapsed || mobileOpen) && <span>Cerrar sesión</span>}
           </button>
         </div>

@@ -107,7 +107,7 @@ export default function SuscripcionesPage() {
 
             <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-tight font-['Plus_Jakarta_Sans']">
               Planes diseñados para la escala de tu{' '}
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-sky-300 to-blue-400">
+              <span className="text-sky-400 font-black">
                 copropiedad
               </span>
             </h1>
@@ -179,7 +179,7 @@ export default function SuscripcionesPage() {
                 href="https://wa.me/573000000000?text=Hola,%20quisiera%20cotizar%20un%20plan%20corporativo%20SAED%202.0"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="shrink-0 px-5 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-xs sm:text-sm transition-colors flex items-center gap-2"
+                className="shrink-0 px-5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs sm:text-sm transition-colors flex items-center gap-2"
               >
                 <PhoneCall className="w-4 h-4" />
                 <span>Hablar con un asesor</span>

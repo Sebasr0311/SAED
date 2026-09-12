@@ -129,7 +129,7 @@ export default function LandingFAQ() {
                 onClick={() => setSelectedCategory(cat.id)}
                 className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all ${
                   selectedCategory === cat.id
-                    ? 'bg-sky-500 text-slate-950 shadow-md shadow-sky-500/30'
+                    ? 'bg-sky-400 text-[#061525] shadow-md shadow-sky-400/25'
                     : 'bg-slate-900/90 text-slate-400 border border-slate-800 hover:text-white hover:border-slate-700'
                 }`}
               >

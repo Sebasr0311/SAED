@@ -183,7 +183,7 @@ export default function LandingAccess() {
                   onClick={() => triggerScan(idx)}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
                     activeScenarioIdx === idx
-                      ? 'bg-sky-500 text-slate-950 shadow-md shadow-sky-500/30'
+                      ? 'bg-sky-400 text-[#061525] shadow-md shadow-sky-400/25'
                       : 'bg-slate-950 text-slate-300 border border-slate-800 hover:border-slate-700 hover:text-white'
                   }`}
                 >
