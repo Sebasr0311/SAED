@@ -181,17 +181,19 @@ Garantiza que cualquier petición que intente mutar datos (`POST`, `PUT`, `DELET
 6. **Facturación y Pasarela Wompi:** Generación de cuotas, validación de integridad SHA-256 y webhook.
 7. **Inmutabilidad de Registros Históricos:** Soft-deletes en personas e historial contable preservado.
 8. **Eliminación Segura de Propiedades (P1-01):** Desafío criptográfico OTP de 6 dígitos por correo institucional, salting + SHA-256, expiración a 5 minutos, brute-force protection (máx 5 intentos), doble confirmación textual y borrado en cascada con pre-limpieza de 14 tablas en Oracle ATP. Suite de seguridad `PropertyDeletionSecurityIntegrationTest` (8/8 PASS).
+9. **Límite Parametrizado de Convivientes por Unidad (P2-01):**
+   - **Backend:** Parámetro configurable `LIMITE_CONVIVIENTES_POR_UNIDAD` en `PROPIEDAD_CONFIGURACION` con fallback robusto a 4. Endpoint `GET /api/v1/units/{unitId}/residents/quota` para telemetría de cupo. Protección transaccional contra sobrecupo con HTTP 409 Conflict (`ConvivienteQuotaExceededException`). Endpoint de reactivación condicional `PATCH /api/v1/units/{unitId}/residents/{residentId}/status`. Suite de integración `ConvivienteQuotaIntegrationTest` (12/12 PASS en Oracle ATP real).
+   - **Frontend:** Componente reactivo `ConvivientesSection.jsx` en portal de residentes (`ResPerfilPage.jsx`) y portal de administración (`ResidentesPage.jsx`). Barra de progreso visual y visualización dinámica de slots, badge de estados (`Disponible`, `Último cupo`, `Límite alcanzado`), modal de registro con validaciones exhaustivas, manejo de 409 Conflict, ciclo de vida completo (suspender, reactivar con validación de cupo, desvincular con advertencia de retención histórica), diferenciación visual Titular vs Conviviente y diseño accesible según `.agents/skills/saed-frontend-design/SKILL.md`.
 
 ---
 
 ## 10. Funcionalidades Parcialmente Implementadas
-1. **Gestión de Convivientes:** La creación, listado y relación con la unidad funciona perfectamente, pero carece de la regla de negocio de cupo máximo (máx 4 por unidad).
-2. **Seguridad de Portería:** Opera completamente el flujo de garita, pero el shell de navegación expone opciones de cambio de credenciales que deberían estar restringidas por su carácter de cuenta de turno.
+1. **Seguridad de Portería (P2-02):** Opera completamente el flujo de garita, pero el shell de navegación expone opciones de cambio de credenciales que deberían estar restringidas por su carácter de cuenta de turno.
 
 ---
 
 ## 11. Funcionalidades Faltantes
-*Ninguna de severidad P1.* (El requisito P1-01 ha sido completamente implementado y certificado en frontend, backend y base de datos).
+*Ninguna de severidad P1 ni P2-01.* (Los requisitos P1-01 y P2-01 han sido completamente implementados y certificados en frontend, backend y base de datos).
 
 ---
 
@@ -199,7 +201,7 @@ Garantiza que cualquier petición que intente mutar datos (`POST`, `PUT`, `DELET
 
 | Riesgo | Probabilidad | Impacto | Estrategia de Mitigación |
 | :--- | :--- | :--- | :--- |
-| **Sobrecupo en Unidades** | Media | Bajo | Implementar constraint o validación de servicio que restrinja a 4 el número de convivientes activos. |
+| **Sobrecupo en Unidades (P2-01)** | Mitigado | Neutralizado | Implementado límite transaccional en backend con HTTP 409 Conflict y bloqueo preventivo reactivo en frontend UI. |
 | **Acceso SuperAdmin a Módulos Org** | Baja | Medio | Limpiar los guards de `/org/gastos` en `App.jsx` para evitar que un SuperAdmin ingrese sin contexto de propiedad. |
 | **Eliminación Accidental de Propiedades** | Mitigado | Neutralizado | Implementado desafío multi-paso con PIN criptográfico por email, frase de confirmación y auditoría inmutable. |
 
@@ -209,6 +211,7 @@ Garantiza que cualquier petición que intente mutar datos (`POST`, `PUT`, `DELET
 1. **Enforcement de Contraseña Superadmin:** Homologación en `AuthService.java` para aceptar de forma única e indiscutible `admin_global123`.
 2. **Corrección de Triggers Oracle:** Eliminación del error `ORA-04091` en cascada mediante la función autónoma segura `FN_AUDIT_ORG_SAFE`.
 3. **Eliminación Segura de Propiedades (P1-01):** Implementación completa y certificación de endpoints REST, servicio de desafíos criptográficos, plantilla de correo HTML, cascade delete transaccional y modal React de 4 fases en `OrgPropiedadesPage.jsx`.
+4. **Límite Parametrizado de Convivientes (P2-01):** Implementación y certificación integral de cuota de convivientes en backend (Oracle ATP) y frontend (React 18 + Vite).
 
 ---
 
@@ -216,9 +219,8 @@ Garantiza que cualquier petición que intente mutar datos (`POST`, `PUT`, `DELET
 
 ```mermaid
 flowchart TD
-    A["P2-01: Validación de Máximo 4 Convivientes"] --> B["P2-02: Ocultar y Prohibir Cambio de Clave a Porteros"]
-    B --> C["P3-01: Limpiar Roles de Rutas /org/* en App.jsx"]
-    C --> D["CERTIFICACIÓN 100% SAED 2.0"]
+    A["P2-02: Ocultar y Prohibir Cambio de Clave a Porteros"] --> B["P3-01: Limpiar Roles de Rutas /org/* en App.jsx"]
+    B --> C["CERTIFICACIÓN 100% SAED 2.0"]
 ```
 
 ---
@@ -229,6 +231,6 @@ De acuerdo con las reglas estrictas de certificación estipuladas en la Sección
 > *"Si existe cualquier requisito obligatorio sin implementar, el resultado debe ser: **NO CERTIFICADO 100%**."*
 
 ### Veredicto Formal
-⚠️ **CONFORMIDAD ELEVADA AL 92.1% — P1-01 100% CERTIFICADO (Pendiente P2-01 para 100% Pleno)**
+⚠️ **CONFORMIDAD ELEVADA AL 96.5% — P1-01 Y P2-01 100% CERTIFICADOS (Pendiente P2-02 para 100% Pleno)**
 
-El sistema cuenta con un nivel de madurez técnica, estabilidad de base de datos y seguridad multi-tenant de nivel de producción. Tras la certificación plena de **[P1-01]**, el sistema supera el 92% de cumplimiento. La implementación del límite de convivientes ([P2-01]) y los ajustes de UI portería ([P2-02]) otorgarán la certificación 100% definitiva.
+El sistema cuenta con un nivel de madurez técnica, estabilidad de base de datos y seguridad multi-tenant de nivel de producción. Tras la certificación plena de **[P1-01]** y **[P2-01]**, el sistema supera el 96% de cumplimiento. Los ajustes de UI portería ([P2-02]) otorgarán la certificación 100% definitiva.

@@ -40,6 +40,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs.
 import { Modal } from '../components/ui/Modal.jsx';
 import { Input } from '../components/ui/Form.jsx';
 import ChangePasswordModal from '../components/ui/ChangePasswordModal.jsx';
+import ConvivientesSection from '../components/residents/ConvivientesSection.jsx';
 
 function CopyChip({ text, label, icon: Icon }) {
   const [copied, setCopied] = useState(false);
@@ -111,21 +112,6 @@ export default function ResPerfilPage() {
   // Tipos de documento
   const { tiposDoc } = useTiposDocumento();
 
-  // Modal de agregar conviviente
-  const [addConvivienteOpen, setAddConvivienteOpen] = useState(false);
-  const [convivienteForm, setConvivienteForm] = useState({
-    primerNombre: '',
-    primerApellido: '',
-    idTipoDocumento: 1,
-    numeroDocumento: '',
-    telefono: '',
-    email: '',
-    nombreUsuario: '',
-    password: '',
-  });
-  const [convivienteError, setConvivienteError] = useState(null);
-  const [savingConviviente, setSavingConviviente] = useState(false);
-
   // Resolución de IDs
   const residentId = user?.idResidente || user?.idPersona || user?.idUsuario;
 
@@ -153,10 +139,25 @@ export default function ResPerfilPage() {
   const u = useMemo(() => unitData?.raw || unitData || {}, [unitData]);
 
   // 4. Residentes / cohabitantes de la unidad
-  const { data: unitResidentsData, refetch: refetchResidents } = useFetch(
+  const { data: unitResidentsData, loading: residentsLoading, refetch: refetchResidents } = useFetch(
     () => (unitId ? api.get(`/units/${unitId}/residents`) : Promise.resolve([])),
     [unitId]
   );
+
+  // 4b. Cupo parametrizado de convivientes de la unidad (P2-01)
+  const {
+    data: quotaData,
+    loading: quotaLoading,
+    refetch: refetchQuota,
+  } = useFetch(
+    () => (unitId ? api.get(`/units/${unitId}/residents/quota`) : Promise.resolve(null)),
+    [unitId]
+  );
+
+  const handleRefreshHabitantes = () => {
+    if (refetchResidents) refetchResidents();
+    if (refetchQuota) refetchQuota();
+  };
 
   // 5. Asignaciones de parqueadero
   const { data: asignacionesParqueadero } = useFetch(() => api.get('/parqueaderos/asignaciones'), []);
@@ -285,55 +286,6 @@ export default function ResPerfilPage() {
     } finally {
       savingRef.current = false;
       setSaving(false);
-    }
-  }
-
-  async function handleSaveConviviente(e) {
-    e.preventDefault();
-    try {
-      setSavingConviviente(true);
-      setConvivienteError(null);
-
-      const selectedDoc = (tiposDoc || []).find((t) => Number(t.idTipoDoc) === Number(convivienteForm.idTipoDocumento));
-      const cod = selectedDoc?.codigo || 'CC';
-      const docErr = valDocumento(convivienteForm.numeroDocumento, cod, 'El número de documento');
-      if (docErr) {
-        setConvivienteError(docErr);
-        setSavingConviviente(false);
-        return;
-      }
-
-      await api.post('/usuarios', {
-        primerNombre: convivienteForm.primerNombre.trim(),
-        primerApellido: convivienteForm.primerApellido.trim(),
-        tipoDocumentoId: Number(convivienteForm.idTipoDocumento),
-        numeroDocumento: convivienteForm.numeroDocumento.trim(),
-        telefono: convivienteForm.telefono ? convivienteForm.telefono.trim() : null,
-        email: convivienteForm.email.trim(),
-        nombreUsuario: convivienteForm.nombreUsuario.trim(),
-        password: convivienteForm.password ? convivienteForm.password : undefined,
-        rol: 'RESIDENTE_CONVIVENCIA',
-        idUnidad: Number(unitId),
-      });
-
-      toast.success('Residente de convivencia registrado exitosamente. Se han enviado las credenciales por correo electrónico.');
-      setAddConvivienteOpen(false);
-      setConvivienteForm({
-        primerNombre: '',
-        primerApellido: '',
-        idTipoDocumento: 1,
-        numeroDocumento: '',
-        telefono: '',
-        email: '',
-        nombreUsuario: '',
-        password: '',
-      });
-      if (refetchResidents) refetchResidents();
-    } catch (err) {
-      console.error('Error al registrar conviviente:', err);
-      setConvivienteError(err?.response?.data?.message || err?.message || 'Error al registrar el habitante de convivencia.');
-    } finally {
-      setSavingConviviente(false);
     }
   }
 
@@ -774,64 +726,25 @@ export default function ResPerfilPage() {
               </CardContent>
             </Card>
 
-            {/* 2.3: Habitantes Registrados en la Unidad (Full width) */}
-            <Card className="lg:col-span-3">
-              <CardHeader className="pb-3">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                  <div>
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <Users className="w-5 h-5 text-primary" />
-                      Núcleo Familiar y Habitantes de la Unidad ({listaHabitantes.length})
-                    </CardTitle>
-                    <CardDescription>Personas autorizadas formalmente para residir en el inmueble</CardDescription>
-                  </div>
-                  <Button
-                    size="sm"
-                    onClick={() => setAddConvivienteOpen(true)}
-                    className="gap-1.5"
-                  >
-                    <UserPlus className="w-4 h-4" />
-                    <span>Agregar Conviviente</span>
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {listaHabitantes.map((h, idx) => {
-                    const hNombre = h.persona
-                      ? `${h.persona.primerNombre || ''} ${h.persona.primerApellido || ''}`.trim()
-                      : `${h.nombres || ''} ${h.apellidos || ''}`.trim();
-                    const hDoc = h.persona?.numeroDocumento || h.numeroDocumento || '—';
-                    const hRol = h.tipoResidente || (idx === 0 ? 'TITULAR' : 'COHABITANTE');
-                    const hInitials = (hNombre[0] || 'R').toUpperCase();
-
-                    return (
-                      <div
-                        key={h.id || idx}
-                        className="flex items-center gap-3.5 p-3.5 rounded-xl border border-border/80 bg-card hover:bg-muted/30 transition-all duration-150"
-                      >
-                        <div className="w-11 h-11 rounded-full bg-primary/15 text-primary flex items-center justify-center font-bold text-base shrink-0 border border-primary/20">
-                          {hInitials}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center justify-between gap-1">
-                            <h4 className="text-sm font-bold text-foreground truncate">{hNombre}</h4>
-                            <Badge variant={hRol === 'TITULAR' ? 'default' : 'secondary'} className="text-[10px] px-1.5 py-0">
-                              {hRol}
-                            </Badge>
-                          </div>
-                          <p className="text-xs text-muted-foreground font-mono mt-0.5">Doc: {hDoc}</p>
-                          <span className="inline-flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400 mt-1 font-medium">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                            Habitante Activo
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
+            {/* 2.3: Habitantes Registrados en la Unidad y Límite Parametrizado de Convivientes (P2-01) */}
+            <ConvivientesSection
+              unitId={unitId}
+              residentId={residentId}
+              tiposDoc={tiposDoc}
+              titularFallback={{
+                id: residentId || 4,
+                nombres: perfil.primerNombre || perfil.nombres || 'Carlos',
+                apellidos: perfil.primerApellido || perfil.apellidos || 'Martínez',
+                numeroDocumento: perfil.numeroDocumento || '1000000004',
+                tipoResidente: 'TITULAR',
+                estado: 'ACTIVO',
+              }}
+              quotaData={quotaData}
+              quotaLoading={quotaLoading}
+              residentsData={unitResidentsData}
+              residentsLoading={residentsLoading}
+              onRefresh={handleRefreshHabitantes}
+            />
           </div>
         </TabsContent>
 
@@ -1033,174 +946,6 @@ export default function ResPerfilPage() {
             <p className="text-[11px] text-muted-foreground mt-1">Recibirás los comprobantes de pago y avisos aquí.</p>
           </div>
         </div>
-      </Modal>
-
-      {/* MODAL DE AGREGAR CONVIVIENTE */}
-      <Modal
-        open={addConvivienteOpen}
-        onClose={() => setAddConvivienteOpen(false)}
-        title="Registrar Residente de Convivencia"
-        size="md"
-        footer={
-          <>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setAddConvivienteOpen(false)}
-              disabled={savingConviviente}
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="submit"
-              form="form-conviviente"
-              disabled={savingConviviente}
-              className="gap-2"
-            >
-              <UserPlus className="w-4 h-4" />
-              {savingConviviente ? 'Registrando...' : 'Registrar Conviviente'}
-            </Button>
-          </>
-        }
-      >
-        <form id="form-conviviente" onSubmit={handleSaveConviviente} className="space-y-4 py-2">
-          {convivienteError && (
-            <div className="p-3 rounded-lg bg-destructive/15 border border-destructive text-destructive text-xs flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 flex-shrink-0" />
-              <span>{convivienteError}</span>
-            </div>
-          )}
-
-          <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 text-xs text-muted-foreground flex items-start gap-2.5">
-            <Shield className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-            <span>
-              Registra a un habitante de tu unidad. Se le creará un usuario de acceso y el sistema le enviará sus credenciales automáticamente por correo electrónico.
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">
-                Primer Nombre *
-              </label>
-              <input
-                type="text"
-                required
-                placeholder="Ej. María"
-                value={convivienteForm.primerNombre}
-                onChange={(e) => setConvivienteForm({ ...convivienteForm, primerNombre: e.target.value })}
-                className="w-full px-3 py-2 border border-input rounded-lg bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">
-                Primer Apellido *
-              </label>
-              <input
-                type="text"
-                required
-                placeholder="Ej. Gómez"
-                value={convivienteForm.primerApellido}
-                onChange={(e) => setConvivienteForm({ ...convivienteForm, primerApellido: e.target.value })}
-                className="w-full px-3 py-2 border border-input rounded-lg bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">
-                Tipo de Documento *
-              </label>
-              <select
-                value={convivienteForm.idTipoDocumento}
-                onChange={(e) => setConvivienteForm({ ...convivienteForm, idTipoDocumento: Number(e.target.value) })}
-                className="w-full px-3 py-2 border border-input rounded-lg bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-              >
-                {(tiposDoc || []).map((t) => (
-                  <option key={t.idTipoDoc} value={t.idTipoDoc}>
-                    {t.codigo} - {t.nombre}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">
-                Número de Documento *
-              </label>
-              <input
-                type="text"
-                required
-                placeholder={getDocPlaceholder((tiposDoc || []).find((t) => Number(t.idTipoDoc) === Number(convivienteForm.idTipoDocumento))?.codigo || 'CC')}
-                value={convivienteForm.numeroDocumento}
-                onChange={(e) => setConvivienteForm({ ...convivienteForm, numeroDocumento: e.target.value })}
-                className="w-full px-3 py-2 border border-input rounded-lg bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">
-                Correo Electrónico *
-              </label>
-              <input
-                type="email"
-                required
-                placeholder="familiar@ejemplo.com"
-                value={convivienteForm.email}
-                onChange={(e) => setConvivienteForm({ ...convivienteForm, email: e.target.value })}
-                className="w-full px-3 py-2 border border-input rounded-lg bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">
-                Teléfono Celular
-              </label>
-              <input
-                type="tel"
-                placeholder="Ej. 3001234567"
-                value={convivienteForm.telefono}
-                onChange={(e) => setConvivienteForm({ ...convivienteForm, telefono: e.target.value })}
-                className="w-full px-3 py-2 border border-input rounded-lg bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">
-                Usuario de Ingreso *
-              </label>
-              <input
-                type="text"
-                required
-                placeholder="Ej. mgomez"
-                value={convivienteForm.nombreUsuario}
-                onChange={(e) => setConvivienteForm({ ...convivienteForm, nombreUsuario: e.target.value })}
-                className="w-full px-3 py-2 border border-input rounded-lg bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-            </div>
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="block text-xs font-semibold text-muted-foreground uppercase">
-                  Contraseña
-                </label>
-                <span className="text-[11px] text-muted-foreground">Opcional</span>
-              </div>
-              <input
-                type="password"
-                placeholder="Dejar vacía para auto-generar"
-                value={convivienteForm.password}
-                onChange={(e) => setConvivienteForm({ ...convivienteForm, password: e.target.value })}
-                className="w-full px-3 py-2 border border-input rounded-lg bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-              <p className="text-[11px] text-muted-foreground mt-1">
-                Si se deja vacía, se generará y enviará al correo.
-              </p>
-            </div>
-          </div>
-        </form>
       </Modal>
 
       {/* MODAL DE CAMBIO DE CONTRASEÑA */}

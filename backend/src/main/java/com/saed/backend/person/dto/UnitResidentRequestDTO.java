@@ -9,7 +9,7 @@ public record UnitResidentRequestDTO(
         Long personaId,
 
         @NotBlank(message = "El tipo de residente es obligatorio")
-        @Pattern(regexp = "^(PROPIETARIO|ARRENDATARIO|FAMILIAR|OTRO)$", message = "Tipo de residente no válido")
+        @Pattern(regexp = "^(PROPIETARIO|ARRENDATARIO|FAMILIAR|CONVIVIENTE|OTRO)$", message = "Tipo de residente no válido")
         String tipoResidente
 ) {
 }

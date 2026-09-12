@@ -12,4 +12,7 @@ public interface UnitInhabitantService {
     
     List<UnitResidentDTO> getResidentsByUnitId(Long unitId);
     Long addResident(Long unitId, UnitResidentRequestDTO request);
+
+    void updateResidentStatus(Long unitId, Long residentId, String status);
+    void unlinkResident(Long unitId, Long residentId);
 }

@@ -234,6 +234,19 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(response, HttpStatus.CONFLICT);
     }
 
+    @ExceptionHandler(com.saed.backend.person.exception.ConvivienteLimitExceededException.class)
+    public ResponseEntity<Map<String, Object>> handleConvivienteLimitExceeded(com.saed.backend.person.exception.ConvivienteLimitExceededException ex) {
+        log.warn("Límite de convivientes superado para unidad {}: límite={}, actuales={}", ex.getUnitId(), ex.getLimit(), ex.getCurrentCount());
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", false);
+        response.put("code", "CONVIVIENTE_LIMIT_EXCEEDED");
+        response.put("unitId", ex.getUnitId());
+        response.put("limit", ex.getLimit());
+        response.put("currentCount", ex.getCurrentCount());
+        response.put("message", ex.getMessage());
+        return new ResponseEntity<>(response, HttpStatus.CONFLICT);
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, Object>> handleIllegalArgument(IllegalArgumentException ex) {
         Map<String, Object> response = new HashMap<>();

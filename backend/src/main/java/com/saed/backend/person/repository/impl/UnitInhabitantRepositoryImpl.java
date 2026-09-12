@@ -14,6 +14,7 @@ import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public class UnitInhabitantRepositoryImpl implements UnitInhabitantRepository {
@@ -130,5 +131,78 @@ public class UnitInhabitantRepositoryImpl implements UnitInhabitantRepository {
         jdbcTemplate.update(sql, params, keyHolder, new String[]{"ID_RESIDENTE_UNIDAD"});
         
         return keyHolder.getKey().longValue();
+    }
+
+    @Override
+    public Optional<UnitResidentDTO> findResidentByIdAndUnitId(Long unitId, Long residentId) {
+        String sql = """
+            SELECT ru.ID_RESIDENTE_UNIDAD, ru.TIPO_RESIDENTE, ru.FECHA_INICIO, ru.FECHA_FIN, ru.ESTADO as ESTADO_RESIDENTE,
+                   p.ID_PERSONA, p.ID_TIPO_DOCUMENTO, p.NUMERO_DOCUMENTO, p.TIPO_PERSONA, p.PRIMER_NOMBRE, p.SEGUNDO_NOMBRE,
+                   p.PRIMER_APELLIDO, p.SEGUNDO_APELLIDO, p.EMAIL, p.TELEFONO, p.ESTADO as ESTADO_PERSONA
+            FROM RESIDENTES_UNIDAD ru
+            JOIN PERSONAS p ON ru.ID_PERSONA = p.ID_PERSONA
+            WHERE ru.ID_UNIDAD = :unitId AND ru.ID_RESIDENTE_UNIDAD = :residentId
+            """;
+        List<UnitResidentDTO> list = jdbcTemplate.query(
+                sql,
+                new MapSqlParameterSource("unitId", unitId).addValue("residentId", residentId),
+                residentRowMapper
+        );
+        return list.stream().findFirst();
+    }
+
+    @Override
+    public int updateResidentStatus(Long unitId, Long residentId, String status) {
+        String sql;
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("unitId", unitId)
+                .addValue("residentId", residentId)
+                .addValue("status", status.toUpperCase());
+
+        if ("INACTIVO".equalsIgnoreCase(status)) {
+            sql = """
+                UPDATE RESIDENTES_UNIDAD
+                SET ESTADO = :status, FECHA_FIN = TRUNC(SYSDATE)
+                WHERE ID_UNIDAD = :unitId AND ID_RESIDENTE_UNIDAD = :residentId
+                """;
+        } else {
+            sql = """
+                UPDATE RESIDENTES_UNIDAD
+                SET ESTADO = :status, FECHA_FIN = NULL
+                WHERE ID_UNIDAD = :unitId AND ID_RESIDENTE_UNIDAD = :residentId
+                """;
+        }
+        return jdbcTemplate.update(sql, params);
+    }
+
+    @Override
+    public int unlinkResident(Long unitId, Long residentId) {
+        String sql = """
+            UPDATE RESIDENTES_UNIDAD
+            SET ESTADO = 'INACTIVO', FECHA_FIN = TRUNC(SYSDATE)
+            WHERE ID_UNIDAD = :unitId AND ID_RESIDENTE_UNIDAD = :residentId
+            """;
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("unitId", unitId)
+                .addValue("residentId", residentId);
+        int updated = jdbcTemplate.update(sql, params);
+
+        // Desactivar asignación de usuario correspondiente si existe
+        try {
+            String sqlAsignacion = """
+                UPDATE USUARIO_ASIGNACIONES
+                SET ESTADO = 'INACTIVA', FECHA_FIN = TRUNC(SYSDATE)
+                WHERE ID_UNIDAD = :unitId
+                  AND ID_USUARIO IN (
+                      SELECT u.ID_USUARIO
+                      FROM USUARIOS u
+                      JOIN RESIDENTES_UNIDAD ru ON u.ID_PERSONA = ru.ID_PERSONA
+                      WHERE ru.ID_RESIDENTE_UNIDAD = :residentId
+                  )
+                """;
+            jdbcTemplate.update(sqlAsignacion, params);
+        } catch (Exception ignored) {}
+
+        return updated;
     }
 }
