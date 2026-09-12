@@ -130,7 +130,7 @@ export default function LandingFAQ() {
                 className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all ${
                   selectedCategory === cat.id
                     ? 'bg-sky-400 text-[#061525] shadow-md shadow-sky-400/25'
-                    : 'bg-slate-900/90 text-slate-400 border border-slate-800 hover:text-white hover:border-slate-700'
+                    : 'bg-slate-900/90 text-slate-300 border border-slate-700/80 hover:text-white hover:border-slate-600'
                 }`}
               >
                 {cat.label}

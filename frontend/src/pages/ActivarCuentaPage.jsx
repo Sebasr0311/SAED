@@ -207,10 +207,10 @@ export default function ActivarCuentaPage() {
                   </div>
                   <Button
                     type="submit"
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
                     disabled={reenviando}
-                    className="w-full border-slate-700 text-xs text-slate-200 hover:bg-slate-800"
+                    className="w-full bg-slate-900 hover:bg-slate-800 border border-slate-700 text-xs font-semibold text-white shadow-sm transition-colors"
                   >
                     {reenviando ? 'Enviando enlace...' : 'Solicitar Nuevo Enlace'}
                   </Button>
@@ -219,7 +219,7 @@ export default function ActivarCuentaPage() {
             </CardContent>
 
             <CardFooter className="border-t border-slate-800 pt-3 justify-center">
-              <Link to="/login" className="text-xs text-primary hover:underline flex items-center gap-1">
+              <Link to="/login" className="text-xs text-sky-400 hover:text-sky-300 hover:underline flex items-center gap-1 font-medium">
                 Regresar al Inicio de Sesión
               </Link>
             </CardFooter>

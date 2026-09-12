@@ -218,7 +218,7 @@ export default function LandingPricing() {
                 className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
                   billingCycle === 'monthly'
                     ? 'bg-slate-800 text-white shadow-sm border border-slate-700'
-                    : 'text-slate-400 hover:text-white'
+                    : 'text-slate-300 hover:text-white'
                 }`}
               >
                 Facturación Mensual
@@ -229,7 +229,7 @@ export default function LandingPricing() {
                 className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2 ${
                   billingCycle === 'annual'
                     ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm'
-                    : 'text-slate-400 hover:text-white'
+                    : 'text-slate-300 hover:text-white'
                 }`}
               >
                 <span>Facturación Anual</span>
@@ -282,7 +282,7 @@ export default function LandingPricing() {
                       className={`text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider ${
                         isRecommended
                           ? 'bg-sky-500/20 text-sky-300 border border-sky-500/30'
-                          : 'bg-slate-800 text-slate-400 border border-slate-700'
+                          : 'bg-slate-800 text-slate-200 border border-slate-700'
                       }`}
                     >
                       {plan.tag}

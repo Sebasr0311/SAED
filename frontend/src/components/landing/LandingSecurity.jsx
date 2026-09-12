@@ -189,7 +189,7 @@ export default function LandingSecurity() {
                 className={`p-3 rounded-xl border text-center transition-all text-xs font-bold ${
                   selectedTierIdx === idx
                     ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50 shadow-md ring-1 ring-emerald-500/30'
-                    : 'bg-slate-950/60 text-slate-400 border-slate-800 hover:bg-slate-800/80 hover:text-white'
+                    : 'bg-slate-900/80 text-slate-300 border-slate-700/80 hover:bg-slate-800 hover:text-white'
                 }`}
               >
                 {tier.label}

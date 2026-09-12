@@ -117,7 +117,7 @@ export default function LandingParking() {
                 type="button"
                 onClick={() => setFilter('ALL')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors min-h-[32px] ${
-                  filter === 'ALL' ? 'bg-sky-400 text-[#061525] shadow-sm' : 'text-muted-foreground hover:text-white'
+                  filter === 'ALL' ? 'bg-sky-400 text-[#061525] shadow-sm' : 'text-slate-300 hover:text-white'
                 }`}
               >
                 Todas ({bays.length})
@@ -126,7 +126,7 @@ export default function LandingParking() {
                 type="button"
                 onClick={() => setFilter('AVAILABLE')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors min-h-[32px] ${
-                  filter === 'AVAILABLE' ? 'bg-sky-400 text-[#061525] shadow-sm' : 'text-muted-foreground hover:text-white'
+                  filter === 'AVAILABLE' ? 'bg-sky-400 text-[#061525] shadow-sm' : 'text-slate-300 hover:text-white'
                 }`}
               >
                 Libres ({freeCount})
@@ -135,7 +135,7 @@ export default function LandingParking() {
                 type="button"
                 onClick={() => setFilter('OCCUPIED')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors min-h-[32px] ${
-                  filter === 'OCCUPIED' ? 'bg-sky-400 text-[#061525] shadow-sm' : 'text-muted-foreground hover:text-white'
+                  filter === 'OCCUPIED' ? 'bg-sky-400 text-[#061525] shadow-sm' : 'text-slate-300 hover:text-white'
                 }`}
               >
                 Ocupadas ({occupiedCount})

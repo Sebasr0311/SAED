@@ -622,7 +622,14 @@ export default function RegistroOrganizacionPage() {
             </div>
           </Link>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <Link
+              to="/suscripciones"
+              className="text-xs font-semibold text-slate-300 hover:text-white transition-colors flex items-center gap-1.5 py-1.5 px-3 rounded-lg bg-slate-900/80 hover:bg-slate-800 border border-slate-700/70"
+            >
+              <ArrowLeft className="w-3.5 h-3.5 text-cyan-400" />
+              <span className="hidden xs:inline">Volver a Planes</span>
+            </Link>
             <span className="text-xs text-slate-400 hidden sm:inline">
               ¿Ya tienes cuenta activa?
             </span>
@@ -716,9 +723,15 @@ export default function RegistroOrganizacionPage() {
                   }`}
                 >
                   <span>Facturación Anual</span>
-                  <Badge variant="success" className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30 text-[10px] font-black tracking-wide">
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-[10px] font-black tracking-wide ${
+                      billingCycle === 'ANUAL'
+                        ? 'bg-slate-950 text-cyan-300 shadow-sm'
+                        : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                    }`}
+                  >
                     -20% DCTO
-                  </Badge>
+                  </span>
                 </button>
               </div>
             </div>
@@ -853,7 +866,14 @@ export default function RegistroOrganizacionPage() {
               </div>
             )}
 
-            <div className="flex justify-end pt-4">
+            <div className="flex items-center justify-between pt-4 gap-3">
+              <Link
+                to="/suscripciones"
+                className="bg-slate-900/90 hover:bg-slate-800 border border-slate-700 text-slate-200 hover:text-white rounded-xl text-xs font-semibold px-5 py-3 flex items-center gap-2 transition-colors shadow-sm"
+              >
+                <ArrowLeft className="w-4 h-4 text-cyan-400" />
+                <span>Volver a Planes</span>
+              </Link>
               <Button
                 onClick={() => setStep(2)}
                 disabled={!selectedPlanId}
@@ -875,9 +895,9 @@ export default function RegistroOrganizacionPage() {
               <button
                 type="button"
                 onClick={() => setStep(1)}
-                className="text-xs text-slate-400 hover:text-white flex items-center gap-1.5 mb-2 transition-colors"
+                className="text-xs font-semibold text-slate-200 hover:text-white bg-slate-900/90 hover:bg-slate-800 border border-slate-700/80 px-3.5 py-1.5 rounded-xl flex items-center gap-2 mb-3 transition-colors shadow-sm w-fit"
               >
-                <ArrowLeft className="w-3.5 h-3.5" />
+                <ArrowLeft className="w-3.5 h-3.5 text-cyan-400" />
                 <span>Volver a Planes</span>
               </button>
               <h2 className="text-2xl font-black text-white font-['Plus_Jakarta_Sans']">
@@ -1355,11 +1375,13 @@ export default function RegistroOrganizacionPage() {
 
             <div className="flex justify-between pt-2">
               <Button
-                variant="outline"
+                type="button"
+                variant="ghost"
                 onClick={() => setStep(1)}
-                className="border-slate-800 text-slate-300 hover:bg-slate-800 rounded-xl text-xs"
+                className="bg-slate-900/90 hover:bg-slate-800 border border-slate-700 text-slate-100 hover:text-white rounded-xl text-xs font-semibold px-5 py-2.5 flex items-center gap-1.5 shadow-sm transition-colors"
               >
-                Volver
+                <ArrowLeft className="w-3.5 h-3.5 text-slate-400" />
+                <span>Volver</span>
               </Button>
               <Button
                 onClick={handleAvanzarPaso2}
@@ -1381,9 +1403,9 @@ export default function RegistroOrganizacionPage() {
               <button
                 type="button"
                 onClick={() => setStep(2)}
-                className="text-xs text-slate-400 hover:text-white flex items-center gap-1.5 mb-2 transition-colors"
+                className="text-xs font-semibold text-slate-200 hover:text-white bg-slate-900/90 hover:bg-slate-800 border border-slate-700/80 px-3.5 py-1.5 rounded-xl flex items-center gap-2 mb-3 transition-colors shadow-sm w-fit"
               >
-                <ArrowLeft className="w-3.5 h-3.5" />
+                <ArrowLeft className="w-3.5 h-3.5 text-cyan-400" />
                 <span>Volver a Organización</span>
               </button>
               <h2 className="text-2xl font-black text-white font-['Plus_Jakarta_Sans']">
@@ -1644,11 +1666,13 @@ export default function RegistroOrganizacionPage() {
 
             <div className="flex justify-between pt-2">
               <Button
-                variant="outline"
+                type="button"
+                variant="ghost"
                 onClick={() => setStep(2)}
-                className="border-slate-800 text-slate-300 hover:bg-slate-800 rounded-xl text-xs"
+                className="bg-slate-900/90 hover:bg-slate-800 border border-slate-700 text-slate-100 hover:text-white rounded-xl text-xs font-semibold px-5 py-2.5 flex items-center gap-1.5 shadow-sm transition-colors"
               >
-                Volver
+                <ArrowLeft className="w-3.5 h-3.5 text-slate-400" />
+                <span>Volver</span>
               </Button>
               <Button
                 onClick={handleSubmitRegistro}
@@ -1783,7 +1807,8 @@ export default function RegistroOrganizacionPage() {
                       </Button>
 
                       <Button
-                        variant="outline"
+                        type="button"
+                        variant="ghost"
                         onClick={async () => {
                           try {
                             const res = await api.get(`/auth/onboarding/estado-pago?referencia=${encodeURIComponent(registroResultado.referencia)}`);
@@ -1798,9 +1823,9 @@ export default function RegistroOrganizacionPage() {
                             toast.error('Error verificando estado.');
                           }
                         }}
-                        className="w-full sm:w-auto border-slate-800 text-slate-300 hover:bg-slate-800 rounded-xl text-xs py-3.5 flex items-center justify-center gap-2"
+                        className="w-full sm:w-auto bg-slate-900/90 hover:bg-slate-800 border border-slate-700 text-slate-100 hover:text-white rounded-xl text-xs py-3.5 px-5 font-semibold flex items-center justify-center gap-2 shadow-sm transition-colors"
                       >
-                        <RefreshCw className="w-4 h-4" />
+                        <RefreshCw className="w-4 h-4 text-cyan-400" />
                         <span>Verificar Estado</span>
                       </Button>
                     </div>
