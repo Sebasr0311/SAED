@@ -30,18 +30,33 @@ public class OnboardingRegistroRequestDTO {
     @Size(max = 80)
     private String ciudad;
 
+    @Size(max = 80)
+    private String departamento;
+
     @Size(max = 200)
     private String direccion;
+
+    private String tipoPersona = "JURIDICA";
+
+    private String tipoDocumento = "CC";
 
     @NotBlank(message = "El nombre del administrador es obligatorio")
     @Size(max = 80)
     @JsonAlias({"adminPrimerNombre", "primer_nombre", "admin_primer_nombre"})
     private String primerNombre;
 
+    @Size(max = 80)
+    @JsonAlias({"adminSegundoNombre", "segundo_nombre", "admin_segundo_nombre"})
+    private String segundoNombre;
+
     @NotBlank(message = "El apellido del administrador es obligatorio")
     @Size(max = 80)
     @JsonAlias({"adminPrimerApellido", "primer_apellido", "admin_primer_apellido"})
     private String primerApellido;
+
+    @Size(max = 80)
+    @JsonAlias({"adminSegundoApellido", "segundo_apellido", "admin_segundo_apellido"})
+    private String segundoApellido;
 
     @NotBlank(message = "El número de documento es obligatorio")
     @Size(max = 30)
@@ -88,16 +103,34 @@ public class OnboardingRegistroRequestDTO {
     public String getCiudad() { return ciudad; }
     public void setCiudad(String ciudad) { this.ciudad = ciudad; }
 
+    public String getDepartamento() { return departamento; }
+    public void setDepartamento(String departamento) { this.departamento = departamento; }
+
     public String getDireccion() { return direccion; }
     public void setDireccion(String direccion) { this.direccion = direccion; }
+
+    public String getTipoPersona() { return tipoPersona; }
+    public void setTipoPersona(String tipoPersona) { this.tipoPersona = tipoPersona; }
+
+    public String getTipoDocumento() { return tipoDocumento; }
+    public void setTipoDocumento(String tipoDocumento) { this.tipoDocumento = tipoDocumento; }
+    public void setAdminTipoDocumento(String adminTipoDocumento) { this.tipoDocumento = adminTipoDocumento; }
 
     public String getPrimerNombre() { return primerNombre; }
     public void setPrimerNombre(String primerNombre) { this.primerNombre = primerNombre; }
     public void setAdminPrimerNombre(String adminPrimerNombre) { this.primerNombre = adminPrimerNombre; }
 
+    public String getSegundoNombre() { return segundoNombre; }
+    public void setSegundoNombre(String segundoNombre) { this.segundoNombre = segundoNombre; }
+    public void setAdminSegundoNombre(String adminSegundoNombre) { this.segundoNombre = adminSegundoNombre; }
+
     public String getPrimerApellido() { return primerApellido; }
     public void setPrimerApellido(String primerApellido) { this.primerApellido = primerApellido; }
     public void setAdminPrimerApellido(String adminPrimerApellido) { this.primerApellido = adminPrimerApellido; }
+
+    public String getSegundoApellido() { return segundoApellido; }
+    public void setSegundoApellido(String segundoApellido) { this.segundoApellido = segundoApellido; }
+    public void setAdminSegundoApellido(String adminSegundoApellido) { this.segundoApellido = adminSegundoApellido; }
 
     public String getNumeroDocumento() { return numeroDocumento; }
     public void setNumeroDocumento(String numeroDocumento) { this.numeroDocumento = numeroDocumento; }
@@ -110,8 +143,6 @@ public class OnboardingRegistroRequestDTO {
     public String getTelefonoAdmin() { return telefonoAdmin; }
     public void setTelefonoAdmin(String telefonoAdmin) { this.telefonoAdmin = telefonoAdmin; }
     public void setAdminTelefono(String adminTelefono) { this.telefonoAdmin = adminTelefono; }
-
-    public void setAdminTipoDocumento(String adminTipoDocumento) {}
 
     public String getAdminUsername() { return adminUsername; }
     public void setAdminUsername(String adminUsername) { this.adminUsername = adminUsername; }

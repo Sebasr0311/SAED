@@ -158,6 +158,16 @@ public class PublicOnboardingController {
             String orgEstado = esGratisOPrueba ? "ACTIVA" : "INACTIVA";
 
             // 4. Crear ORGANIZACIONES
+            String ciudadFinal = request.getCiudad() != null && !request.getCiudad().isBlank()
+                    ? request.getCiudad().trim() : "Bogotá D.C.";
+            if (request.getDepartamento() != null && !request.getDepartamento().isBlank()
+                    && !ciudadFinal.toLowerCase().contains(request.getDepartamento().toLowerCase())) {
+                String combinada = ciudadFinal + " (" + request.getDepartamento().trim() + ")";
+                if (combinada.length() <= 80) {
+                    ciudadFinal = combinada;
+                }
+            }
+
             String insertOrgSql = """
                 INSERT INTO ORGANIZACIONES (NOMBRE, IDENTIFICACION_FISCAL, EMAIL_CONTACTO, TELEFONO_CONTACTO, DIRECCION, CIUDAD, PAIS, ESTADO)
                 VALUES (:nom, :nit, :email, :tel, :dir, :ciu, 'Colombia', :est)
@@ -168,7 +178,7 @@ public class PublicOnboardingController {
                     .addValue("email", request.getEmailOrganizacion().trim())
                     .addValue("tel", request.getTelefonoOrganizacion())
                     .addValue("dir", request.getDireccion())
-                    .addValue("ciu", request.getCiudad() != null ? request.getCiudad() : "Bogotá")
+                    .addValue("ciu", ciudadFinal)
                     .addValue("est", orgEstado);
 
             KeyHolder khOrg = new GeneratedKeyHolder();
@@ -180,14 +190,38 @@ public class PublicOnboardingController {
             Long idOrganizacion = orgIdNum.longValue();
 
             // 5. Crear PERSONA para el administrador
+            Long idTipoDoc = 1L;
+            try {
+                String docType = (request.getTipoDocumento() != null && !request.getTipoDocumento().isBlank())
+                        ? request.getTipoDocumento().trim().toUpperCase() : "CC";
+                List<Long> tdList = jdbcTemplate.queryForList(
+                        "SELECT ID_TIPO_DOCUMENTO FROM TIPOS_DOCUMENTO WHERE CODIGO = :cod",
+                        new MapSqlParameterSource("cod", docType),
+                        Long.class
+                );
+                if (!tdList.isEmpty() && tdList.get(0) != null) {
+                    idTipoDoc = tdList.get(0);
+                }
+            } catch (Exception ignored) {}
+
             String insertPerSql = """
-                INSERT INTO PERSONAS (ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, PRIMER_NOMBRE, PRIMER_APELLIDO, EMAIL, TELEFONO, ESTADO)
-                VALUES (1, :doc, 'NATURAL', :nom, :ape, :email, :tel, 'ACTIVO')
+                INSERT INTO PERSONAS (
+                    ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA,
+                    PRIMER_NOMBRE, SEGUNDO_NOMBRE, PRIMER_APELLIDO, SEGUNDO_APELLIDO,
+                    EMAIL, TELEFONO, ESTADO
+                ) VALUES (
+                    :tipoDoc, :doc, 'NATURAL',
+                    :nom, :snom, :ape, :sape,
+                    :email, :tel, 'ACTIVO'
+                )
                 """;
             MapSqlParameterSource perParams = new MapSqlParameterSource()
+                    .addValue("tipoDoc", idTipoDoc)
                     .addValue("doc", request.getNumeroDocumento().trim())
                     .addValue("nom", request.getPrimerNombre().trim())
+                    .addValue("snom", (request.getSegundoNombre() != null && !request.getSegundoNombre().isBlank()) ? request.getSegundoNombre().trim() : null)
                     .addValue("ape", request.getPrimerApellido().trim())
+                    .addValue("sape", (request.getSegundoApellido() != null && !request.getSegundoApellido().isBlank()) ? request.getSegundoApellido().trim() : null)
                     .addValue("email", adminEmail)
                     .addValue("tel", request.getTelefonoAdmin());
 
