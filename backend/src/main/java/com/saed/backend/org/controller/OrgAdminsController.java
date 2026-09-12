@@ -45,17 +45,20 @@ public class OrgAdminsController {
     private final AssignmentManagementService assignmentManagementService;
     private final PasswordEncoder passwordEncoder;
     private final org.springframework.beans.factory.ObjectProvider<com.saed.backend.identity.service.TokenActivacionService> tokenServiceProvider;
+    private final com.saed.backend.common.service.EmailService emailService;
 
     public OrgAdminsController(NamedParameterJdbcTemplate jdbcTemplate,
                                PropertyRepository propertyRepository,
                                AssignmentManagementService assignmentManagementService,
                                PasswordEncoder passwordEncoder,
-                               org.springframework.beans.factory.ObjectProvider<com.saed.backend.identity.service.TokenActivacionService> tokenServiceProvider) {
+                               org.springframework.beans.factory.ObjectProvider<com.saed.backend.identity.service.TokenActivacionService> tokenServiceProvider,
+                               com.saed.backend.common.service.EmailService emailService) {
         this.jdbcTemplate = jdbcTemplate;
         this.propertyRepository = propertyRepository;
         this.assignmentManagementService = assignmentManagementService;
         this.passwordEncoder = passwordEncoder;
         this.tokenServiceProvider = tokenServiceProvider;
+        this.emailService = emailService;
     }
 
     @GetMapping
@@ -129,7 +132,7 @@ public class OrgAdminsController {
         // 2. Insertar USUARIO
         String rawPassword = request.getPassword();
         if (rawPassword == null || rawPassword.trim().isBlank()) {
-            rawPassword = java.util.UUID.randomUUID().toString();
+            rawPassword = com.saed.backend.common.util.PasswordGenerator.generate();
         }
 
         String sqlUsuario = """
@@ -159,19 +162,61 @@ public class OrgAdminsController {
 
         Long idAsignacion = assignmentManagementService.create(assignReq);
 
-        // 4. Enviar correo con token de activación y primer acceso
-        final Long finalIdUsuario = idUsuario;
-        tokenServiceProvider.ifAvailable(svc -> {
+        // 4. Enviar correo con credenciales de acceso creadas por el usuario
+        String creatorName = "Administrador de Organización";
+        try {
+            if (ctx.getUserId() != null) {
+                List<String> names = jdbcTemplate.query(
+                    "SELECT TRIM(p.PRIMER_NOMBRE || ' ' || p.PRIMER_APELLIDO) FROM PERSONAS p JOIN USUARIOS u ON u.ID_PERSONA = p.ID_PERSONA WHERE u.ID_USUARIO = :uid",
+                    Map.of("uid", ctx.getUserId()),
+                    (rs, rowNum) -> rs.getString(1)
+                );
+                if (!names.isEmpty() && names.get(0) != null && !names.get(0).isBlank()) {
+                    creatorName = names.get(0);
+                }
+            }
+        } catch (Exception ignored) {}
+
+        String orgName = "Tu Organización";
+        try {
+            List<String> oNames = jdbcTemplate.query(
+                "SELECT NOMBRE FROM ORGANIZACIONES WHERE ID_ORGANIZACION = :oid",
+                Map.of("oid", orgId),
+                (rs, rowNum) -> rs.getString(1)
+            );
+            if (!oNames.isEmpty()) orgName = oNames.get(0);
+        } catch (Exception ignored) {}
+
+        String propName = null;
+        if (request.getIdPropiedad() != null) {
             try {
-                svc.generarYEnviarTokenActivacion(finalIdUsuario, "0.0.0.0");
+                PropertyDTO prop = propertyRepository.findById(request.getIdPropiedad()).orElse(null);
+                if (prop != null) propName = prop.getNombre();
             } catch (Exception ignored) {}
-        });
+        }
+
+        String fullName = (request.getPrimerNombre().trim() + " " + request.getPrimerApellido().trim()).trim();
+        try {
+            emailService.enviarCredencialesCreadoPorUsuarioAsync(
+                request.getEmail(),
+                fullName,
+                creatorName,
+                "ADMIN_ORGANIZACION",
+                orgName,
+                propName,
+                null,
+                "ADMIN_PROPIEDAD",
+                request.getNombreUsuario(),
+                rawPassword,
+                "https://saedfront.vercel.app/login"
+            );
+        } catch (Exception ignored) {}
 
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
                 "success", true,
                 "idUsuario", idUsuario,
                 "idAsignacion", idAsignacion,
-                "message", "Administrador creado y asignado exitosamente. Se ha enviado el enlace de activación."
+                "message", "Administrador creado exitosamente. Se han enviado las credenciales de acceso a " + request.getEmail()
         ));
     }
 

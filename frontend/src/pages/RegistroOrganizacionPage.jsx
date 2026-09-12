@@ -55,7 +55,6 @@ export default function RegistroOrganizacionPage() {
     emailContacto: '',
   });
 
-  // Form State - Administrador
   const [adminForm, setAdminForm] = useState({
     primerNombre: '',
     segundoNombre: '',
@@ -65,6 +64,7 @@ export default function RegistroOrganizacionPage() {
     numeroDocumento: '',
     email: '',
     telefono: '',
+    adminUsername: '',
   });
 
   // Submission & Payment State
@@ -182,6 +182,10 @@ export default function RegistroOrganizacionPage() {
       toast.error('El número de documento es obligatorio.');
       return false;
     }
+    if (!adminForm.adminUsername || adminForm.adminUsername.trim().length < 3) {
+      toast.error('Ingresa un nombre de usuario para iniciar sesión (mínimo 3 caracteres alfanuméricos).');
+      return false;
+    }
     if (!adminForm.email.trim() || !adminForm.email.includes('@')) {
       toast.error('Ingresa un correo electrónico válido para el administrador.');
       return false;
@@ -212,6 +216,7 @@ export default function RegistroOrganizacionPage() {
         adminSegundoApellido: adminForm.segundoApellido.trim() || null,
         adminTipoDocumento: adminForm.tipoDocumento,
         adminNumeroDocumento: adminForm.numeroDocumento.trim(),
+        adminUsername: adminForm.adminUsername.trim().toLowerCase(),
         adminEmail: adminForm.email.trim().toLowerCase(),
         adminTelefono: adminForm.telefono.trim(),
         idPlan: selectedPlanId,
@@ -783,8 +788,27 @@ export default function RegistroOrganizacionPage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
+                  <Label htmlFor="adminUsername" className="text-xs text-slate-300 font-semibold">
+                    Usuario para Iniciar Sesión *
+                  </Label>
+                  <Input
+                    id="adminUsername"
+                    placeholder="ej. carlos.admin"
+                    value={adminForm.adminUsername}
+                    onChange={(e) =>
+                      setAdminForm({
+                        ...adminForm,
+                        adminUsername: e.target.value.toLowerCase().replace(/[^a-z0-9._-]/g, '').slice(0, 30),
+                      })
+                    }
+                    className="bg-slate-950 border-slate-800 focus:border-cyan-400 text-white rounded-xl text-xs py-3 font-mono"
+                  />
+                  <p className="text-[11px] text-slate-400">Este será su nombre de usuario único para ingresar a SAED.</p>
+                </div>
+
+                <div className="space-y-2">
                   <Label htmlFor="adminEmail" className="text-xs text-slate-300 font-semibold">
-                    Correo Electrónico (Será su Login) *
+                    Correo Electrónico (Recepción de Credenciales) *
                   </Label>
                   <Input
                     id="adminEmail"
@@ -794,19 +818,30 @@ export default function RegistroOrganizacionPage() {
                     onChange={(e) => setAdminForm({ ...adminForm, email: e.target.value })}
                     className="bg-slate-950 border-slate-800 focus:border-cyan-400 text-white rounded-xl text-xs py-3"
                   />
+                  <p className="text-[11px] text-slate-400">Aquí recibirá su usuario y contraseña temporal segura.</p>
                 </div>
+              </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="adminTel" className="text-xs text-slate-300 font-semibold">
-                    Teléfono Celular *
-                  </Label>
-                  <Input
-                    id="adminTel"
-                    placeholder="ej. 3101234567"
-                    value={adminForm.telefono}
-                    onChange={(e) => setAdminForm({ ...adminForm, telefono: e.target.value })}
-                    className="bg-slate-950 border-slate-800 focus:border-cyan-400 text-white rounded-xl text-xs py-3"
-                  />
+              <div className="space-y-2">
+                <Label htmlFor="adminTel" className="text-xs text-slate-300 font-semibold">
+                  Teléfono Celular *
+                </Label>
+                <Input
+                  id="adminTel"
+                  placeholder="ej. 3101234567"
+                  value={adminForm.telefono}
+                  onChange={(e) => setAdminForm({ ...adminForm, telefono: e.target.value.replace(/[^0-9+\s()-]/g, '').slice(0, 20) })}
+                  className="bg-slate-950 border-slate-800 focus:border-cyan-400 text-white rounded-xl text-xs py-3"
+                />
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-cyan-950/40 border border-cyan-800/40 text-xs text-cyan-300 flex items-start gap-3">
+                <Lock className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold text-cyan-200">Asignación automática de contraseña por seguridad</p>
+                  <p className="text-cyan-300/80 mt-0.5 text-[11px] leading-relaxed">
+                    La contraseña de acceso será generada aleatoriamente por el sistema con cifrado de alta seguridad y despachada de inmediato a su correo electrónico. Una vez ingrese al sistema, tendrá la opción de cambiarla fácilmente en su perfil.
+                  </p>
                 </div>
               </div>
 
@@ -883,17 +918,24 @@ export default function RegistroOrganizacionPage() {
                   </p>
                 </div>
 
-                <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 text-left space-y-2 max-w-md mx-auto">
-                  <div className="flex items-center gap-2 text-xs text-slate-300">
-                    <Mail className="w-4 h-4 text-cyan-400" />
-                    <span>
-                      Correo de activación enviado a:{' '}
-                      <strong className="text-white">{registroResultado.email || adminForm.email}</strong>
-                    </span>
+                <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 text-left space-y-3 max-w-md mx-auto">
+                  <div className="flex items-center justify-between text-xs text-slate-300">
+                    <span className="text-slate-400">Usuario de acceso:</span>
+                    <strong className="font-mono text-cyan-400 font-bold">{registroResultado.adminUsername || adminForm.adminUsername}</strong>
                   </div>
-                  <p className="text-[11px] text-slate-400">
-                    Revisa tu bandeja de entrada (y la carpeta de spam). Abre el enlace para configurar tu contraseña de acceso y comenzar a parametrizar tus propiedades.
-                  </p>
+                  <div className="flex items-center justify-between text-xs text-slate-300">
+                    <span className="text-slate-400">Correo registrado:</span>
+                    <strong className="text-white">{registroResultado.email || adminForm.email}</strong>
+                  </div>
+                  <div className="pt-2 border-t border-slate-800/80 text-[11px] text-slate-300">
+                    <p className="font-semibold text-emerald-400 flex items-center gap-1.5 mb-1">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      Credenciales de acceso despachadas por correo
+                    </p>
+                    <p className="text-slate-400 leading-relaxed">
+                      Hemos enviado a tu correo tu <strong>usuario</strong> y tu <strong>contraseña temporal segura</strong> para que puedas ingresar de inmediato. Recuerda que podrás cambiar la contraseña una vez inicies sesión.
+                    </p>
+                  </div>
                 </div>
 
                 <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
@@ -1003,7 +1045,7 @@ export default function RegistroOrganizacionPage() {
                         ¡Pago Aprobado y Organización Activada!
                       </h3>
                       <p className="text-xs text-slate-300 max-w-md mx-auto">
-                        Hemos recibido el pago de tu membresía correctamente. Despachamos un correo de activación a <strong className="text-white">{adminForm.email}</strong>.
+                        Hemos recibido el pago de tu membresía correctamente. Despachamos las credenciales de acceso (usuario <strong className="text-cyan-400 font-mono">{adminForm.adminUsername}</strong> y contraseña generada) a <strong className="text-white">{adminForm.email}</strong>.
                       </p>
                     </div>
 

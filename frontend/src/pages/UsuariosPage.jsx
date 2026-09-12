@@ -196,8 +196,10 @@ export default function UsuariosPage() {
     if (!u.ok) e.username = u.mensaje;
 
     if (!editing) {
-      const p = valPassword(form.password);
-      if (!p.ok) e.password = p.mensaje;
+      if (form.password && form.password.trim()) {
+        const p = valPassword(form.password);
+        if (!p.ok) e.password = p.mensaje;
+      }
 
       if (form.modoPersona === 'nueva') {
         const nom = valNombre(form.primerNombre, 'El primer nombre');
@@ -214,10 +216,8 @@ export default function UsuariosPage() {
           if (!tel.ok) e.telefono = tel.mensaje;
         }
 
-        if (form.email) {
-          const em = valEmail(form.email, { required: false });
-          if (!em.ok) e.email = em.mensaje;
-        }
+        const em = valEmail(form.email, { required: true });
+        if (!em.ok) e.email = 'El correo es obligatorio para enviar las credenciales de acceso';
       } else if (form.modoPersona === 'existente' && form.rol === 'RESIDENTE' && !form.idResidente) {
         e.idResidente = 'Seleccione la persona existente para el residente';
       }
@@ -552,19 +552,24 @@ export default function UsuariosPage() {
               />
               <Input
                 id="password"
-                label={editing ? 'Nueva contraseña (opcional)' : 'Contraseña Inicial *'}
+                label={editing ? 'Nueva contraseña (opcional)' : 'Contraseña (Opcional — Auto-generada si se omite)'}
                 type="password"
                 value={form.password}
                 onChange={(e) => update('password', e.target.value)}
                 onBlur={() => touch('password')}
-                placeholder={editing ? 'Dejar en blanco para conservar' : 'Mínimo 6 caracteres'}
+                placeholder={editing ? 'Dejar en blanco para conservar' : 'Auto-generada y enviada al correo si se omite'}
                 error={
                   (editing && !form.password
                     ? undefined
-                    : fieldError('password', valPassword(form.password))) || errors.password
+                    : (form.password ? fieldError('password', valPassword(form.password)) : undefined)) || errors.password
                 }
               />
             </div>
+            {!editing && (
+              <p className="text-xs text-muted-foreground italic">
+                * Si dejas la contraseña vacía, el sistema generará una contraseña segura automáticamente y enviará las credenciales de acceso al correo del usuario.
+              </p>
+            )}
           </div>
 
           <div className="form-group pt-2">

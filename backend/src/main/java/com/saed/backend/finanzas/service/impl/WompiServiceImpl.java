@@ -62,17 +62,20 @@ public class WompiServiceImpl implements WompiService {
     private final ObjectMapper mapper;
     private final EmailService emailService;
     private final TokenActivacionService tokenActivacionService;
+    private final org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
 
     public WompiServiceImpl(NamedParameterJdbcTemplate jdbcTemplate,
                             FinanzasService finanzasService,
                             ObjectMapper mapper,
                             EmailService emailService,
-                            @org.springframework.context.annotation.Lazy TokenActivacionService tokenActivacionService) {
+                            @org.springframework.context.annotation.Lazy TokenActivacionService tokenActivacionService,
+                            org.springframework.security.crypto.password.PasswordEncoder passwordEncoder) {
         this.jdbcTemplate = jdbcTemplate;
         this.finanzasService = finanzasService;
         this.mapper = mapper;
         this.emailService = emailService;
         this.tokenActivacionService = tokenActivacionService;
+        this.passwordEncoder = passwordEncoder;
     }
 
     public String getPublicKey() {
@@ -382,30 +385,47 @@ public class WompiServiceImpl implements WompiService {
 
                         // Buscar el usuario administrador principal de la organización
                         List<Map<String, Object>> admins = jdbcTemplate.queryForList(
-                            "SELECT UA.ID_USUARIO, U.EMAIL " +
+                            "SELECT UA.ID_USUARIO, U.EMAIL, U.NOMBRE_USUARIO, P.PRIMER_NOMBRE, P.PRIMER_APELLIDO, O.NOMBRE AS ORG_NOMBRE, PL.NOMBRE AS PLAN_NOMBRE " +
                             "FROM USUARIO_ASIGNACIONES UA " +
                             "JOIN USUARIOS U ON UA.ID_USUARIO = U.ID_USUARIO " +
-                            "JOIN ROLES R ON UA.ID_ROL = R.ID_ROL " +
-                            "WHERE UA.ID_ORGANIZACION = :org AND R.CODIGO = 'ADMIN_ORGANIZACION' AND UA.ESTADO = 'ACTIVO'",
+                            "JOIN PERSONAS P ON U.ID_PERSONA = P.ID_PERSONA " +
+                            "JOIN ORGANIZACIONES O ON UA.ID_ORGANIZACION = O.ID_ORGANIZACION " +
+                            "LEFT JOIN MEMBRESIAS M ON M.ID_ORGANIZACION = O.ID_ORGANIZACION " +
+                            "LEFT JOIN PLANES PL ON M.ID_PLAN = PL.ID_PLAN " +
+                            "WHERE UA.ID_ORGANIZACION = :org AND UA.ESTADO IN ('ACTIVA', 'ACTIVO') AND ROWNUM = 1",
                             new MapSqlParameterSource("org", idOrg)
                         );
 
                         if (!admins.isEmpty()) {
-                            Long idAdmin = ((Number) admins.get(0).get("ID_USUARIO")).longValue();
-                            String emailAdmin = (String) admins.get(0).get("EMAIL");
+                            Map<String, Object> adminData = admins.get(0);
+                            Long idAdmin = ((Number) adminData.get("ID_USUARIO")).longValue();
+                            String emailAdmin = (String) adminData.get("EMAIL");
+                            String usernameAdmin = (String) adminData.get("NOMBRE_USUARIO");
+                            String nombreAdmin = ((adminData.get("PRIMER_NOMBRE") != null ? adminData.get("PRIMER_NOMBRE") : "") + " " +
+                                                  (adminData.get("PRIMER_APELLIDO") != null ? adminData.get("PRIMER_APELLIDO") : "")).trim();
+                            String orgNombre = (String) adminData.get("ORG_NOMBRE");
+                            String planNombre = (String) adminData.get("PLAN_NOMBRE");
 
+                            String autoPass = com.saed.backend.common.util.PasswordGenerator.generate();
                             jdbcTemplate.update(
-                                "UPDATE USUARIOS SET ESTADO = 'ACTIVO' WHERE ID_USUARIO = :usr",
+                                "UPDATE USUARIOS SET ESTADO = 'ACTIVO', HASH_PASSWORD = :pwd WHERE ID_USUARIO = :usr",
                                 new MapSqlParameterSource("usr", idAdmin)
+                                    .addValue("pwd", passwordEncoder.encode(autoPass))
                             );
 
-                            if (tokenActivacionService != null) {
-                                try {
-                                    tokenActivacionService.generarYEnviarTokenActivacion(idAdmin, "WOMPI_WEBHOOK");
-                                    log.info("[Wompi] Token de activación generado y enviado al admin {} de la org {}", emailAdmin, idOrg);
-                                } catch (Exception exToken) {
-                                    log.error("[Wompi] Error al generar token de activación para admin {}", idAdmin, exToken);
-                                }
+                            try {
+                                emailService.enviarBienvenidaCredenciales(
+                                    emailAdmin,
+                                    nombreAdmin,
+                                    orgNombre != null ? orgNombre : "SAED",
+                                    planNombre != null ? planNombre : "Plan Comercial",
+                                    "ADMIN_ORGANIZACION",
+                                    usernameAdmin != null ? usernameAdmin : emailAdmin,
+                                    autoPass,
+                                    "https://saedfront.vercel.app/login"
+                                );
+                            } catch (Exception exCreds) {
+                                log.warn("[Wompi] Error enviando credenciales de bienvenida a {}: {}", emailAdmin, exCreds.getMessage());
                             }
 
                             try {

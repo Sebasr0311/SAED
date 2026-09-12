@@ -39,6 +39,7 @@ public class PublicOnboardingController {
     private final NamedParameterJdbcTemplate jdbcTemplate;
     private final TokenActivacionService tokenActivacionService;
     private final PasswordEncoder passwordEncoder;
+    private final com.saed.backend.common.service.EmailService emailService;
 
     @Value("${wompi.public.key:pub_test_Q5yDA9xoKdePzhSGeVe9HAez7HgGObFG}")
     private String wompiPublicKey;
@@ -49,10 +50,12 @@ public class PublicOnboardingController {
     public PublicOnboardingController(
             NamedParameterJdbcTemplate jdbcTemplate,
             TokenActivacionService tokenActivacionService,
-            PasswordEncoder passwordEncoder) {
+            PasswordEncoder passwordEncoder,
+            com.saed.backend.common.service.EmailService emailService) {
         this.jdbcTemplate = jdbcTemplate;
         this.tokenActivacionService = tokenActivacionService;
         this.passwordEncoder = passwordEncoder;
+        this.emailService = emailService;
     }
 
     @Operation(summary = "Catálogo público de planes disponibles para suscripción")
@@ -123,6 +126,21 @@ public class PublicOnboardingController {
                         "El correo " + adminEmail + " ya se encuentra registrado para otro usuario"));
             }
 
+            String rawUsername = request.getAdminUsername();
+            String adminUsername = (rawUsername != null && !rawUsername.trim().isBlank())
+                    ? rawUsername.trim().toLowerCase()
+                    : (adminEmail.contains("@") ? adminEmail.substring(0, adminEmail.indexOf('@')).toLowerCase().trim() : adminEmail);
+
+            Integer existingUserByUsername = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(1) FROM USUARIOS WHERE LOWER(NOMBRE_USUARIO) = :u",
+                    new MapSqlParameterSource("u", adminUsername),
+                    Integer.class
+            );
+            if (existingUserByUsername != null && existingUserByUsername > 0) {
+                return ResponseEntity.badRequest().body(ApiResponse.error(
+                        "El nombre de usuario '" + adminUsername + "' ya se encuentra en uso. Por favor elija otro."));
+            }
+
             // 3. Consultar datos del plan
             List<Map<String, Object>> planRows = jdbcTemplate.queryForList(
                     "SELECT ID_PLAN, CODIGO, NOMBRE, PRECIO_MENSUAL FROM PLANES WHERE ID_PLAN = :p AND ESTADO = 'ACTIVO'",
@@ -180,14 +198,14 @@ public class PublicOnboardingController {
 
             // 6. Crear USUARIO con estado inicial
             String userEstado = esGratisOPrueba ? "ACTIVO" : "PENDIENTE_VERIFICACION";
-            String randomPass = UUID.randomUUID().toString();
+            String randomPass = com.saed.backend.common.util.PasswordGenerator.generate();
             String insertUsrSql = """
                 INSERT INTO USUARIOS (ID_PERSONA, NOMBRE_USUARIO, EMAIL, HASH_PASSWORD, ESTADO, INTENTOS_FALLIDOS)
                 VALUES (:idPer, :user, :email, :pwd, :est, 0)
                 """;
             MapSqlParameterSource usrParams = new MapSqlParameterSource()
                     .addValue("idPer", idPersona)
-                    .addValue("user", adminEmail)
+                    .addValue("user", adminUsername)
                     .addValue("email", adminEmail)
                     .addValue("pwd", passwordEncoder.encode(randomPass))
                     .addValue("est", userEstado);
@@ -232,11 +250,22 @@ public class PublicOnboardingController {
                         .addValue("plan", request.getIdPlan()),
                         khMemb, new String[]{"ID_MEMBRESIA"});
 
-                // Despachar correo de activación
+                // Despachar correo de bienvenida con credenciales automáticas
+                String adminFullName = (request.getPrimerNombre().trim() + " " + request.getPrimerApellido().trim()).trim();
+                String planNombre = (String) plan.get("NOMBRE");
                 try {
-                    tokenActivacionService.generarYEnviarTokenActivacion(idUsuario, ip);
+                    emailService.enviarBienvenidaCredencialesAsync(
+                            adminEmail,
+                            adminFullName,
+                            request.getNombreOrganizacion().trim(),
+                            planNombre,
+                            "ADMIN_ORGANIZACION",
+                            adminUsername,
+                            randomPass,
+                            "https://saedfront.vercel.app/login"
+                    );
                 } catch (Exception e) {
-                    log.error("Error despachando token de activación: ", e);
+                    log.error("Error despachando credenciales de bienvenida: ", e);
                 }
 
                 Map<String, Object> resp = new HashMap<>();
@@ -244,7 +273,8 @@ public class PublicOnboardingController {
                 resp.put("requierePago", false);
                 resp.put("esPrueba", true);
                 resp.put("email", adminEmail);
-                resp.put("mensaje", "¡Bienvenido a SAED 2.0! Tu período de prueba de 14 días ha sido activado. Hemos enviado un correo a " + adminEmail + " para configurar tu contraseña.");
+                resp.put("adminUsername", adminUsername);
+                resp.put("mensaje", "¡Bienvenido a SAED 2.0! Tu suscripción ha sido activada. Hemos enviado tus credenciales de acceso (usuario: " + adminUsername + " y contraseña temporal) al correo " + adminEmail + ".");
 
                 return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(resp));
             } else {

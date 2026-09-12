@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bienvenido a SAED</title>
+</head>
+<body style="margin:0; padding:0; background-color:#EEF1F6; font-family:Calibri, Arial, sans-serif;">
+
+<!-- Wrapper -->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#EEF1F6; padding:32px 0;">
+  <tr>
+    <td align="center">
+
+      <!-- Card -->
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="background-color:#FFFFFF; border-radius:12px; overflow:hidden; box-shadow:0 2px 8px rgba(15,32,68,0.08);">
+
+        <!-- Header -->
+        <tr>
+          <td style="background-color:#0F2044; padding:32px 40px; text-align:center;">
+            <img src="https://saedfront.vercel.app/imagenes/saed_logo_final_blue.png" alt="SAED" width="72" style="display:block; margin:0 auto 12px auto;">
+            <div style="color:#FFFFFF; font-size:20px; font-weight:700; letter-spacing:0.04em;">SAED</div>
+            <div style="color:#9FB0CC; font-size:12px; margin-top:2px;">Sistema de Administración de Edificio Residencial</div>
+          </td>
+        </tr>
+
+        <!-- Saludo -->
+        <tr>
+          <td style="padding:36px 40px 8px 40px;">
+            <div style="font-size:20px; font-weight:700; color:#0F2044;">
+              ¡Bienvenido(a) a SAED, <span th:text="${nombreCompleto}">Nombre Apellido</span>!
+            </div>
+
+            <!-- Contexto de quién lo agregó (creación interna) -->
+            <p style="font-size:14px; color:#5B6B85; line-height:1.6; margin-top:12px;">
+              <strong th:text="${creadoPorNombre}">Nombre del creador</strong>
+              (<span th:switch="${creadoPorRol}">
+                <span th:case="'ADMIN_ORGANIZACION'">Administrador de Organización</span>
+                <span th:case="'ADMIN_GENERAL'">Administrador General</span>
+                <span th:case="'ADMIN_PROPIEDAD'">Administrador de Propiedad</span>
+                <span th:case="'RESIDENTE'">Residente</span>
+                <span th:case="*" th:text="${creadoPorRolNombre}">rol</span>
+              </span>)
+              te agregó a SAED
+              <span th:if="${organizacion}"> en <strong th:text="${organizacion}">Nombre de la Organización</strong></span>
+              <span th:if="${propiedad}">, propiedad <strong th:text="${propiedad}">Nombre de la Propiedad</strong></span>
+              <span th:if="${unidad}">, unidad <strong th:text="${unidad}">Apto 501</strong></span>.
+              A continuación encontrarás tus credenciales de acceso y una breve guía de lo que puedes hacer en la plataforma.
+            </p>
+          </td>
+        </tr>
+
+        <!-- Qué es SAED -->
+        <tr>
+          <td style="padding:8px 40px;">
+            <div style="background-color:#F7F9FC; border:1px solid #E5E9F0; border-radius:8px; padding:16px 20px;">
+              <p style="font-size:13px; color:#1A2233; line-height:1.6; margin:0;">
+                <strong>SAED</strong> es la plataforma con la que tu propiedad administra
+                residentes, pagos, visitas, seguridad y comunicación — todo desde un solo lugar,
+                de forma segura y auditable.
+              </p>
+            </div>
+          </td>
+        </tr>
+
+        <!-- Rol asignado -->
+        <tr>
+          <td style="padding:28px 40px 8px 40px;">
+            <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:#8592A8; font-weight:700; margin-bottom:8px;">
+              Tu rol en la plataforma
+            </div>
+
+            <div style="display:inline-block; background-color:#E9F0FB; color:#2855A0; font-size:13px; font-weight:700; padding:5px 14px; border-radius:12px; margin-bottom:10px;">
+              <span th:switch="${rol}">
+                <span th:case="'SUPERADMIN'">Superadministrador</span>
+                <span th:case="'ADMIN_ORGANIZACION'">Administrador de Organización</span>
+                <span th:case="'ADMIN_GENERAL'">Administrador General</span>
+                <span th:case="'ADMIN_PROPIEDAD'">Administrador de Propiedad</span>
+                <span th:case="'PORTERO'">Portero / Vigilante</span>
+                <span th:case="'RESIDENTE'">Residente</span>
+                <span th:case="'RESIDENTE_CONVIVENCIA'">Residente (convivencia)</span>
+                <span th:case="*" th:text="${rolNombre}">Rol</span>
+              </span>
+            </div>
+
+            <p style="font-size:13px; color:#5B6B85; line-height:1.6; margin:6px 0 0 0;" th:switch="${rol}">
+              <span th:case="'ADMIN_PROPIEDAD'">
+                Administras la operación de tu propiedad: residentes, pagos, visitas, multas,
+                mantenimiento y comunicación con los residentes.
+              </span>
+              <span th:case="'PORTERO'">
+                Gestionas el acceso de visitantes, control de QR, paquetería, proveedores
+                e incidentes desde el panel de portería.
+              </span>
+              <span th:case="'RESIDENTE'">
+                Desde tu portal puedes ver tu estado de cuenta, pagar en línea, gestionar visitas
+                y QR, hacer reservas, reportar PQRS y recibir comunicados de tu propiedad.
+              </span>
+              <span th:case="'RESIDENTE_CONVIVENCIA'">
+                Fuiste agregado como residente de convivencia de tu unidad. Puedes gestionar visitas
+                y QR, hacer reservas, reportar PQRS y recibir comunicados — el estado de cuenta y
+                los pagos los administra el residente titular de la unidad.
+              </span>
+              <span th:case="'SUPERADMIN'">
+                Tienes acceso global a la plataforma: gestión de organizaciones, planes, membresías,
+                módulos habilitados y métricas de toda la operación.
+              </span>
+              <span th:case="'ADMIN_ORGANIZACION'">
+                Administras tu organización completa: propiedades, administradores, membresía,
+                configuración general y reportes consolidados.
+              </span>
+              <span th:case="'ADMIN_GENERAL'">
+                Administras las propiedades que te fueron asignadas dentro de tu organización:
+                residentes, finanzas, accesos y operación diaria.
+              </span>
+              <span th:case="*" th:text="${rolDescripcion}">
+                Descripción del rol asignado.
+              </span>
+            </p>
+          </td>
+        </tr>
+
+        <!-- Credenciales -->
+        <tr>
+          <td style="padding:24px 40px 8px 40px;">
+            <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:#8592A8; font-weight:700; margin-bottom:10px;">
+              Tus credenciales de acceso
+            </div>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#0F2044; border-radius:8px;">
+              <tr>
+                <td style="padding:18px 22px;">
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td style="padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.12);">
+                        <div style="color:#9FB0CC; font-size:11px; text-transform:uppercase; letter-spacing:0.04em;">Usuario</div>
+                        <div style="color:#FFFFFF; font-size:16px; font-weight:700; font-family:'Courier New', monospace; margin-top:2px;" th:text="${nombreUsuario}">usuario123</div>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding-top:12px;">
+                        <div style="color:#9FB0CC; font-size:11px; text-transform:uppercase; letter-spacing:0.04em;">Contraseña temporal</div>
+                        <div style="color:#FFFFFF; font-size:16px; font-weight:700; font-family:'Courier New', monospace; margin-top:2px;" th:text="${passwordGenerada}">Xk9$mP2qL</div>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+
+            <p style="font-size:12px; color:#B7791F; background-color:#FDF3DE; border:1px solid #F1D48A; border-radius:6px; padding:10px 14px; margin-top:14px;">
+              ⚠ Por seguridad, te recomendamos <strong>cambiar esta contraseña</strong> apenas inicies sesión por primera vez.
+            </p>
+          </td>
+        </tr>
+
+        <!-- Botón de acceso -->
+        <tr>
+          <td style="padding:20px 40px 8px 40px; text-align:center;">
+            <a th:href="${urlLogin}" href="#"
+               style="display:inline-block; background-color:#2855A0; color:#FFFFFF; text-decoration:none; font-size:14px; font-weight:700; padding:14px 36px; border-radius:8px;">
+              Iniciar sesión en SAED
+            </a>
+          </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+          <td style="padding:32px 40px 28px 40px; border-top:1px solid #EEF1F6; margin-top:20px;">
+            <p style="font-size:12px; color:#8592A8; line-height:1.6; margin:16px 0 0 0;">
+              Si no reconoces esta cuenta o crees que este correo llegó por error,
+              contáctanos respondiendo a este mensaje o a través de
+              <span th:text="${creadoPorNombre}">quien te agregó</span>.
+            </p>
+            <p style="font-size:11px; color:#B7C0D1; margin-top:16px;">
+              SAED — Sistema de Administración de Edificio Residencial<br>
+              Este es un mensaje generado automáticamente, por favor no compartas tus credenciales con terceros.
+            </p>
+          </td>
+        </tr>
+
+      </table>
+      <!-- /Card -->
+
+    </td>
+  </tr>
+</table>
+<!-- /Wrapper -->
+
+</body>
+</html>

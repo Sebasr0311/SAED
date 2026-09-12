@@ -42,6 +42,10 @@ test.describe('Onboarding y Registro de Organización (SaaS Multi-tenant)', () =
     await page.locator('input[placeholder*="ej. Carlos"]').fill('Sebastian');
     await page.locator('input[placeholder*="ej. Rodríguez"]').fill('Rincon');
     await page.locator('input[placeholder*="ej. 1020304050"]').fill('1065888999');
+    const adminUsernameInput = page.locator('#adminUsername');
+    if (await adminUsernameInput.isVisible({ timeout: 2500 }).catch(() => false)) {
+      await adminUsernameInput.fill('srincon.admin');
+    }
     await page.locator('input[placeholder*="carlos@tuempresa.com"]').fill('juansebastianrincon+e2e@unicesar.edu.co');
     await page.locator('input[placeholder*="ej. 3101234567"]').fill('3157891234');
 

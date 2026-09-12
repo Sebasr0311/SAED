@@ -61,6 +61,10 @@ public class OnboardingRegistroRequestDTO {
     @NotNull(message = "Debe seleccionar un plan de suscripción")
     private Long idPlan;
 
+    @Size(min = 3, max = 50, message = "El nombre de usuario debe tener entre 3 y 50 caracteres")
+    @JsonAlias({"adminUsername", "nombreUsuario", "nombre_usuario", "username"})
+    private String adminUsername;
+
     private String cicloFacturacion = "MENSUAL";
 
     private Boolean esPrueba = false;
@@ -108,6 +112,11 @@ public class OnboardingRegistroRequestDTO {
     public void setAdminTelefono(String adminTelefono) { this.telefonoAdmin = adminTelefono; }
 
     public void setAdminTipoDocumento(String adminTipoDocumento) {}
+
+    public String getAdminUsername() { return adminUsername; }
+    public void setAdminUsername(String adminUsername) { this.adminUsername = adminUsername; }
+    public void setNombreUsuario(String nombreUsuario) { this.adminUsername = nombreUsuario; }
+    public void setUsername(String username) { this.adminUsername = username; }
 
     public Long getIdPlan() { return idPlan; }
     public void setIdPlan(Long idPlan) { this.idPlan = idPlan; }

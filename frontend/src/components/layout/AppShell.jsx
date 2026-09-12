@@ -19,6 +19,7 @@ import {
   Headphones,
   History,
   Home,
+  Key,
   LayoutDashboard,
   LogOut,
   Mail,
@@ -53,6 +54,7 @@ import ErrorBoundary from '../ErrorBoundary.jsx';
 import NotificationBell from '../ui/NotificationBell.jsx';
 import BreadcrumbNav from '../ui/Breadcrumb.jsx';
 import TenantSwitcher from './TenantSwitcher.jsx';
+import ChangePasswordModal from '../ui/ChangePasswordModal.jsx';
 import { cn } from '../../lib/utils.js';
 import {
   Dialog,
@@ -440,6 +442,7 @@ export default function AppShell() {
   }, []);
 
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
 
   function toggleTheme() {
     setDark((prev) => {
@@ -798,6 +801,20 @@ export default function AppShell() {
 
           <button
             type="button"
+            onClick={() => setShowChangePasswordModal(true)}
+            className={cn(
+              'w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800/60 transition-colors group/pwd',
+              collapsed && !mobileOpen ? 'lg:justify-center lg:px-2' : ''
+            )}
+            title="Cambiar contraseña"
+            aria-label="Cambiar contraseña"
+          >
+            <Key className="h-4 w-4 text-slate-400 group-hover/pwd:text-white transition-colors" aria-hidden="true" />
+            {(!collapsed || mobileOpen) && <span>Cambiar clave</span>}
+          </button>
+
+          <button
+            type="button"
             onClick={handleLogout}
             className={cn(
               'w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors group/logout',
@@ -888,8 +905,13 @@ export default function AppShell() {
             <NotificationBell />
 
             {/* Pastilla de Usuario en Desktop */}
-            <div className="hidden md:flex items-center gap-2 pl-2 border-l border-border/60">
-              <div className="h-8 w-8 rounded-full bg-primary/10 border border-primary/20 text-primary font-bold flex items-center justify-center text-xs">
+            <button
+              type="button"
+              onClick={() => setShowChangePasswordModal(true)}
+              className="hidden md:flex items-center gap-2 pl-2 pr-2.5 py-1 rounded-lg border border-border/60 hover:bg-muted/60 transition-colors text-left group"
+              title="Mi Perfil / Cambiar Contraseña"
+            >
+              <div className="h-8 w-8 rounded-full bg-primary/10 border border-primary/20 text-primary font-bold flex items-center justify-center text-xs group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
                 {user?.username?.[0]?.toUpperCase() || 'U'}
               </div>
               <div className="flex flex-col text-left">
@@ -900,7 +922,8 @@ export default function AppShell() {
                   {user?.rol}
                 </span>
               </div>
-            </div>
+              <Key className="w-3.5 h-3.5 text-muted-foreground ml-1 opacity-60 group-hover:opacity-100 group-hover:text-primary transition-opacity" />
+            </button>
 
             {/* Botón Logout Rápido (Desktop) */}
             <button
@@ -934,6 +957,12 @@ export default function AppShell() {
           </ErrorBoundary>
         </main>
       </div>
+
+      {/* Modal de cambio de contraseña */}
+      <ChangePasswordModal
+        open={showChangePasswordModal}
+        onOpenChange={setShowChangePasswordModal}
+      />
 
       {/* Modal de confirmación para cerrar sesión */}
       <Dialog open={showLogoutModal} onOpenChange={setShowLogoutModal}>

@@ -30,14 +30,17 @@ public class UsuarioController {
     private final NamedParameterJdbcTemplate jdbcTemplate;
     private final PasswordEncoder passwordEncoder;
     private final org.springframework.beans.factory.ObjectProvider<com.saed.backend.identity.service.TokenActivacionService> tokenServiceProvider;
+    private final com.saed.backend.common.service.EmailService emailService;
 
     public UsuarioController(
             NamedParameterJdbcTemplate jdbcTemplate,
             PasswordEncoder passwordEncoder,
-            org.springframework.beans.factory.ObjectProvider<com.saed.backend.identity.service.TokenActivacionService> tokenServiceProvider) {
+            org.springframework.beans.factory.ObjectProvider<com.saed.backend.identity.service.TokenActivacionService> tokenServiceProvider,
+            com.saed.backend.common.service.EmailService emailService) {
         this.jdbcTemplate = jdbcTemplate;
         this.passwordEncoder = passwordEncoder;
         this.tokenServiceProvider = tokenServiceProvider;
+        this.emailService = emailService;
     }
 
     @Operation(summary = "Listar usuarios del sistema con sus roles y personas vinculadas dentro del perímetro del tenant")
@@ -100,11 +103,11 @@ public class UsuarioController {
         return jdbcTemplate.queryForList(sql.toString(), params);
     }
 
-    @Operation(summary = "Crear nuevo usuario (Portero, Residente o Administrador)")
+    @Operation(summary = "Crear nuevo usuario (Portero, Residente, Administrador o Residente de Convivencia)")
     @PostMapping
     @Transactional
     @Auditable(action = "CREATE", resource = "USUARIO", category = AuditCategory.SECURITY, severity = AuditSeverity.CRITICAL)
-    @PreAuthorize("hasAuthority('SCOPE_SUPERADMIN') or hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAuthority('SCOPE_SUPERADMIN') or hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_RESIDENTE')")
     public ResponseEntity<ApiResponse<Map<String, Object>>> crearUsuario(@RequestBody Map<String, Object> payload) {
         String username = (String) payload.getOrDefault("username", payload.get("nombreUsuario"));
         if (username == null || username.trim().isBlank()) {
@@ -118,7 +121,7 @@ public class UsuarioController {
                 || "true".equalsIgnoreCase(String.valueOf(payload.get("enviarCorreoActivacion")));
 
         if (rawPassword == null || rawPassword.trim().isBlank()) {
-            rawPassword = java.util.UUID.randomUUID().toString();
+            rawPassword = com.saed.backend.common.util.PasswordGenerator.generate();
             enviarActivacion = true;
         }
 
@@ -142,10 +145,26 @@ public class UsuarioController {
         String callerRole = ctx != null ? ctx.getRoleCode() : "";
         Long orgId = ctx != null ? ctx.getOrganizationId() : null;
         Long propId = ctx != null ? ctx.getPropertyId() : null;
+        Long callerUnitId = ctx != null ? ctx.getUnitId() : null;
 
         // Anti-escalamiento de privilegios por rol
-        if ("ADMIN_PROPIEDAD".equals(callerRole)) {
-            if (!"PORTERO".equals(rol) && !"RESIDENTE".equals(rol) && !"PROPIETARIO".equals(rol)) {
+        if ("RESIDENTE".equals(callerRole)) {
+            if (!"RESIDENTE_CONVIVENCIA".equals(rol) && !"RESIDENTE".equals(rol)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(ApiResponse.error("Como Residente solo puede registrar personas para su unidad de convivencia"));
+            }
+            rol = "RESIDENTE_CONVIVENCIA";
+            if (callerUnitId == null && ctx.getUserId() != null) {
+                try {
+                    List<Long> uList = jdbcTemplate.queryForList(
+                        "SELECT ID_UNIDAD FROM RESIDENTES_UNIDAD ru JOIN USUARIOS u ON ru.ID_PERSONA = u.ID_PERSONA WHERE u.ID_USUARIO = :uid AND ROWNUM = 1",
+                        Map.of("uid", ctx.getUserId()), Long.class
+                    );
+                    if (!uList.isEmpty()) callerUnitId = uList.get(0);
+                } catch (Exception ignored) {}
+            }
+        } else if ("ADMIN_PROPIEDAD".equals(callerRole)) {
+            if (!"PORTERO".equals(rol) && !"RESIDENTE".equals(rol) && !"PROPIETARIO".equals(rol) && !"RESIDENTE_CONVIVENCIA".equals(rol)) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN)
                         .body(ApiResponse.error("Como Administrador de Propiedad solo puede registrar Porteros, Residentes o Propietarios"));
             }
@@ -230,21 +249,29 @@ public class UsuarioController {
         Long idUsuario = uKey.longValue();
 
         // 3. Obtener ID_ROL
-        Long idRol = jdbcTemplate.queryForObject(
+        Long idRol = null;
+        try {
+            List<Long> rList = jdbcTemplate.query(
                 "SELECT ID_ROL FROM ROLES WHERE CODIGO = :cod",
-                new MapSqlParameterSource("cod", rol),
-                Long.class
-        );
+                Map.of("cod", rol),
+                (rs, rowNum) -> rs.getLong(1)
+            );
+            if (!rList.isEmpty()) idRol = rList.get(0);
+        } catch (Exception ignored) {}
         if (idRol == null) {
-            idRol = 5L; // PORTERO default
+            idRol = "RESIDENTE_CONVIVENCIA".equals(rol) ? 4L : ("PORTERO".equals(rol) ? 5L : 4L);
         }
 
         // 4. Crear Asignación
         Long idUnidad = null;
-        if ("RESIDENTE".equals(rol) || "PROPIETARIO".equals(rol)) {
+        if ("RESIDENTE_CONVIVENCIA".equals(rol) && callerUnitId != null) {
+            idUnidad = callerUnitId;
+        } else if ("RESIDENTE".equals(rol) || "PROPIETARIO".equals(rol) || "RESIDENTE_CONVIVENCIA".equals(rol)) {
             Object uObj = payload.get("idUnidad");
             if (uObj != null && !uObj.toString().isBlank()) {
                 idUnidad = Long.valueOf(uObj.toString());
+            } else if (callerUnitId != null) {
+                idUnidad = callerUnitId;
             } else {
                 List<Long> uList = jdbcTemplate.queryForList(
                         "SELECT ID_UNIDAD FROM RESIDENTES_UNIDAD WHERE ID_PERSONA = :p AND ROWNUM = 1",
@@ -278,20 +305,82 @@ public class UsuarioController {
                 .addValue("idUnidad", idUnidad);
         jdbcTemplate.update(sqlAsig, paramA);
 
-        if (enviarActivacion) {
-            final Long finalIdUsuario = idUsuario;
-            tokenServiceProvider.ifAvailable(svc -> {
-                try {
-                    svc.generarYEnviarTokenActivacion(finalIdUsuario, "0.0.0.0");
-                } catch (Exception ignored) {}
-            });
+        // Si es habitante de unidad, asegurar registro en RESIDENTES_UNIDAD
+        if (idUnidad != null && ("RESIDENTE".equals(rol) || "RESIDENTE_CONVIVENCIA".equals(rol))) {
+            try {
+                Integer ruCount = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(1) FROM RESIDENTES_UNIDAD WHERE ID_UNIDAD = :u AND ID_PERSONA = :p",
+                    Map.of("u", idUnidad, "p", idPersona),
+                    Integer.class
+                );
+                if (ruCount == null || ruCount == 0) {
+                    jdbcTemplate.update(
+                        "INSERT INTO RESIDENTES_UNIDAD (ID_UNIDAD, ID_PERSONA, TIPO_RESIDENTE, FECHA_INICIO, ESTADO) VALUES (:u, :p, :tipo, TRUNC(SYSDATE), 'ACTIVO')",
+                        Map.of("u", idUnidad, "p", idPersona, "tipo", "RESIDENTE_CONVIVENCIA".equals(rol) ? "CONVIVIENTE" : "TITULAR")
+                    );
+                }
+            } catch (Exception ignored) {}
         }
+
+        // 5. Enviar correo con credenciales de acceso creadas por usuario
+        String creatorName = "Un usuario de SAED";
+        try {
+            if (ctx.getUserId() != null) {
+                List<String> names = jdbcTemplate.query(
+                    "SELECT TRIM(p.PRIMER_NOMBRE || ' ' || p.PRIMER_APELLIDO) FROM PERSONAS p JOIN USUARIOS u ON u.ID_PERSONA = p.ID_PERSONA WHERE u.ID_USUARIO = :uid",
+                    Map.of("uid", ctx.getUserId()),
+                    (rs, rowNum) -> rs.getString(1)
+                );
+                if (!names.isEmpty() && names.get(0) != null && !names.get(0).isBlank()) {
+                    creatorName = names.get(0);
+                }
+            }
+        } catch (Exception ignored) {}
+
+        String orgName = null;
+        try {
+            List<String> oNames = jdbcTemplate.query("SELECT NOMBRE FROM ORGANIZACIONES WHERE ID_ORGANIZACION = :oid", Map.of("oid", orgId), (rs, r) -> rs.getString(1));
+            if (!oNames.isEmpty()) orgName = oNames.get(0);
+        } catch (Exception ignored) {}
+
+        String propName = null;
+        try {
+            List<String> pNames = jdbcTemplate.query("SELECT NOMBRE FROM PROPIEDADES WHERE ID_PROPIEDAD = :pid", Map.of("pid", propId), (rs, r) -> rs.getString(1));
+            if (!pNames.isEmpty()) propName = pNames.get(0);
+        } catch (Exception ignored) {}
+
+        String unidadNombre = null;
+        if (idUnidad != null) {
+            try {
+                List<String> uNames = jdbcTemplate.query("SELECT IDENTIFICADOR FROM UNIDADES WHERE ID_UNIDAD = :uid", Map.of("uid", idUnidad), (rs, r) -> rs.getString(1));
+                if (!uNames.isEmpty()) unidadNombre = uNames.get(0);
+            } catch (Exception ignored) {}
+        }
+
+        String recipientFullName = ((payload.get("primerNombre") != null ? payload.get("primerNombre") : username) + " " +
+                                     (payload.get("primerApellido") != null ? payload.get("primerApellido") : "")).trim();
+
+        try {
+            emailService.enviarCredencialesCreadoPorUsuarioAsync(
+                userEmail,
+                recipientFullName,
+                creatorName,
+                callerRole,
+                orgName,
+                propName,
+                unidadNombre,
+                rol,
+                username,
+                rawPassword,
+                "https://saedfront.vercel.app/login"
+            );
+        } catch (Exception ignored) {}
 
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(Map.of(
                 "idUsuario", idUsuario,
                 "username", username,
                 "rol", rol,
-                "message", "Usuario creado y asignado exitosamente"
+                "message", "Usuario creado exitosamente. Se han enviado las credenciales de acceso a " + userEmail
         )));
     }
 

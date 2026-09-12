@@ -400,17 +400,22 @@ export default function OrgAdminsPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">
-                      Contraseña *
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-semibold text-muted-foreground uppercase">
+                        Contraseña
+                      </label>
+                      <span className="text-[11px] text-muted-foreground">Opcional</span>
+                    </div>
                     <input
                       type="password"
-                      required
-                      placeholder="Mínimo 6 caracteres"
+                      placeholder="Dejar vacía para auto-generar"
                       value={newAdmin.password}
                       onChange={(e) => setNewAdmin({ ...newAdmin, password: e.target.value })}
                       className="w-full px-3 py-2 border border-input rounded-lg bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                     />
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      Si se deja vacía, el sistema generará una clave aleatoria y la enviará al correo.
+                    </p>
                   </div>
                 </div>
 
