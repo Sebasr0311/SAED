@@ -486,7 +486,12 @@ export default function App() {
               </ProtectedRoute>
             }
           />
+          <Route path="sanciones" element={<Navigate to="/sanciones-admin" replace />} />
+          <Route path="obras" element={<Navigate to="/obras-admin" replace />} />
           <Route path="obras-admin" element={<ProtectedRoute roles={['ADMIN_PROPIEDAD']}><ObrasAdminPage /></ProtectedRoute>} />
+          <Route path="seguros" element={<Navigate to="/polizas" replace />} />
+          <Route path="seguros/polizas" element={<Navigate to="/polizas" replace />} />
+          <Route path="incidentes" element={<Navigate to="/incidentes-admin" replace />} />
           <Route path="mantenimiento-admin" element={<Navigate to="/mantenimientos" replace />} />
           <Route path="mantenimientos" element={<ProtectedRoute roles={['ADMIN_PROPIEDAD']}><MantenimientoAdminPage /></ProtectedRoute>} />
           <Route path="asambleas-admin" element={<Navigate to="/asambleas" replace />} />
@@ -722,7 +727,9 @@ export default function App() {
               </ProtectedRoute>
             }
           />
+          <Route path="mis-sanciones" element={<Navigate to="/res-sanciones" replace />} />
           <Route path="res-obras" element={<ProtectedRoute roles={['RESIDENTE']}><ResObrasPage /></ProtectedRoute>} />
+          <Route path="mis-obras" element={<Navigate to="/res-obras" replace />} />
           <Route path="res-incidentes" element={<ProtectedRoute roles={['RESIDENTE']}><ResIncidentesPage /></ProtectedRoute>} />
           <Route path="res-documentos" element={<ProtectedRoute roles={['RESIDENTE', 'PROPIETARIO']}><ResDocumentosPage /></ProtectedRoute>} />
 
