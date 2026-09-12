@@ -17,7 +17,7 @@ import java.util.List;
 @Tag(name = "Pólizas de Seguro", description = "Gestión de pólizas de seguro de copropiedad")
 @RestController
 @RequestMapping("/api/v1/seguros/polizas")
-@PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
+@PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_SUPERADMIN')")
 public class PolizaSeguroController {
 
     private final PolizaSeguroService service;
@@ -42,6 +42,7 @@ public class PolizaSeguroController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
     @Auditable(action = "CREATE", resource = "POLIZA_SEGURO", category = AuditCategory.OPERATIONAL, severity = AuditSeverity.INFO)
     public ResponseEntity<Void> create(@RequestBody PolizaSeguroDTO dto) {
         service.createPoliza(dto);
@@ -49,6 +50,7 @@ public class PolizaSeguroController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
     @Auditable(action = "UPDATE", resource = "POLIZA_SEGURO", category = AuditCategory.OPERATIONAL, severity = AuditSeverity.INFO)
     public ResponseEntity<Void> update(@PathVariable Long id, @RequestBody PolizaSeguroDTO dto) {
         service.updatePoliza(id, dto);
@@ -56,6 +58,7 @@ public class PolizaSeguroController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
     @Auditable(action = "DELETE", resource = "POLIZA_SEGURO", category = AuditCategory.OPERATIONAL, severity = AuditSeverity.WARN)
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         service.deletePoliza(id);
