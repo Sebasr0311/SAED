@@ -38,16 +38,19 @@ public class DatabaseSeeder implements ApplicationRunner {
     public void run(ApplicationArguments args) {
         log.info("Starting SAED Database Seeder...");
         try {
+            boolean alreadySeeded = false;
             try {
                 Integer existingRoles = jdbcTemplate.queryForObject(
                     "SELECT COUNT(1) FROM ROLES WHERE CODIGO = 'RESIDENTE_CONVIVENCIA'",
                     Integer.class
                 );
                 if (existingRoles != null && existingRoles > 0) {
-                    log.info("SAED base catalog and roles already seeded. Skipping initial seeder execution.");
-                    return;
+                    log.info("SAED base catalog and roles already seeded. Skipping initial catalog seeder.");
+                    alreadySeeded = true;
                 }
             } catch (Exception ignored) {}
+
+            if (!alreadySeeded) {
 
             BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
             String hashAdminGlobal = encoder.encode("admin_global123");
@@ -318,6 +321,7 @@ public class DatabaseSeeder implements ApplicationRunner {
                 );
             } catch (Exception e) {
                 log.debug("Notice on TRG_EJECAUTO_INMUTABLE: {}", e.getMessage());
+            }
             }
 
             // 19. PLANTILLAS_CONTRATOS y Seed Inicial

@@ -4,9 +4,10 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.saed.backend.contratos.dto.PlantillaContratoDTO;
 import com.saed.backend.contratos.dto.PlantillaContratoRequestDTO;
+import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.jdbc.core.RowMapper;
+import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
@@ -16,10 +17,7 @@ import org.springframework.stereotype.Repository;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDate;
-import java.time.OffsetDateTime;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 @Repository
 public class PlantillaContratoRepositoryImpl implements PlantillaContratoRepository {
@@ -32,6 +30,150 @@ public class PlantillaContratoRepositoryImpl implements PlantillaContratoReposit
     public PlantillaContratoRepositoryImpl(NamedParameterJdbcTemplate jdbcTemplate, ObjectMapper objectMapper) {
         this.jdbcTemplate = jdbcTemplate;
         this.objectMapper = objectMapper;
+    }
+
+    @PostConstruct
+    public void ensureTableExists() {
+        try {
+            Integer count = jdbcTemplate.getJdbcTemplate().queryForObject(
+                "SELECT COUNT(1) FROM USER_TABLES WHERE TABLE_NAME = 'PLANTILLAS_CONTRATOS'",
+                Integer.class
+            );
+            if (count == null || count == 0) {
+                log.info("[PlantillasContratos] Creando tabla PLANTILLAS_CONTRATOS...");
+                jdbcTemplate.getJdbcTemplate().execute("""
+                    CREATE TABLE PLANTILLAS_CONTRATOS (
+                        ID_PLANTILLA NUMBER GENERATED ALWAYS AS IDENTITY MINVALUE 1 MAXVALUE 9999999999999999999999999999 INCREMENT BY 1 START WITH 1 CACHE 20 NOORDER NOCYCLE NOT NULL ENABLE,
+                        ID_ORGANIZACION NUMBER NOT NULL ENABLE,
+                        CODIGO VARCHAR2(50 CHAR) NOT NULL ENABLE,
+                        NOMBRE VARCHAR2(150 CHAR) NOT NULL ENABLE,
+                        TIPO_CONTRATO VARCHAR2(50 CHAR) NOT NULL ENABLE,
+                        DESCRIPCION VARCHAR2(500 CHAR),
+                        CONTENIDO_HTML CLOB NOT NULL ENABLE,
+                        VARIABLES_DISPONIBLES CLOB,
+                        CAMPOS_REQUERIDOS CLOB,
+                        VERSION NUMBER(5, 0) DEFAULT 1 NOT NULL ENABLE,
+                        ESTADO VARCHAR2(30 CHAR) DEFAULT 'ACTIVA' NOT NULL ENABLE,
+                        VIGENCIA_DESDE DATE DEFAULT CURRENT_DATE NOT NULL ENABLE,
+                        VIGENCIA_HASTA DATE,
+                        CREADO_POR NUMBER,
+                        FECHA_CREACION TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL ENABLE,
+                        FECHA_ACTUALIZACION TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL ENABLE,
+                        CONSTRAINT PK_PLANTILLAS_CONTRATOS PRIMARY KEY (ID_PLANTILLA),
+                        CONSTRAINT FK_PLANTILLAS_CONTRATOS_ORG FOREIGN KEY (ID_ORGANIZACION) REFERENCES ORGANIZACIONES(ID_ORGANIZACION) ON DELETE CASCADE,
+                        CONSTRAINT UQ_PLANTILLAS_ORG_COD_VER UNIQUE (ID_ORGANIZACION, CODIGO, VERSION),
+                        CONSTRAINT CK_PLANTILLAS_CONTR_TIPO CHECK (TIPO_CONTRATO IN ('INICIAL', 'RENOVACION', 'PERMANENCIA', 'COMERCIAL', 'OTRO')),
+                        CONSTRAINT CK_PLANTILLAS_CONTR_ESTADO CHECK (ESTADO IN ('ACTIVA', 'BORRADOR', 'HISTORICA'))
+                    )
+                """);
+                try {
+                    jdbcTemplate.getJdbcTemplate().execute("CREATE INDEX IX_PLANTILLAS_ORG_ESTADO ON PLANTILLAS_CONTRATOS (ID_ORGANIZACION, ESTADO)");
+                    jdbcTemplate.getJdbcTemplate().execute("CREATE INDEX IX_PLANTILLAS_ORG_TIPO ON PLANTILLAS_CONTRATOS (ID_ORGANIZACION, TIPO_CONTRATO)");
+                } catch (Exception ignored) {}
+
+                try {
+                    jdbcTemplate.getJdbcTemplate().execute("""
+                        BEGIN
+                            DBMS_RLS.ADD_GROUPED_POLICY(
+                                object_schema   => NULL,
+                                object_name     => 'PLANTILLAS_CONTRATOS',
+                                policy_group    => 'SYS_DEFAULT',
+                                policy_name     => 'POL_RLS_ORG_PLANTILLAS_CONTR',
+                                function_schema => NULL,
+                                policy_function => 'PKG_SAED_SECURITY_RLS.FN_FILTRO_ORGANIZACION',
+                                statement_types => 'SELECT,INSERT,UPDATE,DELETE',
+                                update_check    => TRUE,
+                                enable          => TRUE,
+                                static_policy   => FALSE,
+                                policy_type     => DBMS_RLS.DYNAMIC
+                            );
+                        EXCEPTION
+                            WHEN OTHERS THEN
+                                NULL;
+                        END;
+                    """);
+                } catch (Exception e) {
+                    log.debug("[PlantillasContratos] Aviso RLS en PLANTILLAS_CONTRATOS: {}", e.getMessage());
+                }
+                log.info("[PlantillasContratos] Tabla PLANTILLAS_CONTRATOS creada exitosamente.");
+            }
+
+            seedDefaultTemplateIfEmpty(1L);
+        } catch (Exception ex) {
+            log.warn("[PlantillasContratos] Aviso al verificar o inicializar tabla: {}", ex.getMessage());
+        }
+    }
+
+    public void seedDefaultTemplateIfEmpty(Long orgId) {
+        if (orgId == null) return;
+        try {
+            Integer countTemplates = jdbcTemplate.getJdbcTemplate().queryForObject(
+                "SELECT COUNT(1) FROM PLANTILLAS_CONTRATOS WHERE ID_ORGANIZACION = ?",
+                Integer.class,
+                orgId
+            );
+            if (countTemplates == null || countTemplates == 0) {
+                String defaultHtml = """
+                    <h2>CONTRATO DE ARRENDAMIENTO DE VIVIENDA URBANA</h2>
+                    <p>Entre los suscritos a saber, <strong>${propiedad.nombre}</strong> (en adelante EL ARRENDADOR), ubicada en ${propiedad.direccion}, ${propiedad.ciudad}, y por la otra parte <strong>${inquilino.nombre_completo}</strong>, identificado con ${inquilino.tipo_documento} No. ${inquilino.numero_documento} (en adelante EL ARRENDATARIO), se ha celebrado el presente contrato sobre el inmueble:</p>
+                    <ul>
+                      <li><strong>Unidad:</strong> Apartamento ${apartamento.numero} ${apartamento.bloque}</li>
+                      <li><strong>Canon Mensual:</strong> $${contrato.canon_mensual} COP</li>
+                      <li><strong>Fecha de Inicio:</strong> ${contrato.fecha_inicio}</li>
+                      <li><strong>Fecha de Terminación:</strong> ${contrato.fecha_fin}</li>
+                    </ul>
+                    <p>El arrendatario se compromete al cumplimiento cabal de las normas de convivencia de la copropiedad y al pago oportuno en los primeros cinco (5) días de cada mes calendario.</p>
+                    <p>En constancia se firma en la fecha: ${fecha_actual}.</p>
+                """;
+                try {
+                    jdbcTemplate.getJdbcTemplate().execute("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1); PKG_SAED_SESSION.SET_CONTEXT(1, " + orgId + ", 1, 'SUPERADMIN'); END;");
+                } catch (Exception ignored) {}
+
+                jdbcTemplate.getJdbcTemplate().update("""
+                    INSERT INTO PLANTILLAS_CONTRATOS (
+                        ID_ORGANIZACION, CODIGO, NOMBRE, TIPO_CONTRATO, DESCRIPCION,
+                        CONTENIDO_HTML, VARIABLES_DISPONIBLES, CAMPOS_REQUERIDOS, VERSION,
+                        ESTADO, VIGENCIA_DESDE, CREADO_POR
+                    ) VALUES (
+                        ?, 'CONTRATO_ESTANDAR_2026', 'Contrato Estándar Residencial', 'INICIAL',
+                        'Plantilla base predeterminada para contratos de arrendamiento residencial.',
+                        ?, '["propiedad.nombre","inquilino.nombre_completo","apartamento.numero","contrato.canon_mensual"]',
+                        '["propiedad.nombre","inquilino.nombre_completo","apartamento.numero"]', 1,
+                        'ACTIVA', TRUNC(SYSDATE), 1
+                    )
+                """, orgId, defaultHtml);
+                log.info("[PlantillasContratos] Plantilla de contrato inicial sembrada para organizacion {}.", orgId);
+            }
+        } catch (Exception e) {
+            log.debug("[PlantillasContratos] Aviso al sembrar plantilla inicial para org {}: {}", orgId, e.getMessage());
+        }
+    }
+
+    private Long extractGeneratedKey(KeyHolder kh, String columnName) {
+        if (kh == null) return null;
+        if (kh.getKey() != null) return kh.getKey().longValue();
+        if (kh.getKeys() != null) {
+            for (Map.Entry<String, Object> entry : kh.getKeys().entrySet()) {
+                if (entry.getKey().equalsIgnoreCase(columnName) && entry.getValue() instanceof Number num) {
+                    return num.longValue();
+                }
+            }
+        }
+        if (kh.getKeyList() != null) {
+            for (Map<String, Object> map : kh.getKeyList()) {
+                for (Map.Entry<String, Object> entry : map.entrySet()) {
+                    if (entry.getKey().equalsIgnoreCase(columnName) && entry.getValue() instanceof Number num) {
+                        return num.longValue();
+                    }
+                }
+                for (Map.Entry<String, Object> entry : map.entrySet()) {
+                    if (!entry.getKey().equalsIgnoreCase("ROWID") && entry.getValue() instanceof Number num) {
+                        return num.longValue();
+                    }
+                }
+            }
+        }
+        return null;
     }
 
     private PlantillaContratoDTO mapRow(ResultSet rs, int rowNum) throws SQLException {
@@ -78,11 +220,15 @@ public class PlantillaContratoRepositoryImpl implements PlantillaContratoReposit
         long cp = rs.getLong("creado_por");
         if (!rs.wasNull()) dto.setCreadoPor(cp);
 
-        java.sql.Timestamp fc = rs.getTimestamp("fecha_creacion");
-        if (fc != null) dto.setFechaCreacion(fc.toInstant().atOffset(java.time.ZoneOffset.UTC));
+        try {
+            java.sql.Timestamp fc = rs.getTimestamp("fecha_creacion");
+            if (fc != null) dto.setFechaCreacion(fc.toInstant().atOffset(java.time.ZoneOffset.UTC));
+        } catch (Exception ignored) {}
 
-        java.sql.Timestamp fa = rs.getTimestamp("fecha_actualizacion");
-        if (fa != null) dto.setFechaActualizacion(fa.toInstant().atOffset(java.time.ZoneOffset.UTC));
+        try {
+            java.sql.Timestamp fa = rs.getTimestamp("fecha_actualizacion");
+            if (fa != null) dto.setFechaActualizacion(fa.toInstant().atOffset(java.time.ZoneOffset.UTC));
+        } catch (Exception ignored) {}
 
         return dto;
     }
@@ -104,7 +250,24 @@ public class PlantillaContratoRepositoryImpl implements PlantillaContratoReposit
         }
         sql.append(" ORDER BY tipo_contrato, nombre, version DESC");
 
-        return jdbcTemplate.query(sql.toString(), params, this::mapRow);
+        try {
+            List<PlantillaContratoDTO> results = jdbcTemplate.query(sql.toString(), params, this::mapRow);
+            if (results.isEmpty()) {
+                seedDefaultTemplateIfEmpty(orgId);
+                results = jdbcTemplate.query(sql.toString(), params, this::mapRow);
+            }
+            return results;
+        } catch (DataAccessException dae) {
+            log.warn("[PlantillasContratos] Excepción al consultar para org {}. Intentando asegurar esquema: {}", orgId, dae.getMessage());
+            try {
+                ensureTableExists();
+                seedDefaultTemplateIfEmpty(orgId);
+                return jdbcTemplate.query(sql.toString(), params, this::mapRow);
+            } catch (Exception retryEx) {
+                log.error("[PlantillasContratos] Fallo reintentando consulta para org {}: {}", orgId, retryEx.getMessage());
+                return Collections.emptyList();
+            }
+        }
     }
 
     @Override
@@ -119,7 +282,24 @@ public class PlantillaContratoRepositoryImpl implements PlantillaContratoReposit
               AND (vigencia_hasta IS NULL OR vigencia_hasta >= CURRENT_DATE)
             ORDER BY nombre
         """;
-        return jdbcTemplate.query(sql, new MapSqlParameterSource("orgId", orgId), this::mapRow);
+        try {
+            List<PlantillaContratoDTO> results = jdbcTemplate.query(sql, new MapSqlParameterSource("orgId", orgId), this::mapRow);
+            if (results.isEmpty()) {
+                seedDefaultTemplateIfEmpty(orgId);
+                results = jdbcTemplate.query(sql, new MapSqlParameterSource("orgId", orgId), this::mapRow);
+            }
+            return results;
+        } catch (DataAccessException dae) {
+            log.warn("[PlantillasContratos] Excepción al consultar activas para org {}: {}", orgId, dae.getMessage());
+            try {
+                ensureTableExists();
+                seedDefaultTemplateIfEmpty(orgId);
+                return jdbcTemplate.query(sql, new MapSqlParameterSource("orgId", orgId), this::mapRow);
+            } catch (Exception retryEx) {
+                log.error("[PlantillasContratos] Fallo reintentando consulta activas: {}", retryEx.getMessage());
+                return Collections.emptyList();
+            }
+        }
     }
 
     @Override
@@ -131,8 +311,13 @@ public class PlantillaContratoRepositoryImpl implements PlantillaContratoReposit
             FROM PLANTILLAS_CONTRATOS
             WHERE id_plantilla = :id
         """;
-        List<PlantillaContratoDTO> list = jdbcTemplate.query(sql, new MapSqlParameterSource("id", id), this::mapRow);
-        return list.stream().findFirst();
+        try {
+            List<PlantillaContratoDTO> list = jdbcTemplate.query(sql, new MapSqlParameterSource("id", id), this::mapRow);
+            return list.stream().findFirst();
+        } catch (DataAccessException dae) {
+            log.warn("[PlantillasContratos] Excepción al consultar por id {}: {}", id, dae.getMessage());
+            return Optional.empty();
+        }
     }
 
     @Override
@@ -148,12 +333,19 @@ public class PlantillaContratoRepositoryImpl implements PlantillaContratoReposit
                 .addValue("orgId", orgId)
                 .addValue("codigo", codigo)
                 .addValue("version", version);
-        List<PlantillaContratoDTO> list = jdbcTemplate.query(sql, params, this::mapRow);
-        return list.stream().findFirst();
+        try {
+            List<PlantillaContratoDTO> list = jdbcTemplate.query(sql, params, this::mapRow);
+            return list.stream().findFirst();
+        } catch (DataAccessException dae) {
+            log.warn("[PlantillasContratos] Excepción al consultar codigo {} ver {}: {}", codigo, version, dae.getMessage());
+            return Optional.empty();
+        }
     }
 
     @Override
     public Long create(PlantillaContratoRequestDTO dto, Long orgId, Long userId) {
+        ensureTableExists();
+
         String sql = """
             INSERT INTO PLANTILLAS_CONTRATOS (
                 id_organizacion, codigo, nombre, tipo_contrato, descripcion,
@@ -201,7 +393,16 @@ public class PlantillaContratoRepositoryImpl implements PlantillaContratoReposit
 
         KeyHolder keyHolder = new GeneratedKeyHolder();
         jdbcTemplate.update(sql, params, keyHolder, new String[]{"ID_PLANTILLA"});
-        return keyHolder.getKey().longValue();
+        Long generatedId = extractGeneratedKey(keyHolder, "ID_PLANTILLA");
+
+        if (generatedId == null) {
+            generatedId = jdbcTemplate.queryForObject(
+                "SELECT ID_PLANTILLA FROM (SELECT ID_PLANTILLA FROM PLANTILLAS_CONTRATOS WHERE ID_ORGANIZACION = :orgId AND CODIGO = :codigo ORDER BY ID_PLANTILLA DESC) WHERE ROWNUM = 1",
+                new MapSqlParameterSource("orgId", orgId).addValue("codigo", dto.getCodigo().toUpperCase()),
+                Long.class
+            );
+        }
+        return generatedId;
     }
 
     @Override
@@ -258,8 +459,12 @@ public class PlantillaContratoRepositoryImpl implements PlantillaContratoReposit
 
     @Override
     public Integer getMaxVersion(Long orgId, String codigo) {
-        String sql = "SELECT COALESCE(MAX(version), 0) FROM PLANTILLAS_CONTRATOS WHERE id_organizacion = :orgId AND codigo = :codigo";
-        Integer max = jdbcTemplate.queryForObject(sql, new MapSqlParameterSource("orgId", orgId).addValue("codigo", codigo), Integer.class);
-        return max != null ? max : 0;
+        try {
+            String sql = "SELECT COALESCE(MAX(version), 0) FROM PLANTILLAS_CONTRATOS WHERE id_organizacion = :orgId AND codigo = :codigo";
+            Integer max = jdbcTemplate.queryForObject(sql, new MapSqlParameterSource("orgId", orgId).addValue("codigo", codigo), Integer.class);
+            return max != null ? max : 0;
+        } catch (DataAccessException e) {
+            return 0;
+        }
     }
 }
