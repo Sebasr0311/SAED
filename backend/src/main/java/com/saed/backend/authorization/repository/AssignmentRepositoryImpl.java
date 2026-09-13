@@ -94,13 +94,26 @@ public class AssignmentRepositoryImpl implements AssignmentRepository {
             ));
 
             String rolCodigo = (String) out.get("p_rol_codigo");
+            String rolAlcance = (String) out.get("p_alcance");
             if (rolCodigo == null) {
                 return Optional.empty();
             }
 
+            try {
+                Integer count = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(1) FROM RESIDENTES_UNIDAD ru JOIN USUARIOS u ON u.ID_PERSONA = ru.ID_PERSONA WHERE u.ID_USUARIO = ? AND ru.TIPO_RESIDENTE = 'CONVIVIENTE'",
+                    Integer.class,
+                    idUsuario
+                );
+                if (count != null && count > 0) {
+                    rolCodigo = "RESIDENTE_CONVIVENCIA";
+                    rolAlcance = "UNIDAD";
+                }
+            } catch (Exception ignored) {}
+
             AssignmentResponseDTO dto = new AssignmentResponseDTO();
             dto.setIdAsignacion(idAsignacion);
-            dto.setRol(new RoleDTO(rolCodigo, (String) out.get("p_alcance")));
+            dto.setRol(new RoleDTO(rolCodigo, rolAlcance));
 
             Number orgId = (Number) out.get("p_org_id");
             if (orgId != null) {

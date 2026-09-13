@@ -112,17 +112,51 @@ public class AuthRepositoryImpl implements AuthRepository {
             }
         } catch (Exception ignored) {}
 
+        String rolCodigo = (String) out.get("p_rol_codigo");
+        String alcance = (String) out.get("p_alcance");
+        String tipoResidente = null;
+
+        if (idPersona != null) {
+            try {
+                java.util.List<String> tipList = jdbcTemplate.query(
+                    "SELECT TIPO_RESIDENTE FROM RESIDENTES_UNIDAD WHERE ID_PERSONA = ? AND ROWNUM = 1",
+                    (rs, rowNum) -> rs.getString("TIPO_RESIDENTE"),
+                    idPersona
+                );
+                if (!tipList.isEmpty()) {
+                    tipoResidente = tipList.get(0);
+                }
+            } catch (Exception ignored) {}
+        }
+
+        if ("CONVIVIENTE".equalsIgnoreCase(tipoResidente) || "RESIDENTE_CONVIVENCIA".equalsIgnoreCase(rolCodigo)) {
+            rolCodigo = "RESIDENTE_CONVIVENCIA";
+            alcance = "UNIDAD";
+            tipoResidente = "CONVIVIENTE";
+
+            // Auto-reparar en caliente la asignación en USUARIO_ASIGNACIONES si aún apuntaba al rol RESIDENTE titular
+            try {
+                jdbcTemplate.update("""
+                    UPDATE USUARIO_ASIGNACIONES
+                    SET ID_ROL = (SELECT ID_ROL FROM ROLES WHERE CODIGO = 'RESIDENTE_CONVIVENCIA')
+                    WHERE ID_USUARIO = ?
+                      AND ID_ROL = (SELECT ID_ROL FROM ROLES WHERE CODIGO = 'RESIDENTE')
+                """, userId);
+            } catch (Exception ignored) {}
+        }
+
         return new AuthUserDTO(
                 userId,
                 idPersona,
                 nombreUsuario,
                 nombreCompleto,
                 (String) out.get("p_email"),
-                (String) out.get("p_rol_codigo"),
-                (String) out.get("p_alcance"),
+                rolCodigo,
+                alcance,
                 (Number) out.get("p_org_id") != null ? ((Number) out.get("p_org_id")).longValue() : null,
                 (Number) out.get("p_prop_id") != null ? ((Number) out.get("p_prop_id")).longValue() : null,
-                (Number) out.get("p_unidad_id") != null ? ((Number) out.get("p_unidad_id")).longValue() : null
+                (Number) out.get("p_unidad_id") != null ? ((Number) out.get("p_unidad_id")).longValue() : null,
+                tipoResidente
         );
     }
 

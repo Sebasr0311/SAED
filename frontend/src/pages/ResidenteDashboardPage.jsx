@@ -64,7 +64,11 @@ const MESES_W = [
 export default function ResidenteDashboardPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const isConviviente = user?.rol === 'RESIDENTE_CONVIVENCIA' || user?.rolCodigo === 'RESIDENTE_CONVIVENCIA';
+  const isConviviente =
+    user?.rol === 'RESIDENTE_CONVIVENCIA' ||
+    user?.rolCodigo === 'RESIDENTE_CONVIVENCIA' ||
+    user?.tipoResidente === 'CONVIVIENTE' ||
+    user?.tipoRelacion === 'CONVIVIENTE';
   const residentId = user?.idPersona || user?.idResidente || user?.idUsuario;
 
   // 1. Perfil del residente

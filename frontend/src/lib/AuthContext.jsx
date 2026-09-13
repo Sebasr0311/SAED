@@ -7,9 +7,16 @@ const AuthContext = createContext(null);
 
 function normalizeUser(user) {
   if (!user) return user;
+  const isConv =
+    user.rol === 'RESIDENTE_CONVIVENCIA' ||
+    user.rolCodigo === 'RESIDENTE_CONVIVENCIA' ||
+    user.tipoResidente === 'CONVIVIENTE' ||
+    user.tipoRelacion === 'CONVIVIENTE';
+
   return {
     ...user,
-    rol: normalizeRole(user.rol),
+    rol: isConv ? 'RESIDENTE_CONVIVENCIA' : normalizeRole(user.rol),
+    tipoResidente: isConv ? 'CONVIVIENTE' : user.tipoResidente,
     username: user.nombreUsuario || user.username,
     idPersona: user.idPersona || user.idResidente,
     idResidente: user.idPersona || user.idResidente,
@@ -47,6 +54,8 @@ export function AuthProvider({ children }) {
     setUser(null);
   }
 
+  const isConv = user?.rol === 'RESIDENTE_CONVIVENCIA' || user?.rolCodigo === 'RESIDENTE_CONVIVENCIA' || user?.tipoResidente === 'CONVIVIENTE';
+
   const value = {
     user,
     loading,
@@ -58,7 +67,8 @@ export function AuthProvider({ children }) {
     isOrgAdmin: user?.rol === 'ADMIN_ORGANIZACION',
     isSuperAdmin: user?.rol === 'SUPERADMIN',
     isPortero: user?.rol === 'PORTERO',
-    isResidente: user?.rol === 'RESIDENTE',
+    isResidente: (user?.rol === 'RESIDENTE' || user?.rolCodigo === 'RESIDENTE') && !isConv,
+    isConviviente: isConv,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

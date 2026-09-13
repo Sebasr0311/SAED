@@ -11,17 +11,23 @@ public class AuthUserDTO {
     private Long idOrganizacion;
     private Long idPropiedad;
     private Long idUnidad;
+    private String tipoResidente;
 
     public AuthUserDTO() {
     }
 
     public AuthUserDTO(Long idUsuario, String nombreUsuario, String email, String rol,
                        String alcance, Long idOrganizacion, Long idPropiedad, Long idUnidad) {
-        this(idUsuario, null, nombreUsuario, null, email, rol, alcance, idOrganizacion, idPropiedad, idUnidad);
+        this(idUsuario, null, nombreUsuario, null, email, rol, alcance, idOrganizacion, idPropiedad, idUnidad, null);
     }
 
     public AuthUserDTO(Long idUsuario, Long idPersona, String nombreUsuario, String nombreCompleto,
                        String email, String rol, String alcance, Long idOrganizacion, Long idPropiedad, Long idUnidad) {
+        this(idUsuario, idPersona, nombreUsuario, nombreCompleto, email, rol, alcance, idOrganizacion, idPropiedad, idUnidad, null);
+    }
+
+    public AuthUserDTO(Long idUsuario, Long idPersona, String nombreUsuario, String nombreCompleto,
+                       String email, String rol, String alcance, Long idOrganizacion, Long idPropiedad, Long idUnidad, String tipoResidente) {
         this.idUsuario = idUsuario;
         this.idPersona = idPersona;
         this.nombreUsuario = nombreUsuario;
@@ -32,6 +38,7 @@ public class AuthUserDTO {
         this.idOrganizacion = idOrganizacion;
         this.idPropiedad = idPropiedad;
         this.idUnidad = idUnidad;
+        this.tipoResidente = tipoResidente;
     }
 
     public Long getIdUsuario() { return idUsuario; }
@@ -54,4 +61,6 @@ public class AuthUserDTO {
     public void setIdPropiedad(Long idPropiedad) { this.idPropiedad = idPropiedad; }
     public Long getIdUnidad() { return idUnidad; }
     public void setIdUnidad(Long idUnidad) { this.idUnidad = idUnidad; }
+    public String getTipoResidente() { return tipoResidente; }
+    public void setTipoResidente(String tipoResidente) { this.tipoResidente = tipoResidente; }
 }

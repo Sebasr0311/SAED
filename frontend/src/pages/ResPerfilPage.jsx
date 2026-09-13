@@ -97,7 +97,11 @@ function DetailItem({ icon: Icon, label, value, badge, subtext, isMono = false }
 export default function ResPerfilPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const isConviviente = user?.rol === 'RESIDENTE_CONVIVENCIA' || user?.rolCodigo === 'RESIDENTE_CONVIVENCIA';
+  const isConviviente =
+    user?.rol === 'RESIDENTE_CONVIVENCIA' ||
+    user?.rolCodigo === 'RESIDENTE_CONVIVENCIA' ||
+    user?.tipoResidente === 'CONVIVIENTE' ||
+    user?.tipoRelacion === 'CONVIVIENTE';
 
   // Estados de edición
   const [modalOpen, setModalOpen] = useState(false);

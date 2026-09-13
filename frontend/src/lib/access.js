@@ -79,7 +79,7 @@ export function normalizeRole(rol) {
   if (r === 'PROPIETARIO' || r === 'PROPIETARIO_NO_RESIDENTE' || r === 'PROPIETARIO_UNIDAD') {
     return 'PROPIETARIO';
   }
-  if (r === 'RESIDENTE_CONVIVENCIA' || r === 'CONVIVIENTE') {
+  if (r === 'RESIDENTE_CONVIVENCIA' || r === 'CONVIVIENTE' || r === 'CONVIVENCIA') {
     return 'RESIDENTE_CONVIVENCIA';
   }
   if (r === 'RESIDENTE' || r === 'ARRENDATARIO') {

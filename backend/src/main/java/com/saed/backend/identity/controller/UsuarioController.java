@@ -367,6 +367,11 @@ public class UsuarioController {
             } catch (Exception ignored) {}
             if (idRol == null && "RESIDENTE_CONVIVENCIA".equals(rol)) {
                 try {
+                    try {
+                        jdbcTemplate.getJdbcOperations().execute("ALTER TABLE ROLES DROP CONSTRAINT CK_ROLES_CODIGO");
+                        jdbcTemplate.getJdbcOperations().execute("ALTER TABLE ROLES ADD CONSTRAINT CK_ROLES_CODIGO CHECK (codigo IN ('SUPERADMIN', 'ADMIN_ORGANIZACION', 'PROPIETARIO', 'ADMIN_GENERAL', 'ADMIN_PROPIEDAD', 'PORTERO', 'VIGILANTE', 'RESIDENTE', 'RESIDENTE_CONVIVENCIA', 'PROPIETARIO_UNIDAD'))");
+                    } catch (Exception ignored) {}
+
                     jdbcTemplate.getJdbcOperations().execute("""
                         MERGE INTO ROLES r USING (
                             SELECT 'RESIDENTE_CONVIVENCIA' AS CODIGO, 'Residente Conviviente' AS NOMBRE, 'UNIDAD' AS ALCANCE, 'ACTIVO' AS ESTADO FROM DUAL
@@ -414,6 +419,26 @@ public class UsuarioController {
                         idUnidad = 1L;
                     }
                 }
+            }
+
+            // Alinear propiedad y organización con la unidad para satisfacer TRG_ASIGNACION_VALIDA_JERARQUIA
+            if (idUnidad != null) {
+                try {
+                    List<Map<String, Object>> uProps = jdbcTemplate.query(
+                        "SELECT u.ID_PROPIEDAD, p.ID_ORGANIZACION FROM UNIDADES u JOIN PROPIEDADES p ON p.ID_PROPIEDAD = u.ID_PROPIEDAD WHERE u.ID_UNIDAD = :u",
+                        Map.of("u", idUnidad),
+                        (rs, rowNum) -> Map.of(
+                            "ID_PROPIEDAD", rs.getLong("ID_PROPIEDAD"),
+                            "ID_ORGANIZACION", rs.getLong("ID_ORGANIZACION")
+                        )
+                    );
+                    if (!uProps.isEmpty()) {
+                        Number pId = (Number) uProps.get(0).get("ID_PROPIEDAD");
+                        Number oId = (Number) uProps.get(0).get("ID_ORGANIZACION");
+                        if (pId != null) effectivePropId = pId.longValue();
+                        if (oId != null) effectiveOrgId = oId.longValue();
+                    }
+                } catch (Exception ignored) {}
             }
 
             String sqlAsig = """
