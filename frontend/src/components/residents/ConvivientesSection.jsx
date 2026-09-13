@@ -16,6 +16,8 @@ import {
   Mail,
   Phone,
   RefreshCw,
+  Copy,
+  Key,
 } from 'lucide-react';
 
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../ui/card.tsx';
@@ -52,6 +54,8 @@ export function ConvivientesSection({
   });
   const [formError, setFormError] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [createdCredentials, setCreatedCredentials] = useState(null);
+  const [showHistory, setShowHistory] = useState(false);
 
   // Estados de diálogo de confirmación
   const [confirmDialog, setConfirmDialog] = useState({
@@ -84,6 +88,16 @@ export function ConvivientesSection({
     if (titularFallback) return [titularFallback];
     return [];
   }, [rawResidents, titularFallback]);
+
+  // Habitantes activos del hogar (excluye aquellos con fechaFin de desvinculación)
+  const habitantesActivos = useMemo(() => {
+    return listaHabitantes.filter((h) => !h.fechaFin);
+  }, [listaHabitantes]);
+
+  // Historial de habitantes desvinculados de la unidad
+  const habitantesDesvinculados = useMemo(() => {
+    return listaHabitantes.filter((h) => !!h.fechaFin);
+  }, [listaHabitantes]);
 
   // Manejador de apertura de modal con validación previa de cupo
   const handleOpenAddModal = () => {
@@ -143,7 +157,7 @@ export function ConvivientesSection({
     }
 
     try {
-      await api.post('/usuarios', {
+      const resp = await api.post('/usuarios', {
         primerNombre: form.primerNombre.trim(),
         primerApellido: form.primerApellido.trim(),
         tipoDocumentoId: Number(form.idTipoDocumento),
@@ -156,22 +170,32 @@ export function ConvivientesSection({
         idUnidad: Number(unitId),
       });
 
+      const uData = resp?.data || resp || {};
+      setCreatedCredentials({
+        username: uData.username || form.nombreUsuario.trim().toLowerCase(),
+        password: uData.passwordGenerada || form.password || '(Autogenerada y enviada al correo)',
+        email: uData.email || form.email.trim().toLowerCase(),
+        nombre: `${form.primerNombre.trim()} ${form.primerApellido.trim()}`,
+      });
+
       toast.success('Residente de convivencia registrado exitosamente. Se han enviado las credenciales de acceso por correo.');
       setAddModalOpen(false);
       onRefresh();
     } catch (err) {
-      const is409 =
-        err.status === 409 ||
-        err.response?.status === 409 ||
-        err.message?.includes('409') ||
-        err.message?.includes('límite') ||
-        err.message?.includes('limite') ||
-        err.message?.includes('cupo');
+      const respData = err?.response?.data;
+      const errorMsg = respData?.message || respData?.error || err?.message || '';
+      const isQuota =
+        respData?.code === 'CONVIVIENTE_LIMIT_EXCEEDED' ||
+        errorMsg.toLowerCase().includes('límite') ||
+        errorMsg.toLowerCase().includes('limite') ||
+        errorMsg.toLowerCase().includes('cupo');
 
-      if (is409) {
+      if (isQuota) {
         setFormError('No fue posible registrar el conviviente: la unidad ha alcanzado el límite máximo de convivientes activos permitido.');
+      } else if (errorMsg) {
+        setFormError(errorMsg);
       } else {
-        setFormError(err?.response?.data?.message || err?.message || 'Error al registrar el habitante de convivencia.');
+        setFormError('Error al registrar el habitante de convivencia.');
       }
     } finally {
       setSaving(false);
@@ -252,18 +276,20 @@ export function ConvivientesSection({
       }
       onRefresh();
     } catch (err) {
-      const is409 =
-        err.status === 409 ||
-        err.response?.status === 409 ||
-        err.message?.includes('409') ||
-        err.message?.includes('límite') ||
-        err.message?.includes('limite') ||
-        err.message?.includes('cupo');
+      const respData = err?.response?.data;
+      const errorMsg = respData?.message || respData?.error || err?.message || '';
+      const isQuota =
+        respData?.code === 'CONVIVIENTE_LIMIT_EXCEEDED' ||
+        errorMsg.toLowerCase().includes('límite') ||
+        errorMsg.toLowerCase().includes('limite') ||
+        errorMsg.toLowerCase().includes('cupo');
 
-      if (is409) {
+      if (isQuota) {
         toast.error('No hay cupos disponibles en la unidad para completar esta acción.');
+      } else if (errorMsg) {
+        toast.error(errorMsg);
       } else {
-        toast.error(err.response?.data?.message || err.message || 'Error al procesar la solicitud.');
+        toast.error('Error al procesar la solicitud.');
       }
     }
   };
@@ -450,7 +476,7 @@ export function ConvivientesSection({
             <Skeleton className="h-36 rounded-xl" />
             <Skeleton className="h-36 rounded-xl" />
           </div>
-        ) : listaHabitantes.length === 0 ? (
+        ) : habitantesActivos.length === 0 ? (
           <div className="p-8 text-center rounded-xl border border-dashed border-border bg-muted/10 space-y-3">
             <Users className="w-10 h-10 text-muted-foreground mx-auto opacity-50" />
             <div className="space-y-1">
@@ -468,7 +494,7 @@ export function ConvivientesSection({
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {listaHabitantes.map((h, idx) => {
+            {habitantesActivos.map((h, idx) => {
               const hNombre = h.persona
                 ? `${h.persona.primerNombre || ''} ${h.persona.primerApellido || ''}`.trim()
                 : `${h.nombres || ''} ${h.apellidos || ''}`.trim();
@@ -601,6 +627,53 @@ export function ConvivientesSection({
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {/* Historial de habitantes desvinculados */}
+        {habitantesDesvinculados.length > 0 && (
+          <div className="mt-6 pt-4 border-t border-border/60">
+            <button
+              type="button"
+              onClick={() => setShowHistory(!showHistory)}
+              className="flex items-center justify-between w-full text-xs font-semibold text-muted-foreground hover:text-foreground py-2 transition-colors cursor-pointer"
+            >
+              <div className="flex items-center gap-2">
+                <RotateCcw className="w-3.5 h-3.5 text-muted-foreground" />
+                <span>Historial de Habitantes Desvinculados ({habitantesDesvinculados.length})</span>
+              </div>
+              <span className="text-[11px] font-mono underline text-primary">
+                {showHistory ? 'Ocultar historial' : 'Ver historial'}
+              </span>
+            </button>
+
+            {showHistory && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-3">
+                {habitantesDesvinculados.map((h, idx) => {
+                  const hNombre = h.persona
+                    ? `${h.persona.primerNombre || ''} ${h.persona.primerApellido || ''}`.trim()
+                    : `${h.nombres || ''} ${h.apellidos || ''}`.trim();
+                  const hDoc = h.persona?.numeroDocumento || h.numeroDocumento || '—';
+                  return (
+                    <div
+                      key={h.id || idx}
+                      className="p-3 rounded-lg border border-dashed border-border bg-muted/20 text-xs space-y-1.5"
+                    >
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="font-semibold text-foreground truncate">{hNombre}</span>
+                        <Badge variant="outline" className="text-[10px] text-muted-foreground shrink-0">
+                          Desvinculado
+                        </Badge>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground font-mono">Doc: {hDoc}</p>
+                      <p className="text-[10px] text-muted-foreground">
+                        Fecha desvinculación: {h.fechaFin || 'Previa'}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
       </CardContent>
@@ -804,6 +877,111 @@ export function ConvivientesSection({
         confirmLabel={confirmDialog.confirmLabel}
         danger={confirmDialog.danger}
       />
+      {/* MODAL DE CREDENCIALES GENERADAS */}
+      <Modal
+        open={!!createdCredentials}
+        onClose={() => setCreatedCredentials(null)}
+        title="Credenciales de Acceso Asignadas"
+        size="md"
+        footer={
+          <Button
+            type="button"
+            onClick={() => setCreatedCredentials(null)}
+            className="w-full sm:w-auto"
+          >
+            Entendido
+          </Button>
+        }
+      >
+        {createdCredentials && (
+          <div className="space-y-4 py-2">
+            <div className="flex items-start gap-3 p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs">
+              <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5 text-emerald-600 dark:text-emerald-400" />
+              <div className="space-y-1">
+                <p className="font-semibold text-sm text-foreground">
+                  ¡Habitante de convivencia registrado exitosamente!
+                </p>
+                <p className="text-muted-foreground">
+                  Se ha despachado un correo electrónico con estas credenciales de acceso a{' '}
+                  <strong className="text-foreground">{createdCredentials.email}</strong>.
+                </p>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-xl border border-border bg-muted/30 space-y-3">
+              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                Datos de inicio de sesión para {createdCredentials.nombre}
+              </div>
+
+              <div className="space-y-2 text-xs">
+                <div className="flex items-center justify-between p-2.5 rounded-lg bg-background border border-border/80">
+                  <div>
+                    <span className="text-muted-foreground block text-[11px]">Usuario:</span>
+                    <span className="font-mono font-bold text-foreground text-sm">{createdCredentials.username}</span>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      navigator.clipboard.writeText(createdCredentials.username);
+                      toast.success('Usuario copiado al portapapeles');
+                    }}
+                    className="h-8 px-2.5 text-xs gap-1"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    Copiar
+                  </Button>
+                </div>
+
+                <div className="flex items-center justify-between p-2.5 rounded-lg bg-background border border-border/80">
+                  <div>
+                    <span className="text-muted-foreground block text-[11px]">Contraseña temporal:</span>
+                    <span className="font-mono font-bold text-foreground text-sm">{createdCredentials.password}</span>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      navigator.clipboard.writeText(createdCredentials.password);
+                      toast.success('Contraseña copiada al portapapeles');
+                    }}
+                    className="h-8 px-2.5 text-xs gap-1"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    Copiar
+                  </Button>
+                </div>
+
+                <div className="flex items-center justify-between p-2.5 rounded-lg bg-background border border-border/80">
+                  <div>
+                    <span className="text-muted-foreground block text-[11px]">Portal de ingreso:</span>
+                    <span className="font-mono text-primary text-xs">https://saedfront.vercel.app/login</span>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      navigator.clipboard.writeText('https://saedfront.vercel.app/login');
+                      toast.success('Enlace copiado al portapapeles');
+                    }}
+                    className="h-8 px-2.5 text-xs gap-1"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    Copiar
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            <p className="text-[11px] text-muted-foreground italic text-center">
+              El habitante podrá acceder al sistema de inmediato para registrar visitas, generar carnets QR y consultar correspondencia.
+            </p>
+          </div>
+        )}
+      </Modal>
     </Card>
   );
 }

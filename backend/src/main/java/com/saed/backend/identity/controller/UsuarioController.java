@@ -27,6 +27,8 @@ import java.util.Map;
 @RequestMapping("/api/v1/usuarios")
 public class UsuarioController {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(UsuarioController.class);
+
     private final NamedParameterJdbcTemplate jdbcTemplate;
     private final PasswordEncoder passwordEncoder;
     private final org.springframework.beans.factory.ObjectProvider<com.saed.backend.identity.service.TokenActivacionService> tokenServiceProvider;
@@ -144,6 +146,20 @@ public class UsuarioController {
             return ResponseEntity.badRequest().body(ApiResponse.error("El nombre de usuario '" + username + "' ya existe"));
         }
 
+        String userEmail = (String) payload.getOrDefault("email", username + "@saed.com");
+        if (userEmail != null && !userEmail.trim().isBlank()) {
+            userEmail = userEmail.trim().toLowerCase();
+            Integer countEmail = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(1) FROM USUARIOS WHERE LOWER(EMAIL) = :e",
+                    Map.of("e", userEmail),
+                    Integer.class
+            );
+            if (countEmail != null && countEmail > 0) {
+                return ResponseEntity.status(HttpStatus.CONFLICT)
+                        .body(ApiResponse.error("El correo electrónico '" + userEmail + "' ya se encuentra registrado en otra cuenta"));
+            }
+        }
+
         SaedContext ctx = SaedContextHolder.getContext();
         String callerRole = ctx != null ? ctx.getRoleCode() : "";
         Long orgId = ctx != null ? ctx.getOrganizationId() : null;
@@ -166,21 +182,18 @@ public class UsuarioController {
                         Map.of("uid", ctx.getUserId()), Long.class
                     );
                     if (!uList.isEmpty()) callerUnitId = uList.get(0);
+                    if (callerUnitId == null) {
+                        List<Long> aList = jdbcTemplate.queryForList(
+                            "SELECT ID_UNIDAD FROM USUARIO_ASIGNACIONES WHERE ID_USUARIO = :uid AND ESTADO = 'ACTIVA' AND ID_UNIDAD IS NOT NULL AND ROWNUM = 1",
+                            Map.of("uid", ctx.getUserId()), Long.class
+                        );
+                        if (!aList.isEmpty()) callerUnitId = aList.get(0);
+                    }
                 } catch (Exception ignored) {}
             }
             if (callerUnitId == null) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN)
                         .body(ApiResponse.error("No se encontró una unidad asignada a su usuario de residente"));
-            }
-            Object reqUnit = payload.get("idUnidad");
-            if (reqUnit != null && !reqUnit.toString().isBlank()) {
-                try {
-                    Long sentUnitId = Long.parseLong(reqUnit.toString().trim());
-                    if (!callerUnitId.equals(sentUnitId)) {
-                        return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                                .body(ApiResponse.error("Como residente solo puede registrar convivientes en su propia unidad"));
-                    }
-                } catch (NumberFormatException ignored) {}
             }
             targetUnitId = callerUnitId;
         } else if ("ADMIN_PROPIEDAD".equals(callerRole)) {
@@ -243,19 +256,36 @@ public class UsuarioController {
                 }
             }
 
-            if (idPersona == null) {
+            if (idPersona != null) {
+                Integer existingUserForPersona = jdbcTemplate.queryForObject(
+                        "SELECT COUNT(1) FROM USUARIOS WHERE ID_PERSONA = :p",
+                        Map.of("p", idPersona),
+                        Integer.class
+                );
+                if (existingUserForPersona != null && existingUserForPersona > 0) {
+                    return ResponseEntity.status(HttpStatus.CONFLICT)
+                            .body(ApiResponse.error("Ya existe una cuenta de usuario vinculada a la persona con documento '" + doc + "'"));
+                }
+            } else {
                 String primerNombre = (String) payload.getOrDefault("primerNombre", username);
                 String primerApellido = (String) payload.getOrDefault("primerApellido", "PORTERO".equals(rol) ? "Vigilancia" : "Usuario");
                 String docFinal = (doc != null && !doc.trim().isBlank()) ? doc.trim() : "DOC-" + System.currentTimeMillis();
                 String tel = (String) payload.getOrDefault("telefono", "");
-                String email = (String) payload.getOrDefault("email", username + "@saed.com");
+                String email = (userEmail != null && !userEmail.isBlank()) ? userEmail : username + "@saed.com";
+
+                Object tipoDocObj = payload.getOrDefault("tipoDocumentoId", payload.get("idTipoDocumento"));
+                Long idTipoDoc = 1L;
+                if (tipoDocObj != null) {
+                    try { idTipoDoc = Long.valueOf(tipoDocObj.toString()); } catch (Exception ignored) {}
+                }
 
                 KeyHolder khPersona = new GeneratedKeyHolder();
                 String sqlPersona = """
                     INSERT INTO PERSONAS (ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, PRIMER_NOMBRE, PRIMER_APELLIDO, EMAIL, TELEFONO, ESTADO)
-                    VALUES (1, :doc, 'NATURAL', :nombre, :apellido, :email, :tel, 'ACTIVO')
+                    VALUES (:tipoDoc, :doc, 'NATURAL', :nombre, :apellido, :email, :tel, 'ACTIVO')
                     """;
                 MapSqlParameterSource paramP = new MapSqlParameterSource()
+                        .addValue("tipoDoc", idTipoDoc)
                         .addValue("doc", docFinal)
                         .addValue("nombre", primerNombre)
                         .addValue("apellido", primerApellido)
@@ -270,7 +300,6 @@ public class UsuarioController {
         }
 
         // 2. Insertar USUARIO
-        String userEmail = (String) payload.getOrDefault("email", username + "@saed.com");
         KeyHolder khUsuario = new GeneratedKeyHolder();
         String sqlUsuario = """
             INSERT INTO USUARIOS (ID_PERSONA, NOMBRE_USUARIO, EMAIL, HASH_PASSWORD, ESTADO, INTENTOS_FALLIDOS)
@@ -353,13 +382,21 @@ public class UsuarioController {
                     Map.of("u", idUnidad, "p", idPersona),
                     Integer.class
                 );
+                String tipoRes = "RESIDENTE_CONVIVENCIA".equals(rol) ? "CONVIVIENTE" : "TITULAR";
                 if (ruCount == null || ruCount == 0) {
                     jdbcTemplate.update(
                         "INSERT INTO RESIDENTES_UNIDAD (ID_UNIDAD, ID_PERSONA, TIPO_RESIDENTE, FECHA_INICIO, ESTADO) VALUES (:u, :p, :tipo, TRUNC(SYSDATE), 'ACTIVO')",
-                        Map.of("u", idUnidad, "p", idPersona, "tipo", "RESIDENTE_CONVIVENCIA".equals(rol) ? "CONVIVIENTE" : "TITULAR")
+                        Map.of("u", idUnidad, "p", idPersona, "tipo", tipoRes)
+                    );
+                } else {
+                    jdbcTemplate.update(
+                        "UPDATE RESIDENTES_UNIDAD SET ESTADO = 'ACTIVO', FECHA_FIN = NULL, TIPO_RESIDENTE = :tipo WHERE ID_UNIDAD = :u AND ID_PERSONA = :p",
+                        Map.of("u", idUnidad, "p", idPersona, "tipo", tipoRes)
                     );
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                log.warn("Aviso al asegurar RESIDENTES_UNIDAD para persona {} y unidad {}: {}", idPersona, idUnidad, e.getMessage());
+            }
         }
 
         // 5. Enviar correo con credenciales de acceso creadas por usuario
@@ -420,6 +457,8 @@ public class UsuarioController {
                 "idUsuario", idUsuario,
                 "username", username,
                 "rol", rol,
+                "passwordGenerada", rawPassword,
+                "email", userEmail,
                 "message", "Usuario creado exitosamente. Se han enviado las credenciales de acceso a " + userEmail
         )));
     }

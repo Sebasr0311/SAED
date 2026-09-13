@@ -14,6 +14,7 @@ import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Repository
@@ -141,7 +142,7 @@ public class UnitInhabitantRepositoryImpl implements UnitInhabitantRepository {
                    p.PRIMER_APELLIDO, p.SEGUNDO_APELLIDO, p.EMAIL, p.TELEFONO, p.ESTADO as ESTADO_PERSONA
             FROM RESIDENTES_UNIDAD ru
             JOIN PERSONAS p ON ru.ID_PERSONA = p.ID_PERSONA
-            WHERE ru.ID_UNIDAD = :unitId AND ru.ID_RESIDENTE_UNIDAD = :residentId
+            WHERE ru.ID_UNIDAD = :unitId AND (ru.ID_RESIDENTE_UNIDAD = :residentId OR ru.ID_PERSONA = :residentId)
             """;
         List<UnitResidentDTO> list = jdbcTemplate.query(
                 sql,
@@ -162,14 +163,14 @@ public class UnitInhabitantRepositoryImpl implements UnitInhabitantRepository {
         if ("INACTIVO".equalsIgnoreCase(status)) {
             sql = """
                 UPDATE RESIDENTES_UNIDAD
-                SET ESTADO = :status, FECHA_FIN = TRUNC(SYSDATE)
-                WHERE ID_UNIDAD = :unitId AND ID_RESIDENTE_UNIDAD = :residentId
+                SET ESTADO = :status, FECHA_FIN = NULL
+                WHERE ID_UNIDAD = :unitId AND (ID_RESIDENTE_UNIDAD = :residentId OR ID_PERSONA = :residentId)
                 """;
         } else {
             sql = """
                 UPDATE RESIDENTES_UNIDAD
                 SET ESTADO = :status, FECHA_FIN = NULL
-                WHERE ID_UNIDAD = :unitId AND ID_RESIDENTE_UNIDAD = :residentId
+                WHERE ID_UNIDAD = :unitId AND (ID_RESIDENTE_UNIDAD = :residentId OR ID_PERSONA = :residentId)
                 """;
         }
         return jdbcTemplate.update(sql, params);
@@ -177,10 +178,20 @@ public class UnitInhabitantRepositoryImpl implements UnitInhabitantRepository {
 
     @Override
     public int unlinkResident(Long unitId, Long residentId) {
+        Long personaId = null;
+        try {
+            List<Long> pList = jdbcTemplate.query(
+                "SELECT ID_PERSONA FROM RESIDENTES_UNIDAD WHERE ID_UNIDAD = :unitId AND (ID_RESIDENTE_UNIDAD = :residentId OR ID_PERSONA = :residentId)",
+                new MapSqlParameterSource("unitId", unitId).addValue("residentId", residentId),
+                (rs, rowNum) -> rs.getLong(1)
+            );
+            if (!pList.isEmpty()) personaId = pList.get(0);
+        } catch (Exception ignored) {}
+
         String sql = """
             UPDATE RESIDENTES_UNIDAD
             SET ESTADO = 'INACTIVO', FECHA_FIN = TRUNC(SYSDATE)
-            WHERE ID_UNIDAD = :unitId AND ID_RESIDENTE_UNIDAD = :residentId
+            WHERE ID_UNIDAD = :unitId AND (ID_RESIDENTE_UNIDAD = :residentId OR ID_PERSONA = :residentId)
             """;
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("unitId", unitId)
@@ -188,20 +199,28 @@ public class UnitInhabitantRepositoryImpl implements UnitInhabitantRepository {
         int updated = jdbcTemplate.update(sql, params);
 
         // Desactivar asignación de usuario correspondiente si existe
-        try {
-            String sqlAsignacion = """
-                UPDATE USUARIO_ASIGNACIONES
-                SET ESTADO = 'INACTIVA', FECHA_FIN = TRUNC(SYSDATE)
-                WHERE ID_UNIDAD = :unitId
-                  AND ID_USUARIO IN (
-                      SELECT u.ID_USUARIO
-                      FROM USUARIOS u
-                      JOIN RESIDENTES_UNIDAD ru ON u.ID_PERSONA = ru.ID_PERSONA
-                      WHERE ru.ID_RESIDENTE_UNIDAD = :residentId
-                  )
-                """;
-            jdbcTemplate.update(sqlAsignacion, params);
-        } catch (Exception ignored) {}
+        if (personaId != null) {
+            try {
+                String sqlAsignacion = """
+                    UPDATE USUARIO_ASIGNACIONES
+                    SET ESTADO = 'INACTIVA', FECHA_FIN = TRUNC(SYSDATE)
+                    WHERE ID_UNIDAD = :unitId
+                      AND ID_USUARIO IN (
+                          SELECT u.ID_USUARIO
+                          FROM USUARIOS u
+                          WHERE u.ID_PERSONA = :personaId
+                      )
+                    """;
+                jdbcTemplate.update(sqlAsignacion, new MapSqlParameterSource("unitId", unitId).addValue("personaId", personaId));
+
+                String sqlUsuario = """
+                    UPDATE USUARIOS
+                    SET ESTADO = 'INACTIVO'
+                    WHERE ID_PERSONA = :personaId
+                    """;
+                jdbcTemplate.update(sqlUsuario, Map.of("personaId", personaId));
+            } catch (Exception ignored) {}
+        }
 
         return updated;
     }

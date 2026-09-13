@@ -34,7 +34,14 @@ export default function ResConvivientesPage() {
 
   // 3. Resolucion de unidad
   const unitId =
-    user?.idUnidad || perfil.idApartamento || perfil.idUnidad || aptoInfo.idApartamento || aptoInfo.id || 1;
+    user?.idUnidad ||
+    user?.idApartamento ||
+    user?.asignaciones?.[0]?.idUnidad ||
+    perfil.idApartamento ||
+    perfil.idUnidad ||
+    aptoInfo.idApartamento ||
+    aptoInfo.id ||
+    1;
 
   const { data: unitData } = useFetch(
     () => (unitId ? api.get(`/units/${unitId}`) : Promise.resolve(null)),
