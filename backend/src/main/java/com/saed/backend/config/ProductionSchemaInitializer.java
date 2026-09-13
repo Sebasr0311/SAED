@@ -234,6 +234,31 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
                     BEGIN PKG_SAED_SESSION.SET_CONTEXT(1, 1, 1, 'SUPERADMIN'); EXCEPTION WHEN OTHERS THEN NULL; END;
 
                     MERGE INTO ROLES r USING (
+                        SELECT 'SUPERADMIN' AS CODIGO, 'Super Administrador' AS NOMBRE, 'GLOBAL' AS ALCANCE, 'ACTIVO' AS ESTADO FROM DUAL
+                    ) s ON (r.CODIGO = s.CODIGO)
+                    WHEN NOT MATCHED THEN INSERT (CODIGO, NOMBRE, ALCANCE, ESTADO) VALUES (s.CODIGO, s.NOMBRE, s.ALCANCE, s.ESTADO);
+
+                    MERGE INTO ROLES r USING (
+                        SELECT 'ADMIN_ORGANIZACION' AS CODIGO, 'Admin Organizacion' AS NOMBRE, 'ORGANIZACION' AS ALCANCE, 'ACTIVO' AS ESTADO FROM DUAL
+                    ) s ON (r.CODIGO = s.CODIGO)
+                    WHEN NOT MATCHED THEN INSERT (CODIGO, NOMBRE, ALCANCE, ESTADO) VALUES (s.CODIGO, s.NOMBRE, s.ALCANCE, s.ESTADO);
+
+                    MERGE INTO ROLES r USING (
+                        SELECT 'ADMIN_PROPIEDAD' AS CODIGO, 'Admin Propiedad' AS NOMBRE, 'PROPIEDAD' AS ALCANCE, 'ACTIVO' AS ESTADO FROM DUAL
+                    ) s ON (r.CODIGO = s.CODIGO)
+                    WHEN NOT MATCHED THEN INSERT (CODIGO, NOMBRE, ALCANCE, ESTADO) VALUES (s.CODIGO, s.NOMBRE, s.ALCANCE, s.ESTADO);
+
+                    MERGE INTO ROLES r USING (
+                        SELECT 'PORTERO' AS CODIGO, 'Portero / Vigilante' AS NOMBRE, 'PROPIEDAD' AS ALCANCE, 'ACTIVO' AS ESTADO FROM DUAL
+                    ) s ON (r.CODIGO = s.CODIGO)
+                    WHEN NOT MATCHED THEN INSERT (CODIGO, NOMBRE, ALCANCE, ESTADO) VALUES (s.CODIGO, s.NOMBRE, s.ALCANCE, s.ESTADO);
+
+                    MERGE INTO ROLES r USING (
+                        SELECT 'RESIDENTE' AS CODIGO, 'Residente' AS NOMBRE, 'UNIDAD' AS ALCANCE, 'ACTIVO' AS ESTADO FROM DUAL
+                    ) s ON (r.CODIGO = s.CODIGO)
+                    WHEN NOT MATCHED THEN INSERT (CODIGO, NOMBRE, ALCANCE, ESTADO) VALUES (s.CODIGO, s.NOMBRE, s.ALCANCE, s.ESTADO);
+
+                    MERGE INTO ROLES r USING (
                         SELECT 'RESIDENTE_CONVIVENCIA' AS CODIGO,
                                'Residente Conviviente' AS NOMBRE,
                                'UNIDAD' AS ALCANCE,
@@ -266,7 +291,7 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
                 END;
             """);
 
-            log.info("[SchemaInit] Roles canónicos (RESIDENTE_CONVIVENCIA, PROPIETARIO) verificados exitosamente.");
+            log.info("[SchemaInit] Roles canónicos verificados exitosamente.");
         } catch (Exception e) {
             log.warn("[SchemaInit] Aviso al verificar roles canónicos: {}", e.getMessage());
         }
