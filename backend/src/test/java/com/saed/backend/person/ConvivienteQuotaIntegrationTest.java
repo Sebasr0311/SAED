@@ -67,10 +67,14 @@ public class ConvivienteQuotaIntegrationTest {
         } catch (Exception ignored) {}
 
         try {
+            jdbcTemplate.execute("MERGE INTO ROLES r USING (SELECT 'RESIDENTE_CONVIVENCIA' AS CODIGO, 'Residente Conviviente' AS NOMBRE, 'UNIDAD' AS ALCANCE, 'ACTIVO' AS ESTADO FROM DUAL) s ON (r.CODIGO = s.CODIGO) WHEN NOT MATCHED THEN INSERT (CODIGO, NOMBRE, ALCANCE, ESTADO) VALUES (s.CODIGO, s.NOMBRE, s.ALCANCE, s.ESTADO)");
+        } catch (Exception ignored) {}
+
+        try {
             jdbcTemplate.execute("ALTER TABLE RESIDENTES_UNIDAD DROP CONSTRAINT CK_RESIDUNIDAD_TIPO");
         } catch (Exception ignored) {}
         try {
-            jdbcTemplate.execute("ALTER TABLE RESIDENTES_UNIDAD ADD CONSTRAINT CK_RESIDUNIDAD_TIPO CHECK (tipo_residente IN ('PROPIETARIO', 'ARRENDATARIO', 'FAMILIAR', 'CONVIVIENTE', 'OTRO'))");
+            jdbcTemplate.execute("ALTER TABLE RESIDENTES_UNIDAD ADD CONSTRAINT CK_RESIDUNIDAD_TIPO CHECK (tipo_residente IN ('PROPIETARIO', 'ARRENDATARIO', 'FAMILIAR', 'CONVIVIENTE', 'OTRO', 'TITULAR'))");
         } catch (Exception ignored) {}
 
         // Limpiar habitantes previos de TEST_UNIT_ID para aislar ejecuciones
@@ -431,5 +435,64 @@ public class ConvivienteQuotaIntegrationTest {
         assertEquals(4, quota.limiteConfigurado(), "Debe aplicar fallback por defecto de 4 convivientes por unidad");
         assertEquals(4, quota.cuposDisponibles());
         assertFalse(quota.limiteAlcanzado());
+    }
+
+    @Test
+    @Order(13)
+    @DisplayName("P2-01 [REQ-15]: Residente titular puede registrar exitosamente cuenta de conviviente vía UsuarioController sin error RLS")
+    public void test13_ResidentCanCreateConvivienteAccountSuccessfully() {
+        setResidentAuth(TEST_UNIT_ID);
+
+        String testUsername = "conv_ok_" + System.currentTimeMillis();
+        String testEmail = testUsername + "@saedtest.com";
+        String testDoc = "CC" + (System.currentTimeMillis() % 1000000000);
+
+        Map<String, Object> payload = Map.of(
+                "nombreUsuario", testUsername,
+                "password", "Password123!",
+                "email", testEmail,
+                "primerNombre", "Carlos",
+                "primerApellido", "Conviviente",
+                "tipoDocumentoId", 1L,
+                "numeroDocumento", testDoc,
+                "telefono", "3001234567",
+                "rol", "RESIDENTE_CONVIVENCIA",
+                "idUnidad", TEST_UNIT_ID
+        );
+
+        ResponseEntity<com.saed.backend.common.dto.ApiResponse<Map<String, Object>>> response =
+                usuarioController.crearUsuario(payload);
+
+        assertNotNull(response);
+        assertEquals(201, response.getStatusCode().value(), () -> "Error response: " + (response.getBody() != null ? response.getBody().getMessage() : "null"));
+        assertNotNull(response.getBody());
+        assertEquals("success", response.getBody().getStatus());
+
+        Map<String, Object> data = response.getBody().getData();
+        assertNotNull(data);
+        assertNotNull(data.get("idUsuario"));
+        assertEquals(testUsername, data.get("username"));
+        assertEquals("RESIDENTE_CONVIVENCIA", data.get("rol"));
+
+        // Verificar que el residente puede ver el habitante en su unidad
+        Integer ruCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(1) FROM RESIDENTES_UNIDAD WHERE ID_UNIDAD = ? AND TIPO_RESIDENTE = 'CONVIVIENTE'",
+                Integer.class,
+                TEST_UNIT_ID
+        );
+        assertTrue(ruCount != null && ruCount >= 1, "Debe existir registro activo en RESIDENTES_UNIDAD para la unidad");
+
+        // Y bajo SUPERADMIN verificar que la cuenta de usuario se persistió en USUARIOS
+        setSuperadminAuth();
+        try {
+            jdbcTemplate.execute("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1); PKG_SAED_SESSION.SET_CONTEXT(1, 1, 1, 'SUPERADMIN'); END;");
+        } catch (Exception ignored) {}
+        Number idUsuario = (Number) data.get("idUsuario");
+        Integer usrCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(1) FROM USUARIOS WHERE ID_USUARIO = ?",
+                Integer.class,
+                idUsuario.longValue()
+        );
+        assertEquals(1, usrCount, "El usuario debe existir en USUARIOS");
     }
 }

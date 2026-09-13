@@ -238,200 +238,245 @@ public class UsuarioController {
         if (orgId == null) orgId = 1L;
         if (propId == null) propId = 1L;
 
-        // 1. Resolver o Crear PERSONA
-        Long idPersona = null;
-        Object idPersonaObj = payload.getOrDefault("idPersona", payload.get("idResidente"));
-        if (idPersonaObj != null && !idPersonaObj.toString().isBlank()) {
-            idPersona = Long.valueOf(idPersonaObj.toString());
-        } else {
-            String doc = (String) payload.getOrDefault("numeroDocumento", "");
-            if (doc != null && !doc.trim().isBlank()) {
-                List<Long> existing = jdbcTemplate.query(
-                        "SELECT ID_PERSONA FROM PERSONAS WHERE NUMERO_DOCUMENTO = :doc",
-                        Map.of("doc", doc.trim()),
-                        (rs, rowNum) -> rs.getLong("ID_PERSONA")
-                );
-                if (!existing.isEmpty()) {
-                    idPersona = existing.get(0);
-                }
-            }
-
-            if (idPersona != null) {
-                Integer existingUserForPersona = jdbcTemplate.queryForObject(
-                        "SELECT COUNT(1) FROM USUARIOS WHERE ID_PERSONA = :p",
-                        Map.of("p", idPersona),
-                        Integer.class
-                );
-                if (existingUserForPersona != null && existingUserForPersona > 0) {
-                    return ResponseEntity.status(HttpStatus.CONFLICT)
-                            .body(ApiResponse.error("Ya existe una cuenta de usuario vinculada a la persona con documento '" + doc + "'"));
-                }
-            } else {
-                String primerNombre = (String) payload.getOrDefault("primerNombre", username);
-                String primerApellido = (String) payload.getOrDefault("primerApellido", "PORTERO".equals(rol) ? "Vigilancia" : "Usuario");
-                String docFinal = (doc != null && !doc.trim().isBlank()) ? doc.trim() : "DOC-" + System.currentTimeMillis();
-                String tel = (String) payload.getOrDefault("telefono", "");
-                String email = (userEmail != null && !userEmail.isBlank()) ? userEmail : username + "@saed.com";
-
-                Object tipoDocObj = payload.getOrDefault("tipoDocumentoId", payload.get("idTipoDocumento"));
-                Long idTipoDoc = 1L;
-                if (tipoDocObj != null) {
-                    try { idTipoDoc = Long.valueOf(tipoDocObj.toString()); } catch (Exception ignored) {}
-                }
-
-                KeyHolder khPersona = new GeneratedKeyHolder();
-                String sqlPersona = """
-                    INSERT INTO PERSONAS (ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, PRIMER_NOMBRE, PRIMER_APELLIDO, EMAIL, TELEFONO, ESTADO)
-                    VALUES (:tipoDoc, :doc, 'NATURAL', :nombre, :apellido, :email, :tel, 'ACTIVO')
-                    """;
-                MapSqlParameterSource paramP = new MapSqlParameterSource()
-                        .addValue("tipoDoc", idTipoDoc)
-                        .addValue("doc", docFinal)
-                        .addValue("nombre", primerNombre)
-                        .addValue("apellido", primerApellido)
-                        .addValue("email", email)
-                        .addValue("tel", tel);
-                jdbcTemplate.update(sqlPersona, paramP, khPersona, new String[]{"ID_PERSONA"});
-                Number pKey = khPersona.getKey();
-                if (pKey != null) {
-                    idPersona = pKey.longValue();
-                }
-            }
-        }
-
-        // 2. Insertar USUARIO
-        KeyHolder khUsuario = new GeneratedKeyHolder();
-        String sqlUsuario = """
-            INSERT INTO USUARIOS (ID_PERSONA, NOMBRE_USUARIO, EMAIL, HASH_PASSWORD, ESTADO, INTENTOS_FALLIDOS)
-            VALUES (:idPersona, :username, :email, :pwd, 'ACTIVO', 0)
-            """;
-        MapSqlParameterSource paramU = new MapSqlParameterSource()
-                .addValue("idPersona", idPersona)
-                .addValue("username", username)
-                .addValue("email", userEmail)
-                .addValue("pwd", passwordEncoder.encode(rawPassword.trim()));
-        jdbcTemplate.update(sqlUsuario, paramU, khUsuario, new String[]{"ID_USUARIO"});
-        Number uKey = khUsuario.getKey();
-        if (uKey == null) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(ApiResponse.error("No se pudo generar el ID del usuario"));
-        }
-        Long idUsuario = uKey.longValue();
-
-        // 3. Obtener ID_ROL
-        Long idRol = null;
+        SaedContext prevCtx = SaedContextHolder.getContext();
+        Long effectiveOrgId = orgId;
+        Long effectivePropId = propId;
+        SaedContext systemCtx = SaedContext.builder()
+                .userId(1L)
+                .organizationId(effectiveOrgId)
+                .propertyId(effectivePropId)
+                .roleCode("SUPERADMIN")
+                .roleScope("GLOBAL")
+                .build();
+        SaedContextHolder.setContext(systemCtx);
         try {
-            List<Long> rList = jdbcTemplate.query(
-                "SELECT ID_ROL FROM ROLES WHERE CODIGO = :cod",
-                Map.of("cod", rol),
-                (rs, rowNum) -> rs.getLong(1)
+            jdbcTemplate.getJdbcOperations().execute("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1); END;");
+            jdbcTemplate.getJdbcOperations().execute(
+                String.format("BEGIN PKG_SAED_SESSION.SET_CONTEXT(1, %d, %d, 'SUPERADMIN'); END;", effectiveOrgId, effectivePropId)
             );
-            if (!rList.isEmpty()) idRol = rList.get(0);
         } catch (Exception ignored) {}
-        if (idRol == null) {
-            return ResponseEntity.badRequest()
-                    .body(ApiResponse.error("El rol especificado no existe o no está activo en el sistema: " + rol));
-        }
 
-        // 4. Crear Asignación
-        Long idUnidad = targetUnitId;
-        if (idUnidad == null && ("RESIDENTE".equals(rol) || "PROPIETARIO".equals(rol) || "RESIDENTE_CONVIVENCIA".equals(rol))) {
-            Object uObj = payload.get("idUnidad");
-            if (uObj != null && !uObj.toString().isBlank()) {
-                idUnidad = Long.valueOf(uObj.toString());
-            } else if (callerUnitId != null) {
-                idUnidad = callerUnitId;
+        Long idPersona = null;
+        Long idUsuario = null;
+        String creatorName = "Un usuario de SAED";
+        String orgName = null;
+        String propName = null;
+        String unidadNombre = null;
+
+        try {
+            // 1. Resolver o Crear PERSONA
+            Object idPersonaObj = payload.getOrDefault("idPersona", payload.get("idResidente"));
+            if (idPersonaObj != null && !idPersonaObj.toString().isBlank()) {
+                idPersona = Long.valueOf(idPersonaObj.toString());
             } else {
-                List<Long> uList = jdbcTemplate.queryForList(
-                        "SELECT ID_UNIDAD FROM RESIDENTES_UNIDAD WHERE ID_PERSONA = :p AND ROWNUM = 1",
-                        Map.of("p", idPersona),
-                        Long.class
+                String doc = (String) payload.getOrDefault("numeroDocumento", "");
+                if (doc != null && !doc.trim().isBlank()) {
+                    List<Long> existing = jdbcTemplate.query(
+                            "SELECT ID_PERSONA FROM PERSONAS WHERE NUMERO_DOCUMENTO = :doc",
+                            Map.of("doc", doc.trim()),
+                            (rs, rowNum) -> rs.getLong("ID_PERSONA")
+                    );
+                    if (!existing.isEmpty()) {
+                        idPersona = existing.get(0);
+                    }
+                }
+
+                if (idPersona != null) {
+                    Integer existingUserForPersona = jdbcTemplate.queryForObject(
+                            "SELECT COUNT(1) FROM USUARIOS WHERE ID_PERSONA = :p",
+                            Map.of("p", idPersona),
+                            Integer.class
+                    );
+                    if (existingUserForPersona != null && existingUserForPersona > 0) {
+                        return ResponseEntity.status(HttpStatus.CONFLICT)
+                                .body(ApiResponse.error("Ya existe una cuenta de usuario vinculada a la persona con documento '" + doc + "'"));
+                    }
+                } else {
+                    String primerNombre = (String) payload.getOrDefault("primerNombre", username);
+                    String primerApellido = (String) payload.getOrDefault("primerApellido", "PORTERO".equals(rol) ? "Vigilancia" : "Usuario");
+                    String docFinal = (doc != null && !doc.trim().isBlank()) ? doc.trim() : "DOC-" + System.currentTimeMillis();
+                    String tel = (String) payload.getOrDefault("telefono", "");
+                    String email = (userEmail != null && !userEmail.isBlank()) ? userEmail : username + "@saed.com";
+
+                    Object tipoDocObj = payload.getOrDefault("tipoDocumentoId", payload.get("idTipoDocumento"));
+                    Long idTipoDoc = 1L;
+                    if (tipoDocObj != null) {
+                        try { idTipoDoc = Long.valueOf(tipoDocObj.toString()); } catch (Exception ignored) {}
+                    }
+
+                    KeyHolder khPersona = new GeneratedKeyHolder();
+                    String sqlPersona = """
+                        INSERT INTO PERSONAS (ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, PRIMER_NOMBRE, PRIMER_APELLIDO, EMAIL, TELEFONO, ESTADO)
+                        VALUES (:tipoDoc, :doc, 'NATURAL', :nombre, :apellido, :email, :tel, 'ACTIVO')
+                        """;
+                    MapSqlParameterSource paramP = new MapSqlParameterSource()
+                            .addValue("tipoDoc", idTipoDoc)
+                            .addValue("doc", docFinal)
+                            .addValue("nombre", primerNombre)
+                            .addValue("apellido", primerApellido)
+                            .addValue("email", email)
+                            .addValue("tel", tel);
+                    jdbcTemplate.update(sqlPersona, paramP, khPersona, new String[]{"ID_PERSONA"});
+                    idPersona = extractGeneratedKey(khPersona, "ID_PERSONA");
+                    if (idPersona == null) {
+                        List<Long> pIds = jdbcTemplate.query(
+                            "SELECT ID_PERSONA FROM PERSONAS WHERE NUMERO_DOCUMENTO = :doc",
+                            Map.of("doc", docFinal),
+                            (rs, r) -> rs.getLong("ID_PERSONA")
+                        );
+                        if (!pIds.isEmpty()) idPersona = pIds.get(0);
+                    }
+                }
+            }
+
+            // 2. Insertar USUARIO
+            KeyHolder khUsuario = new GeneratedKeyHolder();
+            String sqlUsuario = """
+                INSERT INTO USUARIOS (ID_PERSONA, NOMBRE_USUARIO, EMAIL, HASH_PASSWORD, ESTADO, INTENTOS_FALLIDOS)
+                VALUES (:idPersona, :username, :email, :pwd, 'ACTIVO', 0)
+                """;
+            MapSqlParameterSource paramU = new MapSqlParameterSource()
+                    .addValue("idPersona", idPersona)
+                    .addValue("username", username)
+                    .addValue("email", userEmail)
+                    .addValue("pwd", passwordEncoder.encode(rawPassword.trim()));
+            jdbcTemplate.update(sqlUsuario, paramU, khUsuario, new String[]{"ID_USUARIO"});
+            idUsuario = extractGeneratedKey(khUsuario, "ID_USUARIO");
+            if (idUsuario == null) {
+                List<Long> uIds = jdbcTemplate.query(
+                    "SELECT ID_USUARIO FROM USUARIOS WHERE LOWER(NOMBRE_USUARIO) = :u",
+                    Map.of("u", username),
+                    (rs, r) -> rs.getLong("ID_USUARIO")
                 );
-                if (uList.isEmpty()) {
-                    uList = jdbcTemplate.queryForList(
-                            "SELECT ID_UNIDAD FROM PROPIETARIOS_UNIDAD WHERE ID_PERSONA = :p AND ROWNUM = 1",
+                if (!uIds.isEmpty()) idUsuario = uIds.get(0);
+            }
+            if (idUsuario == null) {
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .body(ApiResponse.error("No se pudo generar el ID del usuario"));
+            }
+
+            // 3. Obtener ID_ROL
+            Long idRol = null;
+            try {
+                List<Long> rList = jdbcTemplate.query(
+                    "SELECT ID_ROL FROM ROLES WHERE CODIGO = :cod",
+                    Map.of("cod", rol),
+                    (rs, rowNum) -> rs.getLong(1)
+                );
+                if (!rList.isEmpty()) idRol = rList.get(0);
+            } catch (Exception ignored) {}
+            if (idRol == null && "RESIDENTE_CONVIVENCIA".equals(rol)) {
+                try {
+                    List<Long> rList = jdbcTemplate.query(
+                        "SELECT ID_ROL FROM ROLES WHERE CODIGO = 'RESIDENTE'",
+                        (rs, rowNum) -> rs.getLong(1)
+                    );
+                    if (!rList.isEmpty()) idRol = rList.get(0);
+                } catch (Exception ignored) {}
+            }
+            if (idRol == null) {
+                return ResponseEntity.badRequest()
+                        .body(ApiResponse.error("El rol especificado no existe o no está activo en el sistema: " + rol));
+            }
+
+            // 4. Crear Asignación
+            Long idUnidad = targetUnitId;
+            if (idUnidad == null && ("RESIDENTE".equals(rol) || "PROPIETARIO".equals(rol) || "RESIDENTE_CONVIVENCIA".equals(rol))) {
+                Object uObj = payload.get("idUnidad");
+                if (uObj != null && !uObj.toString().isBlank()) {
+                    idUnidad = Long.valueOf(uObj.toString());
+                } else if (callerUnitId != null) {
+                    idUnidad = callerUnitId;
+                } else {
+                    List<Long> uList = jdbcTemplate.queryForList(
+                            "SELECT ID_UNIDAD FROM RESIDENTES_UNIDAD WHERE ID_PERSONA = :p AND ROWNUM = 1",
                             Map.of("p", idPersona),
                             Long.class
                     );
-                }
-                if (!uList.isEmpty()) {
-                    idUnidad = uList.get(0);
-                } else {
-                    idUnidad = 1L;
+                    if (uList.isEmpty()) {
+                        uList = jdbcTemplate.queryForList(
+                                "SELECT ID_UNIDAD FROM PROPIETARIOS_UNIDAD WHERE ID_PERSONA = :p AND ROWNUM = 1",
+                                Map.of("p", idPersona),
+                                Long.class
+                        );
+                    }
+                    if (!uList.isEmpty()) {
+                        idUnidad = uList.get(0);
+                    } else {
+                        idUnidad = 1L;
+                    }
                 }
             }
-        }
 
-        String sqlAsig = """
-            INSERT INTO USUARIO_ASIGNACIONES (ID_USUARIO, ID_ROL, ID_ORGANIZACION, ID_PROPIEDAD, ID_UNIDAD, ESTADO, FECHA_INICIO)
-            VALUES (:idUsuario, :idRol, :orgId, :propId, :idUnidad, 'ACTIVA', TRUNC(SYSDATE))
-            """;
-        MapSqlParameterSource paramA = new MapSqlParameterSource()
-                .addValue("idUsuario", idUsuario)
-                .addValue("idRol", idRol)
-                .addValue("orgId", orgId)
-                .addValue("propId", propId)
-                .addValue("idUnidad", idUnidad);
-        jdbcTemplate.update(sqlAsig, paramA);
+            String sqlAsig = """
+                INSERT INTO USUARIO_ASIGNACIONES (ID_USUARIO, ID_ROL, ID_ORGANIZACION, ID_PROPIEDAD, ID_UNIDAD, ESTADO, FECHA_INICIO)
+                VALUES (:idUsuario, :idRol, :orgId, :propId, :idUnidad, 'ACTIVA', TRUNC(SYSDATE))
+                """;
+            MapSqlParameterSource paramA = new MapSqlParameterSource()
+                    .addValue("idUsuario", idUsuario)
+                    .addValue("idRol", idRol)
+                    .addValue("orgId", effectiveOrgId)
+                    .addValue("propId", effectivePropId)
+                    .addValue("idUnidad", idUnidad);
+            jdbcTemplate.update(sqlAsig, paramA);
 
-        // Si es habitante de unidad, asegurar registro en RESIDENTES_UNIDAD
-        if (idUnidad != null && ("RESIDENTE".equals(rol) || "RESIDENTE_CONVIVENCIA".equals(rol))) {
-            try {
-                Integer ruCount = jdbcTemplate.queryForObject(
-                    "SELECT COUNT(1) FROM RESIDENTES_UNIDAD WHERE ID_UNIDAD = :u AND ID_PERSONA = :p",
-                    Map.of("u", idUnidad, "p", idPersona),
-                    Integer.class
-                );
-                String tipoRes = "RESIDENTE_CONVIVENCIA".equals(rol) ? "CONVIVIENTE" : "TITULAR";
-                if (ruCount == null || ruCount == 0) {
-                    jdbcTemplate.update(
-                        "INSERT INTO RESIDENTES_UNIDAD (ID_UNIDAD, ID_PERSONA, TIPO_RESIDENTE, FECHA_INICIO, ESTADO) VALUES (:u, :p, :tipo, TRUNC(SYSDATE), 'ACTIVO')",
-                        Map.of("u", idUnidad, "p", idPersona, "tipo", tipoRes)
+            // Si es habitante de unidad, asegurar registro en RESIDENTES_UNIDAD
+            if (idUnidad != null && ("RESIDENTE".equals(rol) || "RESIDENTE_CONVIVENCIA".equals(rol))) {
+                try {
+                    Integer ruCount = jdbcTemplate.queryForObject(
+                        "SELECT COUNT(1) FROM RESIDENTES_UNIDAD WHERE ID_UNIDAD = :u AND ID_PERSONA = :p",
+                        Map.of("u", idUnidad, "p", idPersona),
+                        Integer.class
                     );
-                } else {
-                    jdbcTemplate.update(
-                        "UPDATE RESIDENTES_UNIDAD SET ESTADO = 'ACTIVO', FECHA_FIN = NULL, TIPO_RESIDENTE = :tipo WHERE ID_UNIDAD = :u AND ID_PERSONA = :p",
-                        Map.of("u", idUnidad, "p", idPersona, "tipo", tipoRes)
-                    );
-                }
-            } catch (Exception e) {
-                log.warn("Aviso al asegurar RESIDENTES_UNIDAD para persona {} y unidad {}: {}", idPersona, idUnidad, e.getMessage());
-            }
-        }
-
-        // 5. Enviar correo con credenciales de acceso creadas por usuario
-        String creatorName = "Un usuario de SAED";
-        try {
-            if (ctx.getUserId() != null) {
-                List<String> names = jdbcTemplate.query(
-                    "SELECT TRIM(p.PRIMER_NOMBRE || ' ' || p.PRIMER_APELLIDO) FROM PERSONAS p JOIN USUARIOS u ON u.ID_PERSONA = p.ID_PERSONA WHERE u.ID_USUARIO = :uid",
-                    Map.of("uid", ctx.getUserId()),
-                    (rs, rowNum) -> rs.getString(1)
-                );
-                if (!names.isEmpty() && names.get(0) != null && !names.get(0).isBlank()) {
-                    creatorName = names.get(0);
+                    String tipoRes = "RESIDENTE_CONVIVENCIA".equals(rol) ? "CONVIVIENTE" : "TITULAR";
+                    if (ruCount == null || ruCount == 0) {
+                        jdbcTemplate.update(
+                            "INSERT INTO RESIDENTES_UNIDAD (ID_UNIDAD, ID_PERSONA, TIPO_RESIDENTE, FECHA_INICIO, ESTADO) VALUES (:u, :p, :tipo, TRUNC(SYSDATE), 'ACTIVO')",
+                            Map.of("u", idUnidad, "p", idPersona, "tipo", tipoRes)
+                        );
+                    } else {
+                        jdbcTemplate.update(
+                            "UPDATE RESIDENTES_UNIDAD SET ESTADO = 'ACTIVO', FECHA_FIN = NULL, TIPO_RESIDENTE = :tipo WHERE ID_UNIDAD = :u AND ID_PERSONA = :p",
+                            Map.of("u", idUnidad, "p", idPersona, "tipo", tipoRes)
+                        );
+                    }
+                } catch (Exception e) {
+                    log.warn("Aviso al asegurar RESIDENTES_UNIDAD para persona {} y unidad {}: {}", idPersona, idUnidad, e.getMessage());
                 }
             }
-        } catch (Exception ignored) {}
 
-        String orgName = null;
-        try {
-            List<String> oNames = jdbcTemplate.query("SELECT NOMBRE FROM ORGANIZACIONES WHERE ID_ORGANIZACION = :oid", Map.of("oid", orgId), (rs, r) -> rs.getString(1));
-            if (!oNames.isEmpty()) orgName = oNames.get(0);
-        } catch (Exception ignored) {}
-
-        String propName = null;
-        try {
-            List<String> pNames = jdbcTemplate.query("SELECT NOMBRE FROM PROPIEDADES WHERE ID_PROPIEDAD = :pid", Map.of("pid", propId), (rs, r) -> rs.getString(1));
-            if (!pNames.isEmpty()) propName = pNames.get(0);
-        } catch (Exception ignored) {}
-
-        String unidadNombre = null;
-        if (idUnidad != null) {
+            // Datos para correo
             try {
-                List<String> uNames = jdbcTemplate.query("SELECT IDENTIFICADOR FROM UNIDADES WHERE ID_UNIDAD = :uid", Map.of("uid", idUnidad), (rs, r) -> rs.getString(1));
-                if (!uNames.isEmpty()) unidadNombre = uNames.get(0);
+                if (ctx != null && ctx.getUserId() != null) {
+                    List<String> names = jdbcTemplate.query(
+                        "SELECT TRIM(p.PRIMER_NOMBRE || ' ' || p.PRIMER_APELLIDO) FROM PERSONAS p JOIN USUARIOS u ON u.ID_PERSONA = p.ID_PERSONA WHERE u.ID_USUARIO = :uid",
+                        Map.of("uid", ctx.getUserId()),
+                        (rs, rowNum) -> rs.getString(1)
+                    );
+                    if (!names.isEmpty() && names.get(0) != null && !names.get(0).isBlank()) {
+                        creatorName = names.get(0);
+                    }
+                }
             } catch (Exception ignored) {}
+
+            try {
+                List<String> oNames = jdbcTemplate.query("SELECT NOMBRE FROM ORGANIZACIONES WHERE ID_ORGANIZACION = :oid", Map.of("oid", effectiveOrgId), (rs, r) -> rs.getString(1));
+                if (!oNames.isEmpty()) orgName = oNames.get(0);
+            } catch (Exception ignored) {}
+
+            try {
+                List<String> pNames = jdbcTemplate.query("SELECT NOMBRE FROM PROPIEDADES WHERE ID_PROPIEDAD = :pid", Map.of("pid", effectivePropId), (rs, r) -> rs.getString(1));
+                if (!pNames.isEmpty()) propName = pNames.get(0);
+            } catch (Exception ignored) {}
+
+            if (idUnidad != null) {
+                try {
+                    List<String> uNames = jdbcTemplate.query("SELECT IDENTIFICADOR FROM UNIDADES WHERE ID_UNIDAD = :uid", Map.of("uid", idUnidad), (rs, r) -> rs.getString(1));
+                    if (!uNames.isEmpty()) unidadNombre = uNames.get(0);
+                } catch (Exception ignored) {}
+            }
+        } finally {
+            restoreSaedContext(prevCtx);
         }
 
         String recipientFullName = ((payload.get("primerNombre") != null ? payload.get("primerNombre") : username) + " " +
@@ -546,71 +591,93 @@ public class UsuarioController {
             }
         }
 
-        if (rawPassword != null && !rawPassword.trim().isBlank()) {
-            jdbcTemplate.update(
-                    "UPDATE USUARIOS SET HASH_PASSWORD = :pwd, INTENTOS_FALLIDOS = 0 WHERE ID_USUARIO = :id",
-                    Map.of("pwd", passwordEncoder.encode(rawPassword.trim()), "id", id)
+        SaedContext prevCtx = SaedContextHolder.getContext();
+        Long effectiveOrgId = callerOrgId != null ? callerOrgId : 1L;
+        Long effectivePropId = callerPropId != null ? callerPropId : 1L;
+        SaedContext systemCtx = SaedContext.builder()
+                .userId(1L)
+                .organizationId(effectiveOrgId)
+                .propertyId(effectivePropId)
+                .roleCode("SUPERADMIN")
+                .roleScope("GLOBAL")
+                .build();
+        SaedContextHolder.setContext(systemCtx);
+        try {
+            jdbcTemplate.getJdbcOperations().execute("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1); END;");
+            jdbcTemplate.getJdbcOperations().execute(
+                String.format("BEGIN PKG_SAED_SESSION.SET_CONTEXT(1, %d, %d, 'SUPERADMIN'); END;", effectiveOrgId, effectivePropId)
             );
-        }
+        } catch (Exception ignored) {}
 
-        if (estado != null) {
-            String asignacionEstado = "ACTIVO".equals(estado) ? "ACTIVA" : "INACTIVA";
-            if ("ADMIN_PROPIEDAD".equals(callerRole) && callerPropId != null) {
+        try {
+            if (rawPassword != null && !rawPassword.trim().isBlank()) {
                 jdbcTemplate.update(
-                        "UPDATE USUARIO_ASIGNACIONES SET ESTADO = :est WHERE ID_USUARIO = :id AND ID_PROPIEDAD = :propId",
-                        Map.of("est", asignacionEstado, "id", id, "propId", callerPropId)
-                );
-            } else if ("ADMIN_ORGANIZACION".equals(callerRole) && callerOrgId != null) {
-                jdbcTemplate.update(
-                        "UPDATE USUARIO_ASIGNACIONES SET ESTADO = :est WHERE ID_USUARIO = :id AND ID_ORGANIZACION = :orgId",
-                        Map.of("est", asignacionEstado, "id", id, "orgId", callerOrgId)
-                );
-            } else {
-                jdbcTemplate.update(
-                        "UPDATE USUARIO_ASIGNACIONES SET ESTADO = :est WHERE ID_USUARIO = :id",
-                        Map.of("est", asignacionEstado, "id", id)
+                        "UPDATE USUARIOS SET HASH_PASSWORD = :pwd, INTENTOS_FALLIDOS = 0 WHERE ID_USUARIO = :id",
+                        Map.of("pwd", passwordEncoder.encode(rawPassword.trim()), "id", id)
                 );
             }
 
-            // Actualizar estado global del usuario solo si no quedan asignaciones activas o si se activa
-            if ("ACTIVO".equals(estado)) {
-                jdbcTemplate.update("UPDATE USUARIOS SET ESTADO = 'ACTIVO' WHERE ID_USUARIO = :id", Map.of("id", id));
-            } else {
-                Integer remainingActive = jdbcTemplate.queryForObject(
-                        "SELECT COUNT(1) FROM USUARIO_ASIGNACIONES WHERE ID_USUARIO = :id AND ESTADO IN ('ACTIVA', 'ACTIVO')",
-                        Map.of("id", id),
-                        Integer.class
-                );
-                if (remainingActive == null || remainingActive == 0) {
-                    jdbcTemplate.update("UPDATE USUARIOS SET ESTADO = 'INACTIVO' WHERE ID_USUARIO = :id", Map.of("id", id));
-                }
-            }
-        }
-
-        if (rol != null && !rol.trim().isBlank()) {
-            Long idRol = jdbcTemplate.queryForObject(
-                    "SELECT ID_ROL FROM ROLES WHERE CODIGO = :cod",
-                    new MapSqlParameterSource("cod", rol),
-                    Long.class
-            );
-            if (idRol != null) {
+            if (estado != null) {
+                String asignacionEstado = "ACTIVO".equals(estado) ? "ACTIVA" : "INACTIVA";
                 if ("ADMIN_PROPIEDAD".equals(callerRole) && callerPropId != null) {
                     jdbcTemplate.update(
-                            "UPDATE USUARIO_ASIGNACIONES SET ID_ROL = :idRol WHERE ID_USUARIO = :id AND ID_PROPIEDAD = :propId AND ESTADO = 'ACTIVA'",
-                            Map.of("idRol", idRol, "id", id, "propId", callerPropId)
+                            "UPDATE USUARIO_ASIGNACIONES SET ESTADO = :est WHERE ID_USUARIO = :id AND ID_PROPIEDAD = :propId",
+                            Map.of("est", asignacionEstado, "id", id, "propId", callerPropId)
                     );
                 } else if ("ADMIN_ORGANIZACION".equals(callerRole) && callerOrgId != null) {
                     jdbcTemplate.update(
-                            "UPDATE USUARIO_ASIGNACIONES SET ID_ROL = :idRol WHERE ID_USUARIO = :id AND ID_ORGANIZACION = :orgId AND ESTADO = 'ACTIVA'",
-                            Map.of("idRol", idRol, "id", id, "orgId", callerOrgId)
+                            "UPDATE USUARIO_ASIGNACIONES SET ESTADO = :est WHERE ID_USUARIO = :id AND ID_ORGANIZACION = :orgId",
+                            Map.of("est", asignacionEstado, "id", id, "orgId", callerOrgId)
                     );
                 } else {
                     jdbcTemplate.update(
-                            "UPDATE USUARIO_ASIGNACIONES SET ID_ROL = :idRol WHERE ID_USUARIO = :id AND ESTADO = 'ACTIVA'",
-                            Map.of("idRol", idRol, "id", id)
+                            "UPDATE USUARIO_ASIGNACIONES SET ESTADO = :est WHERE ID_USUARIO = :id",
+                            Map.of("est", asignacionEstado, "id", id)
                     );
                 }
+
+                // Actualizar estado global del usuario solo si no quedan asignaciones activas o si se activa
+                if ("ACTIVO".equals(estado)) {
+                    jdbcTemplate.update("UPDATE USUARIOS SET ESTADO = 'ACTIVO' WHERE ID_USUARIO = :id", Map.of("id", id));
+                } else {
+                    Integer remainingActive = jdbcTemplate.queryForObject(
+                            "SELECT COUNT(1) FROM USUARIO_ASIGNACIONES WHERE ID_USUARIO = :id AND ESTADO IN ('ACTIVA', 'ACTIVO')",
+                            Map.of("id", id),
+                            Integer.class
+                    );
+                    if (remainingActive == null || remainingActive == 0) {
+                        jdbcTemplate.update("UPDATE USUARIOS SET ESTADO = 'INACTIVO' WHERE ID_USUARIO = :id", Map.of("id", id));
+                    }
+                }
             }
+
+            if (rol != null && !rol.trim().isBlank()) {
+                Long idRol = jdbcTemplate.queryForObject(
+                        "SELECT ID_ROL FROM ROLES WHERE CODIGO = :cod",
+                        new MapSqlParameterSource("cod", rol),
+                        Long.class
+                );
+                if (idRol != null) {
+                    if ("ADMIN_PROPIEDAD".equals(callerRole) && callerPropId != null) {
+                        jdbcTemplate.update(
+                                "UPDATE USUARIO_ASIGNACIONES SET ID_ROL = :idRol WHERE ID_USUARIO = :id AND ID_PROPIEDAD = :propId AND ESTADO = 'ACTIVA'",
+                                Map.of("idRol", idRol, "id", id, "propId", callerPropId)
+                        );
+                    } else if ("ADMIN_ORGANIZACION".equals(callerRole) && callerOrgId != null) {
+                        jdbcTemplate.update(
+                                "UPDATE USUARIO_ASIGNACIONES SET ID_ROL = :idRol WHERE ID_USUARIO = :id AND ID_ORGANIZACION = :orgId AND ESTADO = 'ACTIVA'",
+                                Map.of("idRol", idRol, "id", id, "orgId", callerOrgId)
+                        );
+                    } else {
+                        jdbcTemplate.update(
+                                "UPDATE USUARIO_ASIGNACIONES SET ID_ROL = :idRol WHERE ID_USUARIO = :id AND ESTADO = 'ACTIVA'",
+                                Map.of("idRol", idRol, "id", id)
+                        );
+                    }
+                }
+            }
+        } finally {
+            restoreSaedContext(prevCtx);
         }
 
         return ResponseEntity.ok(ApiResponse.success(null));
@@ -660,12 +727,6 @@ public class UsuarioController {
                     return ResponseEntity.status(HttpStatus.FORBIDDEN)
                             .body(ApiResponse.error("El usuario no pertenece a la propiedad asignada"));
                 }
-
-                // Desactivar asignación para la propiedad
-                jdbcTemplate.update(
-                        "UPDATE USUARIO_ASIGNACIONES SET ESTADO = 'INACTIVA' WHERE ID_USUARIO = :id AND ID_PROPIEDAD = :propId",
-                        Map.of("id", id, "propId", callerPropId)
-                );
             } else if ("ADMIN_ORGANIZACION".equals(callerRole)) {
                 boolean belongsToOrg = asigs.stream().anyMatch(a -> {
                     Object o = a.get("ID_ORGANIZACION");
@@ -675,28 +736,109 @@ public class UsuarioController {
                     return ResponseEntity.status(HttpStatus.FORBIDDEN)
                             .body(ApiResponse.error("El usuario no pertenece a su organización"));
                 }
-
-                jdbcTemplate.update(
-                        "UPDATE USUARIO_ASIGNACIONES SET ESTADO = 'INACTIVA' WHERE ID_USUARIO = :id AND ID_ORGANIZACION = :orgId",
-                        Map.of("id", id, "orgId", callerOrgId)
-                );
             }
+        }
 
-            // Si ya no quedan asignaciones activas, desactivar el usuario globalmente
-            Integer remainingActive = jdbcTemplate.queryForObject(
-                    "SELECT COUNT(1) FROM USUARIO_ASIGNACIONES WHERE ID_USUARIO = :id AND ESTADO IN ('ACTIVA', 'ACTIVO')",
-                    Map.of("id", id),
-                    Integer.class
+        SaedContext prevCtx = SaedContextHolder.getContext();
+        Long effectiveOrgId = callerOrgId != null ? callerOrgId : 1L;
+        Long effectivePropId = callerPropId != null ? callerPropId : 1L;
+        SaedContext systemCtx = SaedContext.builder()
+                .userId(1L)
+                .organizationId(effectiveOrgId)
+                .propertyId(effectivePropId)
+                .roleCode("SUPERADMIN")
+                .roleScope("GLOBAL")
+                .build();
+        SaedContextHolder.setContext(systemCtx);
+        try {
+            jdbcTemplate.getJdbcOperations().execute("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1); END;");
+            jdbcTemplate.getJdbcOperations().execute(
+                String.format("BEGIN PKG_SAED_SESSION.SET_CONTEXT(1, %d, %d, 'SUPERADMIN'); END;", effectiveOrgId, effectivePropId)
             );
-            if (remainingActive == null || remainingActive == 0) {
+        } catch (Exception ignored) {}
+
+        try {
+            if (!"SUPERADMIN".equals(callerRole)) {
+                if ("ADMIN_PROPIEDAD".equals(callerRole)) {
+                    // Desactivar asignación para la propiedad
+                    jdbcTemplate.update(
+                            "UPDATE USUARIO_ASIGNACIONES SET ESTADO = 'INACTIVA' WHERE ID_USUARIO = :id AND ID_PROPIEDAD = :propId",
+                            Map.of("id", id, "propId", callerPropId)
+                    );
+                } else if ("ADMIN_ORGANIZACION".equals(callerRole)) {
+                    jdbcTemplate.update(
+                            "UPDATE USUARIO_ASIGNACIONES SET ESTADO = 'INACTIVA' WHERE ID_USUARIO = :id AND ID_ORGANIZACION = :orgId",
+                            Map.of("id", id, "orgId", callerOrgId)
+                    );
+                }
+
+                // Si ya no quedan asignaciones activas, desactivar el usuario globalmente
+                Integer remainingActive = jdbcTemplate.queryForObject(
+                        "SELECT COUNT(1) FROM USUARIO_ASIGNACIONES WHERE ID_USUARIO = :id AND ESTADO IN ('ACTIVA', 'ACTIVO')",
+                        Map.of("id", id),
+                        Integer.class
+                );
+                if (remainingActive == null || remainingActive == 0) {
+                    jdbcTemplate.update("UPDATE USUARIOS SET ESTADO = 'INACTIVO' WHERE ID_USUARIO = :id", Map.of("id", id));
+                }
+            } else {
+                // SUPERADMIN
                 jdbcTemplate.update("UPDATE USUARIOS SET ESTADO = 'INACTIVO' WHERE ID_USUARIO = :id", Map.of("id", id));
+                jdbcTemplate.update("UPDATE USUARIO_ASIGNACIONES SET ESTADO = 'INACTIVA' WHERE ID_USUARIO = :id", Map.of("id", id));
             }
-        } else {
-            // SUPERADMIN
-            jdbcTemplate.update("UPDATE USUARIOS SET ESTADO = 'INACTIVO' WHERE ID_USUARIO = :id", Map.of("id", id));
-            jdbcTemplate.update("UPDATE USUARIO_ASIGNACIONES SET ESTADO = 'INACTIVA' WHERE ID_USUARIO = :id", Map.of("id", id));
+        } finally {
+            restoreSaedContext(prevCtx);
         }
 
         return ResponseEntity.ok(ApiResponse.success(null));
+    }
+
+    private Long extractGeneratedKey(KeyHolder kh, String columnName) {
+        if (kh == null) return null;
+        if (kh.getKey() != null) return kh.getKey().longValue();
+        if (kh.getKeys() != null) {
+            for (Map.Entry<String, Object> entry : kh.getKeys().entrySet()) {
+                if (entry.getKey().equalsIgnoreCase(columnName) && entry.getValue() instanceof Number num) {
+                    return num.longValue();
+                }
+            }
+        }
+        if (kh.getKeyList() != null) {
+            for (Map<String, Object> map : kh.getKeyList()) {
+                for (Map.Entry<String, Object> entry : map.entrySet()) {
+                    if (entry.getKey().equalsIgnoreCase(columnName) && entry.getValue() instanceof Number num) {
+                        return num.longValue();
+                    }
+                }
+                for (Map.Entry<String, Object> entry : map.entrySet()) {
+                    if (!entry.getKey().equalsIgnoreCase("ROWID") && entry.getValue() instanceof Number num) {
+                        return num.longValue();
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    private void restoreSaedContext(SaedContext prevCtx) {
+        if (prevCtx != null) {
+            SaedContextHolder.setContext(prevCtx);
+            if (prevCtx.getUserId() != null && prevCtx.getRoleCode() != null) {
+                try {
+                    Long orgId = prevCtx.getOrganizationId() != null ? prevCtx.getOrganizationId() : 0L;
+                    Long propId = prevCtx.getPropertyId() != null ? prevCtx.getPropertyId() : 0L;
+                    String role = prevCtx.getRoleCode();
+                    jdbcTemplate.getJdbcOperations().execute(
+                        String.format("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(%d); PKG_SAED_SESSION.SET_CONTEXT(%d, %d, %d, '%s'); END;",
+                            prevCtx.getUserId(), prevCtx.getUserId(), orgId, propId, role)
+                    );
+                } catch (Exception ignored) {}
+            }
+        } else {
+            SaedContextHolder.clearContext();
+            try {
+                jdbcTemplate.getJdbcOperations().execute("BEGIN PKG_SAED_SESSION.CLEAR_CONTEXT(); END;");
+            } catch (Exception ignored) {}
+        }
     }
 }
