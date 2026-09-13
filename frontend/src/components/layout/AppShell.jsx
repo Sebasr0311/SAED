@@ -49,6 +49,7 @@ import {
   X,
 } from 'lucide-react';
 import { useAuth } from '../../lib/AuthContext.jsx';
+import { normalizeRole } from '../../lib/access.js';
 import { getInitialTheme, applyTheme, persistTheme } from '../../lib/theme.js';
 import ErrorBoundary from '../ErrorBoundary.jsx';
 import NotificationBell from '../ui/NotificationBell.jsx';
@@ -315,6 +316,42 @@ const NAV_BY_ROLE = {
       ],
     },
   ],
+  RESIDENTE_CONVIVENCIA: [
+    {
+      id: 'inicio',
+      label: 'Inicio',
+      icon: 'home',
+      items: [{ path: '/residente-dashboard', label: 'Mi Panel', icon: 'dashboard' }],
+    },
+    {
+      id: 'mi-cuenta',
+      label: 'Mi Cuenta',
+      icon: 'account_circle',
+      items: [{ path: '/res-perfil', label: 'Mi Perfil', icon: 'person' }],
+    },
+    {
+      id: 'visitas',
+      label: 'Visitas',
+      icon: 'how_to_reg',
+      items: [
+        { path: '/res-visitas', label: 'Visitas', icon: 'how_to_reg' },
+      ],
+    },
+    {
+      id: 'comunicacion',
+      label: 'Comunicación',
+      icon: 'campaign',
+      items: [
+        { path: '/res-buzon', label: 'Buzón', icon: 'mail' },
+        { path: '/res-quejas', label: 'PQRS', icon: 'support_agent' },
+        { path: '/res-reservas', label: 'Zonas Comunes', icon: 'event' },
+        { path: '/res-sanciones', label: 'Sanciones', icon: 'gavel' },
+        { path: '/res-obras', label: 'Mis Obras', icon: 'construction' },
+        { path: '/res-incidentes', label: 'Mis Incidentes', icon: 'warning' },
+        { path: '/res-documentos', label: 'Documentos', icon: 'description' },
+      ],
+    },
+  ],
 };
 
 const ICON_COMPONENT_MAP = {
@@ -379,7 +416,8 @@ export default function AppShell() {
   const location = useLocation();
 
   const groups = useMemo(() => {
-    return NAV_BY_ROLE[user?.rol] || NAV_BY_ROLE[user?.rol?.toUpperCase()] || [];
+    const role = normalizeRole(user?.rol);
+    return NAV_BY_ROLE[role] || NAV_BY_ROLE[user?.rol] || NAV_BY_ROLE[user?.rol?.toUpperCase()] || [];
   }, [user?.rol]);
   const allItems = useMemo(() => groups.flatMap((g) => g.items), [groups]);
 

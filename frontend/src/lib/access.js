@@ -51,6 +51,14 @@ export const ROLE_DEFINITIONS = {
     home: '/residente-dashboard',
     description: 'Habitante o copropietario residente de una unidad residencial',
   },
+  RESIDENTE_CONVIVENCIA: {
+    code: 'RESIDENTE_CONVIVENCIA',
+    name: 'Residente Conviviente',
+    scope: 'UNIDAD',
+    domain: 'UNIT_COHABITANT',
+    home: '/residente-dashboard',
+    description: 'Habitante conviviente de una unidad residencial (sin acceso financiero)',
+  },
 };
 
 export function normalizeRole(rol) {
@@ -71,7 +79,10 @@ export function normalizeRole(rol) {
   if (r === 'PROPIETARIO' || r === 'PROPIETARIO_NO_RESIDENTE' || r === 'PROPIETARIO_UNIDAD') {
     return 'PROPIETARIO';
   }
-  if (r === 'RESIDENTE' || r === 'ARRENDATARIO' || r === 'CONVIVIENTE') {
+  if (r === 'RESIDENTE_CONVIVENCIA' || r === 'CONVIVIENTE') {
+    return 'RESIDENTE_CONVIVENCIA';
+  }
+  if (r === 'RESIDENTE' || r === 'ARRENDATARIO') {
     return 'RESIDENTE';
   }
   return r;
@@ -84,6 +95,7 @@ export const ROLE_HOME = {
   PORTERO: '/portero-dashboard',
   PROPIETARIO: '/res-perfil',
   RESIDENTE: '/residente-dashboard',
+  RESIDENTE_CONVIVENCIA: '/residente-dashboard',
 };
 
 export const ACCESS_BY_ROLE = {
@@ -182,6 +194,21 @@ export const ACCESS_BY_ROLE = {
     '/res-perfil',
     '/res-apartamento',
     '/res-cuotas',
+    '/res-visitas',
+    '/res-frecuentes',
+    '/res-buzon',
+    '/res-visita',
+    '/res-quejas',
+    '/res-reservas',
+    '/res-sanciones',
+    '/res-obras',
+    '/res-incidentes',
+    '/res-documentos',
+  ],
+  RESIDENTE_CONVIVENCIA: [
+    '/residente-dashboard',
+    '/res-perfil',
+    '/res-apartamento',
     '/res-visitas',
     '/res-frecuentes',
     '/res-buzon',

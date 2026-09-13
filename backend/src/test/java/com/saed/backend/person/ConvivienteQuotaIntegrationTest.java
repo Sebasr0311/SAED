@@ -189,7 +189,7 @@ public class ConvivienteQuotaIntegrationTest {
         assertFalse(quotaAfter1.limiteAlcanzado());
 
         // Conviviente 2 (Persona 3) -> Límite 2 alcanzado
-        UnitResidentRequestDTO conv2 = new UnitResidentRequestDTO(3L, "FAMILIAR");
+        UnitResidentRequestDTO conv2 = new UnitResidentRequestDTO(3L, "CONVIVIENTE");
         ResponseEntity<Long> res2 = unitInhabitantController.addResident(TEST_UNIT_ID, conv2);
         assertEquals(201, res2.getStatusCode().value());
 

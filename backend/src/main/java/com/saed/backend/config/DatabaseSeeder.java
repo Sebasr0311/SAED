@@ -6,14 +6,16 @@ import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 /**
  * Idempotent Database Seeder.
- * Executes on application startup to ensure that core catalog data,
+ * Executes on application startup in non-production environments to ensure that core catalog data,
  * default admin roles, and seed users exist with valid BCrypt passwords.
  */
 @Component
+@Profile("!prod")
 public class DatabaseSeeder implements ApplicationRunner {
 
     private static final Logger log = LoggerFactory.getLogger(DatabaseSeeder.class);
@@ -61,6 +63,7 @@ public class DatabaseSeeder implements ApplicationRunner {
             runSqlSafe("INSERT INTO ROLES (ID_ROL, CODIGO, NOMBRE, ALCANCE, ESTADO) SELECT 3, 'ADMIN_PROPIEDAD', 'Admin Propiedad', 'PROPIEDAD', 'ACTIVO' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM ROLES WHERE CODIGO = 'ADMIN_PROPIEDAD')");
             runSqlSafe("INSERT INTO ROLES (ID_ROL, CODIGO, NOMBRE, ALCANCE, ESTADO) SELECT 4, 'PORTERO', 'Portero / Vigilante', 'PROPIEDAD', 'ACTIVO' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM ROLES WHERE CODIGO = 'PORTERO')");
             runSqlSafe("INSERT INTO ROLES (ID_ROL, CODIGO, NOMBRE, ALCANCE, ESTADO) SELECT 5, 'RESIDENTE', 'Residente', 'UNIDAD', 'ACTIVO' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM ROLES WHERE CODIGO = 'RESIDENTE')");
+            runSqlSafe("INSERT INTO ROLES (ID_ROL, CODIGO, NOMBRE, ALCANCE, ESTADO) SELECT 6, 'RESIDENTE_CONVIVENCIA', 'Residente Conviviente', 'UNIDAD', 'ACTIVO' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM ROLES WHERE CODIGO = 'RESIDENTE_CONVIVENCIA')");
 
             // 5. ORGANIZACIONES
             runSqlSafe("INSERT INTO ORGANIZACIONES (ID_ORGANIZACION, NOMBRE, IDENTIFICACION_FISCAL, EMAIL_CONTACTO, PAIS, ESTADO) " +
@@ -102,29 +105,22 @@ public class DatabaseSeeder implements ApplicationRunner {
             runSqlSafe("INSERT INTO USUARIOS (ID_PERSONA, NOMBRE_USUARIO, EMAIL, HASH_PASSWORD, ESTADO, INTENTOS_FALLIDOS) " +
                    "SELECT 1, 'admin_global', 'admin_global@saed.com', '" + hashAdminGlobal + "', 'ACTIVO', 0 FROM DUAL " +
                    "WHERE NOT EXISTS (SELECT 1 FROM USUARIOS WHERE LOWER(NOMBRE_USUARIO) = 'admin_global')");
-            runSqlSafe("UPDATE USUARIOS SET EMAIL = 'admin_global@saed.com', HASH_PASSWORD = '" + hashAdminGlobal + "', ESTADO = 'ACTIVO', INTENTOS_FALLIDOS = 0 WHERE LOWER(NOMBRE_USUARIO) = 'admin_global'");
 
             runSqlSafe("INSERT INTO USUARIOS (ID_PERSONA, NOMBRE_USUARIO, EMAIL, HASH_PASSWORD, ESTADO, INTENTOS_FALLIDOS) " +
                    "SELECT 2, 'admin', 'admin@saed.com', '" + hashGeneral + "', 'ACTIVO', 0 FROM DUAL " +
                    "WHERE NOT EXISTS (SELECT 1 FROM USUARIOS WHERE LOWER(NOMBRE_USUARIO) = 'admin')");
-            runSqlSafe("UPDATE USUARIOS SET EMAIL = 'admin@saed.com', HASH_PASSWORD = '" + hashGeneral + "', ESTADO = 'ACTIVO', INTENTOS_FALLIDOS = 0 WHERE LOWER(NOMBRE_USUARIO) = 'admin'");
 
             runSqlSafe("INSERT INTO USUARIOS (ID_PERSONA, NOMBRE_USUARIO, EMAIL, HASH_PASSWORD, ESTADO, INTENTOS_FALLIDOS) " +
                    "SELECT 3, 'portero01', 'portero01@saed.com', '" + hashGeneral + "', 'ACTIVO', 0 FROM DUAL " +
                    "WHERE NOT EXISTS (SELECT 1 FROM USUARIOS WHERE LOWER(NOMBRE_USUARIO) = 'portero01')");
-            runSqlSafe("UPDATE USUARIOS SET EMAIL = 'portero01@saed.com', HASH_PASSWORD = '" + hashGeneral + "', ESTADO = 'ACTIVO', INTENTOS_FALLIDOS = 0 WHERE LOWER(NOMBRE_USUARIO) = 'portero01'");
 
             runSqlSafe("INSERT INTO USUARIOS (ID_PERSONA, NOMBRE_USUARIO, EMAIL, HASH_PASSWORD, ESTADO, INTENTOS_FALLIDOS) " +
                    "SELECT 4, 'camartinez', 'camartinez@saed.com', '" + hashGeneral + "', 'ACTIVO', 0 FROM DUAL " +
                    "WHERE NOT EXISTS (SELECT 1 FROM USUARIOS WHERE LOWER(NOMBRE_USUARIO) = 'camartinez')");
-            runSqlSafe("UPDATE USUARIOS SET EMAIL = 'camartinez@saed.com', HASH_PASSWORD = '" + hashGeneral + "', ESTADO = 'ACTIVO', INTENTOS_FALLIDOS = 0 WHERE LOWER(NOMBRE_USUARIO) = 'camartinez'");
 
             runSqlSafe("INSERT INTO USUARIOS (ID_PERSONA, NOMBRE_USUARIO, EMAIL, HASH_PASSWORD, ESTADO, INTENTOS_FALLIDOS) " +
                    "SELECT 5, 'admin_org', 'admin_org@saed.com', '" + hashGeneral + "', 'ACTIVO', 0 FROM DUAL " +
                    "WHERE NOT EXISTS (SELECT 1 FROM USUARIOS WHERE LOWER(NOMBRE_USUARIO) = 'admin_org')");
-            runSqlSafe("UPDATE USUARIOS SET EMAIL = 'admin_org@saed.com', HASH_PASSWORD = '" + hashGeneral + "', ESTADO = 'ACTIVO', INTENTOS_FALLIDOS = 0 WHERE LOWER(NOMBRE_USUARIO) = 'admin_org'");
-
-            runSqlSafe("UPDATE USUARIOS SET HASH_PASSWORD = '" + hashGeneral + "', ESTADO = 'ACTIVO', INTENTOS_FALLIDOS = 0 WHERE LOWER(NOMBRE_USUARIO) IN ('residente_sol', 'residente_hor', 'anagomez')");
 
             // 10. ADMINISTRADORES_SAED
             runSqlSafe("INSERT INTO ADMINISTRADORES_SAED (ID_ADMINISTRADOR_SAED, ID_USUARIO, NIVEL, ESTADO) " +

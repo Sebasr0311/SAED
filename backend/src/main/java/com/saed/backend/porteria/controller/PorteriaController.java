@@ -84,7 +84,7 @@ public class PorteriaController {
     // --- VISITAS ---
     @PostMapping("/visitas")
     @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_RESIDENTE') or hasAuthority('SCOPE_PORTERO')")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_RESIDENTE') or hasAuthority('SCOPE_RESIDENTE_CONVIVENCIA') or hasAuthority('SCOPE_PORTERO')")
     public Map<String, Object> programarVisita(@RequestBody Map<String, Object> body) {
         Long currentUserId = SaedContextHolder.getContext() != null ? SaedContextHolder.getContext().getUserId() : null;
 
@@ -151,8 +151,8 @@ public class PorteriaController {
         String roleCode = ctx != null ? ctx.getRoleCode() : null;
         String roleScope = ctx != null ? ctx.getRoleScope() : null;
 
-        // Validar autorizacion de ambito residencial para RESIDENTE
-        if (ctx != null && ("RESIDENTE".equals(roleCode) || "UNIDAD".equals(roleScope))) {
+        // Validar autorizacion de ambito residencial para RESIDENTE y RESIDENTE_CONVIVENCIA
+        if (ctx != null && ("RESIDENTE".equals(roleCode) || "RESIDENTE_CONVIVENCIA".equals(roleCode) || "UNIDAD".equals(roleScope))) {
             Long userUnitId = ctx.getUnitId();
             if (userUnitId == null && currentUserId != null) {
                 try {
@@ -494,7 +494,7 @@ public class PorteriaController {
 
     @PostMapping("/visitas/rapida")
     @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_RESIDENTE') or hasAuthority('SCOPE_PORTERO')")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_RESIDENTE') or hasAuthority('SCOPE_RESIDENTE_CONVIVENCIA') or hasAuthority('SCOPE_PORTERO')")
     public Map<String, Object> programarVisitaRapida(@RequestBody Map<String, Object> body) {
         if (body.get("motivo") == null && body.get("notas") == null) {
             body.put("motivo", "Visita frecuente rápida");
@@ -504,7 +504,7 @@ public class PorteriaController {
     }
 
     @GetMapping("/visitas/buscar")
-    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_PORTERO')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA', 'SCOPE_PORTERO')")
     public ResponseEntity<Map<String, Object>> buscarVisitantePorDocumento(@RequestParam(required = false) String documento) {
         if (documento == null || documento.trim().isEmpty()) {
             return ResponseEntity.ok(Map.of());
@@ -556,19 +556,19 @@ public class PorteriaController {
     }
 
     @GetMapping("/visitas/{id}")
-    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_PORTERO')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA', 'SCOPE_PORTERO')")
     public VisitaDTO getVisitaById(@PathVariable Long id) {
         return porteriaService.getVisitaById(id);
     }
 
     @GetMapping("/unidades/{unidadId}/visitas")
-    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA')")
     public List<VisitaDTO> getVisitasByUnidad(@PathVariable Long unidadId) {
         return porteriaService.getVisitasByUnidad(unidadId);
     }
 
     @PutMapping("/visitas/{id}")
-    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA')")
     public VisitaDTO actualizarVisita(@PathVariable Long id, @RequestBody @Valid VisitaRequestDTO request) {
         return porteriaService.actualizarVisita(id, request);
     }
@@ -595,7 +595,7 @@ public class PorteriaController {
     }
 
     @GetMapping("/visitas/{id}/detalle")
-    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_PORTERO')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA', 'SCOPE_PORTERO')")
     public VisitaDetalleDTO getVisitaDetalle(@PathVariable Long id) {
         return porteriaService.getVisitaDetalle(id);
     }
@@ -624,13 +624,13 @@ public class PorteriaController {
     // --- QR ACCESOS ---
     @PostMapping("/qr")
     @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_RESIDENTE')")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_RESIDENTE') or hasAuthority('SCOPE_RESIDENTE_CONVIVENCIA')")
     public QrAccesoDTO generarQrAcceso(@RequestBody @Valid QrAccesoRequestDTO request) {
         return porteriaService.generarQrAcceso(request);
     }
 
     @GetMapping("/qr/{id}")
-    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_PORTERO')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA', 'SCOPE_PORTERO')")
     public QrAccesoDTO getQrAccesoById(@PathVariable Long id) {
         return porteriaService.getQrAccesoById(id);
     }

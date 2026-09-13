@@ -126,7 +126,7 @@ public class PorteriaRepositoryImpl implements PorteriaRepository {
     public List<VisitaHistorialDTO> getVisitasHistorial(String fechaInicio, String fechaFin) {
         String sql = "SELECT v.ID_VISITA, " +
                      "       pv.PRIMER_NOMBRE || ' ' || COALESCE(pv.SEGUNDO_NOMBRE, '') AS NOMBRE_VISITANTE, pv.PRIMER_APELLIDO || ' ' || COALESCE(pv.SEGUNDO_APELLIDO, '') AS APELLIDO_VISITANTE, pv.NUMERO_DOCUMENTO AS DOCUMENTO_VISITANTE, " +
-                     "       pr.PRIMER_NOMBRE || ' ' || pr.PRIMER_APELLIDO AS NOMBRE_RESIDENTE, " +
+                     "       COALESCE(TRIM(p_aut.PRIMER_NOMBRE || ' ' || COALESCE(p_aut.PRIMER_APELLIDO, '')), TRIM(pr.PRIMER_NOMBRE || ' ' || COALESCE(pr.PRIMER_APELLIDO, ''))) AS NOMBRE_RESIDENTE, " +
                      "       u.IDENTIFICADOR AS NUMERO_APARTAMENTO, " +
                      "       (SELECT MIN(FECHA_HORA) FROM REGISTROS_ACCESO ra WHERE ra.ID_VISITA = v.ID_VISITA AND ra.TIPO_MOVIMIENTO = 'ENTRADA') AS FECHA_VISITA, " +
                      "       (SELECT MAX(FECHA_HORA) FROM REGISTROS_ACCESO ra WHERE ra.ID_VISITA = v.ID_VISITA AND ra.TIPO_MOVIMIENTO = 'SALIDA') AS FECHA_SALIDA, " +
@@ -137,7 +137,9 @@ public class PorteriaRepositoryImpl implements PorteriaRepository {
                      "JOIN UNIDADES u ON v.ID_UNIDAD = u.ID_UNIDAD " +
                      "JOIN VISITANTES vis ON v.ID_VISITANTE = vis.ID_VISITANTE " +
                      "JOIN PERSONAS pv ON vis.ID_PERSONA = pv.ID_PERSONA " +
-                     "LEFT JOIN RESIDENTES_UNIDAD uh ON uh.ID_UNIDAD = v.ID_UNIDAD AND uh.TIPO_RESIDENTE = 'TITULAR' " +
+                     "LEFT JOIN USUARIOS u_aut ON v.AUTORIZADO_POR = u_aut.ID_USUARIO " +
+                     "LEFT JOIN PERSONAS p_aut ON u_aut.ID_PERSONA = p_aut.ID_PERSONA " +
+                     "LEFT JOIN RESIDENTES_UNIDAD uh ON uh.ID_UNIDAD = v.ID_UNIDAD AND uh.TIPO_RESIDENTE IN ('PROPIETARIO', 'ARRENDATARIO', 'TITULAR') " +
                      "LEFT JOIN PERSONAS pr ON uh.ID_PERSONA = pr.ID_PERSONA " +
                      "LEFT JOIN VEHICULOS_VISITA vv ON vv.ID_VISITA = v.ID_VISITA " +
                      "LEFT JOIN PARQUEADEROS pq ON pq.ID_PARQUEADERO = vv.ID_PARQUEADERO " +
@@ -157,7 +159,7 @@ public class PorteriaRepositoryImpl implements PorteriaRepository {
         String sql = "SELECT v.ID_VISITA, " +
                      "       pv.PRIMER_NOMBRE || ' ' || COALESCE(pv.SEGUNDO_NOMBRE, '') AS NOMBRE_VISITANTE, pv.PRIMER_APELLIDO || ' ' || COALESCE(pv.SEGUNDO_APELLIDO, '') AS APELLIDO_VISITANTE, " +
                      "       pv.NUMERO_DOCUMENTO AS DOCUMENTO_VISITANTE, pv.TELEFONO AS TELEFONO_VISITANTE, pv.EMAIL AS EMAIL_VISITANTE, " +
-                     "       pr.PRIMER_NOMBRE || ' ' || pr.PRIMER_APELLIDO AS NOMBRE_RESIDENTE, " +
+                     "       COALESCE(TRIM(p_aut.PRIMER_NOMBRE || ' ' || COALESCE(p_aut.PRIMER_APELLIDO, '')), TRIM(pr.PRIMER_NOMBRE || ' ' || COALESCE(pr.PRIMER_APELLIDO, ''))) AS NOMBRE_RESIDENTE, " +
                      "       u.IDENTIFICADOR AS NUMERO_APARTAMENTO, NULL AS PISO, " +
                      "       (SELECT MIN(FECHA_HORA) FROM REGISTROS_ACCESO ra WHERE ra.ID_VISITA = v.ID_VISITA AND ra.TIPO_MOVIMIENTO = 'ENTRADA') AS FECHA_VISITA, " +
                      "       (SELECT MAX(FECHA_HORA) FROM REGISTROS_ACCESO ra WHERE ra.ID_VISITA = v.ID_VISITA AND ra.TIPO_MOVIMIENTO = 'SALIDA') AS FECHA_SALIDA, " +
@@ -171,7 +173,9 @@ public class PorteriaRepositoryImpl implements PorteriaRepository {
                      "JOIN UNIDADES u ON v.ID_UNIDAD = u.ID_UNIDAD " +
                      "JOIN VISITANTES vis ON v.ID_VISITANTE = vis.ID_VISITANTE " +
                      "JOIN PERSONAS pv ON vis.ID_PERSONA = pv.ID_PERSONA " +
-                     "LEFT JOIN RESIDENTES_UNIDAD uh ON uh.ID_UNIDAD = v.ID_UNIDAD AND uh.TIPO_RESIDENTE = 'TITULAR' " +
+                     "LEFT JOIN USUARIOS u_aut ON v.AUTORIZADO_POR = u_aut.ID_USUARIO " +
+                     "LEFT JOIN PERSONAS p_aut ON u_aut.ID_PERSONA = p_aut.ID_PERSONA " +
+                     "LEFT JOIN RESIDENTES_UNIDAD uh ON uh.ID_UNIDAD = v.ID_UNIDAD AND uh.TIPO_RESIDENTE IN ('PROPIETARIO', 'ARRENDATARIO', 'TITULAR') " +
                      "LEFT JOIN PERSONAS pr ON uh.ID_PERSONA = pr.ID_PERSONA " +
                      "LEFT JOIN VEHICULOS_VISITA vv ON vv.ID_VISITA = v.ID_VISITA " +
                      "LEFT JOIN PARQUEADEROS pq ON pq.ID_PARQUEADERO = vv.ID_PARQUEADERO " +

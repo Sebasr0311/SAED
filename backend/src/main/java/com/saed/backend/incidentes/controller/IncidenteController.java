@@ -22,32 +22,32 @@ public class IncidenteController {
     }
 
     @GetMapping("/admin")
-    @PreAuthorize("hasAnyRole('SUPERADMIN', 'ADMIN_PROPIEDAD', 'PORTERO')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_PORTERO')")
     public ResponseEntity<List<IncidenteDTO>> getAllIncidentes() {
         return ResponseEntity.ok(incidenteService.getAllIncidentes());
     }
 
     @GetMapping("/mis-incidentes")
-    @PreAuthorize("hasRole('RESIDENTE')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA')")
     public ResponseEntity<List<IncidenteDTO>> getMisIncidentes() {
         return ResponseEntity.ok(incidenteService.getMisIncidentes());
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('SUPERADMIN', 'ADMIN_PROPIEDAD', 'PORTERO', 'RESIDENTE')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_PORTERO', 'SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA')")
     public ResponseEntity<IncidenteDTO> getIncidenteById(@PathVariable Long id) {
         return ResponseEntity.ok(incidenteService.getIncidenteById(id));
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('SUPERADMIN', 'ADMIN_PROPIEDAD', 'PORTERO', 'RESIDENTE')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_PORTERO', 'SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA')")
     public ResponseEntity<Map<String, Long>> reportarIncidente(@Valid @RequestBody IncidenteDTO request) {
         Long id = incidenteService.reportarIncidente(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("idIncidente", id));
     }
 
     @PostMapping("/{id}/cerrar")
-    @PreAuthorize("hasAnyRole('SUPERADMIN', 'ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<Void> cerrarIncidente(@PathVariable Long id, @RequestBody Map<String, String> payload) {
         incidenteService.cerrarIncidente(id, payload.get("conclusiones"));
         return ResponseEntity.ok().build();
