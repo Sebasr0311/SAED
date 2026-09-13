@@ -367,12 +367,20 @@ public class UsuarioController {
             } catch (Exception ignored) {}
             if (idRol == null && "RESIDENTE_CONVIVENCIA".equals(rol)) {
                 try {
+                    jdbcTemplate.getJdbcOperations().execute("""
+                        MERGE INTO ROLES r USING (
+                            SELECT 'RESIDENTE_CONVIVENCIA' AS CODIGO, 'Residente Conviviente' AS NOMBRE, 'UNIDAD' AS ALCANCE, 'ACTIVO' AS ESTADO FROM DUAL
+                        ) s ON (r.CODIGO = s.CODIGO)
+                        WHEN NOT MATCHED THEN INSERT (CODIGO, NOMBRE, ALCANCE, ESTADO) VALUES (s.CODIGO, s.NOMBRE, s.ALCANCE, s.ESTADO)
+                    """);
                     List<Long> rList = jdbcTemplate.query(
-                        "SELECT ID_ROL FROM ROLES WHERE CODIGO = 'RESIDENTE'",
+                        "SELECT ID_ROL FROM ROLES WHERE CODIGO = 'RESIDENTE_CONVIVENCIA'",
                         (rs, rowNum) -> rs.getLong(1)
                     );
                     if (!rList.isEmpty()) idRol = rList.get(0);
-                } catch (Exception ignored) {}
+                } catch (Exception e) {
+                    log.error("Error al asegurar rol RESIDENTE_CONVIVENCIA: {}", e.getMessage());
+                }
             }
             if (idRol == null) {
                 return ResponseEntity.badRequest()

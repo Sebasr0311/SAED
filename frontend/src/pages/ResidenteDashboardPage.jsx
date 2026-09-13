@@ -64,6 +64,7 @@ const MESES_W = [
 export default function ResidenteDashboardPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const isConviviente = user?.rol === 'RESIDENTE_CONVIVENCIA' || user?.rolCodigo === 'RESIDENTE_CONVIVENCIA';
   const residentId = user?.idResidente || user?.idPersona || user?.idUsuario;
 
   // 1. Perfil del residente
@@ -87,10 +88,10 @@ export default function ResidenteDashboardPage() {
     return (partes[0][0] + (partes[1]?.[0] || '')).toUpperCase();
   }, [nombreResidente]);
 
-  // 2. Dashboard financiero y de unidad
+  // 2. Dashboard financiero y de unidad (Solo residente titular)
   const { data: dashData, refetch: refetchDashboard } = useFetch(
-    () => (residentId ? api.get(`/residentes/${residentId}/dashboard`) : Promise.resolve(null)),
-    [residentId]
+    () => (!isConviviente && residentId ? api.get(`/residentes/${residentId}/dashboard`) : Promise.resolve(null)),
+    [residentId, isConviviente]
   );
   const dashboard = useMemo(() => dashData?.raw || dashData || {}, [dashData]);
   const aptoInfo = useMemo(() => dashboard.apartamento || {}, [dashboard]);
@@ -148,8 +149,11 @@ export default function ResidenteDashboardPage() {
     [misReservas]
   );
 
-  // 9. Historial Wompi
-  const { data: wompiRaw, refetch: refetchWompi } = useFetch(() => api.get('/pagos/wompi/historial'), []);
+  // 9. Historial Wompi (Solo residente titular)
+  const { data: wompiRaw, refetch: refetchWompi } = useFetch(
+    () => (!isConviviente ? api.get('/pagos/wompi/historial') : Promise.resolve([])),
+    [isConviviente]
+  );
   const wompiHistorial = useMemo(() => (Array.isArray(wompiRaw) ? wompiRaw : wompiRaw?.items || []), [wompiRaw]);
 
   // Cálculos financieros
@@ -448,9 +452,14 @@ export default function ResidenteDashboardPage() {
                   {nombreResidente}
                 </h1>
                 <Badge variant="secondary" className="bg-white/20 text-white border-white/20">
-                  Residente Titular
+                  {isConviviente ? 'Residente Conviviente' : 'Residente Titular'}
                 </Badge>
-                {alDia ? (
+                {isConviviente ? (
+                  <Badge variant="outline" className="bg-blue-500/20 text-blue-300 border-blue-500/30">
+                    <CheckCircle2 className="w-3 h-3 mr-1" />
+                    Conviviente Autorizado
+                  </Badge>
+                ) : alDia ? (
                   <Badge variant="outline" className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30">
                     <CheckCircle2 className="w-3 h-3 mr-1" />
                     Paz y Salvo Vigente
@@ -491,7 +500,7 @@ export default function ResidenteDashboardPage() {
               <RefreshCw className={cn('w-3.5 h-3.5', refreshing && 'animate-spin')} />
               <span className="hidden sm:inline">Actualizar</span>
             </Button>
-            {user?.rol === 'RESIDENTE' && (
+            {!isConviviente && user?.rol === 'RESIDENTE' && (
               <Button
                 variant="outline"
                 size="sm"
@@ -517,36 +526,61 @@ export default function ResidenteDashboardPage() {
 
       {/* 2. STRIP DE 4 KPIS OPERATIVOS (Enfocados en el día a día) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* KPI 1: Cartera & Obligaciones */}
-        <Card
-          onClick={() => navigate('/res-cuotas')}
-          className="saed-card-interactive animate-saed-fade border-border/70 cursor-pointer group"
-        >
-          <CardContent className="p-5 flex items-center gap-4">
-            <div
-              className={cn(
-                'p-3 rounded-xl shrink-0 transition-transform group-hover:scale-105',
-                alDia
-                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                  : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
-              )}
-            >
-              <Wallet className="w-6 h-6" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Estado de Cartera</p>
-                <ArrowRight className="w-3.5 h-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
+        {/* KPI 1: Cartera & Obligaciones (Titular) o Zonas Comunes (Conviviente) */}
+        {isConviviente ? (
+          <Card
+            onClick={() => navigate('/res-reservas')}
+            className="saed-card-interactive animate-saed-fade border-border/70 cursor-pointer group"
+          >
+            <CardContent className="p-5 flex items-center gap-4">
+              <div className="p-3 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 shrink-0 transition-transform group-hover:scale-105">
+                <Calendar className="w-6 h-6" />
               </div>
-              <h3 className="text-xl font-bold text-foreground truncate">
-                {alDia ? 'Al Día' : formatCurrency(totalDeudaPendiente)}
-              </h3>
-              <p className="text-xs text-muted-foreground truncate">
-                {alDia ? 'Paz y Salvo vigente' : `${cuotasPendientes.length} cuota(s) pendiente(s)`}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Zonas Comunes</p>
+                  <ArrowRight className="w-3.5 h-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
+                </div>
+                <h3 className="text-xl font-bold text-foreground truncate">
+                  {reservasFuturas.length} Reserva(s)
+                </h3>
+                <p className="text-xs text-muted-foreground truncate">
+                  Áreas sociales disponibles
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card
+            onClick={() => navigate('/res-cuotas')}
+            className="saed-card-interactive animate-saed-fade border-border/70 cursor-pointer group"
+          >
+            <CardContent className="p-5 flex items-center gap-4">
+              <div
+                className={cn(
+                  'p-3 rounded-xl shrink-0 transition-transform group-hover:scale-105',
+                  alDia
+                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                    : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                )}
+              >
+                <Wallet className="w-6 h-6" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Estado de Cartera</p>
+                  <ArrowRight className="w-3.5 h-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
+                </div>
+                <h3 className="text-xl font-bold text-foreground truncate">
+                  {alDia ? 'Al Día' : formatCurrency(totalDeudaPendiente)}
+                </h3>
+                <p className="text-xs text-muted-foreground truncate">
+                  {alDia ? 'Paz y Salvo vigente' : `${cuotasPendientes.length} cuota(s) pendiente(s)`}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* KPI 2: Paquetería en Portería */}
         <Card
@@ -637,7 +671,7 @@ export default function ResidenteDashboardPage() {
               </h3>
             </div>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div className={cn('grid gap-3', isConviviente ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-6')}>
             <Button
               variant="outline"
               onClick={() => navigate('/res-visitas')}
@@ -649,16 +683,18 @@ export default function ResidenteDashboardPage() {
               <span className="text-xs font-semibold text-foreground">Nueva Visita</span>
             </Button>
 
-            <Button
-              variant="outline"
-              onClick={() => navigate('/res-cuotas')}
-              className="h-auto py-3 px-3 flex flex-col items-center justify-center text-center gap-1.5 hover:border-primary/50 hover:bg-primary/5"
-            >
-              <div className="p-2 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400">
-                <CreditCard className="w-4 h-4" />
-              </div>
-              <span className="text-xs font-semibold text-foreground">Pagar Cuotas</span>
-            </Button>
+            {!isConviviente && (
+              <Button
+                variant="outline"
+                onClick={() => navigate('/res-cuotas')}
+                className="h-auto py-3 px-3 flex flex-col items-center justify-center text-center gap-1.5 hover:border-primary/50 hover:bg-primary/5"
+              >
+                <div className="p-2 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                  <CreditCard className="w-4 h-4" />
+                </div>
+                <span className="text-xs font-semibold text-foreground">Pagar Cuotas</span>
+              </Button>
+            )}
 
             <Button
               variant="outline"
@@ -682,16 +718,18 @@ export default function ResidenteDashboardPage() {
               <span className="text-xs font-semibold text-foreground">Radicar PQRS</span>
             </Button>
 
-            <Button
-              variant="outline"
-              onClick={() => navigate(user?.rol === 'RESIDENTE' ? '/res-convivientes' : '/res-perfil')}
-              className="h-auto py-3 px-3 flex flex-col items-center justify-center text-center gap-1.5 hover:border-primary/50 hover:bg-primary/5"
-            >
-              <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
-                <UserPlus className="w-4 h-4" />
-              </div>
-              <span className="text-xs font-semibold text-foreground">Convivientes</span>
-            </Button>
+            {!isConviviente && (
+              <Button
+                variant="outline"
+                onClick={() => navigate(user?.rol === 'RESIDENTE' ? '/res-convivientes' : '/res-perfil')}
+                className="h-auto py-3 px-3 flex flex-col items-center justify-center text-center gap-1.5 hover:border-primary/50 hover:bg-primary/5"
+              >
+                <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+                  <UserPlus className="w-4 h-4" />
+                </div>
+                <span className="text-xs font-semibold text-foreground">Convivientes</span>
+              </Button>
+            )}
 
             <Button
               variant="outline"
@@ -709,20 +747,22 @@ export default function ResidenteDashboardPage() {
 
       {/* 4. PESTAÑAS PRINCIPALES DEL DASHBOARD */}
       <Tabs defaultValue="resumen" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3 max-w-xl h-11 p-1 bg-muted/80 rounded-xl border border-border">
+        <TabsList className={cn('grid w-full h-11 p-1 bg-muted/80 rounded-xl border border-border', isConviviente ? 'grid-cols-2 max-w-md' : 'grid-cols-3 max-w-xl')}>
           <TabsTrigger value="resumen" className="gap-2 text-xs sm:text-sm font-semibold">
             <Sparkles className="w-4 h-4" />
             Resumen Diario
           </TabsTrigger>
-          <TabsTrigger value="finanzas" className="gap-2 text-xs sm:text-sm font-semibold">
-            <CreditCard className="w-4 h-4" />
-            Finanzas & Wompi
-            {cuotasPendientes.length > 0 && (
-              <Badge variant="destructive" className="ml-1 text-[10px] px-1.5 py-0">
-                {cuotasPendientes.length}
-              </Badge>
-            )}
-          </TabsTrigger>
+          {!isConviviente && (
+            <TabsTrigger value="finanzas" className="gap-2 text-xs sm:text-sm font-semibold">
+              <CreditCard className="w-4 h-4" />
+              Finanzas & Wompi
+              {cuotasPendientes.length > 0 && (
+                <Badge variant="destructive" className="ml-1 text-[10px] px-1.5 py-0">
+                  {cuotasPendientes.length}
+                </Badge>
+              )}
+            </TabsTrigger>
+          )}
           <TabsTrigger value="comunidad" className="gap-2 text-xs sm:text-sm font-semibold">
             <Bell className="w-4 h-4" />
             Avisos de Administración
@@ -739,120 +779,122 @@ export default function ResidenteDashboardPage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Columna Izquierda (2 Cols): Pagos, Pases y Solicitudes en curso */}
             <div className="lg:col-span-2 space-y-6">
-              {/* 1.1: Pagos y Cuotas Inmediatas (Wompi) */}
-              <Card>
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle className="text-lg flex items-center gap-2">
-                        <Wallet className="w-5 h-5 text-primary" />
-                        Obligaciones & Cuotas del Mes
-                      </CardTitle>
-                      <CardDescription>
-                        Pago directo en línea con PSE, Nequi, Bancolombia o tarjeta
-                      </CardDescription>
-                    </div>
-                    {alDia ? (
-                      <Badge variant="success" className="font-semibold gap-1">
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                        Paz y Salvo Vigente
-                      </Badge>
-                    ) : (
-                      <Badge variant="destructive" className="font-semibold">
-                        {formatCurrency(totalDeudaPendiente)} Pendiente
-                      </Badge>
-                    )}
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {cuotasPendientes.length === 0 && multasPendientesList.length === 0 ? (
-                    <div className="p-6 rounded-xl border border-emerald-500/20 bg-emerald-500/5 text-center space-y-2">
-                      <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto" />
-                      <h4 className="text-base font-bold text-foreground">¡Estás al día con la administración!</h4>
-                      <p className="text-xs text-muted-foreground max-w-md mx-auto">
-                        No registras cobros pendientes para el inmueble {numeroApto}. Tu historial de pagos se encuentra validado.
-                      </p>
-                      <div className="pt-2">
-                        <Button variant="outline" size="sm" onClick={() => navigate('/res-cuotas')} className="text-xs gap-1.5">
-                          <FileText className="w-3.5 h-3.5" />
-                          Ver Historial de Recibos
-                        </Button>
+              {/* 1.1: Pagos y Cuotas Inmediatas (Wompi) - Solo Residente Titular */}
+              {!isConviviente && (
+                <Card>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle className="text-lg flex items-center gap-2">
+                          <Wallet className="w-5 h-5 text-primary" />
+                          Obligaciones & Cuotas del Mes
+                        </CardTitle>
+                        <CardDescription>
+                          Pago directo en línea con PSE, Nequi, Bancolombia o tarjeta
+                        </CardDescription>
                       </div>
+                      {alDia ? (
+                        <Badge variant="success" className="font-semibold gap-1">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          Paz y Salvo Vigente
+                        </Badge>
+                      ) : (
+                        <Badge variant="destructive" className="font-semibold">
+                          {formatCurrency(totalDeudaPendiente)} Pendiente
+                        </Badge>
+                      )}
                     </div>
-                  ) : (
-                    <div className="space-y-2.5">
-                      {cuotasPendientes.map((c) => (
-                        <div
-                          key={`c-${c.idCuota}`}
-                          className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl border border-border bg-card hover:bg-muted/20 transition-all"
-                        >
-                          <div className="space-y-0.5">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-bold text-foreground">
-                                {c.tipoCuota === 'ADMINISTRACION' ? 'Cuota de Administración' : 'Cuota Extraordinaria'}
-                              </span>
-                              <Badge variant="outline" className="text-[10px]">
-                                {MESES_W[(c.mes || 1) - 1]} {c.anio}
-                              </Badge>
-                            </div>
-                            <p className="text-xs text-muted-foreground">
-                              {c.fechaLimite ? `Vencimiento: ${formatDate(c.fechaLimite)}` : 'Cobro reglamentario'}
-                            </p>
-                          </div>
-                          <div className="flex items-center justify-between sm:justify-end gap-4">
-                            <div className="text-right">
-                              <span className="text-xs text-muted-foreground block">Monto a Pagar</span>
-                              <span className="text-base font-black text-foreground font-mono">
-                                {formatCurrency(c.saldoPendiente ?? c.valorTotal)}
-                              </span>
-                            </div>
-                            <Button
-                              onClick={() => pagarConWompi('CUOTA', c.idCuota, `Cuota ${c.anio}/${c.mes}`)}
-                              disabled={!!pagando}
-                              className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold gap-1.5 shadow-sm shrink-0"
-                            >
-                              <CreditCard className="w-4 h-4" />
-                              {pagando?.id === c.idCuota && pagando?.concepto === 'CUOTA' ? 'Abriendo...' : 'Pagar'}
-                            </Button>
-                          </div>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {cuotasPendientes.length === 0 && multasPendientesList.length === 0 ? (
+                      <div className="p-6 rounded-xl border border-emerald-500/20 bg-emerald-500/5 text-center space-y-2">
+                        <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto" />
+                        <h4 className="text-base font-bold text-foreground">¡Estás al día con la administración!</h4>
+                        <p className="text-xs text-muted-foreground max-w-md mx-auto">
+                          No registras cobros pendientes para el inmueble {numeroApto}. Tu historial de pagos se encuentra validado.
+                        </p>
+                        <div className="pt-2">
+                          <Button variant="outline" size="sm" onClick={() => navigate('/res-cuotas')} className="text-xs gap-1.5">
+                            <FileText className="w-3.5 h-3.5" />
+                            Ver Historial de Recibos
+                          </Button>
                         </div>
-                      ))}
+                      </div>
+                    ) : (
+                      <div className="space-y-2.5">
+                        {cuotasPendientes.map((c) => (
+                          <div
+                            key={`c-${c.idCuota}`}
+                            className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl border border-border bg-card hover:bg-muted/20 transition-all"
+                          >
+                            <div className="space-y-0.5">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-bold text-foreground">
+                                  {c.tipoCuota === 'ADMINISTRACION' ? 'Cuota de Administración' : 'Cuota Extraordinaria'}
+                                </span>
+                                <Badge variant="outline" className="text-[10px]">
+                                  {MESES_W[(c.mes || 1) - 1]} {c.anio}
+                                </Badge>
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                {c.fechaLimite ? `Vencimiento: ${formatDate(c.fechaLimite)}` : 'Cobro reglamentario'}
+                              </p>
+                            </div>
+                            <div className="flex items-center justify-between sm:justify-end gap-4">
+                              <div className="text-right">
+                                <span className="text-xs text-muted-foreground block">Monto a Pagar</span>
+                                <span className="text-base font-black text-foreground font-mono">
+                                  {formatCurrency(c.saldoPendiente ?? c.valorTotal)}
+                                </span>
+                              </div>
+                              <Button
+                                onClick={() => pagarConWompi('CUOTA', c.idCuota, `Cuota ${c.anio}/${c.mes}`)}
+                                disabled={!!pagando}
+                                className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold gap-1.5 shadow-sm shrink-0"
+                              >
+                                <CreditCard className="w-4 h-4" />
+                                {pagando?.id === c.idCuota && pagando?.concepto === 'CUOTA' ? 'Abriendo...' : 'Pagar'}
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
 
-                      {multasPendientesList.map((m) => (
-                        <div
-                          key={`m-${m.idMulta}`}
-                          className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl border border-rose-500/20 bg-rose-500/5"
-                        >
-                          <div className="space-y-0.5">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-bold text-foreground">Sanción / Multa</span>
-                              <Badge variant="destructive" className="text-[10px]">{m.tipo}</Badge>
+                        {multasPendientesList.map((m) => (
+                          <div
+                            key={`m-${m.idMulta}`}
+                            className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl border border-rose-500/20 bg-rose-500/5"
+                          >
+                            <div className="space-y-0.5">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-bold text-foreground">Sanción / Multa</span>
+                                <Badge variant="destructive" className="text-[10px]">{m.tipo}</Badge>
+                              </div>
+                              <p className="text-xs text-muted-foreground">{m.descripcion || 'Incumplimiento al reglamento'}</p>
                             </div>
-                            <p className="text-xs text-muted-foreground">{m.descripcion || 'Incumplimiento al reglamento'}</p>
-                          </div>
-                          <div className="flex items-center justify-between sm:justify-end gap-4">
-                            <div className="text-right">
-                              <span className="text-xs text-muted-foreground block">Monto</span>
-                              <span className="text-base font-black text-rose-600 dark:text-rose-400 font-mono">
-                                {formatCurrency(m.monto)}
-                              </span>
+                            <div className="flex items-center justify-between sm:justify-end gap-4">
+                              <div className="text-right">
+                                <span className="text-xs text-muted-foreground block">Monto</span>
+                                <span className="text-base font-black text-rose-600 dark:text-rose-400 font-mono">
+                                  {formatCurrency(m.monto)}
+                                </span>
+                              </div>
+                              <Button
+                                variant="outline"
+                                onClick={() => pagarConWompi('MULTA', m.idMulta, `Multa ${m.tipo}`)}
+                                disabled={!!pagando}
+                                className="font-semibold gap-1.5 border-rose-300 text-rose-700 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-300 shrink-0"
+                              >
+                                <CreditCard className="w-4 h-4" />
+                                {pagando?.id === m.idMulta && pagando?.concepto === 'MULTA' ? 'Abriendo...' : 'Pagar'}
+                              </Button>
                             </div>
-                            <Button
-                              variant="outline"
-                              onClick={() => pagarConWompi('MULTA', m.idMulta, `Multa ${m.tipo}`)}
-                              disabled={!!pagando}
-                              className="font-semibold gap-1.5 border-rose-300 text-rose-700 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-300 shrink-0"
-                            >
-                              <CreditCard className="w-4 h-4" />
-                              {pagando?.id === m.idMulta && pagando?.concepto === 'MULTA' ? 'Abriendo...' : 'Pagar'}
-                            </Button>
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
 
               {/* 1.2: Pases de Visita QR Activos */}
               <Card>
@@ -1231,121 +1273,123 @@ export default function ResidenteDashboardPage() {
           </div>
         </TabsContent>
 
-        {/* TAB 2: FINANZAS & HISTORIAL WOMPI */}
-        <TabsContent value="finanzas" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* 2.1: Historial Wompi & Pasarela */}
-            <Card className="lg:col-span-2">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <CreditCard className="w-5 h-5 text-primary" />
-                  Transacciones en Línea (Wompi)
-                </CardTitle>
-                <CardDescription>
-                  Registro de pagos procesados mediante pasarela bancaria certificada
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {wompiHistorial.length === 0 ? (
-                  <EmptyState
-                    icon="payments"
-                    title="No hay transacciones en línea recientes"
-                    subtitle="Cuando efectúes un pago con Wompi, el comprobante y estado bancario se listarán aquí."
-                  />
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-xs">
-                      <thead>
-                        <tr className="border-b border-border text-muted-foreground text-left">
-                          <th className="py-2.5 px-3 font-semibold">Referencia</th>
-                          <th className="py-2.5 px-3 font-semibold">Fecha</th>
-                          <th className="py-2.5 px-3 font-semibold text-right">Monto</th>
-                          <th className="py-2.5 px-3 font-semibold text-center">Estado</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-border/60">
-                        {wompiHistorial.slice(0, 8).map((h) => (
-                          <tr key={h.referencia} className="hover:bg-muted/20">
-                            <td className="py-3 px-3 font-mono text-foreground">
-                              #{String(h.referencia).slice(0, 20)}...
-                            </td>
-                            <td className="py-3 px-3 text-muted-foreground">
-                              {formatDate(h.fechaCreacion || new Date())}
-                            </td>
-                            <td className="py-3 px-3 font-bold text-foreground text-right font-mono">
-                              {formatCurrency(h.montoCentavos ? h.montoCentavos / 100 : h.monto)}
-                            </td>
-                            <td className="py-3 px-3 text-center">
-                              {badgeWompi(h.estado)}
-                            </td>
+        {/* TAB 2: FINANZAS & HISTORIAL WOMPI (Solo Residente Titular) */}
+        {!isConviviente && (
+          <TabsContent value="finanzas" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* 2.1: Historial Wompi & Pasarela */}
+              <Card className="lg:col-span-2">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <CreditCard className="w-5 h-5 text-primary" />
+                    Transacciones en Línea (Wompi)
+                  </CardTitle>
+                  <CardDescription>
+                    Registro de pagos procesados mediante pasarela bancaria certificada
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {wompiHistorial.length === 0 ? (
+                    <EmptyState
+                      icon="payments"
+                      title="No hay transacciones en línea recientes"
+                      subtitle="Cuando efectúes un pago con Wompi, el comprobante y estado bancario se listarán aquí."
+                    />
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="border-b border-border text-muted-foreground text-left">
+                            <th className="py-2.5 px-3 font-semibold">Referencia</th>
+                            <th className="py-2.5 px-3 font-semibold">Fecha</th>
+                            <th className="py-2.5 px-3 font-semibold text-right">Monto</th>
+                            <th className="py-2.5 px-3 font-semibold text-center">Estado</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* 2.2: Métodos de Pago & Resumen de Cartera */}
-            <div className="space-y-6">
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <ShieldCheck className="w-4 h-4 text-emerald-500" />
-                    Métodos de Pago Habilitados
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3 text-xs">
-                  <div className="p-3 rounded-lg border border-border bg-card/60 flex items-center gap-3">
-                    <div className="p-2 rounded-md bg-primary/10 text-primary font-bold">PSE</div>
-                    <div>
-                      <p className="font-bold text-foreground">Débito Bancario (PSE)</p>
-                      <p className="text-muted-foreground">Todos los bancos de Colombia</p>
+                        </thead>
+                        <tbody className="divide-y divide-border/60">
+                          {wompiHistorial.slice(0, 8).map((h) => (
+                            <tr key={h.referencia} className="hover:bg-muted/20">
+                              <td className="py-3 px-3 font-mono text-foreground">
+                                #{String(h.referencia).slice(0, 20)}...
+                              </td>
+                              <td className="py-3 px-3 text-muted-foreground">
+                                {formatDate(h.fechaCreacion || new Date())}
+                              </td>
+                              <td className="py-3 px-3 font-bold text-foreground text-right font-mono">
+                                {formatCurrency(h.montoCentavos ? h.montoCentavos / 100 : h.monto)}
+                              </td>
+                              <td className="py-3 px-3 text-center">
+                                {badgeWompi(h.estado)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
-                  </div>
-                  <div className="p-3 rounded-lg border border-border bg-card/60 flex items-center gap-3">
-                    <div className="p-2 rounded-md bg-purple-500/10 text-purple-600 font-bold">NEQUI</div>
-                    <div>
-                      <p className="font-bold text-foreground">Nequi & Daviplata</p>
-                      <p className="text-muted-foreground">Notificación y débito al instante</p>
-                    </div>
-                  </div>
-                  <div className="p-3 rounded-lg border border-border bg-card/60 flex items-center gap-3">
-                    <div className="p-2 rounded-md bg-blue-500/10 text-blue-600 font-bold">VISA</div>
-                    <div>
-                      <p className="font-bold text-foreground">Tarjetas de Crédito / Débito</p>
-                      <p className="text-muted-foreground">Visa, Mastercard, American Express</p>
-                    </div>
-                  </div>
+                  )}
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <FileText className="w-4 h-4 text-primary" />
-                    Paz y Salvo de Administración
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <p className="text-xs text-muted-foreground">
-                    Para trámites notariales, arriendos o traspasos de inmueble, solicita tu certificado oficial de paz y salvo expedido por la administración.
-                  </p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => navigate('/res-cuotas')}
-                    className="w-full gap-2 text-xs"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                    Ir al Portal Financiero
-                  </Button>
-                </CardContent>
-              </Card>
+              {/* 2.2: Métodos de Pago & Resumen de Cartera */}
+              <div className="space-y-6">
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <ShieldCheck className="w-4 h-4 text-emerald-500" />
+                      Métodos de Pago Habilitados
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3 text-xs">
+                    <div className="p-3 rounded-lg border border-border bg-card/60 flex items-center gap-3">
+                      <div className="p-2 rounded-md bg-primary/10 text-primary font-bold">PSE</div>
+                      <div>
+                        <p className="font-bold text-foreground">Débito Bancario (PSE)</p>
+                        <p className="text-muted-foreground">Todos los bancos de Colombia</p>
+                      </div>
+                    </div>
+                    <div className="p-3 rounded-lg border border-border bg-card/60 flex items-center gap-3">
+                      <div className="p-2 rounded-md bg-purple-500/10 text-purple-600 font-bold">NEQUI</div>
+                      <div>
+                        <p className="font-bold text-foreground">Nequi & Daviplata</p>
+                        <p className="text-muted-foreground">Notificación y débito al instante</p>
+                      </div>
+                    </div>
+                    <div className="p-3 rounded-lg border border-border bg-card/60 flex items-center gap-3">
+                      <div className="p-2 rounded-md bg-blue-500/10 text-blue-600 font-bold">VISA</div>
+                      <div>
+                        <p className="font-bold text-foreground">Tarjetas de Crédito / Débito</p>
+                        <p className="text-muted-foreground">Visa, Mastercard, American Express</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <FileText className="w-4 h-4 text-primary" />
+                      Paz y Salvo de Administración
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <p className="text-xs text-muted-foreground">
+                      Para trámites notariales, arriendos o traspasos de inmueble, solicita tu certificado oficial de paz y salvo expedido por la administración.
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => navigate('/res-cuotas')}
+                      className="w-full gap-2 text-xs"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      Ir al Portal Financiero
+                    </Button>
+                  </CardContent>
+                </Card>
+              </div>
             </div>
-          </div>
-        </TabsContent>
+          </TabsContent>
+        )}
 
         {/* TAB 3: COMUNIDAD & AVISOS DE ADMINISTRACIÓN */}
         <TabsContent value="comunidad" className="space-y-6">

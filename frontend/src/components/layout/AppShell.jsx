@@ -348,8 +348,6 @@ const NAV_BY_ROLE = {
         { path: '/res-buzon', label: 'Buzón', icon: 'mail' },
         { path: '/res-quejas', label: 'PQRS', icon: 'support_agent' },
         { path: '/res-reservas', label: 'Zonas Comunes', icon: 'event' },
-        { path: '/res-sanciones', label: 'Sanciones', icon: 'gavel' },
-        { path: '/res-obras', label: 'Mis Obras', icon: 'construction' },
         { path: '/res-incidentes', label: 'Mis Incidentes', icon: 'warning' },
         { path: '/res-documentos', label: 'Documentos', icon: 'description' },
       ],

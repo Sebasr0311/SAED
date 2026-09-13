@@ -97,6 +97,7 @@ function DetailItem({ icon: Icon, label, value, badge, subtext, isMono = false }
 export default function ResPerfilPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const isConviviente = user?.rol === 'RESIDENTE_CONVIVENCIA' || user?.rolCodigo === 'RESIDENTE_CONVIVENCIA';
 
   // Estados de edición
   const [modalOpen, setModalOpen] = useState(false);
@@ -122,10 +123,10 @@ export default function ResPerfilPage() {
   );
   const perfil = useMemo(() => personaData?.raw || personaData || {}, [personaData]);
 
-  // 2. Dashboard financiero y de unidad del residente
+  // 2. Dashboard financiero y de unidad del residente (Solo residente titular)
   const { data: dashboardData, refetch: refetchDashboard } = useFetch(
-    () => (residentId ? api.get(`/residentes/${residentId}/dashboard`) : Promise.resolve(null)),
-    [residentId]
+    () => (!isConviviente && residentId ? api.get(`/residentes/${residentId}/dashboard`) : Promise.resolve(null)),
+    [residentId, isConviviente]
   );
   const dashboard = useMemo(() => dashboardData?.raw || dashboardData || {}, [dashboardData]);
   const aptoInfo = useMemo(() => dashboard.apartamento || {}, [dashboard]);
@@ -336,15 +337,33 @@ export default function ResPerfilPage() {
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">{nombreCompleto}</h1>
                 <Badge variant="secondary" className="bg-white/20 text-white border-white/20 hover:bg-white/30">
-                  Residente Titular
+                  {isConviviente ? 'Residente Conviviente' : 'Residente Titular'}
                 </Badge>
-                <Badge
-                  variant="outline"
-                  className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30 font-medium"
-                >
-                  <CheckCircle2 className="w-3 h-3 mr-1" />
-                  Al Día
-                </Badge>
+                {isConviviente ? (
+                  <Badge
+                    variant="outline"
+                    className="bg-blue-500/20 text-blue-300 border-blue-500/30 font-medium"
+                  >
+                    <CheckCircle2 className="w-3 h-3 mr-1" />
+                    Conviviente Autorizado
+                  </Badge>
+                ) : alDia ? (
+                  <Badge
+                    variant="outline"
+                    className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30 font-medium"
+                  >
+                    <CheckCircle2 className="w-3 h-3 mr-1" />
+                    Al Día
+                  </Badge>
+                ) : (
+                  <Badge
+                    variant="outline"
+                    className="bg-amber-500/20 text-amber-300 border-amber-500/30 font-medium"
+                  >
+                    <AlertCircle className="w-3 h-3 mr-1" />
+                    Saldo Pendiente
+                  </Badge>
+                )}
               </div>
 
               <p className="text-sm text-white/80 font-medium flex items-center gap-1.5">
@@ -404,23 +423,38 @@ export default function ResPerfilPage() {
           </CardContent>
         </Card>
 
-        {/* KPI 2: Finanzas */}
-        <Card className="hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 border-border/70">
-          <CardContent className="p-5 flex items-center gap-4">
-            <div className="p-3 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-              <CreditCard className="w-6 h-6" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Estado de Cartera</p>
-              <h3 className="text-xl font-bold text-foreground">
-                {alDia ? 'Al Día' : `${cuotasPendientes.length} Pendiente(s)`}
-              </h3>
-              <p className="text-xs text-muted-foreground truncate">
-                {alDia ? 'Sin obligaciones en mora' : 'Requiere pago oportuno'}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+        {/* KPI 2: Finanzas o Zonas Comunes */}
+        {isConviviente ? (
+          <Card className="hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 border-border/70">
+            <CardContent className="p-5 flex items-center gap-4">
+              <div className="p-3 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400">
+                <Calendar className="w-6 h-6" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Zonas Comunes</p>
+                <h3 className="text-xl font-bold text-foreground">Habilitado</h3>
+                <p className="text-xs text-muted-foreground truncate">Acceso a áreas sociales</p>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 border-border/70">
+            <CardContent className="p-5 flex items-center gap-4">
+              <div className="p-3 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                <CreditCard className="w-6 h-6" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Estado de Cartera</p>
+                <h3 className="text-xl font-bold text-foreground">
+                  {alDia ? 'Al Día' : `${cuotasPendientes.length} Pendiente(s)`}
+                </h3>
+                <p className="text-xs text-muted-foreground truncate">
+                  {alDia ? 'Sin obligaciones en mora' : 'Requiere pago oportuno'}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* KPI 3: Habitantes */}
         <Card className="hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 border-border/70">
@@ -594,10 +628,16 @@ export default function ResPerfilPage() {
                   <div className="p-4 rounded-xl border border-border/60 bg-muted/20">
                     <span className="text-xs font-semibold text-muted-foreground uppercase">Rol Asignado</span>
                     <div className="mt-1 flex items-center gap-2">
-                      <Badge variant="default" className="bg-primary font-semibold">RESIDENTE</Badge>
+                      <Badge variant="default" className="bg-primary font-semibold">
+                        {isConviviente ? 'RESIDENTE_CONVIVENCIA' : 'RESIDENTE'}
+                      </Badge>
                       <span className="text-xs text-muted-foreground">Nivel Unidad</span>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1">Acceso a cuotas, visitas, buzón y reservas</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {isConviviente
+                        ? 'Acceso a visitas, buzón, PQRS y zonas comunes'
+                        : 'Acceso a cuotas, visitas, buzón y reservas'}
+                    </p>
                   </div>
                   <div className="p-4 rounded-xl border border-border/60 bg-muted/20">
                     <span className="text-xs font-semibold text-muted-foreground uppercase">Seguridad de Acceso</span>
@@ -678,9 +718,9 @@ export default function ResPerfilPage() {
                     <DetailItem
                       icon={CreditCard}
                       label="Cuota de Administración"
-                      value={formatCurrency(contratoInfo.valorMensual || 450000)}
-                      subtext={`Corte de facturación: Día ${contratoInfo.diaPago || 5} de cada mes`}
-                      badge={<Badge variant="success">Fijada por Asamblea</Badge>}
+                      value={isConviviente ? 'Gestionado por titular' : formatCurrency(contratoInfo.valorMensual || 450000)}
+                      subtext={isConviviente ? 'Atendido por copropietario o residente titular' : `Corte de facturación: Día ${contratoInfo.diaPago || 5} de cada mes`}
+                      badge={<Badge variant={isConviviente ? 'secondary' : 'success'}>{isConviviente ? 'Informativo' : 'Fijada por Asamblea'}</Badge>}
                     />
                   </div>
                 </div>
@@ -733,54 +773,58 @@ export default function ResPerfilPage() {
               </CardContent>
             </Card>
 
-            {/* 2.3: Habitantes Registrados en la Unidad y Límite Parametrizado de Convivientes (P2-01) */}
-            <ConvivientesSection
-              unitId={unitId}
-              residentId={residentId}
-              tiposDoc={tiposDoc}
-              titularFallback={{
-                id: residentId || 4,
-                nombres: perfil.primerNombre || perfil.nombres || 'Carlos',
-                apellidos: perfil.primerApellido || perfil.apellidos || 'Martínez',
-                numeroDocumento: perfil.numeroDocumento || '1000000004',
-                tipoResidente: 'TITULAR',
-                estado: 'ACTIVO',
-              }}
-              quotaData={quotaData}
-              quotaLoading={quotaLoading}
-              residentsData={unitResidentsData}
-              residentsLoading={residentsLoading}
-              onRefresh={handleRefreshHabitantes}
-            />
+            {/* 2.3: Habitantes Registrados en la Unidad y Límite Parametrizado de Convivientes (P2-01) - Solo Titular */}
+            {!isConviviente && (
+              <ConvivientesSection
+                unitId={unitId}
+                residentId={residentId}
+                tiposDoc={tiposDoc}
+                titularFallback={{
+                  id: residentId || 4,
+                  nombres: perfil.primerNombre || perfil.nombres || 'Carlos',
+                  apellidos: perfil.primerApellido || perfil.apellidos || 'Martínez',
+                  numeroDocumento: perfil.numeroDocumento || '1000000004',
+                  tipoResidente: 'TITULAR',
+                  estado: 'ACTIVO',
+                }}
+                quotaData={quotaData}
+                quotaLoading={quotaLoading}
+                residentsData={unitResidentsData}
+                residentsLoading={residentsLoading}
+                onRefresh={handleRefreshHabitantes}
+              />
+            )}
           </div>
         </TabsContent>
 
         {/* TAB 3: GESTIONES Y ATAJOS RÁPIDOS */}
         <TabsContent value="gestiones" className="space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {/* Atajo 1: Cuotas y Pagos */}
-            <Card
-              onClick={() => navigate('/res-cuotas')}
-              className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:-translate-y-1 group border-border/70"
-            >
-              <CardContent className="p-6 space-y-3">
-                <div className="w-12 h-12 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <CreditCard className="w-6 h-6" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-foreground group-hover:text-primary transition-colors flex items-center justify-between">
-                    Mis Cuotas y Pagos
-                    <ArrowRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </h3>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Consulta tus saldos, genera comprobantes y realiza pagos seguros en línea con Wompi.
-                  </p>
-                </div>
-                <Badge variant={alDia ? 'success' : 'destructive'} className="text-xs">
-                  {alDia ? 'Al día sin mora' : `${cuotasPendientes.length} cuota(s) pendiente(s)`}
-                </Badge>
-              </CardContent>
-            </Card>
+            {/* Atajo 1: Cuotas y Pagos (Solo Titular) */}
+            {!isConviviente && (
+              <Card
+                onClick={() => navigate('/res-cuotas')}
+                className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:-translate-y-1 group border-border/70"
+              >
+                <CardContent className="p-6 space-y-3">
+                  <div className="w-12 h-12 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <CreditCard className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-foreground group-hover:text-primary transition-colors flex items-center justify-between">
+                      Mis Cuotas y Pagos
+                      <ArrowRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </h3>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Consulta tus saldos, genera comprobantes y realiza pagos seguros en línea con Wompi.
+                    </p>
+                  </div>
+                  <Badge variant={alDia ? 'success' : 'destructive'} className="text-xs">
+                    {alDia ? 'Al día sin mora' : `${cuotasPendientes.length} cuota(s) pendiente(s)`}
+                  </Badge>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Atajo 2: Visitas & Códigos QR */}
             <Card

@@ -748,13 +748,13 @@ export default function App() {
           <Route
             path="res-sanciones"
             element={
-              <ProtectedRoute roles={['RESIDENTE', 'RESIDENTE_CONVIVENCIA']}>
+              <ProtectedRoute roles={['RESIDENTE']}>
                 <ResSancionesPage />
               </ProtectedRoute>
             }
           />
           <Route path="mis-sanciones" element={<Navigate to="/res-sanciones" replace />} />
-          <Route path="res-obras" element={<ProtectedRoute roles={['RESIDENTE', 'RESIDENTE_CONVIVENCIA']}><ResObrasPage /></ProtectedRoute>} />
+          <Route path="res-obras" element={<ProtectedRoute roles={['RESIDENTE']}><ResObrasPage /></ProtectedRoute>} />
           <Route path="mis-obras" element={<Navigate to="/res-obras" replace />} />
           <Route path="res-incidentes" element={<ProtectedRoute roles={['RESIDENTE', 'RESIDENTE_CONVIVENCIA']}><ResIncidentesPage /></ProtectedRoute>} />
           <Route path="res-documentos" element={<ProtectedRoute roles={['RESIDENTE', 'RESIDENTE_CONVIVENCIA', 'PROPIETARIO']}><ResDocumentosPage /></ProtectedRoute>} />

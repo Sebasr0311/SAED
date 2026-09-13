@@ -216,8 +216,6 @@ export const ACCESS_BY_ROLE = {
     '/res-visita',
     '/res-quejas',
     '/res-reservas',
-    '/res-sanciones',
-    '/res-obras',
     '/res-incidentes',
     '/res-documentos',
   ],

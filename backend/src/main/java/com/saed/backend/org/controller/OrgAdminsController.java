@@ -238,13 +238,152 @@ public class OrgAdminsController {
 
     @PatchMapping("/{assignmentId}/status")
     @Auditable(action = "UPDATE_STATUS", resource = "ASIGNACION", category = AuditCategory.AUTHORIZATION, severity = AuditSeverity.CRITICAL)
+    @Transactional
     public ResponseEntity<Map<String, Object>> updateStatus(@PathVariable Long assignmentId, @RequestBody Map<String, String> body) {
         String estado = body.get("estado");
         if (estado == null || estado.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("success", false, "message", "El campo estado es requerido"));
         }
+
+        SaedContext ctx = SaedContextHolder.getContext();
+        Long orgId = ctx.getOrganizationId();
+        if (orgId == null) {
+            throw new AccessDeniedException("No se encontró contexto de organización activo");
+        }
+
+        // Consultar la asignación y su rol objetivo
+        List<Map<String, Object>> asigRows = jdbcTemplate.queryForList(
+            "SELECT ua.ID_USUARIO, ua.ID_ORGANIZACION, r.CODIGO AS ROL_CODIGO " +
+            "FROM USUARIO_ASIGNACIONES ua " +
+            "JOIN ROLES r ON r.ID_ROL = ua.ID_ROL " +
+            "WHERE ua.ID_ASIGNACION = :asigId",
+            Map.of("asigId", assignmentId)
+        );
+
+        if (asigRows.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(Map.of("success", false, "message", "Asignación no encontrada"));
+        }
+
+        Map<String, Object> asig = asigRows.get(0);
+        Long asigOrgId = ((Number) asig.get("ID_ORGANIZACION")).longValue();
+        String rolCodigo = (String) asig.get("ROL_CODIGO");
+        Long targetUserId = ((Number) asig.get("ID_USUARIO")).longValue();
+
+        if (!orgId.equals(asigOrgId)) {
+            throw new AccessDeniedException("No tiene permisos para modificar asignaciones de otra organización");
+        }
+
+        // Regla: un admin organizacional no puede suspender su propia cuenta ni cuentas de ADMIN_ORGANIZACION
+        if (!"SUPERADMIN".equalsIgnoreCase(ctx.getRoleCode())) {
+            if ("ADMIN_ORGANIZACION".equalsIgnoreCase(rolCodigo) || targetUserId.equals(ctx.getUserId())) {
+                throw new AccessDeniedException("Un Administrador de Organización no puede suspender su propia cuenta ni administradores organizacionales. Solo puede gestionar Administradores de Propiedad.");
+            }
+            if (!"ADMIN_PROPIEDAD".equalsIgnoreCase(rolCodigo)) {
+                throw new AccessDeniedException("Solo se permite suspender o activar Administradores de Propiedad.");
+            }
+        }
+
         assignmentManagementService.updateStatus(assignmentId, estado.toUpperCase());
-        return ResponseEntity.ok(Map.of("success", true, "message", "Estado de asignación actualizado"));
+        return ResponseEntity.ok(Map.of("success", true, "message", "Estado de asignación actualizado a " + estado.toUpperCase()));
+    }
+
+    @DeleteMapping("/{assignmentId}")
+    @Auditable(action = "DELETE", resource = "ASIGNACION", category = AuditCategory.AUTHORIZATION, severity = AuditSeverity.CRITICAL)
+    @Transactional
+    public ResponseEntity<Map<String, Object>> deleteAdmin(
+            @PathVariable Long assignmentId,
+            @RequestBody(required = false) Map<String, String> body) {
+        return executeDeleteAdmin(assignmentId, body);
+    }
+
+    @PostMapping("/{assignmentId}/eliminar")
+    @Auditable(action = "DELETE", resource = "ASIGNACION", category = AuditCategory.AUTHORIZATION, severity = AuditSeverity.CRITICAL)
+    @Transactional
+    public ResponseEntity<Map<String, Object>> deleteAdminPost(
+            @PathVariable Long assignmentId,
+            @RequestBody(required = false) Map<String, String> body) {
+        return executeDeleteAdmin(assignmentId, body);
+    }
+
+    private ResponseEntity<Map<String, Object>> executeDeleteAdmin(Long assignmentId, Map<String, String> body) {
+        SaedContext ctx = SaedContextHolder.getContext();
+        Long orgId = ctx.getOrganizationId();
+        Long callerUserId = ctx.getUserId();
+        if (orgId == null || callerUserId == null) {
+            throw new AccessDeniedException("No se encontró contexto de organización o usuario activo");
+        }
+
+        String password = body != null ? body.get("password") : null;
+        if (password == null || password.trim().isBlank()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
+                "success", false,
+                "message", "Se requiere doble autorización: ingrese su contraseña para confirmar la eliminación."
+            ));
+        }
+
+        // 1. Validar la contraseña del admin autorizador
+        List<String> callerPwdList = jdbcTemplate.query(
+            "SELECT HASH_PASSWORD FROM USUARIOS WHERE ID_USUARIO = :uid",
+            Map.of("uid", callerUserId),
+            (rs, rowNum) -> rs.getString("HASH_PASSWORD")
+        );
+        if (callerPwdList.isEmpty() || !passwordEncoder.matches(password.trim(), callerPwdList.get(0))) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of(
+                "success", false,
+                "message", "Contraseña de autorización incorrecta. Verifique su contraseña actual."
+            ));
+        }
+
+        // 2. Consultar la asignación a eliminar
+        List<Map<String, Object>> asigRows = jdbcTemplate.queryForList(
+            "SELECT ua.ID_USUARIO, ua.ID_ORGANIZACION, r.CODIGO AS ROL_CODIGO " +
+            "FROM USUARIO_ASIGNACIONES ua " +
+            "JOIN ROLES r ON r.ID_ROL = ua.ID_ROL " +
+            "WHERE ua.ID_ASIGNACION = :asigId",
+            Map.of("asigId", assignmentId)
+        );
+
+        if (asigRows.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(Map.of("success", false, "message", "Asignación no encontrada"));
+        }
+
+        Map<String, Object> asig = asigRows.get(0);
+        Long asigOrgId = ((Number) asig.get("ID_ORGANIZACION")).longValue();
+        String rolCodigo = (String) asig.get("ROL_CODIGO");
+        Long targetUserId = ((Number) asig.get("ID_USUARIO")).longValue();
+
+        if (!orgId.equals(asigOrgId)) {
+            throw new AccessDeniedException("No tiene permisos sobre administradores de otra organización");
+        }
+
+        if (!"SUPERADMIN".equalsIgnoreCase(ctx.getRoleCode())) {
+            if ("ADMIN_ORGANIZACION".equalsIgnoreCase(rolCodigo) || targetUserId.equals(callerUserId)) {
+                throw new AccessDeniedException("Un Administrador de Organización no puede eliminar su propia cuenta ni administradores organizacionales.");
+            }
+            if (!"ADMIN_PROPIEDAD".equalsIgnoreCase(rolCodigo)) {
+                throw new AccessDeniedException("Solo se permite eliminar cuentas de Administrador de Propiedad.");
+            }
+        }
+
+        // 3. Eliminar la asignación
+        jdbcTemplate.update("DELETE FROM USUARIO_ASIGNACIONES WHERE ID_ASIGNACION = :asigId", Map.of("asigId", assignmentId));
+
+        // 4. Si el usuario ya no tiene más asignaciones, marcarlo como INACTIVO
+        Integer activeCount = jdbcTemplate.queryForObject(
+            "SELECT COUNT(1) FROM USUARIO_ASIGNACIONES WHERE ID_USUARIO = :uid",
+            Map.of("uid", targetUserId),
+            Integer.class
+        );
+        if (activeCount == null || activeCount == 0) {
+            jdbcTemplate.update("UPDATE USUARIOS SET ESTADO = 'INACTIVO' WHERE ID_USUARIO = :uid", Map.of("uid", targetUserId));
+        }
+
+        return ResponseEntity.ok(Map.of(
+            "success", true,
+            "message", "Administrador de propiedad eliminado exitosamente mediante doble autorización."
+        ));
     }
 
     private OrgAdminDTO mapRow(ResultSet rs, int rowNum) throws SQLException {

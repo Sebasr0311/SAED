@@ -38,6 +38,7 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
         log.info("[SchemaInit] Verificando integridad de esquema para producción...");
 
         initPlantillasContratos();
+        initRoles();
         initResidentesUnidadConstraints();
         initTokensActivacion();
         initOnboardingIntenciones();
@@ -214,6 +215,58 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
             }
         } catch (Exception e) {
             log.debug("[SchemaInit] Aviso al verificar ONBOARDING_INTENCIONES: {}", e.getMessage());
+        }
+    }
+
+    private void initRoles() {
+        try {
+            // Asegurar rol canónico RESIDENTE_CONVIVENCIA
+            jdbcTemplate.execute("""
+                MERGE INTO ROLES r USING (
+                    SELECT 'RESIDENTE_CONVIVENCIA' AS CODIGO,
+                           'Residente Conviviente' AS NOMBRE,
+                           'UNIDAD' AS ALCANCE,
+                           'ACTIVO' AS ESTADO
+                    FROM DUAL
+                ) s ON (r.CODIGO = s.CODIGO)
+                WHEN NOT MATCHED THEN
+                    INSERT (CODIGO, NOMBRE, ALCANCE, ESTADO)
+                    VALUES (s.CODIGO, s.NOMBRE, s.ALCANCE, s.ESTADO)
+            """);
+
+            // Asegurar rol canónico PROPIETARIO
+            jdbcTemplate.execute("""
+                MERGE INTO ROLES r USING (
+                    SELECT 'PROPIETARIO' AS CODIGO,
+                           'Propietario No Residente' AS NOMBRE,
+                           'UNIDAD' AS ALCANCE,
+                           'ACTIVO' AS ESTADO
+                    FROM DUAL
+                ) s ON (r.CODIGO = s.CODIGO)
+                WHEN NOT MATCHED THEN
+                    INSERT (CODIGO, NOMBRE, ALCANCE, ESTADO)
+                    VALUES (s.CODIGO, s.NOMBRE, s.ALCANCE, s.ESTADO)
+            """);
+
+            // Auto-reparar asignaciones de usuarios convivientes creados previamente
+            try {
+                jdbcTemplate.execute("""
+                    UPDATE USUARIO_ASIGNACIONES ua
+                    SET ua.ID_ROL = (SELECT ID_ROL FROM ROLES WHERE CODIGO = 'RESIDENTE_CONVIVENCIA')
+                    WHERE ua.ID_USUARIO IN (
+                        SELECT u.ID_USUARIO FROM USUARIOS u
+                        JOIN RESIDENTES_UNIDAD ru ON ru.ID_PERSONA = u.ID_PERSONA
+                        WHERE ru.TIPO_RESIDENTE = 'CONVIVIENTE'
+                    )
+                    AND ua.ID_ROL = (SELECT ID_ROL FROM ROLES WHERE CODIGO = 'RESIDENTE')
+                """);
+            } catch (Exception e) {
+                log.debug("[SchemaInit] Aviso al auto-reparar asignaciones de conviviente: {}", e.getMessage());
+            }
+
+            log.info("[SchemaInit] Roles canónicos (RESIDENTE_CONVIVENCIA, PROPIETARIO) verificados exitosamente.");
+        } catch (Exception e) {
+            log.warn("[SchemaInit] Aviso al verificar roles canónicos: {}", e.getMessage());
         }
     }
 }

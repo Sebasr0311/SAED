@@ -2,11 +2,12 @@ import { useEffect, useState } from 'react';
 import api from '../lib/api.js';
 import { useTiposDocumento } from '../lib/hooks.js';
 import { valDocumento, getDocPlaceholder } from '../lib/validation.js';
-import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card.tsx';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../components/ui/card.tsx';
 import { Badge } from '../components/ui/badge.tsx';
 import { Skeleton } from '../components/ui/skeleton.tsx';
 import { Button } from '../components/ui/button.tsx';
-import { Users, UserPlus, Search, Shield, Building, Mail, Phone, AlertCircle, CheckCircle2, Power } from 'lucide-react';
+import { Users, UserPlus, Search, Shield, Building, Mail, Phone, AlertCircle, CheckCircle2, Power, Trash2, Lock } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function OrgAdminsPage() {
   const [admins, setAdmins] = useState([]);
@@ -15,6 +16,12 @@ export default function OrgAdminsPage() {
   const [error, setError] = useState(null);
   const [successMsg, setSuccessMsg] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Estados de eliminación con doble autorización
+  const [adminAEliminar, setAdminAEliminar] = useState(null);
+  const [authPassword, setAuthPassword] = useState('');
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState(null);
 
   const { tiposDoc } = useTiposDocumento();
 
@@ -113,6 +120,10 @@ export default function OrgAdminsPage() {
   }
 
   async function toggleStatus(admin) {
+    if (admin.rolCodigo === 'ADMIN_ORGANIZACION') {
+      toast.error('No se puede suspender cuentas de nivel organizacional.');
+      return;
+    }
     const nextStatus = admin.asignacionEstado === 'ACTIVA' ? 'INACTIVA' : 'ACTIVA';
     try {
       await api.patch(`/org/admins/${admin.idAsignacion}/status`, { estado: nextStatus });
@@ -121,7 +132,31 @@ export default function OrgAdminsPage() {
       setTimeout(() => setSuccessMsg(null), 4000);
     } catch (err) {
       console.error('Error updating assignment status:', err);
-      setError('No se pudo actualizar el estado de la asignación.');
+      setError(err?.response?.data?.message || 'No se pudo actualizar el estado de la asignación.');
+    }
+  }
+
+  async function handleEliminarConfirmado(e) {
+    e.preventDefault();
+    if (!authPassword.trim()) {
+      setDeleteError('Debe ingresar su contraseña de administrador para autorizar la eliminación.');
+      return;
+    }
+    try {
+      setDeleteLoading(true);
+      setDeleteError(null);
+      await api.delete(`/org/admins/${adminAEliminar.idAsignacion}`, {
+        data: { password: authPassword.trim() },
+      });
+      toast.success(`Administrador '${adminAEliminar.primerNombre} ${adminAEliminar.primerApellido}' eliminado exitosamente.`);
+      setAdminAEliminar(null);
+      setAuthPassword('');
+      await loadData();
+    } catch (err) {
+      console.error('Error eliminando administrador:', err);
+      setDeleteError(err?.response?.data?.message || err?.message || 'Error al eliminar el administrador.');
+    } finally {
+      setDeleteLoading(false);
     }
   }
 
@@ -267,15 +302,37 @@ export default function OrgAdminsPage() {
                         </Badge>
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => toggleStatus(a)}
-                          className="text-xs gap-1"
-                        >
-                          <Power className="w-3.5 h-3.5" />
-                          <span>{a.asignacionEstado === 'ACTIVA' ? 'Suspender' : 'Activar'}</span>
-                        </Button>
+                        {a.rolCodigo === 'ADMIN_ORGANIZACION' ? (
+                          <Badge variant="outline" className="text-[11px] font-medium bg-primary/5 text-primary border-primary/20">
+                            Cuenta Titular
+                          </Badge>
+                        ) : (
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => toggleStatus(a)}
+                              className="text-xs gap-1"
+                              title={a.asignacionEstado === 'ACTIVA' ? 'Suspender cuenta' : 'Activar cuenta'}
+                            >
+                              <Power className="w-3.5 h-3.5" />
+                              <span>{a.asignacionEstado === 'ACTIVA' ? 'Suspender' : 'Activar'}</span>
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setAdminAEliminar(a);
+                                setAuthPassword('');
+                                setDeleteError(null);
+                              }}
+                              className="text-xs text-destructive hover:bg-destructive/10 hover:text-destructive h-8 w-8 p-0"
+                              title="Eliminar administrador de propiedad"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))
@@ -474,6 +531,79 @@ export default function OrgAdminsPage() {
                 </div>
               </form>
             </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Modal de Eliminación con Doble Autorización */}
+      {adminAEliminar && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
+          <Card className="w-full max-w-md bg-background border-border shadow-2xl">
+            <CardHeader className="border-b border-border pb-4">
+              <div className="flex items-center gap-2 text-destructive">
+                <AlertCircle className="w-5 h-5" />
+                <CardTitle className="text-lg font-bold text-foreground">
+                  Doble Autorización Requerida
+                </CardTitle>
+              </div>
+              <CardDescription className="text-xs text-muted-foreground mt-1">
+                Está a punto de eliminar la cuenta de administrador de propiedad de{' '}
+                <strong className="text-foreground">{adminAEliminar.primerNombre} {adminAEliminar.primerApellido}</strong> (@{adminAEliminar.nombreUsuario}) en{' '}
+                <strong className="text-foreground">{adminAEliminar.propiedadNombre || 'la propiedad asignada'}</strong>.
+              </CardDescription>
+            </CardHeader>
+            <form onSubmit={handleEliminarConfirmado}>
+              <CardContent className="pt-5 space-y-4">
+                {deleteError && (
+                  <div className="bg-destructive/15 border border-destructive text-destructive px-3 py-2 rounded-lg text-xs flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span>{deleteError}</span>
+                  </div>
+                )}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                    <Lock className="w-3.5 h-3.5 text-primary" />
+                    Ingrese su contraseña de Administrador de Organización:
+                  </label>
+                  <input
+                    type="password"
+                    autoFocus
+                    required
+                    placeholder="Contraseña actual de su cuenta"
+                    value={authPassword}
+                    onChange={(e) => setAuthPassword(e.target.value)}
+                    className="w-full px-3 py-2 border border-input rounded-lg bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-destructive/30"
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    Esta acción de seguridad protege las copropiedades y no se puede deshacer.
+                  </p>
+                </div>
+                <div className="flex items-center justify-end gap-2 pt-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={deleteLoading}
+                    onClick={() => {
+                      setAdminAEliminar(null);
+                      setAuthPassword('');
+                      setDeleteError(null);
+                    }}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    type="submit"
+                    variant="destructive"
+                    size="sm"
+                    disabled={deleteLoading || !authPassword.trim()}
+                    className="bg-destructive hover:bg-destructive/90 text-white font-medium"
+                  >
+                    {deleteLoading ? 'Verificando...' : 'Confirmar y Eliminar'}
+                  </Button>
+                </div>
+              </CardContent>
+            </form>
           </Card>
         </div>
       )}
