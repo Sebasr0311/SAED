@@ -136,29 +136,13 @@ public class UsuarioController {
         }
         rol = rol.trim().toUpperCase();
 
-        // Verificar unicidad de username
-        Integer count = jdbcTemplate.queryForObject(
-                "SELECT COUNT(1) FROM USUARIOS WHERE LOWER(NOMBRE_USUARIO) = :u",
-                new MapSqlParameterSource("u", username),
-                Integer.class
-        );
-        if (count != null && count > 0) {
-            return ResponseEntity.badRequest().body(ApiResponse.error("El nombre de usuario '" + username + "' ya existe"));
-        }
-
         String userEmail = (String) payload.getOrDefault("email", username + "@saed.com");
         if (userEmail != null && !userEmail.trim().isBlank()) {
             userEmail = userEmail.trim().toLowerCase();
-            Integer countEmail = jdbcTemplate.queryForObject(
-                    "SELECT COUNT(1) FROM USUARIOS WHERE LOWER(EMAIL) = :e",
-                    Map.of("e", userEmail),
-                    Integer.class
-            );
-            if (countEmail != null && countEmail > 0) {
-                return ResponseEntity.status(HttpStatus.CONFLICT)
-                        .body(ApiResponse.error("El correo electrónico '" + userEmail + "' ya se encuentra registrado en otra cuenta"));
-            }
+        } else {
+            userEmail = username + "@saed.com";
         }
+
 
         SaedContext ctx = SaedContextHolder.getContext();
         String callerRole = ctx != null ? ctx.getRoleCode() : "";
@@ -258,6 +242,7 @@ public class UsuarioController {
 
         Long idPersona = null;
         Long idUsuario = null;
+        Long existingUserToReactivate = null;
         String creatorName = "Un usuario de SAED";
         String orgName = null;
         String propName = null;
@@ -267,92 +252,184 @@ public class UsuarioController {
             // 1. Resolver o Crear PERSONA
             Object idPersonaObj = payload.getOrDefault("idPersona", payload.get("idResidente"));
             if (idPersonaObj != null && !idPersonaObj.toString().isBlank()) {
-                idPersona = Long.valueOf(idPersonaObj.toString());
-            } else {
-                String doc = (String) payload.getOrDefault("numeroDocumento", "");
-                if (doc != null && !doc.trim().isBlank()) {
-                    List<Long> existing = jdbcTemplate.query(
-                            "SELECT ID_PERSONA FROM PERSONAS WHERE NUMERO_DOCUMENTO = :doc",
-                            Map.of("doc", doc.trim()),
-                            (rs, rowNum) -> rs.getLong("ID_PERSONA")
-                    );
-                    if (!existing.isEmpty()) {
-                        idPersona = existing.get(0);
-                    }
-                }
-
-                if (idPersona != null) {
-                    Integer existingUserForPersona = jdbcTemplate.queryForObject(
-                            "SELECT COUNT(1) FROM USUARIOS WHERE ID_PERSONA = :p",
-                            Map.of("p", idPersona),
-                            Integer.class
-                    );
-                    if (existingUserForPersona != null && existingUserForPersona > 0) {
-                        return ResponseEntity.status(HttpStatus.CONFLICT)
-                                .body(ApiResponse.error("Ya existe una cuenta de usuario vinculada a la persona con documento '" + doc + "'"));
-                    }
-                } else {
-                    String primerNombre = (String) payload.getOrDefault("primerNombre", username);
-                    String primerApellido = (String) payload.getOrDefault("primerApellido", "PORTERO".equals(rol) ? "Vigilancia" : "Usuario");
-                    String docFinal = (doc != null && !doc.trim().isBlank()) ? doc.trim() : "DOC-" + System.currentTimeMillis();
-                    String tel = (String) payload.getOrDefault("telefono", "");
-                    String email = (userEmail != null && !userEmail.isBlank()) ? userEmail : username + "@saed.com";
-
-                    Object tipoDocObj = payload.getOrDefault("tipoDocumentoId", payload.get("idTipoDocumento"));
-                    Long idTipoDoc = 1L;
-                    if (tipoDocObj != null) {
-                        try { idTipoDoc = Long.valueOf(tipoDocObj.toString()); } catch (Exception ignored) {}
-                    }
-
-                    KeyHolder khPersona = new GeneratedKeyHolder();
-                    String sqlPersona = """
-                        INSERT INTO PERSONAS (ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, PRIMER_NOMBRE, PRIMER_APELLIDO, EMAIL, TELEFONO, ESTADO)
-                        VALUES (:tipoDoc, :doc, 'NATURAL', :nombre, :apellido, :email, :tel, 'ACTIVO')
-                        """;
-                    MapSqlParameterSource paramP = new MapSqlParameterSource()
-                            .addValue("tipoDoc", idTipoDoc)
-                            .addValue("doc", docFinal)
-                            .addValue("nombre", primerNombre)
-                            .addValue("apellido", primerApellido)
-                            .addValue("email", email)
-                            .addValue("tel", tel);
-                    jdbcTemplate.update(sqlPersona, paramP, khPersona, new String[]{"ID_PERSONA"});
-                    idPersona = extractGeneratedKey(khPersona, "ID_PERSONA");
-                    if (idPersona == null) {
-                        List<Long> pIds = jdbcTemplate.query(
-                            "SELECT ID_PERSONA FROM PERSONAS WHERE NUMERO_DOCUMENTO = :doc",
-                            Map.of("doc", docFinal),
-                            (rs, r) -> rs.getLong("ID_PERSONA")
-                        );
-                        if (!pIds.isEmpty()) idPersona = pIds.get(0);
-                    }
-                }
+                try { idPersona = Long.valueOf(idPersonaObj.toString()); } catch (Exception ignored) {}
             }
-
-            // 2. Insertar USUARIO
-            KeyHolder khUsuario = new GeneratedKeyHolder();
-            String sqlUsuario = """
-                INSERT INTO USUARIOS (ID_PERSONA, NOMBRE_USUARIO, EMAIL, HASH_PASSWORD, ESTADO, INTENTOS_FALLIDOS)
-                VALUES (:idPersona, :username, :email, :pwd, 'ACTIVO', 0)
-                """;
-            MapSqlParameterSource paramU = new MapSqlParameterSource()
-                    .addValue("idPersona", idPersona)
-                    .addValue("username", username)
-                    .addValue("email", userEmail)
-                    .addValue("pwd", passwordEncoder.encode(rawPassword.trim()));
-            jdbcTemplate.update(sqlUsuario, paramU, khUsuario, new String[]{"ID_USUARIO"});
-            idUsuario = extractGeneratedKey(khUsuario, "ID_USUARIO");
-            if (idUsuario == null) {
-                List<Long> uIds = jdbcTemplate.query(
-                    "SELECT ID_USUARIO FROM USUARIOS WHERE LOWER(NOMBRE_USUARIO) = :u",
-                    Map.of("u", username),
-                    (rs, r) -> rs.getLong("ID_USUARIO")
+            String doc = (String) payload.getOrDefault("numeroDocumento", "");
+            if (idPersona == null && doc != null && !doc.trim().isBlank()) {
+                List<Long> existing = jdbcTemplate.query(
+                        "SELECT ID_PERSONA FROM PERSONAS WHERE NUMERO_DOCUMENTO = :doc",
+                        Map.of("doc", doc.trim()),
+                        (rs, rowNum) -> rs.getLong("ID_PERSONA")
                 );
-                if (!uIds.isEmpty()) idUsuario = uIds.get(0);
+                if (!existing.isEmpty()) {
+                    idPersona = existing.get(0);
+                }
             }
-            if (idUsuario == null) {
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                        .body(ApiResponse.error("No se pudo generar el ID del usuario"));
+
+            if (idPersona != null) {
+                List<Map<String, Object>> existingUsers = jdbcTemplate.queryForList(
+                        "SELECT ID_USUARIO, NOMBRE_USUARIO, EMAIL, ESTADO FROM USUARIOS WHERE ID_PERSONA = :p",
+                        Map.of("p", idPersona)
+                );
+                if (!existingUsers.isEmpty()) {
+                    Long foundUid = ((Number) existingUsers.get(0).get("ID_USUARIO")).longValue();
+                    // Verificar asignaciones activas
+                    List<Map<String, Object>> activeAssignments = jdbcTemplate.queryForList(
+                            "SELECT ua.ID_ASIGNACION, ua.ID_UNIDAD, ua.ID_PROPIEDAD, r.CODIGO AS ROL_CODIGO " +
+                            "FROM USUARIO_ASIGNACIONES ua JOIN ROLES r ON r.ID_ROL = ua.ID_ROL " +
+                            "WHERE ua.ID_USUARIO = :uid AND ua.ESTADO IN ('ACTIVA', 'ACTIVO')",
+                            Map.of("uid", foundUid)
+                    );
+
+                    if ("RESIDENTE".equals(callerRole)) {
+                        boolean hasAdminRole = false;
+                        boolean activeInSameUnit = false;
+                        for (Map<String, Object> a : activeAssignments) {
+                            String rCode = (String) a.get("ROL_CODIGO");
+                            if ("SUPERADMIN".equals(rCode) || "ADMIN_ORGANIZACION".equals(rCode) || "ADMIN_PROPIEDAD".equals(rCode)) {
+                                hasAdminRole = true;
+                            }
+                            Object u = a.get("ID_UNIDAD");
+                            if (u != null && targetUnitId != null && targetUnitId.equals(((Number) u).longValue())) {
+                                activeInSameUnit = true;
+                            }
+                        }
+                        if (hasAdminRole) {
+                            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                                    .body(ApiResponse.error("La persona cuenta con un rol administrativo en el sistema y no puede ser vinculada como conviviente"));
+                        }
+                        if (activeInSameUnit) {
+                            return ResponseEntity.status(HttpStatus.CONFLICT)
+                                    .body(ApiResponse.error("Ya existe una cuenta de usuario activa vinculada a esta persona en su unidad"));
+                        }
+                    }
+                    existingUserToReactivate = foundUid;
+                }
+            }
+
+            // Verificar unicidad de username (permitiendo reutilización si es la misma cuenta que se reactiva)
+            List<Long> uCheck = jdbcTemplate.query(
+                    "SELECT ID_USUARIO FROM USUARIOS WHERE LOWER(NOMBRE_USUARIO) = :u",
+                    new MapSqlParameterSource("u", username),
+                    (rs, r) -> rs.getLong(1)
+            );
+            if (!uCheck.isEmpty()) {
+                Long foundUid = uCheck.get(0);
+                if (existingUserToReactivate == null || !existingUserToReactivate.equals(foundUid)) {
+                    return ResponseEntity.badRequest().body(ApiResponse.error("El nombre de usuario '" + username + "' ya existe"));
+                }
+            }
+
+            // Verificar unicidad de email (permitiendo reutilización si es la misma cuenta que se reactiva)
+            if (userEmail != null && !userEmail.trim().isBlank()) {
+                List<Long> eCheck = jdbcTemplate.query(
+                        "SELECT ID_USUARIO FROM USUARIOS WHERE LOWER(EMAIL) = :e",
+                        Map.of("e", userEmail.trim().toLowerCase()),
+                        (rs, r) -> rs.getLong(1)
+                );
+                if (!eCheck.isEmpty()) {
+                    Long foundEUid = eCheck.get(0);
+                    if (existingUserToReactivate == null || !existingUserToReactivate.equals(foundEUid)) {
+                        return ResponseEntity.status(HttpStatus.CONFLICT)
+                                .body(ApiResponse.error("El correo electrónico '" + userEmail + "' ya se encuentra registrado en otra cuenta"));
+                    }
+                }
+            }
+
+            String primerNombre = (String) payload.getOrDefault("primerNombre", username);
+            String primerApellido = (String) payload.getOrDefault("primerApellido", "PORTERO".equals(rol) ? "Vigilancia" : "Usuario");
+            String tel = (String) payload.getOrDefault("telefono", "");
+
+            if (idPersona == null) {
+                String docFinal = (doc != null && !doc.trim().isBlank()) ? doc.trim() : "DOC-" + System.currentTimeMillis();
+                Object tipoDocObj = payload.getOrDefault("tipoDocumentoId", payload.get("idTipoDocumento"));
+                Long idTipoDoc = 1L;
+                if (tipoDocObj != null) {
+                    try { idTipoDoc = Long.valueOf(tipoDocObj.toString()); } catch (Exception ignored) {}
+                }
+
+                KeyHolder khPersona = new GeneratedKeyHolder();
+                String sqlPersona = """
+                    INSERT INTO PERSONAS (ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, PRIMER_NOMBRE, PRIMER_APELLIDO, EMAIL, TELEFONO, ESTADO)
+                    VALUES (:tipoDoc, :doc, 'NATURAL', :nombre, :apellido, :email, :tel, 'ACTIVO')
+                    """;
+                MapSqlParameterSource paramP = new MapSqlParameterSource()
+                        .addValue("tipoDoc", idTipoDoc)
+                        .addValue("doc", docFinal)
+                        .addValue("nombre", primerNombre)
+                        .addValue("apellido", primerApellido)
+                        .addValue("email", userEmail)
+                        .addValue("tel", tel);
+                jdbcTemplate.update(sqlPersona, paramP, khPersona, new String[]{"ID_PERSONA"});
+                idPersona = extractGeneratedKey(khPersona, "ID_PERSONA");
+                if (idPersona == null) {
+                    List<Long> pIds = jdbcTemplate.query(
+                        "SELECT ID_PERSONA FROM PERSONAS WHERE NUMERO_DOCUMENTO = :doc",
+                        Map.of("doc", docFinal),
+                        (rs, r) -> rs.getLong("ID_PERSONA")
+                    );
+                    if (!pIds.isEmpty()) idPersona = pIds.get(0);
+                }
+            } else {
+                jdbcTemplate.update("""
+                    UPDATE PERSONAS
+                    SET PRIMER_NOMBRE = COALESCE(:nombre, PRIMER_NOMBRE),
+                        PRIMER_APELLIDO = COALESCE(:apellido, PRIMER_APELLIDO),
+                        EMAIL = :email,
+                        TELEFONO = COALESCE(:tel, TELEFONO),
+                        ESTADO = 'ACTIVO'
+                    WHERE ID_PERSONA = :pid
+                """, Map.of(
+                    "nombre", primerNombre,
+                    "apellido", primerApellido,
+                    "email", userEmail,
+                    "tel", tel,
+                    "pid", idPersona
+                ));
+            }
+
+            // 2. Insertar o Reactivar USUARIO
+            if (existingUserToReactivate != null) {
+                idUsuario = existingUserToReactivate;
+                jdbcTemplate.update("""
+                    UPDATE USUARIOS
+                    SET NOMBRE_USUARIO = :username,
+                        EMAIL = :email,
+                        HASH_PASSWORD = :pwd,
+                        ESTADO = 'ACTIVO',
+                        INTENTOS_FALLIDOS = 0
+                    WHERE ID_USUARIO = :id
+                """, Map.of(
+                    "username", username,
+                    "email", userEmail,
+                    "pwd", passwordEncoder.encode(rawPassword.trim()),
+                    "id", idUsuario
+                ));
+            } else {
+                KeyHolder khUsuario = new GeneratedKeyHolder();
+                String sqlUsuario = """
+                    INSERT INTO USUARIOS (ID_PERSONA, NOMBRE_USUARIO, EMAIL, HASH_PASSWORD, ESTADO, INTENTOS_FALLIDOS)
+                    VALUES (:idPersona, :username, :email, :pwd, 'ACTIVO', 0)
+                    """;
+                MapSqlParameterSource paramU = new MapSqlParameterSource()
+                        .addValue("idPersona", idPersona)
+                        .addValue("username", username)
+                        .addValue("email", userEmail)
+                        .addValue("pwd", passwordEncoder.encode(rawPassword.trim()));
+                jdbcTemplate.update(sqlUsuario, paramU, khUsuario, new String[]{"ID_USUARIO"});
+                idUsuario = extractGeneratedKey(khUsuario, "ID_USUARIO");
+                if (idUsuario == null) {
+                    List<Long> uIds = jdbcTemplate.query(
+                        "SELECT ID_USUARIO FROM USUARIOS WHERE LOWER(NOMBRE_USUARIO) = :u",
+                        Map.of("u", username),
+                        (rs, r) -> rs.getLong("ID_USUARIO")
+                    );
+                    if (!uIds.isEmpty()) idUsuario = uIds.get(0);
+                }
+                if (idUsuario == null) {
+                    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                            .body(ApiResponse.error("No se pudo generar el ID del usuario"));
+                }
             }
 
             // 3. Obtener ID_ROL
@@ -441,17 +518,45 @@ public class UsuarioController {
                 } catch (Exception ignored) {}
             }
 
-            String sqlAsig = """
-                INSERT INTO USUARIO_ASIGNACIONES (ID_USUARIO, ID_ROL, ID_ORGANIZACION, ID_PROPIEDAD, ID_UNIDAD, ESTADO, FECHA_INICIO)
-                VALUES (:idUsuario, :idRol, :orgId, :propId, :idUnidad, 'ACTIVA', TRUNC(SYSDATE))
-                """;
-            MapSqlParameterSource paramA = new MapSqlParameterSource()
-                    .addValue("idUsuario", idUsuario)
-                    .addValue("idRol", idRol)
-                    .addValue("orgId", effectiveOrgId)
-                    .addValue("propId", effectivePropId)
-                    .addValue("idUnidad", idUnidad);
-            jdbcTemplate.update(sqlAsig, paramA);
+            // Verificar si ya existe asignación previa para esta unidad o si se crea nueva
+            List<Long> asigExistentes = List.of();
+            if (idUnidad != null) {
+                asigExistentes = jdbcTemplate.query(
+                    "SELECT ID_ASIGNACION FROM USUARIO_ASIGNACIONES WHERE ID_USUARIO = :uid AND ID_UNIDAD = :u",
+                    Map.of("uid", idUsuario, "u", idUnidad),
+                    (rs, r) -> rs.getLong(1)
+                );
+            }
+
+            if (!asigExistentes.isEmpty()) {
+                jdbcTemplate.update("""
+                    UPDATE USUARIO_ASIGNACIONES
+                    SET ID_ROL = :idRol,
+                        ID_ORGANIZACION = :orgId,
+                        ID_PROPIEDAD = :propId,
+                        ESTADO = 'ACTIVA',
+                        FECHA_INICIO = TRUNC(SYSDATE),
+                        FECHA_FIN = NULL
+                    WHERE ID_ASIGNACION = :asigId
+                """, Map.of(
+                    "idRol", idRol,
+                    "orgId", effectiveOrgId,
+                    "propId", effectivePropId,
+                    "asigId", asigExistentes.get(0)
+                ));
+            } else {
+                String sqlAsig = """
+                    INSERT INTO USUARIO_ASIGNACIONES (ID_USUARIO, ID_ROL, ID_ORGANIZACION, ID_PROPIEDAD, ID_UNIDAD, ESTADO, FECHA_INICIO)
+                    VALUES (:idUsuario, :idRol, :orgId, :propId, :idUnidad, 'ACTIVA', TRUNC(SYSDATE))
+                    """;
+                MapSqlParameterSource paramA = new MapSqlParameterSource()
+                        .addValue("idUsuario", idUsuario)
+                        .addValue("idRol", idRol)
+                        .addValue("orgId", effectiveOrgId)
+                        .addValue("propId", effectivePropId)
+                        .addValue("idUnidad", idUnidad);
+                jdbcTemplate.update(sqlAsig, paramA);
+            }
 
             // Si es habitante de unidad, asegurar registro en RESIDENTES_UNIDAD
             if (idUnidad != null && ("RESIDENTE".equals(rol) || "RESIDENTE_CONVIVENCIA".equals(rol))) {

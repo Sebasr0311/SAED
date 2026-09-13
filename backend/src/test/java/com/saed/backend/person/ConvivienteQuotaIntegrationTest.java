@@ -495,4 +495,78 @@ public class ConvivienteQuotaIntegrationTest {
         );
         assertEquals(1, usrCount, "El usuario debe existir en USUARIOS");
     }
+
+    @Test
+    @Order(14)
+    @DisplayName("P2-02 [REQ-15-REAC]: Residente puede re-crear/reactivar un conviviente eliminado previamente con el mismo documento y usuario")
+    public void test14_ResidentCanRecreateOrReactivatePreviouslyDeletedConvivienteAccount() {
+        setResidentAuth(TEST_UNIT_ID);
+
+        String testUsername = "reac_" + System.currentTimeMillis();
+        String testEmail = testUsername + "@saedtest.com";
+        String testDoc = "DOC" + (System.currentTimeMillis() % 1000000000);
+
+        Map<String, Object> payload = Map.of(
+                "nombreUsuario", testUsername,
+                "password", "Password123!",
+                "email", testEmail,
+                "primerNombre", "Juan",
+                "primerApellido", "Conviviente",
+                "tipoDocumentoId", 1L,
+                "numeroDocumento", testDoc,
+                "telefono", "3007654321",
+                "rol", "RESIDENTE_CONVIVENCIA",
+                "idUnidad", TEST_UNIT_ID
+        );
+
+        // 1. Crear por primera vez
+        ResponseEntity<com.saed.backend.common.dto.ApiResponse<Map<String, Object>>> resp1 =
+                usuarioController.crearUsuario(payload);
+        assertNotNull(resp1);
+        assertEquals(201, resp1.getStatusCode().value());
+        Number idUsuario1 = (Number) resp1.getBody().getData().get("idUsuario");
+        assertNotNull(idUsuario1);
+
+        // 2. Simular eliminación/desvinculación del conviviente de la unidad
+        setSuperadminAuth();
+        try {
+            jdbcTemplate.execute("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1); PKG_SAED_SESSION.SET_CONTEXT(1, 1, 1, 'SUPERADMIN'); END;");
+        } catch (Exception ignored) {}
+        jdbcTemplate.update("UPDATE RESIDENTES_UNIDAD SET ESTADO = 'INACTIVO' WHERE ID_UNIDAD = ? AND TIPO_RESIDENTE = 'CONVIVIENTE'", TEST_UNIT_ID);
+        jdbcTemplate.update("UPDATE USUARIOS SET ESTADO = 'INACTIVO' WHERE ID_USUARIO = ?", idUsuario1.longValue());
+        jdbcTemplate.update("UPDATE USUARIO_ASIGNACIONES SET ESTADO = 'INACTIVA' WHERE ID_USUARIO = ?", idUsuario1.longValue());
+
+        // 3. Volver a registrar con la misma cédula y mismo username
+        setResidentAuth(TEST_UNIT_ID);
+        ResponseEntity<com.saed.backend.common.dto.ApiResponse<Map<String, Object>>> resp2 =
+                usuarioController.crearUsuario(payload);
+
+        assertNotNull(resp2);
+        assertEquals(201, resp2.getStatusCode().value(), () -> "Reactivation failed: " + (resp2.getBody() != null ? resp2.getBody().getMessage() : "null"));
+        assertNotNull(resp2.getBody());
+        assertEquals("success", resp2.getBody().getStatus());
+
+        Number idUsuario2 = (Number) resp2.getBody().getData().get("idUsuario");
+        assertEquals(idUsuario1.longValue(), idUsuario2.longValue(), "Debe reactivar la cuenta de usuario existente");
+
+        // 4. Verificar bajo SUPERADMIN que el usuario y asignaciones están activos
+        setSuperadminAuth();
+        try {
+            jdbcTemplate.execute("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1); PKG_SAED_SESSION.SET_CONTEXT(1, 1, 1, 'SUPERADMIN'); END;");
+        } catch (Exception ignored) {}
+        String userEstado = jdbcTemplate.queryForObject(
+                "SELECT ESTADO FROM USUARIOS WHERE ID_USUARIO = ?",
+                String.class,
+                idUsuario1.longValue()
+        );
+        assertEquals("ACTIVO", userEstado, "El usuario debe quedar ACTIVO");
+
+        Integer activeAsigs = jdbcTemplate.queryForObject(
+                "SELECT COUNT(1) FROM USUARIO_ASIGNACIONES WHERE ID_USUARIO = ? AND ESTADO = 'ACTIVA' AND ID_UNIDAD = ?",
+                Integer.class,
+                idUsuario1.longValue(),
+                TEST_UNIT_ID
+        );
+        assertTrue(activeAsigs != null && activeAsigs >= 1, "Debe tener asignación ACTIVA a la unidad");
+    }
 }

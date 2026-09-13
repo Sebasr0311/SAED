@@ -227,38 +227,34 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
                 jdbcTemplate.execute("ALTER TABLE ROLES ADD CONSTRAINT CK_ROLES_CODIGO CHECK (codigo IN ('SUPERADMIN', 'ADMIN_ORGANIZACION', 'PROPIETARIO', 'ADMIN_GENERAL', 'ADMIN_PROPIEDAD', 'PORTERO', 'VIGILANTE', 'RESIDENTE', 'RESIDENTE_CONVIVENCIA', 'PROPIETARIO_UNIDAD'))");
             } catch (Exception ignored) {}
 
-            runElevated("NULL");
-            // Asegurar rol canónico RESIDENTE_CONVIVENCIA
+            // Ejecutar contexto y MERGE en el mismo bloque atómico para evitar ORA-28115 por RLS
             jdbcTemplate.execute("""
-                MERGE INTO ROLES r USING (
-                    SELECT 'RESIDENTE_CONVIVENCIA' AS CODIGO,
-                           'Residente Conviviente' AS NOMBRE,
-                           'UNIDAD' AS ALCANCE,
-                           'ACTIVO' AS ESTADO
-                    FROM DUAL
-                ) s ON (r.CODIGO = s.CODIGO)
-                WHEN NOT MATCHED THEN
-                    INSERT (CODIGO, NOMBRE, ALCANCE, ESTADO)
-                    VALUES (s.CODIGO, s.NOMBRE, s.ALCANCE, s.ESTADO)
-            """);
+                BEGIN
+                    BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1); EXCEPTION WHEN OTHERS THEN NULL; END;
+                    BEGIN PKG_SAED_SESSION.SET_CONTEXT(1, 1, 1, 'SUPERADMIN'); EXCEPTION WHEN OTHERS THEN NULL; END;
 
-            // Asegurar rol canónico PROPIETARIO
-            jdbcTemplate.execute("""
-                MERGE INTO ROLES r USING (
-                    SELECT 'PROPIETARIO' AS CODIGO,
-                           'Propietario No Residente' AS NOMBRE,
-                           'UNIDAD' AS ALCANCE,
-                           'ACTIVO' AS ESTADO
-                    FROM DUAL
-                ) s ON (r.CODIGO = s.CODIGO)
-                WHEN NOT MATCHED THEN
-                    INSERT (CODIGO, NOMBRE, ALCANCE, ESTADO)
-                    VALUES (s.CODIGO, s.NOMBRE, s.ALCANCE, s.ESTADO)
-            """);
+                    MERGE INTO ROLES r USING (
+                        SELECT 'RESIDENTE_CONVIVENCIA' AS CODIGO,
+                               'Residente Conviviente' AS NOMBRE,
+                               'UNIDAD' AS ALCANCE,
+                               'ACTIVO' AS ESTADO
+                        FROM DUAL
+                    ) s ON (r.CODIGO = s.CODIGO)
+                    WHEN NOT MATCHED THEN
+                        INSERT (CODIGO, NOMBRE, ALCANCE, ESTADO)
+                        VALUES (s.CODIGO, s.NOMBRE, s.ALCANCE, s.ESTADO);
 
-            // Auto-reparar asignaciones de usuarios convivientes creados previamente
-            try {
-                jdbcTemplate.execute("""
+                    MERGE INTO ROLES r USING (
+                        SELECT 'PROPIETARIO' AS CODIGO,
+                               'Propietario No Residente' AS NOMBRE,
+                               'UNIDAD' AS ALCANCE,
+                               'ACTIVO' AS ESTADO
+                        FROM DUAL
+                    ) s ON (r.CODIGO = s.CODIGO)
+                    WHEN NOT MATCHED THEN
+                        INSERT (CODIGO, NOMBRE, ALCANCE, ESTADO)
+                        VALUES (s.CODIGO, s.NOMBRE, s.ALCANCE, s.ESTADO);
+
                     UPDATE USUARIO_ASIGNACIONES ua
                     SET ua.ID_ROL = (SELECT ID_ROL FROM ROLES WHERE CODIGO = 'RESIDENTE_CONVIVENCIA')
                     WHERE ua.ID_USUARIO IN (
@@ -266,11 +262,9 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
                         JOIN RESIDENTES_UNIDAD ru ON ru.ID_PERSONA = u.ID_PERSONA
                         WHERE ru.TIPO_RESIDENTE = 'CONVIVIENTE'
                     )
-                    AND ua.ID_ROL = (SELECT ID_ROL FROM ROLES WHERE CODIGO = 'RESIDENTE')
-                """);
-            } catch (Exception e) {
-                log.debug("[SchemaInit] Aviso al auto-reparar asignaciones de conviviente: {}", e.getMessage());
-            }
+                    AND ua.ID_ROL = (SELECT ID_ROL FROM ROLES WHERE CODIGO = 'RESIDENTE');
+                END;
+            """);
 
             log.info("[SchemaInit] Roles canónicos (RESIDENTE_CONVIVENCIA, PROPIETARIO) verificados exitosamente.");
         } catch (Exception e) {
