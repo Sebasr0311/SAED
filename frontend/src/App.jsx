@@ -520,12 +520,12 @@ export default function App() {
           <Route path="consumos-admin" element={<Navigate to="/consumos" replace />} />
           <Route path="consumos" element={<ProtectedRoute roles={['ADMIN_PROPIEDAD']}><ConsumosAdminPage /></ProtectedRoute>} />
           <Route path="automatizaciones-admin" element={<Navigate to="/automatizaciones" replace />} />
-          <Route path="automatizaciones" element={<ProtectedRoute roles={['ADMIN_PROPIEDAD', 'ADMIN_ORGANIZACION', 'SUPERADMIN']}><AutomatizacionesAdminPage /></ProtectedRoute>} />
+          <Route path="automatizaciones" element={<ProtectedRoute roles={['ADMIN_PROPIEDAD', 'ADMIN_ORGANIZACION']}><AutomatizacionesAdminPage /></ProtectedRoute>} />
           <Route path="incidentes-admin" element={<ProtectedRoute roles={['ADMIN_PROPIEDAD', 'PORTERO']}><IncidentesAdminPage /></ProtectedRoute>} />
           <Route
             path="comunicaciones"
             element={
-              <ProtectedRoute roles={['ADMIN_PROPIEDAD', 'ADMIN_ORGANIZACION', 'SUPERADMIN']}>
+              <ProtectedRoute roles={['ADMIN_PROPIEDAD', 'ADMIN_ORGANIZACION']}>
                 <ComunicacionesPage initialTab="todos" />
               </ProtectedRoute>
             }
@@ -533,7 +533,7 @@ export default function App() {
           <Route
             path="alertas"
             element={
-              <ProtectedRoute roles={['ADMIN_PROPIEDAD', 'ADMIN_ORGANIZACION', 'SUPERADMIN']}>
+              <ProtectedRoute roles={['ADMIN_PROPIEDAD', 'ADMIN_ORGANIZACION']}>
                 <ComunicacionesPage initialTab="alertas" />
               </ProtectedRoute>
             }
@@ -541,7 +541,7 @@ export default function App() {
           <Route
             path="avisos"
             element={
-              <ProtectedRoute roles={['ADMIN_PROPIEDAD', 'ADMIN_ORGANIZACION', 'SUPERADMIN']}>
+              <ProtectedRoute roles={['ADMIN_PROPIEDAD', 'ADMIN_ORGANIZACION']}>
                 <ComunicacionesPage initialTab="avisos" />
               </ProtectedRoute>
             }

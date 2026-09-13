@@ -53,7 +53,7 @@ const DEFAULT_HTML_TEMPLATE = `<h2>CONTRATO DE ARRENDAMIENTO DE VIVIENDA URBANA<
 <p>Entre los suscritos a saber, <strong>\${propiedad.nombre}</strong> (en adelante EL ARRENDADOR), ubicada en \${propiedad.direccion}, \${propiedad.ciudad}, y por la otra parte <strong>\${inquilino.nombre_completo}</strong>, identificado con \${inquilino.tipo_documento} No. \${inquilino.numero_documento} (en adelante EL ARRENDATARIO), se ha celebrado el presente contrato sobre el inmueble:</p>
 <ul>
   <li><strong>Unidad:</strong> Apartamento \${apartamento.numero} \${apartamento.bloque}</li>
-  <li><strong>Canon Mensual:</strong> \$\${contrato.canon_mensual} COP</li>
+  <li><strong>Canon Mensual:</strong> $\${contrato.canon_mensual} COP</li>
   <li><strong>Fecha de Inicio:</strong> \${contrato.fecha_inicio}</li>
   <li><strong>Fecha de Terminación:</strong> \${contrato.fecha_fin}</li>
 </ul>

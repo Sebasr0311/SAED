@@ -147,10 +147,41 @@ public class PorteriaController {
             estado = "PROGRAMADA";
         }
 
-        // Si el contexto actual es de RESIDENTE y tiene unidad asignada, vincularla directamente
-        if (SaedContextHolder.getContext() != null && "RESIDENTE".equals(SaedContextHolder.getContext().getRoleCode())) {
-            if (SaedContextHolder.getContext().getUnitId() != null) {
-                unidadId = SaedContextHolder.getContext().getUnitId();
+        SaedContext ctx = SaedContextHolder.getContext();
+        String roleCode = ctx != null ? ctx.getRoleCode() : null;
+        String roleScope = ctx != null ? ctx.getRoleScope() : null;
+
+        // Validar autorizacion de ambito residencial para RESIDENTE
+        if (ctx != null && ("RESIDENTE".equals(roleCode) || "UNIDAD".equals(roleScope))) {
+            Long userUnitId = ctx.getUnitId();
+            if (userUnitId == null && currentUserId != null) {
+                try {
+                    List<Long> uids = jdbcTemplate.query(
+                        "SELECT ID_UNIDAD FROM USUARIO_ASIGNACIONES WHERE ID_USUARIO = :u AND ESTADO IN ('ACTIVA', 'ACTIVO') AND ID_UNIDAD IS NOT NULL",
+                        Map.of("u", currentUserId), (rs, r) -> rs.getLong("ID_UNIDAD")
+                    );
+                    if (!uids.isEmpty()) {
+                        userUnitId = uids.get(0);
+                    }
+                } catch (Exception ignored) {}
+            }
+            if (userUnitId == null) {
+                throw new org.springframework.security.access.AccessDeniedException("El usuario no tiene una unidad residencial asignada");
+            }
+            if (unidadId != null && !userUnitId.equals(unidadId)) {
+                throw new org.springframework.security.access.AccessDeniedException("No tiene permisos para programar visitas en otra unidad");
+            }
+            unidadId = userUnitId;
+        } else if (ctx != null && "ADMIN_PROPIEDAD".equals(roleCode)) {
+            Long userPropId = ctx.getPropertyId();
+            if (userPropId != null && unidadId != null) {
+                List<Long> match = jdbcTemplate.query(
+                    "SELECT ID_UNIDAD FROM UNIDADES WHERE ID_UNIDAD = :u AND ID_PROPIEDAD = :p",
+                    Map.of("u", unidadId, "p", userPropId), (rs, r) -> rs.getLong("ID_UNIDAD")
+                );
+                if (match.isEmpty()) {
+                    throw new org.springframework.security.access.AccessDeniedException("La unidad no pertenece a la propiedad asignada");
+                }
             }
         }
 

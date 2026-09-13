@@ -118,6 +118,15 @@ public class PorteriaServiceImpl implements PorteriaService {
                 throw new org.springframework.security.access.AccessDeniedException("No tiene permisos para programar visitas en otra unidad");
             }
         }
+        if (ctx != null && "ADMIN_PROPIEDAD".equals(ctx.getRoleCode()) && ctx.getPropertyId() != null && request.unidadId() != null) {
+            List<Long> match = jdbcTemplate.query(
+                "SELECT ID_UNIDAD FROM UNIDADES WHERE ID_UNIDAD = :u AND ID_PROPIEDAD = :p",
+                Map.of("u", request.unidadId(), "p", ctx.getPropertyId()), (rs, r) -> rs.getLong("ID_UNIDAD")
+            );
+            if (match.isEmpty()) {
+                throw new org.springframework.security.access.AccessDeniedException("La unidad no pertenece a la propiedad asignada");
+            }
+        }
         return porteriaRepository.createVisita(request);
     }
 

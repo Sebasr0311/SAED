@@ -44,7 +44,7 @@ public class ObraServiceImpl implements ObraService {
                 .orElseThrow(() -> new IllegalArgumentException("Obra no encontrada o acceso denegado"));
                 
         String roleCode = SaedContextHolder.getContext().getRoleCode();
-        boolean isAdmin = "SUPERADMIN".equals(roleCode) || "ADMIN_PROPIEDAD".equals(roleCode);
+        boolean isAdmin = "ADMIN_ORGANIZACION".equals(roleCode) || "ADMIN_PROPIEDAD".equals(roleCode);
         
         if (!isAdmin) {
             Long userUnitId = SaedContextHolder.getContext().getUnitId();
@@ -61,7 +61,7 @@ public class ObraServiceImpl implements ObraService {
         Long idPropiedad = SaedContextHolder.getContext().getPropertyId();
         Long solicitadoPor = SaedContextHolder.getContext().getUserId();
         String roleCode = SaedContextHolder.getContext().getRoleCode();
-        boolean isAdmin = "SUPERADMIN".equals(roleCode) || "ADMIN_PROPIEDAD".equals(roleCode);
+        boolean isAdmin = "ADMIN_ORGANIZACION".equals(roleCode) || "ADMIN_PROPIEDAD".equals(roleCode);
         
         if (!isAdmin) {
             Long userUnitId = SaedContextHolder.getContext().getUnitId();

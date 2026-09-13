@@ -161,7 +161,9 @@ export default function RegistroOrganizacionPage() {
           duration: 350,
           ease: 'outCubic',
         });
-      } catch (e) {}
+      } catch {
+        // Animación opcional de transición de paso
+      }
     }
   }, [step]);
 
@@ -177,7 +179,9 @@ export default function RegistroOrganizacionPage() {
           ease: 'outQuad',
         });
       }
-    } catch (e) {}
+    } catch {
+      // Animación opcional de selector de ciclo
+    }
   }, [billingCycle]);
 
   // Micro-interacción elástica al seleccionar tarjeta de plan
@@ -190,7 +194,9 @@ export default function RegistroOrganizacionPage() {
           duration: 250,
           ease: 'outBack',
         });
-      } catch (err) {}
+      } catch {
+        // Animación elástica opcional
+      }
     }
   };
 
@@ -205,7 +211,9 @@ export default function RegistroOrganizacionPage() {
           duration: 250,
           ease: 'outBack',
         });
-      } catch (err) {}
+      } catch {
+        // Animación elástica opcional
+      }
     }
   };
 
@@ -456,7 +464,9 @@ export default function RegistroOrganizacionPage() {
               ease: 'inOutQuad',
             });
           }
-        } catch (e) {}
+        } catch {
+          // Animación opcional de error shake
+        }
       }, 50);
       return;
     }
@@ -522,7 +532,9 @@ export default function RegistroOrganizacionPage() {
               ease: 'inOutQuad',
             });
           }
-        } catch (e) {}
+        } catch {
+          // Animación opcional de error shake
+        }
       }, 50);
       return;
     }
@@ -628,7 +640,9 @@ export default function RegistroOrganizacionPage() {
                 setPagoAprobado(true);
                 setPollingPago(false);
               }
-            } catch (ignored) {}
+            } catch {
+              // Sondeo opcional de estado en background, continuar si falla
+            }
           }
         });
       } else {

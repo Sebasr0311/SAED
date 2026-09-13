@@ -502,4 +502,46 @@ public class AdminPropiedadAdversarialAuthorizationTest {
                 .header("X-Assignment-Id", foreignPropAssignment))
                 .andExpect(status().isForbidden());
     }
+
+    @Test
+    @DisplayName("Caso E: ADMIN_PROPIEDAD puede programar visita para unidad dentro de propiedad asignada")
+    public void adminProp_canProgramVisit_inAssignedProperty() throws Exception {
+        String token = jwtProvider.generateIdentityToken(userId);
+        String body = """
+            {
+                "unidadId": 1,
+                "visitanteId": 10,
+                "metodoIngreso": "CODIGO_QR",
+                "motivo": "Visita Autorizada Admin",
+                "estado": "PROGRAMADA"
+            }
+        """;
+        mockMvc.perform(post("/api/v1/porteria/visitas")
+                .header("Authorization", "Bearer " + token)
+                .header("X-Assignment-Id", propAdminAssignment1)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body))
+                .andExpect(status().isCreated());
+    }
+
+    @Test
+    @DisplayName("Caso F: ADMIN_PROPIEDAD no puede programar visita para unidad fuera de propiedad asignada (403 Forbidden)")
+    public void adminProp_cannotProgramVisit_outsideAssignedProperty() throws Exception {
+        String token = jwtProvider.generateIdentityToken(userId);
+        String body = """
+            {
+                "unidadId": 1,
+                "visitanteId": 10,
+                "metodoIngreso": "CODIGO_QR",
+                "motivo": "Visita Fuera de Propiedad",
+                "estado": "PROGRAMADA"
+            }
+        """;
+        mockMvc.perform(post("/api/v1/porteria/visitas")
+                .header("Authorization", "Bearer " + token)
+                .header("X-Assignment-Id", propAdminAssignment2)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body))
+                .andExpect(status().isForbidden());
+    }
 }

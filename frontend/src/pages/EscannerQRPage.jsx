@@ -270,7 +270,7 @@ export default function EscannerQRPage() {
       return;
     }
 
-    let stream = null;
+    let stream;
     try {
       // Intento 1: Cámara trasera en dispositivos móviles
       stream = await navigator.mediaDevices.getUserMedia({

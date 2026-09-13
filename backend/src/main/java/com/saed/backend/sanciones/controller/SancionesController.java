@@ -26,7 +26,7 @@ public class SancionesController {
 
     @Operation(summary = "Listar todas las sanciones de la propiedad para administradores")
     @GetMapping("/todas")
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<List<SancionDTO>> getAllSanciones() {
         return ResponseEntity.ok(sancionService.getAllSanciones());
     }
@@ -40,7 +40,7 @@ public class SancionesController {
 
     @Operation(summary = "Abrir un pliego de cargos formal con debido proceso")
     @PostMapping
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<SancionDTO> crearPliego(@Valid @RequestBody SancionCreateRequestDTO request) {
         SancionDTO creada = sancionService.crearPliego(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(creada);
@@ -57,7 +57,7 @@ public class SancionesController {
 
     @Operation(summary = "Emitir resolución de fondo (Aplicada, Absuelta, Anulada) por el Consejo/Administración")
     @PostMapping("/{id}/resolucion")
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<Map<String, String>> emitirResolucion(@PathVariable Long id,
                                                                  @Valid @RequestBody ResolucionRequestDTO request) {
         sancionService.emitirResolucion(id, request);

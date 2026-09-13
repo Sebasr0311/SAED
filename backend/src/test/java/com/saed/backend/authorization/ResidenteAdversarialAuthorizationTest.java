@@ -362,7 +362,20 @@ public class ResidenteAdversarialAuthorizationTest {
     }
 
     @Test
-    @DisplayName("IDOR / CROSS-UNIT: RESIDENTE no puede programar visitas para otra unidad")
+    @DisplayName("Caso A: RESIDENTE puede programar visita para su propia unidad residencial")
+    void residente_casoA_canProgramVisitForOwnUnit() throws Exception {
+        String token = jwtProvider.generateIdentityToken(resUserId1);
+        VisitaRequestDTO req = new VisitaRequestDTO(1L, 10L, "CODIGO_QR", "Visita Familiar", null, ZonedDateTime.now().plusHours(2), "PROGRAMADA");
+        mockMvc.perform(post("/api/v1/porteria/visitas")
+                .header("Authorization", "Bearer " + token)
+                .header("X-Assignment-Id", resAssignment1)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isCreated());
+    }
+
+    @Test
+    @DisplayName("Caso B: IDOR / CROSS-UNIT: RESIDENTE no puede programar visitas para otra unidad")
     void residente_cannotProgramVisitForOtherUnit() throws Exception {
         String token = jwtProvider.generateIdentityToken(resUserId1);
         VisitaRequestDTO req = new VisitaRequestDTO(2L, 10L, "CODIGO_QR", "Ataque", null, ZonedDateTime.now().plusHours(2), "PROGRAMADA");
@@ -371,6 +384,40 @@ public class ResidenteAdversarialAuthorizationTest {
                 .header("X-Assignment-Id", resAssignment1)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("Caso C: RESIDENTE no puede programar visitas para una unidad de otra propiedad (403 Forbidden)")
+    void residente_cannotProgramVisitForOtherPropertyUnit() throws Exception {
+        String token = jwtProvider.generateIdentityToken(resUserId1);
+        VisitaRequestDTO req = new VisitaRequestDTO(999999L, 10L, "CODIGO_QR", "Ataque Cross-Prop", null, ZonedDateTime.now().plusHours(2), "PROGRAMADA");
+        mockMvc.perform(post("/api/v1/porteria/visitas")
+                .header("Authorization", "Bearer " + token)
+                .header("X-Assignment-Id", resAssignment1)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("Caso D: RESIDENTE con id_unidad manipulado directamente en JSON recibe 403 Forbidden")
+    void residente_cannotProgramVisitWithDirectlyManipulatedUnitId() throws Exception {
+        String token = jwtProvider.generateIdentityToken(resUserId1);
+        String rawJson = """
+            {
+                "unidadId": 2,
+                "visitanteId": 10,
+                "metodoIngreso": "CODIGO_QR",
+                "motivo": "Manipulacion Directa JSON",
+                "estado": "PROGRAMADA"
+            }
+        """;
+        mockMvc.perform(post("/api/v1/porteria/visitas")
+                .header("Authorization", "Bearer " + token)
+                .header("X-Assignment-Id", resAssignment1)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(rawJson))
                 .andExpect(status().isForbidden());
     }
 

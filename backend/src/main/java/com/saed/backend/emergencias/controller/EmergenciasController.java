@@ -33,7 +33,7 @@ public class EmergenciasController {
 
     @Operation(summary = "Resumen de planes y contactos de emergencia")
     @GetMapping("/resumen")
-    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_SUPERADMIN', 'SCOPE_PORTERO', 'SCOPE_RESIDENTE')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_PORTERO', 'SCOPE_RESIDENTE')")
     public ResponseEntity<EmergenciasSummaryDTO> getResumen() {
         return ResponseEntity.ok(service.getResumen());
     }
@@ -44,14 +44,14 @@ public class EmergenciasController {
 
     @Operation(summary = "Listar planes de emergencia de la copropiedad")
     @GetMapping("/planes")
-    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_SUPERADMIN', 'SCOPE_PORTERO', 'SCOPE_RESIDENTE')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_PORTERO', 'SCOPE_RESIDENTE')")
     public ResponseEntity<List<PlanEmergenciaDTO>> getAllPlanes() {
         return ResponseEntity.ok(service.getAllPlanes());
     }
 
     @Operation(summary = "Obtener detalle de un plan de emergencia")
     @GetMapping("/planes/{id}")
-    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_SUPERADMIN', 'SCOPE_PORTERO', 'SCOPE_RESIDENTE')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_PORTERO', 'SCOPE_RESIDENTE')")
     public ResponseEntity<PlanEmergenciaDTO> getPlanById(@PathVariable Long id) {
         return ResponseEntity.ok(service.getPlanById(id));
     }
@@ -89,21 +89,21 @@ public class EmergenciasController {
 
     @Operation(summary = "Listar todos los contactos de emergencia")
     @GetMapping("/contactos")
-    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_SUPERADMIN', 'SCOPE_PORTERO', 'SCOPE_RESIDENTE')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_PORTERO', 'SCOPE_RESIDENTE')")
     public ResponseEntity<List<ContactoEmergenciaDTO>> getAllContactos() {
         return ResponseEntity.ok(service.getAllContactos());
     }
 
     @Operation(summary = "Directorio rápido / minuta de portería (contactos prioritarios)")
     @GetMapping("/contactos/minuta")
-    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_SUPERADMIN', 'SCOPE_PORTERO', 'SCOPE_RESIDENTE')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_PORTERO', 'SCOPE_RESIDENTE')")
     public ResponseEntity<List<ContactoEmergenciaDTO>> getContactosMinuta() {
         return ResponseEntity.ok(service.getContactosMinuta());
     }
 
     @Operation(summary = "Obtener detalle de un contacto de emergencia")
     @GetMapping("/contactos/{id}")
-    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_SUPERADMIN', 'SCOPE_PORTERO', 'SCOPE_RESIDENTE')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_PORTERO', 'SCOPE_RESIDENTE')")
     public ResponseEntity<ContactoEmergenciaDTO> getContactoById(@PathVariable Long id) {
         return ResponseEntity.ok(service.getContactoById(id));
     }

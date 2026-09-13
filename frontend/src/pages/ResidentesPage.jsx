@@ -24,6 +24,7 @@ import {
   AlertTriangle,
   UserMinus,
   Info,
+  Eye,
 } from 'lucide-react';
 import {
   valNombre,
