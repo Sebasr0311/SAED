@@ -20,19 +20,49 @@ public class UnitInhabitantServiceImpl implements UnitInhabitantService {
     
     private final UnitInhabitantRepository unitInhabitantRepository;
     private final com.saed.backend.person.service.ConvivienteQuotaService convivienteQuotaService;
+    private final org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbcTemplate;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public UnitInhabitantServiceImpl(UnitInhabitantRepository unitInhabitantRepository,
+                                    com.saed.backend.person.service.ConvivienteQuotaService convivienteQuotaService,
+                                    org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbcTemplate) {
+        this.unitInhabitantRepository = unitInhabitantRepository;
+        this.convivienteQuotaService = convivienteQuotaService;
+        this.jdbcTemplate = jdbcTemplate;
+    }
 
     public UnitInhabitantServiceImpl(UnitInhabitantRepository unitInhabitantRepository,
                                     com.saed.backend.person.service.ConvivienteQuotaService convivienteQuotaService) {
-        this.unitInhabitantRepository = unitInhabitantRepository;
-        this.convivienteQuotaService = convivienteQuotaService;
+        this(unitInhabitantRepository, convivienteQuotaService, null);
+    }
+
+    private Long resolveResidentUnitId(com.saed.backend.context.SaedContext ctx) {
+        if (ctx == null) return null;
+        if (ctx.getUnitId() != null) return ctx.getUnitId();
+        if (ctx.getUserId() != null && jdbcTemplate != null) {
+            try {
+                List<Long> uList = jdbcTemplate.queryForList(
+                    "SELECT ID_UNIDAD FROM RESIDENTES_UNIDAD ru JOIN USUARIOS u ON ru.ID_PERSONA = u.ID_PERSONA WHERE u.ID_USUARIO = :uid AND ru.ESTADO = 'ACTIVO' AND ROWNUM = 1",
+                    java.util.Map.of("uid", ctx.getUserId()), Long.class
+                );
+                if (!uList.isEmpty()) return uList.get(0);
+                List<Long> aList = jdbcTemplate.queryForList(
+                    "SELECT ID_UNIDAD FROM USUARIO_ASIGNACIONES WHERE ID_USUARIO = :uid AND ESTADO = 'ACTIVA' AND ID_UNIDAD IS NOT NULL AND ROWNUM = 1",
+                    java.util.Map.of("uid", ctx.getUserId()), Long.class
+                );
+                if (!aList.isEmpty()) return aList.get(0);
+            } catch (Exception ignored) {}
+        }
+        return null;
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<UnitOwnerDTO> getOwnersByUnitId(Long unitId) {
         com.saed.backend.context.SaedContext ctx = com.saed.backend.context.SaedContextHolder.getContext();
-        if ("RESIDENTE".equals(ctx.getRoleCode()) || "UNIDAD".equals(ctx.getRoleScope())) {
-            if (ctx.getUnitId() != null && !ctx.getUnitId().equals(unitId)) {
+        if (ctx != null && ("RESIDENTE".equals(ctx.getRoleCode()) || "UNIDAD".equals(ctx.getRoleScope()))) {
+            Long callerUnitId = resolveResidentUnitId(ctx);
+            if (callerUnitId != null && !callerUnitId.equals(unitId)) {
                 throw new org.springframework.security.access.AccessDeniedException("No tiene permisos para consultar habitantes de otra unidad");
             }
         }
@@ -50,8 +80,9 @@ public class UnitInhabitantServiceImpl implements UnitInhabitantService {
     @Transactional(readOnly = true)
     public List<UnitResidentDTO> getResidentsByUnitId(Long unitId) {
         com.saed.backend.context.SaedContext ctx = com.saed.backend.context.SaedContextHolder.getContext();
-        if ("RESIDENTE".equals(ctx.getRoleCode()) || "UNIDAD".equals(ctx.getRoleScope())) {
-            if (ctx.getUnitId() != null && !ctx.getUnitId().equals(unitId)) {
+        if (ctx != null && ("RESIDENTE".equals(ctx.getRoleCode()) || "UNIDAD".equals(ctx.getRoleScope()))) {
+            Long callerUnitId = resolveResidentUnitId(ctx);
+            if (callerUnitId != null && !callerUnitId.equals(unitId)) {
                 throw new org.springframework.security.access.AccessDeniedException("No tiene permisos para consultar habitantes de otra unidad");
             }
         }
@@ -64,7 +95,8 @@ public class UnitInhabitantServiceImpl implements UnitInhabitantService {
     public Long addResident(Long unitId, UnitResidentRequestDTO request) {
         com.saed.backend.context.SaedContext ctx = com.saed.backend.context.SaedContextHolder.getContext();
         if (ctx != null && ("RESIDENTE".equals(ctx.getRoleCode()) || "UNIDAD".equals(ctx.getRoleScope()))) {
-            if (ctx.getUnitId() != null && !ctx.getUnitId().equals(unitId)) {
+            Long callerUnitId = resolveResidentUnitId(ctx);
+            if (callerUnitId != null && !callerUnitId.equals(unitId)) {
                 throw new org.springframework.security.access.AccessDeniedException("No tiene permisos para registrar convivientes en otra unidad");
             }
             if ("PROPIETARIO".equalsIgnoreCase(request.tipoResidente()) || "ARRENDATARIO".equalsIgnoreCase(request.tipoResidente())) {
@@ -87,13 +119,21 @@ public class UnitInhabitantServiceImpl implements UnitInhabitantService {
     public void updateResidentStatus(Long unitId, Long residentId, String status) {
         com.saed.backend.context.SaedContext ctx = com.saed.backend.context.SaedContextHolder.getContext();
         if (ctx != null && ("RESIDENTE".equals(ctx.getRoleCode()) || "UNIDAD".equals(ctx.getRoleScope()))) {
-            if (ctx.getUnitId() != null && !ctx.getUnitId().equals(unitId)) {
+            Long callerUnitId = resolveResidentUnitId(ctx);
+            if (callerUnitId != null && !callerUnitId.equals(unitId)) {
                 throw new org.springframework.security.access.AccessDeniedException("No tiene permisos para modificar habitantes de otra unidad");
             }
         }
 
-        unitInhabitantRepository.findResidentByIdAndUnitId(unitId, residentId)
+        UnitResidentDTO resident = unitInhabitantRepository.findResidentByIdAndUnitId(unitId, residentId)
                 .orElseThrow(() -> new java.util.NoSuchElementException("Habitante no encontrado en la unidad indicada"));
+
+        if (ctx != null && ("RESIDENTE".equals(ctx.getRoleCode()) || "UNIDAD".equals(ctx.getRoleScope()))) {
+            String tipo = resident.tipoResidente() != null ? resident.tipoResidente().toUpperCase() : "";
+            if ("PROPIETARIO".equals(tipo) || "ARRENDATARIO".equals(tipo) || "TITULAR".equals(tipo) || "PRINCIPAL".equals(tipo)) {
+                throw new org.springframework.security.access.AccessDeniedException("No se puede modificar ni desvincular al titular principal de la unidad");
+            }
+        }
 
         if ("ACTIVO".equalsIgnoreCase(status)) {
             convivienteQuotaService.validateAndLockQuotaForReactivation(unitId, residentId);
@@ -111,13 +151,21 @@ public class UnitInhabitantServiceImpl implements UnitInhabitantService {
     public void unlinkResident(Long unitId, Long residentId) {
         com.saed.backend.context.SaedContext ctx = com.saed.backend.context.SaedContextHolder.getContext();
         if (ctx != null && ("RESIDENTE".equals(ctx.getRoleCode()) || "UNIDAD".equals(ctx.getRoleScope()))) {
-            if (ctx.getUnitId() != null && !ctx.getUnitId().equals(unitId)) {
+            Long callerUnitId = resolveResidentUnitId(ctx);
+            if (callerUnitId != null && !callerUnitId.equals(unitId)) {
                 throw new org.springframework.security.access.AccessDeniedException("No tiene permisos para desvincular habitantes de otra unidad");
             }
         }
 
-        unitInhabitantRepository.findResidentByIdAndUnitId(unitId, residentId)
+        UnitResidentDTO resident = unitInhabitantRepository.findResidentByIdAndUnitId(unitId, residentId)
                 .orElseThrow(() -> new java.util.NoSuchElementException("Habitante no encontrado en la unidad indicada"));
+
+        if (ctx != null && ("RESIDENTE".equals(ctx.getRoleCode()) || "UNIDAD".equals(ctx.getRoleScope()))) {
+            String tipo = resident.tipoResidente() != null ? resident.tipoResidente().toUpperCase() : "";
+            if ("PROPIETARIO".equals(tipo) || "ARRENDATARIO".equals(tipo) || "TITULAR".equals(tipo) || "PRINCIPAL".equals(tipo)) {
+                throw new org.springframework.security.access.AccessDeniedException("No se puede modificar ni desvincular al titular principal de la unidad");
+            }
+        }
 
         int unlinked = unitInhabitantRepository.unlinkResident(unitId, residentId);
         if (unlinked == 0) {

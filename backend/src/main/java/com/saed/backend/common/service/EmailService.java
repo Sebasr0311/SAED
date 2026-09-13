@@ -37,9 +37,8 @@ public class EmailService {
     private final HttpClient httpClient;
     private final org.thymeleaf.TemplateEngine templateEngine;
 
-    // Lee la API key una sola vez (como el resto de las variables de entorno
-    // del backend: WOMPI_*, etc.). Si falta, el envío falla con mensaje claro.
-    private static final String BREVO_API_KEY = System.getenv("BREVO_API_KEY");
+    @org.springframework.beans.factory.annotation.Value("${brevo.api-key:${BREVO_API_KEY:}}")
+    private String brevoApiKey;
 
     public EmailService(TemplateRenderService templateService, ObjectMapper objectMapper, org.thymeleaf.TemplateEngine templateEngine) {
         this.templateService = templateService;
@@ -48,11 +47,26 @@ public class EmailService {
         this.httpClient = HttpClient.newBuilder().connectTimeout(java.time.Duration.ofSeconds(15)).build();
     }
 
+    private String getEffectiveApiKey() {
+        if (this.brevoApiKey != null && !this.brevoApiKey.isBlank()) {
+            return this.brevoApiKey.trim();
+        }
+        String env = System.getenv("BREVO_API_KEY");
+        if (env != null && !env.isBlank()) {
+            return env.trim();
+        }
+        return null;
+    }
+
     /** Envía un HTML (opcionalmente con un PDF adjunto en base64) via Brevo v3. */
     private void enviarHtml(String destinatario, String asunto, String html, byte[] pdfAdjunto, String pdfNombre) throws Exception {
         if (destinatario == null || destinatario.isBlank()) return;
-        if (BREVO_API_KEY == null || BREVO_API_KEY.isBlank()) {
-            throw new IllegalStateException("Brevo no configurado: falta BREVO_API_KEY en el entorno.");
+        String apiKey = getEffectiveApiKey();
+        if (apiKey == null || apiKey.isBlank()) {
+            org.slf4j.LoggerFactory.getLogger(EmailService.class)
+                    .info("[EMAIL-SIMULATION] Envío simulado a {}: Asunto='{}'. (Configure BREVO_API_KEY en entorno para despacho HTTP real vía Brevo)",
+                            destinatario, asunto);
+            return;
         }
 
         Map<String, Object> payload = new HashMap<>();
@@ -77,7 +91,7 @@ public class EmailService {
                 .timeout(java.time.Duration.ofSeconds(30))
                 .header("Content-Type", "application/json")
                 .header("Accept", "application/json")
-                .header("api-key", BREVO_API_KEY)
+                .header("api-key", apiKey)
                 .POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8))
                 .build();
 
