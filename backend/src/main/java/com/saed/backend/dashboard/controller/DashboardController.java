@@ -4,6 +4,15 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import com.saed.backend.common.dto.ApiResponse;
+import com.saed.backend.context.SaedContext;
+import com.saed.backend.context.SaedContextHolder;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.dao.EmptyResultDataAccessException;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import java.time.ZoneId;
+import java.sql.Timestamp;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -322,6 +331,186 @@ public class DashboardController {
         return jdbcTemplate.queryForList(sql, new org.springframework.jdbc.core.namedparam.MapSqlParameterSource()
                 .addValue("id", id)
                 .addValue("userId", userId));
+    }
+
+    @GetMapping("/{id}/visitas-historial")
+    @PreAuthorize("hasAuthority('SCOPE_RESIDENTE')")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getVisitasHistorial(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String search) {
+
+        SaedContext ctx = SaedContextHolder.getContext();
+        String roleCode = ctx != null ? ctx.getRoleCode() : "";
+
+        // Regla estricta: sólo el RESIDENTE titular puede ver el historial, NO el de convivencia
+        if ("RESIDENTE_CONVIVENCIA".equalsIgnoreCase(roleCode) || !"RESIDENTE".equalsIgnoreCase(roleCode)) {
+            throw new AccessDeniedException(
+                    "Acceso denegado: El historial de visitas solo está disponible para el residente titular de la unidad.");
+        }
+
+        Long userId = ctx != null ? ctx.getUserId() : null;
+        if (userId != null) {
+            try {
+                Long myPersonaId = jdbcTemplate.queryForObject(
+                    "SELECT ID_PERSONA FROM USUARIOS WHERE ID_USUARIO = :u",
+                    Map.of("u", userId), Long.class);
+                if (myPersonaId != null && !myPersonaId.equals(id) && !userId.equals(id)) {
+                    throw new AccessDeniedException(
+                            "No tiene permisos para consultar el historial de visitas de otro residente.");
+                }
+            } catch (EmptyResultDataAccessException ignored) {}
+        }
+
+        // Resolver unidad del residente
+        Long unitId = null;
+        try {
+            List<Long> uids = jdbcTemplate.query(
+                "SELECT ru.ID_UNIDAD FROM RESIDENTES_UNIDAD ru WHERE ru.ID_PERSONA = :p AND ru.ESTADO = 'ACTIVO'",
+                Map.of("p", id), (rs, r) -> rs.getLong("ID_UNIDAD")
+            );
+            if (!uids.isEmpty()) unitId = uids.get(0);
+            if (unitId == null && userId != null) {
+                uids = jdbcTemplate.query(
+                    "SELECT ru.ID_UNIDAD FROM RESIDENTES_UNIDAD ru JOIN USUARIOS u ON ru.ID_PERSONA = u.ID_PERSONA WHERE u.ID_USUARIO = :u AND ru.ESTADO = 'ACTIVO'",
+                    Map.of("u", userId), (rs, r) -> rs.getLong("ID_UNIDAD")
+                );
+                if (!uids.isEmpty()) unitId = uids.get(0);
+            }
+            if (unitId == null && userId != null) {
+                uids = jdbcTemplate.query(
+                    "SELECT ID_UNIDAD FROM USUARIO_ASIGNACIONES WHERE ID_USUARIO = :u AND ESTADO IN ('ACTIVA', 'ACTIVO') AND ID_UNIDAD IS NOT NULL",
+                    Map.of("u", userId), (rs, r) -> rs.getLong("ID_UNIDAD")
+                );
+                if (!uids.isEmpty()) unitId = uids.get(0);
+            }
+        } catch (Exception ignored) {}
+
+        int pageSafe = Math.max(0, page);
+        int sizeSafe = (size > 0 && size <= 100) ? size : 10;
+        int offset = pageSafe * sizeSafe;
+
+        if (unitId == null) {
+            return ResponseEntity.ok(ApiResponse.success(Map.of(
+                "items", List.of(),
+                "total", 0,
+                "page", pageSafe,
+                "size", sizeSafe,
+                "totalPages", 0
+            )));
+        }
+
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("unitId", unitId)
+                .addValue("offset", offset)
+                .addValue("limit", sizeSafe);
+
+        String countSql = """
+            SELECT COUNT(1)
+            FROM VISITAS v
+            JOIN VISITANTES vis ON v.ID_VISITANTE = vis.ID_VISITANTE
+            JOIN PERSONAS p_vis ON vis.ID_PERSONA = p_vis.ID_PERSONA
+            LEFT JOIN USUARIOS u_gen ON v.AUTORIZADO_POR = u_gen.ID_USUARIO
+            LEFT JOIN PERSONAS p_gen ON u_gen.ID_PERSONA = p_gen.ID_PERSONA
+            LEFT JOIN (
+                SELECT ID_VISITA, MAX(TIPO_VEHICULO) AS TIPO_VEHICULO, MAX(PLACA) AS PLACA
+                FROM VEHICULOS_VISITA GROUP BY ID_VISITA
+            ) vv ON vv.ID_VISITA = v.ID_VISITA
+            WHERE v.ID_UNIDAD = :unitId
+        """;
+
+        String dataSql = """
+            SELECT 
+                v.ID_VISITA AS "idVisita",
+                v.ID_UNIDAD AS "idUnidad",
+                u.IDENTIFICADOR AS "identificadorUnidad",
+                COALESCE(
+                    TRIM(p_gen.PRIMER_NOMBRE || ' ' || NVL(p_gen.PRIMER_APELLIDO, '')),
+                    u_gen.NOMBRE_USUARIO,
+                    'Residente Titular'
+                ) AS "generadoPor",
+                u_gen.NOMBRE_USUARIO AS "usernameGenerador",
+                TRIM(p_vis.PRIMER_NOMBRE || ' ' || NVL(p_vis.PRIMER_APELLIDO, '')) AS "nombreVisitante",
+                p_vis.NUMERO_DOCUMENTO AS "documentoVisitante",
+                p_vis.TELEFONO AS "telefonoVisitante",
+                p_vis.EMAIL AS "emailVisitante",
+                COALESCE(vv.TIPO_VEHICULO, v.METODO_INGRESO, 'PEATONAL') AS "medioTransporte",
+                vv.PLACA AS "placa",
+                COALESCE(v.FECHA_CREACION, q.FECHA_GENERACION, v.FECHA_PROGRAMADA) AS "fechaGeneracion",
+                v.FECHA_PROGRAMADA AS "fechaProgramada",
+                (SELECT MIN(ra.FECHA_HORA) FROM REGISTROS_ACCESO ra WHERE ra.ID_VISITA = v.ID_VISITA AND ra.TIPO_MOVIMIENTO = 'ENTRADA') AS "fechaIngreso",
+                (SELECT MAX(ra.FECHA_HORA) FROM REGISTROS_ACCESO ra WHERE ra.ID_VISITA = v.ID_VISITA AND ra.TIPO_MOVIMIENTO = 'SALIDA') AS "fechaSalida",
+                v.ESTADO AS "estadoVisita",
+                CASE 
+                    WHEN (EXISTS (SELECT 1 FROM REGISTROS_ACCESO ra WHERE ra.ID_VISITA = v.ID_VISITA AND ra.TIPO_MOVIMIENTO = 'ENTRADA')
+                          OR NVL(q.USOS_CONSUMIDOS, 0) > 0 
+                          OR v.ESTADO IN ('INGRESADA', 'COMPLETADA')) THEN 'SI'
+                    ELSE 'NO'
+                END AS "efectuada",
+                q.TOKEN_QR AS "codigoQr",
+                v.MOTIVO AS "motivo"
+            FROM VISITAS v
+            JOIN UNIDADES u ON v.ID_UNIDAD = u.ID_UNIDAD
+            JOIN VISITANTES vis ON v.ID_VISITANTE = vis.ID_VISITANTE
+            JOIN PERSONAS p_vis ON vis.ID_PERSONA = p_vis.ID_PERSONA
+            LEFT JOIN USUARIOS u_gen ON v.AUTORIZADO_POR = u_gen.ID_USUARIO
+            LEFT JOIN PERSONAS p_gen ON u_gen.ID_PERSONA = p_gen.ID_PERSONA
+            LEFT JOIN (
+                SELECT ID_VISITA, MAX(TIPO_VEHICULO) AS TIPO_VEHICULO, MAX(PLACA) AS PLACA
+                FROM VEHICULOS_VISITA GROUP BY ID_VISITA
+            ) vv ON vv.ID_VISITA = v.ID_VISITA
+            LEFT JOIN (
+                SELECT ID_VISITA, MAX(TOKEN_QR) AS TOKEN_QR, MAX(USOS_CONSUMIDOS) AS USOS_CONSUMIDOS, MAX(FECHA_GENERACION) AS FECHA_GENERACION
+                FROM QR_ACCESOS GROUP BY ID_VISITA
+            ) q ON q.ID_VISITA = v.ID_VISITA
+            WHERE v.ID_UNIDAD = :unitId
+        """;
+
+        if (search != null && !search.trim().isBlank()) {
+            String searchPattern = "%" + search.trim().toLowerCase() + "%";
+            params.addValue("search", searchPattern);
+            String filter = """
+                AND (
+                    LOWER(p_vis.PRIMER_NOMBRE || ' ' || NVL(p_vis.PRIMER_APELLIDO, '')) LIKE :search
+                    OR p_vis.NUMERO_DOCUMENTO LIKE :search
+                    OR LOWER(COALESCE(vv.PLACA, '')) LIKE :search
+                    OR LOWER(COALESCE(p_gen.PRIMER_NOMBRE, '')) LIKE :search
+                    OR LOWER(COALESCE(u_gen.NOMBRE_USUARIO, '')) LIKE :search
+                )
+            """;
+            countSql += filter;
+            dataSql += filter;
+        }
+
+        dataSql += " ORDER BY v.ID_VISITA DESC OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY";
+
+        Integer total = jdbcTemplate.queryForObject(countSql, params, Integer.class);
+        int totalCount = total != null ? total : 0;
+        List<Map<String, Object>> rawItems = jdbcTemplate.queryForList(dataSql, params);
+
+        ZoneId bogotaZone = ZoneId.of("America/Bogota");
+        List<Map<String, Object>> items = rawItems.stream().map(row -> {
+            Map<String, Object> map = new HashMap<>(row);
+            for (Map.Entry<String, Object> entry : row.entrySet()) {
+                Object val = entry.getValue();
+                if (val instanceof Timestamp ts) {
+                    map.put(entry.getKey(), ts.toInstant().atZone(bogotaZone).toString());
+                }
+            }
+            return map;
+        }).toList();
+
+        int totalPages = (int) Math.ceil((double) totalCount / sizeSafe);
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("items", items);
+        result.put("total", totalCount);
+        result.put("page", pageSafe);
+        result.put("size", sizeSafe);
+        result.put("totalPages", totalPages);
+
+        return ResponseEntity.ok(ApiResponse.success(result));
     }
     
     @PostMapping("/{id}/asignar-apartamento")

@@ -1,11 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import {
+  Bike,
   Calendar,
   Car,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Clock,
   Copy,
+  Eye,
+  Footprints,
+  History,
   Mail,
   Phone,
   Plus,
@@ -84,6 +90,11 @@ function calcularFechaExpiracion(minutos) {
 export default function ResVisitasPage() {
   const { user } = useAuth();
   const residentId = user?.idResidente || user?.idPersona || user?.idUsuario;
+  const isConviviente =
+    user?.rol === 'RESIDENTE_CONVIVENCIA' ||
+    user?.rolCodigo === 'RESIDENTE_CONVIVENCIA' ||
+    user?.rol === 'CONVIVIENTE' ||
+    (Array.isArray(user?.roles) && user.roles.includes('RESIDENTE_CONVIVENCIA'));
 
   const { tiposDoc, error: errorTiposDoc } = useTiposDocumento();
   const { touch, touchAll, resetTouched, fieldError } = useLiveValidation();
@@ -122,15 +133,68 @@ export default function ResVisitasPage() {
     return Array.isArray(qrsRaw) ? qrsRaw : qrsRaw?.items || [];
   }, [qrsRaw]);
 
+  // ==== 2.5 Carga de Historial de Visitas (Solo Residente Titular) ====
+  const [pageHistorial, setPageHistorial] = useState(0);
+  const [searchHistorial, setSearchHistorial] = useState('');
+  const [searchHistorialDebounced, setSearchHistorialDebounced] = useState('');
+  const [detalleVisita, setDetalleVisita] = useState(null);
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setSearchHistorialDebounced(searchHistorial);
+      setPageHistorial(0);
+    }, 350);
+    return () => clearTimeout(t);
+  }, [searchHistorial]);
+
+  const {
+    data: historialRaw,
+    loading: loadingHistorial,
+    refetch: refetchHistorial,
+  } = useFetch(
+    () => {
+      if (isConviviente || !residentId) {
+        return Promise.resolve({ items: [], total: 0, totalPages: 0, page: 0, size: 10 });
+      }
+      const params = new URLSearchParams();
+      params.append('page', String(pageHistorial));
+      params.append('size', '10');
+      if (searchHistorialDebounced.trim()) {
+        params.append('search', searchHistorialDebounced.trim());
+      }
+      return api.get(`/residentes/${residentId}/visitas-historial?${params.toString()}`);
+    },
+    [residentId, isConviviente, pageHistorial, searchHistorialDebounced]
+  );
+
+  const historialData = useMemo(() => {
+    const payload = historialRaw?.data !== undefined ? historialRaw.data : historialRaw;
+    return {
+      items: Array.isArray(payload?.items) ? payload.items : [],
+      total: typeof payload?.total === 'number' ? payload.total : 0,
+      page: typeof payload?.page === 'number' ? payload.page : pageHistorial,
+      size: typeof payload?.size === 'number' ? payload.size : 10,
+      totalPages: typeof payload?.totalPages === 'number' ? payload.totalPages : 0,
+    };
+  }, [historialRaw, pageHistorial]);
+
+  const historialItems = historialData.items;
+  const totalHistorial = historialData.total;
+  const totalPagesHistorial = historialData.totalPages;
+
   // Refresco consolidado
   const [refreshing, setRefreshing] = useState(false);
   const refetchAll = useCallback(() => {
     setRefreshing(true);
-    Promise.allSettled([refetchFrecuentes(), refetchQrs()]).finally(() => {
+    const promises = [refetchFrecuentes(), refetchQrs()];
+    if (!isConviviente && refetchHistorial) {
+      promises.push(refetchHistorial());
+    }
+    Promise.allSettled(promises).finally(() => {
       setTimeout(() => setRefreshing(false), 400);
       toast.success('Listados de visitas actualizados');
     });
-  }, [refetchFrecuentes, refetchQrs]);
+  }, [refetchFrecuentes, refetchQrs, isConviviente, refetchHistorial]);
 
   // Filtro de búsqueda en frecuentes
   const [search, setSearch] = useState('');
@@ -703,9 +767,14 @@ export default function ResVisitasPage() {
         </Card>
       </div>
 
-      {/* 3. TABS: FRECUENTES & PASES ACTIVOS */}
+      {/* 3. TABS: FRECUENTES, PASES ACTIVOS & HISTORIAL (SOLO RESIDENTE TITULAR) */}
       <Tabs defaultValue="frecuentes" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2 max-w-md h-11 p-1 bg-muted/80 rounded-xl border border-border">
+        <TabsList
+          className={cn(
+            'grid w-full h-11 p-1 bg-muted/80 rounded-xl border border-border',
+            isConviviente ? 'grid-cols-2 max-w-md' : 'grid-cols-3 max-w-xl'
+          )}
+        >
           <TabsTrigger value="frecuentes" className="gap-2 text-xs sm:text-sm font-semibold">
             <Users className="w-4 h-4" />
             Visitantes Frecuentes ({frecuentes.length})
@@ -714,6 +783,12 @@ export default function ResVisitasPage() {
             <QrCode className="w-4 h-4" />
             Pases QR Activos ({qrActivos.length})
           </TabsTrigger>
+          {!isConviviente && (
+            <TabsTrigger value="historial" className="gap-2 text-xs sm:text-sm font-semibold">
+              <History className="w-4 h-4" />
+              Historial ({totalHistorial})
+            </TabsTrigger>
+          )}
         </TabsList>
 
         {/* TAB 1: VISITANTES FRECUENTES */}
@@ -1036,6 +1111,321 @@ export default function ResVisitasPage() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* TAB 3: HISTORIAL DE VISITAS (SOLO RESIDENTE TITULAR) */}
+        {!isConviviente && (
+          <TabsContent value="historial" className="space-y-4">
+            <Card className="border-border/80">
+              <CardHeader className="pb-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <History className="w-5 h-5 text-primary" />
+                      Historial de Visitas Emitidas
+                    </CardTitle>
+                    <CardDescription>
+                      Registro histórico de todas las visitas generadas para tu unidad residencial, medios de transporte y estado de ingreso.
+                    </CardDescription>
+                  </div>
+
+                  {/* Buscador en tiempo real de historial */}
+                  <div className="w-full sm:w-72 relative">
+                    <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="text"
+                      value={searchHistorial}
+                      onChange={(e) => setSearchHistorial(e.target.value)}
+                      placeholder="Buscar por visitante, doc, placa..."
+                      className="w-full pl-9 pr-8 py-1.5 text-xs rounded-lg border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    />
+                    {searchHistorial && (
+                      <button
+                        type="button"
+                        onClick={() => setSearchHistorial('')}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </CardHeader>
+
+              <CardContent>
+                {loadingHistorial ? (
+                  <div className="p-12 text-center text-muted-foreground text-xs flex flex-col items-center gap-2">
+                    <RefreshCw className="w-5 h-5 animate-spin text-primary" />
+                    <span>Consultando historial de visitas...</span>
+                  </div>
+                ) : historialItems.length === 0 ? (
+                  <EmptyState
+                    icon="history"
+                    title={searchHistorial ? 'No se encontraron visitas' : 'No hay visitas registradas'}
+                    subtitle={
+                      searchHistorial
+                        ? 'No hay registros que coincidan con los criterios de búsqueda.'
+                        : 'Cuando autorices visitas o pases QR, aparecerán listados aquí con todo su detalle histórico.'
+                    }
+                  />
+                ) : (
+                  <div className="space-y-4">
+                    {/* Vista Desktop: Tabla completa */}
+                    <div className="hidden md:block overflow-x-auto rounded-lg border border-border">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead>
+                          <tr className="bg-muted/50 border-b border-border text-muted-foreground font-semibold">
+                            <th className="py-3 px-3.5">Fecha y Hora Generación</th>
+                            <th className="py-3 px-3.5">Quién Generó</th>
+                            <th className="py-3 px-3.5">Para Quién (Visitante)</th>
+                            <th className="py-3 px-3.5">Medio de Transporte</th>
+                            <th className="py-3 px-3.5">¿Se Efectuó la Visita?</th>
+                            <th className="py-3 px-3.5 text-right">Acción</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                          {historialItems.map((v) => {
+                            const isEfectuada = v.efectuada === 'SI';
+                            const medio = (v.medioTransporte || 'PEATONAL').toUpperCase();
+
+                            return (
+                              <tr
+                                key={v.idVisita}
+                                className="hover:bg-muted/30 transition-colors cursor-pointer"
+                                onClick={() => setDetalleVisita(v)}
+                              >
+                                <td className="py-3 px-3.5 whitespace-nowrap">
+                                  <div className="flex items-center gap-1.5 font-medium text-foreground">
+                                    <Calendar className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                                    <span>{v.fechaGeneracion ? formatDateTime(v.fechaGeneracion) : '—'}</span>
+                                  </div>
+                                  {v.fechaProgramada && (
+                                    <div className="text-[11px] text-muted-foreground mt-0.5">
+                                      Programada: {formatDate(v.fechaProgramada)}
+                                    </div>
+                                  )}
+                                </td>
+
+                                <td className="py-3 px-3.5">
+                                  <Badge variant="outline" className="text-[11px] font-medium bg-primary/5 text-primary border-primary/20">
+                                    {v.generadoPor || 'Residente'}
+                                  </Badge>
+                                  {v.usernameGenerador && (
+                                    <div className="text-[10px] text-muted-foreground font-mono mt-0.5">
+                                      @{v.usernameGenerador}
+                                    </div>
+                                  )}
+                                </td>
+
+                                <td className="py-3 px-3.5">
+                                  <div className="font-bold text-foreground">
+                                    {v.nombreVisitante || 'Visitante'}
+                                  </div>
+                                  <div className="text-[11px] text-muted-foreground font-mono mt-0.5">
+                                    Doc: {v.documentoVisitante || '—'}
+                                  </div>
+                                </td>
+
+                                <td className="py-3 px-3.5">
+                                  <div className="flex items-center gap-1.5">
+                                    {medio === 'CARRO' ? (
+                                      <Badge variant="secondary" className="gap-1 text-[11px] font-normal">
+                                        <Car className="w-3.5 h-3.5 text-blue-500" />
+                                        <span>Carro</span>
+                                        {v.placa && (
+                                          <span className="font-mono font-bold ml-1 bg-background px-1 py-0.2 rounded border text-[10px]">
+                                            {v.placa}
+                                          </span>
+                                        )}
+                                      </Badge>
+                                    ) : medio === 'MOTO' ? (
+                                      <Badge variant="secondary" className="gap-1 text-[11px] font-normal">
+                                        <Bike className="w-3.5 h-3.5 text-amber-500" />
+                                        <span>Moto</span>
+                                        {v.placa && (
+                                          <span className="font-mono font-bold ml-1 bg-background px-1 py-0.2 rounded border text-[10px]">
+                                            {v.placa}
+                                          </span>
+                                        )}
+                                      </Badge>
+                                    ) : medio === 'BICICLETA' ? (
+                                      <Badge variant="secondary" className="gap-1 text-[11px] font-normal">
+                                        <Bike className="w-3.5 h-3.5 text-emerald-500" />
+                                        <span>Bicicleta</span>
+                                      </Badge>
+                                    ) : (
+                                      <Badge variant="outline" className="gap-1 text-[11px] font-normal text-muted-foreground">
+                                        <Footprints className="w-3.5 h-3.5" />
+                                        <span>Peatonal</span>
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </td>
+
+                                <td className="py-3 px-3.5">
+                                  {isEfectuada ? (
+                                    <div>
+                                      <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 border-emerald-500/20 gap-1 text-[11px] font-semibold">
+                                        <CheckCircle2 className="w-3.5 h-3.5" />
+                                        Sí (Efectuada)
+                                      </Badge>
+                                      {v.fechaIngreso && (
+                                        <div className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-1">
+                                          <Clock className="w-3 h-3" />
+                                          Ingreso: {formatDateTime(v.fechaIngreso)}
+                                        </div>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <div>
+                                      <Badge variant="outline" className="text-muted-foreground gap-1 text-[11px]">
+                                        <Clock className="w-3.5 h-3.5 text-amber-500" />
+                                        No
+                                      </Badge>
+                                      {v.estadoVisita && (
+                                        <div className="text-[10px] text-muted-foreground capitalize mt-0.5">
+                                          {v.estadoVisita.toLowerCase()}
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                </td>
+
+                                <td className="py-3 px-3.5 text-right">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setDetalleVisita(v);
+                                    }}
+                                    className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
+                                  >
+                                    <Eye className="w-3.5 h-3.5 mr-1" />
+                                    Detalle
+                                  </Button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Vista Mobile: Cards */}
+                    <div className="grid grid-cols-1 gap-3 md:hidden">
+                      {historialItems.map((v) => {
+                        const isEfectuada = v.efectuada === 'SI';
+                        const medio = (v.medioTransporte || 'PEATONAL').toUpperCase();
+
+                        return (
+                          <div
+                            key={v.idVisita}
+                            onClick={() => setDetalleVisita(v)}
+                            className="p-4 rounded-xl border border-border bg-card space-y-3 cursor-pointer hover:shadow-sm"
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <h4 className="text-sm font-bold text-foreground">
+                                  {v.nombreVisitante || 'Visitante'}
+                                </h4>
+                                <p className="text-xs text-muted-foreground font-mono">
+                                  Doc: {v.documentoVisitante || '—'}
+                                </p>
+                              </div>
+                              {isEfectuada ? (
+                                <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-[10px] gap-1 font-semibold">
+                                  <CheckCircle2 className="w-3 h-3" />
+                                  Sí (Efectuada)
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-muted-foreground text-[10px] gap-1">
+                                  <Clock className="w-3 h-3 text-amber-500" />
+                                  No
+                                </Badge>
+                              )}
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground pt-1 border-t border-border/60">
+                              <div>
+                                <span className="text-[10px] uppercase font-semibold block">Generado por</span>
+                                <span className="font-medium text-foreground">{v.generadoPor || 'Residente'}</span>
+                              </div>
+                              <div>
+                                <span className="text-[10px] uppercase font-semibold block">Transporte</span>
+                                <span className="font-medium text-foreground flex items-center gap-1">
+                                  {medio === 'CARRO' ? (
+                                    <>
+                                      <Car className="w-3 h-3 text-blue-500" /> Carro {v.placa ? `(${v.placa})` : ''}
+                                    </>
+                                  ) : medio === 'MOTO' ? (
+                                    <>
+                                      <Bike className="w-3 h-3 text-amber-500" /> Moto {v.placa ? `(${v.placa})` : ''}
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Footprints className="w-3 h-3" /> Peatonal
+                                    </>
+                                  )}
+                                </span>
+                              </div>
+                              <div className="col-span-2">
+                                <span className="text-[10px] uppercase font-semibold block">Generación</span>
+                                <span className="text-foreground">{v.fechaGeneracion ? formatDateTime(v.fechaGeneracion) : '—'}</span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Barra de Paginación: 10 visitas por página */}
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-border text-xs text-muted-foreground">
+                      <div>
+                        Mostrando{' '}
+                        <span className="font-semibold text-foreground">
+                          {totalHistorial === 0 ? 0 : pageHistorial * 10 + 1}
+                        </span>{' '}
+                        a{' '}
+                        <span className="font-semibold text-foreground">
+                          {Math.min((pageHistorial + 1) * 10, totalHistorial)}
+                        </span>{' '}
+                        de <span className="font-semibold text-foreground">{totalHistorial}</span> visitas
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setPageHistorial((p) => Math.max(0, p - 1))}
+                          disabled={pageHistorial === 0 || loadingHistorial}
+                          className="h-8 gap-1 text-xs"
+                        >
+                          <ChevronLeft className="w-3.5 h-3.5" />
+                          Anterior
+                        </Button>
+
+                        <div className="px-2 font-medium text-foreground">
+                          Pág. {pageHistorial + 1} de {Math.max(1, totalPagesHistorial)}
+                        </div>
+
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setPageHistorial((p) => Math.min(totalPagesHistorial - 1, p + 1))}
+                          disabled={pageHistorial >= totalPagesHistorial - 1 || loadingHistorial}
+                          className="h-8 gap-1 text-xs"
+                        >
+                          Siguiente
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
       </Tabs>
 
       {/* 4. MODAL: REGISTRAR NUEVA VISITA (FORMULARIO CON SUS VALIDACIONES) */}
@@ -1612,6 +2002,151 @@ export default function ResVisitasPage() {
         confirmLabel="Sí, quitar"
         danger
       />
+
+      {/* 9. MODAL: DETALLE COMPLETO DE VISITA (HISTORIAL) */}
+      <Modal
+        open={!!detalleVisita}
+        onClose={() => setDetalleVisita(null)}
+        title="Detalle de Visita"
+        size="md"
+      >
+        {detalleVisita && (
+          <div className="space-y-4 text-xs">
+            <div className="p-3.5 rounded-xl bg-muted/40 border border-border flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">
+                  Visitante
+                </p>
+                <h3 className="text-base font-bold text-foreground">
+                  {detalleVisita.nombreVisitante || 'Visitante Autorizado'}
+                </h3>
+                <p className="text-muted-foreground font-mono mt-0.5">
+                  Documento: {detalleVisita.documentoVisitante || '—'}
+                </p>
+                {detalleVisita.telefonoVisitante && (
+                  <p className="text-muted-foreground mt-0.5">
+                    Tel: {detalleVisita.telefonoVisitante}
+                  </p>
+                )}
+              </div>
+              <Badge
+                className={cn(
+                  'text-[11px] font-semibold gap-1',
+                  detalleVisita.efectuada === 'SI'
+                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                    : 'bg-muted text-muted-foreground border-border'
+                )}
+              >
+                {detalleVisita.efectuada === 'SI' ? (
+                  <>
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Efectuada
+                  </>
+                ) : (
+                  <>
+                    <Clock className="w-3.5 h-3.5 text-amber-500" /> No efectuada
+                  </>
+                )}
+              </Badge>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 p-3.5 rounded-xl border border-border bg-card">
+              <div>
+                <span className="text-[10px] uppercase font-bold text-muted-foreground block">
+                  Generado Por
+                </span>
+                <span className="font-semibold text-foreground">
+                  {detalleVisita.generadoPor || 'Residente Titular'}
+                </span>
+                {detalleVisita.usernameGenerador && (
+                  <span className="text-[10px] text-muted-foreground block font-mono">
+                    @{detalleVisita.usernameGenerador}
+                  </span>
+                )}
+              </div>
+
+              <div>
+                <span className="text-[10px] uppercase font-bold text-muted-foreground block">
+                  Unidad / Apto
+                </span>
+                <span className="font-semibold text-foreground">
+                  {detalleVisita.identificadorUnidad ? `Apto ${detalleVisita.identificadorUnidad}` : 'Tu Unidad'}
+                </span>
+              </div>
+
+              <div>
+                <span className="text-[10px] uppercase font-bold text-muted-foreground block">
+                  Medio de Transporte
+                </span>
+                <span className="font-semibold text-foreground capitalize">
+                  {detalleVisita.medioTransporte ? String(detalleVisita.medioTransporte).toLowerCase() : 'Peatonal'}
+                </span>
+                {detalleVisita.placa && (
+                  <span className="font-mono text-primary font-bold block">
+                    Placa: {detalleVisita.placa}
+                  </span>
+                )}
+              </div>
+
+              <div>
+                <span className="text-[10px] uppercase font-bold text-muted-foreground block">
+                  Estado de la Visita
+                </span>
+                <span className="font-semibold text-foreground capitalize">
+                  {detalleVisita.estadoVisita ? String(detalleVisita.estadoVisita).toLowerCase() : 'Registrada'}
+                </span>
+              </div>
+
+              <div className="col-span-2 pt-2 border-t border-border/60">
+                <span className="text-[10px] uppercase font-bold text-muted-foreground block">
+                  Fecha y Hora de Generación
+                </span>
+                <span className="text-foreground">
+                  {detalleVisita.fechaGeneracion ? formatDateTime(detalleVisita.fechaGeneracion) : '—'}
+                </span>
+              </div>
+
+              {detalleVisita.fechaIngreso && (
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-emerald-600 dark:text-emerald-400 block">
+                    Registro de Entrada
+                  </span>
+                  <span className="text-foreground font-medium">
+                    {formatDateTime(detalleVisita.fechaIngreso)}
+                  </span>
+                </div>
+              )}
+
+              {detalleVisita.fechaSalida && (
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-blue-600 dark:text-blue-400 block">
+                    Registro de Salida
+                  </span>
+                  <span className="text-foreground font-medium">
+                    {formatDateTime(detalleVisita.fechaSalida)}
+                  </span>
+                </div>
+              )}
+
+              {detalleVisita.motivo && (
+                <div className="col-span-2 pt-2 border-t border-border/60">
+                  <span className="text-[10px] uppercase font-bold text-muted-foreground block">
+                    Motivo
+                  </span>
+                  <p className="text-muted-foreground mt-0.5 italic">
+                    "{detalleVisita.motivo}"
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <Button variant="outline" size="sm" onClick={() => setDetalleVisita(null)}>
+                Cerrar
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </PageContainer>
   );
 }

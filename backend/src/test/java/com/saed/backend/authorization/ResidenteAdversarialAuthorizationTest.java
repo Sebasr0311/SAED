@@ -237,6 +237,16 @@ public class ResidenteAdversarialAuthorizationTest {
     }
 
     @Test
+    @DisplayName("RESIDENTE: Puede consultar historial de visitas de su unidad con paginación")
+    void residente_canAccessOwnVisitasHistorial() throws Exception {
+        String token = jwtProvider.generateIdentityToken(resUserId1);
+        mockMvc.perform(get("/api/v1/residentes/4/visitas-historial?page=0&size=10")
+                .header("Authorization", "Bearer " + token)
+                .header("X-Assignment-Id", resAssignment1))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     @DisplayName("RESIDENTE: Puede registrar y consultar mascotas de su unidad")
     void residente_canManagePetsOfOwnUnit() throws Exception {
         String token = jwtProvider.generateIdentityToken(resUserId1);
@@ -446,6 +456,16 @@ public class ResidenteAdversarialAuthorizationTest {
     void residente_cannotAccessOtherResidentActiveQrs() throws Exception {
         String token = jwtProvider.generateIdentityToken(resUserId1);
         mockMvc.perform(get("/api/v1/residentes/5/qr-activos")
+                .header("Authorization", "Bearer " + token)
+                .header("X-Assignment-Id", resAssignment1))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("IDOR / IDENTITY: RESIDENTE no puede consultar historial de visitas de otro residente")
+    void residente_cannotAccessOtherResidentVisitasHistorial() throws Exception {
+        String token = jwtProvider.generateIdentityToken(resUserId1);
+        mockMvc.perform(get("/api/v1/residentes/5/visitas-historial?page=0&size=10")
                 .header("Authorization", "Bearer " + token)
                 .header("X-Assignment-Id", resAssignment1))
                 .andExpect(status().isForbidden());
