@@ -15,4 +15,5 @@ public interface UnitInhabitantService {
 
     void updateResidentStatus(Long unitId, Long residentId, String status);
     void unlinkResident(Long unitId, Long residentId);
+    void deleteResidentPermanently(Long unitId, Long residentId);
 }

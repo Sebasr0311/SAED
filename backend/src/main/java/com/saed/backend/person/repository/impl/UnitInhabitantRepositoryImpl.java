@@ -224,4 +224,61 @@ public class UnitInhabitantRepositoryImpl implements UnitInhabitantRepository {
 
         return updated;
     }
+
+    @Override
+    public int deleteResidentPermanently(Long unitId, Long residentId) {
+        Long personaId = null;
+        try {
+            List<Long> pList = jdbcTemplate.query(
+                "SELECT ID_PERSONA FROM RESIDENTES_UNIDAD WHERE ID_UNIDAD = :unitId AND (ID_RESIDENTE_UNIDAD = :residentId OR ID_PERSONA = :residentId)",
+                new MapSqlParameterSource("unitId", unitId).addValue("residentId", residentId),
+                (rs, rowNum) -> rs.getLong(1)
+            );
+            if (!pList.isEmpty()) personaId = pList.get(0);
+        } catch (Exception ignored) {}
+
+        String sql = """
+            DELETE FROM RESIDENTES_UNIDAD
+            WHERE ID_UNIDAD = :unitId AND (ID_RESIDENTE_UNIDAD = :residentId OR ID_PERSONA = :residentId)
+            """;
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("unitId", unitId)
+                .addValue("residentId", residentId);
+        int deleted = jdbcTemplate.update(sql, params);
+
+        if (personaId != null) {
+            try {
+                // Eliminar o inactivar asignaciones de usuario asociadas a esta unidad
+                String sqlAsignacion = """
+                    DELETE FROM USUARIO_ASIGNACIONES
+                    WHERE ID_UNIDAD = :unitId
+                      AND ID_USUARIO IN (
+                          SELECT u.ID_USUARIO
+                          FROM USUARIOS u
+                          WHERE u.ID_PERSONA = :personaId
+                      )
+                    """;
+                jdbcTemplate.update(sqlAsignacion, new MapSqlParameterSource("unitId", unitId).addValue("personaId", personaId));
+
+                // Si el usuario no tiene más asignaciones, marcar como inactivo
+                List<Long> uList = jdbcTemplate.query(
+                    "SELECT ID_USUARIO FROM USUARIOS WHERE ID_PERSONA = :personaId",
+                    Map.of("personaId", personaId),
+                    (rs, rowNum) -> rs.getLong(1)
+                );
+                for (Long uid : uList) {
+                    Integer countAsig = jdbcTemplate.queryForObject(
+                        "SELECT COUNT(1) FROM USUARIO_ASIGNACIONES WHERE ID_USUARIO = :uid AND ESTADO = 'ACTIVA'",
+                        Map.of("uid", uid),
+                        Integer.class
+                    );
+                    if (countAsig == null || countAsig == 0) {
+                        jdbcTemplate.update("UPDATE USUARIOS SET ESTADO = 'INACTIVO' WHERE ID_USUARIO = :uid", Map.of("uid", uid));
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+
+        return deleted;
+    }
 }

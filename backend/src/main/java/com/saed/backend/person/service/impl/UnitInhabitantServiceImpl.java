@@ -172,4 +172,32 @@ public class UnitInhabitantServiceImpl implements UnitInhabitantService {
             throw new java.util.NoSuchElementException("No se pudo desvincular el habitante");
         }
     }
+
+    @Override
+    @Transactional
+    @Auditable(action = "DELETE_PERMANENT", resource = "RESIDENTE_UNIDAD", category = AuditCategory.AUTHORIZATION, severity = AuditSeverity.CRITICAL)
+    public void deleteResidentPermanently(Long unitId, Long residentId) {
+        com.saed.backend.context.SaedContext ctx = com.saed.backend.context.SaedContextHolder.getContext();
+        if (ctx != null && ("RESIDENTE".equals(ctx.getRoleCode()) || "UNIDAD".equals(ctx.getRoleScope()))) {
+            Long callerUnitId = resolveResidentUnitId(ctx);
+            if (callerUnitId != null && !callerUnitId.equals(unitId)) {
+                throw new org.springframework.security.access.AccessDeniedException("No tiene permisos para eliminar habitantes de otra unidad");
+            }
+        }
+
+        UnitResidentDTO resident = unitInhabitantRepository.findResidentByIdAndUnitId(unitId, residentId)
+                .orElseThrow(() -> new java.util.NoSuchElementException("Habitante no encontrado en la unidad indicada"));
+
+        if (ctx != null && ("RESIDENTE".equals(ctx.getRoleCode()) || "UNIDAD".equals(ctx.getRoleScope()))) {
+            String tipo = resident.tipoResidente() != null ? resident.tipoResidente().toUpperCase() : "";
+            if ("PROPIETARIO".equals(tipo) || "ARRENDATARIO".equals(tipo) || "TITULAR".equals(tipo) || "PRINCIPAL".equals(tipo)) {
+                throw new org.springframework.security.access.AccessDeniedException("No se puede eliminar al titular principal de la unidad");
+            }
+        }
+
+        int deleted = unitInhabitantRepository.deleteResidentPermanently(unitId, residentId);
+        if (deleted == 0) {
+            throw new java.util.NoSuchElementException("No se pudo eliminar el habitante");
+        }
+    }
 }

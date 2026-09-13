@@ -82,5 +82,32 @@ public class UnitInhabitantController {
         unitInhabitantService.unlinkResident(unitId, residentId);
         return ResponseEntity.noContent().build();
     }
+
+    public ResponseEntity<Void> unlinkResident(Long unitId, Long residentId, boolean permanent) {
+        if (permanent) {
+            unitInhabitantService.deleteResidentPermanently(unitId, residentId);
+        } else {
+            unitInhabitantService.unlinkResident(unitId, residentId);
+        }
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping(value = "/residents/{residentId}", params = "permanent=true")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_RESIDENTE')")
+    public ResponseEntity<Void> purgeResident(
+            @PathVariable Long unitId,
+            @PathVariable Long residentId) {
+        unitInhabitantService.deleteResidentPermanently(unitId, residentId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/residents/{residentId}/permanent")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_RESIDENTE')")
+    public ResponseEntity<Void> deleteResidentPermanently(
+            @PathVariable Long unitId,
+            @PathVariable Long residentId) {
+        unitInhabitantService.deleteResidentPermanently(unitId, residentId);
+        return ResponseEntity.noContent().build();
+    }
 }
 

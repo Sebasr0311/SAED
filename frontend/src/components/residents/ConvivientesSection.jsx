@@ -26,8 +26,23 @@ import { Button } from '../ui/button.tsx';
 import { Modal } from '../ui/Modal.jsx';
 import { ConfirmDialog } from '../ui/ConfirmDialog.jsx';
 import { Skeleton } from '../ui/skeleton.tsx';
+import { Input, Select } from '../ui/Form.jsx';
 import api from '../../lib/api.js';
-import { valTelefono, valEmail, valDocumento, getDocPlaceholder } from '../../lib/validation.js';
+import { useLiveValidation } from '../../lib/hooks.js';
+import {
+  valNombre,
+  valApellido,
+  valTelefono,
+  valEmail,
+  valDocumento,
+  valUsername,
+  valPassword,
+  getDocPlaceholder,
+  getDocHint,
+  soloLetras,
+  soloNumeros,
+  soloAlfanumerico,
+} from '../../lib/validation.js';
 
 export function ConvivientesSection({
   unitId,
@@ -53,20 +68,34 @@ export function ConvivientesSection({
     password: '',
   });
   const [formError, setFormError] = useState(null);
+  const [formErrors, setFormErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const [createdCredentials, setCreatedCredentials] = useState(null);
   const [showHistory, setShowHistory] = useState(false);
 
+  // Hook de live validation
+  const { touch, touchAll, resetTouched, fieldError } = useLiveValidation();
+
   // Estados de diálogo de confirmación
   const [confirmDialog, setConfirmDialog] = useState({
     open: false,
-    type: null, // 'SUSPEND' | 'REACTIVATE' | 'UNLINK'
+    type: null, // 'SUSPEND' | 'REACTIVATE' | 'UNLINK' | 'DELETE_PERMANENT'
     resident: null,
     title: '',
     message: '',
     confirmLabel: '',
     danger: false,
   });
+
+  // Auxiliares seguros para resolución de IDs y estados
+  const getResidentId = (r) => r?.id ?? r?.idResidenteUnidad ?? r?.persona?.idPersona ?? r?.idPersona;
+  const getResidentEstado = (r) => (r?.estado ?? r?.estadoResidente ?? 'ACTIVO').toUpperCase();
+
+  // Código activo de tipo de documento para hints y placeholders
+  const activeDocCodigo = useMemo(() => {
+    const selected = (tiposDoc || []).find((t) => Number(t.idTipoDoc) === Number(form.idTipoDocumento));
+    return selected?.codigo || 'CC';
+  }, [tiposDoc, form.idTipoDocumento]);
 
   // Normalización de Quota (soporta contrato real del backend y aliases)
   const quota = useMemo(() => quotaData?.raw || quotaData || null, [quotaData]);
@@ -106,6 +135,8 @@ export function ConvivientesSection({
       return;
     }
     setFormError(null);
+    setFormErrors({});
+    resetTouched();
     setForm({
       primerNombre: '',
       primerApellido: '',
@@ -119,7 +150,7 @@ export function ConvivientesSection({
     setAddModalOpen(true);
   };
 
-  // Envío del formulario de registro de conviviente
+  // Envío del formulario de registro de conviviente con validación exhaustiva
   const handleSaveConviviente = async (e) => {
     e.preventDefault();
     if (reached) {
@@ -127,34 +158,52 @@ export function ConvivientesSection({
       return;
     }
 
-    setSaving(true);
-    setFormError(null);
+    touchAll([
+      'primerNombre',
+      'primerApellido',
+      'numeroDocumento',
+      'email',
+      'telefono',
+      'nombreUsuario',
+      'password',
+    ]);
 
-    // Validaciones de cliente
-    const selectedDoc = (tiposDoc || []).find((t) => Number(t.idTipoDoc) === Number(form.idTipoDocumento));
-    const cod = selectedDoc?.codigo || 'CC';
-    const docErr = valDocumento(form.numeroDocumento, cod, 'El número de documento');
-    if (docErr) {
-      setFormError(docErr);
-      setSaving(false);
-      return;
-    }
+    const errors = {};
+    const vNombre = valNombre(form.primerNombre, 'El primer nombre', { required: true });
+    if (!vNombre.ok) errors.primerNombre = vNombre.mensaje;
 
-    const emailErr = valEmail(form.email, { required: true });
-    if (!emailErr.ok) {
-      setFormError(emailErr.mensaje);
-      setSaving(false);
-      return;
-    }
+    const vApellido = valApellido(form.primerApellido, 'El primer apellido', { required: true });
+    if (!vApellido.ok) errors.primerApellido = vApellido.mensaje;
+
+    const vDoc = valDocumento(form.numeroDocumento, activeDocCodigo, 'El número de documento');
+    if (!vDoc.ok) errors.numeroDocumento = vDoc.mensaje;
+
+    const vEmail = valEmail(form.email, { required: true });
+    if (!vEmail.ok) errors.email = vEmail.mensaje;
 
     if (form.telefono) {
-      const telErr = valTelefono(form.telefono, { required: false });
-      if (!telErr.ok) {
-        setFormError(telErr.mensaje);
-        setSaving(false);
-        return;
-      }
+      const vTel = valTelefono(form.telefono, { required: false });
+      if (!vTel.ok) errors.telefono = vTel.mensaje;
     }
+
+    const vUser = valUsername(form.nombreUsuario);
+    if (!vUser.ok) errors.nombreUsuario = vUser.mensaje;
+
+    if (form.password) {
+      const vPass = valPassword(form.password, 'La contraseña');
+      if (!vPass.ok) errors.password = vPass.mensaje;
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      const firstError = Object.values(errors)[0];
+      setFormError(firstError);
+      return;
+    }
+
+    setSaving(true);
+    setFormError(null);
+    setFormErrors({});
 
     try {
       const resp = await api.post('/usuarios', {
@@ -180,6 +229,7 @@ export function ConvivientesSection({
 
       toast.success('Residente de convivencia registrado exitosamente. Se han enviado las credenciales de acceso por correo.');
       setAddModalOpen(false);
+      resetTouched();
       onRefresh();
     } catch (err) {
       const respData = err?.response?.data;
@@ -258,22 +308,47 @@ export function ConvivientesSection({
     });
   };
 
+  // Apertura de diálogo de confirmación para Eliminar Definitivamente
+  const promptDeletePermanent = (resident) => {
+    const nombre = resident.persona
+      ? `${resident.persona.primerNombre || ''} ${resident.persona.primerApellido || ''}`.trim()
+      : `${resident.nombres || ''} ${resident.apellidos || ''}`.trim();
+
+    setConfirmDialog({
+      open: true,
+      type: 'DELETE_PERMANENT',
+      resident,
+      title: '¿Eliminar habitante definitivamente?',
+      message: `¿Deseas eliminar definitivamente a ${nombre}? Se eliminará permanentemente de la unidad y se liberará su cupo activo. Esta acción no se puede deshacer.`,
+      confirmLabel: 'Eliminar Definitivamente',
+      danger: true,
+    });
+  };
+
   // Ejecución de la acción confirmada
   const handleConfirmAction = async () => {
     const { type, resident } = confirmDialog;
-    if (!resident || !resident.id) return;
+    const resId = getResidentId(resident);
+    if (!resident || !resId) {
+      toast.error('No fue posible identificar al habitante.');
+      return;
+    }
 
     try {
       if (type === 'SUSPEND') {
-        await api.patch(`/units/${unitId}/residents/${resident.id}/status`, { estado: 'INACTIVO' });
+        await api.patch(`/units/${unitId}/residents/${resId}/status`, { estado: 'INACTIVO' });
         toast.success('Habitante suspendido exitosamente. Se ha liberado un cupo.');
       } else if (type === 'REACTIVATE') {
-        await api.patch(`/units/${unitId}/residents/${resident.id}/status`, { estado: 'ACTIVO' });
+        await api.patch(`/units/${unitId}/residents/${resId}/status`, { estado: 'ACTIVO' });
         toast.success('Habitante reactivado exitosamente.');
       } else if (type === 'UNLINK') {
-        await api.delete(`/units/${unitId}/residents/${resident.id}`);
+        await api.delete(`/units/${unitId}/residents/${resId}`);
         toast.success('Habitante desvinculado exitosamente de la unidad.');
+      } else if (type === 'DELETE_PERMANENT') {
+        await api.delete(`/units/${unitId}/residents/${resId}?permanent=true`);
+        toast.success('Habitante eliminado definitivamente de la unidad.');
       }
+      setConfirmDialog((prev) => ({ ...prev, open: false, resident: null }));
       onRefresh();
     } catch (err) {
       const respData = err?.response?.data;
@@ -503,12 +578,13 @@ export function ConvivientesSection({
               const hTel = h.persona?.telefono || h.telefono || '';
               const hRol = (h.tipoResidente || (idx === 0 ? 'TITULAR' : 'CONVIVIENTE')).toUpperCase();
               const isTitular = hRol === 'TITULAR' || hRol === 'PROPIETARIO' || hRol === 'PROPIETARIO_RESIDENTE';
-              const isActivo = (h.estado || 'ACTIVO').toUpperCase() === 'ACTIVO';
+              const isActivo = getResidentEstado(h) === 'ACTIVO';
               const hInitials = (hNombre[0] || 'R').toUpperCase();
+              const hId = getResidentId(h);
 
               return (
                 <div
-                  key={h.id || idx}
+                  key={hId || idx}
                   className={`flex flex-col justify-between p-4 rounded-xl border transition-all duration-150 ${
                     isTitular
                       ? 'bg-card border-primary/30 shadow-sm'
@@ -580,7 +656,7 @@ export function ConvivientesSection({
 
                   {/* Acciones para Convivientes (No aplicables al Titular) */}
                   {!isTitular && (
-                    <div className="pt-3 mt-3 border-t border-border/50 flex items-center justify-end gap-1.5">
+                    <div className="pt-3 mt-3 border-t border-border/50 flex items-center justify-end gap-1.5 flex-wrap">
                       {isActivo ? (
                         <Button
                           type="button"
@@ -615,12 +691,25 @@ export function ConvivientesSection({
                         variant="ghost"
                         size="sm"
                         onClick={() => promptUnlink(h)}
-                        className="h-7 px-2 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive gap-1"
-                        title="Desvincular habitante de la unidad"
+                        className="h-7 px-2 text-xs text-muted-foreground hover:bg-muted hover:text-foreground gap-1"
+                        title="Desvincular habitante de la unidad (conservar historial)"
                         aria-label={`Desvincular a ${hNombre} de la unidad`}
                       >
-                        <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+                        <UserMinus className="w-3.5 h-3.5" aria-hidden="true" />
                         <span>Desvincular</span>
+                      </Button>
+
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => promptDeletePermanent(h)}
+                        className="h-7 px-2 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive gap-1"
+                        title="Eliminar habitante definitivamente"
+                        aria-label={`Eliminar definitivamente a ${hNombre}`}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+                        <span>Eliminar</span>
                       </Button>
                     </div>
                   )}
@@ -654,21 +743,50 @@ export function ConvivientesSection({
                     ? `${h.persona.primerNombre || ''} ${h.persona.primerApellido || ''}`.trim()
                     : `${h.nombres || ''} ${h.apellidos || ''}`.trim();
                   const hDoc = h.persona?.numeroDocumento || h.numeroDocumento || '—';
+                  const hId = getResidentId(h);
                   return (
                     <div
-                      key={h.id || idx}
-                      className="p-3 rounded-lg border border-dashed border-border bg-muted/20 text-xs space-y-1.5"
+                      key={hId || idx}
+                      className="p-3 rounded-lg border border-dashed border-border bg-muted/20 text-xs space-y-2 flex flex-col justify-between"
                     >
-                      <div className="flex items-center justify-between gap-1">
-                        <span className="font-semibold text-foreground truncate">{hNombre}</span>
-                        <Badge variant="outline" className="text-[10px] text-muted-foreground shrink-0">
-                          Desvinculado
-                        </Badge>
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="font-semibold text-foreground truncate">{hNombre}</span>
+                          <Badge variant="outline" className="text-[10px] text-muted-foreground shrink-0">
+                            Desvinculado
+                          </Badge>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground font-mono">Doc: {hDoc}</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          Fecha desvinculación: {h.fechaFin || 'Previa'}
+                        </p>
                       </div>
-                      <p className="text-[11px] text-muted-foreground font-mono">Doc: {hDoc}</p>
-                      <p className="text-[10px] text-muted-foreground">
-                        Fecha desvinculación: {h.fechaFin || 'Previa'}
-                      </p>
+
+                      <div className="pt-2 border-t border-border/40 flex items-center justify-end gap-1.5">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={reached}
+                          onClick={() => promptReactivate(h)}
+                          className="h-6 px-2 text-[11px] text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10 gap-1 disabled:opacity-50"
+                          title={reached ? 'Cupo lleno en la unidad' : 'Reincorporar habitante a la unidad'}
+                        >
+                          <RotateCcw className="w-3 h-3" />
+                          <span>Reactivar</span>
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => promptDeletePermanent(h)}
+                          className="h-6 px-2 text-[11px] text-destructive hover:bg-destructive/10 hover:text-destructive gap-1"
+                          title="Eliminar habitante definitivamente del historial y la base de datos"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                          <span>Eliminar</span>
+                        </Button>
+                      </div>
                     </div>
                   );
                 })}
@@ -731,138 +849,139 @@ export function ConvivientesSection({
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label htmlFor="conv-primer-nombre" className="block text-xs font-semibold text-muted-foreground uppercase mb-1">
-                Primer Nombre *
-              </label>
-              <input
-                id="conv-primer-nombre"
-                type="text"
-                required
-                disabled={saving || reached}
-                placeholder="Ej. María"
-                value={form.primerNombre}
-                onChange={(e) => setForm({ ...form, primerNombre: e.target.value })}
-                className="w-full px-3 py-2 border border-input rounded-lg bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
-              />
-            </div>
-            <div>
-              <label htmlFor="conv-primer-apellido" className="block text-xs font-semibold text-muted-foreground uppercase mb-1">
-                Primer Apellido *
-              </label>
-              <input
-                id="conv-primer-apellido"
-                type="text"
-                required
-                disabled={saving || reached}
-                placeholder="Ej. Gómez"
-                value={form.primerApellido}
-                onChange={(e) => setForm({ ...form, primerApellido: e.target.value })}
-                className="w-full px-3 py-2 border border-input rounded-lg bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
-              />
-            </div>
+            <Input
+              id="conv-primer-nombre"
+              label="Primer Nombre"
+              required
+              disabled={saving || reached}
+              placeholder="Ej. María"
+              value={form.primerNombre}
+              onChange={(e) => {
+                setForm((f) => ({ ...f, primerNombre: soloLetras(e.target.value, 50) }));
+                if (formErrors.primerNombre) setFormErrors((fe) => ({ ...fe, primerNombre: null }));
+              }}
+              onBlur={() => touch('primerNombre')}
+              error={fieldError('primerNombre', valNombre(form.primerNombre, 'El primer nombre', { required: true })) || formErrors.primerNombre}
+            />
+
+            <Input
+              id="conv-primer-apellido"
+              label="Primer Apellido"
+              required
+              disabled={saving || reached}
+              placeholder="Ej. Gómez"
+              value={form.primerApellido}
+              onChange={(e) => {
+                setForm((f) => ({ ...f, primerApellido: soloLetras(e.target.value, 50) }));
+                if (formErrors.primerApellido) setFormErrors((fe) => ({ ...fe, primerApellido: null }));
+              }}
+              onBlur={() => touch('primerApellido')}
+              error={fieldError('primerApellido', valApellido(form.primerApellido, 'El primer apellido', { required: true })) || formErrors.primerApellido}
+            />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Select
+              id="conv-id-tipo-doc"
+              label="Tipo de Documento"
+              required
+              value={form.idTipoDocumento}
+              disabled={saving || reached}
+              onChange={(e) => {
+                setForm((f) => ({ ...f, idTipoDocumento: Number(e.target.value) }));
+              }}
+            >
+              {(tiposDoc || []).map((t) => (
+                <option key={t.idTipoDoc} value={t.idTipoDoc}>
+                  {t.codigo} - {t.nombre}
+                </option>
+              ))}
+            </Select>
+
             <div>
-              <label htmlFor="conv-id-tipo-doc" className="block text-xs font-semibold text-muted-foreground uppercase mb-1">
-                Tipo de Documento *
-              </label>
-              <select
-                id="conv-id-tipo-doc"
-                value={form.idTipoDocumento}
-                disabled={saving || reached}
-                onChange={(e) => setForm({ ...form, idTipoDocumento: Number(e.target.value) })}
-                className="w-full px-3 py-2 border border-input rounded-lg bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
-              >
-                {(tiposDoc || []).map((t) => (
-                  <option key={t.idTipoDoc} value={t.idTipoDoc}>
-                    {t.codigo} - {t.nombre}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label htmlFor="conv-num-doc" className="block text-xs font-semibold text-muted-foreground uppercase mb-1">
-                Número de Documento *
-              </label>
-              <input
+              <Input
                 id="conv-num-doc"
-                type="text"
+                label="Número de Documento"
                 required
                 disabled={saving || reached}
-                placeholder={getDocPlaceholder(
-                  (tiposDoc || []).find((t) => Number(t.idTipoDoc) === Number(form.idTipoDocumento))?.codigo || 'CC'
-                )}
+                placeholder={getDocPlaceholder(activeDocCodigo)}
                 value={form.numeroDocumento}
-                onChange={(e) => setForm({ ...form, numeroDocumento: e.target.value })}
-                className="w-full px-3 py-2 border border-input rounded-lg bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
+                onChange={(e) => {
+                  const isNumeric = ['CC', 'TI', 'RC'].includes(activeDocCodigo);
+                  const sanitized = isNumeric ? soloNumeros(e.target.value, 15) : soloAlfanumerico(e.target.value, 20);
+                  setForm((f) => ({ ...f, numeroDocumento: sanitized }));
+                  if (formErrors.numeroDocumento) setFormErrors((fe) => ({ ...fe, numeroDocumento: null }));
+                }}
+                onBlur={() => touch('numeroDocumento')}
+                error={fieldError('numeroDocumento', valDocumento(form.numeroDocumento, activeDocCodigo, 'El número de documento')) || formErrors.numeroDocumento}
               />
+              <p className="text-[11px] text-muted-foreground mt-1">{getDocHint(activeDocCodigo)}</p>
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label htmlFor="conv-email" className="block text-xs font-semibold text-muted-foreground uppercase mb-1">
-                Correo Electrónico *
-              </label>
-              <input
-                id="conv-email"
-                type="email"
-                required
-                disabled={saving || reached}
-                placeholder="familiar@ejemplo.com"
-                value={form.email}
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
-                className="w-full px-3 py-2 border border-input rounded-lg bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
-              />
-            </div>
-            <div>
-              <label htmlFor="conv-telefono" className="block text-xs font-semibold text-muted-foreground uppercase mb-1">
-                Teléfono Celular
-              </label>
-              <input
-                id="conv-telefono"
-                type="tel"
-                disabled={saving || reached}
-                placeholder="Ej. 3001234567"
-                value={form.telefono}
-                onChange={(e) => setForm({ ...form, telefono: e.target.value })}
-                className="w-full px-3 py-2 border border-input rounded-lg bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
-              />
-            </div>
+            <Input
+              id="conv-email"
+              type="email"
+              label="Correo Electrónico"
+              required
+              disabled={saving || reached}
+              placeholder="familiar@ejemplo.com"
+              value={form.email}
+              onChange={(e) => {
+                setForm((f) => ({ ...f, email: e.target.value.trim().toLowerCase() }));
+                if (formErrors.email) setFormErrors((fe) => ({ ...fe, email: null }));
+              }}
+              onBlur={() => touch('email')}
+              error={fieldError('email', valEmail(form.email, { required: true })) || formErrors.email}
+            />
+
+            <Input
+              id="conv-telefono"
+              type="tel"
+              label="Teléfono Celular (Opcional)"
+              disabled={saving || reached}
+              placeholder="Ej. 3001234567"
+              value={form.telefono}
+              onChange={(e) => {
+                setForm((f) => ({ ...f, telefono: soloNumeros(e.target.value, 10) }));
+                if (formErrors.telefono) setFormErrors((fe) => ({ ...fe, telefono: null }));
+              }}
+              onBlur={() => touch('telefono')}
+              error={fieldError('telefono', valTelefono(form.telefono, { required: false })) || formErrors.telefono}
+            />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label htmlFor="conv-usuario" className="block text-xs font-semibold text-muted-foreground uppercase mb-1">
-                Usuario de Ingreso *
-              </label>
-              <input
-                id="conv-usuario"
-                type="text"
-                required
-                disabled={saving || reached}
-                placeholder="Ej. mgomez"
-                value={form.nombreUsuario}
-                onChange={(e) => setForm({ ...form, nombreUsuario: e.target.value })}
-                className="w-full px-3 py-2 border border-input rounded-lg bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
-              />
-            </div>
-            <div>
-              <label htmlFor="conv-password" className="block text-xs font-semibold text-muted-foreground uppercase mb-1">
-                Contraseña Temporal
-              </label>
-              <input
-                id="conv-password"
-                type="password"
-                disabled={saving || reached}
-                placeholder="Autogenerada si se deja vacía"
-                value={form.password}
-                onChange={(e) => setForm({ ...form, password: e.target.value })}
-                className="w-full px-3 py-2 border border-input rounded-lg bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
-              />
-            </div>
+            <Input
+              id="conv-usuario"
+              label="Usuario de Ingreso"
+              required
+              disabled={saving || reached}
+              placeholder="Ej. mgomez"
+              value={form.nombreUsuario}
+              onChange={(e) => {
+                setForm((f) => ({ ...f, nombreUsuario: soloAlfanumerico(e.target.value.toLowerCase(), 30, false) }));
+                if (formErrors.nombreUsuario) setFormErrors((fe) => ({ ...fe, nombreUsuario: null }));
+              }}
+              onBlur={() => touch('nombreUsuario')}
+              error={fieldError('nombreUsuario', valUsername(form.nombreUsuario)) || formErrors.nombreUsuario}
+            />
+
+            <Input
+              id="conv-password"
+              type="password"
+              label="Contraseña Temporal (Opcional)"
+              disabled={saving || reached}
+              placeholder="Autogenerada si se deja vacía"
+              value={form.password}
+              onChange={(e) => {
+                setForm((f) => ({ ...f, password: e.target.value }));
+                if (formErrors.password) setFormErrors((fe) => ({ ...fe, password: null }));
+              }}
+              onBlur={() => touch('password')}
+              error={form.password ? fieldError('password', valPassword(form.password, 'La contraseña')) || formErrors.password : undefined}
+            />
           </div>
         </form>
       </Modal>
