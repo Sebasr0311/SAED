@@ -309,6 +309,68 @@ public class DatabaseSeeder implements ApplicationRunner {
                 log.debug("Notice on TRG_EJECAUTO_INMUTABLE: {}", e.getMessage());
             }
 
+            // 19. PLANTILLAS_CONTRATOS y Seed Inicial
+            try {
+                Integer countPlantillasTable = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(1) FROM USER_TABLES WHERE TABLE_NAME = 'PLANTILLAS_CONTRATOS'",
+                    Integer.class
+                );
+                if (countPlantillasTable == null || countPlantillasTable == 0) {
+                    jdbcTemplate.execute("""
+                        CREATE TABLE PLANTILLAS_CONTRATOS (
+                            ID_PLANTILLA NUMBER GENERATED ALWAYS AS IDENTITY MINVALUE 1 MAXVALUE 9999999999999999999999999999 INCREMENT BY 1 START WITH 1 CACHE 20 NOORDER NOCYCLE NOT NULL ENABLE,
+                            ID_ORGANIZACION NUMBER NOT NULL ENABLE,
+                            CODIGO VARCHAR2(50 CHAR) NOT NULL ENABLE,
+                            NOMBRE VARCHAR2(150 CHAR) NOT NULL ENABLE,
+                            TIPO_CONTRATO VARCHAR2(50 CHAR) NOT NULL ENABLE,
+                            DESCRIPCION VARCHAR2(500 CHAR),
+                            CONTENIDO_HTML CLOB NOT NULL ENABLE,
+                            VARIABLES_DISPONIBLES CLOB,
+                            CAMPOS_REQUERIDOS CLOB,
+                            VERSION NUMBER(5, 0) DEFAULT 1 NOT NULL ENABLE,
+                            ESTADO VARCHAR2(30 CHAR) DEFAULT 'ACTIVA' NOT NULL ENABLE,
+                            VIGENCIA_DESDE DATE DEFAULT CURRENT_DATE NOT NULL ENABLE,
+                            VIGENCIA_HASTA DATE,
+                            CREADO_POR NUMBER,
+                            FECHA_CREACION TIMESTAMP(6) WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL ENABLE,
+                            FECHA_ACTUALIZACION TIMESTAMP(6) WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL ENABLE,
+                            CONSTRAINT PK_PLANTILLAS_CONTRATOS PRIMARY KEY (ID_PLANTILLA),
+                            CONSTRAINT FK_PLANTILLAS_CONTRATOS_ORG FOREIGN KEY (ID_ORGANIZACION) REFERENCES ORGANIZACIONES(ID_ORGANIZACION) ON DELETE CASCADE,
+                            CONSTRAINT UQ_PLANTILLAS_ORG_COD_VER UNIQUE (ID_ORGANIZACION, CODIGO, VERSION),
+                            CONSTRAINT CK_PLANTILLAS_CONTR_TIPO CHECK (TIPO_CONTRATO IN ('INICIAL', 'RENOVACION', 'PERMANENCIA', 'COMERCIAL', 'OTRO')),
+                            CONSTRAINT CK_PLANTILLAS_CONTR_ESTADO CHECK (ESTADO IN ('ACTIVA', 'BORRADOR', 'HISTORICA'))
+                        )
+                    """);
+                    try {
+                        jdbcTemplate.execute("CREATE INDEX IX_PLANTILLAS_ORG_ESTADO ON PLANTILLAS_CONTRATOS (ID_ORGANIZACION, ESTADO)");
+                        jdbcTemplate.execute("CREATE INDEX IX_PLANTILLAS_ORG_TIPO ON PLANTILLAS_CONTRATOS (ID_ORGANIZACION, TIPO_CONTRATO)");
+                    } catch (Exception ignored) {}
+                }
+
+                Integer countTemplates = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(1) FROM PLANTILLAS_CONTRATOS WHERE ID_ORGANIZACION = 1",
+                    Integer.class
+                );
+                if (countTemplates == null || countTemplates == 0) {
+                    String defaultHtml = "<h2>CONTRATO DE ARRENDAMIENTO DE VIVIENDA URBANA</h2><p>Entre ${propiedad.nombre} y ${inquilino.nombre_completo} para la unidad ${apartamento.numero}.</p>";
+                    jdbcTemplate.update("""
+                        INSERT INTO PLANTILLAS_CONTRATOS (
+                            ID_ORGANIZACION, CODIGO, NOMBRE, TIPO_CONTRATO, DESCRIPCION,
+                            CONTENIDO_HTML, VARIABLES_DISPONIBLES, CAMPOS_REQUERIDOS, VERSION,
+                            ESTADO, VIGENCIA_DESDE, CREADO_POR
+                        ) VALUES (
+                            1, 'CONTRATO_ESTANDAR_2026', 'Contrato Estándar Residencial', 'INICIAL',
+                            'Plantilla base predeterminada para contratos de arrendamiento residencial.',
+                            ?, '["propiedad.nombre","inquilino.nombre_completo","apartamento.numero","contrato.canon_mensual"]',
+                            '["propiedad.nombre","inquilino.nombre_completo","apartamento.numero"]', 1,
+                            'ACTIVA', TRUNC(SYSDATE), 1
+                        )
+                    """, defaultHtml);
+                }
+            } catch (Exception e) {
+                log.debug("Aviso al verificar PLANTILLAS_CONTRATOS: {}", e.getMessage());
+            }
+
             log.info("SAED Database Seeder completed successfully.");
         } catch (Exception ex) {
             log.warn("Database seeding encountered a non-fatal exception: {}", ex.getMessage());
