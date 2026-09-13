@@ -31,7 +31,7 @@ export default function OrgAdminsPage() {
     email: '',
     nombreUsuario: '',
     password: '',
-    idRol: 3, // 3 = ADMIN_PROPIEDAD
+    idRol: 2, // 2 = ADMIN_PROPIEDAD
     idPropiedad: '',
   });
 
@@ -77,11 +77,18 @@ export default function OrgAdminsPage() {
         return;
       }
 
+      if (!newAdmin.idPropiedad) {
+        setCreateError('Debe seleccionar una propiedad asignada para el administrador.');
+        setCreating(false);
+        return;
+      }
+
       await api.post('/org/admins', {
         ...newAdmin,
-        idPropiedad: newAdmin.idRol === 3 ? Number(newAdmin.idPropiedad) : null,
+        idRol: 2,
+        idPropiedad: Number(newAdmin.idPropiedad),
       });
-      setSuccessMsg('Administrador registrado y asignado exitosamente.');
+      setSuccessMsg('Administrador de propiedad registrado y asignado exitosamente.');
       setIsModalOpen(false);
       setNewAdmin({
         primerNombre: '',
@@ -92,7 +99,7 @@ export default function OrgAdminsPage() {
         email: '',
         nombreUsuario: '',
         password: '',
-        idRol: 3,
+        idRol: 2,
         idPropiedad: properties.length > 0 ? properties[0].id : '',
       });
       await loadData();
@@ -424,34 +431,37 @@ export default function OrgAdminsPage() {
                     <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">
                       Rol Asignado
                     </label>
+                    <div className="w-full px-3 py-2 border border-input rounded-lg bg-muted/40 text-sm font-medium text-foreground flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <Shield className="w-3.5 h-3.5 text-primary" />
+                        Admin Propiedad
+                      </span>
+                      <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/20">
+                        Copropiedad
+                      </Badge>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      Gestión operativa exclusiva para una copropiedad.
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">
+                      Propiedad Asignada *
+                    </label>
                     <select
-                      value={newAdmin.idRol}
-                      onChange={(e) => setNewAdmin({ ...newAdmin, idRol: Number(e.target.value) })}
+                      required
+                      value={newAdmin.idPropiedad}
+                      onChange={(e) => setNewAdmin({ ...newAdmin, idPropiedad: e.target.value })}
                       className="w-full px-3 py-2 border border-input rounded-lg bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                     >
-                      <option value={3}>Admin Propiedad (Copropiedad)</option>
-                      <option value={2}>Admin Organización</option>
+                      <option value="">Seleccione una propiedad...</option>
+                      {properties.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.nombre}
+                        </option>
+                      ))}
                     </select>
                   </div>
-                  {newAdmin.idRol === 3 && (
-                    <div>
-                      <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">
-                        Propiedad Asignada *
-                      </label>
-                      <select
-                        required
-                        value={newAdmin.idPropiedad}
-                        onChange={(e) => setNewAdmin({ ...newAdmin, idPropiedad: e.target.value })}
-                        className="w-full px-3 py-2 border border-input rounded-lg bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                      >
-                        {properties.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.nombre}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
                 </div>
 
                 <div className="flex justify-end gap-3 pt-4 border-t border-border">

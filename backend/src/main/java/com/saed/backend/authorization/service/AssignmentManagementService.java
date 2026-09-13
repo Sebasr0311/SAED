@@ -46,9 +46,12 @@ public class AssignmentManagementService {
             if ("GLOBAL".equals(targetRole.getAlcance()) || "SUPERADMIN".equals(targetRole.getCodigo())) {
                 throw new AccessDeniedException("Cannot assign GLOBAL scope or SUPERADMIN role");
             }
-            if ("ORGANIZACION".equals(currentScope)) {
-                if (!"PROPIEDAD".equals(targetRole.getAlcance()) && !"ORGANIZACION".equals(targetRole.getAlcance())) {
-                    throw new AccessDeniedException("ADMIN_ORGANIZACION cannot assign role with scope " + targetRole.getAlcance());
+            if ("ORGANIZACION".equals(currentScope) || "ADMIN_ORGANIZACION".equals(currentCode)) {
+                if ("ORGANIZACION".equals(targetRole.getAlcance()) || "ADMIN_ORGANIZACION".equals(targetRole.getCodigo())) {
+                    throw new AccessDeniedException("ADMIN_ORGANIZACION no puede crear ni asignar el rol ADMIN_ORGANIZACION");
+                }
+                if (!"PROPIEDAD".equals(targetRole.getAlcance())) {
+                    throw new AccessDeniedException("ADMIN_ORGANIZACION solo puede asignar roles de alcance PROPIEDAD");
                 }
             }
             if ("PROPIEDAD".equals(currentScope) &&

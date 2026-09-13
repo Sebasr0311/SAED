@@ -99,13 +99,35 @@ public class OrgAdminsController {
             throw new AccessDeniedException("No se encontró contexto de organización activo");
         }
 
-        // BD-02: Validar que la propiedad pertenezca a la organización
-        if (request.getIdPropiedad() != null) {
-            PropertyDTO prop = propertyRepository.findById(request.getIdPropiedad())
-                    .orElseThrow(() -> new IllegalArgumentException("La propiedad especificada no existe"));
-            if (!prop.getIdOrganizacion().equals(orgId)) {
-                throw new AccessDeniedException("No puede asignar administradores a propiedades fuera de su organización");
+        // Anti-escalation: ADMIN_ORGANIZACION no puede crear otro ADMIN_ORGANIZACION
+        String callerCode = ctx.getRoleCode();
+        Long requestedRoleId = request.getIdRol() != null ? request.getIdRol() : 2L;
+
+        if (!"SUPERADMIN".equalsIgnoreCase(callerCode)) {
+            List<Map<String, Object>> roleRows = jdbcTemplate.queryForList(
+                    "SELECT CODIGO, ALCANCE FROM ROLES WHERE ID_ROL = :idRol",
+                    Map.of("idRol", requestedRoleId)
+            );
+            if (!roleRows.isEmpty()) {
+                String targetCodigo = (String) roleRows.get(0).get("CODIGO");
+                String targetAlcance = (String) roleRows.get(0).get("ALCANCE");
+                if ("ADMIN_ORGANIZACION".equalsIgnoreCase(targetCodigo) || "ORGANIZACION".equalsIgnoreCase(targetAlcance)
+                        || "SUPERADMIN".equalsIgnoreCase(targetCodigo) || "GLOBAL".equalsIgnoreCase(targetAlcance)) {
+                    throw new AccessDeniedException("Un Administrador de Organización no puede crear otros Administradores de Organización.");
+                }
             }
+        }
+
+        // Requerir propiedad asignada obligatoria
+        if (request.getIdPropiedad() == null) {
+            throw new IllegalArgumentException("Debe especificar la propiedad a la que se asignará el administrador.");
+        }
+
+        // BD-02: Validar que la propiedad pertenezca a la organización
+        PropertyDTO prop = propertyRepository.findById(request.getIdPropiedad())
+                .orElseThrow(() -> new IllegalArgumentException("La propiedad especificada no existe"));
+        if (!prop.getIdOrganizacion().equals(orgId)) {
+            throw new AccessDeniedException("No puede asignar administradores a propiedades fuera de su organización");
         }
 
         // 1. Insertar PERSONA
@@ -187,13 +209,7 @@ public class OrgAdminsController {
             if (!oNames.isEmpty()) orgName = oNames.get(0);
         } catch (Exception ignored) {}
 
-        String propName = null;
-        if (request.getIdPropiedad() != null) {
-            try {
-                PropertyDTO prop = propertyRepository.findById(request.getIdPropiedad()).orElse(null);
-                if (prop != null) propName = prop.getNombre();
-            } catch (Exception ignored) {}
-        }
+        String propName = prop != null ? prop.getNombre() : null;
 
         String fullName = (request.getPrimerNombre().trim() + " " + request.getPrimerApellido().trim()).trim();
         try {
