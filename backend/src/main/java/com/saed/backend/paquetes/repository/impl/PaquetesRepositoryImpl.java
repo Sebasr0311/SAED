@@ -36,33 +36,22 @@ public class PaquetesRepositoryImpl implements PaquetesRepository {
     @PostConstruct
     public void checkOrUpgradeColumns() {
         try {
-            jdbcTemplate.getJdbcTemplate().execute("ALTER TABLE PAQUETES MODIFY (FOTO_PAQUETE_URL CLOB)");
+            List<Map<String, Object>> cols = jdbcTemplate.getJdbcTemplate().queryForList(
+                "SELECT COLUMN_NAME, DATA_TYPE FROM USER_TAB_COLS WHERE TABLE_NAME = 'PAQUETES' AND COLUMN_NAME IN ('FOTO_PAQUETE_URL', 'FOTO_COMPROBANTE_URL')"
+            );
+            for (Map<String, Object> col : cols) {
+                String name = (String) col.get("COLUMN_NAME");
+                String type = (String) col.get("DATA_TYPE");
+                if ("FOTO_PAQUETE_URL".equalsIgnoreCase(name)) {
+                    isFotoClob = "CLOB".equalsIgnoreCase(type);
+                } else if ("FOTO_COMPROBANTE_URL".equalsIgnoreCase(name)) {
+                    isComprobanteClob = "CLOB".equalsIgnoreCase(type);
+                }
+            }
+        } catch (Exception e) {
+            log.debug("Aviso al consultar metadata de PAQUETES: {}", e.getMessage());
             isFotoClob = true;
-            log.info("Columna PAQUETES.FOTO_PAQUETE_URL configurada exitosamente como CLOB");
-        } catch (Exception e) {
-            try {
-                String type = jdbcTemplate.queryForObject(
-                    "SELECT DATA_TYPE FROM USER_TAB_COLS WHERE TABLE_NAME = 'PAQUETES' AND COLUMN_NAME = 'FOTO_PAQUETE_URL'",
-                    Map.of(), String.class);
-                isFotoClob = "CLOB".equalsIgnoreCase(type);
-            } catch (Exception ignored) {
-                isFotoClob = false;
-            }
-        }
-
-        try {
-            jdbcTemplate.getJdbcTemplate().execute("ALTER TABLE PAQUETES MODIFY (FOTO_COMPROBANTE_URL CLOB)");
             isComprobanteClob = true;
-            log.info("Columna PAQUETES.FOTO_COMPROBANTE_URL configurada exitosamente como CLOB");
-        } catch (Exception e) {
-            try {
-                String type = jdbcTemplate.queryForObject(
-                    "SELECT DATA_TYPE FROM USER_TAB_COLS WHERE TABLE_NAME = 'PAQUETES' AND COLUMN_NAME = 'FOTO_COMPROBANTE_URL'",
-                    Map.of(), String.class);
-                isComprobanteClob = "CLOB".equalsIgnoreCase(type);
-            } catch (Exception ignored) {
-                isComprobanteClob = false;
-            }
         }
     }
 

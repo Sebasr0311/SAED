@@ -57,11 +57,24 @@ public class OnboardingServiceImpl implements OnboardingService {
     @PostConstruct
     public void init() {
         inicializarEsquemaStaging();
-        purgarRegistrosFalsos();
+        // Ejecutar purga de forma asíncrona para no bloquear el arranque de Tomcat ni el enlace de puerto en Render
+        java.util.concurrent.CompletableFuture.runAsync(() -> {
+            try {
+                Thread.sleep(5000);
+                purgarRegistrosFalsos();
+            } catch (Exception ignored) {}
+        });
     }
 
     private void inicializarEsquemaStaging() {
         try {
+            Integer count = jdbcTemplate.getJdbcOperations().queryForObject(
+                "SELECT COUNT(1) FROM USER_TABLES WHERE TABLE_NAME = 'ONBOARDING_INTENCIONES'",
+                Integer.class
+            );
+            if (count != null && count > 0) {
+                return;
+            }
             jdbcTemplate.getJdbcOperations().execute("""
                 CREATE TABLE ONBOARDING_INTENCIONES (
                     REFERENCIA VARCHAR(100) PRIMARY KEY,
@@ -74,10 +87,9 @@ public class OnboardingServiceImpl implements OnboardingService {
             """);
             log.info("[Onboarding] Tabla ONBOARDING_INTENCIONES creada exitosamente.");
         } catch (Exception e) {
-            // Ignorar error si la tabla ya existe (ORA-00955 o H2 already exists)
             String msg = e.getMessage() != null ? e.getMessage().toLowerCase() : "";
             if (!msg.contains("ora-00955") && !msg.contains("already exists")) {
-                log.warn("[Onboarding] Aviso al inicializar ONBOARDING_INTENCIONES: {}", e.getMessage());
+                log.debug("[Onboarding] Aviso al inicializar ONBOARDING_INTENCIONES: {}", e.getMessage());
             }
         }
     }

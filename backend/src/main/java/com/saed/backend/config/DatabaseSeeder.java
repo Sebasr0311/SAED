@@ -38,6 +38,17 @@ public class DatabaseSeeder implements ApplicationRunner {
     public void run(ApplicationArguments args) {
         log.info("Starting SAED Database Seeder...");
         try {
+            try {
+                Integer existingRoles = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(1) FROM ROLES WHERE CODIGO = 'RESIDENTE_CONVIVENCIA'",
+                    Integer.class
+                );
+                if (existingRoles != null && existingRoles > 0) {
+                    log.info("SAED base catalog and roles already seeded. Skipping initial seeder execution.");
+                    return;
+                }
+            } catch (Exception ignored) {}
+
             BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
             String hashAdminGlobal = encoder.encode("admin_global123");
             String hashGeneral = encoder.encode("admin123");
