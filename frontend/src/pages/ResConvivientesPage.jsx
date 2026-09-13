@@ -15,7 +15,7 @@ export default function ResConvivientesPage() {
   const navigate = useNavigate();
   const { tiposDoc } = useTiposDocumento();
 
-  const residentId = user?.idResidente || user?.idPersona || user?.idUsuario;
+  const residentId = user?.idPersona || user?.idResidente || user?.idUsuario;
 
   // 1. Datos personales del titular
   const { data: personaData } = useFetch(
@@ -139,10 +139,10 @@ export default function ResConvivientesPage() {
         residentId={residentId}
         tiposDoc={tiposDoc}
         titularFallback={{
-          id: residentId || 4,
-          nombres: perfil.primerNombre || perfil.nombres || nombreCompleto,
-          apellidos: perfil.primerApellido || perfil.apellidos || '',
-          numeroDocumento: perfil.numeroDocumento || user?.numeroDocumento || '1000000004',
+          id: residentId,
+          nombres: perfil.primerNombre || perfil.nombres || user?.nombreCompleto?.split(' ')[0] || user?.nombreUsuario || 'Titular',
+          apellidos: perfil.primerApellido || perfil.apellidos || (user?.nombreCompleto ? user.nombreCompleto.split(' ').slice(1).join(' ') : ''),
+          numeroDocumento: perfil.numeroDocumento || user?.numeroDocumento || '—',
           tipoResidente: 'TITULAR',
           estado: 'ACTIVO',
         }}

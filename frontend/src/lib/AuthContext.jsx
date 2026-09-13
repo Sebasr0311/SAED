@@ -7,7 +7,13 @@ const AuthContext = createContext(null);
 
 function normalizeUser(user) {
   if (!user) return user;
-  return { ...user, rol: normalizeRole(user.rol) };
+  return {
+    ...user,
+    rol: normalizeRole(user.rol),
+    username: user.nombreUsuario || user.username,
+    idPersona: user.idPersona || user.idResidente,
+    idResidente: user.idPersona || user.idResidente,
+  };
 }
 
 export function AuthProvider({ children }) {
@@ -24,6 +30,7 @@ export function AuthProvider({ children }) {
   async function login(username, password) {
     setLoading(true);
     try {
+      clearAuth();
       const data = await api.post('/auth/login', { username, password });
       const usuario = normalizeUser(data.usuario);
       setTokens(data.token, data.refreshToken);

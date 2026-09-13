@@ -2,7 +2,9 @@ package com.saed.backend.identity.dto;
 
 public class AuthUserDTO {
     private Long idUsuario;
+    private Long idPersona;
     private String nombreUsuario;
+    private String nombreCompleto;
     private String email;
     private String rol;
     private String alcance;
@@ -15,8 +17,15 @@ public class AuthUserDTO {
 
     public AuthUserDTO(Long idUsuario, String nombreUsuario, String email, String rol,
                        String alcance, Long idOrganizacion, Long idPropiedad, Long idUnidad) {
+        this(idUsuario, null, nombreUsuario, null, email, rol, alcance, idOrganizacion, idPropiedad, idUnidad);
+    }
+
+    public AuthUserDTO(Long idUsuario, Long idPersona, String nombreUsuario, String nombreCompleto,
+                       String email, String rol, String alcance, Long idOrganizacion, Long idPropiedad, Long idUnidad) {
         this.idUsuario = idUsuario;
+        this.idPersona = idPersona;
         this.nombreUsuario = nombreUsuario;
+        this.nombreCompleto = nombreCompleto;
         this.email = email;
         this.rol = rol;
         this.alcance = alcance;
@@ -27,8 +36,12 @@ public class AuthUserDTO {
 
     public Long getIdUsuario() { return idUsuario; }
     public void setIdUsuario(Long idUsuario) { this.idUsuario = idUsuario; }
+    public Long getIdPersona() { return idPersona; }
+    public void setIdPersona(Long idPersona) { this.idPersona = idPersona; }
     public String getNombreUsuario() { return nombreUsuario; }
     public void setNombreUsuario(String nombreUsuario) { this.nombreUsuario = nombreUsuario; }
+    public String getNombreCompleto() { return nombreCompleto; }
+    public void setNombreCompleto(String nombreCompleto) { this.nombreCompleto = nombreCompleto; }
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }
     public String getRol() { return rol; }

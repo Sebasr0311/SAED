@@ -91,9 +91,32 @@ public class AuthRepositoryImpl implements AuthRepository {
         if (nombreUsuario == null) {
             return null;
         }
+
+        Long idPersona = null;
+        String nombreCompleto = null;
+        try {
+            java.util.List<Map<String, Object>> pList = jdbcTemplate.queryForList(
+                "SELECT p.ID_PERSONA, TRIM(p.PRIMER_NOMBRE || ' ' || NVL(p.SEGUNDO_NOMBRE, '') || ' ' || p.PRIMER_APELLIDO || ' ' || NVL(p.SEGUNDO_APELLIDO, '')) AS NOMBRE_COMPLETO " +
+                "FROM USUARIOS u JOIN PERSONAS p ON u.ID_PERSONA = p.ID_PERSONA WHERE u.ID_USUARIO = ?",
+                userId
+            );
+            if (!pList.isEmpty()) {
+                Map<String, Object> row = pList.get(0);
+                if (row.get("ID_PERSONA") != null) {
+                    idPersona = ((Number) row.get("ID_PERSONA")).longValue();
+                }
+                nombreCompleto = (String) row.get("NOMBRE_COMPLETO");
+                if (nombreCompleto != null) {
+                    nombreCompleto = nombreCompleto.replaceAll("\\s+", " ").trim();
+                }
+            }
+        } catch (Exception ignored) {}
+
         return new AuthUserDTO(
                 userId,
+                idPersona,
                 nombreUsuario,
+                nombreCompleto,
                 (String) out.get("p_email"),
                 (String) out.get("p_rol_codigo"),
                 (String) out.get("p_alcance"),

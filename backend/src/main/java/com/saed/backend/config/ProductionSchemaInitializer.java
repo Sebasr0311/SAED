@@ -220,6 +220,14 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
 
     private void initRoles() {
         try {
+            try {
+                jdbcTemplate.execute("ALTER TABLE ROLES DROP CONSTRAINT CK_ROLES_CODIGO");
+            } catch (Exception ignored) {}
+            try {
+                jdbcTemplate.execute("ALTER TABLE ROLES ADD CONSTRAINT CK_ROLES_CODIGO CHECK (codigo IN ('SUPERADMIN', 'ADMIN_ORGANIZACION', 'PROPIETARIO', 'ADMIN_GENERAL', 'ADMIN_PROPIEDAD', 'PORTERO', 'VIGILANTE', 'RESIDENTE', 'RESIDENTE_CONVIVENCIA', 'PROPIETARIO_UNIDAD'))");
+            } catch (Exception ignored) {}
+
+            runElevated("NULL");
             // Asegurar rol canónico RESIDENTE_CONVIVENCIA
             jdbcTemplate.execute("""
                 MERGE INTO ROLES r USING (

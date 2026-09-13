@@ -65,7 +65,7 @@ export default function ResidenteDashboardPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const isConviviente = user?.rol === 'RESIDENTE_CONVIVENCIA' || user?.rolCodigo === 'RESIDENTE_CONVIVENCIA';
-  const residentId = user?.idResidente || user?.idPersona || user?.idUsuario;
+  const residentId = user?.idPersona || user?.idResidente || user?.idUsuario;
 
   // 1. Perfil del residente
   const { data: perfilData, refetch: refetchPerfil } = useFetch(
@@ -75,11 +75,15 @@ export default function ResidenteDashboardPage() {
   const perfil = useMemo(() => perfilData?.raw || perfilData || {}, [perfilData]);
 
   const nombreResidente = useMemo(() => {
-    const pNombre = perfil.primerNombre || perfil.nombres || user?.nombreCompleto || 'Carlos';
+    const pNombre = perfil.primerNombre || perfil.nombres;
     const sNombre = perfil.segundoNombre || '';
-    const pApellido = perfil.primerApellido || perfil.apellidos || (user?.nombreCompleto ? '' : 'Martínez');
+    const pApellido = perfil.primerApellido || perfil.apellidos;
     const sApellido = perfil.segundoApellido || '';
-    return `${pNombre} ${sNombre} ${pApellido} ${sApellido}`.replace(/\s+/g, ' ').trim();
+    const fullFromPerfil = `${pNombre || ''} ${sNombre} ${pApellido || ''} ${sApellido}`.replace(/\s+/g, ' ').trim();
+    if (fullFromPerfil) return fullFromPerfil;
+    if (user?.nombreCompleto) return user.nombreCompleto;
+    if (user?.nombreUsuario || user?.username) return `@${user.nombreUsuario || user.username}`;
+    return 'Residente';
   }, [perfil, user]);
 
   const iniciales = useMemo(() => {

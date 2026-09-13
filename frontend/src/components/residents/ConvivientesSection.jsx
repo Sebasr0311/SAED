@@ -113,7 +113,28 @@ export function ConvivientesSection({
   }, [residentsData]);
 
   const listaHabitantes = useMemo(() => {
-    if (rawResidents.length > 0) return rawResidents;
+    if (rawResidents.length > 0) {
+      if (titularFallback) {
+        const titularDoc = (titularFallback.numeroDocumento || titularFallback.persona?.numeroDocumento || '').trim();
+        const titularId = titularFallback.id || titularFallback.idPersona;
+        const exists = rawResidents.some((r) => {
+          const rDoc = (r.persona?.numeroDocumento || r.numeroDocumento || '').trim();
+          const rId = r.persona?.idPersona || r.idPersona || r.id;
+          const isTit = (r.tipoResidente || '').toUpperCase();
+          return (
+            (titularDoc && titularDoc !== '—' && rDoc === titularDoc) ||
+            (titularId && rId === titularId) ||
+            isTit === 'TITULAR' ||
+            isTit === 'PROPIETARIO' ||
+            isTit === 'PROPIETARIO_RESIDENTE'
+          );
+        });
+        if (!exists) {
+          return [titularFallback, ...rawResidents];
+        }
+      }
+      return rawResidents;
+    }
     if (titularFallback) return [titularFallback];
     return [];
   }, [rawResidents, titularFallback]);
@@ -576,7 +597,7 @@ export function ConvivientesSection({
               const hDoc = h.persona?.numeroDocumento || h.numeroDocumento || '—';
               const hEmail = h.persona?.email || h.email || '';
               const hTel = h.persona?.telefono || h.telefono || '';
-              const hRol = (h.tipoResidente || (idx === 0 ? 'TITULAR' : 'CONVIVIENTE')).toUpperCase();
+              const hRol = (h.tipoResidente || (h === titularFallback ? 'TITULAR' : 'CONVIVIENTE')).toUpperCase();
               const isTitular = hRol === 'TITULAR' || hRol === 'PROPIETARIO' || hRol === 'PROPIETARIO_RESIDENTE';
               const isActivo = getResidentEstado(h) === 'ACTIVO';
               const hInitials = (hNombre[0] || 'R').toUpperCase();

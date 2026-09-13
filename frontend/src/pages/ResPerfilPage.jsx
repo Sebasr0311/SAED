@@ -114,7 +114,7 @@ export default function ResPerfilPage() {
   const { tiposDoc } = useTiposDocumento();
 
   // Resolución de IDs
-  const residentId = user?.idResidente || user?.idPersona || user?.idUsuario;
+  const residentId = user?.idPersona || user?.idResidente || user?.idUsuario;
 
   // 1. Datos personales de la persona
   const { data: personaData, refetch: refetchPersona } = useFetch(
@@ -388,7 +388,7 @@ export default function ResPerfilPage() {
                   icon={Phone}
                 />
                 <CopyChip
-                  text={perfil.email || user?.email || 'camartinez@saed.com'}
+                  text={perfil.email || user?.email || ''}
                   label="Correo"
                   icon={Mail}
                 />
@@ -577,7 +577,7 @@ export default function ResPerfilPage() {
                 <DetailItem
                   icon={Mail}
                   label="Correo Electrónico"
-                  value={perfil.email || user?.email || 'camartinez@saed.com'}
+                  value={perfil.email || user?.email || '—'}
                   badge={<Badge variant="success">Notificaciones OK</Badge>}
                   subtext="Recepción de estados de cuenta y circulares"
                 />
@@ -622,7 +622,7 @@ export default function ResPerfilPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="p-4 rounded-xl border border-border/60 bg-muted/20">
                     <span className="text-xs font-semibold text-muted-foreground uppercase">Nombre de Usuario</span>
-                    <p className="text-base font-bold text-foreground font-mono mt-1">@{user?.username || 'camartinez'}</p>
+                    <p className="text-base font-bold text-foreground font-mono mt-1">@{user?.nombreUsuario || user?.username || perfil.nombreUsuario || 'residente'}</p>
                     <p className="text-xs text-muted-foreground mt-0.5">Credencial única para inicio de sesión</p>
                   </div>
                   <div className="p-4 rounded-xl border border-border/60 bg-muted/20">
@@ -780,10 +780,10 @@ export default function ResPerfilPage() {
                 residentId={residentId}
                 tiposDoc={tiposDoc}
                 titularFallback={{
-                  id: residentId || 4,
-                  nombres: perfil.primerNombre || perfil.nombres || 'Carlos',
-                  apellidos: perfil.primerApellido || perfil.apellidos || 'Martínez',
-                  numeroDocumento: perfil.numeroDocumento || '1000000004',
+                  id: residentId,
+                  nombres: perfil.primerNombre || perfil.nombres || user?.nombreCompleto?.split(' ')[0] || user?.nombreUsuario || 'Titular',
+                  apellidos: perfil.primerApellido || perfil.apellidos || (user?.nombreCompleto ? user.nombreCompleto.split(' ').slice(1).join(' ') : ''),
+                  numeroDocumento: perfil.numeroDocumento || user?.numeroDocumento || '—',
                   tipoResidente: 'TITULAR',
                   estado: 'ACTIVO',
                 }}
