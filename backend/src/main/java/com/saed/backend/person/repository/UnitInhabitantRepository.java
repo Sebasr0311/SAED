@@ -17,4 +17,5 @@ public interface UnitInhabitantRepository {
 
     int updateResidentStatus(Long unitId, Long residentId, String status);
     int unlinkResident(Long unitId, Long residentId);
+    int deleteResidentPermanently(Long unitId, Long residentId);
 }
