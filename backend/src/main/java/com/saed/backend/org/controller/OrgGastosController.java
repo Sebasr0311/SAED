@@ -27,7 +27,7 @@ import java.util.*;
 @Tag(name = "Organization Gastos", description = "Auditoria y revision ejecutiva de gastos de las propiedades de la Organizacion")
 @RestController
 @RequestMapping("/api/v1/org/gastos")
-@PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_SUPERADMIN')")
+@PreAuthorize("hasAuthority('SCOPE_ADMIN_ORGANIZACION')")
 public class OrgGastosController {
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
@@ -49,19 +49,16 @@ public class OrgGastosController {
 
         SaedContext ctx = SaedContextHolder.getContext();
         Long orgId = ctx != null ? ctx.getOrganizationId() : null;
-        String role = ctx != null ? ctx.getRoleCode() : "";
 
-        if (!"SUPERADMIN".equalsIgnoreCase(role) && orgId == null) {
+        if (orgId == null) {
             throw new AccessDeniedException("No se encontro organizacion en el contexto activo");
         }
 
         MapSqlParameterSource params = new MapSqlParameterSource();
         StringBuilder filterSql = new StringBuilder(" WHERE 1=1");
 
-        if (!"SUPERADMIN".equalsIgnoreCase(role)) {
-            filterSql.append(" AND p_prop.ID_ORGANIZACION = :orgId");
-            params.addValue("orgId", orgId);
-        }
+        filterSql.append(" AND p_prop.ID_ORGANIZACION = :orgId");
+        params.addValue("orgId", orgId);
 
         if (idPropiedad != null) {
             filterSql.append(" AND g.ID_PROPIEDAD = :idPropiedad");
@@ -185,7 +182,10 @@ public class OrgGastosController {
     public ResponseEntity<ApiResponse<GastoResponseDTO>> getDetalleGasto(@PathVariable Long id) {
         SaedContext ctx = SaedContextHolder.getContext();
         Long orgId = ctx != null ? ctx.getOrganizationId() : null;
-        String role = ctx != null ? ctx.getRoleCode() : "";
+
+        if (orgId == null) {
+            throw new AccessDeniedException("No se encontro organizacion en el contexto activo");
+        }
 
         String sql = """
             SELECT g.ID_GASTO, g.ID_PROPIEDAD, p_prop.NOMBRE AS NOMBRE_PROPIEDAD,
@@ -207,13 +207,11 @@ public class OrgGastosController {
             LEFT JOIN USUARIOS u_mod ON g.MODIFICADO_POR = u_mod.ID_USUARIO
             LEFT JOIN PERSONAS per_mod ON u_mod.ID_PERSONA = per_mod.ID_PERSONA
             WHERE g.ID_GASTO = :id
+              AND p_prop.ID_ORGANIZACION = :orgId
         """;
 
         MapSqlParameterSource params = new MapSqlParameterSource("id", id);
-        if (!"SUPERADMIN".equalsIgnoreCase(role)) {
-            sql += " AND p_prop.ID_ORGANIZACION = :orgId";
-            params.addValue("orgId", orgId);
-        }
+        params.addValue("orgId", orgId);
 
         List<GastoResponseDTO> results = jdbcTemplate.query(sql, params, (rs, rowNum) -> mapGastoRow(rs));
         if (results.isEmpty()) {
@@ -262,19 +260,20 @@ public class OrgGastosController {
 
         SaedContext ctx = SaedContextHolder.getContext();
         Long orgId = ctx != null ? ctx.getOrganizationId() : null;
-        String role = ctx != null ? ctx.getRoleCode() : "";
+
+        if (orgId == null) {
+            throw new AccessDeniedException("No se encontro organizacion en el contexto activo");
+        }
 
         String sql = """
             SELECT g.FACTURA_SOPORTE_URL, g.ARCHIVO_NOMBRE_ORIG, g.ARCHIVO_MIME_TYPE
             FROM GASTOS g
             JOIN PROPIEDADES p_prop ON g.ID_PROPIEDAD = p_prop.ID_PROPIEDAD
             WHERE g.ID_GASTO = :id
+              AND p_prop.ID_ORGANIZACION = :orgId
         """;
         MapSqlParameterSource params = new MapSqlParameterSource("id", id);
-        if (!"SUPERADMIN".equalsIgnoreCase(role)) {
-            sql += " AND p_prop.ID_ORGANIZACION = :orgId";
-            params.addValue("orgId", orgId);
-        }
+        params.addValue("orgId", orgId);
 
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql, params);
         if (rows.isEmpty()) {

@@ -388,7 +388,7 @@ export default function SuperAdminOrganizacionesPage() {
                 <Input
                   id="org-tel"
                   value={form.telefonoContacto}
-                  onChange={(e) => setForm({ ...form, telefonoContacto: e.target.value.replace(/[^0-9+\s()\-]/g, '').slice(0, 20) })}
+                  onChange={(e) => setForm({ ...form, telefonoContacto: e.target.value.replace(/[^0-9+\s()-]/g, '').slice(0, 20) })}
                   placeholder="+57 300 123 4567"
                   className="text-sm"
                 />

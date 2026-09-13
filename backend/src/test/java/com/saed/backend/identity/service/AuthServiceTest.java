@@ -138,4 +138,32 @@ public class AuthServiceTest {
         assertFalse(authService.verifyPassword(1L, null));
         assertFalse(authService.verifyPassword(1L, "   "));
     }
+
+    @Test
+    void whenVerifyPasswordUserId1WithOldHardcodedFallback_thenReturnsFalse() {
+        when(authRepository.getPasswordHash(1L)).thenReturn(Optional.of("hashed_pw"));
+        when(passwordEncoder.matches("admin_global123", "hashed_pw")).thenReturn(false);
+
+        boolean result = authService.verifyPassword(1L, "admin_global123");
+        assertFalse(result, "SD-01: Hardcoded fallback admin_global123 must not bypass password verification");
+    }
+
+    @Test
+    void whenLoginUserId1WithMismatchedHash_thenFailsEvenWithOldHardcodedCredential() {
+        LoginRequest request = new LoginRequest();
+        request.setUsername("admin_global");
+        request.setPassword("admin_global123");
+
+        AuthData authData = new AuthData();
+        authData.setIdUsuario(1L);
+        authData.setHashPassword("different_hashed_password");
+        authData.setEstado("ACTIVO");
+
+        when(authRepository.getAuthData("admin_global")).thenReturn(Optional.of(authData));
+        when(passwordEncoder.matches("admin_global123", "different_hashed_password")).thenReturn(false);
+
+        assertThrows(com.saed.backend.identity.exception.InvalidCredentialsException.class,
+                () -> authService.login(request),
+                "SD-01: Hardcoded admin_global123 must not authenticate if hash does not match in DB");
+    }
 }

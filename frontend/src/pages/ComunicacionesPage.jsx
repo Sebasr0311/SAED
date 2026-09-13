@@ -152,8 +152,8 @@ export default function ComunicacionesPage({ initialTab = 'todos' }) {
   // Normalización de items
   const avisos = useMemo(() => {
     const list = Array.isArray(avisosRaw) ? avisosRaw : avisosRaw?.items || [];
-    return list.map((a) => ({
-      id: `aviso-${a.ID_COMUNICADO || a.idComunicado || Math.random()}`,
+    return list.map((a, idx) => ({
+      id: `aviso-${a.ID_COMUNICADO || a.idComunicado || idx}`,
       rawId: a.ID_COMUNICADO || a.idComunicado,
       tipo: 'AVISO',
       titulo: a.TITULO || a.titulo || 'Aviso Oficial',
@@ -187,8 +187,8 @@ export default function ComunicacionesPage({ initialTab = 'todos' }) {
 
   const notificaciones = useMemo(() => {
     const list = Array.isArray(notifRaw) ? notifRaw : notifRaw?.items || [];
-    return list.map((n) => ({
-      id: `notif-${n.idNotificacion || n.id || Math.random()}`,
+    return list.map((n, idx) => ({
+      id: `notif-${n.idNotificacion || n.id || idx}`,
       rawId: n.idNotificacion || n.id,
       tipo: 'NOTIFICACION',
       titulo: n.titulo || 'Notificación del Sistema',

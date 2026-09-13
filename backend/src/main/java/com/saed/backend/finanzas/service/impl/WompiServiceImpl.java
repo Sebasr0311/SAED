@@ -475,11 +475,12 @@ public class WompiServiceImpl implements WompiService {
                 // SUPERADMIN context in the connection pool. Log for production alerting.
                 log.error("[SECURITY][C5] CRITICAL: failed to CLEAR Oracle session context after Wompi webhook. "
                         + "Possible SUPERADMIN context bleed in connection pool. Error: {}", e.getMessage());
-            }
-            if (prevCtx != null) {
-                SaedContextHolder.setContext(prevCtx);
-            } else {
-                SaedContextHolder.clearContext();
+            } finally {
+                if (prevCtx != null) {
+                    SaedContextHolder.setContext(prevCtx);
+                } else {
+                    SaedContextHolder.clearContext();
+                }
             }
         }
     }

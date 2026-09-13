@@ -202,14 +202,14 @@ public class ConvivienteQuotaServiceImpl implements ConvivienteQuotaService {
 
     private int countActiveConvivientes(Long unitId) {
         // Excluye explícitamente titular/principal ('PROPIETARIO', 'ARRENDATARIO', 'TITULAR')
-        // Solo computan convivientes activos: ('CONVIVIENTE', 'FAMILIAR', 'OTRO')
+        // Solo computan convivientes activos: ('CONVIVIENTE')
         String sql = """
             SELECT COUNT(1)
             FROM RESIDENTES_UNIDAD
             WHERE ID_UNIDAD = :unitId
               AND ESTADO = 'ACTIVO'
               AND (FECHA_FIN IS NULL OR FECHA_FIN > TRUNC(SYSDATE))
-              AND TIPO_RESIDENTE IN ('CONVIVIENTE', 'FAMILIAR', 'OTRO')
+              AND TIPO_RESIDENTE = 'CONVIVIENTE'
             """;
 
         Integer count = jdbcTemplate.queryForObject(
@@ -223,7 +223,7 @@ public class ConvivienteQuotaServiceImpl implements ConvivienteQuotaService {
     private boolean isConvivienteType(String tipoResidente) {
         if (tipoResidente == null) return false;
         String t = tipoResidente.trim().toUpperCase();
-        return "CONVIVIENTE".equals(t) || "FAMILIAR".equals(t) || "OTRO".equals(t);
+        return "CONVIVIENTE".equals(t);
     }
 
     private void validateUnitScope(Long unitId) {
@@ -237,7 +237,7 @@ public class ConvivienteQuotaServiceImpl implements ConvivienteQuotaService {
             return;
         }
 
-        if ("RESIDENTE".equals(roleCode) || "UNIDAD".equals(ctx.getRoleScope())) {
+        if ("RESIDENTE".equals(roleCode) || "RESIDENTE_CONVIVENCIA".equals(roleCode) || "UNIDAD".equals(ctx.getRoleScope())) {
             Long callerUnitId = ctx.getUnitId();
             if (callerUnitId == null && ctx.getUserId() != null) {
                 List<Long> uList = jdbcTemplate.queryForList(

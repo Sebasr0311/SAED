@@ -57,6 +57,7 @@ const ContratosProveedorPage = lazy(() => import('./pages/ContratosProveedorPage
 
 const ResidenteDashboardPage = lazy(() => import('./pages/ResidenteDashboardPage.jsx'));
 const ResPerfilPage = lazy(() => import('./pages/ResPerfilPage.jsx'));
+const ResConvivientesPage = lazy(() => import('./pages/ResConvivientesPage.jsx'));
 const ResCuotasPage = lazy(() => import('./pages/ResCuotasPage.jsx'));
 const ResVisitasPage = lazy(() => import('./pages/ResVisitasPage.jsx'));
 const ResBuzonPage = lazy(() => import('./pages/ResBuzonPage.jsx'));
@@ -107,7 +108,7 @@ function RoleIndexRedirect() {
   if (user?.rol === 'ADMIN_PROPIEDAD') return <Navigate to="/dashboard" replace />;
   if (user?.rol === 'PORTERO') return <Navigate to="/portero-dashboard" replace />;
   if (user?.rol === 'PROPIETARIO') return <Navigate to="/res-perfil" replace />;
-  if (user?.rol === 'RESIDENTE') return <Navigate to="/residente-dashboard" replace />;
+  if (user?.rol === 'RESIDENTE' || user?.rol === 'RESIDENTE_CONVIVENCIA') return <Navigate to="/residente-dashboard" replace />;
   return <Navigate to="/dashboard" replace />;
 }
 
@@ -332,7 +333,7 @@ export default function App() {
           <Route
             path="org/gastos"
             element={
-              <ProtectedRoute roles={['ADMIN_ORGANIZACION', 'SUPERADMIN']}>
+              <ProtectedRoute roles={['ADMIN_ORGANIZACION']}>
                 <OrgGastosPage />
               </ProtectedRoute>
             }
@@ -340,7 +341,7 @@ export default function App() {
           <Route
             path="org/comunicaciones"
             element={
-              <ProtectedRoute roles={['ADMIN_ORGANIZACION', 'SUPERADMIN']}>
+              <ProtectedRoute roles={['ADMIN_ORGANIZACION']}>
                 <ComunicacionesPage initialTab="todos" />
               </ProtectedRoute>
             }
@@ -520,12 +521,12 @@ export default function App() {
           <Route path="consumos-admin" element={<Navigate to="/consumos" replace />} />
           <Route path="consumos" element={<ProtectedRoute roles={['ADMIN_PROPIEDAD']}><ConsumosAdminPage /></ProtectedRoute>} />
           <Route path="automatizaciones-admin" element={<Navigate to="/automatizaciones" replace />} />
-          <Route path="automatizaciones" element={<ProtectedRoute roles={['ADMIN_PROPIEDAD', 'ADMIN_ORGANIZACION', 'SUPERADMIN']}><AutomatizacionesAdminPage /></ProtectedRoute>} />
+          <Route path="automatizaciones" element={<ProtectedRoute roles={['ADMIN_PROPIEDAD', 'ADMIN_ORGANIZACION']}><AutomatizacionesAdminPage /></ProtectedRoute>} />
           <Route path="incidentes-admin" element={<ProtectedRoute roles={['ADMIN_PROPIEDAD', 'PORTERO']}><IncidentesAdminPage /></ProtectedRoute>} />
           <Route
             path="comunicaciones"
             element={
-              <ProtectedRoute roles={['ADMIN_PROPIEDAD', 'ADMIN_ORGANIZACION', 'SUPERADMIN']}>
+              <ProtectedRoute roles={['ADMIN_PROPIEDAD', 'ADMIN_ORGANIZACION']}>
                 <ComunicacionesPage initialTab="todos" />
               </ProtectedRoute>
             }
@@ -533,7 +534,7 @@ export default function App() {
           <Route
             path="alertas"
             element={
-              <ProtectedRoute roles={['ADMIN_PROPIEDAD', 'ADMIN_ORGANIZACION', 'SUPERADMIN']}>
+              <ProtectedRoute roles={['ADMIN_PROPIEDAD', 'ADMIN_ORGANIZACION']}>
                 <ComunicacionesPage initialTab="alertas" />
               </ProtectedRoute>
             }
@@ -541,7 +542,7 @@ export default function App() {
           <Route
             path="avisos"
             element={
-              <ProtectedRoute roles={['ADMIN_PROPIEDAD', 'ADMIN_ORGANIZACION', 'SUPERADMIN']}>
+              <ProtectedRoute roles={['ADMIN_PROPIEDAD', 'ADMIN_ORGANIZACION']}>
                 <ComunicacionesPage initialTab="avisos" />
               </ProtectedRoute>
             }
@@ -671,7 +672,7 @@ export default function App() {
           <Route
             path="residente-dashboard"
             element={
-              <ProtectedRoute roles={['RESIDENTE']}>
+              <ProtectedRoute roles={['RESIDENTE', 'RESIDENTE_CONVIVENCIA']}>
                 <ResidenteDashboardPage />
               </ProtectedRoute>
             }
@@ -679,8 +680,16 @@ export default function App() {
           <Route
             path="res-perfil"
             element={
-              <ProtectedRoute roles={['RESIDENTE', 'PROPIETARIO']}>
+              <ProtectedRoute roles={['RESIDENTE', 'RESIDENTE_CONVIVENCIA', 'PROPIETARIO']}>
                 <ResPerfilPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="res-convivientes"
+            element={
+              <ProtectedRoute roles={['RESIDENTE']}>
+                <ResConvivientesPage />
               </ProtectedRoute>
             }
           />
@@ -699,7 +708,7 @@ export default function App() {
           <Route
             path="res-visitas"
             element={
-              <ProtectedRoute roles={['RESIDENTE']}>
+              <ProtectedRoute roles={['RESIDENTE', 'RESIDENTE_CONVIVENCIA']}>
                 <ResVisitasPage />
               </ProtectedRoute>
             }
@@ -715,7 +724,7 @@ export default function App() {
           <Route
             path="res-buzon"
             element={
-              <ProtectedRoute roles={['RESIDENTE']}>
+              <ProtectedRoute roles={['RESIDENTE', 'RESIDENTE_CONVIVENCIA']}>
                 <ResBuzonPage />
               </ProtectedRoute>
             }
@@ -723,7 +732,7 @@ export default function App() {
           <Route
             path="res-quejas"
             element={
-              <ProtectedRoute roles={['RESIDENTE']}>
+              <ProtectedRoute roles={['RESIDENTE', 'RESIDENTE_CONVIVENCIA']}>
                 <ResQuejasPage />
               </ProtectedRoute>
             }
@@ -731,7 +740,7 @@ export default function App() {
           <Route
             path="res-reservas"
             element={
-              <ProtectedRoute roles={['RESIDENTE']}>
+              <ProtectedRoute roles={['RESIDENTE', 'RESIDENTE_CONVIVENCIA']}>
                 <ResReservasPage />
               </ProtectedRoute>
             }
@@ -739,16 +748,16 @@ export default function App() {
           <Route
             path="res-sanciones"
             element={
-              <ProtectedRoute roles={['RESIDENTE']}>
+              <ProtectedRoute roles={['RESIDENTE', 'RESIDENTE_CONVIVENCIA']}>
                 <ResSancionesPage />
               </ProtectedRoute>
             }
           />
           <Route path="mis-sanciones" element={<Navigate to="/res-sanciones" replace />} />
-          <Route path="res-obras" element={<ProtectedRoute roles={['RESIDENTE']}><ResObrasPage /></ProtectedRoute>} />
+          <Route path="res-obras" element={<ProtectedRoute roles={['RESIDENTE', 'RESIDENTE_CONVIVENCIA']}><ResObrasPage /></ProtectedRoute>} />
           <Route path="mis-obras" element={<Navigate to="/res-obras" replace />} />
-          <Route path="res-incidentes" element={<ProtectedRoute roles={['RESIDENTE']}><ResIncidentesPage /></ProtectedRoute>} />
-          <Route path="res-documentos" element={<ProtectedRoute roles={['RESIDENTE', 'PROPIETARIO']}><ResDocumentosPage /></ProtectedRoute>} />
+          <Route path="res-incidentes" element={<ProtectedRoute roles={['RESIDENTE', 'RESIDENTE_CONVIVENCIA']}><ResIncidentesPage /></ProtectedRoute>} />
+          <Route path="res-documentos" element={<ProtectedRoute roles={['RESIDENTE', 'RESIDENTE_CONVIVENCIA', 'PROPIETARIO']}><ResDocumentosPage /></ProtectedRoute>} />
 
           {/* Portero */}
           <Route

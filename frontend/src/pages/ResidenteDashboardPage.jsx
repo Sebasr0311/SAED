@@ -26,6 +26,7 @@ import {
   ShieldCheck,
   Sparkles,
   Users,
+  UserPlus,
   Wallet,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -490,6 +491,17 @@ export default function ResidenteDashboardPage() {
               <RefreshCw className={cn('w-3.5 h-3.5', refreshing && 'animate-spin')} />
               <span className="hidden sm:inline">Actualizar</span>
             </Button>
+            {user?.rol === 'RESIDENTE' && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate('/res-convivientes')}
+                className="bg-white/10 hover:bg-white/20 text-white border-white/25 shadow-sm gap-1.5"
+              >
+                <Users className="w-3.5 h-3.5 text-white" />
+                <span className="hidden sm:inline">Mis Convivientes</span>
+              </Button>
+            )}
             <Button
               variant="default"
               size="sm"
@@ -672,13 +684,13 @@ export default function ResidenteDashboardPage() {
 
             <Button
               variant="outline"
-              onClick={() => navigate('/res-visitas')}
+              onClick={() => navigate(user?.rol === 'RESIDENTE' ? '/res-convivientes' : '/res-perfil')}
               className="h-auto py-3 px-3 flex flex-col items-center justify-center text-center gap-1.5 hover:border-primary/50 hover:bg-primary/5"
             >
-              <div className="p-2 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
-                <Users className="w-4 h-4" />
+              <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+                <UserPlus className="w-4 h-4" />
               </div>
-              <span className="text-xs font-semibold text-foreground">Visitas</span>
+              <span className="text-xs font-semibold text-foreground">Convivientes</span>
             </Button>
 
             <Button

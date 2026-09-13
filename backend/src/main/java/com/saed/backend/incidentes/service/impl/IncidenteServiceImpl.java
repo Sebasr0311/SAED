@@ -47,7 +47,7 @@ public class IncidenteServiceImpl implements IncidenteService {
                 .orElseThrow(() -> new IllegalArgumentException("Incidente no encontrado o acceso denegado"));
                 
         String roleCode = SaedContextHolder.getContext().getRoleCode();
-        boolean isStaff = "SUPERADMIN".equals(roleCode) || "ADMIN_PROPIEDAD".equals(roleCode) || "PORTERO".equals(roleCode);
+        boolean isStaff = "ADMIN_PROPIEDAD".equals(roleCode) || "PORTERO".equals(roleCode);
         
         if (!isStaff) {
             Long userUnitId = SaedContextHolder.getContext().getUnitId();
@@ -65,7 +65,7 @@ public class IncidenteServiceImpl implements IncidenteService {
         Long registradoPor = SaedContextHolder.getContext().getUserId();
         String roleCode = SaedContextHolder.getContext().getRoleCode();
         
-        boolean isStaff = "SUPERADMIN".equals(roleCode) || "ADMIN_PROPIEDAD".equals(roleCode) || "PORTERO".equals(roleCode);
+        boolean isStaff = "ADMIN_PROPIEDAD".equals(roleCode) || "PORTERO".equals(roleCode);
         
         if (!isStaff) {
             Long userUnitId = SaedContextHolder.getContext().getUnitId();

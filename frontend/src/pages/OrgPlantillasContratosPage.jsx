@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import api from '../lib/api.js';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card.tsx';
 import { Badge } from '../components/ui/badge.tsx';
@@ -20,6 +20,9 @@ import {
   RefreshCw,
   X,
   Layers,
+  UploadCloud,
+  Download,
+  FileCode,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -53,7 +56,7 @@ const DEFAULT_HTML_TEMPLATE = `<h2>CONTRATO DE ARRENDAMIENTO DE VIVIENDA URBANA<
 <p>Entre los suscritos a saber, <strong>\${propiedad.nombre}</strong> (en adelante EL ARRENDADOR), ubicada en \${propiedad.direccion}, \${propiedad.ciudad}, y por la otra parte <strong>\${inquilino.nombre_completo}</strong>, identificado con \${inquilino.tipo_documento} No. \${inquilino.numero_documento} (en adelante EL ARRENDATARIO), se ha celebrado el presente contrato sobre el inmueble:</p>
 <ul>
   <li><strong>Unidad:</strong> Apartamento \${apartamento.numero} \${apartamento.bloque}</li>
-  <li><strong>Canon Mensual:</strong> \$\${contrato.canon_mensual} COP</li>
+  <li><strong>Canon Mensual:</strong> $\${contrato.canon_mensual} COP</li>
   <li><strong>Fecha de Inicio:</strong> \${contrato.fecha_inicio}</li>
   <li><strong>Fecha de Terminación:</strong> \${contrato.fecha_fin}</li>
 </ul>
@@ -75,6 +78,11 @@ export default function OrgPlantillasContratosPage() {
   const [previewTitle, setPreviewTitle] = useState('');
   const [previewLoading, setPreviewLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // Soporte de carga de archivos HTML
+  const fileInputRef = useRef(null);
+  const [uploadedFileName, setUploadedFileName] = useState('');
+  const [modalTab, setModalTab] = useState('editor'); // 'editor' | 'preview'
 
   // Formulario
   const [editingId, setEditingId] = useState(null);
@@ -127,6 +135,8 @@ export default function OrgPlantillasContratosPage() {
   function abrirNuevo() {
     setEditingId(null);
     setIsVersionMode(false);
+    setUploadedFileName('');
+    setModalTab('editor');
     setForm({
       codigo: `CONTRATO_ARRIENDO_${Date.now().toString().slice(-4)}`,
       nombre: '',
@@ -145,6 +155,8 @@ export default function OrgPlantillasContratosPage() {
   function abrirEditar(plantilla) {
     setEditingId(plantilla.idPlantilla);
     setIsVersionMode(false);
+    setUploadedFileName('');
+    setModalTab('editor');
     setForm({
       codigo: plantilla.codigo,
       nombre: plantilla.nombre,
@@ -163,6 +175,8 @@ export default function OrgPlantillasContratosPage() {
   function abrirNuevaVersion(plantilla) {
     setEditingId(plantilla.idPlantilla);
     setIsVersionMode(true);
+    setUploadedFileName('');
+    setModalTab('editor');
     setForm({
       codigo: plantilla.codigo,
       nombre: `${plantilla.nombre} (v${(plantilla.version || 1) + 1})`,
@@ -176,6 +190,79 @@ export default function OrgPlantillasContratosPage() {
       vigenciaHasta: '',
     });
     setModalFormOpen(true);
+  }
+
+  function handleFileUpload(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const isHtml = file.name.match(/\.(html|htm)$/i) || file.type === 'text/html';
+    if (!isHtml) {
+      toast.error('Por favor seleccione un archivo en formato HTML (.html o .htm)');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target?.result;
+      if (typeof content === 'string') {
+        const cleanName = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+        const codeGuess = 'CONTRATO_' + file.name.replace(/\.[^/.]+$/, '').toUpperCase().replace(/[^A-Z0-9]/g, '_').slice(0, 30);
+        setForm((prev) => ({
+          ...prev,
+          contenidoHtml: content,
+          nombre: prev.nombre?.trim() ? prev.nombre : cleanName,
+          codigo: prev.codigo?.trim() && !prev.codigo.startsWith('CONTRATO_ARRIENDO_') ? prev.codigo : codeGuess,
+        }));
+        setUploadedFileName(file.name);
+        toast.success(`Archivo HTML '${file.name}' cargado con éxito (${(file.size / 1024).toFixed(1)} KB)`);
+      }
+    };
+    reader.onerror = () => {
+      toast.error('Error al leer el archivo HTML.');
+    };
+    reader.readAsText(file);
+  }
+
+  function handleDownloadHtml(plantilla) {
+    const blob = new Blob([plantilla.contenidoHtml || ''], { type: 'text/html;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `${plantilla.codigo || 'plantilla_contrato'}_v${plantilla.version || 1}.html`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    toast.success(`Descargando archivo HTML: ${plantilla.codigo}.html`);
+  }
+
+  function renderLiveHtml(html) {
+    if (!html || !html.trim()) {
+      return '<p style="color: #888; font-style: italic; padding: 1rem;">No hay contenido HTML cargado aún. Escriba o suba un archivo HTML para previsualizar.</p>';
+    }
+    let rendered = html;
+    const sampleData = {
+      'propiedad.nombre': 'Condominio Campestre Torres del Parque',
+      'propiedad.direccion': 'Carrera 45 # 12-80',
+      'propiedad.ciudad': 'Medellín',
+      'apartamento.numero': '302',
+      'apartamento.bloque': 'Torre B',
+      'inquilino.nombre_completo': 'Juan David Restrepo Gómez',
+      'inquilino.tipo_documento': 'CC',
+      'inquilino.numero_documento': '1020456789',
+      'inquilino.telefono': '310 987 6543',
+      'inquilino.email': 'juan.restrepo@correo.com',
+      'contrato.canon_mensual': '1.850.000',
+      'contrato.fecha_inicio': '01/10/2026',
+      'contrato.fecha_fin': '30/09/2027',
+      'contrato.tipo': form.tipoContrato || 'INICIAL',
+      'fecha_actual': new Date().toLocaleDateString('es-CO'),
+    };
+    Object.entries(sampleData).forEach(([k, v]) => {
+      rendered = rendered.split(`\${${k}}`).join(v);
+    });
+    return rendered;
   }
 
   async function handleGuardar(e) {
@@ -264,12 +351,15 @@ export default function OrgPlantillasContratosPage() {
             <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
               Plantillas de Contratos
             </h1>
+            <Badge variant="outline" className="bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20 text-xs font-semibold">
+              Formato HTML
+            </Badge>
             <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 text-xs font-semibold">
               Multi-Tenancy Org
             </Badge>
           </div>
           <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-            Configuración centralizada de modelos contractuales, versiones y variables dinámicas para toda la cartera
+            Cargue y configure contratos en formato HTML para su organización con control de versiones y variables dinámicas (${'{variable}'})
           </p>
         </div>
 
@@ -279,8 +369,8 @@ export default function OrgPlantillasContratosPage() {
             Actualizar
           </Button>
           <Button variant="primary" size="sm" onClick={abrirNuevo}>
-            <Plus className="h-4 w-4 mr-1.5" />
-            Nueva Plantilla
+            <UploadCloud className="h-4 w-4 mr-1.5" />
+            Cargar / Nueva Plantilla
           </Button>
         </div>
       </div>
@@ -378,6 +468,9 @@ export default function OrgPlantillasContratosPage() {
                   <Badge variant="secondary" className="text-[11px] font-medium">
                     {p.tipoContrato}
                   </Badge>
+                  <Badge variant="outline" className="text-[10px] bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20 font-mono">
+                    HTML
+                  </Badge>
                   <span className="text-[11px] text-muted-foreground flex items-center gap-1">
                     <Layers className="h-3 w-3" /> v{p.version}
                   </span>
@@ -416,6 +509,16 @@ export default function OrgPlantillasContratosPage() {
                     >
                       <Eye className="h-3.5 w-3.5 mr-1" />
                       Ver
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDownloadHtml(p)}
+                      title="Descargar archivo HTML de la plantilla"
+                      className="h-8 px-2 text-xs text-sky-600 dark:text-sky-400"
+                    >
+                      <Download className="h-3.5 w-3.5 mr-1" />
+                      HTML
                     </Button>
                     <Button
                       variant="ghost"
@@ -569,42 +672,144 @@ export default function OrgPlantillasContratosPage() {
                 />
               </div>
 
-              {/* Inserción de variables dinámicas */}
-              <div className="space-y-2 p-3 bg-muted/40 border border-border/70 rounded-lg">
-                <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
-                  <Sparkles className="h-3.5 w-3.5 text-amber-500" />
-                  <span>Variables Dinámicas Disponibles (Haz clic para insertar en el contrato):</span>
+              {/* Zona de Carga de Archivo HTML */}
+              <div className="p-4 border-2 border-dashed border-primary/30 rounded-xl bg-primary/5 hover:bg-primary/10 transition-colors">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-primary/10 rounded-lg text-primary">
+                      <UploadCloud className="h-6 w-6" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-semibold text-foreground">
+                        Cargar Contrato en Formato HTML
+                      </h4>
+                      <p className="text-xs text-muted-foreground">
+                        Seleccione o arrastre un archivo .html o .htm para importar el contenido automáticamente
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      accept=".html,.htm,text/html"
+                      onChange={handleFileUpload}
+                      className="hidden"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="text-xs font-semibold gap-1.5 shadow-sm bg-background"
+                    >
+                      <FileCode className="h-3.5 w-3.5 text-primary" />
+                      Subir Archivo .HTML
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {DEFAULT_VARIABLES.map((v) => (
+                {uploadedFileName && (
+                  <div className="mt-3 pt-3 border-t border-primary/20 flex items-center justify-between text-xs text-primary font-medium">
+                    <span className="flex items-center gap-1.5">
+                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                      Archivo cargado: <strong>{uploadedFileName}</strong>
+                    </span>
                     <button
                       type="button"
-                      key={v}
-                      onClick={() => insertarVariable(v)}
-                      className="text-[11px] font-mono px-2 py-1 bg-background hover:bg-primary/10 hover:text-primary hover:border-primary/40 border border-border rounded transition-colors text-muted-foreground"
+                      onClick={() => {
+                        setUploadedFileName('');
+                        if (fileInputRef.current) fileInputRef.current.value = '';
+                      }}
+                      className="text-muted-foreground hover:text-destructive text-[11px]"
                     >
-                      + {`\${${v}}`}
+                      Quitar archivo
                     </button>
-                  ))}
-                </div>
+                  </div>
+                )}
               </div>
 
-              {/* Editor HTML */}
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                    <Code className="h-4 w-4 text-primary" />
-                    Cuerpo del Contrato (HTML con placeholders) *
-                  </label>
-                  <span className="text-[11px] text-muted-foreground">Soporta HTML estándar y CSS inline</span>
+              {/* Pestañas de Editor HTML / Vista Previa en Vivo */}
+              <div className="border border-border rounded-xl overflow-hidden bg-background">
+                <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-muted/30">
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setModalTab('editor')}
+                      className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 ${
+                        modalTab === 'editor'
+                          ? 'bg-background text-primary shadow-sm border border-border'
+                          : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      <Code className="h-3.5 w-3.5" />
+                      Código HTML del Contrato
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setModalTab('preview')}
+                      className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 ${
+                        modalTab === 'preview'
+                          ? 'bg-background text-primary shadow-sm border border-border'
+                          : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                      Vista Previa en Vivo
+                    </button>
+                  </div>
+                  <span className="text-[11px] font-mono text-muted-foreground">
+                    {form.contenidoHtml ? `${(new Blob([form.contenidoHtml]).size / 1024).toFixed(1)} KB` : '0 KB'}
+                  </span>
                 </div>
-                <textarea
-                  required
-                  rows={10}
-                  value={form.contenidoHtml}
-                  onChange={(e) => setForm({ ...form, contenidoHtml: e.target.value })}
-                  className="w-full px-3 py-2 text-xs sm:text-sm font-mono bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30"
-                />
+
+                {modalTab === 'editor' ? (
+                  <div className="p-4 space-y-3">
+                    {/* Inserción de variables dinámicas */}
+                    <div className="space-y-2 p-3 bg-muted/40 border border-border/70 rounded-lg">
+                      <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                        <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+                        <span>Insertar Variable Dinámica (clic para añadir al HTML):</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {DEFAULT_VARIABLES.map((v) => (
+                          <button
+                            type="button"
+                            key={v}
+                            onClick={() => insertarVariable(v)}
+                            className="text-[11px] font-mono px-2 py-1 bg-background hover:bg-primary/10 hover:text-primary hover:border-primary/40 border border-border rounded transition-colors text-muted-foreground"
+                          >
+                            + {`\${${v}}`}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <textarea
+                        required
+                        rows={12}
+                        value={form.contenidoHtml}
+                        onChange={(e) => setForm({ ...form, contenidoHtml: e.target.value })}
+                        placeholder="Pegue o escriba aquí el código HTML de su contrato..."
+                        className="w-full px-3 py-2 text-xs font-mono bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 leading-relaxed"
+                      />
+                      <p className="text-[11px] text-muted-foreground mt-1">
+                        Soporta etiquetas HTML estándar (&lt;h1&gt;, &lt;p&gt;, &lt;table&gt;, &lt;ul&gt;, etc.) y estilos CSS inline.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-6 bg-white dark:bg-slate-900 min-h-[250px] max-h-[400px] overflow-y-auto">
+                    <div className="mb-3 pb-2 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs text-muted-foreground">
+                      <span className="font-semibold text-foreground">Simulación con datos de prueba</span>
+                      <span>Renderizado en tiempo real</span>
+                    </div>
+                    <div
+                      className="prose prose-sm dark:prose-invert max-w-none font-serif leading-relaxed text-slate-800 dark:text-slate-200"
+                      dangerouslySetInnerHTML={{ __html: renderLiveHtml(form.contenidoHtml) }}
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center justify-end gap-3 pt-4 border-t border-border">

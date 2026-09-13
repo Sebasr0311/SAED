@@ -360,6 +360,61 @@ public class AdminOrganizacionAdversarialAuthorizationTest {
     }
 
     @Test
+    @DisplayName("SEGURIDAD: ADMIN_ORGANIZACION no puede asignar el rol ADMIN_ORGANIZACION")
+    public void adminOrg_cannotAssignAdminOrganizacion() {
+        try {
+            SaedContextHolder.setContext(SaedContext.builder()
+                    .userId(999993L)
+                    .organizationId(999993L)
+                    .roleCode("ADMIN_ORGANIZACION")
+                    .roleScope("ORGANIZACION")
+                    .build());
+
+            Long idRolOrg = jdbcTemplate.queryForObject("SELECT ID_ROL FROM ROLES WHERE CODIGO = 'ADMIN_ORGANIZACION'", Long.class);
+
+            AssignmentRequestDTO req = new AssignmentRequestDTO();
+            req.setIdUsuario(999993L);
+            req.setIdRol(idRolOrg);
+            req.setIdOrganizacion(999993L);
+
+            assertThrows(AccessDeniedException.class, () -> {
+                assignmentManagementService.create(req);
+            });
+        } finally {
+            SaedContextHolder.clearContext();
+        }
+    }
+
+    @Test
+    @DisplayName("SEGURIDAD: ADMIN_ORGANIZACION no puede crear otro ADMIN_ORGANIZACION via POST /org/admins")
+    public void adminOrg_cannotCreateAdminOrganizacionViaController() throws Exception {
+        String token = jwtProvider.generateIdentityToken(999993L);
+        Long idRolOrg = jdbcTemplate.queryForObject("SELECT ID_ROL FROM ROLES WHERE CODIGO = 'ADMIN_ORGANIZACION'", Long.class);
+
+        String body = String.format("""
+            {
+                "nombreUsuario": "nuevo_org_admin",
+                "email": "nuevo_org_admin@test.com",
+                "password": "Password123!",
+                "primerNombre": "Nuevo",
+                "primerApellido": "AdminOrg",
+                "numeroDocumento": "1098765432",
+                "idTipoDocumento": 1,
+                "telefono": "3001234567",
+                "idRol": %d,
+                "idPropiedad": 999993
+            }
+        """, idRolOrg);
+
+        mockMvc.perform(post("/api/v1/org/admins")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body)
+                .header("Authorization", "Bearer " + token)
+                .header("X-Assignment-Id", orgAdminAssignment))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     @DisplayName("BD-02: ADMIN_ORGANIZACION no puede asignar un ADMIN_PROPIEDAD a una propiedad de otra organización")
     public void adminOrg_cannotAssignAdminToExternalProperty() {
         try {

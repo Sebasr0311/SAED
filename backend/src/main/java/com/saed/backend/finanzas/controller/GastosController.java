@@ -50,7 +50,7 @@ public class GastosController {
     // --- 1. LISTAR GASTOS ---
 
     @GetMapping
-    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_SUPERADMIN')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION')")
     public ApiResponse<List<GastoResponseDTO>> listar(
             @RequestParam(value = "idPresupuesto", required = false) Long idPresupuesto,
             @RequestParam(value = "categoria", required = false) String categoria,
@@ -118,7 +118,7 @@ public class GastosController {
     // --- 2. DETALLE DE GASTO CON HISTORIAL DE SOPORTES ---
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_SUPERADMIN')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION')")
     public ResponseEntity<ApiResponse<GastoResponseDTO>> detalle(@PathVariable Long id) {
         String sql = """
             SELECT g.ID_GASTO, g.ID_PROPIEDAD, p_prop.NOMBRE AS NOMBRE_PROPIEDAD,
@@ -186,7 +186,7 @@ public class GastosController {
     // --- 3. STREAMING / DESCARGA DE SOPORTE DOCUMENTAL ---
 
     @GetMapping("/{id}/soporte")
-    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_SUPERADMIN')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION')")
     public ResponseEntity<Resource> descargarSoporte(
             @PathVariable Long id,
             @RequestParam(value = "download", defaultValue = "false") boolean download) {

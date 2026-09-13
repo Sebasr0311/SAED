@@ -33,7 +33,7 @@ public class ConsumosController {
 
     @Operation(summary = "Listar mediciones de consumo con filtros opcionales")
     @GetMapping
-    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_SUPERADMIN', 'SCOPE_RESIDENTE')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_RESIDENTE')")
     public ResponseEntity<List<MedicionConsumoDTO>> getAll(
             @RequestParam(required = false) String periodo,
             @RequestParam(required = false) String tipoServicio,
@@ -43,14 +43,14 @@ public class ConsumosController {
 
     @Operation(summary = "Resumen de consumo consolidado y costos por período")
     @GetMapping("/resumen")
-    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_SUPERADMIN', 'SCOPE_RESIDENTE')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_RESIDENTE')")
     public ResponseEntity<ConsumosSummaryDTO> getSummary(@RequestParam(required = false) String periodo) {
         return ResponseEntity.ok(service.getSummary(periodo));
     }
 
     @Operation(summary = "Tendencia histórica de consumo y costos por servicio")
     @GetMapping("/tendencias")
-    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_SUPERADMIN', 'SCOPE_RESIDENTE')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_RESIDENTE')")
     public ResponseEntity<List<ConsumoTendenciaDTO>> getTendencias(
             @RequestParam(required = false) String tipoServicio,
             @RequestParam(defaultValue = "12") int ultimosMeses) {
@@ -59,7 +59,7 @@ public class ConsumosController {
 
     @Operation(summary = "Consultar última lectura registrada para un medidor")
     @GetMapping("/ultima-lectura")
-    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_SUPERADMIN')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION')")
     public ResponseEntity<Map<String, Object>> getUltimaLectura(
             @RequestParam(required = false) Long idUnidad,
             @RequestParam String numeroMedidor,
@@ -70,7 +70,7 @@ public class ConsumosController {
 
     @Operation(summary = "Detalle de una medición de consumo")
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_SUPERADMIN', 'SCOPE_RESIDENTE')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_RESIDENTE')")
     public ResponseEntity<MedicionConsumoDTO> getById(@PathVariable Long id) {
         return ResponseEntity.ok(service.getById(id));
     }

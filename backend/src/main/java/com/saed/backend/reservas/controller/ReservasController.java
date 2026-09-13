@@ -23,32 +23,32 @@ public class ReservasController {
 
     // --- Zonas Comunes ---
     @GetMapping("/zonas-comunes")
-    @PreAuthorize("hasAnyRole('SUPERADMIN', 'ADMIN_PROPIEDAD', 'RESIDENTE')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA')")
     public ResponseEntity<List<ZonaComunDTO>> getZonasComunes() {
         return ResponseEntity.ok(reservasService.getAllZonasComunes());
     }
 
     // --- Reservas ---
     @GetMapping("/reservas/todas")
-    @PreAuthorize("hasAnyRole('SUPERADMIN', 'ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<List<ReservaDTO>> getAllReservas() {
         return ResponseEntity.ok(reservasService.getAllReservas());
     }
 
     @GetMapping("/reservas/mis-reservas")
-    @PreAuthorize("hasRole('RESIDENTE')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA')")
     public ResponseEntity<List<ReservaDTO>> getMyReservas() {
         return ResponseEntity.ok(reservasService.getMyReservas());
     }
 
     @PostMapping("/reservas")
-    @PreAuthorize("hasAnyRole('RESIDENTE', 'ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA')")
     public ResponseEntity<Long> createReserva(@RequestBody ReservaDTO request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(reservasService.createReserva(request));
     }
 
     @PutMapping("/reservas/{id}/estado")
-    @PreAuthorize("hasAnyRole('SUPERADMIN', 'ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<Void> updateStatus(@PathVariable Long id, @RequestBody Map<String, String> payload) {
         reservasService.updateReservaStatus(id, payload.get("estado"));
         return ResponseEntity.ok().build();

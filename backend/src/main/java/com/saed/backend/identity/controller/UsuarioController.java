@@ -300,7 +300,8 @@ public class UsuarioController {
             if (!rList.isEmpty()) idRol = rList.get(0);
         } catch (Exception ignored) {}
         if (idRol == null) {
-            idRol = "RESIDENTE_CONVIVENCIA".equals(rol) ? 4L : ("PORTERO".equals(rol) ? 5L : 4L);
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("El rol especificado no existe o no está activo en el sistema: " + rol));
         }
 
         // 4. Crear Asignación

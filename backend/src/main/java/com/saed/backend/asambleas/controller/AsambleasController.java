@@ -21,25 +21,25 @@ public class AsambleasController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_PROPIETARIO')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_PROPIETARIO')")
     public ResponseEntity<List<AsambleaDTO>> listarAsambleas() {
         return ResponseEntity.ok(asambleaService.listarAsambleas());
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_PROPIETARIO')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_PROPIETARIO')")
     public ResponseEntity<AsambleaDTO> obtenerDetalleAsamblea(@PathVariable Long id) {
         return ResponseEntity.ok(asambleaService.obtenerDetalleAsamblea(id));
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<AsambleaDTO> convocarAsamblea(@Valid @RequestBody AsambleaCreateRequestDTO request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(asambleaService.convocarAsamblea(request));
     }
 
     @PutMapping("/{id}/estado")
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<AsambleaDTO> actualizarEstado(
             @PathVariable Long id,
             @Valid @RequestBody AsambleaEstadoUpdateRequestDTO request) {
@@ -47,19 +47,19 @@ public class AsambleasController {
     }
 
     @GetMapping("/{id}/quorum")
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_PROPIETARIO')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_PROPIETARIO')")
     public ResponseEntity<QuorumLiveDTO> obtenerQuorumEnVivo(@PathVariable Long id) {
         return ResponseEntity.ok(asambleaService.obtenerQuorumEnVivo(id));
     }
 
     @GetMapping("/{id}/asistencias")
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_PROPIETARIO')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_PROPIETARIO')")
     public ResponseEntity<List<AsistenciaDTO>> listarAsistencias(@PathVariable Long id) {
         return ResponseEntity.ok(asambleaService.listarAsistencias(id));
     }
 
     @PostMapping("/{id}/asistencias")
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<AsistenciaDTO> registrarAsistencia(
             @PathVariable Long id,
             @Valid @RequestBody AsistenciaRequestDTO request) {
@@ -67,7 +67,7 @@ public class AsambleasController {
     }
 
     @PutMapping("/{id}/asistencias/{idUnidad}/retiro")
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<Void> retirarAsistencia(
             @PathVariable Long id,
             @PathVariable Long idUnidad) {
@@ -76,13 +76,13 @@ public class AsambleasController {
     }
 
     @GetMapping("/{id}/poderes")
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_PROPIETARIO')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_PROPIETARIO')")
     public ResponseEntity<List<PoderDTO>> listarPoderes(@PathVariable Long id) {
         return ResponseEntity.ok(asambleaService.listarPoderes(id));
     }
 
     @PostMapping("/{id}/poderes")
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_PROPIETARIO')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_PROPIETARIO')")
     public ResponseEntity<PoderDTO> radicarPoder(
             @PathVariable Long id,
             @Valid @RequestBody PoderRequestDTO request) {
@@ -90,7 +90,7 @@ public class AsambleasController {
     }
 
     @PutMapping("/{id}/poderes/{idPoder}/decision")
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<PoderDTO> decidirPoder(
             @PathVariable Long id,
             @PathVariable Long idPoder,
@@ -99,13 +99,13 @@ public class AsambleasController {
     }
 
     @GetMapping("/{id}/votaciones")
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_PROPIETARIO')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_PROPIETARIO')")
     public ResponseEntity<List<VotacionDTO>> listarVotaciones(@PathVariable Long id) {
         return ResponseEntity.ok(asambleaService.listarVotaciones(id));
     }
 
     @PostMapping("/{id}/votaciones")
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<VotacionDTO> crearPuntoVotacion(
             @PathVariable Long id,
             @Valid @RequestBody VotacionCreateRequestDTO request) {
@@ -113,7 +113,7 @@ public class AsambleasController {
     }
 
     @PutMapping("/{id}/votaciones/{idVotacion}/cerrar")
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<VotacionDTO> cerrarVotacion(
             @PathVariable Long id,
             @PathVariable Long idVotacion) {
@@ -121,7 +121,7 @@ public class AsambleasController {
     }
 
     @PostMapping("/{id}/votaciones/{idVotacion}/votar")
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_PROPIETARIO')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_PROPIETARIO')")
     public ResponseEntity<Void> emitirVoto(
             @PathVariable Long id,
             @PathVariable Long idVotacion,

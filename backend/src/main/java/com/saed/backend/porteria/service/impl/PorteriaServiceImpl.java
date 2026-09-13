@@ -113,9 +113,18 @@ public class PorteriaServiceImpl implements PorteriaService {
     @Override
     public VisitaDTO programarVisita(VisitaRequestDTO request) {
         com.saed.backend.context.SaedContext ctx = SaedContextHolder.getContext();
-        if (ctx != null && ("RESIDENTE".equals(ctx.getRoleCode()) || "UNIDAD".equals(ctx.getRoleScope()))) {
+        if (ctx != null && ("RESIDENTE".equals(ctx.getRoleCode()) || "RESIDENTE_CONVIVENCIA".equals(ctx.getRoleCode()) || "UNIDAD".equals(ctx.getRoleScope()))) {
             if (ctx.getUnitId() != null && !ctx.getUnitId().equals(request.unidadId())) {
                 throw new org.springframework.security.access.AccessDeniedException("No tiene permisos para programar visitas en otra unidad");
+            }
+        }
+        if (ctx != null && "ADMIN_PROPIEDAD".equals(ctx.getRoleCode()) && ctx.getPropertyId() != null && request.unidadId() != null) {
+            List<Long> match = jdbcTemplate.query(
+                "SELECT ID_UNIDAD FROM UNIDADES WHERE ID_UNIDAD = :u AND ID_PROPIEDAD = :p",
+                Map.of("u", request.unidadId(), "p", ctx.getPropertyId()), (rs, r) -> rs.getLong("ID_UNIDAD")
+            );
+            if (match.isEmpty()) {
+                throw new org.springframework.security.access.AccessDeniedException("La unidad no pertenece a la propiedad asignada");
             }
         }
         return porteriaRepository.createVisita(request);
@@ -132,7 +141,7 @@ public class PorteriaServiceImpl implements PorteriaService {
     @Transactional(readOnly = true)
     public List<VisitaDTO> getVisitasByUnidad(Long unidadId) {
         com.saed.backend.context.SaedContext ctx = SaedContextHolder.getContext();
-        if (ctx != null && ("RESIDENTE".equals(ctx.getRoleCode()) || "UNIDAD".equals(ctx.getRoleScope()))) {
+        if (ctx != null && ("RESIDENTE".equals(ctx.getRoleCode()) || "RESIDENTE_CONVIVENCIA".equals(ctx.getRoleCode()) || "UNIDAD".equals(ctx.getRoleScope()))) {
             if (ctx.getUnitId() != null && !ctx.getUnitId().equals(unidadId)) {
                 throw new org.springframework.security.access.AccessDeniedException("No tiene permisos para consultar visitas de otra unidad");
             }

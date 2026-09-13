@@ -17,7 +17,7 @@ import java.util.List;
 @Tag(name = "Pólizas de Seguro", description = "Gestión de pólizas de seguro de copropiedad")
 @RestController
 @RequestMapping("/api/v1/seguros/polizas")
-@PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_SUPERADMIN')")
+@PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION')")
 public class PolizaSeguroController {
 
     private final PolizaSeguroService service;

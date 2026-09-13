@@ -63,7 +63,10 @@ export default [
         decodeURIComponent: 'readonly',
         TextDecoder: 'readonly',
         TextEncoder: 'readonly',
-        AbortController: 'readonly',
+        FileReader: 'readonly',
+        Image: 'readonly',
+        IntersectionObserver: 'readonly',
+        HTMLMediaElement: 'readonly',
       },
     },
     rules: {
