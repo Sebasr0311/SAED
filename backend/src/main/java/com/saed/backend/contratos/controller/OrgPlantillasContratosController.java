@@ -78,7 +78,7 @@ public class OrgPlantillasContratosController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(nuevaVersion));
     }
 
-    @Operation(summary = "Cambiar estado de una plantilla (ACTIVA, BORRADOR, HISTORICA)")
+    @Operation(summary = "Cambiar estado de una plantilla (ACTIVA, BORRADOR, HISTORICA, SUSPENDIDA)")
     @PatchMapping("/{id}/estado")
     @Auditable(action = "UPDATE_STATUS", resource = "PLANTILLA_CONTRATO", category = AuditCategory.ADMINISTRATIVE, severity = AuditSeverity.HIGH)
     public ResponseEntity<ApiResponse<Void>> cambiarEstado(
@@ -89,6 +89,14 @@ public class OrgPlantillasContratosController {
             throw new IllegalArgumentException("El campo estado es requerido");
         }
         plantillaService.cambiarEstado(id, estado);
+        return ResponseEntity.ok(ApiResponse.success(null));
+    }
+
+    @Operation(summary = "Eliminar plantilla de contrato")
+    @DeleteMapping("/{id}")
+    @Auditable(action = "DELETE", resource = "PLANTILLA_CONTRATO", category = AuditCategory.ADMINISTRATIVE, severity = AuditSeverity.HIGH)
+    public ResponseEntity<ApiResponse<Void>> eliminar(@PathVariable Long id) {
+        plantillaService.eliminar(id);
         return ResponseEntity.ok(ApiResponse.success(null));
     }
 

@@ -197,6 +197,28 @@ class PlantillaContratoServiceTest {
         service.cambiarEstado(99L, "BORRADOR");
         verify(plantillaRepository).updateStatus(99L, "BORRADOR");
 
+        service.cambiarEstado(99L, "SUSPENDIDA");
+        verify(plantillaRepository).updateStatus(99L, "SUSPENDIDA");
+
+        service.cambiarEstado(99L, "ACTIVA");
+        verify(plantillaRepository).updateStatus(99L, "ACTIVA");
+
         assertThrows(IllegalArgumentException.class, () -> service.cambiarEstado(99L, "ESTADO_INVALIDO"));
+    }
+
+    @Test
+    void eliminar_plantillaExistente_ejecutaDeleteEnRepositorio() {
+        SaedContextHolder.setContext(SaedContext.builder()
+                .userId(10L).organizationId(1L).roleCode("ADMIN_ORGANIZACION").roleScope("ORGANIZACION").build());
+
+        PlantillaContratoDTO p = new PlantillaContratoDTO();
+        p.setIdPlantilla(99L);
+        p.setIdOrganizacion(1L);
+        p.setCodigo("CONTRATO_ELIMINAR");
+        when(plantillaRepository.findById(99L)).thenReturn(Optional.of(p));
+
+        service.eliminar(99L);
+
+        verify(plantillaRepository).delete(99L);
     }
 }

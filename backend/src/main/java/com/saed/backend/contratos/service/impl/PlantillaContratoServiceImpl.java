@@ -173,10 +173,19 @@ public class PlantillaContratoServiceImpl implements PlantillaContratoService {
     public void cambiarEstado(Long id, String nuevoEstado) {
         PlantillaContratoDTO actual = obtenerPorId(id);
         String estadoNorm = nuevoEstado.toUpperCase();
-        if (!List.of("ACTIVA", "BORRADOR", "HISTORICA").contains(estadoNorm)) {
+        if (!List.of("ACTIVA", "BORRADOR", "HISTORICA", "SUSPENDIDA", "INACTIVA").contains(estadoNorm)) {
             throw new IllegalArgumentException("Estado no válido: " + nuevoEstado);
         }
         plantillaRepository.updateStatus(id, estadoNorm);
+        log.info("Plantilla de contrato {} ({}) cambió estado a {}", id, actual.getCodigo(), estadoNorm);
+    }
+
+    @Override
+    @Transactional
+    public void eliminar(Long id) {
+        PlantillaContratoDTO actual = obtenerPorId(id);
+        plantillaRepository.delete(id);
+        log.info("Plantilla de contrato {} ({}) eliminada por organización {}", id, actual.getCodigo(), actual.getIdOrganizacion());
     }
 
     @Override

@@ -63,7 +63,7 @@ public class PlantillaContratoRepositoryImpl implements PlantillaContratoReposit
                         CONSTRAINT FK_PLANTILLAS_CONTRATOS_ORG FOREIGN KEY (ID_ORGANIZACION) REFERENCES ORGANIZACIONES(ID_ORGANIZACION) ON DELETE CASCADE,
                         CONSTRAINT UQ_PLANTILLAS_ORG_COD_VER UNIQUE (ID_ORGANIZACION, CODIGO, VERSION),
                         CONSTRAINT CK_PLANTILLAS_CONTR_TIPO CHECK (TIPO_CONTRATO IN ('INICIAL', 'RENOVACION', 'PERMANENCIA', 'COMERCIAL', 'OTRO')),
-                        CONSTRAINT CK_PLANTILLAS_CONTR_ESTADO CHECK (ESTADO IN ('ACTIVA', 'BORRADOR', 'HISTORICA'))
+                        CONSTRAINT CK_PLANTILLAS_CONTR_ESTADO CHECK (ESTADO IN ('ACTIVA', 'BORRADOR', 'HISTORICA', 'SUSPENDIDA', 'INACTIVA'))
                     )
                 """);
                 try {
@@ -96,6 +96,14 @@ public class PlantillaContratoRepositoryImpl implements PlantillaContratoReposit
                     log.debug("[PlantillasContratos] Aviso RLS en PLANTILLAS_CONTRATOS: {}", e.getMessage());
                 }
                 log.info("[PlantillasContratos] Tabla PLANTILLAS_CONTRATOS creada exitosamente.");
+            } else {
+                // Actualizar restriccion si la tabla ya existia
+                try {
+                    jdbcTemplate.getJdbcTemplate().execute("ALTER TABLE PLANTILLAS_CONTRATOS DROP CONSTRAINT CK_PLANTILLAS_CONTR_ESTADO");
+                } catch (Exception ignored) {}
+                try {
+                    jdbcTemplate.getJdbcTemplate().execute("ALTER TABLE PLANTILLAS_CONTRATOS ADD CONSTRAINT CK_PLANTILLAS_CONTR_ESTADO CHECK (ESTADO IN ('ACTIVA', 'BORRADOR', 'HISTORICA', 'SUSPENDIDA', 'INACTIVA'))");
+                } catch (Exception ignored) {}
             }
 
             seedDefaultTemplateIfEmpty(1L);
@@ -466,5 +474,11 @@ public class PlantillaContratoRepositoryImpl implements PlantillaContratoReposit
         } catch (DataAccessException e) {
             return 0;
         }
+    }
+
+    @Override
+    public void delete(Long id) {
+        String sql = "DELETE FROM PLANTILLAS_CONTRATOS WHERE id_plantilla = :id";
+        jdbcTemplate.update(sql, new MapSqlParameterSource("id", id));
     }
 }

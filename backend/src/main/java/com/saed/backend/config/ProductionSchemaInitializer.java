@@ -75,7 +75,7 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
                         CONSTRAINT FK_PLANTILLAS_CONTRATOS_ORG FOREIGN KEY (ID_ORGANIZACION) REFERENCES ORGANIZACIONES(ID_ORGANIZACION) ON DELETE CASCADE,
                         CONSTRAINT UQ_PLANTILLAS_ORG_COD_VER UNIQUE (ID_ORGANIZACION, CODIGO, VERSION),
                         CONSTRAINT CK_PLANTILLAS_CONTR_TIPO CHECK (TIPO_CONTRATO IN ('INICIAL', 'RENOVACION', 'PERMANENCIA', 'COMERCIAL', 'OTRO')),
-                        CONSTRAINT CK_PLANTILLAS_CONTR_ESTADO CHECK (ESTADO IN ('ACTIVA', 'BORRADOR', 'HISTORICA'))
+                        CONSTRAINT CK_PLANTILLAS_CONTR_ESTADO CHECK (ESTADO IN ('ACTIVA', 'BORRADOR', 'HISTORICA', 'SUSPENDIDA', 'INACTIVA'))
                     )
                 """);
                 try {
@@ -108,6 +108,13 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
                     log.debug("[SchemaInit] Aviso RLS en PLANTILLAS_CONTRATOS: {}", e.getMessage());
                 }
                 log.info("[SchemaInit] Tabla PLANTILLAS_CONTRATOS creada exitosamente.");
+            } else {
+                try {
+                    jdbcTemplate.execute("ALTER TABLE PLANTILLAS_CONTRATOS DROP CONSTRAINT CK_PLANTILLAS_CONTR_ESTADO");
+                } catch (Exception ignored) {}
+                try {
+                    jdbcTemplate.execute("ALTER TABLE PLANTILLAS_CONTRATOS ADD CONSTRAINT CK_PLANTILLAS_CONTR_ESTADO CHECK (ESTADO IN ('ACTIVA', 'BORRADOR', 'HISTORICA', 'SUSPENDIDA', 'INACTIVA'))");
+                } catch (Exception ignored) {}
             }
 
             // Seed initial template if table is empty for organization 1

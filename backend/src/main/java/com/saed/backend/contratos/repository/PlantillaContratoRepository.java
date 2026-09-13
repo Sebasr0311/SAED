@@ -22,4 +22,6 @@ public interface PlantillaContratoRepository {
     void updateStatus(Long id, String estado);
 
     Integer getMaxVersion(Long orgId, String codigo);
+
+    void delete(Long id);
 }

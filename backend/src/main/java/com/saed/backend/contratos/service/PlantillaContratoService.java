@@ -21,6 +21,8 @@ public interface PlantillaContratoService {
 
     void cambiarEstado(Long id, String nuevoEstado);
 
+    void eliminar(Long id);
+
     String renderizarPlantilla(Long idPlantilla, Map<String, Object> variables);
 
     List<String> getVariablesSoportadas();

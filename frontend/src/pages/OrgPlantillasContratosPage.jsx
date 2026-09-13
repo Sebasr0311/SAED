@@ -23,8 +23,12 @@ import {
   UploadCloud,
   Download,
   FileCode,
+  Trash2,
+  PauseCircle,
+  PlayCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog.jsx';
 
 const TIPOS_CONTRATO = ['INICIAL', 'RENOVACION', 'PERMANENCIA', 'COMERCIAL', 'OTRO'];
 
@@ -32,6 +36,8 @@ const ESTADO_COLORS = {
   ACTIVA: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
   BORRADOR: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20',
   HISTORICA: 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20',
+  SUSPENDIDA: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20',
+  INACTIVA: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20',
 };
 
 const DEFAULT_VARIABLES = [
@@ -78,6 +84,7 @@ export default function OrgPlantillasContratosPage() {
   const [previewTitle, setPreviewTitle] = useState('');
   const [previewLoading, setPreviewLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [plantillaAEliminar, setPlantillaAEliminar] = useState(null);
 
   // Soporte de carga de archivos HTML
   const fileInputRef = useRef(null);
@@ -303,6 +310,18 @@ export default function OrgPlantillasContratosPage() {
     }
   }
 
+  async function handleEliminarConfirmado() {
+    if (!plantillaAEliminar) return;
+    try {
+      await api.delete(`/org/contratos/plantillas/${plantillaAEliminar.idPlantilla}`);
+      toast.success(`Plantilla '${plantillaAEliminar.nombre}' eliminada con éxito.`);
+      setPlantillaAEliminar(null);
+      loadPlantillas();
+    } catch (err) {
+      toast.error(err.message || 'Error al eliminar la plantilla.');
+    }
+  }
+
   async function previsualizar(plantilla) {
     try {
       setPreviewTitle(`${plantilla.nombre} (v${plantilla.version})`);
@@ -406,6 +425,7 @@ export default function OrgPlantillasContratosPage() {
             <option value="">Todos los estados</option>
             <option value="ACTIVA">Activas</option>
             <option value="BORRADOR">Borradores</option>
+            <option value="SUSPENDIDA">Suspendidas</option>
             <option value="HISTORICA">Históricas</option>
           </select>
         </div>
@@ -531,7 +551,7 @@ export default function OrgPlantillasContratosPage() {
                     </Button>
                   </div>
 
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1 flex-wrap justify-end">
                     <Button
                       variant="outline"
                       size="sm"
@@ -554,17 +574,53 @@ export default function OrgPlantillasContratosPage() {
                         Activar
                       </Button>
                     )}
+
                     {p.estado === 'ACTIVA' && (
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => cambiarEstado(p.idPlantilla, 'SUSPENDIDA')}
+                          title="Suspender plantilla temporalmente"
+                          className="h-8 px-2 text-xs text-rose-600 hover:bg-rose-500/10"
+                        >
+                          <PauseCircle className="h-3.5 w-3.5 mr-1" />
+                          Suspender
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => cambiarEstado(p.idPlantilla, 'HISTORICA')}
+                          title="Archivar como histórica"
+                          className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
+                        >
+                          Archivar
+                        </Button>
+                      </>
+                    )}
+
+                    {(p.estado === 'SUSPENDIDA' || p.estado === 'HISTORICA') && (
                       <Button
-                        variant="ghost"
+                        variant="outline"
                         size="sm"
-                        onClick={() => cambiarEstado(p.idPlantilla, 'HISTORICA')}
-                        title="Archivar como histórica"
-                        className="h-8 px-2 text-xs text-muted-foreground hover:text-danger-600"
+                        onClick={() => cambiarEstado(p.idPlantilla, 'ACTIVA')}
+                        title="Reactivar plantilla para su uso"
+                        className="h-8 px-2 text-xs text-emerald-600 border-emerald-500/30 hover:bg-emerald-500/10"
                       >
-                        Archivar
+                        <PlayCircle className="h-3.5 w-3.5 mr-1" />
+                        Reactivar
                       </Button>
                     )}
+
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setPlantillaAEliminar(p)}
+                      title="Eliminar plantilla"
+                      className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
                   </div>
                 </div>
               </CardContent>
@@ -864,6 +920,17 @@ export default function OrgPlantillasContratosPage() {
           </div>
         </div>
       )}
+
+      {/* Diálogo de Confirmación para Eliminar */}
+      <ConfirmDialog
+        open={!!plantillaAEliminar}
+        onClose={() => setPlantillaAEliminar(null)}
+        onConfirm={handleEliminarConfirmado}
+        title="Eliminar Plantilla de Contrato"
+        message={`¿Está seguro de que desea eliminar la plantilla "${plantillaAEliminar?.nombre}" (${plantillaAEliminar?.codigo})? Esta acción no se puede deshacer.`}
+        confirmLabel="Eliminar Definitivamente"
+        danger
+      />
     </div>
   );
 }
