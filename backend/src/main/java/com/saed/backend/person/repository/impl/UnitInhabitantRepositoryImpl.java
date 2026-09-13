@@ -1,5 +1,7 @@
 package com.saed.backend.person.repository.impl;
 
+import com.saed.backend.context.SaedContext;
+import com.saed.backend.context.SaedContextHolder;
 import com.saed.backend.person.dto.PersonaDTO;
 import com.saed.backend.person.dto.UnitOwnerDTO;
 import com.saed.backend.person.dto.UnitOwnerRequestDTO;
@@ -200,7 +202,11 @@ public class UnitInhabitantRepositoryImpl implements UnitInhabitantRepository {
 
         // Desactivar asignación de usuario correspondiente si existe
         if (personaId != null) {
+            SaedContext prevCtx = SaedContextHolder.getContext();
             try {
+                jdbcTemplate.getJdbcOperations().execute("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1); END;");
+                jdbcTemplate.getJdbcOperations().execute("BEGIN PKG_SAED_SESSION.SET_CONTEXT(1, 1, 1, 'SUPERADMIN'); END;");
+
                 String sqlAsignacion = """
                     UPDATE USUARIO_ASIGNACIONES
                     SET ESTADO = 'INACTIVA', FECHA_FIN = TRUNC(SYSDATE)
@@ -219,7 +225,21 @@ public class UnitInhabitantRepositoryImpl implements UnitInhabitantRepository {
                     WHERE ID_PERSONA = :personaId
                     """;
                 jdbcTemplate.update(sqlUsuario, Map.of("personaId", personaId));
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+            } finally {
+                if (prevCtx != null) {
+                    SaedContextHolder.setContext(prevCtx);
+                    try {
+                        jdbcTemplate.getJdbcOperations().execute(
+                            String.format("BEGIN PKG_SAED_SESSION.SET_CONTEXT(1, %d, %d, '%s'); END;",
+                                prevCtx.getOrganizationId() != null ? prevCtx.getOrganizationId() : 1L,
+                                prevCtx.getPropertyId() != null ? prevCtx.getPropertyId() : 1L,
+                                prevCtx.getRoleCode() != null ? prevCtx.getRoleCode() : "RESIDENTE"
+                            )
+                        );
+                    } catch (Exception ignored) {}
+                }
+            }
         }
 
         return updated;
@@ -247,7 +267,11 @@ public class UnitInhabitantRepositoryImpl implements UnitInhabitantRepository {
         int deleted = jdbcTemplate.update(sql, params);
 
         if (personaId != null) {
+            SaedContext prevCtx = SaedContextHolder.getContext();
             try {
+                jdbcTemplate.getJdbcOperations().execute("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1); END;");
+                jdbcTemplate.getJdbcOperations().execute("BEGIN PKG_SAED_SESSION.SET_CONTEXT(1, 1, 1, 'SUPERADMIN'); END;");
+
                 // Eliminar o inactivar asignaciones de usuario asociadas a esta unidad
                 String sqlAsignacion = """
                     DELETE FROM USUARIO_ASIGNACIONES
@@ -276,7 +300,21 @@ public class UnitInhabitantRepositoryImpl implements UnitInhabitantRepository {
                         jdbcTemplate.update("UPDATE USUARIOS SET ESTADO = 'INACTIVO' WHERE ID_USUARIO = :uid", Map.of("uid", uid));
                     }
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+            } finally {
+                if (prevCtx != null) {
+                    SaedContextHolder.setContext(prevCtx);
+                    try {
+                        jdbcTemplate.getJdbcOperations().execute(
+                            String.format("BEGIN PKG_SAED_SESSION.SET_CONTEXT(1, %d, %d, '%s'); END;",
+                                prevCtx.getOrganizationId() != null ? prevCtx.getOrganizationId() : 1L,
+                                prevCtx.getPropertyId() != null ? prevCtx.getPropertyId() : 1L,
+                                prevCtx.getRoleCode() != null ? prevCtx.getRoleCode() : "RESIDENTE"
+                            )
+                        );
+                    } catch (Exception ignored) {}
+                }
+            }
         }
 
         return deleted;

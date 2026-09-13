@@ -282,25 +282,31 @@ public class UsuarioController {
                     );
 
                     if ("RESIDENTE".equals(callerRole)) {
+                        Long callerUserId = ctx != null ? ctx.getUserId() : null;
+                        if (callerUserId != null && callerUserId.equals(foundUid)) {
+                            return ResponseEntity.badRequest()
+                                    .body(ApiResponse.error("El residente titular principal no puede registrarse a sí mismo como conviviente"));
+                        }
+
                         boolean hasAdminRole = false;
-                        boolean activeInSameUnit = false;
+                        boolean activeInOtherUnit = false;
                         for (Map<String, Object> a : activeAssignments) {
                             String rCode = (String) a.get("ROL_CODIGO");
                             if ("SUPERADMIN".equals(rCode) || "ADMIN_ORGANIZACION".equals(rCode) || "ADMIN_PROPIEDAD".equals(rCode)) {
                                 hasAdminRole = true;
                             }
                             Object u = a.get("ID_UNIDAD");
-                            if (u != null && targetUnitId != null && targetUnitId.equals(((Number) u).longValue())) {
-                                activeInSameUnit = true;
+                            if (u != null && targetUnitId != null && !targetUnitId.equals(((Number) u).longValue())) {
+                                activeInOtherUnit = true;
                             }
                         }
                         if (hasAdminRole) {
                             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                                     .body(ApiResponse.error("La persona cuenta con un rol administrativo en el sistema y no puede ser vinculada como conviviente"));
                         }
-                        if (activeInSameUnit) {
+                        if (activeInOtherUnit) {
                             return ResponseEntity.status(HttpStatus.CONFLICT)
-                                    .body(ApiResponse.error("Ya existe una cuenta de usuario activa vinculada a esta persona en su unidad"));
+                                    .body(ApiResponse.error("La persona ya cuenta con un usuario activo vinculado a otra unidad residencial"));
                         }
                     }
                     existingUserToReactivate = foundUid;
