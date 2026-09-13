@@ -57,6 +57,7 @@ const ContratosProveedorPage = lazy(() => import('./pages/ContratosProveedorPage
 
 const ResidenteDashboardPage = lazy(() => import('./pages/ResidenteDashboardPage.jsx'));
 const ResPerfilPage = lazy(() => import('./pages/ResPerfilPage.jsx'));
+const ResConvivientesPage = lazy(() => import('./pages/ResConvivientesPage.jsx'));
 const ResCuotasPage = lazy(() => import('./pages/ResCuotasPage.jsx'));
 const ResVisitasPage = lazy(() => import('./pages/ResVisitasPage.jsx'));
 const ResBuzonPage = lazy(() => import('./pages/ResBuzonPage.jsx'));
@@ -681,6 +682,14 @@ export default function App() {
             element={
               <ProtectedRoute roles={['RESIDENTE', 'RESIDENTE_CONVIVENCIA', 'PROPIETARIO']}>
                 <ResPerfilPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="res-convivientes"
+            element={
+              <ProtectedRoute roles={['RESIDENTE']}>
+                <ResConvivientesPage />
               </ProtectedRoute>
             }
           />

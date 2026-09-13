@@ -192,6 +192,7 @@ export const ACCESS_BY_ROLE = {
   RESIDENTE: [
     '/residente-dashboard',
     '/res-perfil',
+    '/res-convivientes',
     '/res-apartamento',
     '/res-cuotas',
     '/res-visitas',
