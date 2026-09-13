@@ -30,8 +30,10 @@ jobs:
         working-directory: frontend
         run: set -o pipefail; pnpm run build 2>&1 | tail -120
         env:
-          VITE_BASE_PATH: /sistema-administracion-edificios/
+          VITE_BASE_PATH: /SAED/
       - uses: actions/configure-pages@v5
+        with:
+          enablement: true
       - name: Upload frontend
         uses: actions/upload-pages-artifact@v3
         with:
