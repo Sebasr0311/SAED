@@ -14,7 +14,7 @@ export default defineConfig({
     ['html', { outputFolder: '../test-results/html-report', open: 'never' }]
   ],
   use: {
-    baseURL: process.env.PLAYWRIGHT_BASE_URL || process.env.BASE_URL || 'https://saedfront.vercel.app',
+    baseURL: process.env.PLAYWRIGHT_BASE_URL || process.env.BASE_URL || 'http://localhost:5173',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',

@@ -17,7 +17,7 @@ import {
   Hash,
   KeyRound,
   Eye,
-  Copy,
+  Lock,
   Check,
   RotateCcw,
   Boxes,
@@ -89,12 +89,11 @@ export default function PaquetesPage() {
   const streamRef = useRef(null);
 
   // Modales
-  const [modalSuccessPin, setModalSuccessPin] = useState(null); // { pin, paquete }
+  const [modalSuccessPin, setModalSuccessPin] = useState(null); // { paquete } (Zero-Knowledge, el PIN no se expone al portero)
   const [modalEntrega, setModalEntrega] = useState(null); // Paquete a entregar
   const [pinIngresado, setPinIngresado] = useState('');
   const [entregando, setEntregando] = useState(false);
   const [detalleModal, setDetalleModal] = useState(null);
-  const [copiedPin, setCopiedPin] = useState(false);
 
   // Carga de Unidades
   const { data: unidadesRaw } = useFetch(() => api.get('/units'), []);
@@ -214,7 +213,7 @@ export default function PaquetesPage() {
       try {
         const res = await api.get('/residentes', { params: { idApartamento: val } });
         list = Array.isArray(res) ? res : res?.items || [];
-      } catch (_) {
+      } catch {
         list = [];
       }
 
@@ -229,7 +228,9 @@ export default function PaquetesPage() {
             NUMERO_DOCUMENTO: r.persona?.numeroDocumento || r.numeroDocumento,
             TIPO: r.tipoResidente || 'RESIDENTE',
           }));
-        } catch (_) {}
+        } catch {
+          list = [];
+        }
       }
 
       setResidentesUnidad(list);
@@ -286,12 +287,10 @@ export default function PaquetesPage() {
 
       const res = await api.post('/paquetes', payload);
       const creado = res?.data || res;
-      const pin = creado?.codigoRetiroPin || 'GENERADO';
 
       toast.success('Paquete registrado y notificación enviada al residente');
 
       setModalSuccessPin({
-        pin: pin,
         paquete: creado,
       });
 
@@ -387,13 +386,6 @@ export default function PaquetesPage() {
       (p.fechaEntrega || p.fechaCreacion || '').startsWith(todayStr)
     ).length;
   }, [paquetesEntregados]);
-
-  function copyToClipboard(text) {
-    navigator.clipboard.writeText(text);
-    setCopiedPin(true);
-    setTimeout(() => setCopiedPin(false), 2000);
-    toast.success('PIN copiado al portapapeles');
-  }
 
   return (
     <PageContainer>
@@ -1160,31 +1152,23 @@ export default function PaquetesPage() {
                 Paquete en Custodia de Garita
               </h3>
               <p className="text-xs text-muted-foreground">
-                Se ha generado el código PIN de retiro y se notificó a la unidad.
+                Se ha generado el código PIN confidencial y se notificó a los residentes de la unidad.
               </p>
             </div>
 
-            {/* Tarjeta de PIN */}
-            <div className="p-4 rounded-xl bg-slate-950 border border-emerald-500/40 space-y-2">
-              <span className="text-xs font-semibold uppercase tracking-wider text-emerald-400">
-                Código de Retiro PIN
-              </span>
-              <div className="flex items-center justify-center gap-3">
-                <span className="text-3xl font-black font-mono tracking-widest text-emerald-400">
-                  {modalSuccessPin.pin}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => copyToClipboard(modalSuccessPin.pin)}
-                  className="p-2 rounded-lg bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 transition-colors"
-                  title="Copiar PIN"
-                >
-                  {copiedPin ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-                </button>
+            {/* Tarjeta de Seguridad Zero-Knowledge: El PIN no se expone al portero */}
+            <div className="p-4 rounded-xl bg-emerald-500/10 dark:bg-emerald-950/30 border border-emerald-500/30 space-y-2 text-left">
+              <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-semibold text-xs uppercase tracking-wider">
+                <Lock className="w-4 h-4 text-emerald-500 shrink-0" />
+                <span>Código de Retiro Protegido (Zero-Knowledge)</span>
               </div>
-              <p className="text-[11px] text-slate-400">
-                El residente debe presentar este código para retirar la encomienda.
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Por seguridad de la unidad, el código PIN de 4 dígitos <strong>no es visible en portería</strong>. Se generó de forma confidencial y se envió a las notificaciones y buzón de los residentes del apartamento.
               </p>
+              <div className="p-2.5 rounded-lg bg-background/80 border border-border/60 text-[11px] text-muted-foreground flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0" />
+                <span>El residente o conviviente autorizado deberá suministrar este PIN al retirar su paquete para que puedas confirmar la entrega.</span>
+              </div>
             </div>
 
             <div className="text-left text-xs bg-muted/40 p-3 rounded-lg space-y-1 border border-border/60">

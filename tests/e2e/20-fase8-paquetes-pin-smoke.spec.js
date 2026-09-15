@@ -45,24 +45,22 @@ test.describe('Fase 8 - Smoke E2E: Paquetería, PIN de 4 Dígitos y Entrega Segu
     await expect(submitBtn).toBeEnabled();
     await submitBtn.click();
 
-    // 5. Verificar Modal de Éxito con PIN generado de 4 dígitos
-    const pinCard = page.locator('text=Código de Retiro PIN').locator('..');
-    await expect(pinCard).toBeVisible({ timeout: 15000 });
+    // 5. Verificar Modal de Éxito Zero-Knowledge: El PIN NO es visible para el portero
+    const zeroKnowledgeNotice = page.getByText(/C[oó]digo de Retiro Protegido/i);
+    await expect(zeroKnowledgeNotice).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText(/no es visible en porter[ií]a/i)).toBeVisible();
 
-    const pinElement = pinCard.locator('.font-mono.tracking-widest').first();
-    await expect(pinElement).toBeVisible();
-    const generatedPin = (await pinElement.textContent())?.trim();
-    console.log(`[E2E Smoke 100%] PIN de 4 dígitos generado: ${generatedPin}`);
-
-    expect(generatedPin).toBeDefined();
-    expect(generatedPin).toMatch(/^\d{4}$/); // Exactamente 4 dígitos numéricos
+    // Confirmar que el código PIN de 4 dígitos NO se expone en la interfaz del portero
+    const visiblePinOnPortero = page.locator('text=Código de Retiro PIN');
+    await expect(visiblePinOnPortero).not.toBeVisible();
+    console.log('[E2E Smoke 100%] Verificado: El portero NO tiene acceso ni visibilidad del PIN de retiro.');
 
     // Continuar cerrando el modal de éxito
     const btnContinuar = page.getByRole('button', { name: /Continuar/i });
     await btnContinuar.click();
-    await expect(pinCard).not.toBeVisible();
+    await expect(zeroKnowledgeNotice).not.toBeVisible();
 
-    // 6. Cerrar sesión de Portero para verificar notificación del RESIDENTE
+    // 6. Cerrar sesión de Portero para verificar notificación confidencial del RESIDENTE
     await logout(page);
 
     // 7. Login como RESIDENTE (camartinez - Unidad 1 / Apto 101)
@@ -77,13 +75,20 @@ test.describe('Fase 8 - Smoke E2E: Paquetería, PIN de 4 Dígitos y Entrega Segu
     const notifPopover = page.locator('#notification-popover');
     await expect(notifPopover).toBeVisible({ timeout: 5000 });
 
-    // Verificar que en la lista de notificaciones aparece el paquete y el PIN
+    // Verificar que en la lista de notificaciones aparece el paquete con su PIN
     const notifItem = notifPopover.locator('button').filter({ hasText: testPackageDesc }).or(
-      notifPopover.locator('button').filter({ hasText: generatedPin })
+      notifPopover.locator('button').filter({ hasText: /Paquete recibido/i })
     ).first();
     await expect(notifItem).toBeVisible({ timeout: 8000 });
-    await expect(notifItem.locator(`text=${generatedPin}`).first()).toBeVisible();
-    console.log(`[E2E Smoke 100%] Verificado PIN ${generatedPin} en la campana de notificaciones del residente titular.`);
+    
+    // Extraer PIN de la notificación del residente
+    const notifItemText = await notifItem.textContent();
+    const pinMatch = notifItemText.match(/PIN:\s*(\d{4})/i) || notifItemText.match(/(\d{4})/);
+    const generatedPin = pinMatch ? pinMatch[1] : null;
+    console.log(`[E2E Smoke 100%] PIN de 4 dígitos extraído confidencialmente desde la notificación del residente: ${generatedPin}`);
+
+    expect(generatedPin).toBeDefined();
+    expect(generatedPin).toMatch(/^\d{4}$/); // Exactamente 4 dígitos numéricos
 
     // 9. Navegar al Buzón del Residente (/res-buzon)
     await page.goto('/res-buzon');
@@ -102,7 +107,7 @@ test.describe('Fase 8 - Smoke E2E: Paquetería, PIN de 4 Dígitos y Entrega Segu
     const modalDetalle = page.locator('[role="dialog"]').filter({ hasText: /Detalle del Mensaje|Paquete/i });
     await expect(modalDetalle).toBeVisible({ timeout: 5000 });
 
-    // Verificar tarjeta de PIN de seguridad dentro del modal
+    // Verificar tarjeta de PIN de seguridad dentro del modal de residente
     await expect(modalDetalle.getByText(/Código de Retiro PIN/i).first()).toBeVisible();
     await expect(modalDetalle.locator(`text=${generatedPin}`).first()).toBeVisible();
 
@@ -121,25 +126,8 @@ test.describe('Fase 8 - Smoke E2E: Paquetería, PIN de 4 Dígitos y Entrega Segu
     // 10. Cerrar sesión de camartinez y verificar segundo habitante de la misma unidad (sofiamartinez)
     await logout(page);
 
-    // Login directo como sofiamartinez (conviviente de la misma unidad Apto 101)
-    await page.goto('/login');
-    await page.waitForLoadState('domcontentloaded');
-    const userInput = page.locator('input[type="text"], input[name="username"], input[name="email"]').first();
-    const passInput = page.locator('input[type="password"]').first();
-    await userInput.fill('sofiamartinez');
-    await passInput.fill('Password123!');
-    await page.getByRole('button', { name: /Iniciar Sesi[oó]n|Entrar/i }).click();
-
-    // Si aparece selector de asignaciones, seleccionar la de Apto 101
-    try {
-      const modalSelect = page.locator('[role="dialog"]').filter({ hasText: /Seleccionar Asignaci[oó]n|Rol/i });
-      if (await modalSelect.isVisible({ timeout: 3000 })) {
-        await modalSelect.locator('button, tr, div').filter({ hasText: /Apto 101|Residente/i }).first().click();
-      }
-    } catch {
-      // Ignorar si entra directo
-    }
-
+    // Login como sofiamartinez (conviviente de la misma unidad Apto 101) usando helper
+    await loginAs(page, 'RESIDENTE_CONVIVENCIA');
     await expect(page).toHaveURL(/residente-dashboard|res-buzon/, { timeout: 15000 });
 
     // Si no estamos en el buzón, navegar al buzón
@@ -152,7 +140,7 @@ test.describe('Fase 8 - Smoke E2E: Paquetería, PIN de 4 Dígitos y Entrega Segu
     ).first();
     await expect(cardSofia).toBeVisible({ timeout: 10000 });
     await expect(cardSofia.locator(`text=${generatedPin}`).first()).toBeVisible();
-    console.log(`[E2E Smoke 100%] Verificado PIN ${generatedPin} en el buzón del habitante conviviente de la misma unidad.`);
+    console.log(`[E2E Smoke 100%] Verificado PIN ${generatedPin} en el buzón del habitante conviviente (sofiamartinez) de la misma unidad.`);
 
     // 11. Cerrar sesión de sofiamartinez
     await logout(page);
