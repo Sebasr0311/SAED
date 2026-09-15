@@ -1,78 +1,93 @@
 # ==============================================================================
-# SAED - GITIGNORE
+# SAED 2.0 — .gitignore Oficial
 # ==============================================================================
 
 # IDE & Editor files
 .idea/
+.vscode/
 *.iml
 *.iws
 *.ipr
-out/
-.vscode/
+*.project
+*.classpath
+*.settings/
 *.sublime-project
 *.sublime-workspace
-.project
-.classpath
-.settings/
 
-# Node & Frontend (Root & Subpackages)
+# Environment & Sensitive Credentials
+.env
+.env.*
+!.env.example
+!**/.env.example
+*.pem
+*.key
+*.p12
+*.sso
+*.jks
+**/bd.properties
+**/wallet.zip
+**/wallet_base64.txt
+wallet_part*.txt
+
+# Build & Compilation (Java / Maven)
+target/
+**/target/
+bin/
+**/bin/
+out/
+**/out/
+*.class
+.mvn/wrapper/maven-wrapper.jar
+
+# Build & Dependencies (Node / Frontend)
 node_modules/
 **/node_modules/
 dist/
 **/dist/
 dist-ssr/
-*.local
-.npm
-.pnpm-store
+.npm/
+.pnpm-store/
 
-# Environment & Secrets (Root & Subpackages)
-.env
-.env*
-*.bak
-.env.local
-.env.*.local
-*.pem
-*.key
-**/bd.properties
-**/wallet.zip
-**/wallet_base64.txt
-wallet_part1.txt
-wallet_part2.txt
-*.p12
-*.sso
-*.jks
+# Test Outputs & Coverage
+coverage/
+test-results/
+**/test-results/
+playwright-report/
+**/playwright-report/
+blob-report/
+testsprite_tests/
+**/testsprite_tests/
 
-# Build & Compilation (Root & Subpackages)
-target/
-**/target/
-bin/
-**/bin/
-*.class
-.mvn/wrapper/maven-wrapper.jar
+# Runtime Uploads & Generated Media
+uploads/
+**/uploads/
+backend/uploads/
 
-# Logs & Temporary files
+# Logs & Debugging
 *.log
-# Local DB utility scripts (dev only)
-**/DbCleanTest.java
-**/DbCheck.java
-**/*.class
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 dev-*.log
 preview.log
-fix*.js
-temp.*
 
-# OS generated files
+# Temporary, Cache & Backup files
+*.tmp
+*.bak
+*.swp
+*~
+temp.*
+fix*.js
+local/
+
+# OS-Specific Files
 .DS_Store
 Thumbs.db
 desktop.ini
+$RECYCLE.BIN/
 
-# Tooling & Assistant cache
+# Local Tooling & Assistant Cache
 .atl/
 .codegraph/
 .playwright-mcp/
-test-results/
-**/test-results/

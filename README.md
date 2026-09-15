@@ -1,141 +1,194 @@
-﻿# SAED 2.0 - Sistema de Administracion de Edificios y Propiedades
+# SAED 2.0 — Sistema de Administración de Edificios y Copropiedades
 
-[![React](https://img.shields.io/badge/Frontend-React%2018%20%2B%20Vite-blue.svg)](https://react.dev/)
-[![Spring Boot](https://img.shields.io/badge/Backend-Spring%20Boot%203-6DB33F.svg)](https://spring.io/projects/spring-boot)
-[![Oracle](https://img.shields.io/badge/Database-Oracle%2019c%20RLS-red.svg)](https://www.oracle.com/database/)
-[![TailwindCSS](https://img.shields.io/badge/Styles-Tailwind%20CSS%20%2B%20shadcn--ui-38bdf8.svg)](https://tailwindcss.com/)
-
-> **SAED 2.0** es la evolucion de la plataforma para la administracion de edificios residenciales, condominios y conjuntos cerrados. Integra control de accesos con codigos QR, gestion contractual, liquidacion financiera, y un robusto esquema Zero-Trust apoyado en Oracle Row-Level Security (RLS).
+[![Java](https://img.shields.io/badge/Java-17%2B-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white)](https://openjdk.org/)
+[![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.3.3-6DB33F?style=for-the-badge&logo=spring-boot&logoColor=white)](https://spring.io/projects/spring-boot)
+[![React](https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
+[![Vite](https://img.shields.io/badge/Vite-5-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
+[![Oracle](https://img.shields.io/badge/Oracle_Autonomous_DB-19c-F80000?style=for-the-badge&logo=oracle&logoColor=white)](https://www.oracle.com/database/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3-06B6D4?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
 
 ---
 
-## Arquitectura y Estructura del Proyecto
+## 1. Descripción
+**SAED 2.0** es una plataforma SaaS multi-tenant diseñada para la administración integral de edificios residenciales, condominios y conjuntos cerrados. Resuelve la gestión operativa, financiera, de seguridad y convivencia mediante un modelo centralizado y seguro, garantizando trazabilidad y aislamiento riguroso entre organizaciones y copropiedades.
 
-El repositorio esta organizado en modulos desacoplados y bien estructurados:
+---
 
-```
+## 2. Visión
+Convertirse en el estándar de software para la propiedad horizontal en Colombia y Latinoamérica, ofreciendo a inmobiliarias, administradores, personal de vigilancia y habitantes una experiencia moderna, accesible y confiable con soporte para pasarelas de pago locales (Wompi), integración con servicios geográficos oficiales (API Colombia) y control de acceso seguro mediante códigos QR y códigos PIN de paquetería.
+
+---
+
+## 3. Arquitectura
+SAED 2.0 implementa una arquitectura desacoplada y orientada al dominio con segregación estricta:
+- **Frontend SPA:** Cliente ligero en React 18 con Vite, Tailwind CSS y componentes accesibles (Radix UI / Shadcn). Enrutamiento declarativo protegido por Guards de roles y scopes.
+- **Backend API REST:** Servicio stateless en Spring Boot 3 con Java 17+, gobernado por Spring Security y un contexto dinámico de sesión (`SaedContextHolder`).
+- **Persistencia y Aislamiento:** Oracle Autonomous Transaction Processing (ATP) utilizando Virtual Private Database (VPD) / Row Level Security (RLS). Cada conexión a la base de datos se ejecuta bajo el contexto seguro `SAED_CTX` que impide el acceso a datos entre organizaciones ajenas a nivel de motor de base de datos.
+- **Cero Confianza (Zero-Trust):** La seguridad no recae exclusivamente en la capa web; el motor de base de datos valida matemáticamente la organización, propiedad y asignación de cada consulta.
+
+---
+
+## 4. Stack Tecnológico
+
+| Capa | Tecnologías | Propósito |
+| :--- | :--- | :--- |
+| **Frontend** | React 18, Vite 5, Tailwind CSS, Lucide Icons, Axios | Aplicación web reactiva para 5 perfiles de usuario |
+| **Backend** | Spring Boot 3.3.3, Java 17, Spring Security 6, HikariCP | API REST empresarial y orquestación de negocio |
+| **Base de Datos** | Oracle Database 19c / 23ai (ATP / XE) | Base relacional con VPD/RLS y auditoría inmutable |
+| **Seguridad** | JWT (HMAC-SHA256), Spring Security, BCrypt | Autenticación basada en token y control de acceso (RBAC) |
+| **Pagos** | Wompi API v1 + Webhooks (HMAC-SHA256) | Pasarela de pagos para cuotas y onboarding de copropiedades |
+| **Comunicaciones** | Brevo HTTP API v3, Plantillas HTML responsivas | Notificación de avisos masivos, cobros y visitas |
+| **Geolocalización** | API Colombia (`api-colombia.com/api/v1`) | Carga dinámica de 32 departamentos y +1.100 municipios |
+| **Testing** | JUnit 5, Mockito, Playwright (Node.js), TestSprite | Pruebas unitarias, integración, seguridad y E2E |
+
+---
+
+## 5. Estructura del Repositorio
+
+El repositorio ha sido consolidado y reorganizado para eliminar código muerto y separar el runtime activo de los registros históricos:
+
+```text
 SAED/
-  frontend/                   # Frontend SPA (React 18 + Vite + TailwindCSS + shadcn-ui)
-    src/
-      components/ui/          # Componentes shadcn (Button, Card, Dialog, Table, etc.)
-      pages/                  # Paginas de la aplicacion
-      lib/                    # Hooks, API, contextos (Tenant, Auth, useTenantApi)
-    package.json
-    vite.config.js
-
-  backend/                    # Backend REST (Spring Boot 3 + Java 17+)
-    src/main/java/com/saed/backend/
-      config/                 # SecurityConfig, CORS, SaedConnectionProxy
-      identity/               # Auth: login, JWT, usuarios
-      authorization/          # Asignaciones, unidades, propiedades, organizaciones
-      catalog/                # Catalogos: roles, tipos, bloques
-      finanzas/               # Contratos, pagos, Wompi, planes, membresias
-      convivencia/            # Multas, quejas, buzon
-      comunicacion/           # Comunicados, alertas, email (Brevo)
-      dashboard/              # Dashboard KPIs, auditoria
-      person/                 # Personas, dependientes
-      porteria/               # Visitas, control de acceso
-      common/                 # EmailService, excepciones, DTOs
-    Dockerfile
-    pom.xml
+├── .github/              # Workflows de CI/CD para GitHub Actions
+├── archive/              # Repositorio histórico y código legacy congelado
+│   ├── legacy/           # Antiguo monolito JavaFX, dumps v4 y utilitarios
+│   ├── scratch/          # Scripts experimentales de auditoría
+│   └── README.md         # Documentación de activos archivados
+├── backend/              # API REST empresarial (Spring Boot 3 + Java 17)
+│   ├── src/main/java/    # Código fuente: controladores, servicios, RLS
+│   ├── src/main/resources# application.yml multi-perfil y plantillas
+│   ├── src/test/java/    # Suites de pruebas unitarias, RLS y seguridad
+│   ├── Dockerfile        # Contenedor de producción
+│   └── pom.xml           # Descriptor de dependencias Maven
+├── database/             # Única fuente de verdad de la base de datos
+│   ├── migrations/       # Migraciones evolutivas secuenciales (V5.0 a V5.12)
+│   ├── seeds/            # Semillas de prueba, producción y demo
+│   └── README.md         # Guía de despliegue y estructura relacional
+├── docs/                 # Centro de documentación técnica
+│   ├── architecture/     # Especificaciones de arquitectura y contratos
+│   ├── database/         # Modelo de datos, diccionarios y matrices RLS
+│   ├── security/         # Certificaciones de roles, permisos y políticas
+│   ├── testing/          # Reportes QA, matrices de prueba y cobertura
+│   ├── deployment/       # Despliegue en Render, Oracle Cloud y Vercel
+│   ├── cleanup/          # Reporte e inventario de limpieza del repositorio
+│   ├── contexto/         # Documento Maestro oficial de SAED 2.0
+│   └── archive/          # Reportes históricos de fases y sprints anteriores
+├── frontend/             # Cliente Web SPA (React 18 + Vite + Tailwind)
+│   ├── src/components/   # Componentes reutilizables, AppShell, selectores
+│   ├── src/pages/        # 85 vistas operativas según rol
+│   ├── src/lib/          # Clientes API, contexto Auth/Tenant, API Colombia
+│   └── package.json      # Dependencias y scripts de empaquetado
+├── scripts/              # Herramientas de automatización para desarrollo
+│   └── dev/              # Scripts de inicio rápido local (.bat)
+├── tests/                # Suites de pruebas automatizadas
+│   ├── e2e/              # 24 especificaciones Playwright (JavaScript)
+│   ├── testsprite/       # Pruebas automatizadas de rol (Python)
+│   └── README.md         # Instrucciones de ejecución de pruebas
+├── .env.example          # Plantilla oficial de variables de entorno
+├── .gitignore            # Reglas de exclusión de artefactos y secretos
+├── render.yaml           # Descriptor de infraestructura como código (Render)
+└── README.md             # Este documento
 ```
 
-## Stack Tecnologico
+---
 
-| Capa | Tecnologia | Version |
-|------|-----------|---------|
-| Frontend | React + Vite + TailwindCSS + shadcn-ui | 18 + 5 |
-| Backend | Spring Boot + Java | 3.2 + 17+ |
-| Database | Oracle Autonomous Database (ATP) | 19c |
-| Seguridad | JWT + Oracle RLS + PKG_AUTH_BOOTSTRAP | - |
-| Pagos | Wompi (produccion) | - |
-| Email | Brevo HTTP API v3 | - |
-| Deploy | Render (backend) + Vercel (frontend) | - |
+## 6. Base de Datos y Modelo Multi-Tenant
+La persistencia descansa sobre Oracle Autonomous Database:
+- **Línea Base (`V5.0__master_baseline.sql`):** Estructura relacional completa para organizaciones, propiedades, torres/bloques, unidades, personas, usuarios, asignaciones, visitas, pqrs, finanzas y multas.
+- **Aislamiento en Profundidad:** Contexto de base de datos `SAED_CTX` fijado por sesión HTTP en el pool de conexiones Hikari (`PKG_SAED_SESSION.SET_CONTEXT`).
+- **Auditoría Inmutable:** Tabla `AUDITORIA_LOG` protegida con disparadores append-only donde mutaciones no autorizadas generan excepción (`ORA-20099`).
 
-## URLs de Produccion
+---
 
-- **Frontend**: https://saedfront.vercel.app
-- **Backend**: https://saed-backend.onrender.com
-- **API Docs**: https://saed-backend.onrender.com/swagger-ui.html
+## 7. Seguridad y Modelo de Control de Acceso
+SAED 2.0 define 6 scopes de seguridad en runtime:
 
-## Credenciales de Prueba
+| Scope | Perfil | Nivel de Visibilidad y Operación |
+| :--- | :--- | :--- |
+| `SCOPE_SUPERADMIN` | Superadministrador de Plataforma | Gestión de organizaciones SaaS, planes comerciales, suscripciones y auditoría global. No interviene en la operación de copropiedades individuales. |
+| `SCOPE_ADMIN_ORGANIZACION` | Administrador de Organización | Administración de las propiedades asignadas a su empresa o inmobiliaria. |
+| `SCOPE_ADMIN_PROPIEDAD` | Administrador de Copropiedad | Control operativo, financiero (cartera, pagos), asambleas, sanciones y mantenimiento del edificio. |
+| `SCOPE_PORTERO` | Personal de Recepción / Vigilancia | Control de accesos en portería, registro y validación de visitas QR, custodia y entrega de paquetería con PIN. No accede a finanzas. |
+| `SCOPE_RESIDENTE` | Residente Titular | Gestión de su unidad, creación de invitaciones QR, pago de expensas, consulta de estado de cuenta y reporte de PQRS. |
+| `SCOPE_RESIDENTE_CONVIVENCIA` | Residente Habitante / Conviviente | Acceso a paquetería, reservas, solicitudes y visitas QR. Bloqueado estrictamente (HTTP 403) para estados financieros y cobros. |
 
-| Rol | Usuario | Contrasena |
-|-----|---------|-----------|
-| SUPERADMIN | admin_global | Admin123! |
-| RESIDENTE (org 1) | residente_hor | Admin123! |
-| RESIDENTE (org 2) | ressol@test.com | Admin123! |
+---
 
-## Funcionalidades Implementadas
+## 8. Desarrollo Local y Puesta en Marcha
 
-### Fase A - Wompi + Auditoria
-- [x] Wompi real: crearIntencion de pago ($87.350 -> 8735000 centavos)
-- [x] Webhook con verificacion HMAC-SHA256
-- [x] 4 triggers de auditoria (PROPIEDADES, PAGOS, ASIGNACIONES, MULTAS)
-- [x] GlobalExceptionHandler registra accesos denegados en AUDITORIA_LOG
-- [x] AUDITORIA_LOG append-only (UPDATE/DELETE -> ORA-20099)
+### Prerrequisitos
+- **Java:** OpenJDK 17 o superior.
+- **Maven:** 3.9 o superior (o utilizar el wrapper `./mvnw`).
+- **Node.js:** 18 LTS o superior con npm.
+- **Oracle Database:** Instancia XE local o ATP en Oracle Cloud.
 
-### Fase B - Paginas de Administracion
-- [x] OrganizacionesPage: CRUD + activar/suspender (PATCH status)
-- [x] PropiedadesPage: CRUD con organizacion y tipo de propiedad
-- [x] RolesYAsignacionesPage: asignacion dinamica por alcance del rol
+### Configuración de Entorno
+1. Copiar `.env.example` a `.env` en la raíz o configurar variables del sistema:
+   ```bash
+   cp .env.example .env
+   ```
+2. Configurar variables de base de datos en `backend/.env.example`.
 
-### Fase C - Planes y Membresias
-- [x] PlanesController: CRUD de planes comerciales (FREE, PRO, ENTERPRISE)
-- [x] MembresiasController: suscripciones de organizaciones a planes
-- [x] Seed data en ATP: 3 planes + 2 membresias
-
-### Fase D - Auditoria y Reportes
-- [x] AuditoriaController: lectura con filtros (tabla, accion, fechas)
-- [x] Estadisticas de auditoria agrupadas por tabla/accion
-- [x] ReportesPage: tabs de registro y estadisticas
-
-### Fase E - Notificaciones Email
-- [x] EmailService via Brevo HTTP v3 (reemplaza SMTP)
-- [x] Email masivo al publicar avisos (ComunicadosController)
-- [x] Notificacion de multas y QR de visitas
-
-### Seguridad
-- [x] Zero-Trust: SET_CONTEXT por cada request via JwtAuthenticationFilter
-- [x] RLS en 91 tablas (FN_FILTRO_ORGANIZACION, FN_FILTRO_PROPIEDAD, FN_FILTRO_UNIDAD)
-- [x] Anti-escalada de privilegios en AssignmentManagementService
-- [x] SCOPE_* authorities + context auto-resolved via GET_USER_PROFILE
-- [x] PKG_AUTH_BOOTSTRAP: GET_AUTH_DATA, GET_ASSIGNMENT_CONTEXT, SET_CONTEXT
-
-## Desarrollo
-
-### Backend
+### Inicio Rápido (Scripts de Desarrollo)
+En Windows, utilizar los scripts incluidos en `scripts/dev/`:
 ```bash
-cd backend
-mvn clean package -DskipTests
-java -jar target/backend-1.0.0-SNAPSHOT.jar
+# Iniciar ambos servicios en consolas separadas
+scripts\dev\iniciar-todo.bat
+
+# O iniciar individualmente:
+scripts\dev\iniciar-backend.bat
+scripts\dev\iniciar-frontend.bat
 ```
 
-### Frontend
-```bash
-cd frontend
-npm install
-npm run dev      # desarrollo
-npm run build    # produccion
-```
+---
 
-### Tests
-```bash
-# Tests unitarios (no requieren BD)
-mvn test -Dtest="!*Integration*,!*Phase1*"
+## 9. Testing y Calidad
 
-# Todos los tests (requiere Oracle XE local)
-mvn clean test
-```
+El proyecto implementa pruebas continuas en múltiples niveles:
+- **Backend (Unitarias e Integración):**
+  ```bash
+  cd backend
+  ./mvnw test
+  ```
+- **Frontend (Build y Verificación de Tipos):**
+  ```bash
+  cd frontend
+  npm run build
+  ```
+- **Pruebas End-to-End (Playwright):**
+  ```bash
+  npx playwright test tests/e2e/
+  ```
 
-## Base de Datos
+---
 
-- **ATP SAED2**: 96 tablas, 91 politicas RLS, 9 triggers ENABLED
-- **Packages**: PKG_SAED_SESSION, PKG_SAED_SECURITY_RLS, PKG_AUTH_BOOTSTRAP
-- **Deploy scripts**: `C:\Users\JUAN\Downloads\SAED_2_0_Base_Datos_Final\`
+## 10. Despliegue e Infraestructura
+- **Backend API:** Configurado para Render mediante `render.yaml` y contenedor `backend/Dockerfile`.
+- **Frontend SPA:** Desplegado en Vercel con reglas de enrutamiento SPA definidas en `frontend/vercel.json`.
+- **Base de Datos:** Oracle Autonomous Transaction Processing (ATP) en Oracle Cloud Infrastructure (OCI).
 
-## Documentacion
+---
 
-- `SAED_MAESTRO_CREDENCIALES.txt` - Todas las credenciales del sistema
-- `SAED_2_0_PAQUETE_DEPLOY.txt` - Paquete de despliegue completo
-- `docs/1.0/` - Documentacion SAED 1.0 (legado)
+## 11. Documentación del Proyecto
+Para detalles técnicos exhaustivos, consultar [`docs/README.md`](./docs/README.md) y el [Documento Maestro](./docs/contexto/SAED_2.0_DOCUMENTO_MAESTRO_COMPLETO_FINAL.txt).
+
+---
+
+## 12. Estado del Proyecto y Roadmap
+- **Fase Actual:** Consolidación y Limpieza Integral de Arquitectura SAED 2.0.
+- **Hitos Completados:**
+  - Multi-tenancy real con Oracle RLS.
+  - Integración pasarela de pagos Wompi (cuotas y planes).
+  - Control de paquetería con PIN confidencial para habitantes y convivientes.
+  - Integración con API oficial de Colombia para selección dinámica de departamentos y municipios.
+- **Próximos Pasos:**
+  - Automatización de asambleas virtuales con quórum en tiempo real.
+  - Notificaciones push nativas vía WebSockets y PWA.
+  - Módulo de domótica e IoT para control de talanqueras de parqueadero.
+
+---
+
+## 13. Buenas Prácticas y Contribución
+- Utilizar **Conventional Commits** (`feat:`, `fix:`, `chore:`, `docs:`, `refactor:`).
+- No versionar credenciales ni secretos; usar variables de entorno.
+- Las migraciones de base de datos son estrictamente incrementales e inmutables.
