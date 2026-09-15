@@ -1,0 +1,1098 @@
+SAED 2.0 — Documento Maestro de Visión, Alcance, Arquitectura y Funcionalidades
+
+Versión: 2.0 (Auditoría Integral y Especificación Exhaustiva de Producción)
+Fecha: Septiembre de 2026
+Modelo: Relacional Oracle (Autonomous Database ATP / Oracle 19c-21c Enterprise Edition)
+Esquema de Base de Datos: SAED_SEC_MASTER (con Virtual Private Database / DBMS_RLS y Contexto SAED_CTX)
+Arquitectura de Seguridad: Zero-Trust Multi-Tenant con Interceptor HikariCP (SaedDataSourceProxy)
+Stack de Ejecución: Java 17 LTS, Spring Boot 3.x, Spring Security 6, React 18, Vite, Tailwind CSS
+Tipo: Plataforma integral de administración inteligente, gobernanza SaaS y gestión operativa de copropiedades, edificios y conjuntos cerrados
+
+================================================================================
+1. Propósito
+================================================================================
+
+SAED 2.0 deja de ser una aplicación monolítica para un único edificio y se transforma en una plataforma SaaS multi-tenant de grado empresarial. Una organización o empresa de administración inmobiliaria puede gestionar de manera simultánea uno o varios edificios, uno o varios conjuntos cerrados, complejos comerciales o desarrollos urbanísticos mixtos. Toda la parametrización operativa permitida se realiza directamente desde la consola web sin alterar código ni requerir reinicios del sistema.
+
+La base de datos Oracle relacional constituye la fuente única, absoluta e inmutable de verdad. La arquitectura garantiza:
+- Integridad referencial rigurosa, consistencia transaccional ACID y restricciones Check en todos los dominios de datos.
+- Seguridad Zero-Trust nativa en el motor de base de datos mediante Oracle Virtual Private Database (VPD) / Row Level Security (RLS), garantizando que ninguna consulta SQL pueda saltarse el aislamiento de tenant.
+- Principio de mínimo privilegio, segregación estricta de funciones y trazabilidad forense centralizada con disparadores PL/SQL y transacciones autónomas de auditoría.
+- Sincronización reactiva en tiempo real entre el servidor y el cliente mediante un Event Bus desacoplado que mantiene sincronizados los buzones, campanas y badges.
+- Experiencia de usuario ágil y diferenciada para los 6 roles runtime del sistema: Superadmin, Administrador de Organización, Administrador de Propiedad, Portero, Residente Titular y Residente Conviviente.
+
+================================================================================
+2. Visión y Modelo Jerárquico de Dominio
+================================================================================
+
+La topología del sistema se estructura en una jerarquía estricta y desacoplada:
+
+PLATAFORMA SAED -> ORGANIZACIONES -> PROPIEDADES -> ESTRUCTURA -> UNIDADES -> OPERACIONES
+
+2.1. Tipos de Propiedad Soportados:
+- EDIFICIO: estructura vertical típicamente organizada en torres, bloques, pisos, apartamentos, locales comerciales, depósitos y parqueaderos privados.
+- CONJUNTO_CERRADO: urbanización horizontal estructurada en etapas, manzanas, bloques, casas, celdas de estacionamiento y múltiples porterías/garitas.
+- URBANIZACION_MIXTA: combinación de torres residenciales y áreas de casas o locales comerciales con zonas comunes compartidas.
+
+2.2. Flexibilidad Arquitectónica:
+La estructura de cada copropiedad es 100% configurable por el Administrador desde la interfaz web, permitiendo adaptar la nomenclatura y jerarquía de bloques, pisos y unidades a la realidad catastral y física del inmueble.
+
+================================================================================
+3. Multi-tenancy y Aislamiento de Datos Zero-Trust
+================================================================================
+
+Cada organización opera como un inquilino lógico (tenant) herméticamente aislado. Los datos se segregan por organización y propiedad. El backend nunca confía en parámetros enviados por el cliente (id_organizacion, id_propiedad, id_unidad): cada petición HTTP es validada contextualmente mediante la identidad autenticada, los permisos del rol, el scope operativo y la pertenencia del recurso.
+
+3.1. Oracle Virtual Private Database (VPD) / Row Level Security (RLS):
+- Contexto de aplicación SAED_CTX creado en el motor de base de datos:
+  CREATE CONTEXT SAED_CTX USING SAED_SEC_MASTER.PKG_SAED_SESSION;
+- Paquete PL/SQL de seguridad PKG_SAED_SESSION:
+  * SET_CONTEXT(p_user_id, p_org_id, p_prop_id, p_role): fija las variables de sesión del usuario en el kernel de Oracle.
+  * SET_BOOTSTRAP_CONTEXT(p_user_id): habilita un contexto de arranque seguro para autenticación y cambio de asignaciones.
+  * CLEAR_CONTEXT: purga inmediatamente todas las variables de contexto de la sesión física al liberarse la conexión.
+- Políticas RLS aplicadas mediante DBMS_RLS.ADD_POLICY con predicados dinámicos:
+  * FN_FILTRO_ORGANIZACION: asegura que las tablas de organización solo retornen registros cuyo ID coincida con SYS_CONTEXT('SAED_CTX', 'ORGANIZACION_ID').
+  * FN_FILTRO_PROPIEDAD: filtra automáticamente entidades operativas (unidades, visitas, cuotas, pagos, paquetes, etc.) a la propiedad activa.
+  * FN_FILTRO_UNIDAD: restringe el acceso a residentes (titulares y convivientes) estrictamente a sus unidades asignadas y registros autorizados.
+  * FN_FILTRO_GLOBAL: protege configuraciones maestras de plataforma y catálogos globales.
+
+3.2. SaedDataSourceProxy (Prevención Absoluta de Context Bleed):
+- Proxy dinámico sobre el pool de conexiones HikariCP.
+- Intercepta cada solicitud de conexión JDBC (getConnection()), extrae el contexto activo del SaedContextHolder (alimentado por el token JWT y el header X-Assignment-Id), ejecuta PKG_SAED_SESSION.SET_CONTEXT en la sesión física, y garantiza en un bloque finally la ejecución de PKG_SAED_SESSION.CLEAR_CONTEXT al cerrarse la conexión, eliminando cualquier posibilidad de fuga de contexto entre hilos concurrentes del servidor de aplicaciones.
+
+3.3. Conmutación Dinámica de Asignaciones (Header X-Assignment-Id):
+- Una persona física (PERSONAS) posee una cuenta de usuario (USUARIOS) que puede tener múltiples roles y asignaciones operativas (USUARIO_ASIGNACIONES).
+- Un usuario puede ser Administrador de Organización en una firma, Administrador de Propiedad en un edificio, Residente Titular en su apartamento propio y Residente Conviviente en otra vivienda.
+- El componente TenantSelector en el frontend conmuta el contexto operativo enviando el header HTTP X-Assignment-Id en cada petición Axios. El backend valida la asignación vía PKG_AUTH_BOOTSTRAP.GET_ASSIGNMENT_CONTEXT y recalcula el JWT y el contexto de sesión sin obligar al usuario a cerrar e iniciar sesión nuevamente.
+
+3.4. Auditoría Forense de Intentos de Acceso Denegado (GlobalExceptionHandler):
+- Ante violaciones de políticas RLS (código de error ORA-28115), intentos de spoofing de contexto (códigos ORA-2008x) o excepciones AccessDeniedException, el manejador global invoca el procedimiento almacenado autónomo SP_REGISTRAR_AUDITORIA, dejando constancia inmutable en AUDITORIA_LOG del usuario que intentó la acción, la entidad afectada, la dirección IP y el motivo del bloqueo.
+
+================================================================================
+4. Roles, Scopes y Segregación de Responsabilidades
+================================================================================
+
+El sistema implementa 6 Scopes de Seguridad Runtime formalmente respaldados por Spring Security (@PreAuthorize) y por el sistema de guardias de rutas protegidas en React:
+
+4.1. SCOPE_SUPERADMIN (Alcance Plataforma Global):
+- Administra el ecosistema SaaS: organizaciones, planes comerciales, asignación de módulos, membresías, métricas financieras de plataforma (MRR, bajas/churn, copropiedades activas) y registro central de auditoría.
+- Restricción Operativa Estricta: el Superadmin tiene denegado por diseño el acceso arbitrario o no justificado a datos operativos internos de las copropiedades (cuotas de residentes, paquetes, chats privados), protegiendo la privacidad de los inquilinos.
+
+4.2. SCOPE_ADMIN_ORGANIZACION (Alcance Organización / Propietario Gestor):
+- Administra las propiedades de la firma inmobiliaria, gestiona suscripciones y planes, nombra y remueve administradores de propiedad, configura plantillas de contratos corporativas y examina la analítica y cartera consolidada de todas sus copropiedades.
+
+4.3. SCOPE_ADMIN_PROPIEDAD (Alcance Propiedad / Copropiedad Específica):
+- Administra la gestión integral del edificio o conjunto: unidades, residentes, propietarios, cuotas de administración, conciliación bancaria, cartera y mora, zonas comunes, reservas, contratos de proveedores, obras, PQRS, asambleas, votaciones, pólizas y configuraciones locales.
+
+4.4. SCOPE_PORTERO (Alcance Portería y Control Operativo Táctico):
+- Control de acceso peatonal y vehicular, lectura y validación de códigos QR mediante cámara web en tiempo real, registro de llamadas tradicionales, custodia y entrega de paquetería con PIN confidencial y captura de fotos, registro de domiciliarios y mensajería, control de parqueaderos de visitantes y bitácora de novedades.
+- Confinamiento Estricto: el portero no tiene acceso a módulos de contabilidad, finanzas, estados de cuenta de residentes ni puede alterar contraseñas de otros usuarios.
+
+4.5. SCOPE_RESIDENTE (Alcance Unidad Residencial - Titular / Principal):
+- Gestión completa de la unidad: consulta de estados de cuenta, facturación de cuotas con pasarela Wompi integrada, gestión y registro de convivientes con control de cuota máxima, programación de visitas con invitaciones QR, visitantes frecuentes, reserva de zonas comunes con bloqueo por mora, retiro de paquetería con PIN confidencial, radicación de PQRS, solicitud de permisos de remodelación, reporte de incidentes y consulta del repositorio documental.
+
+4.6. SCOPE_RESIDENTE_CONVIVENCIA (Alcance Unidad Residencial - Conviviente Autónomo):
+- Formalizado en la base de datos mediante la migración V5.10__residente_convivencia_role.sql (Resolución de Hallazgo de Auditoría 13-A).
+- Otorga autonomía digital a los habitantes legítimos de la unidad (familiares, cónyuges, hijos, coarrendatarios) que cuentan con cuenta de usuario independiente.
+- Matriz de Permisos Específica:
+  * PERMITIDO (Autonomía de Vida Diaria):
+    - Retiro de paquetería de la unidad con PIN criptográfico confidencial.
+    - Generación y compartición de códigos QR e invitaciones de visitas para la unidad.
+    - Acceso a su buzón personal de notificaciones y alertas en tiempo real.
+    - Consulta de catálogo y reserva de áreas comunes (sujetas a las reglas de la unidad).
+    - Reporte de incidentes y radicación de solicitudes/PQRS.
+    - Cambio autónomo de su contraseña personal vía /api/v1/me/change-password.
+  * BLOQUEADO POR DISEÑO (403 Forbidden / Aislamiento Financiero):
+    - No tiene acceso a módulos de cuotas, cartera, finanzas, estados de cuenta ni botón de pago Wompi.
+    - No puede gestionar, dar de alta ni eliminar otros convivientes de la unidad.
+    - No accede al historial general de visitas de la copropiedad ni a otras unidades.
+    - La interfaz web (AppShell, access.js, ResidenteDashboardPage) adapta dinámicamente el menú ocultando todos los componentes financieros.
+
+4.7. Diferenciación entre Roles de Seguridad y Relaciones Legales de Tenencia:
+- Propietario: relación jurídica de dominio sobre el inmueble; confiere derechos de voto en asamblea y acceso a estados financieros consolidados.
+- Arrendatario: relación contractual en virtud de un contrato de arrendamiento vigente.
+- Residente Titular (RESIDENTE): cabeza de hogar responsable legal y financieramente ante la administración.
+- Residente Conviviente (RESIDENTE_CONVIVENCIA): habitante secundario con usuario propio para operaciones cotidianas no financieras.
+
+================================================================================
+5. Administración Configurable y Modelos de Gobernanza
+================================================================================
+
+La organización define libremente su estructura de administración:
+- Administración directa: el administrador de organización gestiona directamente cada copropiedad.
+- Administración delegada: se designan administradores de propiedad independientes para cada edificio o conjunto.
+- Modelo híbrido: supervisión corporativa con administradores locales en cada sede.
+- La estructura administrativa puede modificarse desde la consola web sin afectar los registros históricos, contratos ni auditorías previas.
+
+================================================================================
+6. Planes, Membresías y Control de Límites de Recursos
+================================================================================
+
+6.1. Modelo Relacional de Plataforma:
+- Tablas: PLANES, MODULOS, PLAN_MODULOS, MEMBRESIAS, ADMINISTRADORES_SAED.
+- Catálogo de planes: Básico, Profesional, Corporativo/Enterprise y Planes Personalizados.
+
+6.2. Estados de Membresía (Enforceados por Check Constraint en Oracle):
+- ACTIVA: membresía vigente con todos los servicios habilitados.
+- EXPIRADA: membresía con periodo vencido.
+- CANCELADA: baja voluntaria o rescisión de contrato.
+- PRUEBA: periodo de evaluación con límites temporales.
+- SUSPENDIDA: servicio congelado por mora u orden judicial/administrativa.
+
+6.3. Control de Concurrencia y Enforce de Límites (PlanLimitService):
+- El servicio implementa bloqueo a nivel de fila (SELECT ... FOR UPDATE) en Oracle para validar que la creación simultánea de recursos no sobrepase los límites contratados:
+  * MAX_PROPIEDADES: límite máximo de copropiedades gestionables por organización.
+  * MAX_UNIDADES: número máximo de unidades agregadas permitidas.
+  * MAX_ADMINISTRADORES: cantidad máxima de administradores de propiedad concurrentes.
+  * Módulos Activables: validación estricta en backend antes de permitir el consumo de módulos avanzados (LPR, Automatizaciones, Conciliación bancaria avanzada).
+
+6.4. Onboarding Público y Patrón Staging (PublicOnboardingController, OnboardingService):
+- Registro self-service de nuevas organizaciones en RegistroOrganizacionPage.jsx.
+- Tabla ONBOARDING_INTENCIONES para registro provisional de intenciones de suscripción.
+- Integración con pasarela de pagos Wompi para cobro de la primera mensualidad y aprovisionamiento automatizado del tenant, administrador y credenciales tras la confirmación del webhook.
+
+================================================================================
+7. Propiedades, Unidades y Congelamiento Operativo
+================================================================================
+
+7.1. Estructura Jerárquica Desacoplada:
+PROPIEDAD -> BLOQUE / TORRE (opcional) -> UNIDAD.
+
+7.2. Clasificación de Propiedades y Tipos de Ocupación:
+- Tipos de propiedad: EDIFICIO, CONJUNTO_CERRADO, URBANIZACION_MIXTA.
+- Tipos de ocupación (restringidos por Check Constraint en Oracle):
+  * PROPIETARIOS: copropiedad con preponderancia de dueños residentes.
+  * ARRENDATARIOS: copropiedad con alta rotación de inquilinos.
+  * MIXTA: equilibrio entre propietarios y arrendatarios.
+
+7.3. Especificaciones de la Unidad:
+- Tipos de unidad: APARTAMENTO, CASA, LOCAL, OFICINA, PARQUEADERO_PRIVADO, DEPOSITO.
+- Atributos: identificador alfanumérico, bloque/torre, piso, área en metros cuadrados (m²), coeficiente de copropiedad porcentual (base para liquidación de cuotas y quórum de asamblea), estado y características.
+- Índice Único Funcional Anti-NULL de Oracle:
+  CREATE UNIQUE INDEX UQ_UNIDADES_PROP_BLOQUE_ID ON UNIDADES(id_propiedad, NVL(id_bloque, -1), UPPER(identificador));
+  Garantiza unicidad de nomenclatura incluso cuando el bloque es nulo.
+
+7.4. Desafío Criptográfico OTP para Borrado de Propiedades (PropertyDeletionChallengeService):
+- Mecanismo de alta seguridad para prevenir eliminaciones accidentales o sabotajes.
+- La eliminación de una propiedad exige generar un desafío OTP de 6 dígitos con vigencia de 5 minutos, limitación a 5 intentos erróneos y doble confirmación obligatoria.
+
+7.5. Congelamiento Operativo de Propiedades Inactivas (InactivePropertyFilter):
+- Filtro de seguridad que intercepta peticiones a copropiedades en estado INACTIVA.
+- Semántica de Solo Lectura: permite a los usuarios consultar datos históricos (GET, HEAD, OPTIONS), pero bloquea cualquier mutación operativa (POST, PUT, PATCH, DELETE) con un código 403 Forbidden.
+
+================================================================================
+8. Personas, Tenencia, Convivientes y Tutores
+================================================================================
+
+8.1. Separación Conceptual de Personas y Usuarios:
+- PERSONAS: entidad física con tipo de documento, número de documento, nombres, apellidos, correo electrónico, teléfono y dirección.
+- USUARIOS: credencial de acceso con username, hash BCrypt, estado activo/inactivo y fecha de creación.
+- USUARIO_ASIGNACIONES: relación de asignación entre usuario, rol, organización y propiedad.
+
+8.2. Módulo de Convivientes y Dependientes:
+- Registro de cohabitantes en ResConvivientesPage.jsx vinculados a la persona titular.
+- Servicio ConvivienteQuotaService: verifica en tiempo real la cuota máxima de habitantes permitidos por unidad para impedir el hacinamiento.
+- Clasificación de relaciones: CONVIVIENTE, FAMILIAR, OTRO.
+- Aprovisionamiento Automático de Cuentas RESIDENTE_CONVIVENCIA para cada habitante registrado con correo electrónico.
+
+8.3. Gestión de Tutores Legales y Menores de Edad (DependentController):
+- Endpoints específicos (/api/v1/personas/{menorId}/tutores) para vincular formalmente tutores legales y representantes de menores de edad con registro de parentesco y facultades de autorización de visitas o retiro de encomiendas.
+
+8.4. Activación Segura de Cuentas sin Claves por Defecto (TOKENS_ACTIVACION):
+- Todo nuevo usuario recibe un token criptográfico seguro con expiración en la tabla TOKENS_ACTIVACION.
+- El usuario activa su cuenta y establece su propia contraseña segura en ActivarCuentaPage.jsx, erradicando el uso de contraseñas provisionales en texto claro.
+
+================================================================================
+9. Contratos de Arrendamiento y Plantillas Dinámicas
+================================================================================
+
+9.1. Motor de Plantillas de Contratos (PLANTILLAS_CONTRATO):
+- Plantillas editables a nivel de organización y propiedad.
+- Motor de reemplazo de variables dinámicas (VariableResolverService):
+  {NOMBRE_ARRENDADOR}, {DOCUMENTO_ARRENDADOR}, {NOMBRE_ARRENDATARIO}, {DOCUMENTO_ARRENDATARIO}, {IDENTIFICADOR_UNIDAD}, {CANON_MENSUAL}, {DIA_PAGO}, {FECHA_INICIO}, {FECHA_FIN}, {VALOR_DEPOSITO}, etc.
+
+9.2. Generación Automatizada de Contratos:
+- Vinculación a unidades, canon mensual, día límite de pago, fechas de vigencia y trazabilidad de prórrogas/renovaciones.
+- Gestión de Coarrendatarios y Codeudores (tabla COARRENDATARIOS) con documentación de respaldo y firmas.
+- Generación de PDF conforme a la legislación colombiana (Ley 820 de 2003) con sellos de trazabilidad digital.
+
+================================================================================
+10. Finanzas, Facturación, Pasarela Wompi y Flujo de Caja
+================================================================================
+
+10.1. Facturación y Cartera:
+- Liquidación automática y manual de cuotas ordinarias y extraordinarias.
+- Descuentos por pronto pago y liquidación de intereses moratorios conforme a tasas legales vigentes.
+- Estado de cuenta unificado por unidad: facturación histórica, saldo al corte, mora y pagos aplicados (visible solo para RESIDENTE titular y administradores).
+- Cartera consolidada por unidad, bloque y propiedad en CarteraPage.jsx y OrgCarteraPage.jsx.
+
+10.2. Integración Oficial con Pasarela Wompi:
+- Widget embebido en el portal de residente para pagos con tarjetas de crédito/débito, PSE, Nequi y corresponsales bancarios.
+- Webhook transaccional reactivo (/api/v1/pagos/wompi/webhook) con verificación de firma digital HMAC-SHA256:
+  Calcula el hash SHA256(id_transaccion + estado + monto_en_centavos + timestamp + secreto_wompi).
+- Idempotencia estricta que previene pagos duplicados y actualiza de forma atómica el estado de la cuota a PAGADO.
+
+10.3. Pagos Manuales y Transferencias Bancarias:
+- Carga de comprobante fotográfico o digital (FOTO_COMPROBANTE_URL).
+- Flujo administrativo de auditoría en PagosPage.jsx: revisión, aprobación con afectación contable inmediata o rechazo justificado con notificación al residente.
+
+10.4. Certificado Digital de Paz y Salvo (PazYSalvoPage.jsx):
+- Algoritmo de verificación en tiempo real: corrobora que la unidad no presente ningún saldo pendiente en cuotas ni multas.
+- Generación instantánea de certificado en PDF con código hash único de autenticidad para trámites notariales.
+
+10.5. Flujo de Caja, Presupuestos y Gastos:
+- Módulo de GASTOS con soporte documental digital adjunto (SOPORTES_DOCUMENTALES_GASTO / archivos PDF o imágenes).
+- Comparativo interactivo de Presupuesto vs Ejecutado por centros de costo en PresupuestoPage.jsx.
+- Proyección mensual de tesorería en FlujoCajaPage.jsx: cálculo de saldo inicial, ingresos estimados por histórico de recaudo, gastos programados y saldo final proyectado.
+- Conciliación bancaria manual y cruce de extractos en ConciliacionPage.jsx.
+
+================================================================================
+11. Visitas, Control de Acceso, Domicilios y Citofonía
+================================================================================
+
+11.1. Métodos de Acceso Parametrizables:
+- Políticas por propiedad: (A) Llamada tradicional / citofonía, (B) Códigos QR digitales, o (C) Esquema Híbrido.
+
+11.2. Códigos QR Digitales Temporales y Procedimiento Atómico:
+- Tanto el residente titular (RESIDENTE) como el conviviente (RESIDENTE_CONVIVENCIA) pueden programar visitas en ResVisitasPage.jsx indicando nombre, documento, fecha/hora de validez y accesos permitidos.
+- Procedimiento almacenado seguro en Oracle:
+  SP_VALIDAR_CONSUMIR_QR(p_token, p_portero_id, p_acceso_id, OUT_ESTADO, OUT_MENSAJE);
+  Realiza en una sola transacción atómica la validación criptográfica, comprobación de vigencia, verificación de copropiedad y consumo del acceso, impidiendo el reuso fraudulento.
+- Escáner en garita por cámara web en tiempo real mediante EscannerQRPage.jsx (con librería ZXing), con alertas sonoras y visuales inmediatas.
+
+11.3. Gestión de Domiciliarios y Mensajería:
+- Registro ágil de repartidores (Rappi, MercadoLibre, Servientrega, etc.).
+- Captura de empresa, nombre, documento, placa de vehículo/moto, unidad destino y hora de entrada.
+- Monitoreo de tiempo de permanencia con alertas en portería ante demoras anormales.
+
+11.4. Visitantes Frecuentes:
+- Directorio en ResFrecuentesPage.jsx para familiares o contratistas habituales, agilizando su ingreso sin requerir autorizaciones reiterativas.
+
+================================================================================
+12. Porterías y Puntos de Acceso
+================================================================================
+
+- Configuración de múltiples porterías (PORTERIAS) por propiedad: principal, vehicular, de servicios, peatonales.
+- Definición de accesos (ACCESOS_CONFIGURADOS): entrada, salida o bidireccional, para tráfico peatonal o vehicular.
+- Gestión de la infraestructura de acceso en tiempo real desde PorteriasPage.jsx.
+
+================================================================================
+13. Vehículos, Parqueaderos y LPR
+================================================================================
+
+13.1. Registro de Vehículos:
+- Vehículos vinculados a unidades o residentes: placa, marca, modelo, color, tipo (automóvil, moto, bicicleta, eléctrico).
+
+13.2. Celdas de Estacionamiento (ParqueaderosPage.jsx):
+- Creación masiva de celdas de parqueadero (POST /api/v1/parqueaderos/masivo).
+- Parqueaderos privados: asignados a unidades residenciales o en régimen de alquiler.
+- Parqueaderos de visitantes: control de ocupación en vivo, asignación de celda al ingresar el visitante, registro de tiempo de permanencia y control de tarifas de sobretiempo.
+
+13.3. Reconocimiento de Placas (LPR/ANPR):
+- Integración opcional preparada a nivel de arquitectura para recibir eventos de cámaras ANPR y cotejarlos con la base de datos de vehículos autorizados.
+
+================================================================================
+14. Mascotas y Tenencia Responsable
+================================================================================
+
+- Registro de mascotas por unidad en DependentController (/api/v1/mascotas): nombre, especie, raza, tamaño, foto, carné de vacunas y registro de razas de manejo especial conforme a la ley.
+
+================================================================================
+15. Zonas Comunes
+================================================================================
+
+- Catálogo maestro de áreas comunes (CATALOGO_ZONAS) y zonas personalizadas en ReservasAdminPage.jsx:
+  Salón social, piscina, zona BBQ, canchas deportivas, gimnasio, parque infantil, coworking, terraza, sauna, turco.
+- Parametrización individual:
+  * Aforo máximo permitido.
+  * Horarios y franjas por turnos.
+  * Depósitos en garantía o costos de alquiler.
+  * Tiempos mínimos de anticipación y reglas de cancelación.
+
+================================================================================
+16. Reservas de Zonas Comunes y Bloqueo por Mora
+================================================================================
+
+- Calendario interactivo en ResReservasPage.jsx disponible para residentes titulares y convivientes.
+- Bloqueo Automático por Cartera: el sistema valida el estado financiero de la unidad solicitante; si registra mora en cuotas de administración, bloquea preventivamente la solicitud y orienta al usuario a normalizar su cartera.
+- Flujo de aprobación automática o manual por parte del administrador.
+
+================================================================================
+17. Mantenimiento y Activos
+================================================================================
+
+17.1. Inventario de Activos (MantenimientoAdminPage.jsx):
+- Ficha técnica de activos críticos: ascensores, bombas hidráulicas, planta eléctrica, portones, cámaras CCTV, bombas de piscina y extintores.
+- Registro de proveedor, fecha de compra, valor comercial, periodo de garantía y vida útil.
+
+17.2. Mantenimientos Preventivos y Correctivos:
+- Programación de rutinas preventivas periódicas y generación de órdenes de trabajo.
+- Tickets de mantenimiento correctivo con control de costos y archivo de actas de recibido a satisfacción.
+
+================================================================================
+18. Proveedores, Contratistas y Obras en Unidades
+================================================================================
+
+18.1. Gestión de Proveedores y Contratos (ContratosProveedorPage.jsx):
+- Directorio de proveedores de servicios (vigilancia, aseo, mantenimiento, seguros).
+- Control de vigencia de contratos, pólizas de cumplimiento y alertas de vencimiento.
+
+18.2. Módulo de Obras y Remodelaciones (ObrasAdminPage.jsx, ResObrasPage.jsx, ObraController):
+- Solicitud digital de permiso radicada por el residente con cronograma, póliza de responsabilidad civil extracontractual y listado de obreros autorizados con documento.
+- Aprobación administrativa fijando horarios oficiales para ruidos y transporte de escombros.
+- Consulta táctica en portería para habilitar el ingreso de trabajadores de obra autorizados.
+- Flujo formal de finalización con inspección de áreas comunes (POST /api/v1/obras/{id}/finalizar).
+
+================================================================================
+19. PQRS, SLA y Régimen de Convivencia
+================================================================================
+
+19.1. Sistema de Tickets PQRS (PqrsAdminPage.jsx / ResQuejasPage.jsx):
+- Clasificación formal: Petición, Queja, Reclamo, Sugerencia, Felicitación.
+- SLA estricto por prioridad:
+  * Emergencia: 1 hora.
+  * Alta: 4 horas.
+  * Media: 24 horas.
+  * Baja: 72 horas.
+- Medición de tiempos de respuesta y resolución con alertas tempranas.
+
+19.2. Régimen de Convivencia y Debido Proceso (SancionesController):
+- Registro de quejas entre copropietarios (ruidos, conflictos, mascotas).
+- Notificación formal al presunto infractor con apertura de periodo probatorio para radicación de descargos en línea (/api/v1/sanciones/{id}/descargos).
+- Resolución motivada (/api/v1/sanciones/{id}/resolucion): multa económica en cartera, amonestación, restricción de zonas comunes o archivo.
+
+================================================================================
+20. Paquetería y Custodia con PIN de Seguridad
+================================================================================
+
+20.1. Recepción de Encomiendas (PaquetesPage.jsx / PaquetesAdminPage.jsx):
+- Registro por el portero seleccionando la unidad y el destinatario explícito: residente titular o conviviente registrado (RESIDENTE_CONVIVENCIA).
+- Captura de transportadora, guía y evidencia fotográfica del paquete/etiqueta (FOTO_URL) para acreditar el estado de recepción.
+
+20.2. PIN Criptográfico Confidencial:
+- El servidor genera un PIN aleatorio de 4 a 6 dígitos que se envía de forma privada al buzón/notificación del destinatario. Ni el portero ni terceros conocen el PIN con antelación.
+
+20.3. Entrega Verificada y Control Anti-Fuerza Bruta:
+- El portero debe ingresar en el sistema el PIN suministrado por el residente para liberar el paquete.
+- Tabla PAQUETES_INTENTOS_PIN: bloquea el retiro tras intentos fallidos consecutivos, protegiendo contra ataques de adivinación.
+- Captura de foto de comprobante o firma digital del receptor (FOTO_COMPROBANTE_URL).
+- Estados: RECIBIDO, NOTIFICADO, EN_CUSTODIA, ENTREGADO, DEVUELTO.
+
+================================================================================
+21. Incidentes y Seguridad
+================================================================================
+
+- Bitácora centralizada en IncidentesAdminPage.jsx y ResIncidentesPage.jsx (IncidenteController).
+- Registro de eventos de seguridad, accidentes, daños a bienes comunes o fallas de servicios públicos con fecha, hora, ubicación, involucrados, evidencias fotográficas y estado de resolución.
+
+================================================================================
+22. Comunicaciones, Notificaciones y Sincronización en Tiempo Real
+================================================================================
+
+22.1. Bus de Eventos de Sincronización Reactiva (saed:notifications-changed):
+- Librería notificationsSync.js en el frontend implementando patrón publish-subscribe con CustomEvent.
+- Sincronización instantánea entre el Buzón de Residente (ResBuzonPage), la campana de notificaciones del encabezado (NotificationBell) y el módulo de administración (ComunicacionesPage).
+- Vaciar buzón, marcar leídas o archivar avisos actualiza de inmediato el badge numérico, el menú desplegable y las tarjetas sin recargar la página.
+
+22.2. Dualidad de Mensajería:
+- Notificaciones Personales: transaccionales individuales (paquete con PIN, llegada de visita, cuota generada, pago aprobado, ticket respondido).
+- Comunicados y Avisos Masivos (AvisosPage.jsx): publicaciones oficiales con segmentación selectiva (toda la propiedad, torre o bloque), acuse de lectura y opción de archivado.
+
+22.3. Alertas Preventivas de Sistema (AlertasPage.jsx):
+- Detección automatizada de eventos críticos: vencimiento de pólizas, mora en cartera, tareas de mantenimiento pendientes y emergencias.
+
+================================================================================
+23. Automatizaciones y Entorno de Simulación
+================================================================================
+
+- Motor Evento -> Condición -> Acción (AutomatizacionesAdminPage.jsx / AutomatizacionService).
+- Soporte para Simulación de Reglas (/api/v1/automatizaciones/reglas/{id}/simular) antes de su activación en producción.
+- Reglas automáticas en ejecución:
+  * Generación mensual de cuotas ordinarias de administración.
+  * Liquidación automática de recargos por mora en fecha límite.
+  * Invalidación automática de códigos QR al expirar su vigencia.
+  * Notificación automática de paquetes que superen 48 horas en custodia.
+  * Alertas tempranas 30 días antes del vencimiento de pólizas o contratos de proveedores.
+- Historial y trazabilidad de ejecuciones automáticas en /api/v1/automatizaciones/ejecuciones.
+
+================================================================================
+24. Documentos y Reglamento de Copropiedad
+================================================================================
+
+- Repositorio digital organizado por carpetas en DocumentosAdminPage.jsx y ResDocumentosPage.jsx (DocumentoController).
+- Versionamiento formal de documentos (VERSIONES_DOCUMENTO) con aislamiento RLS.
+- Control de visibilidad: documentos de consulta pública para copropietarios y convivientes (Reglamento de Propiedad Horizontal, circulares, manuales) vs documentos reservados para el Consejo y Administración (estados financieros detallados, conceptos jurídicos).
+
+================================================================================
+25. Asambleas, Quórum en Vivo, Poderes y Votaciones Digitales
+================================================================================
+
+25.1. Convocatoria y Control de Quórum en Tiempo Real (AsambleasController, AsambleasAdminPage.jsx):
+- Registro de convocatorias ordinarias y extraordinarias con orden del día y anexos.
+- Cálculo Automatizado de Quórum en Vivo: consolida en tiempo real el porcentaje de copropiedad presente sumando coeficientes de unidades presentes presencialmente y representadas mediante poderes.
+- Control de Retiro de Asistentes: recalcula dinámicamente el quórum si un copropietario se retira de la asamblea (/api/v1/asambleas/{id}/asistencias/{idUnidad}/retiro).
+
+25.2. Radicación y Aprobación de Poderes de Representación:
+- Radicación digital de poderes (/api/v1/asambleas/{id}/poderes) con verificación de documento del apoderado.
+- Flujo de decisión de poderes por la mesa directiva (/api/v1/asambleas/{id}/poderes/{idPoder}/decision).
+
+25.3. Votaciones Digitales y Escrutinio:
+- Preguntas cerradas (Sí/No/Abstención) o de selección múltiple.
+- Ponderación de Votos: soporte para votación por coeficiente de copropiedad (peso porcentual) o votación nominal (un voto por unidad).
+- Cierre formal de votaciones, gráficos de resultados en vivo y generación del acta de asamblea.
+
+================================================================================
+26. Sanciones y Debido Proceso Garantista
+================================================================================
+
+- Procedimiento estricto conforme a la Ley de Propiedad Horizontal:
+  1. Apertura de expediente sancionatorio con evidencias.
+  2. Notificación oficial al residente presuntamente infractor.
+  3. Término formal para presentación de descargos por la plataforma.
+  4. Evaluación motivada por el Consejo de Administración o Comité de Convivencia.
+  5. Resolución final: multa liquidada en cartera, restricción de zonas comunes o archivo del caso.
+  6. Trazabilidad inmutable en SancionesAdminPage.jsx y ResSancionesPage.jsx.
+
+================================================================================
+27. Seguros y Emergencias
+================================================================================
+
+27.1. Pólizas de Seguro de Áreas Comunes (PolizaSeguroController, PolizasAdminPage.jsx):
+- Pólizas contra incendio, terremoto, responsabilidad civil extracontractual y maquinaria.
+- Control de aseguradora, número de póliza, vigencia, coberturas, deducibles, valores asegurados y alertas automáticas de renovación.
+
+27.2. Planes de Emergencia y Minuta Táctica (EmergenciasController, EmergenciasAdminPage.jsx):
+- Protocolos de contingencia ante sismos, incendios, inundaciones o emergencias médicas.
+- Minuta Táctica de Contactos de Emergencia para portería y residentes (/api/v1/emergencias/contactos/minuta): cuadrante de policía, bomberos, centros de salud, defensa civil y empresas de servicios públicos.
+
+================================================================================
+28. Consumos y Sostenibilidad
+================================================================================
+
+- Registro periódico de lecturas de servicios públicos de áreas comunes (agua, energía, gas) en ConsumosAdminPage.jsx (ConsumosController).
+- Gráficos de tendencias, comparativos mensuales, última lectura registrada y detección de consumos atípicos para control de costos y prevención de fugas.
+
+================================================================================
+29. Dashboards y Analítica por Rol
+================================================================================
+
+- Superadmin: KPIs globales de plataforma, MRR, retención, distribución de tenants y uso de recursos.
+- Administrador de Organización: consolidado financiero multiedificio, cartera en mora global, presupuesto corporativo y consumo de límites de plan.
+- Administrador de Propiedad: tablero operativo con recaudo del mes, porcentaje de mora, visitas activas, paquetes en custodia, PQRS abiertas y reservas de zonas comunes.
+- Portero: centro táctico con visitas en curso, lector QR en vivo, paquetería pendiente de retiro y parqueaderos de visitantes ocupados.
+- Residente Titular: resumen financiero del hogar, cuotas por pagar con botón Wompi, invitaciones vigentes, paquetes con PIN y avisos.
+- Residente Conviviente: resumen adaptado a su vida cotidiana (paquetes propios con PIN, invitaciones activas, reservas y avisos, sin datos de deuda ni cartera).
+
+================================================================================
+30. Portal del Residente (Titular y Conviviente)
+================================================================================
+
+El portal atiende tanto al RESIDENTE titular como al habitante RESIDENTE_CONVIVENCIA, discriminando dinámicamente los módulos accesibles:
+1. ResidenteDashboardPage.jsx: panel general con alertas y accesos rápidos (oculta componentes financieros a RESIDENTE_CONVIVENCIA).
+2. ResPerfilPage.jsx: ficha del residente, actualización de datos de contacto y cambio de contraseña.
+3. ResConvivientesPage.jsx: registro de familiares y dependientes con control de cuota (exclusivo titular).
+4. ResCuotasPage.jsx: desglose de cuotas pendientes con pasarela Wompi integrada (exclusivo titular).
+5. ResVisitasPage.jsx: programación de visitas e invitaciones con código QR (titular y conviviente).
+6. ResVisitaPage.jsx: visualización y compartición del código QR generado (titular y conviviente).
+7. ResFrecuentesPage.jsx: directorio de visitantes habituales autorizados (titular y conviviente).
+8. ResReservasPage.jsx: consulta de disponibilidad y reserva de áreas comunes con validación de mora (titular y conviviente).
+9. ResBuzonPage.jsx: buzón interactivo de notificaciones y recepción de paquetes con PIN propio, sincronizado en tiempo real con la campana (titular y conviviente).
+10. ResQuejasPage.jsx: radicación de peticiones, quejas y reclamos con seguimiento de SLA (titular y conviviente).
+11. ResObrasPage.jsx: solicitud de permisos de remodelación y registro de obreros (titular y conviviente).
+12. ResIncidentesPage.jsx: reporte de incidentes y novedades a la administración (titular y conviviente).
+13. ResDocumentosPage.jsx: consulta de reglamentos de propiedad horizontal y manuales (titular y conviviente).
+14. ResSancionesPage.jsx: consulta de notificaciones disciplinarias y radicación de descargos (titular y conviviente).
+
+================================================================================
+31. Portal de Portería
+================================================================================
+
+Panel táctico para la operación en garita:
+1. PorteroDashboardPage.jsx: centro de mando con contadores en vivo de visitas, paquetes en custodia y parqueaderos de visitantes.
+2. VisitasPage.jsx: registro ágil de visitas de citofonía, domiciliarios y control de accesos peatonales y vehiculares.
+3. EscannerQRPage.jsx: lector por cámara web de códigos QR con validación atómica contra SP_VALIDAR_CONSUMIR_QR.
+4. PaquetesPage.jsx: registro de encomiendas con foto de etiqueta, selección de destinatario (titular o conviviente) y entrega verificada con PIN confidencial.
+
+================================================================================
+32. Portal de Superadministrador
+================================================================================
+
+Control maestro de la infraestructura SaaS:
+1. SuperAdminDashboardPage.jsx: métricas globales de plataforma, MRR y crecimiento.
+2. SuperAdminOrganizacionesPage.jsx: alta, baja, aprobación y configuración de organizaciones y NITs.
+3. SuperAdminPropiedadesPage.jsx: supervisión global de todas las propiedades registradas.
+4. SuperAdminPlanesPage.jsx: administración de planes comerciales y límites de recursos.
+5. SuperAdminMembresiasPage.jsx: gestión de membresías y suscripciones.
+6. SuperAdminAdminsPage.jsx: administración de cuentas con acceso administrativo global.
+7. SuperAdminAuditoriaPage.jsx: visor forense inmutable de logs de auditoría de toda la plataforma.
+
+================================================================================
+33. Auditoría Forense y Trazabilidad Centralizada
+================================================================================
+
+- Tabla AUDITORIA_LOG inmutable y append-only.
+- Triggers PL/SQL en Oracle (V4.12__audit_triggers.sql, V5.1__audit_rls_hardening.sql) que capturan en formato JSON los campos ESTADO_ANTERIOR y ESTADO_NUEVO ante cualquier INSERT, UPDATE o DELETE en tablas críticas.
+- Procedimiento SP_REGISTRAR_AUDITORIA con PRAGMA AUTONOMOUS_TRANSACTION: garantiza que los eventos de auditoría no bloqueen las transacciones de negocio ni sean revertidos si una operación operativa arroja excepción.
+- Desacoplamiento de Deadlocks (V5.3__decouple_audit_propiedades_deadlock.sql): previene interbloqueos transaccionales entre la auditoría y los registros de propiedades.
+- Atributos auditados: ID de usuario, ID de organización, ID de propiedad, tipo de acción, entidad afectada, ID de registro, dirección IP, agente de usuario (user-agent), resultado y timestamp con zona horaria.
+
+================================================================================
+34. Seguridad Integral y Arquitectura Zero-Trust
+================================================================================
+
+- Comunicaciones cifradas de extremo a extremo mediante HTTPS / TLS.
+- Autenticación Stateless basada en JWT firmados con algoritmo HMAC-SHA512 y rotación segura de tokens de refresco (RefreshTokenService).
+- Almacenamiento seguro de contraseñas mediante función hash adaptativa BCrypt.
+- Aislamiento de tenants en el motor de base de datos mediante Oracle VPD/RLS, eliminando el riesgo de ataques IDOR.
+- InactivePropertyFilter: congelamiento operativo en solo lectura para copropiedades inactivas o suspendidas.
+- PropertyDeletionChallengeService: desafío criptográfico OTP de 6 dígitos para borrado de propiedades.
+- Validación de entradas y esquemas mediante anotaciones @Valid de Jakarta Bean Validation en todos los DTOs.
+- Política estricta de CORS y protección contra ataques CSRF.
+- Sanitización de consultas SQL mediante Spring NamedParameterJdbcTemplate, previniendo cualquier inyección SQL.
+- Almacenamiento Seguro de Archivos (FileStorageService): validación de tipo MIME real, límite de 10 MB, cálculo de hash SHA-256 de integridad y aislamiento por subdirectorios.
+- Trazabilidad Distribuida: CorrelationIdFilter que propaga un encabezado X-Correlation-Id en cada petición para seguimiento en logs.
+
+================================================================================
+35. Base de Datos Oracle como Fuente Relacional de Verdad
+================================================================================
+
+- Implementación sobre Oracle Autonomous Database ATP / Oracle 19c-21c Enterprise Edition.
+- Esquema unificado SAED_SEC_MASTER.
+- Claves primarias autonuméricas generadas mediante GENERATED BY DEFAULT AS IDENTITY.
+- Claves foráneas con restricciones estrictas de integridad referencial (ON DELETE RESTRICT en entidades maestras para proteger el histórico financiero).
+- Restricciones de verificación (Check Constraints) rigurosas para validar dominios de datos en estados, roles y clasificaciones.
+- Índices funcionales anti-NULL en columnas compuestas para optimizar consultas de alta concurrencia.
+
+================================================================================
+36. Núcleo Relacional Conceptual e Inventario de Tablas del Esquema
+================================================================================
+
+El esquema SAED_SEC_MASTER agrupa las siguientes entidades relacionales organizadas por subsistema:
+
+36.1. PLATAFORMA Y MEMBRESÍAS:
+- PLANES
+- MODULOS
+- PLAN_MODULOS
+- MEMBRESIAS
+- ADMINISTRADORES_SAED
+- ONBOARDING_INTENCIONES
+
+36.2. IDENTIDAD, USUARIOS Y ASIGNACIONES:
+- TIPOS_DOCUMENTO
+- PERSONAS
+- USUARIOS
+- ROLES (SUPERADMIN, ADMIN_ORGANIZACION, ADMIN_PROPIEDAD, PORTERO, RESIDENTE y RESIDENTE_CONVIVENCIA)
+- PERMISOS
+- ROL_PERMISO
+- USUARIO_ASIGNACIONES
+- TOKENS_ACTIVACION
+
+36.3. ORGANIZACIÓN Y COPROPIEDADES:
+- ORGANIZACIONES
+- ORGANIZACION_CONFIGURACION
+- TIPOS_PROPIEDAD
+- PROPIEDADES
+- ORGANIZACION_PROPIEDAD
+- BLOQUES
+- TIPOS_UNIDAD
+- UNIDADES
+
+36.4. TENENCIA, RESIDENTES Y CONTRATOS:
+- PROPIETARIOS_UNIDAD
+- RESIDENTES_UNIDAD
+- CONVIVIENTES (PERSONAS_UNIDAD / UNIDAD_HABITANTES)
+- CONTRATOS
+- PLANTILLAS_CONTRATO
+- COARRENDATARIOS
+- TUTORES
+
+36.5. FINANZAS Y FACTURACIÓN:
+- CONCEPTOS_COBRO
+- CUOTAS
+- PAGOS
+- TRANSACCIONES_PAGO
+- CARTERA
+- MULTAS
+- PRESUPUESTOS
+- GASTOS
+- SOPORTES_DOCUMENTALES_GASTO
+- CONCILIACIONES_BANCARIAS
+
+36.6. PORTERÍA, ACCESOS Y VEHÍCULOS:
+- PORTERIAS
+- ACCESOS_CONFIGURADOS
+- VISITANTES
+- VISITAS
+- QR_ACCESOS
+- REGISTROS_ACCESO
+- DOMICILIOS
+- VEHICULOS
+- VEHICULOS_VISITA
+- PARQUEADEROS
+- ASIGNACIONES_PARQUEADERO
+
+36.7. CUSTODIA Y PAQUETERÍA:
+- PAQUETES
+- PAQUETES_INTENTOS_PIN
+
+36.8. COMUNIDAD Y ZONAS COMUNES:
+- CATALOGO_ZONAS
+- ZONAS_COMUNES
+- RESERVAS
+- MASCOTAS
+
+36.9. OPERACIÓN, MANTENIMIENTO Y OBRAS:
+- ACTIVOS
+- MANTENIMIENTOS
+- PROVEEDORES
+- CONTRATOS_PROVEEDOR
+- OBRAS
+- TRABAJADORES_OBRA
+- INCIDENTES
+- PQRS
+- PQRS_HISTORIAL
+- QUEJAS_CONVIVENCIA
+- DESCARGOS_CONVIVENCIA
+
+36.10. COMUNICACIONES Y ALERTAS:
+- COMUNICADOS
+- NOTIFICACIONES
+- PLANTILLAS_NOTIFICACION
+- ALERTAS_SISTEMA
+- ENCUESTAS
+
+36.11. GOBIERNO Y ASAMBLEAS:
+- ASAMBLEAS
+- ASISTENCIAS_ASAMBLEA
+- PODERES_ASAMBLEA
+- VOTACIONES
+- VOTOS
+- ACTAS
+- REGLAMENTOS
+- SANCIONES
+
+36.12. DOCUMENTOS Y REPOSITORIO:
+- DOCUMENTOS
+- VERSIONES_DOCUMENTO
+
+36.13. SEGUROS Y EMERGENCIAS:
+- POLIZAS_SEGURO
+- PLANES_EMERGENCIA
+- CONTACTOS_EMERGENCIA
+
+36.14. CONSUMOS Y AUTOMATIZACIÓN:
+- MEDICIONES_CONSUMO
+- EVENTOS_SISTEMA
+- REGLAS_AUTOMATIZACION
+- ACCIONES_AUTOMATIZACION
+- EJECUCIONES_AUTOMATIZACION
+
+36.15. CONTROL, SESIÓN Y AUDITORÍA:
+- AUDITORIA_LOG
+- AUDITORIA_ACCESOS
+- HISTORIAL_SESIONES
+
+================================================================================
+37. Matriz Comparativa SAED 1.0 vs SAED 2.0 (Estado Actual y Metas)
+================================================================================
+
+----------------------------------------------------------------------------------------------------------------------------------
+Funcionalidad           SAED 1.0                   SAED 2.0 (Implementación Real y Meta)                Estado en SAED 2.0
+----------------------- -------------------------- ---------------------------------------------------- --------------------------
+Autenticación           JWT simple monousuario     JWT HMAC-512 + contexto + permisos + scopes + RLS   IMPLEMENTADO / ACTIVO
+Usuarios                3 roles fijos monolíticos  RBAC dinámico + asignaciones por copropiedad         IMPLEMENTADO / ACTIVO
+Roles Runtime           Admin / Portero / Resident 6 Scopes: Superadmin, Org, Prop, Port, Res, Conv    IMPLEMENTADO / ACTIVO
+Residente Conviviente   No soportado               Rol RESIDENTE_CONVIVENCIA con acceso autónomo        IMPLEMENTADO / ACTIVO
+Personas                Acopladas a usuario        PERSONAS separadas de USUARIOS y asignaciones        IMPLEMENTADO / ACTIVO
+Convivientes (Familia)  No soportados              Módulo de convivientes con control de cuota máxima   IMPLEMENTADO / ACTIVO
+Tutores y Menores       No soportados              Gestión formal de tutores legales en unidades        IMPLEMENTADO / ACTIVO
+Organizaciones          No existían                Multi-tenant empresarial lógico                      IMPLEMENTADO / ACTIVO
+Superadmin              No existía                 Plataforma global SaaS con métricas                  IMPLEMENTADO / ACTIVO
+Planes y Membresías     No existían                Planes configurables con límites enforceados         IMPLEMENTADO / ACTIVO
+Onboarding Self-Service No existía                 Patrón Staging con pasarela Wompi en registro        IMPLEMENTADO / ACTIVO
+Propiedades             Un único edificio fijo     Múltiples edificios y conjuntos simultáneos          IMPLEMENTADO / ACTIVO
+Congelamiento Inactivo  No existía                 InactivePropertyFilter con solo lectura (GET)        IMPLEMENTADO / ACTIVO
+Borrado Seguro OTP      No existía                 Desafío criptográfico OTP con rate limiting          IMPLEMENTADO / ACTIVO
+Estructura Unidades     APARTAMENTOS rígidos       UNIDADES configurables (casas, aptos, locales)       IMPLEMENTADO / ACTIVO
+Bloques/Torres/Etapas   Limitado                   Estructura jerárquica con índice anti-NULL           IMPLEMENTADO / ACTIVO
+Propietarios/Tenencia   Confundido con residente   Separación legal: Propietario / Inquilino / Ocupante IMPLEMENTADO / ACTIVO
+Contratos Arriendo      Básico en PDF              Plantillas dinámicas con variables + Ley 820         IMPLEMENTADO / ACTIVO
+Cuotas y Cartera        Básico mono-edificio       Motor financiero completo + mora parametrizable      IMPLEMENTADO / ACTIVO
+Pasarela de Pagos       Wompi básico               Wompi widget + webhook reactivo HMAC-SHA256          IMPLEMENTADO / ACTIVO
+Pagos Manuales          Registro simple            Comprobante fotográfico + flujo de aprobación        IMPLEMENTADO / ACTIVO
+Paz y Salvo             Manual                     Verificación digital automática en tiempo real       IMPLEMENTADO / ACTIVO
+Presupuesto y Gastos    Limitado                   Gastos con soporte documental + flujo proyectado     IMPLEMENTADO / ACTIVO
+Visitas y Accesos       Registro simple            Visitas programadas, exprés y domiciliarios          IMPLEMENTADO / ACTIVO
+Invitaciones QR         Básico                     Token firmado + consumo atómico en procedimiento     IMPLEMENTADO / ACTIVO
+Escáner QR              No integrado en web        Escaneo por cámara en tiempo real con ZXing          IMPLEMENTADO / ACTIVO
+Porterías y Garitas     Una garita fija            Múltiples porterías y accesos configurables          IMPLEMENTADO / ACTIVO
+Vehículos y Parqueo     Básico                     Asignación de celdas + parqueo de visitantes         IMPLEMENTADO / ACTIVO
+LPR / ANPR              No existía                 Integración opcional preparada en arquitectura       META / FUTURO
+Mascotas                No soportadas              Módulo con registro de vacunas y razas               IMPLEMENTADO / ACTIVO
+Zonas Comunes           Limitado                   Catálogo + bloqueo preventivo por mora en cartera    IMPLEMENTADO / ACTIVO
+Reservas                Básico                     Calendario en vivo, cupos, franjas y validaciones    IMPLEMENTADO / ACTIVO
+Paquetería              Registro básico            Custodia con PIN de seguridad + fotos de ingreso     IMPLEMENTADO / ACTIVO
+Buzón / Notificaciones  Alertas simples            Sincronización reactiva en tiempo real (Event Bus)   IMPLEMENTADO / ACTIVO
+PQRS y Tickets          Quejas simples             Clasificación formal + métricas de SLA               IMPLEMENTADO / ACTIVO
+Régimen Convivencia     Multa directa sin debido p Proceso garantista con descargos y mediación         IMPLEMENTADO / ACTIVO
+Mantenimiento y Activos Limitado                   Preventivo y correctivo con hoja de vida por activo  IMPLEMENTADO / ACTIVO
+Proveedores y Obras     No existían                Gestión de proveedores + permisos de obra en aptos   IMPLEMENTADO / ACTIVO
+Incidentes              No existían                Bitácora de seguridad con evidencias fotográficas    IMPLEMENTADO / ACTIVO
+Repositorio Documentos  PDFs dispersos             Repositorio versionado con aislamiento RLS           IMPLEMENTADO / ACTIVO
+Asambleas y Quórum      No existían                Cálculo de quórum en vivo por coeficiente + votos    IMPLEMENTADO / ACTIVO
+Poderes de Asamblea     No existían                Radicación y validación digital de poderes           IMPLEMENTADO / ACTIVO
+Seguros y Emergencias   No existían                Pólizas con alertas + minuta de emergencias          IMPLEMENTADO / ACTIVO
+Consumos                No existían                Mediciones periódicas de servicios de áreas comunes  IMPLEMENTADO / ACTIVO
+Auditoría               Dispersa                   Log central inmutable + triggers con JSON de cambio  IMPLEMENTADO / ACTIVO
+Automatizaciones        Cron básico                Motor Evento-Condición-Acción con simulación         IMPLEMENTADO / ACTIVO
+Portales Especializados Monolítico                 5 Portales independientes y 85 vistas operativas     IMPLEMENTADO / ACTIVO
+Inteligencia Artificial No existía                 Analítica predictiva y asistente inteligente         META / FUTURO
+----------------------------------------------------------------------------------------------------------------------------------
+
+================================================================================
+38. Qué se Conservó del Proyecto Base y se Potenció
+================================================================================
+
+- Criptografía con BCrypt para almacenamiento seguro de credenciales.
+- Generación y lectura de códigos QR mediante la librería ZXing.
+- Motor de renderizado y generación de documentos PDF (Flying Saucer / OpenHTMLtoPDF).
+- Servicio de correo electrónico transaccional (Spring Mail / EmailService) con plantillas HTML de bienvenida, recibos de pago y notificaciones contractuales.
+- Integración financiera con Wompi, elevada a estándar empresarial con webhooks firmados HMAC-SHA256.
+- Lógica de cálculo de cuotas ordinarias y extraordinarias.
+- Diseños y componentes base de interfaz de usuario, migrados a Tailwind CSS y Radix UI.
+
+================================================================================
+39. Refactorizaciones Clave Ejecutadas en la Transición a SAED 2.0
+================================================================================
+
+- Base de Datos: migración total de esquemas heterogéneos a Oracle Enterprise / ATP con esquema único SAED_SEC_MASTER.
+- Seguridad en BD: incorporación de Virtual Private Database (DBMS_RLS) y contexto SAED_CTX.
+- Acceso a Datos: adopción de NamedParameterJdbcTemplate eliminando concatenaciones SQL.
+- Conexiones: proxy dinámico SaedDataSourceProxy para asignación y limpieza estricta de contexto de sesión.
+- Modelo de Datos: transformación de APARTAMENTOS en UNIDADES y desacoplamiento de RESIDENTES en PERSONAS, USUARIOS y ASIGNACIONES.
+- Rol Conviviente: formalización en V5.10 de RESIDENTE_CONVIVENCIA para autonomía operativa del habitante sin exposición de datos de cartera.
+- Contratos: migración a plantillas dinámicas con variables de sustitución y cumplimiento de la Ley 820 de 2003.
+- Paquetería: rediseño integral con PIN de seguridad criptográfico, validación de intentos y captura de evidencia fotográfica.
+- Notificaciones: creación del bus de sincronización reactiva en tiempo real (saed:notifications-changed).
+- Frontend: transición a una Single Page Application (SPA) moderna en React 18 + Vite con 85 vistas operativas y AppShell adaptable por rol.
+
+================================================================================
+40. Qué se Eliminó o Archivó Definitivamente
+================================================================================
+
+- Interfaces gráficas legadas en JavaFX.
+- Scripts SQL de parches temporales y migraciones manuales no estructuradas.
+- Generación automática de esquemas DDL en tiempo de arranque (hibernate.ddl-auto=create/update).
+- Roles fijos hardcodeados en el código fuente.
+- Consultas vulnerables con problemas de rendimiento N+1.
+- Credenciales, secretos de API y configuraciones sensibles incrustadas en el repositorio.
+
+================================================================================
+41. Roadmap de Evolución y Fases
+================================================================================
+
+FASE 0: Repositorio, limpieza, dependencias, CI/CD, ramas y estándares de ingeniería. (Completada)
+FASE 1: Modelo Oracle relacional, tablas maestras, constraints, índices y auditoría. (Completada)
+FASE 2: Personas, usuarios, JWT, RBAC, scopes, TenantContext y seguridad RLS. (Completada)
+FASE 3: Organizaciones, planes, membresías, módulos y portal de Superadmin. (Completada)
+FASE 4: Propiedades, edificios, conjuntos, bloques, torres, etapas y unidades configurables. (Completada)
+FASE 5: Propietarios, residentes, arrendatarios, convivientes con cuotas, rol RESIDENTE_CONVIVENCIA, tutores y contratos. (Completada)
+FASE 6: Cuotas, pagos, cartera, mora, multas, presupuesto, flujo de caja y Wompi. (Completada)
+FASE 7: Visitas, citofonía, QR atómico, porterías, accesos, vehículos y parqueaderos. (Completada)
+FASE 8: Zonas comunes, reservas con control de mora, mascotas, paquetería con PIN y notificaciones sincronizadas. (Completada)
+FASE 9: Mantenimiento, activos, proveedores, obras, incidentes y PQRS con SLA. (Completada)
+FASE 10: Documentos versionados, asambleas con quórum en vivo, votaciones, sanciones y seguros. (Completada)
+FASE 11: Dashboards ejecutivos, reportes exportables, consumos y analítica operativa. (Completada)
+FASE 12: Motor de automatizaciones avanzadas y reglas reactivas con simulación. (Completada / En expansión)
+FASE 13: Integraciones de hardware LPR, cámaras de seguridad, barreras vehiculares, IoT e IA asistida. (Meta Futura)
+
+================================================================================
+42. Organización del Equipo y Roles de Desarrollo
+================================================================================
+
+- ROL FRONTEND LÍDER: Arquitectura SPA, diseño de interfaz con Tailwind/Radix, componentes interactivos, sincronización en tiempo real y portales de usuario.
+- ROL FRONTEND + BD: Desarrollo de vistas operativas, consumo de APIs REST, modelado de formularios y validación de esquemas de datos.
+- ROL BACKEND LÍDER: Arquitectura de servicios, seguridad Spring Security 6, manejo de tokens JWT, lógica de negocio e integraciones de terceros (Wompi, Correo, ZXing).
+- ROL BACKEND + BD: Repositorios JDBC, optimización de consultas SQL, procedimientos almacenados PL/SQL, políticas RLS y auditoría de base de datos.
+
+================================================================================
+43. Criterios de Calidad y Definición de Terminado (DoD)
+================================================================================
+
+Un módulo o funcionalidad se considera terminado únicamente cuando cumple con:
+[x] Modelo de datos relacional formalizado con claves primarias autonuméricas y foráneas.
+[x] Constraints de tipo Check para estados, tipos y clasificaciones.
+[x] Índices de rendimiento e índices funcionales anti-NULL en columnas compuestas.
+[x] Lógica de negocio encapsulada en la capa de servicios con transaccionalidad @Transactional.
+[x] Autorización rigurosa mediante anotaciones @PreAuthorize acordes al alcance del rol.
+[x] Aislamiento de inquilino validado a nivel de base de datos con políticas Oracle VPD/RLS.
+[x] Interfaz de usuario intuitiva con estados de carga (skeletons/spinners), error y estado vacío (empty states).
+[x] Sincronización reactiva de estado sin requerir recarga manual del navegador.
+[x] Registro de trazabilidad en AUDITORIA_LOG ante eventos de inserción, edición o borrado.
+[x] Pruebas unitarias e integración superadas satisfactoriamente.
+
+================================================================================
+44. Criterios de Éxito de la Plataforma
+================================================================================
+
+SAED 2.0 demuestra con éxito:
+1. Convivencia simultánea de múltiples organizaciones independientes con estricto aislamiento de datos.
+2. Soporte nativo y sin fricciones tanto para edificios verticales como para conjuntos residenciales cerrados horizontales.
+3. Conmutación instantánea de contexto operativo para usuarios con múltiples asignaciones mediante el header X-Assignment-Id.
+4. Trazabilidad absoluta de paquetería mediante PIN confidencial y registro fotográfico para titulares y convivientes.
+5. Autonomía operativa para el habitante con rol RESIDENTE_CONVIVENCIA garantizando privacidad financiera para el titular.
+6. Recaudación automatizada de cartera mediante pasarela Wompi con confirmación por webhook criptográfico.
+7. Acreditación de quórum en asambleas en tiempo real ponderado por coeficientes de copropiedad.
+8. Experiencia de usuario consistente y profesional en sus 85 pantallas operativas.
+
+================================================================================
+45. Visión Final
+================================================================================
+
+SAED 2.0 no impone cómo debe gestionarse una propiedad; se adapta y permite que cada organización configure las reglas operativas de sus copropiedades.
+
+Un edificio pequeño puede prescindir de pasarelas de pago o automatizaciones y operar de forma simple con comprobantes manuales y citofonía. Un macroconjunto residencial de 500 casas puede habilitar pagos en línea Wompi, múltiples porterías, códigos QR para visitas, reservas de múltiples zonas sociales con bloqueo por mora, control de obras de remodelación y fiscalización estricta de paquetería con PIN de seguridad.
+
+La plataforma maximiza el ahorro de tiempo, erradica los errores contables y operativos, elimina las disputas de convivencia mediante debido proceso y empodera a las administraciones con información verídica y transparente.
+
+================================================================================
+46. Resumen Ejecutivo
+================================================================================
+
+SAED 2.0 es una solución SaaS multi-tenant de grado empresarial para la gestión integral de comunidades residenciales. Diseñada con un enfoque Zero-Trust, sitúa a Oracle como fuente relacional y garantiza que ninguna fuga de información sea posible a nivel de datos. Su arquitectura moderna en Spring Boot 3 y React 18, sumada a integraciones de alta fidelidad como Wompi, ZXing, gestión de convivientes independientes y sincronización reactiva en tiempo real, posiciona a SAED como el estándar de vanguardia en software para propiedad horizontal.
+
+================================================================================
+47. Fuentes Internas Consolidadas
+================================================================================
+
+- SAED_CONTEXTO_COMPLETO.txt
+- SAED 2.0 — Diagnóstico de Migración y Plan Maestro de Reconstrucción
+- SAED_Documento_Maestro_Actualizado.pdf
+- Documento Maestro del Proyecto — Plataforma SaaS de Administración Inteligente de Propiedades Residenciales
+- Migraciones de Base de Datos V3.9__baseline_multitenant.sql a V5.12__paquetes_intentos_pin.sql
+- Especificación de Seguridad de Contexto y Paquetes PL/SQL PKG_SAED_SESSION y PKG_AUTH_BOOTSTRAP
+- Decisiones arquitectónicas sobre Virtual Private Database (RLS), SaedDataSourceProxy, Event Bus de notificaciones, pasarela Wompi, paquetería con PIN, rol RESIDENTE_CONVIVENCIA, InactivePropertyFilter, PropertyDeletionChallengeService y control de quórum en asambleas.
+
+================================================================================
+48. Stack Tecnológico y Arquitectura de Ejecución en Producción
+================================================================================
+
+48.1. Backend:
+- Lenguaje: Java 17 LTS.
+- Framework: Spring Boot 3.x (Spring Web, Spring Security 6, Spring Validation, Spring Mail).
+- Acceso a Datos: Spring JDBC con NamedParameterJdbcTemplate (sin ORM pesado para máxima eficiencia y compatibilidad total con Oracle VPD).
+- Pool de Conexiones: HikariCP integrado con SaedDataSourceProxy para gestión y limpieza de contexto de sesión Oracle.
+- Seguridad: JWT (io.jsonwebtoken) con firma HMAC-SHA512 y filtros stateless en la cadena de seguridad de Spring.
+- Generación Documental: OpenHTMLtoPDF / Flying Saucer para PDFs y Apache POI para reportes Excel.
+- Códigos QR: ZXing (Zebra Crossing) para generación y decodificación matricial.
+
+48.2. Base de Datos:
+- Motor: Oracle Autonomous Database (ATP) / Oracle 19c-21c Enterprise Edition.
+- Esquema: SAED_SEC_MASTER.
+- Seguridad en Motor: Virtual Private Database (VPD) mediante DBMS_RLS y contexto de aplicación SAED_CTX.
+- Lógica de Base de Datos: Paquetes PL/SQL (PKG_SAED_SESSION, PKG_AUTH_BOOTSTRAP, PKG_SAED_SECURITY_RLS).
+- Disparadores de Auditoría: Triggers PL/SQL que capturan deltas de estado en JSON estructurado sobre AUDITORIA_LOG.
+
+48.3. Frontend:
+- Lenguaje y Entorno: JavaScript (ES2023) / React 18 con Vite.
+- Estilos y Componentes: Tailwind CSS, Lucide React Icons, Radix UI Primitives / Shadcn UI.
+- Cliente HTTP: Axios con interceptores dinámicos para inyección de Authorization: Bearer <token> y X-Assignment-Id.
+- Sincronización en Vivo: Event Bus reactivo en navegador implementado con CustomEvent ('saed:notifications-changed').
+- Notificaciones UI: Toasts reactivos con Sonner.
+
+48.4. Integraciones Externas:
+- Pasarela de Pagos: Wompi API v1 con widget de checkout y webhook con verificación de firma criptográfica SHA-256.
+- Correo Electrónico: Servidor SMTP mediante JavaMailSender con plantillas HTML responsivas.
+
+================================================================================
+49. Catálogo de Vistas del Frontend (85 Pantallas Operativas)
+================================================================================
+
+A continuación se detalla el inventario completo de las 85 vistas operativas implementadas y funcionales en el frontend:
+
+49.1. Acceso y Registro Público:
+- LandingPage.jsx: página de inicio corporativa con presentación del producto y características.
+- LoginPage.jsx: pantalla de autenticación con selección de credenciales y redirección por rol.
+- ActivarCuentaPage.jsx: validación de token de invitación y establecimiento de contraseña.
+- RegistroOrganizacionPage.jsx: formulario de onboarding para nuevas organizaciones y copropiedades.
+- NotFoundPage.jsx: pantalla de error 404 para rutas inexistentes con navegación de retorno.
+
+49.2. Portal de Superadministrador (SCOPE_SUPERADMIN):
+- SuperAdminDashboardPage.jsx: KPIs de plataforma, MRR y estado global del ecosistema.
+- SuperAdminOrganizacionesPage.jsx: gestión integral de organizaciones clientes.
+- SuperAdminPropiedadesPage.jsx: monitoreo global de todas las propiedades registradas.
+- SuperAdminPlanesPage.jsx: administración de planes comerciales y límites de recursos.
+- SuperAdminMembresiasPage.jsx: asignación y renovación de membresías a organizaciones.
+- SuperAdminAdminsPage.jsx: gestión de usuarios con acceso administrativo global.
+- SuperAdminAuditoriaPage.jsx: visor de auditoría forense inmutable de toda la plataforma.
+
+49.3. Portal de Administración de Organización (SCOPE_ADMIN_ORGANIZACION):
+- OrgDashboardPage.jsx: métricas consolidadas de la organización y sus propiedades.
+- OrgOrganizacionPage.jsx: configuración de datos fiscales, NIT y perfil de la organización.
+- OrgPropiedadesPage.jsx: alta, baja y parametrización de edificios y conjuntos cerrados.
+- OrgPlanPage.jsx: estado de la suscripción, límites de unidades consumidas y plan actual.
+- OrgAdminsPage.jsx: nombramiento y gestión de administradores de propiedad.
+- OrgAuditoriaPage.jsx: registro de auditoría consolidado de las propiedades del tenant.
+- OrgCarteraPage.jsx: consolidado de recaudo y cartera en mora de todas las copropiedades.
+- OrgGastosPage.jsx: control agregado de egresos de la organización.
+- OrgAnaliticaPage.jsx: tableros analíticos comparativos entre propiedades.
+- OrgReportesPage.jsx: generación de informes consolidados de gestión.
+- OrgPlantillasContratosPage.jsx: diseño de plantillas de arrendamiento corporativas.
+
+49.4. Portal de Administración de Propiedad (SCOPE_ADMIN_PROPIEDAD):
+- DashboardPage.jsx: tablero operativo principal con KPIs financieros, visitas y paquetería.
+- PropiedadesPage.jsx: configuración de la propiedad (reglas, tipos de ocupación, bloques).
+- UnidadesPage.jsx: inventario de unidades (apartamentos, casas, locales, áreas, coeficientes).
+- PersonasPage.jsx: base de datos de personas naturales y jurídicas de la copropiedad.
+- ResidentesPage.jsx: asignación de habitantes a unidades y gestión de relaciones de tenencia.
+- UsuariosPage.jsx: administración de cuentas de usuario vinculadas a la propiedad.
+- RolesYAsignacionesPage.jsx: gestión de roles y asignaciones operativas.
+- CarteraPage.jsx: control detallado de cuentas por cobrar, estados de cuenta y mora.
+- PagosPage.jsx: registro, revisión y aprobación/rechazo de pagos con comprobante.
+- GastosPage.jsx: registro de egresos con soporte documental adjunto.
+- FlujoCajaPage.jsx: tesorería, movimientos recientes y proyección mensual de flujo de caja.
+- PresupuestoPage.jsx: formulación y seguimiento comparativo de presupuesto vs ejecutado.
+- GananciasPage.jsx: análisis de rendimientos financieros y excedentes operativos.
+- ConciliacionPage.jsx: módulo de conciliación bancaria y casación de movimientos.
+- PazYSalvoPage.jsx: emisión oficial de certificados de paz y salvo con validación de saldo cero.
+- MultasPage.jsx: imposición y seguimiento de sanciones económicas reglamentarias.
+- VisitasPage.jsx: bitácora general de visitas y accesos peatonales/vehiculares.
+- HistorialVisitasPage.jsx: histórico auditable de accesos con filtros por fecha y unidad.
+- PorteriasPage.jsx: configuración de garitas y puntos de control de acceso.
+- ParqueaderosPage.jsx: gestión de celdas de parqueadero privadas y de visitantes.
+- PaquetesAdminPage.jsx: supervisión de paquetería en custodia y entregas realizadas.
+- ReservasAdminPage.jsx: catálogo de zonas comunes y gestión de reservas.
+- MantenimientoAdminPage.jsx: inventario de activos y programación de mantenimientos.
+- ObrasAdminPage.jsx: revisión y autorización de permisos de remodelación en unidades.
+- ContratosProveedorPage.jsx: administración de contratos con empresas prestadoras de servicios.
+- IncidentesAdminPage.jsx: bitácora de seguridad y novedades de la copropiedad.
+- ComunicacionesPage.jsx: centro de mensajería, comunicados oficiales y avisos masivos.
+- AvisosPage.jsx: creación de avisos institucionales segmentados por torre o bloque.
+- QuejasAdminPage.jsx: gestión y respuesta a PQRS radicadas por residentes con SLA.
+- DocumentosAdminPage.jsx: repositorio documental de copropiedad con control de versiones.
+- AsambleasAdminPage.jsx: convocatoria, registro de quórum en vivo y actas de asamblea.
+- SancionesAdminPage.jsx: gestión del debido proceso sancionatorio y descargos.
+- PolizasAdminPage.jsx: administración de pólizas de seguro de áreas comunes y alertas.
+- EmergenciasAdminPage.jsx: protocolos de contingencia y directorio de emergencias.
+- ConsumosAdminPage.jsx: registro y analítica de consumo de servicios públicos de áreas comunes.
+- AutomatizacionesAdminPage.jsx: configuración del motor de reglas automáticas.
+- ReportesPage.jsx: centro de generación y exportación de informes en PDF/Excel.
+- AlertasPage.jsx: panel de alertas preventivas del sistema.
+
+49.5. Portal de Portería (SCOPE_PORTERO):
+- PorteroDashboardPage.jsx: centro de mando de seguridad con contadores tácticos.
+- VisitasPage.jsx: registro ágil de visitas de citofonía y domiciliarios.
+- EscannerQRPage.jsx: lector por cámara de códigos QR con validación y consumo en vivo.
+- PaquetesPage.jsx: registro de encomiendas con foto y entrega con PIN confidencial.
+
+49.6. Portal de Residente (Titular y Conviviente - SCOPE_RESIDENTE y SCOPE_RESIDENTE_CONVIVENCIA):
+- ResidenteDashboardPage.jsx: resumen personalizado del hogar, saldo y accesos rápidos (oculta la tarjeta financiera a RESIDENTE_CONVIVENCIA).
+- ResPerfilPage.jsx: ficha del residente y actualización de datos de contacto (refleja el rol activo).
+- ResConvivientesPage.jsx: registro de cohabitantes y familiares con cuota controlada (exclusivo titular).
+- ResCuotasPage.jsx: desglose de cuotas pendientes con pasarela Wompi integrada (exclusivo titular).
+- ResVisitasPage.jsx: programación de visitas e invitaciones con código QR (titular y conviviente).
+- ResVisitaPage.jsx: visualización y compartición del código QR generado (titular y conviviente).
+- ResFrecuentesPage.jsx: directorio de visitantes habituales autorizados (titular y conviviente).
+- ResReservasPage.jsx: consulta de disponibilidad y reserva de zonas comunes (titular y conviviente).
+- ResBuzonPage.jsx: buzón interactivo de notificaciones y recepción de paquetes con PIN propio (titular y conviviente).
+- ResQuejasPage.jsx: radicación de peticiones, quejas y reclamos con seguimiento de SLA (titular y conviviente).
+- ResObrasPage.jsx: solicitud de permisos de remodelación y registro de obreros (titular y conviviente).
+- ResIncidentesPage.jsx: reporte de incidentes y novedades a la administración (titular y conviviente).
+- ResDocumentosPage.jsx: consulta de reglamentos de propiedad horizontal y manuales (titular y conviviente).
+- ResSancionesPage.jsx: consulta de notificaciones disciplinarias y radicación de descargos (titular y conviviente).
+
+49.7. Vistas Complementarias y de Gobernanza:
+- OrganizacionesPage.jsx: vista de consulta y administración de organizaciones.
+- PlanesPage.jsx: catálogo interactivo de planes de suscripción.
+- MembresiasPage.jsx: detalle y renovación de planes.
+- SuscripcionesPage.jsx: gestión de facturación recurrente.
+- ContratosPage.jsx: listado de contratos de arrendamiento vigentes.
+- CoarrendatariosPage.jsx: gestión de deudores solidarios y garantías contractuales.
+
+================================================================================
+50. Inventario Exhaustivo de Controladores y Endpoints del Backend (62 Controladores)
+================================================================================
+
+El backend de SAED 2.0 expone 62 controladores REST organizados modularmente por dominio:
+
+50.1. Autenticación, Identidad y Sesión (com.saed.backend.identity):
+- AuthController: login con JWT (/api/v1/auth/login), refresh token, logout.
+- ActivacionCuentaController: validación de token y activación de cuenta sin clave por defecto (/api/v1/auth/activar).
+- MeController: perfil del usuario autenticado (/api/v1/me), cambio de contraseña personal (/api/v1/me/change-password).
+- UsuarioController: gestión administrativa de usuarios de la copropiedad (/api/v1/usuarios).
+
+50.2. Plataforma SaaS y Onboarding (com.saed.backend.platform):
+- PublicOnboardingController: catálogo de planes públicos (/api/v1/auth/onboarding/planes), registro con patrón staging (/api/v1/auth/onboarding/registro), estado de pago (/api/v1/auth/onboarding/estado-pago).
+- PlatformDashboardController: KPIs globales de plataforma SaaS (/api/v1/platform/dashboard).
+- PlatformPlansController: gestión comercial de planes y límites (/api/v1/platform/plans).
+- PlatformMembershipsController: administración y renovación de membresías (/api/v1/platform/memberships).
+- PlatformAdminsController: gestión de administradores globales de plataforma (/api/v1/platform/admins).
+
+50.3. Organización y Multi-tenant Corporativo (com.saed.backend.org):
+- OrgProfileController: configuración y perfil tributario de la organización (/api/v1/org/profile).
+- OrgDashboardController: tablero consolidado multi-propiedad (/api/v1/org/dashboard).
+- OrgAdminsController: nombramiento y control de administradores de propiedad (/api/v1/org/admins).
+- OrgGastosController: control de gastos consolidados de la firma (/api/v1/org/gastos).
+- OrgSubscriptionController: gestión de la suscripción corporativa (/api/v1/org/subscription).
+
+50.4. Estructura y Autorización (com.saed.backend.authorization):
+- OrganizationController: CRUD de organizaciones (/api/v1/organizations).
+- PropertyController: CRUD y configuración de propiedades (/api/v1/properties).
+- UnitController: CRUD de unidades residenciales y comerciales (/api/v1/units).
+- AssignmentController: consulta y conmutación de asignaciones operativas (/api/v1/assignments).
+- AssignmentManagementController: creación y desactivación de asignaciones (/api/v1/assignment-management).
+
+50.5. Personas, Residentes y Dependientes (com.saed.backend.person):
+- PersonaController: directorio maestro de personas naturales y jurídicas (/api/v1/personas).
+- UnitInhabitantController: asignación de propietarios, residentes y validación de cuotas de habitabilidad (/api/v1/units/{unitId}/inhabitants/...).
+- DependentController: gestión de mascotas, vehículos, tutores legales de menores y visitantes frecuentes (/api/v1/mascotas, /api/v1/vehiculos, /api/v1/tutores, /api/v1/visitantes).
+
+50.6. Finanzas, Facturación y Pasarela (com.saed.backend.finanzas):
+- CuotasController: generación y consulta de cuotas de administración (/api/v1/cuotas).
+- PagosController: registro y conciliación de pagos (/api/v1/pagos) y webhook de Wompi (/api/v1/pagos/wompi/webhook).
+- WompiController: generación de intenciones de pago, historial y consulta de estado (/api/v1/pagos/wompi/solicitud, /api/v1/pagos/wompi/historial).
+- CarteraController: estados de cartera, saldos y reportes de mora (/api/v1/cartera).
+- GastosController: registro de egresos con soporte documental digital (/api/v1/gastos).
+- PresupuestoController: comparación presupuestal vs ejecución real (/api/v1/presupuesto).
+- FlujoCajaController: tesorería y proyección mensual de flujo de caja (/api/v1/flujo-caja).
+- ConciliacionController: casación bancaria de extractos (/api/v1/conciliaciones).
+- PazYSalvoController: validación y emisión de paz y salvos en PDF (/api/v1/paz-y-salvo).
+- MultasController: liquidación de multas reglamentarias (/api/v1/multas).
+- ContratosController y ContratosAdminController: gestión de contratos de arrendamiento (/api/v1/contratos).
+- ResidentesFinanzasController: resumen financiero para residentes titulares (/api/v1/residentes/finanzas).
+- PlanesController y MembresiasController: gestión de suscripciones a nivel de tenant.
+
+50.7. Portería, Accesos y Paquetería (com.saed.backend.porteria y com.saed.backend.paquetes):
+- PorteriaController: CRUD de porterías, programación de visitas, bitácora de accesos, validación de QR y control de vehículos de visitantes (/api/v1/porteria/...).
+- PorteriaExtController: endpoints de alta concurrencia para visitas rápidas (/api/v1/visitas/rapida).
+- PaquetesController: recepción de encomiendas con foto, verificación de PIN confidencial, control de intentos fallidos y entrega certificada (/api/v1/paquetes).
+- ParqueaderosController: gestión de celdas de parqueadero, creación masiva y asignaciones (/api/v1/parqueaderos).
+
+50.8. Convivencia, PQRS y Sanciones (com.saed.backend.convivencia, com.saed.backend.pqrs, com.saed.backend.sanciones):
+- BuzonController: buzón interactivo de notificaciones personales, marcas de lectura y vaciado (/api/v1/buzon/...).
+- QuejasController: quejas de convivencia vecinal y solicitudes de mediación (/api/v1/quejas).
+- TicketController: sistema de tickets PQRS con SLA de respuesta (/api/v1/tickets).
+- SancionesController: apertura de expedientes sancionatorios, recepción de descargos y resoluciones motivadas (/api/v1/sanciones).
+
+50.9. Comunidad, Reservas y Obras (com.saed.backend.reservas y com.saed.backend.obras):
+- ReservasController: catálogo de zonas comunes y reservas con bloqueo preventivo por mora (/api/v1/reservas).
+- ObraController: permisos de remodelación en unidades, aprobación de horarios y finalización (/api/v1/obras).
+
+50.10. Gobierno, Asambleas y Documentos (com.saed.backend.asambleas y com.saed.backend.documentos):
+- AsambleasController: convocatorias, quórum en vivo, retiro de unidades, validación de poderes y votaciones digitales (/api/v1/asambleas).
+- DocumentoController: repositorio digital de copropiedad con versionamiento formal RLS (/api/v1/documentos).
+
+50.11. Comunicaciones, Seguros, Emergencias y Consumos:
+- ComunicadosController: publicaciones institucionales masivas segmentadas (/api/v1/comunicados).
+- AlertasController: panel de alertas automáticas preventivas (/api/v1/alertas).
+- PolizaSeguroController: administración de pólizas de áreas comunes (/api/v1/polizas).
+- EmergenciasController: planes de contingencia y minuta de emergencias (/api/v1/emergencias).
+- ConsumosController: mediciones periódicas de agua, energía y gas (/api/v1/consumos).
+- AutomatizacionesController: motor de reglas Evento-Condición-Acción con simulación (/api/v1/automatizaciones).
+
+50.12. Dashboards, Auditoría y Transversal:
+- DashboardController: tableros de mando operativos discriminados por rol (/api/v1/dashboard/...).
+- AuditoriaController: consulta forense de AUDITORIA_LOG (/api/v1/auditoria).
+- ReportesController: generación de informes en PDF, CSV y Excel (/api/v1/reportes).
+- CatalogoController: catálogos maestros (/api/v1/catalogos/...).
+- HealthController: monitoreo de salud del backend y base de datos (/api/v1/health).
