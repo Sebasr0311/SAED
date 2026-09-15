@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Menu, X, ArrowRight, LogIn, Sparkles } from 'lucide-react';
+import { Menu, X, ArrowRight, LogIn, Moon, Sparkles, Sun } from 'lucide-react';
+import { getInitialTheme, applyTheme, persistTheme } from '../../lib/theme.js';
 
 const SAED_EMBLEM = 'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/saed_logo_emblem_only%20%281%29-f69pKiXJhvmpHezDHIpHBhzbADaXx7.png';
 
@@ -14,7 +15,18 @@ const NAV_LINKS = [
 export default function LandingNavbar() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [dark, setDark] = useState(() => getInitialTheme() === 'dark');
   const navigate = useNavigate();
+
+  function toggleTheme() {
+    setDark((prev) => {
+      const next = !prev;
+      applyTheme(next ? 'dark' : 'light');
+      persistTheme(next ? 'dark' : 'light');
+      return next;
+    });
+  }
+
 
   useEffect(() => {
     const handleScroll = () => {
@@ -115,6 +127,20 @@ export default function LandingNavbar() {
 
           {/* Actions & Login CTA */}
           <div className="hidden sm:flex items-center gap-3">
+            <button
+              type="button"
+              onClick={toggleTheme}
+              aria-label={dark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+              title={dark ? 'Modo claro' : 'Modo oscuro'}
+              className="p-2.5 rounded-xl text-slate-300 hover:text-white bg-white/[0.04] hover:bg-white/10 border border-white/10 hover:border-white/20 transition-all min-w-[44px] min-h-[44px] flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
+            >
+              {dark ? (
+                <Sun className="w-4 h-4 text-amber-400" aria-hidden="true" />
+              ) : (
+                <Moon className="w-4 h-4 text-sky-300" aria-hidden="true" />
+              )}
+            </button>
+
             <Link
               to="/login"
               className="px-4 py-2 text-xs sm:text-sm font-semibold text-slate-300 hover:text-white hover:bg-white/[0.06] rounded-xl border border-transparent hover:border-white/10 transition-all flex items-center gap-1.5 min-h-[44px]"
@@ -133,17 +159,31 @@ export default function LandingNavbar() {
             </Link>
           </div>
 
-          {/* Mobile Hamburger Button */}
-          <button
-            type="button"
-            onClick={() => setMobileMenuOpen((open) => !open)}
-            className="md:hidden p-2.5 rounded-xl text-slate-300 hover:text-white bg-slate-900/80 hover:bg-slate-800 border border-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 min-w-[44px] min-h-[44px] flex items-center justify-center"
-            aria-expanded={mobileMenuOpen}
-            aria-label={mobileMenuOpen ? 'Cerrar menú' : 'Abrir menú'}
-          >
-            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-          </button>
-        </div>
+          {/* Mobile actions: theme toggle + hamburger */}
+          <div className="md:hidden flex items-center gap-2">
+            <button
+              type="button"
+              onClick={toggleTheme}
+              aria-label={dark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+              className="p-2.5 rounded-xl text-slate-300 hover:text-white bg-slate-900/80 hover:bg-slate-800 border border-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 min-w-[44px] min-h-[44px] flex items-center justify-center"
+            >
+              {dark ? (
+                <Sun className="w-5 h-5 text-amber-400" aria-hidden="true" />
+              ) : (
+                <Moon className="w-5 h-5 text-sky-300" aria-hidden="true" />
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen((open) => !open)}
+              className="p-2.5 rounded-xl text-slate-300 hover:text-white bg-slate-900/80 hover:bg-slate-800 border border-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 min-w-[44px] min-h-[44px] flex items-center justify-center"
+              aria-expanded={mobileMenuOpen}
+              aria-label={mobileMenuOpen ? 'Cerrar menú' : 'Abrir menú'}
+            >
+              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
+          </div>
       </div>
 
       {/* Mobile Backdrop & Drawer Navigation */}
@@ -195,6 +235,22 @@ export default function LandingNavbar() {
                 <LogIn className="w-4 h-4 text-sky-400" />
                 <span>Iniciar sesión</span>
               </Link>
+
+              <button
+                type="button"
+                onClick={() => { toggleTheme(); }}
+                aria-label={dark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+                className="w-full py-3.5 px-4 rounded-xl text-sm font-semibold text-center text-slate-200 bg-slate-800/70 hover:bg-slate-700 border border-slate-700 transition-colors flex items-center justify-between min-h-[48px]"
+              >
+                <span className="flex items-center gap-2">
+                  {dark ? (
+                    <Sun className="w-4 h-4 text-amber-400" aria-hidden="true" />
+                  ) : (
+                    <Moon className="w-4 h-4 text-sky-300" aria-hidden="true" />
+                  )}
+                  {dark ? 'Modo claro' : 'Modo oscuro'}
+                </span>
+              </button>
 
               <Link
                 to="/suscripciones"
