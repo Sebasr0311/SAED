@@ -18,16 +18,22 @@ public class NotificacionRepositoryImpl implements NotificacionRepository {
 
     @Override
     public List<NotificacionDTO> findByUsuarioDestinatario(Long idUsuario) {
-        String sql = "SELECT ID_NOTIFICACION, TITULO, MENSAJE, ENLACE_DESTINO, FECHA_ENVIO, FECHA_LEIDO " +
-                     "FROM NOTIFICACIONES " +
-                     "WHERE ID_USUARIO_DESTINATARIO = :idUsuario " +
-                     "ORDER BY FECHA_ENVIO DESC";
+        String sql = "SELECT n.ID_NOTIFICACION, n.TITULO, n.MENSAJE, n.ENLACE_DESTINO, n.FECHA_ENVIO, n.FECHA_LEIDO, " +
+                     "(SELECT p.FOTO_PAQUETE_URL FROM PAQUETES p WHERE (n.ENLACE_DESTINO = '/paquetes/' || p.ID_PAQUETE " +
+                     "  OR (n.TITULO LIKE '%Paquete%' AND p.CODIGO_RETIRO_PIN IS NOT NULL AND n.MENSAJE LIKE '%PIN: ' || p.CODIGO_RETIRO_PIN || '%')) " +
+                     " AND ROWNUM = 1) AS FOTO_PAQUETE_URL " +
+                     "FROM NOTIFICACIONES n " +
+                     "WHERE n.ID_USUARIO_DESTINATARIO = :idUsuario " +
+                     "ORDER BY n.FECHA_ENVIO DESC";
         return jdbc.query(sql, new MapSqlParameterSource("idUsuario", idUsuario), (rs, rowNum) -> {
             NotificacionDTO dto = new NotificacionDTO();
             dto.setIdMensaje(rs.getLong("ID_NOTIFICACION"));
             dto.setTitulo(rs.getString("TITULO"));
             dto.setCuerpo(rs.getString("MENSAJE"));
             dto.setEnlaceDestino(rs.getString("ENLACE_DESTINO"));
+            String foto = rs.getString("FOTO_PAQUETE_URL");
+            dto.setFotoCaptura(foto);
+            dto.setFotoPaqueteUrl(foto);
             if (rs.getTimestamp("FECHA_ENVIO") != null) {
                 dto.setFecha(rs.getTimestamp("FECHA_ENVIO").toLocalDateTime());
             }

@@ -129,10 +129,11 @@ public class PaquetesServiceImpl implements PaquetesService {
             String aptoTxt = (identificadorApto != null && !identificadorApto.isBlank())
                     ? (" para el apartamento " + identificadorApto) : "";
 
+            String enlace = "/paquetes/" + paquete.idPaquete();
             for (Long resUserId : residentUserIds) {
                 String notifSql = "INSERT INTO NOTIFICACIONES (ID_COMUNICADO, ID_USUARIO_DESTINATARIO, " +
-                        "CANAL, TITULO, MENSAJE, ESTADO_ENVIO) " +
-                        "VALUES (:comunicadoId, :dest, 'IN_APP', '📦 Paquete recibido en portería', :msg, 'ENVIADO')";
+                        "CANAL, TITULO, MENSAJE, ENLACE_DESTINO, ESTADO_ENVIO) " +
+                        "VALUES (:comunicadoId, :dest, 'IN_APP', '📦 Paquete recibido en portería', :msg, :enlace, 'ENVIADO')";
                 String descNotif = (request.descripcion() != null && !request.descripcion().isBlank())
                         ? request.descripcion() : "encomienda";
                 String msg = "Se ha recibido un paquete (" + descNotif + ") de " +
@@ -141,7 +142,8 @@ public class PaquetesServiceImpl implements PaquetesService {
                 jdbcTemplate.update(notifSql, new MapSqlParameterSource()
                         .addValue("comunicadoId", idComunicado)
                         .addValue("dest", resUserId)
-                        .addValue("msg", msg));
+                        .addValue("msg", msg)
+                        .addValue("enlace", enlace));
             }
         } catch (Exception e) {
             log.warn("Aviso al registrar notificaciones de paquete: {}", e.getMessage());

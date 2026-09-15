@@ -679,16 +679,16 @@ export default function ResBuzonPage() {
                 </div>
 
                 {/* Miniatura de evidencia fotográfica si existe */}
-                {item.fotoCaptura && (
+                {(item.fotoCaptura || item.fotoPaqueteUrl) && (
                   <div
                     className="relative group/thumb shrink-0 self-center sm:self-start mt-2 sm:mt-0"
                     onClick={(e) => {
                       e.stopPropagation();
-                      setFotoGrande(imageSrc(item.fotoCaptura));
+                      setFotoGrande(imageSrc(item.fotoCaptura || item.fotoPaqueteUrl));
                     }}
                   >
                     <img
-                      src={imageSrc(item.fotoCaptura)}
+                      src={imageSrc(item.fotoCaptura || item.fotoPaqueteUrl)}
                       alt="Evidencia fotográfica"
                       loading="lazy"
                       width="80"
@@ -806,7 +806,7 @@ export default function ResBuzonPage() {
             </div>
 
             {/* Fotografía de evidencia si fue capturada por portería */}
-            {mensajeDetalle.fotoCaptura && (
+            {(mensajeDetalle.fotoCaptura || mensajeDetalle.fotoPaqueteUrl) && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-xs">
                   <span className="font-semibold text-muted-foreground">
@@ -815,7 +815,7 @@ export default function ResBuzonPage() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => setFotoGrande(imageSrc(mensajeDetalle.fotoCaptura))}
+                    onClick={() => setFotoGrande(imageSrc(mensajeDetalle.fotoCaptura || mensajeDetalle.fotoPaqueteUrl))}
                     className="h-7 text-xs text-primary gap-1"
                   >
                     <Maximize2 className="w-3 h-3" />
@@ -824,10 +824,10 @@ export default function ResBuzonPage() {
                 </div>
                 <div
                   className="rounded-2xl border border-border overflow-hidden bg-black/5 cursor-zoom-in group relative max-h-80 flex items-center justify-center"
-                  onClick={() => setFotoGrande(imageSrc(mensajeDetalle.fotoCaptura))}
+                  onClick={() => setFotoGrande(imageSrc(mensajeDetalle.fotoCaptura || mensajeDetalle.fotoPaqueteUrl))}
                 >
                   <img
-                    src={imageSrc(mensajeDetalle.fotoCaptura)}
+                    src={imageSrc(mensajeDetalle.fotoCaptura || mensajeDetalle.fotoPaqueteUrl)}
                     alt="Evidencia fotográfica"
                     className="w-full h-full max-h-80 object-contain rounded-xl"
                   />

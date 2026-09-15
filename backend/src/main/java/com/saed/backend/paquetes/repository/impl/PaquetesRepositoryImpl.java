@@ -28,8 +28,8 @@ public class PaquetesRepositoryImpl implements PaquetesRepository {
 
     private static final Logger log = LoggerFactory.getLogger(PaquetesRepositoryImpl.class);
     private final NamedParameterJdbcTemplate jdbcTemplate;
-    private boolean isFotoClob = false;
-    private boolean isComprobanteClob = false;
+    private boolean isFotoClob = true;
+    private boolean isComprobanteClob = true;
 
     public PaquetesRepositoryImpl(NamedParameterJdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
@@ -59,7 +59,7 @@ public class PaquetesRepositoryImpl implements PaquetesRepository {
 
     private String sanitizeFoto(String foto, boolean isClob) {
         if (foto == null) return null;
-        if (!isClob && foto.length() > 500) {
+        if (!isClob && foto.length() > 2000) {
             log.warn("Foto truncada/descartada para prevenir ORA-12899 (columna en BD no es CLOB, actual: {} chars)", foto.length());
             return null;
         }

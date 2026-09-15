@@ -997,26 +997,30 @@ export default function PaquetesPage() {
                           </span>
                         </td>
                         <td className="px-4 py-3 text-right whitespace-nowrap">
-                          {!isEntregado ? (
+                          <div className="flex items-center justify-end gap-1.5">
                             <button
-                              onClick={() => {
-                                setModalEntrega(p);
-                                setPinIngresado('');
-                              }}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition-colors shadow-sm min-h-[36px]"
-                            >
-                              <CheckCircle2 className="w-3.5 h-3.5" />
-                              Entregar
-                            </button>
-                          ) : (
-                            <button
+                              type="button"
                               onClick={() => setDetalleModal(p)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg border border-border bg-muted/40 hover:bg-muted text-foreground transition-colors"
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-lg border border-border bg-card hover:bg-muted text-foreground transition-colors min-h-[36px]"
+                              title="Ver información completa y foto de evidencia"
                             >
-                              <Eye className="w-3.5 h-3.5" />
+                              <Eye className="w-3.5 h-3.5 text-muted-foreground" />
                               Detalle
                             </button>
-                          )}
+                            {!isEntregado && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setModalEntrega(p);
+                                  setPinIngresado('');
+                                }}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition-colors shadow-sm min-h-[36px]"
+                              >
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                Entregar
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );
@@ -1092,18 +1096,23 @@ export default function PaquetesPage() {
                     </div>
 
                     <div className="flex items-center justify-between pt-1">
-                      {p.fotoPaqueteUrl || p.fotoCaptura ? (
-                        <button
-                          type="button"
-                          onClick={() => setDetalleModal(p)}
-                          className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1 min-h-[44px]"
-                        >
-                          <Camera className="w-3.5 h-3.5" />
-                          Ver Foto
-                        </button>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">Sin foto</span>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => setDetalleModal(p)}
+                        className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1 min-h-[44px]"
+                      >
+                        {p.fotoPaqueteUrl || p.fotoCaptura ? (
+                          <>
+                            <Camera className="w-3.5 h-3.5" />
+                            Ver Foto
+                          </>
+                        ) : (
+                          <>
+                            <Eye className="w-3.5 h-3.5 text-muted-foreground" />
+                            <span className="text-muted-foreground">Detalle</span>
+                          </>
+                        )}
+                      </button>
 
                       {!isEntregado ? (
                         <button
@@ -1234,6 +1243,23 @@ export default function PaquetesPage() {
                 <span className="text-muted-foreground">Descripción:</span>
                 <span className="text-foreground">{modalEntrega.descripcion || modalEntrega.titulo}</span>
               </div>
+              {(modalEntrega.fotoPaqueteUrl || modalEntrega.fotoCaptura) && (
+                <div className="pt-2 flex items-center justify-between border-t border-border/40">
+                  <span className="text-muted-foreground">Evidencia Fotográfica:</span>
+                  <button
+                    type="button"
+                    onClick={() => setDetalleModal(modalEntrega)}
+                    className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 hover:underline font-semibold"
+                  >
+                    <img
+                      src={imageSrc(modalEntrega.fotoPaqueteUrl || modalEntrega.fotoCaptura)}
+                      alt="Miniatura paquete"
+                      className="w-10 h-10 rounded-lg object-cover border border-border"
+                    />
+                    <span>Ver ampliada</span>
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="space-y-2">
