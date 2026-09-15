@@ -28,6 +28,10 @@ import {
 import { useTenant } from '../lib/TenantContext.jsx';
 import { useTenantApi } from '../lib/useTenantApi.js';
 import { useAuth } from '../lib/AuthContext.jsx';
+import {
+  emitNotificationsChanged,
+  subscribeNotificationsChanged,
+} from '../lib/notificationsSync.js';
 import { useFetch } from '../lib/hooks.js';
 import { formatDateTime } from '../lib/utils.js';
 
@@ -280,6 +284,7 @@ export default function ComunicacionesPage({ initialTab = 'todos' }) {
       toast.success('Todas las alertas y notificaciones fueron marcadas como leídas');
       refetchAlertas();
       refetchNotif();
+      emitNotificationsChanged({ action: 'mark-all-read' });
     } catch (err) {
       toast.error(err.message || 'Error al procesar la acción');
     }
@@ -292,6 +297,7 @@ export default function ComunicacionesPage({ initialTab = 'todos' }) {
         toast.success('Aviso archivado correctamente');
         if (detalleItem?.rawId === rawId) setDetalleItem(null);
         refetchAvisos();
+        emitNotificationsChanged({ action: 'archive-aviso', id: rawId });
       } catch (err) {
         toast.error(err.message || 'No se pudo archivar el aviso');
       }

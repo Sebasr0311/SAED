@@ -13,9 +13,15 @@ import {
   ArrowRight,
   RotateCcw,
   AlertCircle,
+  Trash2,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import api from '../../lib/api.js';
 import { useAuth } from '../../lib/AuthContext.jsx';
+import {
+  emitNotificationsChanged,
+  subscribeNotificationsChanged,
+} from '../../lib/notificationsSync.js';
 
 const MAX_VISIBLES = 12;
 
@@ -189,15 +195,23 @@ export default function NotificationBell() {
       });
 
       const avisosMapped = avisosList.map((it) => {
-        const idStr = String(it.idComunicado ?? it.id);
-        const leidoLocal = locallyReadIds.has(`aviso-${idStr}`) || locallyReadIds.has(idStr);
+        const idCom = it.idComunicado ?? it.ID_COMUNICADO ?? it.id ?? it.ID;
+        const idStr = String(idCom ?? '');
+        const tit = it.titulo || it.TITULO || it.tituloComunicado || 'Aviso oficial';
+        const cuerpo = it.contenido || it.CONTENIDO || it.mensaje || it.MENSAJE || '';
+        const fecha = it.fechaPublicacion || it.FECHA_PUBLICACION || it.fecha_publicacion || it.fecha || it.FECHA;
+        const leidoLocal = Boolean(
+          locallyReadIds.has(`aviso-${idStr}`) ||
+          locallyReadIds.has(idStr) ||
+          (visto && fecha && new Date(fecha).getTime() <= visto)
+        );
         return {
           id: `aviso-${idStr}`,
-          idComunicado: it.idComunicado ?? it.id,
-          tipo: it.tipo || 'AVISO',
-          titulo: it.titulo || it.tituloComunicado || 'Aviso oficial',
-          cuerpo: it.contenido || it.mensaje || '',
-          fecha: it.fechaPublicacion || it.fecha_publicacion || it.fecha,
+          idComunicado: idCom,
+          tipo: it.tipo || it.TIPO || 'AVISO',
+          titulo: tit,
+          cuerpo: cuerpo,
+          fecha: fecha,
           leido: leidoLocal,
           esPersonal: false,
           ruta: '/avisos',
@@ -205,16 +219,18 @@ export default function NotificationBell() {
       });
 
       const alertasMapped = alertasList.map((it) => {
-        const idStr = String(it.idAlerta ?? it.id);
-        const leidoDb = Boolean(it.leida);
+        const idAlt = it.idAlerta ?? it.ID_ALERTA ?? it.id ?? it.ID;
+        const idStr = String(idAlt ?? '');
+        const leidoDb = Boolean(it.leida || it.LEIDA);
+        const fechaAlt = it.enviadaEn || it.ENVIADA_EN || it.fecha || it.FECHA;
         const leidoLocal = locallyReadIds.has(`alerta-${idStr}`) || locallyReadIds.has(idStr);
         return {
           id: `alerta-${idStr}`,
-          idAlerta: it.idAlerta ?? it.id,
+          idAlerta: idAlt,
           tipo: 'ALERTA',
-          titulo: `Alerta: ${it.tipoAlerta || 'Operativa'} - Apto ${it.numeroApartamento || ''}`,
-          cuerpo: `${it.nombreResidente ? `Residente: ${it.nombreResidente}. ` : ''}Estado: ${it.estadoCuota || 'Pendiente'}.`,
-          fecha: it.enviadaEn,
+          titulo: `Alerta: ${it.tipoAlerta || it.TIPO_ALERTA || 'Operativa'} - Apto ${it.numeroApartamento || it.NUMERO_APARTAMENTO || ''}`,
+          cuerpo: `${it.nombreResidente || it.NOMBRE_RESIDENTE ? `Residente: ${it.nombreResidente || it.NOMBRE_RESIDENTE}. ` : ''}Estado: ${it.estadoCuota || it.ESTADO_CUOTA || 'Pendiente'}.`,
+          fecha: fechaAlt,
           leido: leidoDb || leidoLocal,
           esPersonal: false,
           ruta: '/alertas',
@@ -241,6 +257,37 @@ export default function NotificationBell() {
     const t = setInterval(cargar, 45000);
     return () => clearInterval(t);
   }, [cargar]);
+
+  // Suscripción reactiva a cambios en Buzón y Notificaciones desde otras vistas
+  useEffect(() => {
+    return subscribeNotificationsChanged((detail) => {
+      if (detail?.action === 'vaciar') {
+        setItems((prev) => prev.filter((it) => !it.esPersonal));
+        const userK = user?.id || user?.username || 'anon';
+        try {
+          localStorage.setItem(`saed_notif_visto_${userK}`, String(Date.now()));
+        } catch {}
+      } else if (detail?.action === 'vaciar-multi' && Array.isArray(detail.ids)) {
+        const idSet = new Set(detail.ids.map(String));
+        setItems((prev) => prev.filter((it) => !idSet.has(String(it.idMensaje))));
+      } else if (detail?.action === 'mark-read' && detail.id) {
+        setItems((prev) =>
+          prev.map((it) =>
+            it.id === detail.id || String(it.idMensaje) === String(detail.id)
+              ? { ...it, leido: true }
+              : it
+          )
+        );
+      } else if (detail?.action === 'mark-all-read') {
+        setItems((prev) => prev.map((it) => ({ ...it, leido: true })));
+        const userK = user?.id || user?.username || 'anon';
+        try {
+          localStorage.setItem(`saed_notif_visto_${userK}`, String(Date.now()));
+        } catch {}
+      }
+      cargar();
+    });
+  }, [cargar, user]);
 
   // Click outside listener: al cerrar el popover persistimos visto para limpiar badge de campana
   useEffect(() => {
@@ -314,7 +361,10 @@ export default function NotificationBell() {
   const alAbrir = () => {
     setOpen((prev) => {
       const next = !prev;
-      if (!next) {
+      if (next) {
+        // Al abrir la campana, refrescamos de inmediato para garantizar datos 100% frescos
+        cargar();
+      } else {
         const ahora = Date.now();
         setVisto(ahora);
         try {
@@ -355,6 +405,32 @@ export default function NotificationBell() {
     });
 
     setItems((prev) => prev.map((it) => ({ ...it, leido: true })));
+    emitNotificationsChanged({ action: 'mark-all-read' });
+  };
+
+  const vaciarBuzonDesdeCampana = async () => {
+    try {
+      await api.put('/buzon/vaciar');
+      toast.success('Buzón de notificaciones vaciado');
+      const ahora = Date.now();
+      setVisto(ahora);
+      try {
+        localStorage.setItem(vistoKey, String(ahora));
+        const saved = JSON.parse(localStorage.getItem(readKey) || '[]');
+        const set = new Set(saved);
+        items.forEach((it) => {
+          set.add(it.id);
+          if (it.idMensaje) set.add(String(it.idMensaje));
+          if (it.idComunicado) set.add(String(it.idComunicado));
+        });
+        localStorage.setItem(readKey, JSON.stringify(Array.from(set)));
+      } catch {}
+      setItems((prev) => prev.filter((it) => !it.esPersonal));
+      emitNotificationsChanged({ action: 'vaciar' });
+      cargar();
+    } catch (err) {
+      toast.error('No se pudo vaciar el buzón');
+    }
   };
 
   const irA = (it) => {
@@ -379,6 +455,7 @@ export default function NotificationBell() {
       prev.map((item) => (item.id === it.id ? { ...item, leido: true } : item))
     );
 
+    emitNotificationsChanged({ action: 'mark-read', id: it.idMensaje || it.id });
     navigate(it.ruta || verMasRuta);
   };
 
@@ -446,17 +523,30 @@ export default function NotificationBell() {
                 )}
               </div>
 
-              {noLeidasCount > 0 && (
-                <button
-                  type="button"
-                  onClick={marcarTodasLeidas}
-                  title="Marcar todas como leídas"
-                  className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground px-2 py-1 rounded-md hover:bg-muted/70 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
-                >
-                  <CheckCheck className="h-3.5 w-3.5" aria-hidden="true" />
-                  <span className="hidden xs:inline">Leídas</span>
-                </button>
-              )}
+              <div className="flex items-center gap-1">
+                {noLeidasCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={marcarTodasLeidas}
+                    title="Marcar todas como leídas"
+                    className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground px-2 py-1 rounded-md hover:bg-muted/70 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+                  >
+                    <CheckCheck className="h-3.5 w-3.5" aria-hidden="true" />
+                    <span className="hidden xs:inline">Leídas</span>
+                  </button>
+                )}
+                {items.some((it) => it.esPersonal) && (
+                  <button
+                    type="button"
+                    onClick={vaciarBuzonDesdeCampana}
+                    title="Vaciar notificaciones personales del buzón"
+                    className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-rose-600 dark:hover:text-rose-400 px-2 py-1 rounded-md hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-destructive"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                    <span className="hidden xs:inline">Vaciar</span>
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Tabs de Filtro */}

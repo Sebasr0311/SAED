@@ -1,10 +1,11 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import {
   AlertCircle,
   Bell,
   Building2,
   Check,
+  CheckCheck,
   CheckCircle2,
   Clock,
   Copy,
@@ -24,6 +25,10 @@ import api from '../lib/api.js';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { useFetch } from '../lib/hooks.js';
 import { formatDateTime, imageSrc, cn } from '../lib/utils.js';
+import {
+  emitNotificationsChanged,
+  subscribeNotificationsChanged,
+} from '../lib/notificationsSync.js';
 
 function extractPin(item) {
   if (!item) return null;
@@ -77,6 +82,14 @@ export default function ResBuzonPage() {
     Promise.allSettled([refetch(), refetchAvisos()]).finally(() => {
       setTimeout(() => setRefreshing(false), 400);
       toast.success('Buzón de notificaciones actualizado');
+    });
+  }, [refetch, refetchAvisos]);
+
+  // Suscripción reactiva a cambios de notificaciones desde la campana o el sistema
+  useEffect(() => {
+    return subscribeNotificationsChanged(() => {
+      refetch();
+      refetchAvisos();
     });
   }, [refetch, refetchAvisos]);
 
@@ -146,9 +159,45 @@ export default function ResBuzonPage() {
     try {
       await api.put(`/buzon/${idMensaje}/leido`);
       setLeidosLocalmente((prev) => [...prev, idMensaje]);
+      const userKey = user?.id || user?.username || 'anon';
+      const readKey = `saed_read_notifs_${userKey}`;
+      try {
+        const saved = JSON.parse(localStorage.getItem(readKey) || '[]');
+        const set = new Set(saved);
+        set.add(`msg-${idMensaje}`);
+        set.add(String(idMensaje));
+        localStorage.setItem(readKey, JSON.stringify(Array.from(set)));
+      } catch {}
       refetch();
+      emitNotificationsChanged({ action: 'mark-read', id: idMensaje });
     } catch {
       /* degradación silenciosa */
+    }
+  }
+
+  async function marcarTodasLeidas() {
+    try {
+      await api.put('/buzon/marcar-todas-leidas');
+      toast.success('Todas las notificaciones fueron marcadas como leídas');
+      const userKey = user?.id || user?.username || 'anon';
+      const vistoKey = `saed_notif_visto_${userKey}`;
+      const readKey = `saed_read_notifs_${userKey}`;
+      try {
+        localStorage.setItem(vistoKey, String(Date.now()));
+        const saved = JSON.parse(localStorage.getItem(readKey) || '[]');
+        const set = new Set(saved);
+        items.forEach((m) => {
+          set.add(`msg-${m.idMensaje}`);
+          set.add(String(m.idMensaje));
+        });
+        avisos.forEach((a) => set.add(`aviso-${a.idComunicado || a.ID_COMUNICADO || a.id}`));
+        localStorage.setItem(readKey, JSON.stringify(Array.from(set)));
+      } catch {}
+      setLeidosLocalmente(items.map((m) => m.idMensaje));
+      refetch();
+      emitNotificationsChanged({ action: 'mark-all-read' });
+    } catch (err) {
+      toast.error('Error al marcar notificaciones como leídas');
     }
   }
 
@@ -195,9 +244,24 @@ export default function ResBuzonPage() {
     try {
       await api.put('/buzon/vaciar');
       toast.success('Buzón vaciado y mensajes archivados');
+      const userKey = user?.id || user?.username || 'anon';
+      const vistoKey = `saed_notif_visto_${userKey}`;
+      const readKey = `saed_read_notifs_${userKey}`;
+      try {
+        localStorage.setItem(vistoKey, String(Date.now()));
+        const saved = JSON.parse(localStorage.getItem(readKey) || '[]');
+        const set = new Set(saved);
+        items.forEach((m) => {
+          set.add(`msg-${m.idMensaje}`);
+          set.add(String(m.idMensaje));
+        });
+        avisos.forEach((a) => set.add(`aviso-${a.idComunicado || a.ID_COMUNICADO || a.id}`));
+        localStorage.setItem(readKey, JSON.stringify(Array.from(set)));
+      } catch {}
       setLeidosLocalmente([]);
       setSeleccionados([]);
       refetch();
+      emitNotificationsChanged({ action: 'vaciar' });
     } catch (err) {
       toast.error(err.message || 'No se pudo vaciar el buzón');
     } finally {
@@ -212,6 +276,18 @@ export default function ResBuzonPage() {
     try {
       await api.put('/buzon/vaciar-multi', { ids: seleccionados });
       toast.success(`${seleccionados.length} mensaje(s) archivado(s)`);
+      const userKey = user?.id || user?.username || 'anon';
+      const readKey = `saed_read_notifs_${userKey}`;
+      try {
+        const saved = JSON.parse(localStorage.getItem(readKey) || '[]');
+        const set = new Set(saved);
+        seleccionados.forEach((id) => {
+          set.add(`msg-${id}`);
+          set.add(String(id));
+        });
+        localStorage.setItem(readKey, JSON.stringify(Array.from(set)));
+      } catch {}
+      emitNotificationsChanged({ action: 'vaciar-multi', ids: seleccionados });
       setSeleccionados([]);
       refetch();
     } catch (err) {
@@ -296,6 +372,18 @@ export default function ResBuzonPage() {
             <RefreshCw className={cn('w-3.5 h-3.5', refreshing && 'animate-spin')} />
             <span className="hidden sm:inline">Actualizar</span>
           </Button>
+
+          {noLeidosCount > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={marcarTodasLeidas}
+              className="gap-1.5 shadow-sm text-xs text-muted-foreground hover:text-foreground"
+            >
+              <CheckCheck className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Marcar Leídas</span>
+            </Button>
+          )}
 
           {items.length > 0 && (
             <Button
