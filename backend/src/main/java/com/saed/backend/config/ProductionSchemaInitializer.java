@@ -44,6 +44,7 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
         initOnboardingIntenciones();
         initMembresiaOrg1();
         initPaquetesIntentosPin();
+        initPaquetesFotoClob();
 
         log.info("[SchemaInit] Verificación de esquema completada.");
     }
@@ -335,4 +336,28 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
             log.debug("[SchemaInit] Aviso al verificar INTENTOS_FALLIDOS_PIN en PAQUETES: {}", e.getMessage());
         }
     }
+
+    private void initPaquetesFotoClob() {
+        try {
+            java.util.List<java.util.Map<String, Object>> cols = jdbcTemplate.queryForList(
+                "SELECT COLUMN_NAME, DATA_TYPE FROM USER_TAB_COLS WHERE TABLE_NAME = 'PAQUETES' AND COLUMN_NAME IN ('FOTO_PAQUETE_URL', 'FOTO_COMPROBANTE_URL')"
+            );
+            for (java.util.Map<String, Object> col : cols) {
+                String name = (String) col.get("COLUMN_NAME");
+                String type = (String) col.get("DATA_TYPE");
+                if (!"CLOB".equalsIgnoreCase(type)) {
+                    log.info("[SchemaInit] Migrando columna {} de PAQUETES a CLOB...", name);
+                    String tempCol = name + "_CLOB";
+                    jdbcTemplate.execute("ALTER TABLE PAQUETES ADD (" + tempCol + " CLOB)");
+                    jdbcTemplate.execute("UPDATE PAQUETES SET " + tempCol + " = " + name);
+                    jdbcTemplate.execute("ALTER TABLE PAQUETES DROP COLUMN " + name);
+                    jdbcTemplate.execute("ALTER TABLE PAQUETES RENAME COLUMN " + tempCol + " TO " + name);
+                    log.info("[SchemaInit] Columna {} migrada exitosamente a CLOB.", name);
+                }
+            }
+        } catch (Exception e) {
+            log.warn("[SchemaInit] Aviso al verificar/migrar columnas CLOB de PAQUETES: {}", e.getMessage());
+        }
+    }
 }
+

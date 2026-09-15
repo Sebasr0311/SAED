@@ -60,8 +60,8 @@ public class PaquetesRepositoryImpl implements PaquetesRepository {
     private String sanitizeFoto(String foto, boolean isClob) {
         if (foto == null) return null;
         if (!isClob && foto.length() > 2000) {
-            log.warn("Foto truncada/descartada para prevenir ORA-12899 (columna en BD no es CLOB, actual: {} chars)", foto.length());
-            return null;
+            log.warn("Foto excede 2000 caracteres en columna no CLOB (longitud: {} chars). Truncando preventivamente.", foto.length());
+            return foto.substring(0, 2000);
         }
         return foto;
     }

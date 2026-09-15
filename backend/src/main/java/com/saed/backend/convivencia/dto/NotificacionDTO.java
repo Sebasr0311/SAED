@@ -32,6 +32,8 @@ public class NotificacionDTO {
     public void setFotoPaqueteUrl(String fotoPaqueteUrl) { this.fotoPaqueteUrl = fotoPaqueteUrl; }
     public LocalDateTime getFecha() { return this.fecha; }
     public void setFecha(LocalDateTime fecha) { this.fecha = fecha; }
+    public LocalDateTime getFechaEnvio() { return this.fecha; }
+    public LocalDateTime getFechaCreacion() { return this.fecha; }
     public Boolean getLeido() { return this.leido; }
     public void setLeido(Boolean leido) { this.leido = leido; }
 }

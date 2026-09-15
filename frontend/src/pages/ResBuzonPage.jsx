@@ -157,6 +157,21 @@ export default function ResBuzonPage() {
     if (!item.leido && !leidosLocalmente.includes(item.idMensaje)) {
       marcarLeido(item.idMensaje);
     }
+    if (item.tipo === 'PAQUETE' && (!item.fotoCaptura && !item.fotoPaqueteUrl) && item.enlaceDestino) {
+      api.get(item.enlaceDestino).then((res) => {
+        const pkg = res?.data || res;
+        if (pkg && (pkg.fotoPaqueteUrl || pkg.fotoCaptura)) {
+          setMensajeDetalle((prev) => (prev && prev.idMensaje === item.idMensaje ? {
+            ...prev,
+            fotoCaptura: pkg.fotoPaqueteUrl || pkg.fotoCaptura,
+            fotoPaqueteUrl: pkg.fotoPaqueteUrl || pkg.fotoCaptura,
+            fecha: prev.fecha || pkg.fechaRecepcion || pkg.fechaCreacion,
+            fechaEnvio: prev.fechaEnvio || pkg.fechaRecepcion || pkg.fechaCreacion,
+            fechaCreacion: prev.fechaCreacion || pkg.fechaRecepcion || pkg.fechaCreacion,
+          } : prev));
+        }
+      }).catch(() => {});
+    }
   }
 
   function toggleSeleccion(idMensaje) {
@@ -605,8 +620,9 @@ export default function ResBuzonPage() {
                       <Badge variant="outline" className="text-[10px] uppercase font-mono">
                         {item.tipo}
                       </Badge>
-                      <span className="text-[11px] text-muted-foreground whitespace-nowrap">
-                        {formatDateTime(item.fechaCreacion)}
+                      <span className="text-[11px] text-muted-foreground whitespace-nowrap flex items-center gap-1 font-mono">
+                        <Clock className="w-3 h-3 text-muted-foreground/70 shrink-0" />
+                        {formatDateTime(item.fecha || item.fechaEnvio || item.fechaCreacion)}
                       </span>
                     </div>
                   </div>
@@ -730,9 +746,9 @@ export default function ResBuzonPage() {
                 <Badge variant="outline" className="text-[10px] font-mono">
                   {mensajeDetalle.tipo}
                 </Badge>
-                <span className="text-muted-foreground flex items-center gap-1">
-                  <Clock className="w-3.5 h-3.5" />
-                  {formatDateTime(mensajeDetalle.fechaCreacion)}
+                <span className="text-muted-foreground flex items-center gap-1 font-medium font-mono">
+                  <Clock className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  {formatDateTime(mensajeDetalle.fecha || mensajeDetalle.fechaEnvio || mensajeDetalle.fechaCreacion)}
                 </span>
               </div>
               <span className="text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">

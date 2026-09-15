@@ -25,7 +25,7 @@ import {
 import { useTenantApi } from '../lib/useTenantApi.js';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { useFetch } from '../lib/hooks.js';
-import { formatDate, formatApto, imageSrc } from '../lib/utils.js';
+import { formatDate, formatDateTime, formatTime, formatApto, imageSrc } from '../lib/utils.js';
 import PageContainer from '../components/layout/PageContainer.jsx';
 import { MetricCard } from '../components/ui/MetricCard.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
@@ -196,6 +196,7 @@ export default function PaquetesPage() {
       img.src = evt.target?.result;
     };
     reader.readAsDataURL(file);
+    e.target.value = '';
   }
 
   // Cargar residentes destinatarios cuando se elige unidad
@@ -801,6 +802,7 @@ export default function PaquetesPage() {
                         <input
                           type="file"
                           accept="image/*"
+                          capture="environment"
                           className="hidden"
                           onChange={handleFileUpload}
                         />
@@ -970,8 +972,12 @@ export default function PaquetesPage() {
                             </span>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
-                          {formatDate(p.fechaRecepcion || p.fechaCreacion)}
+                        <td className="px-4 py-3 text-xs whitespace-nowrap">
+                          <div className="font-semibold text-foreground">{formatDate(p.fechaRecepcion || p.fechaCreacion)}</div>
+                          <div className="text-[11px] text-muted-foreground flex items-center gap-1 font-mono mt-0.5">
+                            <Clock className="w-3 h-3 text-emerald-500 shrink-0" />
+                            {formatTime(p.fechaRecepcion || p.fechaCreacion)}
+                          </div>
                         </td>
                         <td className="px-4 py-3">
                           {p.fotoPaqueteUrl || p.fotoCaptura ? (
@@ -1079,9 +1085,10 @@ export default function PaquetesPage() {
                         )}
                       </div>
                       <div>
-                        <span className="text-muted-foreground block">Recepción:</span>
-                        <span className="text-foreground">
-                          {formatDate(p.fechaRecepcion || p.fechaCreacion)}
+                        <span className="text-muted-foreground block text-[11px]">Recepción:</span>
+                        <span className="text-foreground font-medium flex items-center gap-1 text-xs">
+                          <Clock className="w-3 h-3 text-emerald-500 shrink-0" />
+                          {formatDateTime(p.fechaRecepcion || p.fechaCreacion)}
                         </span>
                       </div>
                     </div>
@@ -1321,7 +1328,7 @@ export default function PaquetesPage() {
       >
         {detalleModal && (
           <div className="space-y-4 p-1">
-            {(detalleModal.fotoPaqueteUrl || detalleModal.fotoCaptura) && (
+            {detalleModal.fotoPaqueteUrl || detalleModal.fotoCaptura ? (
               <div className="aspect-video w-full rounded-xl overflow-hidden border border-border bg-slate-950">
                 <img
                   src={imageSrc(detalleModal.fotoPaqueteUrl || detalleModal.fotoCaptura)}
@@ -1329,13 +1336,18 @@ export default function PaquetesPage() {
                   className="w-full h-full object-contain"
                 />
               </div>
+            ) : (
+              <div className="p-4 rounded-xl border border-dashed border-border bg-muted/20 text-center text-xs text-muted-foreground">
+                <Camera className="w-5 h-5 mx-auto text-muted-foreground/50 mb-1" />
+                <span>Sin fotografía de evidencia registrada</span>
+              </div>
             )}
 
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div className="p-2.5 rounded-lg bg-muted/40 border border-border/60">
                 <span className="text-muted-foreground block">Apartamento:</span>
                 <span className="font-bold text-foreground text-sm">
-                  Apto {detalleModal.numeroApartamento || 'N/A'}
+                  {formatApto(detalleModal.numeroApartamento)}
                 </span>
               </div>
               <div className="p-2.5 rounded-lg bg-muted/40 border border-border/60">
@@ -1359,9 +1371,17 @@ export default function PaquetesPage() {
               <p className="text-foreground">{detalleModal.descripcion || detalleModal.titulo}</p>
             </div>
 
-            <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t border-border/60">
-              <span>Recibido: {formatDate(detalleModal.fechaRecepcion || detalleModal.fechaCreacion)}</span>
-              {detalleModal.fechaEntrega && <span>Entregado: {formatDate(detalleModal.fechaEntrega)}</span>}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs text-muted-foreground pt-2 border-t border-border/60">
+              <span className="flex items-center gap-1.5 font-medium text-foreground">
+                <Clock className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                Recibido: {formatDateTime(detalleModal.fechaRecepcion || detalleModal.fechaCreacion)}
+              </span>
+              {detalleModal.fechaEntrega && (
+                <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-medium">
+                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                  Entregado: {formatDateTime(detalleModal.fechaEntrega)}
+                </span>
+              )}
             </div>
           </div>
         )}
