@@ -105,13 +105,20 @@ public class UnitInhabitantRepositoryImpl implements UnitInhabitantRepository {
     @Override
     public List<UnitResidentDTO> findResidentsByUnitId(Long unitId) {
         String sql = """
-            SELECT ru.ID_RESIDENTE_UNIDAD, ru.TIPO_RESIDENTE, ru.FECHA_INICIO, ru.FECHA_FIN, ru.ESTADO as ESTADO_RESIDENTE,
+            SELECT DISTINCT COALESCE(ru.ID_RESIDENTE_UNIDAD, ua.ID_ASIGNACION) as ID_RESIDENTE_UNIDAD,
+                   COALESCE(ru.TIPO_RESIDENTE, r.CODIGO, 'RESIDENTE') as TIPO_RESIDENTE,
+                   COALESCE(ru.FECHA_INICIO, ua.FECHA_INICIO, TRUNC(SYSDATE)) as FECHA_INICIO,
+                   ru.FECHA_FIN,
+                   COALESCE(ru.ESTADO, ua.ESTADO, 'ACTIVO') as ESTADO_RESIDENTE,
                    p.ID_PERSONA, p.ID_TIPO_DOCUMENTO, p.NUMERO_DOCUMENTO, p.TIPO_PERSONA, p.PRIMER_NOMBRE, p.SEGUNDO_NOMBRE, 
                    p.PRIMER_APELLIDO, p.SEGUNDO_APELLIDO, p.EMAIL, p.TELEFONO, p.ESTADO as ESTADO_PERSONA
-            FROM RESIDENTES_UNIDAD ru
-            JOIN PERSONAS p ON ru.ID_PERSONA = p.ID_PERSONA
-            WHERE ru.ID_UNIDAD = :unitId
-            ORDER BY ru.FECHA_INICIO DESC
+            FROM PERSONAS p
+            LEFT JOIN RESIDENTES_UNIDAD ru ON p.ID_PERSONA = ru.ID_PERSONA AND ru.ID_UNIDAD = :unitId AND ru.ESTADO IN ('ACTIVO', 'ACTIVA')
+            LEFT JOIN USUARIOS u ON p.ID_PERSONA = u.ID_PERSONA
+            LEFT JOIN USUARIO_ASIGNACIONES ua ON u.ID_USUARIO = ua.ID_USUARIO AND ua.ID_UNIDAD = :unitId AND ua.ESTADO IN ('ACTIVA', 'ACTIVO')
+            LEFT JOIN ROLES r ON ua.ID_ROL = r.ID_ROL
+            WHERE (ru.ID_UNIDAD = :unitId OR ua.ID_UNIDAD = :unitId)
+            ORDER BY FECHA_INICIO DESC
             """;
         return jdbcTemplate.query(sql, new MapSqlParameterSource("unitId", unitId), residentRowMapper);
     }

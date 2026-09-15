@@ -210,8 +210,28 @@ export default function PaquetesPage() {
     }
     setLoadingResidentes(true);
     try {
-      const res = await api.get('/residentes', { params: { idApartamento: val } });
-      const list = Array.isArray(res) ? res : res?.items || [];
+      let list = [];
+      try {
+        const res = await api.get('/residentes', { params: { idApartamento: val } });
+        list = Array.isArray(res) ? res : res?.items || [];
+      } catch (_) {
+        list = [];
+      }
+
+      if (list.length === 0) {
+        try {
+          const resUnits = await api.get(`/units/${val}/residents`);
+          const raw = Array.isArray(resUnits) ? resUnits : resUnits?.items || [];
+          list = raw.map((r) => ({
+            ID_PERSONA: r.persona?.idPersona || r.idPersona,
+            NOMBRES: r.persona?.primerNombre || r.primerNombre,
+            APELLIDOS: r.persona?.primerApellido || r.primerApellido,
+            NUMERO_DOCUMENTO: r.persona?.numeroDocumento || r.numeroDocumento,
+            TIPO: r.tipoResidente || 'RESIDENTE',
+          }));
+        } catch (_) {}
+      }
+
       setResidentesUnidad(list);
       if (list.length > 0) {
         const primer = list[0];
@@ -579,9 +599,15 @@ export default function PaquetesPage() {
                             const idPers = r.ID_PERSONA || r.idPersona;
                             const nom = `${r.NOMBRES || r.primerNombre || ''} ${r.APELLIDOS || r.primerApellido || ''}`.trim();
                             const doc = r.NUMERO_DOCUMENTO || r.numeroDocumento;
+                            const tipo = r.TIPO || r.tipoResidente || '';
+                            const tagTipo = tipo === 'RESIDENTE_CONVIVENCIA' || tipo === 'CONVIVIENTE'
+                              ? ' (Conviviente)'
+                              : tipo === 'RESIDENTE' || tipo === 'PROPIETARIO'
+                              ? ' (Titular)'
+                              : tipo ? ` (${tipo})` : '';
                             return (
                               <option key={idPers} value={idPers}>
-                                {nom} {doc ? `(${doc})` : ''}
+                                {nom}{tagTipo}{doc ? ` - Doc: ${doc}` : ''}
                               </option>
                             );
                           })}

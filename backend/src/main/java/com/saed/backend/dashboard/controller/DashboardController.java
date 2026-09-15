@@ -39,13 +39,19 @@ public class DashboardController {
             return List.of();
         }
         return jdbcTemplate.queryForList(
-            "SELECT p.ID_PERSONA, p.NUMERO_DOCUMENTO, " +
+            "SELECT DISTINCT p.ID_PERSONA, p.NUMERO_DOCUMENTO, " +
             "TRIM(p.PRIMER_NOMBRE || ' ' || COALESCE(p.SEGUNDO_NOMBRE, '')) AS NOMBRES, " +
             "TRIM(p.PRIMER_APELLIDO || ' ' || COALESCE(p.SEGUNDO_APELLIDO, '')) AS APELLIDOS, " +
-            "p.TELEFONO, p.EMAIL " +
-            "FROM RESIDENTES_UNIDAD ru " +
-            "JOIN PERSONAS p ON ru.ID_PERSONA = p.ID_PERSONA " +
-            "WHERE ru.ID_UNIDAD = :idApto AND ru.ESTADO = 'ACTIVO'",
+            "p.TELEFONO, p.EMAIL, " +
+            "COALESCE(r.CODIGO, ru.TIPO_RESIDENTE, 'RESIDENTE') AS TIPO " +
+            "FROM PERSONAS p " +
+            "LEFT JOIN RESIDENTES_UNIDAD ru ON p.ID_PERSONA = ru.ID_PERSONA AND ru.ID_UNIDAD = :idApto AND ru.ESTADO IN ('ACTIVO', 'ACTIVA') " +
+            "LEFT JOIN USUARIOS u ON p.ID_PERSONA = u.ID_PERSONA " +
+            "LEFT JOIN USUARIO_ASIGNACIONES ua ON u.ID_USUARIO = ua.ID_USUARIO AND ua.ID_UNIDAD = :idApto AND ua.ESTADO IN ('ACTIVA', 'ACTIVO') " +
+            "LEFT JOIN ROLES r ON ua.ID_ROL = r.ID_ROL " +
+            "LEFT JOIN PROPIETARIOS_UNIDAD pu ON p.ID_PERSONA = pu.ID_PERSONA AND pu.ID_UNIDAD = :idApto AND pu.ESTADO IN ('ACTIVO', 'ACTIVA') " +
+            "WHERE (ru.ID_UNIDAD = :idApto OR ua.ID_UNIDAD = :idApto OR pu.ID_UNIDAD = :idApto) " +
+            "ORDER BY NOMBRES, APELLIDOS",
             Map.of("idApto", idApartamento)
         );
     }
