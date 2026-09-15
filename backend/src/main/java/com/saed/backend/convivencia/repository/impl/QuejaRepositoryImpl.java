@@ -64,7 +64,7 @@ public class QuejaRepositoryImpl implements QuejaRepository {
                      "FROM PQRS_TICKETS q " +
                      "JOIN PERSONAS p ON q.ID_PERSONA_RADICA = p.ID_PERSONA " +
                      "LEFT JOIN UNIDADES u ON q.ID_UNIDAD = u.ID_UNIDAD " +
-                     "WHERE p.ID_USUARIO = :idUsuario " +
+                     "WHERE p.ID_PERSONA = (SELECT u2.ID_PERSONA FROM USUARIOS u2 WHERE u2.ID_USUARIO = :idUsuario) " +
                      "ORDER BY q.FECHA_RADICACION DESC";
         return jdbc.query(sql, new MapSqlParameterSource("idUsuario", idUsuario), this::mapRow);
     }
@@ -72,7 +72,7 @@ public class QuejaRepositoryImpl implements QuejaRepository {
     @Override
     public void create(QuejaRequestDTO dto, Long idUsuario, Long idPropiedad) {
         String sql = "INSERT INTO PQRS_TICKETS (ID_PROPIEDAD, ID_PERSONA_RADICA, NUMERO_RADICADO, TIPO, CATEGORIA, ASUNTO, DESCRIPCION, FECHA_LIMITE_SLA) " +
-                     "VALUES (:propiedad, (SELECT ID_PERSONA FROM PERSONAS WHERE ID_USUARIO = :idUsuario), " +
+                     "VALUES (:propiedad, (SELECT ID_PERSONA FROM USUARIOS WHERE ID_USUARIO = :idUsuario), " +
                      "'PQR-' || TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'), :tipo, :cat, :titulo, :desc, SYSDATE + 5)";
         jdbc.update(sql, new MapSqlParameterSource()
                 .addValue("propiedad", idPropiedad)

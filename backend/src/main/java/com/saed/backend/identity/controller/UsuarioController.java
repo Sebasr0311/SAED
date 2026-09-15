@@ -34,18 +34,21 @@ public class UsuarioController {
     private final org.springframework.beans.factory.ObjectProvider<com.saed.backend.identity.service.TokenActivacionService> tokenServiceProvider;
     private final com.saed.backend.common.service.EmailService emailService;
     private final com.saed.backend.person.service.ConvivienteQuotaService convivienteQuotaService;
+    private final com.saed.backend.platform.service.PlanLimitService planLimitService;
 
     public UsuarioController(
             NamedParameterJdbcTemplate jdbcTemplate,
             PasswordEncoder passwordEncoder,
             org.springframework.beans.factory.ObjectProvider<com.saed.backend.identity.service.TokenActivacionService> tokenServiceProvider,
             com.saed.backend.common.service.EmailService emailService,
-            com.saed.backend.person.service.ConvivienteQuotaService convivienteQuotaService) {
+            com.saed.backend.person.service.ConvivienteQuotaService convivienteQuotaService,
+            com.saed.backend.platform.service.PlanLimitService planLimitService) {
         this.jdbcTemplate = jdbcTemplate;
         this.passwordEncoder = passwordEncoder;
         this.tokenServiceProvider = tokenServiceProvider;
         this.emailService = emailService;
         this.convivienteQuotaService = convivienteQuotaService;
+        this.planLimitService = planLimitService;
     }
 
     @Operation(summary = "Listar usuarios del sistema con sus roles y personas vinculadas dentro del perímetro del tenant")
@@ -313,6 +316,9 @@ public class UsuarioController {
                 }
             }
 
+            // Validar límite de usuarios de la organización según su membresía SaaS
+            planLimitService.validateAndLockUserLimit(effectiveOrgId, existingUserToReactivate);
+
             // Verificar unicidad de username (permitiendo reutilización si es la misma cuenta que se reactiva)
             List<Long> uCheck = jdbcTemplate.query(
                     "SELECT ID_USUARIO FROM USUARIOS WHERE LOWER(NOMBRE_USUARIO) = :u",
@@ -442,34 +448,12 @@ public class UsuarioController {
             Long idRol = null;
             try {
                 List<Long> rList = jdbcTemplate.query(
-                    "SELECT ID_ROL FROM ROLES WHERE CODIGO = :cod",
+                    "SELECT ID_ROL FROM ROLES WHERE CODIGO = :cod AND ESTADO = 'ACTIVO'",
                     Map.of("cod", rol),
                     (rs, rowNum) -> rs.getLong(1)
                 );
                 if (!rList.isEmpty()) idRol = rList.get(0);
             } catch (Exception ignored) {}
-            if (idRol == null && "RESIDENTE_CONVIVENCIA".equals(rol)) {
-                try {
-                    try {
-                        jdbcTemplate.getJdbcOperations().execute("ALTER TABLE ROLES DROP CONSTRAINT CK_ROLES_CODIGO");
-                        jdbcTemplate.getJdbcOperations().execute("ALTER TABLE ROLES ADD CONSTRAINT CK_ROLES_CODIGO CHECK (codigo IN ('SUPERADMIN', 'ADMIN_ORGANIZACION', 'PROPIETARIO', 'ADMIN_GENERAL', 'ADMIN_PROPIEDAD', 'PORTERO', 'VIGILANTE', 'RESIDENTE', 'RESIDENTE_CONVIVENCIA', 'PROPIETARIO_UNIDAD'))");
-                    } catch (Exception ignored) {}
-
-                    jdbcTemplate.getJdbcOperations().execute("""
-                        MERGE INTO ROLES r USING (
-                            SELECT 'RESIDENTE_CONVIVENCIA' AS CODIGO, 'Residente Conviviente' AS NOMBRE, 'UNIDAD' AS ALCANCE, 'ACTIVO' AS ESTADO FROM DUAL
-                        ) s ON (r.CODIGO = s.CODIGO)
-                        WHEN NOT MATCHED THEN INSERT (CODIGO, NOMBRE, ALCANCE, ESTADO) VALUES (s.CODIGO, s.NOMBRE, s.ALCANCE, s.ESTADO)
-                    """);
-                    List<Long> rList = jdbcTemplate.query(
-                        "SELECT ID_ROL FROM ROLES WHERE CODIGO = 'RESIDENTE_CONVIVENCIA'",
-                        (rs, rowNum) -> rs.getLong(1)
-                    );
-                    if (!rList.isEmpty()) idRol = rList.get(0);
-                } catch (Exception e) {
-                    log.error("Error al asegurar rol RESIDENTE_CONVIVENCIA: {}", e.getMessage());
-                }
-            }
             if (idRol == null) {
                 return ResponseEntity.badRequest()
                         .body(ApiResponse.error("El rol especificado no existe o no está activo en el sistema: " + rol));

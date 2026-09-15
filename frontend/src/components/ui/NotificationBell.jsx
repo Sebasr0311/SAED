@@ -51,6 +51,16 @@ function clasificarTipo(item) {
   return 'INFO';
 }
 
+function extractPin(item) {
+  if (!item) return null;
+  if (item.codigoRetiroPin && /^[0-9]{4}$/.test(String(item.codigoRetiroPin).trim())) {
+    return String(item.codigoRetiroPin).trim();
+  }
+  const text = `${item.cuerpo || ''} ${item.titulo || ''}`;
+  const match = text.match(/(?:código(?:\s+de)?\s+retiro\s+PIN|PIN(?:\s+de\s+retiro)?)\s*[:#]?\s*([0-9]{4})/i);
+  return match ? match[1] : null;
+}
+
 function getIconoConfig(tipo) {
   switch (tipo) {
     case 'PAGO':
@@ -170,6 +180,7 @@ export default function NotificationBell() {
           tipo: it.tipo || clasificarTipo({ titulo: it.titulo, cuerpo: it.cuerpo }),
           titulo: it.titulo || 'Notificación',
           cuerpo: it.cuerpo || it.mensaje || '',
+          codigoRetiroPin: it.codigoRetiroPin,
           fecha: it.fecha || it.fechaEnvio,
           leido: leidoDb || leidoLocal,
           esPersonal: true,
@@ -540,6 +551,7 @@ export default function NotificationBell() {
                 const tipoCalculado = clasificarTipo(it);
                 const { icon, color } = getIconoConfig(tipoCalculado);
                 const noLeida = esNoLeida(it);
+                const pin = extractPin(it);
 
                 return (
                   <button
@@ -588,6 +600,15 @@ export default function NotificationBell() {
                         <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5 leading-relaxed">
                           {it.cuerpo}
                         </p>
+                      )}
+
+                      {pin && (
+                        <div className="mt-1.5 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-[11px] font-semibold">
+                          <span>PIN:</span>
+                          <span className="font-mono font-black tracking-widest text-xs bg-emerald-100 dark:bg-emerald-900 px-1 rounded">
+                            {pin}
+                          </span>
+                        </div>
                       )}
                     </div>
                   </button>

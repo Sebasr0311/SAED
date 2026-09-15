@@ -45,7 +45,7 @@ public class TicketServiceImpl implements TicketService {
         TicketResponseDTO ticket = ticketRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Ticket no encontrado"));
         com.saed.backend.context.SaedContext ctx = SaedContextHolder.getContext();
-        if ("RESIDENTE".equals(ctx.getRoleCode()) || "UNIDAD".equals(ctx.getRoleScope())) {
+        if ("RESIDENTE".equals(ctx.getRoleCode()) || "RESIDENTE_CONVIVENCIA".equals(ctx.getRoleCode()) || "UNIDAD".equals(ctx.getRoleScope())) {
             Long userId = ctx.getUserId();
             if (userId != null) {
                 try {

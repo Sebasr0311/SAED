@@ -20,11 +20,12 @@ public class AuditSanitizer {
             "token", "accesstoken", "refreshtoken", "jwt", "bearer",
             "secret", "eventssecret", "wompisignedsecret", "webhooksecret", "apisecret", "apikey",
             "signature", "checksum", "cvv", "cvc", "cardnumber", "pan", "pin",
+            "codigoretiropin", "codigoretiro", "piningresado", "retiropin",
             "authorization", "cookie", "set-cookie", "credentials"
     );
 
     private static final Pattern SENSITIVE_KEY_PATTERN = Pattern.compile(
-            ".*(password|contrase|token|secret|signature|checksum|cvv|apikey|credential|authorization).*",
+            ".*(password|contrase|token|secret|signature|checksum|cvv|apikey|credential|authorization|pin|codigoretiro).*",
             Pattern.CASE_INSENSITIVE
     );
 

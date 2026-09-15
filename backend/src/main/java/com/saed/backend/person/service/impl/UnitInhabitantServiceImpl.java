@@ -104,10 +104,23 @@ public class UnitInhabitantServiceImpl implements UnitInhabitantService {
             }
         }
 
-        // Si es tipo conviviente (no titular), validar cuota con bloqueo pesimista
+        // Si es tipo CONVIVIENTE, validar cuota con bloqueo pesimista (excluye titular, familiar y otro)
         String tipo = request.tipoResidente() != null ? request.tipoResidente().trim().toUpperCase() : "";
-        if ("CONVIVIENTE".equals(tipo) || "FAMILIAR".equals(tipo) || "OTRO".equals(tipo)) {
+        if ("CONVIVIENTE".equals(tipo)) {
             convivienteQuotaService.validateAndLockQuota(unitId);
+        }
+
+        // Si es tipo ARRENDATARIO, validar que exista un contrato activo asociado a la unidad y persona
+        if ("ARRENDATARIO".equals(tipo)) {
+            Integer activeContracts = jdbcTemplate.queryForObject(
+                "SELECT COUNT(1) FROM CONTRATOS WHERE ID_UNIDAD = :unitId AND ID_ARRENDATARIO_PRINCIPAL = :personaId AND ESTADO = 'ACTIVO'",
+                new org.springframework.jdbc.core.namedparam.MapSqlParameterSource("unitId", unitId)
+                    .addValue("personaId", request.personaId()),
+                Integer.class
+            );
+            if (activeContracts == null || activeContracts == 0) {
+                throw new IllegalArgumentException("Un habitante de tipo ARRENDATARIO requiere un contrato de arrendamiento activo asociado a la unidad");
+            }
         }
 
         return unitInhabitantRepository.insertResident(unitId, request);
@@ -136,6 +149,19 @@ public class UnitInhabitantServiceImpl implements UnitInhabitantService {
         }
 
         if ("ACTIVO".equalsIgnoreCase(status)) {
+            String tipo = resident.tipoResidente() != null ? resident.tipoResidente().toUpperCase() : "";
+            if ("ARRENDATARIO".equals(tipo)) {
+                Long personaId = resident.persona() != null ? resident.persona().id() : null;
+                Integer activeContracts = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(1) FROM CONTRATOS WHERE ID_UNIDAD = :unitId AND ID_ARRENDATARIO_PRINCIPAL = :personaId AND ESTADO = 'ACTIVO'",
+                    new org.springframework.jdbc.core.namedparam.MapSqlParameterSource("unitId", unitId)
+                        .addValue("personaId", personaId),
+                    Integer.class
+                );
+                if (activeContracts == null || activeContracts == 0) {
+                    throw new IllegalArgumentException("No se puede activar un arrendatario sin un contrato de arrendamiento activo asociado a la unidad");
+                }
+            }
             convivienteQuotaService.validateAndLockQuotaForReactivation(unitId, residentId);
         }
 

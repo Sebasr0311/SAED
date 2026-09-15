@@ -18,7 +18,7 @@ public class NotificacionRepositoryImpl implements NotificacionRepository {
 
     @Override
     public List<NotificacionDTO> findByUsuarioDestinatario(Long idUsuario) {
-        String sql = "SELECT ID_NOTIFICACION, TITULO, MENSAJE, FECHA_ENVIO, FECHA_LEIDO " +
+        String sql = "SELECT ID_NOTIFICACION, TITULO, MENSAJE, ENLACE_DESTINO, FECHA_ENVIO, FECHA_LEIDO " +
                      "FROM NOTIFICACIONES " +
                      "WHERE ID_USUARIO_DESTINATARIO = :idUsuario " +
                      "ORDER BY FECHA_ENVIO DESC";
@@ -27,10 +27,33 @@ public class NotificacionRepositoryImpl implements NotificacionRepository {
             dto.setIdMensaje(rs.getLong("ID_NOTIFICACION"));
             dto.setTitulo(rs.getString("TITULO"));
             dto.setCuerpo(rs.getString("MENSAJE"));
-            if(rs.getTimestamp("FECHA_ENVIO") != null) {
+            dto.setEnlaceDestino(rs.getString("ENLACE_DESTINO"));
+            if (rs.getTimestamp("FECHA_ENVIO") != null) {
                 dto.setFecha(rs.getTimestamp("FECHA_ENVIO").toLocalDateTime());
             }
             dto.setLeido(rs.getTimestamp("FECHA_LEIDO") != null);
+
+            // Inferir tipo de notificación para la UI
+            String tit = (dto.getTitulo() != null ? dto.getTitulo() : "").toUpperCase();
+            String cuerpo = (dto.getCuerpo() != null ? dto.getCuerpo() : "").toUpperCase();
+            if (tit.contains("PAQUETE") || cuerpo.contains("PAQUETE") || cuerpo.contains("PIN")) {
+                dto.setTipo("PAQUETE");
+                java.util.regex.Matcher m = java.util.regex.Pattern.compile(
+                        "(?:código(?:\\s+de)?\\s+retiro\\s+PIN|PIN(?:\\s+de\\s+retiro)?)\\s*[:#]?\\s*([0-9]{4})",
+                        java.util.regex.Pattern.CASE_INSENSITIVE
+                ).matcher(dto.getCuerpo() != null ? dto.getCuerpo() : "");
+                if (m.find()) {
+                    dto.setCodigoRetiroPin(m.group(1));
+                }
+            } else if (tit.contains("VISITA") || cuerpo.contains("VISITA")) {
+                dto.setTipo("VISITA");
+            } else if (tit.contains("SANCION") || tit.contains("MULTA")) {
+                dto.setTipo("SANCION");
+            } else if (tit.contains("AVISO") || tit.contains("COMUNICADO")) {
+                dto.setTipo("COMUNICADO");
+            } else {
+                dto.setTipo("AVISO");
+            }
             return dto;
         });
     }

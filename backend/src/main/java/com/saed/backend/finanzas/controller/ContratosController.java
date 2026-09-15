@@ -18,7 +18,7 @@ import java.util.Map;
 @Tag(name = "Contratos", description = "API para la gestion de Contratos")
 @RestController
 @RequestMapping("/api/v1/contratos")
-@PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
+@PreAuthorize("hasAuthority('SCOPE_SUPERADMIN') or hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
 public class ContratosController {
     private final FinanzasService finanzasService;
     public ContratosController(FinanzasService finanzasService) { this.finanzasService = finanzasService; }
@@ -29,18 +29,21 @@ public class ContratosController {
     }
 
     @PostMapping
+    @Auditable(action = "CREATE", resource = "CONTRATO", category = AuditCategory.FINANCIAL, severity = AuditSeverity.HIGH)
     public ResponseEntity<Map<String, Object>> createContrato(@Valid @RequestBody ContratoRequestDTO request) {
         Long id = finanzasService.createContrato(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("success", true, "id", id));
     }
 
     @PostMapping("/{id}/activar")
+    @Auditable(action = "ACTIVATE", resource = "CONTRATO", category = AuditCategory.FINANCIAL, severity = AuditSeverity.HIGH)
     public ResponseEntity<Map<String, Object>> activarContrato(@PathVariable Long id) {
         finanzasService.actualizarEstadoContrato(id, "ACTIVO");
         return ResponseEntity.ok(Map.of("success", true));
     }
 
     @PostMapping("/{id}/cancelar")
+    @Auditable(action = "CANCEL", resource = "CONTRATO", category = AuditCategory.FINANCIAL, severity = AuditSeverity.HIGH)
     public ResponseEntity<Map<String, Object>> cancelarContrato(@PathVariable Long id) {
         finanzasService.actualizarEstadoContrato(id, "CANCELADO");
         return ResponseEntity.ok(Map.of("success", true));

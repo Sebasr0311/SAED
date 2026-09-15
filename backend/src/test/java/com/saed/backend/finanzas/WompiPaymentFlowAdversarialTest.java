@@ -73,10 +73,12 @@ public class WompiPaymentFlowAdversarialTest {
 
     private Long ensureTestCuota() {
         List<Map<String, Object>> cuotas = jdbcTemplate.queryForList(
-            "SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD = 1 AND ESTADO = 'PENDIENTE'"
+            "SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD = 1 ORDER BY ID_CUOTA ASC"
         );
         if (!cuotas.isEmpty()) {
-            return ((Number) cuotas.get(0).get("ID_CUOTA")).longValue();
+            Long id = ((Number) cuotas.get(0).get("ID_CUOTA")).longValue();
+            jdbcTemplate.update("UPDATE CUOTAS SET ESTADO = 'PENDIENTE', SALDO_PENDIENTE = 250000 WHERE ID_CUOTA = ?", id);
+            return id;
         }
 
         List<Map<String, Object>> conceptos = jdbcTemplate.queryForList(

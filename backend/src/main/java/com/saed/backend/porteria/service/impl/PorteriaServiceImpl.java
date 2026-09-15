@@ -127,7 +127,28 @@ public class PorteriaServiceImpl implements PorteriaService {
                 throw new org.springframework.security.access.AccessDeniedException("La unidad no pertenece a la propiedad asignada");
             }
         }
-        return porteriaRepository.createVisita(request);
+        // SEC-02: Server-controlled autorizador (prevencion de suplantacion)
+        Long serverAutorizadoPor = ctx != null ? ctx.getUserId() : null;
+        if (serverAutorizadoPor == null) {
+            org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.isAuthenticated() && !(auth instanceof org.springframework.security.authentication.AnonymousAuthenticationToken)) {
+                try { serverAutorizadoPor = Long.parseLong(auth.getName()); } catch (Exception ignored) {}
+            }
+        }
+        if (serverAutorizadoPor == null) {
+            serverAutorizadoPor = request.autorizadoPor();
+        }
+
+        VisitaRequestDTO safeRequest = new VisitaRequestDTO(
+            request.unidadId(),
+            request.visitanteId(),
+            request.metodoIngreso(),
+            request.motivo(),
+            serverAutorizadoPor,
+            request.fechaProgramada(),
+            request.estado()
+        );
+        return porteriaRepository.createVisita(safeRequest);
     }
 
     @Override
@@ -176,7 +197,18 @@ public class PorteriaServiceImpl implements PorteriaService {
 
     @Override
     public VisitaDTO actualizarVisita(Long id, VisitaRequestDTO request) {
-        return porteriaRepository.updateVisita(id, request);
+        VisitaDTO existing = getVisitaById(id);
+        // SEC-02: Retain original autorizadoPor to prevent tampering on update
+        VisitaRequestDTO safeRequest = new VisitaRequestDTO(
+            request.unidadId(),
+            request.visitanteId(),
+            request.metodoIngreso(),
+            request.motivo(),
+            existing.autorizadoPor(),
+            request.fechaProgramada(),
+            request.estado()
+        );
+        return porteriaRepository.updateVisita(id, safeRequest);
     }
 
     @Override
@@ -211,7 +243,26 @@ public class PorteriaServiceImpl implements PorteriaService {
 
     @Override
     public QrAccesoDTO generarQrAcceso(QrAccesoRequestDTO request) {
-        QrAccesoDTO qr = porteriaRepository.createQrAcceso(request);
+        // SEC-02: Enforce server-controlled generadoPor
+        Long serverGeneradoPor = SaedContextHolder.getContext() != null ? SaedContextHolder.getContext().getUserId() : null;
+        if (serverGeneradoPor == null) {
+            org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.isAuthenticated() && !(auth instanceof org.springframework.security.authentication.AnonymousAuthenticationToken)) {
+                try { serverGeneradoPor = Long.parseLong(auth.getName()); } catch (Exception ignored) {}
+            }
+        }
+        if (serverGeneradoPor == null) {
+            serverGeneradoPor = request.generadoPor();
+        }
+        QrAccesoRequestDTO safeRequest = new QrAccesoRequestDTO(
+            request.visitaId(),
+            request.tokenQr(),
+            request.fechaExpiracion(),
+            request.usosPermitidos(),
+            request.estado(),
+            serverGeneradoPor
+        );
+        QrAccesoDTO qr = porteriaRepository.createQrAcceso(safeRequest);
         try {
             Long unitId = SaedContextHolder.getContext().getUnitId();
             List<Map<String, Object>> residentes = jdbcTemplate.queryForList(

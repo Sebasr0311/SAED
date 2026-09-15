@@ -161,9 +161,12 @@ public class Mvp05PaqueteriaParqueaderosTest {
         jdbcTemplate.execute("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(5); PKG_SAED_SESSION.SET_CONTEXT(5, 1, 1, 'RESIDENTE'); END;");
 
         // 1. Attempt to get package belonging to Unit 1
-        assertThrows(AccessDeniedException.class, () -> {
+        try {
             paquetesController.getPaqueteById(createdPaqueteId);
-        }, "Resident from Unit 2 must be denied access to Unit 1's package (Anti-IDOR)");
+            fail("Resident from Unit 2 must be denied access to Unit 1's package (Anti-IDOR)");
+        } catch (AccessDeniedException | java.util.NoSuchElementException expected) {
+            // Denied access by application level check or filtered by Oracle RLS
+        }
 
         // 2. Attempt to query buzon of Unit 1
         assertThrows(AccessDeniedException.class, () -> {
@@ -184,8 +187,16 @@ public class Mvp05PaqueteriaParqueaderosTest {
                 .roleCode("PORTERO").roleScope("PROPIEDAD").build());
         jdbcTemplate.execute("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(3); PKG_SAED_SESSION.SET_CONTEXT(3, 1, 1, 'PORTERO'); END;");
 
-        // Call direct entrega via compatibility endpoint
-        ResponseEntity<Void> entregaResp = buzonController.marcarPaqueteEntregado(createdPaqueteId);
+        // Verify direct delivery without PIN is rejected
+        assertThrows(UnsupportedOperationException.class, () -> {
+            buzonController.marcarPaqueteEntregado(createdPaqueteId);
+        });
+
+        // Call secure entrega via official endpoint with valid PIN
+        ResponseEntity<PaqueteDTO> entregaResp = paquetesController.registrarEntrega(
+                createdPaqueteId,
+                new PaqueteEntregaDTO(createdPaquetePin, 4L, 1L, null)
+        );
         assertNotNull(entregaResp);
         assertEquals(200, entregaResp.getStatusCode().value());
 

@@ -29,19 +29,19 @@ public class TicketController {
     }
 
     @GetMapping("/mis-tickets")
-    @PreAuthorize("hasAuthority('SCOPE_RESIDENTE')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA')")
     public ResponseEntity<List<TicketResponseDTO>> getMyTickets() {
         return ResponseEntity.ok(ticketService.getMyTickets());
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA')")
     public ResponseEntity<TicketResponseDTO> getTicketById(@PathVariable Long id) {
         return ResponseEntity.ok(ticketService.getTicketById(id));
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA')")
     public ResponseEntity<Long> createTicket(@RequestBody TicketRequestDTO request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(ticketService.createTicket(request));
     }

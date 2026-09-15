@@ -29,13 +29,13 @@ public class UnitController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_PORTERO', 'SCOPE_RESIDENTE')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_PORTERO', 'SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA')")
     public ResponseEntity<List<UnitDTO>> findAll() {
         return ResponseEntity.ok(unitService.findAll());
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_PORTERO', 'SCOPE_RESIDENTE')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_PORTERO', 'SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA')")
     public ResponseEntity<UnitDTO> findById(@PathVariable Long id) {
         return ResponseEntity.ok(unitService.findById(id));
     }

@@ -42,6 +42,8 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
         initResidentesUnidadConstraints();
         initTokensActivacion();
         initOnboardingIntenciones();
+        initMembresiaOrg1();
+        initPaquetesIntentosPin();
 
         log.info("[SchemaInit] Verificación de esquema completada.");
     }
@@ -281,19 +283,56 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
                         VALUES (s.CODIGO, s.NOMBRE, s.ALCANCE, s.ESTADO);
 
                     UPDATE USUARIO_ASIGNACIONES ua
-                    SET ua.ID_ROL = (SELECT ID_ROL FROM ROLES WHERE CODIGO = 'RESIDENTE_CONVIVENCIA')
+                    SET ua.ID_ROL = (SELECT ID_ROL FROM ROLES WHERE CODIGO = 'RESIDENTE_CONVIVENCIA' AND ESTADO = 'ACTIVO')
                     WHERE ua.ID_USUARIO IN (
                         SELECT u.ID_USUARIO FROM USUARIOS u
                         JOIN RESIDENTES_UNIDAD ru ON ru.ID_PERSONA = u.ID_PERSONA
                         WHERE ru.TIPO_RESIDENTE = 'CONVIVIENTE'
+                          AND ru.ESTADO = 'ACTIVO'
+                          AND ru.ID_UNIDAD = ua.ID_UNIDAD
                     )
-                    AND ua.ID_ROL = (SELECT ID_ROL FROM ROLES WHERE CODIGO = 'RESIDENTE');
+                    AND ua.ID_ROL = (SELECT ID_ROL FROM ROLES WHERE CODIGO = 'RESIDENTE' AND ESTADO = 'ACTIVO')
+                    AND ua.ESTADO IN ('ACTIVO', 'ACTIVA');
                 END;
             """);
 
             log.info("[SchemaInit] Roles canónicos verificados exitosamente.");
         } catch (Exception e) {
             log.warn("[SchemaInit] Aviso al verificar roles canónicos: {}", e.getMessage());
+        }
+    }
+
+    private void initMembresiaOrg1() {
+        try {
+            runElevated("""
+                MERGE INTO MEMBRESIAS m USING (
+                    SELECT 1 AS ID_ORGANIZACION, 2 AS ID_PLAN, TRUNC(SYSDATE) AS FECHA_INICIO,
+                           ADD_MONTHS(TRUNC(SYSDATE), 120) AS FECHA_FIN, 'ACTIVA' AS ESTADO, 'N' AS ES_PRUEBA
+                    FROM DUAL
+                ) s ON (m.ID_ORGANIZACION = s.ID_ORGANIZACION AND m.ESTADO IN ('ACTIVA', 'PRUEBA'))
+                WHEN NOT MATCHED THEN
+                    INSERT (ID_ORGANIZACION, ID_PLAN, FECHA_INICIO, FECHA_FIN, ESTADO, ES_PRUEBA)
+                    VALUES (s.ID_ORGANIZACION, s.ID_PLAN, s.FECHA_INICIO, s.FECHA_FIN, s.ESTADO, s.ES_PRUEBA)
+            """);
+            log.info("[SchemaInit] Membresía activa para organización 1 verificada exitosamente.");
+        } catch (Exception e) {
+            log.warn("[SchemaInit] Aviso al verificar membresía organización 1: {}", e.getMessage());
+        }
+    }
+
+    private void initPaquetesIntentosPin() {
+        try {
+            Integer count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(1) FROM USER_TAB_COLS WHERE TABLE_NAME = 'PAQUETES' AND COLUMN_NAME = 'INTENTOS_FALLIDOS_PIN'",
+                Integer.class
+            );
+            if (count == null || count == 0) {
+                log.info("[SchemaInit] Agregando columna INTENTOS_FALLIDOS_PIN a tabla PAQUETES...");
+                jdbcTemplate.execute("ALTER TABLE PAQUETES ADD (INTENTOS_FALLIDOS_PIN NUMBER)");
+                jdbcTemplate.execute("ALTER TABLE PAQUETES MODIFY (INTENTOS_FALLIDOS_PIN DEFAULT 0)");
+            }
+        } catch (Exception e) {
+            log.debug("[SchemaInit] Aviso al verificar INTENTOS_FALLIDOS_PIN en PAQUETES: {}", e.getMessage());
         }
     }
 }

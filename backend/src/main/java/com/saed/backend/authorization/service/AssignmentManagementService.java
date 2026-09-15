@@ -22,13 +22,19 @@ public class AssignmentManagementService {
     private final AssignmentRepository assignmentRepository;
     private final RoleRepository roleRepository;
     private final PropertyRepository propertyRepository;
+    private final com.saed.backend.platform.service.PlanLimitService planLimitService;
+    private final org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbcTemplate;
 
     public AssignmentManagementService(AssignmentRepository assignmentRepository,
                                        RoleRepository roleRepository,
-                                       PropertyRepository propertyRepository) {
+                                       PropertyRepository propertyRepository,
+                                       com.saed.backend.platform.service.PlanLimitService planLimitService,
+                                       org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbcTemplate) {
         this.assignmentRepository = assignmentRepository;
         this.roleRepository = roleRepository;
         this.propertyRepository = propertyRepository;
+        this.planLimitService = planLimitService;
+        this.jdbcTemplate = jdbcTemplate;
     }
 
     @Auditable(action = "CREATE", resource = "ASIGNACION", category = AuditCategory.AUTHORIZATION, severity = AuditSeverity.CRITICAL)
@@ -120,6 +126,10 @@ public class AssignmentManagementService {
                 throw new IllegalArgumentException("Unknown role scope: " + targetRole.getAlcance());
         }
 
+        if (request.getIdOrganizacion() != null) {
+            planLimitService.validateAndLockUserLimit(request.getIdOrganizacion(), request.getIdUsuario());
+        }
+
         return assignmentRepository.create(request, ctx.getUserId());
     }
 
@@ -132,6 +142,22 @@ public class AssignmentManagementService {
 
         if (!"SUPERADMIN".equals(currentCode) && !"ADMIN_ORGANIZACION".equals(currentCode) && !"ADMIN_PROPIEDAD".equals(currentCode)) {
             throw new AccessDeniedException("No tiene permisos para modificar el estado de asignaciones");
+        }
+
+        if ("ACTIVA".equalsIgnoreCase(estado) || "ACTIVO".equalsIgnoreCase(estado)) {
+            java.util.List<java.util.Map<String, Object>> rows = jdbcTemplate.queryForList(
+                    "SELECT ID_ORGANIZACION, ID_USUARIO, ESTADO FROM USUARIO_ASIGNACIONES WHERE ID_ASIGNACION = :id",
+                    java.util.Map.of("id", id)
+            );
+            if (!rows.isEmpty()) {
+                java.util.Map<String, Object> row = rows.get(0);
+                String currentEstado = (String) row.get("ESTADO");
+                Number orgIdNum = (Number) row.get("ID_ORGANIZACION");
+                Number userIdNum = (Number) row.get("ID_USUARIO");
+                if (orgIdNum != null && !"ACTIVA".equalsIgnoreCase(currentEstado) && !"ACTIVO".equalsIgnoreCase(currentEstado)) {
+                    planLimitService.validateAndLockUserLimit(orgIdNum.longValue(), userIdNum != null ? userIdNum.longValue() : null);
+                }
+            }
         }
 
         assignmentRepository.updateStatus(id, estado);

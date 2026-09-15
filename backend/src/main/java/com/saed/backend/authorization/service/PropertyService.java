@@ -18,10 +18,14 @@ public class PropertyService {
 
     private final PropertyRepository propertyRepository;
     private final PropertyStatusService propertyStatusService;
+    private final com.saed.backend.platform.service.PlanLimitService planLimitService;
 
-    public PropertyService(PropertyRepository propertyRepository, PropertyStatusService propertyStatusService) {
+    public PropertyService(PropertyRepository propertyRepository,
+                           PropertyStatusService propertyStatusService,
+                           com.saed.backend.platform.service.PlanLimitService planLimitService) {
         this.propertyRepository = propertyRepository;
         this.propertyStatusService = propertyStatusService;
+        this.planLimitService = planLimitService;
     }
 
     @Transactional
@@ -34,6 +38,7 @@ public class PropertyService {
             throw new AccessDeniedException("No permission to create properties");
         }
 
+        Long targetOrgId;
         // Anti-spoofing: non-global users are locked to their authenticated organization
         if (!"GLOBAL".equals(scope) && !"SUPERADMIN".equals(roleCode)) {
             Long orgId = ctx.getOrganizationId();
@@ -44,17 +49,19 @@ public class PropertyService {
                 throw new AccessDeniedException("No puede crear propiedades en otra organización");
             }
             request.setIdOrganizacion(orgId);
-
-            // BD-01: Plan limit enforcement server-side
-            Optional<Long> maxLimitOpt = propertyRepository.getPropertyLimit(orgId);
-            if (maxLimitOpt.isPresent()) {
-                long maxLimit = maxLimitOpt.get();
-                long currentCount = propertyRepository.countByOrganization(orgId);
-                if (currentCount >= maxLimit) {
-                    throw new PlanLimitExceededException("PROPIEDADES", currentCount, maxLimit);
-                }
+            targetOrgId = orgId;
+        } else {
+            targetOrgId = request.getIdOrganizacion();
+            if (targetOrgId == null) {
+                targetOrgId = ctx.getOrganizationId();
+                request.setIdOrganizacion(targetOrgId);
             }
         }
+
+        if (targetOrgId != null) {
+            planLimitService.validateAndLockPropertyLimit(targetOrgId);
+        }
+
         return propertyRepository.create(request);
     }
 

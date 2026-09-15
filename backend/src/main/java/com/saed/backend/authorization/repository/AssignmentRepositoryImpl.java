@@ -99,17 +99,21 @@ public class AssignmentRepositoryImpl implements AssignmentRepository {
                 return Optional.empty();
             }
 
-            try {
-                Integer count = jdbcTemplate.queryForObject(
-                    "SELECT COUNT(1) FROM RESIDENTES_UNIDAD ru JOIN USUARIOS u ON u.ID_PERSONA = ru.ID_PERSONA WHERE u.ID_USUARIO = ? AND ru.TIPO_RESIDENTE = 'CONVIVIENTE'",
-                    Integer.class,
-                    idUsuario
-                );
-                if (count != null && count > 0) {
-                    rolCodigo = "RESIDENTE_CONVIVENCIA";
-                    rolAlcance = "UNIDAD";
-                }
-            } catch (Exception ignored) {}
+            Number unidadId = (Number) out.get("p_unidad_id");
+            if ("RESIDENTE".equalsIgnoreCase(rolCodigo) && unidadId != null) {
+                try {
+                    Integer count = jdbcTemplate.queryForObject(
+                        "SELECT COUNT(1) FROM RESIDENTES_UNIDAD ru JOIN USUARIOS u ON u.ID_PERSONA = ru.ID_PERSONA " +
+                        "WHERE u.ID_USUARIO = ? AND ru.ID_UNIDAD = ? AND ru.TIPO_RESIDENTE = 'CONVIVIENTE' AND ru.ESTADO = 'ACTIVO'",
+                        Integer.class,
+                        idUsuario, unidadId.longValue()
+                    );
+                    if (count != null && count > 0) {
+                        rolCodigo = "RESIDENTE_CONVIVENCIA";
+                        rolAlcance = "UNIDAD";
+                    }
+                } catch (Exception ignored) {}
+            }
 
             AssignmentResponseDTO dto = new AssignmentResponseDTO();
             dto.setIdAsignacion(idAsignacion);
@@ -123,7 +127,6 @@ public class AssignmentRepositoryImpl implements AssignmentRepository {
             if (propId != null) {
                 dto.setPropiedad(new PropertyDTO(propId.longValue(), null));
             }
-            Number unidadId = (Number) out.get("p_unidad_id");
             if (unidadId != null) {
                 dto.setUnidad(new UnitDTO(unidadId.longValue(), null));
             }

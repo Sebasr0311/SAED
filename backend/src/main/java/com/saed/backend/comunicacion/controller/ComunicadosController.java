@@ -238,19 +238,19 @@ public class ComunicadosController {
     }
 
     @GetMapping("/confirmar-pendiente")
-    @PreAuthorize("hasAuthority('SCOPE_RESIDENTE')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA')")
     public List<Map<String, Object>> confirmarPendiente() {
         return java.util.Collections.emptyList(); // Feature removed in V4 schema
     }
 
     @PostMapping("/confirmar")
-    @PreAuthorize("hasAuthority('SCOPE_RESIDENTE')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA')")
     public ResponseEntity<Void> confirmar(@RequestBody Map<String, Object> payload) {
         return ResponseEntity.ok().build();
     }
 
     @GetMapping("/resultado-notificar")
-    @PreAuthorize("hasAuthority('SCOPE_PORTERO') or hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_RESIDENTE')")
+    @PreAuthorize("hasAuthority('SCOPE_PORTERO') or hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_RESIDENTE') or hasAuthority('SCOPE_RESIDENTE_CONVIVENCIA')")
     public ResponseEntity<Map<String, Object>> getResultadoNotificar(@RequestParam(required = false) Long idVisita) {
         return ResponseEntity.ok(Map.of(
             "confirmado", 1,

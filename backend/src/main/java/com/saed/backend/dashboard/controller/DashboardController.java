@@ -22,11 +22,14 @@ import java.util.Map;
 public class DashboardController {
     private final NamedParameterJdbcTemplate jdbcTemplate;
     private final com.saed.backend.person.service.ConvivienteQuotaService convivienteQuotaService;
+    private final com.saed.backend.finanzas.service.FinanzasService finanzasService;
 
     public DashboardController(NamedParameterJdbcTemplate jdbcTemplate,
-                               org.springframework.beans.factory.ObjectProvider<com.saed.backend.person.service.ConvivienteQuotaService> quotaServiceProvider) {
+                               org.springframework.beans.factory.ObjectProvider<com.saed.backend.person.service.ConvivienteQuotaService> quotaServiceProvider,
+                               org.springframework.beans.factory.ObjectProvider<com.saed.backend.finanzas.service.FinanzasService> finanzasServiceProvider) {
         this.jdbcTemplate = jdbcTemplate;
         this.convivienteQuotaService = quotaServiceProvider.getIfAvailable();
+        this.finanzasService = finanzasServiceProvider.getIfAvailable();
     }
 
     @GetMapping
@@ -48,7 +51,7 @@ public class DashboardController {
     }
 
     @GetMapping("/{id}/frecuentes")
-    @PreAuthorize("hasAuthority('SCOPE_RESIDENTE')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA')")
     public List<Map<String, Object>> getFrecuentes(@PathVariable Long id) {
         Long userId = com.saed.backend.context.SaedContextHolder.getContext() != null
                 ? com.saed.backend.context.SaedContextHolder.getContext().getUserId() : null;
@@ -97,7 +100,7 @@ public class DashboardController {
     }
 
     @PostMapping("/{id}/frecuentes")
-    @PreAuthorize("hasAuthority('SCOPE_RESIDENTE')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA')")
     public ResponseEntity<Map<String, Object>> crearFrecuente(@PathVariable Long id, @RequestBody Map<String, Object> body) {
         Long userId = com.saed.backend.context.SaedContextHolder.getContext() != null
                 ? com.saed.backend.context.SaedContextHolder.getContext().getUserId() : null;
@@ -266,7 +269,7 @@ public class DashboardController {
     }
 
     @DeleteMapping("/{id}/frecuentes/{idFrecuente}")
-    @PreAuthorize("hasAuthority('SCOPE_RESIDENTE')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA')")
     public ResponseEntity<Void> deleteFrecuente(@PathVariable Long id, @PathVariable Long idFrecuente) {
         Long userId = com.saed.backend.context.SaedContextHolder.getContext() != null
                 ? com.saed.backend.context.SaedContextHolder.getContext().getUserId() : null;
@@ -285,7 +288,7 @@ public class DashboardController {
     }
 
     @GetMapping("/{id}/qr-activos")
-    @PreAuthorize("hasAuthority('SCOPE_RESIDENTE')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA')")
     public List<Map<String, Object>> getQrActivos(@PathVariable Long id) {
         Long userId = com.saed.backend.context.SaedContextHolder.getContext() != null
                 ? com.saed.backend.context.SaedContextHolder.getContext().getUserId() : null;
@@ -533,6 +536,26 @@ public class DashboardController {
             return ResponseEntity.badRequest().build();
         }
 
+        SaedContext ctx = SaedContextHolder.getContext();
+        if (ctx != null) {
+            String role = ctx.getRoleCode();
+            if ("ADMIN_PROPIEDAD".equalsIgnoreCase(role) && ctx.getPropertyId() != null) {
+                Long unitPropId = jdbcTemplate.queryForObject(
+                    "SELECT ID_PROPIEDAD FROM UNIDADES WHERE ID_UNIDAD = :u",
+                    Map.of("u", unitId), Long.class);
+                if (unitPropId != null && !unitPropId.equals(ctx.getPropertyId())) {
+                    throw new AccessDeniedException("No tiene permisos para asignar habitantes en otra propiedad");
+                }
+            } else if ("ADMIN_ORGANIZACION".equalsIgnoreCase(role) && ctx.getOrganizationId() != null) {
+                Long unitOrgId = jdbcTemplate.queryForObject(
+                    "SELECT p.ID_ORGANIZACION FROM UNIDADES u JOIN PROPIEDADES p ON u.ID_PROPIEDAD = p.ID_PROPIEDAD WHERE u.ID_UNIDAD = :u",
+                    Map.of("u", unitId), Long.class);
+                if (unitOrgId != null && !unitOrgId.equals(ctx.getOrganizationId())) {
+                    throw new AccessDeniedException("No tiene permisos para asignar habitantes en otra organización");
+                }
+            }
+        }
+
         String tipoRelacion = payload.containsKey("tipoRelacion") && payload.get("tipoRelacion") != null
                 ? payload.get("tipoRelacion").toString().trim().toUpperCase()
                 : (payload.containsKey("rolEnContrato") && payload.get("rolEnContrato") != null
@@ -587,13 +610,62 @@ public class DashboardController {
                 tipoResidenteDb = "PROPIETARIO";
             } else if ("ARRENDATARIO".equals(tipoRelacion)) {
                 tipoResidenteDb = "ARRENDATARIO";
-            } else if ("CONVIVIENTE".equals(tipoRelacion) || "FAMILIAR".equals(tipoRelacion)) {
+            } else if ("CONVIVIENTE".equals(tipoRelacion)) {
+                tipoResidenteDb = "CONVIVIENTE";
+            } else if ("FAMILIAR".equals(tipoRelacion)) {
                 tipoResidenteDb = "FAMILIAR";
             } else {
                 tipoResidenteDb = "OTRO";
             }
 
-            if ("CONVIVIENTE".equals(tipoResidenteDb) || "FAMILIAR".equals(tipoResidenteDb) || "OTRO".equals(tipoResidenteDb)) {
+            if ("ARRENDATARIO".equals(tipoResidenteDb)) {
+                Integer activeContracts = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(1) FROM CONTRATOS WHERE ID_UNIDAD = :unitId AND ID_ARRENDATARIO_PRINCIPAL = :personaId AND ESTADO = 'ACTIVO'",
+                    Map.of("unitId", unitId, "personaId", id),
+                    Integer.class
+                );
+                if (activeContracts == null || activeContracts == 0) {
+                    Object canonObj = payload.get("canonMensual");
+                    if (canonObj == null) canonObj = payload.get("contratoCanon");
+
+                    if (canonObj != null && finanzasService != null) {
+                        java.math.BigDecimal canon = new java.math.BigDecimal(canonObj.toString().trim());
+                        java.time.LocalDate fInicio = payload.get("fechaInicio") != null 
+                            ? java.time.LocalDate.parse(payload.get("fechaInicio").toString().trim().substring(0, 10))
+                            : (payload.get("contratoFechaInicio") != null 
+                                ? java.time.LocalDate.parse(payload.get("contratoFechaInicio").toString().trim().substring(0, 10))
+                                : java.time.LocalDate.now());
+
+                        java.time.LocalDate fFin = null;
+                        Object fFinObj = payload.get("fechaFin") != null ? payload.get("fechaFin") : payload.get("contratoFechaFin");
+                        if (fFinObj != null && !fFinObj.toString().trim().isBlank()) {
+                            fFin = java.time.LocalDate.parse(fFinObj.toString().trim().substring(0, 10));
+                        }
+
+                        String tipoContrato = "INICIAL";
+                        Object tipoObj = payload.get("tipoContrato") != null ? payload.get("tipoContrato") : payload.get("contratoTipo");
+                        if (tipoObj != null && !tipoObj.toString().trim().isBlank()) {
+                            tipoContrato = tipoObj.toString().trim().toUpperCase();
+                        }
+
+                        Long idPlantilla = null;
+                        Object pltObj = payload.get("idPlantilla");
+                        if (pltObj instanceof Number pNum) {
+                            idPlantilla = pNum.longValue();
+                        } else if (pltObj != null && !pltObj.toString().trim().isBlank()) {
+                            try { idPlantilla = Long.parseLong(pltObj.toString().trim()); } catch (NumberFormatException ignored) {}
+                        }
+
+                        finanzasService.createContrato(new com.saed.backend.finanzas.dto.ContratoRequestDTO(
+                            unitId, id, fInicio, fFin, tipoContrato, canon, idPlantilla
+                        ));
+                    } else {
+                        throw new IllegalArgumentException("Un residente con tipo ARRENDATARIO requiere un contrato de arrendamiento válido y activo asociado a la unidad.");
+                    }
+                }
+            }
+
+            if ("CONVIVIENTE".equals(tipoResidenteDb)) {
                 Integer activeCountForPerson = jdbcTemplate.queryForObject(
                         "SELECT COUNT(*) FROM RESIDENTES_UNIDAD WHERE ID_UNIDAD = :unitId AND ID_PERSONA = :personaId AND ESTADO = 'ACTIVO'",
                         Map.of("unitId", unitId, "personaId", id),

@@ -52,14 +52,4 @@ public class PublicOnboardingController {
         Map<String, Object> resp = onboardingService.consultarEstadoPago(referencia);
         return ResponseEntity.ok(ApiResponse.success(resp));
     }
-
-    @Operation(summary = "Mantenimiento: Purga manual de borradores y registros incompletos huérfanos")
-    @PostMapping("/purgar-falsos")
-    public ResponseEntity<ApiResponse<Map<String, Object>>> purgarRegistrosFalsos() {
-        int eliminados = onboardingService.purgarRegistrosFalsos();
-        return ResponseEntity.ok(ApiResponse.success(Map.of(
-                "mensaje", "Purga de registros pendientes/huérfanos completada",
-                "eliminados", eliminados
-        )));
-    }
 }

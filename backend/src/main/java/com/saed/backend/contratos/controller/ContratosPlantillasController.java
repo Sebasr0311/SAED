@@ -15,7 +15,7 @@ import java.util.Map;
 @Tag(name = "ContratosPlantillas", description = "Catalogo y renderizado de plantillas para administradores de propiedad")
 @RestController
 @RequestMapping("/api/v1/contratos/plantillas")
-@PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION')")
+@PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION')")
 public class ContratosPlantillasController {
 
     private final PlantillaContratoService plantillaService;

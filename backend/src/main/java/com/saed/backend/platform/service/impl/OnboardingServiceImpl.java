@@ -57,13 +57,6 @@ public class OnboardingServiceImpl implements OnboardingService {
     @PostConstruct
     public void init() {
         inicializarEsquemaStaging();
-        // Ejecutar purga de forma asíncrona para no bloquear el arranque de Tomcat ni el enlace de puerto en Render
-        java.util.concurrent.CompletableFuture.runAsync(() -> {
-            try {
-                Thread.sleep(5000);
-                purgarRegistrosFalsos();
-            } catch (Exception ignored) {}
-        });
     }
 
     private void inicializarEsquemaStaging() {
@@ -600,66 +593,6 @@ public class OnboardingServiceImpl implements OnboardingService {
         }
     }
 
-    @Override
-    public int purgarRegistrosFalsos() {
-        SaedContext prevCtx = SaedContextHolder.getContext();
-        int totalPurgados = 0;
-        try {
-            establecerContextoAdminGlobal();
-
-            // Buscar organizaciones inactivas huérfanas creadas por onboarding sin pagos aprobados
-            List<Long> orgsInactivas = jdbcTemplate.queryForList("""
-                SELECT o.ID_ORGANIZACION
-                FROM ORGANIZACIONES o
-                WHERE o.ID_ORGANIZACION > 1
-                  AND (o.ESTADO = 'INACTIVA' OR o.ID_ORGANIZACION IN (
-                      SELECT ua.ID_ORGANIZACION FROM USUARIO_ASIGNACIONES ua
-                      JOIN USUARIOS u ON u.ID_USUARIO = ua.ID_USUARIO
-                      WHERE LOWER(u.EMAIL) IN ('sebasrusso95@gmail.com', 'sebasthompson95@gmail.com')
-                         OR u.ESTADO = 'PENDIENTE_VERIFICACION'
-                  ))
-                  AND NOT EXISTS (
-                      SELECT 1 FROM MEMBRESIAS m
-                      WHERE m.ID_ORGANIZACION = o.ID_ORGANIZACION AND m.ESTADO = 'ACTIVA'
-                  )
-                """, new MapSqlParameterSource(), Long.class);
-
-            for (Long idOrg : orgsInactivas) {
-                purgarEstructuraOrganizacionInactiva(idOrg);
-                totalPurgados++;
-            }
-
-            // Buscar usuarios residuales en PENDIENTE_VERIFICACION o correos específicos de pruebas
-            List<Map<String, Object>> usuariosResiduales = jdbcTemplate.queryForList("""
-                SELECT u.ID_USUARIO, u.ID_PERSONA, u.EMAIL
-                FROM USUARIOS u
-                WHERE u.ID_USUARIO > 1
-                  AND (u.ESTADO = 'PENDIENTE_VERIFICACION'
-                       OR LOWER(u.EMAIL) IN ('sebasrusso95@gmail.com', 'sebasthompson95@gmail.com'))
-                  AND NOT EXISTS (
-                      SELECT 1 FROM USUARIO_ASIGNACIONES ua
-                      JOIN ORGANIZACIONES o ON o.ID_ORGANIZACION = ua.ID_ORGANIZACION
-                      WHERE ua.ID_USUARIO = u.ID_USUARIO AND o.ESTADO = 'ACTIVA'
-                  )
-                """, new MapSqlParameterSource());
-
-            for (Map<String, Object> uRow : usuariosResiduales) {
-                Long idUsr = ((Number) uRow.get("ID_USUARIO")).longValue();
-                Long idPer = uRow.get("ID_PERSONA") != null ? ((Number) uRow.get("ID_PERSONA")).longValue() : null;
-                purgarUsuarioYPersona(idUsr, idPer);
-                totalPurgados++;
-            }
-
-            if (totalPurgados > 0) {
-                log.info("[Onboarding] Purga de registros falsos/huérfanos completada: {} entidades depuradas.", totalPurgados);
-            }
-        } catch (Exception e) {
-            log.warn("[Onboarding] Aviso durante purga de registros falsos: {}", e.getMessage());
-        } finally {
-            limpiarContexto(prevCtx);
-        }
-        return totalPurgados;
-    }
 
     private void purgarIntentoPrevioIncompleto(String email, String cleanNit, String cleanDoc) {
         try {
@@ -721,8 +654,6 @@ public class OnboardingServiceImpl implements OnboardingService {
                 jdbcTemplate.update("DELETE FROM USUARIO_ASIGNACIONES WHERE ID_USUARIO = :usr",
                         new MapSqlParameterSource("usr", idUsr));
                 jdbcTemplate.update("DELETE FROM USUARIOS WHERE ID_USUARIO = :usr AND ESTADO = 'PENDIENTE_VERIFICACION'",
-                        new MapSqlParameterSource("usr", idUsr));
-                jdbcTemplate.update("DELETE FROM USUARIOS WHERE ID_USUARIO = :usr AND LOWER(EMAIL) IN ('sebasrusso95@gmail.com', 'sebasthompson95@gmail.com')",
                         new MapSqlParameterSource("usr", idUsr));
             } catch (Exception e) {
                 log.warn("[Onboarding] Error eliminando usuario huérfano {}: {}", idUsr, e.getMessage());
@@ -850,7 +781,7 @@ public class OnboardingServiceImpl implements OnboardingService {
 
     private void limpiarContexto(SaedContext prevCtx) {
         try {
-            jdbcTemplate.getJdbcOperations().execute("BEGIN PKG_SAED_SESSION.CLEAR_CONTEXT; END;");
+            jdbcTemplate.getJdbcOperations().execute("BEGIN PKG_SAED_SESSION.CLEAR_CONTEXT(); END;");
         } catch (Exception ignored) {}
         SaedContextHolder.setContext(prevCtx);
     }

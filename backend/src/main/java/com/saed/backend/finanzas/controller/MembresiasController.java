@@ -36,7 +36,7 @@ import java.util.Map;
 @Tag(name = "Membresías", description = "Suscripciones de organizaciones a planes SaaS")
 @RestController
 @RequestMapping("/api/v1/membresias")
-@PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
+@PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
 public class MembresiasController {
 
     private static final Logger log = LoggerFactory.getLogger(MembresiasController.class);
@@ -99,6 +99,7 @@ public class MembresiasController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasAuthority('SCOPE_SUPERADMIN')")
     @Auditable(action = "CREATE", resource = "MEMBRESIA", category = AuditCategory.FINANCIAL, severity = AuditSeverity.HIGH)
     public ApiResponse<Map<String, Object>> crear(@RequestBody Map<String, Object> body) {
         Number idOrg  = (Number) body.get("idOrganizacion");
@@ -164,6 +165,7 @@ public class MembresiasController {
     // ─── CAMBIAR ESTADO ──────────────────────────────────────────
 
     @PatchMapping("/{id}/status")
+    @PreAuthorize("hasAuthority('SCOPE_SUPERADMIN')")
     @Auditable(action = "UPDATE_STATUS", resource = "MEMBRESIA", category = AuditCategory.FINANCIAL, severity = AuditSeverity.HIGH)
     public ApiResponse<String> cambiarEstado(@PathVariable Long id, @RequestBody Map<String, String> body) {
         String estado = body.getOrDefault("estado", "").toUpperCase();
@@ -205,6 +207,7 @@ public class MembresiasController {
     // ─── CANCELAR ────────────────────────────────────────────────
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('SCOPE_SUPERADMIN')")
     @Auditable(action = "CANCEL", resource = "MEMBRESIA", category = AuditCategory.FINANCIAL, severity = AuditSeverity.HIGH)
     public ApiResponse<String> cancelar(@PathVariable Long id) {
         // Obtener datos actuales para el historial
@@ -220,7 +223,7 @@ public class MembresiasController {
         }
 
         int rows = jdbcTemplate.update(
-                "UPDATE MEMBRESIAS SET ESTADO = 'INACTIVA', FECHA_FIN = TRUNC(SYSDATE) " +
+                "UPDATE MEMBRESIAS SET ESTADO = 'CANCELADA', FECHA_FIN = TRUNC(SYSDATE) " +
                 "WHERE ID_MEMBRESIA = :id AND ESTADO IN ('ACTIVA','PRUEBA')",
                 new MapSqlParameterSource("id", id));
         if (rows == 0) return ApiResponse.error("Membresía no encontrada o ya inactiva");

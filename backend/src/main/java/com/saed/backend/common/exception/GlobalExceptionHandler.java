@@ -212,6 +212,16 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(response, HttpStatus.FORBIDDEN);
     }
 
+    @ExceptionHandler(com.saed.backend.platform.exception.InactiveMembershipException.class)
+    public ResponseEntity<Map<String, Object>> handleInactiveMembership(com.saed.backend.platform.exception.InactiveMembershipException ex) {
+        registrarAccesoDenegado("Operación rechazada por membresía inactiva o vencida: " + ex.getMessage(), "MEMBRESIA_INACTIVA");
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", false);
+        response.put("code", "MEMBERSHIP_INACTIVE");
+        response.put("message", ex.getMessage());
+        return new ResponseEntity<>(response, HttpStatus.FORBIDDEN);
+    }
+
     @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
     public ResponseEntity<Map<String, Object>> handleAccessDenied(org.springframework.security.access.AccessDeniedException ex) {
         registrarAccesoDenegado("AccessDeniedException: " + ex.getMessage(), "AUTORIZACION");
@@ -266,6 +276,26 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(response, HttpStatus.CONFLICT);
     }
 
+    @ExceptionHandler(SecurityException.class)
+    public ResponseEntity<Map<String, Object>> handleSecurityException(SecurityException ex) {
+        log.warn("Violación de seguridad detectada: {}", ex.getMessage());
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", false);
+        response.put("code", "SECURITY_BLOCKED");
+        response.put("message", ex.getMessage());
+        return new ResponseEntity<>(response, HttpStatus.TOO_MANY_REQUESTS);
+    }
+
+    @ExceptionHandler(UnsupportedOperationException.class)
+    public ResponseEntity<Map<String, Object>> handleUnsupportedOperation(UnsupportedOperationException ex) {
+        log.warn("Operación no permitida o deshabilitada: {}", ex.getMessage());
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", false);
+        response.put("code", "OPERATION_NOT_ALLOWED");
+        response.put("message", ex.getMessage());
+        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+    }
+
     @ExceptionHandler(java.util.NoSuchElementException.class)
     public ResponseEntity<Map<String, Object>> handleNoSuchElement(java.util.NoSuchElementException ex) {
         Map<String, Object> response = new HashMap<>();
@@ -273,6 +303,33 @@ public class GlobalExceptionHandler {
         response.put("code", "NOT_FOUND");
         response.put("message", ex.getMessage());
         return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleNoResourceFound(org.springframework.web.servlet.resource.NoResourceFoundException ex) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", false);
+        response.put("code", "NOT_FOUND");
+        response.put("message", "El recurso solicitado no fue encontrado.");
+        return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(org.springframework.web.servlet.NoHandlerFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleNoHandlerFound(org.springframework.web.servlet.NoHandlerFoundException ex) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", false);
+        response.put("code", "NOT_FOUND");
+        response.put("message", "El recurso solicitado no fue encontrado.");
+        return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(org.springframework.web.HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<Map<String, Object>> handleMethodNotSupported(org.springframework.web.HttpRequestMethodNotSupportedException ex) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", false);
+        response.put("code", "METHOD_NOT_ALLOWED");
+        response.put("message", ex.getMessage());
+        return new ResponseEntity<>(response, HttpStatus.METHOD_NOT_ALLOWED);
     }
 
     @ExceptionHandler(com.saed.backend.identity.exception.InvalidCredentialsException.class)

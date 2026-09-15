@@ -13,6 +13,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import jakarta.annotation.PostConstruct;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.sql.Timestamp;
 import java.time.ZoneId;
@@ -167,19 +169,29 @@ public class PaquetesRepositoryImpl implements PaquetesRepository {
     }
 
     @Override
-    public void registrarEntrega(Long idPaquete, PaqueteEntregaDTO entregaDTO, Long idPorteroEntrega) {
-        String sql = "UPDATE PAQUETES SET ESTADO = 'ENTREGADO', FECHA_ENTREGA = CURRENT_TIMESTAMP, ENTREGADO_A_PERSONA = :persona, ENTREGADO_POR_PORTERO = :portero, FOTO_COMPROBANTE_URL = :firma WHERE ID_PAQUETE = :id";
+    public boolean registrarEntrega(Long idPaquete, PaqueteEntregaDTO entregaDTO, Long idPorteroEntrega) {
+        String sql = "UPDATE PAQUETES SET ESTADO = 'ENTREGADO', FECHA_ENTREGA = CURRENT_TIMESTAMP, " +
+                     "ENTREGADO_A_PERSONA = :persona, ENTREGADO_POR_PORTERO = :portero, " +
+                     "FOTO_COMPROBANTE_URL = :firma, INTENTOS_FALLIDOS_PIN = 0 " +
+                     "WHERE ID_PAQUETE = :id AND ESTADO IN ('RECIBIDO', 'PENDIENTE_ENTREGA')";
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("id", idPaquete)
                 .addValue("persona", entregaDTO.idPersonaRecibe())
                 .addValue("portero", idPorteroEntrega)
                 .addValue("firma", sanitizeFoto(entregaDTO.firmaUrl(), isComprobanteClob));
-        jdbcTemplate.update(sql, params);
+        int updated = jdbcTemplate.update(sql, params);
+        return updated > 0;
     }
 
     @Override
     public void marcarEntregadoDirecto(Long idPaquete, Long idPortero) {
-        String sql = "UPDATE PAQUETES SET ESTADO = 'ENTREGADO', FECHA_ENTREGA = CURRENT_TIMESTAMP, ENTREGADO_POR_PORTERO = :portero WHERE ID_PAQUETE = :id";
-        jdbcTemplate.update(sql, new MapSqlParameterSource("id", idPaquete).addValue("portero", idPortero));
+        throw new UnsupportedOperationException("La entrega directa sin PIN está deshabilitada por seguridad");
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void incrementarIntentosFallidos(Long idPaquete) {
+        String sql = "UPDATE PAQUETES SET INTENTOS_FALLIDOS_PIN = NVL(INTENTOS_FALLIDOS_PIN, 0) + 1 WHERE ID_PAQUETE = :id";
+        jdbcTemplate.update(sql, new MapSqlParameterSource("id", idPaquete));
     }
 }

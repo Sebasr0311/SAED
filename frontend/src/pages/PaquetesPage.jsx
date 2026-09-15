@@ -148,7 +148,7 @@ export default function PaquetesPage() {
           video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } },
           audio: false,
         });
-      } catch (e) {
+      } catch {
         stream = await navigator.mediaDevices.getUserMedia({
           video: true,
           audio: false,
@@ -299,20 +299,18 @@ export default function PaquetesPage() {
   // Entregar Paquete
   async function handleConfirmarEntrega() {
     if (!modalEntrega) return;
+    if (!pinIngresado.trim()) {
+      toast.error('Debe ingresar el código PIN de 4 dígitos suministrado por el residente');
+      return;
+    }
     setEntregando(true);
     try {
-      if (pinIngresado.trim()) {
-        // Validación con PIN en endpoint oficial
-        await api.post(`/paquetes/${modalEntrega.idPaquete || modalEntrega.idMensaje}/entrega`, {
-          codigoRetiroPin: pinIngresado.trim().toUpperCase(),
-          idPersonaRecibe: user?.userId || 1,
-          idPorteria: 1,
-          firmaUrl: null,
-        });
-      } else {
-        // Entrega directa supervisada por portería
-        await api.put(`/buzon/${modalEntrega.idPaquete || modalEntrega.idMensaje}/entregado`);
-      }
+      await api.post(`/paquetes/${modalEntrega.idPaquete || modalEntrega.idMensaje}/entrega`, {
+        codigoRetiroPin: pinIngresado.trim(),
+        idPersonaRecibe: user?.userId || 1,
+        idPorteria: 1,
+        firmaUrl: null,
+      });
       toast.success('Paquete entregado con éxito');
       setModalEntrega(null);
       setPinIngresado('');
@@ -1230,20 +1228,21 @@ export default function PaquetesPage() {
 
             <div className="space-y-2">
               <label className="block text-xs font-semibold text-foreground">
-                PIN de Seguridad Presentado por el Residente (Opcional si es entrega supervisada)
+                PIN de Seguridad Presentado por el Residente (Obligatorio)
               </label>
               <div className="relative">
                 <KeyRound className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
                 <input
                   type="text"
-                  placeholder="Ingrese el PIN de 6 dígitos"
+                  maxLength={4}
+                  placeholder="Ingrese el PIN de 4 dígitos"
                   value={pinIngresado}
-                  onChange={(e) => setPinIngresado(e.target.value.toUpperCase())}
-                  className="w-full pl-9 pr-3 py-2 text-sm font-mono tracking-wider uppercase rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                  onChange={(e) => setPinIngresado(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                  className="w-full pl-9 pr-3 py-2 text-sm font-mono tracking-widest text-center rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
                 />
               </div>
               <p className="text-[11px] text-muted-foreground">
-                Si el residente presenta su PIN, se verificará contra el registro. Si entrega personalmente tras acreditar identidad, puede autorizar directamente.
+                El residente debe suministrar el código PIN de 4 dígitos recibido en su notificación para autorizar la entrega.
               </p>
             </div>
 

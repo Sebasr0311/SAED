@@ -7,6 +7,7 @@ import {
   Check,
   CheckCircle2,
   Clock,
+  Copy,
   Inbox,
   Maximize2,
   Megaphone,
@@ -23,6 +24,16 @@ import api from '../lib/api.js';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { useFetch } from '../lib/hooks.js';
 import { formatDateTime, imageSrc, cn } from '../lib/utils.js';
+
+function extractPin(item) {
+  if (!item) return null;
+  if (item.codigoRetiroPin && /^[0-9]{4}$/.test(String(item.codigoRetiroPin).trim())) {
+    return String(item.codigoRetiroPin).trim();
+  }
+  const text = `${item.cuerpo || ''} ${item.titulo || ''}`;
+  const match = text.match(/(?:código(?:\s+de)?\s+retiro\s+PIN|PIN(?:\s+de\s+retiro)?)\s*[:#]?\s*([0-9]{4})/i);
+  return match ? match[1] : null;
+}
 
 import { PageContainer } from '../components/layout/PageContainer.jsx';
 import { Card, CardContent } from '../components/ui/card.tsx';
@@ -537,6 +548,7 @@ export default function ResBuzonPage() {
             const estaLeido =
               item.leido || leidosLocalmente.includes(item.idMensaje);
             const estaSeleccionado = seleccionados.includes(item.idMensaje);
+            const pin = extractPin(item);
 
             return (
               <div
@@ -603,6 +615,32 @@ export default function ResBuzonPage() {
                     <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
                       {item.cuerpo}
                     </p>
+                  )}
+
+                  {/* Badge y acción rápida de PIN de retiro si aplica */}
+                  {pin && (
+                    <div className="pt-1 flex items-center gap-2">
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-xs">
+                        <span className="font-semibold text-[11px] uppercase tracking-wider">PIN de Retiro:</span>
+                        <span className="font-mono font-black tracking-widest text-sm bg-emerald-100 dark:bg-emerald-900/60 px-1.5 py-0.5 rounded text-emerald-950 dark:text-emerald-100">
+                          {pin}
+                        </span>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigator.clipboard.writeText(pin);
+                          toast.success('PIN de retiro copiado al portapapeles');
+                        }}
+                        className="h-7 px-2 text-xs gap-1 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/50"
+                      >
+                        <Copy className="w-3 h-3" />
+                        Copiar
+                      </Button>
+                    </div>
                   )}
 
                   {/* Pie de la tarjeta */}
@@ -703,18 +741,57 @@ export default function ResBuzonPage() {
               </span>
             </div>
 
-            {/* Mensaje de aviso específico según el tipo */}
+            {/* Mensaje de aviso específico según el tipo y PIN */}
             {mensajeDetalle.tipo === 'PAQUETE' && (
-              <div className="p-3.5 rounded-xl border border-amber-500/30 bg-amber-500/10 flex items-start gap-3 text-xs">
-                <Package className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-                <div className="space-y-1">
-                  <p className="font-bold text-foreground">
-                    Paquete en Custodia de Portería
-                  </p>
-                  <p className="text-muted-foreground">
-                    Tu encomienda está registrada y guardada en recepción. Presenta tu documento de identidad o indica el número de tu unidad al personal de vigilancia para retirarlo.
-                  </p>
+              <div className="space-y-3">
+                <div className="p-3.5 rounded-xl border border-amber-500/30 bg-amber-500/10 flex items-start gap-3 text-xs">
+                  <Package className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="font-bold text-foreground">
+                      Paquete en Custodia de Portería
+                    </p>
+                    <p className="text-muted-foreground">
+                      Tu encomienda está registrada y guardada en recepción. Presenta tu código PIN de retiro de 4 dígitos al personal de vigilancia para retirarlo.
+                    </p>
+                  </div>
                 </div>
+
+                {extractPin(mensajeDetalle) && (
+                  <div className="p-4 rounded-2xl border border-emerald-500/40 bg-emerald-50/70 dark:bg-emerald-950/40 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="space-y-1 text-center sm:text-left">
+                      <div className="flex items-center justify-center sm:justify-start gap-2">
+                        <span className="text-xs font-bold text-emerald-900 dark:text-emerald-200 uppercase tracking-wide">
+                          Código de Retiro PIN
+                        </span>
+                        <Badge variant="outline" className="text-[10px] bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200 border-emerald-300">
+                          4 dígitos
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Dicta o muestra este código en portería para validar tu identidad y reclamar la encomienda.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <div className="px-5 py-2 rounded-xl bg-card border-2 border-emerald-500 font-mono text-2xl font-black tracking-widest text-emerald-600 dark:text-emerald-400 shadow-sm select-all">
+                        {extractPin(mensajeDetalle)}
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          navigator.clipboard.writeText(extractPin(mensajeDetalle));
+                          toast.success('PIN copiado al portapapeles');
+                        }}
+                        className="h-10 px-3 text-xs gap-1.5 border-emerald-300 dark:border-emerald-700 hover:bg-emerald-100/50 dark:hover:bg-emerald-900 font-semibold"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                        Copiar
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

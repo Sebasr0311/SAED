@@ -32,6 +32,10 @@ public class AuthService {
     }
 
     public AuthResponse login(LoginRequest request) {
+        if (request == null || request.getUsername() == null || request.getUsername().isBlank()
+                || request.getPassword() == null || request.getPassword().isBlank()) {
+            throw new com.saed.backend.identity.exception.InvalidCredentialsException("Credenciales invalidas");
+        }
         Optional<AuthData> authDataOpt = authRepository.getAuthData(request.getUsername().toLowerCase().trim());
 
         boolean userExists = authDataOpt.isPresent();

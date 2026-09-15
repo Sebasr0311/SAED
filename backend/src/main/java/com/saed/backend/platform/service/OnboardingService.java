@@ -14,6 +14,4 @@ public interface OnboardingService {
     Map<String, Object> consultarEstadoPago(String referencia);
 
     boolean materializarOrganizacion(String referencia, Long expectedCentavos, String idTransaccionPasarela);
-
-    int purgarRegistrosFalsos();
 }

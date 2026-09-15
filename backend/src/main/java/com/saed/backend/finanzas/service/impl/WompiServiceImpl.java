@@ -16,11 +16,16 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.jdbc.datasource.DataSourceUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.sql.DataSource;
 import java.math.BigDecimal;
 import java.security.MessageDigest;
+import java.sql.CallableStatement;
+import java.sql.Connection;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
@@ -255,19 +260,45 @@ public class WompiServiceImpl implements WompiService {
 
         // 3. Establecer contexto de ejecución seguro para consultar TRANSACCIONES_PAGO
         SaedContext prevCtx = SaedContextHolder.getContext();
-        try {
-            SaedContext systemCtx = SaedContext.builder()
-                .userId(1L)
-                .organizationId(1L)
-                .propertyId(1L)
-                .roleCode("SUPERADMIN")
-                .roleScope("GLOBAL")
-                .build();
-            SaedContextHolder.setContext(systemCtx);
+        SaedContext systemCtx = SaedContext.builder()
+            .userId(1L)
+            .organizationId(1L)
+            .propertyId(1L)
+            .roleCode("SUPERADMIN")
+            .roleScope("GLOBAL")
+            .build();
+        SaedContextHolder.setContext(systemCtx);
+
+        DataSource dataSource = jdbcTemplate.getJdbcTemplate().getDataSource();
+        Connection activeConn = null;
+        if (dataSource != null) {
             try {
-                jdbcTemplate.getJdbcOperations().execute("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1); END;");
-                jdbcTemplate.getJdbcOperations().execute("BEGIN PKG_SAED_SESSION.SET_CONTEXT(1, 1, 1, 'SUPERADMIN'); END;");
-            } catch (Exception ignored) {}
+                activeConn = DataSourceUtils.getConnection(dataSource);
+            } catch (Exception e) {
+                log.warn("[Wompi] Could not acquire active transactional connection: {}", e.getMessage());
+            }
+        }
+        try {
+            try {
+                if (activeConn != null && !activeConn.isClosed()) {
+                    try (CallableStatement cs = activeConn.prepareCall("{call PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(?)}")) {
+                        cs.setLong(1, 1L);
+                        cs.execute();
+                    }
+                    try (CallableStatement cs = activeConn.prepareCall("{call PKG_SAED_SESSION.SET_CONTEXT(?, ?, ?, ?)}")) {
+                        cs.setLong(1, 1L);
+                        cs.setLong(2, 1L);
+                        cs.setLong(3, 1L);
+                        cs.setString(4, "SUPERADMIN");
+                        cs.execute();
+                    }
+                } else {
+                    jdbcTemplate.getJdbcOperations().execute("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1); END;");
+                    jdbcTemplate.getJdbcOperations().execute("BEGIN PKG_SAED_SESSION.SET_CONTEXT(1, 1, 1, 'SUPERADMIN'); END;");
+                }
+            } catch (Exception e) {
+                log.warn("[Wompi] Warning setting initial SUPERADMIN context: {}", e.getMessage());
+            }
 
             List<Map<String, Object>> txs = jdbcTemplate.queryForList(
                 "SELECT ID_TRANSACCION, ID_UNIDAD, ID_PAGO, PASARELA, ESTADO_PASARELA, METODO_ORIGEN, MONTO_CENTAVOS " +
@@ -321,21 +352,40 @@ public class WompiServiceImpl implements WompiService {
             }
 
             if (idOrganizacion != null) {
+                long targetOrg = idOrganizacion;
+                long targetProp = idPropiedad != null ? idPropiedad : 1L;
+                long targetUnit = idUnidad != null ? idUnidad : 1L;
                 SaedContext tenantCtx = SaedContext.builder()
                     .userId(1L)
-                    .organizationId(idOrganizacion)
-                    .propertyId(idPropiedad != null ? idPropiedad : 1L)
-                    .unitId(idUnidad != null ? idUnidad : 1L)
+                    .organizationId(targetOrg)
+                    .propertyId(targetProp)
+                    .unitId(targetUnit)
                     .roleCode("SUPERADMIN")
                     .roleScope("GLOBAL")
                     .build();
                 SaedContextHolder.setContext(tenantCtx);
                 try {
-                    jdbcTemplate.getJdbcOperations().execute(String.format(
-                        "BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1); PKG_SAED_SESSION.SET_CONTEXT(1, %d, %d, 'SUPERADMIN'); END;",
-                        idOrganizacion, idPropiedad != null ? idPropiedad : 1L
-                    ));
-                } catch (Exception ignored) {}
+                    if (activeConn != null && !activeConn.isClosed()) {
+                        try (CallableStatement cs = activeConn.prepareCall("{call PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(?)}")) {
+                            cs.setLong(1, 1L);
+                            cs.execute();
+                        }
+                        try (CallableStatement cs = activeConn.prepareCall("{call PKG_SAED_SESSION.SET_CONTEXT(?, ?, ?, ?)}")) {
+                            cs.setLong(1, 1L);
+                            cs.setLong(2, targetOrg);
+                            cs.setLong(3, targetProp);
+                            cs.setString(4, "SUPERADMIN");
+                            cs.execute();
+                        }
+                    } else {
+                        jdbcTemplate.getJdbcOperations().execute(String.format(
+                            "BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1); PKG_SAED_SESSION.SET_CONTEXT(1, %d, %d, 'SUPERADMIN'); END;",
+                            targetOrg, targetProp
+                        ));
+                    }
+                } catch (Exception e) {
+                    log.warn("[Wompi] Warning re-scoping context to org {}: {}", targetOrg, e.getMessage());
+                }
             }
 
             // 6. Transición Atómica de Estado (Idempotencia y Replay Protection)
@@ -469,13 +519,31 @@ public class WompiServiceImpl implements WompiService {
             }
         } finally {
             try {
-                jdbcTemplate.getJdbcOperations().execute("BEGIN PKG_SAED_SESSION.CLEAR_CONTEXT(); END;");
+                if (activeConn != null && !activeConn.isClosed()) {
+                    try (CallableStatement cs = activeConn.prepareCall("{call PKG_SAED_SESSION.CLEAR_CONTEXT()}")) {
+                        cs.execute();
+                    }
+                } else {
+                    jdbcTemplate.getJdbcOperations().execute("BEGIN PKG_SAED_SESSION.CLEAR_CONTEXT(); END;");
+                }
             } catch (Exception e) {
-                // [C5][H-07] DO NOT silence — a failed CLEAR_CONTEXT leaves the Oracle session with
-                // SUPERADMIN context in the connection pool. Log for production alerting.
-                log.error("[SECURITY][C5] CRITICAL: failed to CLEAR Oracle session context after Wompi webhook. "
-                        + "Possible SUPERADMIN context bleed in connection pool. Error: {}", e.getMessage());
+                // [C5][H-07][SEC-03] CRITICAL: failed to CLEAR Oracle session context after Wompi webhook.
+                // Abort the connection to force eviction by HikariCP, preventing residual privileged context in the pool.
+                log.error("[SECURITY][SEC-03] CRITICAL: failed to CLEAR Oracle session context after Wompi webhook. "
+                        + "Aborting connection to prevent SUPERADMIN context bleed in connection pool. Error: {}", e.getMessage(), e);
+                try {
+                    if (activeConn != null && !activeConn.isClosed()) {
+                        activeConn.abort(Runnable::run);
+                    }
+                } catch (Exception abortEx) {
+                    log.error("[SECURITY][SEC-03] Failed to abort tainted connection: {}", abortEx.getMessage(), abortEx);
+                }
             } finally {
+                if (activeConn != null && dataSource != null) {
+                    try {
+                        DataSourceUtils.releaseConnection(activeConn, dataSource);
+                    } catch (Exception ignored) {}
+                }
                 if (prevCtx != null) {
                     SaedContextHolder.setContext(prevCtx);
                 } else {

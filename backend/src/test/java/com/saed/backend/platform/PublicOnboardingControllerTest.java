@@ -98,4 +98,48 @@ public class PublicOnboardingControllerTest {
                 .andExpect(jsonPath("$.data.wompiPublicKey").isNotEmpty())
                 .andExpect(jsonPath("$.data.firmaIntegridad").isNotEmpty());
     }
+
+    @Test
+    @DisplayName("TEST 1 - SEC-01: POST /api/v1/auth/onboarding/purgar-falsos NO es accesible públicamente (404 Not Found)")
+    void testEndpointPurgarFalsosNoEsAccesiblePublicamente() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/onboarding/purgar-falsos")
+                .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isNotFound())
+                .andExpect(result -> {
+                    int status = result.getResponse().getStatus();
+                    assertNotEquals(200, status, "No debe responder 200 OK a una operación destructiva eliminada");
+                    assertNotEquals(201, status, "No debe responder 201 Created");
+                    assertNotEquals(204, status, "No debe responder 204 No Content");
+                });
+    }
+
+    @Test
+    @DisplayName("TEST 2 - SEC-01: Verificación de que el startup normal no ejecuta purga destructiva")
+    void testStartupNormalNoEjecutaPurgaDestructiva() {
+        // La tabla ONBOARDING_INTENCIONES y el esquema de staging deben permanecer intactos
+        Integer stagingCount = jdbcTemplate.getJdbcOperations().queryForObject(
+                "SELECT COUNT(1) FROM USER_TABLES WHERE TABLE_NAME = 'ONBOARDING_INTENCIONES'",
+                Integer.class
+        );
+        assertNotNull(stagingCount, "La tabla ONBOARDING_INTENCIONES debe existir");
+        assertTrue(stagingCount > 0, "El esquema de staging debe estar inicializado sin purgas destructivas");
+    }
+
+    @Test
+    @DisplayName("TEST 4 - SEC-01: Autenticación legítima sigue operativa en /api/v1/auth/login")
+    void testAutenticacionLegitimaSigueOperativa() throws Exception {
+        Map<String, String> loginRequest = Map.of(
+                "email", "usuario_inexistente_prueba@saed.com",
+                "password", "PasswordInvalida123!"
+        );
+
+        mockMvc.perform(post("/api/v1/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(loginRequest)))
+                .andExpect(result -> {
+                    int status = result.getResponse().getStatus();
+                    // Credenciales inválidas deben retornar 401 Unauthorized (AuthService), nunca 404 o 500
+                    assertEquals(401, status, "Autenticación debe evaluar credenciales y responder 401");
+                });
+    }
 }

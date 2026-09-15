@@ -3,6 +3,7 @@ package com.saed.backend.porteria.controller;
 import com.saed.backend.audit.Auditable;
 import com.saed.backend.audit.AuditCategory;
 import com.saed.backend.audit.AuditSeverity;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -15,7 +16,19 @@ import java.util.Map;
 @RequestMapping("/api/v1")
 public class PorteriaExtController {
     private final NamedParameterJdbcTemplate jdbcTemplate;
-    public PorteriaExtController(NamedParameterJdbcTemplate jdbcTemplate) { this.jdbcTemplate = jdbcTemplate; }
+    private final PorteriaController porteriaController;
+
+    public PorteriaExtController(NamedParameterJdbcTemplate jdbcTemplate, PorteriaController porteriaController) {
+        this.jdbcTemplate = jdbcTemplate;
+        this.porteriaController = porteriaController;
+    }
+
+    @PostMapping("/visitas")
+    @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_RESIDENTE') or hasAuthority('SCOPE_RESIDENTE_CONVIVENCIA') or hasAuthority('SCOPE_PORTERO')")
+    public Map<String, Object> programarVisita(@RequestBody Map<String, Object> body) {
+        return porteriaController.programarVisita(body);
+    }
 
     @PostMapping("/visitas/rapida")
     @PreAuthorize("hasAuthority('SCOPE_RESIDENTE') or hasAuthority('SCOPE_PORTERO')")

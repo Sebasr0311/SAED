@@ -73,7 +73,7 @@ public class SaedDataSourceProxy extends DelegatingDataSource {
             cs.execute();
         }
 
-        if (context.getRoleScope() != null) {
+        if (context.getRoleScope() != null || context.getRoleCode() != null) {
             try (CallableStatement cs = connection.prepareCall("{call PKG_SAED_SESSION.SET_CONTEXT(?, ?, ?, ?)}")) {
                 cs.setLong(1, context.getUserId());
                 

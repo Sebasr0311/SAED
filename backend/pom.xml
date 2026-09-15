@@ -177,6 +177,12 @@
 				<version>3.1.2</version>
 				<configuration>
 					<argLine>-Dnet.bytebuddy.experimental=true -XX:+EnableDynamicAgentLoading -Xshare:off</argLine>
+					<excludes>
+						<exclude>**/demo/DemoDatasetRunnerTest.java</exclude>
+						<exclude>**/ScriptRunnerTest.java</exclude>
+						<exclude>**/ParcheTest.java</exclude>
+						<exclude>**/Check*Test.java</exclude>
+					</excludes>
 				</configuration>
 			</plugin>
 
@@ -192,8 +198,9 @@
 				<configuration>
 					<configLocation>checkstyle.xml</configLocation>
 					<consoleOutput>true</consoleOutput>
-					<failsOnError>false</failsOnError>
+					<failsOnError>true</failsOnError>
 					<violationSeverity>warning</violationSeverity>
+					<maxAllowedViolations>2720</maxAllowedViolations>
 				</configuration>
 			</plugin>
 

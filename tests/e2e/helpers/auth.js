@@ -5,27 +5,37 @@
 export const USERS = {
   SUPERADMIN: {
     username: 'admin_global',
-    password: 'admin_global123',
+    password: process.env.E2E_PASSWORD || 'admin123',
     homeUrl: '/superadmin/dashboard',
   },
   ADMIN_ORGANIZACION: {
     username: 'admin_org',
-    password: 'admin123',
+    password: process.env.E2E_PASSWORD || 'admin123',
     homeUrl: '/org/dashboard',
   },
   ADMIN_PROPIEDAD: {
     username: 'admin',
-    password: 'admin123',
+    password: process.env.E2E_PASSWORD || 'admin123',
     homeUrl: '/dashboard',
   },
   PORTERO: {
     username: 'portero01',
-    password: 'admin123',
+    password: process.env.E2E_PASSWORD || 'admin123',
     homeUrl: '/portero-dashboard',
   },
   RESIDENTE: {
     username: 'camartinez',
-    password: 'admin123',
+    password: process.env.E2E_PASSWORD || 'admin123',
+    homeUrl: '/residente-dashboard',
+  },
+  RESIDENTE_CONVIVENCIA: {
+    username: 'sofiamartinez',
+    password: process.env.E2E_PASSWORD || 'admin123',
+    homeUrl: '/residente-dashboard',
+  },
+  RESIDENTE_ANAGOMEZ: {
+    username: 'anagomez',
+    password: process.env.E2E_PASSWORD || 'admin123',
     homeUrl: '/residente-dashboard',
   },
 };
@@ -60,16 +70,21 @@ export async function loginAs(page, userRole) {
 }
 
 export async function logout(page) {
-  // Intentar botón de logout directo o mediante menú
   const logoutBtn = page.locator('button[aria-label="Cerrar sesión"], button:has-text("Cerrar sesión")').first();
   if (await logoutBtn.isVisible()) {
     await logoutBtn.click();
-  } else {
-    // Si no está visible, limpiar storage y recargar a /login
+    const confirmBtn = page.getByRole('button', { name: /S[ií], cerrar sesi[oó]n|Confirmar/i });
+    try {
+      if (await confirmBtn.isVisible({ timeout: 2000 })) {
+        await confirmBtn.click();
+      }
+    } catch (_) {}
+  }
+  
+  if (!page.url().includes('/login')) {
     await page.evaluate(() => {
       sessionStorage.clear();
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('auth_refresh_token');
+      localStorage.clear();
       window.location.href = '/login';
     });
   }

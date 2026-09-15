@@ -115,13 +115,15 @@ public class AuthRepositoryImpl implements AuthRepository {
         String rolCodigo = (String) out.get("p_rol_codigo");
         String alcance = (String) out.get("p_alcance");
         String tipoResidente = null;
+        Number unidadIdNum = (Number) out.get("p_unidad_id");
+        Long unidadId = unidadIdNum != null ? unidadIdNum.longValue() : null;
 
-        if (idPersona != null) {
+        if (idPersona != null && unidadId != null) {
             try {
                 java.util.List<String> tipList = jdbcTemplate.query(
-                    "SELECT TIPO_RESIDENTE FROM RESIDENTES_UNIDAD WHERE ID_PERSONA = ? AND ROWNUM = 1",
+                    "SELECT TIPO_RESIDENTE FROM RESIDENTES_UNIDAD WHERE ID_PERSONA = ? AND ID_UNIDAD = ? AND ESTADO = 'ACTIVO' AND ROWNUM = 1",
                     (rs, rowNum) -> rs.getString("TIPO_RESIDENTE"),
-                    idPersona
+                    idPersona, unidadId
                 );
                 if (!tipList.isEmpty()) {
                     tipoResidente = tipList.get(0);
@@ -129,19 +131,23 @@ public class AuthRepositoryImpl implements AuthRepository {
             } catch (Exception ignored) {}
         }
 
-        if ("CONVIVIENTE".equalsIgnoreCase(tipoResidente) || "RESIDENTE_CONVIVENCIA".equalsIgnoreCase(rolCodigo)) {
-            rolCodigo = "RESIDENTE_CONVIVENCIA";
+        if ("RESIDENTE_CONVIVENCIA".equalsIgnoreCase(rolCodigo)) {
             alcance = "UNIDAD";
             tipoResidente = "CONVIVIENTE";
+        } else if ("RESIDENTE".equalsIgnoreCase(rolCodigo) && "CONVIVIENTE".equalsIgnoreCase(tipoResidente)) {
+            rolCodigo = "RESIDENTE_CONVIVENCIA";
+            alcance = "UNIDAD";
 
-            // Auto-reparar en caliente la asignación en USUARIO_ASIGNACIONES si aún apuntaba al rol RESIDENTE titular
+            // Auto-reparar en caliente la asignación en USUARIO_ASIGNACIONES si aún apuntaba al rol RESIDENTE titular para esta unidad activa
             try {
                 jdbcTemplate.update("""
                     UPDATE USUARIO_ASIGNACIONES
-                    SET ID_ROL = (SELECT ID_ROL FROM ROLES WHERE CODIGO = 'RESIDENTE_CONVIVENCIA')
+                    SET ID_ROL = (SELECT ID_ROL FROM ROLES WHERE CODIGO = 'RESIDENTE_CONVIVENCIA' AND ESTADO = 'ACTIVO')
                     WHERE ID_USUARIO = ?
-                      AND ID_ROL = (SELECT ID_ROL FROM ROLES WHERE CODIGO = 'RESIDENTE')
-                """, userId);
+                      AND ID_UNIDAD = ?
+                      AND ID_ROL = (SELECT ID_ROL FROM ROLES WHERE CODIGO = 'RESIDENTE' AND ESTADO = 'ACTIVO')
+                      AND ESTADO IN ('ACTIVO', 'ACTIVA')
+                """, userId, unidadId);
             } catch (Exception ignored) {}
         }
 
@@ -155,7 +161,7 @@ public class AuthRepositoryImpl implements AuthRepository {
                 alcance,
                 (Number) out.get("p_org_id") != null ? ((Number) out.get("p_org_id")).longValue() : null,
                 (Number) out.get("p_prop_id") != null ? ((Number) out.get("p_prop_id")).longValue() : null,
-                (Number) out.get("p_unidad_id") != null ? ((Number) out.get("p_unidad_id")).longValue() : null,
+                unidadId,
                 tipoResidente
         );
     }

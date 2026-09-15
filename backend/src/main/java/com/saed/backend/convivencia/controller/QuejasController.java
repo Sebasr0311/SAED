@@ -23,13 +23,13 @@ public class QuejasController {
 
 
     @GetMapping("/api/v1/quejas")
-    @PreAuthorize("hasAuthority('SCOPE_RESIDENTE')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA')")
     public ResponseEntity<List<QuejaDTO>> getMyQuejas() {
         return ResponseEntity.ok(service.findMyQuejas());
     }
 
     @PostMapping("/api/v1/quejas")
-    @PreAuthorize("hasAuthority('SCOPE_RESIDENTE')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA')")
     public ResponseEntity<Void> createQueja(@Valid @RequestBody QuejaRequestDTO request) {
         service.createQueja(request);
         return ResponseEntity.status(HttpStatus.CREATED).build();

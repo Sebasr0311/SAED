@@ -60,10 +60,10 @@ const emptyForm = {
   email: '',
   idApartamento: '',
   tipoRelacion: 'ARRENDATARIO',
-  crearContrato: false,
+  crearContrato: true,
   idPlantilla: '',
   contratoCanon: '',
-  contratoFechaInicio: '',
+  contratoFechaInicio: new Date().toISOString().split('T')[0],
   contratoFechaFin: '',
   contratoTipo: 'INICIAL',
 };
@@ -440,9 +440,22 @@ export default function ResidentesPage() {
       e.idApartamento = `La unidad seleccionada ya alcanzó el cupo máximo de ${aptQuota.limiteConfigurado || 4} convivientes activos.`;
     }
 
+    // Obligatoriedad de contrato para ARRENDATARIO (Fase 6)
+    if (asignacionCambia && form.tipoRelacion === 'ARRENDATARIO') {
+      if (!form.contratoCanon || Number(form.contratoCanon) <= 0) {
+        e.contratoCanon = 'El canon mensual es obligatorio y debe ser mayor a 0 para arrendatarios';
+      }
+      if (!form.contratoFechaInicio) {
+        e.contratoFechaInicio = 'La fecha de inicio del contrato es obligatoria';
+      }
+      if (plantillas && plantillas.length > 0 && !form.idPlantilla) {
+        e.idPlantilla = 'Debe seleccionar una plantilla de contrato activa';
+      }
+    }
+
     setErrors(e);
     return Object.keys(e).length === 0;
-  }, [form, requiereTutor, tiposDoc, tutorForm, touchAll, aptQuota, editing]);
+  }, [form, requiereTutor, tiposDoc, tutorForm, touchAll, aptQuota, editing, plantillas]);
 
   // Guardado CRUD
   const save = useCallback(async () => {
@@ -485,11 +498,25 @@ export default function ResidentesPage() {
           editing.tipoRelacion !== form.tipoRelacion);
       if (asignacionCambia) {
         try {
-          await tenantApi.post(`/residentes/${idResidente}/asignar-apartamento`, {
+          const payloadAsignacion = {
             idApartamento: Number(form.idApartamento),
             tipoRelacion: form.tipoRelacion,
             rolEnContrato: form.tipoRelacion?.startsWith('PROPIETARIO') ? 'PROPIETARIO' : 'RESIDENTE',
-          });
+          };
+
+          if (form.tipoRelacion === 'ARRENDATARIO') {
+            payloadAsignacion.crearContrato = true;
+            payloadAsignacion.canonMensual = Number(form.contratoCanon || 0);
+            payloadAsignacion.fechaInicio = form.contratoFechaInicio || new Date().toISOString().split('T')[0];
+            payloadAsignacion.fechaFin = form.contratoFechaFin || null;
+            payloadAsignacion.tipoContrato = form.contratoTipo || 'INICIAL';
+            payloadAsignacion.idPlantilla = form.idPlantilla ? Number(form.idPlantilla) : null;
+          }
+
+          await tenantApi.post(`/residentes/${idResidente}/asignar-apartamento`, payloadAsignacion);
+          if (form.tipoRelacion === 'ARRENDATARIO') {
+            toast.success('Contrato de arrendamiento vinculado y residente asignado exitosamente.');
+          }
         } catch (err) {
           const is409 =
             err.status === 409 ||
@@ -508,23 +535,6 @@ export default function ResidentesPage() {
               `Residente guardado, pero la asignación al apartamento falló: ${err.message}`
             );
           }
-        }
-      }
-
-      if (form.crearContrato && form.idApartamento && !editing) {
-        try {
-          await tenantApi.post('/contratos', {
-            idApartamento: Number(form.idApartamento),
-            idResidente,
-            fechaInicio: form.contratoFechaInicio || new Date().toISOString().split('T')[0],
-            fechaFin: form.contratoFechaFin || null,
-            tipoContrato: form.contratoTipo || 'INICIAL',
-            canonMensual: Number(form.contratoCanon || 0),
-            idPlantilla: form.idPlantilla ? Number(form.idPlantilla) : null,
-          });
-          toast.success('Contrato de arrendamiento vinculado y generado exitosamente.');
-        } catch (errContrato) {
-          toast.error(`Residente creado, pero falló la generación del contrato: ${errContrato.message}`);
         }
       }
 
@@ -1470,7 +1480,114 @@ export default function ResidentesPage() {
                 </div>
               )}
 
-              {form.idApartamento && !editing && (
+              {form.idApartamento && form.tipoRelacion === 'ARRENDATARIO' && (
+                <div className="rounded-xl border border-primary/25 bg-primary/5 p-3.5 space-y-3 mt-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="default" className="text-[10px] bg-primary text-primary-foreground font-semibold">
+                        Contrato Obligatorio
+                      </Badge>
+                      <span className="text-xs font-semibold text-foreground">
+                        Contrato de Arrendamiento y Plantilla Organizacional
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3 pt-2 border-t border-primary/15">
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-medium text-foreground block">
+                          Plantilla de Contrato {plantillas.length > 0 && '*'}
+                        </label>
+                        {form.idPlantilla && (
+                          <button
+                            type="button"
+                            onClick={handlePreviewPlantilla}
+                            disabled={previewLoading}
+                            className="text-[11px] font-semibold text-primary hover:underline flex items-center gap-1"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            {previewLoading ? 'Renderizando...' : 'Previsualizar'}
+                          </button>
+                        )}
+                      </div>
+                      <select
+                        value={form.idPlantilla}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          update('idPlantilla', val);
+                          if (val) {
+                            const p = plantillas.find((tpl) => String(tpl.idPlantilla) === String(val));
+                            if (p?.tipoContrato) update('contratoTipo', p.tipoContrato);
+                          }
+                        }}
+                        className={`w-full text-xs bg-background border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/30 ${
+                          errors.idPlantilla ? 'border-destructive ring-destructive/30' : 'border-border'
+                        }`}
+                      >
+                        <option value="">{plantillas.length > 0 ? '— Selecciona una plantilla activa —' : '— Plantilla Estándar del Sistema —'}</option>
+                        {plantillas.map((p) => (
+                          <option key={p.idPlantilla} value={p.idPlantilla}>
+                            {p.nombre} (v{p.version} · {p.tipoContrato})
+                          </option>
+                        ))}
+                      </select>
+                      {errors.idPlantilla && (
+                        <p className="text-[11px] text-destructive mt-1 font-medium">{errors.idPlantilla}</p>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                      <div>
+                        <label className="text-xs font-medium text-foreground block mb-1">
+                          Canon Mensual (COP) *
+                        </label>
+                        <input
+                          type="number"
+                          placeholder="Ej. 1500000"
+                          value={form.contratoCanon}
+                          onChange={(e) => update('contratoCanon', e.target.value)}
+                          className={`w-full text-xs bg-background border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/30 ${
+                            errors.contratoCanon ? 'border-destructive ring-destructive/30' : 'border-border'
+                          }`}
+                        />
+                        {errors.contratoCanon && (
+                          <p className="text-[11px] text-destructive mt-1 font-medium">{errors.contratoCanon}</p>
+                        )}
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-foreground block mb-1">
+                          Fecha Inicio *
+                        </label>
+                        <input
+                          type="date"
+                          value={form.contratoFechaInicio}
+                          onChange={(e) => update('contratoFechaInicio', e.target.value)}
+                          className={`w-full text-xs bg-background border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/30 ${
+                            errors.contratoFechaInicio ? 'border-destructive ring-destructive/30' : 'border-border'
+                          }`}
+                        />
+                        {errors.contratoFechaInicio && (
+                          <p className="text-[11px] text-destructive mt-1 font-medium">{errors.contratoFechaInicio}</p>
+                        )}
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-foreground block mb-1">
+                          Fecha Fin
+                        </label>
+                        <input
+                          type="date"
+                          value={form.contratoFechaFin}
+                          onChange={(e) => update('contratoFechaFin', e.target.value)}
+                          className="w-full text-xs bg-background border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {form.idApartamento && form.tipoRelacion !== 'ARRENDATARIO' && !editing && (
                 <div className="rounded-xl border border-primary/20 bg-primary/5 p-3.5 space-y-3 mt-2">
                   <label className="flex items-center gap-2 cursor-pointer select-none">
                     <input
@@ -1480,7 +1597,7 @@ export default function ResidentesPage() {
                       className="rounded border-border text-primary focus:ring-primary/30 h-4 w-4"
                     />
                     <span className="text-xs font-semibold text-foreground">
-                      Vincular Contrato con Plantilla Organizacional (Requisito #10)
+                      Vincular Contrato con Plantilla Organizacional (Opcional)
                     </span>
                   </label>
 

@@ -87,6 +87,12 @@ public class PorteriaController {
     @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_RESIDENTE') or hasAuthority('SCOPE_RESIDENTE_CONVIVENCIA') or hasAuthority('SCOPE_PORTERO')")
     public Map<String, Object> programarVisita(@RequestBody Map<String, Object> body) {
         Long currentUserId = SaedContextHolder.getContext() != null ? SaedContextHolder.getContext().getUserId() : null;
+        if (currentUserId == null) {
+            org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.isAuthenticated() && !(auth instanceof org.springframework.security.authentication.AnonymousAuthenticationToken)) {
+                try { currentUserId = Long.parseLong(auth.getName()); } catch (Exception ignored) {}
+            }
+        }
 
         Long unidadId = null;
         if (body.get("unidadId") != null && !body.get("unidadId").toString().isBlank()) {
@@ -131,7 +137,9 @@ public class PorteriaController {
         String rawMotivo = body.get("motivo") != null ? body.get("motivo").toString() : (body.get("notas") != null ? body.get("notas").toString() : "Visita programada");
         String motivo = (rawMotivo != null && rawMotivo.length() > 200) ? rawMotivo.substring(0, 200) : rawMotivo;
 
-        Long autorizadoPor = body.get("autorizadoPor") != null ? Long.valueOf(body.get("autorizadoPor").toString()) : null;
+        // SEC-02: Server-controlled autorizador (prevencion de suplantacion).
+        // Ignorar cualquier valor enviado por el cliente en 'autorizadoPor' y derivarlo exclusivamente de la identidad autenticada.
+        Long autorizadoPor = currentUserId;
         ZonedDateTime fechaProgramada = ZonedDateTime.now();
         if (body.get("fechaProgramada") != null) {
             try {
@@ -489,6 +497,7 @@ public class PorteriaController {
         response.put("idVisita", visita.idVisita());
         response.put("codigoQr", token);
         response.put("token", token);
+        response.put("autorizadoPor", visita.autorizadoPor() != null ? visita.autorizadoPor() : autorizadoPor);
         return response;
     }
 

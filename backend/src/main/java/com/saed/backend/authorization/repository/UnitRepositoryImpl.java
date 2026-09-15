@@ -2,6 +2,8 @@ package com.saed.backend.authorization.repository;
 
 import com.saed.backend.authorization.dto.UnitDTO;
 import com.saed.backend.authorization.dto.UnitRequestDTO;
+import com.saed.backend.context.SaedContext;
+import com.saed.backend.context.SaedContextHolder;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
@@ -55,6 +57,11 @@ public class UnitRepositoryImpl implements UnitRepository {
 
     @Override
     public List<UnitDTO> findAll() {
+        SaedContext ctx = SaedContextHolder.getContext();
+        if (ctx != null && ctx.getPropertyId() != null) {
+            return jdbcTemplate.query(BASE_SELECT + " WHERE u.id_propiedad = :propId ORDER BY u.identificador",
+                    new MapSqlParameterSource("propId", ctx.getPropertyId()), this::mapRow);
+        }
         return jdbcTemplate.query(BASE_SELECT + " ORDER BY u.identificador", this::mapRow);
     }
 
