@@ -126,3 +126,8 @@ export function findDepartamentoByCiudad(ciudad) {
   return 'Bogotá D.C.';
 }
 
+export {
+  fetchDepartamentos,
+  fetchCiudadesPorDepartamento,
+  useColombiaLocations,
+} from './locationService.js';

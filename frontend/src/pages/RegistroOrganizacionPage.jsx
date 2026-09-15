@@ -27,6 +27,8 @@ import api from '../lib/api.js';
 import {
   DEPARTAMENTOS_COLOMBIA,
   COLOMBIA_LOCATIONS,
+  fetchDepartamentos,
+  fetchCiudadesPorDepartamento,
 } from '../lib/colombiaData.js';
 import {
   valDocumento,
@@ -139,6 +141,46 @@ export default function RegistroOrganizacionPage() {
   // Touched state para Live Validation
   const [touched, setTouched] = useState({});
   const markTouched = (field) => setTouched((prev) => ({ ...prev, [field]: true }));
+
+  // Dynamic Colombia API location state
+  const [deptosList, setDeptosList] = useState(DEPARTAMENTOS_COLOMBIA);
+  const [ciudadesList, setCiudadesList] = useState(COLOMBIA_LOCATIONS['Bogotá D.C.'] || ['Bogotá']);
+  const [loadingCiudades, setLoadingCiudades] = useState(false);
+
+  // Load official departments from API on mount
+  useEffect(() => {
+    let isMounted = true;
+    fetchDepartamentos().then((depts) => {
+      if (isMounted && Array.isArray(depts) && depts.length > 0) {
+        setDeptosList(depts.map((d) => d.name));
+      }
+    }).catch(() => {});
+    return () => { isMounted = false; };
+  }, []);
+
+  // Load municipalities whenever selected department changes
+  useEffect(() => {
+    if (!orgForm.departamento) {
+      setCiudadesList([]);
+      return;
+    }
+    let isMounted = true;
+    setLoadingCiudades(true);
+    const fallback = COLOMBIA_LOCATIONS[orgForm.departamento] || [];
+    if (fallback.length > 0) {
+      setCiudadesList(fallback);
+    }
+    fetchCiudadesPorDepartamento(orgForm.departamento)
+      .then((cities) => {
+        if (isMounted && Array.isArray(cities) && cities.length > 0) {
+          setCiudadesList(cities);
+        }
+      })
+      .finally(() => {
+        if (isMounted) setLoadingCiudades(false);
+      });
+    return () => { isMounted = false; };
+  }, [orgForm.departamento]);
 
   // Submission & Payment State
   const [submitting, setSubmitting] = useState(false);
@@ -1372,24 +1414,25 @@ export default function RegistroOrganizacionPage() {
                       value={orgForm.departamento}
                       onChange={(e) => {
                         const newDep = e.target.value;
-                        const availableCities = COLOMBIA_LOCATIONS[newDep] || [];
+                        const fallbackCities = COLOMBIA_LOCATIONS[newDep] || [];
                         setOrgForm({
                           ...orgForm,
                           departamento: newDep,
-                          ciudad: availableCities.length > 0 ? availableCities[0] : '',
+                          ciudad: fallbackCities.length > 0 ? fallbackCities[0] : '',
                         });
                         markTouched('departamento');
                       }}
                       onBlur={() => markTouched('departamento')}
                       className="w-full bg-slate-950 border border-slate-800 focus:border-cyan-400 text-white rounded-xl text-xs py-3 px-3 outline-none transition-colors"
                     >
-                      {DEPARTAMENTOS_COLOMBIA.map((dep) => (
+                      <option value="">-- Seleccionar departamento --</option>
+                      {deptosList.map((dep) => (
                         <option key={dep} value={dep}>
                           {dep}
                         </option>
                       ))}
                     </select>
-                    {renderFieldFeedback('departamento', orgErrors.departamento, '32 departamentos + Bogotá D.C.')}
+                    {renderFieldFeedback('departamento', orgErrors.departamento, '32 departamentos + Bogotá D.C. (API Colombia)')}
                   </div>
 
                   <div className="space-y-1.5">
@@ -1406,13 +1449,20 @@ export default function RegistroOrganizacionPage() {
                       onBlur={() => markTouched('ciudad')}
                       className="w-full bg-slate-950 border border-slate-800 focus:border-cyan-400 text-white rounded-xl text-xs py-3 px-3 outline-none transition-colors"
                     >
-                      {(COLOMBIA_LOCATIONS[orgForm.departamento] || []).map((city) => (
+                      <option value="">
+                        {orgForm.departamento
+                          ? loadingCiudades && ciudadesList.length === 0
+                            ? '-- Cargando municipios... --'
+                            : '-- Seleccionar ciudad / municipio --'
+                          : '-- Primero seleccione departamento --'}
+                      </option>
+                      {ciudadesList.map((city) => (
                         <option key={city} value={city}>
                           {city}
                         </option>
                       ))}
                     </select>
-                    {renderFieldFeedback('ciudad', orgErrors.ciudad, 'Municipio oficial según departamento')}
+                    {renderFieldFeedback('ciudad', orgErrors.ciudad, loadingCiudades ? 'Consultando API oficial de municipios...' : 'Municipio oficial según departamento')}
                   </div>
                 </div>
 
