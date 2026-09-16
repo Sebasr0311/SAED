@@ -62,18 +62,13 @@ export default function ContratosPage() {
   const [page, setPage] = useState(0);
   const [filtroEstado, setFiltroEstado] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
-  const [renovarModal, setRenovarModal] = useState(null);
-  const [renovarForm, setRenovarForm] = useState({ fechaInicio: '', fechaFin: '', valorMensual: '', notas: '' });
   const [form, setForm] = useState(emptyForm);
   const [errors, setErrors] = useState({});
   const [confirmCancelar, setConfirmCancelar] = useState(null);
   const [saving, setSaving] = useState(false);
   const { touch, fieldError } = useLiveValidation();
-  // Guard anti doble-submit (compartido por crear/confirmarRenovar): mismo patron que
-  // VisitasPage (FASE 4.2-P2). disabled={state} NO bloquea clicks sincronicos — el ref es
-  // la barrera real. Ambos flujos son mutuamente excluyentes desde la misma pantalla.
+  // Guard anti doble-submit: mismo patron que VisitasPage. disabled={state} NO bloquea clicks sincronicos.
   const savingRef = useRef(false);
-  const [confirmReenviar, setConfirmReenviar] = useState(null);
   const [descargando, setDescargando] = useState(null);
 
   const { data: contratosRaw, loading, refetch } = useFetch(() => api.get('/contratos'), []);
@@ -116,18 +111,6 @@ export default function ContratosPage() {
     }
   }
 
-  async function reenviarCorreo() {
-    if (!confirmReenviar) return;
-    try {
-      await api.post(`/contratos/${confirmReenviar}/reenviar-correo`);
-      toast.success('Correo reenviado exitosamente');
-    } catch (err) {
-      toast.error(err.message);
-    } finally {
-      setConfirmReenviar(null);
-    }
-  }
-
   async function activar(idContrato) {
     try {
       await api.post(`/contratos/${idContrato}/activar`);
@@ -149,72 +132,13 @@ export default function ContratosPage() {
     }
   }
 
-  function abrirRenovar(contrato) {
-    const fechaInicio = new Date().toISOString().slice(0, 10);
-    const fechaFin = calcularFechaFin(fechaInicio, 'RENOVACION');
-    setRenovarModal(contrato);
-    setRenovarForm({
-      fechaInicio,
-      fechaFin,
-      valorMensual: formatMiles(contrato.valorMensual),
-      notas: '',
-    });
-  }
-
-  async function confirmarRenovar() {
-    if (savingRef.current) return; // doble submit
-    if (!renovarModal) return;
-    if (!renovarForm.fechaInicio) {
-      toast.error('La fecha de inicio es obligatoria');
-      return;
-    }
-    if (!parseMiles(renovarForm.valorMensual) || parseMiles(renovarForm.valorMensual) <= 0) {
-      toast.error('El valor mensual debe ser mayor que 0');
-      return;
-    }
-    savingRef.current = true;
-    setSaving(true);
-    try {
-      const res = await api.post(`/contratos/${renovarModal.idContrato}/renovar`, {
-        fechaInicio: renovarForm.fechaInicio,
-        fechaFin: renovarForm.fechaFin || null,
-        valorMensual: parseMiles(renovarForm.valorMensual),
-        notas: renovarForm.notas,
-      });
-      toast.success('Contrato renovado');
-      handleEmailStatus(res);
-      setRenovarModal(null);
-      refetch();
-    } catch (err) {
-      toast.error(err.message);
-    } finally {
-      savingRef.current = false;
-      setSaving(false);
-    }
-  }
-
   function handleEmailStatus(res) {
     if (res.emailStatus === 'enviado') {
       toast.success('Correo de notificación enviado al residente');
     } else if (res.emailStatus === 'sin_email') {
       toast.warning('El residente no tiene correo electrónico registrado');
     } else if (res.emailStatus === 'error') {
-      toast.warning(`Contrato creado. No se pudo enviar el correo: ${res.emailMensaje || ''}. Puede reenviarlo desde la tabla.`);
-    }
-  }
-
-  async function sugerirTipo(idApartamento) {
-    if (!idApartamento) return;
-    try {
-      const res = await api.get(`/contratos/sugerir-tipo/${idApartamento}`);
-      if (res?.tipoSugerido) {
-        update('tipoContrato', res.tipoSugerido);
-        if (form.fechaInicio) {
-          update('fechaFin', calcularFechaFin(form.fechaInicio, res.tipoSugerido));
-        }
-      }
-    } catch (err) {
-      toast.error(err.message || 'No se pudo sugerir el tipo de contrato');
+      toast.warning(`Contrato creado. No se pudo enviar el correo: ${res.emailMensaje || ''}`);
     }
   }
 
@@ -231,7 +155,6 @@ export default function ContratosPage() {
   }
   function onApartamentoChange(idApartamento) {
     update('idApartamento', idApartamento);
-    sugerirTipo(idApartamento);
     autoFillValor(idApartamento);
   }
   function onTipoChange(tipo) {
@@ -330,19 +253,6 @@ export default function ContratosPage() {
               </span>
             </button>
           )}
-          {(row.estado === 'ACTIVO' || row.estado === 'PENDIENTE_FIRMA') && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setConfirmReenviar(row.idContrato);
-              }}
-              className="btn btn-ghost btn-xs"
-              title="Reenviar correo"
-              aria-label="Reenviar correo"
-            >
-              <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>mail</span>
-            </button>
-          )}
           {row.estado === 'PENDIENTE_FIRMA' && (
             <button
               onClick={(e) => {
@@ -355,21 +265,6 @@ export default function ContratosPage() {
             >
               <span className="material-symbols-outlined" style={{ fontSize: '16px', color: 'var(--success-strong)' }}>
                 check_circle
-              </span>
-            </button>
-          )}
-          {row.estado === 'VENCIDO' && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                abrirRenovar(row);
-              }}
-              className="btn btn-ghost btn-xs"
-              title="Renovar"
-              aria-label="Renovar contrato"
-            >
-              <span className="material-symbols-outlined" style={{ fontSize: '16px', color: 'var(--info)' }}>
-                autorenew
               </span>
             </button>
           )}
@@ -568,55 +463,6 @@ export default function ContratosPage() {
         </div>
       </Modal>
 
-      <Modal
-        open={!!renovarModal}
-        onClose={() => setRenovarModal(null)}
-        title={`Renovar Contrato #${renovarModal?.idContrato || ''}`}
-        footer={
-          <>
-            <Button variant="outline" onClick={() => setRenovarModal(null)} disabled={saving}>
-              Cancelar
-            </Button>
-            <Button onClick={confirmarRenovar} disabled={saving}>
-              {saving ? 'Renovando...' : 'Renovar'}
-            </Button>
-          </>
-        }
-      >
-        <div className="form-row">
-          <Input
-            id="renFechaInicio"
-            label="Nueva Fecha Inicio"
-            type="date"
-            value={renovarForm.fechaInicio}
-            onChange={(e) => setRenovarForm((f) => ({ ...f, fechaInicio: e.target.value }))}
-          />
-          <Input
-            id="renFechaFin"
-            label="Nueva Fecha Fin"
-            type="date"
-            value={renovarForm.fechaFin}
-            onChange={(e) => setRenovarForm((f) => ({ ...f, fechaFin: e.target.value }))}
-          />
-        </div>
-        <div className="form-group">
-          <Input
-            id="renValor"
-            label="Valor Mensual"
-            value={renovarForm.valorMensual}
-            onChange={(e) => setRenovarForm((f) => ({ ...f, valorMensual: formatMiles(e.target.value) }))}
-          />
-        </div>
-        <div className="form-group">
-          <Input
-            id="renNotas"
-            label="Notas (opcional)"
-            value={renovarForm.notas}
-            onChange={(e) => setRenovarForm((f) => ({ ...f, notas: e.target.value }))}
-          />
-        </div>
-      </Modal>
-
       <ConfirmDialog
         open={!!confirmCancelar}
         onClose={() => setConfirmCancelar(null)}
@@ -625,14 +471,6 @@ export default function ContratosPage() {
         message={`¿Cancelar el contrato #${confirmCancelar?.idContrato}? El apartamento quedará disponible.`}
         confirmLabel="Cancelar contrato"
         danger
-      />
-      <ConfirmDialog
-        open={!!confirmReenviar}
-        onClose={() => setConfirmReenviar(null)}
-        onConfirm={reenviarCorreo}
-        title="Reenviar correo"
-        message={`¿Desea reenviar el correo de notificación del contrato #${confirmReenviar} al residente?`}
-        confirmLabel="Reenviar"
       />
     </div>
   );

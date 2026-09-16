@@ -8,7 +8,7 @@ services:
     env: java
     buildCommand: mvn clean package -DskipTests -q
     startCommand: java -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -jar target/backend-1.0.0-SNAPSHOT.jar
-    healthCheckPath: /api/v1/auth/login
+    healthCheckPath: /api/v1/health
     envVars:
       - key: JAVA_VERSION
         value: "17"

@@ -8,8 +8,8 @@ const MantenimientoAdminPage = () => {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const mantRes = await api.get('/api/mantenimiento');
-                const actRes = await api.get('/api/mantenimiento/activos');
+                const mantRes = await api.get('/mantenimiento');
+                const actRes = await api.get('/mantenimiento/activos');
                 
                 setMantenimientos(mantRes);
                 setActivos(actRes);

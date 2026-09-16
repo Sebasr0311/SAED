@@ -72,7 +72,7 @@ export default function OrgGastosPage() {
   const [search, setSearch] = useState('');
 
   // Fetch properties for filter selector
-  const { data: propData } = useFetch(() => api.get('/org/propiedades'), []);
+  const { data: propData } = useFetch(() => api.get('/properties'), []);
   const propiedades = useMemo(() => {
     const raw = propData?.data || propData?.items || propData || [];
     return Array.isArray(raw) ? raw : [];

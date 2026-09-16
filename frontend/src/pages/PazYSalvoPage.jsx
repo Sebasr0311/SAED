@@ -19,7 +19,7 @@ const fmtCOP = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'CO
 
 export default function PazYSalvoPage() {
   const { data, loading, refetch } = useFetch(() => api.get('/paz-y-salvos'), []);
-  const { data: unidadesData } = useFetch(() => api.get('/unidades'), []);
+  const { data: unidadesData } = useFetch(() => api.get('/units'), []);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [generando, setGenerando] = useState(false);
