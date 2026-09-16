@@ -22,6 +22,9 @@ class UnitServiceTest {
     @Mock
     private UnitRepository unitRepository;
 
+    @Mock
+    private com.saed.backend.platform.service.PlanLimitService planLimitService;
+
     @InjectMocks
     private UnitService unitService;
 
@@ -55,6 +58,7 @@ class UnitServiceTest {
         request.setIdentificador("101");
         request.setIdPropiedad(99L); // Malicious attempt to create unit for another property
 
+        when(planLimitService.getOrganizationIdForProperty(5L)).thenReturn(1L);
         when(unitRepository.create(any())).thenReturn(101L);
 
         Long id = unitService.create(request);
@@ -92,6 +96,11 @@ class UnitServiceTest {
         SaedContextHolder.setContext(SaedContext.builder()
                 .userId(3L).roleCode("ADMIN_PROPIEDAD").roleScope("PROPIEDAD")
                 .organizationId(1L).propertyId(5L).build());
+
+        com.saed.backend.authorization.dto.UnitDTO existing = new com.saed.backend.authorization.dto.UnitDTO();
+        existing.setId(1L);
+        existing.setIdPropiedad(5L);
+        when(unitRepository.findById(1L)).thenReturn(java.util.Optional.of(existing));
 
         UnitRequestDTO request = new UnitRequestDTO();
         request.setIdentificador("Updated");

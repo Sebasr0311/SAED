@@ -68,12 +68,15 @@ public class UnitRepositoryImpl implements UnitRepository {
     @Override
     public void update(Long id, UnitRequestDTO request) {
         String sql = "UPDATE UNIDADES SET identificador = :identificador, area_m2 = :areaM2, " +
-                     "coeficiente_copropiedad = :coeficienteCopropiedad WHERE id_unidad = :id";
+                     "coeficiente_copropiedad = :coeficienteCopropiedad, id_bloque = :idBloque, " +
+                     "id_tipo_unidad = :idTipoUnidad WHERE id_unidad = :id";
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("id", id)
                 .addValue("identificador", request.getIdentificador())
                 .addValue("areaM2", request.getAreaM2())
-                .addValue("coeficienteCopropiedad", request.getCoeficienteCopropiedad());
+                .addValue("coeficienteCopropiedad", request.getCoeficienteCopropiedad())
+                .addValue("idBloque", request.getIdBloque())
+                .addValue("idTipoUnidad", request.getIdTipoUnidad());
         jdbcTemplate.update(sql, params);
     }
 

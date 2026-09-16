@@ -26,15 +26,23 @@ public class CatalogoController {
         this.jdbcTemplate = jdbcTemplate;
     }
 
-    @GetMapping("/tipos-unidad")
+    @GetMapping({"/tipos-unidad", "/catalogos/tipos-unidad"})
     @PreAuthorize("isAuthenticated()")
     public List<Map<String, Object>> tiposUnidad() {
-        return jdbcTemplate.queryForList(
+        List<Map<String, Object>> raw = jdbcTemplate.queryForList(
                 "SELECT ID_TIPO_UNIDAD, CODIGO, NOMBRE FROM TIPOS_UNIDAD ORDER BY NOMBRE",
                 new MapSqlParameterSource());
+        return raw.stream().map(row -> {
+            Map<String, Object> map = new java.util.LinkedHashMap<>(row);
+            map.put("idTipoUnidad", row.get("ID_TIPO_UNIDAD"));
+            map.put("id", row.get("ID_TIPO_UNIDAD"));
+            map.put("codigo", row.get("CODIGO"));
+            map.put("nombre", row.get("NOMBRE"));
+            return map;
+        }).toList();
     }
 
-    @GetMapping("/bloques")
+    @GetMapping({"/bloques", "/catalogos/bloques"})
     @PreAuthorize("isAuthenticated()")
     public List<Map<String, Object>> bloques() {
         Long propiedadId = (SaedContextHolder.getContext() != null)
@@ -50,12 +58,20 @@ public class CatalogoController {
                 new MapSqlParameterSource());
     }
 
-    @GetMapping("/tipos-propiedad")
+    @GetMapping({"/tipos-propiedad", "/catalogos/tipos-propiedad"})
     @PreAuthorize("isAuthenticated()")
     public List<Map<String, Object>> tiposPropiedad() {
-        return jdbcTemplate.queryForList(
+        List<Map<String, Object>> raw = jdbcTemplate.queryForList(
                 "SELECT ID_TIPO_PROPIEDAD, CODIGO, NOMBRE FROM TIPOS_PROPIEDAD ORDER BY NOMBRE",
                 new MapSqlParameterSource());
+        return raw.stream().map(row -> {
+            Map<String, Object> map = new java.util.LinkedHashMap<>(row);
+            map.put("idTipoPropiedad", row.get("ID_TIPO_PROPIEDAD"));
+            map.put("id", row.get("ID_TIPO_PROPIEDAD"));
+            map.put("codigo", row.get("CODIGO"));
+            map.put("nombre", row.get("NOMBRE"));
+            return map;
+        }).toList();
     }
 
     @GetMapping("/tipos-documento")

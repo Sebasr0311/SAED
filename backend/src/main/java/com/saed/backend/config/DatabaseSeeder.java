@@ -62,14 +62,32 @@ public class DatabaseSeeder implements ApplicationRunner {
                    "WHERE NOT EXISTS (SELECT 1 FROM TIPOS_DOCUMENTO WHERE CODIGO = 'CC')");
 
             // 2. TIPOS_PROPIEDAD
-            runSqlSafe("INSERT INTO TIPOS_PROPIEDAD (ID_TIPO_PROPIEDAD, CODIGO, NOMBRE, ESTADO) " +
-                   "SELECT 1, 'EDIFICIO', 'Edificio Residencial', 'ACTIVO' FROM DUAL " +
+            runSqlSafe("INSERT INTO TIPOS_PROPIEDAD (ID_TIPO_PROPIEDAD, CODIGO, NOMBRE) " +
+                   "SELECT 1, 'EDIFICIO', 'Edificio Residencial' FROM DUAL " +
                    "WHERE NOT EXISTS (SELECT 1 FROM TIPOS_PROPIEDAD WHERE CODIGO = 'EDIFICIO')");
+            runSqlSafe("INSERT INTO TIPOS_PROPIEDAD (ID_TIPO_PROPIEDAD, CODIGO, NOMBRE) " +
+                   "SELECT 2, 'CONJUNTO_CERRADO', 'Conjunto Cerrado' FROM DUAL " +
+                   "WHERE NOT EXISTS (SELECT 1 FROM TIPOS_PROPIEDAD WHERE CODIGO = 'CONJUNTO_CERRADO')");
 
             // 3. TIPOS_UNIDAD
             runSqlSafe("INSERT INTO TIPOS_UNIDAD (ID_TIPO_UNIDAD, CODIGO, NOMBRE) " +
                    "SELECT 1, 'APARTAMENTO', 'Apartamento' FROM DUAL " +
                    "WHERE NOT EXISTS (SELECT 1 FROM TIPOS_UNIDAD WHERE CODIGO = 'APARTAMENTO')");
+            runSqlSafe("INSERT INTO TIPOS_UNIDAD (ID_TIPO_UNIDAD, CODIGO, NOMBRE) " +
+                   "SELECT 2, 'CASA', 'Casa' FROM DUAL " +
+                   "WHERE NOT EXISTS (SELECT 1 FROM TIPOS_UNIDAD WHERE CODIGO = 'CASA')");
+            runSqlSafe("INSERT INTO TIPOS_UNIDAD (ID_TIPO_UNIDAD, CODIGO, NOMBRE) " +
+                   "SELECT 3, 'LOCAL', 'Local Comercial' FROM DUAL " +
+                   "WHERE NOT EXISTS (SELECT 1 FROM TIPOS_UNIDAD WHERE CODIGO = 'LOCAL')");
+            runSqlSafe("INSERT INTO TIPOS_UNIDAD (ID_TIPO_UNIDAD, CODIGO, NOMBRE) " +
+                   "SELECT 4, 'OFICINA', 'Oficina' FROM DUAL " +
+                   "WHERE NOT EXISTS (SELECT 1 FROM TIPOS_UNIDAD WHERE CODIGO = 'OFICINA')");
+            runSqlSafe("INSERT INTO TIPOS_UNIDAD (ID_TIPO_UNIDAD, CODIGO, NOMBRE) " +
+                   "SELECT 5, 'PARQUEADERO', 'Parqueadero Privado' FROM DUAL " +
+                   "WHERE NOT EXISTS (SELECT 1 FROM TIPOS_UNIDAD WHERE CODIGO = 'PARQUEADERO')");
+            runSqlSafe("INSERT INTO TIPOS_UNIDAD (ID_TIPO_UNIDAD, CODIGO, NOMBRE) " +
+                   "SELECT 6, 'DEPOSITO', 'Depósito / Cuarto Útil' FROM DUAL " +
+                   "WHERE NOT EXISTS (SELECT 1 FROM TIPOS_UNIDAD WHERE CODIGO = 'DEPOSITO')");
 
             // 4. ROLES
             runSqlSafe("INSERT INTO ROLES (ID_ROL, CODIGO, NOMBRE, ALCANCE, ESTADO) SELECT 1, 'SUPERADMIN', 'Super Administrador', 'GLOBAL', 'ACTIVO' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM ROLES WHERE CODIGO = 'SUPERADMIN')");

@@ -22,6 +22,7 @@ import { Skeleton } from '../components/ui/skeleton.tsx';
 import { toast } from 'sonner';
 import LocationSelector from '../components/ui/LocationSelector';
 import { findDepartamentoByCiudad } from '../lib/colombiaData';
+import PropertyConfigModal from '../components/PropertyConfigModal.jsx';
 
 /**
  * PropiedadesPage 2.0 — Propiedades globales y por organización.
@@ -105,6 +106,7 @@ export default function PropiedadesPage() {
   const [saving, setSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const [configProp, setConfigProp] = useState(null);
 
   // Asegurar que la organización y el tipo de la propiedad en edición siempre existan en las opciones del selector
   const availableOrgs = useMemo(() => {
@@ -388,16 +390,28 @@ export default function PropiedadesPage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleOpenEdit(p)}
-                          className="h-8 w-8 p-0 text-muted-foreground hover:text-primary transition-colors"
-                          aria-label={`Editar propiedad ${p.nombre}`}
-                          title={`Editar propiedad ${p.nombre}`}
-                        >
-                          <span className="material-symbols-outlined text-base">edit</span>
-                        </Button>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setConfigProp(p)}
+                            className="h-8 w-8 p-0 text-muted-foreground hover:text-primary transition-colors"
+                            aria-label={`Configuración de ${p.nombre}`}
+                            title={`Configuración de ${p.nombre}`}
+                          >
+                            <span className="material-symbols-outlined text-base">tune</span>
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleOpenEdit(p)}
+                            className="h-8 w-8 p-0 text-muted-foreground hover:text-primary transition-colors"
+                            aria-label={`Editar propiedad ${p.nombre}`}
+                            title={`Editar propiedad ${p.nombre}`}
+                          >
+                            <span className="material-symbols-outlined text-base">edit</span>
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -547,6 +561,15 @@ export default function PropiedadesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {configProp && (
+        <PropertyConfigModal
+          propertyId={configProp.id}
+          propertyName={configProp.nombre}
+          isOpen={Boolean(configProp)}
+          onClose={() => setConfigProp(null)}
+        />
+      )}
     </div>
   );
 }

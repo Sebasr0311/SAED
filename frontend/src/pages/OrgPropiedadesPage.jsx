@@ -37,6 +37,10 @@ export default function OrgPropiedadesPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState(null);
+  const [tiposPropiedad, setTiposPropiedad] = useState([
+    { idTipoPropiedad: 1, nombre: 'Edificio Residencial' },
+    { idTipoPropiedad: 2, nombre: 'Conjunto Cerrado' },
+  ]);
   const [newProp, setNewProp] = useState({
     nombre: '',
     idTipoPropiedad: 1,
@@ -51,13 +55,20 @@ export default function OrgPropiedadesPage() {
     try {
       setLoading(true);
       setError(null);
-      const [propsRes, subRes] = await Promise.all([
+      const [propsRes, subRes, tiposRes] = await Promise.all([
         api.get('/properties'),
         api.get('/org/subscription').catch(() => null),
+        api.get('/catalogos/tipos-propiedad').catch(() => api.get('/tipos-propiedad')).catch(() => null),
       ]);
       setProperties(Array.isArray(propsRes?.data) ? propsRes.data : Array.isArray(propsRes) ? propsRes : []);
       if (subRes) {
         setSubscription(subRes?.data || subRes || null);
+      }
+      if (tiposRes) {
+        const rawTipos = Array.isArray(tiposRes?.data) ? tiposRes.data : Array.isArray(tiposRes) ? tiposRes : [];
+        if (rawTipos.length > 0) {
+          setTiposPropiedad(rawTipos);
+        }
       }
     } catch (err) {
       console.error('Error loading properties:', err);
@@ -486,8 +497,11 @@ export default function OrgPropiedadesPage() {
                       onChange={(e) => setNewProp({ ...newProp, idTipoPropiedad: Number(e.target.value) })}
                       className="w-full px-3 py-2 border border-input rounded-lg bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                     >
-                      <option value={1}>Edificio Residencial</option>
-                      <option value={2}>Conjunto Cerrado</option>
+                      {tiposPropiedad.map((tp) => (
+                        <option key={tp.idTipoPropiedad || tp.id} value={tp.idTipoPropiedad || tp.id}>
+                          {tp.nombre || tp.codigo}
+                        </option>
+                      ))}
                     </select>
                   </div>
                   <div>

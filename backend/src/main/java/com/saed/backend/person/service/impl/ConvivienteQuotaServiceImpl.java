@@ -26,9 +26,12 @@ public class ConvivienteQuotaServiceImpl implements ConvivienteQuotaService {
     public static final int DEFAULT_LIMIT = 4;
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
+    private final com.saed.backend.authorization.service.PropertyConfigService propertyConfigService;
 
-    public ConvivienteQuotaServiceImpl(NamedParameterJdbcTemplate jdbcTemplate) {
+    public ConvivienteQuotaServiceImpl(NamedParameterJdbcTemplate jdbcTemplate,
+                                       com.saed.backend.authorization.service.PropertyConfigService propertyConfigService) {
         this.jdbcTemplate = jdbcTemplate;
+        this.propertyConfigService = propertyConfigService;
     }
 
     @Override
@@ -137,6 +140,9 @@ public class ConvivienteQuotaServiceImpl implements ConvivienteQuotaService {
         if (propertyId == null) {
             return DEFAULT_LIMIT;
         }
+        if (propertyConfigService != null) {
+            return propertyConfigService.getIntValue(propertyId, CONFIG_KEY_LIMITE, DEFAULT_LIMIT);
+        }
 
         String sql = """
             SELECT VALOR
@@ -157,9 +163,6 @@ public class ConvivienteQuotaServiceImpl implements ConvivienteQuotaService {
                     int parsed = Integer.parseInt(valStr);
                     if (parsed > 0) {
                         return parsed;
-                    } else {
-                        log.warn("Valor no positivo ({}) para {} en propiedad {}. Usando fallback {}",
-                                valStr, CONFIG_KEY_LIMITE, propertyId, DEFAULT_LIMIT);
                     }
                 } catch (NumberFormatException e) {
                     log.warn("Valor no numérico ('{}') para {} en propiedad {}. Usando fallback {}",

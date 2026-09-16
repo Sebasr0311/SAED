@@ -5,6 +5,8 @@ import com.saed.backend.authorization.dto.UnitRequestDTO;
 import com.saed.backend.authorization.repository.UnitRepository;
 import com.saed.backend.context.SaedContext;
 import com.saed.backend.context.SaedContextHolder;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,11 +18,43 @@ public class UnitService {
 
     private final UnitRepository unitRepository;
     private final com.saed.backend.platform.service.PlanLimitService planLimitService;
+    private final NamedParameterJdbcTemplate jdbcTemplate;
 
     public UnitService(UnitRepository unitRepository,
-                       com.saed.backend.platform.service.PlanLimitService planLimitService) {
+                       com.saed.backend.platform.service.PlanLimitService planLimitService,
+                       NamedParameterJdbcTemplate jdbcTemplate) {
         this.unitRepository = unitRepository;
         this.planLimitService = planLimitService;
+        this.jdbcTemplate = jdbcTemplate;
+    }
+
+    private void validateBlockAndType(Long propertyId, Long idBloque, Long idTipoUnidad) {
+        if (jdbcTemplate == null) return;
+        if (idBloque != null) {
+            String sql = "SELECT id_propiedad FROM BLOQUES WHERE id_bloque = :idBloque";
+            List<Long> propIds = jdbcTemplate.query(
+                    sql,
+                    new MapSqlParameterSource("idBloque", idBloque),
+                    (rs, rowNum) -> rs.getLong("id_propiedad")
+            );
+            if (propIds.isEmpty()) {
+                throw new IllegalArgumentException("El bloque especificado no existe");
+            }
+            if (propertyId != null && !propertyId.equals(propIds.get(0))) {
+                throw new IllegalArgumentException("El bloque no pertenece a la propiedad de la unidad");
+            }
+        }
+        if (idTipoUnidad != null) {
+            String sql = "SELECT COUNT(*) FROM TIPOS_UNIDAD WHERE id_tipo_unidad = :idTipoUnidad";
+            Integer count = jdbcTemplate.queryForObject(
+                    sql,
+                    new MapSqlParameterSource("idTipoUnidad", idTipoUnidad),
+                    Integer.class
+            );
+            if (count == null || count == 0) {
+                throw new IllegalArgumentException("El tipo de unidad especificado no es válido");
+            }
+        }
     }
 
     @Transactional
@@ -42,6 +76,8 @@ public class UnitService {
         if (request.getIdPropiedad() == null) {
             throw new IllegalArgumentException("Property ID required to create unit");
         }
+
+        validateBlockAndType(request.getIdPropiedad(), request.getIdBloque(), request.getIdTipoUnidad());
 
         // Resolve owning organization for property and check tenant isolation
         Long propOrgId = planLimitService.getOrganizationIdForProperty(request.getIdPropiedad());
@@ -83,6 +119,14 @@ public class UnitService {
         if (!"GLOBAL".equals(scope) && !"SUPERADMIN".equals(ctx.getRoleCode()) && !"ORGANIZACION".equals(scope)) {
             request.setIdPropiedad(ctx.getPropertyId());
         }
+
+        UnitDTO existing = findById(id);
+        if (request.getIdPropiedad() == null) {
+            request.setIdPropiedad(existing.getIdPropiedad());
+        }
+
+        validateBlockAndType(request.getIdPropiedad(), request.getIdBloque(), request.getIdTipoUnidad());
+
         unitRepository.update(id, request);
     }
 }
