@@ -8,11 +8,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import com.saed.backend.platform.annotation.RequireModule;
 import java.util.List;
 import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1")
+@RequireModule("RESERVAS")
 public class ReservasController {
 
     private final ReservasService reservasService;

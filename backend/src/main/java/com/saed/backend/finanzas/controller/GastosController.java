@@ -294,7 +294,8 @@ public class GastosController {
         String sha256 = null;
 
         if (soporteFile != null && !soporteFile.isEmpty()) {
-            FileStorageService.StoredFile stored = fileStorageService.store(soporteFile, "gastos");
+            Long orgId = SaedContextHolder.getContext() != null ? SaedContextHolder.getContext().getOrganizationId() : null;
+            FileStorageService.StoredFile stored = fileStorageService.store(soporteFile, "gastos", orgId);
             soporteUrl = stored.relativePath();
             origName = stored.originalFilename();
             mimeType = stored.mimeType();
@@ -409,8 +410,17 @@ public class GastosController {
             jdbcTemplate.update(archSql, histParams);
         }
 
-        // Almacenar el nuevo archivo
-        FileStorageService.StoredFile stored = fileStorageService.store(soporte, "gastos");
+        // Almacenar el nuevo archivo con validación de cuota y reemplazo
+        Long orgId = SaedContextHolder.getContext() != null ? SaedContextHolder.getContext().getOrganizationId() : null;
+        FileStorageService.StoredFile stored;
+        if (currentUrl != null && !currentUrl.isBlank()) {
+            Long oldTam = currentGasto.get("ARCHIVO_TAMANO_BYTES") != null
+                    ? ((Number) currentGasto.get("ARCHIVO_TAMANO_BYTES")).longValue()
+                    : 0L;
+            stored = fileStorageService.storeReplacement(soporte, "gastos", orgId, oldTam);
+        } else {
+            stored = fileStorageService.store(soporte, "gastos", orgId);
+        }
 
         String updateSql = """
             UPDATE GASTOS SET

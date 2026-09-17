@@ -12,12 +12,14 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
+import com.saed.backend.platform.annotation.RequireModule;
 import java.util.List;
 
 @Tag(name = "Pólizas de Seguro", description = "Gestión de pólizas de seguro de copropiedad")
 @RestController
 @RequestMapping("/api/v1/seguros/polizas")
 @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION')")
+@RequireModule("POLIZAS")
 public class PolizaSeguroController {
 
     private final PolizaSeguroService service;

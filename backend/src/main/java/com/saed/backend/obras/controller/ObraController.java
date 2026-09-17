@@ -5,6 +5,7 @@ import com.saed.backend.obras.service.ObraService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import com.saed.backend.platform.annotation.RequireModule;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -12,6 +13,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/obras")
+@RequireModule("OBRAS")
 public class ObraController {
 
     private final ObraService obraService;
