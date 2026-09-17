@@ -1,9 +1,13 @@
 package com.saed.backend.common.service.impl;
 
 import com.saed.backend.common.service.FileStorageService;
+import com.saed.backend.context.SaedContextHolder;
+import com.saed.backend.platform.service.StorageQuotaService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.stereotype.Service;
@@ -28,7 +32,7 @@ public class FileStorageServiceImpl implements FileStorageService {
 
     private static final Logger log = LoggerFactory.getLogger(FileStorageServiceImpl.class);
 
-    private static final long MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
+    public static final long MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB individual limit
     private static final Set<String> ALLOWED_EXTENSIONS = Set.of(".pdf", ".jpg", ".jpeg", ".png");
     private static final Set<String> ALLOWED_MIME_TYPES = Set.of(
             "application/pdf",
@@ -38,9 +42,17 @@ public class FileStorageServiceImpl implements FileStorageService {
     );
 
     private final Path rootLocation;
+    private final StorageQuotaService storageQuotaService;
 
     public FileStorageServiceImpl(@Value("${saed.storage.upload-dir:uploads}") String uploadDir) {
+        this(uploadDir, null);
+    }
+
+    @Autowired
+    public FileStorageServiceImpl(@Value("${saed.storage.upload-dir:uploads}") String uploadDir,
+                                  @Lazy @Autowired(required = false) StorageQuotaService storageQuotaService) {
         this.rootLocation = Paths.get(uploadDir).toAbsolutePath().normalize();
+        this.storageQuotaService = storageQuotaService;
         try {
             Files.createDirectories(this.rootLocation);
         } catch (IOException e) {
@@ -51,12 +63,44 @@ public class FileStorageServiceImpl implements FileStorageService {
 
     @Override
     public StoredFile store(MultipartFile file, String subDirectory) {
+        Long contextOrgId = resolveContextOrgId();
+        return store(file, subDirectory, contextOrgId);
+    }
+
+    @Override
+    public StoredFile store(MultipartFile file, String subDirectory, Long organizationId) {
+        validateFileConstraints(file);
+
+        // Double validation: 2. Cumulative organizational limit check
+        Long targetOrgId = organizationId != null ? organizationId : resolveContextOrgId();
+        if (targetOrgId != null && storageQuotaService != null) {
+            storageQuotaService.validateUpload(targetOrgId, file.getSize());
+        }
+
+        return persistFileToDisk(file, subDirectory);
+    }
+
+    @Override
+    public StoredFile storeReplacement(MultipartFile file, String subDirectory, Long organizationId, long oldFileBytes) {
+        validateFileConstraints(file);
+
+        // Double validation: 2. Cumulative organizational limit check with credit for replaced file
+        Long targetOrgId = organizationId != null ? organizationId : resolveContextOrgId();
+        if (targetOrgId != null && storageQuotaService != null) {
+            storageQuotaService.validateReplacement(targetOrgId, oldFileBytes, file.getSize());
+        }
+
+        return persistFileToDisk(file, subDirectory);
+    }
+
+    private void validateFileConstraints(MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("El archivo adjunto no puede estar vacio");
         }
 
+        // Double validation: 1. Individual file limit check
         if (file.getSize() > MAX_FILE_SIZE_BYTES) {
-            throw new IllegalArgumentException("El archivo excede el tamano maximo permitido de 10 MB");
+            throw new IllegalArgumentException(String.format("El archivo excede el tamano maximo permitido de 10 MB (%d bytes)", MAX_FILE_SIZE_BYTES));
         }
 
         String originalFilename = StringUtils.cleanPath(file.getOriginalFilename() != null ? file.getOriginalFilename() : "documento");
@@ -78,6 +122,11 @@ public class FileStorageServiceImpl implements FileStorageService {
         if (contentType == null || !ALLOWED_MIME_TYPES.contains(contentType.toLowerCase())) {
             throw new IllegalArgumentException("Tipo de contenido no valido (" + contentType + "). Solo se admiten PDF e imagenes.");
         }
+    }
+
+    private StoredFile persistFileToDisk(MultipartFile file, String subDirectory) {
+        String originalFilename = StringUtils.cleanPath(file.getOriginalFilename() != null ? file.getOriginalFilename() : "documento");
+        String contentType = file.getContentType();
 
         try {
             Path targetDir = rootLocation.resolve(subDirectory != null ? subDirectory : "general").normalize();
@@ -116,7 +165,7 @@ public class FileStorageServiceImpl implements FileStorageService {
             return new StoredFile(
                     relativeStoredPath,
                     originalFilename,
-                    contentType.toLowerCase(),
+                    contentType != null ? contentType.toLowerCase() : "application/octet-stream",
                     file.getSize(),
                     sha256Hex
             );
@@ -127,6 +176,16 @@ public class FileStorageServiceImpl implements FileStorageService {
             log.error("Error al guardar archivo {}", originalFilename, e);
             throw new RuntimeException("Fallo al almacenar el archivo en disco", e);
         }
+    }
+
+    private Long resolveContextOrgId() {
+        try {
+            if (SaedContextHolder.getContext() != null) {
+                return SaedContextHolder.getContext().getOrganizationId();
+            }
+        } catch (Exception ignored) {
+        }
+        return null;
     }
 
     @Override

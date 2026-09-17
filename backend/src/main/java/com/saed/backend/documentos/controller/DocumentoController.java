@@ -6,9 +6,11 @@ import com.saed.backend.audit.AuditSeverity;
 
 import com.saed.backend.documentos.dto.DocumentoDTO;
 import com.saed.backend.documentos.service.DocumentoService;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.HashMap;
 import java.util.List;
@@ -49,8 +51,31 @@ public class DocumentoController {
         return ResponseEntity.ok(Map.of("idDocumento", id));
     }
 
+    @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_PROPIEDAD')")
+    @Auditable(action = "UPLOAD_DOCUMENT", resource = "DOCUMENTO", category = AuditCategory.SECURITY, severity = AuditSeverity.INFO)
+    public ResponseEntity<Map<String, Object>> uploadDocumentoFile(
+            @RequestPart("archivo") MultipartFile archivo,
+            @RequestParam("titulo") String titulo,
+            @RequestParam("categoria") String categoria,
+            @RequestParam(value = "descripcion", required = false) String descripcion,
+            @RequestParam(value = "esPublicoResidentes", defaultValue = "N") String esPublicoResidentes,
+            @RequestParam(value = "rolMinimoAcceso", defaultValue = "ADMIN_PROPIEDAD") String rolMinimoAcceso) {
+
+        Long idDoc = documentoService.uploadDocumentoMultipart(
+                archivo, titulo, categoria, descripcion, esPublicoResidentes, rolMinimoAcceso
+        );
+
+        return ResponseEntity.ok(Map.of(
+                "idDocumento", idDoc,
+                "nombreArchivo", archivo.getOriginalFilename() != null ? archivo.getOriginalFilename() : "documento",
+                "tamanoBytes", archivo.getSize()
+        ));
+    }
+
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_PROPIEDAD')")
+    @Auditable(action = "DELETE_DOCUMENT", resource = "DOCUMENTO", category = AuditCategory.SECURITY, severity = AuditSeverity.HIGH)
     public ResponseEntity<Void> deleteDocumento(@PathVariable Long id) {
         documentoService.deleteDocumento(id);
         return ResponseEntity.ok().build();

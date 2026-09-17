@@ -222,6 +222,17 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(response, HttpStatus.FORBIDDEN);
     }
 
+    @ExceptionHandler(com.saed.backend.platform.exception.ModuleNotEntitledException.class)
+    public ResponseEntity<Map<String, Object>> handleModuleNotEntitled(com.saed.backend.platform.exception.ModuleNotEntitledException ex) {
+        registrarAccesoDenegado("Módulo no contratado o inhabilitado: " + ex.getModuleCode(), "ENTITLEMENT");
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", false);
+        response.put("code", "MODULE_NOT_ENTITLED");
+        response.put("moduleCode", ex.getModuleCode());
+        response.put("message", ex.getMessage());
+        return new ResponseEntity<>(response, HttpStatus.FORBIDDEN);
+    }
+
     @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
     public ResponseEntity<Map<String, Object>> handleAccessDenied(org.springframework.security.access.AccessDeniedException ex) {
         registrarAccesoDenegado("AccessDeniedException: " + ex.getMessage(), "AUTORIZACION");
@@ -284,6 +295,20 @@ public class GlobalExceptionHandler {
         response.put("code", "SECURITY_BLOCKED");
         response.put("message", ex.getMessage());
         return new ResponseEntity<>(response, HttpStatus.TOO_MANY_REQUESTS);
+    }
+
+    @ExceptionHandler(StorageQuotaExceededException.class)
+    public ResponseEntity<Map<String, Object>> handleStorageQuotaExceeded(StorageQuotaExceededException ex) {
+        log.warn("Cuota de almacenamiento excedida: {}", ex.getMessage());
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", false);
+        response.put("code", "STORAGE_QUOTA_EXCEEDED");
+        response.put("message", ex.getMessage());
+        response.put("limitBytes", ex.getLimitBytes());
+        response.put("usedBytes", ex.getUsedBytes());
+        response.put("requestedBytes", ex.getRequestedBytes());
+        response.put("availableBytes", ex.getAvailableBytes());
+        return new ResponseEntity<>(response, HttpStatus.CONFLICT);
     }
 
     @ExceptionHandler(UnsupportedOperationException.class)
@@ -361,6 +386,15 @@ public class GlobalExceptionHandler {
         response.put("code", "INTERNAL_SERVER_ERROR");
         response.put("message", "Error al iniciar transacci\u00f3n en la base de datos.");
         return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    @ExceptionHandler(org.springframework.web.server.ResponseStatusException.class)
+    public ResponseEntity<Map<String, Object>> handleResponseStatusException(org.springframework.web.server.ResponseStatusException ex) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", false);
+        response.put("code", ex.getStatusCode().toString());
+        response.put("message", ex.getReason() != null ? ex.getReason() : ex.getMessage());
+        return new ResponseEntity<>(response, ex.getStatusCode());
     }
 
     @ExceptionHandler(Exception.class)
