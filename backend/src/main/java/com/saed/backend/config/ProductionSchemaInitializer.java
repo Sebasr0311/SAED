@@ -45,6 +45,7 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
         initMembresiaOrg1();
         initPaquetesIntentosPin();
         initPaquetesFotoClob();
+        initModulosYPlanModulos();
 
         log.info("[SchemaInit] Verificación de esquema completada.");
     }
@@ -357,6 +358,53 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
             }
         } catch (Exception e) {
             log.warn("[SchemaInit] Aviso al verificar/migrar columnas CLOB de PAQUETES: {}", e.getMessage());
+        }
+    }
+
+    private void initModulosYPlanModulos() {
+        try {
+            // 1. Catálogo canónico de Módulos
+            runElevated("""
+                MERGE INTO MODULOS m USING (
+                    SELECT 'ASAMBLEAS' AS CODIGO, 'Asambleas y Votaciones Ley 675' AS NOMBRE, 'Gestión de asambleas, votaciones en tiempo real y quórum con coeficientes.' AS DESCRIPCION FROM DUAL UNION ALL
+                    SELECT 'OBRAS', 'Gestión de Obras y Reformas', 'Seguimiento, aprobación y control de obras y reformas en unidades privadas.' FROM DUAL UNION ALL
+                    SELECT 'POLIZAS', 'Pólizas de Seguro', 'Control de coberturas, vencimientos y pólizas de seguro de copropiedad.' FROM DUAL UNION ALL
+                    SELECT 'RESERVAS', 'Reservas de Zonas Comunes', 'Gestión, disponibilidad y reservas de zonas comunes y amenidades.' FROM DUAL UNION ALL
+                    SELECT 'PAQUETES', 'Paquetería y Correspondencia', 'Custodia de paquetes con PIN de seguridad de 6 dígitos.' FROM DUAL UNION ALL
+                    SELECT 'PARQUEADEROS', 'Control de Parqueaderos', 'Control de bahías de visitantes y asignación vehicular.' FROM DUAL UNION ALL
+                    SELECT 'PQRS', 'PQRS y Convivencia', 'Radicación y seguimiento de peticiones, quejas, reclamos y solicitudes.' FROM DUAL UNION ALL
+                    SELECT 'FINANZAS', 'Finanzas y Pagos', 'Emisión de cuotas, recaudos, conciliación y pasarela de pago.' FROM DUAL
+                ) s ON (m.CODIGO = s.CODIGO)
+                WHEN MATCHED THEN
+                    UPDATE SET m.NOMBRE = s.NOMBRE, m.DESCRIPCION = s.DESCRIPCION
+                WHEN NOT MATCHED THEN
+                    INSERT (CODIGO, NOMBRE, DESCRIPCION)
+                    VALUES (s.CODIGO, s.NOMBRE, s.DESCRIPCION)
+            """);
+
+            // 2. Matriz de Entitlements canónica por Plan
+            runElevated("""
+                MERGE INTO PLAN_MODULOS pm USING (
+                    -- FREE (1)
+                    SELECT 1 AS ID_PLAN, m.ID_MODULO, 'N' AS HABILITADO FROM MODULOS m WHERE m.CODIGO IN ('ASAMBLEAS', 'OBRAS', 'POLIZAS', 'RESERVAS', 'PAQUETES', 'PARQUEADEROS', 'PQRS', 'FINANZAS')
+                    UNION ALL
+                    -- PRO (2)
+                    SELECT 2 AS ID_PLAN, m.ID_MODULO, 'N' AS HABILITADO FROM MODULOS m WHERE m.CODIGO = 'ASAMBLEAS'
+                    UNION ALL
+                    SELECT 2 AS ID_PLAN, m.ID_MODULO, 'S' AS HABILITADO FROM MODULOS m WHERE m.CODIGO IN ('OBRAS', 'POLIZAS', 'RESERVAS', 'PAQUETES', 'PARQUEADEROS', 'PQRS', 'FINANZAS')
+                    UNION ALL
+                    -- ENTERPRISE (3)
+                    SELECT 3 AS ID_PLAN, m.ID_MODULO, 'S' AS HABILITADO FROM MODULOS m WHERE m.CODIGO IN ('ASAMBLEAS', 'OBRAS', 'POLIZAS', 'RESERVAS', 'PAQUETES', 'PARQUEADEROS', 'PQRS', 'FINANZAS')
+                ) s ON (pm.ID_PLAN = s.ID_PLAN AND pm.ID_MODULO = s.ID_MODULO)
+                WHEN MATCHED THEN
+                    UPDATE SET pm.HABILITADO = s.HABILITADO
+                WHEN NOT MATCHED THEN
+                    INSERT (ID_PLAN, ID_MODULO, HABILITADO)
+                    VALUES (s.ID_PLAN, s.ID_MODULO, s.HABILITADO)
+            """);
+            log.info("[SchemaInit] Catálogo canónico de MODULOS y PLAN_MODULOS inicializado exitosamente.");
+        } catch (Exception e) {
+            log.warn("[SchemaInit] Aviso al inicializar MODULOS y PLAN_MODULOS: {}", e.getMessage());
         }
     }
 }

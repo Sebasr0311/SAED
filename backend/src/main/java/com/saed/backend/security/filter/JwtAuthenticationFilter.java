@@ -65,7 +65,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     try {
                         userId = Long.parseLong(auth.getName());
                         isMockAuth = true;
-                    } catch (Exception ignored) {}
+                    } catch (Exception ignored) {
+                        if (auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().contains("SUPERADMIN"))) {
+                            userId = 1L;
+                            isMockAuth = true;
+                        } else if (SaedContextHolder.getContext() != null && SaedContextHolder.getContext().getUserId() != null) {
+                            userId = SaedContextHolder.getContext().getUserId();
+                            isMockAuth = true;
+                        }
+                    }
                 }
             }
 
@@ -112,6 +120,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     } else {
                         saedContext = SaedContext.builder().userId(userId).build();
                     }
+                } else if (isMockAuth && SaedContextHolder.getContext() != null && SaedContextHolder.getContext().getRoleCode() != null) {
+                    saedContext = SaedContextHolder.getContext();
                 } else {
                     // Sin X-Assignment-Id: resolver la asignacion ACTIVA principal del usuario via PKG_AUTH_BOOTSTRAP
                     AuthRepository authRepository = authRepositoryProvider.getIfAvailable();

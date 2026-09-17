@@ -12,6 +12,7 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -146,5 +147,33 @@ public class PlatformPlansController {
             return ResponseEntity.notFound().build();
         }
         return ResponseEntity.ok(ApiResponse.success(Map.of("id", id, "message", "Plan actualizado exitosamente")));
+    }
+
+    @PatchMapping("/{id}/status")
+    @Transactional
+    @Auditable(action = "UPDATE_STATUS", resource = "PLAN_SAAS", category = AuditCategory.ADMINISTRATIVE, severity = AuditSeverity.HIGH)
+    public ResponseEntity<ApiResponse<Map<String, Object>>> patchPlanStatus(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> payload) {
+        String estado = payload.get("estado");
+        if (estado == null || estado.isBlank()) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("El estado es requerido"));
+        }
+        String estadoNorm = estado.toUpperCase();
+        if (!List.of("ACTIVO", "INACTIVO").contains(estadoNorm)) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("Estado inválido. Valores: ACTIVO, INACTIVO"));
+        }
+        int rows = jdbcTemplate.update(
+                "UPDATE PLANES SET ESTADO = :estado WHERE ID_PLAN = :id",
+                new MapSqlParameterSource("id", id).addValue("estado", estadoNorm)
+        );
+        if (rows == 0) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(ApiResponse.success(Map.of(
+                "id", id,
+                "estado", estadoNorm,
+                "message", "Estado de plan actualizado exitosamente"
+        )));
     }
 }

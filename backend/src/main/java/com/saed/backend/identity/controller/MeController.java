@@ -15,8 +15,12 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
+import com.saed.backend.platform.service.ModuleEntitlementService;
+
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Tag(name = "Me", description = "API para el perfil y contexto del usuario autenticado")
 @RestController
@@ -26,13 +30,16 @@ public class MeController {
     private final ContextService contextService;
     private final NamedParameterJdbcTemplate jdbcTemplate;
     private final PasswordEncoder passwordEncoder;
+    private final ModuleEntitlementService moduleEntitlementService;
 
     public MeController(ContextService contextService,
                         NamedParameterJdbcTemplate jdbcTemplate,
-                        PasswordEncoder passwordEncoder) {
+                        PasswordEncoder passwordEncoder,
+                        ModuleEntitlementService moduleEntitlementService) {
         this.contextService = contextService;
         this.jdbcTemplate = jdbcTemplate;
         this.passwordEncoder = passwordEncoder;
+        this.moduleEntitlementService = moduleEntitlementService;
     }
 
     @Operation(summary = "Obtener ID y perfil del usuario autenticado")
@@ -100,5 +107,16 @@ public class MeController {
         return ResponseEntity.ok(ApiResponse.success(Map.of(
                 "message", "Contraseña actualizada exitosamente"
         )));
+    }
+
+    @Operation(summary = "Obtener entitlements y módulos habilitados para el tenant actual")
+    @GetMapping("/entitlements")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getEntitlements() {
+        Set<String> modules = moduleEntitlementService.getMyEnabledModules();
+        Long orgId = moduleEntitlementService.resolveCurrentOrganizationId();
+        Map<String, Object> data = new HashMap<>();
+        data.put("organizationId", orgId);
+        data.put("modules", modules);
+        return ResponseEntity.ok(ApiResponse.success(data));
     }
 }

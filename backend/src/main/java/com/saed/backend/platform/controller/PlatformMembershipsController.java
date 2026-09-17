@@ -4,6 +4,7 @@ import com.saed.backend.audit.AuditCategory;
 import com.saed.backend.audit.AuditSeverity;
 import com.saed.backend.audit.Auditable;
 import com.saed.backend.common.dto.ApiResponse;
+import com.saed.backend.context.SaedContextHolder;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -25,9 +26,12 @@ import java.util.Map;
 public class PlatformMembershipsController {
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
+    private final com.saed.backend.platform.service.MembershipHistoryService membershipHistoryService;
 
-    public PlatformMembershipsController(NamedParameterJdbcTemplate jdbcTemplate) {
+    public PlatformMembershipsController(NamedParameterJdbcTemplate jdbcTemplate,
+                                         com.saed.backend.platform.service.MembershipHistoryService membershipHistoryService) {
         this.jdbcTemplate = jdbcTemplate;
+        this.membershipHistoryService = membershipHistoryService;
     }
 
     @GetMapping
@@ -95,6 +99,26 @@ public class PlatformMembershipsController {
         Long idOrg = orgIdNum.longValue();
         Long idPlan = planIdNum.longValue();
 
+        // Consultar membresía previa para registrar transición en historial
+        String queryOldSql = """
+            SELECT ID_MEMBRESIA, ID_PLAN
+            FROM MEMBRESIAS
+            WHERE ID_ORGANIZACION = :idOrg AND ESTADO IN ('ACTIVA', 'PRUEBA')
+            ORDER BY ID_MEMBRESIA DESC
+            """;
+        List<Map<String, Object>> oldMems = jdbcTemplate.queryForList(queryOldSql, new MapSqlParameterSource("idOrg", idOrg));
+        Long idPlanAnterior = null;
+        String tipoCambio = "INICIO";
+        if (!oldMems.isEmpty()) {
+            Map<String, Object> prev = oldMems.get(0);
+            idPlanAnterior = ((Number) prev.get("ID_PLAN")).longValue();
+            if (!idPlanAnterior.equals(idPlan)) {
+                tipoCambio = idPlan > idPlanAnterior ? "UPGRADE" : "DOWNGRADE";
+            } else {
+                tipoCambio = "RENOVACION";
+            }
+        }
+
         // Desactivar membresías previas activas de la organización
         String updateOldSql = """
             UPDATE MEMBRESIAS
@@ -118,9 +142,21 @@ public class PlatformMembershipsController {
         KeyHolder keyHolder = new GeneratedKeyHolder();
         jdbcTemplate.update(insertSql, params, keyHolder, new String[]{"ID_MEMBRESIA"});
         Number newId = keyHolder.getKey();
+        Long idMembresiaCreada = newId != null ? newId.longValue() : 0L;
+
+        // Registrar en MEMBRESIAS_HISTORIAL (atómico con @Transactional)
+        Long callerUserId = (SaedContextHolder.getContext() != null) ? SaedContextHolder.getContext().getUserId() : null;
+        membershipHistoryService.recordChange(
+                idMembresiaCreada,
+                idPlanAnterior,
+                idPlan,
+                tipoCambio,
+                "Membresía asignada por SUPERADMIN con estado " + estado.toUpperCase(),
+                callerUserId
+        );
 
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(Map.of(
-                "id", newId != null ? newId.longValue() : 0,
+                "id", idMembresiaCreada,
                 "idOrganizacion", idOrg,
                 "idPlan", idPlan,
                 "estado", estado
@@ -136,6 +172,16 @@ public class PlatformMembershipsController {
         if (nuevoEstado == null || nuevoEstado.isBlank()) {
             return ResponseEntity.badRequest().body(ApiResponse.error("El estado es requerido"));
         }
+        String estadoNorm = nuevoEstado.toUpperCase();
+
+        // Consultar membresía actual para validar existencia y obtener ID_PLAN
+        String queryCurrent = "SELECT ID_PLAN, ESTADO FROM MEMBRESIAS WHERE ID_MEMBRESIA = :id";
+        List<Map<String, Object>> rowsCurrent = jdbcTemplate.queryForList(queryCurrent, new MapSqlParameterSource("id", id));
+        if (rowsCurrent.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        Long idPlan = ((Number) rowsCurrent.get(0).get("ID_PLAN")).longValue();
+        String estadoAnterior = (String) rowsCurrent.get(0).get("ESTADO");
 
         String sql = """
             UPDATE MEMBRESIAS
@@ -143,15 +189,44 @@ public class PlatformMembershipsController {
             WHERE ID_MEMBRESIA = :id
             """;
 
-        int rows = jdbcTemplate.update(sql, new MapSqlParameterSource("id", id).addValue("estado", nuevoEstado.toUpperCase()));
+        int rows = jdbcTemplate.update(sql, new MapSqlParameterSource("id", id).addValue("estado", estadoNorm));
         if (rows == 0) {
             return ResponseEntity.notFound().build();
         }
 
+        // Determinar tipo de cambio según restricción CK_MEMBHIST_TIPO
+        String tipoCambio;
+        if ("SUSPENDIDA".equalsIgnoreCase(estadoNorm)) {
+            tipoCambio = "SUSPENSION";
+        } else if ("CANCELADA".equalsIgnoreCase(estadoNorm)) {
+            tipoCambio = "CANCELACION";
+        } else if ("ACTIVA".equalsIgnoreCase(estadoNorm) && "SUSPENDIDA".equalsIgnoreCase(estadoAnterior)) {
+            tipoCambio = "REACTIVACION";
+        } else {
+            tipoCambio = "RENOVACION";
+        }
+
+        // Registrar en MEMBRESIAS_HISTORIAL (atómico con @Transactional)
+        Long callerUserId = (SaedContextHolder.getContext() != null) ? SaedContextHolder.getContext().getUserId() : null;
+        membershipHistoryService.recordChange(
+                id,
+                idPlan,
+                idPlan,
+                tipoCambio,
+                "Cambio de estado de " + estadoAnterior + " a " + estadoNorm + " por SUPERADMIN",
+                callerUserId
+        );
+
         return ResponseEntity.ok(ApiResponse.success(Map.of(
                 "id", id,
-                "estado", nuevoEstado.toUpperCase(),
+                "estado", estadoNorm,
                 "message", "Estado de membresía actualizado exitosamente"
         )));
+    }
+
+    @GetMapping("/{id}/historial")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getMembershipHistory(@PathVariable Long id) {
+        List<Map<String, Object>> history = membershipHistoryService.getHistoryForMembership(id);
+        return ResponseEntity.ok(ApiResponse.success(history));
     }
 }
