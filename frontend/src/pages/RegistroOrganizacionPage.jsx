@@ -50,42 +50,6 @@ import { Separator } from '../components/ui/separator.tsx';
 import { toast } from 'sonner';
 import { animate } from 'animejs';
 
-const FALLBACK_PLANES = [
-  {
-    idPlan: 1,
-    codigo: 'FREE',
-    nombre: 'Prueba Gratuita',
-    descripcion: 'Prueba la plataforma sin costo por 14 días.',
-    precioMensual: 0,
-    limitePropiedades: 1,
-    limiteUnidades: 20,
-    limiteUsuarios: 2,
-    limiteAlmacenamientoGb: 5,
-  },
-  {
-    idPlan: 2,
-    codigo: 'PRO',
-    nombre: 'Profesional',
-    descripcion: 'Ideal para copropiedades y edificios residenciales medianos.',
-    precioMensual: 149000,
-    limitePropiedades: 5,
-    limiteUnidades: 150,
-    limiteUsuarios: 10,
-    limiteAlmacenamientoGb: 50,
-  },
-  {
-    idPlan: 3,
-    codigo: 'ENTERPRISE',
-    nombre: 'Corporativo',
-    descripcion: 'Para empresas de administración inmobiliaria multisede.',
-    precioMensual: 399000,
-    limitePropiedades: 50,
-    limiteUnidades: 1500,
-    limiteUsuarios: 50,
-    limiteAlmacenamientoGb: 500,
-  },
-];
-
 export default function RegistroOrganizacionPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -96,11 +60,12 @@ export default function RegistroOrganizacionPage() {
 
   // Wizard state
   const [step, setStep] = useState(1);
-  const [planes, setPlanes] = useState(FALLBACK_PLANES);
-  const [loadingPlanes, setLoadingPlanes] = useState(false);
+  const [planes, setPlanes] = useState([]);
+  const [loadingPlanes, setLoadingPlanes] = useState(true);
+  const [planesError, setPlanesError] = useState(null);
 
   // Selection
-  const [selectedPlanId, setSelectedPlanId] = useState(2);
+  const [selectedPlanId, setSelectedPlanId] = useState(null);
   const [billingCycle, setBillingCycle] = useState(initialCycle.toUpperCase() === 'MENSUAL' ? 'MENSUAL' : 'ANUAL');
 
   // Tipo de Registro: 'JURIDICA' (Empresa / Persona Jurídica) | 'NATURAL' (Persona Natural / Propietario Dueño de Edificio)
@@ -259,39 +224,40 @@ export default function RegistroOrganizacionPage() {
     }
   };
 
-  // 1. Fetch available plans
-  useEffect(() => {
-    async function loadPlanes() {
-      try {
-        setLoadingPlanes(true);
-        const res = await api.get('/auth/onboarding/planes');
-        const data = res?.data || res || [];
-        const catalog = Array.isArray(data) && data.length > 0 ? data : FALLBACK_PLANES;
-        setPlanes(catalog);
+  // 1. Fetch available plans from Oracle backend API
+  const loadPlanes = async () => {
+    try {
+      setLoadingPlanes(true);
+      setPlanesError(null);
+      const res = await api.get('/auth/onboarding/planes');
+      const data = res?.data || res || [];
+      if (Array.isArray(data) && data.length > 0) {
+        setPlanes(data);
 
-        // Match initial plan
-        if (catalog.length > 0) {
-          const matched = catalog.find(
-            (p) =>
-              p.codigo?.toUpperCase() === initialPlanCode.toUpperCase() ||
-              p.idPlan?.toString() === initialPlanCode
-          );
-          if (matched) {
-            setSelectedPlanId(matched.idPlan);
-          } else {
-            const proPlan = catalog.find((p) => p.codigo === 'PRO');
-            setSelectedPlanId(proPlan ? proPlan.idPlan : catalog[0].idPlan);
-          }
+        // Match initial plan from URL or default to PRO
+        const matched = data.find(
+          (p) =>
+            p.codigo?.toUpperCase() === initialPlanCode.toUpperCase() ||
+            p.idPlan?.toString() === initialPlanCode
+        );
+        if (matched) {
+          setSelectedPlanId(matched.idPlan);
+        } else {
+          const proPlan = data.find((p) => p.codigo === 'PRO');
+          setSelectedPlanId(proPlan ? proPlan.idPlan : data[0].idPlan);
         }
-      } catch (err) {
-        console.warn('Cargando catálogo base de planes:', err);
-        setPlanes(FALLBACK_PLANES);
-        const proPlan = FALLBACK_PLANES.find((p) => p.codigo === 'PRO');
-        setSelectedPlanId(proPlan ? proPlan.idPlan : FALLBACK_PLANES[0].idPlan);
-      } finally {
-        setLoadingPlanes(false);
+      } else {
+        setPlanesError('No fue posible cargar los planes comerciales del catálogo.');
       }
+    } catch (err) {
+      console.error('Error cargando catálogo oficial de planes:', err);
+      setPlanesError('No se pudo conectar con el catálogo de planes en el servidor. Por favor verifica tu conexión y reintenta.');
+    } finally {
+      setLoadingPlanes(false);
     }
+  };
+
+  useEffect(() => {
     loadPlanes();
   }, [initialPlanCode]);
 
@@ -844,14 +810,35 @@ export default function RegistroOrganizacionPage() {
                 <Loader2 className="w-8 h-8 animate-spin text-cyan-400" />
                 <span className="text-xs">Cargando catálogo oficial de planes...</span>
               </div>
+            ) : planesError ? (
+              <div className="max-w-md mx-auto my-8 p-8 rounded-3xl bg-red-950/30 border border-red-800/60 text-center space-y-4 shadow-xl">
+                <AlertCircle className="w-10 h-10 text-red-400 mx-auto" />
+                <h4 className="text-base font-bold text-white">Catálogo comercial no disponible</h4>
+                <p className="text-xs text-slate-300 leading-relaxed">{planesError}</p>
+                <button
+                  type="button"
+                  onClick={loadPlanes}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold border border-slate-700 transition-all shadow-md"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  Reintentar conexión al catálogo
+                </button>
+              </div>
+            ) : planes.length === 0 ? (
+              <div className="max-w-md mx-auto my-8 p-8 rounded-3xl bg-slate-900/60 border border-slate-800 text-center space-y-2">
+                <Building2 className="w-10 h-10 text-slate-500 mx-auto" />
+                <h4 className="text-base font-bold text-white">No hay planes disponibles</h4>
+                <p className="text-xs text-slate-400">Actualmente no existen planes activos en la plataforma.</p>
+              </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {planes.map((plan) => {
                   const isSelected = selectedPlanId === plan.idPlan;
-                  const isCommercial = plan.precioMensual > 0;
+                  const isCommercial = (plan.precioMensual || 0) > 0;
+                  const annualRate = plan.precioAnual || Math.round((plan.precioMensual || 0) * 12 * 0.8);
                   const displayRate = isCommercial
                     ? billingCycle === 'ANUAL'
-                      ? Math.round(plan.precioMensual * 0.8)
+                      ? Math.round(annualRate / 12)
                       : plan.precioMensual
                     : 0;
 

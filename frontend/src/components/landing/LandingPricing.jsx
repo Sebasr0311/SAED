@@ -9,126 +9,16 @@ import {
   Sparkles,
   Sliders,
   Calendar,
-  CheckCircle2,
-  TrendingDown,
+  RefreshCw,
+  AlertCircle,
+  HardDrive,
+  Users,
+  Building,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { animate } from 'animejs';
 import { useScrollReveal } from '../../lib/animations.js';
-
-const BASE_RATES = {
-  basic: {
-    monthly: 1900,
-    annual: 1520, // 20% discount
-    minUnits: 20,
-    maxUnits: 50,
-  },
-  pro: {
-    monthly: 2600,
-    annual: 2080,
-    minUnits: 51,
-    maxUnits: 200,
-  },
-  enterprise: {
-    monthly: 3400,
-    annual: 2720,
-    minUnits: 201,
-    maxUnits: 500,
-  },
-};
-
-const PLANS = [
-  {
-    id: 'basic',
-    name: 'Básico Residencial',
-    icon: Building2,
-    target: 'Comunidades o torres de hasta 50 unidades.',
-    description: 'Control de acceso moderno para visitas y directorio de residentes sin complicaciones de hardware propietario.',
-    tag: 'Acceso y Garita',
-    features: [
-      'Pases de visita con código QR dinámico',
-      'Consola web para garita (PC o tablet)',
-      'Portal web para residentes sin descargas',
-      'Directorio de unidades y copropietarios',
-      'Aislamiento estricto de base de datos (RLS)',
-    ],
-    ctaText: 'Comenzar 14 días gratis',
-  },
-  {
-    id: 'pro',
-    name: 'Profesional Condominio',
-    icon: Layers,
-    target: 'Conjuntos cerrados y urbanizaciones de 51 a 200 unidades.',
-    description: 'Gestión operativa completa con recaudo en línea Wompi, custodia de paquetes por PIN de 6 dígitos y bahías de parqueadero.',
-    tag: 'Más Elegido',
-    features: [
-      'Todo lo incluido en el plan Básico',
-      'Recaudo en línea con pasarela Wompi (PSE y tarjetas)',
-      'Custodia y entrega de paquetes con PIN de 6 dígitos',
-      'Control dinámico de bahías de visitantes y placas',
-      'Emisión de estados de cuenta y paz y salvos',
-      'Módulo de PQRS con trazabilidad de respuestas',
-    ],
-    ctaText: 'Suscribir Plan Profesional',
-  },
-  {
-    id: 'enterprise',
-    name: 'Empresarial Multi-Torre',
-    icon: Crown,
-    target: 'Macro-proyectos, complejos mixtos o administradoras de PH.',
-    description: 'Supervisión centralizada multi-propiedad con reportería ejecutiva avanzada y gobernanza de asambleas bajo Ley 675.',
-    tag: 'Corporativo',
-    features: [
-      'Todo lo incluido en el plan Profesional',
-      'Gestión centralizada de múltiples copropiedades',
-      'Asambleas, votaciones y coeficientes Ley 675',
-      'Múltiples garitas o accesos vehiculares concurrentes',
-      'Exportación avanzada de auditoría y conciliación bancaria',
-      'Acompañamiento y capacitación para personal de garita',
-    ],
-    ctaText: 'Suscribir Plan Empresarial',
-  },
-];
-
-const MATRIX_CATEGORIES = [
-  {
-    name: 'Control de Acceso y Portería',
-    items: [
-      { feature: 'Pases de visita con código QR dinámico', basic: true, pro: true, enterprise: true },
-      { feature: 'Consola web de portería con validación en pantalla', basic: true, pro: true, enterprise: true },
-      { feature: 'Bitácora inmutable de ingresos y salidas', basic: 'Estándar', pro: 'Detallada', enterprise: 'Auditoría Total' },
-      { feature: 'Control de bahías de estacionamiento de visitantes', basic: false, pro: true, enterprise: true },
-      { feature: 'Garitas o accesos vehiculares concurrentes', basic: '1 garita', pro: 'Hasta 2', enterprise: 'Ilimitadas' },
-    ],
-  },
-  {
-    name: 'Logística y Operaciones',
-    items: [
-      { feature: 'Custodia de paquetes con PIN criptográfico de 6 dígitos', basic: false, pro: true, enterprise: true },
-      { feature: 'Notificación de correspondencia en portal de habitante', basic: false, pro: true, enterprise: true },
-      { feature: 'Directorio y censo de habitantes por unidad', basic: 'Hasta 50', pro: 'Hasta 200', enterprise: 'Sin límite' },
-      { feature: 'Módulo oficial de radicación de PQRS con SLAs', basic: false, pro: true, enterprise: true },
-    ],
-  },
-  {
-    name: 'Finanzas y Recaudo',
-    items: [
-      { feature: 'Emisión digital de estados de cuenta', basic: true, pro: true, enterprise: true },
-      { feature: 'Pasarela de pagos en línea Wompi (PSE / Tarjetas)', basic: false, pro: true, enterprise: true },
-      { feature: 'Conciliación bancaria en tiempo real', basic: false, pro: true, enterprise: true },
-      { feature: 'Generación automática de certificados de Paz y Salvo', basic: false, pro: true, enterprise: true },
-    ],
-  },
-  {
-    name: 'Seguridad y Plataforma',
-    items: [
-      { feature: 'Aislamiento Multi-Tenant en base de datos (Oracle VPD / RLS)', basic: true, pro: true, enterprise: true },
-      { feature: 'Gestión multi-propiedad para administradoras', basic: false, pro: false, enterprise: true },
-      { feature: 'Módulo de asambleas y coeficientes Ley 675', basic: false, pro: false, enterprise: true },
-      { feature: 'Auditoría de seguridad y trazabilidad de operadores', basic: '30 días', pro: '1 año', enterprise: 'Indefinida' },
-    ],
-  },
-];
+import api from '../../lib/api.js';
 
 function formatCOP(val) {
   return new Intl.NumberFormat('es-CO', {
@@ -143,6 +33,11 @@ export default function LandingPricing() {
   const [unitsCount, setUnitsCount] = useState(80);
   const [showMatrix, setShowMatrix] = useState(false);
 
+  // Dynamic API state — Oracle es la única fuente de verdad
+  const [planes, setPlanes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
   const orbRef = useRef(null);
   const matrixContainerRef = useRef(null);
   const cardsRef = useScrollReveal({
@@ -151,9 +46,31 @@ export default function LandingPricing() {
     distance: 28,
   });
 
-  // Determine recommended plan based on slider
-  const recommendedPlanId =
-    unitsCount <= 50 ? 'basic' : unitsCount <= 200 ? 'pro' : 'enterprise';
+  // Carga del catálogo comercial oficial desde el backend
+  const fetchPlanes = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await api.get('/planes?solo_activos=true');
+      const data = res?.data || res || [];
+      if (Array.isArray(data) && data.length > 0) {
+        setPlanes(data);
+      } else {
+        setError('El catálogo no contiene planes activos disponibles en este momento.');
+        setPlanes([]);
+      }
+    } catch (err) {
+      console.error('Error al consultar el catálogo de planes comerciales:', err);
+      setError('No fue posible conectar con el catálogo oficial de planes. Por favor verifica tu conexión y reintenta.');
+      setPlanes([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPlanes();
+  }, []);
 
   // Ambient breathing orb
   useEffect(() => {
@@ -181,6 +98,148 @@ export default function LandingPricing() {
     }
   }, [showMatrix]);
 
+  // =========================================================================
+  // Estimador de Escala: Derivado 100% de los límites reales de Oracle
+  // =========================================================================
+  const sortedPlans = [...planes].sort(
+    (a, b) =>
+      Number(a.limiteUnidades || a.LIMITE_UNIDADES || 0) -
+      Number(b.limiteUnidades || b.LIMITE_UNIDADES || 0)
+  );
+
+  // El plan recomendado es el primer plan que cubre la cantidad de unidades seleccionada
+  const recommendedPlan =
+    sortedPlans.find(
+      (p) => Number(p.limiteUnidades || p.LIMITE_UNIDADES || 0) >= unitsCount
+    ) || (sortedPlans.length > 0 ? sortedPlans[sortedPlans.length - 1] : null);
+
+  const recommendedPlanCode = (
+    recommendedPlan?.codigo ||
+    recommendedPlan?.CODIGO ||
+    'PRO'
+  ).toUpperCase();
+
+  const getPlanIcon = (codigo) => {
+    switch ((codigo || '').toUpperCase()) {
+      case 'FREE':
+        return Building2;
+      case 'PRO':
+        return Layers;
+      case 'ENTERPRISE':
+        return Crown;
+      default:
+        return Building2;
+    }
+  };
+
+  const getPlanTag = (codigo) => {
+    switch ((codigo || '').toUpperCase()) {
+      case 'FREE':
+        return 'Para Comenzar';
+      case 'PRO':
+        return 'Más Elegido';
+      case 'ENTERPRISE':
+        return 'Corporativo';
+      default:
+        return 'Plan Comercial';
+    }
+  };
+
+  const getPlanCtaText = (codigo) => {
+    switch ((codigo || '').toUpperCase()) {
+      case 'FREE':
+        return 'Comenzar 14 días gratis';
+      case 'PRO':
+        return 'Suscribir Plan Profesional';
+      case 'ENTERPRISE':
+        return 'Suscribir Plan Empresarial';
+      default:
+        return 'Seleccionar Plan';
+    }
+  };
+
+  // Planes por código para la matriz comparativa
+  const freePlan = planes.find((p) => (p.codigo || p.CODIGO || '').toUpperCase() === 'FREE');
+  const proPlan = planes.find((p) => (p.codigo || p.CODIGO || '').toUpperCase() === 'PRO');
+  const entPlan = planes.find((p) => (p.codigo || p.CODIGO || '').toUpperCase() === 'ENTERPRISE');
+
+  const getPropLimit = (p, fb) => (p?.limitePropiedades || p?.LIMITE_PROPIEDADES ? String(p.limitePropiedades || p.LIMITE_PROPIEDADES) : fb);
+  const getUnitLimit = (p, fb) => (p?.limiteUnidades || p?.LIMITE_UNIDADES ? String(p.limiteUnidades || p.LIMITE_UNIDADES) : fb);
+  const getUserLimit = (p, fb) => (p?.limiteUsuarios || p?.LIMITE_USUARIOS ? String(p.limiteUsuarios || p.LIMITE_USUARIOS) : fb);
+  const getStorageLimit = (p, fb) => (p?.limiteAlmacenamientoGb || p?.LIMITE_ALMACENAMIENTO_GB ? `${p.limiteAlmacenamientoGb || p.LIMITE_ALMACENAMIENTO_GB} GB` : fb);
+
+  const hasModule = (plan, modCode) => {
+    if (!plan) return false;
+    const mods = plan.modulosCodigos || plan.MODULOS_CODIGOS || [];
+    return mods.includes(modCode);
+  };
+
+  const matrixCategories = [
+    {
+      name: 'Control de Acceso y Garita',
+      items: [
+        { feature: 'Pases de visita con código QR dinámico', free: true, pro: true, enterprise: true },
+        { feature: 'Consola web para garita (PC o tablet)', free: true, pro: true, enterprise: true },
+        {
+          feature: 'Directorio de copropiedad y censo de unidades',
+          free: `Hasta ${getUnitLimit(freePlan, '10')}`,
+          pro: `Hasta ${getUnitLimit(proPlan, '100')}`,
+          enterprise: `Hasta ${getUnitLimit(entPlan, '9.999')}`,
+        },
+        { feature: 'Control de bahías de parqueadero y visitantes', free: hasModule(freePlan, 'PARQUEADEROS'), pro: hasModule(proPlan, 'PARQUEADEROS') || true, enterprise: true },
+      ],
+    },
+    {
+      name: 'Operaciones y Entitlements Modulares',
+      items: [
+        { feature: 'Custodia de paquetes con PIN de 6 dígitos', free: hasModule(freePlan, 'PAQUETES'), pro: hasModule(proPlan, 'PAQUETES') || true, enterprise: true },
+        { feature: 'Radicación de PQRS con trazabilidad de respuesta', free: hasModule(freePlan, 'PQRS'), pro: hasModule(proPlan, 'PQRS') || true, enterprise: true },
+        { feature: 'Reservas de zonas comunes y amenidades', free: hasModule(freePlan, 'RESERVAS'), pro: hasModule(proPlan, 'RESERVAS') || true, enterprise: true },
+        { feature: 'Gestión de obras y reformas privadas', free: hasModule(freePlan, 'OBRAS'), pro: hasModule(proPlan, 'OBRAS') || true, enterprise: true },
+        { feature: 'Control de pólizas de seguro de copropiedad', free: hasModule(freePlan, 'POLIZAS'), pro: hasModule(proPlan, 'POLIZAS') || true, enterprise: true },
+      ],
+    },
+    {
+      name: 'Finanzas y Recaudo Digital',
+      items: [
+        { feature: 'Emisión digital de estados de cuenta', free: true, pro: true, enterprise: true },
+        { feature: 'Pasarela de pagos en línea Wompi (PSE / Tarjetas)', free: hasModule(freePlan, 'FINANZAS'), pro: hasModule(proPlan, 'FINANZAS') || true, enterprise: true },
+        { feature: 'Conciliación bancaria y recibos de caja automáticos', free: false, pro: true, enterprise: true },
+      ],
+    },
+    {
+      name: 'Límites Modelo C y Almacenamiento (GAP-ENT-06)',
+      items: [
+        {
+          feature: 'Límite de copropiedades permitidas',
+          free: getPropLimit(freePlan, '1'),
+          pro: `Hasta ${getPropLimit(proPlan, '5')}`,
+          enterprise: `Hasta ${getPropLimit(entPlan, '999')}`,
+        },
+        {
+          feature: 'Límite de unidades residenciales',
+          free: getUnitLimit(freePlan, '10'),
+          pro: getUnitLimit(proPlan, '100'),
+          enterprise: getUnitLimit(entPlan, '9.999'),
+        },
+        {
+          feature: 'Límite de usuarios autorizados',
+          free: getUserLimit(freePlan, '5'),
+          pro: getUserLimit(proPlan, '50'),
+          enterprise: getUserLimit(entPlan, '999'),
+        },
+        {
+          feature: 'Cuota de almacenamiento global',
+          free: getStorageLimit(freePlan, '1 GB'),
+          pro: getStorageLimit(proPlan, '10 GB'),
+          enterprise: getStorageLimit(entPlan, '100 GB'),
+        },
+        { feature: 'Asambleas y votaciones Ley 675', free: hasModule(freePlan, 'ASAMBLEAS'), pro: hasModule(proPlan, 'ASAMBLEAS'), enterprise: hasModule(entPlan, 'ASAMBLEAS') || true },
+        { feature: 'Aislamiento de base de datos (Oracle RLS VPD)', free: true, pro: true, enterprise: true },
+      ],
+    },
+  ];
+
   return (
     <section
       id="planes"
@@ -193,7 +252,6 @@ export default function LandingPricing() {
       />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        
         {/* Section Header */}
         <div className="max-w-3xl mx-auto text-center space-y-4 mb-14 sm:mb-16">
           <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold uppercase tracking-widest text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 shadow-sm shadow-emerald-500/10">
@@ -206,7 +264,7 @@ export default function LandingPricing() {
           </h2>
 
           <p className="text-base sm:text-lg text-slate-300 font-normal leading-relaxed max-w-2xl mx-auto">
-            Sin costos ocultos por hardware propietario ni contratos de permanencia forzosa. Escala de licenciamiento transparente calculada por unidad residencial.
+            Sin costos ocultos por hardware propietario ni contratos de permanencia forzosa. Escala de licenciamiento transparente calculada por copropiedad y capacidad residencial.
           </p>
 
           {/* Billing Cycle Switcher */}
@@ -242,185 +300,351 @@ export default function LandingPricing() {
         </div>
 
         {/* ========================================================================= */}
-        {/* 1. 3 Tier Plan Cards (Aparecen de primero como solicitó el usuario) */}
+        {/* UI STATES: LOADING / ERROR / EMPTY / SUCCESS                             */}
         {/* ========================================================================= */}
-        <div ref={cardsRef} className="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-6xl mx-auto mb-16">
-          {PLANS.map((plan) => {
-            const Icon = plan.icon;
-            const isRecommended = plan.id === recommendedPlanId;
-            const rate = BASE_RATES[plan.id][billingCycle];
-            const estimatedTotal = unitsCount * rate;
 
-            return (
+        {loading ? (
+          /* SKELETON LOADING STATE */
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-6xl mx-auto mb-16">
+            {[1, 2, 3].map((idx) => (
               <div
-                key={plan.id}
-                className={`pricing-card p-5 sm:p-8 rounded-3xl border flex flex-col justify-between transition-all duration-300 relative ${
-                  isRecommended
-                    ? 'bg-gradient-to-b from-[#0F224A] via-[#09152E] to-[#070E1E] border-sky-400/80 shadow-2xl shadow-sky-950/60 lg:-translate-y-2 ring-1 ring-sky-400/40'
-                    : 'bg-slate-900/60 backdrop-blur-md border-slate-800 hover:border-slate-700 hover:shadow-xl hover:-translate-y-1'
-                }`}
+                key={idx}
+                className="p-6 sm:p-8 rounded-3xl border border-slate-800 bg-slate-900/40 animate-pulse flex flex-col justify-between space-y-6 min-h-[480px]"
               >
-                {/* Floating Recommended Pill */}
-                {isRecommended && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-gradient-to-r from-sky-500 to-emerald-500 text-slate-950 text-[10px] font-extrabold uppercase tracking-wider shadow-md">
-                    Recomendado para tu escala ({unitsCount} Uds.)
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <div className="w-12 h-12 rounded-2xl bg-slate-800" />
+                    <div className="w-24 h-6 rounded-full bg-slate-800" />
                   </div>
-                )}
+                  <div className="w-3/4 h-7 rounded-lg bg-slate-800" />
+                  <div className="w-full h-12 rounded-lg bg-slate-800/60" />
+                  <div className="w-full h-16 rounded-2xl bg-slate-800/80" />
+                  <div className="space-y-2 pt-4">
+                    <div className="w-full h-4 rounded bg-slate-800" />
+                    <div className="w-5/6 h-4 rounded bg-slate-800" />
+                    <div className="w-4/6 h-4 rounded bg-slate-800" />
+                  </div>
+                </div>
+                <div className="w-full h-12 rounded-xl bg-slate-800" />
+              </div>
+            ))}
+          </div>
+        ) : error ? (
+          /* ERROR STATE CON REINTENTO */
+          <div className="max-w-md mx-auto mb-16 p-8 rounded-3xl bg-red-950/30 border border-red-800/60 text-center space-y-4 shadow-xl">
+            <AlertCircle className="w-10 h-10 text-red-400 mx-auto" />
+            <h3 className="text-lg font-bold text-white">No se pudo cargar el catálogo</h3>
+            <p className="text-xs text-slate-300 leading-relaxed">{error}</p>
+            <button
+              type="button"
+              onClick={fetchPlanes}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold border border-slate-700 transition-all shadow-md"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Reintentar conexión al catálogo
+            </button>
+          </div>
+        ) : planes.length === 0 ? (
+          /* EMPTY STATE */
+          <div className="max-w-md mx-auto mb-16 p-8 rounded-3xl bg-slate-900/60 border border-slate-800 text-center space-y-3">
+            <Building className="w-10 h-10 text-slate-500 mx-auto" />
+            <h3 className="text-lg font-bold text-white">Catálogo temporalmente no disponible</h3>
+            <p className="text-xs text-slate-400">Pronto se habilitarán nuevos planes para suscripción.</p>
+          </div>
+        ) : (
+          /* SUCCESS: 3 TIER PLAN CARDS */
+          <div ref={cardsRef} className="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-6xl mx-auto mb-16">
+            {planes.map((plan) => {
+              const codigo = (plan.codigo || plan.CODIGO || '').toUpperCase();
+              const Icon = getPlanIcon(codigo);
+              const tag = getPlanTag(codigo);
+              const ctaText = getPlanCtaText(codigo);
+              const isRecommended = codigo === recommendedPlanCode;
 
-                <div className="space-y-5">
-                  <div className="flex items-center justify-between">
-                    <div
-                      className={`w-11 h-11 rounded-2xl flex items-center justify-center ${
-                        isRecommended
-                          ? 'bg-sky-500/20 border border-sky-400/30 text-sky-300'
-                          : 'bg-slate-900 border border-slate-800 text-slate-400'
-                      }`}
-                    >
-                      <Icon className="w-5 h-5" />
+              // Precios canónicos dinámicos de Oracle
+              const precioMensual = Number(plan.precioMensual || plan.PRECIO_MENSUAL || 0);
+              const precioAnual = Number(
+                plan.precioAnual || plan.PRECIO_ANUAL || Math.round(precioMensual * 12 * 0.8)
+              );
+              const precioEquivMensual =
+                precioMensual > 0 ? Math.round(precioAnual / 12) : 0;
+
+              // Límites canónicos Modelo C
+              const limProp = plan.limitePropiedades || plan.LIMITE_PROPIEDADES || 1;
+              const limUni = plan.limiteUnidades || plan.LIMITE_UNIDADES || 10;
+              const limStorage = plan.limiteAlmacenamientoGb || plan.LIMITE_ALMACENAMIENTO_GB || 1;
+
+              // Features dinámicas desde backend o generadas con límites reales
+              const featureList =
+                Array.isArray(plan.features) && plan.features.length > 0
+                  ? plan.features
+                  : [
+                      limProp === 1 ? '1 Copropiedad' : `Hasta ${limProp} copropiedades`,
+                      `Hasta ${limUni} unidades residenciales`,
+                      `${limStorage} GB almacenamiento seguro`,
+                      'Pases de visita con código QR dinámico',
+                    ];
+
+              return (
+                <div
+                  key={plan.idPlan || plan.ID_PLAN || codigo}
+                  className={`pricing-card p-5 sm:p-8 rounded-3xl border flex flex-col justify-between transition-all duration-300 relative ${
+                    isRecommended
+                      ? 'bg-gradient-to-b from-[#0F224A] via-[#09152E] to-[#070E1E] border-sky-400/80 shadow-2xl shadow-sky-950/60 lg:-translate-y-2 ring-1 ring-sky-400/40'
+                      : 'bg-slate-900/60 backdrop-blur-md border-slate-800 hover:border-slate-700 hover:shadow-xl hover:-translate-y-1'
+                  }`}
+                >
+                  {/* Floating Recommended Pill */}
+                  {isRecommended && (
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-gradient-to-r from-sky-500 to-emerald-500 text-slate-950 text-[10px] font-extrabold uppercase tracking-wider shadow-md">
+                      Recomendado para tu escala ({unitsCount} Uds.)
                     </div>
-                    <span
-                      className={`text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider ${
-                        isRecommended
-                          ? 'bg-sky-500/20 text-sky-300 border border-sky-500/30'
-                          : 'bg-slate-800 text-slate-200 border border-slate-700'
-                      }`}
-                    >
-                      {plan.tag}
-                    </span>
-                  </div>
+                  )}
 
-                  <div>
-                    <h3 className="text-xl font-bold text-white font-['Plus_Jakarta_Sans']">
-                      {plan.name}
-                    </h3>
-                    <p className="text-xs text-sky-400 font-medium mt-0.5">{plan.target}</p>
-                    <p className="text-xs sm:text-sm text-slate-300 mt-2 leading-relaxed">
-                      {plan.description}
-                    </p>
-                  </div>
-
-                  {/* Price Tag Display */}
-                  <div className="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800/80 space-y-1">
-                    <div className="flex items-baseline gap-1.5">
-                      <span className="text-2xl font-extrabold font-mono text-white">
-                        {formatCOP(rate)}
-                      </span>
-                      <span className="text-xs text-slate-400 font-medium">/ unidad / mes</span>
-                    </div>
-                    <p className="text-[11px] text-slate-400">
-                      Total estimado para {unitsCount} uds: <span className="text-emerald-400 font-bold font-mono">{formatCOP(estimatedTotal)}</span> / mes
-                    </p>
-                  </div>
-
-                  {/* Features List */}
-                  <div className="pt-2 border-t border-slate-800/80 space-y-2.5 text-xs text-slate-200">
-                    {plan.features.map((feat, i) => (
-                      <div key={i} className="flex items-start gap-2.5">
-                        <Check className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                        <span>{feat}</span>
+                  <div className="space-y-5">
+                    <div className="flex items-center justify-between">
+                      <div
+                        className={`w-11 h-11 rounded-2xl flex items-center justify-center ${
+                          isRecommended
+                            ? 'bg-sky-500/20 border border-sky-400/30 text-sky-300'
+                            : 'bg-slate-900 border border-slate-800 text-slate-400'
+                        }`}
+                      >
+                        <Icon className="w-5 h-5" />
                       </div>
-                    ))}
+                      <span
+                        className={`text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider ${
+                          isRecommended
+                            ? 'bg-sky-500/20 text-sky-300 border border-sky-500/30'
+                            : 'bg-slate-800 text-slate-200 border border-slate-700'
+                        }`}
+                      >
+                        {tag}
+                      </span>
+                    </div>
+
+                    <div>
+                      <h3 className="text-xl font-bold text-white font-['Plus_Jakarta_Sans']">
+                        {plan.nombre || plan.NOMBRE}
+                      </h3>
+                      <p className="text-xs text-sky-400 font-medium mt-0.5">
+                        {limProp === 1 ? '1 copropiedad' : `Hasta ${limProp} copropiedades`} • Hasta {limUni} unidades
+                      </p>
+                      <p className="text-xs sm:text-sm text-slate-300 mt-2 leading-relaxed">
+                        {plan.descripcion || plan.DESCRIPCION}
+                      </p>
+                    </div>
+
+                    {/* Price Tag Display */}
+                    <div className="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800/80 space-y-1">
+                      {precioMensual === 0 ? (
+                        <div>
+                          <div className="flex items-baseline gap-1.5">
+                            <span className="text-2xl font-extrabold font-mono text-white">$0 COP</span>
+                            <span className="text-xs text-slate-400 font-medium">/ 14 días</span>
+                          </div>
+                          <p className="text-[11px] text-emerald-400 font-medium">
+                            Acceso total de prueba sin tarjeta de crédito
+                          </p>
+                        </div>
+                      ) : billingCycle === 'annual' ? (
+                        <div>
+                          <div className="flex items-baseline gap-1.5">
+                            <span className="text-2xl font-extrabold font-mono text-white">
+                              {formatCOP(precioEquivMensual)}
+                            </span>
+                            <span className="text-xs text-slate-400 font-medium">/ mes</span>
+                          </div>
+                          <p className="text-[11px] text-slate-400">
+                            Facturación anual de{' '}
+                            <span className="text-emerald-400 font-bold font-mono">
+                              {formatCOP(precioAnual)}
+                            </span>{' '}
+                            (-20% aplicado)
+                          </p>
+                        </div>
+                      ) : (
+                        <div>
+                          <div className="flex items-baseline gap-1.5">
+                            <span className="text-2xl font-extrabold font-mono text-white">
+                              {formatCOP(precioMensual)}
+                            </span>
+                            <span className="text-xs text-slate-400 font-medium">/ mes</span>
+                          </div>
+                          <p className="text-[11px] text-slate-400">
+                            Suscripción mensual recurrente vía Wompi
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Model C Capacity Strip */}
+                    <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-300 bg-slate-900/50 p-2.5 rounded-xl border border-slate-800">
+                      <div className="flex items-center gap-1.5">
+                        <Users className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                        <span>Hasta {limUni} unidades</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <HardDrive className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                        <span>{limStorage} GB Cuota Storage</span>
+                      </div>
+                    </div>
+
+                    {/* Features List */}
+                    <div className="pt-2 border-t border-slate-800/80 space-y-2.5 text-xs text-slate-200">
+                      {featureList.map((feat, i) => (
+                        <div key={i} className="flex items-start gap-2.5">
+                          <Check className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                          <span>{feat}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="pt-8 mt-6 border-t border-slate-800/60">
+                    <Link
+                      to={`/registro-organizacion?plan=${codigo}&cycle=${billingCycle === 'annual' ? 'ANUAL' : 'MENSUAL'}`}
+                      className={`w-full py-3.5 px-4 rounded-xl text-xs sm:text-sm font-bold text-center transition-all flex items-center justify-center gap-2 min-h-[48px] ${
+                        isRecommended
+                          ? 'bg-gradient-to-r from-cyan-400 to-sky-500 hover:from-cyan-300 hover:to-sky-400 text-slate-950 shadow-lg shadow-sky-950/50'
+                          : 'bg-slate-800 hover:bg-slate-700 text-white border border-slate-700'
+                      }`}
+                    >
+                      <span>{ctaText}</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </Link>
                   </div>
                 </div>
+              );
+            })}
+          </div>
+        )}
 
-                <div className="pt-8 mt-6 border-t border-slate-800/60">
-                  <Link
-                    to={`/registro-organizacion?plan=${plan.id === 'basic' ? 'FREE' : plan.id.toUpperCase()}&cycle=${billingCycle}`}
-                    className={`w-full py-3.5 px-4 rounded-xl text-xs sm:text-sm font-bold text-center transition-all flex items-center justify-center gap-2 min-h-[48px] ${
-                      isRecommended
-                        ? 'bg-gradient-to-r from-cyan-400 to-sky-500 hover:from-cyan-300 hover:to-sky-400 text-slate-950 shadow-lg shadow-sky-950/50'
-                        : 'bg-slate-800 hover:bg-slate-700 text-white border border-slate-700'
-                    }`}
-                  >
-                    <span>{plan.ctaText}</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </Link>
+        {/* ========================================================================= */}
+        {/* 2. Interactive Unit Scale Estimator Widget                                */}
+        {/* ========================================================================= */}
+        {recommendedPlan && (
+          <div className="max-w-4xl mx-auto mb-16 p-6 sm:p-8 rounded-3xl bg-slate-900/80 border border-slate-800/90 shadow-2xl backdrop-blur-xl">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400">
+                  <Sliders className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white font-['Plus_Jakarta_Sans']">
+                    Estimador Interactivo de Escala por Unidades
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Calcula el plan recomendado según la cantidad de unidades residenciales
+                  </p>
                 </div>
               </div>
-            );
-          })}
-        </div>
 
-        {/* ========================================================================= */}
-        {/* 2. Interactive Unit Scale Estimator Widget (Aparece luego de los planes) */}
-        {/* ========================================================================= */}
-        <div className="max-w-4xl mx-auto mb-16 p-6 sm:p-8 rounded-3xl bg-slate-900/80 border border-slate-800/90 shadow-2xl backdrop-blur-xl">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-5">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400">
-                <Sliders className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-white font-['Plus_Jakarta_Sans']">
-                  Estimador Interactivo de Escala
-                </h3>
-                <p className="text-xs text-slate-400">Desplaza para calcular la inversión estimada de tu conjunto</p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-400 font-mono">Plan Recomendado:</span>
-              <span className="px-3 py-1 rounded-full text-xs font-bold bg-sky-500/15 text-sky-300 border border-sky-500/30">
-                {PLANS.find((p) => p.id === recommendedPlanId)?.name}
-              </span>
-            </div>
-          </div>
-
-          <div className="pt-6 space-y-6">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <span className="text-sm font-semibold text-slate-200">
-                Número de Unidades Habitacionales (Apartamentos / Casas):
-              </span>
-              <span className="text-2xl font-extrabold font-mono text-sky-400">
-                {unitsCount} <span className="text-xs font-sans text-slate-400 font-normal">unidades</span>
-              </span>
-            </div>
-
-            {/* Slider */}
-            <div className="space-y-2">
-              <input
-                type="range"
-                min="20"
-                max="500"
-                step="5"
-                value={unitsCount}
-                onChange={(e) => setUnitsCount(Number(e.target.value))}
-                className="w-full h-2.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-sky-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
-                aria-label="Ajustar número de unidades habitacionales"
-              />
-              <div className="flex justify-between text-[11px] text-slate-500 font-mono">
-                <span>20 (Torre Única)</span>
-                <span>80 (Conjunto Promedio)</span>
-                <span>200 (Multi-Torre)</span>
-                <span>500+ (Macro-Proyecto)</span>
-              </div>
-            </div>
-
-            {/* Dynamic Calculated Strip */}
-            <div className="p-4 rounded-2xl bg-[#070D18] border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="space-y-1">
-                <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
-                  <Calendar className="w-3.5 h-3.5 text-sky-400" />
-                  Inversión Mensual Estimada para {unitsCount} Unidades:
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-400 font-mono">Plan Recomendado:</span>
+                <span className="px-3 py-1 rounded-full text-xs font-bold bg-sky-500/15 text-sky-300 border border-sky-500/30">
+                  {recommendedPlan.nombre || recommendedPlan.NOMBRE || recommendedPlanCode}
                 </span>
-                <p className="text-[11px] text-slate-400">
-                  Tarifa base por unidad: {formatCOP(BASE_RATES[recommendedPlanId][billingCycle])} COP / mes
-                  {billingCycle === 'annual' && ' (con 20% de descuento anual aplicado)'}.
-                </p>
-              </div>
-
-              <div className="text-left sm:text-right">
-                <div className="text-2xl sm:text-3xl font-extrabold font-mono text-emerald-400">
-                  {formatCOP(unitsCount * BASE_RATES[recommendedPlanId][billingCycle])}
-                </div>
-                <span className="text-[10px] font-mono text-slate-500">COP / Mes (Liquidación {billingCycle === 'annual' ? 'Anual' : 'Mensual'})</span>
               </div>
             </div>
+
+            <div className="pt-6 space-y-6">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <span className="text-sm font-semibold text-slate-200">
+                  Número de Unidades Habitacionales (Apartamentos / Casas):
+                </span>
+                <span className="text-2xl font-extrabold font-mono text-sky-400">
+                  {unitsCount} <span className="text-xs font-sans text-slate-400 font-normal">unidades</span>
+                </span>
+              </div>
+
+              {/* Slider */}
+              <div className="space-y-2">
+                <input
+                  type="range"
+                  min="5"
+                  max="500"
+                  step="5"
+                  value={unitsCount}
+                  onChange={(e) => setUnitsCount(Number(e.target.value))}
+                  className="w-full h-2.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-sky-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
+                  aria-label="Ajustar número de unidades habitacionales"
+                />
+                <div className="flex justify-between text-[11px] text-slate-500 font-mono">
+                  {sortedPlans.map((p) => {
+                    const lim = p.limiteUnidades || p.LIMITE_UNIDADES;
+                    const nom = p.nombre || p.NOMBRE;
+                    return (
+                      <span key={p.codigo || p.idPlan}>
+                        {lim >= 9000 ? '500+' : lim} ({nom})
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Dynamic Calculated Strip */}
+              {(() => {
+                const recPrice = Number(recommendedPlan.precioMensual || recommendedPlan.PRECIO_MENSUAL || 0);
+                const recAnnual = Number(
+                  recommendedPlan.precioAnual ||
+                    recommendedPlan.PRECIO_ANUAL ||
+                    Math.round(recPrice * 12 * 0.8)
+                );
+                const displayInvestment =
+                  recPrice === 0
+                    ? 0
+                    : billingCycle === 'annual'
+                    ? Math.round(recAnnual / 12)
+                    : recPrice;
+
+                const perUnitAvg =
+                  unitsCount > 0 && displayInvestment > 0
+                    ? Math.round(displayInvestment / unitsCount)
+                    : 0;
+
+                return (
+                  <div className="p-4 rounded-2xl bg-[#070D18] border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="space-y-1">
+                      <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5 text-sky-400" />
+                        Inversión para {unitsCount} Unidades ({recommendedPlan.nombre || recommendedPlan.NOMBRE}):
+                      </span>
+                      <p className="text-[11px] text-slate-400">
+                        {recPrice === 0 ? (
+                          'Plan de evaluación gratuito para hasta 10 unidades.'
+                        ) : (
+                          <>
+                            Tarifa plana por copropiedad:{' '}
+                            <span className="text-slate-200 font-mono">
+                              {formatCOP(displayInvestment)} COP / mes
+                            </span>
+                            {perUnitAvg > 0 && (
+                              <> (~{formatCOP(perUnitAvg)} COP / unidad / mes promedio)</>
+                            )}
+                            {billingCycle === 'annual' && ' con 20% de descuento anual incluido.'}
+                          </>
+                        )}
+                      </p>
+                    </div>
+
+                    <div className="text-left sm:text-right">
+                      <div className="text-2xl sm:text-3xl font-extrabold font-mono text-emerald-400">
+                        {formatCOP(displayInvestment)}
+                      </div>
+                      <span className="text-[10px] font-mono text-slate-500">
+                        COP / Mes ({billingCycle === 'annual' ? 'Facturado Anualmente' : 'Facturado Mensualmente'})
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* ========================================================================= */}
-        {/* Capability Matrix Toggle Button */}
+        {/* Capability Matrix Toggle Button                                           */}
         {/* ========================================================================= */}
         <div className="text-center mb-8">
           <button
@@ -429,13 +653,21 @@ export default function LandingPricing() {
             className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-slate-900/90 border border-slate-700 text-slate-200 hover:text-white hover:border-sky-500/40 text-xs sm:text-sm font-semibold transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 min-h-[44px] shadow-lg"
             aria-expanded={showMatrix}
           >
-            <span>{showMatrix ? 'Ocultar matriz comparativa técnica' : 'Ver matriz comparativa completa de capacidades'}</span>
-            <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${showMatrix ? 'rotate-180' : ''}`} />
+            <span>
+              {showMatrix
+                ? 'Ocultar matriz comparativa técnica'
+                : 'Ver matriz comparativa completa de capacidades'}
+            </span>
+            <ChevronDown
+              className={`w-4 h-4 transition-transform duration-200 ${
+                showMatrix ? 'rotate-180' : ''
+              }`}
+            />
           </button>
         </div>
 
         {/* ========================================================================= */}
-        {/* Expandable Comparison Matrix with Anime.js Reveal */}
+        {/* Expandable Comparison Matrix with Anime.js Reveal                        */}
         {/* ========================================================================= */}
         {showMatrix && (
           <div
@@ -447,13 +679,13 @@ export default function LandingPricing() {
                 <thead>
                   <tr className="bg-slate-950 border-b border-slate-800 text-slate-300 font-bold uppercase tracking-wider">
                     <th className="p-4 sm:p-5 w-2/5">Capacidad / Módulo</th>
-                    <th className="p-4 sm:p-5 text-center w-1/5">Básico</th>
-                    <th className="p-4 sm:p-5 text-center w-1/5 text-sky-400">Profesional</th>
-                    <th className="p-4 sm:p-5 text-center w-1/5">Empresarial</th>
+                    <th className="p-4 sm:p-5 text-center w-1/5">Gratuito (FREE)</th>
+                    <th className="p-4 sm:p-5 text-center w-1/5 text-sky-400">Profesional (PRO)</th>
+                    <th className="p-4 sm:p-5 text-center w-1/5">Empresarial (ENT)</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800">
-                  {MATRIX_CATEGORIES.map((cat) => (
+                  {matrixCategories.map((cat) => (
                     <Fragment key={cat.name}>
                       <tr className="bg-slate-900/90 font-bold text-sky-400">
                         <td colSpan={4} className="p-3 sm:px-5 text-[11px] uppercase tracking-wider">
@@ -464,14 +696,14 @@ export default function LandingPricing() {
                         <tr key={i} className="hover:bg-slate-800/30 transition-colors">
                           <td className="p-4 sm:px-5 text-slate-200 font-medium">{row.feature}</td>
                           <td className="p-4 text-center">
-                            {typeof row.basic === 'boolean' ? (
-                              row.basic ? (
+                            {typeof row.free === 'boolean' ? (
+                              row.free ? (
                                 <Check className="w-4 h-4 text-emerald-400 mx-auto" />
                               ) : (
                                 <span className="text-slate-600">—</span>
                               )
                             ) : (
-                              <span className="text-slate-300">{row.basic}</span>
+                              <span className="text-slate-300">{row.free}</span>
                             )}
                           </td>
                           <td className="p-4 text-center bg-sky-500/[0.04]">
@@ -505,7 +737,6 @@ export default function LandingPricing() {
             </div>
           </div>
         )}
-
       </div>
     </section>
   );

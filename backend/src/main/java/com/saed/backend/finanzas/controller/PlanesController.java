@@ -1,39 +1,32 @@
 package com.saed.backend.finanzas.controller;
 
-import com.saed.backend.audit.Auditable;
-import com.saed.backend.audit.AuditCategory;
-import com.saed.backend.audit.AuditSeverity;
-
 import com.saed.backend.common.dto.ApiResponse;
-import org.springframework.http.HttpStatus;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
-import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
-import io.swagger.v3.oas.annotations.tags.Tag;
 
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
- * PlanesController — catálogo de planes comerciales del SaaS.
+ * PlanesController — catálogo público de consulta de planes comerciales del SaaS (GAP-ENT-07).
  *
- * PLANES no tiene RLS (catálogo público del sistema). Solo SUPERADMIN
- * y ADMIN_ORGANIZACION pueden gestionar. Los residentes solo ven
- * los planes ACTIVOS.
+ * PLANES no tiene RLS (catálogo público del sistema).
+ * La administración y mutación (creación, edición, activación) de planes está
+ * reservada exclusivamente a PlatformPlansController bajo SCOPE_SUPERADMIN.
  *
- * Contrato:
- *   GET    /api/v1/planes              — lista (ACTIVOS para no-admin, todos para admin)
- *   GET    /api/v1/planes/{id}         — detalle
- *   POST   /api/v1/planes              — crear (SUPERADMIN/ADMIN_ORG)
- *   PUT    /api/v1/planes/{id}         — actualizar (SUPERADMIN/ADMIN_ORG)
- *   PATCH  /api/v1/planes/{id}/status  — activar/desactivar (SUPERADMIN)
- *   GET    /api/v1/planes/catalogo     — solo planes activos (para selects)
+ * Contrato de solo lectura:
+ *   GET    /api/v1/planes              — lista (solo activos para público/tenant, todos para superadmin)
+ *   GET    /api/v1/planes/{id}         — detalle de plan con módulos y cálculo anual
+ *   GET    /api/v1/planes/catalogo     — catálogo simplificado de planes activos
  */
-@Tag(name = "Planes", description = "Catálogo de planes comerciales SaaS")
+@Tag(name = "Planes", description = "Catálogo de consulta de planes comerciales SaaS")
 @RestController
 @RequestMapping("/api/v1/planes")
-@PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
 public class PlanesController {
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
@@ -44,9 +37,19 @@ public class PlanesController {
 
     // ─── SELECT (todos o solo activos) ────────────────────────────
 
+    @Operation(summary = "Catálogo público comercial de planes disponibles")
     @GetMapping
     public ApiResponse<List<Map<String, Object>>> listar(
             @RequestParam(value = "solo_activos", defaultValue = "false") boolean soloActivos) {
+
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        boolean isSuperAdmin = auth != null && auth.isAuthenticated()
+                && !(auth instanceof AnonymousAuthenticationToken)
+                && auth.getAuthorities().stream().anyMatch(a -> "SCOPE_SUPERADMIN".equals(a.getAuthority()));
+
+        if (!isSuperAdmin) {
+            soloActivos = true;
+        }
 
         String sql;
         MapSqlParameterSource params = new MapSqlParameterSource();
@@ -55,29 +58,35 @@ public class PlanesController {
             sql = "SELECT ID_PLAN, CODIGO, NOMBRE, DESCRIPCION, PRECIO_MENSUAL, " +
                   "LIMITE_PROPIEDADES, LIMITE_UNIDADES, LIMITE_USUARIOS, " +
                   "LIMITE_ALMACENAMIENTO_GB, ESTADO, FECHA_CREACION " +
-                  "FROM PLANES WHERE ESTADO = 'ACTIVO' ORDER BY PRECIO_MENSUAL";
+                  "FROM PLANES WHERE ESTADO = 'ACTIVO' ORDER BY PRECIO_MENSUAL ASC";
         } else {
             sql = "SELECT ID_PLAN, CODIGO, NOMBRE, DESCRIPCION, PRECIO_MENSUAL, " +
                   "LIMITE_PROPIEDADES, LIMITE_UNIDADES, LIMITE_USUARIOS, " +
                   "LIMITE_ALMACENAMIENTO_GB, ESTADO, FECHA_CREACION " +
-                  "FROM PLANES ORDER BY PRECIO_MENSUAL";
+                  "FROM PLANES ORDER BY PRECIO_MENSUAL ASC";
         }
 
-        List<Map<String, Object>> items = jdbcTemplate.queryForList(sql, params);
-        return ApiResponse.success(items);
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql, params);
+        List<Map<String, Object>> enriched = rows.stream().map(this::enrichPlan).toList();
+        return ApiResponse.success(enriched);
     }
 
     // ─── CATÁLOGO (solo activos, para selects del frontend) ──────
 
+    @Operation(summary = "Catálogo simplificado de planes activos")
     @GetMapping("/catalogo")
     public ApiResponse<List<Map<String, Object>>> catalogo() {
-        String sql = "SELECT ID_PLAN, CODIGO, NOMBRE, PRECIO_MENSUAL " +
-                     "FROM PLANES WHERE ESTADO = 'ACTIVO' ORDER BY PRECIO_MENSUAL";
-        return ApiResponse.success(jdbcTemplate.queryForList(sql, new MapSqlParameterSource()));
+        String sql = "SELECT ID_PLAN, CODIGO, NOMBRE, PRECIO_MENSUAL, " +
+                     "LIMITE_PROPIEDADES, LIMITE_UNIDADES, LIMITE_USUARIOS, LIMITE_ALMACENAMIENTO_GB " +
+                     "FROM PLANES WHERE ESTADO = 'ACTIVO' ORDER BY PRECIO_MENSUAL ASC";
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql, new MapSqlParameterSource());
+        List<Map<String, Object>> enriched = rows.stream().map(this::enrichPlan).toList();
+        return ApiResponse.success(enriched);
     }
 
     // ─── DETALLE ─────────────────────────────────────────────────
 
+    @Operation(summary = "Detalle de un plan por ID")
     @GetMapping("/{id}")
     public ApiResponse<Map<String, Object>> detalle(@PathVariable Long id) {
         String sql = "SELECT ID_PLAN, CODIGO, NOMBRE, DESCRIPCION, PRECIO_MENSUAL, " +
@@ -89,95 +98,134 @@ public class PlanesController {
         if (rows.isEmpty()) {
             return ApiResponse.error("Plan no encontrado");
         }
-        return ApiResponse.success(rows.get(0));
-    }
 
-    // ─── CREAR ───────────────────────────────────────────────────
+        Map<String, Object> plan = rows.get(0);
+        String estado = (String) plan.get("ESTADO");
 
-    @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
-    @Auditable(action = "CREATE", resource = "PLAN", category = AuditCategory.ADMINISTRATIVE, severity = AuditSeverity.HIGH)
-    public ApiResponse<Map<String, Object>> crear(@RequestBody Map<String, Object> body) {
-        String codigo    = (String) body.getOrDefault("codigo", "");
-        String nombre    = (String) body.getOrDefault("nombre", "");
-        String desc      = (String) body.getOrDefault("descripcion", "");
-        Number precio    = (Number) body.getOrDefault("precioMensual", 0);
-        Number limProp   = (Number) body.getOrDefault("limitePropiedades", null);
-        Number limUnid   = (Number) body.getOrDefault("limiteUnidades", null);
-        Number limUsr    = (Number) body.getOrDefault("limiteUsuarios", null);
-        Number limAlm    = (Number) body.getOrDefault("limiteAlmacenamientoGb", null);
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        boolean isSuperAdmin = auth != null && auth.isAuthenticated()
+                && !(auth instanceof AnonymousAuthenticationToken)
+                && auth.getAuthorities().stream().anyMatch(a -> "SCOPE_SUPERADMIN".equals(a.getAuthority()));
 
-        if (codigo.isBlank() || nombre.isBlank()) {
-            return ApiResponse.error("codigo y nombre son obligatorios");
+        if (!isSuperAdmin && !"ACTIVO".equalsIgnoreCase(estado)) {
+            return ApiResponse.error("Plan no encontrado");
         }
 
-        String sql = "INSERT INTO PLANES (CODIGO, NOMBRE, DESCRIPCION, PRECIO_MENSUAL, " +
-                     "LIMITE_PROPIEDADES, LIMITE_UNIDADES, LIMITE_USUARIOS, LIMITE_ALMACENAMIENTO_GB) " +
-                     "VALUES (:codigo, :nombre, :desc, :precio, :limProp, :limUnid, :limUsr, :limAlm)";
-
-        MapSqlParameterSource params = new MapSqlParameterSource()
-                .addValue("codigo", codigo)
-                .addValue("nombre", nombre)
-                .addValue("desc", desc.isBlank() ? null : desc)
-                .addValue("precio", precio)
-                .addValue("limProp", limProp)
-                .addValue("limUnid", limUnid)
-                .addValue("limUsr", limUsr)
-                .addValue("limAlm", limAlm);
-
-        org.springframework.jdbc.support.KeyHolder keyHolder = new org.springframework.jdbc.support.GeneratedKeyHolder();
-        jdbcTemplate.update(sql, params, keyHolder, new String[]{"ID_PLAN"});
-        Long id = keyHolder.getKey().longValue();
-
-        return ApiResponse.success(Map.of("id", id, "codigo", codigo, "nombre", nombre));
+        return ApiResponse.success(enrichPlan(plan));
     }
 
-    // ─── ACTUALIZAR ──────────────────────────────────────────────
+    // ─── HELPER: ENRIQUECIMIENTO CON CÁLCULO ANUAL Y MÓDULOS ────
 
-    @PutMapping("/{id}")
-    @Auditable(action = "UPDATE", resource = "PLAN", category = AuditCategory.ADMINISTRATIVE, severity = AuditSeverity.HIGH)
-    public ApiResponse<String> actualizar(@PathVariable Long id, @RequestBody Map<String, Object> body) {
-        String nombre    = (String) body.getOrDefault("nombre", null);
-        String desc      = (String) body.getOrDefault("descripcion", null);
-        Number precio    = (Number) body.getOrDefault("precioMensual", null);
-        Number limProp   = (Number) body.getOrDefault("limitePropiedades", null);
-        Number limUnid   = (Number) body.getOrDefault("limiteUnidades", null);
-        Number limUsr    = (Number) body.getOrDefault("limiteUsuarios", null);
-        Number limAlm    = (Number) body.getOrDefault("limiteAlmacenamientoGb", null);
+    private Map<String, Object> enrichPlan(Map<String, Object> row) {
+        Map<String, Object> enriched = new LinkedHashMap<>(row);
 
-        StringBuilder sb = new StringBuilder("UPDATE PLANES SET ");
-        MapSqlParameterSource params = new MapSqlParameterSource("id", id);
-        boolean first = true;
+        Number idPlanNum = (Number) (row.get("ID_PLAN") != null ? row.get("ID_PLAN") : row.get("idPlan"));
+        Long idPlan = idPlanNum != null ? idPlanNum.longValue() : null;
 
-        if (nombre != null)        { sb.append(first?"":", ").append("NOMBRE = :nombre"); params.addValue("nombre", nombre); first = false; }
-        if (desc != null)          { sb.append(first?"":", ").append("DESCRIPCION = :desc"); params.addValue("desc", desc); first = false; }
-        if (precio != null)        { sb.append(first?"":", ").append("PRECIO_MENSUAL = :precio"); params.addValue("precio", precio); first = false; }
-        if (limProp != null)       { sb.append(first?"":", ").append("LIMITE_PROPIEDADES = :limProp"); params.addValue("limProp", limProp); first = false; }
-        if (limUnid != null)       { sb.append(first?"":", ").append("LIMITE_UNIDADES = :limUnid"); params.addValue("limUnid", limUnid); first = false; }
-        if (limUsr != null)        { sb.append(first?"":", ").append("LIMITE_USUARIOS = :limUsr"); params.addValue("limUsr", limUsr); first = false; }
-        if (limAlm != null)        { sb.append(first?"":", ").append("LIMITE_ALMACENAMIENTO_GB = :limAlm"); params.addValue("limAlm", limAlm); first = false; }
+        Number pmNum = (Number) (row.get("PRECIO_MENSUAL") != null ? row.get("PRECIO_MENSUAL") : row.get("precioMensual"));
+        long precioMensual = pmNum != null ? pmNum.longValue() : 0L;
+        long precioAnual = com.saed.backend.finanzas.service.PlanPricingPolicy.calcularPrecioAnual(precioMensual);
+        int descuentoAnual = com.saed.backend.finanzas.service.PlanPricingPolicy.DESCUENTO_ANUAL_PORCENTAJE;
 
-        if (first) return ApiResponse.error("Ningún campo para actualizar");
+        Number limProp = (Number) (row.get("LIMITE_PROPIEDADES") != null ? row.get("LIMITE_PROPIEDADES") : row.get("limitePropiedades"));
+        Number limUni = (Number) (row.get("LIMITE_UNIDADES") != null ? row.get("LIMITE_UNIDADES") : row.get("limiteUnidades"));
+        Number limUsr = (Number) (row.get("LIMITE_USUARIOS") != null ? row.get("LIMITE_USUARIOS") : row.get("limiteUsuarios"));
+        Number limStorage = (Number) (row.get("LIMITE_ALMACENAMIENTO_GB") != null ? row.get("LIMITE_ALMACENAMIENTO_GB") : row.get("limiteAlmacenamientoGb"));
 
-        sb.append(" WHERE ID_PLAN = :id");
-        int rows = jdbcTemplate.update(sb.toString(), params);
-        if (rows == 0) return ApiResponse.error("Plan no encontrado");
-        return ApiResponse.success("OK");
-    }
+        String codigo = (String) (row.get("CODIGO") != null ? row.get("CODIGO") : row.get("codigo"));
+        String nombre = (String) (row.get("NOMBRE") != null ? row.get("NOMBRE") : row.get("nombre"));
+        String descripcion = (String) (row.get("DESCRIPCION") != null ? row.get("DESCRIPCION") : row.get("descripcion"));
+        String estado = (String) (row.get("ESTADO") != null ? row.get("ESTADO") : row.get("estado"));
 
-    // ─── CAMBIAR ESTADO ──────────────────────────────────────────
+        // Normalización camelCase y uppercase
+        enriched.put("idPlan", idPlan);
+        enriched.put("codigo", codigo);
+        enriched.put("nombre", nombre);
+        enriched.put("descripcion", descripcion);
+        enriched.put("precioMensual", precioMensual);
+        enriched.put("precioAnual", precioAnual);
+        enriched.put("descuentoAnual", descuentoAnual);
+        enriched.put("limitePropiedades", limProp != null ? limProp.intValue() : 0);
+        enriched.put("limiteUnidades", limUni != null ? limUni.intValue() : 0);
+        enriched.put("limiteUsuarios", limUsr != null ? limUsr.intValue() : 0);
+        enriched.put("limiteAlmacenamientoGb", limStorage != null ? limStorage.intValue() : 0);
+        enriched.put("estado", estado);
 
-    @PatchMapping("/{id}/status")
-    @Auditable(action = "UPDATE_STATUS", resource = "PLAN", category = AuditCategory.ADMINISTRATIVE, severity = AuditSeverity.HIGH)
-    public ApiResponse<String> cambiarEstado(@PathVariable Long id, @RequestBody Map<String, String> body) {
-        String estado = body.getOrDefault("estado", "").toUpperCase();
-        if (!List.of("ACTIVO", "INACTIVO").contains(estado)) {
-            return ApiResponse.error("estado debe ser ACTIVO o INACTIVO");
+        enriched.put("PRECIO_ANUAL", precioAnual);
+        enriched.put("DESCUENTO_ANUAL", descuentoAnual);
+
+        // Consultar módulos habilitados desde PLAN_MODULOS
+        if (idPlan != null) {
+            try {
+                String modSql = """
+                    SELECT m.CODIGO AS "codigo", m.NOMBRE AS "nombre", m.DESCRIPCION AS "descripcion"
+                    FROM PLAN_MODULOS pm
+                    JOIN MODULOS m ON pm.ID_MODULO = m.ID_MODULO
+                    WHERE pm.ID_PLAN = :idPlan AND pm.HABILITADO = 'S'
+                    ORDER BY m.ID_MODULO ASC
+                    """;
+                List<Map<String, Object>> modulos = jdbcTemplate.queryForList(modSql, new MapSqlParameterSource("idPlan", idPlan));
+                List<String> codigos = modulos.stream().map(m -> (String) m.get("codigo")).toList();
+                enriched.put("modulos", modulos);
+                enriched.put("modulosCodigos", codigos);
+            } catch (Exception e) {
+                enriched.put("modulos", Collections.emptyList());
+                enriched.put("modulosCodigos", Collections.emptyList());
+            }
+        } else {
+            enriched.put("modulos", Collections.emptyList());
+            enriched.put("modulosCodigos", Collections.emptyList());
         }
-        int rows = jdbcTemplate.update(
-                "UPDATE PLANES SET ESTADO = :estado WHERE ID_PLAN = :id",
-                new MapSqlParameterSource("id", id).addValue("estado", estado));
-        if (rows == 0) return ApiResponse.error("Plan no encontrado");
-        return ApiResponse.success("OK");
+
+        // Features canónicas
+        List<String> features = buildFeatures(codigo, limProp, limUni, limUsr, limStorage);
+        enriched.put("features", features);
+
+        return enriched;
+    }
+
+    private List<String> buildFeatures(String codigo, Number limProp, Number limUni, Number limUsr, Number limStorage) {
+        List<String> list = new ArrayList<>();
+        int prop = limProp != null ? limProp.intValue() : 1;
+        int uni = limUni != null ? limUni.intValue() : 10;
+        int usr = limUsr != null ? limUsr.intValue() : 5;
+        int storage = limStorage != null ? limStorage.intValue() : 1;
+
+        if ("FREE".equalsIgnoreCase(codigo)) {
+            list.add(prop + (prop == 1 ? " Copropiedad" : " Copropiedades"));
+            list.add("Hasta " + uni + " unidades residenciales");
+            list.add("Hasta " + usr + " usuarios");
+            list.add(storage + " GB almacenamiento seguro");
+            list.add("Directorio de residentes y unidades");
+            list.add("Pases de visita con código QR dinámico");
+            list.add("Consola web para portería");
+            list.add("Aislamiento multi-tenant Oracle RLS");
+        } else if ("PRO".equalsIgnoreCase(codigo)) {
+            list.add("Hasta " + prop + " copropiedades");
+            list.add("Hasta " + uni + " unidades residenciales");
+            list.add("Hasta " + usr + " usuarios administrativos");
+            list.add(storage + " GB almacenamiento seguro");
+            list.add("Recaudo en línea Wompi (PSE y tarjetas)");
+            list.add("Custodia de paquetes con PIN de 6 dígitos");
+            list.add("Control de bahías de parqueadero y placas");
+            list.add("PQRS y convivencia con trazabilidad");
+            list.add("Reservas de zonas comunes y amenidades");
+            list.add("Gestión de obras, reformas y pólizas");
+        } else if ("ENTERPRISE".equalsIgnoreCase(codigo)) {
+            list.add("Copropiedades corporativas (hasta " + prop + ")");
+            list.add("Hasta " + uni + " unidades residenciales");
+            list.add("Hasta " + usr + " usuarios");
+            list.add(storage + " GB almacenamiento de alta capacidad");
+            list.add("Todo lo incluido en el Plan Profesional");
+            list.add("Asambleas y votaciones en tiempo real Ley 675");
+            list.add("Supervisión centralizada multi-propiedad");
+            list.add("Exportación contable y auditoría avanzada");
+            list.add("Acompañamiento y soporte corporativo");
+        } else {
+            list.add("Hasta " + prop + " copropiedades");
+            list.add("Hasta " + uni + " unidades residenciales");
+            list.add(storage + " GB almacenamiento seguro");
+        }
+        return list;
     }
 }

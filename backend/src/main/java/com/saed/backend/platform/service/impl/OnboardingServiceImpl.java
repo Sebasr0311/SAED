@@ -36,6 +36,7 @@ public class OnboardingServiceImpl implements OnboardingService {
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
     private final ObjectMapper objectMapper;
+    private final com.saed.backend.platform.service.MembershipHistoryService membershipHistoryService;
 
     @Value("${wompi.public.key:${WOMPI_PUBLIC_KEY:pub_test_IZg6dmwtip4WYXjPP8G7zYvWzCU5wRaH}}")
     private String wompiPublicKey;
@@ -47,11 +48,13 @@ public class OnboardingServiceImpl implements OnboardingService {
             NamedParameterJdbcTemplate jdbcTemplate,
             PasswordEncoder passwordEncoder,
             EmailService emailService,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            com.saed.backend.platform.service.MembershipHistoryService membershipHistoryService) {
         this.jdbcTemplate = jdbcTemplate;
         this.passwordEncoder = passwordEncoder;
         this.emailService = emailService;
         this.objectMapper = objectMapper;
+        this.membershipHistoryService = membershipHistoryService;
     }
 
     @PostConstruct
@@ -103,7 +106,34 @@ public class OnboardingServiceImpl implements OnboardingService {
             WHERE ESTADO = 'ACTIVO'
             ORDER BY PRECIO_MENSUAL ASC
             """;
-        return jdbcTemplate.queryForList(sql, new MapSqlParameterSource());
+        List<Map<String, Object>> list = jdbcTemplate.queryForList(sql, new MapSqlParameterSource());
+        List<Map<String, Object>> enriched = new ArrayList<>();
+        for (Map<String, Object> p : list) {
+            Map<String, Object> map = new LinkedHashMap<>(p);
+            Number pm = (Number) map.get("precioMensual");
+            long mensual = pm != null ? pm.longValue() : 0L;
+            long anual = com.saed.backend.finanzas.service.PlanPricingPolicy.calcularPrecioAnual(mensual);
+            map.put("precioAnual", anual);
+            map.put("descuentoAnual", com.saed.backend.finanzas.service.PlanPricingPolicy.DESCUENTO_ANUAL_PORCENTAJE);
+
+            Long idPlan = ((Number) map.get("idPlan")).longValue();
+            try {
+                List<Map<String, Object>> mods = jdbcTemplate.queryForList("""
+                    SELECT m.CODIGO AS "codigo", m.NOMBRE AS "nombre", m.DESCRIPCION AS "descripcion"
+                    FROM PLAN_MODULOS pm
+                    JOIN MODULOS m ON pm.ID_MODULO = m.ID_MODULO
+                    WHERE pm.ID_PLAN = :idPlan AND pm.HABILITADO = 'S'
+                    ORDER BY m.ID_MODULO ASC
+                    """, new MapSqlParameterSource("idPlan", idPlan));
+                map.put("modulos", mods);
+                map.put("modulosCodigos", mods.stream().map(m -> (String) m.get("codigo")).toList());
+            } catch (Exception e) {
+                map.put("modulos", Collections.emptyList());
+                map.put("modulosCodigos", Collections.emptyList());
+            }
+            enriched.add(map);
+        }
+        return enriched;
     }
 
     @Override
@@ -204,9 +234,8 @@ public class OnboardingServiceImpl implements OnboardingService {
             }
 
             // 5. FLUJO PLAN COMERCIAL: Patrón Staging (No se tocan tablas maestras hasta el pago aprobado)
-            boolean esAnual = "ANUAL".equalsIgnoreCase(request.getCicloFacturacion());
-            long montoPesos = esAnual ? Math.round(precioMensual * 12 * 0.80) : precioMensual;
-            long montoCentavos = montoPesos * 100;
+            long montoPesos = com.saed.backend.finanzas.service.PlanPricingPolicy.calcularMontoPesos(precioMensual, request.getCicloFacturacion());
+            long montoCentavos = com.saed.backend.finanzas.service.PlanPricingPolicy.calcularMontoCentavos(precioMensual, request.getCicloFacturacion());
 
             String referencia = "SAED-MEMBRESIA-ONB-" + System.currentTimeMillis();
             String firmaIntegridad = calcularFirmaIntegridad(referencia, montoCentavos);
@@ -333,13 +362,27 @@ public class OnboardingServiceImpl implements OnboardingService {
         );
 
         // Crear Membresía ACTIVA
+        org.springframework.jdbc.support.KeyHolder khMem = new org.springframework.jdbc.support.GeneratedKeyHolder();
         jdbcTemplate.update("""
             INSERT INTO MEMBRESIAS (ID_ORGANIZACION, ID_PLAN, FECHA_INICIO, FECHA_FIN, ESTADO, ES_PRUEBA)
             VALUES (:org, :plan, TRUNC(SYSDATE), ADD_MONTHS(TRUNC(SYSDATE), 1), 'ACTIVA', 'S')
             """,
             new MapSqlParameterSource()
                 .addValue("org", idOrganizacion)
-                .addValue("plan", request.getIdPlan())
+                .addValue("plan", request.getIdPlan()),
+            khMem, new String[]{"ID_MEMBRESIA"}
+        );
+        Number memIdNum = khMem.getKey();
+        Long idMembresia = memIdNum != null ? memIdNum.longValue() : 0L;
+
+        // Registrar en MEMBRESIAS_HISTORIAL (GAP-ENT-05)
+        membershipHistoryService.recordChange(
+                idMembresia,
+                null,
+                request.getIdPlan(),
+                "INICIO",
+                "Membresía inicial en prueba creada en Onboarding gratuito",
+                idUsuario
         );
 
         // Despachar correo de bienvenida con credenciales
@@ -479,6 +522,7 @@ public class OnboardingServiceImpl implements OnboardingService {
             // 7. Crear Membresía ACTIVA (12 meses si es anual, 1 mes si mensual)
             boolean esAnual = "ANUAL".equalsIgnoreCase(request.getCicloFacturacion());
             int meses = esAnual ? 12 : 1;
+            org.springframework.jdbc.support.KeyHolder khMem = new org.springframework.jdbc.support.GeneratedKeyHolder();
             jdbcTemplate.update("""
                 INSERT INTO MEMBRESIAS (ID_ORGANIZACION, ID_PLAN, FECHA_INICIO, FECHA_FIN, ESTADO, ES_PRUEBA)
                 VALUES (:org, :plan, TRUNC(SYSDATE), ADD_MONTHS(TRUNC(SYSDATE), :m), 'ACTIVA', 'N')
@@ -486,7 +530,20 @@ public class OnboardingServiceImpl implements OnboardingService {
                 new MapSqlParameterSource()
                     .addValue("org", idOrganizacion)
                     .addValue("plan", request.getIdPlan())
-                    .addValue("m", meses)
+                    .addValue("m", meses),
+                khMem, new String[]{"ID_MEMBRESIA"}
+            );
+            Number memIdNum = khMem.getKey();
+            Long idMembresia = memIdNum != null ? memIdNum.longValue() : 0L;
+
+            // Registrar en MEMBRESIAS_HISTORIAL (GAP-ENT-05)
+            membershipHistoryService.recordChange(
+                    idMembresia,
+                    null,
+                    request.getIdPlan(),
+                    "INICIO",
+                    "Membresía inicial comercial (" + (esAnual ? "ANUAL" : "MENSUAL") + ") activada tras pago Onboarding",
+                    idUsuario
             );
 
             // 8. Actualizar TRANSACCIONES_PAGO
@@ -780,10 +837,20 @@ public class OnboardingServiceImpl implements OnboardingService {
     }
 
     private void limpiarContexto(SaedContext prevCtx) {
-        try {
-            jdbcTemplate.getJdbcOperations().execute("BEGIN PKG_SAED_SESSION.CLEAR_CONTEXT(); END;");
-        } catch (Exception ignored) {}
         SaedContextHolder.setContext(prevCtx);
+        if (prevCtx != null && prevCtx.getUserId() != null) {
+            try {
+                jdbcTemplate.getJdbcOperations().execute("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(" + prevCtx.getUserId() + "); "
+                        + "PKG_SAED_SESSION.SET_CONTEXT(" + prevCtx.getUserId() + ", "
+                        + (prevCtx.getOrganizationId() != null ? prevCtx.getOrganizationId() : "NULL") + ", "
+                        + (prevCtx.getPropertyId() != null ? prevCtx.getPropertyId() : "NULL") + ", "
+                        + (prevCtx.getRoleCode() != null ? "'" + prevCtx.getRoleCode() + "'" : "NULL") + "); END;");
+            } catch (Exception ignored) {}
+        } else {
+            try {
+                jdbcTemplate.getJdbcOperations().execute("BEGIN PKG_SAED_SESSION.CLEAR_CONTEXT(); END;");
+            } catch (Exception ignored) {}
+        }
     }
 
     private String getPublicKey() {
