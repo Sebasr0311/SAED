@@ -28,6 +28,9 @@ public class OrgSubscriptionDTO {
     private double porcentajeUsuarios;
 
     private long limiteAlmacenamientoGb;
+    private long almacenamientoUsadoBytes;
+    private double almacenamientoUsadoGb;
+    private double porcentajeAlmacenamiento;
 
     public OrgSubscriptionDTO() {}
 
@@ -90,4 +93,13 @@ public class OrgSubscriptionDTO {
 
     public long getLimiteAlmacenamientoGb() { return limiteAlmacenamientoGb; }
     public void setLimiteAlmacenamientoGb(long limiteAlmacenamientoGb) { this.limiteAlmacenamientoGb = limiteAlmacenamientoGb; }
+
+    public long getAlmacenamientoUsadoBytes() { return almacenamientoUsadoBytes; }
+    public void setAlmacenamientoUsadoBytes(long almacenamientoUsadoBytes) { this.almacenamientoUsadoBytes = almacenamientoUsadoBytes; }
+
+    public double getAlmacenamientoUsadoGb() { return almacenamientoUsadoGb; }
+    public void setAlmacenamientoUsadoGb(double almacenamientoUsadoGb) { this.almacenamientoUsadoGb = almacenamientoUsadoGb; }
+
+    public double getPorcentajeAlmacenamiento() { return porcentajeAlmacenamiento; }
+    public void setPorcentajeAlmacenamiento(double porcentajeAlmacenamiento) { this.porcentajeAlmacenamiento = porcentajeAlmacenamiento; }
 }

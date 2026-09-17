@@ -4,7 +4,10 @@ import com.saed.backend.common.dto.ApiResponse;
 import com.saed.backend.context.SaedContext;
 import com.saed.backend.context.SaedContextHolder;
 import com.saed.backend.org.dto.OrgSubscriptionDTO;
+import com.saed.backend.platform.service.StorageQuotaService;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.security.access.AccessDeniedException;
@@ -27,9 +30,12 @@ import java.util.List;
 public class OrgSubscriptionController {
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
+    private final StorageQuotaService storageQuotaService;
 
-    public OrgSubscriptionController(NamedParameterJdbcTemplate jdbcTemplate) {
+    public OrgSubscriptionController(NamedParameterJdbcTemplate jdbcTemplate,
+                                   @Lazy @Autowired(required = false) StorageQuotaService storageQuotaService) {
         this.jdbcTemplate = jdbcTemplate;
+        this.storageQuotaService = storageQuotaService;
     }
 
     @GetMapping
@@ -83,7 +89,20 @@ public class OrgSubscriptionController {
             throw new java.util.NoSuchElementException("No se encontró suscripción activa para la organización");
         }
 
-        return ApiResponse.success(results.get(0));
+        OrgSubscriptionDTO dto = results.get(0);
+        if (storageQuotaService != null) {
+            try {
+                long usedBytes = storageQuotaService.getStorageUsedBytes(orgId);
+                dto.setAlmacenamientoUsadoBytes(usedBytes);
+                double usedGb = Math.round((double) usedBytes / StorageQuotaService.BYTES_PER_GB * 10000.0) / 10000.0;
+                dto.setAlmacenamientoUsadoGb(usedGb);
+                long limitBytes = dto.getLimiteAlmacenamientoGb() * StorageQuotaService.BYTES_PER_GB;
+                dto.setPorcentajeAlmacenamiento(limitBytes > 0 ? Math.min(100.0, Math.round((double) usedBytes / limitBytes * 10000.0) / 100.0) : 0.0);
+            } catch (Exception ignored) {
+            }
+        }
+
+        return ApiResponse.success(dto);
     }
 
     private OrgSubscriptionDTO mapRow(ResultSet rs, int rowNum) throws SQLException {
