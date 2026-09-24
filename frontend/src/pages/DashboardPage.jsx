@@ -23,6 +23,7 @@ import { ErrorState } from '../components/ui/ErrorState.jsx';
 import { Badge } from '../components/ui/badge.tsx';
 import { Button } from '../components/ui/Button.jsx';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card.tsx';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs.tsx';
 import { PageContainer } from '../components/layout/PageContainer.jsx';
 import { PropertyAnaliticaSection } from '../components/PropertyAnaliticaSection.jsx';
 
@@ -41,8 +42,6 @@ export default function DashboardPage() {
   // 0. KPIs consolidados de la propiedad (Endpoint Atómico F11)
   const {
     data: kpisRaw,
-    loading: loadingKpis,
-    error: errorKpis,
     refetch: refetchKpis,
   } = useFetch(() => tenantApi.get('/dashboard/propiedad'), [tenant.activeAssignmentId]);
 
@@ -262,7 +261,7 @@ export default function DashboardPage() {
             variant="outline"
             size="sm"
             onClick={refetchAll}
-            className="text-xs min-h-[44px] sm:min-h-9"
+            className="text-xs min-h-[40px] sm:min-h-9"
           >
             <RefreshCw
               className={`h-3.5 w-3.5 mr-1.5 ${
@@ -276,7 +275,7 @@ export default function DashboardPage() {
             variant="primary"
             size="sm"
             onClick={() => navigate('/cartera')}
-            className="text-xs min-h-[44px] sm:min-h-9"
+            className="text-xs min-h-[40px] sm:min-h-9"
           >
             <Wallet className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
             Gestionar Cartera
@@ -292,7 +291,7 @@ export default function DashboardPage() {
         />
       ) : (
         <>
-          {/* 3. Grid de KPIs con MetricCard */}
+          {/* 3. Grid de KPIs Ejecutivos (MetricCards) */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <MetricCard
               label="Cartera Pendiente"
@@ -333,7 +332,10 @@ export default function DashboardPage() {
             />
           </div>
 
-          {/* 4. Sección Principal: Cartera y Operación en Tiempo Real */}
+          {/* 4. Tendencias y Analítica con shadcn UI Charts (Evolución Financiera & Operativa) */}
+          <PropertyAnaliticaSection />
+
+          {/* 5. Centro Operativo de Gestión: Cobros Pendientes y Atención en Portería */}
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
             {/* Columna Izquierda: Cobros y Cartera Pendiente (7 cols) */}
             <Card className="lg:col-span-7 border-border/80 shadow-xs flex flex-col">
@@ -371,14 +373,14 @@ export default function DashboardPage() {
                   </div>
                 ) : (
                   <div className="divide-y divide-border/60">
-                    {cuotasPendientes.slice(0, 6).map((c) => {
+                    {cuotasPendientes.slice(0, 5).map((c) => {
                       const id = c.id || c.idCuota;
                       const monto = Number(c.saldoPendiente != null ? c.saldoPendiente : c.valorTotal || c.valorBase || 0);
 
                       return (
                         <div
                           key={id}
-                          className="flex items-center justify-between py-3 hover:bg-muted/40 px-2 rounded-lg transition-colors"
+                          className="flex items-center justify-between py-2.5 hover:bg-muted/40 px-2 rounded-lg transition-colors"
                         >
                           <div className="space-y-0.5 min-w-0 pr-3">
                             <p className="text-xs font-semibold text-foreground truncate">
@@ -393,7 +395,7 @@ export default function DashboardPage() {
                             </p>
                           </div>
                           <div className="text-right flex-shrink-0">
-                            <p className="text-xs font-bold text-foreground">
+                            <p className="text-xs font-bold font-mono text-foreground">
                               {formatCurrency(monto)}
                             </p>
                             <span className="inline-block px-1.5 py-0.2 text-[10px] font-semibold rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
@@ -408,122 +410,131 @@ export default function DashboardPage() {
               </CardContent>
             </Card>
 
-            {/* Columna Derecha: Operación en Portería y Multas (5 cols) */}
-            <div className="lg:col-span-5 space-y-6">
-              {/* Card Operación: Paquetería */}
-              <Card className="border-border/80 shadow-xs">
-                <CardHeader className="flex flex-row items-center justify-between pb-3 border-b border-border/50">
-                  <div className="space-y-0.5">
-                    <CardTitle className="text-base font-semibold flex items-center gap-2">
-                      <Package className="h-4 w-4 text-amber-500" aria-hidden="true" />
-                      Paquetería en Portería
-                    </CardTitle>
-                    <p className="text-xs text-muted-foreground">
-                      Entregas en custodia de portería
-                    </p>
+            {/* Columna Derecha: Portería y Control de Convivencia con Tabs (5 cols) */}
+            <Card className="lg:col-span-5 border-border/80 shadow-xs flex flex-col">
+              <CardHeader className="flex flex-row items-center justify-between pb-3 border-b border-border/50">
+                <div className="space-y-0.5">
+                  <CardTitle className="text-base font-semibold flex items-center gap-2">
+                    <Package className="h-4 w-4 text-amber-500" aria-hidden="true" />
+                    Portería y Control
+                  </CardTitle>
+                  <p className="text-xs text-muted-foreground">
+                    Atención inmediata y registros pendientes
+                  </p>
+                </div>
+                <Badge variant="outline" className="text-[10px] font-semibold">
+                  {paquetesPendientesList.length + multasPendientesList.length} en espera
+                </Badge>
+              </CardHeader>
+
+              <CardContent className="pt-3 flex-1 flex flex-col">
+                <Tabs defaultValue="paquetes" className="w-full flex-1 flex flex-col">
+                  <div className="flex items-center justify-between border-b border-border/40 pb-2">
+                    <TabsList className="h-8 bg-muted/60 p-0.5">
+                      <TabsTrigger value="paquetes" className="text-xs gap-1.5 px-3">
+                        <Package className="h-3 w-3 text-amber-500" />
+                        Paquetes ({paquetesPendientesList.length})
+                      </TabsTrigger>
+                      <TabsTrigger value="sanciones" className="text-xs gap-1.5 px-3">
+                        <Gavel className="h-3 w-3 text-rose-500" />
+                        Sanciones ({multasPendientesList.length})
+                      </TabsTrigger>
+                    </TabsList>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => navigate('/paquetes-admin')}
-                    className="text-xs text-primary hover:text-primary font-medium"
-                  >
-                    Ver
-                    <ArrowUpRight className="h-3.5 w-3.5 ml-1" aria-hidden="true" />
-                  </Button>
-                </CardHeader>
 
-                <CardContent className="pt-3">
-                  {loadingPaquetes ? (
-                    <LoadingState message="Cargando paquetes..." size="sm" />
-                  ) : paquetesPendientesList.length === 0 ? (
-                    <p className="py-5 text-center text-xs text-muted-foreground">
-                      No hay paquetes pendientes por entregar en portería.
-                    </p>
-                  ) : (
-                    <div className="divide-y divide-border/60">
-                      {paquetesPendientesList.slice(0, 3).map((p) => (
-                        <div key={p.idPaquete || p.id} className="py-2.5 flex items-center justify-between">
-                          <div className="min-w-0 pr-2">
-                            <p className="text-xs font-semibold text-foreground truncate">
-                              {p.empresaTransporte || 'Encomienda'}
-                              {p.codigoPin ? ` · PIN ${p.codigoPin}` : ''}
-                            </p>
-                            <p className="text-[11px] text-muted-foreground">
-                              Destino: {p.numeroUnidad ? `Unidad ${p.numeroUnidad}` : p.destinatario || 'Residente'}
-                            </p>
-                          </div>
-                          <Badge variant="warning" className="text-[10px] uppercase font-bold flex-shrink-0">
-                            En espera
-                          </Badge>
+                  {/* TAB PAQUETES */}
+                  <TabsContent value="paquetes" className="pt-2 flex-1 flex flex-col justify-between">
+                    <div>
+                      {loadingPaquetes ? (
+                        <LoadingState message="Cargando paquetes..." size="sm" />
+                      ) : paquetesPendientesList.length === 0 ? (
+                        <p className="py-8 text-center text-xs text-muted-foreground">
+                          No hay paquetes pendientes en portería.
+                        </p>
+                      ) : (
+                        <div className="divide-y divide-border/60">
+                          {paquetesPendientesList.slice(0, 4).map((p) => (
+                            <div key={p.idPaquete || p.id} className="py-2.5 flex items-center justify-between">
+                              <div className="min-w-0 pr-2">
+                                <p className="text-xs font-semibold text-foreground truncate">
+                                  {p.empresaTransporte || 'Encomienda'}
+                                  {p.codigoPin ? ` · PIN ${p.codigoPin}` : ''}
+                                </p>
+                                <p className="text-[11px] text-muted-foreground truncate">
+                                  Destino: {p.numeroUnidad ? `Unidad ${p.numeroUnidad}` : p.destinatario || 'Residente'}
+                                </p>
+                              </div>
+                              <Badge variant="warning" className="text-[10px] uppercase font-bold shrink-0">
+                                En espera
+                              </Badge>
+                            </div>
+                          ))}
                         </div>
-                      ))}
+                      )}
                     </div>
-                  )}
-                </CardContent>
-              </Card>
+                    <div className="pt-3 border-t border-border/40 mt-auto">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => navigate('/paquetes-admin')}
+                        className="w-full text-xs text-muted-foreground hover:text-foreground justify-center h-8"
+                      >
+                        Gestionar toda la paquetería
+                        <ArrowUpRight className="h-3.5 w-3.5 ml-1" />
+                      </Button>
+                    </div>
+                  </TabsContent>
 
-              {/* Card Control: Multas y Sanciones */}
-              <Card className="border-border/80 shadow-xs">
-                <CardHeader className="flex flex-row items-center justify-between pb-3 border-b border-border/50">
-                  <div className="space-y-0.5">
-                    <CardTitle className="text-base font-semibold flex items-center gap-2">
-                      <Gavel className="h-4 w-4 text-rose-500" aria-hidden="true" />
-                      Sanciones y Multas
-                    </CardTitle>
-                    <p className="text-xs text-muted-foreground">
-                      Infracciones pendientes de recaudo
-                    </p>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => navigate('/sanciones-admin')}
-                    className="text-xs text-primary hover:text-primary font-medium"
-                  >
-                    Ver
-                    <ArrowUpRight className="h-3.5 w-3.5 ml-1" aria-hidden="true" />
-                  </Button>
-                </CardHeader>
-
-                <CardContent className="pt-3">
-                  {loadingMultas ? (
-                    <LoadingState message="Cargando multas..." size="sm" />
-                  ) : multasPendientesList.length === 0 ? (
-                    <p className="py-5 text-center text-xs text-muted-foreground">
-                      No hay multas ni sanciones pendientes de pago.
-                    </p>
-                  ) : (
-                    <div className="divide-y divide-border/60">
-                      {multasPendientesList.slice(0, 3).map((m) => (
-                        <div key={m.idMulta || m.id} className="py-2.5 flex items-center justify-between">
-                          <div className="min-w-0 pr-2">
-                            <p className="text-xs font-semibold text-foreground truncate">
-                              {m.tipo || m.motivo || 'Infracción Convivencia'}
-                            </p>
-                            <p className="text-[11px] text-muted-foreground">
-                              {m.numeroApartamento ? `Apto ${m.numeroApartamento}` : 'Unidad'}
-                              {m.nombreResidente ? ` · ${m.nombreResidente}` : ''}
-                            </p>
-                          </div>
-                          <p className="text-xs font-bold text-rose-600 dark:text-rose-400 flex-shrink-0">
-                            {formatCurrency(m.monto)}
-                          </p>
+                  {/* TAB SANCIONES */}
+                  <TabsContent value="sanciones" className="pt-2 flex-1 flex flex-col justify-between">
+                    <div>
+                      {loadingMultas ? (
+                        <LoadingState message="Cargando multas..." size="sm" />
+                      ) : multasPendientesList.length === 0 ? (
+                        <p className="py-8 text-center text-xs text-muted-foreground">
+                          No hay multas pendientes de recaudo.
+                        </p>
+                      ) : (
+                        <div className="divide-y divide-border/60">
+                          {multasPendientesList.slice(0, 4).map((m) => (
+                            <div key={m.idMulta || m.id} className="py-2.5 flex items-center justify-between">
+                              <div className="min-w-0 pr-2">
+                                <p className="text-xs font-semibold text-foreground truncate">
+                                  {m.tipo || m.motivo || 'Infracción Convivencia'}
+                                </p>
+                                <p className="text-[11px] text-muted-foreground truncate">
+                                  {m.numeroApartamento ? `Apto ${m.numeroApartamento}` : 'Unidad'}
+                                  {m.nombreResidente ? ` · ${m.nombreResidente}` : ''}
+                                </p>
+                              </div>
+                              <p className="text-xs font-bold font-mono text-rose-600 dark:text-rose-400 shrink-0">
+                                {formatCurrency(m.monto)}
+                              </p>
+                            </div>
+                          ))}
                         </div>
-                      ))}
+                      )}
                     </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
+                    <div className="pt-3 border-t border-border/40 mt-auto">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => navigate('/sanciones-admin')}
+                        className="w-full text-xs text-muted-foreground hover:text-foreground justify-center h-8"
+                      >
+                        Ver registro completo de sanciones
+                        <ArrowUpRight className="h-3.5 w-3.5 ml-1" />
+                      </Button>
+                    </div>
+                  </TabsContent>
+                </Tabs>
+              </CardContent>
+            </Card>
           </div>
 
-          {/* 4.5 Analítica y Tendencias Operativas/Financieras (F11-05) */}
-          <PropertyAnaliticaSection />
-
-          {/* 5. Accesos Rápidos Operativos */}
+          {/* 6. Accesos Rápidos Operativos */}
           <div className="space-y-3 pt-2">
-            <h2 className="text-sm font-semibold tracking-wider text-muted-foreground uppercase">
+            <h2 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
               Módulos de Gestión Rápida
             </h2>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
