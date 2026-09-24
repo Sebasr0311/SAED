@@ -11,9 +11,12 @@ import api from '../lib/api.js';
 import { formatCurrency, formatDate, todayStr, formatMiles, parseMiles, periodoLabel } from '../lib/utils.js';
 
 function agruparPorApartamento(cuotas, multas) {
+  const safeCuotas = Array.isArray(cuotas) ? cuotas : (Array.isArray(cuotas?.items) ? cuotas.items : []);
+  const safeMultas = Array.isArray(multas) ? multas : (Array.isArray(multas?.items) ? multas.items : []);
   const mapa = new Map();
-  (cuotas || []).forEach((c) => {
-    const key = c.numeroApartamento || `Apto #${c.idContrato}`;
+  safeCuotas.forEach((c) => {
+    if (!c) return;
+    const key = c.numeroApartamento || `Apto #${c.idContrato || 'S/N'}`;
     if (!mapa.has(key)) {
       mapa.set(key, {
         numeroApartamento: key,
@@ -24,8 +27,9 @@ function agruparPorApartamento(cuotas, multas) {
     }
     mapa.get(key).cuotas.push(c);
   });
-  (multas || []).forEach((m) => {
-    const key = m.numeroApartamento || `Apto #${m.idApartamento}`;
+  safeMultas.forEach((m) => {
+    if (!m) return;
+    const key = m.numeroApartamento || `Apto #${m.idApartamento || 'S/N'}`;
     if (!mapa.has(key)) {
       mapa.set(key, {
         numeroApartamento: key,
@@ -137,9 +141,11 @@ export default function PagosPage() {
   }
 
   const residentes = useMemo(() => {
+    const cuotasList = Array.isArray(cuotas) ? cuotas : (Array.isArray(cuotas?.items) ? cuotas.items : []);
+    const multasList = Array.isArray(multas) ? multas : (Array.isArray(multas?.items) ? multas.items : []);
     const agrupado = agruparPorApartamento(
-      cuotas?.items || cuotas || [],
-      (multas?.items || multas || []).filter((m) => m.estado === 'PENDIENTE')
+      cuotasList,
+      multasList.filter((m) => m && m.estado === 'PENDIENTE')
     );
     if (!search) return agrupado;
     const term = search.toLowerCase();
@@ -151,10 +157,12 @@ export default function PagosPage() {
   }, [cuotas, multas, search]);
 
   const kpis = useMemo(() => {
-    const cuotasPendientes = (cuotas?.items || cuotas || []).reduce((s, c) => s + Number(c.saldoPendiente ?? c.valorTotal ?? 0), 0);
-    const multasPendientes = (multas?.items || multas || [])
-      .filter((m) => m.estado === 'PENDIENTE')
-      .reduce((s, m) => s + Number(m.monto || 0), 0);
+    const cuotasList = Array.isArray(cuotas) ? cuotas : (Array.isArray(cuotas?.items) ? cuotas.items : []);
+    const multasList = Array.isArray(multas) ? multas : (Array.isArray(multas?.items) ? multas.items : []);
+    const cuotasPendientes = cuotasList.reduce((s, c) => s + Number(c?.saldoPendiente ?? c?.valorTotal ?? 0), 0);
+    const multasPendientes = multasList
+      .filter((m) => m && m.estado === 'PENDIENTE')
+      .reduce((s, m) => s + Number(m?.monto || 0), 0);
     return { cuotasPendientes, multasPendientes, aptosConSaldo: residentes.length };
   }, [cuotas, multas, residentes]);
 

@@ -29,7 +29,10 @@ export default function PersonasPage() {
   const [page, setPage] = useState(0);
   
   const { data, loading, error, refetch } = useFetch(() => api.get(`/personas?page=${page}&size=${PAGE_SIZE}`), [page]);
-  const { items, totalItems, totalPages } = data || { items: [], totalItems: 0, totalPages: 1 };
+  const rawItems = Array.isArray(data) ? data : (Array.isArray(data?.items) ? data.items : []);
+  const items = Array.isArray(rawItems) ? rawItems : [];
+  const totalItems = Array.isArray(data) ? data.length : (data?.totalItems ?? items.length);
+  const totalPages = Array.isArray(data) ? Math.max(1, Math.ceil(data.length / PAGE_SIZE)) : (data?.totalPages ?? 1);
   
   // Catálogo completo de documentos colombianos (con fallback garantizado)
   const { tiposDoc } = useTiposDocumento();
