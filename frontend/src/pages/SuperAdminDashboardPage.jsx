@@ -65,6 +65,21 @@ export default function SuperAdminDashboardPage() {
     load();
   }, []);
 
+  const orgs = data?.organizaciones || { total: 0, activas: 0, inactivas: 0 };
+  const props = data?.propiedades || { total: 0, activas: 0 };
+  const users = data?.usuarios || { total: 0, activos: 0, desgloseRoles: [] };
+  const plans = data?.planesMembresias || { planesDisponibles: 3, membresiasActivas: 0, ingresosMensualesEstimados: 0 };
+  const plat = data?.plataforma || { estado: 'OPTIMO', version: 'SAED 2.0.0-PROD', motorBD: 'Oracle Cloud ATP 23ai' };
+
+  const rolesChartData = useMemo(() => {
+    if (!users.desgloseRoles || !Array.isArray(users.desgloseRoles)) return [];
+    return users.desgloseRoles.map((r) => ({
+      rol: formatRoleLabel(r.ROL),
+      rolRaw: r.ROL,
+      cantidad: Number(r.CANTIDAD) || 0,
+    })).sort((a, b) => b.cantidad - a.cantidad);
+  }, [users.desgloseRoles]);
+
   if (loading) {
     return (
       <div className="p-6 space-y-6">
@@ -83,21 +98,6 @@ export default function SuperAdminDashboardPage() {
       </div>
     );
   }
-
-  const orgs = data?.organizaciones || { total: 0, activas: 0, inactivas: 0 };
-  const props = data?.propiedades || { total: 0, activas: 0 };
-  const users = data?.usuarios || { total: 0, activos: 0, desgloseRoles: [] };
-  const plans = data?.planesMembresias || { planesDisponibles: 3, membresiasActivas: 0, ingresosMensualesEstimados: 0 };
-  const plat = data?.plataforma || { estado: 'OPTIMO', version: 'SAED 2.0.0-PROD', motorBD: 'Oracle Cloud ATP 23ai' };
-
-  const rolesChartData = useMemo(() => {
-    if (!users.desgloseRoles || !Array.isArray(users.desgloseRoles)) return [];
-    return users.desgloseRoles.map((r) => ({
-      rol: formatRoleLabel(r.ROL),
-      rolRaw: r.ROL,
-      cantidad: Number(r.CANTIDAD) || 0,
-    })).sort((a, b) => b.cantidad - a.cantidad);
-  }, [users.desgloseRoles]);
 
   return (
     <div className="p-6 space-y-8 animate-fadeIn">
