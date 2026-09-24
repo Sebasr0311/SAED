@@ -37,13 +37,13 @@ public class WompiController {
     public List<Map<String, Object>> getHistorialWompi() {
         return jdbcTemplate.queryForList(
             "SELECT ID_TRANSACCION, REFERENCIA_INTERNA, MONTO_CENTAVOS, ESTADO_PASARELA, METODO_ORIGEN, FECHA_REGISTRO " +
-            "FROM TRANSACCIONES_PAGO WHERE PASARELA = 'WOMPI' ORDER BY FECHA_REGISTRO DESC",
+            "FROM TRANSACCIONES_PAGO WHERE PASARELA = 'WOMPI' AND ID_UNIDAD IS NOT NULL ORDER BY FECHA_REGISTRO DESC",
             new MapSqlParameterSource()
         );
     }
 
     @GetMapping("/wompi/estado")
-    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_RESIDENTE')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_SUPERADMIN', 'SCOPE_RESIDENTE')")
     public Map<String, Object> getEstadoWompi(@RequestParam String referencia) {
         return wompiServiceImpl.estadoIntencion(referencia);
     }

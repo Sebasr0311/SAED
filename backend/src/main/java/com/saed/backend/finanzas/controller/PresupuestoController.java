@@ -110,6 +110,7 @@ public class PresupuestoController {
 
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(Map.of(
                 "id", id,
+                "ID_PRESUPUESTO", id,
                 "rubro", rubro,
                 "tipo", tipo,
                 "montoPresupuestado", montoPresupuestado,

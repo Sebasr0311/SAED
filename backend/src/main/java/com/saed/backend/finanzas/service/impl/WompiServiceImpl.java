@@ -192,7 +192,11 @@ public class WompiServiceImpl implements WompiService {
 
         String firma = firmaIntegridad(referencia, montoCentavos);
 
-        // Esquema 2.0 real de TRANSACCIONES_PAGO
+        if (idUnidad == null) {
+            throw new IllegalStateException("Pago residencial requiere una unidad válida asociada");
+        }
+
+        // Esquema 2.0 real de TRANSACCIONES_PAGO para pagos residenciales
         String sql = "INSERT INTO TRANSACCIONES_PAGO " +
                      "(ID_UNIDAD, ID_PAGO, PASARELA, ID_TRANSACCION_PASARELA, REFERENCIA_INTERNA, MONTO_CENTAVOS, MONEDA, ESTADO_PASARELA, METODO_ORIGEN, FIRMA_CHECKSUM) " +
                      "VALUES (:u, NULL, 'WOMPI', :ref, :ref, :mc, 'COP', 'PENDIENTE', :concepto, :firma)";
@@ -348,39 +352,19 @@ public class WompiServiceImpl implements WompiService {
 
         String firma = firmaIntegridad(referencia, montoCentavos);
 
-        // Resolver unidad asociada para cumplir con NOT NULL FK en TRANSACCIONES_PAGO
-        Long idUnidad = null;
-        try {
-            List<Long> uOrg = jdbcTemplate.queryForList(
-                "SELECT u.ID_UNIDAD FROM UNIDADES u JOIN PROPIEDADES p ON u.ID_PROPIEDAD = p.ID_PROPIEDAD WHERE p.ID_ORGANIZACION = :org AND ROWNUM = 1",
-                new MapSqlParameterSource("org", orgId), Long.class
-            );
-            if (!uOrg.isEmpty() && uOrg.get(0) != null) {
-                idUnidad = uOrg.get(0);
-            }
-        } catch (Exception ignored) {}
-        if (idUnidad == null) {
-            try {
-                List<Long> uIds = jdbcTemplate.queryForList("SELECT MIN(ID_UNIDAD) FROM UNIDADES", new MapSqlParameterSource(), Long.class);
-                if (!uIds.isEmpty() && uIds.get(0) != null) {
-                    idUnidad = uIds.get(0);
-                }
-            } catch (Exception ignored) {}
-        }
-        if (idUnidad == null) {
-            idUnidad = 1L;
-        }
-
+        // GAP-F6-03: Segregación Financiera Plataforma SaaS vs Propiedad Horizontal
+        // Transacciones de suscripción SaaS (MEMBRESIA, RENOVACION, UPGRADE) NO pertenecen a unidades residenciales.
+        // ID_UNIDAD es NULL e ID_ORGANIZACION registra la entidad corporativa pagadora.
         String sqlTx = """
             INSERT INTO TRANSACCIONES_PAGO (
-                ID_UNIDAD, ID_PAGO, PASARELA, ID_TRANSACCION_PASARELA, REFERENCIA_INTERNA,
+                ID_UNIDAD, ID_ORGANIZACION, ID_PAGO, PASARELA, ID_TRANSACCION_PASARELA, REFERENCIA_INTERNA,
                 MONTO_CENTAVOS, MONEDA, ESTADO_PASARELA, METODO_ORIGEN, FIRMA_CHECKSUM
             ) VALUES (
-                :u, NULL, 'WOMPI', :ref, :ref, :mc, 'COP', 'PENDIENTE', :concepto, :firma
+                NULL, :org, NULL, 'WOMPI', :ref, :ref, :mc, 'COP', 'PENDIENTE', :concepto, :firma
             )
             """;
         jdbcTemplate.update(sqlTx, new MapSqlParameterSource()
-            .addValue("u", idUnidad)
+            .addValue("org", orgId)
             .addValue("ref", referencia)
             .addValue("mc", montoCentavos)
             .addValue("concepto", op)

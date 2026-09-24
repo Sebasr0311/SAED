@@ -85,8 +85,8 @@ public class ConciliacionController {
             first = false;
         }
         if (estado != null) {
-            if (!List.of("EN_PROCESO", "CONCILIADA", "DISCREPANCIA").contains(estado)) {
-                return ApiResponse.error("estado debe ser EN_PROCESO, CONCILIADA o DISCREPANCIA");
+            if (!List.of("EN_PROCESO", "CONCILIADO", "CON_DIFERENCIAS").contains(estado)) {
+                return ApiResponse.error("estado debe ser EN_PROCESO, CONCILIADO o CON_DIFERENCIAS");
             }
             sb.append(first ? "" : ", ").append("ESTADO = :estado");
             params.addValue("estado", estado);
@@ -146,15 +146,15 @@ public class ConciliacionController {
     @PatchMapping("/{id}/estado")
     public ResponseEntity<ApiResponse<String>> cambiarEstado(@PathVariable Long id, @RequestBody Map<String, String> body) {
         String estado = body.getOrDefault("estado", "").toUpperCase();
-        if (!List.of("EN_PROCESO", "CONCILIADA", "DISCREPANCIA").contains(estado)) {
-            return ResponseEntity.badRequest().body(ApiResponse.error("estado debe ser EN_PROCESO, CONCILIADA o DISCREPANCIA"));
+        if (!List.of("EN_PROCESO", "CONCILIADO", "CON_DIFERENCIAS").contains(estado)) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("estado debe ser EN_PROCESO, CONCILIADO o CON_DIFERENCIAS"));
         }
 
         MapSqlParameterSource params = new MapSqlParameterSource("id", id)
                 .addValue("estado", estado);
 
         int rows;
-        if ("CONCILIADA".equals(estado)) {
+        if ("CONCILIADO".equals(estado)) {
             rows = jdbcTemplate.update(
                     "UPDATE CONCILIACIONES SET ESTADO = :estado, " +
                     "FECHA_CONCILIACION = FROM_TZ(CAST(SYSTIMESTAMP AS TIMESTAMP), 'America/Bogota') " +
@@ -176,11 +176,11 @@ public class ConciliacionController {
     public ApiResponse<Map<String, Object>> resumen() {
         String sql = "SELECT " +
                 "COUNT(*) AS TOTAL_REGISTROS, " +
-                "SUM(CASE WHEN ESTADO = 'CONCILIADA' THEN 1 ELSE 0 END) AS CONCILIADAS, " +
+                "SUM(CASE WHEN ESTADO = 'CONCILIADO' THEN 1 ELSE 0 END) AS CONCILIADOS, " +
                 "SUM(CASE WHEN ESTADO = 'EN_PROCESO' THEN 1 ELSE 0 END) AS EN_PROCESO, " +
-                "SUM(CASE WHEN ESTADO = 'DISCREPANCIA' THEN 1 ELSE 0 END) AS CON_DISCREPANCIAS, " +
-                "NVL(SUM(CASE WHEN ESTADO = 'DISCREPANCIA' THEN ABS(DIFERENCIA) ELSE 0 END), 0) " +
-                "AS TOTAL_DISCREPANCIAS " +
+                "SUM(CASE WHEN ESTADO = 'CON_DIFERENCIAS' THEN 1 ELSE 0 END) AS CON_DIFERENCIAS, " +
+                "NVL(SUM(CASE WHEN ESTADO = 'CON_DIFERENCIAS' THEN ABS(DIFERENCIA) ELSE 0 END), 0) " +
+                "AS TOTAL_DIFERENCIAS " +
                 "FROM CONCILIACIONES";
         Map<String, Object> result = jdbcTemplate.queryForMap(sql, new MapSqlParameterSource());
         return ApiResponse.success(result);

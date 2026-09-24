@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useFetch } from '../lib/hooks.js';
-import { api } from '../lib/api.js';
+import { api, BASE_URL } from '../lib/api.js';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { Button } from '../components/ui/Button.jsx';
 import { Badge } from '../components/ui/badge.tsx';
@@ -24,6 +24,9 @@ export default function PazYSalvoPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [generando, setGenerando] = useState(false);
   const [form, setForm] = useState({ unidadId: '', motivo: '' });
+  const [estadoFinanciero, setEstadoFinanciero] = useState(null);
+  const [consultandoFinanzas, setConsultandoFinanzas] = useState(false);
+  const [descargandoId, setDescargandoId] = useState(null);
 
   const [codigoVerificacion, setCodigoVerificacion] = useState('');
   const [verificando, setVerificando] = useState(false);
@@ -32,10 +35,31 @@ export default function PazYSalvoPage() {
   const pazYSalvos = data?.items || data || [];
   const unidades = unidadesData?.items || unidadesData || [];
 
+  async function consultarEstadoFinanciero(unidadId) {
+    if (!unidadId) {
+      setEstadoFinanciero(null);
+      return;
+    }
+    setConsultandoFinanzas(true);
+    try {
+      const result = await api.get(`/paz-y-salvos/unidad/${unidadId}/estado-financiero`);
+      setEstadoFinanciero(result);
+    } catch (err) {
+      setEstadoFinanciero(null);
+      toast.error(err.message || 'Error al consultar estado financiero');
+    } finally {
+      setConsultandoFinanzas(false);
+    }
+  }
+
   async function generar() {
     const uid = Number(form.unidadId);
     if (!form.unidadId || Number.isNaN(uid) || uid <= 0) {
       toast.error('Seleccione una unidad válida');
+      return;
+    }
+    if (estadoFinanciero && !estadoFinanciero.pazYSalvo) {
+      toast.error('No se puede generar: La unidad registra obligaciones financieras pendientes');
       return;
     }
     setGenerando(true);
@@ -44,6 +68,7 @@ export default function PazYSalvoPage() {
       toast.success('Paz y salvo generado exitosamente');
       setDialogOpen(false);
       setForm({ unidadId: '', motivo: '' });
+      setEstadoFinanciero(null);
       refetch();
     } catch (err) {
       toast.error(err.message || 'Error al generar paz y salvo');
@@ -70,13 +95,70 @@ export default function PazYSalvoPage() {
     }
   }
 
+  async function descargarPdf(pazSalvo) {
+    const id = pazSalvo.ID_PAZ_SALVO || pazSalvo.id;
+    if (!id) return;
+    setDescargandoId(id);
+    try {
+      const token = sessionStorage.getItem('saed_token');
+      const activeAssignment = sessionStorage.getItem('saed_active_assignment_id');
+      const headers = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      if (activeAssignment) headers['X-Assignment-Id'] = activeAssignment;
+
+      const res = await fetch(`${BASE_URL}/paz-y-salvos/${id}/descargar`, {
+        method: 'GET',
+        headers,
+      });
+
+      if (!res.ok) {
+        let msg = `Error al descargar PDF (${res.status})`;
+        try {
+          const errJson = await res.json();
+          msg = errJson.message || errJson.mensaje || msg;
+        } catch (_) {}
+        throw new Error(msg);
+      }
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+
+      let filename = `paz_y_salvo_${pazSalvo.CODIGO_VERIFICACION || id}.pdf`;
+      const disposition = res.headers.get('Content-Disposition');
+      if (disposition && disposition.includes('filename=')) {
+        const match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+        if (match && match[1]) {
+          filename = match[1].replace(/['"]/g, '');
+        }
+      }
+
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 150);
+
+      toast.success('Certificado descargado exitosamente', {
+        description: pazSalvo.DOCUMENTO_HASH ? `SHA-256: ${pazSalvo.DOCUMENTO_HASH.substring(0, 16)}...` : undefined,
+      });
+    } catch (err) {
+      toast.error(err.message || 'Error al descargar documento PDF');
+    } finally {
+      setDescargandoId(null);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
         title="Paz y Salvo"
         subtitle="Generación y verificación de paz y salvos"
         action={
-          <Button onClick={() => { setForm({ unidadId: '', motivo: '' }); setDialogOpen(true); }}>
+          <Button onClick={() => { setForm({ unidadId: '', motivo: '' }); setEstadoFinanciero(null); setDialogOpen(true); }}>
             <span className="material-symbols-outlined text-base mr-1">add</span>
             Generar Paz y Salvo
           </Button>
@@ -156,6 +238,7 @@ export default function PazYSalvoPage() {
                     <TableHead>Vencimiento</TableHead>
                     <TableHead className="text-right">Saldo</TableHead>
                     <TableHead>Estado</TableHead>
+                    <TableHead className="text-center">Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -172,6 +255,20 @@ export default function PazYSalvoPage() {
                           {p.ESTADO || p.estado}
                         </Badge>
                       </TableCell>
+                      <TableCell className="text-center">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => descargarPdf(p)}
+                          disabled={descargandoId === (p.ID_PAZ_SALVO || p.id)}
+                          title={p.DOCUMENTO_HASH ? `SHA-256: ${p.DOCUMENTO_HASH}` : 'Descargar PDF'}
+                        >
+                          <span className="material-symbols-outlined text-sm mr-1">
+                            {descargandoId === (p.ID_PAZ_SALVO || p.id) ? 'hourglass_top' : 'download'}
+                          </span>
+                          PDF
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -187,30 +284,93 @@ export default function PazYSalvoPage() {
           <DialogHeader>
             <DialogTitle>Generar Paz y Salvo</DialogTitle>
             <DialogDescription>
-              Seleccione la unidad y el motivo para generar el paz y salvo.
+              Seleccione la unidad para verificar su balance y generar el certificado oficial.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-2">
             <div className="grid gap-2">
               <label className="text-sm font-medium">Unidad *</label>
-              <select className="border rounded px-3 py-2 text-sm" value={form.unidadId}
-                onChange={(e) => setForm((f) => ({ ...f, unidadId: e.target.value }))}>
+              <select
+                className="border rounded px-3 py-2 text-sm"
+                value={form.unidadId}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setForm((f) => ({ ...f, unidadId: val }));
+                  consultarEstadoFinanciero(val);
+                }}
+              >
                 <option value="">Seleccione una unidad</option>
                 {unidades.map((u) => (
                   <option key={u.ID || u.id} value={u.ID || u.id}>{u.CODIGO || u.codigo || u.NOMBRE || u.nombre}</option>
                 ))}
               </select>
             </div>
+
+            {consultandoFinanzas && (
+              <div className="text-xs text-muted-foreground flex items-center gap-1.5 py-1">
+                <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span>
+                Verificando obligaciones financieras (cartera + multas)...
+              </div>
+            )}
+
+            {estadoFinanciero && !consultandoFinanzas && (
+              <div className={`p-3 rounded-lg border text-sm ${
+                estadoFinanciero.pazYSalvo
+                  ? 'bg-emerald-50/70 border-emerald-200 text-emerald-900'
+                  : 'bg-rose-50/70 border-rose-200 text-rose-900'
+              }`}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-semibold text-xs uppercase tracking-wider">Estado Financiero</span>
+                  <Badge variant={estadoFinanciero.pazYSalvo ? 'default' : 'destructive'} className="text-xs">
+                    {estadoFinanciero.pazYSalvo ? 'AL DÍA' : 'SALDO PENDIENTE'}
+                  </Badge>
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-xs py-1 border-t border-b border-current/10 my-1">
+                  <div>
+                    <span className="text-muted-foreground block text-[11px]">Cartera / Cuotas</span>
+                    <span className="font-semibold">{fmtCOP.format(Number(estadoFinanciero.saldoCartera || 0))}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground block text-[11px]">Multas / Sanciones</span>
+                    <span className="font-semibold">{fmtCOP.format(Number(estadoFinanciero.saldoMultas || 0))}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground block text-[11px]">Total Exigible</span>
+                    <span className="font-bold">{fmtCOP.format(Number(estadoFinanciero.saldoTotalExigible || 0))}</span>
+                  </div>
+                </div>
+                {!estadoFinanciero.pazYSalvo && estadoFinanciero.motivosBloqueo?.length > 0 && (
+                  <div className="mt-2 text-xs space-y-1">
+                    <p className="font-medium text-rose-800">Causales de bloqueo:</p>
+                    <ul className="list-disc pl-4 text-rose-700">
+                      {estadoFinanciero.motivosBloqueo.map((m, idx) => (
+                        <li key={idx}>{m}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="grid gap-2">
               <label className="text-sm font-medium">Motivo</label>
-              <textarea className="border rounded px-3 py-2 text-sm" rows={2} value={form.motivo}
+              <textarea
+                className="border rounded px-3 py-2 text-sm"
+                rows={2}
+                value={form.motivo}
                 onChange={(e) => setForm((f) => ({ ...f, motivo: e.target.value }))}
-                placeholder="Motivo de la solicitud" />
+                placeholder="Motivo de la solicitud (opcional)"
+              />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={generar} disabled={generando}>{generando ? 'Generando…' : 'Generar'}</Button>
+            <Button
+              onClick={generar}
+              disabled={generando || consultandoFinanzas || (estadoFinanciero && !estadoFinanciero.pazYSalvo)}
+            >
+              {generando ? 'Generando…' : 'Generar'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
