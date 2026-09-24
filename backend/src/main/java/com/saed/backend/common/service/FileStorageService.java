@@ -51,6 +51,18 @@ public interface FileStorageService {
     StoredFile storeReplacement(MultipartFile file, String subDirectory, Long organizationId, long oldFileBytes);
 
     /**
+     * Valida la cuota organizacional explícita y almacena un arreglo de bytes generado internamente (ej. PDF).
+     *
+     * @param bytes          Contenido binario del archivo
+     * @param filename       Nombre original o sugerido del archivo (con extensión permitida, ej. .pdf)
+     * @param mimeType       Tipo MIME (ej. "application/pdf")
+     * @param subDirectory   Subdirectorio relativo (ej. "contratos")
+     * @param organizationId Identificador de la organización propietaria para validación de cuota
+     * @return Metadatos del archivo almacenado
+     */
+    StoredFile storeBytes(byte[] bytes, String filename, String mimeType, String subDirectory, Long organizationId);
+
+    /**
      * Carga un archivo previamente almacenado como recurso de Spring.
      *
      * @param relativePath Ruta relativa del archivo devuelta al almacenarlo

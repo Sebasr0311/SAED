@@ -93,6 +93,82 @@ public class FileStorageServiceImpl implements FileStorageService {
         return persistFileToDisk(file, subDirectory);
     }
 
+    @Override
+    public StoredFile storeBytes(byte[] bytes, String filename, String mimeType, String subDirectory, Long organizationId) {
+        if (bytes == null || bytes.length == 0) {
+            throw new IllegalArgumentException("El contenido del archivo no puede estar vacio");
+        }
+        if (bytes.length > MAX_FILE_SIZE_BYTES) {
+            throw new IllegalArgumentException(String.format("El archivo excede el tamano maximo permitido de 10 MB (%d bytes)", MAX_FILE_SIZE_BYTES));
+        }
+
+        String originalFilename = StringUtils.cleanPath(filename != null && !filename.isBlank() ? filename : "documento.pdf");
+        if (originalFilename.contains("..") || originalFilename.contains("/") || originalFilename.contains("\\")) {
+            throw new IllegalArgumentException("El nombre del archivo contiene caracteres invalidos de ruta");
+        }
+
+        String extension = "";
+        int dotIdx = originalFilename.lastIndexOf('.');
+        if (dotIdx >= 0) {
+            extension = originalFilename.substring(dotIdx).toLowerCase();
+        }
+
+        if (!ALLOWED_EXTENSIONS.contains(extension)) {
+            throw new IllegalArgumentException("Formato no permitido (" + extension + "). Solo se aceptan archivos PDF, JPG y PNG");
+        }
+
+        String contentType = (mimeType != null && !mimeType.isBlank()) ? mimeType.toLowerCase() : "application/pdf";
+        if (!ALLOWED_MIME_TYPES.contains(contentType)) {
+            throw new IllegalArgumentException("Tipo de contenido no valido (" + contentType + "). Solo se admiten PDF e imagenes.");
+        }
+
+        // Validación de cuota acumulativa de la organización
+        Long targetOrgId = organizationId != null ? organizationId : resolveContextOrgId();
+        if (targetOrgId != null && storageQuotaService != null) {
+            storageQuotaService.validateUpload(targetOrgId, bytes.length);
+        }
+
+        try {
+            Path targetDir = rootLocation.resolve(subDirectory != null ? subDirectory : "contratos").normalize();
+            if (!targetDir.startsWith(rootLocation)) {
+                throw new SecurityException("Intento de directory traversal detectado");
+            }
+            Files.createDirectories(targetDir);
+
+            String sanitizedBaseName = originalFilename.replaceAll("[^a-zA-Z0-9._-]", "_");
+            String storedFilename = UUID.randomUUID() + "_" + sanitizedBaseName;
+            Path destinationFile = targetDir.resolve(storedFilename).normalize();
+
+            if (!destinationFile.startsWith(rootLocation)) {
+                throw new SecurityException("Intento de almacenamiento fuera del directorio permitido");
+            }
+
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] shaBytes = digest.digest(bytes);
+            String sha256Hex = HexFormat.of().formatHex(shaBytes);
+
+            Files.write(destinationFile, bytes);
+
+            String relativeStoredPath = rootLocation.relativize(destinationFile).toString().replace('\\', '/');
+
+            log.info("Archivo (bytes) almacenado exitosamente: {} (tamano: {} bytes, hash: {})",
+                    relativeStoredPath, bytes.length, sha256Hex);
+
+            return new StoredFile(
+                    relativeStoredPath,
+                    originalFilename,
+                    contentType,
+                    bytes.length,
+                    sha256Hex
+            );
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("Algoritmo de hash no disponible", e);
+        } catch (IOException e) {
+            log.error("Error al guardar archivo {}", originalFilename, e);
+            throw new RuntimeException("Fallo al almacenar el archivo en disco", e);
+        }
+    }
+
     private void validateFileConstraints(MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("El archivo adjunto no puede estar vacio");
