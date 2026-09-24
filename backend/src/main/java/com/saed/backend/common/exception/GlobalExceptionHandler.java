@@ -133,6 +133,25 @@ public class GlobalExceptionHandler {
                 } catch (Exception exComp) {
                     response.put("recompileRlsError", exComp.getMessage());
                 }
+                try {
+                    jdbcTemplate.getJdbcOperations().execute("""
+                        BEGIN
+                            FOR r IN (SELECT object_name, policy_name, policy_group FROM user_policies WHERE object_name = 'PERSONAS') LOOP
+                                BEGIN
+                                    DBMS_RLS.DROP_GROUPED_POLICY(USER, r.object_name, r.policy_group, r.policy_name);
+                                EXCEPTION WHEN OTHERS THEN
+                                    BEGIN
+                                        DBMS_RLS.DROP_POLICY(USER, r.object_name, r.policy_name);
+                                    EXCEPTION WHEN OTHERS THEN NULL;
+                                    END;
+                                END;
+                            END LOOP;
+                        END;
+                    """);
+                    response.put("dropPersonaPolicy", "SUCCESS");
+                } catch (Exception exDrop) {
+                    response.put("dropPersonaPolicyError", exDrop.getMessage());
+                }
             } catch (Exception exDiag) {
                 response.put("diagError", exDiag.getMessage());
             }
