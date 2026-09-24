@@ -57,9 +57,10 @@ export default function RolesYAsignacionesPage() {
   const esSuperAdmin = user?.rol === 'SUPERADMIN' || user?.rol === 'ROLE_SUPERADMIN';
 
   const { data, loading, refetch } = useFetch(
-    () => tenantApi.get('/auth/assignments'),
+    () => tenantApi.get('/assignments'),
     [tenant.activeAssignmentId]
   );
+  const [filtro, setFiltro] = useState('');
   const { data: rolesData } = useFetch(() => tenantApi.get('/roles'), [tenant.activeAssignmentId]);
   const { data: usuariosData } = useFetch(() => tenantApi.get('/usuarios'), [tenant.activeAssignmentId]);
   const { data: orgsData } = useFetch(
@@ -111,10 +112,11 @@ export default function RolesYAsignacionesPage() {
     }
   }
 
-  async function cambiarEstado(asig, nuevo) {
+  async function cambiarEstado(asigOrId, nuevo) {
+    const id = typeof asigOrId === 'object' ? (asigOrId.idAsignacion || asigOrId.ID_ASIGNACION) : asigOrId;
     try {
-      await tenantApi.patch(`/assignments/${asig.idAsignacion}/status`, { estado: nuevo });
-      toast.success(nuevo === 'ACTIVA' ? 'Asignaci\u00f3n activada' : 'Asignaci\u00f3n desactivada');
+      await tenantApi.patch(`/assignments/${id}/status`, { estado: nuevo });
+      toast.success(nuevo === 'ACTIVA' ? 'Asignación activada' : 'Asignación desactivada');
       refetch();
     } catch (err) {
       toast.error(err.message || 'No se pudo cambiar el estado');
@@ -124,6 +126,16 @@ export default function RolesYAsignacionesPage() {
   const necesitaOrg = ['ORGANIZACION', 'PROPIEDADES_SELECCIONADAS', 'PROPIEDAD', 'UNIDAD'].includes(alcance);
   const necesitaProp = ['PROPIEDAD', 'UNIDAD'].includes(alcance);
   const necesitaUnidad = alcance === 'UNIDAD';
+
+  const asignacionesFiltradas = asignaciones.filter((a) => {
+    if (!filtro) return true;
+    const term = filtro.toLowerCase();
+    const usuario = String(a.nombreUsuario || a.NOMBRE_USUARIO || a.username || '').toLowerCase();
+    const nombre = String(a.nombreCompleto || a.NOMBRE_COMPLETO || '').toLowerCase();
+    const email = String(a.email || a.EMAIL || '').toLowerCase();
+    const rol = String(a.rolCodigo || a.ROL_CODIGO || a.rol?.codigo || a.roleCode || a.rol || '').toLowerCase();
+    return usuario.includes(term) || nombre.includes(term) || email.includes(term) || rol.includes(term);
+  });
 
   return (
     <div className="roles-page space-y-6">
@@ -138,72 +150,106 @@ export default function RolesYAsignacionesPage() {
       </PageHeader>
 
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Mis Asignaciones</CardTitle>
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <CardTitle className="text-base">Asignaciones y Roles de Usuarios</CardTitle>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Gestión de roles y alcances asignados a los usuarios del sistema
+            </p>
+          </div>
+          <div className="w-full sm:w-64">
+            <input
+              type="text"
+              placeholder="Buscar por usuario o rol..."
+              value={filtro}
+              onChange={(e) => setFiltro(e.target.value)}
+              className="w-full px-3 py-1.5 text-xs rounded-md border border-input bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
         </CardHeader>
         <CardContent>
           {loading ? (
             <div className="space-y-2"><Skeleton className="h-8 w-full" /><Skeleton className="h-8 w-full" /></div>
-          ) : asignaciones.length === 0 ? (
-            <p className="py-8 text-center text-muted-foreground">No hay asignaciones.</p>
+          ) : asignacionesFiltradas.length === 0 ? (
+            <p className="py-8 text-center text-muted-foreground">
+              {filtro ? 'No se encontraron asignaciones que coincidan con la búsqueda.' : 'No hay asignaciones registradas.'}
+            </p>
           ) : (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead>Usuario</TableHead>
                     <TableHead>Rol</TableHead>
                     <TableHead>Alcance</TableHead>
-                    <TableHead>Org</TableHead>
-                    <TableHead>Prop</TableHead>
+                    <TableHead>Propiedad</TableHead>
                     <TableHead>Unidad</TableHead>
                     <TableHead>Estado</TableHead>
                     <TableHead className="text-right">Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {asignaciones.map((a) => (
-                    <TableRow key={a.idAsignacion}>
-                      <TableCell className="font-medium">{a.rol?.codigo || a.roleCode || a.rol}</TableCell>
-                      <TableCell>
-                        <Badge variant={SCOPE_BADGE[a.rol?.alcance || a.scope] || 'default'}>
-                          {a.rol?.alcance || a.scope}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{a.organizacion?.nombre || a.idOrganizacion || '—'}</TableCell>
-                      <TableCell>{a.propiedad?.nombre || a.idPropiedad || '—'}</TableCell>
-                      <TableCell>{a.unidad?.identificador || a.idUnidad || '—'}</TableCell>
-                      <TableCell>
-                        <Badge variant={ESTADO_BADGE[a.estado] || 'default'}>{a.estado || 'ACTIVA'}</Badge>
-                      </TableCell>
-                      <td className="py-3.5 px-4 text-right">
-                        {a.estado === 'ACTIVA' ? (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => cambiarEstado(a, 'INACTIVA')}
-                            title="Desactivar asignación"
-                            aria-label="Desactivar asignación"
-                            className="text-xs h-8 gap-1.5 border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10"
-                          >
-                            <span className="material-symbols-outlined text-sm">pause_circle</span>
-                            <span>Desactivar</span>
-                          </Button>
-                        ) : (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => cambiarEstado(a, 'ACTIVA')}
-                            title="Activar asignación"
-                            aria-label="Activar asignación"
-                            className="text-xs h-8 gap-1.5 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10"
-                          >
-                            <span className="material-symbols-outlined text-sm">play_circle</span>
-                            <span>Activar</span>
-                          </Button>
-                        )}
-                      </td>
-                    </TableRow>
-                  ))}
+                  {asignacionesFiltradas.map((a) => {
+                    const idAsig = a.idAsignacion || a.ID_ASIGNACION;
+                    const userName = a.nombreUsuario || a.NOMBRE_USUARIO || a.username || '—';
+                    const fullName = a.nombreCompleto || a.NOMBRE_COMPLETO || '';
+                    const email = a.email || a.EMAIL || '';
+                    const rolCod = a.rolCodigo || a.ROL_CODIGO || a.rol?.codigo || a.roleCode || a.rol;
+                    const rolAlc = a.rolAlcance || a.ROL_ALCANCE || a.rol?.alcance || a.scope;
+                    const propNom = a.propiedadNombre || a.PROPIEDAD_NOMBRE || a.propiedad?.nombre || a.idPropiedad || '—';
+                    const unitNom = a.unidadIdentificador || a.UNIDAD_IDENTIFICADOR || a.unidad?.identificador || a.idUnidad || '—';
+                    const est = a.estado || a.ESTADO || 'ACTIVA';
+
+                    return (
+                      <TableRow key={idAsig || Math.random()}>
+                        <TableCell>
+                          <div className="font-medium text-sm text-foreground">{userName}</div>
+                          {fullName && <div className="text-xs text-muted-foreground">{fullName}</div>}
+                          {email && <div className="text-xs text-muted-foreground/80">{email}</div>}
+                        </TableCell>
+                        <TableCell>
+                          <span className="font-semibold text-primary text-xs">{rolCod}</span>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={SCOPE_BADGE[rolAlc] || 'default'}>
+                            {rolAlc}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-sm">{propNom}</TableCell>
+                        <TableCell className="text-sm">{unitNom}</TableCell>
+                        <TableCell>
+                          <Badge variant={ESTADO_BADGE[est] || 'default'}>{est}</Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {est === 'ACTIVA' ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => cambiarEstado(idAsig, 'INACTIVA')}
+                              title="Desactivar asignación"
+                              aria-label="Desactivar asignación"
+                              className="text-xs h-8 gap-1.5 border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10"
+                            >
+                              <span className="material-symbols-outlined text-sm">pause_circle</span>
+                              <span>Desactivar</span>
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => cambiarEstado(idAsig, 'ACTIVA')}
+                              title="Activar asignación"
+                              aria-label="Activar asignación"
+                              className="text-xs h-8 gap-1.5 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10"
+                            >
+                              <span className="material-symbols-outlined text-sm">play_circle</span>
+                              <span>Activar</span>
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>

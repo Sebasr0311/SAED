@@ -823,6 +823,24 @@ public class UsuarioController {
         Long callerPropId = ctx != null ? ctx.getPropertyId() : null;
         Long callerUserId = ctx != null ? ctx.getUserId() : null;
 
+        if (callerUserId == null) {
+            org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.isAuthenticated() && !(auth instanceof org.springframework.security.authentication.AnonymousAuthenticationToken)) {
+                String authName = auth.getName();
+                try {
+                    callerUserId = Long.parseLong(authName);
+                } catch (Exception ignored) {
+                    try {
+                        callerUserId = jdbcTemplate.queryForObject(
+                            "SELECT ID_USUARIO FROM USUARIOS WHERE LOWER(NOMBRE_USUARIO) = LOWER(:username)",
+                            Map.of("username", authName),
+                            Long.class
+                        );
+                    } catch (Exception ignored2) {}
+                }
+            }
+        }
+
         if (callerUserId != null && callerUserId.equals(id)) {
             return ResponseEntity.badRequest().body(ApiResponse.error("No puede desactivar su propia cuenta de usuario"));
         }
@@ -847,6 +865,15 @@ public class UsuarioController {
             }
 
             if ("ADMIN_PROPIEDAD".equals(callerRole)) {
+                boolean isTargetAdmin = asigs.stream().anyMatch(a -> {
+                    String r = (String) a.get("ROL_CODIGO");
+                    return "ADMIN_PROPIEDAD".equals(r) || "ADMIN_ORGANIZACION".equals(r) || "SUPERADMIN".equals(r) || "ADMINISTRADOR".equals(r);
+                });
+                if (isTargetAdmin) {
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                            .body(ApiResponse.error("Un Administrador de Propiedad no tiene permisos para desactivar cuentas administrativas"));
+                }
+
                 boolean belongsToProp = asigs.stream().anyMatch(a -> {
                     Object p = a.get("ID_PROPIEDAD");
                     return p != null && callerPropId != null && callerPropId.equals(((Number) p).longValue());

@@ -612,7 +612,7 @@ export default function App() {
           <Route
             path="escanner-qr"
             element={
-              <ProtectedRoute roles={['ADMIN_PROPIEDAD', 'PORTERO']}>
+              <ProtectedRoute roles={['PORTERO']}>
                 <EscannerQRPage />
               </ProtectedRoute>
             }

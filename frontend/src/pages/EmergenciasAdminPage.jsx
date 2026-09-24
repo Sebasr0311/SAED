@@ -326,7 +326,7 @@ export default function EmergenciasAdminPage() {
               </button>
               <button
                 onClick={handleOpenCrearPlan}
-                className="flex items-center gap-2 px-3 py-2 bg-primary text-primary-content rounded-lg font-medium shadow-sm hover:bg-primary/90 transition-colors text-xs sm:text-sm"
+                className="flex items-center gap-2 px-3 py-2 bg-primary text-primary-foreground font-medium rounded-lg font-medium shadow-sm hover:bg-primary/90 transition-colors text-xs sm:text-sm"
               >
                 <Plus className="w-4 h-4" />
                 Nuevo Plan
@@ -416,7 +416,7 @@ export default function EmergenciasAdminPage() {
             }}
             className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center gap-2 ${
               tabActiva === 'contactos'
-                ? 'bg-primary text-primary-content shadow-xs'
+                ? 'bg-primary text-primary-foreground font-medium shadow-xs'
                 : 'bg-muted/40 text-muted-foreground hover:bg-muted/70'
             }`}
           >
@@ -430,7 +430,7 @@ export default function EmergenciasAdminPage() {
             }}
             className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center gap-2 ${
               tabActiva === 'planes'
-                ? 'bg-primary text-primary-content shadow-xs'
+                ? 'bg-primary text-primary-foreground font-medium shadow-xs'
                 : 'bg-muted/40 text-muted-foreground hover:bg-muted/70'
             }`}
           >
@@ -472,7 +472,7 @@ export default function EmergenciasAdminPage() {
                 onClick={() => setFiltroServicio(ts.id)}
                 className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors flex items-center gap-1.5 ${
                   filtroServicio === ts.id
-                    ? 'bg-primary text-primary-content font-semibold'
+                    ? 'bg-primary text-primary-foreground font-medium font-semibold'
                     : 'bg-muted/50 text-muted-foreground hover:bg-muted'
                 }`}
               >
@@ -497,7 +497,7 @@ export default function EmergenciasAdminPage() {
               {!isReadOnly && (
                 <button
                   onClick={handleOpenCrearContacto}
-                  className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-content rounded-lg text-sm font-medium shadow-sm hover:bg-primary/90 transition-colors"
+                  className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground font-medium rounded-lg text-sm font-medium shadow-sm hover:bg-primary/90 transition-colors"
                 >
                   <Plus className="w-4 h-4" />
                   Agregar Contacto
@@ -610,7 +610,7 @@ export default function EmergenciasAdminPage() {
               {!isReadOnly && (
                 <button
                   onClick={handleOpenCrearPlan}
-                  className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-content rounded-lg text-sm font-medium shadow-sm hover:bg-primary/90 transition-colors"
+                  className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground font-medium rounded-lg text-sm font-medium shadow-sm hover:bg-primary/90 transition-colors"
                 >
                   <Plus className="w-4 h-4" />
                   Crear Primer Plan
@@ -847,7 +847,7 @@ export default function EmergenciasAdminPage() {
             <button
               type="submit"
               disabled={saving}
-              className="px-4 py-2 text-sm font-medium bg-primary text-primary-content rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+              className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground font-medium rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
             >
               {saving ? 'Guardando...' : contactoEditar ? 'Actualizar Contacto' : 'Guardar Contacto'}
             </button>
@@ -990,7 +990,7 @@ export default function EmergenciasAdminPage() {
             <button
               type="submit"
               disabled={saving}
-              className="px-4 py-2 text-sm font-medium bg-primary text-primary-content rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+              className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground font-medium rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
             >
               {saving ? 'Guardando...' : planEditar ? 'Actualizar Plan' : 'Guardar Plan'}
             </button>
@@ -1033,7 +1033,7 @@ export default function EmergenciasAdminPage() {
               type="button"
               disabled={saving}
               onClick={handleDelete}
-              className="px-4 py-2 text-sm font-medium bg-destructive text-destructive-content rounded-lg hover:bg-destructive/90 transition-colors disabled:opacity-50"
+              className="px-4 py-2 text-sm font-medium bg-destructive text-destructive-foreground font-medium rounded-lg hover:bg-destructive/90 transition-colors disabled:opacity-50"
             >
               {saving ? 'Eliminando...' : 'Sí, Eliminar'}
             </button>

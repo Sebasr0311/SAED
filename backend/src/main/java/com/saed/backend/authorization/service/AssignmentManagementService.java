@@ -162,4 +162,99 @@ public class AssignmentManagementService {
 
         assignmentRepository.updateStatus(id, estado);
     }
+
+    public java.util.List<java.util.Map<String, Object>> listAssignments() {
+        SaedContext ctx = SaedContextHolder.getContext();
+        String roleCode = ctx != null ? ctx.getRoleCode() : "";
+        Long orgId = ctx != null ? ctx.getOrganizationId() : null;
+        Long propId = ctx != null ? ctx.getPropertyId() : null;
+
+        StringBuilder sql = new StringBuilder("""
+            SELECT ua.ID_ASIGNACION,
+                   ua.ID_USUARIO,
+                   u.NOMBRE_USUARIO,
+                   u.EMAIL,
+                   u.ESTADO AS USUARIO_ESTADO,
+                   p.ID_PERSONA,
+                   TRIM(p.PRIMER_NOMBRE || ' ' || COALESCE(p.SEGUNDO_NOMBRE, '') || ' ' ||
+                        p.PRIMER_APELLIDO || ' ' || COALESCE(p.SEGUNDO_APELLIDO, '')) AS NOMBRE_COMPLETO,
+                   p.NUMERO_DOCUMENTO,
+                   r.ID_ROL,
+                   r.CODIGO AS ROL_CODIGO,
+                   r.NOMBRE AS ROL_NOMBRE,
+                   r.ALCANCE AS ROL_ALCANCE,
+                   ua.ID_ORGANIZACION,
+                   o.NOMBRE AS ORGANIZACION_NOMBRE,
+                   ua.ID_PROPIEDAD,
+                   prop.NOMBRE AS PROPIEDAD_NOMBRE,
+                   ua.ID_UNIDAD,
+                   un.IDENTIFICADOR AS UNIDAD_IDENTIFICADOR,
+                   ua.ESTADO,
+                   ua.FECHA_INICIO,
+                   ua.FECHA_FIN
+            FROM USUARIO_ASIGNACIONES ua
+            JOIN USUARIOS u ON u.ID_USUARIO = ua.ID_USUARIO
+            LEFT JOIN PERSONAS p ON p.ID_PERSONA = u.ID_PERSONA
+            JOIN ROLES r ON r.ID_ROL = ua.ID_ROL
+            LEFT JOIN ORGANIZACIONES o ON o.ID_ORGANIZACION = ua.ID_ORGANIZACION
+            LEFT JOIN PROPIEDADES prop ON prop.ID_PROPIEDAD = ua.ID_PROPIEDAD
+            LEFT JOIN UNIDADES un ON un.ID_UNIDAD = ua.ID_UNIDAD
+            WHERE 1=1
+        """);
+
+        org.springframework.jdbc.core.namedparam.MapSqlParameterSource params = new org.springframework.jdbc.core.namedparam.MapSqlParameterSource();
+
+        if ("ADMIN_PROPIEDAD".equals(roleCode)) {
+            if (propId != null) {
+                sql.append(" AND ua.ID_PROPIEDAD = :propId");
+                params.addValue("propId", propId);
+            } else {
+                sql.append(" AND 1=0");
+            }
+        } else if ("ADMIN_ORGANIZACION".equals(roleCode)) {
+            if (orgId != null) {
+                sql.append(" AND ua.ID_ORGANIZACION = :orgId");
+                params.addValue("orgId", orgId);
+            } else {
+                sql.append(" AND 1=0");
+            }
+        } else if (!"SUPERADMIN".equals(roleCode)) {
+            Long userId = ctx != null ? ctx.getUserId() : null;
+            if (userId != null) {
+                sql.append(" AND ua.ID_USUARIO = :userId");
+                params.addValue("userId", userId);
+            } else {
+                sql.append(" AND 1=0");
+            }
+        }
+
+        sql.append(" ORDER BY ua.ID_ASIGNACION DESC");
+
+        java.util.List<java.util.Map<String, Object>> rows = jdbcTemplate.queryForList(sql.toString(), params);
+        java.util.List<java.util.Map<String, Object>> result = new java.util.ArrayList<>();
+        for (java.util.Map<String, Object> r : rows) {
+            java.util.Map<String, Object> item = new java.util.HashMap<>(r);
+            item.put("idAsignacion", r.get("ID_ASIGNACION"));
+            item.put("idUsuario", r.get("ID_USUARIO"));
+            item.put("nombreUsuario", r.get("NOMBRE_USUARIO"));
+            item.put("email", r.get("EMAIL"));
+            item.put("nombreCompleto", r.get("NOMBRE_COMPLETO"));
+            item.put("numeroDocumento", r.get("NUMERO_DOCUMENTO"));
+            item.put("idRol", r.get("ID_ROL"));
+            item.put("rolCodigo", r.get("ROL_CODIGO"));
+            item.put("rolNombre", r.get("ROL_NOMBRE"));
+            item.put("rolAlcance", r.get("ROL_ALCANCE"));
+            item.put("idOrganizacion", r.get("ID_ORGANIZACION"));
+            item.put("organizacionNombre", r.get("ORGANIZACION_NOMBRE"));
+            item.put("idPropiedad", r.get("ID_PROPIEDAD"));
+            item.put("propiedadNombre", r.get("PROPIEDAD_NOMBRE"));
+            item.put("idUnidad", r.get("ID_UNIDAD"));
+            item.put("unidadIdentificador", r.get("UNIDAD_IDENTIFICADOR"));
+            item.put("estado", r.get("ESTADO"));
+            item.put("fechaInicio", r.get("FECHA_INICIO"));
+            item.put("fechaFin", r.get("FECHA_FIN"));
+            result.add(item);
+        }
+        return result;
+    }
 }

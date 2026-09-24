@@ -183,7 +183,6 @@ const NAV_BY_ROLE = {
         { path: '/porterias', label: 'Puntos de Portería', icon: 'door_sliding' },
         { path: '/parqueaderos', label: 'Parqueaderos', icon: 'local_parking' },
         { path: '/paquetes-admin', label: 'Paquetes', icon: 'inventory_2' },
-        { path: '/escanner-qr', label: 'Escáner QR', icon: 'qr_code_scanner' },
       ],
     },
     {
@@ -216,6 +215,7 @@ const NAV_BY_ROLE = {
       icon: 'build',
       items: [
         { path: '/mantenimientos', label: 'Mantenimientos', icon: 'build' },
+        { path: '/activos', label: 'Activos y Equipos', icon: 'inventory' },
         { path: '/obras-admin', label: 'Obras y Remodelaciones', icon: 'construction' },
         { path: '/polizas', label: 'Pólizas y Seguros', icon: 'policy' },
         { path: '/emergencias', label: 'Planes Emergencia', icon: 'emergency' },
@@ -230,9 +230,7 @@ const NAV_BY_ROLE = {
       label: 'Comunicación',
       icon: 'campaign',
       items: [
-        { path: '/comunicaciones', label: 'Centro de Comunicaciones', icon: 'forum' },
-        { path: '/avisos', label: 'Avisos', icon: 'campaign' },
-        { path: '/alertas', label: 'Alertas', icon: 'notifications' },
+        { path: '/comunicaciones', label: 'Centro de Comunicaciones', icon: 'campaign' },
       ],
     },
     {

@@ -10,6 +10,7 @@ import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { ConfirmPasswordDialog } from '../components/ui/ConfirmPasswordDialog.jsx';
 import { ActionButtons } from '../components/ui/ActionButtons.jsx';
 import { useFetch, useLiveValidation } from '../lib/hooks.js';
+import { useAuth } from '../lib/AuthContext.jsx';
 import api from '../lib/api.js';
 
 const ROLES_CREABLES = ['PORTERO', 'RESIDENTE'];
@@ -37,6 +38,7 @@ const ROL_BADGE = {
 };
 
 export default function UsuariosPage() {
+  const { user } = useAuth();
   const [page, setPage] = useState(0);
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
@@ -155,33 +157,46 @@ export default function UsuariosPage() {
       key: 'actions',
       label: 'Acciones',
       width: 100,
-      render: (row) => (
-        <ActionButtons
-          onEdit={(e) => {
-            e.stopPropagation();
-            setEditing(row);
-            setForm({
-              username: row.username,
-              password: '',
-              rol: row.rol,
-              modoPersona: row.idResidente ? 'existente' : 'nueva',
-              idResidente: row.idResidente || '',
-              primerNombre: '',
-              primerApellido: '',
-              numeroDocumento: '',
-              telefono: '',
-              email: row.email || '',
-              activo: row.activo,
-            });
-            setErrors({});
-            setModalOpen(true);
-          }}
-          onDelete={(e) => {
-            e.stopPropagation();
-            setConfirmDel(row);
-          }}
-        />
-      ),
+      render: (row) => {
+        const isSelf =
+          (user?.id != null && (row.idUsuario === user.id || String(row.idUsuario) === String(user.id))) ||
+          (user?.idUsuario != null && (row.idUsuario === user.idUsuario || String(row.idUsuario) === String(user.idUsuario))) ||
+          (user?.username && row.username?.toLowerCase() === user.username.toLowerCase());
+        const isAdministrative = ['ADMIN_PROPIEDAD', 'ADMIN_ORGANIZACION', 'SUPERADMIN', 'ADMINISTRADOR'].includes(row.rol);
+        const canDelete = !isSelf && !(user?.rol === 'ADMIN_PROPIEDAD' && isAdministrative);
+
+        return (
+          <ActionButtons
+            onEdit={(e) => {
+              e.stopPropagation();
+              setEditing(row);
+              setForm({
+                username: row.username,
+                password: '',
+                rol: row.rol,
+                modoPersona: row.idResidente ? 'existente' : 'nueva',
+                idResidente: row.idResidente || '',
+                primerNombre: '',
+                primerApellido: '',
+                numeroDocumento: '',
+                telefono: '',
+                email: row.email || '',
+                activo: row.activo,
+              });
+              setErrors({});
+              setModalOpen(true);
+            }}
+            onDelete={
+              canDelete
+                ? (e) => {
+                    e.stopPropagation();
+                    setConfirmDel(row);
+                  }
+                : undefined
+            }
+          />
+        );
+      },
     },
   ];
 
@@ -287,6 +302,23 @@ export default function UsuariosPage() {
 
   async function handleDelete() {
     if (!confirmDel) return;
+    const isSelf =
+      (user?.id != null && (confirmDel.idUsuario === user.id || String(confirmDel.idUsuario) === String(user.id))) ||
+      (user?.idUsuario != null && (confirmDel.idUsuario === user.idUsuario || String(confirmDel.idUsuario) === String(user.idUsuario))) ||
+      (user?.username && confirmDel.username?.toLowerCase() === user.username.toLowerCase());
+    const isAdministrative = ['ADMIN_PROPIEDAD', 'ADMIN_ORGANIZACION', 'SUPERADMIN', 'ADMINISTRADOR'].includes(confirmDel.rol);
+
+    if (isSelf) {
+      toast.error('No puedes eliminar tu propia cuenta de usuario.');
+      setConfirmDel(null);
+      return;
+    }
+    if (user?.rol === 'ADMIN_PROPIEDAD' && isAdministrative) {
+      toast.error('No tienes permisos para eliminar una cuenta administrativa.');
+      setConfirmDel(null);
+      return;
+    }
+
     try {
       await api.del(`/usuarios/${confirmDel.idUsuario}`);
       toast.success('Usuario eliminado');

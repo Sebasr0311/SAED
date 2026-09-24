@@ -239,7 +239,7 @@ export default function PolizasAdminPage() {
           ) : (
             <button
               onClick={handleOpenCrear}
-              className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-content rounded-lg font-medium shadow-sm hover:bg-primary/90 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg font-medium shadow-sm hover:bg-primary/90 transition-colors"
             >
               <Plus className="w-4 h-4" />
               Nueva Póliza
@@ -322,7 +322,7 @@ export default function PolizasAdminPage() {
                 onClick={() => setFiltroEstado(st)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                   filtroEstado === st
-                    ? 'bg-primary text-primary-content shadow-xs'
+                    ? 'bg-primary text-primary-foreground shadow-xs'
                     : 'bg-muted/40 text-muted-foreground hover:bg-muted/70'
                 }`}
               >
@@ -362,7 +362,7 @@ export default function PolizasAdminPage() {
           {!busqueda && filtroEstado === 'TODOS' && (
             <button
               onClick={handleOpenCrear}
-              className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-content rounded-lg text-sm font-medium shadow-sm hover:bg-primary/90 transition-colors"
+              className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium shadow-sm hover:bg-primary/90 transition-colors"
             >
               <Plus className="w-4 h-4" />
               Registrar Primera Póliza
@@ -742,7 +742,7 @@ export default function PolizasAdminPage() {
               <button
                 type="submit"
                 disabled={saving}
-                className="px-4 py-2 text-sm font-medium bg-primary text-primary-content rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+                className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
               >
                 {saving ? 'Guardando...' : polizaEditar ? 'Actualizar Póliza' : 'Guardar Póliza'}
               </button>
@@ -780,7 +780,7 @@ export default function PolizasAdminPage() {
               type="button"
               disabled={saving}
               onClick={handleDelete}
-              className="px-4 py-2 text-sm font-medium bg-destructive text-destructive-content rounded-lg hover:bg-destructive/90 transition-colors disabled:opacity-50"
+              className="px-4 py-2 text-sm font-medium bg-destructive text-destructive-foreground rounded-lg hover:bg-destructive/90 transition-colors disabled:opacity-50"
             >
               {saving ? 'Eliminando...' : 'Sí, Eliminar Póliza'}
             </button>

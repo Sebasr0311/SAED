@@ -81,6 +81,179 @@ public class PorteriaController {
         return ResponseEntity.ok(ApiResponse.success(null));
     }
 
+    // --- ASIGNACIÓN DE PORTEROS Y TURNOS (LEY 1920 DE 2018) ---
+    private static final Map<String, Map<String, String>> CATALOGO_TURNOS = Map.of(
+        "TURNO_8H_MANANA", Map.of("nombre", "Turno Mañana (06:00 - 14:00)", "inicio", "06:00", "fin", "14:00", "tipo", "ORDINARIO_8H"),
+        "TURNO_8H_TARDE", Map.of("nombre", "Turno Tarde (14:00 - 22:00)", "inicio", "14:00", "fin", "22:00", "tipo", "ORDINARIO_8H"),
+        "TURNO_8H_NOCHE", Map.of("nombre", "Turno Noche (22:00 - 06:00)", "inicio", "22:00", "fin", "06:00", "tipo", "ORDINARIO_8H"),
+        "TURNO_12H_DIURNO", Map.of("nombre", "Turno Especial Diurno 12h (06:00 - 18:00)", "inicio", "06:00", "fin", "18:00", "tipo", "LEY_1920_12H"),
+        "TURNO_12H_NOCTURNO", Map.of("nombre", "Turno Especial Nocturno 12h (18:00 - 06:00)", "inicio", "18:00", "fin", "06:00", "tipo", "LEY_1920_12H")
+    );
+
+    @Operation(summary = "Catálogo de turnos legales de vigilancia (Ley 1920 de 2018)")
+    @GetMapping("/turnos/catalogo")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_PORTERO')")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> catalogoTurnos() {
+        List<Map<String, Object>> result = CATALOGO_TURNOS.entrySet().stream()
+            .map(e -> {
+                Map<String, Object> m = new HashMap<>(e.getValue());
+                m.put("codigo", e.getKey());
+                return m;
+            })
+            .toList();
+        return ResponseEntity.ok(ApiResponse.success(result));
+    }
+
+    @Operation(summary = "Listar porteros disponibles en la propiedad para asignación de turnos")
+    @GetMapping("/porteros-disponibles")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> listarPorterosDisponibles() {
+        Long propId = SaedContextHolder.getContext() != null ? SaedContextHolder.getContext().getPropertyId() : 1L;
+        String sql = """
+            SELECT u.ID_USUARIO, u.NOMBRE_USUARIO, u.EMAIL,
+                   p.PRIMER_NOMBRE, p.SEGUNDO_NOMBRE, p.PRIMER_APELLIDO, p.SEGUNDO_APELLIDO, p.NUMERO_DOCUMENTO
+            FROM USUARIOS u
+            JOIN USUARIO_ASIGNACIONES ua ON ua.ID_USUARIO = u.ID_USUARIO
+            JOIN ROLES r ON r.ID_ROL = ua.ID_ROL
+            LEFT JOIN PERSONAS p ON p.ID_PERSONA = u.ID_PERSONA
+            WHERE ua.ID_PROPIEDAD = :propId
+              AND r.CODIGO = 'PORTERO'
+              AND ua.ESTADO IN ('ACTIVA', 'ACTIVO')
+              AND u.ACTIVO = 1
+            ORDER BY u.NOMBRE_USUARIO
+            """;
+        List<Map<String, Object>> porteros = jdbcTemplate.query(sql, Map.of("propId", propId), (rs, rowNum) -> {
+            String pNom = rs.getString("PRIMER_NOMBRE");
+            String sNom = rs.getString("SEGUNDO_NOMBRE");
+            String pApe = rs.getString("PRIMER_APELLIDO");
+            String sApe = rs.getString("SEGUNDO_APELLIDO");
+            StringBuilder sb = new StringBuilder();
+            if (pNom != null) sb.append(pNom).append(" ");
+            if (sNom != null) sb.append(sNom).append(" ");
+            if (pApe != null) sb.append(pApe).append(" ");
+            if (sApe != null) sb.append(sApe);
+            String nombreCompleto = sb.toString().trim();
+            if (nombreCompleto.isEmpty()) nombreCompleto = rs.getString("NOMBRE_USUARIO");
+
+            Map<String, Object> m = new HashMap<>();
+            m.put("idUsuario", rs.getLong("ID_USUARIO"));
+            m.put("username", rs.getString("NOMBRE_USUARIO"));
+            m.put("email", rs.getString("EMAIL"));
+            m.put("nombreCompleto", nombreCompleto);
+            m.put("numeroDocumento", rs.getString("NUMERO_DOCUMENTO"));
+            return m;
+        });
+        return ResponseEntity.ok(ApiResponse.success(porteros));
+    }
+
+    @Operation(summary = "Listar turnos y porteros asignados a una portería")
+    @GetMapping("/{id}/turnos")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_PORTERO')")
+    public ResponseEntity<ApiResponse<List<PorteroTurnoDTO>>> listarTurnos(@PathVariable Long id) {
+        Long propId = SaedContextHolder.getContext() != null ? SaedContextHolder.getContext().getPropertyId() : 1L;
+        String sql = """
+            SELECT pt.ID_ASIGNACION_TURNO, pt.ID_PORTERIA, pt.ID_USUARIO,
+                   u.NOMBRE_USUARIO,
+                   p.PRIMER_NOMBRE, p.SEGUNDO_NOMBRE, p.PRIMER_APELLIDO, p.SEGUNDO_APELLIDO,
+                   pt.CODIGO_TURNO, pt.NOMBRE_TURNO, pt.HORA_INICIO, pt.HORA_FIN,
+                   pt.DIAS_SEMANA, pt.ESTADO, pt.FECHA_ASIGNACION
+            FROM PORTERIA_TURNOS pt
+            JOIN USUARIOS u ON u.ID_USUARIO = pt.ID_USUARIO
+            LEFT JOIN PERSONAS p ON p.ID_PERSONA = u.ID_PERSONA
+            WHERE pt.ID_PORTERIA = :idPorteria AND pt.ID_PROPIEDAD = :propId
+            ORDER BY pt.HORA_INICIO ASC
+            """;
+        List<PorteroTurnoDTO> turnos = jdbcTemplate.query(sql, Map.of("idPorteria", id, "propId", propId), (rs, rowNum) -> {
+            String pNom = rs.getString("PRIMER_NOMBRE");
+            String sNom = rs.getString("SEGUNDO_NOMBRE");
+            String pApe = rs.getString("PRIMER_APELLIDO");
+            String sApe = rs.getString("SEGUNDO_APELLIDO");
+            StringBuilder sb = new StringBuilder();
+            if (pNom != null) sb.append(pNom).append(" ");
+            if (sNom != null) sb.append(sNom).append(" ");
+            if (pApe != null) sb.append(pApe).append(" ");
+            if (sApe != null) sb.append(sApe);
+            String nombreCompleto = sb.toString().trim();
+            if (nombreCompleto.isEmpty()) nombreCompleto = rs.getString("NOMBRE_USUARIO");
+
+            java.sql.Timestamp ts = rs.getTimestamp("FECHA_ASIGNACION");
+            return new PorteroTurnoDTO(
+                rs.getLong("ID_ASIGNACION_TURNO"),
+                rs.getLong("ID_PORTERIA"),
+                rs.getLong("ID_USUARIO"),
+                rs.getString("NOMBRE_USUARIO"),
+                nombreCompleto,
+                rs.getString("CODIGO_TURNO"),
+                rs.getString("NOMBRE_TURNO"),
+                rs.getString("HORA_INICIO"),
+                rs.getString("HORA_FIN"),
+                rs.getString("DIAS_SEMANA"),
+                rs.getString("ESTADO"),
+                ts != null ? ts.toInstant() : null
+            );
+        });
+        return ResponseEntity.ok(ApiResponse.success(turnos));
+    }
+
+    @Operation(summary = "Asignar un portero a una portería con un turno (Ley 1920 de 2018)")
+    @PostMapping("/{id}/turnos")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
+    public ResponseEntity<ApiResponse<Void>> asignarTurno(
+            @PathVariable Long id,
+            @RequestBody @Valid PorteroTurnoRequestDTO req) {
+        Long propId = SaedContextHolder.getContext() != null ? SaedContextHolder.getContext().getPropertyId() : 1L;
+
+        Map<String, String> infoTurno = CATALOGO_TURNOS.get(req.codigoTurno());
+        if (infoTurno == null) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("Código de turno inválido según la Ley 1920 de 2018"));
+        }
+
+        String mergeSql = """
+            MERGE INTO PORTERIA_TURNOS tgt
+            USING (SELECT :propId AS ID_PROPIEDAD, :idPorteria AS ID_PORTERIA, :idUsuario AS ID_USUARIO,
+                          :codigoTurno AS CODIGO_TURNO, :nombreTurno AS NOMBRE_TURNO,
+                          :horaInicio AS HORA_INICIO, :horaFin AS HORA_FIN,
+                          :diasSemana AS DIAS_SEMANA, 'ACTIVO' AS ESTADO FROM DUAL) src
+            ON (tgt.ID_PORTERIA = src.ID_PORTERIA AND tgt.ID_USUARIO = src.ID_USUARIO)
+            WHEN MATCHED THEN
+                UPDATE SET tgt.CODIGO_TURNO = src.CODIGO_TURNO,
+                           tgt.NOMBRE_TURNO = src.NOMBRE_TURNO,
+                           tgt.HORA_INICIO = src.HORA_INICIO,
+                           tgt.HORA_FIN = src.HORA_FIN,
+                           tgt.DIAS_SEMANA = src.DIAS_SEMANA,
+                           tgt.ESTADO = src.ESTADO,
+                           tgt.FECHA_ASIGNACION = CURRENT_TIMESTAMP
+            WHEN NOT MATCHED THEN
+                INSERT (ID_PROPIEDAD, ID_PORTERIA, ID_USUARIO, CODIGO_TURNO, NOMBRE_TURNO, HORA_INICIO, HORA_FIN, DIAS_SEMANA, ESTADO)
+                VALUES (src.ID_PROPIEDAD, src.ID_PORTERIA, src.ID_USUARIO, src.CODIGO_TURNO, src.NOMBRE_TURNO, src.HORA_INICIO, src.HORA_FIN, src.DIAS_SEMANA, src.ESTADO)
+            """;
+
+        jdbcTemplate.update(mergeSql, Map.of(
+            "propId", propId,
+            "idPorteria", id,
+            "idUsuario", req.idUsuario(),
+            "codigoTurno", req.codigoTurno(),
+            "nombreTurno", infoTurno.get("nombre"),
+            "horaInicio", infoTurno.get("inicio"),
+            "horaFin", infoTurno.get("fin"),
+            "diasSemana", req.diasSemana() != null && !req.diasSemana().isBlank() ? req.diasSemana().trim() : "L-D"
+        ));
+
+        return ResponseEntity.ok(ApiResponse.success(null));
+    }
+
+    @Operation(summary = "Desvincular turno de un portero en una portería")
+    @DeleteMapping("/{id}/turnos/{idAsignacion}")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
+    public ResponseEntity<ApiResponse<Void>> desasignarTurno(@PathVariable Long id, @PathVariable Long idAsignacion) {
+        Long propId = SaedContextHolder.getContext() != null ? SaedContextHolder.getContext().getPropertyId() : 1L;
+        jdbcTemplate.update(
+            "DELETE FROM PORTERIA_TURNOS WHERE ID_ASIGNACION_TURNO = :idAsignacion AND ID_PORTERIA = :idPorteria AND ID_PROPIEDAD = :propId",
+            Map.of("idAsignacion", idAsignacion, "idPorteria", id, "propId", propId)
+        );
+        return ResponseEntity.ok(ApiResponse.success(null));
+    }
+
     // --- VISITAS ---
     @PostMapping("/visitas")
     @ResponseStatus(HttpStatus.CREATED)

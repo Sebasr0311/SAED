@@ -24,6 +24,11 @@ public class AssignmentManagementController {
         this.assignmentManagementService = assignmentManagementService;
     }
 
+    @GetMapping
+    public ResponseEntity<java.util.List<Map<String, Object>>> list() {
+        return ResponseEntity.ok(assignmentManagementService.listAssignments());
+    }
+
     @PostMapping
     public ResponseEntity<Map<String, Object>> create(@Valid @RequestBody AssignmentRequestDTO request) {
         Long id = assignmentManagementService.create(request);

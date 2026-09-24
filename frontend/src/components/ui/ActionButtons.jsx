@@ -7,14 +7,18 @@
 export function ActionButtons({ onEdit, onDelete }) {
   return (
     <div style={{ display: 'flex', gap: '4px' }}>
-      <button onClick={onEdit} className="btn btn-ghost btn-sm" aria-label="Editar">
-        <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>edit</span>
-      </button>
-      <button onClick={onDelete} className="btn btn-ghost btn-sm" aria-label="Eliminar">
-        <span className="material-symbols-outlined" style={{ fontSize: '18px', color: 'var(--error)' }}>
-          delete
-        </span>
-      </button>
+      {onEdit && (
+        <button onClick={onEdit} className="btn btn-ghost btn-sm" aria-label="Editar">
+          <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>edit</span>
+        </button>
+      )}
+      {onDelete && (
+        <button onClick={onDelete} className="btn btn-ghost btn-sm" aria-label="Eliminar">
+          <span className="material-symbols-outlined" style={{ fontSize: '18px', color: 'var(--error)' }}>
+            delete
+          </span>
+        </button>
+      )}
     </div>
   );
 }
