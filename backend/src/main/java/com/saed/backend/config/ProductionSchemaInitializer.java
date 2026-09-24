@@ -63,7 +63,6 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
         initPolizasSeguroPipeline();
         initReportesConfiguradosYHistorialPipeline();
         initPorteriaTurnos();
-        initSecurityRlsPackage();
 
         log.info("[SchemaInit] Verificación de esquema completada.");
     }
@@ -79,6 +78,21 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
 
     private void initSecurityRlsPackage() {
         try {
+            try {
+                Integer upToDate = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(1) FROM USER_SOURCE WHERE NAME = 'PKG_SAED_SECURITY_RLS' AND TYPE = 'PACKAGE BODY' AND TEXT LIKE '%2026.09.24.V2_FIX_GLOBAL_MUTATE%'",
+                    Integer.class
+                );
+                String rlsStatus = jdbcTemplate.queryForObject(
+                    "SELECT STATUS FROM USER_OBJECTS WHERE OBJECT_NAME = 'PKG_SAED_SECURITY_RLS' AND OBJECT_TYPE = 'PACKAGE BODY'",
+                    String.class
+                );
+                if (upToDate != null && upToDate > 0 && "VALID".equalsIgnoreCase(rlsStatus)) {
+                    log.info("[SchemaInit] PKG_SAED_SECURITY_RLS ya se encuentra actualizado (versión 2026.09.24.V2) y en estado VALID. Se omite recompilación DDL.");
+                    return;
+                }
+            } catch (Exception ignored) {}
+
             log.info("[SchemaInit] Compilando especificación y cuerpo completo de PKG_SAED_SECURITY_RLS...");
             jdbcTemplate.execute("""
                 CREATE OR REPLACE PACKAGE PKG_SAED_SECURITY_RLS AS
@@ -94,6 +108,7 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
 
             jdbcTemplate.execute("""
                 CREATE OR REPLACE PACKAGE BODY PKG_SAED_SECURITY_RLS AS
+                    -- RLS_BUILD_VERSION: 2026.09.24.V2_FIX_GLOBAL_MUTATE
 
                     FUNCTION FN_FILTRO_ORGANIZACION (p_schema IN VARCHAR2, p_tab IN VARCHAR2) RETURN VARCHAR2 AS
                         v_org VARCHAR2(30) := SYS_CONTEXT('SAED_CTX', 'ID_ORGANIZACION');
@@ -329,11 +344,10 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
 
                     FUNCTION FN_FILTRO_GLOBAL_MUTATE (p_schema IN VARCHAR2, p_tab IN VARCHAR2) RETURN VARCHAR2 AS
                         v_rol VARCHAR2(30) := SYS_CONTEXT('SAED_CTX', 'ROL_CODIGO');
-                        v_usr VARCHAR2(30) := SYS_CONTEXT('SAED_CTX', 'ID_USUARIO');
                         v_state VARCHAR2(30) := NVL(SYS_CONTEXT('SAED_CTX', 'STATE'), 'ANONYMOUS');
                     BEGIN
                         IF v_state IN ('ANONYMOUS', 'CLEARING') THEN RETURN '1=0'; END IF;
-                        IF v_state = 'BOOTSTRAP' THEN RETURN 'id_usuario = ' || v_usr; END IF;
+                        IF v_state = 'BOOTSTRAP' THEN RETURN '1=1'; END IF;
                         IF v_rol = 'SUPERADMIN' THEN RETURN '1=1'; END IF;
                         RETURN '1=0';
                     EXCEPTION
@@ -858,9 +872,6 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
                     log.info("[SchemaInit] [GAP-F6-03] Se identificaron {} registros históricos de SaaS en TRANSACCIONES_PAGO con ID_UNIDAD sintético = 1.", historicalCount);
                 }
             } catch (Exception ignored) {}
-
-            // 4. Sincronizar PKG_SAED_SECURITY_RLS con soporte RLS para TRANSACCIONES_PAGO SaaS
-            initSecurityRlsPackage();
         } catch (Exception e) {
             log.warn("[SchemaInit] Aviso al verificar segregación SaaS en TRANSACCIONES_PAGO: {}", e.getMessage());
         }
@@ -1396,9 +1407,6 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
                     jdbcTemplate.execute("ALTER TABLE INCIDENTES ADD CONSTRAINT FK_INCIDENTES_ESCALADO FOREIGN KEY (ESCALADO_POR) REFERENCES USUARIOS(ID_USUARIO)");
                 }
             } catch (Exception ignored) {}
-
-            // 3. Sincronizar PKG_SAED_SECURITY_RLS con soporte RLS para INCIDENTE_INVOLUCRADOS
-            initSecurityRlsPackage();
 
             log.info("[SchemaInit] Pipeline de INCIDENTES verificado exitosamente.");
         } catch (Exception e) {
