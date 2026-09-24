@@ -1,107 +1,51 @@
--- =============================================================================
--- SAED 2.0 - V5.23: ASAMBLEAS GOVERNANCE & LIFECYCLE PIPELINE (F10-03)
--- =============================================================================
+-- ============================================================================
+-- V5.28__fix_pkg_saed_security_rls_full_body.sql
+-- Resolución definitiva para ORA-28110 / PLS-00323:
+-- Restaura la especificación y el cuerpo completo del paquete PKG_SAED_SECURITY_RLS
+-- con las 7 funciones requeridas por las políticas VPD/RLS de SAED 2.0.
+-- Incluye bloques EXCEPTION WHEN OTHERS defensivos en cada función de predicado.
+-- ============================================================================
 
--- 0. Contexto administrativo para DDL seguro
-BEGIN
-    PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1);
-    PKG_SAED_SESSION.SET_CONTEXT(1, 1, 1, 'SUPERADMIN');
-EXCEPTION
-    WHEN OTHERS THEN NULL;
-END;
+CREATE OR REPLACE PACKAGE PKG_SAED_SECURITY_RLS AS
+    FUNCTION FN_FILTRO_ORGANIZACION (p_schema IN VARCHAR2, p_tab IN VARCHAR2) RETURN VARCHAR2;
+    FUNCTION FN_FILTRO_PROPIEDAD    (p_schema IN VARCHAR2, p_tab IN VARCHAR2) RETURN VARCHAR2;
+    FUNCTION FN_FILTRO_UNIDAD       (p_schema IN VARCHAR2, p_tab IN VARCHAR2) RETURN VARCHAR2;
+    FUNCTION FN_FILTRO_USUARIOS     (p_schema IN VARCHAR2, p_tab IN VARCHAR2) RETURN VARCHAR2;
+    FUNCTION FN_FILTRO_ASIGNACION   (p_schema IN VARCHAR2, p_tab IN VARCHAR2) RETURN VARCHAR2;
+    FUNCTION FN_FILTRO_GLOBAL_READONLY (p_schema IN VARCHAR2, p_tab IN VARCHAR2) RETURN VARCHAR2;
+    FUNCTION FN_FILTRO_GLOBAL_MUTATE   (p_schema IN VARCHAR2, p_tab IN VARCHAR2) RETURN VARCHAR2;
+END PKG_SAED_SECURITY_RLS;
 /
 
--- 1. Agregar ID_ORGANIZACION a ASAMBLEAS si no existe
-DECLARE
-    v_count NUMBER;
-BEGIN
-    SELECT COUNT(1) INTO v_count FROM USER_TAB_COLS WHERE TABLE_NAME = 'ASAMBLEAS' AND COLUMN_NAME = 'ID_ORGANIZACION';
-    IF v_count = 0 THEN
-        EXECUTE IMMEDIATE 'ALTER TABLE ASAMBLEAS ADD (ID_ORGANIZACION NUMBER(19))';
-        EXECUTE IMMEDIATE 'UPDATE ASAMBLEAS a SET a.ID_ORGANIZACION = (SELECT p.ID_ORGANIZACION FROM PROPIEDADES p WHERE p.ID_PROPIEDAD = a.ID_PROPIEDAD) WHERE a.ID_ORGANIZACION IS NULL';
-    END IF;
-END;
-/
-
--- 2. Agregar ID_DOCUMENTO a ASAMBLEAS si no existe (Integración nativa F10-01)
-DECLARE
-    v_count NUMBER;
-BEGIN
-    SELECT COUNT(1) INTO v_count FROM USER_TAB_COLS WHERE TABLE_NAME = 'ASAMBLEAS' AND COLUMN_NAME = 'ID_DOCUMENTO';
-    IF v_count = 0 THEN
-        EXECUTE IMMEDIATE 'ALTER TABLE ASAMBLEAS ADD (ID_DOCUMENTO NUMBER(19))';
-    END IF;
-END;
-/
-
--- 3. FKs e Índices para ASAMBLEAS
-DECLARE
-    v_count NUMBER;
-BEGIN
-    SELECT COUNT(1) INTO v_count FROM USER_CONSTRAINTS WHERE CONSTRAINT_NAME = 'FK_ASAMBLEAS_ORG';
-    IF v_count = 0 THEN
-        EXECUTE IMMEDIATE 'ALTER TABLE ASAMBLEAS ADD CONSTRAINT FK_ASAMBLEAS_ORG FOREIGN KEY (ID_ORGANIZACION) REFERENCES ORGANIZACIONES(ID_ORGANIZACION)';
-    END IF;
-
-    SELECT COUNT(1) INTO v_count FROM USER_CONSTRAINTS WHERE CONSTRAINT_NAME = 'FK_ASAMBLEAS_DOC';
-    IF v_count = 0 THEN
-        EXECUTE IMMEDIATE 'ALTER TABLE ASAMBLEAS ADD CONSTRAINT FK_ASAMBLEAS_DOC FOREIGN KEY (ID_DOCUMENTO) REFERENCES DOCUMENTOS(ID_DOCUMENTO)';
-    END IF;
-
-    SELECT COUNT(1) INTO v_count FROM USER_INDEXES WHERE INDEX_NAME = 'IX_ASAMBLEAS_ORG';
-    IF v_count = 0 THEN
-        EXECUTE IMMEDIATE 'CREATE INDEX IX_ASAMBLEAS_ORG ON ASAMBLEAS (ID_ORGANIZACION)';
-    END IF;
-
-    SELECT COUNT(1) INTO v_count FROM USER_INDEXES WHERE INDEX_NAME = 'IX_ASAMBLEAS_DOC';
-    IF v_count = 0 THEN
-        EXECUTE IMMEDIATE 'CREATE INDEX IX_ASAMBLEAS_DOC ON ASAMBLEAS (ID_DOCUMENTO)';
-    END IF;
-
-    SELECT COUNT(1) INTO v_count FROM USER_INDEXES WHERE INDEX_NAME = 'IX_ASAMBLEAS_PROP_EST';
-    IF v_count = 0 THEN
-        EXECUTE IMMEDIATE 'CREATE INDEX IX_ASAMBLEAS_PROP_EST ON ASAMBLEAS (ID_PROPIEDAD, ESTADO)';
-    END IF;
-
-    SELECT COUNT(1) INTO v_count FROM USER_INDEXES WHERE INDEX_NAME = 'IX_ASAMBLEAS_FECHA';
-    IF v_count = 0 THEN
-        EXECUTE IMMEDIATE 'CREATE INDEX IX_ASAMBLEAS_FECHA ON ASAMBLEAS (ID_PROPIEDAD, FECHA_HORA_PRIMERA_CONV)';
-    END IF;
-END;
-/
-
--- 4. Índices para ASISTENCIAS_ASAMBLEA y PODERES_REPRESENTACION
-DECLARE
-    v_count NUMBER;
-BEGIN
-    SELECT COUNT(1) INTO v_count FROM USER_INDEXES WHERE INDEX_NAME = 'IX_ASIST_ASAMBLEA';
-    IF v_count = 0 THEN
-        EXECUTE IMMEDIATE 'CREATE INDEX IX_ASIST_ASAMBLEA ON ASISTENCIAS_ASAMBLEA (ID_ASAMBLEA)';
-    END IF;
-
-    SELECT COUNT(1) INTO v_count FROM USER_INDEXES WHERE INDEX_NAME = 'IX_PODERES_ASAMBLEA';
-    IF v_count = 0 THEN
-        EXECUTE IMMEDIATE 'CREATE INDEX IX_PODERES_ASAMBLEA ON PODERES_REPRESENTACION (ID_ASAMBLEA)';
-    END IF;
-END;
-/
-
--- 5. Actualizar PKG_SAED_SECURITY_RLS con soporte RLS para ASISTENCIAS_ASAMBLEA y PODERES_REPRESENTACION
 CREATE OR REPLACE PACKAGE BODY PKG_SAED_SECURITY_RLS AS
 
     FUNCTION FN_FILTRO_ORGANIZACION (p_schema IN VARCHAR2, p_tab IN VARCHAR2) RETURN VARCHAR2 AS
         v_org VARCHAR2(30) := SYS_CONTEXT('SAED_CTX', 'ID_ORGANIZACION');
+        v_prop VARCHAR2(30) := SYS_CONTEXT('SAED_CTX', 'ID_PROPIEDAD');
         v_rol VARCHAR2(30) := SYS_CONTEXT('SAED_CTX', 'ROL_CODIGO');
+        v_usr VARCHAR2(30) := SYS_CONTEXT('SAED_CTX', 'ID_USUARIO');
         v_state VARCHAR2(30) := NVL(SYS_CONTEXT('SAED_CTX', 'STATE'), 'ANONYMOUS');
     BEGIN
         IF v_state IN ('ANONYMOUS', 'CLEARING') THEN RETURN '1=0'; END IF;
         IF v_state = 'BOOTSTRAP' THEN RETURN '1=1'; END IF;
         IF v_rol = 'SUPERADMIN' THEN RETURN '1=1'; END IF;
         IF v_org IS NULL OR v_org = '0' THEN RETURN '1=0'; END IF;
-        IF p_tab = 'ORGANIZACIONES' THEN
+
+        IF v_rol IN ('RESIDENTE', 'PROPIETARIO_UNIDAD', 'RESIDENTE_CONVIVENCIA') THEN
+            IF p_tab = 'PERSONAS' THEN
+                RETURN 'id_persona IN (SELECT id_persona FROM USUARIOS WHERE id_usuario = ' || v_usr || ') OR id_persona IN (SELECT id_persona FROM RESIDENTES_UNIDAD WHERE id_unidad IN (SELECT id_unidad FROM USUARIO_ASIGNACIONES WHERE id_usuario = ' || v_usr || ' AND estado=''ACTIVA'' AND id_unidad IS NOT NULL)) OR id_persona IN (SELECT id_persona FROM VISITANTES WHERE id_visitante IN (SELECT id_visitante FROM VISITAS WHERE id_unidad IN (SELECT id_unidad FROM USUARIO_ASIGNACIONES WHERE id_usuario = ' || v_usr || ' AND estado=''ACTIVA'' AND id_unidad IS NOT NULL))) OR id_persona IN (SELECT t.id_persona FROM TRABAJADORES t JOIN PROVEEDORES prov ON t.id_proveedor = prov.id_proveedor WHERE prov.id_organizacion = ' || v_org || ')';
+            END IF;
             RETURN 'id_organizacion = ' || v_org;
         END IF;
+
+        IF p_tab = 'PERSONAS' THEN
+            RETURN 'id_persona IN (SELECT id_persona FROM USUARIOS WHERE id_usuario IN (SELECT id_usuario FROM USUARIO_ASIGNACIONES WHERE id_organizacion = ' || v_org || ')) OR id_persona IN (SELECT id_persona FROM VISITANTES) OR id_persona IN (SELECT pu.id_persona FROM PROPIETARIOS_UNIDAD pu JOIN UNIDADES u ON pu.id_unidad = u.id_unidad JOIN PROPIEDADES pr ON u.id_propiedad = pr.id_propiedad WHERE pr.id_organizacion = ' || v_org || ') OR id_persona IN (SELECT t.id_persona FROM TRABAJADORES t JOIN PROVEEDORES prov ON t.id_proveedor = prov.id_proveedor WHERE prov.id_organizacion = ' || v_org || ')';
+        END IF;
+
         RETURN 'id_organizacion = ' || v_org;
+    EXCEPTION
+        WHEN OTHERS THEN
+            RETURN '1=0';
     END FN_FILTRO_ORGANIZACION;
 
     FUNCTION FN_FILTRO_PROPIEDAD (p_schema IN VARCHAR2, p_tab IN VARCHAR2) RETURN VARCHAR2 AS
@@ -132,7 +76,10 @@ CREATE OR REPLACE PACKAGE BODY PKG_SAED_SECURITY_RLS AS
             END IF;
         END IF;
 
-        IF v_rol IN ('RESIDENTE', 'PROPIETARIO_UNIDAD', 'RESIDENTE_CONVIVENCIA') THEN
+        IF v_rol IN ('RESIDENTE', 'PORTERO', 'PROPIETARIO_UNIDAD', 'RESIDENTE_CONVIVENCIA') THEN
+            IF p_tab IN ('REPORTES_CONFIGURADOS', 'HISTORIAL_REPORTES') THEN
+                RETURN '1=0';
+            END IF;
             IF p_tab = 'INCIDENTE_INVOLUCRADOS' THEN
                 RETURN 'id_incidente IN (SELECT id_incidente FROM INCIDENTES WHERE id_propiedad IN (SELECT id_propiedad FROM USUARIO_ASIGNACIONES WHERE id_usuario = ' || v_usr || ' AND estado=''ACTIVA''))';
             END IF;
@@ -159,6 +106,8 @@ CREATE OR REPLACE PACKAGE BODY PKG_SAED_SECURITY_RLS AS
 
         IF v_prop IS NOT NULL THEN
             IF p_tab = 'PROPIEDADES' THEN RETURN 'id_propiedad = ' || v_prop; END IF;
+            IF p_tab = 'HISTORIAL_REPORTES' THEN RETURN 'id_organizacion = ' || v_org || ' AND id_propiedad = ' || v_prop; END IF;
+            IF p_tab = 'REPORTES_CONFIGURADOS' THEN RETURN '(id_organizacion = ' || v_org || ' AND (id_propiedad = ' || v_prop || ' OR id_propiedad IS NULL)) OR id_organizacion IS NULL'; END IF;
             IF p_tab = 'INCIDENTE_INVOLUCRADOS' THEN RETURN 'id_incidente IN (SELECT id_incidente FROM INCIDENTES WHERE id_propiedad = ' || v_prop || ')'; END IF;
             IF p_tab = 'VERSIONES_DOCUMENTO' THEN RETURN 'id_documento IN (SELECT id_documento FROM DOCUMENTOS WHERE id_propiedad = ' || v_prop || ' OR id_propiedad IS NULL)'; END IF;
             IF p_tab = 'PQRS_TRAZABILIDAD' THEN RETURN 'id_ticket IN (SELECT id_ticket FROM PQRS_TICKETS WHERE id_propiedad = ' || v_prop || ')'; END IF;
@@ -168,6 +117,8 @@ CREATE OR REPLACE PACKAGE BODY PKG_SAED_SECURITY_RLS AS
             RETURN 'id_propiedad = ' || v_prop;
         ELSE
             IF p_tab = 'PROPIEDADES' THEN RETURN 'id_organizacion = ' || v_org; END IF;
+            IF p_tab = 'HISTORIAL_REPORTES' THEN RETURN 'id_organizacion = ' || v_org; END IF;
+            IF p_tab = 'REPORTES_CONFIGURADOS' THEN RETURN 'id_organizacion = ' || v_org || ' OR id_organizacion IS NULL'; END IF;
             IF p_tab = 'INCIDENTE_INVOLUCRADOS' THEN RETURN 'id_incidente IN (SELECT id_incidente FROM INCIDENTES WHERE id_propiedad IN (SELECT id_propiedad FROM PROPIEDADES WHERE id_organizacion = ' || v_org || '))'; END IF;
             IF p_tab = 'VERSIONES_DOCUMENTO' THEN RETURN 'id_documento IN (SELECT id_documento FROM DOCUMENTOS WHERE id_organizacion = ' || v_org || ')'; END IF;
             IF p_tab = 'PQRS_TRAZABILIDAD' THEN RETURN 'id_ticket IN (SELECT id_ticket FROM PQRS_TICKETS WHERE id_propiedad IN (SELECT id_propiedad FROM PROPIEDADES WHERE id_organizacion = ' || v_org || '))'; END IF;
@@ -176,6 +127,9 @@ CREATE OR REPLACE PACKAGE BODY PKG_SAED_SECURITY_RLS AS
             IF p_tab = 'VISITANTES' THEN RETURN 'id_visitante IN (SELECT id_visitante FROM VISITAS JOIN UNIDADES ON VISITAS.id_unidad = UNIDADES.id_unidad JOIN PROPIEDADES ON UNIDADES.id_propiedad = PROPIEDADES.id_propiedad WHERE PROPIEDADES.id_organizacion = ' || v_org || ')'; END IF;
             RETURN 'id_propiedad IN (SELECT id_propiedad FROM PROPIEDADES WHERE id_organizacion = ' || v_org || ')';
         END IF;
+    EXCEPTION
+        WHEN OTHERS THEN
+            RETURN '1=0';
     END FN_FILTRO_PROPIEDAD;
 
     FUNCTION FN_FILTRO_UNIDAD (p_schema IN VARCHAR2, p_tab IN VARCHAR2) RETURN VARCHAR2 AS
@@ -192,32 +146,45 @@ CREATE OR REPLACE PACKAGE BODY PKG_SAED_SECURITY_RLS AS
 
         IF v_rol IN ('RESIDENTE', 'PROPIETARIO_UNIDAD', 'RESIDENTE_CONVIVENCIA') THEN
             IF p_tab = 'UNIDADES' THEN
-                RETURN 'id_unidad IN (SELECT id_unidad FROM USUARIO_ASIGNACIONES WHERE id_usuario = ' || v_usr || ' AND estado=''ACTIVA'' AND id_unidad IS NOT NULL)';
-            END IF;
-            IF p_tab = 'PAQUETES' THEN
-                RETURN 'id_unidad IN (SELECT id_unidad FROM USUARIO_ASIGNACIONES WHERE id_usuario = ' || v_usr || ' AND estado=''ACTIVA'' AND id_unidad IS NOT NULL)';
-            END IF;
-            IF p_tab = 'VISITAS' THEN
-                RETURN 'id_unidad IN (SELECT id_unidad FROM USUARIO_ASIGNACIONES WHERE id_usuario = ' || v_usr || ' AND estado=''ACTIVA'' AND id_unidad IS NOT NULL)';
-            END IF;
-            IF p_tab = 'TRANSACCIONES_PAGO' THEN
+                RETURN 'id_unidad IN (SELECT id_unidad FROM USUARIO_ASIGNACIONES WHERE id_usuario = ' || v_usr || ' AND estado = ''ACTIVA'' AND id_unidad IS NOT NULL)';
+            ELSIF p_tab = 'TUTORES' THEN
+                RETURN 'id_persona_menor IN (SELECT id_persona FROM RESIDENTES_UNIDAD WHERE id_unidad IN (SELECT id_unidad FROM USUARIO_ASIGNACIONES WHERE id_usuario = ' || v_usr || ' AND estado = ''ACTIVA'' AND id_unidad IS NOT NULL))';
+            ELSIF p_tab = 'PAGO_DETALLE' THEN
+                RETURN 'id_cuota IN (SELECT id_cuota FROM CUOTAS WHERE id_unidad IN (SELECT id_unidad FROM USUARIO_ASIGNACIONES WHERE id_usuario = ' || v_usr || ' AND estado = ''ACTIVA'' AND id_unidad IS NOT NULL))';
+            ELSIF p_tab = 'OBRA_TRABAJADORES' THEN
+                RETURN 'id_obra IN (SELECT id_obra FROM OBRAS WHERE id_unidad IN (SELECT id_unidad FROM USUARIO_ASIGNACIONES WHERE id_usuario = ' || v_usr || ' AND estado = ''ACTIVA'' AND id_unidad IS NOT NULL))';
+            ELSIF p_tab = 'CONTRATO_RESIDENTE' THEN
+                RETURN 'id_contrato IN (SELECT id_contrato FROM CONTRATOS WHERE id_unidad IN (SELECT id_unidad FROM USUARIO_ASIGNACIONES WHERE id_usuario = ' || v_usr || ' AND estado = ''ACTIVA'' AND id_unidad IS NOT NULL))';
+            ELSIF p_tab IN ('QR_ACCESOS', 'VEHICULOS_VISITA') THEN
+                RETURN 'id_visita IN (SELECT id_visita FROM VISITAS WHERE id_unidad IN (SELECT id_unidad FROM USUARIO_ASIGNACIONES WHERE id_usuario = ' || v_usr || ' AND estado = ''ACTIVA'' AND id_unidad IS NOT NULL))';
+            ELSIF p_tab = 'TRANSACCIONES_PAGO' THEN
                 RETURN '(id_unidad IN (SELECT id_unidad FROM USUARIO_ASIGNACIONES WHERE id_usuario = ' || v_usr || ' AND estado=''ACTIVA'' AND id_unidad IS NOT NULL) OR (id_unidad IS NULL AND id_propiedad IN (SELECT id_propiedad FROM USUARIO_ASIGNACIONES WHERE id_usuario = ' || v_usr || ' AND estado=''ACTIVA'')))';
-            END IF;
-            IF p_tab = 'VEHICULOS' THEN
+            ELSIF p_tab = 'DOMICILIOS' THEN
+                RETURN 'id_unidad IN (SELECT id_unidad FROM USUARIO_ASIGNACIONES WHERE id_usuario = ' || v_usr || ' AND estado = ''ACTIVA'' AND id_unidad IS NOT NULL)';
+            ELSIF p_tab = 'VEHICULOS' THEN
                 RETURN 'id_unidad IN (SELECT id_unidad FROM USUARIO_ASIGNACIONES WHERE id_usuario = ' || v_usr || ' AND estado=''ACTIVA'' AND id_unidad IS NOT NULL)';
-            END IF;
-            IF p_tab = 'MASCOTAS' THEN
+            ELSIF p_tab = 'MASCOTAS' THEN
                 RETURN 'id_unidad IN (SELECT id_unidad FROM USUARIO_ASIGNACIONES WHERE id_usuario = ' || v_usr || ' AND estado=''ACTIVA'' AND id_unidad IS NOT NULL)';
-            END IF;
-            IF p_tab = 'OBRAS' THEN
+            ELSIF p_tab = 'OBRAS' THEN
                 RETURN 'id_unidad IN (SELECT id_unidad FROM USUARIO_ASIGNACIONES WHERE id_usuario = ' || v_usr || ' AND estado=''ACTIVA'' AND id_unidad IS NOT NULL)';
+            ELSIF p_tab = 'PAQUETES' THEN
+                RETURN 'id_unidad IN (SELECT id_unidad FROM USUARIO_ASIGNACIONES WHERE id_usuario = ' || v_usr || ' AND estado=''ACTIVA'' AND id_unidad IS NOT NULL)';
+            ELSIF p_tab = 'VISITAS' THEN
+                RETURN 'id_unidad IN (SELECT id_unidad FROM USUARIO_ASIGNACIONES WHERE id_usuario = ' || v_usr || ' AND estado=''ACTIVA'' AND id_unidad IS NOT NULL)';
+            ELSE
+                RETURN 'id_unidad IN (SELECT id_unidad FROM USUARIO_ASIGNACIONES WHERE id_usuario = ' || v_usr || ' AND estado = ''ACTIVA'' AND id_unidad IS NOT NULL)';
             END IF;
-            RETURN 'id_unidad IN (SELECT id_unidad FROM USUARIO_ASIGNACIONES WHERE id_usuario = ' || v_usr || ' AND estado=''ACTIVA'' AND id_unidad IS NOT NULL)';
         END IF;
 
         IF v_prop IS NOT NULL THEN
             IF p_tab = 'UNIDADES' THEN RETURN 'id_propiedad = ' || v_prop; END IF;
+            IF p_tab = 'TUTORES' THEN RETURN 'id_persona_menor IN (SELECT id_persona FROM RESIDENTES_UNIDAD JOIN UNIDADES ON RESIDENTES_UNIDAD.id_unidad = UNIDADES.id_unidad WHERE UNIDADES.id_propiedad = ' || v_prop || ')'; END IF;
+            IF p_tab = 'PAGO_DETALLE' THEN RETURN 'id_cuota IN (SELECT id_cuota FROM CUOTAS WHERE id_unidad IN (SELECT id_unidad FROM UNIDADES WHERE id_propiedad = ' || v_prop || '))'; END IF;
+            IF p_tab = 'OBRA_TRABAJADORES' THEN RETURN 'id_obra IN (SELECT id_obra FROM OBRAS WHERE id_unidad IN (SELECT id_unidad FROM UNIDADES WHERE id_propiedad = ' || v_prop || '))'; END IF;
+            IF p_tab = 'CONTRATO_RESIDENTE' THEN RETURN 'id_contrato IN (SELECT id_contrato FROM CONTRATOS WHERE id_unidad IN (SELECT id_unidad FROM UNIDADES WHERE id_propiedad = ' || v_prop || '))'; END IF;
+            IF p_tab IN ('QR_ACCESOS', 'VEHICULOS_VISITA') THEN RETURN 'id_visita IN (SELECT id_visita FROM VISITAS JOIN UNIDADES ON VISITAS.id_unidad = UNIDADES.id_unidad WHERE UNIDADES.id_propiedad = ' || v_prop || ')'; END IF;
             IF p_tab = 'TRANSACCIONES_PAGO' THEN RETURN 'id_propiedad = ' || v_prop; END IF;
+            IF p_tab = 'DOMICILIOS' THEN RETURN 'id_propiedad = ' || v_prop; END IF;
             IF p_tab = 'PAQUETES' THEN RETURN 'id_propiedad = ' || v_prop; END IF;
             IF p_tab = 'VISITAS' THEN RETURN 'id_unidad IN (SELECT id_unidad FROM UNIDADES WHERE id_propiedad = ' || v_prop || ')'; END IF;
             IF p_tab = 'VEHICULOS' THEN RETURN 'id_unidad IN (SELECT id_unidad FROM UNIDADES WHERE id_propiedad = ' || v_prop || ')'; END IF;
@@ -226,7 +193,13 @@ CREATE OR REPLACE PACKAGE BODY PKG_SAED_SECURITY_RLS AS
             RETURN 'id_unidad IN (SELECT id_unidad FROM UNIDADES WHERE id_propiedad = ' || v_prop || ')';
         ELSE
             IF p_tab = 'UNIDADES' THEN RETURN 'id_propiedad IN (SELECT id_propiedad FROM PROPIEDADES WHERE id_organizacion = ' || v_org || ')'; END IF;
+            IF p_tab = 'TUTORES' THEN RETURN 'id_persona_menor IN (SELECT id_persona FROM RESIDENTES_UNIDAD JOIN UNIDADES ON RESIDENTES_UNIDAD.id_unidad = UNIDADES.id_unidad JOIN PROPIEDADES ON UNIDADES.id_propiedad = PROPIEDADES.id_propiedad WHERE PROPIEDADES.id_organizacion = ' || v_org || ')'; END IF;
+            IF p_tab = 'PAGO_DETALLE' THEN RETURN 'id_cuota IN (SELECT id_cuota FROM CUOTAS WHERE id_unidad IN (SELECT id_unidad FROM UNIDADES WHERE id_propiedad IN (SELECT id_propiedad FROM PROPIEDADES WHERE id_organizacion = ' || v_org || ')))'; END IF;
+            IF p_tab = 'OBRA_TRABAJADORES' THEN RETURN 'id_obra IN (SELECT id_obra FROM OBRAS WHERE id_unidad IN (SELECT id_unidad FROM UNIDADES WHERE id_propiedad IN (SELECT id_propiedad FROM PROPIEDADES WHERE id_organizacion = ' || v_org || ')))'; END IF;
+            IF p_tab = 'CONTRATO_RESIDENTE' THEN RETURN 'id_contrato IN (SELECT id_contrato FROM CONTRATOS WHERE id_unidad IN (SELECT id_unidad FROM UNIDADES WHERE id_propiedad IN (SELECT id_propiedad FROM PROPIEDADES WHERE id_organizacion = ' || v_org || ')))'; END IF;
+            IF p_tab IN ('QR_ACCESOS', 'VEHICULOS_VISITA') THEN RETURN 'id_visita IN (SELECT id_visita FROM VISITAS JOIN UNIDADES ON VISITAS.id_unidad = UNIDADES.id_unidad JOIN PROPIEDADES ON UNIDADES.id_propiedad = PROPIEDADES.id_propiedad WHERE PROPIEDADES.id_organizacion = ' || v_org || ')'; END IF;
             IF p_tab = 'TRANSACCIONES_PAGO' THEN RETURN 'id_propiedad IN (SELECT id_propiedad FROM PROPIEDADES WHERE id_organizacion = ' || v_org || ')'; END IF;
+            IF p_tab = 'DOMICILIOS' THEN RETURN 'id_propiedad IN (SELECT id_propiedad FROM PROPIEDADES WHERE id_organizacion = ' || v_org || ')'; END IF;
             IF p_tab = 'PAQUETES' THEN RETURN 'id_propiedad IN (SELECT id_propiedad FROM PROPIEDADES WHERE id_organizacion = ' || v_org || ')'; END IF;
             IF p_tab = 'VISITAS' THEN RETURN 'id_unidad IN (SELECT id_unidad FROM UNIDADES WHERE id_propiedad IN (SELECT id_propiedad FROM PROPIEDADES WHERE id_organizacion = ' || v_org || '))'; END IF;
             IF p_tab = 'VEHICULOS' THEN RETURN 'id_unidad IN (SELECT id_unidad FROM UNIDADES WHERE id_propiedad IN (SELECT id_propiedad FROM PROPIEDADES WHERE id_organizacion = ' || v_org || '))'; END IF;
@@ -234,6 +207,9 @@ CREATE OR REPLACE PACKAGE BODY PKG_SAED_SECURITY_RLS AS
             IF p_tab = 'OBRAS' THEN RETURN 'id_unidad IN (SELECT id_unidad FROM UNIDADES WHERE id_propiedad IN (SELECT id_propiedad FROM PROPIEDADES WHERE id_organizacion = ' || v_org || '))'; END IF;
             RETURN 'id_unidad IN (SELECT id_unidad FROM UNIDADES WHERE id_propiedad IN (SELECT id_propiedad FROM PROPIEDADES WHERE id_organizacion = ' || v_org || '))';
         END IF;
+    EXCEPTION
+        WHEN OTHERS THEN
+            RETURN '1=0';
     END FN_FILTRO_UNIDAD;
 
     FUNCTION FN_FILTRO_USUARIOS (p_schema IN VARCHAR2, p_tab IN VARCHAR2) RETURN VARCHAR2 AS
@@ -297,50 +273,16 @@ CREATE OR REPLACE PACKAGE BODY PKG_SAED_SECURITY_RLS AS
 END PKG_SAED_SECURITY_RLS;
 /
 
--- 6. Registrar políticas RLS para ASAMBLEAS y ASISTENCIAS_ASAMBLEA si no existen
+-- Validación final de compilación
 DECLARE
-    v_count NUMBER;
+    v_status VARCHAR2(30);
 BEGIN
-    SELECT COUNT(1) INTO v_count FROM USER_POLICIES WHERE OBJECT_NAME = 'ASAMBLEAS' AND POLICY_NAME = 'POL_RLS_PROP_ASAMBLEAS';
-    IF v_count = 0 THEN
-        DBMS_RLS.ADD_POLICY(
-            object_schema   => USER,
-            object_name     => 'ASAMBLEAS',
-            policy_name     => 'POL_RLS_PROP_ASAMBLEAS',
-            function_schema => USER,
-            policy_function => 'PKG_SAED_SECURITY_RLS.FN_FILTRO_PROPIEDAD',
-            statement_types => 'SELECT,INSERT,UPDATE,DELETE',
-            update_check    => TRUE,
-            enable          => TRUE
-        );
-    END IF;
-
-    SELECT COUNT(1) INTO v_count FROM USER_POLICIES WHERE OBJECT_NAME = 'ASISTENCIAS_ASAMBLEA' AND POLICY_NAME = 'POL_RLS_PROP_ASISTENCIAS_ASA';
-    IF v_count = 0 THEN
-        DBMS_RLS.ADD_POLICY(
-            object_schema   => USER,
-            object_name     => 'ASISTENCIAS_ASAMBLEA',
-            policy_name     => 'POL_RLS_PROP_ASISTENCIAS_ASA',
-            function_schema => USER,
-            policy_function => 'PKG_SAED_SECURITY_RLS.FN_FILTRO_PROPIEDAD',
-            statement_types => 'SELECT,INSERT,UPDATE,DELETE',
-            update_check    => TRUE,
-            enable          => TRUE
-        );
-    END IF;
-
-    SELECT COUNT(1) INTO v_count FROM USER_POLICIES WHERE OBJECT_NAME = 'PODERES_REPRESENTACION' AND POLICY_NAME = 'POL_RLS_PROP_PODERES_REP';
-    IF v_count = 0 THEN
-        DBMS_RLS.ADD_POLICY(
-            object_schema   => USER,
-            object_name     => 'PODERES_REPRESENTACION',
-            policy_name     => 'POL_RLS_PROP_PODERES_REP',
-            function_schema => USER,
-            policy_function => 'PKG_SAED_SECURITY_RLS.FN_FILTRO_PROPIEDAD',
-            statement_types => 'SELECT,INSERT,UPDATE,DELETE',
-            update_check    => TRUE,
-            enable          => TRUE
-        );
+    SELECT STATUS INTO v_status 
+    FROM USER_OBJECTS 
+    WHERE OBJECT_NAME = 'PKG_SAED_SECURITY_RLS' AND OBJECT_TYPE = 'PACKAGE BODY';
+    
+    IF v_status != 'VALID' THEN
+        RAISE_APPLICATION_ERROR(-20099, 'Error crítico: PKG_SAED_SECURITY_RLS no compiló con estado VALID.');
     END IF;
 END;
 /
