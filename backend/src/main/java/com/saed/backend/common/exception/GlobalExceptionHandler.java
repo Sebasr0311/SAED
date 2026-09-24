@@ -113,6 +113,20 @@ public class GlobalExceptionHandler {
                     "SELECT OBJECT_NAME, OBJECT_TYPE, STATUS FROM USER_OBJECTS WHERE OBJECT_NAME IN ('PKG_SAED_SECURITY_RLS', 'PKG_SAED_SESSION')"
                 );
                 response.put("objectStatus", objects);
+                var policies = jdbcTemplate.getJdbcOperations().queryForList(
+                    "SELECT OBJECT_NAME, POLICY_NAME, PF_OWNER, PACKAGE, FUNCTION FROM USER_POLICIES WHERE OBJECT_NAME IN ('CUOTAS', 'PERSONAS', 'SANCIONES')"
+                );
+                response.put("userPolicies", policies);
+                var currentUser = jdbcTemplate.getJdbcOperations().queryForObject("SELECT USER FROM DUAL", String.class);
+                response.put("dbUser", currentUser);
+                try {
+                    String testPred = jdbcTemplate.getJdbcOperations().queryForObject(
+                        "SELECT PKG_SAED_SECURITY_RLS.FN_FILTRO_UNIDAD(USER, 'CUOTAS') FROM DUAL", String.class
+                    );
+                    response.put("testPredUnidad", testPred);
+                } catch (Exception exTest) {
+                    response.put("testPredUnidadError", exTest.getMessage());
+                }
                 try {
                     jdbcTemplate.getJdbcOperations().execute("ALTER PACKAGE PKG_SAED_SECURITY_RLS COMPILE BODY");
                     response.put("recompileRls", "SUCCESS");
