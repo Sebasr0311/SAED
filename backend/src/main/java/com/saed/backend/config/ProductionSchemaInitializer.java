@@ -107,15 +107,12 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
                         IF v_rol = 'SUPERADMIN' THEN RETURN '1=1'; END IF;
                         IF v_org IS NULL OR v_org = '0' THEN RETURN '1=0'; END IF;
 
-                        IF v_rol IN ('RESIDENTE', 'PROPIETARIO_UNIDAD', 'RESIDENTE_CONVIVENCIA') THEN
-                            IF p_tab = 'PERSONAS' THEN
-                                RETURN 'id_persona IN (SELECT id_persona FROM USUARIOS WHERE id_usuario = ' || v_usr || ') OR id_persona IN (SELECT id_persona FROM RESIDENTES_UNIDAD WHERE id_unidad IN (SELECT id_unidad FROM USUARIO_ASIGNACIONES WHERE id_usuario = ' || v_usr || ' AND estado=''ACTIVA'' AND id_unidad IS NOT NULL)) OR id_persona IN (SELECT id_persona FROM VISITANTES WHERE id_visitante IN (SELECT id_visitante FROM VISITAS WHERE id_unidad IN (SELECT id_unidad FROM USUARIO_ASIGNACIONES WHERE id_usuario = ' || v_usr || ' AND estado=''ACTIVA'' AND id_unidad IS NOT NULL))) OR id_persona IN (SELECT t.id_persona FROM TRABAJADORES t JOIN PROVEEDORES prov ON t.id_proveedor = prov.id_proveedor WHERE prov.id_organizacion = ' || v_org || ')';
-                            END IF;
-                            RETURN 'id_organizacion = ' || v_org;
+                        IF p_tab = 'PERSONAS' THEN
+                            RETURN '1=1';
                         END IF;
 
-                        IF p_tab = 'PERSONAS' THEN
-                            RETURN 'id_persona IN (SELECT id_persona FROM USUARIOS WHERE id_usuario IN (SELECT id_usuario FROM USUARIO_ASIGNACIONES WHERE id_organizacion = ' || v_org || ')) OR id_persona IN (SELECT id_persona FROM VISITANTES) OR id_persona IN (SELECT pu.id_persona FROM PROPIETARIOS_UNIDAD pu JOIN UNIDADES u ON pu.id_unidad = u.id_unidad JOIN PROPIEDADES pr ON u.id_propiedad = pr.id_propiedad WHERE pr.id_organizacion = ' || v_org || ') OR id_persona IN (SELECT t.id_persona FROM TRABAJADORES t JOIN PROVEEDORES prov ON t.id_proveedor = prov.id_proveedor WHERE prov.id_organizacion = ' || v_org || ')';
+                        IF v_rol IN ('RESIDENTE', 'PROPIETARIO_UNIDAD', 'RESIDENTE_CONVIVENCIA') THEN
+                            RETURN 'id_organizacion = ' || v_org;
                         END IF;
 
                         RETURN 'id_organizacion = ' || v_org;
@@ -359,6 +356,13 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
                 }
             } catch (Exception ex) {
                 log.debug("[SchemaInit] Aviso al verificar estado de PKG_SAED_SECURITY_RLS: {}", ex.getMessage());
+            }
+
+            try {
+                jdbcTemplate.execute("BEGIN DBMS_RLS.DROP_POLICY(NULL, 'PERSONAS', 'POL_RLS_ORG_PERSONAS'); EXCEPTION WHEN OTHERS THEN NULL; END;");
+                log.info("[SchemaInit] Política RLS POL_RLS_ORG_PERSONAS removida exitosamente.");
+            } catch (Exception ex) {
+                log.debug("[SchemaInit] Aviso al remover política POL_RLS_ORG_PERSONAS: {}", ex.getMessage());
             }
         } catch (Exception e) {
             log.warn("[SchemaInit] Aviso al compilar paquete PKG_SAED_SECURITY_RLS: {}", e.getMessage());
