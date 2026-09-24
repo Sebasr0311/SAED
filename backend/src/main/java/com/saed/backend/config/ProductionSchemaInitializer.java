@@ -82,15 +82,23 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
             try {
                 jdbcTemplate.execute("""
                     BEGIN
-                        BEGIN DBMS_RLS.DROP_POLICY(NULL, 'PERSONAS', 'POL_RLS_ORG_PERSONAS'); EXCEPTION WHEN OTHERS THEN NULL; END;
-                        BEGIN DBMS_RLS.DROP_GROUPED_POLICY(NULL, 'PERSONAS', 'SYS_DEFAULT', 'POL_RLS_ORG_PERSONAS'); EXCEPTION WHEN OTHERS THEN NULL; END;
+                        FOR r IN (SELECT object_name, policy_name, policy_group FROM user_policies WHERE object_name = 'PERSONAS') LOOP
+                            BEGIN
+                                DBMS_RLS.DROP_GROUPED_POLICY(USER, r.object_name, r.policy_group, r.policy_name);
+                            EXCEPTION WHEN OTHERS THEN
+                                BEGIN
+                                    DBMS_RLS.DROP_POLICY(USER, r.object_name, r.policy_name);
+                                EXCEPTION WHEN OTHERS THEN NULL;
+                                END;
+                            END;
+                        END LOOP;
                     END;
                 """);
             } catch (Exception ignored) {}
 
             try {
                 Integer upToDate = jdbcTemplate.queryForObject(
-                    "SELECT COUNT(1) FROM USER_SOURCE WHERE NAME = 'PKG_SAED_SECURITY_RLS' AND TYPE = 'PACKAGE BODY' AND TEXT LIKE '%2026.09.24.V4_EXPLICIT_COMPILE%'",
+                    "SELECT COUNT(1) FROM USER_SOURCE WHERE NAME = 'PKG_SAED_SECURITY_RLS' AND TYPE = 'PACKAGE BODY' AND TEXT LIKE '%2026.09.24.V5_PERSONA_FIX%'",
                     Integer.class
                 );
                 String rlsStatus = jdbcTemplate.queryForObject(
@@ -98,7 +106,7 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
                     String.class
                 );
                 if (upToDate != null && upToDate > 0 && "VALID".equalsIgnoreCase(rlsStatus)) {
-                    log.info("[SchemaInit] PKG_SAED_SECURITY_RLS ya se encuentra actualizado (versión 2026.09.24.V4) y en estado VALID. Se omite recompilación DDL.");
+                    log.info("[SchemaInit] PKG_SAED_SECURITY_RLS ya se encuentra actualizado (versión 2026.09.24.V5) y en estado VALID. Se omite recompilación DDL.");
                     return;
                 }
             } catch (Exception ignored) {}
@@ -111,6 +119,7 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
                     FUNCTION FN_FILTRO_UNIDAD       (p_schema IN VARCHAR2, p_tab IN VARCHAR2) RETURN VARCHAR2;
                     FUNCTION FN_FILTRO_USUARIOS     (p_schema IN VARCHAR2, p_tab IN VARCHAR2) RETURN VARCHAR2;
                     FUNCTION FN_FILTRO_ASIGNACION   (p_schema IN VARCHAR2, p_tab IN VARCHAR2) RETURN VARCHAR2;
+                    FUNCTION FN_FILTRO_PERSONAS     (p_schema IN VARCHAR2, p_tab IN VARCHAR2) RETURN VARCHAR2;
                     FUNCTION FN_FILTRO_GLOBAL_READONLY (p_schema IN VARCHAR2, p_tab IN VARCHAR2) RETURN VARCHAR2;
                     FUNCTION FN_FILTRO_GLOBAL_MUTATE   (p_schema IN VARCHAR2, p_tab IN VARCHAR2) RETURN VARCHAR2;
                 END PKG_SAED_SECURITY_RLS;
@@ -118,7 +127,7 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
 
             jdbcTemplate.execute("""
                 CREATE OR REPLACE PACKAGE BODY PKG_SAED_SECURITY_RLS AS
-                    -- RLS_BUILD_VERSION: 2026.09.24.V4_EXPLICIT_COMPILE
+                    -- RLS_BUILD_VERSION: 2026.09.24.V5_PERSONA_FIX
 
                     FUNCTION FN_FILTRO_ORGANIZACION (p_schema IN VARCHAR2, p_tab IN VARCHAR2) RETURN VARCHAR2 AS
                         v_org VARCHAR2(30) := SYS_CONTEXT('SAED_CTX', 'ID_ORGANIZACION');
@@ -374,6 +383,14 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
                             RETURN '1=0';
                     END FN_FILTRO_ASIGNACION;
 
+                    FUNCTION FN_FILTRO_PERSONAS (p_schema IN VARCHAR2, p_tab IN VARCHAR2) RETURN VARCHAR2 AS
+                    BEGIN
+                        RETURN '1=1';
+                    EXCEPTION
+                        WHEN OTHERS THEN
+                            RETURN '1=1';
+                    END FN_FILTRO_PERSONAS;
+
                     FUNCTION FN_FILTRO_GLOBAL_READONLY (p_schema IN VARCHAR2, p_tab IN VARCHAR2) RETURN VARCHAR2 AS
                     BEGIN
                         RETURN '1=1';
@@ -482,11 +499,19 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
             try {
                 jdbcTemplate.execute("""
                     BEGIN
-                        BEGIN DBMS_RLS.DROP_POLICY(NULL, 'PERSONAS', 'POL_RLS_ORG_PERSONAS'); EXCEPTION WHEN OTHERS THEN NULL; END;
-                        BEGIN DBMS_RLS.DROP_GROUPED_POLICY(NULL, 'PERSONAS', 'SYS_DEFAULT', 'POL_RLS_ORG_PERSONAS'); EXCEPTION WHEN OTHERS THEN NULL; END;
+                        FOR r IN (SELECT object_name, policy_name, policy_group FROM user_policies WHERE object_name = 'PERSONAS') LOOP
+                            BEGIN
+                                DBMS_RLS.DROP_GROUPED_POLICY(USER, r.object_name, r.policy_group, r.policy_name);
+                            EXCEPTION WHEN OTHERS THEN
+                                BEGIN
+                                    DBMS_RLS.DROP_POLICY(USER, r.object_name, r.policy_name);
+                                EXCEPTION WHEN OTHERS THEN NULL;
+                                END;
+                            END;
+                        END LOOP;
                     END;
                 """);
-                log.info("[SchemaInit] Política RLS en PERSONAS eliminada exitosamente.");
+                log.info("[SchemaInit] Políticas RLS en PERSONAS eliminadas exitosamente mediante cursor dinámico.");
             } catch (Exception ignored) {}
 
             // Unidades & Financials
