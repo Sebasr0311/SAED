@@ -4,6 +4,8 @@ import com.saed.backend.common.dto.ApiResponse;
 import com.saed.backend.context.SaedContext;
 import com.saed.backend.context.SaedContextHolder;
 import com.saed.backend.org.dto.OrgDashboardDTO;
+import com.saed.backend.dashboard.dto.OrgAnalyticsDTO;
+import com.saed.backend.dashboard.service.AnalyticsService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -11,6 +13,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.HashMap;
@@ -24,9 +27,11 @@ import java.util.Map;
 public class OrgDashboardController {
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
+    private final AnalyticsService analyticsService;
 
-    public OrgDashboardController(NamedParameterJdbcTemplate jdbcTemplate) {
+    public OrgDashboardController(NamedParameterJdbcTemplate jdbcTemplate, AnalyticsService analyticsService) {
         this.jdbcTemplate = jdbcTemplate;
+        this.analyticsService = analyticsService;
     }
 
     @GetMapping
@@ -212,25 +217,15 @@ public class OrgDashboardController {
     }
 
     @GetMapping("/analytics")
-    public ApiResponse<Map<String, Object>> getAnalytics() {
+    public ApiResponse<OrgAnalyticsDTO> getAnalytics(
+            @RequestParam(required = false) Integer meses,
+            @RequestParam(required = false) Integer anio) {
         SaedContext ctx = SaedContextHolder.getContext();
-        Long orgId = ctx.getOrganizationId();
+        Long orgId = ctx != null ? ctx.getOrganizationId() : null;
         if (orgId == null) {
             throw new AccessDeniedException("No se encontró contexto de organización activo");
         }
-
-        MapSqlParameterSource params = new MapSqlParameterSource("orgId", orgId);
-        String sql = """
-            SELECT p.id_propiedad, p.nombre, p.ciudad, p.estado,
-                   (SELECT COUNT(*) FROM UNIDADES u WHERE u.id_propiedad = p.id_propiedad) AS unidades,
-                   (SELECT COUNT(DISTINCT ua.id_usuario) FROM USUARIO_ASIGNACIONES ua WHERE ua.id_propiedad = p.id_propiedad AND ua.estado = 'ACTIVA') AS admins,
-                   NVL((SELECT SUM(pg.monto_total) FROM PAGOS pg JOIN UNIDADES u1 ON pg.id_unidad = u1.id_unidad WHERE u1.id_propiedad = p.id_propiedad AND pg.estado = 'APROBADO'), 0) AS recaudo,
-                   NVL((SELECT SUM(c.saldo_pendiente) FROM CUOTAS c JOIN UNIDADES u2 ON c.id_unidad = u2.id_unidad WHERE u2.id_propiedad = p.id_propiedad AND c.estado IN ('PENDIENTE', 'VENCIDA', 'EN_MORA')), 0) AS cartera
-            FROM PROPIEDADES p
-            WHERE p.id_organizacion = :orgId
-            ORDER BY unidades DESC
-        """;
-        List<Map<String, Object>> breakdown = jdbcTemplate.queryForList(sql, params);
-        return ApiResponse.success(Map.of("propiedades", breakdown));
+        OrgAnalyticsDTO dto = analyticsService.getOrgAnalytics(orgId, meses, anio);
+        return ApiResponse.success(dto);
     }
 }

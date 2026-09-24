@@ -1,6 +1,8 @@
 package com.saed.backend.platform.controller;
 
 import com.saed.backend.common.dto.ApiResponse;
+import com.saed.backend.dashboard.service.AnalyticsService;
+import com.saed.backend.platform.dto.PlatformAnalyticsDTO;
 import com.saed.backend.platform.dto.PlatformDashboardDTO;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -8,6 +10,7 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.HashMap;
@@ -21,9 +24,11 @@ import java.util.Map;
 public class PlatformDashboardController {
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
+    private final AnalyticsService analyticsService;
 
-    public PlatformDashboardController(NamedParameterJdbcTemplate jdbcTemplate) {
+    public PlatformDashboardController(NamedParameterJdbcTemplate jdbcTemplate, AnalyticsService analyticsService) {
         this.jdbcTemplate = jdbcTemplate;
+        this.analyticsService = analyticsService;
     }
 
     @GetMapping
@@ -102,5 +107,11 @@ public class PlatformDashboardController {
         plataforma.put("seguridad", "Oracle VPD / RLS Activo");
 
         return ApiResponse.success(new PlatformDashboardDTO(orgStats, propStats, userStats, planesMembresias, plataforma));
+    }
+
+    @GetMapping("/analytics")
+    public ApiResponse<PlatformAnalyticsDTO> getAnalytics(@RequestParam(required = false) Integer meses) {
+        PlatformAnalyticsDTO dto = analyticsService.getPlatformAnalytics(meses);
+        return ApiResponse.success(dto);
     }
 }
