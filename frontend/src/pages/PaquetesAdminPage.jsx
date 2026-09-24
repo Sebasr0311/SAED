@@ -219,19 +219,21 @@ export default function PaquetesAdminPage() {
         </div>
       </div>
 
-      {/* 5. Vista Desktop: Tabla Analítica */}
-      <div className="hidden md:block bg-card rounded-xl border border-border/80 shadow-sm overflow-hidden">
-        <table className="w-full text-left text-sm">
+      {/* 5. Vista Desktop: Tabla Analítica Responsiva */}
+      <div className="hidden md:block bg-card rounded-xl border border-border/80 shadow-sm overflow-x-auto">
+        <table className="w-full text-left text-sm min-w-[920px]">
           <thead className="bg-muted/40 border-b border-border/80 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             <tr>
-              <th className="px-4 py-3">Unidad</th>
-              <th className="px-4 py-3">Destinatario</th>
-              <th className="px-4 py-3">Empresa & Guía</th>
-              <th className="px-4 py-3">Descripción</th>
-              <th className="px-4 py-3">Recepción</th>
-              <th className="px-4 py-3">Foto</th>
-              <th className="px-4 py-3">Estado</th>
-              <th className="px-4 py-3 text-right">Acción</th>
+              <th className="px-4 py-3.5 w-28 whitespace-nowrap">Unidad</th>
+              <th className="px-4 py-3.5 min-w-[150px]">Destinatario</th>
+              <th className="px-4 py-3.5 min-w-[140px]">Empresa & Guía</th>
+              <th className="px-4 py-3.5 min-w-[180px] max-w-xs">Descripción</th>
+              <th className="px-4 py-3.5 w-28 whitespace-nowrap">Recepción</th>
+              <th className="px-4 py-3.5 w-20 text-center">Foto</th>
+              <th className="px-4 py-3.5 w-32 text-center whitespace-nowrap">Estado</th>
+              <th className="px-4 py-3.5 w-28 text-right whitespace-nowrap sticky right-0 bg-muted/95 backdrop-blur-xs">
+                Acción
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border/60">
@@ -253,12 +255,12 @@ export default function PaquetesAdminPage() {
                   <tr
                     key={id}
                     onClick={() => setDetalle(p)}
-                    className="hover:bg-muted/30 transition-colors cursor-pointer"
+                    className="hover:bg-muted/30 transition-colors cursor-pointer group"
                   >
                     <td className="px-4 py-3 font-semibold text-foreground whitespace-nowrap">
                       Apto {p.numeroApartamento || 'N/A'}
                     </td>
-                    <td className="px-4 py-3 text-foreground whitespace-nowrap">
+                    <td className="px-4 py-3 text-foreground whitespace-nowrap font-medium">
                       {p.nombreResidente || p.nombreDestinatario || 'Residente'}
                     </td>
                     <td className="px-4 py-3 text-foreground whitespace-nowrap">
@@ -279,21 +281,21 @@ export default function PaquetesAdminPage() {
                         </span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
+                    <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap font-mono">
                       {formatDate(p.fechaRecepcion || p.fechaCreacion)}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 text-center">
                       {p.fotoPaqueteUrl || p.fotoCaptura ? (
                         <img
                           src={imageSrc(p.fotoPaqueteUrl || p.fotoCaptura)}
                           alt="Foto del paquete"
-                          className="w-10 h-10 object-cover rounded-lg border border-border"
+                          className="w-10 h-10 object-cover rounded-lg border border-border inline-block"
                         />
                       ) : (
                         <span className="text-xs text-muted-foreground italic">Sin foto</span>
                       )}
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
+                    <td className="px-4 py-3 text-center whitespace-nowrap">
                       <span
                         className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
                           isEntregado
@@ -304,13 +306,14 @@ export default function PaquetesAdminPage() {
                         {isEntregado ? 'Entregado' : 'En Custodia'}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-right whitespace-nowrap">
+                    <td className="px-4 py-3 text-right whitespace-nowrap sticky right-0 bg-card group-hover:bg-muted/50 transition-colors shadow-[-6px_0_12px_-4px_rgba(0,0,0,0.06)]">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           setDetalle(p);
                         }}
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-border bg-card hover:bg-muted text-foreground transition-colors min-h-[36px]"
+                        title="Auditar paquete"
                       >
                         <Eye className="w-3.5 h-3.5" />
                         Auditar

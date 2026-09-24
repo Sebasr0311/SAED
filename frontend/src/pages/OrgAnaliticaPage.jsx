@@ -1,9 +1,23 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+} from 'recharts';
 import api from '../lib/api.js';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card.tsx';
 import { Badge } from '../components/ui/badge.tsx';
 import { Skeleton } from '../components/ui/skeleton.tsx';
 import { Button } from '../components/ui/Button.jsx';
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  ChartLegend,
+  ChartLegendContent,
+} from '../components/ui/chart.tsx';
 import {
   TrendingUp,
   Building,
@@ -15,10 +29,23 @@ import {
   Award,
   Calendar,
   Percent,
+  Table as TableIcon,
 } from 'lucide-react';
+
+const orgFinChartConfig = {
+  facturado: {
+    label: 'Facturado',
+    color: '#2563eb', // primary blue
+  },
+  recaudado: {
+    label: 'Recaudado',
+    color: '#10b981', // emerald
+  },
+};
 
 export default function OrgAnaliticaPage() {
   const [meses, setMeses] = useState(12);
+  const [showTable, setShowTable] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [analytics, setAnalytics] = useState(null);
@@ -90,11 +117,40 @@ export default function OrgAnaliticaPage() {
   const benchmark = analytics?.benchmarkPropiedades || [];
   const tendencia = analytics?.tendenciaMensual || [];
 
-  // Calcular valor máximo para escalar barras de tendencia
-  const maxMontoTrend = Math.max(
-    ...tendencia.flatMap((t) => [Number(t.facturado) || 0, Number(t.recaudado) || 0]),
-    1
-  );
+  const formatCompactCOP = (val) => {
+    const num = Number(val) || 0;
+    if (Math.abs(num) >= 1000000) {
+      return `$${(num / 1000000).toFixed(1)}M`;
+    }
+    if (Math.abs(num) >= 1000) {
+      return `$${(num / 1000).toFixed(0)}k`;
+    }
+    return `$${num}`;
+  };
+
+  const chartDataTendencia = useMemo(() => {
+    return (analytics?.tendenciaMensual || []).map((t) => ({
+      periodo: t.periodo,
+      facturado: Number(t.facturado) || 0,
+      recaudado: Number(t.recaudado) || 0,
+    }));
+  }, [analytics]);
+
+  const tendenciaTotals = useMemo(() => {
+    return (analytics?.tendenciaMensual || []).reduce(
+      (acc, curr) => {
+        acc.facturado += Number(curr.facturado) || 0;
+        acc.recaudado += Number(curr.recaudado) || 0;
+        return acc;
+      },
+      { facturado: 0, recaudado: 0 }
+    );
+  }, [analytics]);
+
+  const tasaRecaudoTendencia = useMemo(() => {
+    if (tendenciaTotals.facturado <= 0) return 0;
+    return Math.min(100, Math.round((tendenciaTotals.recaudado / tendenciaTotals.facturado) * 100));
+  }, [tendenciaTotals]);
 
   return (
     <div className="p-6 space-y-6 animate-fadeIn">
@@ -257,71 +313,118 @@ export default function OrgAnaliticaPage() {
         </Card>
       </div>
 
-      {/* Tendencia Mensual: Facturado vs Recaudado */}
+      {/* Tendencia Mensual: Facturado vs Recaudado con shadcn UI Chart */}
       <Card className="border-border/80 shadow-xs">
         <CardHeader className="pb-3 border-b border-border/60">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-sm font-bold flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-primary" />
-              Tendencia Mensual Consolidada (Facturado vs Recaudado)
-            </CardTitle>
-            <div className="flex items-center gap-4 text-xs">
-              <div className="flex items-center gap-1.5">
-                <span className="h-3 w-3 rounded-xs bg-primary inline-block" />
-                <span className="text-muted-foreground">Facturado</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="h-3 w-3 rounded-xs bg-emerald-500 inline-block" />
-                <span className="text-muted-foreground">Recaudado</span>
-              </div>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <CardTitle className="text-sm font-bold flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-primary" />
+                Tendencia Mensual Consolidada (Facturado vs Recaudado)
+              </CardTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Evolución agregada de emisión y recaudo efectivo en las copropiedades
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowTable(!showTable)}
+                className="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground"
+              >
+                <TableIcon className="h-3.5 w-3.5 mr-1" />
+                {showTable ? 'Gráfica' : 'Tabla'}
+              </Button>
             </div>
           </div>
         </CardHeader>
         <CardContent className="pt-5 space-y-4">
+          {/* Summary Strip */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="p-3 rounded-lg border border-border/60 bg-muted/20 space-y-1">
+              <p className="text-[11px] text-muted-foreground font-medium">Facturado Acumulado</p>
+              <p className="text-sm sm:text-base font-bold font-mono text-primary">
+                {formatCompactCOP(tendenciaTotals.facturado)}
+              </p>
+            </div>
+            <div className="p-3 rounded-lg border border-border/60 bg-muted/20 space-y-1">
+              <p className="text-[11px] text-muted-foreground font-medium">Recaudo Efectivo</p>
+              <p className="text-sm sm:text-base font-bold font-mono text-emerald-600 dark:text-emerald-400">
+                {formatCompactCOP(tendenciaTotals.recaudado)}
+              </p>
+            </div>
+            <div className="p-3 rounded-lg border border-border/60 bg-muted/20 space-y-1">
+              <p className="text-[11px] text-muted-foreground font-medium">Efectividad Global</p>
+              <div className="flex items-center gap-2">
+                <p className="text-sm sm:text-base font-bold font-mono text-foreground">
+                  {tasaRecaudoTendencia}%
+                </p>
+                <Badge
+                  variant="outline"
+                  className={`text-[9px] px-1 py-0 font-bold ${
+                    tasaRecaudoTendencia >= 80
+                      ? 'text-emerald-600 border-emerald-500/30 bg-emerald-500/10'
+                      : 'text-amber-600 border-amber-500/30 bg-amber-500/10'
+                  }`}
+                >
+                  {tasaRecaudoTendencia >= 80 ? 'Óptimo' : 'Atención'}
+                </Badge>
+              </div>
+            </div>
+          </div>
+
           {tendencia.length === 0 ? (
             <p className="text-xs text-muted-foreground text-center py-8">
               No hay registros para la ventana seleccionada.
             </p>
+          ) : showTable ? (
+            <div className="overflow-x-auto border border-border/60 rounded-lg">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-muted/40 text-muted-foreground font-semibold border-b border-border/60">
+                  <tr>
+                    <th className="py-2.5 px-3">Periodo</th>
+                    <th className="py-2.5 px-3 text-right">Facturado</th>
+                    <th className="py-2.5 px-3 text-right">Recaudado</th>
+                    <th className="py-2.5 px-3 text-right">Efectividad</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/50">
+                  {tendencia.map((row) => {
+                    const f = Number(row.facturado) || 0;
+                    const r = Number(row.recaudado) || 0;
+                    const pct = f > 0 ? Math.round((r / f) * 100) : 0;
+                    return (
+                      <tr key={row.periodo} className="hover:bg-muted/20 transition-colors">
+                        <td className="py-2 px-3 font-mono font-medium text-foreground">{row.periodo}</td>
+                        <td className="py-2 px-3 text-right font-mono text-primary">{formatCOP(f)}</td>
+                        <td className="py-2 px-3 text-right font-mono text-emerald-600 dark:text-emerald-400">{formatCOP(r)}</td>
+                        <td className="py-2 px-3 text-right font-mono font-bold">{pct}%</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           ) : (
-            <div className="space-y-3">
-              {tendencia.map((m) => {
-                const factVal = Number(m.facturado) || 0;
-                const recVal = Number(m.recaudado) || 0;
-                const pctFact = Math.max(Math.round((factVal / maxMontoTrend) * 100), factVal > 0 ? 3 : 0);
-                const pctRec = Math.max(Math.round((recVal / maxMontoTrend) * 100), recVal > 0 ? 3 : 0);
-
-                return (
-                  <div key={m.periodo} className="p-2.5 rounded-lg border border-border/50 bg-card/40 space-y-1.5">
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="font-mono font-semibold text-foreground">{m.periodo}</span>
-                      <div className="flex items-center gap-3 font-mono text-[11px]">
-                        <span className="text-primary font-medium">Fact: {formatCOP(factVal)}</span>
-                        <span className="text-muted-foreground/40">|</span>
-                        <span className="text-emerald-600 dark:text-emerald-400 font-medium">
-                          Rec: {formatCOP(recVal)}
-                        </span>
-                      </div>
-                    </div>
-                    {/* Barras comparativas */}
-                    <div className="space-y-1">
-                      <div className="w-full bg-muted/60 rounded-full h-2 overflow-hidden">
-                        <div
-                          className="bg-primary h-2 rounded-full transition-all duration-500"
-                          style={{ width: `${pctFact}%` }}
-                          title={`Facturado: ${formatCOP(factVal)}`}
-                        />
-                      </div>
-                      <div className="w-full bg-muted/60 rounded-full h-2 overflow-hidden">
-                        <div
-                          className="bg-emerald-500 h-2 rounded-full transition-all duration-500"
-                          style={{ width: `${pctRec}%` }}
-                          title={`Recaudado: ${formatCOP(recVal)}`}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+            <div className="pt-2">
+              <ChartContainer config={orgFinChartConfig} className="h-[280px] w-full">
+                <BarChart data={chartDataTendencia} margin={{ top: 15, right: 10, left: 10, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-border/50" />
+                  <XAxis dataKey="periodo" stroke="currentColor" className="text-[11px] text-muted-foreground" tickLine={false} axisLine={false} />
+                  <YAxis stroke="currentColor" className="text-[11px] text-muted-foreground" tickLine={false} axisLine={false} tickFormatter={formatCompactCOP} />
+                  <ChartTooltip
+                    content={
+                      <ChartTooltipContent
+                        formatter={(value, name) => [formatCOP(value), orgFinChartConfig[name]?.label || name]}
+                      />
+                    }
+                  />
+                  <ChartLegend content={<ChartLegendContent />} />
+                  <Bar dataKey="facturado" fill="var(--color-facturado)" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="recaudado" fill="var(--color-recaudado)" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ChartContainer>
             </div>
           )}
         </CardContent>

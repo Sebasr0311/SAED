@@ -1,13 +1,53 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+} from 'recharts';
 import api from '../lib/api.js';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card.tsx';
 import { Badge } from '../components/ui/badge.tsx';
 import { Skeleton } from '../components/ui/skeleton.tsx';
+import { Button } from '../components/ui/button.tsx';
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from '../components/ui/chart.tsx';
+
+const rolesChartConfig = {
+  cantidad: {
+    label: 'Usuarios',
+    color: '#2563eb',
+  },
+};
+
+const formatRoleLabel = (role) => {
+  if (!role) return 'Sin Rol';
+  const clean = role.replace(/^ROLE_/, '');
+  switch (clean) {
+    case 'SUPERADMIN':
+      return 'SuperAdmin';
+    case 'ADMIN_ORGANIZACION':
+      return 'Admin Org';
+    case 'ADMIN_PROPIEDAD':
+      return 'Admin Prop';
+    case 'PORTERO':
+      return 'Portería';
+    case 'RESIDENTE':
+      return 'Residente';
+    default:
+      return clean.replace(/_/g, ' ');
+  }
+};
 
 export default function SuperAdminDashboardPage() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showRolesList, setShowRolesList] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -49,6 +89,15 @@ export default function SuperAdminDashboardPage() {
   const users = data?.usuarios || { total: 0, activos: 0, desgloseRoles: [] };
   const plans = data?.planesMembresias || { planesDisponibles: 3, membresiasActivas: 0, ingresosMensualesEstimados: 0 };
   const plat = data?.plataforma || { estado: 'OPTIMO', version: 'SAED 2.0.0-PROD', motorBD: 'Oracle Cloud ATP 23ai' };
+
+  const rolesChartData = useMemo(() => {
+    if (!users.desgloseRoles || !Array.isArray(users.desgloseRoles)) return [];
+    return users.desgloseRoles.map((r) => ({
+      rol: formatRoleLabel(r.ROL),
+      rolRaw: r.ROL,
+      cantidad: Number(r.CANTIDAD) || 0,
+    })).sort((a, b) => b.cantidad - a.cantidad);
+  }, [users.desgloseRoles]);
 
   return (
     <div className="p-6 space-y-8 animate-fadeIn">
@@ -147,28 +196,91 @@ export default function SuperAdminDashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Desglose de Usuarios por Rol */}
         <Card className="border-border/80">
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between pb-3">
             <CardTitle className="text-base font-semibold flex items-center gap-2">
               <span className="material-symbols-outlined text-primary">badge</span>
               Distribución de Usuarios por Rol
             </CardTitle>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="text-xs font-semibold bg-primary/10 text-primary border-primary/20">
+                {users.total || 0} Registrados
+              </Badge>
+              {rolesChartData.length > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowRolesList(!showRolesList)}
+                  className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  {showRolesList ? 'Ver Gráfica' : 'Ver Lista'}
+                </Button>
+              )}
+            </div>
           </CardHeader>
-          <CardContent className="space-y-4">
-            {users.desgloseRoles && users.desgloseRoles.length > 0 ? (
-              users.desgloseRoles.map((r, i) => (
-                <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-muted/40 hover:bg-muted/70 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <span className="w-2.5 h-2.5 rounded-full bg-primary"></span>
-                    <span className="font-medium text-sm text-foreground">{r.ROL || 'SIN ROL'}</span>
-                  </div>
-                  <Badge variant="secondary" className="font-bold">
-                    {r.CANTIDAD} usuarios
-                  </Badge>
-                </div>
-              ))
-            ) : (
-              <div className="text-center py-6 text-sm text-muted-foreground">
+          <CardContent>
+            {rolesChartData.length === 0 ? (
+              <div className="text-center py-8 text-sm text-muted-foreground">
                 No hay desglose disponible en este momento.
+              </div>
+            ) : showRolesList ? (
+              <div className="space-y-3">
+                {users.desgloseRoles.map((r, i) => (
+                  <div key={i} className="flex items-center justify-between p-2.5 rounded-lg bg-muted/40 hover:bg-muted/70 transition-colors">
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-2.5 h-2.5 rounded-full bg-primary"></span>
+                      <span className="font-medium text-xs text-foreground">{r.ROL || 'SIN ROL'}</span>
+                    </div>
+                    <Badge variant="secondary" className="font-bold text-xs">
+                      {r.CANTIDAD} usuarios
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <ChartContainer config={rolesChartConfig} className="h-[210px] w-full">
+                  <BarChart
+                    accessibilityLayer
+                    data={rolesChartData}
+                    layout="vertical"
+                    margin={{ left: 10, right: 20, top: 5, bottom: 5 }}
+                  >
+                    <CartesianGrid horizontal={false} strokeDasharray="3 3" className="stroke-muted/40" />
+                    <YAxis
+                      dataKey="rol"
+                      type="category"
+                      tickLine={false}
+                      axisLine={false}
+                      tick={{ fill: "currentColor", fontSize: 11 }}
+                      width={85}
+                    />
+                    <XAxis
+                      type="number"
+                      tickLine={false}
+                      axisLine={false}
+                      tick={{ fill: "currentColor", fontSize: 10 }}
+                      allowDecimals={false}
+                    />
+                    <ChartTooltip
+                      cursor={{ fill: 'rgba(0,0,0,0.04)' }}
+                      content={<ChartTooltipContent indicator="line" />}
+                    />
+                    <Bar
+                      dataKey="cantidad"
+                      fill="var(--color-cantidad, #2563eb)"
+                      radius={[0, 4, 4, 0]}
+                    />
+                  </BarChart>
+                </ChartContainer>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-2 border-t border-border/40">
+                  {rolesChartData.slice(0, 6).map((item, idx) => (
+                    <div key={idx} className="flex items-center justify-between px-2.5 py-1.5 rounded-md bg-muted/30 text-xs">
+                      <span className="text-muted-foreground truncate mr-2">{item.rol}:</span>
+                      <span className="font-semibold text-foreground">{item.cantidad}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </CardContent>
