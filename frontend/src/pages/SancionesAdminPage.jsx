@@ -3,8 +3,7 @@ import { PageHeader } from '../components/ui/PageHeader';
 import { DataTable } from '../components/ui/DataTable';
 import { Pagination } from '../components/ui/Pagination';
 import { Modal } from '../components/ui/Modal';
-import { Select } from '../components/ui/select';
-import { Input } from '../components/ui/input';
+import { Select, Input } from '../components/ui/Form.jsx';
 import { Button } from '../components/ui/Button';
 import { useFetch } from '../lib/hooks';
 import { api } from '../lib/api';
@@ -22,7 +21,7 @@ const ESTADO_BADGE = {
 export default function SancionesAdminPage() {
   const [page, setPage] = useState(0);
   const [filtroEstado, setFiltroEstado] = useState('');
-  const { data, loading, error, refetch } = useFetch(() => api.get('/sanciones/todas'));
+  const { data, loading, error, refetch } = useFetch(() => api.get('/sanciones/todas'), []);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState({
@@ -42,11 +41,12 @@ export default function SancionesAdminPage() {
     montoMulta: '',
   });
 
-  const items = Array.isArray(data) ? data : data?.items || [];
-  const filtered = filtroEstado ? items.filter(i => i.estado === filtroEstado) : items;
+  const items = Array.isArray(data) ? data : (Array.isArray(data?.items) ? data.items : []);
+  const safeItems = Array.isArray(items) ? items : [];
+  const filtered = filtroEstado ? safeItems.filter(i => i && i.estado === filtroEstado) : safeItems;
   
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE) || 1;
-  const safePage = Math.min(page, totalPages - 1);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(Math.max(0, page), totalPages - 1);
   const rows = filtered.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
 
   const columns = [
