@@ -13,5 +13,6 @@ public interface SancionService {
     SancionDTO crearPliego(SancionCreateRequestDTO request);
     void radicarDescargos(Long idSancion, DescargoRequestDTO request);
     void emitirResolucion(Long idSancion, ResolucionRequestDTO request);
+    void anularSancion(Long idSancion, String motivo);
     List<SancionDTO> getMisSanciones();
 }

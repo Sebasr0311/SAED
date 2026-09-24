@@ -11,7 +11,6 @@ public class VotoRequestDTO {
     @NotNull(message = "El id de la unidad es obligatorio")
     private Long idUnidad;
 
-    @NotNull(message = "El id de la persona votante es obligatorio")
     private Long idPersonaVotante;
 
     @NotBlank(message = "La opción de voto es obligatoria")

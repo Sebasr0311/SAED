@@ -43,6 +43,11 @@ public class PolizaSeguroRepository {
             dto.setTelefonoContactoAgente(rs.getString("TELEFONO_CONTACTO_AGENTE"));
             dto.setDocumentoCaratulaUrl(rs.getString("DOCUMENTO_CARATULA_URL"));
             dto.setEstado(rs.getString("ESTADO"));
+            dto.setDeducible(rs.getString("DEDUCIBLE"));
+            long idDoc = rs.getLong("ID_DOCUMENTO");
+            if (!rs.wasNull()) {
+                dto.setIdDocumento(idDoc);
+            }
             return dto;
         }
     };
@@ -56,10 +61,31 @@ public class PolizaSeguroRepository {
         jdbcTemplate.update(sql, idPropiedad);
     }
 
+    public void actualizarEstadosVencimientoGlobal() {
+        String sql = "UPDATE POLIZAS_SEGURO SET ESTADO = CASE " +
+                     "WHEN FECHA_FIN < TRUNC(SYSDATE) THEN 'VENCIDA' " +
+                     "WHEN FECHA_FIN - TRUNC(SYSDATE) <= DIAS_ALERTA_VENCIMIENTO THEN 'POR_VENCER' " +
+                     "ELSE 'VIGENTE' END " +
+                     "WHERE ESTADO != 'CANCELADA'";
+        jdbcTemplate.update(sql);
+    }
+
     public List<PolizaSeguroDTO> findAllByPropiedad(Long idPropiedad) {
         actualizarEstadosVencimiento(idPropiedad);
         String sql = "SELECT * FROM POLIZAS_SEGURO WHERE ID_PROPIEDAD = ? ORDER BY FECHA_FIN ASC";
         return jdbcTemplate.query(sql, rowMapper, idPropiedad);
+    }
+
+    public List<PolizaSeguroDTO> findVigentesByPropiedad(Long idPropiedad) {
+        actualizarEstadosVencimiento(idPropiedad);
+        String sql = "SELECT * FROM POLIZAS_SEGURO WHERE ID_PROPIEDAD = ? AND ESTADO IN ('VIGENTE', 'POR_VENCER') ORDER BY FECHA_FIN ASC";
+        return jdbcTemplate.query(sql, rowMapper, idPropiedad);
+    }
+
+    public List<PolizaSeguroDTO> findPolizasProximasAVencerGlobal() {
+        actualizarEstadosVencimientoGlobal();
+        String sql = "SELECT * FROM POLIZAS_SEGURO WHERE ESTADO IN ('POR_VENCER', 'VENCIDA') AND ESTADO != 'CANCELADA' ORDER BY FECHA_FIN ASC";
+        return jdbcTemplate.query(sql, rowMapper);
     }
 
     public ResumenPolizasDTO getResumenPolizas(Long idPropiedad) {
@@ -95,27 +121,37 @@ public class PolizaSeguroRepository {
     public void insert(PolizaSeguroDTO dto) {
         String sql = "INSERT INTO POLIZAS_SEGURO (ID_PROPIEDAD, COMPANIA_ASEGURADORA, NUMERO_POLIZA, RAMO_COBERTURA, " +
                      "VALOR_ASEGURADO, VALOR_PRIMA_ANUAL, FECHA_INICIO, FECHA_FIN, DIAS_ALERTA_VENCIMIENTO, " +
-                     "NOMBRE_CORREDOR_AGENTE, TELEFONO_CONTACTO_AGENTE, DOCUMENTO_CARATULA_URL, ESTADO) " +
-                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                     "NOMBRE_CORREDOR_AGENTE, TELEFONO_CONTACTO_AGENTE, DOCUMENTO_CARATULA_URL, ESTADO, " +
+                     "DEDUCIBLE, ID_DOCUMENTO) " +
+                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         jdbcTemplate.update(sql, dto.getIdPropiedad(), dto.getCompaniaAseguradora(), dto.getNumeroPoliza(),
                 dto.getRamoCobertura(), dto.getValorAsegurado(), dto.getValorPrimaAnual(),
                 dto.getFechaInicio(), dto.getFechaFin(), dto.getDiasAlertaVencimiento(),
-                dto.getNombreCorredorAgente(), dto.getTelefonoContactoAgente(), dto.getDocumentoCaratulaUrl(), dto.getEstado());
+                dto.getNombreCorredorAgente(), dto.getTelefonoContactoAgente(), dto.getDocumentoCaratulaUrl(), dto.getEstado(),
+                dto.getDeducible(), dto.getIdDocumento());
     }
 
     public void update(PolizaSeguroDTO dto) {
         String sql = "UPDATE POLIZAS_SEGURO SET COMPANIA_ASEGURADORA = ?, NUMERO_POLIZA = ?, RAMO_COBERTURA = ?, " +
                      "VALOR_ASEGURADO = ?, VALOR_PRIMA_ANUAL = ?, FECHA_INICIO = ?, FECHA_FIN = ?, " +
                      "DIAS_ALERTA_VENCIMIENTO = ?, NOMBRE_CORREDOR_AGENTE = ?, TELEFONO_CONTACTO_AGENTE = ?, " +
-                     "DOCUMENTO_CARATULA_URL = ?, ESTADO = ? WHERE ID_POLIZA = ? AND ID_PROPIEDAD = ?";
+                     "DOCUMENTO_CARATULA_URL = ?, ESTADO = ?, DEDUCIBLE = ?, ID_DOCUMENTO = ? " +
+                     "WHERE ID_POLIZA = ? AND ID_PROPIEDAD = ?";
         jdbcTemplate.update(sql, dto.getCompaniaAseguradora(), dto.getNumeroPoliza(), dto.getRamoCobertura(),
                 dto.getValorAsegurado(), dto.getValorPrimaAnual(), dto.getFechaInicio(), dto.getFechaFin(),
                 dto.getDiasAlertaVencimiento(), dto.getNombreCorredorAgente(), dto.getTelefonoContactoAgente(),
-                dto.getDocumentoCaratulaUrl(), dto.getEstado(), dto.getIdPoliza(), dto.getIdPropiedad());
+                dto.getDocumentoCaratulaUrl(), dto.getEstado(), dto.getDeducible(), dto.getIdDocumento(),
+                dto.getIdPoliza(), dto.getIdPropiedad());
     }
 
     public void delete(Long idPoliza, Long idPropiedad) {
         String sql = "DELETE FROM POLIZAS_SEGURO WHERE ID_POLIZA = ? AND ID_PROPIEDAD = ?";
         jdbcTemplate.update(sql, idPoliza, idPropiedad);
+    }
+
+    public boolean validarDocumentoPerteneceAPropiedad(Long idDocumento, Long idPropiedad) {
+        String sql = "SELECT COUNT(1) FROM DOCUMENTOS WHERE ID_DOCUMENTO = ? AND (ID_PROPIEDAD = ? OR ID_PROPIEDAD IS NULL)";
+        Integer count = jdbcTemplate.queryForObject(sql, Integer.class, idDocumento, idPropiedad);
+        return count != null && count > 0;
     }
 }

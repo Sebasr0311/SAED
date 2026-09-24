@@ -21,6 +21,8 @@ public class AsambleaDTO {
     private OffsetDateTime fechaCreacion;
     private Integer totalAsistentes;
     private Integer totalVotaciones;
+    private Long idOrganizacion;
+    private Long idDocumento;
 
     public AsambleaDTO() {}
 
@@ -30,6 +32,17 @@ public class AsambleaDTO {
                        BigDecimal quorumRequeridoPct, BigDecimal quorumAlcanzadoPct, String estado,
                        Long convocadaPor, OffsetDateTime fechaCreacion, Integer totalAsistentes,
                        Integer totalVotaciones) {
+        this(idAsamblea, idPropiedad, tipo, modalidad, titulo, convocatoriaNumero, fechaHoraPrimeraConv,
+             fechaHoraSegundaConv, lugarOEnlace, ordenDelDia, quorumRequeridoPct, quorumAlcanzadoPct,
+             estado, convocadaPor, fechaCreacion, totalAsistentes, totalVotaciones, null, null);
+    }
+
+    public AsambleaDTO(Long idAsamblea, Long idPropiedad, String tipo, String modalidad, String titulo,
+                       Integer convocatoriaNumero, OffsetDateTime fechaHoraPrimeraConv,
+                       OffsetDateTime fechaHoraSegundaConv, String lugarOEnlace, String ordenDelDia,
+                       BigDecimal quorumRequeridoPct, BigDecimal quorumAlcanzadoPct, String estado,
+                       Long convocadaPor, OffsetDateTime fechaCreacion, Integer totalAsistentes,
+                       Integer totalVotaciones, Long idOrganizacion, Long idDocumento) {
         this.idAsamblea = idAsamblea;
         this.idPropiedad = idPropiedad;
         this.tipo = tipo;
@@ -47,6 +60,8 @@ public class AsambleaDTO {
         this.fechaCreacion = fechaCreacion;
         this.totalAsistentes = totalAsistentes;
         this.totalVotaciones = totalVotaciones;
+        this.idOrganizacion = idOrganizacion;
+        this.idDocumento = idDocumento;
     }
 
     public static Builder builder() {
@@ -71,6 +86,8 @@ public class AsambleaDTO {
         private OffsetDateTime fechaCreacion;
         private Integer totalAsistentes;
         private Integer totalVotaciones;
+        private Long idOrganizacion;
+        private Long idDocumento;
 
         public Builder idAsamblea(Long idAsamblea) { this.idAsamblea = idAsamblea; return this; }
         public Builder idPropiedad(Long idPropiedad) { this.idPropiedad = idPropiedad; return this; }
@@ -89,12 +106,14 @@ public class AsambleaDTO {
         public Builder fechaCreacion(OffsetDateTime fechaCreacion) { this.fechaCreacion = fechaCreacion; return this; }
         public Builder totalAsistentes(Integer totalAsistentes) { this.totalAsistentes = totalAsistentes; return this; }
         public Builder totalVotaciones(Integer totalVotaciones) { this.totalVotaciones = totalVotaciones; return this; }
+        public Builder idOrganizacion(Long idOrganizacion) { this.idOrganizacion = idOrganizacion; return this; }
+        public Builder idDocumento(Long idDocumento) { this.idDocumento = idDocumento; return this; }
 
         public AsambleaDTO build() {
             return new AsambleaDTO(idAsamblea, idPropiedad, tipo, modalidad, titulo, convocatoriaNumero,
                     fechaHoraPrimeraConv, fechaHoraSegundaConv, lugarOEnlace, ordenDelDia,
                     quorumRequeridoPct, quorumAlcanzadoPct, estado, convocadaPor, fechaCreacion,
-                    totalAsistentes, totalVotaciones);
+                    totalAsistentes, totalVotaciones, idOrganizacion, idDocumento);
         }
     }
 
@@ -148,4 +167,10 @@ public class AsambleaDTO {
 
     public Integer getTotalVotaciones() { return totalVotaciones; }
     public void setTotalVotaciones(Integer totalVotaciones) { this.totalVotaciones = totalVotaciones; }
+
+    public Long getIdOrganizacion() { return idOrganizacion; }
+    public void setIdOrganizacion(Long idOrganizacion) { this.idOrganizacion = idOrganizacion; }
+
+    public Long getIdDocumento() { return idDocumento; }
+    public void setIdDocumento(Long idDocumento) { this.idDocumento = idDocumento; }
 }

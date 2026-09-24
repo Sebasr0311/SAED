@@ -12,6 +12,8 @@ public interface AsambleaService {
 
     AsambleaDTO convocarAsamblea(AsambleaCreateRequestDTO request);
 
+    AsambleaDTO actualizarAsamblea(Long idAsamblea, AsambleaUpdateRequestDTO request);
+
     AsambleaDTO actualizarEstado(Long idAsamblea, String nuevoEstado);
 
     QuorumLiveDTO obtenerQuorumEnVivo(Long idAsamblea);
@@ -33,6 +35,8 @@ public interface AsambleaService {
     VotacionDTO crearPuntoVotacion(Long idAsamblea, VotacionCreateRequestDTO request);
 
     VotacionDTO cerrarVotacion(Long idVotacion);
+
+    VotacionDTO anularVotacion(Long idVotacion);
 
     void emitirVoto(Long idVotacion, VotoRequestDTO request);
 }

@@ -64,9 +64,19 @@ public class SancionesController {
         return ResponseEntity.ok(Map.of("message", "Resolución emitida exitosamente"));
     }
 
+    @Operation(summary = "Anular un expediente disciplinario en trámite")
+    @PutMapping("/{id}/anular")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
+    public ResponseEntity<Map<String, String>> anularSancion(@PathVariable Long id,
+                                                             @RequestBody(required = false) Map<String, String> payload) {
+        String motivo = payload != null ? payload.get("motivo") : null;
+        sancionService.anularSancion(id, motivo);
+        return ResponseEntity.ok(Map.of("message", "Expediente disciplinario anulado exitosamente"));
+    }
+
     @Operation(summary = "Listar los expedientes disciplinarios que atañen al residente autenticado")
     @GetMapping("/mis-sanciones")
-    @PreAuthorize("hasAnyAuthority('SCOPE_RESIDENTE', 'SCOPE_PROPIETARIO')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_RESIDENTE', 'SCOPE_PROPIETARIO', 'SCOPE_RESIDENTE_CONVIVENCIA')")
     public ResponseEntity<List<SancionDTO>> getMisSanciones() {
         return ResponseEntity.ok(sancionService.getMisSanciones());
     }

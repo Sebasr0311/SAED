@@ -18,7 +18,6 @@ import java.util.List;
 @Tag(name = "Pólizas de Seguro", description = "Gestión de pólizas de seguro de copropiedad")
 @RestController
 @RequestMapping("/api/v1/seguros/polizas")
-@PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION')")
 @RequireModule("POLIZAS")
 public class PolizaSeguroController {
 
@@ -28,17 +27,26 @@ public class PolizaSeguroController {
         this.service = service;
     }
 
+    @GetMapping("/vigentes")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_RESIDENTE', 'SCOPE_PROPIETARIO', 'SCOPE_RESIDENTE_CONVIVENCIA')")
+    public ResponseEntity<List<PolizaSeguroDTO>> getVigentes() {
+        return ResponseEntity.ok(service.getPolizasVigentesResidentes());
+    }
+
     @GetMapping("/resumen")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION')")
     public ResponseEntity<ResumenPolizasDTO> getResumen() {
         return ResponseEntity.ok(service.getResumen());
     }
 
     @GetMapping
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION')")
     public ResponseEntity<List<PolizaSeguroDTO>> getAll() {
         return ResponseEntity.ok(service.getAllPolizas());
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION')")
     public ResponseEntity<PolizaSeguroDTO> getById(@PathVariable Long id) {
         return ResponseEntity.ok(service.getPolizaById(id));
     }

@@ -50,5 +50,23 @@ public interface AsambleaRepository {
 
     boolean existePoderUnidad(Long idAsamblea, Long idUnidad);
 
+    void updateAsamblea(Long idAsamblea, AsambleaUpdateRequestDTO request);
+
+    void lockAsambleaForUpdate(Long idAsamblea);
+
+    Long findPropiedadUnidad(Long idUnidad);
+
+    Long findOrganizacionPropiedad(Long idPropiedad);
+
     int countUnidadesActivas(Long idPropiedad);
+
+    void lockVotacionForUpdate(Long idVotacion);
+
+    void anularVotacion(Long idVotacion);
+
+    boolean esApoderadoAprobado(Long idAsamblea, Long idUnidad, Long idPersonaApoderado);
+
+    boolean usuarioPerteneceAUnidad(Long idUsuario, Long idUnidad, Long idPersona);
+
+    Long findPersonaUsuario(Long idUsuario);
 }

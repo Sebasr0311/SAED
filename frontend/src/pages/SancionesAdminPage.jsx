@@ -16,6 +16,7 @@ const ESTADO_BADGE = {
   EN_DESCARGOS: 'badge-info',
   ABSUELTA: 'badge-neutral',
   APLICADA: 'badge-error',
+  ANULADA: 'badge-neutral',
 };
 
 export default function SancionesAdminPage() {
@@ -24,11 +25,22 @@ export default function SancionesAdminPage() {
   const { data, loading, error, refetch } = useFetch(() => api.get('/sanciones/todas'));
 
   const [modalOpen, setModalOpen] = useState(false);
-  const [form, setForm] = useState({ idUnidad: '', idPersonaImputada: '', tipoFalta: '', gravedad: 'LEVE', descripcionHechos: '' });
+  const [form, setForm] = useState({
+    idUnidad: '',
+    idPersonaImputada: '',
+    tipoFalta: '',
+    gravedad: 'LEVE',
+    tipoSancionPropuesta: 'AMONESTACION_ESCRITA',
+    descripcionHechos: '',
+  });
   const [submitting, setSubmitting] = useState(false);
 
   const [detalle, setDetalle] = useState(null);
-  const [resolucionForm, setResolucionForm] = useState({ decision: 'APLICADA', resolucionFinal: '' });
+  const [resolucionForm, setResolucionForm] = useState({
+    decision: 'APLICADA',
+    resolucionFinal: '',
+    montoMulta: '',
+  });
 
   const items = Array.isArray(data) ? data : data?.items || [];
   const filtered = filtroEstado ? items.filter(i => i.estado === filtroEstado) : items;
@@ -44,7 +56,19 @@ export default function SancionesAdminPage() {
     {
       key: 'gravedad',
       label: 'Gravedad',
-      render: (r) => <span className={`badge ${r.gravedad === 'GRAVE' ? 'badge-error' : 'badge-warning'}`}>{r.gravedad}</span>,
+      render: (r) => (
+        <span
+          className={`badge ${
+            r.gravedad === 'GRAVISIMA'
+              ? 'badge-error'
+              : r.gravedad === 'GRAVE'
+              ? 'badge-warning'
+              : 'badge-neutral'
+          }`}
+        >
+          {r.gravedad}
+        </span>
+      ),
     },
     {
       key: 'estado',
@@ -57,10 +81,21 @@ export default function SancionesAdminPage() {
     e.preventDefault();
     setSubmitting(true);
     try {
-      await api.post('/sanciones', { ...form, idUnidad: Number(form.idUnidad), idPersonaImputada: Number(form.idPersonaImputada) });
+      await api.post('/sanciones', {
+        ...form,
+        idUnidad: Number(form.idUnidad),
+        idPersonaImputada: Number(form.idPersonaImputada),
+      });
       toast.success('Sanción creada exitosamente');
       setModalOpen(false);
-      setForm({ idUnidad: '', idPersonaImputada: '', tipoFalta: '', gravedad: 'LEVE', descripcionHechos: '' });
+      setForm({
+        idUnidad: '',
+        idPersonaImputada: '',
+        tipoFalta: '',
+        gravedad: 'LEVE',
+        tipoSancionPropuesta: 'AMONESTACION_ESCRITA',
+        descripcionHechos: '',
+      });
       refetch();
     } catch (err) {
       toast.error(err.message);
@@ -71,12 +106,45 @@ export default function SancionesAdminPage() {
 
   async function handleEmitirResolucion(e) {
     e.preventDefault();
+
+    if (resolucionForm.decision === 'APLICADA' && detalle?.tipoSancionPropuesta === 'MULTA_ECONOMICA') {
+      const monto = Number(resolucionForm.montoMulta);
+      if (!resolucionForm.montoMulta || isNaN(monto) || monto <= 0) {
+        toast.error('El monto de la multa es obligatorio y debe ser mayor a 0 (COP).');
+        return;
+      }
+    }
+
     setSubmitting(true);
     try {
-      await api.post(`/sanciones/${detalle.idSancion}/resolucion`, resolucionForm);
+      const payload = {
+        decision: resolucionForm.decision,
+        resolucionFinal: resolucionForm.resolucionFinal,
+        montoMulta:
+          resolucionForm.decision === 'APLICADA' && detalle?.tipoSancionPropuesta === 'MULTA_ECONOMICA'
+            ? Number(resolucionForm.montoMulta)
+            : null,
+      };
+      await api.post(`/sanciones/${detalle.idSancion}/resolucion`, payload);
       toast.success('Resolución emitida exitosamente');
       setDetalle(null);
-      setResolucionForm({ decision: 'APLICADA', resolucionFinal: '' });
+      setResolucionForm({ decision: 'APLICADA', resolucionFinal: '', montoMulta: '' });
+      refetch();
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleAnularSancion(idSancion) {
+    const motivo = window.prompt('Ingrese el motivo de anulación del expediente sancionatorio:');
+    if (!motivo || !motivo.trim()) return;
+    setSubmitting(true);
+    try {
+      await api.put(`/sanciones/${idSancion}/anular`, { motivo: motivo.trim() });
+      toast.success('Expediente sancionatorio anulado');
+      setDetalle(null);
       refetch();
     } catch (err) {
       toast.error(err.message);
@@ -98,6 +166,7 @@ export default function SancionesAdminPage() {
               <option value="EN_DESCARGOS">En Descargos</option>
               <option value="ABSUELTA">Absuelta</option>
               <option value="APLICADA">Sanción Aplicada</option>
+              <option value="ANULADA">Anulada</option>
             </Select>
             <Button onClick={() => setModalOpen(true)} icon="gavel">Nuevo Pliego</Button>
           </div>
@@ -123,8 +192,15 @@ export default function SancionesAdminPage() {
           <Input label="Tipo de Falta" value={form.tipoFalta} onChange={e => setForm({...form, tipoFalta: e.target.value})} required placeholder="Ej. Ruido fuera de horario" />
           <Select label="Gravedad" value={form.gravedad} onChange={e => setForm({...form, gravedad: e.target.value})} required>
             <option value="LEVE">Leve</option>
-            <option value="MODERADA">Moderada</option>
             <option value="GRAVE">Grave</option>
+            <option value="GRAVISIMA">Gravísima</option>
+          </Select>
+          <Select label="Tipo de Sanción Propuesta" value={form.tipoSancionPropuesta} onChange={e => setForm({...form, tipoSancionPropuesta: e.target.value})} required>
+            <option value="AMONESTACION_ESCRITA">Amonestación Escrita</option>
+            <option value="AMONESTACION_VERBAL">Amonestación Verbal</option>
+            <option value="MULTA_ECONOMICA">Multa Económica</option>
+            <option value="SUSPENSION_ZONAS_COMUNES">Suspensión Zonas Comunes</option>
+            <option value="PUBLICACION_LISTA_INFRACTORES">Publicación Lista Infractores</option>
           </Select>
           <div className="form-control">
             <label className="label">Descripción de los hechos</label>
@@ -143,10 +219,19 @@ export default function SancionesAdminPage() {
             <div className="detail-row"><span>Estado</span><span className={`badge ${ESTADO_BADGE[detalle.estado]}`}>{detalle.estado}</span></div>
             <div className="detail-row"><span>Gravedad</span><span>{detalle.gravedad}</span></div>
             <div className="detail-row"><span>Falta</span><span>{detalle.tipoFalta}</span></div>
+            <div className="detail-row"><span>Sanción Propuesta</span><span>{detalle.tipoSancionPropuesta}</span></div>
             <div style={{ padding: '12px', background: 'var(--surface-hover)', borderRadius: '8px' }}>
               <strong style={{ fontSize: '12px' }}>Hechos:</strong>
               <p style={{ margin: '4px 0 0 0', fontSize: '14px' }}>{detalle.descripcionHechos}</p>
             </div>
+
+            {(detalle.estado === 'NOTIFICADA' || detalle.estado === 'EN_DESCARGOS') && (
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '4px' }}>
+                <Button variant="ghost" type="button" onClick={() => handleAnularSancion(detalle.idSancion)} style={{ color: 'var(--error)' }}>
+                  Anular Expediente
+                </Button>
+              </div>
+            )}
             
             {detalle.estado === 'EN_DESCARGOS' && (
               <form onSubmit={handleEmitirResolucion} style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '12px', borderTop: '1px solid var(--border)', paddingTop: '16px' }}>
@@ -154,12 +239,57 @@ export default function SancionesAdminPage() {
                 <Select label="Decisión" value={resolucionForm.decision} onChange={e => setResolucionForm({...resolucionForm, decision: e.target.value})} required>
                   <option value="APLICADA">Aplicar Sanción</option>
                   <option value="ABSUELTA">Absolver / Archivar Proceso</option>
+                  <option value="ANULADA">Anular Proceso</option>
                 </Select>
+
+                {resolucionForm.decision === 'APLICADA' && detalle.tipoSancionPropuesta === 'MULTA_ECONOMICA' && (
+                  <div className="form-control">
+                    <label className="label">
+                      <span>Monto de la Multa (COP) <strong style={{ color: 'var(--error)' }}>*</strong></span>
+                    </label>
+                    <Input
+                      type="number"
+                      min="1"
+                      step="1000"
+                      placeholder="Ej. 150000"
+                      value={resolucionForm.montoMulta}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === '' || Number(val) >= 0) {
+                          setResolucionForm({ ...resolucionForm, montoMulta: val });
+                        }
+                      }}
+                      required
+                    />
+                    {resolucionForm.montoMulta && Number(resolucionForm.montoMulta) > 0 && (
+                      <span style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                        Valor: ${Number(resolucionForm.montoMulta).toLocaleString('es-CO')} COP
+                      </span>
+                    )}
+                    {(!resolucionForm.montoMulta || Number(resolucionForm.montoMulta) <= 0) && (
+                      <span style={{ fontSize: '11px', color: 'var(--error)', marginTop: '4px' }}>
+                        El monto debe ser un valor positivo mayor a 0.
+                      </span>
+                    )}
+                  </div>
+                )}
+
                 <div className="form-control">
                   <label className="label">Justificación / Resolución</label>
                   <textarea className="input" style={{ minHeight: '80px', padding: '8px' }} value={resolucionForm.resolucionFinal} onChange={e => setResolucionForm({...resolucionForm, resolucionFinal: e.target.value})} required />
                 </div>
-                <Button type="submit" loading={submitting}>Firmar Resolución</Button>
+                <Button
+                  type="submit"
+                  loading={submitting}
+                  disabled={
+                    submitting ||
+                    (resolucionForm.decision === 'APLICADA' &&
+                      detalle.tipoSancionPropuesta === 'MULTA_ECONOMICA' &&
+                      (!resolucionForm.montoMulta || Number(resolucionForm.montoMulta) <= 0))
+                  }
+                >
+                  Firmar Resolución
+                </Button>
               </form>
             )}
 

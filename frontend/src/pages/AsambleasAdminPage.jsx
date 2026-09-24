@@ -23,12 +23,21 @@ import {
   Check,
   X,
   ExternalLink,
+  Upload,
+  Download,
+  Lock,
+  Edit3,
+  Save,
+  AlertCircle,
+  FileCheck,
 } from 'lucide-react';
 import { PageHeader } from '../components/ui/PageHeader';
 import { Modal } from '../components/ui/Modal';
 import { useFetch } from '../lib/hooks';
 import { useTenant } from '../lib/TenantContext.jsx';
 import { useTenantApi } from '../lib/useTenantApi.js';
+import { BASE_URL } from '../lib/api.js';
+import { TOKEN_KEY } from '../lib/storage.js';
 import { toast } from 'sonner';
 
 const ESTADOS_ASAMBLEA = {
@@ -38,6 +47,13 @@ const ESTADOS_ASAMBLEA = {
   EN_RECESO: { label: 'En Receso', color: 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30' },
   FINALIZADA: { label: 'Finalizada', color: 'bg-gray-500/15 text-gray-700 dark:text-gray-400' },
   CANCELADA: { label: 'Cancelada', color: 'bg-red-500/15 text-red-700 dark:text-red-400' },
+};
+
+const ESTADOS_ACTA = {
+  BORRADOR: { label: 'Borrador', color: 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30' },
+  EN_REVISION_COMISION: { label: 'En Revisión (Comisión)', color: 'bg-blue-500/15 text-blue-700 dark:text-blue-400 border border-blue-500/30' },
+  APROBADA: { label: 'Aprobada por Comisión', color: 'bg-purple-500/15 text-purple-700 dark:text-purple-400 border border-purple-500/30' },
+  PUBLICADA_OFICIAL: { label: 'Publicada Oficialmente (Ley 675)', color: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30' },
 };
 
 const MAYORIAS = {
@@ -176,6 +192,54 @@ export default function AsambleasAdminPage() {
     return Array.isArray(personasRaw) ? personasRaw : personasRaw?.items || [];
   }, [personasRaw]);
 
+  // 7. Cargar Acta de la asamblea seleccionada
+  const {
+    data: actaData,
+    loading: loadingActa,
+    refetch: refetchActa,
+  } = useFetch(
+    () =>
+      activeId
+        ? tenantApi.get(`/actas/asamblea/${activeId}`).catch((err) => {
+            if (err?.status === 404 || err?.response?.status === 404) return null;
+            throw err;
+          })
+        : Promise.resolve(null),
+    [activeId, tenant.activeAssignmentId]
+  );
+
+  // Estados de gestión de acta
+  const [editandoActa, setEditandoActa] = useState(false);
+  const [formActa, setFormActa] = useState({
+    numeroActa: '',
+    contenidoTexto: '',
+  });
+  const [submittingActa, setSubmittingActa] = useState(false);
+  const [uploadingDoc, setUploadingDoc] = useState(false);
+
+  // Sincronizar formActa cuando cambia el acta o la asamblea activa
+  React.useEffect(() => {
+    if (actaData) {
+      setFormActa({
+        numeroActa: actaData.numeroActa || '',
+        contenidoTexto: actaData.contenidoTexto || '',
+      });
+      setEditandoActa(false);
+    } else if (asambleaActiva) {
+      setFormActa({
+        numeroActa: `ACTA-${asambleaActiva.idAsamblea}-${new Date().getFullYear()}`,
+        contenidoTexto: `ACTA DE ASAMBLEA GENERAL DE COPROPIETARIOS\n\n1. CONVOCATORIA:\nAsamblea ${asambleaActiva.tipo} celebrada el ${asambleaActiva.fechaHoraPrimeraConv ? new Date(asambleaActiva.fechaHoraPrimeraConv).toLocaleString() : ''} bajo modalidad ${asambleaActiva.modalidad}.\n\n2. ORDEN DEL DÍA:\n${asambleaActiva.ordenDelDia || ''}\n\n3. VERIFICACIÓN DEL QUÓRUM:\nSe verificó el quórum legal deliberatorio y decisorio.\n\n4. DESARROLLO Y DECISIONES:\n(Detalle de deliberaciones y resoluciones adoptadas)\n\n5. CIERRE Y COMISIÓN VERIFICADORA:\nEn constancia de lo actuado, se firma la presente acta para constancia legal conforme al Art. 47 de la Ley 675 de 2001.`,
+      });
+      setEditandoActa(false);
+    }
+  }, [actaData, asambleaActiva]);
+
+  // Validaciones previas para publicación oficial de acta (Art. 47 Ley 675)
+  const asambleaFinalizada = asambleaActiva?.estado === 'FINALIZADA';
+  const todasVotacionesCerradas = votaciones.every((v) => v.estado === 'CERRADA' || v.estado === 'ANULADA');
+  const tieneDocumentoAdjunto = Boolean(actaData?.idDocumento || actaData?.documentoFirmadoUrl);
+  const puedePublicarOficial = asambleaFinalizada && todasVotacionesCerradas && tieneDocumentoAdjunto;
+
   // Recarga unificada
   const [sincronizando, setSincronizando] = useState(false);
   const handleRefetchAll = useCallback(() => {
@@ -186,11 +250,113 @@ export default function AsambleasAdminPage() {
       refetchAsistencias(),
       refetchPoderes(),
       refetchVotaciones(),
+      refetchActa(),
     ]).finally(() => {
       setTimeout(() => setSincronizando(false), 400);
       toast.success('Datos de asambleas sincronizados');
     });
-  }, [refetchAsambleas, refetchQuorum, refetchAsistencias, refetchPoderes, refetchVotaciones]);
+  }, [refetchAsambleas, refetchQuorum, refetchAsistencias, refetchPoderes, refetchVotaciones, refetchActa]);
+
+  // Handlers de Acta
+  const handleCrearBorradorActa = async (e) => {
+    e?.preventDefault();
+    if (!formActa.numeroActa.trim() || !formActa.contenidoTexto.trim()) {
+      toast.error('Complete el número de acta y el contenido');
+      return;
+    }
+    setSubmittingActa(true);
+    try {
+      await tenantApi.post('/actas', {
+        idAsamblea: activeId,
+        numeroActa: formActa.numeroActa.trim(),
+        contenidoTexto: formActa.contenidoTexto,
+      });
+      toast.success('Borrador de acta creado exitosamente');
+      refetchActa();
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message || 'Error al crear borrador');
+    } finally {
+      setSubmittingActa(false);
+    }
+  };
+
+  const handleGuardarContenidoActa = async () => {
+    if (!actaData?.idActa) return;
+    setSubmittingActa(true);
+    try {
+      await tenantApi.put(`/actas/${actaData.idActa}`, {
+        numeroActa: formActa.numeroActa.trim(),
+        contenidoTexto: formActa.contenidoTexto,
+      });
+      toast.success('Contenido del acta actualizado');
+      setEditandoActa(false);
+      refetchActa();
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message || 'Error al actualizar acta');
+    } finally {
+      setSubmittingActa(false);
+    }
+  };
+
+  const handleCambiarEstadoActa = async (nuevoEstado) => {
+    if (!actaData?.idActa) return;
+    setSubmittingActa(true);
+    try {
+      await tenantApi.put(`/actas/${actaData.idActa}/estado`, {
+        nuevoEstado,
+        observaciones: `Transición a ${nuevoEstado} por administración`,
+      });
+      toast.success(`Acta actualizada a: ${nuevoEstado}`);
+      refetchActa();
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message || 'Error al cambiar estado del acta');
+    } finally {
+      setSubmittingActa(false);
+    }
+  };
+
+  const handleSubirDocumentoActa = async (file) => {
+    if (!file || !actaData?.idActa) return;
+    setUploadingDoc(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('descripcion', `Documento firmado de acta ${actaData.numeroActa}`);
+      await tenantApi.post(`/actas/${actaData.idActa}/documento`, formData);
+      toast.success('Documento firmado adjuntado exitosamente');
+      refetchActa();
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message || 'Error al subir documento');
+    } finally {
+      setUploadingDoc(false);
+    }
+  };
+
+  const handleDescargarDocumentoActa = async () => {
+    if (!actaData?.idActa) return;
+    try {
+      const token = sessionStorage.getItem(TOKEN_KEY) || sessionStorage.getItem('token');
+      const assignmentId = tenant.activeAssignmentId;
+      const res = await fetch(`${BASE_URL}/actas/${actaData.idActa}/documento`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          ...(assignmentId ? { 'X-Assignment-Id': String(assignmentId) } : {}),
+        },
+      });
+      if (!res.ok) throw new Error('No se pudo descargar el documento firmado');
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Acta_${actaData.numeroActa || actaData.idActa}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err) {
+      toast.error(err.message || 'Error al descargar documento');
+    }
+  };
 
   // Handlers de Acciones de Asamblea
   const handleConvocar = async (e) => {
@@ -606,6 +772,13 @@ export default function AsambleasAdminPage() {
         >
           <Vote className="w-4 h-4 mr-1.5" />
           Votaciones y Escrutinio ({votaciones.length})
+        </button>
+        <button
+          onClick={() => setTabActiva('actas')}
+          className={`tab tab-sm font-medium transition-all ${tabActiva === 'actas' ? 'tab-active bg-card text-foreground shadow-xs' : 'text-muted-foreground'}`}
+        >
+          <FileText className="w-4 h-4 mr-1.5" />
+          Acta Oficial (Ley 675) {actaData ? `(#${actaData.numeroActa})` : ''}
         </button>
       </div>
 
@@ -1066,6 +1239,421 @@ export default function AsambleasAdminPage() {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* TAB 5: ACTA OFICIAL (LEY 675) */}
+      {tabActiva === 'actas' && (
+        <div className="space-y-6">
+          {!asambleaActiva ? (
+            <div className="bg-card text-card-foreground border border-border rounded-xl p-8 text-center text-muted-foreground">
+              <FileText className="w-10 h-10 mx-auto mb-2 opacity-40" />
+              <p>Seleccione una asamblea del listado para gestionar o consultar su acta oficial.</p>
+            </div>
+          ) : loadingActa ? (
+            <div className="bg-card text-card-foreground border border-border rounded-xl p-8 text-center text-muted-foreground">
+              <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-primary" />
+              <p>Cargando información del acta oficial...</p>
+            </div>
+          ) : !actaData ? (
+            <div className="bg-card text-card-foreground border border-border rounded-xl p-6 shadow-sm space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border/60">
+                <div>
+                  <h3 className="text-lg font-bold">Acta Oficial de la Asamblea</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Asamblea #{asambleaActiva.idAsamblea}: {asambleaActiva.titulo}
+                  </p>
+                </div>
+                <span className="badge badge-warning text-xs">Sin Acta Creada</span>
+              </div>
+
+              <div className="p-4 rounded-xl bg-muted/40 border border-border/60 text-sm space-y-2">
+                <div className="flex items-center gap-2 font-semibold text-foreground">
+                  <AlertCircle className="w-4 h-4 text-amber-500" />
+                  Marco Legal — Artículo 47 Ley 675 de 2001
+                </div>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Las decisiones de la asamblea se harán constar en actas firmadas por el presidente y el secretario de la asamblea, así como por los miembros de la comisión verificadora de la redacción del acta. El administrador pondrá a disposición de los copropietarios copia completa del texto del acta dentro de un lapso no superior a veinte (20) días hábiles siguientes a la reunión.
+                </p>
+              </div>
+
+              {/* Formulario de Creación de Borrador */}
+              <form onSubmit={handleCrearBorradorActa} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold mb-1">Número de Acta *</label>
+                    <input
+                      type="text"
+                      required
+                      className="input input-bordered input-sm w-full"
+                      value={formActa.numeroActa}
+                      onChange={(e) => setFormActa({ ...formActa, numeroActa: e.target.value })}
+                      placeholder="Ej. ACTA-001-2026"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold mb-1">Contenido / Texto del Acta *</label>
+                  <textarea
+                    required
+                    rows={12}
+                    className="textarea textarea-bordered textarea-sm w-full font-mono text-xs"
+                    value={formActa.contenidoTexto}
+                    onChange={(e) => setFormActa({ ...formActa, contenidoTexto: e.target.value })}
+                  />
+                </div>
+
+                <div className="flex justify-end">
+                  <button
+                    type="submit"
+                    disabled={submittingActa}
+                    className="btn btn-primary btn-sm gap-1.5"
+                  >
+                    <FileText className="w-4 h-4" />
+                    {submittingActa ? 'Creando Borrador...' : 'Crear Borrador de Acta'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {/* Tarjeta Principal de Estado del Acta */}
+              <div className="bg-card text-card-foreground border border-border rounded-xl p-6 shadow-sm space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border/60">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                          ESTADOS_ACTA[actaData.estado]?.color || ''
+                        }`}
+                      >
+                        {ESTADOS_ACTA[actaData.estado]?.label || actaData.estado}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        Asamblea #{actaData.idAsamblea}
+                      </span>
+                    </div>
+                    <h3 className="text-xl font-bold flex items-center gap-2">
+                      <FileText className="w-5 h-5 text-primary" />
+                      Acta Nº {actaData.numeroActa}
+                    </h3>
+                  </div>
+
+                  {/* Acciones de Transición de Estado */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    {actaData.estado === 'BORRADOR' && (
+                      <button
+                        onClick={() => handleCambiarEstadoActa('EN_REVISION_COMISION')}
+                        disabled={submittingActa}
+                        className="btn btn-sm btn-outline btn-info gap-1"
+                      >
+                        <UserCheck className="w-4 h-4" />
+                        Enviar a Comisión Verificadora
+                      </button>
+                    )}
+
+                    {actaData.estado === 'EN_REVISION_COMISION' && (
+                      <>
+                        <button
+                          onClick={() => handleCambiarEstadoActa('BORRADOR')}
+                          disabled={submittingActa}
+                          className="btn btn-sm btn-ghost gap-1 text-muted-foreground"
+                        >
+                          Devolver a Borrador
+                        </button>
+                        <button
+                          onClick={() => handleCambiarEstadoActa('APROBADA')}
+                          disabled={submittingActa}
+                          className="btn btn-sm btn-outline btn-primary gap-1"
+                        >
+                          <CheckCircle2 className="w-4 h-4" />
+                          Aprobar por Comisión
+                        </button>
+                      </>
+                    )}
+
+                    {actaData.estado === 'APROBADA' && (
+                      <>
+                        <button
+                          onClick={() => handleCambiarEstadoActa('EN_REVISION_COMISION')}
+                          disabled={submittingActa}
+                          className="btn btn-sm btn-ghost gap-1 text-muted-foreground"
+                        >
+                          Devolver a Revisión
+                        </button>
+                        <button
+                          onClick={() => handleCambiarEstadoActa('PUBLICADA_OFICIAL')}
+                          disabled={submittingActa || !puedePublicarOficial}
+                          className="btn btn-sm btn-success text-white gap-1 disabled:opacity-50"
+                          title={
+                            !puedePublicarOficial
+                              ? 'Requiere asamblea finalizada, votos cerrados y documento firmado adjunto'
+                              : 'Publicar oficialmente a todos los copropietarios'
+                          }
+                        >
+                          <ShieldCheck className="w-4 h-4" />
+                          Publicar Oficialmente (Art. 47)
+                        </button>
+                      </>
+                    )}
+
+                    {actaData.estado === 'PUBLICADA_OFICIAL' && (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">
+                        <Lock className="w-3.5 h-3.5" />
+                        Oficial e Inmutable
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Checklist de Requisitos de Publicación si está en APROBADA o EN_REVISION_COMISION */}
+                {(actaData.estado === 'APROBADA' || actaData.estado === 'EN_REVISION_COMISION') && (
+                  <div className="p-4 rounded-xl bg-muted/40 border border-border/60 text-xs space-y-2">
+                    <span className="font-semibold text-foreground uppercase tracking-wider block">
+                      Condiciones Previas para Publicación Oficial (Art. 47 Ley 675):
+                    </span>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+                      <div className="flex items-center gap-2">
+                        {asambleaFinalizada ? (
+                          <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                        ) : (
+                          <XCircle className="w-4 h-4 text-amber-500 shrink-0" />
+                        )}
+                        <span>
+                          Asamblea Finalizada: <strong>{asambleaActiva.estado}</strong>
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {todasVotacionesCerradas ? (
+                          <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                        ) : (
+                          <XCircle className="w-4 h-4 text-amber-500 shrink-0" />
+                        )}
+                        <span>
+                          Votaciones Cerradas ({votaciones.filter((v) => v.estado === 'ABIERTA').length} abiertas)
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {tieneDocumentoAdjunto ? (
+                          <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                        ) : (
+                          <XCircle className="w-4 h-4 text-amber-500 shrink-0" />
+                        )}
+                        <span>Documento Firmado Adjunto</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Métricas de Gobernanza / Snapshot de Asamblea */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
+                  <div className="p-3 bg-muted/30 rounded-lg">
+                    <span className="text-muted-foreground block">Total Asistentes</span>
+                    <span className="text-base font-bold text-foreground">
+                      {actaData.totalAsistentes ?? asistencias.length}
+                    </span>
+                  </div>
+                  <div className="p-3 bg-muted/30 rounded-lg">
+                    <span className="text-muted-foreground block">Coeficiente Presente</span>
+                    <span className="text-base font-bold text-foreground">
+                      {Number(actaData.totalCoeficienteAsistentes ?? quorumLive?.totalCoeficienteRegistrado ?? 0).toFixed(4)}
+                    </span>
+                  </div>
+                  <div className="p-3 bg-muted/30 rounded-lg">
+                    <span className="text-muted-foreground block">Poderes Aprobados</span>
+                    <span className="text-base font-bold text-foreground">
+                      {actaData.totalPoderesAprobados ?? poderes.filter((p) => p.estado === 'APROBADO').length}
+                    </span>
+                  </div>
+                  <div className="p-3 bg-muted/30 rounded-lg">
+                    <span className="text-muted-foreground block">Votaciones Realizadas</span>
+                    <span className="text-base font-bold text-foreground">
+                      {actaData.totalVotaciones ?? votaciones.length}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Sección de Documento Firmado (F10-01) */}
+              <div className="bg-card text-card-foreground border border-border rounded-xl p-6 shadow-sm space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-border/60">
+                  <div className="flex items-center gap-2">
+                    <FileCheck className="w-5 h-5 text-primary" />
+                    <h4 className="font-bold text-base">Documento Firmado Oficial (PDF)</h4>
+                  </div>
+                  {tieneDocumentoAdjunto && (
+                    <button
+                      onClick={handleDescargarDocumentoActa}
+                      className="btn btn-sm btn-outline btn-primary gap-1.5"
+                    >
+                      <Download className="w-4 h-4" />
+                      Descargar Documento Firmado
+                    </button>
+                  )}
+                </div>
+
+                {tieneDocumentoAdjunto ? (
+                  <div className="p-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                    <div>
+                      <p className="font-semibold text-emerald-800 dark:text-emerald-300">
+                        Documento oficial adjunto e integrado con F10-01 Gestión Documental
+                      </p>
+                      <p className="text-muted-foreground">
+                        {actaData.idDocumento
+                          ? `ID Documento: #${actaData.idDocumento} — Almacenamiento seguro SHA-256`
+                          : `URL: ${actaData.documentoFirmadoUrl}`}
+                      </p>
+                    </div>
+                    {actaData.estado !== 'PUBLICADA_OFICIAL' && (
+                      <label className="btn btn-xs btn-outline gap-1 cursor-pointer">
+                        <Upload className="w-3.5 h-3.5" />
+                        {uploadingDoc ? 'Subiendo...' : 'Reemplazar Archivo'}
+                        <input
+                          type="file"
+                          accept=".pdf,.docx,.doc"
+                          className="hidden"
+                          disabled={uploadingDoc}
+                          onChange={(e) => {
+                            if (e.target.files?.[0]) handleSubirDocumentoActa(e.target.files[0]);
+                          }}
+                        />
+                      </label>
+                    )}
+                  </div>
+                ) : (
+                  <div className="p-6 rounded-xl border border-dashed border-border flex flex-col items-center justify-center text-center space-y-3">
+                    <Upload className="w-8 h-8 text-muted-foreground opacity-50" />
+                    <div>
+                      <p className="text-sm font-semibold">Adjuntar Acta Firmada Escaneada o Digital</p>
+                      <p className="text-xs text-muted-foreground">
+                        Formato recomendado: PDF con firmas del presidente, secretario y comisión.
+                      </p>
+                    </div>
+                    <label className="btn btn-sm btn-primary gap-1.5 cursor-pointer">
+                      <Upload className="w-4 h-4" />
+                      {uploadingDoc ? 'Subiendo...' : 'Seleccionar Archivo PDF'}
+                      <input
+                        type="file"
+                        accept=".pdf,.docx,.doc"
+                        className="hidden"
+                        disabled={uploadingDoc}
+                        onChange={(e) => {
+                          if (e.target.files?.[0]) handleSubirDocumentoActa(e.target.files[0]);
+                        }}
+                      />
+                    </label>
+                  </div>
+                )}
+              </div>
+
+              {/* Redacción y Texto del Acta */}
+              <div className="bg-card text-card-foreground border border-border rounded-xl p-6 shadow-sm space-y-4">
+                <div className="flex items-center justify-between pb-2 border-b border-border/60">
+                  <div className="flex items-center gap-2">
+                    <Edit3 className="w-5 h-5 text-primary" />
+                    <h4 className="font-bold text-base">Cuerpo del Acta</h4>
+                  </div>
+                  {actaData.estado !== 'PUBLICADA_OFICIAL' && !editandoActa && (
+                    <button
+                      onClick={() => setEditandoActa(true)}
+                      className="btn btn-xs btn-outline btn-primary gap-1"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" /> Editar Texto
+                    </button>
+                  )}
+                  {editandoActa && (
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          setFormActa({
+                            numeroActa: actaData.numeroActa || '',
+                            contenidoTexto: actaData.contenidoTexto || '',
+                          });
+                          setEditandoActa(false);
+                        }}
+                        className="btn btn-xs btn-ghost"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        onClick={handleGuardarContenidoActa}
+                        disabled={submittingActa}
+                        className="btn btn-xs btn-primary gap-1"
+                      >
+                        <Save className="w-3.5 h-3.5" />
+                        {submittingActa ? 'Guardando...' : 'Guardar Cambios'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {editandoActa ? (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs font-semibold mb-1">Número de Acta</label>
+                      <input
+                        type="text"
+                        className="input input-bordered input-sm w-full max-w-xs"
+                        value={formActa.numeroActa}
+                        onChange={(e) => setFormActa({ ...formActa, numeroActa: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold mb-1">Texto Completo</label>
+                      <textarea
+                        rows={14}
+                        className="textarea textarea-bordered textarea-sm w-full font-mono text-xs leading-relaxed"
+                        value={formActa.contenidoTexto}
+                        onChange={(e) => setFormActa({ ...formActa, contenidoTexto: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-4 rounded-xl bg-muted/20 border border-border/60 text-xs font-mono whitespace-pre-wrap leading-relaxed max-h-[500px] overflow-y-auto">
+                    {actaData.contenidoTexto || 'Sin contenido registrado.'}
+                  </div>
+                )}
+              </div>
+
+              {/* Decisiones y Votaciones Consolidadas */}
+              {actaData.votaciones && actaData.votaciones.length > 0 && (
+                <div className="bg-card text-card-foreground border border-border rounded-xl p-6 shadow-sm space-y-4">
+                  <div className="flex items-center gap-2 pb-2 border-b border-border/60">
+                    <Vote className="w-5 h-5 text-primary" />
+                    <h4 className="font-bold text-base">Escrutinio y Resoluciones en el Acta</h4>
+                  </div>
+                  <div className="divide-y border-border/60">
+                    {actaData.votaciones.map((v) => (
+                      <div key={v.idVotacion} className="py-3 text-xs space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-sm">
+                            Punto #{v.puntoOrdenDia}: {v.titulo}
+                          </span>
+                          <span
+                            className={`px-2 py-0.5 rounded-full font-semibold ${
+                              v.aprobada
+                                ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
+                                : 'bg-red-500/15 text-red-700 dark:text-red-400'
+                            }`}
+                          >
+                            {v.aprobada ? 'APROBADA' : 'NO APROBADA'}
+                          </span>
+                        </div>
+                        <p className="text-muted-foreground">{v.descripcion}</p>
+                        <div className="flex gap-4 pt-1 text-muted-foreground">
+                          <span>SÍ: <strong>{v.votosSi}</strong> ({Number(v.coeficienteSi || 0).toFixed(2)}%)</span>
+                          <span>NO: <strong>{v.votosNo}</strong> ({Number(v.coeficienteNo || 0).toFixed(2)}%)</span>
+                          <span>Blanco: <strong>{v.votosBlanco}</strong></span>
+                          <span>Abstención: <strong>{v.votosAbstencion}</strong></span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 

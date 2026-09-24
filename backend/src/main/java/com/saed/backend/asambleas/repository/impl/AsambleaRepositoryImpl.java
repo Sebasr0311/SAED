@@ -2,6 +2,8 @@ package com.saed.backend.asambleas.repository.impl;
 
 import com.saed.backend.asambleas.dto.*;
 import com.saed.backend.asambleas.repository.AsambleaRepository;
+import com.saed.backend.context.SaedContext;
+import com.saed.backend.context.SaedContextHolder;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -58,6 +60,16 @@ public class AsambleaRepositoryImpl implements AsambleaRepository {
 
         dto.setTotalAsistentes(rs.getInt("TOTAL_ASISTENTES"));
         dto.setTotalVotaciones(rs.getInt("TOTAL_VOTACIONES"));
+
+        try {
+            long idOrg = rs.getLong("ID_ORGANIZACION");
+            if (!rs.wasNull()) dto.setIdOrganizacion(idOrg);
+        } catch (Exception ignored) {}
+
+        try {
+            long idDoc = rs.getLong("ID_DOCUMENTO");
+            if (!rs.wasNull()) dto.setIdDocumento(idDoc);
+        } catch (Exception ignored) {}
 
         return dto;
     };
@@ -161,7 +173,7 @@ public class AsambleaRepositoryImpl implements AsambleaRepository {
 
     @Override
     public List<AsambleaDTO> findAllByPropiedad(Long idPropiedad) {
-        String sql = "SELECT a.ID_ASAMBLEA, a.ID_PROPIEDAD, a.TIPO, a.MODALIDAD, a.TITULO, a.CONVOCATORIA_NUMERO, " +
+        String sql = "SELECT a.ID_ASAMBLEA, a.ID_ORGANIZACION, a.ID_PROPIEDAD, a.ID_DOCUMENTO, a.TIPO, a.MODALIDAD, a.TITULO, a.CONVOCATORIA_NUMERO, " +
                 "a.FECHA_HORA_PRIMERA_CONV, a.FECHA_HORA_SEGUNDA_CONV, a.LUGAR_O_ENLACE, a.ORDEN_DEL_DIA, " +
                 "a.QUORUM_REQUERIDO_PCT, a.QUORUM_ALCANZADO_PCT, a.ESTADO, a.CONVOCADA_POR, a.FECHA_CREACION, " +
                 "(SELECT COUNT(1) FROM ASISTENCIAS_ASAMBLEA asi WHERE asi.ID_ASAMBLEA = a.ID_ASAMBLEA AND asi.HORA_RETIRO IS NULL) as TOTAL_ASISTENTES, " +
@@ -175,7 +187,7 @@ public class AsambleaRepositoryImpl implements AsambleaRepository {
 
     @Override
     public Optional<AsambleaDTO> findById(Long idAsamblea) {
-        String sql = "SELECT a.ID_ASAMBLEA, a.ID_PROPIEDAD, a.TIPO, a.MODALIDAD, a.TITULO, a.CONVOCATORIA_NUMERO, " +
+        String sql = "SELECT a.ID_ASAMBLEA, a.ID_ORGANIZACION, a.ID_PROPIEDAD, a.ID_DOCUMENTO, a.TIPO, a.MODALIDAD, a.TITULO, a.CONVOCATORIA_NUMERO, " +
                 "a.FECHA_HORA_PRIMERA_CONV, a.FECHA_HORA_SEGUNDA_CONV, a.LUGAR_O_ENLACE, a.ORDEN_DEL_DIA, " +
                 "a.QUORUM_REQUERIDO_PCT, a.QUORUM_ALCANZADO_PCT, a.ESTADO, a.CONVOCADA_POR, a.FECHA_CREACION, " +
                 "(SELECT COUNT(1) FROM ASISTENCIAS_ASAMBLEA asi WHERE asi.ID_ASAMBLEA = a.ID_ASAMBLEA AND asi.HORA_RETIRO IS NULL) as TOTAL_ASISTENTES, " +
@@ -192,24 +204,41 @@ public class AsambleaRepositoryImpl implements AsambleaRepository {
     }
 
     @Override
+    public Long findOrganizacionPropiedad(Long idPropiedad) {
+        try {
+            return jdbcTemplate.queryForObject(
+                    "SELECT ID_ORGANIZACION FROM PROPIEDADES WHERE ID_PROPIEDAD = :idPropiedad",
+                    new MapSqlParameterSource("idPropiedad", idPropiedad),
+                    Long.class
+            );
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    @Override
     public Long createAsamblea(AsambleaCreateRequestDTO request, Long idPropiedad, Long idUsuario) {
+        Long idOrg = findOrganizacionPropiedad(idPropiedad);
+        String estado = (request.getEstado() != null && !request.getEstado().isBlank()) ? request.getEstado() : "CONVOCADA";
+
         String sql = "INSERT INTO ASAMBLEAS ( " +
-                "ID_PROPIEDAD, TIPO, MODALIDAD, TITULO, CONVOCATORIA_NUMERO, " +
+                "ID_ORGANIZACION, ID_PROPIEDAD, TIPO, MODALIDAD, TITULO, CONVOCATORIA_NUMERO, " +
                 "FECHA_HORA_PRIMERA_CONV, FECHA_HORA_SEGUNDA_CONV, LUGAR_O_ENLACE, " +
                 "ORDEN_DEL_DIA, QUORUM_REQUERIDO_PCT, QUORUM_ALCANZADO_PCT, " +
-                "ESTADO, CONVOCADA_POR, FECHA_CREACION " +
+                "ESTADO, CONVOCADA_POR, ID_DOCUMENTO, FECHA_CREACION " +
                 ") VALUES ( " +
-                ":idPropiedad, :tipo, :modalidad, :titulo, :convocatoriaNumero, " +
+                ":idOrganizacion, :idPropiedad, :tipo, :modalidad, :titulo, :convocatoriaNumero, " +
                 "FROM_TZ(CAST(TO_TIMESTAMP(SUBSTR(REPLACE(:fechaHoraPrimeraConv, 'T', ' '), 1, 19), 'YYYY-MM-DD HH24:MI:SS') AS TIMESTAMP), 'America/Bogota'), " +
                 "CASE WHEN :fechaHoraSegundaConv IS NOT NULL THEN FROM_TZ(CAST(TO_TIMESTAMP(SUBSTR(REPLACE(:fechaHoraSegundaConv, 'T', ' '), 1, 19), 'YYYY-MM-DD HH24:MI:SS') AS TIMESTAMP), 'America/Bogota') ELSE NULL END, " +
                 ":lugarOEnlace, :ordenDelDia, :quorumRequeridoPct, 0, " +
-                "'CONVOCADA', :convocadaPor, FROM_TZ(CAST(SYSTIMESTAMP AS TIMESTAMP), 'America/Bogota') " +
+                ":estado, :convocadaPor, :idDocumento, FROM_TZ(CAST(SYSTIMESTAMP AS TIMESTAMP), 'America/Bogota') " +
                 ")";
 
         BigDecimal quorumReq = request.getQuorumRequeridoPct() != null ? request.getQuorumRequeridoPct() : BigDecimal.valueOf(50.01);
         int convNum = request.getConvocatoriaNumero() != null ? request.getConvocatoriaNumero() : 1;
 
         MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("idOrganizacion", idOrg)
                 .addValue("idPropiedad", idPropiedad)
                 .addValue("tipo", request.getTipo())
                 .addValue("modalidad", request.getModalidad())
@@ -220,7 +249,9 @@ public class AsambleaRepositoryImpl implements AsambleaRepository {
                 .addValue("lugarOEnlace", request.getLugarOEnlace())
                 .addValue("ordenDelDia", request.getOrdenDelDia())
                 .addValue("quorumRequeridoPct", quorumReq)
-                .addValue("convocadaPor", idUsuario);
+                .addValue("estado", estado)
+                .addValue("convocadaPor", idUsuario)
+                .addValue("idDocumento", request.getIdDocumento());
 
         KeyHolder keyHolder = new GeneratedKeyHolder();
         jdbcTemplate.update(sql, params, keyHolder, new String[]{"ID_ASAMBLEA"});
@@ -341,9 +372,9 @@ public class AsambleaRepositoryImpl implements AsambleaRepository {
                 "pa.NUMERO_DOCUMENTO as DOCUMENTO_APODERADO, " +
                 "pod.DOCUMENTO_PODER_URL, pod.ESTADO, pod.VALIDADO_POR, pod.FECHA_REGISTRO " +
                 "FROM PODERES_REPRESENTACION pod " +
-                "JOIN UNIDADES u ON pod.ID_UNIDAD = u.ID_UNIDAD " +
-                "JOIN PERSONAS pp ON pod.ID_PERSONA_PROPIETARIO = pp.ID_PERSONA " +
-                "JOIN PERSONAS pa ON pod.ID_PERSONA_APODERADO = pa.ID_PERSONA " +
+                "LEFT JOIN UNIDADES u ON pod.ID_UNIDAD = u.ID_UNIDAD " +
+                "LEFT JOIN PERSONAS pp ON pod.ID_PERSONA_PROPIETARIO = pp.ID_PERSONA " +
+                "LEFT JOIN PERSONAS pa ON pod.ID_PERSONA_APODERADO = pa.ID_PERSONA " +
                 "WHERE pod.ID_ASAMBLEA = :idAsamblea " +
                 "ORDER BY pod.FECHA_REGISTRO DESC";
 
@@ -502,10 +533,32 @@ public class AsambleaRepositoryImpl implements AsambleaRepository {
         String sql = "SELECT COEFICIENTE_COPROPIEDAD FROM UNIDADES WHERE ID_UNIDAD = :idUnidad";
         try {
             BigDecimal coef = jdbcTemplate.queryForObject(sql, new MapSqlParameterSource("idUnidad", idUnidad), BigDecimal.class);
-            return (coef != null && coef.compareTo(BigDecimal.ZERO) > 0) ? coef : BigDecimal.valueOf(0.010000);
-        } catch (EmptyResultDataAccessException e) {
-            return BigDecimal.valueOf(0.010000);
+            if (coef != null && coef.compareTo(BigDecimal.ZERO) > 0) return coef;
+        } catch (EmptyResultDataAccessException ignored) {}
+
+        try {
+            jdbcTemplate.getJdbcOperations().execute("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1); END;");
+            BigDecimal coef = jdbcTemplate.queryForObject(sql, new MapSqlParameterSource("idUnidad", idUnidad), BigDecimal.class);
+            if (coef != null && coef.compareTo(BigDecimal.ZERO) > 0) return coef;
+        } catch (Exception ignored) {
+        } finally {
+            SaedContext ctx = SaedContextHolder.getContext();
+            if (ctx != null && ctx.getUserId() != null) {
+                try {
+                    String restoreSql = String.format(
+                            "BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(%d); PKG_SAED_SESSION.SET_CONTEXT(%d, %s, %s, '%s'); END;",
+                            ctx.getUserId(),
+                            ctx.getUserId(),
+                            ctx.getOrganizationId() != null ? String.valueOf(ctx.getOrganizationId()) : "NULL",
+                            ctx.getPropertyId() != null ? String.valueOf(ctx.getPropertyId()) : "NULL",
+                            ctx.getRoleCode() != null ? ctx.getRoleCode() : "RESIDENTE"
+                    );
+                    jdbcTemplate.getJdbcOperations().execute(restoreSql);
+                } catch (Exception ignored) {}
+            }
         }
+
+        return BigDecimal.valueOf(0.010000);
     }
 
     @Override
@@ -540,5 +593,159 @@ public class AsambleaRepositoryImpl implements AsambleaRepository {
         String sql = "SELECT COUNT(1) FROM UNIDADES WHERE ID_PROPIEDAD = :idPropiedad AND ESTADO = 'ACTIVA'";
         Integer count = jdbcTemplate.queryForObject(sql, new MapSqlParameterSource("idPropiedad", idPropiedad), Integer.class);
         return count != null ? count : 0;
+    }
+
+    @Override
+    public void updateAsamblea(Long idAsamblea, AsambleaUpdateRequestDTO request) {
+        String sql = "UPDATE ASAMBLEAS SET " +
+                "TIPO = :tipo, " +
+                "MODALIDAD = :modalidad, " +
+                "TITULO = :titulo, " +
+                "CONVOCATORIA_NUMERO = :convocatoriaNumero, " +
+                "FECHA_HORA_PRIMERA_CONV = FROM_TZ(CAST(TO_TIMESTAMP(SUBSTR(REPLACE(:fechaHoraPrimeraConv, 'T', ' '), 1, 19), 'YYYY-MM-DD HH24:MI:SS') AS TIMESTAMP), 'America/Bogota'), " +
+                "FECHA_HORA_SEGUNDA_CONV = CASE WHEN :fechaHoraSegundaConv IS NOT NULL THEN FROM_TZ(CAST(TO_TIMESTAMP(SUBSTR(REPLACE(:fechaHoraSegundaConv, 'T', ' '), 1, 19), 'YYYY-MM-DD HH24:MI:SS') AS TIMESTAMP), 'America/Bogota') ELSE NULL END, " +
+                "LUGAR_O_ENLACE = :lugarOEnlace, " +
+                "ORDEN_DEL_DIA = :ordenDelDia, " +
+                "QUORUM_REQUERIDO_PCT = :quorumRequeridoPct, " +
+                "ID_DOCUMENTO = :idDocumento " +
+                "WHERE ID_ASAMBLEA = :idAsamblea";
+
+        BigDecimal quorumReq = request.getQuorumRequeridoPct() != null ? request.getQuorumRequeridoPct() : BigDecimal.valueOf(50.01);
+        int convNum = request.getConvocatoriaNumero() != null ? request.getConvocatoriaNumero() : 1;
+
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("idAsamblea", idAsamblea)
+                .addValue("tipo", request.getTipo())
+                .addValue("modalidad", request.getModalidad())
+                .addValue("titulo", request.getTitulo())
+                .addValue("convocatoriaNumero", convNum)
+                .addValue("fechaHoraPrimeraConv", request.getFechaHoraPrimeraConv())
+                .addValue("fechaHoraSegundaConv", request.getFechaHoraSegundaConv())
+                .addValue("lugarOEnlace", request.getLugarOEnlace())
+                .addValue("ordenDelDia", request.getOrdenDelDia())
+                .addValue("quorumRequeridoPct", quorumReq)
+                .addValue("idDocumento", request.getIdDocumento());
+
+        jdbcTemplate.update(sql, params);
+    }
+
+    @Override
+    public void lockAsambleaForUpdate(Long idAsamblea) {
+        String sql = "SELECT ID_ASAMBLEA FROM ASAMBLEAS WHERE ID_ASAMBLEA = :idAsamblea FOR UPDATE";
+        jdbcTemplate.queryForObject(sql, new MapSqlParameterSource("idAsamblea", idAsamblea), Long.class);
+    }
+
+    @Override
+    public Long findPropiedadUnidad(Long idUnidad) {
+        if (idUnidad == null) return null;
+        try {
+            String sql = "SELECT ID_PROPIEDAD FROM UNIDADES WHERE ID_UNIDAD = :idUnidad";
+            Long prop = jdbcTemplate.queryForObject(sql, new MapSqlParameterSource("idUnidad", idUnidad), Long.class);
+            if (prop != null) return prop;
+        } catch (EmptyResultDataAccessException ignored) {}
+
+        try {
+            String sqlAsig = "SELECT ID_PROPIEDAD FROM USUARIO_ASIGNACIONES WHERE ID_UNIDAD = :idUnidad AND ID_PROPIEDAD IS NOT NULL FETCH FIRST 1 ROWS ONLY";
+            Long prop = jdbcTemplate.queryForObject(sqlAsig, new MapSqlParameterSource("idUnidad", idUnidad), Long.class);
+            if (prop != null) return prop;
+        } catch (Exception ignored) {}
+
+        try {
+            jdbcTemplate.getJdbcOperations().execute("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1); END;");
+            String sql = "SELECT ID_PROPIEDAD FROM UNIDADES WHERE ID_UNIDAD = :idUnidad";
+            return jdbcTemplate.queryForObject(sql, new MapSqlParameterSource("idUnidad", idUnidad), Long.class);
+        } catch (Exception e) {
+            return null;
+        } finally {
+            SaedContext ctx = SaedContextHolder.getContext();
+            if (ctx != null && ctx.getUserId() != null) {
+                try {
+                    String restoreSql = String.format(
+                            "BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(%d); PKG_SAED_SESSION.SET_CONTEXT(%d, %s, %s, '%s'); END;",
+                            ctx.getUserId(),
+                            ctx.getUserId(),
+                            ctx.getOrganizationId() != null ? String.valueOf(ctx.getOrganizationId()) : "NULL",
+                            ctx.getPropertyId() != null ? String.valueOf(ctx.getPropertyId()) : "NULL",
+                            ctx.getRoleCode() != null ? ctx.getRoleCode() : "RESIDENTE"
+                    );
+                    jdbcTemplate.getJdbcOperations().execute(restoreSql);
+                } catch (Exception ignored) {}
+            }
+        }
+    }
+
+    @Override
+    public void lockVotacionForUpdate(Long idVotacion) {
+        String sql = "SELECT ID_VOTACION FROM VOTACIONES WHERE ID_VOTACION = :idVotacion FOR UPDATE";
+        jdbcTemplate.queryForObject(sql, new MapSqlParameterSource("idVotacion", idVotacion), Long.class);
+    }
+
+    @Override
+    public void anularVotacion(Long idVotacion) {
+        String sql = "UPDATE VOTACIONES " +
+                "SET ESTADO = 'ANULADA', HORA_CIERRE = FROM_TZ(CAST(SYSTIMESTAMP AS TIMESTAMP), 'America/Bogota') " +
+                "WHERE ID_VOTACION = :idVotacion";
+
+        jdbcTemplate.update(sql, new MapSqlParameterSource("idVotacion", idVotacion));
+    }
+
+    @Override
+    public boolean esApoderadoAprobado(Long idAsamblea, Long idUnidad, Long idPersonaApoderado) {
+        if (idPersonaApoderado == null) return false;
+        String sql = "SELECT COUNT(1) FROM PODERES_REPRESENTACION " +
+                "WHERE ID_ASAMBLEA = :idAsamblea AND ID_UNIDAD = :idUnidad " +
+                "AND ID_PERSONA_APODERADO = :idPersona AND ESTADO = 'APROBADO'";
+        Integer count = jdbcTemplate.queryForObject(sql, new MapSqlParameterSource()
+                .addValue("idAsamblea", idAsamblea)
+                .addValue("idUnidad", idUnidad)
+                .addValue("idPersona", idPersonaApoderado), Integer.class);
+        return count != null && count > 0;
+    }
+
+    @Override
+    public boolean usuarioPerteneceAUnidad(Long idUsuario, Long idUnidad, Long idPersona) {
+        if (idUsuario != null) {
+            String sqlAsig = "SELECT COUNT(1) FROM USUARIO_ASIGNACIONES " +
+                    "WHERE ID_USUARIO = :idUsuario AND ID_UNIDAD = :idUnidad AND ESTADO IN ('ACTIVA', 'ACTIVO')";
+            try {
+                Integer cnt = jdbcTemplate.queryForObject(sqlAsig, new MapSqlParameterSource()
+                        .addValue("idUsuario", idUsuario)
+                        .addValue("idUnidad", idUnidad), Integer.class);
+                if (cnt != null && cnt > 0) return true;
+            } catch (Exception ignored) {}
+        }
+
+        if (idPersona != null) {
+            try {
+                String sqlProp = "SELECT COUNT(1) FROM PROPIETARIOS_UNIDAD " +
+                        "WHERE ID_UNIDAD = :idUnidad AND ID_PERSONA = :idPersona AND NVL(ESTADO, 'ACTIVO') = 'ACTIVO'";
+                Integer cntProp = jdbcTemplate.queryForObject(sqlProp, new MapSqlParameterSource()
+                        .addValue("idUnidad", idUnidad)
+                        .addValue("idPersona", idPersona), Integer.class);
+                if (cntProp != null && cntProp > 0) return true;
+            } catch (Exception ignored) {}
+
+            try {
+                String sqlRes = "SELECT COUNT(1) FROM RESIDENTES_UNIDAD " +
+                        "WHERE ID_UNIDAD = :idUnidad AND ID_PERSONA = :idPersona AND NVL(ESTADO, 'ACTIVO') = 'ACTIVO'";
+                Integer cntRes = jdbcTemplate.queryForObject(sqlRes, new MapSqlParameterSource()
+                        .addValue("idUnidad", idUnidad)
+                        .addValue("idPersona", idPersona), Integer.class);
+                if (cntRes != null && cntRes > 0) return true;
+            } catch (Exception ignored) {}
+        }
+
+        return false;
+    }
+
+    @Override
+    public Long findPersonaUsuario(Long idUsuario) {
+        if (idUsuario == null) return null;
+        String sql = "SELECT ID_PERSONA FROM USUARIOS WHERE ID_USUARIO = :idUsuario";
+        try {
+            return jdbcTemplate.queryForObject(sql, new MapSqlParameterSource("idUsuario", idUsuario), Long.class);
+        } catch (EmptyResultDataAccessException e) {
+            return null;
+        }
     }
 }

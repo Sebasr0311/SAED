@@ -1,9 +1,11 @@
 package com.saed.backend.sanciones.service.impl;
 
+import com.saed.backend.audit.AuditService;
 import com.saed.backend.common.service.EmailService;
 import com.saed.backend.context.SaedContext;
 import com.saed.backend.context.SaedContextHolder;
 import com.saed.backend.sanciones.dto.*;
+import com.saed.backend.sanciones.exception.ConceptoMultaNoConfiguradoException;
 import com.saed.backend.sanciones.repository.SancionRepository;
 import com.saed.backend.sanciones.service.SancionService;
 import org.slf4j.Logger;
@@ -13,6 +15,7 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.*;
 
@@ -24,13 +27,16 @@ public class SancionServiceImpl implements SancionService {
     private final SancionRepository sancionRepository;
     private final NamedParameterJdbcTemplate jdbc;
     private final EmailService emailService;
+    private final AuditService auditService;
 
     public SancionServiceImpl(SancionRepository sancionRepository,
                               NamedParameterJdbcTemplate jdbc,
-                              EmailService emailService) {
+                              EmailService emailService,
+                              AuditService auditService) {
         this.sancionRepository = sancionRepository;
         this.jdbc = jdbc;
         this.emailService = emailService;
+        this.auditService = auditService;
     }
 
     @Override
@@ -54,6 +60,12 @@ public class SancionServiceImpl implements SancionService {
     @Override
     @Transactional
     public SancionDTO crearPliego(SancionCreateRequestDTO request) {
+        String grav = request.getGravedad() != null ? request.getGravedad().toUpperCase().trim() : "LEVE";
+        if (!Arrays.asList("LEVE", "GRAVE", "GRAVISIMA").contains(grav)) {
+            throw new IllegalArgumentException("Nivel de gravedad inválido. Debe ser LEVE, GRAVE o GRAVISIMA.");
+        }
+        request.setGravedad(grav);
+
         Long propId = resolvePropertyId();
         if (propId == null) {
             // Resolver desde la unidad
@@ -68,6 +80,7 @@ public class SancionServiceImpl implements SancionService {
 
         SaedContext ctx = SaedContextHolder.getContext();
         Long idUsuarioCreador = ctx != null ? ctx.getUserId() : null;
+        Long orgId = ctx != null ? ctx.getOrganizationId() : null;
 
         String expediente = sancionRepository.generarSiguienteExpediente(propId);
 
@@ -76,6 +89,12 @@ public class SancionServiceImpl implements SancionService {
         LocalDate fechaLimite = LocalDate.now().plusDays(dias);
 
         Long idSancion = sancionRepository.crearSancion(request, propId, idUsuarioCreador, expediente, fechaLimite);
+
+        auditService.recordSuccess(
+                idUsuarioCreador, orgId, propId,
+                "CREAR_SANCION", "SANCIONES", idSancion,
+                "127.0.0.1", "SAED-Core", null, "NOTIFICADA"
+        );
 
         // Notificación por email al imputado (best-effort)
         notificarAperturaPliego(request.getIdPersonaImputada(), expediente, request.getTipoFalta(), fechaLimite);
@@ -95,6 +114,7 @@ public class SancionServiceImpl implements SancionService {
 
         SaedContext ctx = SaedContextHolder.getContext();
         Long userId = ctx != null ? ctx.getUserId() : null;
+        Long orgId = ctx != null ? ctx.getOrganizationId() : null;
 
         Long idPersonaPresenta = null;
         if (userId != null) {
@@ -110,6 +130,12 @@ public class SancionServiceImpl implements SancionService {
 
         sancionRepository.registrarDescargo(idSancion, idPersonaPresenta, userId, request.getDescargos(), request.getPruebasAdjuntasUrl());
         sancionRepository.actualizarEstado(idSancion, "EN_DESCARGOS");
+
+        auditService.recordSuccess(
+                userId, orgId, sancion.getIdPropiedad(),
+                "RADICAR_DESCARGOS", "SANCION_DESCARGOS", idSancion,
+                "127.0.0.1", "SAED-Core", sancion.getEstado(), "EN_DESCARGOS"
+        );
     }
 
     @Override
@@ -123,32 +149,75 @@ public class SancionServiceImpl implements SancionService {
             throw new IllegalArgumentException("Decisión inválida. Debe ser APLICADA, ABSUELTA o ANULADA");
         }
 
+        // Si la sanción es aplicada y contempla multa económica, validar monto y concepto de cobro
+        if ("APLICADA".equals(dec) && "MULTA_ECONOMICA".equalsIgnoreCase(sancion.getTipoSancionPropuesta())) {
+            if (request.getMontoMulta() == null || request.getMontoMulta().compareTo(BigDecimal.ZERO) <= 0) {
+                throw new IllegalArgumentException("El monto de la multa es obligatorio y debe ser mayor a 0 cuando la resolución aplica una MULTA_ECONOMICA.");
+            }
+
+            Optional<Long> idConceptoOpt = sancionRepository.findConceptoMulta(sancion.getIdPropiedad());
+            if (idConceptoOpt.isEmpty()) {
+                throw new ConceptoMultaNoConfiguradoException(
+                        "CONCEPTO_MULTA_NO_CONFIGURADO: No existe un concepto de cobro activo de tipo MULTA configurado para la propiedad."
+                );
+            }
+
+            SaedContext ctx = SaedContextHolder.getContext();
+            Long idUsuario = ctx != null ? ctx.getUserId() : null;
+            sancionRepository.crearMultaDesdeSancion(
+                    idSancion,
+                    sancion.getIdUnidad(),
+                    sancion.getIdPersonaImputada(),
+                    idConceptoOpt.get(),
+                    request.getMontoMulta(),
+                    "Resolución sancionatoria en firme (" + sancion.getNumeroExpediente() + "): " + request.getResolucionFinal(),
+                    idUsuario
+            );
+        }
+
         sancionRepository.emitirResolucion(idSancion, dec, request.getResolucionFinal());
 
-        // Si la sanción es aplicada y contempla multa económica, generar el registro financiero
-        if ("APLICADA".equals(dec) && "MULTA_ECONOMICA".equalsIgnoreCase(sancion.getTipoSancionPropuesta())) {
-            try {
-                Optional<Long> idConceptoOpt = sancionRepository.findConceptoMulta(sancion.getIdPropiedad());
-                if (idConceptoOpt.isPresent()) {
-                    SaedContext ctx = SaedContextHolder.getContext();
-                    Long idUsuario = ctx != null ? ctx.getUserId() : null;
-                    sancionRepository.crearMultaDesdeSancion(
-                            idSancion,
-                            sancion.getIdUnidad(),
-                            sancion.getIdPersonaImputada(),
-                            idConceptoOpt.get(),
-                            request.getMontoMulta(),
-                            "Resolución sancionatoria en firme (" + sancion.getNumeroExpediente() + "): " + request.getResolucionFinal(),
-                            idUsuario
-                    );
-                }
-            } catch (Exception e) {
-                log.warn("No se pudo generar registro automático en MULTAS para sanción {}: {}", idSancion, e.getMessage());
-            }
-        }
+        SaedContext ctx = SaedContextHolder.getContext();
+        Long userId = ctx != null ? ctx.getUserId() : null;
+        Long orgId = ctx != null ? ctx.getOrganizationId() : null;
+        auditService.recordSuccess(
+                userId, orgId, sancion.getIdPropiedad(),
+                "EMITIR_RESOLUCION", "SANCIONES", idSancion,
+                "127.0.0.1", "SAED-Core", sancion.getEstado(), dec
+        );
 
         // Notificar resolución al sancionado
         notificarResolucion(sancion.getIdPersonaImputada(), sancion.getNumeroExpediente(), dec, request.getResolucionFinal());
+    }
+
+    @Override
+    @Transactional
+    public void anularSancion(Long idSancion, String motivo) {
+        SancionDTO sancion = sancionRepository.findById(idSancion)
+                .orElseThrow(() -> new IllegalArgumentException("Expediente sancionatorio no encontrado con ID: " + idSancion));
+
+        String estadoActual = sancion.getEstado();
+        if ("ANULADA".equalsIgnoreCase(estadoActual)) {
+            return;
+        }
+        if ("ABSUELTA".equalsIgnoreCase(estadoActual)) {
+            throw new IllegalStateException("No es posible anular un expediente disciplinario que ya fue absuelto.");
+        }
+        if ("APLICADA".equalsIgnoreCase(estadoActual)) {
+            throw new IllegalStateException("No es posible anular directamente un expediente disciplinario con sanción en firme.");
+        }
+
+        String resolucion = (motivo != null && !motivo.isBlank()) ? motivo : "Expediente disciplinario anulado por la administración.";
+        sancionRepository.emitirResolucion(idSancion, "ANULADA", resolucion);
+
+        SaedContext ctx = SaedContextHolder.getContext();
+        Long userId = ctx != null ? ctx.getUserId() : null;
+        Long orgId = ctx != null ? ctx.getOrganizationId() : null;
+        auditService.recordSuccess(
+                userId, orgId, sancion.getIdPropiedad(),
+                "ANULAR_SANCION", "SANCIONES", idSancion,
+                "127.0.0.1", "SAED-Core", estadoActual, "ANULADA"
+        );
     }
 
     @Override

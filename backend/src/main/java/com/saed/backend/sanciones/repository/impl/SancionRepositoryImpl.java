@@ -15,6 +15,7 @@ import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Types;
 import java.time.LocalDate;
 import java.time.Year;
 import java.util.List;
@@ -103,7 +104,9 @@ public class SancionRepositoryImpl implements SancionRepository {
                 "WHERE (:propId IS NULL OR s.ID_PROPIEDAD = :propId) " +
                 "ORDER BY s.FECHA_APERTURA_PLIEGO DESC";
 
-        return jdbc.query(sql, new MapSqlParameterSource("propId", idPropiedad), sancionRowMapper);
+        MapSqlParameterSource params = new MapSqlParameterSource();
+        params.addValue("propId", idPropiedad, Types.NUMERIC);
+        return jdbc.query(sql, params, sancionRowMapper);
     }
 
     @Override
@@ -123,8 +126,8 @@ public class SancionRepositoryImpl implements SancionRepository {
            .append("AND (s.ID_PERSONA_IMPUTADA = :idPersona ");
 
         MapSqlParameterSource params = new MapSqlParameterSource()
-                .addValue("propId", idPropiedad)
-                .addValue("idPersona", idPersona);
+                .addValue("propId", idPropiedad, Types.NUMERIC)
+                .addValue("idPersona", idPersona, Types.NUMERIC);
 
         if (unidadesIds != null && !unidadesIds.isEmpty()) {
             sql.append(" OR s.ID_UNIDAD IN (:unidadesIds)");
@@ -246,7 +249,7 @@ public class SancionRepositoryImpl implements SancionRepository {
     public String generarSiguienteExpediente(Long idPropiedad) {
         int year = Year.now().getValue();
         String countSql = "SELECT NVL(COUNT(*), 0) + 1 FROM SANCIONES WHERE ID_PROPIEDAD = :propId";
-        Integer nextSeq = jdbc.queryForObject(countSql, new MapSqlParameterSource("propId", idPropiedad), Integer.class);
+        Integer nextSeq = jdbc.queryForObject(countSql, new MapSqlParameterSource().addValue("propId", idPropiedad, Types.NUMERIC), Integer.class);
         if (nextSeq == null) nextSeq = 1;
         return String.format("EXP-%d-P%d-%04d", year, idPropiedad != null ? idPropiedad : 1L, nextSeq);
     }
@@ -254,18 +257,20 @@ public class SancionRepositoryImpl implements SancionRepository {
     @Override
     public Optional<Long> findConceptoMulta(Long idPropiedad) {
         String sql = "SELECT ID_CONCEPTO FROM CONCEPTOS_COBRO " +
-                "WHERE (:propId IS NULL OR ID_PROPIEDAD = :propId) AND ESTADO = 'ACTIVO' AND UPPER(TIPO) LIKE '%MULTA%' AND ROWNUM = 1";
-        List<Long> ids = jdbc.query(sql, new MapSqlParameterSource("propId", idPropiedad), (rs, rowNum) -> rs.getLong("ID_CONCEPTO"));
+                "WHERE (:propId IS NULL OR ID_PROPIEDAD = :propId OR ID_PROPIEDAD IS NULL) " +
+                "AND ESTADO = 'ACTIVO' AND (UPPER(TIPO) LIKE '%MULTA%' OR UPPER(CODIGO) LIKE '%MULTA%') " +
+                "ORDER BY CASE WHEN ID_PROPIEDAD = :propId THEN 1 WHEN ID_PROPIEDAD IS NULL THEN 2 ELSE 3 END, ID_CONCEPTO ASC";
+        List<Long> ids = jdbc.query(sql, new MapSqlParameterSource().addValue("propId", idPropiedad, Types.NUMERIC), (rs, rowNum) -> rs.getLong("ID_CONCEPTO"));
         if (!ids.isEmpty()) return Optional.of(ids.get(0));
 
-        // Fallback: primer concepto activo cualquiera
-        String fallbackSql = "SELECT ID_CONCEPTO FROM CONCEPTOS_COBRO WHERE (:propId IS NULL OR ID_PROPIEDAD = :propId) AND ESTADO = 'ACTIVO' AND ROWNUM = 1";
-        List<Long> fallbackIds = jdbc.query(fallbackSql, new MapSqlParameterSource("propId", idPropiedad), (rs, rowNum) -> rs.getLong("ID_CONCEPTO"));
-        return fallbackIds.stream().findFirst();
+        return Optional.empty();
     }
 
     @Override
     public void crearMultaDesdeSancion(Long idSancion, Long idUnidad, Long idPersona, Long idConcepto, BigDecimal monto, String motivo, Long idUsuario) {
+        if (monto == null || monto.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("El monto de la multa debe ser mayor a 0");
+        }
         String sql = "INSERT INTO MULTAS (" +
                 "ID_UNIDAD, ID_PERSONA_INFRACTORA, ID_CONCEPTO, MONTO, MOTIVO, " +
                 "ID_SANCION_ORIGEN, ESTADO, IMPUESTA_POR, FECHA_IMPOSICION" +
@@ -277,7 +282,7 @@ public class SancionRepositoryImpl implements SancionRepository {
                 .addValue("idUnidad", idUnidad)
                 .addValue("idPersona", idPersona)
                 .addValue("idConcepto", idConcepto)
-                .addValue("monto", monto != null ? monto : BigDecimal.valueOf(50000.00))
+                .addValue("monto", monto)
                 .addValue("motivo", motivo != null ? motivo : "Sanción económica derivada de proceso disciplinario")
                 .addValue("idSancion", idSancion)
                 .addValue("idUsuario", idUsuario));

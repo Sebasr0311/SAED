@@ -22,8 +22,9 @@ import EmptyState from '../components/ui/EmptyState.jsx';
 import LoadingState from '../components/ui/LoadingState.jsx';
 
 import { useFetch } from '../lib/hooks.js';
-import api from '../lib/api.js';
+import api, { BASE_URL } from '../lib/api.js';
 import { formatDate } from '../lib/utils.js';
+import { toast } from 'sonner';
 
 function formatFileSize(bytes) {
   if (!bytes || bytes <= 0) return '';
@@ -34,6 +35,16 @@ function formatFileSize(bytes) {
 }
 
 const CATEGORIA_ICONS = {
+  REGLAMENTO_INTERNO: BookOpen,
+  RUT_MATRICULA: ShieldCheck,
+  ACTA_ASAMBLEA: FileCheck,
+  CONTRATO_PROVEEDOR: FileText,
+  POLIZA_SEGURO: ShieldCheck,
+  ESTADO_FINANCIERO: FileText,
+  PLANOS: Layers,
+  MANUAL_CONVIVENCIA: BookOpen,
+  OTRO: FileText,
+  // legacy compatibility fallbacks
   REGLAMENTO: BookOpen,
   ACTA: FileCheck,
   MANUAL: Layers,
@@ -41,13 +52,29 @@ const CATEGORIA_ICONS = {
   CIRCULAR: Building,
 };
 
+const CATEGORIA_LABELS = {
+  REGLAMENTO_INTERNO: 'Reglamento Interno',
+  RUT_MATRICULA: 'RUT / Matrícula',
+  ACTA_ASAMBLEA: 'Acta de Asamblea',
+  CONTRATO_PROVEEDOR: 'Contrato de Proveedor',
+  POLIZA_SEGURO: 'Póliza de Seguro',
+  ESTADO_FINANCIERO: 'Estado Financiero',
+  PLANOS: 'Planos',
+  MANUAL_CONVIVENCIA: 'Manual de Convivencia',
+  OTRO: 'Otro Documento',
+};
+
 export default function ResDocumentosPage() {
   const { data, loading, error, refetch } = useFetch(() => api.get('/documentos/residente'), []);
   const [categoriaFiltro, setCategoriaFiltro] = useState('TODAS');
   const [search, setSearch] = useState('');
+  const [downloadingId, setDownloadingId] = useState(null);
 
   const documentos = useMemo(() => {
-    const list = Array.isArray(data) ? data : data?.items || [];
+    const list =
+      data?.items ||
+      data?.data?.items ||
+      (Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []));
     return Array.isArray(list) ? list : [];
   }, [data]);
 
@@ -59,7 +86,9 @@ export default function ResDocumentosPage() {
   const stats = useMemo(() => {
     const total = documentos.length;
     const reglamentos = documentos.filter(
-      (d) => (d.categoria || '').toUpperCase().includes('REGLA') || (d.categoria || '').toUpperCase().includes('MANUAL')
+      (d) =>
+        (d.categoria || '').toUpperCase().includes('REGLA') ||
+        (d.categoria || '').toUpperCase().includes('MANUAL')
     ).length;
     const actas = documentos.filter((d) => (d.categoria || '').toUpperCase().includes('ACTA')).length;
 
@@ -73,12 +102,63 @@ export default function ResDocumentosPage() {
         const q = search.toLowerCase().trim();
         const tit = (d.titulo || '').toLowerCase();
         const desc = (d.descripcion || '').toLowerCase();
-        const cat = (d.categoria || '').toLowerCase();
+        const cat = (CATEGORIA_LABELS[d.categoria] || d.categoria || '').toLowerCase();
         return tit.includes(q) || desc.includes(q) || cat.includes(q);
       }
       return true;
     });
   }, [documentos, categoriaFiltro, search]);
+
+  // Authenticated binary download
+  async function handleDownload(doc) {
+    if (!doc?.idDocumento) return;
+    try {
+      setDownloadingId(doc.idDocumento);
+      const token = sessionStorage.getItem('saed_jwt_token');
+      const activeAssignment = sessionStorage.getItem('saed_active_assignment_id');
+      const headers = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      if (activeAssignment) headers['X-Assignment-Id'] = activeAssignment;
+
+      const res = await fetch(`${BASE_URL}/documentos/${doc.idDocumento}/descargar`, { headers });
+      if (!res.ok) {
+        let msg = `Error al descargar documento (${res.status})`;
+        try {
+          const errData = await res.json();
+          msg = errData.message || errData.mensaje || errData.error || msg;
+        } catch (_) {}
+        throw new Error(msg);
+      }
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+
+      let filename = doc.nombreArchivo || `documento_${doc.idDocumento}.pdf`;
+      const disposition = res.headers.get('Content-Disposition');
+      if (disposition && disposition.includes('filename=')) {
+        const match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+        if (match && match[1]) {
+          filename = match[1].replace(/['"]/g, '');
+        }
+      }
+
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 200);
+
+      toast.success(`Descarga completada: ${filename}`);
+    } catch (err) {
+      toast.error(err.message || 'Error al descargar documento');
+    } finally {
+      setDownloadingId(null);
+    }
+  }
 
   return (
     <PageContainer>
@@ -132,7 +212,9 @@ export default function ResDocumentosPage() {
                   : 'bg-card border border-border text-muted-foreground hover:text-foreground hover:bg-muted/50'
               }`}
             >
-              {cat === 'TODAS' ? `Todos (${documentos.length})` : cat}
+              {cat === 'TODAS'
+                ? `Todos (${documentos.length})`
+                : `${CATEGORIA_LABELS[cat] || cat}`}
             </button>
           ))}
         </div>
@@ -185,7 +267,7 @@ export default function ResDocumentosPage() {
                     </div>
                     {doc.categoria && (
                       <Badge variant="secondary" className="text-xs font-semibold">
-                        {doc.categoria}
+                        {CATEGORIA_LABELS[doc.categoria] || doc.categoria}
                       </Badge>
                     )}
                   </div>
@@ -209,22 +291,15 @@ export default function ResDocumentosPage() {
                     {size && <span>{size} • v{doc.numeroVersion || 1}</span>}
                   </div>
 
-                  {doc.archivoUrl ? (
-                    <a
-                      href={doc.archivoUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-sm"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                      Descargar
-                    </a>
-                  ) : (
-                    <span className="text-xs text-muted-foreground italic flex items-center gap-1">
-                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-                      Vigente
-                    </span>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => handleDownload(doc)}
+                    disabled={downloadingId === doc.idDocumento}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-sm disabled:opacity-50"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    {downloadingId === doc.idDocumento ? 'Descargando...' : 'Descargar'}
+                  </button>
                 </div>
               </div>
             );

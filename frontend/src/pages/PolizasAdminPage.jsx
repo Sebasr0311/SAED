@@ -24,6 +24,8 @@ import { Modal } from '../components/ui/Modal';
 import { useFetch } from '../lib/hooks';
 import { useTenant } from '../lib/TenantContext.jsx';
 import { useTenantApi } from '../lib/useTenantApi.js';
+import { useAuth } from '../lib/AuthContext.jsx';
+import api from '../lib/api.js';
 import { toast } from 'sonner';
 
 const RAMOS_COBERTURA = [
@@ -53,8 +55,10 @@ function formatCurrency(val) {
 }
 
 export default function PolizasAdminPage() {
+  const { user } = useAuth();
   const tenant = useTenant();
   const tenantApi = useTenantApi();
+  const isReadOnly = user?.rol === 'ADMIN_ORGANIZACION';
 
   const [filtroEstado, setFiltroEstado] = useState('TODOS');
   const [busqueda, setBusqueda] = useState('');
@@ -77,6 +81,8 @@ export default function PolizasAdminPage() {
     nombreCorredorAgente: '',
     telefonoContactoAgente: '',
     documentoCaratulaUrl: '',
+    deducible: '',
+    idDocumento: '',
     estado: 'VIGENTE',
   };
   const [formData, setFormData] = useState(initialForm);
@@ -144,6 +150,8 @@ export default function PolizasAdminPage() {
       nombreCorredorAgente: p.nombreCorredorAgente || '',
       telefonoContactoAgente: p.telefonoContactoAgente || '',
       documentoCaratulaUrl: p.documentoCaratulaUrl || '',
+      deducible: p.deducible || '',
+      idDocumento: p.idDocumento || '',
       estado: p.estado || 'VIGENTE',
     });
     setModalOpen(true);
@@ -151,6 +159,10 @@ export default function PolizasAdminPage() {
 
   const handleSave = async (e) => {
     e.preventDefault();
+    if (isReadOnly) {
+      toast.error('Acceso de solo lectura: ADMIN_ORGANIZACION no puede modificar pólizas.');
+      return;
+    }
     if (!formData.companiaAseguradora.trim() || !formData.numeroPoliza.trim()) {
       toast.error('Compañía y número de póliza son obligatorios.');
       return;
@@ -171,6 +183,8 @@ export default function PolizasAdminPage() {
         valorAsegurado: Number(formData.valorAsegurado) || 0,
         valorPrimaAnual: Number(formData.valorPrimaAnual) || 0,
         diasAlertaVencimiento: Number(formData.diasAlertaVencimiento) || 45,
+        deducible: formData.deducible ? formData.deducible.trim() : null,
+        idDocumento: formData.idDocumento ? Number(formData.idDocumento) : null,
       };
 
       if (polizaEditar) {
@@ -193,6 +207,10 @@ export default function PolizasAdminPage() {
 
   const handleDelete = async () => {
     if (!polizaEliminar) return;
+    if (isReadOnly) {
+      toast.error('Acceso de solo lectura: ADMIN_ORGANIZACION no puede eliminar pólizas.');
+      return;
+    }
     try {
       setSaving(true);
       await tenantApi.del(`/seguros/polizas/${polizaEliminar.idPoliza}`);
@@ -214,13 +232,19 @@ export default function PolizasAdminPage() {
         title="Gestión de Pólizas de Seguro"
         description="Administración de coberturas, pólizas de áreas comunes y alertas de vencimiento bajo Ley 675"
         action={
-          <button
-            onClick={handleOpenCrear}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-content rounded-lg font-medium shadow-sm hover:bg-primary/90 transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            Nueva Póliza
-          </button>
+          isReadOnly ? (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 rounded-lg text-xs font-semibold">
+              <Shield className="w-3.5 h-3.5" /> Supervisión (Solo Lectura)
+            </div>
+          ) : (
+            <button
+              onClick={handleOpenCrear}
+              className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-content rounded-lg font-medium shadow-sm hover:bg-primary/90 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              Nueva Póliza
+            </button>
+          )
         }
       />
 
@@ -399,6 +423,17 @@ export default function PolizasAdminPage() {
                       </span>
                     </div>
 
+                    {p.deducible && (
+                      <div className="flex justify-between items-center text-muted-foreground">
+                        <span className="flex items-center gap-1.5">
+                          <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" /> Deducible:
+                        </span>
+                        <span className="font-medium text-foreground">
+                          {p.deducible}
+                        </span>
+                      </div>
+                    )}
+
                     {p.nombreCorredorAgente && (
                       <div className="flex justify-between items-center text-muted-foreground pt-1">
                         <span className="flex items-center gap-1.5">
@@ -428,7 +463,17 @@ export default function PolizasAdminPage() {
 
                 <div className="flex items-center justify-between border-t border-border/60 pt-3 mt-4">
                   <div>
-                    {p.documentoCaratulaUrl ? (
+                    {p.idDocumento ? (
+                      <a
+                        href={`/api/v1/documentos/${p.idDocumento}/descargar`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-xs text-primary hover:underline font-medium"
+                      >
+                        <FileText className="w-3.5 h-3.5 text-emerald-500" /> Doc. Certificado F10-01 (#{p.idDocumento})
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    ) : p.documentoCaratulaUrl ? (
                       <a
                         href={p.documentoCaratulaUrl}
                         target="_blank"
@@ -444,23 +489,35 @@ export default function PolizasAdminPage() {
                   </div>
 
                   <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => handleOpenEditar(p)}
-                      className="p-1.5 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-md transition-colors"
-                      title="Editar Póliza"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => {
-                        setPolizaEliminar(p);
-                        setModalDeleteOpen(true);
-                      }}
-                      className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors"
-                      title="Eliminar Póliza"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    {isReadOnly ? (
+                      <button
+                        onClick={() => handleOpenEditar(p)}
+                        className="p-1.5 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-md transition-colors"
+                        title="Ver Detalles"
+                      >
+                        <FileText className="w-4 h-4" />
+                      </button>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => handleOpenEditar(p)}
+                          className="p-1.5 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-md transition-colors"
+                          title="Editar Póliza"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => {
+                            setPolizaEliminar(p);
+                            setModalDeleteOpen(true);
+                          }}
+                          className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors"
+                          title="Eliminar Póliza"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
@@ -628,16 +685,48 @@ export default function PolizasAdminPage() {
             </div>
           </div>
 
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-muted-foreground mb-1">
+                Deducible (Condiciones)
+              </label>
+              <input
+                type="text"
+                disabled={isReadOnly}
+                value={formData.deducible}
+                onChange={(e) => setFormData({ ...formData, deducible: e.target.value })}
+                placeholder="Ej. 10% del siniestro, mín. 3 SMMLV"
+                className="w-full px-3 py-2 text-sm bg-background border border-border rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:opacity-70"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-muted-foreground mb-1">
+                ID Documento Oficial F10-01 (Opcional)
+              </label>
+              <input
+                type="number"
+                min="1"
+                disabled={isReadOnly}
+                value={formData.idDocumento}
+                onChange={(e) => setFormData({ ...formData, idDocumento: e.target.value })}
+                placeholder="Ej. 42"
+                className="w-full px-3 py-2 text-sm bg-background border border-border rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:opacity-70"
+              />
+            </div>
+          </div>
+
           <div>
             <label className="block text-xs font-semibold text-muted-foreground mb-1">
               URL Carátula / Documento Digital (PDF)
             </label>
             <input
               type="url"
+              disabled={isReadOnly}
               value={formData.documentoCaratulaUrl}
               onChange={(e) => setFormData({ ...formData, documentoCaratulaUrl: e.target.value })}
               placeholder="https://..."
-              className="w-full px-3 py-2 text-sm bg-background border border-border rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              className="w-full px-3 py-2 text-sm bg-background border border-border rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:opacity-70"
             />
           </div>
 
@@ -647,15 +736,17 @@ export default function PolizasAdminPage() {
               onClick={() => setModalOpen(false)}
               className="px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted rounded-lg transition-colors"
             >
-              Cancelar
+              {isReadOnly ? 'Cerrar' : 'Cancelar'}
             </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="px-4 py-2 text-sm font-medium bg-primary text-primary-content rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
-            >
-              {saving ? 'Guardando...' : polizaEditar ? 'Actualizar Póliza' : 'Guardar Póliza'}
-            </button>
+            {!isReadOnly && (
+              <button
+                type="submit"
+                disabled={saving}
+                className="px-4 py-2 text-sm font-medium bg-primary text-primary-content rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+              >
+                {saving ? 'Guardando...' : polizaEditar ? 'Actualizar Póliza' : 'Guardar Póliza'}
+              </button>
+            )}
           </div>
         </form>
       </Modal>

@@ -37,6 +37,8 @@ public class AsambleaCreateRequestDTO {
     private String ordenDelDia;
 
     private BigDecimal quorumRequeridoPct;
+    private Long idDocumento;
+    private String estado;
 
     public AsambleaCreateRequestDTO() {}
 
@@ -44,6 +46,14 @@ public class AsambleaCreateRequestDTO {
                                   Integer convocatoriaNumero, String fechaHoraPrimeraConv,
                                   String fechaHoraSegundaConv, String lugarOEnlace,
                                   String ordenDelDia, BigDecimal quorumRequeridoPct) {
+        this(idPropiedad, tipo, modalidad, titulo, convocatoriaNumero, fechaHoraPrimeraConv,
+             fechaHoraSegundaConv, lugarOEnlace, ordenDelDia, quorumRequeridoPct, null, null);
+    }
+
+    public AsambleaCreateRequestDTO(Long idPropiedad, String tipo, String modalidad, String titulo,
+                                  Integer convocatoriaNumero, String fechaHoraPrimeraConv,
+                                  String fechaHoraSegundaConv, String lugarOEnlace,
+                                  String ordenDelDia, BigDecimal quorumRequeridoPct, Long idDocumento, String estado) {
         this.idPropiedad = idPropiedad;
         this.tipo = tipo;
         this.modalidad = modalidad;
@@ -54,6 +64,8 @@ public class AsambleaCreateRequestDTO {
         this.lugarOEnlace = lugarOEnlace;
         this.ordenDelDia = ordenDelDia;
         this.quorumRequeridoPct = quorumRequeridoPct;
+        this.idDocumento = idDocumento;
+        this.estado = estado;
     }
 
     public static Builder builder() {
@@ -71,6 +83,8 @@ public class AsambleaCreateRequestDTO {
         private String lugarOEnlace;
         private String ordenDelDia;
         private BigDecimal quorumRequeridoPct;
+        private Long idDocumento;
+        private String estado;
 
         public Builder idPropiedad(Long idPropiedad) { this.idPropiedad = idPropiedad; return this; }
         public Builder tipo(String tipo) { this.tipo = tipo; return this; }
@@ -82,10 +96,13 @@ public class AsambleaCreateRequestDTO {
         public Builder lugarOEnlace(String lugarOEnlace) { this.lugarOEnlace = lugarOEnlace; return this; }
         public Builder ordenDelDia(String ordenDelDia) { this.ordenDelDia = ordenDelDia; return this; }
         public Builder quorumRequeridoPct(BigDecimal quorumRequeridoPct) { this.quorumRequeridoPct = quorumRequeridoPct; return this; }
+        public Builder idDocumento(Long idDocumento) { this.idDocumento = idDocumento; return this; }
+        public Builder estado(String estado) { this.estado = estado; return this; }
 
         public AsambleaCreateRequestDTO build() {
             return new AsambleaCreateRequestDTO(idPropiedad, tipo, modalidad, titulo, convocatoriaNumero,
-                    fechaHoraPrimeraConv, fechaHoraSegundaConv, lugarOEnlace, ordenDelDia, quorumRequeridoPct);
+                    fechaHoraPrimeraConv, fechaHoraSegundaConv, lugarOEnlace, ordenDelDia, quorumRequeridoPct,
+                    idDocumento, estado);
         }
     }
 
@@ -118,4 +135,10 @@ public class AsambleaCreateRequestDTO {
 
     public BigDecimal getQuorumRequeridoPct() { return quorumRequeridoPct; }
     public void setQuorumRequeridoPct(BigDecimal quorumRequeridoPct) { this.quorumRequeridoPct = quorumRequeridoPct; }
+
+    public Long getIdDocumento() { return idDocumento; }
+    public void setIdDocumento(Long idDocumento) { this.idDocumento = idDocumento; }
+
+    public String getEstado() { return estado; }
+    public void setEstado(String estado) { this.estado = estado; }
 }

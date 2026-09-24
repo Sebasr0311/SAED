@@ -18,6 +18,8 @@ public class PolizaSeguroDTO {
     private String telefonoContactoAgente;
     private String documentoCaratulaUrl;
     private String estado;
+    private String deducible;
+    private Long idDocumento;
 
     // Getters and Setters
     public Long getIdPoliza() { return idPoliza; }
@@ -61,4 +63,10 @@ public class PolizaSeguroDTO {
     
     public String getEstado() { return estado; }
     public void setEstado(String estado) { this.estado = estado; }
+
+    public String getDeducible() { return deducible; }
+    public void setDeducible(String deducible) { this.deducible = deducible; }
+
+    public Long getIdDocumento() { return idDocumento; }
+    public void setIdDocumento(Long idDocumento) { this.idDocumento = idDocumento; }
 }

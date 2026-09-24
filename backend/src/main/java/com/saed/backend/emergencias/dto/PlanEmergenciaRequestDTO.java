@@ -1,6 +1,7 @@
 package com.saed.backend.emergencias.dto;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
 
@@ -12,6 +13,10 @@ public class PlanEmergenciaRequestDTO {
 
     @NotBlank(message = "El tipo de contingencia es obligatorio")
     @Size(max = 40, message = "El tipo de contingencia no puede exceder 40 caracteres")
+    @Pattern(
+        regexp = "^(?i)(INCENDIO|TERREMOTO|INUNDACION|FUGA_GAS|AMENAZA_SEGURIDAD|GENERAL)$",
+        message = "El tipo de contingencia debe ser uno de: INCENDIO, TERREMOTO, INUNDACION, FUGA_GAS, AMENAZA_SEGURIDAD, GENERAL"
+    )
     private String tipoContingencia;
 
     @NotBlank(message = "Los puntos de encuentro son obligatorios")
@@ -30,6 +35,10 @@ public class PlanEmergenciaRequestDTO {
     private LocalDate fechaUltimaRevision;
 
     @Size(max = 10, message = "El estado no puede exceder 10 caracteres")
+    @Pattern(
+        regexp = "^(?i)(ACTIVO|EN_REVISION|OBSOLETO)$",
+        message = "El estado debe ser uno de: ACTIVO, EN_REVISION, OBSOLETO"
+    )
     private String estado;
 
     public PlanEmergenciaRequestDTO() {}

@@ -26,7 +26,7 @@ public class PhaseDSancionesAdversarialTest {
     }
 
     @Test
-    @WithMockUser(username = "admin_org1", roles = {"SUPERADMIN"})
+    @WithMockUser(username = "admin_org1", authorities = {"SCOPE_ADMIN_ORGANIZACION"})
     public void adminOrg1_NoDebeVerSancionesDeOrg2() throws Exception {
         // Un request sencillo a /todas deberia ser interceptado por JWT y el filterSetContext
         // pero como usamos WithMockUser, la sesion de BD podria no estar inicializada. 

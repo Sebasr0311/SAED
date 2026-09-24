@@ -22,6 +22,7 @@ public class DocumentoDTO {
     private Long archivoTamanoBytes;
     private String archivoMimeType;
     private Integer numeroVersion;
+    private String archivoSha256;
 
     public Long getIdDocumento() { return idDocumento; }
     public void setIdDocumento(Long idDocumento) { this.idDocumento = idDocumento; }
@@ -73,4 +74,11 @@ public class DocumentoDTO {
 
     public Integer getNumeroVersion() { return numeroVersion; }
     public void setNumeroVersion(Integer numeroVersion) { this.numeroVersion = numeroVersion; }
+
+    public String getArchivoSha256() { return archivoSha256; }
+    public void setArchivoSha256(String archivoSha256) { this.archivoSha256 = archivoSha256; }
+
+    private String notasCambio;
+    public String getNotasCambio() { return notasCambio; }
+    public void setNotasCambio(String notasCambio) { this.notasCambio = notasCambio; }
 }

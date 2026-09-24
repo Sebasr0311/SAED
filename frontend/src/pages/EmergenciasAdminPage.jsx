@@ -27,32 +27,29 @@ import {
 import { PageHeader } from '../components/ui/PageHeader';
 import { Modal } from '../components/ui/Modal';
 import { useFetch } from '../lib/hooks';
+import { useAuth } from '../lib/AuthContext.jsx';
 import { useTenant } from '../lib/TenantContext.jsx';
 import { useTenantApi } from '../lib/useTenantApi.js';
 import { toast } from 'sonner';
 
 const TIPOS_SERVICIO = [
-  { id: 'BOMBEROS', label: 'Bomberos', icon: Flame, color: 'text-red-500 bg-red-500/10 border-red-500/30' },
-  { id: 'POLICIA', label: 'Policía Nacional', icon: Siren, color: 'text-blue-500 bg-blue-500/10 border-blue-500/30' },
-  { id: 'AMBULANCIA', label: 'Ambulancia / Médica', icon: HeartPulse, color: 'text-rose-500 bg-rose-500/10 border-rose-500/30' },
+  { id: 'POLICIA_CAI', label: 'Policía Nacional / CAI', icon: Siren, color: 'text-blue-500 bg-blue-500/10 border-blue-500/30' },
+  { id: 'BOMBEROS', label: 'Cuerpo de Bomberos', icon: Flame, color: 'text-red-500 bg-red-500/10 border-red-500/30' },
+  { id: 'CRUZ_ROJA_AMBULANCIA', label: 'Cruz Roja / Ambulancia', icon: HeartPulse, color: 'text-rose-500 bg-rose-500/10 border-rose-500/30' },
   { id: 'DEFENSA_CIVIL', label: 'Defensa Civil', icon: LifeBuoy, color: 'text-orange-500 bg-orange-500/10 border-orange-500/30' },
-  { id: 'GAS_NATURAL', label: 'Gas Natural', icon: AlertTriangle, color: 'text-amber-500 bg-amber-500/10 border-amber-500/30' },
-  { id: 'ACUEDUCTO', label: 'Acueducto y Alcantarillado', icon: Droplets, color: 'text-cyan-500 bg-cyan-500/10 border-cyan-500/30' },
-  { id: 'ENERGIA', label: 'Energía Eléctrica', icon: Zap, color: 'text-yellow-500 bg-yellow-500/10 border-yellow-500/30' },
-  { id: 'ASCENSORES', label: 'Mantenimiento Ascensores', icon: Wrench, color: 'text-indigo-500 bg-indigo-500/10 border-indigo-500/30' },
-  { id: 'SEGURIDAD_PRIVADA', label: 'Seguridad Privada', icon: Shield, color: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/30' },
-  { id: 'OTRO', label: 'Otro Servicio', icon: Phone, color: 'text-neutral-500 bg-neutral-500/10 border-neutral-500/30' },
+  { id: 'GAS_EMERGENCIAS', label: 'Gas Natural (Emergencias)', icon: AlertTriangle, color: 'text-amber-500 bg-amber-500/10 border-amber-500/30' },
+  { id: 'ACUEDUCTO_URGENCIAS', label: 'Acueducto y Alcantarillado', icon: Droplets, color: 'text-cyan-500 bg-cyan-500/10 border-cyan-500/30' },
+  { id: 'ENERGIA_URGENCIAS', label: 'Energía Eléctrica (Urgencias)', icon: Zap, color: 'text-yellow-500 bg-yellow-500/10 border-yellow-500/30' },
+  { id: 'OTRO', label: 'Otro Servicio de Asistencia', icon: Phone, color: 'text-neutral-500 bg-neutral-500/10 border-neutral-500/30' },
 ];
 
 const TIPOS_CONTINGENCIA = [
-  'INCENDIO',
-  'INUNDACION',
-  'TERREMOTO',
-  'FALLA_ELECTRICA',
-  'ACCIDENTE',
-  'EVACUACION',
-  'SEGURIDAD',
-  'OTRO',
+  { id: 'INCENDIO', label: 'Incendio / Fuego' },
+  { id: 'TERREMOTO', label: 'Terremoto / Sismo' },
+  { id: 'INUNDACION', label: 'Inundación / Fuga de Agua' },
+  { id: 'FUGA_GAS', label: 'Fuga de Gas' },
+  { id: 'AMENAZA_SEGURIDAD', label: 'Amenaza de Seguridad' },
+  { id: 'GENERAL', label: 'Contingencia General / Evacuación' },
 ];
 
 const ESTADOS_PLAN = {
@@ -62,8 +59,10 @@ const ESTADOS_PLAN = {
 };
 
 export default function EmergenciasAdminPage() {
+  const { user } = useAuth();
   const tenant = useTenant();
   const tenantApi = useTenantApi();
+  const isReadOnly = user?.rol === 'ADMIN_ORGANIZACION';
 
   const [tabActiva, setTabActiva] = useState('contactos');
   const [filtroServicio, setFiltroServicio] = useState('TODOS');
@@ -92,7 +91,7 @@ export default function EmergenciasAdminPage() {
 
   const initialPlanForm = {
     titulo: '',
-    tipoContingencia: TIPOS_CONTINGENCIA[0],
+    tipoContingencia: TIPOS_CONTINGENCIA[0].id,
     puntosEncuentro: '',
     rutasEvacuacionDesc: '',
     mapaEvacuacionUrl: '',
@@ -156,10 +155,13 @@ export default function EmergenciasAdminPage() {
 
   const planesFiltrados = useMemo(() => {
     return planes.filter((p) => {
+      const contCfg = TIPOS_CONTINGENCIA.find((tc) => tc.id === p.tipoContingencia);
+      const matchContLabel = contCfg?.label?.toLowerCase().includes(busqueda.toLowerCase());
       return (
         !busqueda ||
         p.titulo?.toLowerCase().includes(busqueda.toLowerCase()) ||
         p.tipoContingencia?.toLowerCase().includes(busqueda.toLowerCase()) ||
+        matchContLabel ||
         p.puntosEncuentro?.toLowerCase().includes(busqueda.toLowerCase())
       );
     });
@@ -167,12 +169,14 @@ export default function EmergenciasAdminPage() {
 
   // Handlers Contacto
   const handleOpenCrearContacto = () => {
+    if (isReadOnly) return;
     setContactoEditar(null);
     setContactoForm(initialContactoForm);
     setModalContactoOpen(true);
   };
 
   const handleOpenEditarContacto = (c) => {
+    if (isReadOnly) return;
     setContactoEditar(c);
     setContactoForm({
       entidad: c.entidad || '',
@@ -188,6 +192,10 @@ export default function EmergenciasAdminPage() {
 
   const handleSaveContacto = async (e) => {
     e.preventDefault();
+    if (isReadOnly) {
+      toast.error('No tiene permisos para modificar emergencias');
+      return;
+    }
     if (!contactoForm.entidad.trim() || !contactoForm.telefonoPrincipal.trim()) {
       toast.error('Entidad y teléfono principal son obligatorios');
       return;
@@ -220,16 +228,18 @@ export default function EmergenciasAdminPage() {
 
   // Handlers Plan
   const handleOpenCrearPlan = () => {
+    if (isReadOnly) return;
     setPlanEditar(null);
     setPlanForm(initialPlanForm);
     setModalPlanOpen(true);
   };
 
   const handleOpenEditarPlan = (p) => {
+    if (isReadOnly) return;
     setPlanEditar(p);
     setPlanForm({
       titulo: p.titulo || '',
-      tipoContingencia: p.tipoContingencia || TIPOS_CONTINGENCIA[0],
+      tipoContingencia: p.tipoContingencia || TIPOS_CONTINGENCIA[0].id,
       puntosEncuentro: p.puntosEncuentro || '',
       rutasEvacuacionDesc: p.rutasEvacuacionDesc || '',
       mapaEvacuacionUrl: p.mapaEvacuacionUrl || '',
@@ -242,6 +252,10 @@ export default function EmergenciasAdminPage() {
 
   const handleSavePlan = async (e) => {
     e.preventDefault();
+    if (isReadOnly) {
+      toast.error('No tiene permisos para modificar emergencias');
+      return;
+    }
     if (!planForm.titulo.trim() || !planForm.puntosEncuentro.trim() || !planForm.rutasEvacuacionDesc.trim()) {
       toast.error('Título, puntos de encuentro y rutas de evacuación son obligatorios');
       return;
@@ -270,6 +284,10 @@ export default function EmergenciasAdminPage() {
   // Handlers Delete
   const handleDelete = async () => {
     if (!itemEliminar) return;
+    if (isReadOnly) {
+      toast.error('No tiene permisos para modificar emergencias');
+      return;
+    }
     try {
       setSaving(true);
       if (itemEliminar.tipo === 'contacto') {
@@ -297,24 +315,33 @@ export default function EmergenciasAdminPage() {
         title="Directorio y Planes de Emergencia"
         description="Líneas de emergencia para minuta de portería, planes de contingencia y protocolos de evacuación"
         action={
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleOpenCrearContacto}
-              className="flex items-center gap-2 px-3 py-2 bg-card border border-border text-foreground rounded-lg font-medium shadow-xs hover:bg-muted/70 transition-colors text-xs sm:text-sm"
-            >
-              <Plus className="w-4 h-4 text-primary" />
-              Nuevo Contacto
-            </button>
-            <button
-              onClick={handleOpenCrearPlan}
-              className="flex items-center gap-2 px-3 py-2 bg-primary text-primary-content rounded-lg font-medium shadow-sm hover:bg-primary/90 transition-colors text-xs sm:text-sm"
-            >
-              <Plus className="w-4 h-4" />
-              Nuevo Plan
-            </button>
-          </div>
+          !isReadOnly && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleOpenCrearContacto}
+                className="flex items-center gap-2 px-3 py-2 bg-card border border-border text-foreground rounded-lg font-medium shadow-xs hover:bg-muted/70 transition-colors text-xs sm:text-sm"
+              >
+                <Plus className="w-4 h-4 text-primary" />
+                Nuevo Contacto
+              </button>
+              <button
+                onClick={handleOpenCrearPlan}
+                className="flex items-center gap-2 px-3 py-2 bg-primary text-primary-content rounded-lg font-medium shadow-sm hover:bg-primary/90 transition-colors text-xs sm:text-sm"
+              >
+                <Plus className="w-4 h-4" />
+                Nuevo Plan
+              </button>
+            </div>
+          )
         }
       />
+
+      {isReadOnly && (
+        <div className="flex items-center gap-2 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg text-amber-700 dark:text-amber-400 text-xs font-medium">
+          <AlertCircle className="w-4 h-4 shrink-0" />
+          <span>Modo de sólo lectura: Como Administrador Organizacional puede consultar los planes y contactos de la copropiedad, pero las modificaciones deben ser gestionadas por el Administrador de la Propiedad.</span>
+        </div>
+      )}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -467,13 +494,15 @@ export default function EmergenciasAdminPage() {
               <p className="text-sm text-muted-foreground mt-1 max-w-sm mx-auto">
                 No se encontraron contactos para el filtro seleccionado.
               </p>
-              <button
-                onClick={handleOpenCrearContacto}
-                className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-content rounded-lg text-sm font-medium shadow-sm hover:bg-primary/90 transition-colors"
-              >
-                <Plus className="w-4 h-4" />
-                Agregar Contacto
-              </button>
+              {!isReadOnly && (
+                <button
+                  onClick={handleOpenCrearContacto}
+                  className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-content rounded-lg text-sm font-medium shadow-sm hover:bg-primary/90 transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  Agregar Contacto
+                </button>
+              )}
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -533,25 +562,27 @@ export default function EmergenciasAdminPage() {
 
                     <div className="flex items-center justify-between border-t border-border/60 pt-3 mt-4 text-xs text-muted-foreground">
                       <span>Prioridad visual: #{c.ordenVisualizacion || 1}</span>
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => handleOpenEditarContacto(c)}
-                          className="p-1.5 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-md transition-colors"
-                          title="Editar Contacto"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => {
-                            setItemEliminar({ tipo: 'contacto', data: c });
-                            setModalDeleteOpen(true);
-                          }}
-                          className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors"
-                          title="Eliminar Contacto"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
+                      {!isReadOnly && (
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => handleOpenEditarContacto(c)}
+                            className="p-1.5 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-md transition-colors"
+                            title="Editar Contacto"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              setItemEliminar({ tipo: 'contacto', data: c });
+                              setModalDeleteOpen(true);
+                            }}
+                            className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors"
+                            title="Eliminar Contacto"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -576,18 +607,21 @@ export default function EmergenciasAdminPage() {
               <p className="text-sm text-muted-foreground mt-1 max-w-sm mx-auto">
                 Registre protocolos de contingencia ante incendios, sismos o evacuaciones.
               </p>
-              <button
-                onClick={handleOpenCrearPlan}
-                className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-content rounded-lg text-sm font-medium shadow-sm hover:bg-primary/90 transition-colors"
-              >
-                <Plus className="w-4 h-4" />
-                Crear Primer Plan
-              </button>
+              {!isReadOnly && (
+                <button
+                  onClick={handleOpenCrearPlan}
+                  className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-content rounded-lg text-sm font-medium shadow-sm hover:bg-primary/90 transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  Crear Primer Plan
+                </button>
+              )}
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               {planesFiltrados.map((p) => {
                 const estCfg = ESTADOS_PLAN[p.estado] || { label: p.estado, color: 'bg-muted text-muted-foreground' };
+                const contCfg = TIPOS_CONTINGENCIA.find((tc) => tc.id === p.tipoContingencia);
                 return (
                   <div
                     key={p.idPlanEmergencia}
@@ -596,7 +630,7 @@ export default function EmergenciasAdminPage() {
                     <div>
                       <div className="flex items-start justify-between gap-2 mb-2">
                         <span className="px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-primary/10 text-primary border border-primary/20">
-                          {p.tipoContingencia}
+                          {contCfg ? contCfg.label : p.tipoContingencia}
                         </span>
                         <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${estCfg.color}`}>
                           {estCfg.label}
@@ -659,25 +693,27 @@ export default function EmergenciasAdminPage() {
                         )}
                       </div>
 
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => handleOpenEditarPlan(p)}
-                          className="p-1.5 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-md transition-colors"
-                          title="Editar Plan"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => {
-                            setItemEliminar({ tipo: 'plan', data: p });
-                            setModalDeleteOpen(true);
-                          }}
-                          className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors"
-                          title="Eliminar Plan"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
+                      {!isReadOnly && (
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => handleOpenEditarPlan(p)}
+                            className="p-1.5 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-md transition-colors"
+                            title="Editar Plan"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              setItemEliminar({ tipo: 'plan', data: p });
+                              setModalDeleteOpen(true);
+                            }}
+                            className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors"
+                            title="Eliminar Plan"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -852,8 +888,8 @@ export default function EmergenciasAdminPage() {
                 className="w-full px-3 py-2 text-sm bg-background border border-border rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
               >
                 {TIPOS_CONTINGENCIA.map((tc) => (
-                  <option key={tc} value={tc}>
-                    {tc}
+                  <option key={tc.id} value={tc.id}>
+                    {tc.label}
                   </option>
                 ))}
               </select>

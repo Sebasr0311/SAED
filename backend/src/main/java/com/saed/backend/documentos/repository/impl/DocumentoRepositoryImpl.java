@@ -14,6 +14,7 @@ import java.sql.PreparedStatement;
 import java.sql.Timestamp;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public class DocumentoRepositoryImpl implements DocumentoRepository {
@@ -55,29 +56,33 @@ public class DocumentoRepositoryImpl implements DocumentoRepository {
         if (!rs.wasNull()) dto.setArchivoTamanoBytes(tamano);
         
         dto.setArchivoMimeType(rs.getString("ARCHIVO_MIME_TYPE"));
+        dto.setArchivoSha256(rs.getString("ARCHIVO_SHA256"));
         
         int version = rs.getInt("NUMERO_VERSION");
         if (!rs.wasNull()) dto.setNumeroVersion(version);
+        dto.setNotasCambio(rs.getString("NOTAS_CAMBIO"));
 
         return dto;
     };
 
     @Override
     public List<DocumentoDTO> findAllByPropiedad(Long idPropiedad) {
-        String sql = "SELECT D.*, V.ARCHIVO_URL, V.ARCHIVO_NOMBRE_ORIG, V.ARCHIVO_TAMANO_BYTES, V.ARCHIVO_MIME_TYPE, V.NUMERO_VERSION " +
+        String sql = "SELECT D.*, V.ARCHIVO_URL, V.ARCHIVO_NOMBRE_ORIG, V.ARCHIVO_TAMANO_BYTES, V.ARCHIVO_MIME_TYPE, V.ARCHIVO_SHA256, V.NUMERO_VERSION, V.NOTAS_CAMBIO " +
                      "FROM DOCUMENTOS D " +
                      "LEFT JOIN (SELECT * FROM VERSIONES_DOCUMENTO WHERE (ID_DOCUMENTO, NUMERO_VERSION) IN " +
                      "(SELECT ID_DOCUMENTO, MAX(NUMERO_VERSION) FROM VERSIONES_DOCUMENTO GROUP BY ID_DOCUMENTO)) V " +
                      "ON D.ID_DOCUMENTO = V.ID_DOCUMENTO " +
                      "WHERE (? IS NULL OR D.ID_PROPIEDAD = ? OR D.ID_PROPIEDAD IS NULL) " +
+                     "AND D.ESTADO <> 'ELIMINADO' " +
                      "ORDER BY D.FECHA_CREACION DESC";
         try {
             return jdbcTemplate.query(sql, rowMapper, idPropiedad, idPropiedad);
         } catch (Exception e) {
             log.warn("Error consultando documentos admin con versiones, ejecutando fallback sin join: {}", e.getMessage());
-            String fallbackSql = "SELECT D.*, NULL AS ARCHIVO_URL, NULL AS ARCHIVO_NOMBRE_ORIG, 0 AS ARCHIVO_TAMANO_BYTES, NULL AS ARCHIVO_MIME_TYPE, 1 AS NUMERO_VERSION " +
+            String fallbackSql = "SELECT D.*, NULL AS ARCHIVO_URL, NULL AS ARCHIVO_NOMBRE_ORIG, 0 AS ARCHIVO_TAMANO_BYTES, NULL AS ARCHIVO_MIME_TYPE, NULL AS ARCHIVO_SHA256, 1 AS NUMERO_VERSION, NULL AS NOTAS_CAMBIO " +
                                  "FROM DOCUMENTOS D " +
                                  "WHERE (? IS NULL OR D.ID_PROPIEDAD = ? OR D.ID_PROPIEDAD IS NULL) " +
+                                 "AND D.ESTADO <> 'ELIMINADO' " +
                                  "ORDER BY D.FECHA_CREACION DESC";
             try {
                 return jdbcTemplate.query(fallbackSql, rowMapper, idPropiedad, idPropiedad);
@@ -90,7 +95,7 @@ public class DocumentoRepositoryImpl implements DocumentoRepository {
 
     @Override
     public List<DocumentoDTO> findPublicosByPropiedad(Long idPropiedad) {
-        String sql = "SELECT D.*, V.ARCHIVO_URL, V.ARCHIVO_NOMBRE_ORIG, V.ARCHIVO_TAMANO_BYTES, V.ARCHIVO_MIME_TYPE, V.NUMERO_VERSION " +
+        String sql = "SELECT D.*, V.ARCHIVO_URL, V.ARCHIVO_NOMBRE_ORIG, V.ARCHIVO_TAMANO_BYTES, V.ARCHIVO_MIME_TYPE, V.ARCHIVO_SHA256, V.NUMERO_VERSION, V.NOTAS_CAMBIO " +
                      "FROM DOCUMENTOS D " +
                      "LEFT JOIN (SELECT * FROM VERSIONES_DOCUMENTO WHERE (ID_DOCUMENTO, NUMERO_VERSION) IN " +
                      "(SELECT ID_DOCUMENTO, MAX(NUMERO_VERSION) FROM VERSIONES_DOCUMENTO GROUP BY ID_DOCUMENTO)) V " +
@@ -102,7 +107,7 @@ public class DocumentoRepositoryImpl implements DocumentoRepository {
             return jdbcTemplate.query(sql, rowMapper, idPropiedad, idPropiedad);
         } catch (Exception e) {
             log.warn("Error consultando documentos publicos con versiones, ejecutando fallback sin join: {}", e.getMessage());
-            String fallbackSql = "SELECT D.*, NULL AS ARCHIVO_URL, NULL AS ARCHIVO_NOMBRE_ORIG, 0 AS ARCHIVO_TAMANO_BYTES, NULL AS ARCHIVO_MIME_TYPE, 1 AS NUMERO_VERSION " +
+            String fallbackSql = "SELECT D.*, NULL AS ARCHIVO_URL, NULL AS ARCHIVO_NOMBRE_ORIG, 0 AS ARCHIVO_TAMANO_BYTES, NULL AS ARCHIVO_MIME_TYPE, NULL AS ARCHIVO_SHA256, 1 AS NUMERO_VERSION, NULL AS NOTAS_CAMBIO " +
                                  "FROM DOCUMENTOS D " +
                                  "WHERE (? IS NULL OR D.ID_PROPIEDAD = ? OR D.ID_PROPIEDAD IS NULL) " +
                                  "AND D.ES_PUBLICO_RESIDENTES = 'S' AND D.ESTADO = 'ACTIVO' " +
@@ -110,9 +115,40 @@ public class DocumentoRepositoryImpl implements DocumentoRepository {
             try {
                 return jdbcTemplate.query(fallbackSql, rowMapper, idPropiedad, idPropiedad);
             } catch (Exception ex) {
-                log.error("Fallo crítico en fallback de documentos residentes: {}", ex.getMessage());
+                log.error("Fallo crítico en fallback de documentos residentes: {}", e.getMessage());
                 return List.of();
             }
+        }
+    }
+
+    @Override
+    public Optional<DocumentoDTO> findById(Long idDocumento) {
+        String sql = "SELECT D.*, V.ARCHIVO_URL, V.ARCHIVO_NOMBRE_ORIG, V.ARCHIVO_TAMANO_BYTES, V.ARCHIVO_MIME_TYPE, V.ARCHIVO_SHA256, V.NUMERO_VERSION, V.NOTAS_CAMBIO " +
+                     "FROM DOCUMENTOS D " +
+                     "LEFT JOIN (SELECT * FROM VERSIONES_DOCUMENTO WHERE (ID_DOCUMENTO, NUMERO_VERSION) IN " +
+                     "(SELECT ID_DOCUMENTO, MAX(NUMERO_VERSION) FROM VERSIONES_DOCUMENTO GROUP BY ID_DOCUMENTO)) V " +
+                     "ON D.ID_DOCUMENTO = V.ID_DOCUMENTO " +
+                     "WHERE D.ID_DOCUMENTO = ? AND D.ESTADO <> 'ELIMINADO'";
+        try {
+            List<DocumentoDTO> list = jdbcTemplate.query(sql, rowMapper, idDocumento);
+            return list.stream().findFirst();
+        } catch (Exception e) {
+            log.warn("Error consultando documento por ID con versiones, ejecutando fallback: {}", e.getMessage());
+            String fallbackSql = "SELECT D.*, NULL AS ARCHIVO_URL, NULL AS ARCHIVO_NOMBRE_ORIG, 0 AS ARCHIVO_TAMANO_BYTES, NULL AS ARCHIVO_MIME_TYPE, NULL AS ARCHIVO_SHA256, 1 AS NUMERO_VERSION, NULL AS NOTAS_CAMBIO " +
+                                 "FROM DOCUMENTOS D " +
+                                 "WHERE D.ID_DOCUMENTO = ? AND D.ESTADO <> 'ELIMINADO'";
+            List<DocumentoDTO> list = jdbcTemplate.query(fallbackSql, rowMapper, idDocumento);
+            return list.stream().findFirst();
+        }
+    }
+
+    @Override
+    public void lockDocumentoForUpdate(Long idDocumento) {
+        String sql = "SELECT ID_DOCUMENTO FROM DOCUMENTOS WHERE ID_DOCUMENTO = ? AND ESTADO <> 'ELIMINADO' FOR UPDATE";
+        try {
+            jdbcTemplate.queryForObject(sql, Long.class, idDocumento);
+        } catch (org.springframework.dao.EmptyResultDataAccessException e) {
+            throw new java.util.NoSuchElementException("Documento no encontrado o eliminado con ID " + idDocumento);
         }
     }
 
@@ -125,13 +161,21 @@ public class DocumentoRepositoryImpl implements DocumentoRepository {
         jdbcTemplate.update(connection -> {
             PreparedStatement ps = connection.prepareStatement(sql, new String[]{"ID_DOCUMENTO"});
             ps.setLong(1, idOrganizacion);
-            ps.setLong(2, idPropiedad);
+            if (idPropiedad != null) {
+                ps.setLong(2, idPropiedad);
+            } else {
+                ps.setNull(2, java.sql.Types.NUMERIC);
+            }
             ps.setString(3, documento.getCategoria());
             ps.setString(4, documento.getTitulo());
             ps.setString(5, documento.getDescripcion());
             ps.setString(6, documento.getEsPublicoResidentes() != null ? documento.getEsPublicoResidentes() : "N");
             ps.setString(7, documento.getRolMinimoAcceso() != null ? documento.getRolMinimoAcceso() : "ADMIN_PROPIEDAD");
-            ps.setLong(8, creadoPor);
+            if (creadoPor != null) {
+                ps.setLong(8, creadoPor);
+            } else {
+                ps.setNull(8, java.sql.Types.NUMERIC);
+            }
             return ps;
         }, keyHolder);
 
@@ -140,15 +184,32 @@ public class DocumentoRepositoryImpl implements DocumentoRepository {
 
     @Override
     public void addVersion(Long idDocumento, DocumentoDTO doc, Long subidoPor) {
-        String sql = "INSERT INTO VERSIONES_DOCUMENTO (ID_DOCUMENTO, NUMERO_VERSION, ARCHIVO_URL, ARCHIVO_NOMBRE_ORIG, ARCHIVO_TAMANO_BYTES, ARCHIVO_MIME_TYPE, SUBIDO_POR) " +
-                     "VALUES (?, (SELECT NVL(MAX(NUMERO_VERSION), 0) + 1 FROM VERSIONES_DOCUMENTO WHERE ID_DOCUMENTO = ?), ?, ?, ?, ?, ?)";
-        jdbcTemplate.update(sql, idDocumento, idDocumento, doc.getArchivoUrl(), doc.getArchivoNombreOrig(), doc.getArchivoTamanoBytes(), doc.getArchivoMimeType(), subidoPor);
+        String sql = "INSERT INTO VERSIONES_DOCUMENTO (ID_DOCUMENTO, NUMERO_VERSION, ARCHIVO_URL, ARCHIVO_NOMBRE_ORIG, ARCHIVO_TAMANO_BYTES, ARCHIVO_MIME_TYPE, ARCHIVO_SHA256, NOTAS_CAMBIO, SUBIDO_POR) " +
+                     "VALUES (?, (SELECT NVL(MAX(NUMERO_VERSION), 0) + 1 FROM VERSIONES_DOCUMENTO WHERE ID_DOCUMENTO = ?), ?, ?, ?, ?, ?, ?, ?)";
+        jdbcTemplate.update(sql, idDocumento, idDocumento, doc.getArchivoUrl(), doc.getArchivoNombreOrig(), doc.getArchivoTamanoBytes(), doc.getArchivoMimeType(), doc.getArchivoSha256(), doc.getNotasCambio(), subidoPor);
+    }
+
+    @Override
+    public int updateDocumento(Long idDocumento, DocumentoDTO doc, Long idPropiedad) {
+        String sql = "UPDATE DOCUMENTOS " +
+                     "SET TITULO = ?, CATEGORIA = ?, DESCRIPCION = ?, ES_PUBLICO_RESIDENTES = ?, ROL_MINIMO_ACCESO = ? " +
+                     "WHERE ID_DOCUMENTO = ? AND (? IS NULL OR ID_PROPIEDAD = ? OR ID_PROPIEDAD IS NULL) AND ESTADO <> 'ELIMINADO'";
+        return jdbcTemplate.update(sql,
+                doc.getTitulo(),
+                doc.getCategoria(),
+                doc.getDescripcion(),
+                doc.getEsPublicoResidentes() != null ? doc.getEsPublicoResidentes() : "N",
+                doc.getRolMinimoAcceso() != null ? doc.getRolMinimoAcceso() : "ADMIN_PROPIEDAD",
+                idDocumento,
+                idPropiedad,
+                idPropiedad
+        );
     }
 
     @Override
     public void deleteDocumento(Long idDocumento, Long idPropiedad) {
-        // Enforce tenant isolation strictly
-        String sql = "DELETE FROM DOCUMENTOS WHERE ID_DOCUMENTO = ? AND ID_PROPIEDAD = ?";
-        jdbcTemplate.update(sql, idDocumento, idPropiedad);
+        // Enforce tenant isolation strictly via soft delete
+        String sql = "UPDATE DOCUMENTOS SET ESTADO = 'ELIMINADO' WHERE ID_DOCUMENTO = ? AND (? IS NULL OR ID_PROPIEDAD = ? OR ID_PROPIEDAD IS NULL) AND ESTADO <> 'ELIMINADO'";
+        jdbcTemplate.update(sql, idDocumento, idPropiedad, idPropiedad);
     }
 }

@@ -12,6 +12,10 @@ public class ContactoEmergenciaRequestDTO {
 
     @NotBlank(message = "El tipo de servicio es obligatorio")
     @Size(max = 40, message = "El tipo de servicio no puede exceder 40 caracteres")
+    @Pattern(
+        regexp = "^(?i)(POLICIA_CAI|BOMBEROS|CRUZ_ROJA_AMBULANCIA|GAS_EMERGENCIAS|ACUEDUCTO_URGENCIAS|ENERGIA_URGENCIAS|DEFENSA_CIVIL|OTRO)$",
+        message = "El tipo de servicio debe ser uno de: POLICIA_CAI, BOMBEROS, CRUZ_ROJA_AMBULANCIA, GAS_EMERGENCIAS, ACUEDUCTO_URGENCIAS, ENERGIA_URGENCIAS, DEFENSA_CIVIL, OTRO"
+    )
     private String tipoServicio;
 
     @NotBlank(message = "El teléfono principal es obligatorio")
