@@ -278,7 +278,7 @@ export default function ContratosPage() {
               e.stopPropagation();
               verDetalle(row.idContrato);
             }}
-            className="btn btn-ghost btn-xs"
+            className="p-1 rounded-md text-muted-foreground hover:bg-muted transition-colors"
             title="Ver Participantes y Detalle"
             aria-label="Ver detalle del contrato"
           >
@@ -292,7 +292,7 @@ export default function ContratosPage() {
                 e.stopPropagation();
                 descargarPDF(row.idContrato);
               }}
-              className="btn btn-ghost btn-xs"
+              className="p-1 rounded-md text-muted-foreground hover:bg-muted transition-colors disabled:opacity-50"
               title="Descargar PDF"
               aria-label="Descargar PDF"
               disabled={descargando === row.idContrato}
@@ -308,7 +308,7 @@ export default function ContratosPage() {
                 e.stopPropagation();
                 activar(row.idContrato);
               }}
-              className="btn btn-ghost btn-xs"
+              className="p-1 rounded-md text-muted-foreground hover:bg-muted transition-colors"
               title="Activar"
               aria-label="Activar contrato"
             >
@@ -323,7 +323,7 @@ export default function ContratosPage() {
                 e.stopPropagation();
                 setConfirmCancelar(row);
               }}
-              className="btn btn-ghost btn-xs"
+              className="p-1 rounded-md text-muted-foreground hover:bg-muted transition-colors"
               title="Cancelar"
               aria-label="Cancelar contrato"
             >

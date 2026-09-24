@@ -526,8 +526,8 @@ export default function PagosPage() {
                 href={`/api/v1/pagos/${comprobanteModal.idPago}/comprobante`}
                 target="_blank"
                 rel="noreferrer"
-                className="btn btn-outline"
-                style={{ display: 'inline-block', textDecoration: 'none', padding: '6px 14px', fontSize: '12px' }}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium rounded-lg border border-border bg-card text-foreground hover:bg-muted transition-colors"
+                style={{ textDecoration: 'none' }}
               >
                 Descargar Comprobante Original
               </a>

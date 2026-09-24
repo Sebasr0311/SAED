@@ -55,7 +55,7 @@ const TIPOS_CONTINGENCIA = [
 const ESTADOS_PLAN = {
   ACTIVO: { label: 'Activo / Vigente', color: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30' },
   EN_REVISION: { label: 'En Revisión', color: 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30' },
-  OBSOLETO: { label: 'Obsoleto', color: 'bg-neutral/20 text-neutral-content' },
+  OBSOLETO: { label: 'Obsoleto', color: 'bg-muted text-muted-foreground border border-border' },
 };
 
 export default function EmergenciasAdminPage() {

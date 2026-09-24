@@ -42,7 +42,7 @@ const ESTADOS_POLIZA = {
   VIGENTE: { label: 'Vigente', color: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30' },
   POR_VENCER: { label: 'Por Vencer', color: 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 animate-pulse' },
   VENCIDA: { label: 'Vencida', color: 'bg-red-500/15 text-red-700 dark:text-red-400 border border-red-500/30' },
-  CANCELADA: { label: 'Cancelada', color: 'bg-neutral/20 text-neutral-content' },
+  CANCELADA: { label: 'Cancelada', color: 'bg-muted text-muted-foreground border border-border' },
 };
 
 function formatCurrency(val) {

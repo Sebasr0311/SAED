@@ -321,7 +321,7 @@ export default function VisitasPage() {
               e.stopPropagation();
               verDetalle(row);
             }}
-            className="btn btn-ghost btn-sm"
+            className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted transition-colors"
             aria-label="Ver detalle"
             title="Ver detalle"
           >
@@ -344,7 +344,7 @@ export default function VisitasPage() {
                 e.stopPropagation();
                 setConfirmCancelar(row);
               }}
-              className="btn btn-ghost btn-sm"
+              className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted transition-colors"
               aria-label="Cancelar"
               title="Cancelar"
             >

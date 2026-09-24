@@ -348,10 +348,10 @@ export default function IncidentesAdminPage() {
 
         <div className="bg-card border border-border rounded-xl p-4 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-purple-600 dark:text-purple-400">Escalados a Sanción</span>
-            <ArrowUpRight className="w-4 h-4 text-purple-500" />
+            <span className="text-xs font-medium text-amber-600 dark:text-amber-400">Escalados a Sanción</span>
+            <ArrowUpRight className="w-4 h-4 text-amber-500" />
           </div>
-          <div className="mt-2 text-2xl font-bold text-purple-600 dark:text-purple-400">{kpis.escalados}</div>
+          <div className="mt-2 text-2xl font-bold text-amber-600 dark:text-amber-400">{kpis.escalados}</div>
           <div className="text-xs text-muted-foreground mt-1">Para comité de convivencia</div>
         </div>
 

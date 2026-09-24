@@ -41,7 +41,7 @@ import { TOKEN_KEY } from '../lib/storage.js';
 import { toast } from 'sonner';
 
 const ESTADOS_ASAMBLEA = {
-  BORRADOR: { label: 'Borrador', color: 'bg-neutral/20 text-neutral-content' },
+  BORRADOR: { label: 'Borrador', color: 'bg-muted text-muted-foreground border border-border' },
   CONVOCADA: { label: 'Convocada', color: 'bg-blue-500/15 text-blue-700 dark:text-blue-400 border border-blue-500/30' },
   EN_CURSO: { label: 'En Curso', color: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30' },
   EN_RECESO: { label: 'En Receso', color: 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30' },
@@ -583,7 +583,7 @@ export default function AsambleasAdminPage() {
           <button
             onClick={handleRefetchAll}
             disabled={sincronizando}
-            className="btn btn-outline btn-sm gap-2"
+            className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg border border-border bg-card text-foreground hover:bg-muted transition-colors shadow-xs"
             title="Sincronizar quórum y asambleas"
           >
             <RefreshCw className={`w-4 h-4 ${sincronizando ? 'animate-spin text-primary' : ''}`} />
@@ -591,7 +591,7 @@ export default function AsambleasAdminPage() {
           </button>
           <button
             onClick={() => setModalConvocarOpen(true)}
-            className="btn btn-primary btn-sm gap-2 shadow-sm"
+            className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-xs"
           >
             <Plus className="w-4 h-4" />
             Convocar Asamblea
@@ -709,7 +709,7 @@ export default function AsambleasAdminPage() {
 
           <div className="flex items-center gap-3 w-full sm:w-auto">
             <select
-              className="select select-bordered select-sm w-full sm:w-72"
+              className="w-full sm:w-72 px-3 py-1.5 text-xs rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 shadow-xs"
               value={asambleaActiva?.idAsamblea || ''}
               onChange={(e) => setAsambleaSeleccionadaId(Number(e.target.value))}
             >
@@ -723,7 +723,7 @@ export default function AsambleasAdminPage() {
             {asambleaActiva && asambleaActiva.estado === 'CONVOCADA' && (
               <button
                 onClick={() => handleCambiarEstado(asambleaActiva.idAsamblea, 'EN_CURSO')}
-                className="btn btn-sm btn-success gap-1.5"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-xs"
                 title="Iniciar sesión formal"
               >
                 <Play className="w-3.5 h-3.5" /> Iniciar
@@ -733,7 +733,7 @@ export default function AsambleasAdminPage() {
             {asambleaActiva && asambleaActiva.estado === 'EN_CURSO' && (
               <button
                 onClick={() => handleCambiarEstado(asambleaActiva.idAsamblea, 'FINALIZADA')}
-                className="btn btn-sm btn-outline btn-error gap-1.5"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-destructive/30 text-destructive hover:bg-destructive/10 transition-colors"
                 title="Finalizar asamblea"
               >
                 <Square className="w-3.5 h-3.5" /> Finalizar
@@ -792,7 +792,7 @@ export default function AsambleasAdminPage() {
             </div>
             <div className="flex items-center gap-2">
               <select
-                className="select select-bordered select-xs"
+                className="px-2.5 py-1 text-xs rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary/20 shadow-xs"
                 value={filtroEstado}
                 onChange={(e) => setFiltroEstado(e.target.value)}
               >
@@ -809,54 +809,54 @@ export default function AsambleasAdminPage() {
             <div className="text-center py-12 text-muted-foreground">Cargando asambleas...</div>
           ) : asambleasFiltradas.length === 0 ? (
             <div className="text-center py-12 border border-dashed border-border rounded-xl">
-              <Calendar className="w-10 h-10 text-muted-foreground mx-auto mb-2" />
+              <Calendar className="w-10 h-10 text-muted-foreground mx-auto mb-2 opacity-50" />
               <p className="font-semibold text-sm">No hay asambleas registradas</p>
               <p className="text-xs text-muted-foreground mt-1">Convoque la primera asamblea para comenzar.</p>
               <button
                 onClick={() => setModalConvocarOpen(true)}
-                className="btn btn-primary btn-xs mt-4"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-xs mt-4"
               >
                 Convocar Ahora
               </button>
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="table table-sm w-full">
+              <table className="w-full text-xs text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-border text-muted-foreground">
-                    <th>Título & Convocatoria</th>
-                    <th>Tipo</th>
-                    <th>Modalidad</th>
-                    <th>1ra Convocatoria</th>
-                    <th>Quórum Alcanzado</th>
-                    <th>Estado</th>
-                    <th className="text-right">Acciones</th>
+                  <tr className="border-b border-border bg-muted/40 text-muted-foreground text-[11px] uppercase tracking-wider">
+                    <th className="py-2.5 px-3 font-semibold">Título & Convocatoria</th>
+                    <th className="py-2.5 px-3 font-semibold">Tipo</th>
+                    <th className="py-2.5 px-3 font-semibold">Modalidad</th>
+                    <th className="py-2.5 px-3 font-semibold">1ra Convocatoria</th>
+                    <th className="py-2.5 px-3 font-semibold">Quórum Alcanzado</th>
+                    <th className="py-2.5 px-3 font-semibold">Estado</th>
+                    <th className="py-2.5 px-3 font-semibold text-right">Acciones</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-border/40">
                   {asambleasFiltradas.map((a) => {
-                    const estadoMeta = ESTADOS_ASAMBLEA[a.estado] || { label: a.estado, color: 'bg-neutral' };
+                    const estadoMeta = ESTADOS_ASAMBLEA[a.estado] || { label: a.estado, color: 'bg-muted text-muted-foreground border border-border' };
                     return (
                       <tr key={a.idAsamblea} className="hover:bg-muted/40 transition-colors">
-                        <td>
+                        <td className="py-2.5 px-3">
                           <div className="font-semibold text-sm">{a.titulo}</div>
                           <div className="text-xs text-muted-foreground">Convocatoria #{a.convocatoriaNumero || 1}</div>
                         </td>
-                        <td>
-                          <span className="badge badge-sm badge-outline font-medium">{a.tipo}</span>
+                        <td className="py-2.5 px-3">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium border border-border bg-secondary/50 text-secondary-foreground">{a.tipo}</span>
                         </td>
-                        <td>
+                        <td className="py-2.5 px-3">
                           <span className="text-xs font-medium flex items-center gap-1">
                             {a.modalidad === 'VIRTUAL' && <Video className="w-3.5 h-3.5 text-blue-500" />}
                             {a.modalidad === 'PRESENCIAL' && <Users className="w-3.5 h-3.5 text-emerald-500" />}
-                            {a.modalidad === 'MIXTA' && <Building className="w-3.5 h-3.5 text-purple-500" />}
+                            {a.modalidad === 'MIXTA' && <Building className="w-3.5 h-3.5 text-amber-500" />}
                             {a.modalidad}
                           </span>
                         </td>
-                        <td className="text-xs">
+                        <td className="py-2.5 px-3 text-xs">
                           {a.fechaHoraPrimeraConv ? new Date(a.fechaHoraPrimeraConv).toLocaleString('es-CO') : 'Sin fecha'}
                         </td>
-                        <td>
+                        <td className="py-2.5 px-3">
                           <div className="flex items-center gap-2">
                             <div className="w-20 bg-muted rounded-full h-2 overflow-hidden">
                               <div
@@ -867,16 +867,16 @@ export default function AsambleasAdminPage() {
                             <span className="text-xs font-semibold">{a.quorumAlcanzadoPct || 0}%</span>
                           </div>
                         </td>
-                        <td>
-                          <span className={`badge badge-sm ${estadoMeta.color}`}>{estadoMeta.label}</span>
+                        <td className="py-2.5 px-3">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium ${estadoMeta.color}`}>{estadoMeta.label}</span>
                         </td>
-                        <td className="text-right">
+                        <td className="py-2.5 px-3 text-right">
                           <button
                             onClick={() => {
                               setAsambleaSeleccionadaId(a.idAsamblea);
                               setTabActiva('quorum');
                             }}
-                            className="btn btn-xs btn-outline btn-primary gap-1"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-md border border-primary/30 text-primary hover:bg-primary/10 transition-colors"
                           >
                             Abrir Sala <ChevronRight className="w-3 h-3" />
                           </button>
@@ -910,7 +910,7 @@ export default function AsambleasAdminPage() {
                 <button
                   onClick={() => setModalAsistenciaOpen(true)}
                   disabled={asambleaActiva.estado === 'FINALIZADA' || asambleaActiva.estado === 'CANCELADA'}
-                  className="btn btn-primary btn-sm gap-2"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-xs disabled:opacity-50"
                 >
                   <UserCheck className="w-4 h-4" />
                   Registrar Asistente
@@ -987,7 +987,7 @@ export default function AsambleasAdminPage() {
                           <td>{asist.nombreAsistente || 'N/D'}</td>
                           <td className="font-mono text-xs">{asist.documentoAsistente || '-'}</td>
                           <td>
-                            <span className="badge badge-xs badge-outline">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium border border-border bg-secondary/50 text-secondary-foreground">
                               {asist.esPropietarioDirecto === 'S' ? 'Propietario Directo' : 'Apoderado'}
                             </span>
                           </td>
@@ -997,16 +997,16 @@ export default function AsambleasAdminPage() {
                           </td>
                           <td>
                             {asist.horaRetiro ? (
-                              <span className="badge badge-xs badge-ghost">Retirado ({new Date(asist.horaRetiro).toLocaleTimeString('es-CO')})</span>
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-muted text-muted-foreground">Retirado ({new Date(asist.horaRetiro).toLocaleTimeString('es-CO')})</span>
                             ) : (
-                              <span className="badge badge-xs bg-emerald-500/20 text-emerald-700 dark:text-emerald-400">Presente</span>
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">Presente</span>
                             )}
                           </td>
                           <td className="text-right">
                             {!asist.horaRetiro && (
                               <button
                                 onClick={() => handleRetirarAsistencia(asist.idUnidad)}
-                                className="btn btn-xs btn-outline btn-error"
+                                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-md border border-destructive/30 text-destructive hover:bg-destructive/10 transition-colors"
                                 title="Registrar salida / retiro de sala"
                               >
                                 Retirar
@@ -1036,7 +1036,7 @@ export default function AsambleasAdminPage() {
             </div>
             <button
               onClick={() => setModalPoderOpen(true)}
-              className="btn btn-primary btn-sm gap-2"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-xs"
             >
               <Plus className="w-4 h-4" /> Radicar Poder
             </button>
@@ -1050,37 +1050,37 @@ export default function AsambleasAdminPage() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="table table-sm w-full">
+              <table className="w-full text-xs text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-border text-muted-foreground">
-                    <th>Unidad</th>
-                    <th>Propietario Otorgante</th>
-                    <th>Apoderado Receptor</th>
-                    <th>Soporte / Documento</th>
-                    <th>Fecha Registro</th>
-                    <th>Estado</th>
-                    <th className="text-right">Decisión</th>
+                  <tr className="border-b border-border bg-muted/40 text-muted-foreground text-[11px] uppercase tracking-wider">
+                    <th className="py-2.5 px-3 font-semibold">Unidad</th>
+                    <th className="py-2.5 px-3 font-semibold">Propietario Otorgante</th>
+                    <th className="py-2.5 px-3 font-semibold">Apoderado Receptor</th>
+                    <th className="py-2.5 px-3 font-semibold">Soporte / Documento</th>
+                    <th className="py-2.5 px-3 font-semibold">Fecha Registro</th>
+                    <th className="py-2.5 px-3 font-semibold">Estado</th>
+                    <th className="py-2.5 px-3 font-semibold text-right">Decisión</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-border/40">
                   {poderes.map((p) => (
                     <tr key={p.idPoder} className="hover:bg-muted/40 transition-colors">
-                      <td className="font-bold">{p.unidadIdentificador || `Unidad ${p.idUnidad}`}</td>
-                      <td>
+                      <td className="py-2.5 px-3 font-bold">{p.unidadIdentificador || `Unidad ${p.idUnidad}`}</td>
+                      <td className="py-2.5 px-3">
                         <div className="font-medium text-sm">{p.nombrePropietario}</div>
                         <div className="text-xs text-muted-foreground font-mono">{p.documentoPropietario}</div>
                       </td>
-                      <td>
+                      <td className="py-2.5 px-3">
                         <div className="font-medium text-sm">{p.nombreApoderado}</div>
                         <div className="text-xs text-muted-foreground font-mono">{p.documentoApoderado}</div>
                       </td>
-                      <td>
+                      <td className="py-2.5 px-3">
                         {p.documentoPoderUrl ? (
                           <a
                             href={p.documentoPoderUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="btn btn-xs btn-outline gap-1 text-primary"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-md border border-primary/30 text-primary hover:bg-primary/10 transition-colors"
                           >
                             <ExternalLink className="w-3 h-3" /> Ver Carta
                           </a>
@@ -1088,32 +1088,32 @@ export default function AsambleasAdminPage() {
                           <span className="text-xs text-muted-foreground">Físico / Sin archivo</span>
                         )}
                       </td>
-                      <td className="text-xs">
+                      <td className="py-2.5 px-3 text-xs">
                         {p.fechaRegistro ? new Date(p.fechaRegistro).toLocaleDateString('es-CO') : '-'}
                       </td>
-                      <td>
+                      <td className="py-2.5 px-3">
                         {p.estado === 'PENDIENTE_REVISION' && (
-                          <span className="badge badge-sm badge-warning">Por Validar</span>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30">Por Validar</span>
                         )}
                         {p.estado === 'APROBADO' && (
-                          <span className="badge badge-sm badge-success">Aprobado</span>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">Aprobado</span>
                         )}
                         {p.estado === 'RECHAZADO' && (
-                          <span className="badge badge-sm badge-error">Rechazado</span>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-destructive/15 text-destructive border border-destructive/30">Rechazado</span>
                         )}
                       </td>
-                      <td className="text-right">
+                      <td className="py-2.5 px-3 text-right">
                         {p.estado === 'PENDIENTE_REVISION' && (
                           <div className="flex items-center justify-end gap-1.5">
                             <button
                               onClick={() => handleDecidirPoder(p.idPoder, 'APROBADO')}
-                              className="btn btn-xs btn-success gap-1"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-md bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-xs"
                             >
                               <Check className="w-3 h-3" /> Aprobar
                             </button>
                             <button
                               onClick={() => handleDecidirPoder(p.idPoder, 'RECHAZADO')}
-                              className="btn btn-xs btn-error btn-outline gap-1"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-md border border-destructive/30 text-destructive hover:bg-destructive/10 transition-colors"
                             >
                               <X className="w-3 h-3" /> Rechazar
                             </button>
@@ -1146,7 +1146,7 @@ export default function AsambleasAdminPage() {
                   setModalVotacionOpen(true);
                 }}
                 disabled={asambleaActiva.estado === 'FINALIZADA' || asambleaActiva.estado === 'CANCELADA'}
-                className="btn btn-primary btn-sm gap-2"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-xs disabled:opacity-50"
               >
                 <Plus className="w-4 h-4" /> Crear Punto de Votación
               </button>
@@ -1176,7 +1176,7 @@ export default function AsambleasAdminPage() {
                     >
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                         <div className="flex items-center gap-3">
-                          <span className="badge badge-primary font-bold">Punto #{v.puntoOrdenDia}</span>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-primary text-primary-foreground">Punto #{v.puntoOrdenDia}</span>
                           <h4 className="font-bold text-base">{v.titulo}</h4>
                         </div>
                         <div className="flex items-center gap-2">
@@ -1184,10 +1184,10 @@ export default function AsambleasAdminPage() {
                             {MAYORIAS[v.tipoMayoriaRequerida] || v.tipoMayoriaRequerida}
                           </span>
                           {v.estado === 'ABIERTA' ? (
-                            <span className="badge badge-sm badge-success animate-pulse">Votación Abierta</span>
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 animate-pulse">Votación Abierta</span>
                           ) : (
-                            <span className={`badge badge-sm ${v.aprobada ? 'badge-success' : 'badge-neutral'}`}>
-                              {v.aprobada ? '✅ APROBADA' : '❌ NO APROBADA'}
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium ${v.aprobada ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30' : 'bg-muted text-muted-foreground border border-border'}`}>
+                              {v.aprobada ? '✓ APROBADA' : '✕ NO APROBADA'}
                             </span>
                           )}
                         </div>
@@ -1221,13 +1221,13 @@ export default function AsambleasAdminPage() {
                               setVotacionParaVotar(v);
                               setModalVotoOpen(true);
                             }}
-                            className="btn btn-xs btn-primary gap-1"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-xs"
                           >
                             <Vote className="w-3.5 h-3.5" /> Registrar Voto
                           </button>
                           <button
                             onClick={() => handleCerrarVotacion(v.idVotacion)}
-                            className="btn btn-xs btn-outline btn-error gap-1"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-md border border-destructive/30 text-destructive hover:bg-destructive/10 transition-colors"
                           >
                             <Square className="w-3.5 h-3.5" /> Cerrar Votación
                           </button>
@@ -1264,7 +1264,7 @@ export default function AsambleasAdminPage() {
                     Asamblea #{asambleaActiva.idAsamblea}: {asambleaActiva.titulo}
                   </p>
                 </div>
-                <span className="badge badge-warning text-xs">Sin Acta Creada</span>
+                <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30">Sin Acta Creada</span>
               </div>
 
               <div className="p-4 rounded-xl bg-muted/40 border border-border/60 text-sm space-y-2">
@@ -1285,7 +1285,7 @@ export default function AsambleasAdminPage() {
                     <input
                       type="text"
                       required
-                      className="input input-bordered input-sm w-full"
+                      className="w-full px-3 py-1.5 text-xs rounded-lg border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 shadow-xs"
                       value={formActa.numeroActa}
                       onChange={(e) => setFormActa({ ...formActa, numeroActa: e.target.value })}
                       placeholder="Ej. ACTA-001-2026"
@@ -1298,7 +1298,7 @@ export default function AsambleasAdminPage() {
                   <textarea
                     required
                     rows={12}
-                    className="textarea textarea-bordered textarea-sm w-full font-mono text-xs"
+                    className="w-full px-3 py-2 text-xs font-mono rounded-lg border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 shadow-xs"
                     value={formActa.contenidoTexto}
                     onChange={(e) => setFormActa({ ...formActa, contenidoTexto: e.target.value })}
                   />
@@ -1308,7 +1308,7 @@ export default function AsambleasAdminPage() {
                   <button
                     type="submit"
                     disabled={submittingActa}
-                    className="btn btn-primary btn-sm gap-1.5"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-xs disabled:opacity-50"
                   >
                     <FileText className="w-4 h-4" />
                     {submittingActa ? 'Creando Borrador...' : 'Crear Borrador de Acta'}
@@ -1346,7 +1346,7 @@ export default function AsambleasAdminPage() {
                       <button
                         onClick={() => handleCambiarEstadoActa('EN_REVISION_COMISION')}
                         disabled={submittingActa}
-                        className="btn btn-sm btn-outline btn-info gap-1"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-blue-500/30 text-blue-600 dark:text-blue-400 hover:bg-blue-500/10 transition-colors shadow-xs"
                       >
                         <UserCheck className="w-4 h-4" />
                         Enviar a Comisión Verificadora
@@ -1358,14 +1358,14 @@ export default function AsambleasAdminPage() {
                         <button
                           onClick={() => handleCambiarEstadoActa('BORRADOR')}
                           disabled={submittingActa}
-                          className="btn btn-sm btn-ghost gap-1 text-muted-foreground"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                         >
                           Devolver a Borrador
                         </button>
                         <button
                           onClick={() => handleCambiarEstadoActa('APROBADA')}
                           disabled={submittingActa}
-                          className="btn btn-sm btn-outline btn-primary gap-1"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-primary/30 text-primary hover:bg-primary/10 transition-colors shadow-xs"
                         >
                           <CheckCircle2 className="w-4 h-4" />
                           Aprobar por Comisión
@@ -1378,14 +1378,14 @@ export default function AsambleasAdminPage() {
                         <button
                           onClick={() => handleCambiarEstadoActa('EN_REVISION_COMISION')}
                           disabled={submittingActa}
-                          className="btn btn-sm btn-ghost gap-1 text-muted-foreground"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                         >
                           Devolver a Revisión
                         </button>
                         <button
                           onClick={() => handleCambiarEstadoActa('PUBLICADA_OFICIAL')}
                           disabled={submittingActa || !puedePublicarOficial}
-                          className="btn btn-sm btn-success text-white gap-1 disabled:opacity-50"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-xs disabled:opacity-50"
                           title={
                             !puedePublicarOficial
                               ? 'Requiere asamblea finalizada, votos cerrados y documento firmado adjunto'
@@ -1485,7 +1485,7 @@ export default function AsambleasAdminPage() {
                   {tieneDocumentoAdjunto && (
                     <button
                       onClick={handleDescargarDocumentoActa}
-                      className="btn btn-sm btn-outline btn-primary gap-1.5"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-primary/30 text-primary hover:bg-primary/10 transition-colors shadow-xs"
                     >
                       <Download className="w-4 h-4" />
                       Descargar Documento Firmado
@@ -1506,7 +1506,7 @@ export default function AsambleasAdminPage() {
                       </p>
                     </div>
                     {actaData.estado !== 'PUBLICADA_OFICIAL' && (
-                      <label className="btn btn-xs btn-outline gap-1 cursor-pointer">
+                      <label className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-md border border-border bg-card text-foreground hover:bg-muted transition-colors cursor-pointer">
                         <Upload className="w-3.5 h-3.5" />
                         {uploadingDoc ? 'Subiendo...' : 'Reemplazar Archivo'}
                         <input
@@ -1530,7 +1530,7 @@ export default function AsambleasAdminPage() {
                         Formato recomendado: PDF con firmas del presidente, secretario y comisión.
                       </p>
                     </div>
-                    <label className="btn btn-sm btn-primary gap-1.5 cursor-pointer">
+                    <label className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-xs cursor-pointer">
                       <Upload className="w-4 h-4" />
                       {uploadingDoc ? 'Subiendo...' : 'Seleccionar Archivo PDF'}
                       <input
@@ -1557,7 +1557,7 @@ export default function AsambleasAdminPage() {
                   {actaData.estado !== 'PUBLICADA_OFICIAL' && !editandoActa && (
                     <button
                       onClick={() => setEditandoActa(true)}
-                      className="btn btn-xs btn-outline btn-primary gap-1"
+                      className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg border border-primary text-primary hover:bg-primary/10 transition-colors"
                     >
                       <Edit3 className="w-3.5 h-3.5" /> Editar Texto
                     </button>
@@ -1572,14 +1572,14 @@ export default function AsambleasAdminPage() {
                           });
                           setEditandoActa(false);
                         }}
-                        className="btn btn-xs btn-ghost"
+                        className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg text-muted-foreground hover:bg-muted transition-colors"
                       >
                         Cancelar
                       </button>
                       <button
                         onClick={handleGuardarContenidoActa}
                         disabled={submittingActa}
-                        className="btn btn-xs btn-primary gap-1"
+                        className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
                       >
                         <Save className="w-3.5 h-3.5" />
                         {submittingActa ? 'Guardando...' : 'Guardar Cambios'}
@@ -1594,7 +1594,7 @@ export default function AsambleasAdminPage() {
                       <label className="block text-xs font-semibold mb-1">Número de Acta</label>
                       <input
                         type="text"
-                        className="input input-bordered input-sm w-full max-w-xs"
+                        className="w-full max-w-xs px-3 py-1.5 text-xs rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                         value={formActa.numeroActa}
                         onChange={(e) => setFormActa({ ...formActa, numeroActa: e.target.value })}
                       />
@@ -1603,7 +1603,7 @@ export default function AsambleasAdminPage() {
                       <label className="block text-xs font-semibold mb-1">Texto Completo</label>
                       <textarea
                         rows={14}
-                        className="textarea textarea-bordered textarea-sm w-full font-mono text-xs leading-relaxed"
+                        className="w-full px-3 py-2 text-xs font-mono leading-relaxed rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                         value={formActa.contenidoTexto}
                         onChange={(e) => setFormActa({ ...formActa, contenidoTexto: e.target.value })}
                       />
@@ -1669,7 +1669,7 @@ export default function AsambleasAdminPage() {
             <input
               type="text"
               required
-              className="input input-bordered input-sm w-full"
+              className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
               placeholder="Ej. Asamblea General Ordinaria 2026"
               value={formConvocar.titulo}
               onChange={(e) => setFormConvocar({ ...formConvocar, titulo: e.target.value })}
@@ -1680,7 +1680,7 @@ export default function AsambleasAdminPage() {
             <div>
               <label className="block text-xs font-semibold mb-1">Tipo de Asamblea *</label>
               <select
-                className="select select-bordered select-sm w-full"
+                className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                 value={formConvocar.tipo}
                 onChange={(e) => setFormConvocar({ ...formConvocar, tipo: e.target.value })}
               >
@@ -1692,7 +1692,7 @@ export default function AsambleasAdminPage() {
             <div>
               <label className="block text-xs font-semibold mb-1">Modalidad *</label>
               <select
-                className="select select-bordered select-sm w-full"
+                className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                 value={formConvocar.modalidad}
                 onChange={(e) => setFormConvocar({ ...formConvocar, modalidad: e.target.value })}
               >
@@ -1709,7 +1709,7 @@ export default function AsambleasAdminPage() {
               <input
                 type="datetime-local"
                 required
-                className="input input-bordered input-sm w-full"
+                className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                 value={formConvocar.fechaHoraPrimeraConv}
                 onChange={(e) => setFormConvocar({ ...formConvocar, fechaHoraPrimeraConv: e.target.value })}
               />
@@ -1718,7 +1718,7 @@ export default function AsambleasAdminPage() {
               <label className="block text-xs font-semibold mb-1">2da Convocatoria (Opcional)</label>
               <input
                 type="datetime-local"
-                className="input input-bordered input-sm w-full"
+                className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                 value={formConvocar.fechaHoraSegundaConv}
                 onChange={(e) => setFormConvocar({ ...formConvocar, fechaHoraSegundaConv: e.target.value })}
               />
@@ -1730,7 +1730,7 @@ export default function AsambleasAdminPage() {
             <input
               type="text"
               required
-              className="input input-bordered input-sm w-full"
+              className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
               placeholder="Ej. Salón Comunal Bloque 1 / Enlace Zoom o Teams"
               value={formConvocar.lugarOEnlace}
               onChange={(e) => setFormConvocar({ ...formConvocar, lugarOEnlace: e.target.value })}
@@ -1742,7 +1742,7 @@ export default function AsambleasAdminPage() {
             <textarea
               required
               rows={4}
-              className="textarea textarea-bordered textarea-sm w-full"
+              className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
               placeholder="1. Verificación del quórum&#10;2. Elección presidente y secretario&#10;3. Aprobación de estados financieros..."
               value={formConvocar.ordenDelDia}
               onChange={(e) => setFormConvocar({ ...formConvocar, ordenDelDia: e.target.value })}
@@ -1753,14 +1753,14 @@ export default function AsambleasAdminPage() {
             <button
               type="button"
               onClick={() => setModalConvocarOpen(false)}
-              className="btn btn-ghost btn-sm"
+              className="px-4 py-2 text-sm font-medium rounded-lg text-muted-foreground hover:bg-muted transition-colors"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="btn btn-primary btn-sm"
+              className="px-4 py-2 text-sm font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
             >
               {submitting ? 'Guardando...' : 'Publicar Convocatoria'}
             </button>
@@ -1779,7 +1779,7 @@ export default function AsambleasAdminPage() {
             <label className="block text-xs font-semibold mb-1">Unidad / Apartamento *</label>
             <select
               required
-              className="select select-bordered select-sm w-full"
+              className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
               value={formAsistencia.idUnidad}
               onChange={(e) => setFormAsistencia({ ...formAsistencia, idUnidad: e.target.value })}
             >
@@ -1796,7 +1796,7 @@ export default function AsambleasAdminPage() {
             <label className="block text-xs font-semibold mb-1">Persona Asistente *</label>
             <select
               required
-              className="select select-bordered select-sm w-full"
+              className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
               value={formAsistencia.idPersonaAsistente}
               onChange={(e) => setFormAsistencia({ ...formAsistencia, idPersonaAsistente: e.target.value })}
             >
@@ -1813,7 +1813,7 @@ export default function AsambleasAdminPage() {
             <div>
               <label className="block text-xs font-semibold mb-1">Calidad del Asistente *</label>
               <select
-                className="select select-bordered select-sm w-full"
+                className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                 value={formAsistencia.esPropietarioDirecto}
                 onChange={(e) => setFormAsistencia({ ...formAsistencia, esPropietarioDirecto: e.target.value })}
               >
@@ -1827,7 +1827,7 @@ export default function AsambleasAdminPage() {
                 type="number"
                 step="0.0001"
                 placeholder="Auto-calculado de unidad"
-                className="input input-bordered input-sm w-full"
+                className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                 value={formAsistencia.coeficientePonderado}
                 onChange={(e) => setFormAsistencia({ ...formAsistencia, coeficientePonderado: e.target.value })}
               />
@@ -1838,14 +1838,14 @@ export default function AsambleasAdminPage() {
             <button
               type="button"
               onClick={() => setModalAsistenciaOpen(false)}
-              className="btn btn-ghost btn-sm"
+              className="px-4 py-2 text-sm font-medium rounded-lg text-muted-foreground hover:bg-muted transition-colors"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="btn btn-primary btn-sm"
+              className="px-4 py-2 text-sm font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
             >
               {submitting ? 'Registrando...' : 'Registrar Ingreso'}
             </button>
@@ -1864,7 +1864,7 @@ export default function AsambleasAdminPage() {
             <label className="block text-xs font-semibold mb-1">Unidad / Apartamento *</label>
             <select
               required
-              className="select select-bordered select-sm w-full"
+              className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
               value={formPoder.idUnidad}
               onChange={(e) => setFormPoder({ ...formPoder, idUnidad: e.target.value })}
             >
@@ -1881,7 +1881,7 @@ export default function AsambleasAdminPage() {
             <label className="block text-xs font-semibold mb-1">Propietario Otorgante *</label>
             <select
               required
-              className="select select-bordered select-sm w-full"
+              className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
               value={formPoder.idPersonaPropietario}
               onChange={(e) => setFormPoder({ ...formPoder, idPersonaPropietario: e.target.value })}
             >
@@ -1898,7 +1898,7 @@ export default function AsambleasAdminPage() {
             <label className="block text-xs font-semibold mb-1">Apoderado Receptor *</label>
             <select
               required
-              className="select select-bordered select-sm w-full"
+              className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
               value={formPoder.idPersonaApoderado}
               onChange={(e) => setFormPoder({ ...formPoder, idPersonaApoderado: e.target.value })}
             >
@@ -1915,7 +1915,7 @@ export default function AsambleasAdminPage() {
             <label className="block text-xs font-semibold mb-1">Enlace a Documento / Carta Firmada (Opcional)</label>
             <input
               type="url"
-              className="input input-bordered input-sm w-full"
+              className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
               placeholder="https://saed-docs.../carta-poder.pdf"
               value={formPoder.documentoPoderUrl}
               onChange={(e) => setFormPoder({ ...formPoder, documentoPoderUrl: e.target.value })}
@@ -1926,14 +1926,14 @@ export default function AsambleasAdminPage() {
             <button
               type="button"
               onClick={() => setModalPoderOpen(false)}
-              className="btn btn-ghost btn-sm"
+              className="px-4 py-2 text-sm font-medium rounded-lg text-muted-foreground hover:bg-muted transition-colors"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="btn btn-primary btn-sm"
+              className="px-4 py-2 text-sm font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
             >
               {submitting ? 'Radicando...' : 'Radicar Poder'}
             </button>
@@ -1955,7 +1955,7 @@ export default function AsambleasAdminPage() {
                 type="number"
                 required
                 min={1}
-                className="input input-bordered input-sm w-full"
+                className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                 value={formVotacion.puntoOrdenDia}
                 onChange={(e) => setFormVotacion({ ...formVotacion, puntoOrdenDia: e.target.value })}
               />
@@ -1965,7 +1965,7 @@ export default function AsambleasAdminPage() {
               <input
                 type="text"
                 required
-                className="input input-bordered input-sm w-full"
+                className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                 placeholder="Ej. Aprobación del Presupuesto 2027"
                 value={formVotacion.titulo}
                 onChange={(e) => setFormVotacion({ ...formVotacion, titulo: e.target.value })}
@@ -1976,7 +1976,7 @@ export default function AsambleasAdminPage() {
           <div>
             <label className="block text-xs font-semibold mb-1">Tipo de Mayoría Requerida *</label>
             <select
-              className="select select-bordered select-sm w-full"
+              className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
               value={formVotacion.tipoMayoriaRequerida}
               onChange={(e) => setFormVotacion({ ...formVotacion, tipoMayoriaRequerida: e.target.value })}
             >
@@ -1990,7 +1990,7 @@ export default function AsambleasAdminPage() {
             <label className="block text-xs font-semibold mb-1">Descripción / Texto de la Proposición</label>
             <textarea
               rows={3}
-              className="textarea textarea-bordered textarea-sm w-full"
+              className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
               placeholder="Detalle o texto de la decisión a someter a votación..."
               value={formVotacion.descripcion}
               onChange={(e) => setFormVotacion({ ...formVotacion, descripcion: e.target.value })}
@@ -2001,14 +2001,14 @@ export default function AsambleasAdminPage() {
             <button
               type="button"
               onClick={() => setModalVotacionOpen(false)}
-              className="btn btn-ghost btn-sm"
+              className="px-4 py-2 text-sm font-medium rounded-lg text-muted-foreground hover:bg-muted transition-colors"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="btn btn-primary btn-sm"
+              className="px-4 py-2 text-sm font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
             >
               {submitting ? 'Abriendo...' : 'Abrir Votación'}
             </button>
@@ -2027,7 +2027,7 @@ export default function AsambleasAdminPage() {
             <label className="block text-xs font-semibold mb-1">Unidad Votante *</label>
             <select
               required
-              className="select select-bordered select-sm w-full"
+              className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
               value={formVoto.idUnidad}
               onChange={(e) => setFormVoto({ ...formVoto, idUnidad: e.target.value })}
             >
@@ -2044,7 +2044,7 @@ export default function AsambleasAdminPage() {
             <label className="block text-xs font-semibold mb-1">Persona que Vota (Propietario o Apoderado) *</label>
             <select
               required
-              className="select select-bordered select-sm w-full"
+              className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
               value={formVoto.idPersonaVotante}
               onChange={(e) => setFormVoto({ ...formVoto, idPersonaVotante: e.target.value })}
             >
@@ -2065,7 +2065,15 @@ export default function AsambleasAdminPage() {
                   key={opt}
                   type="button"
                   onClick={() => setFormVoto({ ...formVoto, opcionVoto: opt })}
-                  className={`btn btn-sm ${formVoto.opcionVoto === opt ? (opt === 'SI' ? 'btn-success' : opt === 'NO' ? 'btn-error' : 'btn-primary') : 'btn-outline'}`}
+                  className={`px-3 py-2 text-sm font-semibold rounded-lg border transition-colors ${
+                    formVoto.opcionVoto === opt
+                      ? opt === 'SI'
+                        ? 'bg-emerald-600 text-white border-emerald-600'
+                        : opt === 'NO'
+                        ? 'bg-red-600 text-white border-red-600'
+                        : 'bg-primary text-primary-foreground border-primary'
+                      : 'border-border bg-background text-foreground hover:bg-muted'
+                  }`}
                 >
                   {opt}
                 </button>
@@ -2077,14 +2085,14 @@ export default function AsambleasAdminPage() {
             <button
               type="button"
               onClick={() => setModalVotoOpen(false)}
-              className="btn btn-ghost btn-sm"
+              className="px-4 py-2 text-sm font-medium rounded-lg text-muted-foreground hover:bg-muted transition-colors"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="btn btn-primary btn-sm"
+              className="px-4 py-2 text-sm font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
             >
               {submitting ? 'Registrando...' : 'Confirmar Voto'}
             </button>

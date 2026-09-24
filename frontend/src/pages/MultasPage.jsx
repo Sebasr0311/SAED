@@ -110,7 +110,7 @@ export default function MultasPage() {
               e.stopPropagation();
               verDetalle(row);
             }}
-            className="btn btn-ghost btn-sm"
+            className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted transition-colors"
             aria-label="Ver detalle"
             title="Ver detalle"
           >
@@ -122,7 +122,7 @@ export default function MultasPage() {
                 e.stopPropagation();
                 marcarPagada(row);
               }}
-              className="btn btn-ghost btn-sm"
+              className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted transition-colors"
               aria-label="Marcar pagada"
               title="Marcar pagada"
             >
@@ -137,7 +137,7 @@ export default function MultasPage() {
                 e.stopPropagation();
                 setConfirmAnular(row);
               }}
-              className="btn btn-ghost btn-sm"
+              className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted transition-colors"
               aria-label="Anular"
               title="Anular"
             >

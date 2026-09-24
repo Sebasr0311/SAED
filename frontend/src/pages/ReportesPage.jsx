@@ -881,14 +881,14 @@ export default function ReportesPage() {
                           </TableCell>
                           <TableCell>
                             <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                              isGlobal ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
+                              isGlobal ? 'bg-primary/10 text-primary font-semibold' : 'bg-secondary text-secondary-foreground'
                             }`}>
                               {isGlobal ? 'Estándar Sistema' : 'Organización'}
                             </span>
                           </TableCell>
                           <TableCell>
                             <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                              isActivo ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                              isActivo ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold' : 'bg-muted text-muted-foreground'
                             }`}>
                               {c.estado || 'ACTIVO'}
                             </span>

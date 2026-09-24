@@ -16,7 +16,11 @@ export default function NotFoundPage() {
             Verificá el enlace o volvé al inicio del sistema.
           </p>
           <div style={{ display: 'flex', gap: '8px', marginTop: '16px', justifyContent: 'center' }}>
-            <button type="button" className="btn btn-primary" onClick={() => navigate('/')}>
+            <button
+              type="button"
+              className="inline-flex items-center justify-center px-4 py-2 text-xs font-semibold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-xs"
+              onClick={() => navigate('/')}
+            >
               Ir al inicio
             </button>
           </div>
