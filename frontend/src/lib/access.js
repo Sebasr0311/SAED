@@ -156,6 +156,7 @@ export const ACCESS_BY_ROLE = {
     '/multas',
     '/sanciones-admin',
     '/obras-admin',
+    '/activos',
     '/mantenimientos',
     '/mantenimiento-admin',
     '/asambleas',

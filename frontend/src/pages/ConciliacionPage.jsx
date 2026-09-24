@@ -103,10 +103,23 @@ export default function ConciliacionPage() {
 
   function getBadgeVariant(estado) {
     switch (estado) {
+      case 'CONCILIADO':
       case 'CONCILIADA': return 'default';
       case 'EN_PROCESO': return 'secondary';
+      case 'CON_DIFERENCIAS':
       case 'DISCREPANCIA': return 'destructive';
       default: return 'outline';
+    }
+  }
+
+  function getEstadoLabel(estado) {
+    switch (estado) {
+      case 'CONCILIADO':
+      case 'CONCILIADA': return 'Conciliado';
+      case 'EN_PROCESO': return 'En Proceso';
+      case 'CON_DIFERENCIAS':
+      case 'DISCREPANCIA': return 'Con Diferencias';
+      default: return (estado || '').replace('_', ' ');
     }
   }
 
@@ -120,9 +133,9 @@ export default function ConciliacionPage() {
 
       {/* Resumen cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard icon="check_circle" value={resumen.CONCILIADAS || 0} label="Conciliadas" color="success" />
+        <StatCard icon="check_circle" value={resumen.CONCILIADOS || resumen.CONCILIADAS || 0} label="Conciliadas" color="success" />
         <StatCard icon="pending" value={resumen.EN_PROCESO || 0} label="En Proceso" color="warning" />
-        <StatCard icon="warning" value={resumen.CON_DISCREPANCIAS || 0} label="Con Discrepancias" color="danger" />
+        <StatCard icon="warning" value={resumen.CON_DIFERENCIAS || resumen.CON_DISCREPANCIAS || 0} label="Con Diferencias" color="danger" />
       </div>
 
       <Card>
@@ -162,7 +175,7 @@ export default function ConciliacionPage() {
                         </TableCell>
                         <TableCell>
                           <Badge variant={getBadgeVariant(c.ESTADO || c.estado)}>
-                            {(c.ESTADO || c.estado || '').replace('_', ' ')}
+                            {getEstadoLabel(c.ESTADO || c.estado)}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-xs whitespace-nowrap">{c.FECHA_CONCILIACION || c.fecha_conciliacion || '-'}</TableCell>
@@ -240,8 +253,8 @@ export default function ConciliacionPage() {
               <select className="border rounded px-3 py-2 text-sm" value={form.estado}
                 onChange={(e) => setForm((f) => ({ ...f, estado: e.target.value }))}>
                 <option value="EN_PROCESO">En Proceso</option>
-                <option value="CONCILIADA">Conciliada</option>
-                <option value="DISCREPANCIA">Discrepancia</option>
+                <option value="CONCILIADO">Conciliado</option>
+                <option value="CON_DIFERENCIAS">Con Diferencias</option>
               </select>
             </div>
           </div>

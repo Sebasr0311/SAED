@@ -24,6 +24,7 @@ import { Badge } from '../components/ui/badge.tsx';
 import { Button } from '../components/ui/Button.jsx';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card.tsx';
 import { PageContainer } from '../components/layout/PageContainer.jsx';
+import { PropertyAnaliticaSection } from '../components/PropertyAnaliticaSection.jsx';
 
 /**
  * DashboardPage 2.0 — Centro Operativo ADMIN_PROPIEDAD.
@@ -36,6 +37,16 @@ export default function DashboardPage() {
   const tenant = useTenant();
   const tenantApi = useTenantApi();
   const navigate = useNavigate();
+
+  // 0. KPIs consolidados de la propiedad (Endpoint Atómico F11)
+  const {
+    data: kpisRaw,
+    loading: loadingKpis,
+    error: errorKpis,
+    refetch: refetchKpis,
+  } = useFetch(() => tenantApi.get('/dashboard/propiedad'), [tenant.activeAssignmentId]);
+
+  const kpis = useMemo(() => kpisRaw?.data || kpisRaw || null, [kpisRaw]);
 
   // 1. Unidades del tenant
   const {
@@ -91,6 +102,7 @@ export default function DashboardPage() {
 
   // Refresco unificado
   const refetchAll = useCallback(() => {
+    refetchKpis();
     refetchUnidades();
     refetchPersonas();
     refetchCuotas();
@@ -99,6 +111,7 @@ export default function DashboardPage() {
     refetchPaquetes();
     refetchVisitas();
   }, [
+    refetchKpis,
     refetchUnidades,
     refetchPersonas,
     refetchCuotas,
@@ -134,6 +147,9 @@ export default function DashboardPage() {
   );
 
   const totalCartera = useMemo(() => {
+    if (kpis?.carteraTotal != null) {
+      return Number(kpis.carteraTotal);
+    }
     if (carteraResumen.TOTAL_CARTERA != null) {
       return Number(carteraResumen.TOTAL_CARTERA);
     }
@@ -141,7 +157,23 @@ export default function DashboardPage() {
       (acc, c) => acc + Number(c.saldoPendiente || c.valorTotal || c.valorBase || 0),
       0
     );
-  }, [carteraResumen, cuotasPendientes]);
+  }, [kpis, carteraResumen, cuotasPendientes]);
+
+  const totalUnidadesCount = useMemo(() => {
+    return kpis?.totalUnidades != null ? Number(kpis.totalUnidades) : unidadesList.length;
+  }, [kpis, unidadesList]);
+
+  const totalPersonasCount = useMemo(() => {
+    return kpis?.totalPersonas != null ? Number(kpis.totalPersonas) : personasList.length;
+  }, [kpis, personasList]);
+
+  const paquetesPendientesCount = useMemo(() => {
+    return kpis?.paquetesPendientes != null ? Number(kpis.paquetesPendientes) : paquetesPendientesList.length;
+  }, [kpis, paquetesPendientesList]);
+
+  const cuotasPendientesCount = useMemo(() => {
+    return kpis?.cuotasPendientesCount != null ? Number(kpis.cuotasPendientesCount) : cuotasPendientes.length;
+  }, [kpis, cuotasPendientes]);
 
   const multasPendientesList = useMemo(
     () => multasList.filter((m) => m.estado === 'PENDIENTE'),
@@ -265,7 +297,7 @@ export default function DashboardPage() {
             <MetricCard
               label="Cartera Pendiente"
               value={formatCurrency(totalCartera)}
-              subtitle={`${cuotasPendientes.length} cuotas por recaudar`}
+              subtitle={`${cuotasPendientesCount} cuotas por recaudar`}
               icon={Wallet}
               variant="primary"
               onClick={() => navigate('/cartera')}
@@ -273,7 +305,7 @@ export default function DashboardPage() {
             />
             <MetricCard
               label="Unidades Habitacionales"
-              value={unidadesList.length}
+              value={totalUnidadesCount}
               subtitle="Copropiedad activa"
               icon={Building}
               variant="info"
@@ -281,7 +313,7 @@ export default function DashboardPage() {
             />
             <MetricCard
               label="Residentes Registrados"
-              value={personasList.length}
+              value={totalPersonasCount}
               subtitle="Población censada"
               icon={Users}
               variant="success"
@@ -289,14 +321,14 @@ export default function DashboardPage() {
             />
             <MetricCard
               label="Paquetería en Custodia"
-              value={paquetesPendientesList.length}
+              value={paquetesPendientesCount}
               subtitle={
-                paquetesPendientesList.length > 0
+                paquetesPendientesCount > 0
                   ? 'Pendientes por entrega'
                   : 'Sin paquetes pendientes'
               }
               icon={Package}
-              variant={paquetesPendientesList.length > 0 ? 'warning' : 'secondary'}
+              variant={paquetesPendientesCount > 0 ? 'warning' : 'secondary'}
               onClick={() => navigate('/paquetes-admin')}
             />
           </div>
@@ -485,6 +517,9 @@ export default function DashboardPage() {
               </Card>
             </div>
           </div>
+
+          {/* 4.5 Analítica y Tendencias Operativas/Financieras (F11-05) */}
+          <PropertyAnaliticaSection />
 
           {/* 5. Accesos Rápidos Operativos */}
           <div className="space-y-3 pt-2">

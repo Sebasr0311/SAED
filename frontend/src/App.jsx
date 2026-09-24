@@ -36,10 +36,12 @@ const SancionesAdminPage = lazy(() => import('./pages/SancionesAdminPage.jsx'));
 const EmergenciasAdminPage = lazy(() => import('./pages/EmergenciasAdminPage.jsx'));
 const ResSancionesPage = lazy(() => import('./pages/ResSancionesPage.jsx'));
 const AsambleasAdminPage = lazy(() => import('./pages/AsambleasAdminPage.jsx'));
+const ResAsambleasPage = lazy(() => import('./pages/ResAsambleasPage.jsx'));
 const PolizasAdminPage = lazy(() => import('./pages/PolizasAdminPage.jsx'));
 const ConsumosAdminPage = lazy(() => import('./pages/ConsumosAdminPage.jsx'));
 const AutomatizacionesAdminPage = lazy(() => import('./pages/AutomatizacionesAdminPage.jsx'));
 const MantenimientoAdminPage = lazy(() => import('./pages/MantenimientoAdminPage.jsx'));
+const ActivosPage = lazy(() => import('./pages/ActivosPage.jsx'));
 const ObrasAdminPage = lazy(() => import('./pages/ObrasAdminPage.jsx'));
 const ResObrasPage = lazy(() => import('./pages/ResObrasPage.jsx'));
 const GananciasPage = lazy(() => import('./pages/GananciasPage.jsx'));
@@ -64,6 +66,9 @@ const ResBuzonPage = lazy(() => import('./pages/ResBuzonPage.jsx'));
 const ResQuejasPage = lazy(() => import('./pages/ResQuejasPage.jsx'));
 const ResIncidentesPage = lazy(() => import('./pages/ResIncidentesPage.jsx'));
 const ResDocumentosPage = lazy(() => import('./pages/ResDocumentosPage.jsx'));
+const ResReglamentosPage = lazy(() => import('./pages/ResReglamentosPage.jsx'));
+const ResSegurosPage = lazy(() => import('./pages/ResSegurosPage.jsx'));
+const ReglamentosAdminPage = lazy(() => import('./pages/ReglamentosAdminPage.jsx'));
 
 const PorteriasPage = lazy(() => import('./pages/PorteriasPage.jsx'));
 const PorteroDashboardPage = lazy(() => import('./pages/PorteroDashboardPage.jsx'));
@@ -491,7 +496,7 @@ export default function App() {
           <Route
             path="multas"
             element={
-              <ProtectedRoute roles={['ADMIN_PROPIEDAD']}>
+              <ProtectedRoute roles={['ADMIN_PROPIEDAD', 'ADMIN_ORGANIZACION']}>
                 <MultasPage />
               </ProtectedRoute>
             }
@@ -499,7 +504,7 @@ export default function App() {
           <Route
             path="sanciones-admin"
             element={
-              <ProtectedRoute roles={['ADMIN_PROPIEDAD']}>
+              <ProtectedRoute roles={['ADMIN_PROPIEDAD', 'ADMIN_ORGANIZACION']}>
                 <SancionesAdminPage />
               </ProtectedRoute>
             }
@@ -512,12 +517,13 @@ export default function App() {
           <Route path="incidentes" element={<Navigate to="/incidentes-admin" replace />} />
           <Route path="mantenimiento-admin" element={<Navigate to="/mantenimientos" replace />} />
           <Route path="mantenimientos" element={<ProtectedRoute roles={['ADMIN_PROPIEDAD']}><MantenimientoAdminPage /></ProtectedRoute>} />
+          <Route path="activos" element={<ProtectedRoute roles={['ADMIN_PROPIEDAD', 'ADMIN_ORGANIZACION']}><ActivosPage /></ProtectedRoute>} />
           <Route path="asambleas-admin" element={<Navigate to="/asambleas" replace />} />
-          <Route path="asambleas" element={<ProtectedRoute roles={['ADMIN_PROPIEDAD']}><AsambleasAdminPage /></ProtectedRoute>} />
+          <Route path="asambleas" element={<ProtectedRoute roles={['ADMIN_PROPIEDAD', 'ADMIN_ORGANIZACION', 'SUPERADMIN']}><AsambleasAdminPage /></ProtectedRoute>} />
           <Route path="polizas-admin" element={<Navigate to="/polizas" replace />} />
-          <Route path="polizas" element={<ProtectedRoute roles={['ADMIN_PROPIEDAD']}><PolizasAdminPage /></ProtectedRoute>} />
+          <Route path="polizas" element={<ProtectedRoute roles={['ADMIN_PROPIEDAD', 'ADMIN_ORGANIZACION']}><PolizasAdminPage /></ProtectedRoute>} />
           <Route path="emergencias-admin" element={<Navigate to="/emergencias" replace />} />
-          <Route path="emergencias" element={<ProtectedRoute roles={['ADMIN_PROPIEDAD']}><EmergenciasAdminPage /></ProtectedRoute>} />
+          <Route path="emergencias" element={<ProtectedRoute roles={['ADMIN_PROPIEDAD', 'ADMIN_ORGANIZACION']}><EmergenciasAdminPage /></ProtectedRoute>} />
           <Route path="consumos-admin" element={<Navigate to="/consumos" replace />} />
           <Route path="consumos" element={<ProtectedRoute roles={['ADMIN_PROPIEDAD']}><ConsumosAdminPage /></ProtectedRoute>} />
           <Route path="automatizaciones-admin" element={<Navigate to="/automatizaciones" replace />} />
@@ -574,6 +580,18 @@ export default function App() {
                 <DocumentosAdminPage />
               </ProtectedRoute>
             }
+          />
+          <Route
+            path="reglamentos"
+            element={
+              <ProtectedRoute roles={['ADMIN_PROPIEDAD', 'ADMIN_ORGANIZACION']}>
+                <ReglamentosAdminPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="reglamentos-admin"
+            element={<Navigate to="/reglamentos" replace />}
           />
           <Route
             path="historial-visitas"
@@ -748,16 +766,26 @@ export default function App() {
           <Route
             path="res-sanciones"
             element={
-              <ProtectedRoute roles={['RESIDENTE']}>
+              <ProtectedRoute roles={['RESIDENTE', 'RESIDENTE_CONVIVENCIA', 'PROPIETARIO']}>
                 <ResSancionesPage />
               </ProtectedRoute>
             }
           />
           <Route path="mis-sanciones" element={<Navigate to="/res-sanciones" replace />} />
+          <Route path="res-multas" element={<Navigate to="/res-sanciones?tab=multas" replace />} />
+          <Route path="mis-multas" element={<Navigate to="/res-sanciones?tab=multas" replace />} />
           <Route path="res-obras" element={<ProtectedRoute roles={['RESIDENTE']}><ResObrasPage /></ProtectedRoute>} />
           <Route path="mis-obras" element={<Navigate to="/res-obras" replace />} />
           <Route path="res-incidentes" element={<ProtectedRoute roles={['RESIDENTE', 'RESIDENTE_CONVIVENCIA']}><ResIncidentesPage /></ProtectedRoute>} />
           <Route path="res-documentos" element={<ProtectedRoute roles={['RESIDENTE', 'RESIDENTE_CONVIVENCIA', 'PROPIETARIO']}><ResDocumentosPage /></ProtectedRoute>} />
+          <Route path="res-reglamentos" element={<ProtectedRoute roles={['RESIDENTE', 'RESIDENTE_CONVIVENCIA', 'PROPIETARIO']}><ResReglamentosPage /></ProtectedRoute>} />
+          <Route path="mis-reglamentos" element={<Navigate to="/res-reglamentos" replace />} />
+          <Route path="normativa" element={<Navigate to="/res-reglamentos" replace />} />
+          <Route path="res-asambleas" element={<ProtectedRoute roles={['RESIDENTE', 'RESIDENTE_CONVIVENCIA', 'PROPIETARIO']}><ResAsambleasPage /></ProtectedRoute>} />
+          <Route path="mis-asambleas" element={<Navigate to="/res-asambleas" replace />} />
+          <Route path="res-seguros" element={<ProtectedRoute roles={['RESIDENTE', 'RESIDENTE_CONVIVENCIA', 'PROPIETARIO']}><ResSegurosPage /></ProtectedRoute>} />
+          <Route path="mis-seguros" element={<Navigate to="/res-seguros" replace />} />
+          <Route path="seguros-residente" element={<Navigate to="/res-seguros" replace />} />
 
           {/* Portero */}
           <Route

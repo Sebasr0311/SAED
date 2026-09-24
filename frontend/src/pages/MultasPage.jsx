@@ -12,15 +12,20 @@ import api from '../lib/api.js';
 import { formatCurrency, formatDate, imageSrc } from '../lib/utils.js';
 
 const ESTADO_BADGE = {
-  PENDIENTE: 'badge-pendiente-firma',
+  IMPUESTA: 'badge-pendiente-firma',
+  EN_DESCARGOS: 'badge-info',
+  RATIFICADA: 'badge-warn',
+  CONDONADA: 'badge-neutral',
   PAGADA: 'badge-activo',
-  VENCIDA: 'badge-danger',
   ANULADA: 'badge-cancelado',
+  PENDIENTE: 'badge-pendiente-firma',
 };
 
 const TIPO_BADGE = {
   RUIDO: 'badge-warn',
   PARQUEADERO: 'badge-info',
+  MULTA_SANCION: 'badge-danger',
+  MULTA_CONVIVENCIA: 'badge-warn',
 };
 
 const PAGE_SIZE = 10;
@@ -111,7 +116,7 @@ export default function MultasPage() {
           >
             <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>visibility</span>
           </button>
-          {row.estado === 'PENDIENTE' && (
+          {(row.estado === 'IMPUESTA' || row.estado === 'RATIFICADA' || row.estado === 'PENDIENTE') && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -126,7 +131,7 @@ export default function MultasPage() {
               </span>
             </button>
           )}
-          {row.estado !== 'ANULADA' && row.estado !== 'PAGADA' && (
+          {row.estado !== 'ANULADA' && row.estado !== 'PAGADA' && row.estado !== 'CONDONADA' && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -162,9 +167,11 @@ export default function MultasPage() {
             className="filter-select"
           >
             <option value="">Todos los estados</option>
-            <option value="PENDIENTE">Pendientes</option>
+            <option value="IMPUESTA">Impuestas</option>
+            <option value="EN_DESCARGOS">En Descargos</option>
+            <option value="RATIFICADA">Ratificadas</option>
+            <option value="CONDONADA">Condonadas</option>
             <option value="PAGADA">Pagadas</option>
-            <option value="VENCIDA">Vencidas</option>
             <option value="ANULADA">Anuladas</option>
           </Select>
         }
@@ -230,6 +237,18 @@ export default function MultasPage() {
                 <span>{detalle.nombrePortero}</span>
               </div>
             )}
+            {detalle.motivo && (
+              <div className="detail-row">
+                <span>Motivo</span>
+                <span>{detalle.motivo}</span>
+              </div>
+            )}
+            {detalle.idSancionOrigen && (
+              <div className="detail-row">
+                <span>Expediente Sanción</span>
+                <span>#{detalle.idSancionOrigen}</span>
+              </div>
+            )}
             {detalle.fechaAvisoRuido && (
               <div className="detail-row">
                 <span>Aviso de ruido previo</span>
@@ -253,11 +272,13 @@ export default function MultasPage() {
                 onClick={() => setFotoGrande(imageSrc(detalle.fotoEvidencia))}
               />
             )}
-            {detalle.estado === 'PENDIENTE' && (
+            {detalle.estado !== 'ANULADA' && detalle.estado !== 'PAGADA' && detalle.estado !== 'CONDONADA' && (
               <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-                <Button onClick={() => marcarPagada(detalle)} style={{ flex: 1 }}>
-                  Marcar Pagada
-                </Button>
+                {(detalle.estado === 'IMPUESTA' || detalle.estado === 'RATIFICADA' || detalle.estado === 'PENDIENTE') && (
+                  <Button onClick={() => marcarPagada(detalle)} style={{ flex: 1 }}>
+                    Marcar Pagada
+                  </Button>
+                )}
                 <Button variant="danger" onClick={() => setConfirmAnular(detalle)} style={{ flex: 1 }}>
                   Anular
                 </Button>

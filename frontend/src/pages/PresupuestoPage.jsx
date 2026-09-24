@@ -85,7 +85,8 @@ export default function PresupuestoPage() {
         vigenciaAnio: anio,
       };
       if (editando) {
-        await api.put(`/presupuestos/${editando.ID || editando.id}`, payload);
+        const id = editando.ID_PRESUPUESTO || editando.idPresupuesto || editando.ID || editando.id;
+        await api.put(`/presupuestos/${id}`, payload);
         toast.success('Presupuesto actualizado');
       } else {
         await api.post('/presupuestos', payload);
@@ -104,7 +105,8 @@ export default function PresupuestoPage() {
   async function eliminar() {
     if (!deleteTarget) return;
     try {
-      await api.del(`/presupuestos/${deleteTarget.ID || deleteTarget.id}`);
+      const id = deleteTarget.ID_PRESUPUESTO || deleteTarget.idPresupuesto || deleteTarget.ID || deleteTarget.id;
+      await api.del(`/presupuestos/${id}`);
       toast.success('Presupuesto eliminado');
       refetch();
     } catch (err) {
@@ -165,7 +167,7 @@ export default function PresupuestoPage() {
                       const ejecutado = Number(p.MONTO_EJECUTADO || p.monto_ejecutado || p.montoEjecutado || 0);
                       const pct = presupuestado > 0 ? (ejecutado / presupuestado) * 100 : 0;
                       return (
-                        <TableRow key={p.ID || p.id}>
+                        <TableRow key={p.ID_PRESUPUESTO || p.idPresupuesto || p.ID || p.id}>
                           <TableCell className="font-medium">{p.RUBRO || p.rubro}</TableCell>
                           <TableCell>
                             <Badge variant={(p.TIPO || p.tipo) === 'INGRESO' ? 'default' : 'secondary'}>

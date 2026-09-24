@@ -1,10 +1,10 @@
 ---
 name: saed-frontend-design
-description: "Trigger: frontend, UI, UX, components, styles, navigation, forms, tables, dashboards, responsive, accessibility, shadcn, radix, design system, SAED UI. Automatically activates professional SaaS frontend standards for SAED."
+description: "Trigger: frontend, UI, UX, components, styles, navigation, forms, tables, dashboards, responsive, accessibility, shadcn, radix, design system, SAED UI, vengeanceui, animation, motion, visual polish, hero, empty state, KPI card, loader, skeleton. Automatically activates professional SaaS frontend standards for SAED."
 license: MIT
 metadata:
   author: SAED Architecture Team
-  version: "1.0"
+  version: "2.0"
 ---
 
 # SAED Frontend Design & Engineering Skill
@@ -39,6 +39,8 @@ When design or implementation approaches diverge, follow this strict priority:
 2. SAED Design System Rules (docs/frontend/SAED_DESIGN_SYSTEM.md)
    ↓
 3. shadcn/ui Official Components & Patterns (https://ui.shadcn.com)
+   ↓
+3.5. VengeanceUI Animated Components (https://vengeanceui.com) — motion accents ONLY
    ↓
 4. Radix UI Primitives (Behavior, Focus Management, ARIA & A11y)
    ↓
@@ -81,7 +83,9 @@ flowchart TD
     B -- Yes --> C[Reuse and Compose Existing Component]
     B -- No --> D{Available in shadcn/ui / Radix?}
     D -- Yes --> E[Install/Port standard shadcn/Radix component to src/components/ui/]
-    D -- No --> F{Can be composed from base primitives?}
+    D -- No --> V{Is this a motion accent, hero bg, animated number, or visual delight?}
+    V -- Yes --> VU[Install from VengeanceUI registry — see Section 4b]
+    V -- No --> F{Can be composed from base primitives?}
     F -- Yes --> G[Compose with Card, Button, Badge, Modal, Form]
     F -- No --> H[Create single-purpose reusable abstraction in src/components/ui/]
 ```
@@ -89,6 +93,64 @@ flowchart TD
 ### Prohibición de Duplicidad
 - ❌ Prohibido crear variaciones duplicadas: `CustomTable`, `BetterModal`, `SuperTable`, `NewButton`.
 - ✅ Extender los componentes base existentes mediante props o variantes `cva` (Class Variance Authority).
+
+---
+
+## 4b. VengeanceUI — Motion Accent Library
+
+VengeanceUI is **pre-installed** in the SAED frontend and available via the `@vengeanceui` registry alias.
+Install path: `frontend/src/components/ui/<name>.tsx`
+Registry alias: `@vengeanceui` → `https://raw.githubusercontent.com/Ashutoshx7/VengeanceUI/main/public/r/{name}.json`
+
+### Install Command (use in frontend/ directory)
+```bash
+npx shadcn@latest add https://raw.githubusercontent.com/Ashutoshx7/VengeanceUI/main/public/r/<component-name>.json --yes --overwrite --cwd ./frontend
+```
+
+### Already Installed Components
+| Component | File | Use Case |
+| :--- | :--- | :--- |
+| `AnimatedRays` | `animated-rays.tsx` | Aurora/gradient hero background with dark mode detection |
+
+### Recommended Components to Install On Demand
+These are the highest-value VengeanceUI components for SAED's SaaS context. Install only when the specific need arises:
+
+| Component | Registry Name | Best Use in SAED |
+| :--- | :--- | :--- |
+| Animated Number | `animated-number` | KPI counters in dashboards (unidades ocupadas, pagos pendientes) |
+| Border Beam | `border-beam` | Highlight active card or selected item |
+| Animated Button | `animated-button` | Primary CTA buttons (login, crear, publicar) |
+| Animated Tooltip | `animated-tooltip` | Avatar stacks, user presence indicators |
+| Cursor Card | `cursor-card` | Feature highlight cards on dashboards |
+| Animated Rays | `animated-rays` | ✅ Already installed — page/section hero backgrounds |
+| Aurora Hero | `aurora-hero` | Login page / landing hero section |
+| Code Block | `code-block` | Display API keys, SQL snippets, reference codes |
+| Copy Button | `copy-button` | Alongside code blocks, QR codes, reference numbers |
+| Skeleton | (use shadcn) | Loading states — prefer shadcn `Skeleton` over VengeanceUI |
+
+### When to Use VengeanceUI — Decision Rules
+
+**✅ USE VengeanceUI when:**
+- Building or improving a **Dashboard hero** section (animated stats, KPI numbers)
+- Improving a **Login / splash page** (animated background, aurora effect)
+- Adding **micro-interactions** to primary action buttons (hover shine, border beam on focus)
+- Creating **empty state illustrations** with subtle motion (when no standard icon suffices)
+- Adding **animated counters** to KPI metrics (e.g., "152 unidades registradas")
+- Improving **onboarding modals** or feature highlight cards with cursor effects
+
+**❌ DO NOT USE VengeanceUI on:**
+- Data tables, forms, filters, or any operational screen where motion would interfere with usability
+- Pagination controls, status badges, or state machine indicators
+- Any element that must render in under 16ms without layout shift
+- Screens viewed by PORTERO role (high-urgency, distraction-free operational context)
+- Toast notifications, alerts, or error messages
+
+### SAED Visual Anti-Pattern Override
+Even though VengeanceUI is approved, the SAED anti-patterns in Section 1 still apply:
+- ❌ No neon glows on data-dense screens
+- ❌ No animations that delay form submission or table filtering
+- ❌ No auto-playing background effects on screens with active user input (modals, forms)
+- ✅ Animations must respect `prefers-reduced-motion` — VengeanceUI components do this by default
 
 ---
 

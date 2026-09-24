@@ -41,6 +41,8 @@ import { Modal } from '../components/ui/Modal.jsx';
 import { Input } from '../components/ui/Form.jsx';
 import ChangePasswordModal from '../components/ui/ChangePasswordModal.jsx';
 import ConvivientesSection from '../components/residents/ConvivientesSection.jsx';
+import ResidentVehiclesSection from '../components/residents/ResidentVehiclesSection.jsx';
+import ResidentPetsSection from '../components/residents/ResidentPetsSection.jsx';
 
 function CopyChip({ text, label, icon: Icon }) {
   const [copied, setCopied] = useState(false);
@@ -798,6 +800,22 @@ export default function ResPerfilPage() {
                 onRefresh={handleRefreshHabitantes}
               />
             )}
+
+            {/* 2.4: Parque Automotor y Movilidad de la Unidad */}
+            <div className="lg:col-span-3">
+              <ResidentVehiclesSection
+                unitId={unitId}
+                defaultPersonaId={residentId}
+              />
+            </div>
+
+            {/* 2.5: Mascotas y Cuidado Animal de la Unidad */}
+            <div className="lg:col-span-3">
+              <ResidentPetsSection
+                unitId={unitId}
+                defaultPersonaId={residentId}
+              />
+            </div>
           </div>
         </TabsContent>
 
