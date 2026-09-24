@@ -155,7 +155,7 @@ CREATE OR REPLACE PACKAGE BODY PKG_SAED_SECURITY_RLS AS
             ELSIF p_tab IN ('QR_ACCESOS', 'VEHICULOS_VISITA') THEN
                 RETURN 'id_visita IN (SELECT id_visita FROM VISITAS WHERE id_unidad IN (SELECT id_unidad FROM USUARIO_ASIGNACIONES WHERE id_usuario = ' || v_usr || ' AND estado = ''ACTIVA'' AND id_unidad IS NOT NULL))';
             ELSIF p_tab = 'TRANSACCIONES_PAGO' THEN
-                RETURN '(id_unidad IN (SELECT id_unidad FROM USUARIO_ASIGNACIONES WHERE id_usuario = ' || v_usr || ' AND estado=''ACTIVA'' AND id_unidad IS NOT NULL) OR (id_unidad IS NULL AND id_propiedad IN (SELECT id_propiedad FROM USUARIO_ASIGNACIONES WHERE id_usuario = ' || v_usr || ' AND estado=''ACTIVA'')))';
+                RETURN 'id_unidad IN (SELECT id_unidad FROM USUARIO_ASIGNACIONES WHERE id_usuario = ' || v_usr || ' AND estado=''ACTIVA'' AND id_unidad IS NOT NULL)';
             ELSIF p_tab = 'DOMICILIOS' THEN
                 RETURN 'id_unidad IN (SELECT id_unidad FROM USUARIO_ASIGNACIONES WHERE id_usuario = ' || v_usr || ' AND estado = ''ACTIVA'' AND id_unidad IS NOT NULL)';
             ELSIF p_tab = 'VEHICULOS' THEN
@@ -180,7 +180,7 @@ CREATE OR REPLACE PACKAGE BODY PKG_SAED_SECURITY_RLS AS
             IF p_tab = 'OBRA_TRABAJADORES' THEN RETURN 'id_obra IN (SELECT id_obra FROM OBRAS WHERE id_unidad IN (SELECT id_unidad FROM UNIDADES WHERE id_propiedad = ' || v_prop || '))'; END IF;
             IF p_tab = 'CONTRATO_RESIDENTE' THEN RETURN 'id_contrato IN (SELECT id_contrato FROM CONTRATOS WHERE id_unidad IN (SELECT id_unidad FROM UNIDADES WHERE id_propiedad = ' || v_prop || '))'; END IF;
             IF p_tab IN ('QR_ACCESOS', 'VEHICULOS_VISITA') THEN RETURN 'id_visita IN (SELECT id_visita FROM VISITAS JOIN UNIDADES ON VISITAS.id_unidad = UNIDADES.id_unidad WHERE UNIDADES.id_propiedad = ' || v_prop || ')'; END IF;
-            IF p_tab = 'TRANSACCIONES_PAGO' THEN RETURN 'id_propiedad = ' || v_prop; END IF;
+            IF p_tab = 'TRANSACCIONES_PAGO' THEN RETURN 'id_unidad IN (SELECT id_unidad FROM UNIDADES WHERE id_propiedad = ' || v_prop || ')'; END IF;
             IF p_tab = 'DOMICILIOS' THEN RETURN 'id_propiedad = ' || v_prop; END IF;
             IF p_tab = 'PAQUETES' THEN RETURN 'id_propiedad = ' || v_prop; END IF;
             IF p_tab = 'VISITAS' THEN RETURN 'id_unidad IN (SELECT id_unidad FROM UNIDADES WHERE id_propiedad = ' || v_prop || ')'; END IF;
@@ -195,7 +195,7 @@ CREATE OR REPLACE PACKAGE BODY PKG_SAED_SECURITY_RLS AS
             IF p_tab = 'OBRA_TRABAJADORES' THEN RETURN 'id_obra IN (SELECT id_obra FROM OBRAS WHERE id_unidad IN (SELECT id_unidad FROM UNIDADES WHERE id_propiedad IN (SELECT id_propiedad FROM PROPIEDADES WHERE id_organizacion = ' || v_org || ')))'; END IF;
             IF p_tab = 'CONTRATO_RESIDENTE' THEN RETURN 'id_contrato IN (SELECT id_contrato FROM CONTRATOS WHERE id_unidad IN (SELECT id_unidad FROM UNIDADES WHERE id_propiedad IN (SELECT id_propiedad FROM PROPIEDADES WHERE id_organizacion = ' || v_org || ')))'; END IF;
             IF p_tab IN ('QR_ACCESOS', 'VEHICULOS_VISITA') THEN RETURN 'id_visita IN (SELECT id_visita FROM VISITAS JOIN UNIDADES ON VISITAS.id_unidad = UNIDADES.id_unidad JOIN PROPIEDADES ON UNIDADES.id_propiedad = PROPIEDADES.id_propiedad WHERE PROPIEDADES.id_organizacion = ' || v_org || ')'; END IF;
-            IF p_tab = 'TRANSACCIONES_PAGO' THEN RETURN 'id_propiedad IN (SELECT id_propiedad FROM PROPIEDADES WHERE id_organizacion = ' || v_org || ')'; END IF;
+            IF p_tab = 'TRANSACCIONES_PAGO' THEN RETURN 'id_organizacion = ' || v_org; END IF;
             IF p_tab = 'DOMICILIOS' THEN RETURN 'id_propiedad IN (SELECT id_propiedad FROM PROPIEDADES WHERE id_organizacion = ' || v_org || ')'; END IF;
             IF p_tab = 'PAQUETES' THEN RETURN 'id_propiedad IN (SELECT id_propiedad FROM PROPIEDADES WHERE id_organizacion = ' || v_org || ')'; END IF;
             IF p_tab = 'VISITAS' THEN RETURN 'id_unidad IN (SELECT id_unidad FROM UNIDADES WHERE id_propiedad IN (SELECT id_propiedad FROM PROPIEDADES WHERE id_organizacion = ' || v_org || '))'; END IF;
@@ -284,9 +284,12 @@ BEGIN
 END;
 /
 
--- Remover política RLS en PERSONAS para prevenir recursión VPD y alias collision
+-- Remover política RLS en PERSONAS para prevenir recursión VPD y alias collision (agrupada y no agrupada)
 BEGIN
-    DBMS_RLS.DROP_POLICY(USER, 'PERSONAS', 'POL_RLS_ORG_PERSONAS');
+    BEGIN DBMS_RLS.DROP_POLICY(USER, 'PERSONAS', 'POL_RLS_ORG_PERSONAS'); EXCEPTION WHEN OTHERS THEN NULL; END;
+    BEGIN DBMS_RLS.DROP_GROUPED_POLICY(USER, 'PERSONAS', 'SYS_DEFAULT', 'POL_RLS_ORG_PERSONAS'); EXCEPTION WHEN OTHERS THEN NULL; END;
+    EXECUTE IMMEDIATE 'ALTER PACKAGE PKG_SAED_SESSION COMPILE';
+    EXECUTE IMMEDIATE 'ALTER PACKAGE PKG_SAED_SESSION COMPILE BODY';
 EXCEPTION
     WHEN OTHERS THEN NULL;
 END;

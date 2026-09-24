@@ -229,7 +229,7 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
                             ELSIF p_tab IN ('QR_ACCESOS', 'VEHICULOS_VISITA') THEN
                                 RETURN 'id_visita IN (SELECT id_visita FROM VISITAS WHERE id_unidad IN (SELECT id_unidad FROM USUARIO_ASIGNACIONES WHERE id_usuario = ' || v_usr || ' AND estado = ''ACTIVA'' AND id_unidad IS NOT NULL))';
                             ELSIF p_tab = 'TRANSACCIONES_PAGO' THEN
-                                RETURN '(id_unidad IN (SELECT id_unidad FROM USUARIO_ASIGNACIONES WHERE id_usuario = ' || v_usr || ' AND estado=''ACTIVA'' AND id_unidad IS NOT NULL) OR (id_unidad IS NULL AND id_propiedad IN (SELECT id_propiedad FROM USUARIO_ASIGNACIONES WHERE id_usuario = ' || v_usr || ' AND estado=''ACTIVA'')))';
+                                RETURN 'id_unidad IN (SELECT id_unidad FROM USUARIO_ASIGNACIONES WHERE id_usuario = ' || v_usr || ' AND estado=''ACTIVA'' AND id_unidad IS NOT NULL)';
                             ELSIF p_tab = 'DOMICILIOS' THEN
                                 RETURN 'id_unidad IN (SELECT id_unidad FROM USUARIO_ASIGNACIONES WHERE id_usuario = ' || v_usr || ' AND estado = ''ACTIVA'' AND id_unidad IS NOT NULL)';
                             ELSIF p_tab = 'VEHICULOS' THEN
@@ -254,7 +254,22 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
                             IF p_tab = 'OBRA_TRABAJADORES' THEN RETURN 'id_obra IN (SELECT id_obra FROM OBRAS WHERE id_unidad IN (SELECT id_unidad FROM UNIDADES WHERE id_propiedad = ' || v_prop || '))'; END IF;
                             IF p_tab = 'CONTRATO_RESIDENTE' THEN RETURN 'id_contrato IN (SELECT id_contrato FROM CONTRATOS WHERE id_unidad IN (SELECT id_unidad FROM UNIDADES WHERE id_propiedad = ' || v_prop || '))'; END IF;
                             IF p_tab IN ('QR_ACCESOS', 'VEHICULOS_VISITA') THEN RETURN 'id_visita IN (SELECT id_visita FROM VISITAS JOIN UNIDADES ON VISITAS.id_unidad = UNIDADES.id_unidad WHERE UNIDADES.id_propiedad = ' || v_prop || ')'; END IF;
-                            IF p_tab = 'TRANSACCIONES_PAGO' THEN RETURN 'id_propiedad = ' || v_prop; END IF;
+                            IF p_tab = 'TRANSACCIONES_PAGO' THEN RETURN 'id_unidad IN (SELECT id_unidad FROM UNIDADES WHERE id_propiedad = ' || v_prop || ')'; END IF;
+                            IF p_tab = 'DOMICILIOS' THEN RETURN 'id_propiedad = ' || v_prop; END IF;
+                            IF p_tab = 'PAQUETES' THEN RETURN 'id_propiedad = ' || v_prop; END IF;
+                            IF p_tab = 'VISITAS' THEN RETURN 'id_unidad IN (SELECT id_unidad FROM UNIDADES WHERE id_propiedad = ' || v_prop || ')'; END IF;
+                            IF p_tab = 'VEHICULOS' THEN RETURN 'id_unidad IN (SELECT id_unidad FROM UNIDADES WHERE id_propiedad = ' || v_prop || ')'; END IF;
+                            IF p_tab = 'MASCOTAS' THEN RETURN 'id_unidad IN (SELECT id_unidad FROM UNIDADES WHERE id_propiedad = ' || v_prop || ')'; END IF;
+                            IF p_tab = 'OBRAS' THEN RETURN 'id_unidad IN (SELECT id_unidad FROM UNIDADES WHERE id_propiedad = ' || v_prop || ')'; END IF;
+                            RETURN 'id_unidad IN (SELECT id_unidad FROM UNIDADES WHERE id_propiedad = ' || v_prop || ')';
+                        ELSE
+                            IF p_tab = 'UNIDADES' THEN RETURN 'id_propiedad IN (SELECT id_propiedad FROM PROPIEDADES WHERE id_organizacion = ' || v_org || ')'; END IF;
+                            IF p_tab = 'TUTORES' THEN RETURN 'id_persona_menor IN (SELECT id_persona FROM RESIDENTES_UNIDAD JOIN UNIDADES ON RESIDENTES_UNIDAD.id_unidad = UNIDADES.id_unidad JOIN PROPIEDADES ON UNIDADES.id_propiedad = PROPIEDADES.id_propiedad WHERE PROPIEDADES.id_organizacion = ' || v_org || ')'; END IF;
+                            IF p_tab = 'PAGO_DETALLE' THEN RETURN 'id_cuota IN (SELECT id_cuota FROM CUOTAS WHERE id_unidad IN (SELECT id_unidad FROM UNIDADES WHERE id_propiedad IN (SELECT id_propiedad FROM PROPIEDADES WHERE id_organizacion = ' || v_org || ')))'; END IF;
+                            IF p_tab = 'OBRA_TRABAJADORES' THEN RETURN 'id_obra IN (SELECT id_obra FROM OBRAS WHERE id_unidad IN (SELECT id_unidad FROM UNIDADES WHERE id_propiedad IN (SELECT id_propiedad FROM PROPIEDADES WHERE id_organizacion = ' || v_org || ')))'; END IF;
+                            IF p_tab = 'CONTRATO_RESIDENTE' THEN RETURN 'id_contrato IN (SELECT id_contrato FROM CONTRATOS WHERE id_unidad IN (SELECT id_unidad FROM UNIDADES WHERE id_propiedad IN (SELECT id_propiedad FROM PROPIEDADES WHERE id_organizacion = ' || v_org || ')))'; END IF;
+                            IF p_tab IN ('QR_ACCESOS', 'VEHICULOS_VISITA') THEN RETURN 'id_visita IN (SELECT id_visita FROM VISITAS JOIN UNIDADES ON VISITAS.id_unidad = UNIDADES.id_unidad JOIN PROPIEDADES ON UNIDADES.id_propiedad = PROPIEDADES.id_propiedad WHERE PROPIEDADES.id_organizacion = ' || v_org || ')'; END IF;
+                            IF p_tab = 'TRANSACCIONES_PAGO' THEN RETURN 'id_organizacion = ' || v_org; END IF;
                             IF p_tab = 'DOMICILIOS' THEN RETURN 'id_propiedad = ' || v_prop; END IF;
                             IF p_tab = 'PAQUETES' THEN RETURN 'id_propiedad = ' || v_prop; END IF;
                             IF p_tab = 'VISITAS' THEN RETURN 'id_unidad IN (SELECT id_unidad FROM UNIDADES WHERE id_propiedad = ' || v_prop || ')'; END IF;
@@ -345,24 +360,49 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
             """);
 
             try {
-                String status = jdbcTemplate.queryForObject(
-                    "SELECT STATUS FROM USER_OBJECTS WHERE OBJECT_NAME = 'PKG_SAED_SECURITY_RLS' AND OBJECT_TYPE = 'PACKAGE BODY'",
-                    String.class
-                );
-                if ("VALID".equalsIgnoreCase(status)) {
-                    log.info("[SchemaInit] PKG_SAED_SECURITY_RLS verificado y válido exitosamente.");
-                } else {
-                    log.warn("[SchemaInit] PKG_SAED_SECURITY_RLS compiló con estado: {}", status);
-                }
-            } catch (Exception ex) {
-                log.debug("[SchemaInit] Aviso al verificar estado de PKG_SAED_SECURITY_RLS: {}", ex.getMessage());
+                jdbcTemplate.execute("ALTER PACKAGE PKG_SAED_SECURITY_RLS COMPILE");
+                jdbcTemplate.execute("ALTER PACKAGE PKG_SAED_SECURITY_RLS COMPILE BODY");
+                jdbcTemplate.execute("ALTER PACKAGE PKG_SAED_SESSION COMPILE");
+                jdbcTemplate.execute("ALTER PACKAGE PKG_SAED_SESSION COMPILE BODY");
+            } catch (Exception eCompile) {
+                log.debug("[SchemaInit] Aviso recompilando paquetes de sesión/RLS: {}", eCompile.getMessage());
             }
 
             try {
-                jdbcTemplate.execute("BEGIN DBMS_RLS.DROP_POLICY(NULL, 'PERSONAS', 'POL_RLS_ORG_PERSONAS'); EXCEPTION WHEN OTHERS THEN NULL; END;");
-                log.info("[SchemaInit] Política RLS POL_RLS_ORG_PERSONAS removida exitosamente.");
+                jdbcTemplate.execute("""
+                    BEGIN
+                        BEGIN DBMS_RLS.DROP_POLICY(NULL, 'PERSONAS', 'POL_RLS_ORG_PERSONAS'); EXCEPTION WHEN OTHERS THEN NULL; END;
+                        BEGIN DBMS_RLS.DROP_GROUPED_POLICY(NULL, 'PERSONAS', 'SYS_DEFAULT', 'POL_RLS_ORG_PERSONAS'); EXCEPTION WHEN OTHERS THEN NULL; END;
+                    END;
+                """);
+                log.info("[SchemaInit] Política RLS POL_RLS_ORG_PERSONAS (agrupada y no agrupada) removida exitosamente.");
             } catch (Exception ex) {
                 log.debug("[SchemaInit] Aviso al remover política POL_RLS_ORG_PERSONAS: {}", ex.getMessage());
+            }
+
+            try {
+                String rlsStatus = jdbcTemplate.queryForObject(
+                    "SELECT STATUS FROM USER_OBJECTS WHERE OBJECT_NAME = 'PKG_SAED_SECURITY_RLS' AND OBJECT_TYPE = 'PACKAGE BODY'",
+                    String.class
+                );
+                String sessionStatus = jdbcTemplate.queryForObject(
+                    "SELECT STATUS FROM USER_OBJECTS WHERE OBJECT_NAME = 'PKG_SAED_SESSION' AND OBJECT_TYPE = 'PACKAGE BODY'",
+                    String.class
+                );
+                if ("VALID".equalsIgnoreCase(rlsStatus) && "VALID".equalsIgnoreCase(sessionStatus)) {
+                    log.info("[SchemaInit] PKG_SAED_SECURITY_RLS ({}) y PKG_SAED_SESSION ({}) verificados exitosamente.", rlsStatus, sessionStatus);
+                } else {
+                    log.error("[SchemaInit] ¡ALERTA! Estado paquetes: PKG_SAED_SECURITY_RLS={}, PKG_SAED_SESSION={}", rlsStatus, sessionStatus);
+                    var errors = jdbcTemplate.queryForList(
+                        "SELECT NAME, TYPE, LINE, POSITION, TEXT FROM USER_ERRORS WHERE NAME IN ('PKG_SAED_SECURITY_RLS', 'PKG_SAED_SESSION')"
+                    );
+                    for (var err : errors) {
+                        log.error("[SchemaInit] PL/SQL Error en {} ({}) L{}:{} - {}", 
+                            err.get("NAME"), err.get("TYPE"), err.get("LINE"), err.get("POSITION"), err.get("TEXT"));
+                    }
+                }
+            } catch (Exception ex) {
+                log.debug("[SchemaInit] Aviso al verificar estado de paquetes RLS: {}", ex.getMessage());
             }
         } catch (Exception e) {
             log.warn("[SchemaInit] Aviso al compilar paquete PKG_SAED_SECURITY_RLS: {}", e.getMessage());

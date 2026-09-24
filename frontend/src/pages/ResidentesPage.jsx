@@ -185,18 +185,6 @@ export default function ResidentesPage() {
   // Gestión de Activos de la Unidad (Vehículos y Mascotas) - GAP-F5-01
   const [unitAssetsModal, setUnitAssetsModal] = useState({ open: false, unitId: null, unitName: '' });
 
-  const openUnitAssets = useCallback((residente) => {
-    const aptItem = (apartamentos?.items || (Array.isArray(apartamentos) ? apartamentos : [])).find(
-      (a) => String(a.idApartamento || a.id) === String(residente.idApartamento)
-    );
-    const unitName = aptItem?.identificador || aptItem?.numero || residente.numeroApartamento || `Unidad #${residente.idApartamento}`;
-    setUnitAssetsModal({
-      open: true,
-      unitId: residente.idApartamento,
-      unitName,
-    });
-  }, [apartamentos]);
-
   // 1. Censo de Personas/Residentes
   const {
     data,
@@ -251,6 +239,18 @@ export default function ResidentesPage() {
       }
     });
     return map;
+  }, [apartamentos]);
+
+  const openUnitAssets = useCallback((residente) => {
+    const aptItem = (apartamentos?.items || (Array.isArray(apartamentos) ? apartamentos : [])).find(
+      (a) => String(a.idApartamento || a.id) === String(residente.idApartamento)
+    );
+    const unitName = aptItem?.identificador || aptItem?.numero || residente.numeroApartamento || `Unidad #${residente.idApartamento}`;
+    setUnitAssetsModal({
+      open: true,
+      unitId: residente.idApartamento,
+      unitName,
+    });
   }, [apartamentos]);
 
   // Mapa rápido de tipos de documento
