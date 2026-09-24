@@ -39,6 +39,7 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
 
         initSaedContext();
         initSecurityRlsPackage();
+        initCoreRlsPoliciesClean();
         initPlantillasContratos();
         initRoles();
         initResidentesUnidadConstraints();
@@ -446,6 +447,70 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
             }
         } catch (Exception e) {
             log.warn("[SchemaInit] Aviso al compilar paquete PKG_SAED_SECURITY_RLS: {}", e.getMessage());
+        }
+    }
+
+    private void refreshRlsPolicy(String tableName, String policyName, String policyFunction) {
+        try {
+            jdbcTemplate.execute(String.format("""
+                BEGIN
+                    BEGIN DBMS_RLS.DROP_POLICY(NULL, '%s', '%s'); EXCEPTION WHEN OTHERS THEN NULL; END;
+                    BEGIN DBMS_RLS.DROP_GROUPED_POLICY(NULL, '%s', 'SYS_DEFAULT', '%s'); EXCEPTION WHEN OTHERS THEN NULL; END;
+                    DBMS_RLS.ADD_GROUPED_POLICY(
+                        object_schema   => NULL,
+                        object_name     => '%s',
+                        policy_group    => 'SYS_DEFAULT',
+                        policy_name     => '%s',
+                        function_schema => NULL,
+                        policy_function => '%s',
+                        update_check    => FALSE,
+                        enable          => TRUE,
+                        static_policy   => FALSE,
+                        policy_type     => dbms_rls.DYNAMIC,
+                        long_predicate  => FALSE
+                    );
+                END;
+            """, tableName, policyName, tableName, policyName, tableName, policyName, policyFunction));
+        } catch (Exception e) {
+            log.debug("[SchemaInit] Aviso al refrescar política {} en {}: {}", policyName, tableName, e.getMessage());
+        }
+    }
+
+    private void initCoreRlsPoliciesClean() {
+        try {
+            // Drop policy on PERSONAS permanently (PERSONAS has no direct org/prop column)
+            try {
+                jdbcTemplate.execute("""
+                    BEGIN
+                        BEGIN DBMS_RLS.DROP_POLICY(NULL, 'PERSONAS', 'POL_RLS_ORG_PERSONAS'); EXCEPTION WHEN OTHERS THEN NULL; END;
+                        BEGIN DBMS_RLS.DROP_GROUPED_POLICY(NULL, 'PERSONAS', 'SYS_DEFAULT', 'POL_RLS_ORG_PERSONAS'); EXCEPTION WHEN OTHERS THEN NULL; END;
+                    END;
+                """);
+                log.info("[SchemaInit] Política RLS en PERSONAS eliminada exitosamente.");
+            } catch (Exception ignored) {}
+
+            // Unidades & Financials
+            refreshRlsPolicy("UNIDADES", "POL_RLS_UNI_UNIDADES", "PKG_SAED_SECURITY_RLS.FN_FILTRO_UNIDAD");
+            refreshRlsPolicy("CUOTAS", "POL_RLS_UNI_CUOTAS", "PKG_SAED_SECURITY_RLS.FN_FILTRO_UNIDAD");
+            refreshRlsPolicy("PAGOS", "POL_RLS_UNI_PAGOS", "PKG_SAED_SECURITY_RLS.FN_FILTRO_UNIDAD");
+            refreshRlsPolicy("MULTAS", "POL_RLS_UNI_MULTAS", "PKG_SAED_SECURITY_RLS.FN_FILTRO_UNIDAD");
+            refreshRlsPolicy("SANCIONES", "POL_RLS_PROP_SANCIONES", "PKG_SAED_SECURITY_RLS.FN_FILTRO_PROPIEDAD");
+            refreshRlsPolicy("RESIDENTES_UNIDAD", "POL_RLS_UNI_RESIDENTES_UNID", "PKG_SAED_SECURITY_RLS.FN_FILTRO_UNIDAD");
+            refreshRlsPolicy("PROPIETARIOS_UNIDAD", "POL_RLS_UNI_PROPIETARIOS_UN", "PKG_SAED_SECURITY_RLS.FN_FILTRO_UNIDAD");
+            refreshRlsPolicy("CONTRATOS", "POL_RLS_PROP_CONTRATOS", "PKG_SAED_SECURITY_RLS.FN_FILTRO_PROPIEDAD");
+            refreshRlsPolicy("PROPIEDADES", "POL_RLS_ORG_PROPIEDADES", "PKG_SAED_SECURITY_RLS.FN_FILTRO_ORGANIZACION");
+            refreshRlsPolicy("ORGANIZACIONES", "POL_RLS_ORG_ORGANIZACIONES", "PKG_SAED_SECURITY_RLS.FN_FILTRO_ORGANIZACION");
+            refreshRlsPolicy("PAQUETES", "POL_RLS_PROP_PAQUETES", "PKG_SAED_SECURITY_RLS.FN_FILTRO_PROPIEDAD");
+            refreshRlsPolicy("VISITAS", "POL_RLS_PROP_VISITAS", "PKG_SAED_SECURITY_RLS.FN_FILTRO_PROPIEDAD");
+            refreshRlsPolicy("PARQUEADEROS", "POL_RLS_PROP_PARQUEADEROS", "PKG_SAED_SECURITY_RLS.FN_FILTRO_PROPIEDAD");
+            refreshRlsPolicy("PQRS_TICKETS", "POL_RLS_PROP_PQRS_TICKETS", "PKG_SAED_SECURITY_RLS.FN_FILTRO_PROPIEDAD");
+            refreshRlsPolicy("VEHICULOS", "POL_RLS_UNI_VEHICULOS", "PKG_SAED_SECURITY_RLS.FN_FILTRO_UNIDAD");
+            refreshRlsPolicy("MASCOTAS", "POL_RLS_UNI_MASCOTAS", "PKG_SAED_SECURITY_RLS.FN_FILTRO_UNIDAD");
+            refreshRlsPolicy("BLOQUES", "POL_RLS_PROP_BLOQUES", "PKG_SAED_SECURITY_RLS.FN_FILTRO_PROPIEDAD");
+            refreshRlsPolicy("MANTENIMIENTOS", "POL_RLS_PROP_MANTENIMIENTOS", "PKG_SAED_SECURITY_RLS.FN_FILTRO_PROPIEDAD");
+            log.info("[SchemaInit] Políticas RLS limpias y normalizadas aplicadas a todas las tablas del sistema.");
+        } catch (Exception e) {
+            log.warn("[SchemaInit] Aviso en initCoreRlsPoliciesClean: {}", e.getMessage());
         }
     }
 
