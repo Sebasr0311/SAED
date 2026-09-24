@@ -79,8 +79,17 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
     private void initSecurityRlsPackage() {
         try {
             try {
+                jdbcTemplate.execute("""
+                    BEGIN
+                        BEGIN DBMS_RLS.DROP_POLICY(NULL, 'PERSONAS', 'POL_RLS_ORG_PERSONAS'); EXCEPTION WHEN OTHERS THEN NULL; END;
+                        BEGIN DBMS_RLS.DROP_GROUPED_POLICY(NULL, 'PERSONAS', 'SYS_DEFAULT', 'POL_RLS_ORG_PERSONAS'); EXCEPTION WHEN OTHERS THEN NULL; END;
+                    END;
+                """);
+            } catch (Exception ignored) {}
+
+            try {
                 Integer upToDate = jdbcTemplate.queryForObject(
-                    "SELECT COUNT(1) FROM USER_SOURCE WHERE NAME = 'PKG_SAED_SECURITY_RLS' AND TYPE = 'PACKAGE BODY' AND TEXT LIKE '%2026.09.24.V3_FIX_CHILD_TABLES%'",
+                    "SELECT COUNT(1) FROM USER_SOURCE WHERE NAME = 'PKG_SAED_SECURITY_RLS' AND TYPE = 'PACKAGE BODY' AND TEXT LIKE '%2026.09.24.V4_EXPLICIT_COMPILE%'",
                     Integer.class
                 );
                 String rlsStatus = jdbcTemplate.queryForObject(
@@ -88,7 +97,7 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
                     String.class
                 );
                 if (upToDate != null && upToDate > 0 && "VALID".equalsIgnoreCase(rlsStatus)) {
-                    log.info("[SchemaInit] PKG_SAED_SECURITY_RLS ya se encuentra actualizado (versión 2026.09.24.V3) y en estado VALID. Se omite recompilación DDL.");
+                    log.info("[SchemaInit] PKG_SAED_SECURITY_RLS ya se encuentra actualizado (versión 2026.09.24.V4) y en estado VALID. Se omite recompilación DDL.");
                     return;
                 }
             } catch (Exception ignored) {}
@@ -108,7 +117,7 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
 
             jdbcTemplate.execute("""
                 CREATE OR REPLACE PACKAGE BODY PKG_SAED_SECURITY_RLS AS
-                    -- RLS_BUILD_VERSION: 2026.09.24.V3_FIX_CHILD_TABLES
+                    -- RLS_BUILD_VERSION: 2026.09.24.V4_EXPLICIT_COMPILE
 
                     FUNCTION FN_FILTRO_ORGANIZACION (p_schema IN VARCHAR2, p_tab IN VARCHAR2) RETURN VARCHAR2 AS
                         v_org VARCHAR2(30) := SYS_CONTEXT('SAED_CTX', 'ID_ORGANIZACION');
@@ -393,8 +402,10 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
                 jdbcTemplate.execute("ALTER PACKAGE PKG_SAED_SECURITY_RLS COMPILE BODY");
                 jdbcTemplate.execute("ALTER PACKAGE PKG_SAED_SESSION COMPILE");
                 jdbcTemplate.execute("ALTER PACKAGE PKG_SAED_SESSION COMPILE BODY");
+                try { jdbcTemplate.execute("GRANT EXECUTE ON PKG_SAED_SECURITY_RLS TO PUBLIC"); } catch (Exception ignored) {}
+                try { jdbcTemplate.execute("GRANT EXECUTE ON PKG_SAED_SESSION TO PUBLIC"); } catch (Exception ignored) {}
             } catch (Exception eCompile) {
-                log.debug("[SchemaInit] Aviso recompilando paquetes de sesión/RLS: {}", eCompile.getMessage());
+                log.error("[SchemaInit] Error recompilando paquetes de sesión/RLS: {}", eCompile.getMessage(), eCompile);
             }
 
             try {

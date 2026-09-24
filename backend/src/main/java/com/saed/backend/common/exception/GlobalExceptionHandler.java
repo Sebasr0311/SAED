@@ -99,6 +99,32 @@ public class GlobalExceptionHandler {
             return new ResponseEntity<>(response, HttpStatus.FORBIDDEN);
         }
 
+        // ORA-28112 RLS Policy Function Failure Diagnostic
+        if (message != null && message.contains("ORA-28112")) {
+            log.error("Fallo de función de política RLS detectado: {}", message);
+            Map<String, Object> response = createErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, "DATABASE_ERROR",
+                    "Ha ocurrido un error en la capa de datos: " + message);
+            try {
+                var errors = jdbcTemplate.getJdbcOperations().queryForList(
+                    "SELECT NAME, TYPE, LINE, POSITION, TEXT FROM USER_ERRORS WHERE NAME IN ('PKG_SAED_SECURITY_RLS', 'PKG_SAED_SESSION')"
+                );
+                response.put("plsqlErrors", errors);
+                var objects = jdbcTemplate.getJdbcOperations().queryForList(
+                    "SELECT OBJECT_NAME, OBJECT_TYPE, STATUS FROM USER_OBJECTS WHERE OBJECT_NAME IN ('PKG_SAED_SECURITY_RLS', 'PKG_SAED_SESSION')"
+                );
+                response.put("objectStatus", objects);
+                try {
+                    jdbcTemplate.getJdbcOperations().execute("ALTER PACKAGE PKG_SAED_SECURITY_RLS COMPILE BODY");
+                    response.put("recompileRls", "SUCCESS");
+                } catch (Exception exComp) {
+                    response.put("recompileRlsError", exComp.getMessage());
+                }
+            } catch (Exception exDiag) {
+                response.put("diagError", exDiag.getMessage());
+            }
+            return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+
         // Custom PKG_SAED_SESSION application errors (-20083, -20084, -20099)
         if (message != null && message.contains("ORA-2008")) {
             registrarAccesoDenegado("Contexto spoofing detectado (PKG_SAED_SESSION)", "SEGURIDAD");
