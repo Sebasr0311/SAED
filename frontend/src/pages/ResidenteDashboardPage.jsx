@@ -49,6 +49,7 @@ import { Button } from '../components/ui/button.tsx';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs.tsx';
 import { Modal } from '../components/ui/Modal.jsx';
 import EmptyState from '../components/ui/EmptyState.jsx';
+import { LocalQRCode } from '../components/ui/LocalQRCode.jsx';
 
 const MESES_W = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -107,19 +108,20 @@ export default function ResidenteDashboardPage() {
 
   // 3. Ficha básica de la unidad para el saludo
   const unitId =
-    user?.idUnidad || perfil.idApartamento || perfil.idUnidad || aptoInfo.idApartamento || aptoInfo.id || 1;
+    dashboard.idUnidad || user?.idUnidad || perfil.idApartamento || perfil.idUnidad || aptoInfo.idApartamento || aptoInfo.id;
   const { data: unitData, refetch: refetchUnit } = useFetch(
-    () => (unitId ? api.get(`/units/${unitId}`) : Promise.resolve(null)),
-    [unitId]
+    () => (!dashboard.identificadorUnidad && unitId ? api.get(`/units/${unitId}`) : Promise.resolve(null)),
+    [unitId, dashboard.identificadorUnidad]
   );
   const u = useMemo(() => unitData?.raw || unitData || {}, [unitData]);
 
   const numeroApto =
+    dashboard.identificadorUnidad ||
     u.identificador ||
     u.numero ||
     aptoInfo.numero ||
     perfil.numeroApartamento ||
-    (user?.idUnidad ? `Apto 20${user.idUnidad}` : 'Apto 101');
+    (unitId ? `Apto ${unitId}` : 'Apto 101');
 
   // 4. Códigos QR activos para visitas
   const { data: qrsRaw, refetch: refetchQrs } = useFetch(
@@ -163,6 +165,18 @@ export default function ResidenteDashboardPage() {
     [isConviviente]
   );
   const wompiHistorial = useMemo(() => (Array.isArray(wompiRaw) ? wompiRaw : wompiRaw?.items || []), [wompiRaw]);
+
+  // 10. Minuta Táctica de Emergencia (Contactos Prioritarios)
+  const { data: minutaRaw, loading: loadingMinuta, error: errorMinuta } = useFetch(
+    () => api.get('/emergencias/contactos/minuta'),
+    [user]
+  );
+  const contactosMinuta = useMemo(() => {
+    if (!minutaRaw) return [];
+    if (Array.isArray(minutaRaw)) return minutaRaw;
+    if (Array.isArray(minutaRaw.items)) return minutaRaw.items;
+    return minutaRaw.data || [];
+  }, [minutaRaw]);
 
   // Cálculos financieros
   const cuotasPendientes = useMemo(() => cuotas.filter((c) => c.estado !== 'PAGADA'), [cuotas]);
@@ -400,28 +414,26 @@ export default function ResidenteDashboardPage() {
   // ==== Pases QR & Compartir ====
   const [qrZoom, setQrZoom] = useState(null);
 
-  function qrImageUrl(codigoQr) {
-    return 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=' + encodeURIComponent(codigoQr);
-  }
-
   function compartirTelegram(codigoQr, nombre) {
-    const imgUrl = qrImageUrl(codigoQr);
-    const text = encodeURIComponent(`Código QR de acceso para ${nombre || 'tu visita'}\n\nAbre la imagen para ingresar:\n${imgUrl}`);
-    window.open(`https://t.me/share/url?url=${encodeURIComponent(imgUrl)}&text=${text}`, '_blank');
+    const text = encodeURIComponent(
+      `Código de acceso SAED para ${nombre || 'tu visita'}\n\n` +
+      `Código alfanumérico: ${codigoQr}\n` +
+      `Presenta este código en portería para ingresar.`
+    );
+    window.open(`https://t.me/share/url?text=${text}`, '_blank');
   }
 
   function compartirSMS(codigoQr, telefono) {
-    const imgUrl = qrImageUrl(codigoQr);
-    const body = encodeURIComponent(`Tu código QR de acceso en portería es: ${codigoQr} - Imagen: ${imgUrl}`);
+    const body = encodeURIComponent(`Tu código de acceso SAED en portería es: ${codigoQr}`);
     window.open(telefono ? `sms:${telefono}?body=${body}` : `sms:?body=${body}`);
   }
 
   function compartirCorreo(codigoQr, nombre, email) {
-    const imgUrl = qrImageUrl(codigoQr);
-    const subject = encodeURIComponent('Pase de Acceso con Código QR — SAED');
+    const subject = encodeURIComponent('Pase de Acceso — SAED');
     const body = encodeURIComponent(
-      `Hola,\n\nHas recibido un código QR de acceso${nombre ? ` para ${nombre}` : ''}.\n\n` +
-      `Código: ${codigoQr}\n\nPresenta esta imagen al guardia de portería:\n${imgUrl}\n\n` +
+      `Hola,\n\nHas recibido una autorización de acceso${nombre ? ` para ${nombre}` : ''}.\n\n` +
+      `Código de Acceso: ${codigoQr}\n\n` +
+      `Presenta este código al oficial de portería para validar tu ingreso.\n\n` +
       `Conjunto / Edificio: ${user?.nombrePropiedad || 'Copropiedad'}`
     );
     window.open(email ? `mailto:${email}?subject=${subject}&body=${body}` : `mailto:?subject=${subject}&body=${body}`);
@@ -950,14 +962,17 @@ export default function ResidenteDashboardPage() {
                           className="flex flex-col justify-between p-4 rounded-xl border border-border bg-card hover:shadow-sm transition-all"
                         >
                           <div className="flex items-start gap-3.5">
-                            <img
-                              src={qrImageUrl(qr.codigoQr)}
-                              alt={`QR ${qr.nombreVisitante || 'Visita'}`}
-                              width="64"
-                              height="64"
+                            <div
                               onClick={() => setQrZoom(qr)}
-                              className="w-16 h-16 rounded-lg border border-border cursor-zoom-in bg-white p-1 shrink-0"
-                            />
+                              className="w-16 h-16 rounded-lg border border-border cursor-zoom-in bg-white p-1 shrink-0 flex items-center justify-center overflow-hidden"
+                              title={`Ver código QR de ${qr.nombreVisitante || 'Visita'}`}
+                            >
+                              <LocalQRCode
+                                value={qr.codigoQr}
+                                size={56}
+                                alt={`QR ${qr.nombreVisitante || 'Visita'}`}
+                              />
+                            </div>
                             <div className="min-w-0 flex-1">
                               <h4 className="text-sm font-bold text-foreground truncate">
                                 {qr.nombreVisitante || 'Visitante Autorizado'}
@@ -1239,42 +1254,66 @@ export default function ResidenteDashboardPage() {
 
               {/* 3. Canales de Asistencia, Portería & Emergencias */}
               <Card className="border-border/80">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Phone className="w-4 h-4 text-primary" />
-                    Canales de Asistencia Inmediata
-                  </CardTitle>
+                <CardHeader className="pb-3 border-b border-border/50">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Phone className="w-4 h-4 text-primary" />
+                      Directorio de Emergencias y Asistencia
+                    </CardTitle>
+                    <span className="text-[11px] font-medium text-muted-foreground bg-muted/60 px-2 py-0.5 rounded-full">
+                      Minuta Táctica
+                    </span>
+                  </div>
                 </CardHeader>
-                <CardContent className="space-y-2.5 text-xs">
-                  <div className="flex justify-between items-center py-2 border-b border-border/50">
-                    <div>
-                      <p className="font-bold text-foreground">Portería Principal (24/7)</p>
-                      <p className="text-muted-foreground">Citofonía directa</p>
+                <CardContent className="pt-3 space-y-2.5 text-xs">
+                  {loadingMinuta ? (
+                    <div className="py-6 text-center text-muted-foreground">
+                      <div className="animate-spin w-5 h-5 border-2 border-primary border-t-transparent rounded-full mx-auto mb-2" />
+                      <p className="text-[11px]">Cargando líneas de emergencia...</p>
                     </div>
-                    <span className="font-mono font-bold text-primary bg-primary/10 px-2 py-0.5 rounded">
-                      Ext. 100
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between items-center py-2 border-b border-border/50">
-                    <div>
-                      <p className="font-bold text-foreground">Oficina de Administración</p>
-                      <p className="text-muted-foreground">Lunes a Viernes 8am - 5pm</p>
+                  ) : errorMinuta ? (
+                    <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive text-[11px] flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 shrink-0" />
+                      <span>No fue posible cargar las líneas de emergencia de la copropiedad.</span>
                     </div>
-                    <span className="font-mono font-semibold text-foreground">
-                      (601) 321 4567
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between items-center py-2">
-                    <div>
-                      <p className="font-bold text-rose-600 dark:text-rose-400">Línea Única de Emergencias</p>
-                      <p className="text-muted-foreground">Policía / Bomberos / Ambulancias</p>
+                  ) : contactosMinuta.length === 0 ? (
+                    <div className="py-6 text-center text-muted-foreground bg-muted/20 border border-border/40 rounded-lg p-3">
+                      <Phone className="w-6 h-6 mx-auto mb-1.5 opacity-40" />
+                      <p className="font-semibold text-foreground text-xs">Sin contactos prioritarios</p>
+                      <p className="text-[11px] mt-0.5">La administración aún no ha configurado números de emergencia para esta propiedad.</p>
                     </div>
-                    <span className="font-mono font-bold text-rose-600 dark:text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded">
-                      123
-                    </span>
-                  </div>
+                  ) : (
+                    contactosMinuta.map((c, idx) => (
+                      <div
+                        key={c.idContactoEmergencia || idx}
+                        className={`flex justify-between items-center py-2 ${
+                          idx < contactosMinuta.length - 1 ? 'border-b border-border/50' : ''
+                        }`}
+                      >
+                        <div className="pr-2">
+                          <p className="font-bold text-foreground text-xs">{c.entidad}</p>
+                          <p className="text-muted-foreground text-[11px]">
+                            {c.tipoServicio ? c.tipoServicio.replace(/_/g, ' ') : 'Servicio de Emergencia'}
+                            {c.direccion ? ` • ${c.direccion}` : ''}
+                          </p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <a
+                            href={`tel:${c.telefonoPrincipal}`}
+                            className="font-mono font-bold text-primary hover:underline bg-primary/10 hover:bg-primary/20 px-2.5 py-1 rounded inline-flex items-center gap-1 transition-colors"
+                          >
+                            <Phone className="w-3 h-3" />
+                            {c.telefonoPrincipal}
+                          </a>
+                          {c.telefonoAlterno && (
+                            <p className="text-[10px] text-muted-foreground font-mono mt-0.5">
+                              Alt: {c.telefonoAlterno}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </CardContent>
               </Card>
             </div>
@@ -1534,11 +1573,13 @@ export default function ResidenteDashboardPage() {
       >
         {qrZoom && (
           <div className="flex flex-col items-center justify-center p-4 space-y-4 text-center">
-            <div className="p-4 bg-white rounded-2xl border-2 border-primary/20 shadow-md">
-              <img
-                src={qrImageUrl(qrZoom.codigoQr)}
-                alt="QR Ampliado"
-                className="w-64 h-64 mx-auto"
+            <div className="p-4 bg-white rounded-2xl border-2 border-primary/20 shadow-md flex flex-col items-center">
+              <LocalQRCode
+                value={qrZoom.codigoQr}
+                size={240}
+                showDownload={true}
+                downloadFileName={`saed-qr-${qrZoom.codigoQr}.png`}
+                alt={`Pase QR de ${qrZoom.nombreVisitante || 'Visitante'}`}
               />
             </div>
             <div>

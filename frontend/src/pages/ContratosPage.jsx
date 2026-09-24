@@ -12,7 +12,7 @@ import api, { BASE_URL } from '../lib/api.js';
 import { formatDate, formatCurrency, formatMiles, parseMiles } from '../lib/utils.js';
 import { valNumero } from '../lib/validation.js';
 
-const ESTADOS = ['', 'ACTIVO', 'SUSPENDIDO', 'VENCIDO', 'PENDIENTE_FIRMA', 'CANCELADO'];
+const ESTADOS = ['', 'BORRADOR', 'PENDIENTE_FIRMA', 'ACTIVO', 'VENCIDO', 'TERMINADO_ANTICIPADO', 'CANCELADO'];
 const TIPOS = ['INICIAL', 'RENOVACION', 'PERMANENCIA'];
 const VALOR_POR_TIPO = {
   ESTUDIO: 800000,
@@ -38,10 +38,11 @@ const emptyForm = {
 };
 
 const ESTADO_BADGE = {
-  ACTIVO: 'badge-activo',
-  SUSPENDIDO: 'badge-warn',
-  VENCIDO: 'badge-danger',
+  BORRADOR: 'badge-neutral',
   PENDIENTE_FIRMA: 'badge-pendiente-firma',
+  ACTIVO: 'badge-activo',
+  VENCIDO: 'badge-danger',
+  TERMINADO_ANTICIPADO: 'badge-warn',
   CANCELADO: 'badge-cancelado',
 };
 const TIPO_BADGE = {
@@ -70,6 +71,9 @@ export default function ContratosPage() {
   // Guard anti doble-submit: mismo patron que VisitasPage. disabled={state} NO bloquea clicks sincronicos.
   const savingRef = useRef(false);
   const [descargando, setDescargando] = useState(null);
+  const [detalleModalOpen, setDetalleModalOpen] = useState(false);
+  const [detalleContrato, setDetalleContrato] = useState(null);
+  const [cargandoDetalle, setCargandoDetalle] = useState(false);
 
   const { data: contratosRaw, loading, refetch } = useFetch(() => api.get('/contratos'), []);
   const { data: apartamentos } = useFetch(() => api.get('/units'), []);
@@ -77,7 +81,7 @@ export default function ContratosPage() {
   const { data: plantillasRaw } = useFetch(() => api.get('/contratos/plantillas/activas'), []);
 
   const plantillas = useMemo(() => plantillasRaw?.data || (Array.isArray(plantillasRaw) ? plantillasRaw : []), [plantillasRaw]);
-  const contratos = useMemo(() => (contratosRaw?.items || []).filter((c) => !filtroEstado || c.estado === filtroEstado), [contratosRaw, filtroEstado]);
+  const contratos = useMemo(() => (contratosRaw?.items || (Array.isArray(contratosRaw) ? contratosRaw : [])).filter((c) => !filtroEstado || c.estado === filtroEstado), [contratosRaw, filtroEstado]);
   const totalPages = Math.max(1, Math.ceil(contratos.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages - 1);
   const rows = contratos.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
@@ -86,28 +90,60 @@ export default function ContratosPage() {
     setDescargando(idContrato);
     try {
       const token = sessionStorage.getItem('auth_token');
-      const res = await fetch(`${BASE_URL}/contratos/${idContrato}/pdf`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const activeAssignment = sessionStorage.getItem('saed_active_assignment_id');
+      const headers = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      if (activeAssignment) headers['X-Assignment-Id'] = activeAssignment;
+
+      const res = await fetch(`${BASE_URL}/contratos/${idContrato}/pdf`, { headers });
       if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: `Error ${res.status}` }));
-        throw new Error(err.error || 'Error al descargar PDF');
+        let errorMsg = `Error al descargar PDF (${res.status})`;
+        try {
+          const errData = await res.json();
+          errorMsg = errData.message || errData.error || errorMsg;
+        } catch (_) {}
+        throw new Error(errorMsg);
       }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `contrato_${idContrato}.pdf`;
+
+      let filename = `contrato_${idContrato}.pdf`;
+      const disposition = res.headers.get('Content-Disposition');
+      if (disposition && disposition.includes('filename=')) {
+        const match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+        if (match && match[1]) {
+          filename = match[1].replace(/['"]/g, '');
+        }
+      }
+
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
       setTimeout(() => {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-      }, 100);
+      }, 150);
+      toast.success('Documento descargado exitosamente');
     } catch (err) {
       toast.error(err.message);
     } finally {
       setDescargando(null);
+    }
+  }
+
+  async function verDetalle(idContrato) {
+    setCargandoDetalle(true);
+    setDetalleModalOpen(true);
+    try {
+      const res = await api.get(`/contratos/${idContrato}`);
+      setDetalleContrato(res?.data || res);
+    } catch (err) {
+      toast.error('No se pudo cargar el detalle del contrato: ' + err.message);
+      setDetalleModalOpen(false);
+    } finally {
+      setCargandoDetalle(false);
     }
   }
 
@@ -237,6 +273,19 @@ export default function ContratosPage() {
       width: 220,
       render: (row) => (
         <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              verDetalle(row.idContrato);
+            }}
+            className="btn btn-ghost btn-xs"
+            title="Ver Participantes y Detalle"
+            aria-label="Ver detalle del contrato"
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>
+              visibility
+            </span>
+          </button>
           {(row.estado === 'ACTIVO' || row.estado === 'PENDIENTE_FIRMA') && (
             <button
               onClick={(e) => {
@@ -461,6 +510,101 @@ export default function ContratosPage() {
             <span>Enviar correo de notificación al residente</span>
           </label>
         </div>
+      </Modal>
+
+      {/* Modal Detalle y Participantes */}
+      <Modal
+        open={detalleModalOpen}
+        onClose={() => setDetalleModalOpen(false)}
+        title={`Detalle Contrato ${detalleContrato?.numeroContrato || ''}`}
+        size="lg"
+        footer={
+          <Button variant="outline" onClick={() => setDetalleModalOpen(false)}>
+            Cerrar
+          </Button>
+        }
+      >
+        {cargandoDetalle ? (
+          <div style={{ padding: '24px', textAlign: 'center' }}>Cargando participantes...</div>
+        ) : detalleContrato ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {/* Resumen Contrato */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', background: 'var(--muted, #f8fafc)', padding: '12px', borderRadius: '8px' }}>
+              <div>
+                <span style={{ fontSize: '11px', color: 'var(--muted-foreground)' }}>Apartamento</span>
+                <div style={{ fontWeight: '600' }}>Apto {detalleContrato.numeroApartamento || detalleContrato.idUnidad}</div>
+              </div>
+              <div>
+                <span style={{ fontSize: '11px', color: 'var(--muted-foreground)' }}>Arrendatario Principal</span>
+                <div style={{ fontWeight: '600' }}>{detalleContrato.nombreCompletoResidente || detalleContrato.nombresResidente}</div>
+                <div style={{ fontSize: '12px', color: 'var(--muted-foreground)' }}>Doc: {detalleContrato.numeroDocumentoResidente || '-'}</div>
+              </div>
+              <div>
+                <span style={{ fontSize: '11px', color: 'var(--muted-foreground)' }}>Canon Mensual</span>
+                <div style={{ fontWeight: '600', color: 'var(--primary)' }}>{formatCurrency(detalleContrato.valorCanon)}</div>
+              </div>
+              <div>
+                <span style={{ fontSize: '11px', color: 'var(--muted-foreground)' }}>Vigencia</span>
+                <div style={{ fontWeight: '500' }}>{formatDate(detalleContrato.fechaInicio)} - {detalleContrato.fechaFin ? formatDate(detalleContrato.fechaFin) : 'Indefinido'}</div>
+              </div>
+            </div>
+
+            {/* Tutor Legal */}
+            {(detalleContrato.idTutor || detalleContrato.nombreTutor) && (
+              <div style={{ border: '1px solid var(--border)', borderRadius: '8px', padding: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: '18px', color: 'var(--primary)' }}>shield_person</span>
+                  <strong style={{ fontSize: '14px' }}>Tutor Legal / Representante</strong>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '8px', fontSize: '13px' }}>
+                  <div><span style={{ color: 'var(--muted-foreground)' }}>Nombre:</span> {detalleContrato.nombreTutor || 'No registrado'}</div>
+                  <div><span style={{ color: 'var(--muted-foreground)' }}>Cédula/Doc:</span> {detalleContrato.cedulaTutor || '-'}</div>
+                  <div><span style={{ color: 'var(--muted-foreground)' }}>Parentesco:</span> {detalleContrato.parentescoTutor || detalleContrato.relacionTutor || 'Tutor Legal'}</div>
+                  <div><span style={{ color: 'var(--muted-foreground)' }}>Teléfono:</span> {detalleContrato.telefonoTutor || '-'}</div>
+                </div>
+              </div>
+            )}
+
+            {/* Coarrendatarios */}
+            <div style={{ border: '1px solid var(--border)', borderRadius: '8px', padding: '12px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: '18px', color: 'var(--primary)' }}>group</span>
+                  <strong style={{ fontSize: '14px' }}>Coarrendatarios y Ocupantes Autorizados ({detalleContrato.coarrendatarios?.length || 0})</strong>
+                </div>
+              </div>
+
+              {(!detalleContrato.coarrendatarios || detalleContrato.coarrendatarios.length === 0) ? (
+                <div style={{ fontSize: '13px', color: 'var(--muted-foreground)', padding: '8px 0' }}>
+                  No hay coarrendatarios vinculados a este contrato.
+                </div>
+              ) : (
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid var(--border)', textAlign: 'left', color: 'var(--muted-foreground)', fontSize: '11px' }}>
+                      <th style={{ padding: '6px' }}>Nombre</th>
+                      <th style={{ padding: '6px' }}>Documento</th>
+                      <th style={{ padding: '6px' }}>Vínculo</th>
+                      <th style={{ padding: '6px' }}>Responsable Pago</th>
+                      <th style={{ padding: '6px' }}>Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {detalleContrato.coarrendatarios.map((c) => (
+                      <tr key={c.idContratoResidente || c.idPersona} style={{ borderBottom: '1px solid var(--border, #eee)' }}>
+                        <td style={{ padding: '6px' }}>{c.nombrePersona || `Persona #${c.idPersona}`}</td>
+                        <td style={{ padding: '6px' }}>{c.numeroDocumento || '-'}</td>
+                        <td style={{ padding: '6px' }}><span className="badge badge-neutral">{c.tipoVinculo}</span></td>
+                        <td style={{ padding: '6px' }}>{c.esResponsablePago === 'S' ? 'Sí' : 'No'}</td>
+                        <td style={{ padding: '6px' }}><span className={`badge ${c.estado === 'ACTIVO' ? 'badge-activo' : 'badge-neutral'}`}>{c.estado}</span></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        ) : null}
       </Modal>
 
       <ConfirmDialog

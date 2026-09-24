@@ -28,6 +28,8 @@ import { toast } from 'sonner';
 
 export default function ContratosProveedorPage() {
   const [contratos, setContratos] = useState([]);
+  const [proveedores, setProveedores] = useState([]);
+  const [loadingProveedores, setLoadingProveedores] = useState(false);
   const [loading, setLoading] = useState(true);
   const [dialog, setDialog] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -45,6 +47,20 @@ export default function ContratosProveedorPage() {
   });
   const [deleteTarget, setDeleteTarget] = useState(null);
 
+  const cargarProveedores = async () => {
+    try {
+      setLoadingProveedores(true);
+      const res = await api.get('/proveedores');
+      const items = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
+      setProveedores(items);
+    } catch (e) {
+      console.error('Error al cargar proveedores:', e);
+      toast.error('No se pudo cargar el catálogo de proveedores');
+    } finally {
+      setLoadingProveedores(false);
+    }
+  };
+
   const cargar = async () => {
     try {
       setLoading(true);
@@ -59,7 +75,12 @@ export default function ContratosProveedorPage() {
 
   useEffect(() => {
     cargar();
+    cargarProveedores();
   }, []);
+
+  const proveedorSeleccionado = useMemo(() => {
+    return proveedores.find((p) => String(p.idProveedor) === String(form.idProveedor));
+  }, [proveedores, form.idProveedor]);
 
   const stats = useMemo(() => {
     const total = contratos.length;
@@ -81,7 +102,8 @@ export default function ContratosProveedorPage() {
       const num = (c.numeroContrato || '').toLowerCase();
       const obj = (c.objetoContrato || '').toLowerCase();
       const prov = String(c.idProveedor || '');
-      return num.includes(q) || obj.includes(q) || prov.includes(q);
+      const provNombre = (c.nombreProveedor || '').toLowerCase();
+      return num.includes(q) || obj.includes(q) || prov.includes(q) || provNombre.includes(q);
     });
   }, [contratos, filterTab, searchTerm]);
 
@@ -295,7 +317,7 @@ export default function ContratosProveedorPage() {
                       <td className="py-3 px-4">
                         <div className="font-semibold text-foreground">{c.numeroContrato}</div>
                         <span className="text-xs text-muted-foreground">
-                          Prov #{c.idProveedor}
+                          {c.nombreProveedor ? `${c.nombreProveedor} (ID #${c.idProveedor})` : `Prov #${c.idProveedor}`}
                         </span>
                       </td>
                       <td className="py-3 px-4 max-w-xs truncate font-medium text-foreground" title={c.objetoContrato}>
@@ -376,15 +398,65 @@ export default function ContratosProveedorPage() {
         }
       >
         <form onSubmit={crear} className="space-y-4 py-2 text-sm">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Input
-              type="number"
-              label="ID Proveedor *"
-              placeholder="Ej. 10"
-              value={form.idProveedor}
-              onChange={(e) => setForm({ ...form, idProveedor: e.target.value })}
-              required
-            />
+          <div>
+            <label className="text-sm font-medium text-foreground block mb-1.5">
+              Proveedor / Contratista *
+            </label>
+            {loadingProveedores ? (
+              <div className="flex items-center gap-2 p-2.5 text-xs text-muted-foreground bg-muted/30 rounded-lg border border-border">
+                <RefreshCw className="w-3.5 h-3.5 animate-spin text-primary" />
+                <span>Cargando catálogo maestro de proveedores...</span>
+              </div>
+            ) : proveedores.length === 0 ? (
+              <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-400 flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600 mt-0.5" />
+                <div>
+                  <span className="font-semibold">No hay proveedores registrados para esta organización.</span>
+                  <p className="mt-0.5 text-muted-foreground">Registre un proveedor en el catálogo maestro antes de vincular un contrato.</p>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <select
+                  value={form.idProveedor}
+                  onChange={(e) => setForm({ ...form, idProveedor: e.target.value })}
+                  className="w-full py-2 px-3 text-sm bg-background border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-foreground"
+                  required
+                >
+                  <option value="">-- Seleccione un proveedor activo --</option>
+                  {proveedores.map((p) => {
+                    const isActivo = p.estado === 'ACTIVO';
+                    return (
+                      <option key={p.idProveedor} value={p.idProveedor} disabled={!isActivo}>
+                        {p.razonSocial} (NIT: {p.nitIdentificacion}) — {p.categoriaServicio} {!isActivo ? `[${p.estado}]` : ''}
+                      </option>
+                    );
+                  })}
+                </select>
+
+                {proveedorSeleccionado && (
+                  <div className="rounded-lg border border-border/80 bg-muted/30 p-3 text-xs space-y-1.5 animate-fadeIn">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-foreground text-sm">
+                        {proveedorSeleccionado.razonSocial}
+                      </span>
+                      <Badge variant={proveedorSeleccionado.estado === 'ACTIVO' ? 'success' : 'secondary'}>
+                        {proveedorSeleccionado.estado}
+                      </Badge>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-muted-foreground pt-1">
+                      <div><span className="font-medium text-foreground">NIT:</span> {proveedorSeleccionado.nitIdentificacion}</div>
+                      <div><span className="font-medium text-foreground">Categoría:</span> {proveedorSeleccionado.categoriaServicio}</div>
+                      <div><span className="font-medium text-foreground">Contacto:</span> {proveedorSeleccionado.emailContacto}</div>
+                      <div><span className="font-medium text-foreground">Teléfono:</span> {proveedorSeleccionado.telefonoContacto || 'N/A'}</div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div>
             <Input
               type="text"
               label="N° Contrato / Radicado *"

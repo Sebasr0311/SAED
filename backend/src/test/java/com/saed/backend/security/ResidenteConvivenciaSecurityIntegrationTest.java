@@ -78,7 +78,7 @@ public class ResidenteConvivenciaSecurityIntegrationTest {
     private static final long CONVIVIENTE_USER_ID   = 6L;
     private static final long CONVIVIENTE_ASSIGN_ID = 206L;
     private static final long TITULAR_USER_ID       = 4L;
-    private static final long TITULAR_ASSIGN_ID     = 201L;
+    private static final long TITULAR_ASSIGN_ID     = 104L;
     private static final long PORTERO_USER_ID       = 3L;
     private static final long PORTERO_ASSIGN_ID     = 103L;
     private static final long TEST_ORG_ID           = 1L;
@@ -108,9 +108,10 @@ public class ResidenteConvivenciaSecurityIntegrationTest {
         Long idRolResidente = jdbcTemplate.queryForObject("SELECT ID_ROL FROM ROLES WHERE CODIGO = 'RESIDENTE'", Long.class);
         Long idRolPortero = jdbcTemplate.queryForObject("SELECT ID_ROL FROM ROLES WHERE CODIGO = 'PORTERO'", Long.class);
 
-        // Asegurar que la asignación 206 para el usuario 6 existe en base de datos real para PKG_SAED_SESSION.SET_CONTEXT
+        // Asegurar que las asignaciones canónicas existen en base de datos real para PKG_AUTH_BOOTSTRAP
         try {
             jdbcTemplate.update("MERGE INTO USUARIO_ASIGNACIONES ua USING (SELECT 206 AS id, 6 AS u, ? AS r, 1 AS o, 1 AS p, 1 AS un, 'ACTIVA' AS st FROM DUAL) s ON (ua.ID_ASIGNACION = s.id) WHEN NOT MATCHED THEN INSERT (ID_ASIGNACION, ID_USUARIO, ID_ROL, ID_ORGANIZACION, ID_PROPIEDAD, ID_UNIDAD, ESTADO, FECHA_INICIO) VALUES (s.id, s.u, s.r, s.o, s.p, s.un, s.st, TRUNC(SYSDATE)) WHEN MATCHED THEN UPDATE SET ua.ID_USUARIO = s.u, ua.ID_ROL = s.r, ua.ID_ORGANIZACION = s.o, ua.ID_PROPIEDAD = s.p, ua.ID_UNIDAD = s.un, ua.ESTADO = s.st, ua.FECHA_INICIO = TRUNC(SYSDATE), ua.FECHA_FIN = NULL", idRolConviviente);
+            jdbcTemplate.update("UPDATE USUARIO_ASIGNACIONES SET ESTADO = 'ACTIVA', FECHA_FIN = NULL WHERE ID_ASIGNACION = 104");
         } catch (Exception ignored) {}
 
         // Asegurar contraseña conocida para pruebas de cambio de password

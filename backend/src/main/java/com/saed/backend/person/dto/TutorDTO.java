@@ -9,5 +9,21 @@ public record TutorDTO(
     String parentesco,
     String documentoSoporteUrl,
     String estado,
-    ZonedDateTime fechaRegistro
-) {}
+    ZonedDateTime fechaRegistro,
+    String nombreTutor,
+    String numeroDocumentoTutor,
+    String telefonoTutor,
+    String emailTutor
+) {
+    public TutorDTO(
+        Long id,
+        Long personaMenorId,
+        Long personaTutorId,
+        String parentesco,
+        String documentoSoporteUrl,
+        String estado,
+        ZonedDateTime fechaRegistro
+    ) {
+        this(id, personaMenorId, personaTutorId, parentesco, documentoSoporteUrl, estado, fechaRegistro, null, null, null, null);
+    }
+}

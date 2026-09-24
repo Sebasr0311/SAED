@@ -28,26 +28,50 @@ public class DependentRepositoryImpl implements DependentRepository {
         String sql = "INSERT INTO MASCOTAS (id_unidad, id_persona_responsable, nombre, especie, raza, color, genero, fecha_nacimiento_aprox, peso_kg, numero_microchip, es_raza_manejo_especial, poliza_responsabilidad_url, carnet_vacunacion_url, foto_url, estado) " +
                      "VALUES (:unidadId, :responsableId, :nombre, :especie, :raza, :color, :genero, :fechaNacimientoAprox, :pesoKg, :numeroMicrochip, :esRaza, :poliza, :carnet, :foto, :estado)";
 
+        String especie = request.especie() != null ? request.especie().trim().toUpperCase() : "PERRO";
+        String genero = "H".equalsIgnoreCase(request.genero()) || "F".equalsIgnoreCase(request.genero()) || "HEMBRA".equalsIgnoreCase(request.genero()) ? "H" : "M";
+        String esRaza = "S".equalsIgnoreCase(request.esRazaManejoEspecial()) || "true".equalsIgnoreCase(request.esRazaManejoEspecial()) || "SI".equalsIgnoreCase(request.esRazaManejoEspecial()) ? "S" : "N";
+        String estado = "ACTIVO".equalsIgnoreCase(request.estado()) ? "ACTIVA" : (request.estado() != null ? request.estado().trim().toUpperCase() : "ACTIVA");
+
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("unidadId", request.unidadId())
                 .addValue("responsableId", request.responsableId())
                 .addValue("nombre", request.nombre())
-                .addValue("especie", request.especie())
+                .addValue("especie", especie)
                 .addValue("raza", request.raza())
                 .addValue("color", request.color())
-                .addValue("genero", request.genero() != null ? request.genero() : "M")
+                .addValue("genero", genero)
                 .addValue("fechaNacimientoAprox", request.fechaNacimientoAprox())
                 .addValue("pesoKg", request.pesoKg())
                 .addValue("numeroMicrochip", request.numeroMicrochip())
-                .addValue("esRaza", request.esRazaManejoEspecial() != null ? request.esRazaManejoEspecial() : "N")
+                .addValue("esRaza", esRaza)
                 .addValue("poliza", request.polizaResponsabilidadUrl())
                 .addValue("carnet", request.carnetVacunacionUrl())
                 .addValue("foto", request.fotoUrl())
-                .addValue("estado", request.estado() != null ? request.estado() : "ACTIVO");
+                .addValue("estado", estado);
 
         KeyHolder keyHolder = new GeneratedKeyHolder();
         jdbcTemplate.update(sql, params, keyHolder, new String[]{"ID_MASCOTA"});
-        return getMascotaById(keyHolder.getKey().longValue()).orElseThrow();
+        Number key = keyHolder.getKey();
+        Long id = key != null ? key.longValue() : null;
+        return getMascotaById(id).orElseGet(() -> new MascotaDTO(
+                id,
+                request.unidadId(),
+                request.responsableId(),
+                request.nombre(),
+                especie,
+                request.raza(),
+                request.color(),
+                genero,
+                request.fechaNacimientoAprox(),
+                request.pesoKg(),
+                request.numeroMicrochip(),
+                esRaza,
+                request.polizaResponsabilidadUrl(),
+                request.carnetVacunacionUrl(),
+                request.fotoUrl(),
+                estado
+        ));
     }
 
     @Override
@@ -99,21 +123,27 @@ public class DependentRepositoryImpl implements DependentRepository {
     @Override
     public MascotaDTO updateMascota(Long id, MascotaRequestDTO request) {
         String sql = "UPDATE MASCOTAS SET nombre = :nombre, especie = :especie, raza = :raza, color = :color, genero = :genero, fecha_nacimiento_aprox = :fechaNacimientoAprox, peso_kg = :pesoKg, numero_microchip = :numeroMicrochip, es_raza_manejo_especial = :esRaza, poliza_responsabilidad_url = :poliza, carnet_vacunacion_url = :carnet, foto_url = :foto, estado = :estado WHERE id_mascota = :id";
+
+        String especie = request.especie() != null ? request.especie().trim().toUpperCase() : "PERRO";
+        String genero = "H".equalsIgnoreCase(request.genero()) || "F".equalsIgnoreCase(request.genero()) || "HEMBRA".equalsIgnoreCase(request.genero()) ? "H" : "M";
+        String esRaza = "S".equalsIgnoreCase(request.esRazaManejoEspecial()) || "true".equalsIgnoreCase(request.esRazaManejoEspecial()) || "SI".equalsIgnoreCase(request.esRazaManejoEspecial()) ? "S" : "N";
+        String estado = "ACTIVO".equalsIgnoreCase(request.estado()) ? "ACTIVA" : (request.estado() != null ? request.estado().trim().toUpperCase() : "ACTIVA");
+
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("id", id)
                 .addValue("nombre", request.nombre())
-                .addValue("especie", request.especie())
+                .addValue("especie", especie)
                 .addValue("raza", request.raza())
                 .addValue("color", request.color())
-                .addValue("genero", request.genero() != null ? request.genero() : "M")
+                .addValue("genero", genero)
                 .addValue("fechaNacimientoAprox", request.fechaNacimientoAprox())
                 .addValue("pesoKg", request.pesoKg())
                 .addValue("numeroMicrochip", request.numeroMicrochip())
-                .addValue("esRaza", request.esRazaManejoEspecial() != null ? request.esRazaManejoEspecial() : "N")
+                .addValue("esRaza", esRaza)
                 .addValue("poliza", request.polizaResponsabilidadUrl())
                 .addValue("carnet", request.carnetVacunacionUrl())
                 .addValue("foto", request.fotoUrl())
-                .addValue("estado", request.estado() != null ? request.estado() : "ACTIVO");
+                .addValue("estado", estado);
         jdbcTemplate.update(sql, params);
         return getMascotaById(id).orElseThrow();
     }
@@ -128,19 +158,38 @@ public class DependentRepositoryImpl implements DependentRepository {
     public VehiculoDTO createVehiculo(VehiculoRequestDTO request) {
         String sql = "INSERT INTO VEHICULOS (id_persona, id_unidad, placa, tipo_vehiculo, marca, modelo, color, tag_rfid, estado) " +
                      "VALUES (:personaId, :unidadId, :placa, :tipoVehiculo, :marca, :modelo, :color, :tagRfid, :estado)";
+
+        String placa = request.placa() != null ? request.placa().trim().toUpperCase() : "";
+        String tipo = request.tipoVehiculo() != null ? request.tipoVehiculo().trim().toUpperCase() : "AUTOMOVIL";
+        String estado = request.estado() != null ? request.estado().trim().toUpperCase() : "ACTIVO";
+
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("personaId", request.personaId())
                 .addValue("unidadId", request.unidadId())
-                .addValue("placa", request.placa())
-                .addValue("tipoVehiculo", request.tipoVehiculo())
+                .addValue("placa", placa)
+                .addValue("tipoVehiculo", tipo)
                 .addValue("marca", request.marca())
                 .addValue("modelo", request.modelo())
                 .addValue("color", request.color())
                 .addValue("tagRfid", request.tagRfid())
-                .addValue("estado", request.estado() != null ? request.estado() : "ACTIVO");
+                .addValue("estado", estado);
         KeyHolder keyHolder = new GeneratedKeyHolder();
         jdbcTemplate.update(sql, params, keyHolder, new String[]{"ID_VEHICULO"});
-        return getVehiculoById(keyHolder.getKey().longValue()).orElseThrow();
+        Number key = keyHolder.getKey();
+        Long id = key != null ? key.longValue() : null;
+        return getVehiculoById(id).orElseGet(() -> new VehiculoDTO(
+                id,
+                request.personaId(),
+                request.unidadId(),
+                placa,
+                tipo,
+                request.marca(),
+                request.modelo(),
+                request.color(),
+                request.tagRfid(),
+                estado,
+                ZonedDateTime.now(ZoneId.of("America/Bogota"))
+        ));
     }
 
     @Override
@@ -182,15 +231,20 @@ public class DependentRepositoryImpl implements DependentRepository {
     @Override
     public VehiculoDTO updateVehiculo(Long id, VehiculoRequestDTO request) {
         String sql = "UPDATE VEHICULOS SET placa = :placa, tipo_vehiculo = :tipoVehiculo, marca = :marca, modelo = :modelo, color = :color, tag_rfid = :tagRfid, estado = :estado WHERE id_vehiculo = :id";
+
+        String placa = request.placa() != null ? request.placa().trim().toUpperCase() : "";
+        String tipo = request.tipoVehiculo() != null ? request.tipoVehiculo().trim().toUpperCase() : "AUTOMOVIL";
+        String estado = request.estado() != null ? request.estado().trim().toUpperCase() : "ACTIVO";
+
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("id", id)
-                .addValue("placa", request.placa())
-                .addValue("tipoVehiculo", request.tipoVehiculo())
+                .addValue("placa", placa)
+                .addValue("tipoVehiculo", tipo)
                 .addValue("marca", request.marca())
                 .addValue("modelo", request.modelo())
                 .addValue("color", request.color())
                 .addValue("tagRfid", request.tagRfid())
-                .addValue("estado", request.estado() != null ? request.estado() : "ACTIVO");
+                .addValue("estado", estado);
         jdbcTemplate.update(sql, params);
         return getVehiculoById(id).orElseThrow();
     }
@@ -213,12 +267,26 @@ public class DependentRepositoryImpl implements DependentRepository {
                 .addValue("estado", request.estado() != null ? request.estado() : "ACTIVO");
         KeyHolder keyHolder = new GeneratedKeyHolder();
         jdbcTemplate.update(sql, params, keyHolder, new String[]{"ID_TUTOR"});
-        return getTutorById(keyHolder.getKey().longValue()).orElseThrow();
+        Number key = keyHolder.getKey();
+        Long id = key != null ? key.longValue() : null;
+        return getTutorById(id).orElseGet(() -> new TutorDTO(
+                id,
+                request.personaMenorId(),
+                request.personaTutorId(),
+                request.parentesco(),
+                request.documentoSoporteUrl(),
+                request.estado() != null ? request.estado() : "ACTIVO",
+                ZonedDateTime.now(ZoneId.of("America/Bogota"))
+        ));
     }
 
     @Override
     public Optional<TutorDTO> getTutorById(Long id) {
-        String sql = "SELECT * FROM TUTORES WHERE id_tutor = :id";
+        String sql = "SELECT t.*, p.PRIMER_NOMBRE || ' ' || p.PRIMER_APELLIDO AS NOMBRE_TUTOR, " +
+                     "p.NUMERO_DOCUMENTO AS NUM_DOC_TUTOR, p.TELEFONO AS TEL_TUTOR, p.EMAIL AS EMAIL_TUTOR " +
+                     "FROM TUTORES t " +
+                     "LEFT JOIN PERSONAS p ON t.ID_PERSONA_TUTOR = p.ID_PERSONA " +
+                     "WHERE t.ID_TUTOR = :id";
         return jdbcTemplate.query(sql, new MapSqlParameterSource("id", id), (rs, rowNum) -> new TutorDTO(
                 rs.getLong("id_tutor"),
                 rs.getLong("id_persona_menor"),
@@ -226,13 +294,21 @@ public class DependentRepositoryImpl implements DependentRepository {
                 rs.getString("parentesco"),
                 rs.getString("documento_soporte_url"),
                 rs.getString("estado"),
-                rs.getTimestamp("fecha_creacion") != null ? ZonedDateTime.ofInstant(rs.getTimestamp("fecha_creacion").toInstant(), ZoneId.of("America/Bogota")) : null
+                rs.getTimestamp("fecha_registro") != null ? ZonedDateTime.ofInstant(rs.getTimestamp("fecha_registro").toInstant(), ZoneId.of("America/Bogota")) : null,
+                rs.getString("NOMBRE_TUTOR"),
+                rs.getString("NUM_DOC_TUTOR"),
+                rs.getString("TEL_TUTOR"),
+                rs.getString("EMAIL_TUTOR")
         )).stream().findFirst();
     }
 
     @Override
     public List<TutorDTO> getTutoresByMenor(Long menorId) {
-        String sql = "SELECT * FROM TUTORES WHERE id_persona_menor = :menorId";
+        String sql = "SELECT t.*, p.PRIMER_NOMBRE || ' ' || p.PRIMER_APELLIDO AS NOMBRE_TUTOR, " +
+                     "p.NUMERO_DOCUMENTO AS NUM_DOC_TUTOR, p.TELEFONO AS TEL_TUTOR, p.EMAIL AS EMAIL_TUTOR " +
+                     "FROM TUTORES t " +
+                     "LEFT JOIN PERSONAS p ON t.ID_PERSONA_TUTOR = p.ID_PERSONA " +
+                     "WHERE t.ID_PERSONA_MENOR = :menorId";
         return jdbcTemplate.query(sql, new MapSqlParameterSource("menorId", menorId), (rs, rowNum) -> new TutorDTO(
                 rs.getLong("id_tutor"),
                 rs.getLong("id_persona_menor"),
@@ -240,7 +316,11 @@ public class DependentRepositoryImpl implements DependentRepository {
                 rs.getString("parentesco"),
                 rs.getString("documento_soporte_url"),
                 rs.getString("estado"),
-                rs.getTimestamp("fecha_creacion") != null ? ZonedDateTime.ofInstant(rs.getTimestamp("fecha_creacion").toInstant(), ZoneId.of("America/Bogota")) : null
+                rs.getTimestamp("fecha_registro") != null ? ZonedDateTime.ofInstant(rs.getTimestamp("fecha_registro").toInstant(), ZoneId.of("America/Bogota")) : null,
+                rs.getString("NOMBRE_TUTOR"),
+                rs.getString("NUM_DOC_TUTOR"),
+                rs.getString("TEL_TUTOR"),
+                rs.getString("EMAIL_TUTOR")
         ));
     }
 
@@ -275,7 +355,17 @@ public class DependentRepositoryImpl implements DependentRepository {
                 .addValue("estado", request.estado() != null ? request.estado() : "ACTIVO");
         KeyHolder keyHolder = new GeneratedKeyHolder();
         jdbcTemplate.update(sql, params, keyHolder, new String[]{"ID_VISITANTE"});
-        return getVisitanteById(keyHolder.getKey().longValue()).orElseThrow();
+        Number key = keyHolder.getKey();
+        Long id = key != null ? key.longValue() : null;
+        return getVisitanteById(id).orElseGet(() -> new VisitanteDTO(
+                id,
+                request.personaId(),
+                request.esFrecuente() != null ? request.esFrecuente() : "N",
+                request.empresa(),
+                request.fotoUrl(),
+                request.observaciones(),
+                request.estado() != null ? request.estado() : "ACTIVO"
+        ));
     }
 
     @Override

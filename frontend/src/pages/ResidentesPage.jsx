@@ -25,6 +25,7 @@ import {
   UserMinus,
   Info,
   Eye,
+  Car,
 } from 'lucide-react';
 import {
   valNombre,
@@ -49,6 +50,8 @@ import { Badge } from '../components/ui/badge.tsx';
 import { MetricCard } from '../components/ui/MetricCard.jsx';
 import { LoadingState } from '../components/ui/LoadingState.jsx';
 import { ErrorState } from '../components/ui/ErrorState.jsx';
+import ResidentVehiclesSection from '../components/residents/ResidentVehiclesSection.jsx';
+import ResidentPetsSection from '../components/residents/ResidentPetsSection.jsx';
 
 const emptyForm = {
   idTipoDoc: 1,
@@ -178,6 +181,21 @@ export default function ResidentesPage() {
   // Vista previa de plantilla de contrato (Requisito #10)
   const [previewHtml, setPreviewHtml] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+
+  // Gestión de Activos de la Unidad (Vehículos y Mascotas) - GAP-F5-01
+  const [unitAssetsModal, setUnitAssetsModal] = useState({ open: false, unitId: null, unitName: '' });
+
+  const openUnitAssets = useCallback((residente) => {
+    const aptItem = (apartamentos?.items || (Array.isArray(apartamentos) ? apartamentos : [])).find(
+      (a) => String(a.idApartamento || a.id) === String(residente.idApartamento)
+    );
+    const unitName = aptItem?.identificador || aptItem?.numero || residente.numeroApartamento || `Unidad #${residente.idApartamento}`;
+    setUnitAssetsModal({
+      open: true,
+      unitId: residente.idApartamento,
+      unitName,
+    });
+  }, [apartamentos]);
 
   // 1. Censo de Personas/Residentes
   const {
@@ -490,6 +508,51 @@ export default function ResidentesPage() {
         toast.success('Residente registrado con éxito');
       }
 
+      let idPersonaTutor = null;
+      if (requiereTutor || tutorForm.numeroDocumento?.trim()) {
+        try {
+          const _tNombres = (tutorForm.nombres || '').trim().split(' ');
+          const _tApellidos = (tutorForm.apellidos || '').trim().split(' ');
+          const tutorPayload = {
+            tipoDocumentoId: Number(tutorForm.idTipoDoc || 1),
+            numeroDocumento: tutorForm.numeroDocumento.trim(),
+            tipoPersona: 'NATURAL',
+            primerNombre: _tNombres[0] || '',
+            segundoNombre: _tNombres.slice(1).join(' ') || '',
+            primerApellido: _tApellidos[0] || '',
+            segundoApellido: _tApellidos.slice(1).join(' ') || '',
+            email: tutorForm.email || '',
+            telefono: tutorForm.telefono || '',
+          };
+
+          let tRes;
+          try {
+            tRes = await tenantApi.post('/personas', tutorPayload);
+            idPersonaTutor = tRes?.id || (typeof tRes === 'number' ? tRes : tRes?.data?.id || tRes?.data);
+          } catch (pErr) {
+            const listP = await tenantApi.get(`/personas?page=0&size=200`);
+            const pItems = listP?.items || (Array.isArray(listP) ? listP : listP?.data || []);
+            const found = pItems.find((p) => p.numeroDocumento === tutorForm.numeroDocumento.trim());
+            if (found) {
+              idPersonaTutor = found.id || found.idPersona;
+            }
+          }
+
+          if (idPersonaTutor && idResidente) {
+            const rel = tutorForm.parentesco === 'OTRO' ? tutorForm.otroParentesco : tutorForm.parentesco;
+            await tenantApi.post('/tutores', {
+              personaMenorId: Number(idResidente),
+              personaTutorId: Number(idPersonaTutor),
+              parentesco: rel || 'TUTOR LEGAL',
+              estado: 'ACTIVO',
+            });
+            toast.success('Tutor legal vinculado con éxito');
+          }
+        } catch (tutorErr) {
+          console.warn('Error guardando tutor legal:', tutorErr);
+        }
+      }
+
       const aptSeleccionado = form.idApartamento !== '';
       const asignacionCambia =
         aptSeleccionado &&
@@ -503,6 +566,10 @@ export default function ResidentesPage() {
             tipoRelacion: form.tipoRelacion,
             rolEnContrato: form.tipoRelacion?.startsWith('PROPIETARIO') ? 'PROPIETARIO' : 'RESIDENTE',
           };
+
+          if (idPersonaTutor) {
+            payloadAsignacion.idTutor = Number(idPersonaTutor);
+          }
 
           if (form.tipoRelacion === 'ARRENDATARIO') {
             payloadAsignacion.crearContrato = true;
@@ -1106,6 +1173,20 @@ export default function ResidentesPage() {
                           </td>
                           <td className="py-3.5 px-4 text-right">
                             <div className="flex items-center justify-end gap-1">
+                              {r.idApartamento && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openUnitAssets(r);
+                                  }}
+                                  className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                                  aria-label={`Gestionar vehículos y mascotas de ${r.nombres}`}
+                                  title="Gestionar vehículos y mascotas de la unidad"
+                                >
+                                  <Car className="h-4 w-4" aria-hidden="true" />
+                                </button>
+                              )}
                               <button
                                 type="button"
                                 onClick={(e) => {
@@ -1194,7 +1275,18 @@ export default function ResidentesPage() {
                         )}
                       </div>
 
-                      <div className="flex items-center justify-end gap-2 pt-1 border-t border-border/40">
+                      <div className="flex items-center justify-end gap-2 pt-1 border-t border-border/40 flex-wrap">
+                        {r.idApartamento && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openUnitAssets(r)}
+                            className="text-xs h-9 min-h-[44px] flex-1"
+                          >
+                            <Car className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
+                            Activos
+                          </Button>
+                        )}
                         <Button
                           variant="outline"
                           size="sm"
@@ -2205,6 +2297,38 @@ export default function ResidentesPage() {
             dangerouslySetInnerHTML={{ __html: previewHtml || '' }}
           />
         </div>
+      </Modal>
+
+      {/* 7. Modal de Gestión de Activos de la Unidad (Vehículos y Mascotas - GAP-F5-01) */}
+      <Modal
+        open={unitAssetsModal.open}
+        onClose={() => setUnitAssetsModal({ open: false, unitId: null, unitName: '' })}
+        title={`Gestión de Activos — ${unitAssetsModal.unitName || 'Unidad'}`}
+        size="xl"
+        footer={
+          <Button
+            variant="outline"
+            onClick={() => setUnitAssetsModal({ open: false, unitId: null, unitName: '' })}
+            className="text-xs min-h-[44px] sm:min-h-9"
+          >
+            Cerrar
+          </Button>
+        }
+      >
+        {unitAssetsModal.open && unitAssetsModal.unitId && (
+          <div className="space-y-6 py-2">
+            <ResidentVehiclesSection
+              unitId={unitAssetsModal.unitId}
+              apiClient={tenantApi}
+            />
+            <div className="border-t border-border/60 pt-4">
+              <ResidentPetsSection
+                unitId={unitAssetsModal.unitId}
+                apiClient={tenantApi}
+              />
+            </div>
+          </div>
+        )}
       </Modal>
     </PageContainer>
   );

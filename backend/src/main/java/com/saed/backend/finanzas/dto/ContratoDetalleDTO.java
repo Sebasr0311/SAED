@@ -29,6 +29,11 @@ public class ContratoDetalleDTO {
     private String nombreTutor;
     private String cedulaTutor;
     private String relacionTutor;
+    private Long idTutor;
+    private String parentescoTutor;
+    private String telefonoTutor;
+    private String emailTutor;
+    private java.util.List<CoarrendatarioDTO> coarrendatarios = new java.util.ArrayList<>();
     private String nombreParqueadero;
     private String nombreEdificio;
     private String direccionEdificio;
@@ -49,6 +54,18 @@ public class ContratoDetalleDTO {
     private String correoAdministracion;
     private String numeroContratoAnterior;
     private String historialContratos;
+
+    private Long idUnidad;
+    private Long idPropiedad;
+    private Long idOrganizacion;
+    private Long idArrendatarioPrincipal;
+    private Long idPlantilla;
+    private String nombreOrganizacion;
+    private String documentoUrl;
+    private String documentoHash;
+    private Long documentoTamanoBytes;
+    private java.time.OffsetDateTime documentoFechaGeneracion;
+    private String htmlCongelado;
 
     public Integer getIdContrato() { return idContrato; }
     public void setIdContrato(Integer v) { this.idContrato = v; }
@@ -178,5 +195,58 @@ public class ContratoDetalleDTO {
 
     public String getHistorialContratos() { return historialContratos; }
     public void setHistorialContratos(String v) { this.historialContratos = v; }
+
+    public Long getIdUnidad() { return idUnidad; }
+    public void setIdUnidad(Long idUnidad) { this.idUnidad = idUnidad; }
+
+    public Long getIdPropiedad() { return idPropiedad; }
+    public void setIdPropiedad(Long idPropiedad) { this.idPropiedad = idPropiedad; }
+
+    public Long getIdOrganizacion() { return idOrganizacion; }
+    public void setIdOrganizacion(Long idOrganizacion) { this.idOrganizacion = idOrganizacion; }
+
+    public Long getIdArrendatarioPrincipal() { return idArrendatarioPrincipal; }
+    public void setIdArrendatarioPrincipal(Long idArrendatarioPrincipal) { this.idArrendatarioPrincipal = idArrendatarioPrincipal; }
+
+    public Long getIdPlantilla() { return idPlantilla; }
+    public void setIdPlantilla(Long idPlantilla) { this.idPlantilla = idPlantilla; }
+
+    public String getNombreOrganizacion() { return nombreOrganizacion; }
+    public void setNombreOrganizacion(String nombreOrganizacion) { this.nombreOrganizacion = nombreOrganizacion; }
+
+    public String getDocumentoUrl() { return documentoUrl; }
+    public void setDocumentoUrl(String documentoUrl) { this.documentoUrl = documentoUrl; }
+
+    public String getDocumentoHash() { return documentoHash; }
+    public void setDocumentoHash(String documentoHash) { this.documentoHash = documentoHash; }
+
+    public Long getDocumentoTamanoBytes() { return documentoTamanoBytes; }
+    public void setDocumentoTamanoBytes(Long documentoTamanoBytes) { this.documentoTamanoBytes = documentoTamanoBytes; }
+
+    public java.time.OffsetDateTime getDocumentoFechaGeneracion() { return documentoFechaGeneracion; }
+    public void setDocumentoFechaGeneracion(java.time.OffsetDateTime documentoFechaGeneracion) { this.documentoFechaGeneracion = documentoFechaGeneracion; }
+
+    public String getHtmlCongelado() { return htmlCongelado; }
+    public void setHtmlCongelado(String htmlCongelado) { this.htmlCongelado = htmlCongelado; }
+
+    public Long getIdTutor() { return idTutor; }
+    public void setIdTutor(Long idTutor) { this.idTutor = idTutor; }
+
+    public String getParentescoTutor() { return parentescoTutor; }
+    public void setParentescoTutor(String parentescoTutor) { 
+        this.parentescoTutor = parentescoTutor; 
+        if (this.relacionTutor == null) this.relacionTutor = parentescoTutor;
+    }
+
+    public String getTelefonoTutor() { return telefonoTutor; }
+    public void setTelefonoTutor(String telefonoTutor) { this.telefonoTutor = telefonoTutor; }
+
+    public String getEmailTutor() { return emailTutor; }
+    public void setEmailTutor(String emailTutor) { this.emailTutor = emailTutor; }
+
+    public java.util.List<CoarrendatarioDTO> getCoarrendatarios() { return coarrendatarios; }
+    public void setCoarrendatarios(java.util.List<CoarrendatarioDTO> coarrendatarios) { 
+        this.coarrendatarios = coarrendatarios != null ? coarrendatarios : new java.util.ArrayList<>(); 
+    }
 }
 
