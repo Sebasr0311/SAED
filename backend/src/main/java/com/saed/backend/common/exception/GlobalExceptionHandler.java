@@ -218,10 +218,11 @@ public class GlobalExceptionHandler {
             return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
         }
 
-        // Generic fallback for DB (Nunca exponer ORA/SQL al cliente)
-        log.error("DB Error: " + message, ex);
+        // Generic fallback for DB
+        String specificError = (ex.getMostSpecificCause() != null ? ex.getMostSpecificCause().getMessage() : ex.getMessage());
+        log.error("DB Error: " + message + " | Cause: " + specificError, ex);
         Map<String, Object> response = createErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, "DATABASE_ERROR",
-                "Ha ocurrido un error en la capa de datos.");
+                "Ha ocurrido un error en la capa de datos: " + specificError);
         return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
