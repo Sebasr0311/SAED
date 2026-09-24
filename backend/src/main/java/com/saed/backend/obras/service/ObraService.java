@@ -9,6 +9,8 @@ public interface ObraService {
     ObraDTO getObraById(Long idObra);
     Long solicitarObra(ObraDTO request);
     void aprobarObra(Long idObra);
+    void iniciarObra(Long idObra);
     void rechazarObra(Long idObra);
     void finalizarObra(Long idObra);
+    void cambiarEstado(Long idObra, String nuevoEstado);
 }

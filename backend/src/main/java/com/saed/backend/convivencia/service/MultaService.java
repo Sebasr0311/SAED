@@ -5,6 +5,7 @@ import java.util.List;
 public interface MultaService {
     List<MultaDTO> findAll();
     MultaDTO findById(Long id);
+    List<MultaDTO> findMisMultas();
     void pagar(Long id, String metodo);
     void anular(Long id);
 }

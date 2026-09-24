@@ -21,26 +21,32 @@ public class MultasController {
 
 
     @GetMapping("/todas")
-    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<List<MultaDTO>> getAllMultas() {
         return ResponseEntity.ok(service.findAll());
     }
 
+    @GetMapping("/mis-multas")
+    @PreAuthorize("hasAnyAuthority('SCOPE_RESIDENTE', 'SCOPE_PROPIETARIO', 'SCOPE_RESIDENTE_CONVIVENCIA')")
+    public ResponseEntity<List<MultaDTO>> getMisMultas() {
+        return ResponseEntity.ok(service.findMisMultas());
+    }
+
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<MultaDTO> getMultaById(@PathVariable Long id) {
         return ResponseEntity.ok(service.findById(id));
     }
 
     @PutMapping("/{id}/pagar")
-    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<Void> pagarMulta(@PathVariable Long id, @RequestBody Map<String, String> payload) {
         service.pagar(id, payload.getOrDefault("metodoPago", "EFECTIVO"));
         return ResponseEntity.ok().build();
     }
 
     @PutMapping("/{id}/anular")
-    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<Void> anularMulta(@PathVariable Long id) {
         service.anular(id);
         return ResponseEntity.ok().build();

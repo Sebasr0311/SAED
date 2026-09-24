@@ -1,6 +1,8 @@
 package com.saed.backend.incidentes.dto;
 
 import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
@@ -38,6 +40,27 @@ public class IncidenteDTO {
     private ZonedDateTime fechaCierre;
     private String conclusionesCierre;
     private ZonedDateTime fechaRegistro;
+
+    // Pipeline de investigación
+    private Long investigadoPor;
+    private ZonedDateTime fechaInicioInvestigacion;
+    private ZonedDateTime fechaFinInvestigacion;
+    private String hallazgosInvestigacion;
+
+    // Pipeline de escalamiento
+    private Long escaladoPor;
+    private ZonedDateTime fechaEscalamiento;
+    private String motivoEscalamiento;
+    private String sancionSugerida;
+
+    // Personas/vehículos involucrados
+    private List<IncidenteInvolucradoDTO> involucrados = new ArrayList<>();
+
+    // Visual helpers
+    private String nombreRegistradoPor;
+    private String unidadIdentificador;
+
+    public IncidenteDTO() {}
 
     // Getters and Setters
     public Long getIdIncidente() { return idIncidente; }
@@ -99,4 +122,37 @@ public class IncidenteDTO {
 
     public ZonedDateTime getFechaRegistro() { return fechaRegistro; }
     public void setFechaRegistro(ZonedDateTime fechaRegistro) { this.fechaRegistro = fechaRegistro; }
+
+    public Long getInvestigadoPor() { return investigadoPor; }
+    public void setInvestigadoPor(Long investigadoPor) { this.investigadoPor = investigadoPor; }
+
+    public ZonedDateTime getFechaInicioInvestigacion() { return fechaInicioInvestigacion; }
+    public void setFechaInicioInvestigacion(ZonedDateTime fechaInicioInvestigacion) { this.fechaInicioInvestigacion = fechaInicioInvestigacion; }
+
+    public ZonedDateTime getFechaFinInvestigacion() { return fechaFinInvestigacion; }
+    public void setFechaFinInvestigacion(ZonedDateTime fechaFinInvestigacion) { this.fechaFinInvestigacion = fechaFinInvestigacion; }
+
+    public String getHallazgosInvestigacion() { return hallazgosInvestigacion; }
+    public void setHallazgosInvestigacion(String hallazgosInvestigacion) { this.hallazgosInvestigacion = hallazgosInvestigacion; }
+
+    public Long getEscaladoPor() { return escaladoPor; }
+    public void setEscaladoPor(Long escaladoPor) { this.escaladoPor = escaladoPor; }
+
+    public ZonedDateTime getFechaEscalamiento() { return fechaEscalamiento; }
+    public void setFechaEscalamiento(ZonedDateTime fechaEscalamiento) { this.fechaEscalamiento = fechaEscalamiento; }
+
+    public String getMotivoEscalamiento() { return motivoEscalamiento; }
+    public void setMotivoEscalamiento(String motivoEscalamiento) { this.motivoEscalamiento = motivoEscalamiento; }
+
+    public String getSancionSugerida() { return sancionSugerida; }
+    public void setSancionSugerida(String sancionSugerida) { this.sancionSugerida = sancionSugerida; }
+
+    public List<IncidenteInvolucradoDTO> getInvolucrados() { return involucrados; }
+    public void setInvolucrados(List<IncidenteInvolucradoDTO> involucrados) { this.involucrados = involucrados; }
+
+    public String getNombreRegistradoPor() { return nombreRegistradoPor; }
+    public void setNombreRegistradoPor(String nombreRegistradoPor) { this.nombreRegistradoPor = nombreRegistradoPor; }
+
+    public String getUnidadIdentificador() { return unidadIdentificador; }
+    public void setUnidadIdentificador(String unidadIdentificador) { this.unidadIdentificador = unidadIdentificador; }
 }

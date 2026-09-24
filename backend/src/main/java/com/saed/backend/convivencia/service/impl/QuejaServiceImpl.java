@@ -1,92 +1,87 @@
 package com.saed.backend.convivencia.service.impl;
 
-import com.saed.backend.audit.Auditable;
-import com.saed.backend.audit.AuditCategory;
-import com.saed.backend.audit.AuditSeverity;
 import com.saed.backend.convivencia.dto.QuejaDTO;
 import com.saed.backend.convivencia.dto.QuejaRequestDTO;
-import com.saed.backend.convivencia.repository.QuejaRepository;
 import com.saed.backend.convivencia.service.QuejaService;
-import com.saed.backend.context.SaedContextHolder;
-import com.saed.backend.common.service.EmailService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.saed.backend.pqrs.dto.TicketRequestDTO;
+import com.saed.backend.pqrs.dto.TicketResponseDTO;
+import com.saed.backend.pqrs.service.TicketService;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import java.util.List;
-import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
-import java.util.Map;
 
+import java.util.List;
+
+/**
+ * @deprecated Legacy adapter for Quejas. All operations now delegate
+ * directly to the canonical TicketService (/api/v1/pqrs) to preserve
+ * unified state machine, dynamic SLA, and atomic traceability.
+ */
+@Deprecated(since = "F9-06", forRemoval = false)
 @Service
 public class QuejaServiceImpl implements QuejaService {
-    private static final Logger log = LoggerFactory.getLogger(QuejaServiceImpl.class);
 
-    private final QuejaRepository repo;
-    private final EmailService emailService;
-    private final NamedParameterJdbcTemplate jdbcTemplate;
+    private final TicketService ticketService;
 
-    public QuejaServiceImpl(QuejaRepository repo, EmailService emailService, NamedParameterJdbcTemplate jdbcTemplate) {
-        this.repo = repo;
-        this.emailService = emailService;
-        this.jdbcTemplate = jdbcTemplate;
+    public QuejaServiceImpl(TicketService ticketService) {
+        this.ticketService = ticketService;
     }
 
+    private QuejaDTO toQuejaDTO(TicketResponseDTO ticket) {
+        if (ticket == null) return null;
+        QuejaDTO dto = new QuejaDTO();
+        dto.setIdQueja(ticket.getIdTicket());
+        dto.setRadicado(ticket.getNumeroRadicado());
+        dto.setTipo(ticket.getTipo());
+        dto.setCategoria(ticket.getCategoria());
+        dto.setPrioridad(ticket.getPrioridad());
+        dto.setTitulo(ticket.getAsunto());
+        dto.setDescripcion(ticket.getDescripcion());
+        dto.setEstado(ticket.getEstado());
+        dto.setRespuesta(ticket.getUltimaRespuesta() != null ? ticket.getUltimaRespuesta() : ticket.getObservacionCierre());
+        dto.setAutor(ticket.getNombreRadicador());
+        dto.setApartamento(ticket.getIdentificadorUnidad());
+        if (ticket.getFechaRadicacion() != null) {
+            dto.setFecha(ticket.getFechaRadicacion().toLocalDateTime());
+        }
+        return dto;
+    }
 
     @Override
     public List<QuejaDTO> findAll() {
-        return repo.findAll();
+        return ticketService.getAllTickets().stream()
+                .map(this::toQuejaDTO)
+                .toList();
     }
 
     @Override
     public List<QuejaDTO> findMyQuejas() {
-        Long idUsuario = SaedContextHolder.getContext().getUserId();
-        return repo.findByUserId(idUsuario);
+        return ticketService.getMyTickets().stream()
+                .map(this::toQuejaDTO)
+                .toList();
     }
 
     @Override
-    @Transactional
     public void createQueja(QuejaRequestDTO dto) {
-        Long idUsuario = SaedContextHolder.getContext().getUserId();
-        Long idPropiedad = SaedContextHolder.getContext().getPropertyId();
-        repo.create(dto, idUsuario, idPropiedad);
+        TicketRequestDTO tr = new TicketRequestDTO();
+        tr.setTipo(dto.getTipo());
+        tr.setCategoria(dto.getCategoria());
+        tr.setPrioridad("MEDIA");
+        tr.setAsunto(dto.getTitulo());
+        tr.setDescripcion(dto.getDescripcion());
+        ticketService.createTicket(tr);
     }
 
     @Override
-    @Transactional
-    @Auditable(action = "RESPOND", resource = "QUEJA", category = AuditCategory.OPERATIONAL, severity = AuditSeverity.INFO)
     public void responder(Long id, String respuesta) {
-        repo.updateRespuesta(id, respuesta);
-        notificarPQRS(id, "RESPONDIDA", respuesta);
+        ticketService.responderTicket(id, respuesta, null);
     }
 
     @Override
-    @Transactional
     public void actualizarEstado(Long id, String estado) {
-        repo.updateEstado(id, estado);
-        notificarPQRS(id, estado, null);
+        ticketService.updateTicketStatus(id, estado, null);
     }
 
     @Override
-    @Transactional
     public void actualizarPrioridad(Long id, String prioridad) {
-        repo.updatePrioridad(id, prioridad);
-    }
-    
-    private void notificarPQRS(Long idQueja, String estado, String respuesta) {
-        try {
-            List<Map<String, Object>> u = jdbcTemplate.queryForList(
-                "SELECT P.EMAIL FROM QUEJAS_PQRS Q " +
-                "JOIN USUARIOS U ON U.ID_USUARIO = Q.ID_REPORTANTE " +
-                "JOIN PERSONAS P ON P.ID_PERSONA = U.ID_PERSONA " +
-                "WHERE Q.ID_PQRS = :id AND P.EMAIL IS NOT NULL", 
-                Map.of("id", idQueja)
-            );
-            if (!u.isEmpty()) {
-                String destinatario = (String) u.get(0).get("EMAIL");
-                emailService.enviarNotificacionPQRS(destinatario, "PQRS-" + idQueja, estado, respuesta);
-            }
-        } catch(Exception e) {
-            log.error("Error sending PQRS notification email", e);
-        }
+        ticketService.actualizarPrioridad(id, prioridad);
     }
 }

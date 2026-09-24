@@ -29,6 +29,6 @@ public class PhaseDObrasAdversarialTest {
     @WithMockUser(username = "admin_org1", roles = {"SUPERADMIN"})
     public void adminOrg1_NoDebeVerObrasDeOrg2() throws Exception {
         mockMvc.perform(get("/api/v1/obras/admin"))
-                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().is5xxServerError());
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isForbidden());
     }
 }

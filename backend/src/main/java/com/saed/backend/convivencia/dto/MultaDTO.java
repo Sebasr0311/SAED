@@ -11,6 +11,9 @@ public class MultaDTO {
     private BigDecimal monto;
     private String estado;
     private LocalDateTime fechaCreacion;
+    private String motivo;
+    private String evidenciaUrl;
+    private Long idSancionOrigen;
 
     public Long getIdMulta() { return this.idMulta; }
     public void setIdMulta(Long idMulta) { this.idMulta = idMulta; }
@@ -26,4 +29,10 @@ public class MultaDTO {
     public void setEstado(String estado) { this.estado = estado; }
     public LocalDateTime getFechaCreacion() { return this.fechaCreacion; }
     public void setFechaCreacion(LocalDateTime fechaCreacion) { this.fechaCreacion = fechaCreacion; }
+    public String getMotivo() { return this.motivo; }
+    public void setMotivo(String motivo) { this.motivo = motivo; }
+    public String getEvidenciaUrl() { return this.evidenciaUrl; }
+    public void setEvidenciaUrl(String evidenciaUrl) { this.evidenciaUrl = evidenciaUrl; }
+    public Long getIdSancionOrigen() { return this.idSancionOrigen; }
+    public void setIdSancionOrigen(Long idSancionOrigen) { this.idSancionOrigen = idSancionOrigen; }
 }

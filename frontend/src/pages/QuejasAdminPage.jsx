@@ -11,15 +11,19 @@ import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
 import { formatDate } from '../lib/utils.js';
 
-const ESTADOS = ['RADICADO', 'EN_REVISION', 'RESUELTO', 'CERRADO'];
-const TIPOS = ['PETICION', 'QUEJA', 'RECLAMO', 'SUGERENCIA'];
+const ESTADOS = ['RADICADO', 'ASIGNADO', 'EN_GESTION', 'ESCALADO', 'RESUELTO', 'CERRADO', 'RECHAZADO'];
+const TIPOS = ['PETICION', 'QUEJA', 'RECLAMO', 'SUGERENCIA', 'APELACION', 'SOLICITUD'];
 const PAGE_SIZE = 15;
 
 const ESTADO_BADGE = {
   RADICADO: 'badge-pendiente-firma',
+  ASIGNADO: 'badge-info',
+  EN_GESTION: 'badge-info',
   EN_REVISION: 'badge-info',
+  ESCALADO: 'badge-warning',
   RESUELTO: 'badge-activo',
   CERRADO: 'badge-neutral',
+  RECHAZADO: 'badge-danger',
 };
 
 export default function QuejasAdminPage() {
@@ -36,8 +40,8 @@ export default function QuejasAdminPage() {
 
   const stats = {
     total: all.length,
-    radicados: all.filter((i) => i.estado === 'RADICADO').length,
-    revision: all.filter((i) => i.estado === 'EN_REVISION').length,
+    radicados: all.filter((i) => i.estado === 'RADICADO' || i.estado === 'ASIGNADO').length,
+    revision: all.filter((i) => i.estado === 'EN_GESTION' || i.estado === 'EN_REVISION' || i.estado === 'ESCALADO').length,
     resueltos: all.filter((i) => i.estado === 'RESUELTO' || i.estado === 'CERRADO').length,
   };
 
@@ -66,12 +70,17 @@ export default function QuejasAdminPage() {
     if (!form.estado) return;
     setSaving(true);
     try {
-      await api.put(`/pqrs/${modal.idTicket}/estado`, null, { params: { estado: form.estado } });
+      await api.put(`/pqrs/${modal.idTicket}/estado`, null, {
+        params: {
+          estado: form.estado,
+          observacion: form.observacion || undefined,
+        },
+      });
       toast.success('Estado del PQRS actualizado con éxito');
       setModal(null);
       refetch();
     } catch (err) {
-      toast.error('Error al actualizar PQRS');
+      toast.error(err?.response?.data?.message || err.message || 'Error al actualizar PQRS');
     } finally {
       setSaving(false);
     }
@@ -109,13 +118,13 @@ export default function QuejasAdminPage() {
 
   return (
     <div>
-      <PageHeader title="PQRS (Tickets)" subtitle="Peticiones, Quejas, Reclamos y Sugerencias" />
+      <PageHeader title="PQRS (Tickets)" subtitle="Peticiones, Quejas, Reclamos y Sugerencias con SLA y Trazabilidad" />
 
       <div className="card-grid-4" style={{ marginBottom: '20px' }}>
         <StatCard icon="confirmation_number" value={stats.total} label="Total PQRS" color="primary" />
-        <StatCard icon="pending" value={stats.radicados} label="Nuevos (Radicados)" color="amber" />
-        <StatCard icon="visibility" value={stats.revision} label="En Revisión" color="blue" />
-        <StatCard icon="check_circle" value={stats.resueltos} label="Resueltos" color="green" />
+        <StatCard icon="pending" value={stats.radicados} label="Radicados / Asignados" color="amber" />
+        <StatCard icon="visibility" value={stats.revision} label="En Gestión / Escalados" color="blue" />
+        <StatCard icon="check_circle" value={stats.resueltos} label="Resueltos / Cerrados" color="green" />
       </div>
 
       <div className="card" style={{ marginBottom: '16px' }}>
@@ -229,6 +238,15 @@ export default function QuejasAdminPage() {
               </div>
             </div>
             
+            {modal.ultimaRespuesta && (
+              <div className="form-group">
+                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Última Intervención / Respuesta</div>
+                <div style={{ fontSize: '13px', whiteSpace: 'pre-wrap', background: 'var(--bg-secondary)', padding: '12px', borderRadius: '6px' }}>
+                  {modal.ultimaRespuesta}
+                </div>
+              </div>
+            )}
+            
             <hr style={{ margin: '20px 0', borderColor: 'var(--border-color)' }} />
             
             <div className="form-group">
@@ -246,18 +264,16 @@ export default function QuejasAdminPage() {
                 ))}
               </Select>
             </div>
-            {(form.estado === 'RESUELTO' || form.estado === 'CERRADO') && (
-              <div className="form-group">
-                <Textarea
-                  id="observacion"
-                  label="Observaciones de Cierre (opcional)"
-                  placeholder="Detalle la solución dada o motivo de cierre para el residente..."
-                  rows={3}
-                  value={form.observacion}
-                  onChange={(e) => setForm((f) => ({ ...f, observacion: e.target.value }))}
-                />
-              </div>
-            )}
+            <div className="form-group">
+              <Textarea
+                id="observacion"
+                label="Observaciones / Respuesta Formal"
+                placeholder="Detalle la gestión realizada, solución brindada o motivo del cambio de estado..."
+                rows={3}
+                value={form.observacion}
+                onChange={(e) => setForm((f) => ({ ...f, observacion: e.target.value }))}
+              />
+            </div>
           </>
         )}
       </Modal>

@@ -26,6 +26,9 @@ import {
   Info,
   AlertTriangle,
   ExternalLink,
+  RefreshCw,
+  Users,
+  Trash2,
 } from 'lucide-react';
 
 const ESTADOS_MAP = {
@@ -63,9 +66,13 @@ const INITIAL_FORM = {
 
 export default function ResObrasPage() {
   const { data, loading, error, refetch } = useFetch(() => api.get('/obras/mis-obras'));
+  const { data: finData } = useFetch(() => api.get('/paz-y-salvos/mi-estado-financiero'));
   const [modalOpen, setModalOpen] = useState(false);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedObra, setSelectedObra] = useState(null);
+
+  const estadoFinanciero = finData?.data || finData;
+  const enMora = Boolean(estadoFinanciero?.enMora || (estadoFinanciero?.pazYSalvo === false));
 
   const [filterTab, setFilterTab] = useState('TODAS');
   const [searchTerm, setSearchTerm] = useState('');
@@ -73,6 +80,14 @@ export default function ResObrasPage() {
   const [formErrors, setFormErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const submittingRef = useRef(false);
+
+  // Trabajadores de Obra y ARL
+  const [obraTrabajadores, setObraTrabajadores] = useState([]);
+  const [loadingTrabajadores, setLoadingTrabajadores] = useState(false);
+  const [allTrabajadores, setAllTrabajadores] = useState([]);
+  const [assignModalOpen, setAssignModalOpen] = useState(false);
+  const [selectedTrabajadorId, setSelectedTrabajadorId] = useState('');
+  const [isAssigning, setIsAssigning] = useState(false);
 
   const items = useMemo(() => {
     return data?.items || (Array.isArray(data) ? data : []);
@@ -105,6 +120,13 @@ export default function ResObrasPage() {
   }, [items, filterTab, searchTerm]);
 
   function handleOpenCreate() {
+    if (enMora) {
+      toast.error(
+        'Tu unidad presenta mora financiera (' +
+          (estadoFinanciero?.motivosBloqueo?.[0] || 'Obligaciones pendientes') +
+          '). Debes estar a Paz y Salvo para radicar solicitudes de obra.'
+      );
+    }
     setForm({
       ...INITIAL_FORM,
       fechaInicio: todayStr(),
@@ -113,9 +135,62 @@ export default function ResObrasPage() {
     setModalOpen(true);
   }
 
+  async function fetchObraTrabajadores(idObra) {
+    if (!idObra) return;
+    setLoadingTrabajadores(true);
+    try {
+      const res = await api.get(`/obras/${idObra}/trabajadores`);
+      setObraTrabajadores(Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : []);
+    } catch (err) {
+      console.error('Error al cargar trabajadores asignados:', err);
+      setObraTrabajadores([]);
+    } finally {
+      setLoadingTrabajadores(false);
+    }
+  }
+
   function handleOpenDetail(obra) {
     setSelectedObra(obra);
     setDetailModalOpen(true);
+    fetchObraTrabajadores(obra.idObra);
+  }
+
+  async function handleOpenAssignModal() {
+    try {
+      const res = await api.get('/trabajadores');
+      const list = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
+      setAllTrabajadores(list);
+      setSelectedTrabajadorId('');
+      setAssignModalOpen(true);
+    } catch (err) {
+      toast.error('Error al cargar el catálogo de operarios');
+    }
+  }
+
+  async function handleAssignTrabajador() {
+    if (!selectedTrabajadorId || !selectedObra) return;
+    setIsAssigning(true);
+    try {
+      await api.post(`/obras/${selectedObra.idObra}/trabajadores/${selectedTrabajadorId}`);
+      toast.success('Operario asignado a la obra (pendiente de autorización por administración)');
+      setAssignModalOpen(false);
+      fetchObraTrabajadores(selectedObra.idObra);
+    } catch (err) {
+      toast.error(err?.response?.data?.message || err.message || 'Error al asignar operario');
+    } finally {
+      setIsAssigning(false);
+    }
+  }
+
+  async function handleDesasignarTrabajador(idTrabajador) {
+    if (!selectedObra) return;
+    try {
+      await api.del(`/obras/${selectedObra.idObra}/trabajadores/${idTrabajador}`);
+      toast.success('Operario retirado de la obra');
+      fetchObraTrabajadores(selectedObra.idObra);
+    } catch (err) {
+      toast.error(err?.response?.data?.message || err.message || 'Error al retirar operario');
+    }
   }
 
   function validateForm() {
@@ -147,6 +222,10 @@ export default function ResObrasPage() {
   async function handleCreate(e) {
     e?.preventDefault();
     if (submittingRef.current) return;
+    if (enMora) {
+      toast.error('No es posible radicar la obra: tu unidad presenta mora financiera activa.');
+      return;
+    }
     if (!validateForm()) return;
 
     submittingRef.current = true;
@@ -169,7 +248,11 @@ export default function ResObrasPage() {
       setForm(INITIAL_FORM);
       refetch();
     } catch (err) {
-      toast.error('Error al registrar la obra: ' + (err.message || 'Error de conexión'));
+      if (err.code === 'UNIDAD_EN_MORA' || err.status === 422) {
+        toast.error('Bloqueo Financiero: ' + (err.message || 'La unidad presenta mora financiera.'));
+      } else {
+        toast.error('Error al registrar la obra: ' + (err.message || 'Error de conexión'));
+      }
     } finally {
       submittingRef.current = false;
       setIsSubmitting(false);
@@ -200,6 +283,21 @@ export default function ResObrasPage() {
           </Button>
         }
       />
+
+      {/* Banner Preventivo de Mora Financiera */}
+      {enMora && (
+        <div className="flex items-start gap-3 p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-200 shadow-xs">
+          <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+          <div className="space-y-1 text-sm">
+            <p className="font-semibold">Atención: Unidad con obligaciones financieras pendientes</p>
+            <p className="text-xs text-muted-foreground dark:text-amber-300/80 leading-relaxed">
+              {estadoFinanciero?.motivosBloqueo?.length
+                ? estadoFinanciero.motivosBloqueo.join(' • ')
+                : 'Tu unidad presenta saldo en mora o sanciones pendientes. Para solicitar permisos de obras o remodelaciones locativas es indispensable encontrarse a Paz y Salvo.'}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Tarjetas de Métricas / KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -430,7 +528,7 @@ export default function ResObrasPage() {
             <Button
               type="button"
               onClick={handleCreate}
-              disabled={isSubmitting}
+              disabled={isSubmitting || enMora}
               className="flex items-center gap-2"
             >
               {isSubmitting ? (
@@ -449,6 +547,21 @@ export default function ResObrasPage() {
         }
       >
         <form onSubmit={handleCreate} className="space-y-4 py-1">
+          {/* Alerta si está en mora */}
+          {enMora && (
+            <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-3 text-xs text-amber-800 dark:text-amber-200 flex items-start gap-2.5">
+              <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+              <div>
+                <p className="font-semibold">Solicitud Inhabilitada por Mora</p>
+                <p className="mt-0.5 leading-relaxed">
+                  {estadoFinanciero?.motivosBloqueo?.length
+                    ? estadoFinanciero.motivosBloqueo.join(' • ')
+                    : 'Tu unidad presenta obligaciones financieras pendientes. Debes estar a Paz y Salvo para radicar permisos de obras.'}
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Banner Informativo */}
           <div className="rounded-lg bg-blue-50/70 dark:bg-blue-950/20 border border-blue-200/60 dark:border-blue-800/40 p-3 text-xs text-blue-800 dark:text-blue-300 flex items-start gap-2.5">
             <Info className="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400 mt-0.5" />
@@ -548,7 +661,7 @@ export default function ResObrasPage() {
           open={detailModalOpen}
           onClose={() => setDetailModalOpen(false)}
           title={`Detalle de Obra #${selectedObra.idObra}`}
-          size="md"
+          size="lg"
           footer={
             <Button variant="outline" onClick={() => setDetailModalOpen(false)}>
               Cerrar
@@ -632,9 +745,195 @@ export default function ResObrasPage() {
                 <span>Autorizada formalmente por la administración el {formatDate(selectedObra.fechaAprobacion)}.</span>
               </div>
             )}
+
+            {/* Control de Trabajadores de la Obra y Vigencia ARL */}
+            <div className="border-t border-border pt-4 mt-2">
+              <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                <div>
+                  <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                    <Users className="w-4 h-4 text-primary" />
+                    Personal y Trabajadores de la Obra
+                  </h4>
+                  <p className="text-xs text-muted-foreground">
+                    Operarios registrados y validación obligatoria de ARL
+                  </p>
+                </div>
+                {selectedObra.estado !== 'FINALIZADA' && selectedObra.estado !== 'RECHAZADA' && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    icon={<Plus className="w-3.5 h-3.5" />}
+                    onClick={handleOpenAssignModal}
+                    className="text-xs"
+                  >
+                    Asignar Operario
+                  </Button>
+                )}
+              </div>
+
+              {loadingTrabajadores ? (
+                <div className="py-4 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin text-primary" /> Cargando operarios asignados...
+                </div>
+              ) : obraTrabajadores.length === 0 ? (
+                <div className="bg-muted/20 border border-dashed border-border rounded-lg p-3.5 text-center">
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    No tienes operarios o contratistas asignados a esta obra. La intervención está radicada bajo modalidad de autoejecución. Si intervienen contratistas, regístralos con ARL vigente para permitir su ingreso a la copropiedad.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                  {obraTrabajadores.map((ot) => {
+                    const t = ot.trabajador || {};
+                    const isAutorizado = ot.autorizado === 'S';
+                    const isArlVigente = Boolean(t.arlVigente);
+                    const isActivo = t.estado === 'ACTIVO';
+
+                    return (
+                      <div
+                        key={ot.idObraTrabajador || ot.idTrabajador}
+                        className="bg-card border border-border rounded-lg p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                      >
+                        <div className="space-y-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-semibold text-foreground text-sm">
+                              {t.nombreCompleto || `${t.primerNombre || ''} ${t.primerApellido || ''}`}
+                            </span>
+                            <span className="text-muted-foreground">
+                              ({t.tipoDocumento || 'CC'} {t.numeroDocumento})
+                            </span>
+                            {isAutorizado ? (
+                              <Badge variant="success" className="text-[10px] px-1.5 py-0.5">
+                                Autorizado
+                              </Badge>
+                            ) : ot.fechaRevocacion ? (
+                              <Badge variant="warning" className="text-[10px] px-1.5 py-0.5">
+                                Revocado
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 border-amber-500/40 text-amber-600 bg-amber-500/10">
+                                Pendiente Autorización
+                              </Badge>
+                            )}
+                            {!isActivo && (
+                              <Badge variant="destructive" className="text-[10px] px-1.5 py-0.5">
+                                Inactivo
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="text-muted-foreground flex items-center gap-3 flex-wrap">
+                            <span>Oficio: <strong className="text-foreground">{t.oficioEspecialidad || 'General'}</strong></span>
+                            <span>Empresa: <strong className="text-foreground">{t.razonSocialProveedor || t.empresaIndependiente || 'Independiente'}</strong></span>
+                          </div>
+                          <div className="flex items-center gap-2 flex-wrap pt-0.5">
+                            <span className="text-muted-foreground">ARL: <strong className="text-foreground">{t.arlAseguradora || 'Sin ARL'}</strong></span>
+                            {isArlVigente ? (
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 border-emerald-500/40 text-emerald-600 bg-emerald-500/10">
+                                ARL Vigente (hasta {formatDate(t.arlFechaVencimiento)})
+                              </Badge>
+                            ) : (
+                              <Badge variant="destructive" className="text-[10px] px-1.5 py-0.5">
+                                ARL Vencida / Inválida ({formatDate(t.arlFechaVencimiento) || 'Sin fecha'})
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+
+                        {selectedObra.estado !== 'FINALIZADA' && selectedObra.estado !== 'RECHAZADA' && (
+                          <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-center">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 w-7 p-0 text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                              onClick={() => handleDesasignarTrabajador(ot.idTrabajador)}
+                              title="Retirar operario de esta obra"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         </Modal>
       )}
+
+      {/* Modal: Asignar Operario a Obra */}
+      <Modal
+        open={assignModalOpen}
+        onClose={() => setAssignModalOpen(false)}
+        title="Asignar Operario a la Obra"
+        size="sm"
+        footer={
+          <div className="flex items-center justify-end gap-2 w-full">
+            <Button variant="outline" onClick={() => setAssignModalOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="primary"
+              loading={isAssigning}
+              disabled={!selectedTrabajadorId}
+              onClick={handleAssignTrabajador}
+            >
+              Asignar a Obra
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-4 py-2 text-sm">
+          <p className="text-xs text-muted-foreground">
+            Selecciona un operario del catálogo registrado para asignarlo a tu obra. El operario debe contar con ARL vigente para permitir el inicio de obras.
+          </p>
+          <div>
+            <label className="text-xs font-semibold text-foreground block mb-1">
+              Operario / Contratista
+            </label>
+            <select
+              value={selectedTrabajadorId}
+              onChange={(e) => setSelectedTrabajadorId(e.target.value)}
+              className="w-full h-10 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+            >
+              <option value="">-- Seleccione un operario --</option>
+              {allTrabajadores.map((t) => (
+                <option key={t.idTrabajador} value={t.idTrabajador}>
+                  {t.nombreCompleto || `${t.primerNombre} ${t.primerApellido}`} - {t.tipoDocumento} {t.numeroDocumento} ({t.oficioEspecialidad || 'General'}) - ARL: {t.arlVigente ? 'Vigente' : 'Vencida'}
+                </option>
+              ))}
+            </select>
+          </div>
+          {selectedTrabajadorId && (() => {
+            const t = allTrabajadores.find((x) => String(x.idTrabajador) === String(selectedTrabajadorId));
+            if (!t) return null;
+            return (
+              <div className="bg-muted/30 border border-border rounded-lg p-3 space-y-1.5 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Proveedor:</span>
+                  <span className="font-medium text-foreground">{t.razonSocialProveedor || t.empresaIndependiente || 'Independiente'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Aseguradora ARL:</span>
+                  <span className="font-medium text-foreground">{t.arlAseguradora || 'Sin ARL'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Vencimiento ARL:</span>
+                  <span className={t.arlVigente ? 'font-medium text-emerald-600' : 'font-semibold text-rose-600'}>
+                    {formatDate(t.arlFechaVencimiento)} ({t.arlVigente ? 'Vigente' : 'Vencida'})
+                  </span>
+                </div>
+                {!t.arlVigente && (
+                  <p className="text-[11px] text-rose-500 pt-1">
+                    ⚠️ Atención: Este operario tiene la ARL vencida o no reportada. La administración no podrá iniciar la obra en portería mientras existan trabajadores autorizados con ARL vencida.
+                  </p>
+                )}
+              </div>
+            );
+          })()}
+        </div>
+      </Modal>
     </div>
   );
 }

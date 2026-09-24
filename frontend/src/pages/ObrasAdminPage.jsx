@@ -18,6 +18,8 @@ import {
   Check,
   X,
   User,
+  Users,
+  Trash2,
 } from 'lucide-react';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { MetricCard } from '../components/ui/MetricCard.jsx';
@@ -96,6 +98,14 @@ export default function ObrasAdminPage() {
   const [formErrors, setFormErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Trabajadores y ARL
+  const [obraTrabajadores, setObraTrabajadores] = useState([]);
+  const [loadingTrabajadores, setLoadingTrabajadores] = useState(false);
+  const [allTrabajadores, setAllTrabajadores] = useState([]);
+  const [assignModalOpen, setAssignModalOpen] = useState(false);
+  const [selectedTrabajadorId, setSelectedTrabajadorId] = useState('');
+  const [isAssigning, setIsAssigning] = useState(false);
+
   // Map units by ID for quick lookup
   const unitsList = useMemo(() => {
     return unitsData?.items || (Array.isArray(unitsData) ? unitsData : []);
@@ -158,9 +168,84 @@ export default function ObrasAdminPage() {
     setCreateModalOpen(true);
   }
 
+  async function fetchObraTrabajadores(idObra) {
+    if (!idObra) return;
+    setLoadingTrabajadores(true);
+    try {
+      const res = await tenantApi.get(`/obras/${idObra}/trabajadores`);
+      setObraTrabajadores(Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : []);
+    } catch (err) {
+      console.error('Error al cargar trabajadores asignados:', err);
+      setObraTrabajadores([]);
+    } finally {
+      setLoadingTrabajadores(false);
+    }
+  }
+
   function handleOpenDetail(obra) {
     setSelectedObra(obra);
     setDetailModalOpen(true);
+    fetchObraTrabajadores(obra.idObra);
+  }
+
+  async function handleOpenAssignModal() {
+    try {
+      const res = await tenantApi.get('/trabajadores');
+      const list = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
+      setAllTrabajadores(list);
+      setSelectedTrabajadorId('');
+      setAssignModalOpen(true);
+    } catch (err) {
+      toast.error('Error al cargar catálogo de trabajadores');
+    }
+  }
+
+  async function handleAssignTrabajador() {
+    if (!selectedTrabajadorId || !selectedObra) return;
+    setIsAssigning(true);
+    try {
+      await tenantApi.post(`/obras/${selectedObra.idObra}/trabajadores/${selectedTrabajadorId}?autorizado=S`);
+      toast.success('Trabajador asignado y autorizado exitosamente');
+      setAssignModalOpen(false);
+      fetchObraTrabajadores(selectedObra.idObra);
+    } catch (err) {
+      toast.error(err?.response?.data?.message || err.message || 'Error al asignar trabajador a la obra');
+    } finally {
+      setIsAssigning(false);
+    }
+  }
+
+  async function handleAutorizarTrabajador(idTrabajador) {
+    if (!selectedObra) return;
+    try {
+      await tenantApi.post(`/obras/${selectedObra.idObra}/trabajadores/${idTrabajador}/autorizar`);
+      toast.success('Trabajador autorizado para ingreso');
+      fetchObraTrabajadores(selectedObra.idObra);
+    } catch (err) {
+      toast.error(err?.response?.data?.message || err.message || 'Error al autorizar trabajador');
+    }
+  }
+
+  async function handleRevocarTrabajador(idTrabajador) {
+    if (!selectedObra) return;
+    try {
+      await tenantApi.post(`/obras/${selectedObra.idObra}/trabajadores/${idTrabajador}/revocar`);
+      toast.success('Autorización de trabajador revocada');
+      fetchObraTrabajadores(selectedObra.idObra);
+    } catch (err) {
+      toast.error(err?.response?.data?.message || err.message || 'Error al revocar autorización');
+    }
+  }
+
+  async function handleDesasignarTrabajador(idTrabajador) {
+    if (!selectedObra) return;
+    try {
+      await tenantApi.del(`/obras/${selectedObra.idObra}/trabajadores/${idTrabajador}`);
+      toast.success('Trabajador retirado de la obra');
+      fetchObraTrabajadores(selectedObra.idObra);
+    } catch (err) {
+      toast.error(err?.response?.data?.message || err.message || 'Error al retirar trabajador');
+    }
   }
 
   function validateForm() {
@@ -686,7 +771,7 @@ export default function ObrasAdminPage() {
         open={detailModalOpen}
         onClose={() => setDetailModalOpen(false)}
         title="Ficha Técnica de la Obra"
-        size="md"
+        size="lg"
         footer={
           <Button variant="outline" onClick={() => setDetailModalOpen(false)}>
             Cerrar
@@ -771,8 +856,219 @@ export default function ObrasAdminPage() {
                 </a>
               )}
             </div>
+
+            {/* Sección de Trabajadores y Control de ARL */}
+            <div className="border-t border-border pt-4 mt-2">
+              <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                <div>
+                  <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                    <Users className="w-4 h-4 text-primary" />
+                    Personal y Trabajadores Autorizados
+                  </h4>
+                  <p className="text-xs text-muted-foreground">
+                    Control de contratistas, operarios y vigencia obligatoria de ARL
+                  </p>
+                </div>
+                {selectedObra.estado !== 'FINALIZADA' && selectedObra.estado !== 'RECHAZADA' && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    icon={<Plus className="w-3.5 h-3.5" />}
+                    onClick={handleOpenAssignModal}
+                    className="text-xs"
+                  >
+                    Asignar Trabajador
+                  </Button>
+                )}
+              </div>
+
+              {loadingTrabajadores ? (
+                <div className="py-6 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
+                  <RefreshCw className="w-4 h-4 animate-spin text-primary" /> Cargando personal asignado...
+                </div>
+              ) : obraTrabajadores.length === 0 ? (
+                <div className="bg-muted/20 border border-dashed border-border rounded-lg p-4 text-center">
+                  <p className="text-xs text-muted-foreground">
+                    No hay trabajadores asignados. La ejecución de la obra está habilitada como autoejecución por el residente responsable o requiere la asignación de operarios con ARL vigente.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
+                  {obraTrabajadores.map((ot) => {
+                    const t = ot.trabajador || {};
+                    const isAutorizado = ot.autorizado === 'S';
+                    const isArlVigente = Boolean(t.arlVigente);
+                    const isActivo = t.estado === 'ACTIVO';
+
+                    return (
+                      <div
+                        key={ot.idObraTrabajador || ot.idTrabajador}
+                        className="bg-card border border-border rounded-lg p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs hover:border-border/80 transition-colors"
+                      >
+                        <div className="space-y-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-semibold text-foreground text-sm">
+                              {t.nombreCompleto || `${t.primerNombre || ''} ${t.primerApellido || ''}`}
+                            </span>
+                            <span className="text-muted-foreground">
+                              ({t.tipoDocumento || 'CC'} {t.numeroDocumento})
+                            </span>
+                            {isAutorizado ? (
+                              <Badge variant="success" className="text-[10px] px-1.5 py-0.5">
+                                Autorizado
+                              </Badge>
+                            ) : ot.fechaRevocacion ? (
+                              <Badge variant="warning" className="text-[10px] px-1.5 py-0.5">
+                                Revocado
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 border-amber-500/40 text-amber-600 bg-amber-500/10">
+                                Pendiente Autorización
+                              </Badge>
+                            )}
+                            {isActivo ? (
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 border-emerald-500/30 text-emerald-600 bg-emerald-500/10">
+                                Activo
+                              </Badge>
+                            ) : (
+                              <Badge variant="destructive" className="text-[10px] px-1.5 py-0.5">
+                                Inactivo
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="text-muted-foreground flex items-center gap-3 flex-wrap">
+                            <span>Oficio: <strong className="text-foreground">{t.oficioEspecialidad || 'Operario General'}</strong></span>
+                            <span>Empresa: <strong className="text-foreground">{t.razonSocialProveedor || t.empresaIndependiente || 'Independiente'}</strong></span>
+                          </div>
+                          <div className="flex items-center gap-2 flex-wrap pt-0.5">
+                            <span className="text-muted-foreground">ARL: <strong className="text-foreground">{t.arlAseguradora || 'Sin ARL'}</strong></span>
+                            {isArlVigente ? (
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 border-emerald-500/40 text-emerald-600 bg-emerald-500/10">
+                                ARL Vigente (hasta {formatDate(t.arlFechaVencimiento)})
+                              </Badge>
+                            ) : (
+                              <Badge variant="destructive" className="text-[10px] px-1.5 py-0.5">
+                                ARL Vencida / Inválida ({formatDate(t.arlFechaVencimiento) || 'Sin fecha'})
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+
+                        {selectedObra.estado !== 'FINALIZADA' && selectedObra.estado !== 'RECHAZADA' && (
+                          <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-center">
+                            {isAutorizado ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 text-xs text-amber-600 border-amber-200 hover:bg-amber-50 dark:border-amber-900/50 dark:hover:bg-amber-950/30"
+                                onClick={() => handleRevocarTrabajador(ot.idTrabajador)}
+                                title="Revocar autorización de ingreso a la copropiedad"
+                              >
+                                Revocar
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 text-xs text-emerald-600 border-emerald-200 hover:bg-emerald-50 dark:border-emerald-900/50 dark:hover:bg-emerald-950/30"
+                                onClick={() => handleAutorizarTrabajador(ot.idTrabajador)}
+                                title="Autorizar ingreso del operario"
+                              >
+                                Autorizar
+                              </Button>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 w-7 p-0 text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                              onClick={() => handleDesasignarTrabajador(ot.idTrabajador)}
+                              title="Retirar de esta obra"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         )}
+      </Modal>
+
+      {/* Modal Asignar Trabajador */}
+      <Modal
+        open={assignModalOpen}
+        onClose={() => setAssignModalOpen(false)}
+        title="Asignar Trabajador a la Obra"
+        size="sm"
+        footer={
+          <div className="flex items-center justify-end gap-2 w-full">
+            <Button variant="outline" onClick={() => setAssignModalOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="primary"
+              loading={isAssigning}
+              disabled={!selectedTrabajadorId}
+              onClick={handleAssignTrabajador}
+            >
+              Asignar a Obra
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-4 py-2 text-sm">
+          <p className="text-xs text-muted-foreground">
+            Selecciona un trabajador del catálogo activo para autorizar su ingreso a la obra.
+          </p>
+          <div>
+            <label className="text-xs font-semibold text-foreground block mb-1">
+              Trabajador / Operario
+            </label>
+            <select
+              value={selectedTrabajadorId}
+              onChange={(e) => setSelectedTrabajadorId(e.target.value)}
+              className="w-full h-10 px-3 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+            >
+              <option value="">-- Seleccione un trabajador --</option>
+              {allTrabajadores.map((t) => (
+                <option key={t.idTrabajador} value={t.idTrabajador}>
+                  {t.nombreCompleto || `${t.primerNombre} ${t.primerApellido}`} - {t.tipoDocumento} {t.numeroDocumento} ({t.oficioEspecialidad || 'General'}) - ARL: {t.arlVigente ? 'Vigente' : 'Vencida'}
+                </option>
+              ))}
+            </select>
+          </div>
+          {selectedTrabajadorId && (() => {
+            const t = allTrabajadores.find((x) => String(x.idTrabajador) === String(selectedTrabajadorId));
+            if (!t) return null;
+            return (
+              <div className="bg-muted/30 border border-border rounded-lg p-3 space-y-1.5 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Proveedor:</span>
+                  <span className="font-medium text-foreground">{t.razonSocialProveedor || t.empresaIndependiente || 'Independiente'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Aseguradora ARL:</span>
+                  <span className="font-medium text-foreground">{t.arlAseguradora || 'Sin ARL'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Vencimiento ARL:</span>
+                  <span className={t.arlVigente ? 'font-medium text-emerald-600' : 'font-semibold text-rose-600'}>
+                    {formatDate(t.arlFechaVencimiento)} ({t.arlVigente ? 'Vigente' : 'Vencida'})
+                  </span>
+                </div>
+                {!t.arlVigente && (
+                  <p className="text-[11px] text-rose-500 pt-1">
+                    ⚠️ Atención: Este trabajador tiene la ARL vencida. La obra no podrá pasar a estado En Ejecución mientras tenga trabajadores autorizados con ARL vencida.
+                  </p>
+                )}
+              </div>
+            );
+          })()}
+        </div>
       </Modal>
 
       {/* Modal de Confirmación de Acción (Aprobar / Rechazar / Finalizar) */}

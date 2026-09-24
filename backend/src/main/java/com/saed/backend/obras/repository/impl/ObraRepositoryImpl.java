@@ -6,6 +6,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Repository;
 
 import java.sql.Date;
@@ -80,12 +81,21 @@ public class ObraRepositoryImpl implements ObraRepository {
     }
 
     @Override
+    public Optional<ObraDTO> findByIdDirecto(Long idObra) {
+        String sql = "SELECT O.* FROM OBRAS O " +
+                     "JOIN UNIDADES U ON O.ID_UNIDAD = U.ID_UNIDAD " +
+                     "WHERE O.ID_OBRA = ?";
+        List<ObraDTO> list = jdbcTemplate.query(sql, rowMapper, idObra);
+        return list.stream().findFirst();
+    }
+
+    @Override
     public Long createObra(ObraDTO obra, Long idPropiedad, Long solicitadoPor) {
         // Enforce IDOR on create: Make sure the ID_UNIDAD actually belongs to the ID_PROPIEDAD
         String checkSql = "SELECT COUNT(*) FROM UNIDADES WHERE ID_UNIDAD = ? AND ID_PROPIEDAD = ?";
         Integer count = jdbcTemplate.queryForObject(checkSql, Integer.class, obra.getIdUnidad(), idPropiedad);
         if (count == null || count == 0) {
-            throw new SecurityException("Unidad no pertenece a la propiedad actual.");
+            throw new AccessDeniedException("Unidad no pertenece a la propiedad actual.");
         }
 
         String sql = "INSERT INTO OBRAS (ID_UNIDAD, DESCRIPCION, FECHA_INICIO, FECHA_FIN_ESTIMADA, RESPONSABLE_OBRA, " +
@@ -115,9 +125,10 @@ public class ObraRepositoryImpl implements ObraRepository {
     @Override
     public void updateEstado(Long idObra, Long idPropiedad, String estado, Long aprobadoPor) {
         // Must join UNIDADES to enforce property isolation in update
-        String sql = "UPDATE OBRAS SET ESTADO = ?, APROBADO_POR = ?, FECHA_APROBACION = SYSTIMESTAMP " +
+        String sql = "UPDATE OBRAS SET ESTADO = ?, APROBADO_POR = COALESCE(APROBADO_POR, ?), " +
+                     "FECHA_APROBACION = CASE WHEN ? = 'APROBADA' AND FECHA_APROBACION IS NULL THEN SYSTIMESTAMP ELSE FECHA_APROBACION END " +
                      "WHERE ID_OBRA = ? AND ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD = ?)";
-        int updated = jdbcTemplate.update(sql, estado, aprobadoPor, idObra, idPropiedad);
+        int updated = jdbcTemplate.update(sql, estado, aprobadoPor, estado, idObra, idPropiedad);
         if (updated == 0) {
             throw new IllegalArgumentException("Obra no encontrada o sin acceso para actualizar");
         }

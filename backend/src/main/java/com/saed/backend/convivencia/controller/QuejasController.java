@@ -3,6 +3,7 @@ package com.saed.backend.convivencia.controller;
 import com.saed.backend.convivencia.dto.QuejaDTO;
 import com.saed.backend.convivencia.dto.QuejaRequestDTO;
 import com.saed.backend.convivencia.service.QuejaService;
+import com.saed.backend.platform.annotation.RequireModule;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -12,15 +13,19 @@ import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Map;
 
-@Tag(name = "Quejas", description = "API para la gestion de Quejas")
+/**
+ * @deprecated Legacy controller. Use /api/v1/pqrs (TicketController) instead.
+ */
+@Deprecated(since = "F9-06", forRemoval = false)
+@Tag(name = "Quejas", description = "API legacy para la gestion de Quejas (deprecada en favor de /api/v1/pqrs)")
 @RestController
+@RequireModule("PQRS")
 public class QuejasController {
     private final QuejaService service;
 
     public QuejasController(QuejaService service) {
         this.service = service;
     }
-
 
     @GetMapping("/api/v1/quejas")
     @PreAuthorize("hasAnyAuthority('SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA')")
@@ -62,4 +67,3 @@ public class QuejasController {
         return ResponseEntity.ok().build();
     }
 }
-
