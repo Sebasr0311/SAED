@@ -79,6 +79,41 @@ export default function OrgAnaliticaPage() {
       maximumFractionDigits: 0,
     }).format(Number(val) || 0);
 
+  const formatCompactCOP = (val) => {
+    const num = Number(val) || 0;
+    if (Math.abs(num) >= 1000000) {
+      return `$${(num / 1000000).toFixed(1)}M`;
+    }
+    if (Math.abs(num) >= 1000) {
+      return `$${(num / 1000).toFixed(0)}k`;
+    }
+    return `$${num}`;
+  };
+
+  const chartDataTendencia = useMemo(() => {
+    return (analytics?.tendenciaMensual || []).map((t) => ({
+      periodo: t.periodo,
+      facturado: Number(t.facturado) || 0,
+      recaudado: Number(t.recaudado) || 0,
+    }));
+  }, [analytics]);
+
+  const tendenciaTotals = useMemo(() => {
+    return (analytics?.tendenciaMensual || []).reduce(
+      (acc, curr) => {
+        acc.facturado += Number(curr.facturado) || 0;
+        acc.recaudado += Number(curr.recaudado) || 0;
+        return acc;
+      },
+      { facturado: 0, recaudado: 0 }
+    );
+  }, [analytics]);
+
+  const tasaRecaudoTendencia = useMemo(() => {
+    if (tendenciaTotals.facturado <= 0) return 0;
+    return Math.min(100, Math.round((tendenciaTotals.recaudado / tendenciaTotals.facturado) * 100));
+  }, [tendenciaTotals]);
+
   if (loading) {
     return (
       <div className="p-6 space-y-6 animate-fadeIn">
@@ -116,41 +151,6 @@ export default function OrgAnaliticaPage() {
   const kpis = analytics?.kpisGlobales || {};
   const benchmark = analytics?.benchmarkPropiedades || [];
   const tendencia = analytics?.tendenciaMensual || [];
-
-  const formatCompactCOP = (val) => {
-    const num = Number(val) || 0;
-    if (Math.abs(num) >= 1000000) {
-      return `$${(num / 1000000).toFixed(1)}M`;
-    }
-    if (Math.abs(num) >= 1000) {
-      return `$${(num / 1000).toFixed(0)}k`;
-    }
-    return `$${num}`;
-  };
-
-  const chartDataTendencia = useMemo(() => {
-    return (analytics?.tendenciaMensual || []).map((t) => ({
-      periodo: t.periodo,
-      facturado: Number(t.facturado) || 0,
-      recaudado: Number(t.recaudado) || 0,
-    }));
-  }, [analytics]);
-
-  const tendenciaTotals = useMemo(() => {
-    return (analytics?.tendenciaMensual || []).reduce(
-      (acc, curr) => {
-        acc.facturado += Number(curr.facturado) || 0;
-        acc.recaudado += Number(curr.recaudado) || 0;
-        return acc;
-      },
-      { facturado: 0, recaudado: 0 }
-    );
-  }, [analytics]);
-
-  const tasaRecaudoTendencia = useMemo(() => {
-    if (tendenciaTotals.facturado <= 0) return 0;
-    return Math.min(100, Math.round((tendenciaTotals.recaudado / tendenciaTotals.facturado) * 100));
-  }, [tendenciaTotals]);
 
   return (
     <div className="p-6 space-y-6 animate-fadeIn">
