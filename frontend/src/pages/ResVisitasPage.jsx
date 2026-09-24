@@ -50,6 +50,7 @@ import { Modal } from '../components/ui/Modal.jsx';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog.jsx';
 import { Input, Select } from '../components/ui/Form.jsx';
 import EmptyState from '../components/ui/EmptyState.jsx';
+import { LocalQRCode } from '../components/ui/LocalQRCode.jsx';
 
 const emptyVisitante = {
   idTipoDoc: '',
@@ -70,13 +71,6 @@ const emptyForm = {
   descripcion: '',
   guardarFrecuente: false,
 };
-
-function qrImageUrl(codigoQr) {
-  return (
-    'https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=' +
-    encodeURIComponent(codigoQr)
-  );
-}
 
 function calcularFechaExpiracion(minutos) {
   return new Date(Date.now() + Number(minutos || 30) * 60000);
@@ -611,32 +605,29 @@ export default function ResVisitasPage() {
   const [qrZoom, setQrZoom] = useState(null);
 
   function compartirTelegram(codigoQr, nombre) {
-    const imgUrl = qrImageUrl(codigoQr);
     const text = encodeURIComponent(
-      `Código QR de acceso para ${nombre || 'tu visita'}\n\nAbre la imagen para ingresar:\n${imgUrl}`
+      `Código de acceso QR para ${nombre || 'tu visita'}: ${codigoQr}\n\nPresenta este código al ingresar a la copropiedad.`
     );
     window.open(
-      `https://t.me/share/url?url=${encodeURIComponent(imgUrl)}&text=${text}`,
+      `https://t.me/share/url?url=${encodeURIComponent(window.location.origin)}&text=${text}`,
       '_blank'
     );
   }
 
   function compartirSMS(codigoQr, telefono) {
-    const imgUrl = qrImageUrl(codigoQr);
     const body = encodeURIComponent(
-      `Tu código QR de acceso en portería es: ${codigoQr} - Imagen: ${imgUrl}`
+      `Tu código de acceso QR en portería es: ${codigoQr}`
     );
     window.open(telefono ? `sms:${telefono}?body=${body}` : `sms:?body=${body}`);
   }
 
   function compartirCorreo(codigoQr, nombre, email) {
-    const imgUrl = qrImageUrl(codigoQr);
     const subject = encodeURIComponent('Pase de Acceso con Código QR — SAED');
     const body = encodeURIComponent(
       `Hola,\n\nHas recibido un pase de acceso rápido con código QR${
         nombre ? ` para ${nombre}` : ''
       }.\n\n` +
-        `Código: ${codigoQr}\n\nPresenta esta imagen al guardia de portería:\n${imgUrl}\n\n` +
+        `Código de Acceso: ${codigoQr}\n\nPresenta este código al ingresar en portería.\n\n` +
         `Conjunto / Edificio: ${user?.nombrePropiedad || 'Copropiedad'}`
     );
     window.open(
@@ -1022,13 +1013,13 @@ export default function ResVisitasPage() {
                       className="p-5 rounded-xl border border-border bg-card space-y-4 hover:shadow-sm transition-all flex flex-col justify-between"
                     >
                       <div className="flex items-start gap-4">
-                        <img
-                          src={qrImageUrl(qr.codigoQr)}
+                        <LocalQRCode
+                          value={qr.codigoQr}
+                          size={72}
                           alt={`QR ${qr.nombreVisitante || 'Visita'}`}
-                          width="72"
-                          height="72"
+                          title={`Ver código QR de ${qr.nombreVisitante || 'Visita'}`}
                           onClick={() => setQrZoom(qr)}
-                          className="w-18 h-18 rounded-xl border border-border cursor-zoom-in bg-white p-1.5 shrink-0 shadow-sm"
+                          className="w-18 h-18 rounded-xl border border-border cursor-zoom-in bg-white p-1 shrink-0 shadow-xs"
                         />
                         <div className="min-w-0 flex-1">
                           <Badge variant="outline" className="text-[10px] mb-1">
@@ -1886,11 +1877,13 @@ export default function ResVisitasPage() {
       >
         {qrExito && (
           <div className="flex flex-col items-center justify-center p-2 space-y-4 text-center">
-            <div className="p-3 bg-white rounded-2xl border-2 border-primary/20 shadow-md">
-              <img
-                src={qrImageUrl(qrExito.codigoQr)}
-                alt="QR Generado"
-                className="w-56 h-56 mx-auto"
+            <div className="p-4 bg-white rounded-2xl border-2 border-primary/20 shadow-md flex flex-col items-center">
+              <LocalQRCode
+                value={qrExito.codigoQr}
+                size={220}
+                showDownload={true}
+                downloadFileName={`saed-qr-${qrExito.codigoQr}.png`}
+                alt={`Pase QR de ${qrExito.nombreVisitante || 'Visitante'}`}
               />
             </div>
 
@@ -1961,11 +1954,13 @@ export default function ResVisitasPage() {
       >
         {qrZoom && (
           <div className="flex flex-col items-center justify-center p-2 space-y-4 text-center">
-            <div className="p-3 bg-white rounded-2xl border-2 border-primary/20 shadow-md">
-              <img
-                src={qrImageUrl(qrZoom.codigoQr)}
-                alt="QR Ampliado"
-                className="w-56 h-56 mx-auto"
+            <div className="p-4 bg-white rounded-2xl border-2 border-primary/20 shadow-md flex flex-col items-center">
+              <LocalQRCode
+                value={qrZoom.codigoQr}
+                size={220}
+                showDownload={true}
+                downloadFileName={`saed-qr-${qrZoom.codigoQr}.png`}
+                alt={`Pase QR de ${qrZoom.nombreVisitante || 'Visitante'}`}
               />
             </div>
             <div>

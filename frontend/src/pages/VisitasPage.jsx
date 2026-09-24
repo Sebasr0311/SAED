@@ -24,9 +24,11 @@ import {
   getDocPlaceholder,
 } from '../lib/validation.js';
 
-const ESTADOS = ['', 'ACTIVA', 'FINALIZADA', 'CANCELADA'];
+const ESTADOS = ['', 'PROGRAMADA', 'EN_CURSO', 'ACTIVA', 'FINALIZADA', 'CANCELADA'];
 const ESTADO_BADGE = {
+  PROGRAMADA: 'badge-pendiente-firma',
   PENDIENTE: 'badge-pendiente-firma',
+  EN_CURSO: 'badge-activo',
   ACTIVA: 'badge-activo',
   FINALIZADA: 'badge-finalizada',
   CANCELADA: 'badge-cancelado',
@@ -325,7 +327,7 @@ export default function VisitasPage() {
           >
             <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>visibility</span>
           </button>
-          {(row.estado === 'ACTIVA' || row.estado === 'PENDIENTE') && (
+          {(row.estado === 'EN_CURSO' || row.estado === 'ACTIVA' || row.estado === 'PENDIENTE') && (
             <Button
               onClick={(e) => {
                 e.stopPropagation();

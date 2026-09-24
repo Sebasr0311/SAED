@@ -23,16 +23,42 @@ public class ReservasController {
         this.reservasService = reservasService;
     }
 
-    // --- Zonas Comunes ---
+    // --- Zonas Comunes (GAP-F8-05) ---
     @GetMapping("/zonas-comunes")
     @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA')")
     public ResponseEntity<List<ZonaComunDTO>> getZonasComunes() {
         return ResponseEntity.ok(reservasService.getAllZonasComunes());
     }
 
+    @GetMapping("/zonas-comunes/{id}")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA')")
+    public ResponseEntity<ZonaComunDTO> getZonaComunById(@PathVariable Long id) {
+        return ResponseEntity.ok(reservasService.getZonaComunById(id));
+    }
+
+    @PostMapping("/zonas-comunes")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
+    public ResponseEntity<ZonaComunDTO> createZonaComun(@jakarta.validation.Valid @RequestBody com.saed.backend.reservas.dto.CreateZonaComunDTO request) {
+        ZonaComunDTO created = reservasService.createZonaComun(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(created);
+    }
+
+    @PutMapping("/zonas-comunes/{id}")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
+    public ResponseEntity<ZonaComunDTO> updateZonaComun(@PathVariable Long id, @jakarta.validation.Valid @RequestBody com.saed.backend.reservas.dto.UpdateZonaComunDTO request) {
+        return ResponseEntity.ok(reservasService.updateZonaComun(id, request));
+    }
+
+    @DeleteMapping("/zonas-comunes/{id}")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
+    public ResponseEntity<Void> deleteZonaComun(@PathVariable Long id) {
+        reservasService.deleteZonaComun(id);
+        return ResponseEntity.noContent().build();
+    }
+
     // --- Reservas ---
     @GetMapping("/reservas/todas")
-    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<List<ReservaDTO>> getAllReservas() {
         return ResponseEntity.ok(reservasService.getAllReservas());
     }
@@ -41,6 +67,12 @@ public class ReservasController {
     @PreAuthorize("hasAnyAuthority('SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA')")
     public ResponseEntity<List<ReservaDTO>> getMyReservas() {
         return ResponseEntity.ok(reservasService.getMyReservas());
+    }
+
+    @GetMapping("/reservas/{id}")
+    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA')")
+    public ResponseEntity<ReservaDTO> getReservaById(@PathVariable Long id) {
+        return ResponseEntity.ok(reservasService.getReservaById(id));
     }
 
     @PostMapping("/reservas")
@@ -54,5 +86,19 @@ public class ReservasController {
     public ResponseEntity<Void> updateStatus(@PathVariable Long id, @RequestBody Map<String, String> payload) {
         reservasService.updateReservaStatus(id, payload.get("estado"));
         return ResponseEntity.ok().build();
+    }
+
+    @PutMapping("/reservas/{id}/cancelar")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA')")
+    public ResponseEntity<Void> cancelReserva(@PathVariable Long id) {
+        reservasService.cancelReserva(id);
+        return ResponseEntity.ok().build();
+    }
+
+    // --- GAP-F8-08: Consulta segura de estado de mora preventiva ---
+    @GetMapping("/reservas/mi-estado-mora")
+    @PreAuthorize("hasAnyAuthority('SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA', 'SCOPE_ADMIN_PROPIEDAD')")
+    public ResponseEntity<com.saed.backend.common.dto.ApiResponse<com.saed.backend.finanzas.dto.PazYSalvoEstadoFinancieroDTO>> getMiEstadoMora() {
+        return ResponseEntity.ok(com.saed.backend.common.dto.ApiResponse.success(reservasService.getMiEstadoMora()));
     }
 }

@@ -10,6 +10,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.security.test.context.support.WithMockUser;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
@@ -26,9 +27,12 @@ public class PhaseDReservasAdversarialTest {
     }
 
     @Test
-    @WithMockUser(username = "admin_org1", roles = {"SUPERADMIN"})
+    @WithMockUser(username = "admin_org1", authorities = {"SCOPE_SUPERADMIN"})
     public void adminOrg1_NoDebeVerReservasDeOrg2() throws Exception {
-        mockMvc.perform(get("/api/v1/reservas/todas"))
-                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/reservas/todas")
+                .header("X-Organization-Id", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$").isEmpty());
     }
 }

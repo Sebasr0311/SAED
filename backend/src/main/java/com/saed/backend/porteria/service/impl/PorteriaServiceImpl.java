@@ -6,10 +6,12 @@ import com.saed.backend.audit.AuditSeverity;
 
 import com.saed.backend.common.service.EmailService;
 import com.saed.backend.porteria.dto.*;
+import com.saed.backend.porteria.exception.QrAccessException;
 import com.saed.backend.porteria.repository.PorteriaRepository;
 import com.saed.backend.porteria.service.PorteriaService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,7 +26,11 @@ import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
+import com.saed.backend.authorization.service.PropertyConfigService;
+import com.saed.backend.authorization.service.PropertyConfigServiceImpl;
+import com.saed.backend.context.SaedContext;
 import com.saed.backend.context.SaedContextHolder;
+import java.time.Duration;
 
 @Service
 @Transactional
@@ -35,11 +41,16 @@ public class PorteriaServiceImpl implements PorteriaService {
     private final PorteriaRepository porteriaRepository;
     private final EmailService emailService;
     private final NamedParameterJdbcTemplate jdbcTemplate;
+    private final PropertyConfigService propertyConfigService;
 
-    public PorteriaServiceImpl(PorteriaRepository porteriaRepository, EmailService emailService, NamedParameterJdbcTemplate jdbcTemplate) {
+    public PorteriaServiceImpl(PorteriaRepository porteriaRepository,
+                               EmailService emailService,
+                               NamedParameterJdbcTemplate jdbcTemplate,
+                               PropertyConfigService propertyConfigService) {
         this.porteriaRepository = porteriaRepository;
         this.emailService = emailService;
         this.jdbcTemplate = jdbcTemplate;
+        this.propertyConfigService = propertyConfigService;
     }
 
     // --- ADMIN CRUD PORTERÍAS ---
@@ -173,7 +184,31 @@ public class PorteriaServiceImpl implements PorteriaService {
     @Override
     @Transactional(readOnly = true)
     public List<VisitaListDTO> getVisitasResumen() {
-        return porteriaRepository.getVisitasResumen();
+        List<VisitaListDTO> visitas = porteriaRepository.getVisitasResumen();
+        SaedContext ctx = SaedContextHolder.getContext();
+        Long propId = (ctx != null && ctx.getPropertyId() != null) ? ctx.getPropertyId() : 1L;
+        int maxMinutos = 240;
+        if (propertyConfigService != null) {
+            maxMinutos = propertyConfigService.getIntValue(propId, PropertyConfigServiceImpl.KEY_TIEMPO_MAXIMO_VISITA, 240);
+        }
+
+        ZonedDateTime now = ZonedDateTime.now(ZoneId.of("America/Bogota"));
+        final int limit = maxMinutos;
+
+        return visitas.stream().map(v -> {
+            Long minutos = null;
+            Boolean excedido = false;
+            if (v.fechaIngreso() != null) {
+                if ("EN_CURSO".equalsIgnoreCase(v.estado())) {
+                    minutos = Math.max(0, Duration.between(v.fechaIngreso(), now).toMinutes());
+                    excedido = minutos > limit;
+                } else if (v.fechaSalida() != null) {
+                    minutos = Math.max(0, Duration.between(v.fechaIngreso(), v.fechaSalida()).toMinutes());
+                    excedido = minutos > limit;
+                }
+            }
+            return v.withPermanencia(minutos, limit, excedido);
+        }).toList();
     }
 
     @Override
@@ -191,8 +226,28 @@ public class PorteriaServiceImpl implements PorteriaService {
     @Override
     @Transactional(readOnly = true)
     public VisitaDetalleDTO getVisitaDetalle(Long id) {
-        return porteriaRepository.getVisitaDetalle(id)
+        VisitaDetalleDTO v = porteriaRepository.getVisitaDetalle(id)
                 .orElseThrow(() -> new RuntimeException("Visita no encontrada"));
+        SaedContext ctx = SaedContextHolder.getContext();
+        Long propId = (ctx != null && ctx.getPropertyId() != null) ? ctx.getPropertyId() : 1L;
+        int maxMinutos = 240;
+        if (propertyConfigService != null) {
+            maxMinutos = propertyConfigService.getIntValue(propId, PropertyConfigServiceImpl.KEY_TIEMPO_MAXIMO_VISITA, 240);
+        }
+
+        ZonedDateTime now = ZonedDateTime.now(ZoneId.of("America/Bogota"));
+        Long minutos = null;
+        Boolean excedido = false;
+        if (v.fechaVisita() != null) {
+            if ("EN_CURSO".equalsIgnoreCase(v.estado())) {
+                minutos = Math.max(0, Duration.between(v.fechaVisita(), now).toMinutes());
+                excedido = minutos > maxMinutos;
+            } else if (v.fechaSalida() != null) {
+                minutos = Math.max(0, Duration.between(v.fechaVisita(), v.fechaSalida()).toMinutes());
+                excedido = minutos > maxMinutos;
+            }
+        }
+        return v.withPermanencia(minutos, maxMinutos, excedido);
     }
 
     @Override
@@ -218,7 +273,7 @@ public class PorteriaServiceImpl implements PorteriaService {
             throw new IllegalArgumentException("El movimiento debe ser ENTRADA");
         }
         if (request.visitaId() != null) {
-            porteriaRepository.updateVisitaEstado(request.visitaId(), "ACTIVA");
+            porteriaRepository.updateVisitaEstado(request.visitaId(), "EN_CURSO");
         }
         return porteriaRepository.createRegistroAcceso(request);
     }
@@ -421,109 +476,84 @@ public class PorteriaServiceImpl implements PorteriaService {
     @Auditable(action = "CHECKIN_QR", resource = "ACCESO_PORTERIA", category = AuditCategory.SECURITY, severity = AuditSeverity.INFO)
     public Map<String, Object> registrarEntradaQr(String token, String medioTransporte, String placa, String descripcion) {
         if (token == null || token.isBlank()) {
-            throw new IllegalArgumentException("Token QR requerido");
-        }
-        QrAccesoDTO qr = porteriaRepository.getQrAccesoByToken(token)
-                .orElseThrow(() -> new IllegalArgumentException("Código QR no encontrado"));
-
-        if (!"ACTIVO".equalsIgnoreCase(qr.estado())) {
-            Map<String, Object> yaRegistrado = checkExistingEntry(qr);
-            if (yaRegistrado != null) {
-                return yaRegistrado;
-            }
-            throw new IllegalStateException("El código QR no se encuentra activo (Estado: " + qr.estado() + ")");
-        }
-        if (qr.fechaExpiracion() != null && qr.fechaExpiracion().isBefore(ZonedDateTime.now(ZoneId.of("America/Bogota")))) {
-            throw new IllegalStateException("El código QR ha expirado");
-        }
-        if (qr.usosPermitidos() != null && qr.usosConsumidos() != null && qr.usosConsumidos() >= qr.usosPermitidos()) {
-            Map<String, Object> yaRegistrado = checkExistingEntry(qr);
-            if (yaRegistrado != null) {
-                return yaRegistrado;
-            }
-            throw new IllegalStateException("El código QR ya alcanzó el límite de usos permitidos");
+            throw new QrAccessException("Token QR requerido", "BAD_REQUEST", HttpStatus.BAD_REQUEST);
         }
 
-        // 1. Consumir uso
-        porteriaRepository.consumeQrUso(qr.idQr());
-        int nuevosUsos = (qr.usosConsumidos() != null ? qr.usosConsumidos() : 0) + 1;
-        if (qr.usosPermitidos() != null && nuevosUsos >= qr.usosPermitidos()) {
-            try {
-                jdbcTemplate.update("UPDATE QR_ACCESOS SET ESTADO = 'USADO' WHERE ID_QR = :id", new MapSqlParameterSource("id", qr.idQr()));
-            } catch (Exception ignored) {}
-        }
-
-        // 2. Actualizar visita a EN_CURSO
-        if (qr.visitaId() != null) {
-            porteriaRepository.updateVisitaEstado(qr.visitaId(), "EN_CURSO");
-        }
-
-        // 3. Metadata para Registro de Acceso
-        Long propId = SaedContextHolder.getContext().getPropertyId();
-        Long porteroId = SaedContextHolder.getContext().getUserId();
-        Long personaId = 1L;
-        Long unidadId = null;
-
-        if (qr.visitaId() != null) {
-            try {
-                List<Map<String, Object>> rows = jdbcTemplate.queryForList(
-                    "SELECT v.ID_UNIDAD, vis.ID_PERSONA, u.ID_PROPIEDAD " +
-                    "FROM VISITAS v " +
-                    "JOIN UNIDADES u ON u.ID_UNIDAD = v.ID_UNIDAD " +
-                    "JOIN VISITANTES vis ON vis.ID_VISITANTE = v.ID_VISITANTE " +
-                    "WHERE v.ID_VISITA = :visitaId",
-                    new MapSqlParameterSource("visitaId", qr.visitaId())
-                );
-                if (!rows.isEmpty()) {
-                    Map<String, Object> r = rows.get(0);
-                    if (r.get("ID_UNIDAD") != null) unidadId = ((Number) r.get("ID_UNIDAD")).longValue();
-                    if (r.get("ID_PERSONA") != null) personaId = ((Number) r.get("ID_PERSONA")).longValue();
-                    if (propId == null && r.get("ID_PROPIEDAD") != null) propId = ((Number) r.get("ID_PROPIEDAD")).longValue();
-                }
-            } catch (Exception e) {
-                log.warn("Error consultando metadata de visita {}: {}", qr.visitaId(), e.getMessage());
-            }
-        }
+        // 1. Identificar portería y portero operador
+        Long propId = SaedContextHolder.getContext() != null ? SaedContextHolder.getContext().getPropertyId() : null;
+        Long porteroId = SaedContextHolder.getContext() != null ? SaedContextHolder.getContext().getUserId() : null;
+        if (porteroId == null) porteroId = 1L;
         if (propId == null) propId = 1L;
 
-        // 4. Identificar portería válida
         Long porteriaId = null;
-        try {
-            porteriaId = jdbcTemplate.queryForObject(
-                "SELECT MIN(ID_PORTERIA) FROM PORTERIAS WHERE ID_PROPIEDAD = :propId",
-                new MapSqlParameterSource("propId", propId),
-                Long.class
-            );
-        } catch (Exception ignored) {}
-        if (porteriaId == null) {
+        if (propId != null) {
+            try {
+                porteriaId = jdbcTemplate.queryForObject(
+                    "SELECT MIN(ID_PORTERIA) FROM PORTERIAS WHERE ID_PROPIEDAD = :propId",
+                    new MapSqlParameterSource("propId", propId),
+                    Long.class
+                );
+            } catch (Exception ignored) {}
+            if (porteriaId == null) {
+                porteriaId = -1L * propId;
+            }
+        } else {
             try {
                 porteriaId = jdbcTemplate.queryForObject("SELECT MIN(ID_PORTERIA) FROM PORTERIAS", new MapSqlParameterSource(), Long.class);
             } catch (Exception ignored) {}
+            if (porteriaId == null) porteriaId = 1L;
         }
-        if (porteriaId == null) porteriaId = 1L;
 
-        // 5. Insertar Registro de Acceso
+        // 2. Validación y Consumo Atómico mediante Stored Procedure Oracle (GAP-F7-02)
+        QrConsumoResultadoDTO resultadoSp = porteriaRepository.validarYConsumirQrSp(token, porteriaId, porteroId);
+
+        if (!resultadoSp.valido()) {
+            String msg = resultadoSp.mensaje() != null ? resultadoSp.mensaje() : "Acceso denegado con código QR";
+            String msgUpper = msg.toUpperCase();
+            if (msgUpper.contains("NO ENCONTRADO") || msgUpper.contains("INVÁLIDO") || msgUpper.contains("INVALIDO")) {
+                throw new QrAccessException(msg, "QR_NOT_FOUND", HttpStatus.NOT_FOUND);
+            } else if (msgUpper.contains("EXPIRADO")) {
+                throw new QrAccessException(msg, "QR_EXPIRED", HttpStatus.CONFLICT);
+            } else if (msgUpper.contains("PROPIEDAD") || msgUpper.contains("PORTERÍA") || msgUpper.contains("PORTERIA")) {
+                throw new QrAccessException(msg, "QR_PROPERTY_MISMATCH", HttpStatus.FORBIDDEN);
+            } else if (msgUpper.contains("USADO") || msgUpper.contains("NO SE ENCUENTRA ACTIVO") || msgUpper.contains("LÍMITE") || msgUpper.contains("LIMITE") || msgUpper.contains("AGOTADO")) {
+                throw new QrAccessException(msg, "QR_ALREADY_USED", HttpStatus.CONFLICT);
+            } else {
+                throw new QrAccessException(msg, "QR_ACCESS_DENIED", HttpStatus.CONFLICT);
+            }
+        }
+
+        Long visitaId = resultadoSp.visitaId();
+
+        // 3. Actualizar visita a EN_CURSO si aplica (F7-01 canónico)
+        if (visitaId != null) {
+            porteriaRepository.updateVisitaEstado(visitaId, "EN_CURSO");
+        }
+
+        // 4. Complementar metadata en REGISTROS_ACCESO (placa y observaciones) si aplica
         String obs = (medioTransporte != null ? medioTransporte : "A_PIE") +
                 (descripcion != null && !descripcion.isBlank() ? " - " + descripcion : "");
-        RegistroAccesoRequestDTO regRequest = new RegistroAccesoRequestDTO(
-            propId,
-            porteriaId,
-            null,
-            qr.visitaId(),
-            personaId,
-            unidadId,
-            qr.idQr(),
-            "ENTRADA",
-            "QR_SCAN",
-            porteroId,
-            placa,
-            obs
-        );
-        porteriaRepository.createRegistroAcceso(regRequest);
+        if (visitaId != null) {
+            try {
+                jdbcTemplate.update(
+                    "UPDATE REGISTROS_ACCESO SET PLACA_VEHICULO = :placa, OBSERVACIONES = :obs " +
+                    "WHERE ID_REGISTRO_ACCESO = (" +
+                    "  SELECT MAX(ID_REGISTRO_ACCESO) FROM REGISTROS_ACCESO " +
+                    "  WHERE ID_VISITA = :visitaId AND TIPO_MOVIMIENTO = 'ENTRADA'" +
+                    ")",
+                    new MapSqlParameterSource()
+                        .addValue("placa", placa != null && !placa.isBlank() ? placa.trim().toUpperCase() : null)
+                        .addValue("obs", obs)
+                        .addValue("visitaId", visitaId)
+                );
+            } catch (Exception e) {
+                log.warn("Aviso al complementar registro de acceso: {}", e.getMessage());
+            }
+        }
 
-        // 6. Asignar parqueadero y registrar vehículo si aplica
+        // 5. Asignar parqueadero y registrar vehículo si aplica
         String parqAsignado = null;
-        if (qr.visitaId() != null && ("CARRO".equalsIgnoreCase(medioTransporte) || "MOTO".equalsIgnoreCase(medioTransporte))) {
+        if (visitaId != null && ("CARRO".equalsIgnoreCase(medioTransporte) || "MOTO".equalsIgnoreCase(medioTransporte))) {
             try {
                 List<Map<String, Object>> parqs = jdbcTemplate.queryForList(
                     "SELECT ID_PARQUEADERO, NUMERO_PARQUEADERO FROM PARQUEADEROS " +
@@ -535,10 +565,10 @@ public class PorteriaServiceImpl implements PorteriaService {
                 if (!parqs.isEmpty()) {
                     parqId = ((Number) parqs.get(0).get("ID_PARQUEADERO")).longValue();
                     parqAsignado = (String) parqs.get(0).get("NUMERO_PARQUEADERO");
-                    jdbcTemplate.update("UPDATE PARQUEADEROS SET ESTADO = 'OCUPADO' WHERE ID_PARQUEADERO = :id", new MapSqlParameterSource("id", parqId));
+                    jdbcTemplate.update("UPDATE PARQUEADEROS SET ESTADO = 'ASIGNADO' WHERE ID_PARQUEADERO = :id", new MapSqlParameterSource("id", parqId));
                 }
                 VehiculoVisitaRequestDTO vehRequest = new VehiculoVisitaRequestDTO(
-                    qr.visitaId(),
+                    visitaId,
                     parqId,
                     placa != null ? placa : "",
                     "CARRO".equalsIgnoreCase(medioTransporte) ? "CARRO" : "MOTO",
@@ -552,8 +582,8 @@ public class PorteriaServiceImpl implements PorteriaService {
 
         Map<String, Object> resp = new HashMap<>();
         resp.put("success", true);
-        resp.put("mensaje", "Entrada registrada exitosamente");
-        resp.put("idVisita", qr.visitaId());
+        resp.put("mensaje", resultadoSp.mensaje() != null ? resultadoSp.mensaje() : "Entrada registrada exitosamente");
+        resp.put("idVisita", visitaId);
         resp.put("parqueadero", parqAsignado);
         return resp;
     }

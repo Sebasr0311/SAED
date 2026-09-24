@@ -26,6 +26,7 @@ public interface PorteriaRepository {
     Optional<QrAccesoDTO> getQrAccesoById(Long id);
     Optional<QrAccesoDTO> getQrAccesoByToken(String token);
     void consumeQrUso(Long id);
+    QrConsumoResultadoDTO validarYConsumirQrSp(String tokenQr, Long idPorteria, Long idUsuarioPortero);
 
     // Vehiculo Visita
     VehiculoVisitaDTO createVehiculoVisita(VehiculoVisitaRequestDTO request);

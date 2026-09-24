@@ -65,6 +65,13 @@ const ESTADO_BADGE = {
     bgClass: 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700',
     icon: AlertCircle,
   },
+  COMPLETADA: {
+    label: 'Completada',
+    badgeVariant: 'secondary',
+    colorClass: 'text-blue-700 dark:text-blue-400',
+    bgClass: 'bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800/60',
+    icon: CheckCircle2,
+  },
 };
 
 const emptyForm = {
@@ -91,6 +98,8 @@ export default function ResReservasPage() {
   const [form, setForm] = useState(emptyForm);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalDetalle, setModalDetalle] = useState(null);
+  const [reservaACancelar, setReservaACancelar] = useState(null);
+  const [cancelando, setCancelando] = useState(false);
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
   const [errors, setErrors] = useState({});
@@ -117,6 +126,26 @@ export default function ResReservasPage() {
     return Array.isArray(list) ? list : [];
   }, [reservasData]);
 
+  // 3. Estado financiero de la unidad (GAP-F8-08 Banner Preventivo de Mora)
+  const {
+    data: estadoFinancieroData,
+    loading: loadingEstadoFinanciero,
+    refetch: refetchFinanciero,
+  } = useFetch(() => api.get('/paz-y-salvos/mi-estado-financiero'), [user]);
+
+  const estadoFinanciero = useMemo(() => {
+    return estadoFinancieroData?.data || estadoFinancieroData || null;
+  }, [estadoFinancieroData]);
+
+  const enMora = useMemo(() => {
+    if (!estadoFinanciero) return false;
+    return Boolean(
+      estadoFinanciero.enMora === true ||
+      estadoFinanciero.pazYSalvo === false ||
+      (estadoFinanciero.saldoTotalExigible != null && Number(estadoFinanciero.saldoTotalExigible) > 0)
+    );
+  }, [estadoFinanciero]);
+
   // Métricas
   const stats = useMemo(() => {
     const total = reservas.length;
@@ -142,7 +171,7 @@ export default function ResReservasPage() {
     return reservas.filter((r) => {
       if (tabFiltro === 'PENDIENTES' && r.estado !== 'PENDIENTE') return false;
       if (tabFiltro === 'APROBADAS' && r.estado !== 'APROBADA') return false;
-      if (tabFiltro === 'HISTORIAL' && r.estado !== 'RECHAZADA' && r.estado !== 'CANCELADA') return false;
+      if (tabFiltro === 'HISTORIAL' && r.estado !== 'RECHAZADA' && r.estado !== 'CANCELADA' && r.estado !== 'COMPLETADA') return false;
 
       if (searchTerm.trim()) {
         const q = searchTerm.toLowerCase().trim();
@@ -156,6 +185,9 @@ export default function ResReservasPage() {
   }, [reservas, tabFiltro, searchTerm]);
 
   function abrirReservaZona(zonaId) {
+    if (enMora) {
+      toast.warning('Tu unidad presenta saldo pendiente en mora. La reserva requerirá paz y salvo para ser aprobada.');
+    }
     setForm({
       ...emptyForm,
       idZona: zonaId ? String(zonaId) : '',
@@ -226,6 +258,21 @@ export default function ResReservasPage() {
     }
   }
 
+  async function handleConfirmarCancelacion() {
+    if (!reservaACancelar) return;
+    setCancelando(true);
+    try {
+      await api.put(`/reservas/${reservaACancelar.idReserva}/cancelar`);
+      toast.success('Reserva cancelada exitosamente.');
+      setReservaACancelar(null);
+      refetch();
+    } catch (err) {
+      toast.error(err.message || 'Error al cancelar la reserva');
+    } finally {
+      setCancelando(false);
+    }
+  }
+
   const zonaSeleccionadaEnModal = useMemo(() => {
     return zonas.find((z) => String(z.idZona) === String(form.idZona));
   }, [zonas, form.idZona]);
@@ -242,6 +289,52 @@ export default function ResReservasPage() {
           </Button>
         }
       />
+
+      {/* Banner Preventivo de Mora Financiera (GAP-F8-08) */}
+      {!loadingEstadoFinanciero && enMora && estadoFinanciero && (
+        <div
+          data-testid="mora-preventive-banner"
+          className="mb-6 p-4 rounded-xl border border-rose-300 dark:border-rose-900/60 bg-rose-50/95 dark:bg-rose-950/30 text-rose-900 dark:text-rose-200 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-sm"
+        >
+          <div className="flex items-start gap-3">
+            <div className="p-2 rounded-lg bg-rose-100 dark:bg-rose-900/50 text-rose-700 dark:text-rose-300 shrink-0 mt-0.5">
+              <AlertCircle className="w-5 h-5" />
+            </div>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <h4 className="font-bold text-rose-950 dark:text-rose-100 text-sm">
+                  Unidad con Obligaciones Financieras Pendientes
+                </h4>
+                <Badge variant="destructive" className="text-[10px] px-1.5 py-0 uppercase">
+                  En Mora
+                </Badge>
+              </div>
+              <p className="text-xs text-rose-800 dark:text-rose-300 leading-relaxed">
+                Tu unidad {estadoFinanciero.identificadorUnidad ? `(${estadoFinanciero.identificadorUnidad})` : ''} presenta un saldo pendiente de{' '}
+                <strong className="font-semibold text-rose-950 dark:text-rose-100">
+                  {formatCurrency(estadoFinanciero.saldoTotalExigible || 0)}
+                </strong>
+                . Conforme al reglamento de propiedad horizontal, la aprobación y confirmación de nuevas reservas de zonas comunes se encuentra restringida hasta normalizar el estado de cartera.
+              </p>
+              {Array.isArray(estadoFinanciero.motivosBloqueo) && estadoFinanciero.motivosBloqueo.length > 0 && (
+                <ul className="list-disc list-inside text-xs text-rose-700 dark:text-rose-300/90 pt-1 space-y-0.5">
+                  {estadoFinanciero.motivosBloqueo.map((motivo, idx) => (
+                    <li key={idx}>{motivo}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+          <Button
+            variant="destructive"
+            size="sm"
+            className="shrink-0 self-end md:self-center font-medium shadow-sm"
+            onClick={() => (window.location.href = '/residente/cuotas')}
+          >
+            Ir a Mis Cuotas
+          </Button>
+        </div>
+      )}
 
       {/* 1. KPIs Ejecutivos */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -463,7 +556,18 @@ export default function ResReservasPage() {
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between md:justify-end gap-3 shrink-0 pt-3 md:pt-0 border-t md:border-t-0 border-border">
+                  <div className="flex items-center justify-between md:justify-end gap-2 shrink-0 pt-3 md:pt-0 border-t md:border-t-0 border-border">
+                    {(r.estado === 'PENDIENTE' || r.estado === 'APROBADA') && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-200 dark:border-rose-900/50 dark:hover:bg-rose-950/40"
+                        onClick={() => setReservaACancelar(r)}
+                      >
+                        <XCircle className="w-4 h-4 mr-1.5" />
+                        Cancelar
+                      </Button>
+                    )}
                     <Button
                       variant="outline"
                       size="sm"
@@ -497,6 +601,16 @@ export default function ResReservasPage() {
         }
       >
         <form onSubmit={handleSubmit} className="space-y-4">
+          {enMora && (
+            <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 flex items-start gap-2.5 text-xs text-rose-900 dark:text-rose-200">
+              <AlertCircle className="w-4 h-4 shrink-0 text-rose-600 mt-0.5" />
+              <div>
+                <strong>Aviso de Cartera:</strong> Tu unidad registra obligaciones pendientes por{' '}
+                <strong>{formatCurrency(estadoFinanciero?.saldoTotalExigible || 0)}</strong>. Recuerda que la confirmación de la reserva requiere encontrarse a paz y salvo.
+              </div>
+            </div>
+          )}
+
           <div className="form-group">
             <Select
               id="idZona"
@@ -592,9 +706,28 @@ export default function ResReservasPage() {
         onClose={() => setModalDetalle(null)}
         title={`Detalle de Reserva #${modalDetalle?.idReserva || ''}`}
         footer={
-          <Button variant="outline" onClick={() => setModalDetalle(null)}>
-            Cerrar Ficha
-          </Button>
+          <div className="flex items-center justify-between w-full">
+            {modalDetalle && (modalDetalle.estado === 'PENDIENTE' || modalDetalle.estado === 'APROBADA') ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-200 dark:border-rose-900/50 dark:hover:bg-rose-950/40"
+                onClick={() => {
+                  const r = modalDetalle;
+                  setModalDetalle(null);
+                  setReservaACancelar(r);
+                }}
+              >
+                <XCircle className="w-4 h-4 mr-1.5" />
+                Cancelar Reserva
+              </Button>
+            ) : (
+              <div />
+            )}
+            <Button variant="outline" onClick={() => setModalDetalle(null)}>
+              Cerrar Ficha
+            </Button>
+          </div>
         }
       >
         {modalDetalle && (
@@ -663,6 +796,44 @@ export default function ResReservasPage() {
                 El residente es responsable del cuidado del mobiliario, orden y entrega del espacio en el mismo
                 estado en que fue recibido. Aplican normas de sonido y horarios del manual de propiedad horizontal.
               </p>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* 6. Modal Confirmar Cancelación */}
+      <Modal
+        open={!!reservaACancelar}
+        onClose={() => !cancelando && setReservaACancelar(null)}
+        title="Cancelar Reserva"
+        footer={
+          <div className="flex items-center justify-end gap-2 w-full">
+            <Button
+              variant="outline"
+              onClick={() => setReservaACancelar(null)}
+              disabled={cancelando}
+            >
+              Volver
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmarCancelacion}
+              disabled={cancelando}
+            >
+              {cancelando ? 'Cancelando...' : 'Confirmar Cancelación'}
+            </Button>
+          </div>
+        }
+      >
+        {reservaACancelar && (
+          <div className="space-y-3 text-sm">
+            <p className="text-muted-foreground">
+              ¿Estás seguro de que deseas cancelar tu reserva para el espacio{' '}
+              <strong className="text-foreground">{reservaACancelar.nombreZona}</strong> programada para el{' '}
+              <strong className="text-foreground">{formatDate(reservaACancelar.fechaReserva)}</strong> ({reservaACancelar.horaInicio} - {reservaACancelar.horaFin})?
+            </p>
+            <div className="p-3 rounded-xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40 text-xs text-amber-900 dark:text-amber-300">
+              Esta acción liberará el espacio para otros residentes y no se puede deshacer.
             </div>
           </div>
         )}

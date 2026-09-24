@@ -3,27 +3,44 @@ package com.saed.backend.porteria.repository.impl;
 import com.saed.backend.porteria.dto.*;
 import com.saed.backend.porteria.repository.PorteriaRepository;
 import org.springframework.jdbc.core.RowMapper;
+import org.springframework.jdbc.core.SqlOutParameter;
+import org.springframework.jdbc.core.SqlParameter;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.jdbc.core.simple.SimpleJdbcCall;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
 import java.sql.Timestamp;
+import java.sql.Types;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Repository
 public class PorteriaRepositoryImpl implements PorteriaRepository {
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
+    private final SimpleJdbcCall validarConsumirQrCall;
     private final ZoneId bogotaZone = ZoneId.of("America/Bogota");
 
     public PorteriaRepositoryImpl(NamedParameterJdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
+        this.validarConsumirQrCall = new SimpleJdbcCall(jdbcTemplate.getJdbcTemplate())
+                .withProcedureName("SP_VALIDAR_CONSUMIR_QR")
+                .withoutProcedureColumnMetaDataAccess()
+                .declareParameters(
+                        new SqlParameter("p_token_qr", Types.VARCHAR),
+                        new SqlParameter("p_id_porteria", Types.NUMERIC),
+                        new SqlParameter("p_portero_usuario", Types.NUMERIC),
+                        new SqlOutParameter("p_valido", Types.CHAR),
+                        new SqlOutParameter("p_mensaje", Types.VARCHAR),
+                        new SqlOutParameter("p_id_visita", Types.NUMERIC)
+                );
     }
 
     private ZonedDateTime toZDT(Timestamp ts) {
@@ -335,6 +352,27 @@ public class PorteriaRepositoryImpl implements PorteriaRepository {
     public void consumeQrUso(Long id) {
         String sql = "UPDATE QR_ACCESOS SET USOS_CONSUMIDOS = USOS_CONSUMIDOS + 1 WHERE ID_QR = :id";
         jdbcTemplate.update(sql, new MapSqlParameterSource("id", id));
+    }
+
+    @Override
+    public QrConsumoResultadoDTO validarYConsumirQrSp(String tokenQr, Long idPorteria, Long idUsuarioPortero) {
+        MapSqlParameterSource in = new MapSqlParameterSource()
+                .addValue("p_token_qr", tokenQr)
+                .addValue("p_id_porteria", idPorteria)
+                .addValue("p_portero_usuario", idUsuarioPortero);
+
+        Map<String, Object> out = validarConsumirQrCall.execute(in);
+
+        Object validoObj = out.get("p_valido") != null ? out.get("p_valido") : out.get("P_VALIDO");
+        boolean valido = validoObj != null && "S".equalsIgnoreCase(validoObj.toString().trim());
+
+        Object msgObj = out.get("p_mensaje") != null ? out.get("p_mensaje") : out.get("P_MENSAJE");
+        String mensaje = msgObj != null ? msgObj.toString() : "";
+
+        Object visitaIdObj = out.get("p_id_visita") != null ? out.get("p_id_visita") : out.get("P_ID_VISITA");
+        Long visitaId = visitaIdObj instanceof Number num ? num.longValue() : null;
+
+        return new QrConsumoResultadoDTO(valido, mensaje, visitaId);
     }
 
     // --- VEHICULOS_VISITA ---

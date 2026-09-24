@@ -31,10 +31,12 @@ public class PorteriaExtController {
     }
 
     @PostMapping("/visitas/rapida")
-    @PreAuthorize("hasAuthority('SCOPE_RESIDENTE') or hasAuthority('SCOPE_PORTERO')")
+    @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_RESIDENTE') or hasAuthority('SCOPE_RESIDENTE_CONVIVENCIA') or hasAuthority('SCOPE_PORTERO')")
     @Auditable(action = "CREATE", resource = "VISITA_RAPIDA", category = AuditCategory.SECURITY, severity = AuditSeverity.INFO)
-    public ResponseEntity<Void> visitaRapida(@RequestBody Map<String, Object> payload) {
-        return ResponseEntity.ok().build();
+    public ResponseEntity<Map<String, Object>> visitaRapida(@RequestBody Map<String, Object> payload) {
+        Map<String, Object> result = porteriaController.programarVisitaRapida(payload);
+        return new ResponseEntity<>(result, HttpStatus.CREATED);
     }
 }
 

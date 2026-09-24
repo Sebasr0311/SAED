@@ -287,8 +287,20 @@ public class PorteriaController {
         // Marcar como frecuente si se solicita en el registro de visita
         boolean esFrecuente = Boolean.TRUE.equals(body.get("guardarFrecuente")) || "true".equalsIgnoreCase(String.valueOf(body.get("guardarFrecuente")));
 
-        // Si viene mapa de visitante y no visitanteId, resolver/crear persona y visitante
-        if (visitanteId == null && body.get("visitante") instanceof Map<?, ?> visMap) {
+        // Si viene mapa de visitante o datos planos en raíz, y no visitanteId, resolver/crear persona y visitante
+        Map<?, ?> visMap = (body.get("visitante") instanceof Map<?, ?> m) ? m : null;
+        if (visMap == null && (body.get("documento") != null || body.get("nombreVisitante") != null || body.get("numeroDocumento") != null)) {
+            Map<String, Object> synthetic = new HashMap<>();
+            synthetic.put("numeroDocumento", body.get("documento") != null ? body.get("documento") : body.get("numeroDocumento"));
+            synthetic.put("nombres", body.get("nombreVisitante") != null ? body.get("nombreVisitante") : body.get("nombres"));
+            synthetic.put("apellidos", body.get("apellidos") != null ? body.get("apellidos") : "");
+            synthetic.put("telefono", body.get("telefono") != null ? body.get("telefono") : "");
+            synthetic.put("email", body.get("email") != null ? body.get("email") : "");
+            synthetic.put("idTipoDoc", body.get("idTipoDoc") != null ? body.get("idTipoDoc") : 1L);
+            visMap = synthetic;
+        }
+
+        if (visitanteId == null && visMap != null) {
             String doc = visMap.get("numeroDocumento") != null ? visMap.get("numeroDocumento").toString().trim() : "";
             String nom = visMap.get("nombres") != null ? visMap.get("nombres").toString().trim() : "Visitante";
             String ape = visMap.get("apellidos") != null ? visMap.get("apellidos").toString().trim() : "";
