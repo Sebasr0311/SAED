@@ -92,6 +92,9 @@ public class H04SuperAdminResidualOperationalRestrictionSecurityTest {
     private ObraService obraService;
 
     @MockBean
+    private com.saed.backend.trabajadores.service.TrabajadorService trabajadorService;
+
+    @MockBean
     private SancionService sancionService;
 
     @MockBean

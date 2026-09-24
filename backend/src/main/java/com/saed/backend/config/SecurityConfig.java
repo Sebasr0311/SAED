@@ -47,6 +47,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/v1/health", "/api/v1/ping", "/api/v1/auth/**", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                 // Catálogo comercial público de planes SaaS (GAP-ENT-07)
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/planes/**").permitAll()
+                // Verificación pública de certificados de Paz y Salvo (GAP-F6-04)
+                .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/paz-y-salvos/verificar/**").permitAll()
                 // Webhook de Wompi: Wompi lo llama SIN token (firma valida con WOMPI_EVENTS_SECRET)
                 .requestMatchers("/api/v1/pagos/wompi/webhook", "/api/v1/pagos/notificacion").permitAll()
                 .requestMatchers("/error").permitAll()

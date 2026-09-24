@@ -25,6 +25,8 @@ public class PropertyConfigServiceImpl implements PropertyConfigService {
     public static final String KEY_PERMITE_MASCOTAS = "PERMITE_MASCOTAS";
     public static final String KEY_VALOR_EXPENSA = "VALOR_EXPENSA_DEFECTO";
     public static final String KEY_FORMATO_NOTIFICACION = "FORMATO_NOTIFICACION";
+    public static final String KEY_TIEMPO_MAXIMO_DOMICILIO = "TIEMPO_MAXIMO_DOMICILIO_MINUTOS";
+    public static final String KEY_TIEMPO_MAXIMO_VISITA = "TIEMPO_MAXIMO_VISITA_MINUTOS";
 
     private static final Map<String, ConfigDefinition> DEFAULTS = new LinkedHashMap<>();
 
@@ -43,6 +45,10 @@ public class PropertyConfigServiceImpl implements PropertyConfigService {
                 "0", "Valor de expensa común de administración por defecto para nuevas unidades"));
         DEFAULTS.put(KEY_FORMATO_NOTIFICACION, new ConfigDefinition(
                 "EMAIL", "Canal preferente de notificaciones (EMAIL, SMS, INTERNO)"));
+        DEFAULTS.put(KEY_TIEMPO_MAXIMO_DOMICILIO, new ConfigDefinition(
+                "30", "Tiempo máximo de permanencia para domiciliarios y repartidores en minutos"));
+        DEFAULTS.put(KEY_TIEMPO_MAXIMO_VISITA, new ConfigDefinition(
+                "240", "Tiempo máximo de permanencia para visitas en minutos"));
     }
 
     private final PropertyConfigRepository repository;
@@ -122,6 +128,15 @@ public class PropertyConfigServiceImpl implements PropertyConfigService {
                 }
             } catch (NumberFormatException e) {
                 throw new IllegalArgumentException("El valor de expensa debe ser un número válido");
+            }
+        } else if (KEY_TIEMPO_MAXIMO_DOMICILIO.equals(cleanKey) || KEY_TIEMPO_MAXIMO_VISITA.equals(cleanKey)) {
+            try {
+                int parsed = Integer.parseInt(cleanVal);
+                if (parsed <= 0) {
+                    throw new IllegalArgumentException("El tiempo máximo debe ser un número entero mayor a cero");
+                }
+            } catch (NumberFormatException e) {
+                throw new IllegalArgumentException("El tiempo máximo debe ser un número entero válido");
             }
         }
     }

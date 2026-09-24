@@ -257,21 +257,12 @@ public class OnboardingServiceImpl implements OnboardingService {
                 throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "No se pudo registrar la intención de suscripción");
             }
 
-            // Registrar transacción en TRANSACCIONES_PAGO para Wompi
-            Long unidadFallback = 1L;
-            try {
-                List<Long> uIds = jdbcTemplate.queryForList("SELECT MIN(ID_UNIDAD) FROM UNIDADES", new MapSqlParameterSource(), Long.class);
-                if (!uIds.isEmpty() && uIds.get(0) != null) {
-                    unidadFallback = uIds.get(0);
-                }
-            } catch (Exception ignored) {}
-
+            // GAP-F6-03: Segregación SaaS - Onboarding de plataforma no pertenece a una unidad residencial existente
             String insertTxSql = """
-                INSERT INTO TRANSACCIONES_PAGO (ID_UNIDAD, ID_PAGO, PASARELA, ID_TRANSACCION_PASARELA, REFERENCIA_INTERNA, MONTO_CENTAVOS, MONEDA, ESTADO_PASARELA, METODO_ORIGEN, FIRMA_CHECKSUM)
-                VALUES (:u, NULL, 'WOMPI', :ref, :ref, :mc, 'COP', 'PENDIENTE', 'ONBOARDING', :firma)
+                INSERT INTO TRANSACCIONES_PAGO (ID_UNIDAD, ID_ORGANIZACION, ID_PAGO, PASARELA, ID_TRANSACCION_PASARELA, REFERENCIA_INTERNA, MONTO_CENTAVOS, MONEDA, ESTADO_PASARELA, METODO_ORIGEN, FIRMA_CHECKSUM)
+                VALUES (NULL, NULL, NULL, 'WOMPI', :ref, :ref, :mc, 'COP', 'PENDIENTE', 'ONBOARDING', :firma)
                 """;
             jdbcTemplate.update(insertTxSql, new MapSqlParameterSource()
-                    .addValue("u", unidadFallback)
                     .addValue("ref", referencia)
                     .addValue("mc", montoCentavos)
                     .addValue("firma", firmaIntegridad)
