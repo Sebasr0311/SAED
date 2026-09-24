@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import api from './api.js';
 import { useTenant } from './TenantContext.jsx';
 
@@ -55,7 +55,10 @@ export function useTenantApi() {
     [headers]
   );
 
-  return { get, post, put, del, delete: del, patch };
+  return useMemo(
+    () => ({ get, post, put, del, delete: del, patch }),
+    [get, post, put, del, patch]
+  );
 }
 
 export default useTenantApi;

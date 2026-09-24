@@ -1,6 +1,7 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useState, useMemo } from 'react';
 import { useTenantApi } from '../lib/useTenantApi.js';
 import { useTenant } from '../lib/TenantContext.jsx';
+import { useFetch } from '../lib/hooks.js';
 import { Card, CardHeader, CardTitle, CardContent } from './ui/card.tsx';
 import { Badge } from './ui/badge.tsx';
 import { Button } from './ui/Button.jsx';
@@ -23,34 +24,25 @@ export function PropertyAnaliticaSection() {
   const tenant = useTenant();
   const tenantApi = useTenantApi();
   const [meses, setMeses] = useState(12);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [analitica, setAnalitica] = useState(null);
   const [activeTab, setActiveTab] = useState('financiero');
 
-  const loadAnalitica = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const res = await tenantApi.get(`/dashboard/propiedad/analitica?meses=${meses}`);
-      const payload = res?.data?.data || res?.data || null;
-      setAnalitica(payload);
-    } catch (err) {
-      console.error('Error cargando analítica de propiedad:', err);
-      setError(
-        err?.response?.data?.message ||
-        'No se pudieron cargar las tendencias analíticas de la propiedad.'
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, [tenantApi, meses]);
+  const {
+    data: analiticaRaw,
+    loading,
+    error,
+    refetch,
+  } = useFetch(
+    () =>
+      tenant.activeAssignmentId
+        ? tenantApi.get(`/dashboard/propiedad/analitica?meses=${meses}`)
+        : Promise.resolve(null),
+    [tenant.activeAssignmentId, meses]
+  );
 
-  useEffect(() => {
-    if (tenant.activeAssignmentId) {
-      loadAnalitica();
-    }
-  }, [loadAnalitica, tenant.activeAssignmentId]);
+  const analitica = useMemo(() => {
+    if (!analiticaRaw) return null;
+    return analiticaRaw.raw || analiticaRaw.data || analiticaRaw;
+  }, [analiticaRaw]);
 
   const formatCOP = (val) =>
     new Intl.NumberFormat('es-CO', {
@@ -77,16 +69,31 @@ export function PropertyAnaliticaSection() {
   }
 
   if (error) {
+    const errorMsg =
+      error?.response?.data?.message ||
+      error?.message ||
+      (typeof error === 'string'
+        ? error
+        : 'No se pudieron cargar las tendencias analíticas de la propiedad.');
+
     return (
       <div className="bg-destructive/10 border border-destructive/30 text-destructive p-4 rounded-xl flex items-center justify-between mt-4">
         <div className="flex items-center gap-2">
           <AlertTriangle className="h-4 w-4 shrink-0" />
-          <span className="text-xs font-medium">{error}</span>
+          <span className="text-xs font-medium">{errorMsg}</span>
         </div>
-        <Button variant="outline" size="sm" onClick={loadAnalitica}>
+        <Button variant="outline" size="sm" onClick={() => refetch()}>
           Reintentar
         </Button>
       </div>
+    );
+  }
+
+  if (!analitica) {
+    return (
+      <Card className="border-border/80 shadow-xs mt-6 p-6 text-center text-xs text-muted-foreground">
+        No hay datos analíticos disponibles para esta copropiedad.
+      </Card>
     );
   }
 
@@ -153,8 +160,8 @@ export function PropertyAnaliticaSection() {
               </button>
             </div>
 
-            <Button variant="outline" size="sm" onClick={loadAnalitica} className="h-8 px-2.5 text-xs">
-              <RefreshCw className="h-3.5 w-3.5" />
+            <Button variant="outline" size="sm" onClick={() => refetch()} className="h-8 px-2.5 text-xs">
+              <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin text-primary' : ''}`} />
             </Button>
           </div>
         </div>
