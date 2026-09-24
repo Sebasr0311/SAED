@@ -167,14 +167,6 @@ export default function DashboardPage() {
     return kpis?.totalPersonas != null ? Number(kpis.totalPersonas) : personasList.length;
   }, [kpis, personasList]);
 
-  const paquetesPendientesCount = useMemo(() => {
-    return kpis?.paquetesPendientes != null ? Number(kpis.paquetesPendientes) : paquetesPendientesList.length;
-  }, [kpis, paquetesPendientesList]);
-
-  const cuotasPendientesCount = useMemo(() => {
-    return kpis?.cuotasPendientesCount != null ? Number(kpis.cuotasPendientesCount) : cuotasPendientes.length;
-  }, [kpis, cuotasPendientes]);
-
   const multasPendientesList = useMemo(
     () => multasList.filter((m) => m.estado === 'PENDIENTE'),
     [multasList]
@@ -192,6 +184,14 @@ export default function DashboardPage() {
       ),
     [visitasList]
   );
+
+  const paquetesPendientesCount = useMemo(() => {
+    return kpis?.paquetesPendientes != null ? Number(kpis.paquetesPendientes) : paquetesPendientesList.length;
+  }, [kpis, paquetesPendientesList]);
+
+  const cuotasPendientesCount = useMemo(() => {
+    return kpis?.cuotasPendientesCount != null ? Number(kpis.cuotasPendientesCount) : cuotasPendientes.length;
+  }, [kpis, cuotasPendientes]);
 
   const contextoLabel = useMemo(
     () =>
