@@ -80,7 +80,7 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
         try {
             try {
                 Integer upToDate = jdbcTemplate.queryForObject(
-                    "SELECT COUNT(1) FROM USER_SOURCE WHERE NAME = 'PKG_SAED_SECURITY_RLS' AND TYPE = 'PACKAGE BODY' AND TEXT LIKE '%2026.09.24.V2_FIX_GLOBAL_MUTATE%'",
+                    "SELECT COUNT(1) FROM USER_SOURCE WHERE NAME = 'PKG_SAED_SECURITY_RLS' AND TYPE = 'PACKAGE BODY' AND TEXT LIKE '%2026.09.24.V3_FIX_CHILD_TABLES%'",
                     Integer.class
                 );
                 String rlsStatus = jdbcTemplate.queryForObject(
@@ -88,7 +88,7 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
                     String.class
                 );
                 if (upToDate != null && upToDate > 0 && "VALID".equalsIgnoreCase(rlsStatus)) {
-                    log.info("[SchemaInit] PKG_SAED_SECURITY_RLS ya se encuentra actualizado (versión 2026.09.24.V2) y en estado VALID. Se omite recompilación DDL.");
+                    log.info("[SchemaInit] PKG_SAED_SECURITY_RLS ya se encuentra actualizado (versión 2026.09.24.V3) y en estado VALID. Se omite recompilación DDL.");
                     return;
                 }
             } catch (Exception ignored) {}
@@ -108,7 +108,7 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
 
             jdbcTemplate.execute("""
                 CREATE OR REPLACE PACKAGE BODY PKG_SAED_SECURITY_RLS AS
-                    -- RLS_BUILD_VERSION: 2026.09.24.V2_FIX_GLOBAL_MUTATE
+                    -- RLS_BUILD_VERSION: 2026.09.24.V3_FIX_CHILD_TABLES
 
                     FUNCTION FN_FILTRO_ORGANIZACION (p_schema IN VARCHAR2, p_tab IN VARCHAR2) RETURN VARCHAR2 AS
                         v_org VARCHAR2(30) := SYS_CONTEXT('SAED_CTX', 'ID_ORGANIZACION');
@@ -187,6 +187,24 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
                             IF p_tab = 'REGLAMENTOS_NORMATIVA' THEN
                                 RETURN 'id_propiedad IN (SELECT id_propiedad FROM USUARIO_ASIGNACIONES WHERE id_usuario = ' || v_usr || ' AND estado=''ACTIVA'') AND estado = ''PUBLICADO''';
                             END IF;
+                            IF p_tab = 'SANCION_DESCARGOS' THEN
+                                RETURN 'id_sancion IN (SELECT id_sancion FROM SANCIONES WHERE id_propiedad IN (SELECT id_propiedad FROM USUARIO_ASIGNACIONES WHERE id_usuario = ' || v_usr || ' AND estado=''ACTIVA''))';
+                            END IF;
+                            IF p_tab IN ('ACTAS_ASAMBLEA', 'ASISTENCIAS_ASAMBLEA', 'PODERES_REPRESENTACION') THEN
+                                RETURN 'id_asamblea IN (SELECT id_asamblea FROM ASAMBLEAS WHERE id_propiedad IN (SELECT id_propiedad FROM USUARIO_ASIGNACIONES WHERE id_usuario = ' || v_usr || ' AND estado=''ACTIVA''))';
+                            END IF;
+                            IF p_tab = 'ENCUESTA_RESPUESTAS' THEN
+                                RETURN 'id_persona IN (SELECT id_persona FROM USUARIOS WHERE id_usuario = ' || v_usr || ')';
+                            END IF;
+                            IF p_tab = 'ACCESOS_CONFIGURADOS' THEN
+                                RETURN 'id_porteria IN (SELECT id_porteria FROM PORTERIAS WHERE id_propiedad IN (SELECT id_propiedad FROM USUARIO_ASIGNACIONES WHERE id_usuario = ' || v_usr || ' AND estado=''ACTIVA''))';
+                            END IF;
+                            IF p_tab = 'CATALOGO_ZONAS' THEN
+                                RETURN '1=1';
+                            END IF;
+                            IF p_tab = 'TRABAJADORES' THEN
+                                RETURN 'id_trabajador IN (SELECT id_trabajador FROM OBRA_TRABAJADORES ot JOIN OBRAS o ON ot.id_obra = o.id_obra JOIN UNIDADES u ON o.id_unidad = u.id_unidad WHERE u.id_unidad IN (SELECT id_unidad FROM USUARIO_ASIGNACIONES WHERE id_usuario = ' || v_usr || ' AND estado=''ACTIVA'' AND id_unidad IS NOT NULL))';
+                            END IF;
                             RETURN 'id_propiedad IN (SELECT id_propiedad FROM USUARIO_ASIGNACIONES WHERE id_usuario = ' || v_usr || ' AND estado=''ACTIVA'')';
                         END IF;
 
@@ -200,6 +218,12 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
                             IF p_tab = 'NOTIFICACIONES' THEN RETURN 'id_comunicado IN (SELECT id_comunicado FROM COMUNICADOS WHERE id_propiedad = ' || v_prop || ')'; END IF;
                             IF p_tab = 'ENCUESTA_OPCIONES' THEN RETURN 'id_encuesta IN (SELECT id_encuesta FROM ENCUESTAS WHERE id_propiedad = ' || v_prop || ')'; END IF;
                             IF p_tab = 'VISITANTES' THEN RETURN 'id_visitante IN (SELECT id_visitante FROM VISITAS JOIN UNIDADES ON VISITAS.id_unidad = UNIDADES.id_unidad WHERE UNIDADES.id_propiedad = ' || v_prop || ')'; END IF;
+                            IF p_tab = 'SANCION_DESCARGOS' THEN RETURN 'id_sancion IN (SELECT id_sancion FROM SANCIONES WHERE id_propiedad = ' || v_prop || ')'; END IF;
+                            IF p_tab IN ('ACTAS_ASAMBLEA', 'ASISTENCIAS_ASAMBLEA', 'PODERES_REPRESENTACION') THEN RETURN 'id_asamblea IN (SELECT id_asamblea FROM ASAMBLEAS WHERE id_propiedad = ' || v_prop || ')'; END IF;
+                            IF p_tab = 'ENCUESTA_RESPUESTAS' THEN RETURN 'id_opcion IN (SELECT id_opcion FROM ENCUESTA_OPCIONES eo JOIN ENCUESTAS e ON eo.id_encuesta = e.id_encuesta WHERE e.id_propiedad = ' || v_prop || ')'; END IF;
+                            IF p_tab = 'ACCESOS_CONFIGURADOS' THEN RETURN 'id_porteria IN (SELECT id_porteria FROM PORTERIAS WHERE id_propiedad = ' || v_prop || ')'; END IF;
+                            IF p_tab = 'CATALOGO_ZONAS' THEN RETURN '1=1'; END IF;
+                            IF p_tab = 'TRABAJADORES' THEN RETURN 'id_trabajador IN (SELECT id_trabajador FROM OBRA_TRABAJADORES ot JOIN OBRAS o ON ot.id_obra = o.id_obra JOIN UNIDADES u ON o.id_unidad = u.id_unidad WHERE u.id_propiedad = ' || v_prop || ') OR id_proveedor IN (SELECT id_proveedor FROM PROVEEDORES WHERE id_organizacion = ' || v_org || ')'; END IF;
                             RETURN 'id_propiedad = ' || v_prop;
                         ELSE
                             IF p_tab = 'PROPIEDADES' THEN RETURN 'id_organizacion = ' || v_org; END IF;
@@ -211,6 +235,12 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
                             IF p_tab = 'NOTIFICACIONES' THEN RETURN 'id_comunicado IN (SELECT id_comunicado FROM COMUNICADOS WHERE id_propiedad IN (SELECT id_propiedad FROM PROPIEDADES WHERE id_organizacion = ' || v_org || '))'; END IF;
                             IF p_tab = 'ENCUESTA_OPCIONES' THEN RETURN 'id_encuesta IN (SELECT id_encuesta FROM ENCUESTAS WHERE id_propiedad IN (SELECT id_propiedad FROM PROPIEDADES WHERE id_organizacion = ' || v_org || '))'; END IF;
                             IF p_tab = 'VISITANTES' THEN RETURN 'id_visitante IN (SELECT id_visitante FROM VISITAS JOIN UNIDADES ON VISITAS.id_unidad = UNIDADES.id_unidad JOIN PROPIEDADES ON UNIDADES.id_propiedad = PROPIEDADES.id_propiedad WHERE PROPIEDADES.id_organizacion = ' || v_org || ')'; END IF;
+                            IF p_tab = 'SANCION_DESCARGOS' THEN RETURN 'id_sancion IN (SELECT id_sancion FROM SANCIONES WHERE id_propiedad IN (SELECT id_propiedad FROM PROPIEDADES WHERE id_organizacion = ' || v_org || '))'; END IF;
+                            IF p_tab IN ('ACTAS_ASAMBLEA', 'ASISTENCIAS_ASAMBLEA', 'PODERES_REPRESENTACION') THEN RETURN 'id_asamblea IN (SELECT id_asamblea FROM ASAMBLEAS WHERE id_propiedad IN (SELECT id_propiedad FROM PROPIEDADES WHERE id_organizacion = ' || v_org || '))'; END IF;
+                            IF p_tab = 'ENCUESTA_RESPUESTAS' THEN RETURN 'id_opcion IN (SELECT id_opcion FROM ENCUESTA_OPCIONES eo JOIN ENCUESTAS e ON eo.id_encuesta = e.id_encuesta JOIN PROPIEDADES p ON e.id_propiedad = p.id_propiedad WHERE p.id_organizacion = ' || v_org || ')'; END IF;
+                            IF p_tab = 'ACCESOS_CONFIGURADOS' THEN RETURN 'id_porteria IN (SELECT id_porteria FROM PORTERIAS JOIN PROPIEDADES ON PORTERIAS.id_propiedad = PROPIEDADES.id_propiedad WHERE PROPIEDADES.id_organizacion = ' || v_org || ')'; END IF;
+                            IF p_tab = 'CATALOGO_ZONAS' THEN RETURN '1=1'; END IF;
+                            IF p_tab = 'TRABAJADORES' THEN RETURN 'id_proveedor IN (SELECT id_proveedor FROM PROVEEDORES WHERE id_organizacion = ' || v_org || ')'; END IF;
                             RETURN 'id_propiedad IN (SELECT id_propiedad FROM PROPIEDADES WHERE id_organizacion = ' || v_org || ')';
                         END IF;
                     EXCEPTION
