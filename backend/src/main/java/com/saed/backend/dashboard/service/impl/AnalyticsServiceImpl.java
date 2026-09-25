@@ -9,6 +9,7 @@ import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -19,6 +20,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 @Service
+@Transactional(readOnly = true)
 public class AnalyticsServiceImpl implements AnalyticsService {
 
     private final NamedParameterJdbcTemplate jdbc;
@@ -198,23 +200,28 @@ public class AnalyticsServiceImpl implements AnalyticsService {
             .stream()
             .collect(Collectors.toMap(r -> ((Number) r.get("ID_PROPIEDAD")).longValue(), r -> r));
 
-        // 3. Facturado Periodo
-        String sqlFacturado = """
+        // 3. Facturado, Cartera Periodo y Cartera Total Actual (consolidados en una sola consulta)
+        String sqlCuotasConsolidadas = """
             SELECT u.ID_PROPIEDAD,
-                   NVL(SUM(c.VALOR_BASE), 0) AS FACTURADO
+                   NVL(SUM(CASE WHEN c.PERIODO IN (:periodos) AND c.ESTADO IN ('PENDIENTE', 'PAGADA_PARCIAL', 'PAGADA', 'VENCIDA') THEN c.VALOR_BASE ELSE 0 END), 0) AS FACTURADO,
+                   NVL(SUM(CASE WHEN c.PERIODO IN (:periodos) AND c.ESTADO IN ('PENDIENTE', 'PAGADA_PARCIAL', 'VENCIDA') THEN c.SALDO_PENDIENTE ELSE 0 END), 0) AS CARTERA_PERIODO,
+                   NVL(SUM(CASE WHEN c.ESTADO IN ('PENDIENTE', 'PAGADA_PARCIAL', 'VENCIDA') THEN c.SALDO_PENDIENTE ELSE 0 END), 0) AS CARTERA_ACTUAL
             FROM CUOTAS c
             JOIN UNIDADES u ON c.ID_UNIDAD = u.ID_UNIDAD
             WHERE u.ID_PROPIEDAD IN (:propIds)
-              AND c.PERIODO IN (:periodos)
-              AND c.ESTADO IN ('PENDIENTE', 'PAGADA_PARCIAL', 'PAGADA', 'VENCIDA')
+              AND (c.PERIODO IN (:periodos) OR c.ESTADO IN ('PENDIENTE', 'PAGADA_PARCIAL', 'VENCIDA'))
             GROUP BY u.ID_PROPIEDAD
         """;
-        Map<Long, BigDecimal> facturadoMap = jdbc.queryForList(sqlFacturado, batchParams)
-            .stream()
-            .collect(Collectors.toMap(
-                r -> ((Number) r.get("ID_PROPIEDAD")).longValue(),
-                r -> BigDecimal.valueOf(((Number) r.get("FACTURADO")).doubleValue()).setScale(2, RoundingMode.HALF_UP)
-            ));
+        Map<Long, BigDecimal> facturadoMap = new HashMap<>();
+        Map<Long, BigDecimal> carteraPeriodoMap = new HashMap<>();
+        Map<Long, BigDecimal> carteraActualMap = new HashMap<>();
+
+        for (Map<String, Object> r : jdbc.queryForList(sqlCuotasConsolidadas, batchParams)) {
+            Long pid = ((Number) r.get("ID_PROPIEDAD")).longValue();
+            facturadoMap.put(pid, BigDecimal.valueOf(((Number) r.get("FACTURADO")).doubleValue()).setScale(2, RoundingMode.HALF_UP));
+            carteraPeriodoMap.put(pid, BigDecimal.valueOf(((Number) r.get("CARTERA_PERIODO")).doubleValue()).setScale(2, RoundingMode.HALF_UP));
+            carteraActualMap.put(pid, BigDecimal.valueOf(((Number) r.get("CARTERA_ACTUAL")).doubleValue()).setScale(2, RoundingMode.HALF_UP));
+        }
 
         // 4. Recaudado Periodo
         String sqlRecaudado = """
@@ -233,41 +240,6 @@ public class AnalyticsServiceImpl implements AnalyticsService {
             .collect(Collectors.toMap(
                 r -> ((Number) r.get("ID_PROPIEDAD")).longValue(),
                 r -> BigDecimal.valueOf(((Number) r.get("RECAUDADO")).doubleValue()).setScale(2, RoundingMode.HALF_UP)
-            ));
-
-        // 5. Cartera Periodo
-        String sqlCarteraPeriodo = """
-            SELECT u.ID_PROPIEDAD,
-                   NVL(SUM(c.SALDO_PENDIENTE), 0) AS CARTERA_PERIODO
-            FROM CUOTAS c
-            JOIN UNIDADES u ON c.ID_UNIDAD = u.ID_UNIDAD
-            WHERE u.ID_PROPIEDAD IN (:propIds)
-              AND c.PERIODO IN (:periodos)
-              AND c.ESTADO IN ('PENDIENTE', 'PAGADA_PARCIAL', 'VENCIDA')
-            GROUP BY u.ID_PROPIEDAD
-        """;
-        Map<Long, BigDecimal> carteraPeriodoMap = jdbc.queryForList(sqlCarteraPeriodo, batchParams)
-            .stream()
-            .collect(Collectors.toMap(
-                r -> ((Number) r.get("ID_PROPIEDAD")).longValue(),
-                r -> BigDecimal.valueOf(((Number) r.get("CARTERA_PERIODO")).doubleValue()).setScale(2, RoundingMode.HALF_UP)
-            ));
-
-        // 6. Cartera Total Actual (viva)
-        String sqlCarteraActual = """
-            SELECT u.ID_PROPIEDAD,
-                   NVL(SUM(c.SALDO_PENDIENTE), 0) AS CARTERA_ACTUAL
-            FROM CUOTAS c
-            JOIN UNIDADES u ON c.ID_UNIDAD = u.ID_UNIDAD
-            WHERE u.ID_PROPIEDAD IN (:propIds)
-              AND c.ESTADO IN ('PENDIENTE', 'PAGADA_PARCIAL', 'VENCIDA')
-            GROUP BY u.ID_PROPIEDAD
-        """;
-        Map<Long, BigDecimal> carteraActualMap = jdbc.queryForList(sqlCarteraActual, batchParams)
-            .stream()
-            .collect(Collectors.toMap(
-                r -> ((Number) r.get("ID_PROPIEDAD")).longValue(),
-                r -> BigDecimal.valueOf(((Number) r.get("CARTERA_ACTUAL")).doubleValue()).setScale(2, RoundingMode.HALF_UP)
             ));
 
         // 7. Construir Benchmark por propiedad
@@ -405,23 +377,26 @@ public class AnalyticsServiceImpl implements AnalyticsService {
             ocupacionPromedio
         );
 
-        // 10. Tendencia Mensual Global
-        String sqlTrendFact = """
-            SELECT c.PERIODO, NVL(SUM(c.VALOR_BASE), 0) AS FACTURADO
+        // 10. Tendencia Mensual Global (Facturado y Cartera consolidados)
+        String sqlTrendCuotas = """
+            SELECT c.PERIODO,
+                   NVL(SUM(CASE WHEN c.ESTADO IN ('PENDIENTE', 'PAGADA_PARCIAL', 'PAGADA', 'VENCIDA') THEN c.VALOR_BASE ELSE 0 END), 0) AS FACTURADO,
+                   NVL(SUM(CASE WHEN c.ESTADO IN ('PENDIENTE', 'PAGADA_PARCIAL', 'VENCIDA') THEN c.SALDO_PENDIENTE ELSE 0 END), 0) AS CARTERA_PERIODO
             FROM CUOTAS c
             JOIN UNIDADES u ON c.ID_UNIDAD = u.ID_UNIDAD
             JOIN PROPIEDADES p ON u.ID_PROPIEDAD = p.ID_PROPIEDAD
             WHERE p.ID_ORGANIZACION = :orgId
               AND c.PERIODO IN (:periodos)
-              AND c.ESTADO IN ('PENDIENTE', 'PAGADA_PARCIAL', 'PAGADA', 'VENCIDA')
             GROUP BY c.PERIODO
         """;
-        Map<String, BigDecimal> trendFactMap = jdbc.queryForList(sqlTrendFact, batchParams)
-            .stream()
-            .collect(Collectors.toMap(
-                r -> (String) r.get("PERIODO"),
-                r -> BigDecimal.valueOf(((Number) r.get("FACTURADO")).doubleValue()).setScale(2, RoundingMode.HALF_UP)
-            ));
+        Map<String, BigDecimal> trendFactMap = new HashMap<>();
+        Map<String, BigDecimal> trendCartMap = new HashMap<>();
+
+        for (Map<String, Object> r : jdbc.queryForList(sqlTrendCuotas, batchParams)) {
+            String p = (String) r.get("PERIODO");
+            trendFactMap.put(p, BigDecimal.valueOf(((Number) r.get("FACTURADO")).doubleValue()).setScale(2, RoundingMode.HALF_UP));
+            trendCartMap.put(p, BigDecimal.valueOf(((Number) r.get("CARTERA_PERIODO")).doubleValue()).setScale(2, RoundingMode.HALF_UP));
+        }
 
         String sqlTrendRec = """
             SELECT TO_CHAR(pg.FECHA_PAGO, 'YYYY-MM') AS PERIODO, NVL(SUM(pg.MONTO_TOTAL), 0) AS RECAUDADO
@@ -439,23 +414,6 @@ public class AnalyticsServiceImpl implements AnalyticsService {
             .collect(Collectors.toMap(
                 r -> (String) r.get("PERIODO"),
                 r -> BigDecimal.valueOf(((Number) r.get("RECAUDADO")).doubleValue()).setScale(2, RoundingMode.HALF_UP)
-            ));
-
-        String sqlTrendCart = """
-            SELECT c.PERIODO, NVL(SUM(c.SALDO_PENDIENTE), 0) AS CARTERA_PERIODO
-            FROM CUOTAS c
-            JOIN UNIDADES u ON c.ID_UNIDAD = u.ID_UNIDAD
-            JOIN PROPIEDADES p ON u.ID_PROPIEDAD = p.ID_PROPIEDAD
-            WHERE p.ID_ORGANIZACION = :orgId
-              AND c.PERIODO IN (:periodos)
-              AND c.ESTADO IN ('PENDIENTE', 'PAGADA_PARCIAL', 'VENCIDA')
-            GROUP BY c.PERIODO
-        """;
-        Map<String, BigDecimal> trendCartMap = jdbc.queryForList(sqlTrendCart, batchParams)
-            .stream()
-            .collect(Collectors.toMap(
-                r -> (String) r.get("PERIODO"),
-                r -> BigDecimal.valueOf(((Number) r.get("CARTERA_PERIODO")).doubleValue()).setScale(2, RoundingMode.HALF_UP)
             ));
 
         List<MonthlyTrendDTO> tendenciaMensual = window.periodos.stream()

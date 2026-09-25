@@ -68,33 +68,35 @@ public class SaedDataSourceProxy extends DelegatingDataSource {
                     context.getUserId(), context.getOrganizationId(), context.getPropertyId(), context.getRoleCode());
         }
 
-        try (CallableStatement cs = connection.prepareCall("{call PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(?)}")) {
-            cs.setLong(1, context.getUserId());
-            cs.execute();
-        }
-
         if (context.getRoleScope() != null || context.getRoleCode() != null) {
-            try (CallableStatement cs = connection.prepareCall("{call PKG_SAED_SESSION.SET_CONTEXT(?, ?, ?, ?)}")) {
+            String plsql = "BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(?); PKG_SAED_SESSION.SET_CONTEXT(?, ?, ?, ?); END;";
+            try (CallableStatement cs = connection.prepareCall(plsql)) {
                 cs.setLong(1, context.getUserId());
-                
+                cs.setLong(2, context.getUserId());
+
                 if (context.getOrganizationId() != null) {
-                    cs.setLong(2, context.getOrganizationId());
-                } else {
-                    cs.setNull(2, Types.NUMERIC);
-                }
-                
-                if (context.getPropertyId() != null) {
-                    cs.setLong(3, context.getPropertyId());
+                    cs.setLong(3, context.getOrganizationId());
                 } else {
                     cs.setNull(3, Types.NUMERIC);
                 }
-                
-                if (context.getRoleCode() != null) {
-                    cs.setString(4, context.getRoleCode());
+
+                if (context.getPropertyId() != null) {
+                    cs.setLong(4, context.getPropertyId());
                 } else {
-                    cs.setNull(4, Types.VARCHAR);
+                    cs.setNull(4, Types.NUMERIC);
                 }
-                
+
+                if (context.getRoleCode() != null) {
+                    cs.setString(5, context.getRoleCode());
+                } else {
+                    cs.setNull(5, Types.VARCHAR);
+                }
+
+                cs.execute();
+            }
+        } else {
+            try (CallableStatement cs = connection.prepareCall("{call PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(?)}")) {
+                cs.setLong(1, context.getUserId());
                 cs.execute();
             }
         }

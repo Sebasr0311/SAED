@@ -51,35 +51,41 @@ export default function OrgPropiedadesPage() {
     tipoOcupacionPredominante: 'MIXTA',
   });
 
-  async function loadData() {
+  async function loadTipos() {
     try {
-      setLoading(true);
+      const res = await api.get('/catalogos/tipos-propiedad');
+      const raw = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
+      if (raw.length > 0) setTiposPropiedad(raw);
+    } catch (ignored) {}
+  }
+
+  async function loadData(showSpinner = true) {
+    try {
+      if (showSpinner) {
+        setLoading(true);
+      }
       setError(null);
-      const [propsRes, subRes, tiposRes] = await Promise.all([
+      const [propsRes, subRes] = await Promise.all([
         api.get('/properties'),
         api.get('/org/subscription').catch(() => null),
-        api.get('/catalogos/tipos-propiedad').catch(() => api.get('/tipos-propiedad')).catch(() => null),
       ]);
       setProperties(Array.isArray(propsRes?.data) ? propsRes.data : Array.isArray(propsRes) ? propsRes : []);
       if (subRes) {
         setSubscription(subRes?.data || subRes || null);
       }
-      if (tiposRes) {
-        const rawTipos = Array.isArray(tiposRes?.data) ? tiposRes.data : Array.isArray(tiposRes) ? tiposRes : [];
-        if (rawTipos.length > 0) {
-          setTiposPropiedad(rawTipos);
-        }
-      }
     } catch (err) {
       console.error('Error loading properties:', err);
       setError('No se pudieron cargar las propiedades de la organización.');
     } finally {
-      setLoading(false);
+      if (showSpinner) {
+        setLoading(false);
+      }
     }
   }
 
   useEffect(() => {
-    loadData();
+    loadTipos();
+    loadData(true);
   }, []);
 
   async function handleCreate(e) {
@@ -96,6 +102,7 @@ export default function OrgPropiedadesPage() {
       });
       setSuccessMsg('Propiedad registrada exitosamente.');
       setIsModalOpen(false);
+      setCreating(false);
       setNewProp({
         nombre: '',
         idTipoPropiedad: 1,
@@ -105,9 +112,10 @@ export default function OrgPropiedadesPage() {
         pais: 'Colombia',
         tipoOcupacionPredominante: 'MIXTA',
       });
-      await loadData();
+      loadData(false);
       setTimeout(() => setSuccessMsg(null), 4000);
     } catch (err) {
+      setCreating(false);
       console.error('Error creating property:', err);
       if (err?.response?.status === 409 || err?.response?.data?.code === 'PLAN_LIMIT_EXCEEDED') {
         setCreateError(
@@ -116,8 +124,6 @@ export default function OrgPropiedadesPage() {
       } else {
         setCreateError(err?.response?.data?.message || 'Error al registrar la propiedad.');
       }
-    } finally {
-      setCreating(false);
     }
   }
 
