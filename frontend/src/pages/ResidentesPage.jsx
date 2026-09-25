@@ -26,6 +26,10 @@ import {
   Info,
   Eye,
   Car,
+  KeyRound,
+  Lock,
+  UserCheck,
+  UserX,
 } from 'lucide-react';
 import {
   valNombre,
@@ -69,6 +73,10 @@ const emptyForm = {
   contratoFechaInicio: new Date().toISOString().split('T')[0],
   contratoFechaFin: '',
   contratoTipo: 'INICIAL',
+  crearCuentaAcceso: true,
+  usernameAcceso: '',
+  passwordAcceso: '',
+  generarPasswordAuto: true,
 };
 
 const emptyTutorForm = {
@@ -185,6 +193,20 @@ export default function ResidentesPage() {
   // Gestión de Activos de la Unidad (Vehículos y Mascotas) - GAP-F5-01
   const [unitAssetsModal, setUnitAssetsModal] = useState({ open: false, unitId: null, unitName: '' });
 
+  // Gestión de Cuenta de Acceso de Residente
+  const [accountModal, setAccountModal] = useState({
+    open: false,
+    residente: null,
+    username: '',
+    password: '',
+    generarPasswordAuto: true,
+    isEditing: false,
+    saving: false,
+  });
+  const [accountStatusToggling, setAccountStatusToggling] = useState(null);
+  const [confirmDelAccount, setConfirmDelAccount] = useState(null);
+  const [deletingAccount, setDeletingAccount] = useState(false);
+
   // 1. Censo de Personas/Residentes
   const {
     data,
@@ -296,6 +318,9 @@ export default function ResidentesPage() {
             : r.apellidos) || '',
         idTipoDoc: r.tipoDocumentoId || r.idTipoDoc,
         tipoRelacion: r.tipoRelacion || 'RESIDENTE',
+        idUsuario: r.idUsuario || r.ID_USUARIO || null,
+        nombreUsuario: r.nombreUsuario || r.NOMBRE_USUARIO || '',
+        estadoUsuario: r.estadoUsuario || r.ESTADO_USUARIO || '',
       }))
       .filter((r) => {
         if (filterRelacion !== 'TODOS') {
@@ -306,7 +331,7 @@ export default function ResidentesPage() {
         }
         if (!search) return true;
         const term = search.toLowerCase();
-        return [r.nombres, r.apellidos, r.numeroDocumento]
+        return [r.nombres, r.apellidos, r.numeroDocumento, r.nombreUsuario, r.email]
           .filter(Boolean)
           .some((v) => String(v).toLowerCase().includes(term));
       });
@@ -333,7 +358,15 @@ export default function ResidentesPage() {
   const openCreate = useCallback(() => {
     setEditing(null);
     const ccId = tiposDoc.find((t) => t.codigo === 'CC')?.idTipoDoc || tiposDoc[0]?.idTipoDoc || 1;
-    setForm({ ...emptyForm, idTipoDoc: ccId });
+    setForm({
+      ...emptyForm,
+      idTipoDoc: ccId,
+      crearCuentaAcceso: true,
+      usernameAcceso: '',
+      passwordAcceso: '',
+      generarPasswordAuto: true,
+      usernameManual: false,
+    });
     setTutorForm(emptyTutorForm);
     setErrors({});
     resetTouched();
@@ -359,6 +392,12 @@ export default function ResidentesPage() {
         contratoFechaInicio: '',
         contratoFechaFin: '',
         contratoTipo: 'INICIAL',
+        crearCuentaAcceso: false,
+        usernameAcceso: row.nombreUsuario || '',
+        passwordAcceso: '',
+        generarPasswordAuto: true,
+        idUsuario: row.idUsuario || null,
+        estadoUsuario: row.estadoUsuario || null,
       });
       setTutorForm(emptyTutorForm);
       setErrors({});
@@ -392,7 +431,24 @@ export default function ResidentesPage() {
   );
 
   const update = useCallback((k, v) => {
-    setForm((f) => ({ ...f, [k]: v }));
+    setForm((f) => {
+      const next = { ...f, [k]: v };
+      if (k === 'usernameAcceso') {
+        next.usernameManual = true;
+      } else if (!f.usernameManual && (k === 'nombres' || k === 'apellidos' || k === 'email' || k === 'numeroDocumento')) {
+        const curEmail = (k === 'email' ? v : next.email).trim().toLowerCase();
+        const curNom = (k === 'nombres' ? v : next.nombres).trim().toLowerCase().split(' ')[0] || '';
+        const curApe = (k === 'apellidos' ? v : next.apellidos).trim().toLowerCase().split(' ')[0] || '';
+        const curDoc = (k === 'numeroDocumento' ? v : next.numeroDocumento).trim();
+
+        if (curEmail) {
+          next.usernameAcceso = curEmail.split('@')[0].replace(/[^a-z0-9._]/g, '');
+        } else if (curNom && curApe) {
+          next.usernameAcceso = `${curNom.charAt(0)}${curApe}${curDoc ? curDoc.slice(-3) : ''}`.replace(/[^a-z0-9]/g, '');
+        }
+      }
+      return next;
+    });
   }, []);
 
   const updateTutor = useCallback((k, v) => {
@@ -605,6 +661,42 @@ export default function ResidentesPage() {
         }
       }
 
+      // Si se solicitó crear cuenta de acceso y no estamos en edición
+      if (!editing && form.crearCuentaAcceso && form.email) {
+        try {
+          const userPayload = {
+            username: (form.usernameAcceso || form.email.split('@')[0]).trim().toLowerCase().replace(/[^a-z0-9._]/g, ''),
+            password: form.generarPasswordAuto ? undefined : (form.passwordAcceso ? form.passwordAcceso.trim() : undefined),
+            enviarCorreoActivacion: true,
+            rol: form.tipoRelacion?.startsWith('PROPIETARIO') ? 'PROPIETARIO' : 'RESIDENTE',
+            activo: true,
+            tipoDocumentoId: Number(form.idTipoDoc || 1),
+            numeroDocumento: form.numeroDocumento.trim(),
+            primerNombre: _nombres[0] || '',
+            segundoNombre: _nombres.slice(1).join(' ') || '',
+            primerApellido: _apellidos[0] || '',
+            segundoApellido: _apellidos.slice(1).join(' ') || '',
+            email: form.email.trim().toLowerCase(),
+            telefono: form.telefono?.trim() || '',
+            idPersona: Number(idResidente),
+          };
+
+          const uRes = await tenantApi.post('/usuarios', userPayload);
+          const pGen = uRes?.data?.passwordGenerada || uRes?.passwordGenerada;
+          if (pGen) {
+            toast.success(
+              `Cuenta creada para ${userPayload.username}. Clave temporal: ${pGen}. Credenciales enviadas a ${form.email}.`,
+              { duration: 8000 }
+            );
+          } else {
+            toast.success(`Cuenta de acceso creada. Se enviaron las credenciales de acceso a ${form.email}.`);
+          }
+        } catch (uErr) {
+          console.warn('Error creando cuenta de usuario para residente:', uErr);
+          toast.warning(`Residente creado, pero no se pudo generar la cuenta de acceso: ${uErr.message}`);
+        }
+      }
+
       setModalOpen(false);
       refetch();
     } catch (err) {
@@ -656,6 +748,134 @@ export default function ResidentesPage() {
       setConfirmDel(null);
     }
   }, [confirmDel, refetch, tenantApi]);
+
+  // Gestión de Cuenta de Acceso de Residente
+  const openManageAccount = useCallback((residente) => {
+    const isEditing = Boolean(residente.idUsuario);
+    let defaultUsername = residente.nombreUsuario || '';
+    if (!defaultUsername) {
+      const curEmail = (residente.email || '').trim().toLowerCase();
+      const curNom = (residente.nombres || '').trim().toLowerCase().split(' ')[0] || '';
+      const curApe = (residente.apellidos || '').trim().toLowerCase().split(' ')[0] || '';
+      const curDoc = (residente.numeroDocumento || '').trim();
+      if (curEmail) {
+        defaultUsername = curEmail.split('@')[0].replace(/[^a-z0-9._]/g, '');
+      } else if (curNom && curApe) {
+        defaultUsername = `${curNom.charAt(0)}${curApe}${curDoc.slice(-3)}`.replace(/[^a-z0-9]/g, '');
+      }
+    }
+
+    setAccountModal({
+      open: true,
+      residente,
+      username: defaultUsername,
+      password: '',
+      generarPasswordAuto: !isEditing,
+      isEditing,
+      saving: false,
+      activo: isEditing ? (residente.estadoUsuario || '').toUpperCase() === 'ACTIVO' : true,
+    });
+  }, []);
+
+  const handleSaveAccount = useCallback(async () => {
+    const { residente, username, password, generarPasswordAuto, isEditing, activo } = accountModal;
+    if (!username.trim()) {
+      toast.error('El nombre de usuario es obligatorio');
+      return;
+    }
+
+    setAccountModal((m) => ({ ...m, saving: true }));
+    try {
+      if (isEditing) {
+        const payload = {
+          activo,
+          estado: activo ? 'ACTIVO' : 'INACTIVO',
+          rol: residente.tipoRelacion?.startsWith('PROPIETARIO') ? 'PROPIETARIO' : 'RESIDENTE',
+        };
+        if (password && password.trim()) {
+          payload.password = password.trim();
+        }
+        await tenantApi.put(`/usuarios/${residente.idUsuario}`, payload);
+        toast.success('Cuenta de acceso actualizada con éxito.');
+      } else {
+        const _nombres = (residente.nombres || '').trim().split(' ');
+        const _apellidos = (residente.apellidos || '').trim().split(' ');
+        const payload = {
+          username: username.trim().toLowerCase(),
+          password: generarPasswordAuto ? undefined : (password ? password.trim() : undefined),
+          enviarCorreoActivacion: true,
+          rol: residente.tipoRelacion?.startsWith('PROPIETARIO') ? 'PROPIETARIO' : 'RESIDENTE',
+          activo: true,
+          tipoDocumentoId: Number(residente.idTipoDoc || 1),
+          numeroDocumento: (residente.numeroDocumento || '').trim(),
+          primerNombre: _nombres[0] || '',
+          segundoNombre: _nombres.slice(1).join(' ') || '',
+          primerApellido: _apellidos[0] || '',
+          segundoApellido: _apellidos.slice(1).join(' ') || '',
+          email: (residente.email || '').trim().toLowerCase(),
+          telefono: (residente.telefono || '').trim(),
+          idPersona: Number(residente.id),
+        };
+
+        const res = await tenantApi.post('/usuarios', payload);
+        const pGen = res?.data?.passwordGenerada || res?.passwordGenerada;
+        if (pGen) {
+          toast.success(
+            `Cuenta creada para ${payload.username}. Clave temporal: ${pGen}. Se enviaron las credenciales a ${residente.email}.`,
+            { duration: 8000 }
+          );
+        } else {
+          toast.success(`Cuenta de acceso creada. Se enviaron las credenciales a ${residente.email}.`);
+        }
+      }
+
+      setAccountModal({ open: false, residente: null, username: '', password: '', generarPasswordAuto: true, isEditing: false, saving: false });
+      refetch();
+    } catch (err) {
+      toast.error(err.message || 'Error al procesar la cuenta de acceso');
+    } finally {
+      setAccountModal((m) => ({ ...m, saving: false }));
+    }
+  }, [accountModal, refetch, tenantApi]);
+
+  const handleToggleAccountStatus = useCallback(async (residente) => {
+    if (!residente?.idUsuario) return;
+    const isActivo = (residente.estadoUsuario || '').toUpperCase() === 'ACTIVO';
+    const nuevoActivo = !isActivo;
+    setAccountStatusToggling(residente.idUsuario);
+    try {
+      await tenantApi.put(`/usuarios/${residente.idUsuario}`, {
+        activo: nuevoActivo,
+        estado: nuevoActivo ? 'ACTIVO' : 'INACTIVO',
+        rol: residente.tipoRelacion?.startsWith('PROPIETARIO') ? 'PROPIETARIO' : 'RESIDENTE',
+      });
+      toast.success(
+        nuevoActivo
+          ? `Cuenta de ${residente.nombres} reactivada correctamente`
+          : `Cuenta de ${residente.nombres} suspendida (acceso revocado)`
+      );
+      refetch();
+    } catch (err) {
+      toast.error(err.message || 'No se pudo cambiar el estado de la cuenta');
+    } finally {
+      setAccountStatusToggling(null);
+    }
+  }, [refetch, tenantApi]);
+
+  const handleDeleteAccount = useCallback(async () => {
+    if (!confirmDelAccount?.idUsuario) return;
+    setDeletingAccount(true);
+    try {
+      await tenantApi.del(`/usuarios/${confirmDelAccount.idUsuario}`);
+      toast.success(`Cuenta de acceso de ${confirmDelAccount.nombres} eliminada con éxito.`);
+      setConfirmDelAccount(null);
+      refetch();
+    } catch (err) {
+      toast.error(err.message || 'Error al eliminar la cuenta de usuario');
+    } finally {
+      setDeletingAccount(false);
+    }
+  }, [confirmDelAccount, refetch, tenantApi]);
 
   // Descarga de Plantilla Oficial Excel para Censo (Requisito #16)
   const handleDownloadTemplate = useCallback(async () => {
@@ -1072,7 +1292,8 @@ export default function ResidentesPage() {
                       <th className="py-3 px-4">Identificación</th>
                       <th className="py-3 px-4">Unidad / Apto</th>
                       <th className="py-3 px-4">Contacto</th>
-                      <th className="py-3 px-4 text-right w-24">Acciones</th>
+                      <th className="py-3 px-4 text-center">Cuenta / Acceso</th>
+                      <th className="py-3 px-4 text-right w-28">Acciones</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/50 text-xs">
@@ -1171,8 +1392,51 @@ export default function ResidentesPage() {
                               )}
                             </div>
                           </td>
+                          <td className="py-3.5 px-4 text-center">
+                            {r.idUsuario ? (
+                              <div className="inline-flex flex-col items-center gap-0.5">
+                                <Badge
+                                  variant="outline"
+                                  className={
+                                    (r.estadoUsuario || '').toUpperCase() === 'ACTIVO'
+                                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800 text-[10px] font-medium'
+                                      : 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800 text-[10px] font-medium'
+                                  }
+                                >
+                                  {(r.estadoUsuario || '').toUpperCase() === 'ACTIVO' ? (
+                                    <>
+                                      <UserCheck className="h-3 w-3 mr-1" aria-hidden="true" />
+                                      Activa
+                                    </>
+                                  ) : (
+                                    <>
+                                      <UserX className="h-3 w-3 mr-1" aria-hidden="true" />
+                                      Suspendida
+                                    </>
+                                  )}
+                                </Badge>
+                                <span className="font-mono text-[10px] text-muted-foreground truncate max-w-[110px]" title={r.nombreUsuario}>
+                                  @{r.nombreUsuario}
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground/60 text-[11px] italic">Sin cuenta</span>
+                            )}
+                          </td>
                           <td className="py-3.5 px-4 text-right">
                             <div className="flex items-center justify-end gap-1">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openManageAccount(r);
+                                }}
+                                className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                                aria-label={`Gestionar cuenta de acceso de ${r.nombres}`}
+                                title={r.idUsuario ? 'Gestionar credenciales y estado de cuenta' : 'Crear cuenta de acceso al portal'}
+                              >
+                                <KeyRound className="h-4 w-4" aria-hidden="true" />
+                              </button>
                               {r.idApartamento && (
                                 <button
                                   type="button"
@@ -1247,6 +1511,20 @@ export default function ResidentesPage() {
                               <span className="text-[11px] text-muted-foreground font-mono">
                                 {tipoDocLabel} {r.numeroDocumento || '—'}
                               </span>
+                              {r.idUsuario ? (
+                                <Badge
+                                  variant="outline"
+                                  className={
+                                    (r.estadoUsuario || '').toUpperCase() === 'ACTIVO'
+                                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 text-[10px]'
+                                      : 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 text-[10px]'
+                                  }
+                                >
+                                  {(r.estadoUsuario || '').toUpperCase() === 'ACTIVO' ? 'Cuenta Activa' : 'Cuenta Suspendida'}
+                                </Badge>
+                              ) : (
+                                <span className="text-[10px] text-muted-foreground italic">Sin cuenta</span>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -1276,6 +1554,16 @@ export default function ResidentesPage() {
                       </div>
 
                       <div className="flex items-center justify-end gap-2 pt-1 border-t border-border/40 flex-wrap">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openManageAccount(r)}
+                          className="text-xs h-9 min-h-[44px] flex-1"
+                          title="Gestionar cuenta de acceso"
+                        >
+                          <KeyRound className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
+                          Cuenta
+                        </Button>
                         {r.idApartamento && (
                           <Button
                             variant="outline"
@@ -1924,6 +2212,67 @@ export default function ResidentesPage() {
               </div>
             </div>
           )}
+
+          {/* Sección: Cuenta de Acceso al Portal (Solo Creación) */}
+          {!editing && (
+            <div className="rounded-xl border border-primary/20 bg-muted/20 p-4 space-y-3 mt-4">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={form.crearCuentaAcceso}
+                  onChange={(e) => update('crearCuentaAcceso', e.target.checked)}
+                  className="rounded border-border text-primary focus:ring-primary/30 h-4 w-4"
+                />
+                <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                  <KeyRound className="h-3.5 w-3.5 text-primary" />
+                  Crear cuenta de acceso al portal y enviar credenciales
+                </span>
+              </label>
+
+              {form.crearCuentaAcceso && (
+                <div className="space-y-3 pt-2 border-t border-border/60">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <Input
+                      id="usernameAcceso"
+                      label="Nombre de usuario (Login) *"
+                      value={form.usernameAcceso}
+                      onChange={(e) => update('usernameAcceso', e.target.value.toLowerCase().replace(/[^a-z0-9._]/g, ''))}
+                      placeholder="usuario.portal"
+                    />
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-medium text-foreground block">
+                          Contraseña de Acceso
+                        </label>
+                        <label className="flex items-center gap-1 text-[11px] text-muted-foreground cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={form.generarPasswordAuto}
+                            onChange={(e) => update('generarPasswordAuto', e.target.checked)}
+                            className="rounded border-border text-primary h-3 w-3"
+                          />
+                          Auto-generar
+                        </label>
+                      </div>
+                      {!form.generarPasswordAuto && (
+                        <Input
+                          id="passwordAcceso"
+                          type="password"
+                          value={form.passwordAcceso}
+                          onChange={(e) => update('passwordAcceso', e.target.value)}
+                          placeholder="Mínimo 8 caracteres"
+                        />
+                      )}
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+                    <Mail className="h-3.5 w-3.5 text-primary shrink-0" />
+                    Las credenciales temporales e instrucciones de activación serán enviadas al correo {form.email || '(ingrese correo arriba)'}.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </Modal>
 
@@ -1993,6 +2342,234 @@ export default function ResidentesPage() {
         }}
         descripcion={`desvincular a ${confirmDel?.nombres} ${confirmDel?.apellidos}`}
       />
+
+      {/* 6b. Modal Gestión de Cuenta de Acceso de Residente */}
+      <Modal
+        open={accountModal.open}
+        onClose={() => setAccountModal((m) => ({ ...m, open: false }))}
+        title={accountModal.isEditing ? 'Administrar Cuenta de Acceso' : 'Habilitar Cuenta de Acceso al Portal'}
+        footer={
+          <div className="flex items-center justify-between w-full">
+            <div>
+              {accountModal.isEditing && (
+                <Button
+                  variant="danger"
+                  size="sm"
+                  onClick={() => {
+                    const res = accountModal.residente;
+                    setAccountModal((m) => ({ ...m, open: false }));
+                    setConfirmDelAccount(res);
+                  }}
+                  className="text-xs"
+                >
+                  <Trash2 className="h-3.5 w-3.5 mr-1" />
+                  Eliminar Cuenta
+                </Button>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setAccountModal((m) => ({ ...m, open: false }))}
+                disabled={accountModal.saving}
+                className="text-xs"
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleSaveAccount}
+                disabled={accountModal.saving}
+                className="text-xs"
+              >
+                {accountModal.saving ? (
+                  <>
+                    <RefreshCw className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                    Guardando...
+                  </>
+                ) : (
+                  <>
+                    <KeyRound className="h-3.5 w-3.5 mr-1.5" />
+                    {accountModal.isEditing ? 'Guardar Cambios' : 'Crear y Enviar Credenciales'}
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        }
+      >
+        <div className="space-y-4 py-1 text-xs sm:text-sm">
+          <div className="p-3 rounded-lg bg-muted/40 border border-border/60 flex items-center justify-between">
+            <div>
+              <p className="font-semibold text-foreground">
+                {accountModal.residente?.nombres} {accountModal.residente?.apellidos}
+              </p>
+              <p className="text-xs text-muted-foreground font-mono">
+                {accountModal.residente?.numeroDocumento} · {accountModal.residente?.email || 'Sin correo registrado'}
+              </p>
+            </div>
+            {accountModal.isEditing && (
+              <Badge
+                variant="outline"
+                className={
+                  accountModal.activo
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                    : 'bg-amber-50 text-amber-700 border-amber-200'
+                }
+              >
+                {accountModal.activo ? 'Cuenta Activa' : 'Cuenta Suspendida'}
+              </Badge>
+            )}
+          </div>
+
+          <div className="space-y-3">
+            <Input
+              id="acc-username"
+              label="Nombre de Usuario (Login) *"
+              value={accountModal.username}
+              disabled={accountModal.isEditing}
+              onChange={(e) =>
+                setAccountModal((m) => ({
+                  ...m,
+                  username: e.target.value.toLowerCase().replace(/[^a-z0-9._]/g, ''),
+                }))
+              }
+              placeholder="nombre.apellido"
+            />
+
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-medium text-foreground block">
+                  {accountModal.isEditing ? 'Restablecer Contraseña (opcional)' : 'Contraseña de Acceso'}
+                </label>
+                {!accountModal.isEditing && (
+                  <label className="flex items-center gap-1 text-[11px] text-muted-foreground cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={accountModal.generarPasswordAuto}
+                      onChange={(e) =>
+                        setAccountModal((m) => ({ ...m, generarPasswordAuto: e.target.checked }))
+                      }
+                      className="rounded border-border text-primary h-3 w-3"
+                    />
+                    Auto-generar clave segura
+                  </label>
+                )}
+              </div>
+              {(!accountModal.generarPasswordAuto || accountModal.isEditing) && (
+                <Input
+                  id="acc-password"
+                  type="password"
+                  value={accountModal.password}
+                  onChange={(e) => setAccountModal((m) => ({ ...m, password: e.target.value }))}
+                  placeholder={
+                    accountModal.isEditing
+                      ? 'Dejar en blanco para mantener la contraseña actual'
+                      : 'Mínimo 8 caracteres'
+                  }
+                />
+              )}
+            </div>
+
+            {accountModal.isEditing && (
+              <div className="pt-2 border-t border-border/60">
+                <label className="text-xs font-medium text-foreground block mb-2">
+                  Estado del Acceso al Portal
+                </label>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setAccountModal((m) => ({ ...m, activo: true }))}
+                    className={`flex-1 py-2 px-3 rounded-lg border text-xs font-medium flex items-center justify-center gap-2 transition-colors ${
+                      accountModal.activo
+                        ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 font-semibold'
+                        : 'border-border bg-background text-muted-foreground hover:bg-muted'
+                    }`}
+                  >
+                    <UserCheck className="h-4 w-4" />
+                    Cuenta Activa
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAccountModal((m) => ({ ...m, activo: false }))}
+                    className={`flex-1 py-2 px-3 rounded-lg border text-xs font-medium flex items-center justify-center gap-2 transition-colors ${
+                      !accountModal.activo
+                        ? 'border-amber-500 bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 font-semibold'
+                        : 'border-border bg-background text-muted-foreground hover:bg-muted'
+                    }`}
+                  >
+                    <UserX className="h-4 w-4" />
+                    Suspender Acceso
+                  </button>
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-2">
+                  {accountModal.activo
+                    ? 'El residente puede iniciar sesión en la aplicación móvil y portal web.'
+                    : 'El residente no podrá iniciar sesión mientras su cuenta permanezca suspendida.'}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      </Modal>
+
+      {/* 6c. Modal Confirmación de Eliminación de Cuenta de Residente */}
+      <Modal
+        open={Boolean(confirmDelAccount)}
+        onClose={() => setConfirmDelAccount(null)}
+        title="Eliminar Cuenta de Acceso al Portal"
+        footer={
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setConfirmDelAccount(null)}
+              disabled={deletingAccount}
+              className="text-xs"
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={handleDeleteAccount}
+              disabled={deletingAccount}
+              className="text-xs"
+            >
+              {deletingAccount ? (
+                <>
+                  <RefreshCw className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                  Eliminando...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                  Eliminar Cuenta
+                </>
+              )}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3 py-1 text-xs sm:text-sm">
+          <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive flex items-start gap-2.5">
+            <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <p className="font-semibold">Revocación permanente de credenciales</p>
+              <p className="text-xs opacity-90">
+                ¿Está seguro de eliminar la cuenta de usuario de{' '}
+                <strong>
+                  {confirmDelAccount?.nombres} {confirmDelAccount?.apellidos}
+                </strong>
+                ? Esta acción eliminará su usuario del sistema de autenticación pero{' '}
+                <strong>mantendrá intacto su registro como habitante y su historial de copropiedad</strong>.
+              </p>
+            </div>
+          </div>
+        </div>
+      </Modal>
 
       {/* 7. Modal Carga Masiva de Residentes (Requisito #16) */}
       <Modal

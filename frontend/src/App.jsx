@@ -73,6 +73,7 @@ const ReglamentosAdminPage = lazy(() => import('./pages/ReglamentosAdminPage.jsx
 const PorteriasPage = lazy(() => import('./pages/PorteriasPage.jsx'));
 const PorteroDashboardPage = lazy(() => import('./pages/PorteroDashboardPage.jsx'));
 const PaquetesPage = lazy(() => import('./pages/PaquetesPage.jsx'));
+const EmpleadosPage = lazy(() => import('./pages/EmpleadosPage.jsx'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage.jsx'));
 
 // Fallback de las rutas lazy vive en AppShell (envuelve <Outlet />), de modo que
@@ -396,17 +397,21 @@ export default function App() {
           />
           <Route
             path="personas"
-            element={
-              <ProtectedRoute roles={['ADMIN_PROPIEDAD']}>
-                <PersonasPage />
-              </ProtectedRoute>
-            }
+            element={<Navigate to="/residentes" replace />}
           />
           <Route
             path="residentes"
             element={
               <ProtectedRoute roles={['ADMIN_PROPIEDAD']}>
                 <ResidentesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="empleados"
+            element={
+              <ProtectedRoute roles={['ADMIN_PROPIEDAD', 'SUPERADMIN', 'ADMIN_ORGANIZACION']}>
+                <EmpleadosPage />
               </ProtectedRoute>
             }
           />
@@ -440,11 +445,7 @@ export default function App() {
           />
           <Route
             path="roles-asignaciones"
-            element={
-              <ProtectedRoute roles={['ADMIN_PROPIEDAD']}>
-                <RolesYAsignacionesPage />
-              </ProtectedRoute>
-            }
+            element={<Navigate to="/empleados" replace />}
           />
           <Route
             path="planes"
@@ -464,11 +465,7 @@ export default function App() {
           />
           <Route
             path="usuarios"
-            element={
-              <ProtectedRoute roles={['ADMIN_PROPIEDAD']}>
-                <UsuariosPage />
-              </ProtectedRoute>
-            }
+            element={<Navigate to="/residentes" replace />}
           />
           <Route
             path="porterias"
