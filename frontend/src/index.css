@@ -2343,3 +2343,26 @@ textarea[aria-invalid="true"]:focus-visible {
   box-shadow: 0 0 0 1.5px var(--error, #e11d48), 0 0 0 3.5px rgba(225, 29, 72, 0.28) !important;
 }
 
+/* Ensure login inputs always keep crisp white text and dark background */
+#login-username,
+#login-password {
+  color: #ffffff !important;
+  background-color: #081426 !important;
+  -webkit-text-fill-color: #ffffff !important;
+}
+
+#login-username:-webkit-autofill,
+#login-username:-webkit-autofill:hover,
+#login-username:-webkit-autofill:focus,
+#login-username:-webkit-autofill:active,
+#login-password:-webkit-autofill,
+#login-password:-webkit-autofill:hover,
+#login-password:-webkit-autofill:focus,
+#login-password:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px #081426 inset !important;
+  -webkit-text-fill-color: #ffffff !important;
+  caret-color: #22d3ee !important;
+  color: #ffffff !important;
+  background-color: #081426 !important;
+}
+

@@ -43,6 +43,7 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
         initPlantillasContratos();
         initRoles();
         initSuperAdminUser();
+        initJjuanAdminPropiedad();
         // cleanupLegacyTestData(); // Desactivado para no purgar usuarios reales en arranques del sistema
         initResidentesUnidadConstraints();
         initTokensActivacion();
@@ -803,6 +804,101 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
             log.info("[SchemaInit] SuperAdmin 'admin_global' asegurado y normalizado con éxito.");
         } catch (Exception e) {
             log.warn("[SchemaInit] Aviso al asegurar superadmin: {}", e.getMessage());
+        }
+    }
+
+    private void initJjuanAdminPropiedad() {
+        try {
+            jdbcTemplate.execute("""
+                BEGIN
+                    BEGIN EXECUTE IMMEDIATE 'ALTER SESSION DISABLE PARALLEL DML'; EXCEPTION WHEN OTHERS THEN NULL; END;
+                    BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1); EXCEPTION WHEN OTHERS THEN NULL; END;
+
+                    DECLARE
+                        v_id_org NUMBER;
+                        v_id_prop NUMBER;
+                        v_id_rol_admin_prop NUMBER;
+                        v_id_persona NUMBER;
+                        v_id_usuario NUMBER;
+                    BEGIN
+                        -- 1. Resolver ID del rol ADMIN_PROPIEDAD
+                        SELECT ID_ROL INTO v_id_rol_admin_prop FROM ROLES WHERE CODIGO = 'ADMIN_PROPIEDAD' AND ESTADO = 'ACTIVO' AND ROWNUM = 1;
+
+                        -- 2. Asegurar que la cuenta de daniela este activa y desbloqueada si existe
+                        BEGIN
+                            UPDATE USUARIOS SET ESTADO = 'ACTIVO', INTENTOS_FALLIDOS = 0 
+                            WHERE (LOWER(NOMBRE_USUARIO) LIKE '%daniela%' OR LOWER(EMAIL) LIKE '%daniela%');
+                            COMMIT;
+                        EXCEPTION WHEN OTHERS THEN NULL;
+                        END;
+
+                        -- 3. Buscar organizacion y propiedad de daniela.acua (o fallback a organizacion 1)
+                        BEGIN
+                            SELECT ua.ID_ORGANIZACION, ua.ID_PROPIEDAD 
+                              INTO v_id_org, v_id_prop
+                              FROM USUARIOS u
+                              JOIN USUARIO_ASIGNACIONES ua ON ua.ID_USUARIO = u.ID_USUARIO
+                             WHERE (LOWER(u.NOMBRE_USUARIO) LIKE '%daniela%' OR LOWER(u.EMAIL) LIKE '%daniela%')
+                               AND ua.ESTADO IN ('ACTIVO', 'ACTIVA')
+                               AND ROWNUM = 1;
+                        EXCEPTION WHEN OTHERS THEN
+                            v_id_org := 1;
+                            BEGIN
+                                SELECT ID_PROPIEDAD INTO v_id_prop FROM PROPIEDADES WHERE ID_ORGANIZACION = v_id_org AND ROWNUM = 1;
+                            EXCEPTION WHEN OTHERS THEN
+                                v_id_prop := 1;
+                            END;
+                        END;
+
+                        IF v_id_prop IS NULL THEN
+                            BEGIN
+                                SELECT ID_PROPIEDAD INTO v_id_prop FROM PROPIEDADES WHERE ID_ORGANIZACION = v_id_org AND ROWNUM = 1;
+                            EXCEPTION WHEN OTHERS THEN
+                                v_id_prop := 1;
+                            END;
+                        END IF;
+
+                        -- 4. Asegurar PERSONA para jjuan123
+                        BEGIN
+                            SELECT ID_PERSONA INTO v_id_persona FROM PERSONAS WHERE EMAIL = 'jjuan123@saed.com' OR NUMERO_DOCUMENTO = '1099999123' AND ROWNUM = 1;
+                        EXCEPTION WHEN NO_DATA_FOUND THEN
+                            INSERT INTO PERSONAS (ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, PRIMER_NOMBRE, PRIMER_APELLIDO, EMAIL, ESTADO)
+                            VALUES (1, '1099999123', 'NATURAL', 'Juan', 'AdminPropiedad', 'jjuan123@saed.com', 'ACTIVO')
+                            RETURNING ID_PERSONA INTO v_id_persona;
+                        END;
+
+                        -- 5. Asegurar USUARIO jjuan123 con password admin123
+                        BEGIN
+                            SELECT ID_USUARIO INTO v_id_usuario FROM USUARIOS WHERE LOWER(NOMBRE_USUARIO) = 'jjuan123' AND ROWNUM = 1;
+                            UPDATE USUARIOS 
+                               SET HASH_PASSWORD = '$2a$10$GgD55/V69k3srfTRGpzcQOluOfNNRP0ng2u50OKmazWToPRDQWK32',
+                                   ESTADO = 'ACTIVO',
+                                   INTENTOS_FALLIDOS = 0,
+                                   ID_PERSONA = NVL(ID_PERSONA, v_id_persona)
+                             WHERE ID_USUARIO = v_id_usuario;
+                        EXCEPTION WHEN NO_DATA_FOUND THEN
+                            INSERT INTO USUARIOS (ID_PERSONA, NOMBRE_USUARIO, EMAIL, HASH_PASSWORD, ESTADO, INTENTOS_FALLIDOS)
+                            VALUES (v_id_persona, 'jjuan123', 'jjuan123@saed.com', '$2a$10$GgD55/V69k3srfTRGpzcQOluOfNNRP0ng2u50OKmazWToPRDQWK32', 'ACTIVO', 0)
+                            RETURNING ID_USUARIO INTO v_id_usuario;
+                        END;
+
+                        -- 6. Asegurar asignacion como ADMIN_PROPIEDAD en la propiedad
+                        MERGE INTO USUARIO_ASIGNACIONES ua
+                        USING (SELECT v_id_usuario AS ID_USUARIO, v_id_rol_admin_prop AS ID_ROL, v_id_org AS ID_ORGANIZACION, v_id_prop AS ID_PROPIEDAD FROM DUAL) src
+                        ON (ua.ID_USUARIO = src.ID_USUARIO AND ua.ID_ROL = src.ID_ROL AND ua.ID_PROPIEDAD = src.ID_PROPIEDAD)
+                        WHEN MATCHED THEN
+                            UPDATE SET ESTADO = 'ACTIVA'
+                        WHEN NOT MATCHED THEN
+                            INSERT (ID_USUARIO, ID_ROL, ID_ORGANIZACION, ID_PROPIEDAD, ESTADO, FECHA_INICIO)
+                            VALUES (src.ID_USUARIO, src.ID_ROL, src.ID_ORGANIZACION, src.ID_PROPIEDAD, 'ACTIVA', TRUNC(SYSDATE));
+
+                        COMMIT;
+                    END;
+                END;
+            """);
+            log.info("[SchemaInit] Administrador de propiedad 'jjuan123' (password: admin123) asegurado con éxito.");
+        } catch (Exception e) {
+            log.warn("[SchemaInit] Aviso al asegurar administrador jjuan123: {}", e.getMessage());
         }
     }
 

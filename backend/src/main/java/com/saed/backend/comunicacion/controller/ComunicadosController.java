@@ -31,8 +31,8 @@ public class ComunicadosController {
     @PreAuthorize("isAuthenticated()")
     public List<Map<String, Object>> getAvisos(@RequestParam(required = false) Long idPropiedad) {
         String sql = """
-            SELECT c.ID_COMUNICADO, c.ID_PROPIEDAD, c.TITULO, c.CONTENIDO, c.TIPO_SEGMENTACION,
-                   c.PRIORIDAD, c.ESTADO, c.FECHA_PUBLICACION, c.FECHA_VENCIMIENTO,
+            SELECT c.ID_COMUNICADO, c.ID_PROPIEDAD, c.TITULO, TO_CHAR(c.CONTENIDO) AS CONTENIDO, c.TIPO_SEGMENTACION,
+                   c.PRIORIDAD, c.ESTADO, c.FECHA_PUBLICACION, c.FECHA_EXPIRACION AS FECHA_VENCIMIENTO,
                    p.NOMBRE AS PROPIEDAD_NOMBRE
             FROM COMUNICADOS c
             LEFT JOIN PROPIEDADES p ON p.ID_PROPIEDAD = c.ID_PROPIEDAD
@@ -44,8 +44,14 @@ public class ComunicadosController {
             params.put("idPropiedad", idPropiedad);
         }
         sql += " ORDER BY c.FECHA_PUBLICACION DESC";
-        return jdbcTemplate.queryForList(sql, params);
+        try {
+            return jdbcTemplate.queryForList(sql, params);
+        } catch (Exception e) {
+            log.warning("Notice querying avisos: " + e.getMessage());
+            return List.of();
+        }
     }
+
 
     @PostMapping("/aviso")
     @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
