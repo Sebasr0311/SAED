@@ -731,6 +731,7 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
         try {
             jdbcTemplate.execute("""
                 BEGIN
+                    BEGIN EXECUTE IMMEDIATE 'ALTER SESSION DISABLE PARALLEL DML'; EXCEPTION WHEN OTHERS THEN NULL; END;
                     BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1); EXCEPTION WHEN OTHERS THEN NULL; END;
 
                     MERGE INTO PERSONAS p
@@ -739,6 +740,7 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
                     WHEN NOT MATCHED THEN
                         INSERT (ID_PERSONA, ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, PRIMER_NOMBRE, PRIMER_APELLIDO, EMAIL, ESTADO)
                         VALUES (src.ID_PERSONA, src.ID_TIPO_DOCUMENTO, src.NUMERO_DOCUMENTO, src.TIPO_PERSONA, src.PRIMER_NOMBRE, src.PRIMER_APELLIDO, src.EMAIL, src.ESTADO);
+                    COMMIT;
 
                     MERGE INTO USUARIOS u
                     USING (SELECT 1 AS ID_USUARIO, 1 AS ID_PERSONA, 'admin_global' AS NOMBRE_USUARIO, 'admin_global@saed.com' AS EMAIL, '$2a$10$3jMwzV4asc7476tUcNa2GeahAAIhOz0.R9Clt8FCC5Kq5al1TGdxC' AS HASH_PASSWORD, 'ACTIVO' AS ESTADO, 0 AS INTENTOS_FALLIDOS FROM DUAL) src
@@ -748,12 +750,7 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
                         VALUES (src.ID_USUARIO, src.ID_PERSONA, src.NOMBRE_USUARIO, src.EMAIL, src.HASH_PASSWORD, src.ESTADO, src.INTENTOS_FALLIDOS)
                     WHEN MATCHED THEN
                         UPDATE SET NOMBRE_USUARIO = src.NOMBRE_USUARIO, HASH_PASSWORD = src.HASH_PASSWORD, ESTADO = 'ACTIVO', INTENTOS_FALLIDOS = 0;
-
-                    UPDATE USUARIOS
-                    SET HASH_PASSWORD = '$2a$10$3jMwzV4asc7476tUcNa2GeahAAIhOz0.R9Clt8FCC5Kq5al1TGdxC',
-                        ESTADO = 'ACTIVO',
-                        INTENTOS_FALLIDOS = 0
-                    WHERE NOMBRE_USUARIO = 'admin_global';
+                    COMMIT;
 
                     MERGE INTO ADMINISTRADORES_SAED a
                     USING (SELECT 1 AS ID_ADMINISTRADOR_SAED, 1 AS ID_USUARIO, 'SUPERADMIN' AS NIVEL, 'ACTIVO' AS ESTADO FROM DUAL) src
@@ -763,6 +760,7 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
                         VALUES (src.ID_ADMINISTRADOR_SAED, src.ID_USUARIO, src.NIVEL, src.ESTADO)
                     WHEN MATCHED THEN
                         UPDATE SET ID_USUARIO = src.ID_USUARIO, NIVEL = src.NIVEL, ESTADO = 'ACTIVO';
+                    COMMIT;
 
                     MERGE INTO USUARIO_ASIGNACIONES ua
                     USING (SELECT 1 AS ID_ASIGNACION, 1 AS ID_USUARIO, 1 AS ID_ROL, CAST(NULL AS NUMBER) AS ID_ORGANIZACION, CAST(NULL AS NUMBER) AS ID_PROPIEDAD, CAST(NULL AS NUMBER) AS ID_UNIDAD, 'ACTIVA' AS ESTADO FROM DUAL) src
@@ -772,7 +770,6 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
                         VALUES (src.ID_ASIGNACION, src.ID_USUARIO, src.ID_ROL, src.ID_ORGANIZACION, src.ID_PROPIEDAD, src.ID_UNIDAD, src.ESTADO)
                     WHEN MATCHED THEN
                         UPDATE SET ID_USUARIO = src.ID_USUARIO, ID_ROL = src.ID_ROL, ESTADO = 'ACTIVA';
-
                     COMMIT;
                 END;
             """);
