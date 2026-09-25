@@ -43,7 +43,7 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
         initPlantillasContratos();
         initRoles();
         initSuperAdminUser();
-        cleanupLegacyTestData();
+        // cleanupLegacyTestData(); // Desactivado para no purgar usuarios reales en arranques del sistema
         initResidentesUnidadConstraints();
         initTokensActivacion();
         initOnboardingIntenciones();

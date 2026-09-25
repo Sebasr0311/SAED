@@ -104,10 +104,15 @@ public class OrgAdminsController {
         String callerCode = ctx.getRoleCode();
         Long requestedRoleId = request.getIdRol();
 
-        // En /org/admins, el rol a asignar es ADMIN_PROPIEDAD (idRol = 3).
-        // Si el cliente envía idRol = 2 (código previo) o viene nulo, normalizamos a 3.
-        if (requestedRoleId == null || (requestedRoleId == 2L && !"SUPERADMIN".equalsIgnoreCase(callerCode))) {
-            requestedRoleId = 3L;
+        // En /org/admins, el rol a asignar es ADMIN_PROPIEDAD.
+        // Resolver dinámicamente el ID del rol ADMIN_PROPIEDAD según el catálogo canónico
+        Long adminPropiedadRoleId = jdbcTemplate.query(
+            "SELECT ID_ROL FROM ROLES WHERE CODIGO = 'ADMIN_PROPIEDAD' AND ESTADO = 'ACTIVO'",
+            (rs, rowNum) -> rs.getLong("ID_ROL")
+        ).stream().findFirst().orElse(2L);
+
+        if (requestedRoleId == null || requestedRoleId == 2L || requestedRoleId == 3L) {
+            requestedRoleId = adminPropiedadRoleId;
         }
 
         if (!"SUPERADMIN".equalsIgnoreCase(callerCode)) {
