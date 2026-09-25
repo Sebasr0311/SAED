@@ -144,6 +144,25 @@ public class AssignmentManagementService {
             throw new AccessDeniedException("No tiene permisos para modificar el estado de asignaciones");
         }
 
+        if ("ADMIN_PROPIEDAD".equals(currentCode)) {
+            java.util.List<java.util.Map<String, Object>> targetRows = jdbcTemplate.queryForList(
+                "SELECT ua.ID_PROPIEDAD, ua.ID_USUARIO, r.CODIGO AS ROL_CODIGO FROM USUARIO_ASIGNACIONES ua JOIN ROLES r ON r.ID_ROL = ua.ID_ROL WHERE ua.ID_ASIGNACION = :id",
+                java.util.Map.of("id", id)
+            );
+            if (targetRows.isEmpty()) {
+                throw new AccessDeniedException("Asignación no encontrada en el ámbito de su propiedad");
+            }
+            java.util.Map<String, Object> target = targetRows.get(0);
+            Number targetProp = (Number) target.get("ID_PROPIEDAD");
+            String targetRole = (String) target.get("ROL_CODIGO");
+            if (targetProp == null || ctx.getPropertyId() == null || !ctx.getPropertyId().equals(targetProp.longValue())) {
+                throw new AccessDeniedException("No tiene permisos para modificar asignaciones fuera de la propiedad activa");
+            }
+            if ("SUPERADMIN".equals(targetRole) || "ADMIN_ORGANIZACION".equals(targetRole) || "ADMIN_PROPIEDAD".equals(targetRole)) {
+                throw new AccessDeniedException("Un administrador de propiedad no puede modificar asignaciones administrativas");
+            }
+        }
+
         if ("ACTIVA".equalsIgnoreCase(estado) || "ACTIVO".equalsIgnoreCase(estado)) {
             java.util.List<java.util.Map<String, Object>> rows = jdbcTemplate.queryForList(
                     "SELECT ID_ORGANIZACION, ID_USUARIO, ESTADO FROM USUARIO_ASIGNACIONES WHERE ID_ASIGNACION = :id",

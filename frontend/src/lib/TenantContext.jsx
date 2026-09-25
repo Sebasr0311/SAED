@@ -57,7 +57,7 @@ export function TenantProvider({ children }) {
     setLoading(true);
     setError(null);
     api
-      .get('/me/contexts')
+      .get('/me/contexts', { skipAssignment: true })
       .then((data) => {
         if (cancelled) return;
         const list = Array.isArray(data) ? data : [];
@@ -77,7 +77,29 @@ export function TenantProvider({ children }) {
         }
       })
       .catch((err) => {
-        if (!cancelled) setError(err.message || 'No se pudieron cargar los contextos');
+        if (!cancelled) {
+          if (err.isStaleAssignment) {
+            // api.js already removed the stale id — retry immediately without it
+            setActiveAssignmentIdState(null);
+            api
+              .get('/me/contexts')
+              .then((retryData) => {
+                if (cancelled) return;
+                const list = Array.isArray(retryData) ? retryData : [];
+                setAssignments(list);
+                const global = list.find((a) => a.scope === 'GLOBAL' || a.roleCode === 'SUPERADMIN');
+                setActiveAssignmentId(global ? global.idAsignacion : list[0]?.idAsignacion ?? null);
+              })
+              .catch((retryErr) => {
+                if (!cancelled) setError(retryErr.message || 'No se pudieron cargar los contextos');
+              })
+              .finally(() => {
+                if (!cancelled) setLoading(false);
+              });
+            return;
+          }
+          setError(err.message || 'No se pudieron cargar los contextos');
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -121,7 +143,7 @@ export function TenantProvider({ children }) {
       error,
       reload: () => {
         setLoading(true);
-        api.get('/me/contexts').then((data) => {
+        api.get('/me/contexts', { skipAssignment: true }).then((data) => {
           const list = Array.isArray(data) ? data : [];
           setAssignments(list);
           if (!list.some((a) => a.idAsignacion === activeAssignmentId)) {

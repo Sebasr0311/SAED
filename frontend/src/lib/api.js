@@ -104,7 +104,7 @@ async function request(endpoint, options = {}) {
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
   const activeAssignment = typeof window !== 'undefined' ? sessionStorage.getItem('saed_active_assignment_id') : null;
-  if (activeAssignment && !headers['X-Assignment-Id']) {
+  if (activeAssignment && !headers['X-Assignment-Id'] && !options.skipAssignment) {
     headers['X-Assignment-Id'] = activeAssignment;
   }
 
@@ -176,6 +176,70 @@ async function request(endpoint, options = {}) {
 
     if (res.status === 204) {
       return null;
+    }
+
+    // 403 "Invalid or inactive assignment": the stored X-Assignment-Id is stale.
+    // Clear it so future requests don't use it, and retry the current request ONCE without it.
+    if (res.status === 403) {
+      let data = null;
+      let bodyText = '';
+      const contentType = res.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        try {
+          data = await res.json();
+          bodyText = JSON.stringify(data);
+        } catch (_) {}
+      } else {
+        bodyText = await res.text();
+      }
+
+      const rawMsg = data?.message || data?.mensaje || data?.error || bodyText;
+      const isStaleAssignment =
+        rawMsg.includes('Invalid or inactive assignment') ||
+        (rawMsg.includes('Asignaci') && rawMsg.includes('inv'));
+
+      if (isStaleAssignment) {
+        if (typeof window !== 'undefined') {
+          sessionStorage.removeItem('saed_active_assignment_id');
+        }
+
+        // Retry the request once without the invalid X-Assignment-Id header
+        if (headers['X-Assignment-Id']) {
+          const retryHeaders = { ...headers };
+          delete retryHeaders['X-Assignment-Id'];
+          const retryRes = await fetch(BASE_URL + endpoint, {
+            ...options,
+            headers: retryHeaders,
+            signal: AbortSignal.timeout(TIMEOUT_MS),
+          });
+
+          if (retryRes.status === 204) return null;
+          const retryContentType = retryRes.headers.get('content-type') || '';
+          if (retryContentType.includes('application/json')) {
+            const retryData = await retryRes.json();
+            if (!retryRes.ok) {
+              const rMsg = retryData.message || retryData.mensaje || retryData.error || 'No se pudo completar la operación.';
+              const rErr = new Error(sanitizeEncoding(rMsg));
+              rErr.status = retryRes.status;
+              rErr.response = { status: retryRes.status, data: sanitizeData(retryData) };
+              throw rErr;
+            }
+            return sanitizeData(retryData);
+          }
+          if (retryRes.ok) {
+            return sanitizeEncoding(await retryRes.text());
+          }
+        }
+      }
+
+      const msg = isStaleAssignment
+        ? 'Sesión de propiedad expirada. Por favor recarga la página.'
+        : (data?.message || data?.mensaje || data?.error || 'No tiene permisos para realizar esta acción.');
+      const err = new Error(sanitizeEncoding(msg));
+      err.status = 403;
+      err.isStaleAssignment = isStaleAssignment;
+      err.response = { status: 403, data: sanitizeData(data) };
+      throw err;
     }
 
     const contentType = res.headers.get('content-type') || '';

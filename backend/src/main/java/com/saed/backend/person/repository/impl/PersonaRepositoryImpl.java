@@ -28,6 +28,9 @@ public class PersonaRepositoryImpl implements PersonaRepository {
         Long idApto = null;
         String numApto = null;
         String tipoRelacion = null;
+        Long idUsuario = null;
+        String nombreUsuario = null;
+        String estadoUsuario = null;
         try {
             long val = rs.getLong("ID_APARTAMENTO");
             if (!rs.wasNull()) idApto = val;
@@ -37,6 +40,16 @@ public class PersonaRepositoryImpl implements PersonaRepository {
         } catch (Exception ignored) {}
         try {
             tipoRelacion = rs.getString("TIPO_RELACION");
+        } catch (Exception ignored) {}
+        try {
+            long uVal = rs.getLong("ID_USUARIO");
+            if (!rs.wasNull()) idUsuario = uVal;
+        } catch (Exception ignored) {}
+        try {
+            nombreUsuario = rs.getString("NOMBRE_USUARIO");
+        } catch (Exception ignored) {}
+        try {
+            estadoUsuario = rs.getString("ESTADO_USUARIO");
         } catch (Exception ignored) {}
 
         return new PersonaDTO(
@@ -53,7 +66,10 @@ public class PersonaRepositoryImpl implements PersonaRepository {
                 rs.getString("ESTADO"),
                 idApto,
                 numApto,
-                tipoRelacion
+                tipoRelacion,
+                idUsuario,
+                nombreUsuario,
+                estadoUsuario
         );
     };
 
@@ -114,6 +130,9 @@ public class PersonaRepositoryImpl implements PersonaRepository {
 
         String sql = String.format("""
             SELECT p.*,
+                   (SELECT u_acc.ID_USUARIO FROM USUARIOS u_acc WHERE u_acc.ID_PERSONA = p.ID_PERSONA AND ROWNUM = 1) AS ID_USUARIO,
+                   (SELECT u_acc.NOMBRE_USUARIO FROM USUARIOS u_acc WHERE u_acc.ID_PERSONA = p.ID_PERSONA AND ROWNUM = 1) AS NOMBRE_USUARIO,
+                   (SELECT u_acc.ESTADO FROM USUARIOS u_acc WHERE u_acc.ID_PERSONA = p.ID_PERSONA AND ROWNUM = 1) AS ESTADO_USUARIO,
                    COALESCE(
                        (SELECT ru.ID_UNIDAD FROM RESIDENTES_UNIDAD ru JOIN UNIDADES u ON ru.ID_UNIDAD = u.ID_UNIDAD WHERE ru.ID_PERSONA = p.ID_PERSONA AND ru.ESTADO = 'ACTIVO' %1$s AND ROWNUM = 1),
                        (SELECT pu.ID_UNIDAD FROM PROPIETARIOS_UNIDAD pu JOIN UNIDADES u ON pu.ID_UNIDAD = u.ID_UNIDAD WHERE pu.ID_PERSONA = p.ID_PERSONA AND pu.ESTADO = 'ACTIVO' %1$s AND ROWNUM = 1),
@@ -200,6 +219,9 @@ public class PersonaRepositoryImpl implements PersonaRepository {
 
         String sql = String.format("""
             SELECT p.*,
+                   (SELECT u_acc.ID_USUARIO FROM USUARIOS u_acc WHERE u_acc.ID_PERSONA = p.ID_PERSONA AND ROWNUM = 1) AS ID_USUARIO,
+                   (SELECT u_acc.NOMBRE_USUARIO FROM USUARIOS u_acc WHERE u_acc.ID_PERSONA = p.ID_PERSONA AND ROWNUM = 1) AS NOMBRE_USUARIO,
+                   (SELECT u_acc.ESTADO FROM USUARIOS u_acc WHERE u_acc.ID_PERSONA = p.ID_PERSONA AND ROWNUM = 1) AS ESTADO_USUARIO,
                    COALESCE(
                        (SELECT ru.ID_UNIDAD FROM RESIDENTES_UNIDAD ru JOIN UNIDADES u ON ru.ID_UNIDAD = u.ID_UNIDAD WHERE ru.ID_PERSONA = p.ID_PERSONA AND ru.ESTADO = 'ACTIVO' %1$s AND ROWNUM = 1),
                        (SELECT pu.ID_UNIDAD FROM PROPIETARIOS_UNIDAD pu JOIN UNIDADES u ON pu.ID_UNIDAD = u.ID_UNIDAD WHERE pu.ID_PERSONA = p.ID_PERSONA AND pu.ESTADO = 'ACTIVO' %1$s AND ROWNUM = 1),

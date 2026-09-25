@@ -504,6 +504,15 @@ export default function ResidentesPage() {
       }
     }
 
+    // Validación de asignación según tipo de relación
+    if (form.tipoRelacion === 'ARRENDATARIO' && !form.idApartamento) {
+      e.idApartamento = 'Debes seleccionar un apartamento para registrar un arrendatario con su contrato';
+    } else if (form.tipoRelacion === 'PROPIETARIO_RESIDENTE' && !form.idApartamento) {
+      e.idApartamento = 'Debes seleccionar el apartamento donde habita el propietario residente';
+    } else if (form.tipoRelacion === 'CONVIVIENTE' && !form.idApartamento) {
+      e.idApartamento = 'Debes seleccionar el apartamento al que pertenece el conviviente';
+    }
+
     // Validación preventiva de cupo de convivientes (P2-01)
     const asignacionCambia =
       form.idApartamento !== '' &&
@@ -515,7 +524,7 @@ export default function ResidentesPage() {
     }
 
     // Obligatoriedad de contrato para ARRENDATARIO (Fase 6)
-    if (asignacionCambia && form.tipoRelacion === 'ARRENDATARIO') {
+    if (form.tipoRelacion === 'ARRENDATARIO' && form.idApartamento) {
       if (!form.contratoCanon || Number(form.contratoCanon) <= 0) {
         e.contratoCanon = 'El canon mensual es obligatorio y debe ser mayor a 0 para arrendatarios';
       }
@@ -627,7 +636,8 @@ export default function ResidentesPage() {
             payloadAsignacion.idTutor = Number(idPersonaTutor);
           }
 
-          if (form.tipoRelacion === 'ARRENDATARIO') {
+          const debeCrearContrato = form.tipoRelacion === 'ARRENDATARIO' || Boolean(form.crearContrato && form.idPlantilla);
+          if (debeCrearContrato) {
             payloadAsignacion.crearContrato = true;
             payloadAsignacion.canonMensual = Number(form.contratoCanon || 0);
             payloadAsignacion.fechaInicio = form.contratoFechaInicio || new Date().toISOString().split('T')[0];
@@ -637,8 +647,10 @@ export default function ResidentesPage() {
           }
 
           await tenantApi.post(`/residentes/${idResidente}/asignar-apartamento`, payloadAsignacion);
-          if (form.tipoRelacion === 'ARRENDATARIO') {
-            toast.success('Contrato de arrendamiento vinculado y residente asignado exitosamente.');
+          if (debeCrearContrato) {
+            toast.success('Contrato vinculado y residente asignado exitosamente.');
+          } else {
+            toast.success('Residente asignado a la unidad exitosamente.');
           }
         } catch (err) {
           const is409 =
@@ -1754,7 +1766,7 @@ export default function ResidentesPage() {
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
             <Input
               id="email"
               label="Correo Electrónico"
@@ -1769,14 +1781,29 @@ export default function ResidentesPage() {
               }
               placeholder="Ej. residente@correo.com"
             />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+            <Select
+              id="tipoRelacion"
+              label="Condición y Alcance en la Copropiedad *"
+              value={form.tipoRelacion || 'ARRENDATARIO'}
+              onChange={(e) => update('tipoRelacion', e.target.value)}
+            >
+              <option value="PROPIETARIO_RESIDENTE">Propietario Residente (Habita la unidad y es titular)</option>
+              <option value="PROPIETARIO_NO_RESIDENTE">Propietario No Residente (Inversionista / Arrendador)</option>
+              <option value="ARRENDATARIO">Arrendatario / Inquilino (Habitante con contrato)</option>
+              <option value="CONVIVIENTE">Conviviente / Familiar (Habitante dependiente)</option>
+            </Select>
+
             <Select
               id="idApartamento"
-              label="Apartamento Asignado"
+              label={`Apartamento Asignado ${form.tipoRelacion === 'PROPIETARIO_NO_RESIDENTE' ? '(Opcional)' : '*'}`}
               error={errors.idApartamento}
               value={form.idApartamento}
               onChange={(e) => update('idApartamento', e.target.value)}
             >
-              <option value="">— Sin asignar —</option>
+              <option value="">— {form.tipoRelacion === 'PROPIETARIO_NO_RESIDENTE' ? 'Sin apartamento asignado' : 'Selecciona un apartamento'} —</option>
               {(apartamentos?.items || (Array.isArray(apartamentos) ? apartamentos : [])).map(
                 (a) => {
                   const id = a.idApartamento || a.id || a.idUnidad;
@@ -1792,19 +1819,7 @@ export default function ResidentesPage() {
             </Select>
           </div>
 
-          {form.idApartamento && (
-            <div className="space-y-3 pt-1">
-              <Select
-                id="tipoRelacion"
-                label="Condición y Alcance en la Unidad *"
-                value={form.tipoRelacion || 'ARRENDATARIO'}
-                onChange={(e) => update('tipoRelacion', e.target.value)}
-              >
-                <option value="PROPIETARIO_RESIDENTE">Propietario Residente (Habita la unidad y es titular de dominio)</option>
-                <option value="PROPIETARIO_NO_RESIDENTE">Propietario No Residente (Inversionista / Arrendador sin residencia física)</option>
-                <option value="ARRENDATARIO">Arrendatario / Inquilino (Habitante físico principal con contrato)</option>
-                <option value="CONVIVIENTE">Conviviente / Familiar (Habitante secundario sin titularidad ni contrato)</option>
-              </Select>
+          <div className="space-y-3 pt-1">
 
               {form.tipoRelacion === 'PROPIETARIO_NO_RESIDENTE' && (
                 <div className="text-[11px] bg-blue-500/10 border border-blue-500/20 text-blue-700 dark:text-blue-300 p-3 rounded-lg flex items-start gap-2.5">
@@ -1860,111 +1875,120 @@ export default function ResidentesPage() {
                 </div>
               )}
 
-              {form.idApartamento && form.tipoRelacion === 'ARRENDATARIO' && (
-                <div className="rounded-xl border border-primary/25 bg-primary/5 p-3.5 space-y-3 mt-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Badge variant="default" className="text-[10px] bg-primary text-primary-foreground font-semibold">
-                        Contrato Obligatorio
-                      </Badge>
-                      <span className="text-xs font-semibold text-foreground">
-                        Contrato de Arrendamiento y Plantilla Organizacional
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="space-y-3 pt-2 border-t border-primary/15">
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="text-xs font-medium text-foreground block">
-                          Plantilla de Contrato {plantillas.length > 0 && '*'}
-                        </label>
-                        {form.idPlantilla && (
-                          <button
-                            type="button"
-                            onClick={handlePreviewPlantilla}
-                            disabled={previewLoading}
-                            className="text-[11px] font-semibold text-primary hover:underline flex items-center gap-1"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                            {previewLoading ? 'Renderizando...' : 'Previsualizar'}
-                          </button>
-                        )}
+              {form.tipoRelacion === 'ARRENDATARIO' && (
+                form.idApartamento ? (
+                  <div className="rounded-xl border border-primary/25 bg-primary/5 p-3.5 space-y-3 mt-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="default" className="text-[10px] bg-primary text-primary-foreground font-semibold">
+                          Contrato Obligatorio
+                        </Badge>
+                        <span className="text-xs font-semibold text-foreground">
+                          Contrato de Arrendamiento y Plantilla Organizacional
+                        </span>
                       </div>
-                      <select
-                        value={form.idPlantilla}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          update('idPlantilla', val);
-                          if (val) {
-                            const p = plantillas.find((tpl) => String(tpl.idPlantilla) === String(val));
-                            if (p?.tipoContrato) update('contratoTipo', p.tipoContrato);
-                          }
-                        }}
-                        className={`w-full text-xs bg-background border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/30 ${
-                          errors.idPlantilla ? 'border-destructive ring-destructive/30' : 'border-border'
-                        }`}
-                      >
-                        <option value="">{plantillas.length > 0 ? '— Selecciona una plantilla activa —' : '— Plantilla Estándar del Sistema —'}</option>
-                        {plantillas.map((p) => (
-                          <option key={p.idPlantilla} value={p.idPlantilla}>
-                            {p.nombre} (v{p.version} · {p.tipoContrato})
-                          </option>
-                        ))}
-                      </select>
-                      {errors.idPlantilla && (
-                        <p className="text-[11px] text-destructive mt-1 font-medium">{errors.idPlantilla}</p>
-                      )}
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                    <div className="space-y-3 pt-2 border-t border-primary/15">
                       <div>
-                        <label className="text-xs font-medium text-foreground block mb-1">
-                          Canon Mensual (COP) *
-                        </label>
-                        <input
-                          type="number"
-                          placeholder="Ej. 1500000"
-                          value={form.contratoCanon}
-                          onChange={(e) => update('contratoCanon', e.target.value)}
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-xs font-medium text-foreground block">
+                            Plantilla de Contrato {plantillas.length > 0 && '*'}
+                          </label>
+                          {form.idPlantilla && (
+                            <button
+                              type="button"
+                              onClick={handlePreviewPlantilla}
+                              disabled={previewLoading}
+                              className="text-[11px] font-semibold text-primary hover:underline flex items-center gap-1"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              {previewLoading ? 'Renderizando...' : 'Previsualizar'}
+                            </button>
+                          )}
+                        </div>
+                        <select
+                          value={form.idPlantilla}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            update('idPlantilla', val);
+                            if (val) {
+                              const p = plantillas.find((tpl) => String(tpl.idPlantilla) === String(val));
+                              if (p?.tipoContrato) update('contratoTipo', p.tipoContrato);
+                            }
+                          }}
                           className={`w-full text-xs bg-background border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/30 ${
-                            errors.contratoCanon ? 'border-destructive ring-destructive/30' : 'border-border'
+                            errors.idPlantilla ? 'border-destructive ring-destructive/30' : 'border-border'
                           }`}
-                        />
-                        {errors.contratoCanon && (
-                          <p className="text-[11px] text-destructive mt-1 font-medium">{errors.contratoCanon}</p>
+                        >
+                          <option value="">{plantillas.length > 0 ? '— Selecciona una plantilla activa —' : '— Plantilla Estándar del Sistema —'}</option>
+                          {plantillas.map((p) => (
+                            <option key={p.idPlantilla} value={p.idPlantilla}>
+                              {p.nombre} (v{p.version} · {p.tipoContrato})
+                            </option>
+                          ))}
+                        </select>
+                        {errors.idPlantilla && (
+                          <p className="text-[11px] text-destructive mt-1 font-medium">{errors.idPlantilla}</p>
                         )}
                       </div>
-                      <div>
-                        <label className="text-xs font-medium text-foreground block mb-1">
-                          Fecha Inicio *
-                        </label>
-                        <input
-                          type="date"
-                          value={form.contratoFechaInicio}
-                          onChange={(e) => update('contratoFechaInicio', e.target.value)}
-                          className={`w-full text-xs bg-background border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/30 ${
-                            errors.contratoFechaInicio ? 'border-destructive ring-destructive/30' : 'border-border'
-                          }`}
-                        />
-                        {errors.contratoFechaInicio && (
-                          <p className="text-[11px] text-destructive mt-1 font-medium">{errors.contratoFechaInicio}</p>
-                        )}
-                      </div>
-                      <div>
-                        <label className="text-xs font-medium text-foreground block mb-1">
-                          Fecha Fin
-                        </label>
-                        <input
-                          type="date"
-                          value={form.contratoFechaFin}
-                          onChange={(e) => update('contratoFechaFin', e.target.value)}
-                          className="w-full text-xs bg-background border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/30"
-                        />
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                        <div>
+                          <label className="text-xs font-medium text-foreground block mb-1">
+                            Canon Mensual (COP) *
+                          </label>
+                          <input
+                            type="number"
+                            placeholder="Ej. 1500000"
+                            value={form.contratoCanon}
+                            onChange={(e) => update('contratoCanon', e.target.value)}
+                            className={`w-full text-xs bg-background border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/30 ${
+                              errors.contratoCanon ? 'border-destructive ring-destructive/30' : 'border-border'
+                            }`}
+                          />
+                          {errors.contratoCanon && (
+                            <p className="text-[11px] text-destructive mt-1 font-medium">{errors.contratoCanon}</p>
+                          )}
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-foreground block mb-1">
+                            Fecha Inicio *
+                          </label>
+                          <input
+                            type="date"
+                            value={form.contratoFechaInicio}
+                            onChange={(e) => update('contratoFechaInicio', e.target.value)}
+                            className={`w-full text-xs bg-background border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/30 ${
+                              errors.contratoFechaInicio ? 'border-destructive ring-destructive/30' : 'border-border'
+                            }`}
+                          />
+                          {errors.contratoFechaInicio && (
+                            <p className="text-[11px] text-destructive mt-1 font-medium">{errors.contratoFechaInicio}</p>
+                          )}
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-foreground block mb-1">
+                            Fecha Fin
+                          </label>
+                          <input
+                            type="date"
+                            value={form.contratoFechaFin}
+                            onChange={(e) => update('contratoFechaFin', e.target.value)}
+                            className="w-full text-xs bg-background border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="text-[11px] bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300 p-2.5 rounded-lg flex items-start gap-2">
+                    <Info className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+                    <span>
+                      <strong>Contrato de Arrendamiento Requerido:</strong> Selecciona un apartamento arriba para configurar la plantilla de contrato y el canon mensual obligatorio.
+                    </span>
+                  </div>
+                )
               )}
 
               {form.idApartamento && form.tipoRelacion !== 'ARRENDATARIO' && !editing && (
@@ -2062,7 +2086,6 @@ export default function ResidentesPage() {
                 </div>
               )}
             </div>
-          )}
 
           {/* Sección Condicional: Tutor Legal */}
           {requiereTutor && (
