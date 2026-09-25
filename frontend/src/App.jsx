@@ -84,6 +84,7 @@ const SuperAdminOrganizacionesPage = lazy(() => import('./pages/SuperAdminOrgani
 const SuperAdminPropiedadesPage = lazy(() => import('./pages/SuperAdminPropiedadesPage.jsx'));
 const SuperAdminPlanesPage = lazy(() => import('./pages/SuperAdminPlanesPage.jsx'));
 const SuperAdminMembresiasPage = lazy(() => import('./pages/SuperAdminMembresiasPage.jsx'));
+const SuperAdminOnboardingPage = lazy(() => import('./pages/SuperAdminOnboardingPage.jsx'));
 const SuperAdminAdminsPage = lazy(() => import('./pages/SuperAdminAdminsPage.jsx'));
 const SuperAdminAuditoriaPage = lazy(() => import('./pages/SuperAdminAuditoriaPage.jsx'));
 
@@ -242,6 +243,14 @@ export default function App() {
             element={
               <ProtectedRoute roles={['SUPERADMIN']}>
                 <SuperAdminMembresiasPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="superadmin/onboarding"
+            element={
+              <ProtectedRoute roles={['SUPERADMIN']}>
+                <SuperAdminOnboardingPage />
               </ProtectedRoute>
             }
           />

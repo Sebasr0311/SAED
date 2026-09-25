@@ -88,6 +88,7 @@ const NAV_BY_ROLE = {
         { path: '/superadmin/propiedades', label: 'Propiedades Globales', icon: 'apartment' },
         { path: '/superadmin/planes', label: 'Planes SaaS', icon: 'pricing_plan' },
         { path: '/superadmin/membresias', label: 'Membresías', icon: 'card_membership' },
+        { path: '/superadmin/onboarding', label: 'Suscripciones & Onboarding', icon: 'how_to_reg' },
       ],
     },
     {
