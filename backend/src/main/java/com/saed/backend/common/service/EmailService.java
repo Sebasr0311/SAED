@@ -255,6 +255,42 @@ public class EmailService {
         enviarHtml(destinatario, asunto, html, null, null);
     }
 
+    public record EmailDispatchResult(String estado, String detalle, boolean real) {}
+
+    public boolean isRealDispatchConfigured() {
+        String apiKey = getEffectiveApiKey();
+        return apiKey != null && !apiKey.isBlank();
+    }
+
+    public EmailDispatchResult enviarBienvenidaCredencialesConResultado(
+            String destinatario,
+            String nombreCompleto,
+            String organizacion,
+            String planNombre,
+            String rol,
+            String nombreUsuario,
+            String passwordGenerada,
+            String urlLogin
+    ) {
+        if (destinatario == null || destinatario.isBlank()) {
+            return new EmailDispatchResult("FALLIDO", "Destinatario no especificado", false);
+        }
+        String apiKey = getEffectiveApiKey();
+        if (apiKey == null || apiKey.isBlank()) {
+            org.slf4j.LoggerFactory.getLogger(EmailService.class)
+                    .info("[EMAIL-SIMULATION] Envío simulado a {}: Asunto='¡Bienvenido a SAED! — Tus credenciales de acceso'", destinatario);
+            return new EmailDispatchResult("SIMULADO", "Envío simulado localmente (BREVO_API_KEY no configurada en entorno)", false);
+        }
+        try {
+            enviarBienvenidaCredenciales(destinatario, nombreCompleto, organizacion, planNombre, rol, nombreUsuario, passwordGenerada, urlLogin);
+            return new EmailDispatchResult("ENVIADO", "Correo entregado exitosamente vía Brevo API", true);
+        } catch (Exception e) {
+            org.slf4j.LoggerFactory.getLogger(EmailService.class)
+                    .error("Error despachando correo a {}: {}", destinatario, e.getMessage());
+            return new EmailDispatchResult("FALLIDO", "Error en proveedor de correo: " + e.getMessage(), false);
+        }
+    }
+
     public void enviarBienvenidaCredencialesAsync(
             String destinatario,
             String nombreCompleto,

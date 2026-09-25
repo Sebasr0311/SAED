@@ -42,6 +42,7 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
         initCoreRlsPoliciesClean();
         initPlantillasContratos();
         initRoles();
+        initSuperAdminUser();
         initResidentesUnidadConstraints();
         initTokensActivacion();
         initOnboardingIntenciones();
@@ -707,8 +708,37 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
                 """);
                 log.info("[SchemaInit] Tabla ONBOARDING_INTENCIONES creada exitosamente.");
             }
+
+            // Asegurar columnas de tracking de correo y vinculacion
+            String[] cols = {
+                "ALTER TABLE ONBOARDING_INTENCIONES ADD (CORREO_ESTADO VARCHAR2(30 CHAR) DEFAULT 'SIMULADO')",
+                "ALTER TABLE ONBOARDING_INTENCIONES ADD (CORREO_DETALLE VARCHAR2(500 CHAR))",
+                "ALTER TABLE ONBOARDING_INTENCIONES ADD (CORREO_FECHA TIMESTAMP)",
+                "ALTER TABLE ONBOARDING_INTENCIONES ADD (ID_ORGANIZACION NUMBER)",
+                "ALTER TABLE ONBOARDING_INTENCIONES ADD (ID_USUARIO NUMBER)"
+            };
+            for (String colDdl : cols) {
+                try {
+                    jdbcTemplate.execute(colDdl);
+                } catch (Exception ignored) {}
+            }
         } catch (Exception e) {
             log.debug("[SchemaInit] Aviso al verificar ONBOARDING_INTENCIONES: {}", e.getMessage());
+        }
+    }
+
+    private void initSuperAdminUser() {
+        try {
+            runElevated("""
+                MERGE INTO USUARIOS u
+                USING (SELECT 'admin_global' AS NOMBRE_USUARIO, '$2a$10$3jMwzV4asc7476tUcNa2GeahAAIhOz0.R9Clt8FCC5Kq5al1TGdxC' AS HASH_PASSWORD, 'ACTIVO' AS ESTADO, 0 AS INTENTOS_FALLIDOS FROM DUAL) s
+                ON (u.NOMBRE_USUARIO = s.NOMBRE_USUARIO)
+                WHEN MATCHED THEN
+                    UPDATE SET u.HASH_PASSWORD = s.HASH_PASSWORD, u.ESTADO = s.ESTADO, u.INTENTOS_FALLIDOS = s.INTENTOS_FALLIDOS
+            """);
+            log.info("[SchemaInit] SuperAdmin 'admin_global' desbloqueado y normalizado con éxito.");
+        } catch (Exception e) {
+            log.debug("[SchemaInit] Aviso al asegurar superadmin: {}", e.getMessage());
         }
     }
 

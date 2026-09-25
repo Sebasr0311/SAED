@@ -379,8 +379,9 @@ public class OnboardingServiceImpl implements OnboardingService {
         // Despachar correo de bienvenida con credenciales
         String adminFullName = (request.getPrimerNombre().trim() + " " + request.getPrimerApellido().trim()).trim();
         String planNombre = (String) plan.get("NOMBRE");
+        EmailService.EmailDispatchResult emailResult;
         try {
-            emailService.enviarBienvenidaCredencialesAsync(
+            emailResult = emailService.enviarBienvenidaCredencialesConResultado(
                     adminEmail,
                     adminFullName,
                     request.getNombreOrganizacion().trim(),
@@ -392,6 +393,26 @@ public class OnboardingServiceImpl implements OnboardingService {
             );
         } catch (Exception e) {
             log.error("[Onboarding] Error despachando credenciales de bienvenida: ", e);
+            emailResult = new EmailService.EmailDispatchResult("FALLIDO", e.getMessage(), false);
+        }
+
+        try {
+            String refGratis = "SAED-PRUEBA-ONB-" + System.currentTimeMillis();
+            String jsonDatos = objectMapper.writeValueAsString(request);
+            jdbcTemplate.update("""
+                INSERT INTO ONBOARDING_INTENCIONES (REFERENCIA, DATOS_REGISTRO, MONTO_CENTAVOS, ESTADO, FECHA_CREACION, FECHA_ACTUALIZACION, ID_ORGANIZACION, ID_USUARIO, CORREO_ESTADO, CORREO_DETALLE, CORREO_FECHA)
+                VALUES (:ref, :datos, 0, 'COMPLETADA', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, :org, :usr, :cEst, :cDet, CURRENT_TIMESTAMP)
+                """,
+                new MapSqlParameterSource()
+                    .addValue("ref", refGratis)
+                    .addValue("datos", jsonDatos)
+                    .addValue("org", idOrganizacion)
+                    .addValue("usr", idUsuario)
+                    .addValue("cEst", emailResult.estado())
+                    .addValue("cDet", emailResult.detalle())
+            );
+        } catch (Exception e) {
+            log.warn("[Onboarding] No se pudo registrar intención de prueba en staging: {}", e.getMessage());
         }
 
         Map<String, Object> resp = new HashMap<>();
@@ -558,8 +579,9 @@ public class OnboardingServiceImpl implements OnboardingService {
                 if (!pList.isEmpty()) planNombre = pList.get(0);
             } catch (Exception ignored) {}
 
+            EmailService.EmailDispatchResult emailResult;
             try {
-                emailService.enviarBienvenidaCredenciales(
+                emailResult = emailService.enviarBienvenidaCredencialesConResultado(
                         adminEmail,
                         nombreAdmin,
                         request.getNombreOrganizacion().trim(),
@@ -571,6 +593,28 @@ public class OnboardingServiceImpl implements OnboardingService {
                 );
             } catch (Exception e) {
                 log.warn("[Onboarding] Error enviando credenciales tras pago a {}: {}", adminEmail, e.getMessage());
+                emailResult = new EmailService.EmailDispatchResult("FALLIDO", e.getMessage(), false);
+            }
+
+            try {
+                jdbcTemplate.update("""
+                    UPDATE ONBOARDING_INTENCIONES
+                    SET ID_ORGANIZACION = :org,
+                        ID_USUARIO = :usr,
+                        CORREO_ESTADO = :cEst,
+                        CORREO_DETALLE = :cDet,
+                        CORREO_FECHA = CURRENT_TIMESTAMP
+                    WHERE REFERENCIA = :ref
+                    """,
+                    new MapSqlParameterSource()
+                        .addValue("org", idOrganizacion)
+                        .addValue("usr", idUsuario)
+                        .addValue("cEst", emailResult.estado())
+                        .addValue("cDet", emailResult.detalle())
+                        .addValue("ref", referencia)
+                );
+            } catch (Exception e) {
+                log.warn("[Onboarding] Error actualizando tracking de correo en ONBOARDING_INTENCIONES: {}", e.getMessage());
             }
 
             try {
