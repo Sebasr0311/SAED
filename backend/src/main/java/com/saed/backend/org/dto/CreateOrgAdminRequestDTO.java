@@ -36,7 +36,7 @@ public class CreateOrgAdminRequestDTO {
     private String telefono;
 
     @NotNull(message = "El rol es obligatorio")
-    private Long idRol = 2L; // 2 = ADMIN_PROPIEDAD por defecto
+    private Long idRol = 3L; // 3 = ADMIN_PROPIEDAD por defecto
 
     private Long idPropiedad; // Requerido si el rol es ADMIN_PROPIEDAD
 
