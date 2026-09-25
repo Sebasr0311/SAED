@@ -136,63 +136,143 @@ public class OrgAdminsController {
             throw new AccessDeniedException("No puede asignar administradores a propiedades fuera de su organización");
         }
 
-        // 1. Insertar PERSONA
-        String sqlPersona = """
-            INSERT INTO PERSONAS (id_tipo_documento, numero_documento, primer_nombre, primer_apellido, email, telefono, estado)
-            VALUES (:idTipoDoc, :numDoc, :nombre, :apellido, :email, :tel, 'ACTIVO')
-        """;
-        MapSqlParameterSource paramPersona = new MapSqlParameterSource()
-                .addValue("idTipoDoc", request.getIdTipoDocumento() != null ? request.getIdTipoDocumento() : 1L)
-                .addValue("numDoc", request.getNumeroDocumento())
-                .addValue("nombre", request.getPrimerNombre())
-                .addValue("apellido", request.getPrimerApellido())
-                .addValue("email", request.getEmail())
-                .addValue("tel", request.getTelefono());
-
-        KeyHolder khPersona = new GeneratedKeyHolder();
-        jdbcTemplate.update(sqlPersona, paramPersona, khPersona, new String[]{"ID_PERSONA"});
-        Number idPersonaNum = khPersona.getKey();
-        if (idPersonaNum == null) {
-            throw new IllegalStateException("No se pudo generar el ID para la persona");
+        // 1. Resolver o Crear PERSONA
+        Long idPersona = null;
+        String doc = request.getNumeroDocumento() != null ? request.getNumeroDocumento().trim() : "";
+        if (!doc.isBlank()) {
+            List<Long> existingPersonas = jdbcTemplate.query(
+                "SELECT ID_PERSONA FROM PERSONAS WHERE NUMERO_DOCUMENTO = :doc",
+                Map.of("doc", doc),
+                (rs, rowNum) -> rs.getLong("ID_PERSONA")
+            );
+            if (!existingPersonas.isEmpty()) {
+                idPersona = existingPersonas.get(0);
+                try {
+                    jdbcTemplate.update("""
+                        UPDATE PERSONAS 
+                        SET primer_nombre = COALESCE(:nombre, primer_nombre),
+                            primer_apellido = COALESCE(:apellido, primer_apellido),
+                            email = COALESCE(:email, email),
+                            telefono = COALESCE(:tel, telefono)
+                        WHERE id_persona = :idPersona
+                    """, new MapSqlParameterSource()
+                        .addValue("idPersona", idPersona)
+                        .addValue("nombre", request.getPrimerNombre())
+                        .addValue("apellido", request.getPrimerApellido())
+                        .addValue("email", request.getEmail())
+                        .addValue("tel", request.getTelefono())
+                    );
+                } catch (Exception ignored) {}
+            }
         }
-        Long idPersona = idPersonaNum.longValue();
 
-        // 2. Insertar USUARIO con bootstrap context temporal para permitir creación de identidad antes de asignación
-        try {
-            jdbcTemplate.getJdbcOperations().execute("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(" + ctx.getUserId() + "); EXCEPTION WHEN OTHERS THEN NULL; END;");
-        } catch (Exception ignored) {}
+        if (idPersona == null) {
+            String sqlPersona = """
+                INSERT INTO PERSONAS (id_tipo_documento, numero_documento, primer_nombre, primer_apellido, email, telefono, estado)
+                VALUES (:idTipoDoc, :numDoc, :nombre, :apellido, :email, :tel, 'ACTIVO')
+            """;
+            MapSqlParameterSource paramPersona = new MapSqlParameterSource()
+                    .addValue("idTipoDoc", request.getIdTipoDocumento() != null ? request.getIdTipoDocumento() : 1L)
+                    .addValue("numDoc", request.getNumeroDocumento())
+                    .addValue("nombre", request.getPrimerNombre())
+                    .addValue("apellido", request.getPrimerApellido())
+                    .addValue("email", request.getEmail())
+                    .addValue("tel", request.getTelefono());
 
+            KeyHolder khPersona = new GeneratedKeyHolder();
+            jdbcTemplate.update(sqlPersona, paramPersona, khPersona, new String[]{"ID_PERSONA"});
+            Number idPersonaNum = khPersona.getKey();
+            if (idPersonaNum == null) {
+                throw new IllegalStateException("No se pudo generar el ID para la persona");
+            }
+            idPersona = idPersonaNum.longValue();
+        }
+
+        // 2. Resolver o Crear USUARIO
+        Long idUsuario = null;
         String rawPassword = request.getPassword();
         if (rawPassword == null || rawPassword.trim().isBlank()) {
             rawPassword = com.saed.backend.common.util.PasswordGenerator.generate();
         }
 
-        String sqlUsuario = """
-            INSERT INTO USUARIOS (id_persona, nombre_usuario, email, hash_password, estado, intentos_fallidos)
-            VALUES (:idPersona, :username, :email, :pwd, 'ACTIVO', 0)
-        """;
-        MapSqlParameterSource paramUsuario = new MapSqlParameterSource()
-                .addValue("idPersona", idPersona)
-                .addValue("username", request.getNombreUsuario())
-                .addValue("email", request.getEmail())
-                .addValue("pwd", passwordEncoder.encode(rawPassword));
-
-        KeyHolder khUsuario = new GeneratedKeyHolder();
-        jdbcTemplate.update(sqlUsuario, paramUsuario, khUsuario, new String[]{"ID_USUARIO"});
-        Number idUsuarioNum = khUsuario.getKey();
-        if (idUsuarioNum == null) {
-            throw new IllegalStateException("No se pudo generar el ID para el usuario");
+        List<Map<String, Object>> existingUsers = jdbcTemplate.queryForList(
+            "SELECT ID_USUARIO, NOMBRE_USUARIO, EMAIL FROM USUARIOS WHERE ID_PERSONA = :p",
+            Map.of("p", idPersona)
+        );
+        if (existingUsers.isEmpty() && request.getEmail() != null && !request.getEmail().trim().isBlank()) {
+            existingUsers = jdbcTemplate.queryForList(
+                "SELECT ID_USUARIO, NOMBRE_USUARIO, EMAIL FROM USUARIOS WHERE LOWER(EMAIL) = LOWER(:email)",
+                Map.of("email", request.getEmail().trim())
+            );
         }
-        Long idUsuario = idUsuarioNum.longValue();
 
-        // 3. Crear Asignación vía AssignmentManagementService
-        AssignmentRequestDTO assignReq = new AssignmentRequestDTO();
-        assignReq.setIdUsuario(idUsuario);
-        assignReq.setIdRol(requestedRoleId); // 3 = ADMIN_PROPIEDAD
-        assignReq.setIdOrganizacion(orgId);
-        assignReq.setIdPropiedad(request.getIdPropiedad());
+        if (!existingUsers.isEmpty()) {
+            idUsuario = ((Number) existingUsers.get(0).get("ID_USUARIO")).longValue();
+            jdbcTemplate.update(
+                "UPDATE USUARIOS SET ID_PERSONA = :p WHERE ID_USUARIO = :uid AND ID_PERSONA IS NULL",
+                Map.of("p", idPersona, "uid", idUsuario)
+            );
+            if (request.getPassword() != null && !request.getPassword().trim().isBlank()) {
+                jdbcTemplate.update(
+                    "UPDATE USUARIOS SET HASH_PASSWORD = :pwd WHERE ID_USUARIO = :uid",
+                    Map.of("pwd", passwordEncoder.encode(rawPassword), "uid", idUsuario)
+                );
+            }
+        } else {
+            String username = request.getNombreUsuario();
+            if (username == null || username.trim().isBlank()) {
+                username = request.getEmail().split("@")[0].toLowerCase().replaceAll("[^a-z0-9]", ".");
+            }
+            Integer usernameCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(1) FROM USUARIOS WHERE LOWER(NOMBRE_USUARIO) = LOWER(:u)",
+                Map.of("u", username.trim()),
+                Integer.class
+            );
+            if (usernameCount != null && usernameCount > 0) {
+                username = username.trim() + "." + ((int)(Math.random() * 900) + 100);
+            }
 
-        Long idAsignacion = assignmentManagementService.create(assignReq);
+            try {
+                jdbcTemplate.getJdbcOperations().execute("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(" + ctx.getUserId() + "); EXCEPTION WHEN OTHERS THEN NULL; END;");
+            } catch (Exception ignored) {}
+
+            String sqlUsuario = """
+                INSERT INTO USUARIOS (id_persona, nombre_usuario, email, hash_password, estado, intentos_fallidos)
+                VALUES (:idPersona, :username, :email, :pwd, 'ACTIVO', 0)
+            """;
+            MapSqlParameterSource paramUsuario = new MapSqlParameterSource()
+                    .addValue("idPersona", idPersona)
+                    .addValue("username", username)
+                    .addValue("email", request.getEmail())
+                    .addValue("pwd", passwordEncoder.encode(rawPassword));
+
+            KeyHolder khUsuario = new GeneratedKeyHolder();
+            jdbcTemplate.update(sqlUsuario, paramUsuario, khUsuario, new String[]{"ID_USUARIO"});
+            Number idUsuarioNum = khUsuario.getKey();
+            if (idUsuarioNum == null) {
+                throw new IllegalStateException("No se pudo generar el ID para el usuario");
+            }
+            idUsuario = idUsuarioNum.longValue();
+        }
+
+        // 3. Crear Asignación vía AssignmentManagementService (idempotente)
+        List<Long> existingAssignments = jdbcTemplate.query(
+            "SELECT ID_ASIGNACION FROM USUARIO_ASIGNACIONES WHERE ID_USUARIO = :uid AND ID_PROPIEDAD = :propId AND ID_ROL = :rolId AND ESTADO IN ('ACTIVO', 'ACTIVA')",
+            Map.of("uid", idUsuario, "propId", request.getIdPropiedad(), "rolId", requestedRoleId),
+            (rs, rowNum) -> rs.getLong("ID_ASIGNACION")
+        );
+
+        Long idAsignacion;
+        if (!existingAssignments.isEmpty()) {
+            idAsignacion = existingAssignments.get(0);
+        } else {
+            AssignmentRequestDTO assignReq = new AssignmentRequestDTO();
+            assignReq.setIdUsuario(idUsuario);
+            assignReq.setIdRol(requestedRoleId); // 3 = ADMIN_PROPIEDAD
+            assignReq.setIdOrganizacion(orgId);
+            assignReq.setIdPropiedad(request.getIdPropiedad());
+            idAsignacion = assignmentManagementService.create(assignReq);
+        }
 
         // Restaurar contexto organizacional normal
         try {

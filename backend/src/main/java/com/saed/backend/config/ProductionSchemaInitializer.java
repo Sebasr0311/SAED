@@ -130,7 +130,7 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
 
             jdbcTemplate.execute("""
                 CREATE OR REPLACE PACKAGE BODY PKG_SAED_SECURITY_RLS AS
-                    -- RLS_BUILD_VERSION: 2026.09.24.V5_PERSONA_FIX
+                    -- RLS_BUILD_VERSION: 2026.09.25.V6_USUARIOS_FIX
 
                     FUNCTION FN_FILTRO_ORGANIZACION (p_schema IN VARCHAR2, p_tab IN VARCHAR2) RETURN VARCHAR2 AS
                         v_org VARCHAR2(30) := SYS_CONTEXT('SAED_CTX', 'ID_ORGANIZACION');
@@ -540,6 +540,29 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
             refreshRlsPolicy("USUARIOS", "POL_RLS_SEC_USR", "PKG_SAED_SECURITY_RLS.FN_FILTRO_USUARIOS");
             refreshRlsPolicy("USUARIO_ASIGNACIONES", "POL_RLS_SEC_UA", "PKG_SAED_SECURITY_RLS.FN_FILTRO_ASIGNACION");
             log.info("[SchemaInit] Políticas RLS limpias y normalizadas aplicadas a todas las tablas del sistema.");
+
+            // Limpieza de personas o usuarios truncos sin asignaciones activas para documento 1066268898
+            try {
+                jdbcTemplate.execute("""
+                    BEGIN
+                        FOR r IN (
+                            SELECT p.ID_PERSONA, u.ID_USUARIO 
+                            FROM PERSONAS p
+                            LEFT JOIN USUARIOS u ON u.ID_PERSONA = p.ID_PERSONA
+                            LEFT JOIN USUARIO_ASIGNACIONES ua ON ua.ID_USUARIO = u.ID_USUARIO
+                            WHERE p.NUMERO_DOCUMENTO = '1066268898'
+                              AND ua.ID_ASIGNACION IS NULL
+                        ) LOOP
+                            IF r.ID_USUARIO IS NOT NULL THEN
+                                DELETE FROM USUARIOS WHERE ID_USUARIO = r.ID_USUARIO;
+                            END IF;
+                            DELETE FROM PERSONAS WHERE ID_PERSONA = r.ID_PERSONA;
+                        END LOOP;
+                        COMMIT;
+                    EXCEPTION WHEN OTHERS THEN NULL;
+                    END;
+                """);
+            } catch (Exception ignored) {}
         } catch (Exception e) {
             log.warn("[SchemaInit] Aviso en initCoreRlsPoliciesClean: {}", e.getMessage());
         }
