@@ -94,6 +94,31 @@ public class OrganizationRepositoryImpl implements OrganizationRepository {
                 .addValue("direccion", request.getDireccion())
                 .addValue("ciudad", request.getCiudad());
         jdbcTemplate.update(sql, params);
+
+        if (request.getEmailContacto() != null && !request.getEmailContacto().isBlank()) {
+            String nuevoEmail = request.getEmailContacto().trim().toLowerCase();
+            try {
+                jdbcTemplate.update("""
+                    UPDATE USUARIOS
+                    SET EMAIL = :email
+                    WHERE ID_USUARIO IN (
+                        SELECT ua.ID_USUARIO FROM USUARIO_ASIGNACIONES ua
+                        JOIN ROLES r ON ua.ID_ROL = r.ID_ROL AND r.CODIGO = 'ADMIN_ORGANIZACION'
+                        WHERE ua.ID_ORGANIZACION = :orgId AND ua.ESTADO IN ('ACTIVA', 'ACTIVO')
+                    )
+                    """, new MapSqlParameterSource("email", nuevoEmail).addValue("orgId", id));
+                jdbcTemplate.update("""
+                    UPDATE PERSONAS
+                    SET EMAIL = :email
+                    WHERE ID_PERSONA IN (
+                        SELECT u.ID_PERSONA FROM USUARIOS u
+                        JOIN USUARIO_ASIGNACIONES ua ON u.ID_USUARIO = ua.ID_USUARIO
+                        JOIN ROLES r ON ua.ID_ROL = r.ID_ROL AND r.CODIGO = 'ADMIN_ORGANIZACION'
+                        WHERE ua.ID_ORGANIZACION = :orgId AND ua.ESTADO IN ('ACTIVA', 'ACTIVO')
+                    )
+                    """, new MapSqlParameterSource("email", nuevoEmail).addValue("orgId", id));
+            } catch (Exception ignored) {}
+        }
     }
 
     @Override

@@ -72,6 +72,7 @@ public class PlatformOnboardingAdminServiceImpl implements PlatformOnboardingAdm
                     o.NOMBRE AS ORG_NOMBRE,
                     o.IDENTIFICACION_FISCAL AS ORG_NIT,
                     o.ESTADO AS ORG_ESTADO,
+                    o.EMAIL_CONTACTO AS ORG_EMAIL,
                     u.NOMBRE_USUARIO,
                     u.EMAIL AS USUARIO_EMAIL,
                     u.ESTADO AS USUARIO_ESTADO,
@@ -135,8 +136,14 @@ public class PlatformOnboardingAdminServiceImpl implements PlatformOnboardingAdm
                     dto.setAdminNombreCompleto(((pNombre != null ? pNombre : "") + " " + (pApellido != null ? pApellido : "")).trim());
                 }
 
+                String usrEmail = (String) r.get("USUARIO_EMAIL");
+                String orgEmail = (String) r.get("ORG_EMAIL");
+                String resolvedAdminEmail = (orgEmail != null && !orgEmail.isBlank())
+                    ? orgEmail
+                    : ((usrEmail != null && !usrEmail.isBlank()) ? usrEmail : null);
+
                 dto.setAdminUsername((String) r.get("NOMBRE_USUARIO"));
-                dto.setAdminEmail((String) r.get("USUARIO_EMAIL"));
+                dto.setAdminEmail(resolvedAdminEmail);
                 dto.setNumeroDocumento((String) r.get("NUMERO_DOCUMENTO"));
                 dto.setTelefono((String) r.get("TELEFONO"));
                 dto.setPlanNombre((String) r.get("PLAN_NOMBRE"));
@@ -241,8 +248,14 @@ public class PlatformOnboardingAdminServiceImpl implements PlatformOnboardingAdm
                     Number usrId = (Number) orgRow.get("ID_USUARIO");
                     if (usrId != null) dto.setIdUsuario(usrId.longValue());
 
+                    String usrEmail = (String) orgRow.get("USUARIO_EMAIL");
+                    String orgEmail = (String) orgRow.get("EMAIL_CONTACTO");
+                    String resolvedAdminEmail = (orgEmail != null && !orgEmail.isBlank())
+                        ? orgEmail
+                        : ((usrEmail != null && !usrEmail.isBlank()) ? usrEmail : null);
+
                     dto.setAdminUsername((String) orgRow.get("NOMBRE_USUARIO"));
-                    dto.setAdminEmail((String) orgRow.get("USUARIO_EMAIL"));
+                    dto.setAdminEmail(resolvedAdminEmail);
                     dto.setTelefono((String) orgRow.get("TELEFONO"));
                     dto.setPlanNombre((String) orgRow.get("PLAN_NOMBRE"));
 
@@ -294,10 +307,11 @@ public class PlatformOnboardingAdminServiceImpl implements PlatformOnboardingAdm
                 SELECT u.ID_USUARIO, u.NOMBRE_USUARIO, u.EMAIL AS USER_EMAIL,
                        p.PRIMER_NOMBRE, p.PRIMER_APELLIDO,
                        o.ID_ORGANIZACION, o.NOMBRE AS ORG_NOMBRE,
+                       o.EMAIL_CONTACTO AS ORG_EMAIL,
                        pl.NOMBRE AS PLAN_NOMBRE
                 FROM USUARIOS u
                 JOIN PERSONAS p ON u.ID_PERSONA = p.ID_PERSONA
-                LEFT JOIN USUARIO_ASIGNACIONES ua ON u.ID_USUARIO = ua.ID_USUARIO AND ua.ESTADO = 'ACTIVA'
+                LEFT JOIN USUARIO_ASIGNACIONES ua ON u.ID_USUARIO = ua.ID_USUARIO AND ua.ESTADO IN ('ACTIVA', 'ACTIVO')
                 LEFT JOIN ORGANIZACIONES o ON ua.ID_ORGANIZACION = o.ID_ORGANIZACION
                 LEFT JOIN MEMBRESIAS m ON o.ID_ORGANIZACION = m.ID_ORGANIZACION AND m.ESTADO = 'ACTIVA'
                 LEFT JOIN PLANES pl ON m.ID_PLAN = pl.ID_PLAN
@@ -311,9 +325,19 @@ public class PlatformOnboardingAdminServiceImpl implements PlatformOnboardingAdm
             Map<String, Object> uRow = userRows.get(0);
             String username = (String) uRow.get("NOMBRE_USUARIO");
             String currentEmail = (String) uRow.get("USER_EMAIL");
-            String targetEmail = (request.getEmailDestino() != null && !request.getEmailDestino().isBlank())
-                    ? request.getEmailDestino().trim().toLowerCase()
-                    : currentEmail;
+            String orgEmail = (String) uRow.get("ORG_EMAIL");
+            Long idOrganizacion = uRow.get("ID_ORGANIZACION") != null ? ((Number) uRow.get("ID_ORGANIZACION")).longValue() : null;
+
+            String targetEmail;
+            if (request.getEmailDestino() != null && !request.getEmailDestino().isBlank()) {
+                targetEmail = request.getEmailDestino().trim().toLowerCase();
+            } else if (orgEmail != null && !orgEmail.isBlank()) {
+                targetEmail = orgEmail.trim().toLowerCase();
+            } else if (currentEmail != null && !currentEmail.isBlank()) {
+                targetEmail = currentEmail.trim().toLowerCase();
+            } else {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No se encontró un correo válido para el envío de credenciales.");
+            }
 
             String pNombre = (String) uRow.get("PRIMER_NOMBRE");
             String pApellido = (String) uRow.get("PRIMER_APELLIDO");
@@ -336,15 +360,23 @@ public class PlatformOnboardingAdminServiceImpl implements PlatformOnboardingAdm
                         new MapSqlParameterSource("pwd", passwordEncoder.encode(passwordToSend)).addValue("id", idUsuario));
             }
 
-            if (!targetEmail.equalsIgnoreCase(currentEmail)) {
-                try {
-                    jdbcTemplate.update("UPDATE USUARIOS SET EMAIL = :e WHERE ID_USUARIO = :id",
-                            new MapSqlParameterSource("e", targetEmail).addValue("id", idUsuario));
-                    jdbcTemplate.update("UPDATE PERSONAS SET EMAIL = :e WHERE ID_PERSONA = (SELECT ID_PERSONA FROM USUARIOS WHERE ID_USUARIO = :id)",
-                            new MapSqlParameterSource("e", targetEmail).addValue("id", idUsuario));
-                } catch (Exception e) {
-                    log.warn("Aviso al actualizar email del usuario {}: {}. Se despachará el correo directamente a {}.", idUsuario, e.getMessage(), targetEmail);
+            // Sincronizar el correo en USUARIOS, PERSONAS y ORGANIZACIONES
+            try {
+                jdbcTemplate.update("UPDATE USUARIOS SET EMAIL = :e WHERE ID_USUARIO = :id",
+                        new MapSqlParameterSource("e", targetEmail).addValue("id", idUsuario));
+                jdbcTemplate.update("UPDATE PERSONAS SET EMAIL = :e WHERE ID_PERSONA = (SELECT ID_PERSONA FROM USUARIOS WHERE ID_USUARIO = :id)",
+                        new MapSqlParameterSource("e", targetEmail).addValue("id", idUsuario));
+                if (idOrganizacion != null) {
+                    jdbcTemplate.update("UPDATE ORGANIZACIONES SET EMAIL_CONTACTO = :e WHERE ID_ORGANIZACION = :orgId",
+                            new MapSqlParameterSource("e", targetEmail).addValue("orgId", idOrganizacion));
+                    jdbcTemplate.update("""
+                        UPDATE ONBOARDING_INTENCIONES
+                        SET CORREO_DETALLE = 'Credenciales reenviadas al correo ' || :e
+                        WHERE ID_ORGANIZACION = :orgId OR ID_USUARIO = :id
+                        """, new MapSqlParameterSource("e", targetEmail).addValue("orgId", idOrganizacion).addValue("id", idUsuario));
                 }
+            } catch (Exception e) {
+                log.warn("Aviso al sincronizar email del usuario {}: {}. Se despachará el correo directamente a {}.", idUsuario, e.getMessage(), targetEmail);
             }
 
             EmailService.EmailDispatchResult result = emailService.enviarBienvenidaCredencialesConResultado(
@@ -466,6 +498,28 @@ public class PlatformOnboardingAdminServiceImpl implements PlatformOnboardingAdm
 
             jdbcTemplate.update("UPDATE PERSONAS SET EMAIL = :email WHERE ID_PERSONA = :idP",
                     new MapSqlParameterSource("email", nuevoEmail).addValue("idP", idPersona));
+
+            // Sincronizar también con ORGANIZACIONES y ONBOARDING_INTENCIONES si este usuario es ADMIN_ORGANIZACION
+            try {
+                jdbcTemplate.update("""
+                    UPDATE ORGANIZACIONES
+                    SET EMAIL_CONTACTO = :email
+                    WHERE ID_ORGANIZACION IN (
+                        SELECT ua.ID_ORGANIZACION
+                        FROM USUARIO_ASIGNACIONES ua
+                        JOIN ROLES r ON ua.ID_ROL = r.ID_ROL AND r.CODIGO = 'ADMIN_ORGANIZACION'
+                        WHERE ua.ID_USUARIO = :id AND ua.ESTADO IN ('ACTIVA', 'ACTIVO')
+                    )
+                    """, new MapSqlParameterSource("email", nuevoEmail).addValue("id", idUsuario));
+
+                jdbcTemplate.update("""
+                    UPDATE ONBOARDING_INTENCIONES
+                    SET CORREO_DETALLE = 'Credenciales actualizadas por Superadmin a ' || :email
+                    WHERE ID_USUARIO = :id
+                    """, new MapSqlParameterSource("email", nuevoEmail).addValue("id", idUsuario));
+            } catch (Exception e) {
+                log.warn("Aviso al sincronizar ORGANIZACIONES.EMAIL_CONTACTO en actualizarCredenciales: {}", e.getMessage());
+            }
 
             EmailService.EmailDispatchResult dispatchResult = null;
             if (Boolean.TRUE.equals(request.getReenviarCorreo()) && nuevaPassword != null && !nuevaPassword.isBlank()) {

@@ -10,6 +10,9 @@ import com.saed.backend.org.dto.OrgProfileDTO;
 import com.saed.backend.org.dto.OrgProfileUpdateRequestDTO;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -17,6 +20,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -32,6 +36,7 @@ import java.util.Map;
 @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_SUPERADMIN')")
 public class OrgProfileController {
 
+    private static final Logger log = LoggerFactory.getLogger(OrgProfileController.class);
     private final NamedParameterJdbcTemplate jdbcTemplate;
 
     public OrgProfileController(NamedParameterJdbcTemplate jdbcTemplate) {
@@ -70,6 +75,38 @@ public class OrgProfileController {
             throw new AccessDeniedException("No se encontró contexto de organización activo");
         }
 
+        String nuevoEmail = request.getEmailContacto() != null ? request.getEmailContacto().trim().toLowerCase() : null;
+
+        // 1. Identificar el usuario administrador organizacional asociado a la organización
+        Long currentUserId = ctx.getUserId();
+        List<Long> adminUserIds = jdbcTemplate.query(
+            """
+            SELECT ua.ID_USUARIO FROM USUARIO_ASIGNACIONES ua
+            JOIN ROLES r ON ua.ID_ROL = r.ID_ROL AND r.CODIGO = 'ADMIN_ORGANIZACION'
+            WHERE ua.ID_ORGANIZACION = :orgId AND ua.ESTADO IN ('ACTIVA', 'ACTIVO')
+            ORDER BY ua.ID_ASIGNACION ASC
+            """,
+            new MapSqlParameterSource("orgId", orgId),
+            (rs, rowNum) -> rs.getLong("ID_USUARIO")
+        );
+
+        Long targetAdminUserId = (currentUserId != null && adminUserIds.contains(currentUserId))
+            ? currentUserId
+            : (!adminUserIds.isEmpty() ? adminUserIds.get(0) : null);
+
+        // 2. Si se proporciona nuevo email, validar colisión con otros usuarios en el sistema
+        if (nuevoEmail != null && !nuevoEmail.isBlank() && targetAdminUserId != null) {
+            Integer count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(1) FROM USUARIOS WHERE LOWER(EMAIL) = :email AND ID_USUARIO != :targetId",
+                new MapSqlParameterSource("email", nuevoEmail).addValue("targetId", targetAdminUserId),
+                Integer.class
+            );
+            if (count != null && count > 0) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "El correo electrónico ya se encuentra registrado para otro usuario en el sistema.");
+            }
+        }
+
+        // 3. Actualizar datos en la entidad ORGANIZACIONES
         String sql = """
             UPDATE ORGANIZACIONES
             SET email_contacto = COALESCE(:email, email_contacto),
@@ -82,7 +119,7 @@ public class OrgProfileController {
 
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("orgId", orgId)
-                .addValue("email", request.getEmailContacto())
+                .addValue("email", nuevoEmail)
                 .addValue("telefono", request.getTelefonoContacto())
                 .addValue("direccion", request.getDireccion())
                 .addValue("ciudad", request.getCiudad())
@@ -93,7 +130,43 @@ public class OrgProfileController {
             throw new java.util.NoSuchElementException("Organización no encontrada para actualizar");
         }
 
-        return ResponseEntity.ok(Map.of("success", true, "message", "Perfil de organización actualizado correctamente"));
+        // 4. Sincronizar el correo en USUARIOS, PERSONAS y ONBOARDING_INTENCIONES para que cuando el Superadmin reenvíe credenciales lleguen al nuevo correo
+        if (nuevoEmail != null && !nuevoEmail.isBlank() && targetAdminUserId != null) {
+            try {
+                jdbcTemplate.update(
+                    "UPDATE USUARIOS SET EMAIL = :email WHERE ID_USUARIO = :id",
+                    new MapSqlParameterSource("email", nuevoEmail).addValue("id", targetAdminUserId)
+                );
+
+                jdbcTemplate.update(
+                    """
+                    UPDATE PERSONAS
+                    SET EMAIL = :email,
+                        TELEFONO = COALESCE(:telefono, TELEFONO)
+                    WHERE ID_PERSONA = (SELECT ID_PERSONA FROM USUARIOS WHERE ID_USUARIO = :id)
+                    """,
+                    new MapSqlParameterSource("email", nuevoEmail)
+                            .addValue("telefono", request.getTelefonoContacto())
+                            .addValue("id", targetAdminUserId)
+                );
+
+                jdbcTemplate.update(
+                    """
+                    UPDATE ONBOARDING_INTENCIONES
+                    SET CORREO_DETALLE = 'Correo institucional actualizado por la organización a ' || :email
+                    WHERE ID_ORGANIZACION = :orgId OR ID_USUARIO = :id
+                    """,
+                    new MapSqlParameterSource("email", nuevoEmail)
+                            .addValue("orgId", orgId)
+                            .addValue("id", targetAdminUserId)
+                );
+                log.info("[OrgProfile] Sincronizado nuevo correo {} para admin organizacional {} en org {}", nuevoEmail, targetAdminUserId, orgId);
+            } catch (Exception e) {
+                log.warn("[OrgProfile] Aviso al sincronizar correo del usuario admin organizacional {}: {}", targetAdminUserId, e.getMessage());
+            }
+        }
+
+        return ResponseEntity.ok(Map.of("success", true, "message", "Perfil de organización y canales de contacto actualizados correctamente"));
     }
 
     private OrgProfileDTO mapRow(ResultSet rs, int rowNum) throws SQLException {
