@@ -76,10 +76,17 @@ public class PersonaRepositoryImpl implements PersonaRepository {
             scopeSubquery = " AND u.ID_PROPIEDAD = :propId ";
             scopeWhere = """
                 AND (
-                    p.ID_PROPIEDAD = :propId
+                    (p.ID_PROPIEDAD = :propId AND NOT EXISTS (
+                        SELECT 1 FROM USUARIOS usr 
+                        JOIN USUARIO_ASIGNACIONES ua ON usr.ID_USUARIO = ua.ID_USUARIO 
+                        JOIN ROLES r ON ua.ID_ROL = r.ID_ROL
+                        WHERE usr.ID_PERSONA = p.ID_PERSONA 
+                          AND r.CODIGO IN ('SUPERADMIN', 'ADMIN_ORGANIZACION', 'ADMIN_PROPIEDAD')
+                          AND NOT EXISTS (SELECT 1 FROM RESIDENTES_UNIDAD ru WHERE ru.ID_PERSONA = p.ID_PERSONA)
+                          AND NOT EXISTS (SELECT 1 FROM PROPIETARIOS_UNIDAD pu WHERE pu.ID_PERSONA = p.ID_PERSONA)
+                    ))
                     OR EXISTS (SELECT 1 FROM RESIDENTES_UNIDAD ru JOIN UNIDADES u ON ru.ID_UNIDAD = u.ID_UNIDAD WHERE ru.ID_PERSONA = p.ID_PERSONA AND u.ID_PROPIEDAD = :propId AND ru.ESTADO = 'ACTIVO')
                     OR EXISTS (SELECT 1 FROM PROPIETARIOS_UNIDAD pu JOIN UNIDADES u ON pu.ID_UNIDAD = u.ID_UNIDAD WHERE pu.ID_PERSONA = p.ID_PERSONA AND u.ID_PROPIEDAD = :propId AND pu.ESTADO = 'ACTIVO')
-                    OR EXISTS (SELECT 1 FROM USUARIOS usr JOIN USUARIO_ASIGNACIONES ua ON usr.ID_USUARIO = ua.ID_USUARIO WHERE usr.ID_PERSONA = p.ID_PERSONA AND ua.ID_PROPIEDAD = :propId AND ua.ESTADO = 'ACTIVA')
                 )
             """;
         } else if (orgId != null && !"SUPERADMIN".equalsIgnoreCase(role)) {
@@ -87,10 +94,17 @@ public class PersonaRepositoryImpl implements PersonaRepository {
             scopeSubquery = " AND EXISTS (SELECT 1 FROM PROPIEDADES pr WHERE pr.ID_PROPIEDAD = u.ID_PROPIEDAD AND pr.ID_ORGANIZACION = :orgId) ";
             scopeWhere = """
                 AND (
-                    p.ID_ORGANIZACION = :orgId
+                    (p.ID_ORGANIZACION = :orgId AND NOT EXISTS (
+                        SELECT 1 FROM USUARIOS usr 
+                        JOIN USUARIO_ASIGNACIONES ua ON usr.ID_USUARIO = ua.ID_USUARIO 
+                        JOIN ROLES r ON ua.ID_ROL = r.ID_ROL
+                        WHERE usr.ID_PERSONA = p.ID_PERSONA 
+                          AND r.CODIGO IN ('SUPERADMIN', 'ADMIN_ORGANIZACION')
+                          AND NOT EXISTS (SELECT 1 FROM RESIDENTES_UNIDAD ru WHERE ru.ID_PERSONA = p.ID_PERSONA)
+                          AND NOT EXISTS (SELECT 1 FROM PROPIETARIOS_UNIDAD pu WHERE pu.ID_PERSONA = p.ID_PERSONA)
+                    ))
                     OR EXISTS (SELECT 1 FROM RESIDENTES_UNIDAD ru JOIN UNIDADES u ON ru.ID_UNIDAD = u.ID_UNIDAD JOIN PROPIEDADES pr ON u.ID_PROPIEDAD = pr.ID_PROPIEDAD WHERE ru.ID_PERSONA = p.ID_PERSONA AND pr.ID_ORGANIZACION = :orgId AND ru.ESTADO = 'ACTIVO')
                     OR EXISTS (SELECT 1 FROM PROPIETARIOS_UNIDAD pu JOIN UNIDADES u ON pu.ID_UNIDAD = u.ID_UNIDAD JOIN PROPIEDADES pr ON u.ID_PROPIEDAD = pr.ID_PROPIEDAD WHERE pu.ID_PERSONA = p.ID_PERSONA AND pr.ID_ORGANIZACION = :orgId AND pu.ESTADO = 'ACTIVO')
-                    OR EXISTS (SELECT 1 FROM USUARIOS usr JOIN USUARIO_ASIGNACIONES ua ON usr.ID_USUARIO = ua.ID_USUARIO WHERE usr.ID_PERSONA = p.ID_PERSONA AND ua.ID_ORGANIZACION = :orgId AND ua.ESTADO = 'ACTIVA')
                 )
             """;
         } else {
@@ -148,10 +162,17 @@ public class PersonaRepositoryImpl implements PersonaRepository {
             scopeSubquery = " AND u.ID_PROPIEDAD = :propId ";
             scopeWhere = """
                 AND (
-                    p.ID_PROPIEDAD = :propId
+                    (p.ID_PROPIEDAD = :propId AND NOT EXISTS (
+                        SELECT 1 FROM USUARIOS usr 
+                        JOIN USUARIO_ASIGNACIONES ua ON usr.ID_USUARIO = ua.ID_USUARIO 
+                        JOIN ROLES r ON ua.ID_ROL = r.ID_ROL
+                        WHERE usr.ID_PERSONA = p.ID_PERSONA 
+                          AND r.CODIGO IN ('SUPERADMIN', 'ADMIN_ORGANIZACION', 'ADMIN_PROPIEDAD')
+                          AND NOT EXISTS (SELECT 1 FROM RESIDENTES_UNIDAD ru WHERE ru.ID_PERSONA = p.ID_PERSONA)
+                          AND NOT EXISTS (SELECT 1 FROM PROPIETARIOS_UNIDAD pu WHERE pu.ID_PERSONA = p.ID_PERSONA)
+                    ))
                     OR EXISTS (SELECT 1 FROM RESIDENTES_UNIDAD ru JOIN UNIDADES u ON ru.ID_UNIDAD = u.ID_UNIDAD WHERE ru.ID_PERSONA = p.ID_PERSONA AND u.ID_PROPIEDAD = :propId)
                     OR EXISTS (SELECT 1 FROM PROPIETARIOS_UNIDAD pu JOIN UNIDADES u ON pu.ID_UNIDAD = u.ID_UNIDAD WHERE pu.ID_PERSONA = p.ID_PERSONA AND u.ID_PROPIEDAD = :propId)
-                    OR EXISTS (SELECT 1 FROM USUARIOS usr JOIN USUARIO_ASIGNACIONES ua ON usr.ID_USUARIO = ua.ID_USUARIO WHERE usr.ID_PERSONA = p.ID_PERSONA AND ua.ID_PROPIEDAD = :propId)
                 )
             """;
         } else if (orgId != null && !"SUPERADMIN".equalsIgnoreCase(role)) {
@@ -159,10 +180,17 @@ public class PersonaRepositoryImpl implements PersonaRepository {
             scopeSubquery = " AND EXISTS (SELECT 1 FROM PROPIEDADES pr WHERE pr.ID_PROPIEDAD = u.ID_PROPIEDAD AND pr.ID_ORGANIZACION = :orgId) ";
             scopeWhere = """
                 AND (
-                    p.ID_ORGANIZACION = :orgId
+                    (p.ID_ORGANIZACION = :orgId AND NOT EXISTS (
+                        SELECT 1 FROM USUARIOS usr 
+                        JOIN USUARIO_ASIGNACIONES ua ON usr.ID_USUARIO = ua.ID_USUARIO 
+                        JOIN ROLES r ON ua.ID_ROL = r.ID_ROL
+                        WHERE usr.ID_PERSONA = p.ID_PERSONA 
+                          AND r.CODIGO IN ('SUPERADMIN', 'ADMIN_ORGANIZACION')
+                          AND NOT EXISTS (SELECT 1 FROM RESIDENTES_UNIDAD ru WHERE ru.ID_PERSONA = p.ID_PERSONA)
+                          AND NOT EXISTS (SELECT 1 FROM PROPIETARIOS_UNIDAD pu WHERE pu.ID_PERSONA = p.ID_PERSONA)
+                    ))
                     OR EXISTS (SELECT 1 FROM RESIDENTES_UNIDAD ru JOIN UNIDADES u ON ru.ID_UNIDAD = u.ID_UNIDAD JOIN PROPIEDADES pr ON u.ID_PROPIEDAD = pr.ID_PROPIEDAD WHERE ru.ID_PERSONA = p.ID_PERSONA AND pr.ID_ORGANIZACION = :orgId)
                     OR EXISTS (SELECT 1 FROM PROPIETARIOS_UNIDAD pu JOIN UNIDADES u ON pu.ID_UNIDAD = u.ID_UNIDAD JOIN PROPIEDADES pr ON u.ID_PROPIEDAD = pr.ID_PROPIEDAD WHERE pu.ID_PERSONA = p.ID_PERSONA AND pr.ID_ORGANIZACION = :orgId)
-                    OR EXISTS (SELECT 1 FROM USUARIOS usr JOIN USUARIO_ASIGNACIONES ua ON usr.ID_USUARIO = ua.ID_USUARIO WHERE usr.ID_PERSONA = p.ID_PERSONA AND ua.ID_ORGANIZACION = :orgId)
                 )
             """;
         } else {

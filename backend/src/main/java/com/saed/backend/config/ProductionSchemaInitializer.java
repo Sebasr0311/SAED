@@ -940,21 +940,29 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
                         SELECT 1 FROM PROPIETARIOS_UNIDAD pu WHERE pu.ID_PERSONA = p.ID_PERSONA
                     );
 
+                    -- Asegurar que personas asociadas a usuarios con roles puramente administrativos no tengan ID_PROPIEDAD
+                    -- a menos que estén registradas como residentes o propietarias de una unidad física.
                     UPDATE PERSONAS p
-                    SET (ID_PROPIEDAD, ID_ORGANIZACION) = (
-                        SELECT ua.ID_PROPIEDAD, ua.ID_ORGANIZACION
-                        FROM USUARIOS u
+                    SET ID_PROPIEDAD = NULL
+                    WHERE EXISTS (
+                        SELECT 1 FROM USUARIOS u
                         JOIN USUARIO_ASIGNACIONES ua ON u.ID_USUARIO = ua.ID_USUARIO
-                        WHERE u.ID_PERSONA = p.ID_PERSONA AND ua.ESTADO = 'ACTIVA' AND ROWNUM = 1
+                        JOIN ROLES r ON ua.ID_ROL = r.ID_ROL
+                        WHERE u.ID_PERSONA = p.ID_PERSONA
+                          AND r.CODIGO IN ('SUPERADMIN', 'ADMIN_ORGANIZACION', 'ADMIN_PROPIEDAD')
                     )
-                    WHERE p.ID_PROPIEDAD IS NULL AND EXISTS (
-                        SELECT 1 FROM USUARIOS u JOIN USUARIO_ASIGNACIONES ua ON u.ID_USUARIO = ua.ID_USUARIO WHERE u.ID_PERSONA = p.ID_PERSONA
+                    AND NOT EXISTS (
+                        SELECT 1 FROM RESIDENTES_UNIDAD ru WHERE ru.ID_PERSONA = p.ID_PERSONA
+                    )
+                    AND NOT EXISTS (
+                        SELECT 1 FROM PROPIETARIOS_UNIDAD pu WHERE pu.ID_PERSONA = p.ID_PERSONA
                     );
 
-                    -- Asegurar que la persona de jjuan123 pertenezca a Org 201 y Propiedad 140
-                    UPDATE PERSONAS 
-                    SET ID_ORGANIZACION = 201, ID_PROPIEDAD = 140 
-                    WHERE (EMAIL = 'jjuan123@saed.com' OR NUMERO_DOCUMENTO = '1099999123');
+                    -- Limpiar ID_PROPIEDAD para jjuan123 y admin org para garantizar que el nuevo edificio inicie limpio con 0 registros
+                    UPDATE PERSONAS
+                    SET ID_PROPIEDAD = NULL
+                    WHERE EMAIL IN ('jjuan123@saed.com', 'juanrinconfarelo@gmail.com')
+                      OR NUMERO_DOCUMENTO IN ('1099999123', '1066268898');
 
                     COMMIT;
                 EXCEPTION WHEN OTHERS THEN NULL;
@@ -2277,24 +2285,16 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
                 "ID_PROPIEDAD NUMBER(19)",
                 "PARAMETROS_FILTRO_JSON CLOB",
                 "ID_USUARIO_CREO NUMBER(19)",
-                "FECHA_CREACION TIMESTAMP WITH TIME ZONE DEFAULT SYSTIMESTAMP",
-                "FECHA_ACTUALIZACION TIMESTAMP WITH TIME ZONE"
+                "FECHA_CREACION TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+                "FECHA_ACTUALIZACION TIMESTAMP"
             };
 
             for (String colDef : colsToAdd) {
-                String colName = colDef.split(" ")[0];
                 try {
-                    Integer count = jdbcTemplate.queryForObject(
-                        "SELECT COUNT(1) FROM USER_TAB_COLS WHERE TABLE_NAME = 'REPORTES_CONFIGURADOS' AND COLUMN_NAME = ?",
-                        Integer.class,
-                        colName
-                    );
-                    if (count == null || count == 0) {
-                        log.info("[SchemaInit] Agregando columna {} a REPORTES_CONFIGURADOS...", colName);
-                        jdbcTemplate.execute("ALTER TABLE REPORTES_CONFIGURADOS ADD (" + colDef + ")");
-                    }
+                    jdbcTemplate.execute("ALTER TABLE REPORTES_CONFIGURADOS ADD (" + colDef + ")");
+                    log.info("[SchemaInit] Columna agregada a REPORTES_CONFIGURADOS: {}", colDef);
                 } catch (Exception e) {
-                    log.debug("[SchemaInit] Columna {} en REPORTES_CONFIGURADOS ya existe o error menor: {}", colName, e.getMessage());
+                    log.debug("[SchemaInit] Columna en REPORTES_CONFIGURADOS ya existe o aviso: {}", e.getMessage());
                 }
             }
 
