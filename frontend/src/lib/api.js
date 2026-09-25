@@ -104,7 +104,8 @@ async function request(endpoint, options = {}) {
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
   const activeAssignment = typeof window !== 'undefined' ? sessionStorage.getItem('saed_active_assignment_id') : null;
-  if (activeAssignment && !headers['X-Assignment-Id'] && !options.skipAssignment) {
+  const isBootstrapEndpoint = endpoint.startsWith('/me/contexts') || endpoint.startsWith('/auth/');
+  if (activeAssignment && !headers['X-Assignment-Id'] && !options.skipAssignment && !isBootstrapEndpoint) {
     headers['X-Assignment-Id'] = activeAssignment;
   }
 

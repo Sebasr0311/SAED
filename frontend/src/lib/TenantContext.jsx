@@ -82,7 +82,7 @@ export function TenantProvider({ children }) {
             // api.js already removed the stale id — retry immediately without it
             setActiveAssignmentIdState(null);
             api
-              .get('/me/contexts')
+              .get('/me/contexts', { skipAssignment: true })
               .then((retryData) => {
                 if (cancelled) return;
                 const list = Array.isArray(retryData) ? retryData : [];
