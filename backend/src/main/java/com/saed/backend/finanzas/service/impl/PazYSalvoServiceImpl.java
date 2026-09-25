@@ -80,14 +80,19 @@ public class PazYSalvoServiceImpl implements PazYSalvoService {
                 BigDecimal.class);
         if (saldoCuotas == null) saldoCuotas = BigDecimal.ZERO;
 
-        List<Map<String, Object>> carteraRows = jdbcTemplate.queryForList(
-                "SELECT SALDO_TOTAL FROM CARTERA WHERE ID_UNIDAD = :unitId",
-                new MapSqlParameterSource("unitId", idUnidad));
-        BigDecimal saldoCartera = saldoCuotas;
-        if (!carteraRows.isEmpty() && carteraRows.get(0).get("SALDO_TOTAL") != null) {
-            BigDecimal carteraTotal = new BigDecimal(carteraRows.get(0).get("SALDO_TOTAL").toString());
-            if (carteraTotal.compareTo(saldoCartera) > 0) {
-                saldoCartera = carteraTotal;
+        BigDecimal saldoCartera;
+        if (saldoCuotas.compareTo(BigDecimal.ZERO) == 0) {
+            saldoCartera = BigDecimal.ZERO;
+        } else {
+            saldoCartera = saldoCuotas;
+            List<Map<String, Object>> carteraRows = jdbcTemplate.queryForList(
+                    "SELECT (NVL(SALDO_MORA_30, 0) + NVL(SALDO_MORA_60, 0) + NVL(SALDO_MORA_90_MAS, 0)) AS SALDO_MORA FROM CARTERA WHERE ID_UNIDAD = :unitId",
+                    new MapSqlParameterSource("unitId", idUnidad));
+            if (!carteraRows.isEmpty() && carteraRows.get(0).get("SALDO_MORA") != null) {
+                BigDecimal moraCartera = new BigDecimal(carteraRows.get(0).get("SALDO_MORA").toString());
+                if (moraCartera.compareTo(saldoCartera) > 0) {
+                    saldoCartera = moraCartera;
+                }
             }
         }
 

@@ -64,6 +64,7 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
         initPolizasSeguroPipeline();
         initReportesConfiguradosYHistorialPipeline();
         initPorteriaTurnos();
+        initCarteraVirtualColumn();
 
         log.info("[SchemaInit] Verificación de esquema completada.");
     }
@@ -2190,6 +2191,49 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
             log.info("[SchemaInit] Pipeline de PORTERIA_TURNOS verificado exitosamente.");
         } catch (Exception e) {
             log.warn("[SchemaInit] Aviso en initPorteriaTurnos: {}", e.getMessage());
+        }
+    }
+
+    private void initCarteraVirtualColumn() {
+        try {
+            Integer tableExists = jdbcTemplate.queryForObject(
+                "SELECT COUNT(1) FROM USER_TABLES WHERE TABLE_NAME = 'CARTERA'",
+                Integer.class
+            );
+            if (tableExists == null || tableExists == 0) {
+                return;
+            }
+
+            boolean needsFix = false;
+            try {
+                String dataDefault = jdbcTemplate.queryForObject(
+                    "SELECT DATA_DEFAULT FROM USER_TAB_COLS WHERE TABLE_NAME = 'CARTERA' AND COLUMN_NAME = 'SALDO_TOTAL'",
+                    String.class
+                );
+                if (dataDefault != null && (dataDefault.trim().equals("7") || !dataDefault.contains("SALDO_MORA_30"))) {
+                    needsFix = true;
+                }
+            } catch (Exception e) {
+                log.debug("[SchemaInit] No se pudo leer DATA_DEFAULT de CARTERA.SALDO_TOTAL directamente: {}", e.getMessage());
+                try {
+                    Integer count7 = jdbcTemplate.queryForObject(
+                        "SELECT COUNT(1) FROM CARTERA WHERE (SALDO_CORRIENTE + SALDO_MORA_30 + SALDO_MORA_60 + SALDO_MORA_90_MAS) = 0 AND SALDO_TOTAL = 7",
+                        Integer.class
+                    );
+                    if (count7 != null && count7 > 0) {
+                        needsFix = true;
+                    }
+                } catch (Exception ignored) {}
+            }
+
+            if (needsFix) {
+                log.info("[SchemaInit] Corrigiendo columna virtual CARTERA.SALDO_TOTAL...");
+                jdbcTemplate.execute("ALTER TABLE CARTERA DROP COLUMN SALDO_TOTAL");
+                jdbcTemplate.execute("ALTER TABLE CARTERA ADD (SALDO_TOTAL AS (SALDO_CORRIENTE + SALDO_MORA_30 + SALDO_MORA_60 + SALDO_MORA_90_MAS))");
+                log.info("[SchemaInit] Columna virtual CARTERA.SALDO_TOTAL corregida exitosamente a suma de saldos.");
+            }
+        } catch (Exception e) {
+            log.warn("[SchemaInit] Aviso al verificar/corregir CARTERA.SALDO_TOTAL: {}", e.getMessage());
         }
     }
 }
