@@ -259,17 +259,11 @@ public class PlantillaContratoRepositoryImpl implements PlantillaContratoReposit
         sql.append(" ORDER BY tipo_contrato, nombre, version DESC");
 
         try {
-            List<PlantillaContratoDTO> results = jdbcTemplate.query(sql.toString(), params, this::mapRow);
-            if (results.isEmpty()) {
-                seedDefaultTemplateIfEmpty(orgId);
-                results = jdbcTemplate.query(sql.toString(), params, this::mapRow);
-            }
-            return results;
+            return jdbcTemplate.query(sql.toString(), params, this::mapRow);
         } catch (DataAccessException dae) {
             log.warn("[PlantillasContratos] Excepción al consultar para org {}. Intentando asegurar esquema: {}", orgId, dae.getMessage());
             try {
                 ensureTableExists();
-                seedDefaultTemplateIfEmpty(orgId);
                 return jdbcTemplate.query(sql.toString(), params, this::mapRow);
             } catch (Exception retryEx) {
                 log.error("[PlantillasContratos] Fallo reintentando consulta para org {}: {}", orgId, retryEx.getMessage());
@@ -291,17 +285,11 @@ public class PlantillaContratoRepositoryImpl implements PlantillaContratoReposit
             ORDER BY nombre
         """;
         try {
-            List<PlantillaContratoDTO> results = jdbcTemplate.query(sql, new MapSqlParameterSource("orgId", orgId), this::mapRow);
-            if (results.isEmpty()) {
-                seedDefaultTemplateIfEmpty(orgId);
-                results = jdbcTemplate.query(sql, new MapSqlParameterSource("orgId", orgId), this::mapRow);
-            }
-            return results;
+            return jdbcTemplate.query(sql, new MapSqlParameterSource("orgId", orgId), this::mapRow);
         } catch (DataAccessException dae) {
             log.warn("[PlantillasContratos] Excepción al consultar activas para org {}: {}", orgId, dae.getMessage());
             try {
                 ensureTableExists();
-                seedDefaultTemplateIfEmpty(orgId);
                 return jdbcTemplate.query(sql, new MapSqlParameterSource("orgId", orgId), this::mapRow);
             } catch (Exception retryEx) {
                 log.error("[PlantillasContratos] Fallo reintentando consulta activas: {}", retryEx.getMessage());

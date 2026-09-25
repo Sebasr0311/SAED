@@ -663,8 +663,15 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
                         'ACTIVA', TRUNC(SYSDATE), 1
                     )
                 """, defaultHtml);
-                log.info("[SchemaInit] Plantilla de contrato predeterminada creada para org 1.");
             }
+
+            // Purgar plantillas auto-sembradas en organizaciones que no sean la demo 1 para mantenerlas 100% limpias
+            try {
+                int purged = jdbcTemplate.update("DELETE FROM PLANTILLAS_CONTRATOS WHERE ID_ORGANIZACION != 1 AND CODIGO = 'CONTRATO_ESTANDAR_2026'");
+                if (purged > 0) {
+                    log.info("[SchemaInit] Se purgaron {} plantillas de contrato auto-sembradas en organizaciones de clientes.", purged);
+                }
+            } catch (Exception ignored) {}
         } catch (Exception e) {
             log.warn("[SchemaInit] Aviso al verificar PLANTILLAS_CONTRATOS: {}", e.getMessage());
         }
