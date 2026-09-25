@@ -400,6 +400,14 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
     }
 
+    @ExceptionHandler(com.saed.backend.identity.exception.NoAssignedPropertiesException.class)
+    public ResponseEntity<Map<String, Object>> handleNoAssignedProperties(com.saed.backend.identity.exception.NoAssignedPropertiesException ex) {
+        registrarAccesoDenegado("Login rechazado: " + ex.getMessage(), "AUTH_ADMIN_PROPIEDAD");
+        Map<String, Object> response = createErrorResponse(HttpStatus.FORBIDDEN, "NO_PROPERTIES_ASSIGNED", ex.getMessage());
+        return new ResponseEntity<>(response, HttpStatus.FORBIDDEN);
+    }
+
+
     @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
     public ResponseEntity<Map<String, Object>> handleAccessDenied(org.springframework.security.access.AccessDeniedException ex) {
         registrarAccesoDenegado("AccessDeniedException: " + ex.getMessage(), "AUTORIZACION");

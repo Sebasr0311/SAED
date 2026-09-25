@@ -56,6 +56,11 @@ public class AuthService {
             throw new com.saed.backend.identity.exception.InvalidCredentialsException("Credenciales invalidas"); // Don't reveal blocked status unless policy explicitly says so, but for now use uniform msg
         }
 
+        // Si el usuario es Administrador de Propiedad pero no administra ninguna propiedad activa, notificar de inmediato
+        if (authRepository.isInactiveAdminPropiedadWithoutProperties(authData.getIdUsuario())) {
+            throw new com.saed.backend.identity.exception.NoAssignedPropertiesException("No administra ninguna propiedad hasta el momento");
+        }
+
         // Register success in Oracle (resets attempts, updates last login, audits)
         authRepository.registerLoginSuccess(authData.getIdUsuario(), "API");
 

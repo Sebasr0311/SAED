@@ -166,4 +166,27 @@ public class AuthServiceTest {
                 () -> authService.login(request),
                 "SD-01: Hardcoded admin_global123 must not authenticate if hash does not match in DB");
     }
+
+    @Test
+    void whenAdminPropiedadWithoutProperties_thenThrowsNoAssignedPropertiesException() {
+        LoginRequest request = new LoginRequest();
+        request.setUsername("admin_prop_sin_propiedad");
+        request.setPassword("password123");
+
+        AuthData authData = new AuthData();
+        authData.setIdUsuario(202L);
+        authData.setHashPassword("hashed_pw");
+        authData.setEstado("ACTIVO");
+
+        when(authRepository.getAuthData("admin_prop_sin_propiedad")).thenReturn(Optional.of(authData));
+        when(passwordEncoder.matches("password123", "hashed_pw")).thenReturn(true);
+        when(authRepository.isInactiveAdminPropiedadWithoutProperties(202L)).thenReturn(true);
+
+        com.saed.backend.identity.exception.NoAssignedPropertiesException ex =
+                assertThrows(com.saed.backend.identity.exception.NoAssignedPropertiesException.class,
+                        () -> authService.login(request));
+
+        assertEquals("No administra ninguna propiedad hasta el momento", ex.getMessage());
+        verify(authRepository, never()).registerLoginSuccess(anyLong(), anyString());
+    }
 }

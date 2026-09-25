@@ -204,4 +204,56 @@ public class AuthRepositoryImpl implements AuthRepository {
         }
         return Optional.empty();
     }
-}
+
+    @Override
+    public boolean isInactiveAdminPropiedadWithoutProperties(Long userId) {
+        if (userId == null) {
+            return false;
+        }
+        try {
+            jdbcTemplate.execute("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(" + userId + "); EXCEPTION WHEN OTHERS THEN NULL; END;");
+
+            // 1. ¿Tiene rol ADMIN_PROPIEDAD asignado?
+            Integer adminPropCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(1) FROM USUARIO_ASIGNACIONES ua JOIN ROLES r ON r.ID_ROL = ua.ID_ROL " +
+                "WHERE ua.ID_USUARIO = ? AND r.CODIGO = 'ADMIN_PROPIEDAD'",
+                Integer.class,
+                userId
+            );
+
+            if (adminPropCount == null || adminPropCount == 0) {
+                return false;
+            }
+
+            // 2. ¿Tiene algún rol superior activo (SUPERADMIN, ADMIN_ORGANIZACION)?
+            Integer higherRoleCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(1) FROM USUARIO_ASIGNACIONES ua JOIN ROLES r ON r.ID_ROL = ua.ID_ROL " +
+                "WHERE ua.ID_USUARIO = ? AND r.CODIGO IN ('SUPERADMIN', 'ADMIN_ORGANIZACION') AND ua.ESTADO IN ('ACTIVO', 'ACTIVA')",
+                Integer.class,
+                userId
+            );
+
+            if (higherRoleCount != null && higherRoleCount > 0) {
+                return false;
+            }
+
+            // 3. ¿Tiene alguna propiedad activa asignada bajo el rol ADMIN_PROPIEDAD?
+            Integer activePropCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(1) FROM USUARIO_ASIGNACIONES ua JOIN ROLES r ON r.ID_ROL = ua.ID_ROL " +
+                "JOIN PROPIEDADES p ON p.ID_PROPIEDAD = ua.ID_PROPIEDAD " +
+                "WHERE ua.ID_USUARIO = ? AND r.CODIGO = 'ADMIN_PROPIEDAD' " +
+                "AND ua.ESTADO IN ('ACTIVO', 'ACTIVA') AND p.ESTADO IN ('ACTIVO', 'ACTIVA')",
+                Integer.class,
+                userId
+            );
+
+            return (activePropCount == null || activePropCount == 0);
+        } catch (Exception e) {
+            return false;
+        } finally {
+            try {
+                jdbcTemplate.execute("BEGIN PKG_SAED_SESSION.CLEAR_CONTEXT; EXCEPTION WHEN OTHERS THEN NULL; END;");
+            } catch (Exception ignored) {}
+        }
+    }
+}

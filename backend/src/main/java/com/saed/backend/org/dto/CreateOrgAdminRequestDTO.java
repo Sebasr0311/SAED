@@ -37,9 +37,20 @@ public class CreateOrgAdminRequestDTO {
     @NotNull(message = "El rol es obligatorio")
     private Long idRol = 3L; // 3 = ADMIN_PROPIEDAD por defecto
 
-    private Long idPropiedad; // Requerido si el rol es ADMIN_PROPIEDAD
+    private Long idPropiedad; // Requerido si el rol es ADMIN_PROPIEDAD (retrocompatibilidad)
+    private java.util.List<Long> idPropiedades; // Asignación de múltiples propiedades
 
     public CreateOrgAdminRequestDTO() {}
+
+    public java.util.List<Long> getResolvedPropiedades() {
+        if (idPropiedades != null && !idPropiedades.isEmpty()) {
+            return idPropiedades.stream().filter(java.util.Objects::nonNull).distinct().toList();
+        }
+        if (idPropiedad != null) {
+            return java.util.List.of(idPropiedad);
+        }
+        return java.util.List.of();
+    }
 
     public String getNombreUsuario() { return nombreUsuario; }
     public void setNombreUsuario(String nombreUsuario) { this.nombreUsuario = nombreUsuario; }
@@ -70,4 +81,8 @@ public class CreateOrgAdminRequestDTO {
 
     public Long getIdPropiedad() { return idPropiedad; }
     public void setIdPropiedad(Long idPropiedad) { this.idPropiedad = idPropiedad; }
+
+    public java.util.List<Long> getIdPropiedades() { return idPropiedades; }
+    public void setIdPropiedades(java.util.List<Long> idPropiedades) { this.idPropiedades = idPropiedades; }
 }
+

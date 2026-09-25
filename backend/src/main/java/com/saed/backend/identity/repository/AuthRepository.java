@@ -11,4 +11,5 @@ public interface AuthRepository {
     void registerLoginFailure(Long userId, String ipAddress);
     void registerLoginSuccess(Long userId, String ipAddress);
     Optional<String> getPasswordHash(Long userId);
+    boolean isInactiveAdminPropiedadWithoutProperties(Long userId);
 }

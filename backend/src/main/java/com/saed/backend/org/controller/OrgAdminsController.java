@@ -34,6 +34,11 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.Set;
+import java.util.HashSet;
+
 
 @Tag(name = "Organization Administrators", description = "Gestión de Administradores de Propiedad para la Organización cliente")
 @RestController
@@ -83,11 +88,75 @@ public class OrgAdminsController {
             LEFT JOIN PROPIEDADES pr ON pr.id_propiedad = ua.id_propiedad
             WHERE ua.id_organizacion = :orgId
               AND r.codigo IN ('ADMIN_PROPIEDAD', 'ADMIN_ORGANIZACION')
-            ORDER BY p.primer_apellido, p.primer_nombre
+            ORDER BY p.primer_apellido, p.primer_nombre, ua.id_asignacion
         """;
 
-        List<OrgAdminDTO> list = jdbcTemplate.query(sql, new MapSqlParameterSource("orgId", orgId), this::mapRow);
-        return ApiResponse.success(list);
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql, Map.of("orgId", orgId));
+        Map<Long, OrgAdminDTO> adminMap = new LinkedHashMap<>();
+
+        for (Map<String, Object> r : rows) {
+            Long userId = ((Number) r.get("id_usuario")).longValue();
+            OrgAdminDTO dto = adminMap.computeIfAbsent(userId, k -> {
+                OrgAdminDTO d = new OrgAdminDTO();
+                d.setIdUsuario(userId);
+                d.setNombreUsuario((String) r.get("nombre_usuario"));
+                d.setEmail((String) r.get("email"));
+                d.setUsuarioEstado((String) r.get("usuario_estado"));
+                d.setPrimerNombre((String) r.get("primer_nombre"));
+                d.setPrimerApellido((String) r.get("primer_apellido"));
+                d.setTelefono((String) r.get("telefono"));
+                d.setIdRol(((Number) r.get("id_rol")).longValue());
+                d.setRolCodigo((String) r.get("rol_codigo"));
+                d.setRolNombre((String) r.get("rol_nombre"));
+                d.setIdAsignacion(((Number) r.get("id_asignacion")).longValue());
+                d.setAsignacionEstado("INACTIVA");
+
+                Timestamp tsInicio = (Timestamp) r.get("fecha_inicio");
+                if (tsInicio != null) d.setFechaInicio(tsInicio.toInstant().atZone(ZoneId.of("America/Bogota")));
+                Timestamp tsFin = (Timestamp) r.get("fecha_fin");
+                if (tsFin != null) d.setFechaFin(tsFin.toInstant().atZone(ZoneId.of("America/Bogota")));
+                return d;
+            });
+
+            Long asigId = ((Number) r.get("id_asignacion")).longValue();
+            String asigEstado = (String) r.get("asignacion_estado");
+            Long propId = r.get("id_propiedad") != null ? ((Number) r.get("id_propiedad")).longValue() : null;
+            String propNombre = (String) r.get("propiedad_nombre");
+
+            if (propId != null) {
+                if (!dto.getIdPropiedades().contains(propId)) {
+                    dto.getIdPropiedades().add(propId);
+                    if (propNombre != null) {
+                        dto.getPropiedadesNombres().add(propNombre);
+                    }
+                    dto.getPropiedades().add(new OrgAdminDTO.AdminPropertyAssignmentDTO(asigId, propId, propNombre, asigEstado));
+                }
+            }
+
+            if ("ADMIN_ORGANIZACION".equals(dto.getRolCodigo())) {
+                dto.setAsignacionEstado("ACTIVA");
+            } else if ("ACTIVA".equalsIgnoreCase(asigEstado) && propId != null) {
+                dto.setAsignacionEstado("ACTIVA");
+                dto.setIdAsignacion(asigId);
+            }
+        }
+
+        for (OrgAdminDTO dto : adminMap.values()) {
+            if ("ADMIN_ORGANIZACION".equals(dto.getRolCodigo())) {
+                dto.setPropiedadNombre("Toda la Organización");
+            } else if (dto.getIdPropiedades().isEmpty()) {
+                dto.setPropiedadNombre(null);
+                dto.setAsignacionEstado("INACTIVA");
+            } else if (dto.getIdPropiedades().size() == 1) {
+                dto.setIdPropiedad(dto.getIdPropiedades().get(0));
+                dto.setPropiedadNombre(dto.getPropiedadesNombres().isEmpty() ? null : dto.getPropiedadesNombres().get(0));
+            } else {
+                dto.setIdPropiedad(dto.getIdPropiedades().get(0));
+                dto.setPropiedadNombre(String.join(", ", dto.getPropiedadesNombres()));
+            }
+        }
+
+        return ApiResponse.success(new ArrayList<>(adminMap.values()));
     }
 
     @PostMapping
@@ -130,17 +199,19 @@ public class OrgAdminsController {
             }
         }
 
-        // Requerir propiedad asignada obligatoria
-        if (request.getIdPropiedad() == null) {
-            throw new IllegalArgumentException("Debe especificar la propiedad a la que se asignará el administrador.");
+        List<Long> targetPropIds = request.getResolvedPropiedades();
+        List<String> assignedPropNames = new ArrayList<>();
+
+        // BD-02: Validar que cada propiedad pertenezca a la organización
+        for (Long pId : targetPropIds) {
+            PropertyDTO prop = propertyRepository.findById(pId)
+                    .orElseThrow(() -> new IllegalArgumentException("La propiedad especificada (ID: " + pId + ") no existe"));
+            if (!prop.getIdOrganizacion().equals(orgId)) {
+                throw new AccessDeniedException("No puede asignar administradores a propiedades fuera de su organización");
+            }
+            assignedPropNames.add(prop.getNombre());
         }
 
-        // BD-02: Validar que la propiedad pertenezca a la organización
-        PropertyDTO prop = propertyRepository.findById(request.getIdPropiedad())
-                .orElseThrow(() -> new IllegalArgumentException("La propiedad especificada no existe"));
-        if (!prop.getIdOrganizacion().equals(orgId)) {
-            throw new AccessDeniedException("No puede asignar administradores a propiedades fuera de su organización");
-        }
 
         // 1. Resolver o Crear PERSONA
         Long idPersona = null;
@@ -261,23 +332,62 @@ public class OrgAdminsController {
             idUsuario = idUsuarioNum.longValue();
         }
 
-        // 3. Crear Asignación vía AssignmentManagementService (idempotente)
-        List<Long> existingAssignments = jdbcTemplate.query(
-            "SELECT ID_ASIGNACION FROM USUARIO_ASIGNACIONES WHERE ID_USUARIO = :uid AND ID_PROPIEDAD = :propId AND ID_ROL = :rolId AND ESTADO IN ('ACTIVO', 'ACTIVA')",
-            Map.of("uid", idUsuario, "propId", request.getIdPropiedad(), "rolId", requestedRoleId),
-            (rs, rowNum) -> rs.getLong("ID_ASIGNACION")
-        );
-
-        Long idAsignacion;
-        if (!existingAssignments.isEmpty()) {
-            idAsignacion = existingAssignments.get(0);
+        // 3. Crear Asignaciones (soporte para múltiples propiedades o inactiva si no se seleccionó ninguna)
+        Long primaryAsignacionId = null;
+        if (targetPropIds.isEmpty()) {
+            List<Long> existingInactive = jdbcTemplate.query(
+                "SELECT ID_ASIGNACION FROM USUARIO_ASIGNACIONES WHERE ID_USUARIO = :uid AND ID_ORGANIZACION = :orgId AND ID_PROPIEDAD IS NULL",
+                Map.of("uid", idUsuario, "orgId", orgId),
+                (rs, rowNum) -> rs.getLong("ID_ASIGNACION")
+            );
+            if (!existingInactive.isEmpty()) {
+                primaryAsignacionId = existingInactive.get(0);
+            } else {
+                KeyHolder khAsig = new GeneratedKeyHolder();
+                jdbcTemplate.update("""
+                    INSERT INTO USUARIO_ASIGNACIONES (id_usuario, id_rol, id_organizacion, id_propiedad, estado, fecha_inicio)
+                    VALUES (:uid, :rolId, :orgId, NULL, 'INACTIVA', TRUNC(CURRENT_DATE))
+                """, new MapSqlParameterSource()
+                    .addValue("uid", idUsuario)
+                    .addValue("rolId", requestedRoleId)
+                    .addValue("orgId", orgId),
+                    khAsig, new String[]{"ID_ASIGNACION"}
+                );
+                Number asigKey = khAsig.getKey();
+                primaryAsignacionId = asigKey != null ? asigKey.longValue() : null;
+            }
         } else {
-            AssignmentRequestDTO assignReq = new AssignmentRequestDTO();
-            assignReq.setIdUsuario(idUsuario);
-            assignReq.setIdRol(requestedRoleId); // 3 = ADMIN_PROPIEDAD
-            assignReq.setIdOrganizacion(orgId);
-            assignReq.setIdPropiedad(request.getIdPropiedad());
-            idAsignacion = assignmentManagementService.create(assignReq);
+            jdbcTemplate.update(
+                "DELETE FROM USUARIO_ASIGNACIONES WHERE ID_USUARIO = :uid AND ID_ORGANIZACION = :orgId AND ID_PROPIEDAD IS NULL",
+                Map.of("uid", idUsuario, "orgId", orgId)
+            );
+
+            for (Long pId : targetPropIds) {
+                List<Long> existingAssignments = jdbcTemplate.query(
+                    "SELECT ID_ASIGNACION FROM USUARIO_ASIGNACIONES WHERE ID_USUARIO = :uid AND ID_PROPIEDAD = :propId AND ID_ROL = :rolId",
+                    Map.of("uid", idUsuario, "propId", pId, "rolId", requestedRoleId),
+                    (rs, rowNum) -> rs.getLong("ID_ASIGNACION")
+                );
+
+                Long asigId;
+                if (!existingAssignments.isEmpty()) {
+                    asigId = existingAssignments.get(0);
+                    jdbcTemplate.update(
+                        "UPDATE USUARIO_ASIGNACIONES SET ESTADO = 'ACTIVA' WHERE ID_ASIGNACION = :asigId",
+                        Map.of("asigId", asigId)
+                    );
+                } else {
+                    AssignmentRequestDTO assignReq = new AssignmentRequestDTO();
+                    assignReq.setIdUsuario(idUsuario);
+                    assignReq.setIdRol(requestedRoleId);
+                    assignReq.setIdOrganizacion(orgId);
+                    assignReq.setIdPropiedad(pId);
+                    asigId = assignmentManagementService.create(assignReq);
+                }
+                if (primaryAsignacionId == null) {
+                    primaryAsignacionId = asigId;
+                }
+            }
         }
 
         // Restaurar contexto organizacional normal
@@ -313,7 +423,9 @@ public class OrgAdminsController {
             if (!oNames.isEmpty()) orgName = oNames.get(0);
         } catch (Exception ignored) {}
 
-        String propName = prop != null ? prop.getNombre() : null;
+        String propName = assignedPropNames.isEmpty() 
+            ? "Sin propiedades asignadas (Inactivo)" 
+            : String.join(", ", assignedPropNames);
 
         String fullName = (request.getPrimerNombre().trim() + " " + request.getPrimerApellido().trim()).trim();
         try {
@@ -332,11 +444,15 @@ public class OrgAdminsController {
             );
         } catch (Exception ignored) {}
 
+        String respMessage = targetPropIds.isEmpty()
+            ? "Administrador creado exitosamente en estado inactivo (sin propiedades a su cargo)."
+            : "Administrador creado y asignado exitosamente a " + targetPropIds.size() + " propiedad(es). Se enviaron credenciales a " + request.getEmail();
+
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
                 "success", true,
                 "idUsuario", idUsuario,
-                "idAsignacion", idAsignacion,
-                "message", "Administrador creado exitosamente. Se han enviado las credenciales de acceso a " + request.getEmail()
+                "idAsignacion", primaryAsignacionId != null ? primaryAsignacionId : 0L,
+                "message", respMessage
         ));
     }
 
@@ -388,8 +504,67 @@ public class OrgAdminsController {
             }
         }
 
-        // 2. Si se cambia la propiedad, validar que pertenezca a la organización
-        if (request.getIdPropiedad() != null && !request.getIdPropiedad().equals(currentPropId)) {
+        // 2. Si se especificaron propiedades (múltiples o lista vacía), sincronizar
+        if (request.getResolvedPropiedades() != null) {
+            List<Long> newPropIds = request.getResolvedPropiedades();
+            for (Long pId : newPropIds) {
+                PropertyDTO prop = propertyRepository.findById(pId)
+                        .orElseThrow(() -> new IllegalArgumentException("La propiedad especificada (ID: " + pId + ") no existe"));
+                if (!prop.getIdOrganizacion().equals(orgId)) {
+                    throw new AccessDeniedException("No puede asignar administradores a propiedades fuera de su organización");
+                }
+            }
+
+            // Obtener asignaciones actuales del usuario en esta organización para ADMIN_PROPIEDAD
+            List<Map<String, Object>> currentAssignments = jdbcTemplate.queryForList("""
+                SELECT ID_ASIGNACION, ID_PROPIEDAD, ESTADO 
+                FROM USUARIO_ASIGNACIONES 
+                WHERE ID_USUARIO = :uid AND ID_ORGANIZACION = :orgId AND ID_ROL = :rolId
+            """, Map.of("uid", targetUserId, "orgId", orgId, "rolId", roleId));
+
+            Set<Long> existingPropIds = new HashSet<>();
+            for (Map<String, Object> ca : currentAssignments) {
+                Long cpId = ca.get("ID_PROPIEDAD") != null ? ((Number) ca.get("ID_PROPIEDAD")).longValue() : null;
+                Long asigItem = ((Number) ca.get("ID_ASIGNACION")).longValue();
+                if (cpId == null) {
+                    if (!newPropIds.isEmpty()) {
+                        jdbcTemplate.update("DELETE FROM USUARIO_ASIGNACIONES WHERE ID_ASIGNACION = :asigId", Map.of("asigId", asigItem));
+                    }
+                } else {
+                    existingPropIds.add(cpId);
+                    if (!newPropIds.contains(cpId)) {
+                        jdbcTemplate.update("DELETE FROM USUARIO_ASIGNACIONES WHERE ID_ASIGNACION = :asigId", Map.of("asigId", asigItem));
+                    } else {
+                        jdbcTemplate.update("UPDATE USUARIO_ASIGNACIONES SET ESTADO = 'ACTIVA' WHERE ID_ASIGNACION = :asigId", Map.of("asigId", asigItem));
+                    }
+                }
+            }
+
+            for (Long pId : newPropIds) {
+                if (!existingPropIds.contains(pId)) {
+                    AssignmentRequestDTO assignReq = new AssignmentRequestDTO();
+                    assignReq.setIdUsuario(targetUserId);
+                    assignReq.setIdRol(roleId);
+                    assignReq.setIdOrganizacion(orgId);
+                    assignReq.setIdPropiedad(pId);
+                    assignmentManagementService.create(assignReq);
+                }
+            }
+
+            if (newPropIds.isEmpty()) {
+                Integer placeholderCount = jdbcTemplate.queryForObject("""
+                    SELECT COUNT(1) FROM USUARIO_ASIGNACIONES 
+                    WHERE ID_USUARIO = :uid AND ID_ORGANIZACION = :orgId AND ID_PROPIEDAD IS NULL
+                """, Map.of("uid", targetUserId, "orgId", orgId), Integer.class);
+
+                if (placeholderCount == null || placeholderCount == 0) {
+                    jdbcTemplate.update("""
+                        INSERT INTO USUARIO_ASIGNACIONES (id_usuario, id_rol, id_organizacion, id_propiedad, estado, fecha_inicio)
+                        VALUES (:uid, :rolId, :orgId, NULL, 'INACTIVA', TRUNC(CURRENT_DATE))
+                    """, Map.of("uid", targetUserId, "rolId", roleId, "orgId", orgId));
+                }
+            }
+        } else if (request.getIdPropiedad() != null && !request.getIdPropiedad().equals(currentPropId)) {
             PropertyDTO prop = propertyRepository.findById(request.getIdPropiedad())
                     .orElseThrow(() -> new IllegalArgumentException("La propiedad especificada no existe"));
             if (!prop.getIdOrganizacion().equals(orgId)) {
@@ -410,6 +585,7 @@ public class OrgAdminsController {
                 Map.of("propId", request.getIdPropiedad(), "asigId", assignmentId)
             );
         }
+
 
         // 3. Actualizar datos de persona si se proporcionaron
         if (idPersona != null) {
@@ -465,6 +641,73 @@ public class OrgAdminsController {
         return ResponseEntity.ok(Map.of(
             "success", true,
             "message", "Administrador de propiedad actualizado exitosamente"
+        ));
+    }
+
+    @DeleteMapping("/{userId}/propiedades/{propertyId}")
+    @Auditable(action = "DELETE", resource = "ASIGNACION", category = AuditCategory.AUTHORIZATION, severity = AuditSeverity.CRITICAL)
+    @Transactional
+    public ResponseEntity<Map<String, Object>> unassignProperty(
+            @PathVariable Long userId,
+            @PathVariable Long propertyId) {
+        SaedContext ctx = SaedContextHolder.getContext();
+        Long orgId = ctx.getOrganizationId();
+        if (orgId == null) {
+            throw new AccessDeniedException("No se encontró contexto de organización activo");
+        }
+
+        // Validar propiedad
+        PropertyDTO prop = propertyRepository.findById(propertyId)
+                .orElseThrow(() -> new IllegalArgumentException("La propiedad especificada no existe"));
+        if (!prop.getIdOrganizacion().equals(orgId)) {
+            throw new AccessDeniedException("No tiene permisos sobre propiedades de otra organización");
+        }
+
+        // Eliminar la asignación de esa propiedad
+        jdbcTemplate.update("""
+            DELETE FROM USUARIO_ASIGNACIONES 
+            WHERE ID_USUARIO = :uid 
+              AND ID_ORGANIZACION = :orgId 
+              AND ID_PROPIEDAD = :propId
+        """, Map.of("uid", userId, "orgId", orgId, "propId", propertyId));
+
+        // Contar cuántas asignaciones con propiedad le quedan activas
+        Integer remainingCount = jdbcTemplate.queryForObject("""
+            SELECT COUNT(1) 
+            FROM USUARIO_ASIGNACIONES 
+            WHERE ID_USUARIO = :uid 
+              AND ID_ORGANIZACION = :orgId 
+              AND ID_PROPIEDAD IS NOT NULL 
+              AND ESTADO IN ('ACTIVA', 'ACTIVO')
+        """, Map.of("uid", userId, "orgId", orgId), Integer.class);
+
+        boolean isNowInactive = (remainingCount == null || remainingCount == 0);
+        if (isNowInactive) {
+            Long adminPropRoleId = jdbcTemplate.query(
+                "SELECT ID_ROL FROM ROLES WHERE CODIGO = 'ADMIN_PROPIEDAD' AND ESTADO = 'ACTIVO'",
+                (rs, rowNum) -> rs.getLong("ID_ROL")
+            ).stream().findFirst().orElse(2L);
+
+            Integer placeholderCount = jdbcTemplate.queryForObject("""
+                SELECT COUNT(1) FROM USUARIO_ASIGNACIONES 
+                WHERE ID_USUARIO = :uid AND ID_ORGANIZACION = :orgId AND ID_PROPIEDAD IS NULL
+            """, Map.of("uid", userId, "orgId", orgId), Integer.class);
+
+            if (placeholderCount == null || placeholderCount == 0) {
+                jdbcTemplate.update("""
+                    INSERT INTO USUARIO_ASIGNACIONES (id_usuario, id_rol, id_organizacion, id_propiedad, estado, fecha_inicio)
+                    VALUES (:uid, :rolId, :orgId, NULL, 'INACTIVA', TRUNC(CURRENT_DATE))
+                """, Map.of("uid", userId, "rolId", adminPropRoleId, "orgId", orgId));
+            }
+        }
+
+        return ResponseEntity.ok(Map.of(
+            "success", true,
+            "isInactive", isNowInactive,
+            "remainingProperties", remainingCount != null ? remainingCount : 0,
+            "message", isNowInactive 
+                ? "Administrador desvinculado de la propiedad. Al no tener más propiedades a cargo, su perfil queda como inactivo."
+                : "Administrador desvinculado exitosamente de la propiedad."
         ));
     }
 

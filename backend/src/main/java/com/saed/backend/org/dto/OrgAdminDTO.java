@@ -20,6 +20,38 @@ public class OrgAdminDTO {
     private ZonedDateTime fechaInicio;
     private ZonedDateTime fechaFin;
 
+    private java.util.List<Long> idPropiedades = new java.util.ArrayList<>();
+    private java.util.List<String> propiedadesNombres = new java.util.ArrayList<>();
+    private java.util.List<AdminPropertyAssignmentDTO> propiedades = new java.util.ArrayList<>();
+
+    public static class AdminPropertyAssignmentDTO {
+        private Long idAsignacion;
+        private Long idPropiedad;
+        private String propiedadNombre;
+        private String estado;
+
+        public AdminPropertyAssignmentDTO() {}
+
+        public AdminPropertyAssignmentDTO(Long idAsignacion, Long idPropiedad, String propiedadNombre, String estado) {
+            this.idAsignacion = idAsignacion;
+            this.idPropiedad = idPropiedad;
+            this.propiedadNombre = propiedadNombre;
+            this.estado = estado;
+        }
+
+        public Long getIdAsignacion() { return idAsignacion; }
+        public void setIdAsignacion(Long idAsignacion) { this.idAsignacion = idAsignacion; }
+
+        public Long getIdPropiedad() { return idPropiedad; }
+        public void setIdPropiedad(Long idPropiedad) { this.idPropiedad = idPropiedad; }
+
+        public String getPropiedadNombre() { return propiedadNombre; }
+        public void setPropiedadNombre(String propiedadNombre) { this.propiedadNombre = propiedadNombre; }
+
+        public String getEstado() { return estado; }
+        public void setEstado(String estado) { this.estado = estado; }
+    }
+
     public OrgAdminDTO() {}
 
     public Long getIdUsuario() { return idUsuario; }
@@ -69,4 +101,13 @@ public class OrgAdminDTO {
 
     public ZonedDateTime getFechaFin() { return fechaFin; }
     public void setFechaFin(ZonedDateTime fechaFin) { this.fechaFin = fechaFin; }
+
+    public java.util.List<Long> getIdPropiedades() { return idPropiedades; }
+    public void setIdPropiedades(java.util.List<Long> idPropiedades) { this.idPropiedades = idPropiedades; }
+
+    public java.util.List<String> getPropiedadesNombres() { return propiedadesNombres; }
+    public void setPropiedadesNombres(java.util.List<String> propiedadesNombres) { this.propiedadesNombres = propiedadesNombres; }
+
+    public java.util.List<AdminPropertyAssignmentDTO> getPropiedades() { return propiedades; }
+    public void setPropiedades(java.util.List<AdminPropertyAssignmentDTO> propiedades) { this.propiedades = propiedades; }
 }

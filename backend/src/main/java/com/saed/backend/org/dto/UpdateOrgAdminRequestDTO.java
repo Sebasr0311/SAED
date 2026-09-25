@@ -6,6 +6,17 @@ import jakarta.validation.constraints.Size;
 public class UpdateOrgAdminRequestDTO {
 
     private Long idPropiedad;
+    private java.util.List<Long> idPropiedades;
+
+    public java.util.List<Long> getResolvedPropiedades() {
+        if (idPropiedades != null) {
+            return idPropiedades.stream().filter(java.util.Objects::nonNull).distinct().toList();
+        }
+        if (idPropiedad != null) {
+            return java.util.List.of(idPropiedad);
+        }
+        return null;
+    }
 
     @Size(max = 60, message = "El primer nombre no puede exceder 60 caracteres")
     private String primerNombre;
@@ -45,4 +56,7 @@ public class UpdateOrgAdminRequestDTO {
 
     public String getPassword() { return password; }
     public void setPassword(String password) { this.password = password; }
+
+    public java.util.List<Long> getIdPropiedades() { return idPropiedades; }
+    public void setIdPropiedades(java.util.List<Long> idPropiedades) { this.idPropiedades = idPropiedades; }
 }
