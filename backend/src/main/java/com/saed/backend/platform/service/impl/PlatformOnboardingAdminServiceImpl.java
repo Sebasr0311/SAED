@@ -208,9 +208,9 @@ public class PlatformOnboardingAdminServiceImpl implements PlatformOnboardingAdm
                        m.ESTADO AS MEMBRESIA_ESTADO,
                        m.ES_PRUEBA AS MEMBRESIA_ES_PRUEBA
                 FROM ORGANIZACIONES o
-                LEFT JOIN USUARIO_ASIGNACIONES ua ON o.ID_ORGANIZACION = ua.ID_ORGANIZACION AND ua.ESTADO = 'ACTIVA'
-                LEFT JOIN ROLES r ON ua.ID_ROL = r.ID_ROL AND r.CODIGO = 'ADMIN_ORGANIZACION'
-                LEFT JOIN USUARIOS u ON ua.ID_USUARIO = u.ID_USUARIO
+                JOIN USUARIO_ASIGNACIONES ua ON o.ID_ORGANIZACION = ua.ID_ORGANIZACION AND ua.ESTADO = 'ACTIVA'
+                JOIN ROLES r ON ua.ID_ROL = r.ID_ROL AND r.CODIGO = 'ADMIN_ORGANIZACION'
+                JOIN USUARIOS u ON ua.ID_USUARIO = u.ID_USUARIO
                 LEFT JOIN PERSONAS p ON u.ID_PERSONA = p.ID_PERSONA
                 LEFT JOIN MEMBRESIAS m ON o.ID_ORGANIZACION = m.ID_ORGANIZACION AND m.ESTADO = 'ACTIVA'
                 LEFT JOIN PLANES pl ON m.ID_PLAN = pl.ID_PLAN
@@ -221,6 +221,7 @@ public class PlatformOnboardingAdminServiceImpl implements PlatformOnboardingAdm
             for (Map<String, Object> orgRow : orgRows) {
                 Number orgId = (Number) orgRow.get("ID_ORGANIZACION");
                 if (orgId != null && !processedOrgIds.contains(orgId.longValue())) {
+                    processedOrgIds.add(orgId.longValue());
                     OnboardingAdminSummaryDTO dto = new OnboardingAdminSummaryDTO();
                     dto.setReferencia("ORG-EXISTENTE-" + orgId);
                     dto.setIdOrganizacion(orgId.longValue());
