@@ -195,13 +195,20 @@ export default function DashboardPage() {
   const contextoLabel = useMemo(
     () =>
       [
-        tenant.activeOrgId ? `Organización ${tenant.activeOrgId}` : null,
-        tenant.activePropertyId ? `Propiedad ${tenant.activePropertyId}` : null,
-        tenant.activeUnitId ? `Unidad ${tenant.activeUnitId}` : null,
+        tenant.activePropertyName || (tenant.activePropertyId ? `Propiedad #${tenant.activePropertyId}` : null),
+        tenant.activeOrgName || (tenant.activeOrgId ? `Organización #${tenant.activeOrgId}` : null),
+        tenant.activeUnitNumber ? `Unidad ${tenant.activeUnitNumber}` : (tenant.activeUnitId ? `Unidad #${tenant.activeUnitId}` : null),
       ]
         .filter(Boolean)
         .join(' · '),
-    [tenant.activeOrgId, tenant.activePropertyId, tenant.activeUnitId]
+    [
+      tenant.activePropertyName,
+      tenant.activePropertyId,
+      tenant.activeOrgName,
+      tenant.activeOrgId,
+      tenant.activeUnitNumber,
+      tenant.activeUnitId,
+    ]
   );
 
   const fechaHoy = useMemo(() => {
