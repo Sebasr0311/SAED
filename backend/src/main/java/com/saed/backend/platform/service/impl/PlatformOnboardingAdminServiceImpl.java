@@ -337,10 +337,14 @@ public class PlatformOnboardingAdminServiceImpl implements PlatformOnboardingAdm
             }
 
             if (!targetEmail.equalsIgnoreCase(currentEmail)) {
-                jdbcTemplate.update("UPDATE USUARIOS SET EMAIL = :e WHERE ID_USUARIO = :id",
-                        new MapSqlParameterSource("e", targetEmail).addValue("id", idUsuario));
-                jdbcTemplate.update("UPDATE PERSONAS SET EMAIL = :e WHERE ID_PERSONA = (SELECT ID_PERSONA FROM USUARIOS WHERE ID_USUARIO = :id)",
-                        new MapSqlParameterSource("e", targetEmail).addValue("id", idUsuario));
+                try {
+                    jdbcTemplate.update("UPDATE USUARIOS SET EMAIL = :e WHERE ID_USUARIO = :id",
+                            new MapSqlParameterSource("e", targetEmail).addValue("id", idUsuario));
+                    jdbcTemplate.update("UPDATE PERSONAS SET EMAIL = :e WHERE ID_PERSONA = (SELECT ID_PERSONA FROM USUARIOS WHERE ID_USUARIO = :id)",
+                            new MapSqlParameterSource("e", targetEmail).addValue("id", idUsuario));
+                } catch (Exception e) {
+                    log.warn("Aviso al actualizar email del usuario {}: {}. Se despachará el correo directamente a {}.", idUsuario, e.getMessage(), targetEmail);
+                }
             }
 
             EmailService.EmailDispatchResult result = emailService.enviarBienvenidaCredencialesConResultado(
