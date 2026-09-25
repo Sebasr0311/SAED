@@ -729,16 +729,37 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
 
     private void initSuperAdminUser() {
         try {
-            runElevated("""
-                MERGE INTO USUARIOS u
-                USING (SELECT 'admin_global' AS NOMBRE_USUARIO, '$2a$10$3jMwzV4asc7476tUcNa2GeahAAIhOz0.R9Clt8FCC5Kq5al1TGdxC' AS HASH_PASSWORD, 'ACTIVO' AS ESTADO, 0 AS INTENTOS_FALLIDOS FROM DUAL) s
-                ON (u.NOMBRE_USUARIO = s.NOMBRE_USUARIO)
-                WHEN MATCHED THEN
-                    UPDATE SET u.HASH_PASSWORD = s.HASH_PASSWORD, u.ESTADO = s.ESTADO, u.INTENTOS_FALLIDOS = s.INTENTOS_FALLIDOS
+            jdbcTemplate.execute("""
+                BEGIN
+                    BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1); EXCEPTION WHEN OTHERS THEN NULL; END;
+
+                    UPDATE USUARIOS
+                    SET NOMBRE_USUARIO = 'admin_global',
+                        HASH_PASSWORD = '$2a$10$3jMwzV4asc7476tUcNa2GeahAAIhOz0.R9Clt8FCC5Kq5al1TGdxC',
+                        ESTADO = 'ACTIVO',
+                        INTENTOS_FALLIDOS = 0
+                    WHERE ID_USUARIO = 1;
+
+                    UPDATE USUARIOS
+                    SET HASH_PASSWORD = '$2a$10$3jMwzV4asc7476tUcNa2GeahAAIhOz0.R9Clt8FCC5Kq5al1TGdxC',
+                        ESTADO = 'ACTIVO',
+                        INTENTOS_FALLIDOS = 0
+                    WHERE NOMBRE_USUARIO = 'admin_global';
+
+                    UPDATE ADMINISTRADORES_SAED
+                    SET ESTADO = 'ACTIVO'
+                    WHERE ID_USUARIO = 1;
+
+                    UPDATE USUARIO_ASIGNACIONES
+                    SET ESTADO = 'ACTIVA'
+                    WHERE ID_USUARIO = 1 AND ID_ROL = 1;
+
+                    COMMIT;
+                END;
             """);
             log.info("[SchemaInit] SuperAdmin 'admin_global' desbloqueado y normalizado con éxito.");
         } catch (Exception e) {
-            log.debug("[SchemaInit] Aviso al asegurar superadmin: {}", e.getMessage());
+            log.warn("[SchemaInit] Aviso al asegurar superadmin: {}", e.getMessage());
         }
     }
 
