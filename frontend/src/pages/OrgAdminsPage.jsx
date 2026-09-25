@@ -77,9 +77,27 @@ export default function OrgAdminsPage() {
       // Validar documento según norma colombiana
       const selectedDoc = tiposDoc.find((t) => Number(t.idTipoDoc) === Number(newAdmin.idTipoDocumento));
       const cod = selectedDoc?.codigo || 'CC';
-      const docErr = valDocumento(newAdmin.numeroDocumento, cod, 'El número de documento');
-      if (docErr) {
-        setCreateError(docErr);
+      const docResult = valDocumento(newAdmin.numeroDocumento, cod, 'El número de documento');
+      if (!docResult.ok) {
+        setCreateError(docResult.mensaje);
+        setCreating(false);
+        return;
+      }
+
+      if (!newAdmin.primerNombre?.trim() || !newAdmin.primerApellido?.trim()) {
+        setCreateError('El primer nombre y el primer apellido son obligatorios.');
+        setCreating(false);
+        return;
+      }
+
+      if (!newAdmin.email?.trim()) {
+        setCreateError('El correo electrónico es obligatorio.');
+        setCreating(false);
+        return;
+      }
+
+      if (!newAdmin.nombreUsuario?.trim()) {
+        setCreateError('El usuario de ingreso es obligatorio.');
         setCreating(false);
         return;
       }
@@ -113,7 +131,8 @@ export default function OrgAdminsPage() {
       setTimeout(() => setSuccessMsg(null), 4000);
     } catch (err) {
       console.error('Error creating admin:', err);
-      setCreateError(err?.response?.data?.message || 'Error al registrar el administrador.');
+      const msg = err?.response?.data?.message || err?.response?.data?.error || 'Error al registrar el administrador.';
+      setCreateError(typeof msg === 'string' ? msg : JSON.stringify(msg));
     } finally {
       setCreating(false);
     }
