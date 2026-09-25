@@ -195,6 +195,10 @@ public class OrgAdminsController {
             rawPassword = com.saed.backend.common.util.PasswordGenerator.generate();
         }
 
+        try {
+            jdbcTemplate.getJdbcOperations().execute("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(" + ctx.getUserId() + "); EXCEPTION WHEN OTHERS THEN NULL; END;");
+        } catch (Exception ignored) {}
+
         List<Map<String, Object>> existingUsers = jdbcTemplate.queryForList(
             "SELECT ID_USUARIO, NOMBRE_USUARIO, EMAIL FROM USUARIOS WHERE ID_PERSONA = :p",
             Map.of("p", idPersona)
@@ -231,10 +235,6 @@ public class OrgAdminsController {
             if (usernameCount != null && usernameCount > 0) {
                 username = username.trim() + "." + ((int)(Math.random() * 900) + 100);
             }
-
-            try {
-                jdbcTemplate.getJdbcOperations().execute("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(" + ctx.getUserId() + "); EXCEPTION WHEN OTHERS THEN NULL; END;");
-            } catch (Exception ignored) {}
 
             String sqlUsuario = """
                 INSERT INTO USUARIOS (id_persona, nombre_usuario, email, hash_password, estado, intentos_fallidos)
