@@ -733,12 +733,21 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
                 BEGIN
                     BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1); EXCEPTION WHEN OTHERS THEN NULL; END;
 
-                    UPDATE USUARIOS
-                    SET NOMBRE_USUARIO = 'admin_global',
-                        HASH_PASSWORD = '$2a$10$3jMwzV4asc7476tUcNa2GeahAAIhOz0.R9Clt8FCC5Kq5al1TGdxC',
-                        ESTADO = 'ACTIVO',
-                        INTENTOS_FALLIDOS = 0
-                    WHERE ID_USUARIO = 1;
+                    MERGE INTO PERSONAS p
+                    USING (SELECT 1 AS ID_PERSONA, 1 AS ID_TIPO_DOCUMENTO, 'DOC000' AS NUMERO_DOCUMENTO, 'NATURAL' AS TIPO_PERSONA, 'Admin' AS PRIMER_NOMBRE, 'Global' AS PRIMER_APELLIDO, 'admin_global@saed.com' AS EMAIL, 'ACTIVO' AS ESTADO FROM DUAL) src
+                    ON (p.ID_PERSONA = src.ID_PERSONA)
+                    WHEN NOT MATCHED THEN
+                        INSERT (ID_PERSONA, ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, PRIMER_NOMBRE, PRIMER_APELLIDO, EMAIL, ESTADO)
+                        VALUES (src.ID_PERSONA, src.ID_TIPO_DOCUMENTO, src.NUMERO_DOCUMENTO, src.TIPO_PERSONA, src.PRIMER_NOMBRE, src.PRIMER_APELLIDO, src.EMAIL, src.ESTADO);
+
+                    MERGE INTO USUARIOS u
+                    USING (SELECT 1 AS ID_USUARIO, 1 AS ID_PERSONA, 'admin_global' AS NOMBRE_USUARIO, 'admin_global@saed.com' AS EMAIL, '$2a$10$3jMwzV4asc7476tUcNa2GeahAAIhOz0.R9Clt8FCC5Kq5al1TGdxC' AS HASH_PASSWORD, 'ACTIVO' AS ESTADO, 0 AS INTENTOS_FALLIDOS FROM DUAL) src
+                    ON (u.ID_USUARIO = src.ID_USUARIO)
+                    WHEN NOT MATCHED THEN
+                        INSERT (ID_USUARIO, ID_PERSONA, NOMBRE_USUARIO, EMAIL, HASH_PASSWORD, ESTADO, INTENTOS_FALLIDOS)
+                        VALUES (src.ID_USUARIO, src.ID_PERSONA, src.NOMBRE_USUARIO, src.EMAIL, src.HASH_PASSWORD, src.ESTADO, src.INTENTOS_FALLIDOS)
+                    WHEN MATCHED THEN
+                        UPDATE SET NOMBRE_USUARIO = src.NOMBRE_USUARIO, HASH_PASSWORD = src.HASH_PASSWORD, ESTADO = 'ACTIVO', INTENTOS_FALLIDOS = 0;
 
                     UPDATE USUARIOS
                     SET HASH_PASSWORD = '$2a$10$3jMwzV4asc7476tUcNa2GeahAAIhOz0.R9Clt8FCC5Kq5al1TGdxC',
@@ -746,18 +755,28 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
                         INTENTOS_FALLIDOS = 0
                     WHERE NOMBRE_USUARIO = 'admin_global';
 
-                    UPDATE ADMINISTRADORES_SAED
-                    SET ESTADO = 'ACTIVO'
-                    WHERE ID_USUARIO = 1;
+                    MERGE INTO ADMINISTRADORES_SAED a
+                    USING (SELECT 1 AS ID_ADMINISTRADOR_SAED, 1 AS ID_USUARIO, 'SUPERADMIN' AS NIVEL, 'ACTIVO' AS ESTADO FROM DUAL) src
+                    ON (a.ID_ADMINISTRADOR_SAED = src.ID_ADMINISTRADOR_SAED)
+                    WHEN NOT MATCHED THEN
+                        INSERT (ID_ADMINISTRADOR_SAED, ID_USUARIO, NIVEL, ESTADO)
+                        VALUES (src.ID_ADMINISTRADOR_SAED, src.ID_USUARIO, src.NIVEL, src.ESTADO)
+                    WHEN MATCHED THEN
+                        UPDATE SET ID_USUARIO = src.ID_USUARIO, NIVEL = src.NIVEL, ESTADO = 'ACTIVO';
 
-                    UPDATE USUARIO_ASIGNACIONES
-                    SET ESTADO = 'ACTIVA'
-                    WHERE ID_USUARIO = 1 AND ID_ROL = 1;
+                    MERGE INTO USUARIO_ASIGNACIONES ua
+                    USING (SELECT 1 AS ID_ASIGNACION, 1 AS ID_USUARIO, 1 AS ID_ROL, CAST(NULL AS NUMBER) AS ID_ORGANIZACION, CAST(NULL AS NUMBER) AS ID_PROPIEDAD, CAST(NULL AS NUMBER) AS ID_UNIDAD, 'ACTIVA' AS ESTADO FROM DUAL) src
+                    ON (ua.ID_ASIGNACION = src.ID_ASIGNACION)
+                    WHEN NOT MATCHED THEN
+                        INSERT (ID_ASIGNACION, ID_USUARIO, ID_ROL, ID_ORGANIZACION, ID_PROPIEDAD, ID_UNIDAD, ESTADO)
+                        VALUES (src.ID_ASIGNACION, src.ID_USUARIO, src.ID_ROL, src.ID_ORGANIZACION, src.ID_PROPIEDAD, src.ID_UNIDAD, src.ESTADO)
+                    WHEN MATCHED THEN
+                        UPDATE SET ID_USUARIO = src.ID_USUARIO, ID_ROL = src.ID_ROL, ESTADO = 'ACTIVA';
 
                     COMMIT;
                 END;
             """);
-            log.info("[SchemaInit] SuperAdmin 'admin_global' desbloqueado y normalizado con éxito.");
+            log.info("[SchemaInit] SuperAdmin 'admin_global' asegurado y normalizado con éxito.");
         } catch (Exception e) {
             log.warn("[SchemaInit] Aviso al asegurar superadmin: {}", e.getMessage());
         }
