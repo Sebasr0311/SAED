@@ -65,7 +65,29 @@ public class AssignmentRepositoryImpl implements AssignmentRepository {
 
     @Override
     public List<AssignmentResponseDTO> findAssignmentsByUsuarioId(Long idUsuario) {
-        return jdbcTemplate.query(BASE_QUERY, rowMapper, idUsuario);
+        com.saed.backend.context.SaedContext previousContext = com.saed.backend.context.SaedContextHolder.getContext();
+        try {
+            com.saed.backend.context.SaedContextHolder.setContext(com.saed.backend.context.SaedContext.builder().userId(idUsuario).build());
+            return jdbcTemplate.execute((org.springframework.jdbc.core.ConnectionCallback<List<AssignmentResponseDTO>>) conn -> {
+                try (var cs = conn.prepareCall("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(?); EXCEPTION WHEN OTHERS THEN NULL; END;")) {
+                    cs.setLong(1, idUsuario);
+                    cs.execute();
+                }
+                try (var ps = conn.prepareStatement(BASE_QUERY)) {
+                    ps.setLong(1, idUsuario);
+                    try (var rs = ps.executeQuery()) {
+                        List<AssignmentResponseDTO> list = new java.util.ArrayList<>();
+                        int rowNum = 0;
+                        while (rs.next()) {
+                            list.add(rowMapper.mapRow(rs, rowNum++));
+                        }
+                        return list;
+                    }
+                }
+            });
+        } finally {
+            com.saed.backend.context.SaedContextHolder.setContext(previousContext);
+        }
     }
 
     @Override

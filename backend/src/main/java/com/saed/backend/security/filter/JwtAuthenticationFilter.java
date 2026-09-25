@@ -78,10 +78,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             }
 
             if (userId != null) {
+                String requestPath = request.getRequestURI();
+                boolean isContextDiscovery = requestPath != null && (requestPath.endsWith("/me/contexts") || requestPath.endsWith("/auth/assignments"));
+
                 String assignmentHeader = request.getHeader("X-Assignment-Id");
                 SaedContext saedContext = null;
 
-                if (StringUtils.hasText(assignmentHeader)) {
+                if (isContextDiscovery) {
+                    saedContext = SaedContext.builder().userId(userId).build();
+                } else if (StringUtils.hasText(assignmentHeader)) {
                     SaedContextHolder.setContext(SaedContext.builder().userId(userId).build());
                     AssignmentService assignmentService = assignmentServiceProvider.getIfAvailable();
 
