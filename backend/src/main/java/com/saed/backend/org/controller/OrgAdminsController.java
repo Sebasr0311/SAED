@@ -157,7 +157,11 @@ public class OrgAdminsController {
         }
         Long idPersona = idPersonaNum.longValue();
 
-        // 2. Insertar USUARIO
+        // 2. Insertar USUARIO con bootstrap context temporal para permitir creación de identidad antes de asignación
+        try {
+            jdbcTemplate.getJdbcOperations().execute("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(" + ctx.getUserId() + "); EXCEPTION WHEN OTHERS THEN NULL; END;");
+        } catch (Exception ignored) {}
+
         String rawPassword = request.getPassword();
         if (rawPassword == null || rawPassword.trim().isBlank()) {
             rawPassword = com.saed.backend.common.util.PasswordGenerator.generate();
@@ -189,6 +193,14 @@ public class OrgAdminsController {
         assignReq.setIdPropiedad(request.getIdPropiedad());
 
         Long idAsignacion = assignmentManagementService.create(assignReq);
+
+        // Restaurar contexto organizacional normal
+        try {
+            jdbcTemplate.getJdbcOperations().execute(String.format(
+                "BEGIN PKG_SAED_SESSION.SET_CONTEXT(%d, %d, NULL, '%s'); EXCEPTION WHEN OTHERS THEN NULL; END;",
+                ctx.getUserId(), orgId, ctx.getRoleCode()
+            ));
+        } catch (Exception ignored) {}
 
         // 4. Enviar correo con credenciales de acceso creadas por el usuario
         String creatorName = "Administrador de Organización";

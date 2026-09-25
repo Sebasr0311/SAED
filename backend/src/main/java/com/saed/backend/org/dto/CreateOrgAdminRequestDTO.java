@@ -15,8 +15,7 @@ public class CreateOrgAdminRequestDTO {
     @Email(message = "El correo electrónico debe ser válido")
     private String email;
 
-    @NotBlank(message = "La contraseña es obligatoria")
-    @Size(min = 6, message = "La contraseña debe tener mínimo 6 caracteres")
+    @Size(max = 100, message = "La contraseña no puede exceder 100 caracteres")
     private String password;
 
     @NotBlank(message = "El primer nombre es obligatorio")
