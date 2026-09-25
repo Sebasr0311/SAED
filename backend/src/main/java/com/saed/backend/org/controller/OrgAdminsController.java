@@ -99,9 +99,15 @@ public class OrgAdminsController {
             throw new AccessDeniedException("No se encontró contexto de organización activo");
         }
 
-        // Anti-escalation: ADMIN_ORGANIZACION no puede crear otro ADMIN_ORGANIZACION
+        // Anti-escalation: ADMIN_ORGANIZACION no puede crear otro ADMIN_ORGANIZACION ni SUPERADMIN
         String callerCode = ctx.getRoleCode();
-        Long requestedRoleId = request.getIdRol() != null ? request.getIdRol() : 2L;
+        Long requestedRoleId = request.getIdRol();
+
+        // En /org/admins, el rol a asignar es ADMIN_PROPIEDAD (idRol = 3).
+        // Si el cliente envía idRol = 2 (código previo) o viene nulo, normalizamos a 3.
+        if (requestedRoleId == null || (requestedRoleId == 2L && !"SUPERADMIN".equalsIgnoreCase(callerCode))) {
+            requestedRoleId = 3L;
+        }
 
         if (!"SUPERADMIN".equalsIgnoreCase(callerCode)) {
             List<Map<String, Object>> roleRows = jdbcTemplate.queryForList(
@@ -178,7 +184,7 @@ public class OrgAdminsController {
         // 3. Crear Asignación vía AssignmentManagementService
         AssignmentRequestDTO assignReq = new AssignmentRequestDTO();
         assignReq.setIdUsuario(idUsuario);
-        assignReq.setIdRol(request.getIdRol() != null ? request.getIdRol() : 2L); // 2 = ADMIN_PROPIEDAD
+        assignReq.setIdRol(requestedRoleId); // 3 = ADMIN_PROPIEDAD
         assignReq.setIdOrganizacion(orgId);
         assignReq.setIdPropiedad(request.getIdPropiedad());
 

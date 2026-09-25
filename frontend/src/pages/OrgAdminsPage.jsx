@@ -38,7 +38,7 @@ export default function OrgAdminsPage() {
     email: '',
     nombreUsuario: '',
     password: '',
-    idRol: 2, // 2 = ADMIN_PROPIEDAD
+    idRol: 3, // 3 = ADMIN_PROPIEDAD
     idPropiedad: '',
   });
 
@@ -110,7 +110,7 @@ export default function OrgAdminsPage() {
 
       await api.post('/org/admins', {
         ...newAdmin,
-        idRol: 2,
+        idRol: 3,
         idPropiedad: Number(newAdmin.idPropiedad),
       });
       setSuccessMsg('Administrador de propiedad registrado y asignado exitosamente.');
@@ -124,7 +124,7 @@ export default function OrgAdminsPage() {
         email: '',
         nombreUsuario: '',
         password: '',
-        idRol: 2,
+        idRol: 3,
         idPropiedad: properties.length > 0 ? properties[0].id : '',
       });
       await loadData();
