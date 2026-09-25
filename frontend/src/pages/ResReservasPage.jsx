@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
   Calendar,
@@ -94,6 +95,7 @@ function getZonaIcon(nombre) {
 }
 
 export default function ResReservasPage() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [form, setForm] = useState(emptyForm);
   const [modalOpen, setModalOpen] = useState(false);
@@ -329,7 +331,7 @@ export default function ResReservasPage() {
             variant="destructive"
             size="sm"
             className="shrink-0 self-end md:self-center font-medium shadow-sm"
-            onClick={() => (window.location.href = '/residente/cuotas')}
+            onClick={() => navigate('/res-cuotas')}
           >
             Ir a Mis Cuotas
           </Button>

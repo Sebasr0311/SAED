@@ -724,6 +724,18 @@ export default function App() {
             }
           />
           <Route
+            path="residente/cuotas"
+            element={<Navigate to="/res-cuotas" replace />}
+          />
+          <Route
+            path="residente-cuotas"
+            element={<Navigate to="/res-cuotas" replace />}
+          />
+          <Route
+            path="mis-cuotas"
+            element={<Navigate to="/res-cuotas" replace />}
+          />
+          <Route
             path="res-visitas"
             element={
               <ProtectedRoute roles={['RESIDENTE', 'RESIDENTE_CONVIVENCIA']}>
