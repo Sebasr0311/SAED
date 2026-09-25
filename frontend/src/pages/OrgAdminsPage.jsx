@@ -6,7 +6,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../co
 import { Badge } from '../components/ui/badge.tsx';
 import { Skeleton } from '../components/ui/skeleton.tsx';
 import { Button } from '../components/ui/button.tsx';
-import { Users, UserPlus, Search, Shield, Building, Mail, Phone, AlertCircle, CheckCircle2, Power, Trash2, Lock } from 'lucide-react';
+import { Users, UserPlus, Search, Shield, Building, Mail, Phone, AlertCircle, CheckCircle2, Power, Trash2, Lock, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function OrgAdminsPage() {
@@ -22,6 +22,80 @@ export default function OrgAdminsPage() {
   const [authPassword, setAuthPassword] = useState('');
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState(null);
+
+  // Estados de edición y reasignación de propiedad
+  const [adminAEditar, setAdminAEditar] = useState(null);
+  const [editForm, setEditForm] = useState({
+    primerNombre: '',
+    primerApellido: '',
+    email: '',
+    telefono: '',
+    idPropiedad: '',
+    estado: 'ACTIVA',
+    password: '',
+  });
+  const [editLoading, setEditLoading] = useState(false);
+  const [editError, setEditError] = useState(null);
+
+  function openEditModal(admin) {
+    setAdminAEditar(admin);
+    setEditError(null);
+    setEditForm({
+      primerNombre: admin.primerNombre || '',
+      primerApellido: admin.primerApellido || '',
+      email: admin.email || '',
+      telefono: admin.telefono || '',
+      idPropiedad: admin.idPropiedad || (properties.length > 0 ? properties[0].id : ''),
+      estado: admin.asignacionEstado || 'ACTIVA',
+      password: '',
+    });
+  }
+
+  async function handleUpdate(e) {
+    e.preventDefault();
+    if (!adminAEditar) return;
+    try {
+      setEditLoading(true);
+      setEditError(null);
+
+      if (!editForm.primerNombre?.trim() || !editForm.primerApellido?.trim()) {
+        setEditError('El primer nombre y el primer apellido son obligatorios.');
+        setEditLoading(false);
+        return;
+      }
+
+      if (!editForm.idPropiedad) {
+        setEditError('Debe seleccionar la propiedad asignada.');
+        setEditLoading(false);
+        return;
+      }
+
+      const payload = {
+        primerNombre: editForm.primerNombre.trim(),
+        primerApellido: editForm.primerApellido.trim(),
+        email: editForm.email?.trim() || null,
+        telefono: editForm.telefono?.trim() || null,
+        idPropiedad: Number(editForm.idPropiedad),
+        estado: editForm.estado,
+      };
+
+      if (editForm.password?.trim()) {
+        payload.password = editForm.password.trim();
+      }
+
+      const res = await api.put(`/org/admins/${adminAEditar.idAsignacion}`, payload);
+      toast.success(res?.message || 'Administrador actualizado exitosamente');
+      setAdminAEditar(null);
+      await loadData();
+    } catch (err) {
+      console.error('Error updating admin:', err);
+      const msg = err.response?.data?.message || err.message || 'No se pudo actualizar el administrador.';
+      setEditError(msg);
+      toast.error(msg);
+    } finally {
+      setEditLoading(false);
+    }
+  }
 
   const { tiposDoc } = useTiposDocumento();
 
@@ -333,6 +407,15 @@ export default function OrgAdminsPage() {
                             <Button
                               variant="ghost"
                               size="sm"
+                              onClick={() => openEditModal(a)}
+                              className="text-xs text-primary hover:bg-primary/10 hover:text-primary h-8 w-8 p-0"
+                              title="Editar datos o reasignar edificio/conjunto"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
                               onClick={() => toggleStatus(a)}
                               className="text-xs gap-1"
                               title={a.asignacionEstado === 'ACTIVA' ? 'Suspender cuenta' : 'Activar cuenta'}
@@ -349,7 +432,7 @@ export default function OrgAdminsPage() {
                                 setDeleteError(null);
                               }}
                               className="text-xs text-destructive hover:bg-destructive/10 hover:text-destructive h-8 w-8 p-0"
-                              title="Eliminar administrador de propiedad"
+                              title="Remover administrador de este edificio/conjunto"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </Button>
@@ -626,6 +709,159 @@ export default function OrgAdminsPage() {
                 </div>
               </CardContent>
             </form>
+          </Card>
+        </div>
+      )}
+
+      {/* Modal de Edición y Reasignación de Propiedad */}
+      {adminAEditar && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
+          <Card className="w-full max-w-lg bg-background border-border shadow-xl">
+            <CardHeader className="border-b border-border pb-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg font-bold text-foreground">
+                    Editar / Reasignar Administrador
+                  </CardTitle>
+                  <CardDescription className="text-xs text-muted-foreground mt-0.5">
+                    Modifique los datos de contacto o cambie el edificio/conjunto asignado.
+                  </CardDescription>
+                </div>
+                <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/20">
+                  {adminAEditar.rolNombre || 'Admin Propiedad'}
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-6">
+              {editError && (
+                <div className="bg-destructive/15 border border-destructive text-destructive px-3 py-2 rounded-lg text-xs flex items-center gap-2 mb-4">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                  <span>{editError}</span>
+                </div>
+              )}
+              <form onSubmit={handleUpdate} className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">
+                      Primer Nombre *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Ej. Juan"
+                      value={editForm.primerNombre}
+                      onChange={(e) => setEditForm({ ...editForm, primerNombre: e.target.value })}
+                      className="w-full px-3 py-2 border border-input rounded-lg bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">
+                      Primer Apellido *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Ej. Pérez"
+                      value={editForm.primerApellido}
+                      onChange={(e) => setEditForm({ ...editForm, primerApellido: e.target.value })}
+                      className="w-full px-3 py-2 border border-input rounded-lg bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">
+                      Correo Electrónico
+                    </label>
+                    <input
+                      type="email"
+                      placeholder="correo@ejemplo.com"
+                      value={editForm.email}
+                      onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                      className="w-full px-3 py-2 border border-input rounded-lg bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">
+                      Teléfono / Móvil
+                    </label>
+                    <input
+                      type="tel"
+                      placeholder="Ej. 3001234567"
+                      value={editForm.telefono}
+                      onChange={(e) => setEditForm({ ...editForm, telefono: e.target.value })}
+                      className="w-full px-3 py-2 border border-input rounded-lg bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">
+                      Edificio / Conjunto Asignado *
+                    </label>
+                    <select
+                      required
+                      value={editForm.idPropiedad}
+                      onChange={(e) => setEditForm({ ...editForm, idPropiedad: e.target.value })}
+                      className="w-full px-3 py-2 border border-input rounded-lg bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary font-medium"
+                    >
+                      <option value="">Seleccione una propiedad...</option>
+                      {properties.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.nombre}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      Cambie el edificio que administra esta cuenta.
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">
+                      Estado de la Asignación
+                    </label>
+                    <select
+                      value={editForm.estado}
+                      onChange={(e) => setEditForm({ ...editForm, estado: e.target.value })}
+                      className="w-full px-3 py-2 border border-input rounded-lg bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    >
+                      <option value="ACTIVA">ACTIVA (Acceso Habilitado)</option>
+                      <option value="SUSPENDIDA">SUSPENDIDA (Acceso Bloqueado)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-muted-foreground uppercase">
+                      Nueva Contraseña
+                    </label>
+                    <span className="text-[11px] text-muted-foreground">Opcional</span>
+                  </div>
+                  <input
+                    type="password"
+                    placeholder="Dejar en blanco para mantener la actual"
+                    value={editForm.password}
+                    onChange={(e) => setEditForm({ ...editForm, password: e.target.value })}
+                    className="w-full px-3 py-2 border border-input rounded-lg bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    Solo ingrese un valor si desea restablecer la clave de acceso del administrador.
+                  </p>
+                </div>
+
+                <div className="flex justify-end gap-3 pt-4 border-t border-border">
+                  <Button type="button" variant="outline" onClick={() => setAdminAEditar(null)} disabled={editLoading}>
+                    Cancelar
+                  </Button>
+                  <Button type="submit" disabled={editLoading}>
+                    {editLoading ? 'Guardando cambios...' : 'Guardar Cambios'}
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
           </Card>
         </div>
       )}

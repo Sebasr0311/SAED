@@ -25,6 +25,7 @@ import {
   X,
 } from 'lucide-react';
 
+import api from '../lib/api.js';
 import { useTenant } from '../lib/TenantContext.jsx';
 import { useTenantApi } from '../lib/useTenantApi.js';
 import { useAuth } from '../lib/AuthContext.jsx';
@@ -84,6 +85,10 @@ export default function ComunicacionesPage({ initialTab = 'todos' }) {
   const { user } = useAuth();
   const navigate = useNavigate();
 
+  const isOrgAdmin = user?.role === 'ADMIN_ORGANIZACION' ||
+                     tenant?.activeAssignment?.roleCode === 'ADMIN_ORGANIZACION' ||
+                     user?.role === 'SUPERADMIN';
+
   // Estados de navegación y filtros
   const [activeTab, setActiveTab] = useState(initialTab); // 'todos' | 'avisos' | 'alertas' | 'notificaciones'
   const [search, setSearch] = useState('');
@@ -103,6 +108,7 @@ export default function ComunicacionesPage({ initialTab = 'todos' }) {
     mensaje: '',
     prioridad: 'NORMAL',
     tipoSegmentacion: 'TODOS',
+    idPropiedad: 'TODAS',
     enviarEmail: true,
   });
 
@@ -143,6 +149,12 @@ export default function ComunicacionesPage({ initialTab = 'todos' }) {
     return Array.isArray(unidadesRaw) ? unidadesRaw : unidadesRaw?.items || [];
   }, [unidadesRaw]);
 
+  // 5. Propiedades para administradores organizacionales
+  const { data: propertiesRaw } = useFetch(() => api.get('/properties'), [tenant.activeAssignmentId]);
+  const properties = useMemo(() => {
+    return Array.isArray(propertiesRaw?.data) ? propertiesRaw.data : Array.isArray(propertiesRaw) ? propertiesRaw : [];
+  }, [propertiesRaw]);
+
   // Refresco unificado
   const [refreshing, setRefreshing] = useState(false);
   const handleRefetchAll = useCallback(() => {
@@ -156,19 +168,25 @@ export default function ComunicacionesPage({ initialTab = 'todos' }) {
   // Normalización de items
   const avisos = useMemo(() => {
     const list = Array.isArray(avisosRaw) ? avisosRaw : avisosRaw?.items || [];
-    return list.map((a, idx) => ({
-      id: `aviso-${a.ID_COMUNICADO || a.idComunicado || idx}`,
-      rawId: a.ID_COMUNICADO || a.idComunicado,
-      tipo: 'AVISO',
-      titulo: a.TITULO || a.titulo || 'Aviso Oficial',
-      contenido: a.CONTENIDO || a.contenido || a.mensaje || '',
-      prioridad: a.PRIORIDAD || a.prioridad || 'NORMAL',
-      fecha: a.FECHA_PUBLICACION || a.fechaPublicacion,
-      leido: true,
-      unidad: a.TIPO_SEGMENTACION === 'TODOS' ? 'Toda la copropiedad' : (a.TIPO_SEGMENTACION || 'General'),
-      residente: 'Administración',
-      estado: a.ESTADO || 'PUBLICADO',
-    }));
+    return list.map((a, idx) => {
+      const propNombre = a.PROPIEDAD_NOMBRE || a.propiedadNombre;
+      return {
+        id: `aviso-${a.ID_COMUNICADO || a.idComunicado || idx}`,
+        rawId: a.ID_COMUNICADO || a.idComunicado,
+        tipo: 'AVISO',
+        titulo: a.TITULO || a.titulo || 'Aviso Oficial',
+        contenido: a.CONTENIDO || a.contenido || a.mensaje || '',
+        prioridad: a.PRIORIDAD || a.prioridad || 'NORMAL',
+        fecha: a.FECHA_PUBLICACION || a.fechaPublicacion,
+        leido: true,
+        unidad: propNombre
+          ? `${propNombre} · ${a.TIPO_SEGMENTACION === 'TODOS' ? 'Toda la copropiedad' : (a.TIPO_SEGMENTACION || 'General')}`
+          : (a.TIPO_SEGMENTACION === 'TODOS' ? 'Toda la copropiedad' : (a.TIPO_SEGMENTACION || 'General')),
+        residente: 'Administración',
+        estado: a.ESTADO || 'PUBLICADO',
+        propiedadNombre: propNombre || null,
+      };
+    });
   }, [avisosRaw]);
 
   const alertas = useMemo(() => {
@@ -318,13 +336,17 @@ export default function ComunicacionesPage({ initialTab = 'todos' }) {
 
     setSubmitting(true);
     try {
-      await tenantApi.post('/buzon/aviso', {
+      const payload = {
         titulo: avisoForm.titulo.trim(),
         mensaje: avisoForm.mensaje.trim(),
         prioridad: avisoForm.prioridad,
         tipoSegmentacion: avisoForm.tipoSegmentacion,
         enviarEmail: avisoForm.enviarEmail,
-      });
+      };
+      if (avisoForm.idPropiedad && avisoForm.idPropiedad !== 'TODAS') {
+        payload.idPropiedad = Number(avisoForm.idPropiedad);
+      }
+      await tenantApi.post('/buzon/aviso', payload);
       toast.success('Aviso oficial publicado y notificado');
       setModalAvisoOpen(false);
       setAvisoForm({
@@ -332,6 +354,7 @@ export default function ComunicacionesPage({ initialTab = 'todos' }) {
         mensaje: '',
         prioridad: 'NORMAL',
         tipoSegmentacion: 'TODOS',
+        idPropiedad: 'TODAS',
         enviarEmail: true,
       });
       refetchAvisos();
@@ -794,6 +817,27 @@ export default function ComunicacionesPage({ initialTab = 'todos' }) {
         }
       >
         <div className="space-y-3.5 py-1 text-xs sm:text-sm">
+          {isOrgAdmin && properties.length > 0 && (
+            <div>
+              <Select
+                id="aviso-propiedad"
+                label="Edificio o Propiedad Destino *"
+                value={avisoForm.idPropiedad}
+                onChange={(e) => setAvisoForm({ ...avisoForm, idPropiedad: e.target.value })}
+              >
+                <option value="TODAS">🏢 Todas las propiedades de la organización</option>
+                {properties.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    📍 {p.nombre} {p.ciudad ? `(${p.ciudad})` : ''}
+                  </option>
+                ))}
+              </Select>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Elija si este comunicado se enviará a todos los edificios de la organización o solo a uno en particular.
+              </p>
+            </div>
+          )}
+
           <Input
             id="aviso-titulo"
             label="Título del Comunicado *"

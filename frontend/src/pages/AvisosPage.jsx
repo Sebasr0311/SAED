@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { Button } from '../components/ui/Button.jsx';
-import { Input, Textarea } from '../components/ui/Form.jsx';
+import { Input, Textarea, Select } from '../components/ui/Form.jsx';
 import { DataTable } from '../components/ui/DataTable.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { useFetch, useLiveValidation } from '../lib/hooks.js';
+import { useAuth } from '../lib/AuthContext.jsx';
 import api from '../lib/api.js';
 import { formatDate } from '../lib/utils.js';
 
@@ -132,25 +133,34 @@ function ApartamentoMultiSelect({ apartamentos, selected, onChange }) {
 }
 
 export default function AvisosPage() {
+  const { user } = useAuth();
+  const isOrgAdmin = user?.role === 'ADMIN_ORGANIZACION' || user?.role === 'SUPERADMIN';
+
   const [modalOpen, setModalOpen] = useState(false);
-  const [form, setForm] = useState({ titulo: '', cuerpo: '' });
+  const [form, setForm] = useState({ titulo: '', cuerpo: '', idPropiedad: 'TODAS' });
   const [selectedApts, setSelectedApts] = useState('TODOS');
   const [sending, setSending] = useState(false);
   const { touch, touchAll, resetTouched, fieldError } = useLiveValidation();
 
   const { data: avisos, loading, error, refetch } = useFetch(() => api.get('/buzon/avisos'), []);
   const { data: apartamentos } = useFetch(() => api.get('/units'), []);
+  const { data: propertiesRaw } = useFetch(() => api.get('/properties'), []);
+
+  const properties = Array.isArray(propertiesRaw?.data) ? propertiesRaw.data
+    : Array.isArray(propertiesRaw) ? propertiesRaw
+    : [];
 
   const avisosRows = Array.isArray(avisos?.items) ? avisos.items
     : Array.isArray(avisos) ? avisos
     : [];
 
   const columns = [
-    { key: 'idMensaje', label: 'ID', width: 60 },
-    { key: 'numeroApartamento', label: 'Apartamento', render: (r) => r.numeroApartamento || 'Todos' },
-    { key: 'titulo', label: 'Título' },
-    { key: 'cuerpo', label: 'Mensaje' },
-    { key: 'fechaCreacion', label: 'Fecha', render: (r) => formatDate(r.fechaCreacion) },
+    { key: 'idMensaje', label: 'ID', width: 60, render: (r) => r.ID_COMUNICADO || r.idMensaje || r.id },
+    { key: 'propiedadNombre', label: 'Edificio / Conjunto', render: (r) => r.PROPIEDAD_NOMBRE || r.propiedadNombre || '-' },
+    { key: 'numeroApartamento', label: 'Apartamento', render: (r) => r.numeroApartamento || r.TIPO_SEGMENTACION || 'Todos' },
+    { key: 'titulo', label: 'Título', render: (r) => r.TITULO || r.titulo },
+    { key: 'cuerpo', label: 'Mensaje', render: (r) => r.CONTENIDO || r.cuerpo || r.mensaje },
+    { key: 'fechaCreacion', label: 'Fecha', render: (r) => formatDate(r.FECHA_PUBLICACION || r.fechaCreacion) },
   ];
 
   async function send() {
@@ -165,9 +175,12 @@ export default function AvisosPage() {
       if (selectedApts !== 'TODOS' && selectedApts.length > 0) {
         payload.idApartamentos = selectedApts;
       }
+      if (form.idPropiedad && form.idPropiedad !== 'TODAS') {
+        payload.idPropiedad = Number(form.idPropiedad);
+      }
       await api.post('/buzon/aviso', payload);
       toast.success('Aviso enviado');
-      setForm({ titulo: '', cuerpo: '' });
+      setForm({ titulo: '', cuerpo: '', idPropiedad: 'TODAS' });
       setSelectedApts('TODOS');
       resetTouched();
       setModalOpen(false);
@@ -182,7 +195,7 @@ export default function AvisosPage() {
   function handleCloseModal() {
     setModalOpen(false);
     resetTouched();
-    setForm({ titulo: '', cuerpo: '' });
+    setForm({ titulo: '', cuerpo: '', idPropiedad: 'TODAS' });
   }
 
   return (
@@ -218,6 +231,26 @@ export default function AvisosPage() {
           </>
         }
       >
+        {isOrgAdmin && properties.length > 0 && (
+          <div className="form-group">
+            <Select
+              id="aviso-propiedad"
+              label="Edificio o Propiedad Destino *"
+              value={form.idPropiedad}
+              onChange={(e) => setForm((f) => ({ ...f, idPropiedad: e.target.value }))}
+            >
+              <option value="TODAS">🏢 Todas las propiedades de la organización</option>
+              {properties.map((p) => (
+                <option key={p.id} value={p.id}>
+                  📍 {p.nombre} {p.ciudad ? `(${p.ciudad})` : ''}
+                </option>
+              ))}
+            </Select>
+            <p className="text-[11px] text-muted-foreground mt-1">
+              Elija si este comunicado se enviará a todos los edificios de la organización o solo a uno en particular.
+            </p>
+          </div>
+        )}
         <div className="form-group">
           <label>Apartamentos</label>
           <ApartamentoMultiSelect

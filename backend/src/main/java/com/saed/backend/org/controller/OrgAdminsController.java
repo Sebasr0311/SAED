@@ -12,6 +12,7 @@ import com.saed.backend.context.SaedContext;
 import com.saed.backend.context.SaedContextHolder;
 import com.saed.backend.org.dto.CreateOrgAdminRequestDTO;
 import com.saed.backend.org.dto.OrgAdminDTO;
+import com.saed.backend.org.dto.UpdateOrgAdminRequestDTO;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -331,6 +332,134 @@ public class OrgAdminsController {
                 "idUsuario", idUsuario,
                 "idAsignacion", idAsignacion,
                 "message", "Administrador creado exitosamente. Se han enviado las credenciales de acceso a " + request.getEmail()
+        ));
+    }
+
+    @PutMapping("/{assignmentId}")
+    @Auditable(action = "UPDATE", resource = "ASIGNACION", category = AuditCategory.AUTHORIZATION, severity = AuditSeverity.CRITICAL)
+    @Transactional
+    public ResponseEntity<Map<String, Object>> updateAdmin(
+            @PathVariable Long assignmentId,
+            @Valid @RequestBody UpdateOrgAdminRequestDTO request) {
+        SaedContext ctx = SaedContextHolder.getContext();
+        Long orgId = ctx.getOrganizationId();
+        if (orgId == null) {
+            throw new AccessDeniedException("No se encontró contexto de organización activo");
+        }
+
+        // 1. Consultar la asignación actual
+        List<Map<String, Object>> asigRows = jdbcTemplate.queryForList(
+            "SELECT ua.ID_USUARIO, ua.ID_ORGANIZACION, ua.ID_PROPIEDAD, ua.ID_ROL, r.CODIGO AS ROL_CODIGO, u.ID_PERSONA " +
+            "FROM USUARIO_ASIGNACIONES ua " +
+            "JOIN ROLES r ON r.ID_ROL = ua.ID_ROL " +
+            "JOIN USUARIOS u ON u.ID_USUARIO = ua.ID_USUARIO " +
+            "WHERE ua.ID_ASIGNACION = :asigId",
+            Map.of("asigId", assignmentId)
+        );
+
+        if (asigRows.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(Map.of("success", false, "message", "Asignación no encontrada"));
+        }
+
+        Map<String, Object> asig = asigRows.get(0);
+        Long asigOrgId = ((Number) asig.get("ID_ORGANIZACION")).longValue();
+        String rolCodigo = (String) asig.get("ROL_CODIGO");
+        Long targetUserId = ((Number) asig.get("ID_USUARIO")).longValue();
+        Long roleId = ((Number) asig.get("ID_ROL")).longValue();
+        Long currentPropId = asig.get("ID_PROPIEDAD") != null ? ((Number) asig.get("ID_PROPIEDAD")).longValue() : null;
+        Long idPersona = asig.get("ID_PERSONA") != null ? ((Number) asig.get("ID_PERSONA")).longValue() : null;
+
+        if (!orgId.equals(asigOrgId)) {
+            throw new AccessDeniedException("No tiene permisos para modificar administradores de otra organización");
+        }
+
+        if (!"SUPERADMIN".equalsIgnoreCase(ctx.getRoleCode())) {
+            if ("ADMIN_ORGANIZACION".equalsIgnoreCase(rolCodigo) || targetUserId.equals(ctx.getUserId())) {
+                throw new AccessDeniedException("Un Administrador de Organización no puede editar su propia cuenta ni otros administradores organizacionales.");
+            }
+            if (!"ADMIN_PROPIEDAD".equalsIgnoreCase(rolCodigo)) {
+                throw new AccessDeniedException("Solo se permite editar cuentas de Administrador de Propiedad.");
+            }
+        }
+
+        // 2. Si se cambia la propiedad, validar que pertenezca a la organización
+        if (request.getIdPropiedad() != null && !request.getIdPropiedad().equals(currentPropId)) {
+            PropertyDTO prop = propertyRepository.findById(request.getIdPropiedad())
+                    .orElseThrow(() -> new IllegalArgumentException("La propiedad especificada no existe"));
+            if (!prop.getIdOrganizacion().equals(orgId)) {
+                throw new AccessDeniedException("No puede asignar administradores a propiedades fuera de su organización");
+            }
+
+            List<Long> duplicate = jdbcTemplate.query(
+                "SELECT ID_ASIGNACION FROM USUARIO_ASIGNACIONES WHERE ID_USUARIO = :uid AND ID_PROPIEDAD = :pId AND ID_ROL = :rId AND ID_ASIGNACION != :asigId",
+                Map.of("uid", targetUserId, "pId", request.getIdPropiedad(), "rId", roleId, "asigId", assignmentId),
+                (rs, rowNum) -> rs.getLong("ID_ASIGNACION")
+            );
+            if (!duplicate.isEmpty()) {
+                throw new IllegalArgumentException("El administrador ya se encuentra asignado a esta propiedad.");
+            }
+
+            jdbcTemplate.update(
+                "UPDATE USUARIO_ASIGNACIONES SET ID_PROPIEDAD = :propId WHERE ID_ASIGNACION = :asigId",
+                Map.of("propId", request.getIdPropiedad(), "asigId", assignmentId)
+            );
+        }
+
+        // 3. Actualizar datos de persona si se proporcionaron
+        if (idPersona != null) {
+            MapSqlParameterSource personParams = new MapSqlParameterSource()
+                    .addValue("pId", idPersona)
+                    .addValue("nombre", request.getPrimerNombre() != null && !request.getPrimerNombre().isBlank() ? request.getPrimerNombre().trim() : null)
+                    .addValue("apellido", request.getPrimerApellido() != null && !request.getPrimerApellido().isBlank() ? request.getPrimerApellido().trim() : null)
+                    .addValue("tel", request.getTelefono() != null && !request.getTelefono().isBlank() ? request.getTelefono().trim() : null)
+                    .addValue("email", request.getEmail() != null && !request.getEmail().isBlank() ? request.getEmail().trim() : null);
+            jdbcTemplate.update("""
+                UPDATE PERSONAS
+                SET primer_nombre = COALESCE(:nombre, primer_nombre),
+                    primer_apellido = COALESCE(:apellido, primer_apellido),
+                    telefono = COALESCE(:tel, telefono),
+                    email = COALESCE(:email, email)
+                WHERE id_persona = :pId
+            """, personParams);
+        }
+
+        // 4. Si se actualizó el email, actualizar en USUARIOS
+        if (request.getEmail() != null && !request.getEmail().trim().isBlank()) {
+            String newEmail = request.getEmail().trim();
+            List<Long> userWithEmail = jdbcTemplate.query(
+                "SELECT ID_USUARIO FROM USUARIOS WHERE LOWER(EMAIL) = LOWER(:email) AND ID_USUARIO != :uid",
+                Map.of("email", newEmail, "uid", targetUserId),
+                (rs, rowNum) -> rs.getLong("ID_USUARIO")
+            );
+            if (!userWithEmail.isEmpty()) {
+                throw new IllegalArgumentException("El correo electrónico ya se encuentra registrado para otro usuario.");
+            }
+            jdbcTemplate.update(
+                "UPDATE USUARIOS SET EMAIL = :email WHERE ID_USUARIO = :uid",
+                Map.of("email", newEmail, "uid", targetUserId)
+            );
+        }
+
+        // 5. Si se actualizó la contraseña
+        if (request.getPassword() != null && !request.getPassword().trim().isBlank()) {
+            jdbcTemplate.update(
+                "UPDATE USUARIOS SET HASH_PASSWORD = :pwd WHERE ID_USUARIO = :uid",
+                Map.of("pwd", passwordEncoder.encode(request.getPassword().trim()), "uid", targetUserId)
+            );
+        }
+
+        // 6. Si se envió estado para la asignación
+        if (request.getEstado() != null && !request.getEstado().trim().isBlank()) {
+            String est = request.getEstado().trim().toUpperCase();
+            if ("ACTIVA".equals(est) || "SUSPENDIDA".equals(est) || "INACTIVA".equals(est)) {
+                assignmentManagementService.updateStatus(assignmentId, est);
+            }
+        }
+
+        return ResponseEntity.ok(Map.of(
+            "success", true,
+            "message", "Administrador de propiedad actualizado exitosamente"
         ));
     }
 
