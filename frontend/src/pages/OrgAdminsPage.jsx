@@ -108,8 +108,11 @@ export default function OrgAdminsPage() {
         return;
       }
 
+      const effectivePassword = newAdmin.password?.trim() || ('Adm' + Math.random().toString(36).slice(-6) + '!9');
+
       await api.post('/org/admins', {
         ...newAdmin,
+        password: effectivePassword,
         idRol: 3,
         idPropiedad: Number(newAdmin.idPropiedad),
       });

@@ -101,7 +101,7 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
 
             try {
                 Integer upToDate = jdbcTemplate.queryForObject(
-                    "SELECT COUNT(1) FROM USER_SOURCE WHERE NAME = 'PKG_SAED_SECURITY_RLS' AND TYPE = 'PACKAGE BODY' AND TEXT LIKE '%2026.09.24.V5_PERSONA_FIX%'",
+                    "SELECT COUNT(1) FROM USER_SOURCE WHERE NAME = 'PKG_SAED_SECURITY_RLS' AND TYPE = 'PACKAGE BODY' AND TEXT LIKE '%2026.09.25.V6_USUARIOS_FIX%'",
                     Integer.class
                 );
                 String rlsStatus = jdbcTemplate.queryForObject(
@@ -109,7 +109,7 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
                     String.class
                 );
                 if (upToDate != null && upToDate > 0 && "VALID".equalsIgnoreCase(rlsStatus)) {
-                    log.info("[SchemaInit] PKG_SAED_SECURITY_RLS ya se encuentra actualizado (versión 2026.09.24.V5) y en estado VALID. Se omite recompilación DDL.");
+                    log.info("[SchemaInit] PKG_SAED_SECURITY_RLS ya se encuentra actualizado (versión 2026.09.25.V6) y en estado VALID. Se omite recompilación DDL.");
                     return;
                 }
             } catch (Exception ignored) {}
@@ -356,8 +356,9 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
                         v_usr VARCHAR2(30) := SYS_CONTEXT('SAED_CTX', 'ID_USUARIO');
                         v_state VARCHAR2(30) := NVL(SYS_CONTEXT('SAED_CTX', 'STATE'), 'ANONYMOUS');
                     BEGIN
+                        -- Version: 2026.09.25.V6_USUARIOS_FIX
                         IF v_state IN ('ANONYMOUS', 'CLEARING') THEN RETURN '1=0'; END IF;
-                        IF v_state = 'BOOTSTRAP' THEN RETURN 'id_usuario = ' || v_usr; END IF;
+                        IF v_state = 'BOOTSTRAP' THEN RETURN '1=1'; END IF;
 
                         IF v_rol = 'SUPERADMIN' THEN RETURN '1=1'; END IF;
                         IF v_org IS NULL OR v_org = '0' THEN RETURN '1=0'; END IF;
@@ -375,7 +376,7 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
                         v_state VARCHAR2(30) := NVL(SYS_CONTEXT('SAED_CTX', 'STATE'), 'ANONYMOUS');
                     BEGIN
                         IF v_state IN ('ANONYMOUS', 'CLEARING') THEN RETURN '1=0'; END IF;
-                        IF v_state = 'BOOTSTRAP' THEN RETURN 'id_usuario = ' || v_usr; END IF;
+                        IF v_state = 'BOOTSTRAP' THEN RETURN '1=1'; END IF;
 
                         IF v_rol = 'SUPERADMIN' THEN RETURN '1=1'; END IF;
                         IF v_org IS NULL OR v_org = '0' THEN RETURN '1=0'; END IF;
@@ -536,6 +537,8 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
             refreshRlsPolicy("MASCOTAS", "POL_RLS_UNI_MASCOTAS", "PKG_SAED_SECURITY_RLS.FN_FILTRO_UNIDAD");
             refreshRlsPolicy("BLOQUES", "POL_RLS_PROP_BLOQUES", "PKG_SAED_SECURITY_RLS.FN_FILTRO_PROPIEDAD");
             refreshRlsPolicy("MANTENIMIENTOS", "POL_RLS_PROP_MANTENIMIENTOS", "PKG_SAED_SECURITY_RLS.FN_FILTRO_PROPIEDAD");
+            refreshRlsPolicy("USUARIOS", "POL_RLS_SEC_USR", "PKG_SAED_SECURITY_RLS.FN_FILTRO_USUARIOS");
+            refreshRlsPolicy("USUARIO_ASIGNACIONES", "POL_RLS_SEC_UA", "PKG_SAED_SECURITY_RLS.FN_FILTRO_ASIGNACION");
             log.info("[SchemaInit] Políticas RLS limpias y normalizadas aplicadas a todas las tablas del sistema.");
         } catch (Exception e) {
             log.warn("[SchemaInit] Aviso en initCoreRlsPoliciesClean: {}", e.getMessage());
