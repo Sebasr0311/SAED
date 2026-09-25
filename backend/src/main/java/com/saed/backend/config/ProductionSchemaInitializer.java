@@ -43,6 +43,7 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
         initPlantillasContratos();
         initRoles();
         initSuperAdminUser();
+        cleanupLegacyTestData();
         initResidentesUnidadConstraints();
         initTokensActivacion();
         initOnboardingIntenciones();
@@ -776,6 +777,61 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
             log.info("[SchemaInit] SuperAdmin 'admin_global' asegurado y normalizado con éxito.");
         } catch (Exception e) {
             log.warn("[SchemaInit] Aviso al asegurar superadmin: {}", e.getMessage());
+        }
+    }
+
+    private void cleanupLegacyTestData() {
+        try {
+            jdbcTemplate.execute("""
+                BEGIN
+                    BEGIN EXECUTE IMMEDIATE 'ALTER SESSION DISABLE PARALLEL DML'; EXCEPTION WHEN OTHERS THEN NULL; END;
+                    BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1); EXCEPTION WHEN OTHERS THEN NULL; END;
+
+                    -- 1. Eliminar intenciones de onboarding de prueba (mantener las reales como rincon farelo / 1790301596749)
+                    DELETE FROM ONBOARDING_INTENCIONES WHERE REFERENCIA NOT LIKE '%1790301596749%';
+                    COMMIT;
+
+                    -- 2. Eliminar membresías y transacciones de organizaciones de prueba (preservar Org 1 Horizonte y Org 201 rincon farelo)
+                    DELETE FROM MEMBRESIAS WHERE ID_ORGANIZACION IS NOT NULL AND ID_ORGANIZACION NOT IN (1, 201);
+                    DELETE FROM TRANSACCIONES_PAGO WHERE ID_ORGANIZACION IS NOT NULL AND ID_ORGANIZACION NOT IN (1, 201);
+                    DELETE FROM DOMICILIOS WHERE ID_ORGANIZACION IS NOT NULL AND ID_ORGANIZACION NOT IN (1, 201);
+                    DELETE FROM REGLAMENTOS_NORMATIVA WHERE ID_ORGANIZACION IS NOT NULL AND ID_ORGANIZACION NOT IN (1, 201);
+                    DELETE FROM ASAMBLEAS WHERE ID_ORGANIZACION IS NOT NULL AND ID_ORGANIZACION NOT IN (1, 201);
+                    COMMIT;
+
+                    -- 3. Limpiar tablas operativas de propiedades de prueba
+                    DELETE FROM PQRS WHERE ID_PROPIEDAD IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION NOT IN (1, 201));
+                    DELETE FROM RESERVAS WHERE ID_PROPIEDAD IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION NOT IN (1, 201));
+                    DELETE FROM VISITAS WHERE ID_PROPIEDAD IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION NOT IN (1, 201));
+                    DELETE FROM PAQUETES WHERE ID_PROPIEDAD IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION NOT IN (1, 201));
+                    DELETE FROM UNIDADES WHERE ID_PROPIEDAD IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION NOT IN (1, 201));
+                    DELETE FROM PROPIEDADES WHERE ID_ORGANIZACION NOT IN (1, 201);
+                    COMMIT;
+
+                    -- 4. Limpiar asignaciones de organizaciones de prueba y usuarios de prueba
+                    DELETE FROM USUARIO_ASIGNACIONES WHERE ID_ORGANIZACION IS NOT NULL AND ID_ORGANIZACION NOT IN (1, 201);
+                    DELETE FROM USUARIO_ASIGNACIONES WHERE ID_USUARIO NOT IN (1, 2, 3, 4, 5, 6, 7, 8, 163);
+                    COMMIT;
+
+                    -- 5. Eliminar organizaciones de prueba
+                    DELETE FROM ORGANIZACIONES WHERE ID_ORGANIZACION NOT IN (1, 201);
+                    COMMIT;
+
+                    -- 6. Eliminar tokens y usuarios de prueba (liberando juanrinconfarelo@gmail.com de Carlos Mendez ID 149)
+                    DELETE FROM TOKENS_ACTIVACION_USUARIOS WHERE ID_USUARIO NOT IN (1, 2, 3, 4, 5, 6, 7, 8, 163);
+                    DELETE FROM PORTERIA_TURNOS WHERE ID_USUARIO NOT IN (1, 2, 3, 4, 5, 6, 7, 8, 163);
+                    DELETE FROM USUARIOS WHERE ID_USUARIO NOT IN (1, 2, 3, 4, 5, 6, 7, 8, 163);
+                    COMMIT;
+
+                    -- 7. Limpiar personas huérfanas de usuarios eliminados
+                    DELETE FROM PERSONAS WHERE ID_PERSONA NOT IN (SELECT ID_PERSONA FROM USUARIOS WHERE ID_PERSONA IS NOT NULL)
+                                          AND ID_PERSONA NOT IN (1, 2, 3, 4, 5, 6, 7, 8);
+                    COMMIT;
+                END;
+            """);
+            log.info("[SchemaInit] Limpieza de datos de prueba completada exitosamente.");
+        } catch (Exception e) {
+            log.warn("[SchemaInit] Aviso durante la limpieza de datos de prueba: {}", e.getMessage());
         }
     }
 

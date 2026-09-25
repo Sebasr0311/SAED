@@ -35,6 +35,8 @@ import {
   Send,
   ShieldCheck,
   AlertTriangle,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 
 export default function SuperAdminOnboardingPage() {
@@ -44,6 +46,8 @@ export default function SuperAdminOnboardingPage() {
   const [filterPago, setFilterPago] = useState('TODOS');
   const [filterCorreo, setFilterCorreo] = useState('TODOS');
   const [filterTipo, setFilterTipo] = useState('TODOS');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   // Modal Reenviar Correo
   const [resendModal, setResendModal] = useState(false);
@@ -148,6 +152,20 @@ export default function SuperAdminOnboardingPage() {
       return matchSearch && matchPago && matchCorreo && matchTipo;
     });
   }, [items, search, filterPago, filterCorreo, filterTipo]);
+
+  // Reset de página al cambiar filtros
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, filterPago, filterCorreo, filterTipo, pageSize]);
+
+  // Paginación
+  const totalItems = filteredItems.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, totalItems);
+  const paginatedItems = useMemo(() => {
+    return filteredItems.slice(startIndex, endIndex);
+  }, [filteredItems, startIndex, endIndex]);
 
   function formatCurrency(amount) {
     return new Intl.NumberFormat('es-CO', {
@@ -456,7 +474,8 @@ export default function SuperAdminOnboardingPage() {
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <>
+              <div className="overflow-x-auto">
               <table className="w-full text-left text-sm border-collapse">
                 <thead>
                   <tr className="border-b border-border bg-muted/40 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
@@ -469,7 +488,7 @@ export default function SuperAdminOnboardingPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {filteredItems.map((item, idx) => {
+                  {paginatedItems.map((item, idx) => {
                     const isNatural = item.tipoPersona === 'NATURAL';
                     const isPaid = item.estadoPago === 'APROBADO' || item.estadoIntencion === 'COMPLETADA';
                     const isPendingPayment = !isPaid && item.estadoPago === 'PENDIENTE';
@@ -674,7 +693,68 @@ export default function SuperAdminOnboardingPage() {
                 </tbody>
               </table>
             </div>
-          )}
+
+            {/* Barra de Paginación */}
+            {filteredItems.length > 0 && (
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t border-border bg-card/50 text-xs text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <span>
+                    Mostrando <strong className="text-foreground">{startIndex + 1}</strong> a{' '}
+                    <strong className="text-foreground">{endIndex}</strong> de{' '}
+                    <strong className="text-foreground">{totalItems}</strong> solicitudes
+                  </span>
+                  <span className="hidden sm:inline text-muted-foreground/50">•</span>
+                  <div className="flex items-center gap-1.5">
+                    <span>Filas:</span>
+                    <select
+                      value={pageSize}
+                      onChange={(e) => setPageSize(Number(e.target.value))}
+                      aria-label="Filas por página"
+                      className="h-7 px-2 rounded-md bg-muted/50 border border-border text-foreground text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                    >
+                      <option value={5}>5</option>
+                      <option value={10}>10</option>
+                      <option value={25}>25</option>
+                      <option value={50}>50</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 px-2.5 text-xs gap-1 border-border disabled:opacity-40"
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    disabled={currentPage <= 1}
+                    title="Página anterior"
+                  >
+                    <ChevronLeft className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Anterior</span>
+                  </Button>
+
+                  <div className="flex items-center gap-1 px-2">
+                    <span className="font-medium text-foreground">{currentPage}</span>
+                    <span className="text-muted-foreground">/</span>
+                    <span>{totalPages}</span>
+                  </div>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 px-2.5 text-xs gap-1 border-border disabled:opacity-40"
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={currentPage >= totalPages}
+                    title="Página siguiente"
+                  >
+                    <span className="hidden sm:inline">Siguiente</span>
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
         </CardContent>
       </Card>
 
