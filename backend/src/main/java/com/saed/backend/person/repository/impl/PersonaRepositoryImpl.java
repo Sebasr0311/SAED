@@ -1,5 +1,7 @@
 package com.saed.backend.person.repository.impl;
 
+import com.saed.backend.context.SaedContext;
+import com.saed.backend.context.SaedContextHolder;
 import com.saed.backend.person.dto.PersonaDTO;
 import com.saed.backend.person.dto.PersonaRequestDTO;
 import com.saed.backend.person.repository.PersonaRepository;
@@ -57,85 +59,175 @@ public class PersonaRepositoryImpl implements PersonaRepository {
 
     @Override
     public List<PersonaDTO> findAll(int limit, int offset) {
-        String sql = """
-            SELECT p.*,
-                   COALESCE(
-                       (SELECT ru.ID_UNIDAD FROM RESIDENTES_UNIDAD ru WHERE ru.ID_PERSONA = p.ID_PERSONA AND ru.ESTADO = 'ACTIVO' AND ROWNUM = 1),
-                       (SELECT pu.ID_UNIDAD FROM PROPIETARIOS_UNIDAD pu WHERE pu.ID_PERSONA = p.ID_PERSONA AND pu.ESTADO = 'ACTIVO' AND ROWNUM = 1),
-                       (SELECT ru.ID_UNIDAD FROM RESIDENTES_UNIDAD ru WHERE ru.ID_PERSONA = p.ID_PERSONA AND ROWNUM = 1)
-                   ) AS ID_APARTAMENTO,
-                   COALESCE(
-                       (SELECT u.IDENTIFICADOR FROM UNIDADES u JOIN RESIDENTES_UNIDAD ru ON u.ID_UNIDAD = ru.ID_UNIDAD WHERE ru.ID_PERSONA = p.ID_PERSONA AND ru.ESTADO = 'ACTIVO' AND ROWNUM = 1),
-                       (SELECT u.IDENTIFICADOR FROM UNIDADES u JOIN PROPIETARIOS_UNIDAD pu ON u.ID_UNIDAD = pu.ID_UNIDAD WHERE pu.ID_PERSONA = p.ID_PERSONA AND pu.ESTADO = 'ACTIVO' AND ROWNUM = 1),
-                       (SELECT u.IDENTIFICADOR FROM UNIDADES u JOIN RESIDENTES_UNIDAD ru ON u.ID_UNIDAD = ru.ID_UNIDAD WHERE ru.ID_PERSONA = p.ID_PERSONA AND ROWNUM = 1)
-                   ) AS NUMERO_APARTAMENTO,
-                   CASE
-                       WHEN EXISTS (SELECT 1 FROM PROPIETARIOS_UNIDAD pu WHERE pu.ID_PERSONA = p.ID_PERSONA AND pu.ESTADO = 'ACTIVO')
-                            AND EXISTS (SELECT 1 FROM RESIDENTES_UNIDAD ru WHERE ru.ID_PERSONA = p.ID_PERSONA AND ru.ESTADO = 'ACTIVO')
-                         THEN 'PROPIETARIO_RESIDENTE'
-                       WHEN EXISTS (SELECT 1 FROM PROPIETARIOS_UNIDAD pu WHERE pu.ID_PERSONA = p.ID_PERSONA AND pu.ESTADO = 'ACTIVO')
-                         THEN 'PROPIETARIO_NO_RESIDENTE'
-                       WHEN EXISTS (SELECT 1 FROM RESIDENTES_UNIDAD ru WHERE ru.ID_PERSONA = p.ID_PERSONA AND ru.ESTADO = 'ACTIVO' AND ru.TIPO_RESIDENTE = 'ARRENDATARIO')
-                         THEN 'ARRENDATARIO'
-                       WHEN EXISTS (SELECT 1 FROM RESIDENTES_UNIDAD ru WHERE ru.ID_PERSONA = p.ID_PERSONA AND ru.ESTADO = 'ACTIVO' AND ru.TIPO_RESIDENTE IN ('FAMILIAR', 'CONVIVIENTE', 'OTRO'))
-                         THEN 'CONVIVIENTE'
-                       ELSE COALESCE((SELECT ru.TIPO_RESIDENTE FROM RESIDENTES_UNIDAD ru WHERE ru.ID_PERSONA = p.ID_PERSONA AND ROWNUM = 1), 'RESIDENTE')
-                   END AS TIPO_RELACION
-            FROM PERSONAS p
-            WHERE NVL(p.ESTADO, 'ACTIVO') = 'ACTIVO'
-            ORDER BY p.ID_PERSONA DESC
-            OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
-            """;
+        SaedContext ctx = SaedContextHolder.getContext();
+        Long propId = ctx != null ? ctx.getPropertyId() : null;
+        Long orgId = ctx != null ? ctx.getOrganizationId() : null;
+        String role = ctx != null ? ctx.getRoleCode() : null;
+
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("limit", limit)
                 .addValue("offset", offset);
+
+        String scopeSubquery;
+        String scopeWhere;
+
+        if (propId != null) {
+            params.addValue("propId", propId);
+            scopeSubquery = " AND u.ID_PROPIEDAD = :propId ";
+            scopeWhere = """
+                AND (
+                    p.ID_PROPIEDAD = :propId
+                    OR EXISTS (SELECT 1 FROM RESIDENTES_UNIDAD ru JOIN UNIDADES u ON ru.ID_UNIDAD = u.ID_UNIDAD WHERE ru.ID_PERSONA = p.ID_PERSONA AND u.ID_PROPIEDAD = :propId AND ru.ESTADO = 'ACTIVO')
+                    OR EXISTS (SELECT 1 FROM PROPIETARIOS_UNIDAD pu JOIN UNIDADES u ON pu.ID_UNIDAD = u.ID_UNIDAD WHERE pu.ID_PERSONA = p.ID_PERSONA AND u.ID_PROPIEDAD = :propId AND pu.ESTADO = 'ACTIVO')
+                    OR EXISTS (SELECT 1 FROM USUARIOS usr JOIN USUARIO_ASIGNACIONES ua ON usr.ID_USUARIO = ua.ID_USUARIO WHERE usr.ID_PERSONA = p.ID_PERSONA AND ua.ID_PROPIEDAD = :propId AND ua.ESTADO = 'ACTIVA')
+                )
+            """;
+        } else if (orgId != null && !"SUPERADMIN".equalsIgnoreCase(role)) {
+            params.addValue("orgId", orgId);
+            scopeSubquery = " AND EXISTS (SELECT 1 FROM PROPIEDADES pr WHERE pr.ID_PROPIEDAD = u.ID_PROPIEDAD AND pr.ID_ORGANIZACION = :orgId) ";
+            scopeWhere = """
+                AND (
+                    p.ID_ORGANIZACION = :orgId
+                    OR EXISTS (SELECT 1 FROM RESIDENTES_UNIDAD ru JOIN UNIDADES u ON ru.ID_UNIDAD = u.ID_UNIDAD JOIN PROPIEDADES pr ON u.ID_PROPIEDAD = pr.ID_PROPIEDAD WHERE ru.ID_PERSONA = p.ID_PERSONA AND pr.ID_ORGANIZACION = :orgId AND ru.ESTADO = 'ACTIVO')
+                    OR EXISTS (SELECT 1 FROM PROPIETARIOS_UNIDAD pu JOIN UNIDADES u ON pu.ID_UNIDAD = u.ID_UNIDAD JOIN PROPIEDADES pr ON u.ID_PROPIEDAD = pr.ID_PROPIEDAD WHERE pu.ID_PERSONA = p.ID_PERSONA AND pr.ID_ORGANIZACION = :orgId AND pu.ESTADO = 'ACTIVO')
+                    OR EXISTS (SELECT 1 FROM USUARIOS usr JOIN USUARIO_ASIGNACIONES ua ON usr.ID_USUARIO = ua.ID_USUARIO WHERE usr.ID_PERSONA = p.ID_PERSONA AND ua.ID_ORGANIZACION = :orgId AND ua.ESTADO = 'ACTIVA')
+                )
+            """;
+        } else {
+            scopeSubquery = "";
+            scopeWhere = "";
+        }
+
+        String sql = String.format("""
+            SELECT p.*,
+                   COALESCE(
+                       (SELECT ru.ID_UNIDAD FROM RESIDENTES_UNIDAD ru JOIN UNIDADES u ON ru.ID_UNIDAD = u.ID_UNIDAD WHERE ru.ID_PERSONA = p.ID_PERSONA AND ru.ESTADO = 'ACTIVO' %1$s AND ROWNUM = 1),
+                       (SELECT pu.ID_UNIDAD FROM PROPIETARIOS_UNIDAD pu JOIN UNIDADES u ON pu.ID_UNIDAD = u.ID_UNIDAD WHERE pu.ID_PERSONA = p.ID_PERSONA AND pu.ESTADO = 'ACTIVO' %1$s AND ROWNUM = 1),
+                       (SELECT ru.ID_UNIDAD FROM RESIDENTES_UNIDAD ru JOIN UNIDADES u ON ru.ID_UNIDAD = u.ID_UNIDAD WHERE ru.ID_PERSONA = p.ID_PERSONA %1$s AND ROWNUM = 1)
+                   ) AS ID_APARTAMENTO,
+                   COALESCE(
+                       (SELECT u.IDENTIFICADOR FROM UNIDADES u JOIN RESIDENTES_UNIDAD ru ON u.ID_UNIDAD = ru.ID_UNIDAD WHERE ru.ID_PERSONA = p.ID_PERSONA AND ru.ESTADO = 'ACTIVO' %1$s AND ROWNUM = 1),
+                       (SELECT u.IDENTIFICADOR FROM UNIDADES u JOIN PROPIETARIOS_UNIDAD pu ON u.ID_UNIDAD = pu.ID_UNIDAD WHERE pu.ID_PERSONA = p.ID_PERSONA AND pu.ESTADO = 'ACTIVO' %1$s AND ROWNUM = 1),
+                       (SELECT u.IDENTIFICADOR FROM UNIDADES u JOIN RESIDENTES_UNIDAD ru ON u.ID_UNIDAD = ru.ID_UNIDAD WHERE ru.ID_PERSONA = p.ID_PERSONA %1$s AND ROWNUM = 1)
+                   ) AS NUMERO_APARTAMENTO,
+                   CASE
+                       WHEN EXISTS (SELECT 1 FROM PROPIETARIOS_UNIDAD pu JOIN UNIDADES u ON pu.ID_UNIDAD = u.ID_UNIDAD WHERE pu.ID_PERSONA = p.ID_PERSONA AND pu.ESTADO = 'ACTIVO' %1$s)
+                            AND EXISTS (SELECT 1 FROM RESIDENTES_UNIDAD ru JOIN UNIDADES u ON ru.ID_UNIDAD = u.ID_UNIDAD WHERE ru.ID_PERSONA = p.ID_PERSONA AND ru.ESTADO = 'ACTIVO' %1$s)
+                         THEN 'PROPIETARIO_RESIDENTE'
+                       WHEN EXISTS (SELECT 1 FROM PROPIETARIOS_UNIDAD pu JOIN UNIDADES u ON pu.ID_UNIDAD = u.ID_UNIDAD WHERE pu.ID_PERSONA = p.ID_PERSONA AND pu.ESTADO = 'ACTIVO' %1$s)
+                         THEN 'PROPIETARIO_NO_RESIDENTE'
+                       WHEN EXISTS (SELECT 1 FROM RESIDENTES_UNIDAD ru JOIN UNIDADES u ON ru.ID_UNIDAD = u.ID_UNIDAD WHERE ru.ID_PERSONA = p.ID_PERSONA AND ru.ESTADO = 'ACTIVO' AND ru.TIPO_RESIDENTE = 'ARRENDATARIO' %1$s)
+                         THEN 'ARRENDATARIO'
+                       WHEN EXISTS (SELECT 1 FROM RESIDENTES_UNIDAD ru JOIN UNIDADES u ON ru.ID_UNIDAD = u.ID_UNIDAD WHERE ru.ID_PERSONA = p.ID_PERSONA AND ru.ESTADO = 'ACTIVO' AND ru.TIPO_RESIDENTE IN ('FAMILIAR', 'CONVIVIENTE', 'OTRO') %1$s)
+                         THEN 'CONVIVIENTE'
+                       ELSE COALESCE((SELECT ru.TIPO_RESIDENTE FROM RESIDENTES_UNIDAD ru JOIN UNIDADES u ON ru.ID_UNIDAD = u.ID_UNIDAD WHERE ru.ID_PERSONA = p.ID_PERSONA %1$s AND ROWNUM = 1), 'RESIDENTE')
+                   END AS TIPO_RELACION
+            FROM PERSONAS p
+            WHERE NVL(p.ESTADO, 'ACTIVO') = 'ACTIVO'
+            %2$s
+            ORDER BY p.ID_PERSONA DESC
+            OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
+            """, scopeSubquery, scopeWhere);
+
         return jdbcTemplate.query(sql, params, rowMapper);
     }
 
     @Override
     public Optional<PersonaDTO> findById(Long id) {
-        String sql = """
+        SaedContext ctx = SaedContextHolder.getContext();
+        Long propId = ctx != null ? ctx.getPropertyId() : null;
+        Long orgId = ctx != null ? ctx.getOrganizationId() : null;
+        String role = ctx != null ? ctx.getRoleCode() : null;
+
+        MapSqlParameterSource params = new MapSqlParameterSource("id", id);
+        String scopeSubquery;
+        String scopeWhere;
+
+        if (propId != null) {
+            params.addValue("propId", propId);
+            scopeSubquery = " AND u.ID_PROPIEDAD = :propId ";
+            scopeWhere = """
+                AND (
+                    p.ID_PROPIEDAD = :propId
+                    OR EXISTS (SELECT 1 FROM RESIDENTES_UNIDAD ru JOIN UNIDADES u ON ru.ID_UNIDAD = u.ID_UNIDAD WHERE ru.ID_PERSONA = p.ID_PERSONA AND u.ID_PROPIEDAD = :propId)
+                    OR EXISTS (SELECT 1 FROM PROPIETARIOS_UNIDAD pu JOIN UNIDADES u ON pu.ID_UNIDAD = u.ID_UNIDAD WHERE pu.ID_PERSONA = p.ID_PERSONA AND u.ID_PROPIEDAD = :propId)
+                    OR EXISTS (SELECT 1 FROM USUARIOS usr JOIN USUARIO_ASIGNACIONES ua ON usr.ID_USUARIO = ua.ID_USUARIO WHERE usr.ID_PERSONA = p.ID_PERSONA AND ua.ID_PROPIEDAD = :propId)
+                )
+            """;
+        } else if (orgId != null && !"SUPERADMIN".equalsIgnoreCase(role)) {
+            params.addValue("orgId", orgId);
+            scopeSubquery = " AND EXISTS (SELECT 1 FROM PROPIEDADES pr WHERE pr.ID_PROPIEDAD = u.ID_PROPIEDAD AND pr.ID_ORGANIZACION = :orgId) ";
+            scopeWhere = """
+                AND (
+                    p.ID_ORGANIZACION = :orgId
+                    OR EXISTS (SELECT 1 FROM RESIDENTES_UNIDAD ru JOIN UNIDADES u ON ru.ID_UNIDAD = u.ID_UNIDAD JOIN PROPIEDADES pr ON u.ID_PROPIEDAD = pr.ID_PROPIEDAD WHERE ru.ID_PERSONA = p.ID_PERSONA AND pr.ID_ORGANIZACION = :orgId)
+                    OR EXISTS (SELECT 1 FROM PROPIETARIOS_UNIDAD pu JOIN UNIDADES u ON pu.ID_UNIDAD = u.ID_UNIDAD JOIN PROPIEDADES pr ON u.ID_PROPIEDAD = pr.ID_PROPIEDAD WHERE pu.ID_PERSONA = p.ID_PERSONA AND pr.ID_ORGANIZACION = :orgId)
+                    OR EXISTS (SELECT 1 FROM USUARIOS usr JOIN USUARIO_ASIGNACIONES ua ON usr.ID_USUARIO = ua.ID_USUARIO WHERE usr.ID_PERSONA = p.ID_PERSONA AND ua.ID_ORGANIZACION = :orgId)
+                )
+            """;
+        } else {
+            scopeSubquery = "";
+            scopeWhere = "";
+        }
+
+        String sql = String.format("""
             SELECT p.*,
                    COALESCE(
-                       (SELECT ru.ID_UNIDAD FROM RESIDENTES_UNIDAD ru WHERE ru.ID_PERSONA = p.ID_PERSONA AND ru.ESTADO = 'ACTIVO' AND ROWNUM = 1),
-                       (SELECT pu.ID_UNIDAD FROM PROPIETARIOS_UNIDAD pu WHERE pu.ID_PERSONA = p.ID_PERSONA AND pu.ESTADO = 'ACTIVO' AND ROWNUM = 1),
-                       (SELECT ru.ID_UNIDAD FROM RESIDENTES_UNIDAD ru WHERE ru.ID_PERSONA = p.ID_PERSONA AND ROWNUM = 1)
+                       (SELECT ru.ID_UNIDAD FROM RESIDENTES_UNIDAD ru JOIN UNIDADES u ON ru.ID_UNIDAD = u.ID_UNIDAD WHERE ru.ID_PERSONA = p.ID_PERSONA AND ru.ESTADO = 'ACTIVO' %1$s AND ROWNUM = 1),
+                       (SELECT pu.ID_UNIDAD FROM PROPIETARIOS_UNIDAD pu JOIN UNIDADES u ON pu.ID_UNIDAD = u.ID_UNIDAD WHERE pu.ID_PERSONA = p.ID_PERSONA AND pu.ESTADO = 'ACTIVO' %1$s AND ROWNUM = 1),
+                       (SELECT ru.ID_UNIDAD FROM RESIDENTES_UNIDAD ru JOIN UNIDADES u ON ru.ID_UNIDAD = u.ID_UNIDAD WHERE ru.ID_PERSONA = p.ID_PERSONA %1$s AND ROWNUM = 1)
                    ) AS ID_APARTAMENTO,
                    COALESCE(
-                       (SELECT u.IDENTIFICADOR FROM UNIDADES u JOIN RESIDENTES_UNIDAD ru ON u.ID_UNIDAD = ru.ID_UNIDAD WHERE ru.ID_PERSONA = p.ID_PERSONA AND ru.ESTADO = 'ACTIVO' AND ROWNUM = 1),
-                       (SELECT u.IDENTIFICADOR FROM UNIDADES u JOIN PROPIETARIOS_UNIDAD pu ON u.ID_UNIDAD = pu.ID_UNIDAD WHERE pu.ID_PERSONA = p.ID_PERSONA AND pu.ESTADO = 'ACTIVO' AND ROWNUM = 1),
-                       (SELECT u.IDENTIFICADOR FROM UNIDADES u JOIN RESIDENTES_UNIDAD ru ON u.ID_UNIDAD = ru.ID_UNIDAD WHERE ru.ID_PERSONA = p.ID_PERSONA AND ROWNUM = 1)
+                       (SELECT u.IDENTIFICADOR FROM UNIDADES u JOIN RESIDENTES_UNIDAD ru ON u.ID_UNIDAD = ru.ID_UNIDAD WHERE ru.ID_PERSONA = p.ID_PERSONA AND ru.ESTADO = 'ACTIVO' %1$s AND ROWNUM = 1),
+                       (SELECT u.IDENTIFICADOR FROM UNIDADES u JOIN PROPIETARIOS_UNIDAD pu ON u.ID_UNIDAD = pu.ID_UNIDAD WHERE pu.ID_PERSONA = p.ID_PERSONA AND pu.ESTADO = 'ACTIVO' %1$s AND ROWNUM = 1),
+                       (SELECT u.IDENTIFICADOR FROM UNIDADES u JOIN RESIDENTES_UNIDAD ru ON u.ID_UNIDAD = ru.ID_UNIDAD WHERE ru.ID_PERSONA = p.ID_PERSONA %1$s AND ROWNUM = 1)
                    ) AS NUMERO_APARTAMENTO,
                    CASE
-                       WHEN EXISTS (SELECT 1 FROM PROPIETARIOS_UNIDAD pu WHERE pu.ID_PERSONA = p.ID_PERSONA AND pu.ESTADO = 'ACTIVO')
-                            AND EXISTS (SELECT 1 FROM RESIDENTES_UNIDAD ru WHERE ru.ID_PERSONA = p.ID_PERSONA AND ru.ESTADO = 'ACTIVO')
+                       WHEN EXISTS (SELECT 1 FROM PROPIETARIOS_UNIDAD pu JOIN UNIDADES u ON pu.ID_UNIDAD = u.ID_UNIDAD WHERE pu.ID_PERSONA = p.ID_PERSONA AND pu.ESTADO = 'ACTIVO' %1$s)
+                            AND EXISTS (SELECT 1 FROM RESIDENTES_UNIDAD ru JOIN UNIDADES u ON ru.ID_UNIDAD = u.ID_UNIDAD WHERE ru.ID_PERSONA = p.ID_PERSONA AND ru.ESTADO = 'ACTIVO' %1$s)
                          THEN 'PROPIETARIO_RESIDENTE'
-                       WHEN EXISTS (SELECT 1 FROM PROPIETARIOS_UNIDAD pu WHERE pu.ID_PERSONA = p.ID_PERSONA AND pu.ESTADO = 'ACTIVO')
+                       WHEN EXISTS (SELECT 1 FROM PROPIETARIOS_UNIDAD pu JOIN UNIDADES u ON pu.ID_UNIDAD = u.ID_UNIDAD WHERE pu.ID_PERSONA = p.ID_PERSONA AND pu.ESTADO = 'ACTIVO' %1$s)
                          THEN 'PROPIETARIO_NO_RESIDENTE'
-                       WHEN EXISTS (SELECT 1 FROM RESIDENTES_UNIDAD ru WHERE ru.ID_PERSONA = p.ID_PERSONA AND ru.ESTADO = 'ACTIVO' AND ru.TIPO_RESIDENTE = 'ARRENDATARIO')
+                       WHEN EXISTS (SELECT 1 FROM RESIDENTES_UNIDAD ru JOIN UNIDADES u ON ru.ID_UNIDAD = u.ID_UNIDAD WHERE ru.ID_PERSONA = p.ID_PERSONA AND ru.ESTADO = 'ACTIVO' AND ru.TIPO_RESIDENTE = 'ARRENDATARIO' %1$s)
                          THEN 'ARRENDATARIO'
-                       WHEN EXISTS (SELECT 1 FROM RESIDENTES_UNIDAD ru WHERE ru.ID_PERSONA = p.ID_PERSONA AND ru.ESTADO = 'ACTIVO' AND ru.TIPO_RESIDENTE IN ('FAMILIAR', 'CONVIVIENTE', 'OTRO'))
+                       WHEN EXISTS (SELECT 1 FROM RESIDENTES_UNIDAD ru JOIN UNIDADES u ON ru.ID_UNIDAD = u.ID_UNIDAD WHERE ru.ID_PERSONA = p.ID_PERSONA AND ru.ESTADO = 'ACTIVO' AND ru.TIPO_RESIDENTE IN ('FAMILIAR', 'CONVIVIENTE', 'OTRO') %1$s)
                          THEN 'CONVIVIENTE'
-                       ELSE COALESCE((SELECT ru.TIPO_RESIDENTE FROM RESIDENTES_UNIDAD ru WHERE ru.ID_PERSONA = p.ID_PERSONA AND ROWNUM = 1), 'RESIDENTE')
+                       ELSE COALESCE((SELECT ru.TIPO_RESIDENTE FROM RESIDENTES_UNIDAD ru JOIN UNIDADES u ON ru.ID_UNIDAD = u.ID_UNIDAD WHERE ru.ID_PERSONA = p.ID_PERSONA %1$s AND ROWNUM = 1), 'RESIDENTE')
                    END AS TIPO_RELACION
             FROM PERSONAS p
             WHERE p.ID_PERSONA = :id
-            """;
-        List<PersonaDTO> results = jdbcTemplate.query(sql, new MapSqlParameterSource("id", id), rowMapper);
+            %2$s
+            """, scopeSubquery, scopeWhere);
+
+        List<PersonaDTO> results = jdbcTemplate.query(sql, params, rowMapper);
         return results.stream().findFirst();
     }
 
     @Override
     public Long insert(PersonaRequestDTO request) {
+        SaedContext ctx = SaedContextHolder.getContext();
+        Long orgId = ctx != null ? ctx.getOrganizationId() : null;
+        Long propId = ctx != null ? ctx.getPropertyId() : null;
+
+        if (propId != null && orgId == null) {
+            try {
+                orgId = jdbcTemplate.queryForObject(
+                        "SELECT ID_ORGANIZACION FROM PROPIEDADES WHERE ID_PROPIEDAD = :propId",
+                        new MapSqlParameterSource("propId", propId),
+                        Long.class
+                );
+            } catch (Exception ignored) {}
+        }
+
         String sql = """
             INSERT INTO PERSONAS (
                 ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA,
                 PRIMER_NOMBRE, SEGUNDO_NOMBRE, PRIMER_APELLIDO, SEGUNDO_APELLIDO,
-                EMAIL, TELEFONO
+                EMAIL, TELEFONO, ID_ORGANIZACION, ID_PROPIEDAD
             ) VALUES (
                 :tipoDocumentoId, :numeroDocumento, :tipoPersona,
                 :primerNombre, :segundoNombre, :primerApellido, :segundoApellido,
-                :email, :telefono
+                :email, :telefono, :orgId, :propId
             )
             """;
 
@@ -148,7 +240,9 @@ public class PersonaRepositoryImpl implements PersonaRepository {
                 .addValue("primerApellido", request.primerApellido())
                 .addValue("segundoApellido", request.segundoApellido())
                 .addValue("email", request.email())
-                .addValue("telefono", request.telefono());
+                .addValue("telefono", request.telefono())
+                .addValue("orgId", orgId)
+                .addValue("propId", propId);
 
         KeyHolder keyHolder = new GeneratedKeyHolder();
         jdbcTemplate.update(sql, params, keyHolder, new String[]{"ID_PERSONA"});
@@ -210,7 +304,7 @@ public class PersonaRepositoryImpl implements PersonaRepository {
                        WHEN EXISTS (SELECT 1 FROM RESIDENTES_UNIDAD ru WHERE ru.ID_PERSONA = p.ID_PERSONA AND ru.ESTADO = 'ACTIVO' AND ru.TIPO_RESIDENTE = 'ARRENDATARIO')
                          THEN 'ARRENDATARIO'
                        WHEN EXISTS (SELECT 1 FROM RESIDENTES_UNIDAD ru WHERE ru.ID_PERSONA = p.ID_PERSONA AND ru.ESTADO = 'ACTIVO' AND ru.TIPO_RESIDENTE IN ('FAMILIAR', 'CONVIVIENTE', 'OTRO'))
-                         THEN 'CONVIVIENTE'
+                          THEN 'CONVIVIENTE'
                        ELSE COALESCE((SELECT ru.TIPO_RESIDENTE FROM RESIDENTES_UNIDAD ru WHERE ru.ID_PERSONA = p.ID_PERSONA AND ROWNUM = 1), 'RESIDENTE')
                    END AS TIPO_RELACION
             FROM PERSONAS p
@@ -337,6 +431,17 @@ public class PersonaRepositoryImpl implements PersonaRepository {
                     new MapSqlParameterSource().addValue("unitId", unidadId).addValue("personaId", personaId)
             );
         }
+
+        // 3. Retroalimentar ID_PROPIEDAD e ID_ORGANIZACION en PERSONAS si están nulos
+        try {
+            jdbcTemplate.update(
+                "UPDATE PERSONAS SET " +
+                "ID_PROPIEDAD = (SELECT ID_PROPIEDAD FROM UNIDADES WHERE ID_UNIDAD = :unitId), " +
+                "ID_ORGANIZACION = (SELECT pr.ID_ORGANIZACION FROM UNIDADES u JOIN PROPIEDADES pr ON u.ID_PROPIEDAD = pr.ID_PROPIEDAD WHERE u.ID_UNIDAD = :unitId) " +
+                "WHERE ID_PERSONA = :personaId AND ID_PROPIEDAD IS NULL",
+                new MapSqlParameterSource().addValue("unitId", unidadId).addValue("personaId", personaId)
+            );
+        } catch (Exception ignored) {}
     }
 
     @Override

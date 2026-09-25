@@ -24,12 +24,12 @@ import {
 } from 'lucide-react';
 
 export const TIPOS_NORMATIVA = [
-  { value: 'REGLAMENTO_INTERNO', label: 'Reglamento Interno', color: 'border-blue-500/30 text-blue-400 bg-blue-500/10' },
-  { value: 'MANUAL_CONVIVENCIA', label: 'Manual de Convivencia', color: 'border-emerald-500/30 text-emerald-400 bg-emerald-500/10' },
-  { value: 'MANUAL_ZONAS_COMUNES', label: 'Manual de Zonas Comunes', color: 'border-purple-500/30 text-purple-400 bg-purple-500/10' },
-  { value: 'MANUAL_POLITICA_MASCOTAS', label: 'Política de Mascotas', color: 'border-amber-500/30 text-amber-400 bg-amber-500/10' },
-  { value: 'ESTATUTO_COPROPIEDAD', label: 'Estatuto de Copropiedad', color: 'border-indigo-500/30 text-indigo-400 bg-indigo-500/10' },
-  { value: 'OTRO', label: 'Otro Documento Normativo', color: 'border-slate-500/30 text-slate-400 bg-slate-500/10' },
+  { value: 'REGLAMENTO_INTERNO', label: 'Reglamento Interno', color: 'border-blue-500/30 text-blue-700 dark:text-blue-300 bg-blue-500/10' },
+  { value: 'MANUAL_CONVIVENCIA', label: 'Manual de Convivencia', color: 'border-emerald-500/30 text-emerald-700 dark:text-emerald-300 bg-emerald-500/10' },
+  { value: 'MANUAL_ZONAS_COMUNES', label: 'Manual de Zonas Comunes', color: 'border-purple-500/30 text-purple-700 dark:text-purple-300 bg-purple-500/10' },
+  { value: 'MANUAL_POLITICA_MASCOTAS', label: 'Política de Mascotas', color: 'border-amber-500/30 text-amber-700 dark:text-amber-300 bg-amber-500/10' },
+  { value: 'ESTATUTO_COPROPIEDAD', label: 'Estatuto de Copropiedad', color: 'border-indigo-500/30 text-indigo-700 dark:text-indigo-300 bg-indigo-500/10' },
+  { value: 'OTRO', label: 'Otro Documento Normativo', color: 'border-slate-500/30 text-slate-700 dark:text-slate-300 bg-slate-500/10' },
 ];
 
 export const TIPOS_MAP = Object.fromEntries(TIPOS_NORMATIVA.map((t) => [t.value, t.label]));
@@ -148,15 +148,16 @@ export default function ReglamentosAdminPage() {
       return;
     }
     if (!createForm.idDocumento) {
-      toast.error('Debe seleccionar un documento base para la normativa');
+      toast.error('Debe seleccionar un documento base oficial');
       return;
     }
+
     try {
       setSubmitting(true);
       await api.post('/reglamentos', {
         tipoNormativa: createForm.tipoNormativa,
         titulo: createForm.titulo.trim(),
-        descripcion: createForm.descripcion?.trim() || null,
+        descripcion: createForm.descripcion.trim() || undefined,
         idDocumento: Number(createForm.idDocumento),
       });
       toast.success('Borrador de reglamento creado exitosamente');
@@ -169,7 +170,7 @@ export default function ReglamentosAdminPage() {
       });
       refetch();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Error al crear el borrador');
+      toast.error(err.response?.data?.message || 'Error al crear el reglamento');
     } finally {
       setSubmitting(false);
     }
@@ -182,7 +183,7 @@ export default function ReglamentosAdminPage() {
       tipoNormativa: reg.tipoNormativa,
       titulo: reg.titulo,
       descripcion: reg.descripcion || '',
-      idDocumento: String(reg.idDocumento),
+      idDocumento: String(reg.idDocumento || ''),
     });
     setEditModalOpen(true);
   };
@@ -194,24 +195,19 @@ export default function ReglamentosAdminPage() {
       toast.error('El título es requerido');
       return;
     }
-    if (!editForm.idDocumento) {
-      toast.error('Debe seleccionar un documento');
-      return;
-    }
     try {
       setSubmitting(true);
       await api.put(`/reglamentos/${selectedReg.idReglamento}`, {
         tipoNormativa: editForm.tipoNormativa,
         titulo: editForm.titulo.trim(),
-        descripcion: editForm.descripcion?.trim() || null,
-        idDocumento: Number(editForm.idDocumento),
+        descripcion: editForm.descripcion.trim() || undefined,
+        idDocumento: editForm.idDocumento ? Number(editForm.idDocumento) : undefined,
       });
-      toast.success('Borrador actualizado exitosamente');
+      toast.success('Reglamento actualizado exitosamente');
       setEditModalOpen(false);
-      setSelectedReg(null);
       refetch();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Error al actualizar el borrador');
+      toast.error(err.response?.data?.message || 'Error al actualizar el reglamento');
     } finally {
       setSubmitting(false);
     }
@@ -229,14 +225,17 @@ export default function ReglamentosAdminPage() {
   // Submit Publish
   const handlePublish = async (e) => {
     e.preventDefault();
+    if (!publishForm.fechaEntradaEnVigor) {
+      toast.error('La fecha de entrada en vigor es requerida');
+      return;
+    }
     try {
       setSubmitting(true);
       await api.post(`/reglamentos/${selectedReg.idReglamento}/publicar`, {
-        fechaEntradaEnVigor: publishForm.fechaEntradaEnVigor || null,
+        fechaEntradaEnVigor: publishForm.fechaEntradaEnVigor,
       });
       toast.success('Reglamento publicado y puesto en vigor exitosamente');
       setPublishModalOpen(false);
-      setSelectedReg(null);
       refetch();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Error al publicar el reglamento');
@@ -272,18 +271,18 @@ export default function ReglamentosAdminPage() {
             <div className="flex items-center gap-2">
               <span
                 className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold border ${
-                  tipoObj?.color || 'border-slate-500/30 text-slate-400 bg-slate-500/10'
+                  tipoObj?.color || 'border-border text-foreground bg-muted'
                 }`}
               >
                 {tipoLabel}
               </span>
             </div>
-            <div className="font-semibold text-slate-100 flex items-center gap-1.5">
-              <BookOpen className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+            <div className="font-semibold text-foreground flex items-center gap-1.5">
+              <BookOpen className="w-4 h-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
               <span>{item.titulo}</span>
             </div>
             {item.descripcion && (
-              <p className="text-xs text-slate-400 line-clamp-2 max-w-md">{item.descripcion}</p>
+              <p className="text-xs text-muted-foreground line-clamp-2 max-w-md">{item.descripcion}</p>
             )}
           </div>
         );
@@ -296,21 +295,21 @@ export default function ReglamentosAdminPage() {
         const item = info.row.original;
         return (
           <div className="space-y-1 text-xs">
-            <div className="flex items-center gap-1.5 text-slate-300 font-medium truncate max-w-xs">
-              <FileText className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />
+            <div className="flex items-center gap-1.5 text-foreground font-medium truncate max-w-xs">
+              <FileText className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
               <span className="truncate" title={item.archivoNombreOrig}>
                 {item.archivoNombreOrig || 'Documento sin versión'}
               </span>
             </div>
-            <div className="flex items-center gap-3 text-slate-400">
+            <div className="flex items-center gap-3 text-muted-foreground">
               <span className="inline-flex items-center gap-1">
-                <span className="text-slate-500">v{item.numeroVersion || 1}</span>
+                <span>v{item.numeroVersion || 1}</span>
               </span>
               <span>{formatFileSize(item.archivoTamanoBytes)}</span>
             </div>
             {item.archivoSha256 && (
-              <div className="flex items-center gap-1 text-[10px] text-slate-500 font-mono" title={item.archivoSha256}>
-                <Hash className="w-3 h-3 text-slate-500" />
+              <div className="flex items-center gap-1 text-[10px] text-muted-foreground font-mono" title={item.archivoSha256}>
+                <Hash className="w-3 h-3 text-muted-foreground" />
                 <span>{item.archivoSha256.substring(0, 12)}...</span>
               </div>
             )}
@@ -323,24 +322,24 @@ export default function ReglamentosAdminPage() {
       accessorKey: 'estado',
       cell: (info) => {
         const estado = info.getValue();
-        let badgeColor = 'bg-slate-500/20 text-slate-300 border-slate-500/30';
+        let badgeColor = 'bg-muted text-muted-foreground border-border';
         let label = estado;
         let Icon = Clock;
 
         if (estado === 'PUBLICADO') {
-          badgeColor = 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40';
+          badgeColor = 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30';
           label = 'Vigente';
           Icon = CheckCircle2;
         } else if (estado === 'BORRADOR') {
-          badgeColor = 'bg-amber-500/20 text-amber-400 border-amber-500/40';
+          badgeColor = 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30';
           label = 'Borrador';
           Icon = Clock;
         } else if (estado === 'REEMPLAZADO') {
-          badgeColor = 'bg-slate-500/20 text-slate-400 border-slate-500/40';
+          badgeColor = 'bg-muted text-muted-foreground border-border';
           label = 'Reemplazado';
           Icon = History;
         } else if (estado === 'INACTIVO') {
-          badgeColor = 'bg-rose-500/20 text-rose-400 border-rose-500/40';
+          badgeColor = 'bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/30';
           label = 'Inactivo';
           Icon = AlertCircle;
         }
@@ -361,22 +360,21 @@ export default function ReglamentosAdminPage() {
       cell: (info) => {
         const item = info.row.original;
         return (
-          <div className="space-y-1 text-xs text-slate-400">
+          <div className="space-y-1 text-xs text-muted-foreground">
             {item.fechaEntradaEnVigor && (
               <div>
-                <span className="text-slate-500">En vigor:</span>{' '}
-                <span className="text-slate-200 font-medium">{formatDate(item.fechaEntradaEnVigor)}</span>
+                <span className="font-medium text-foreground">En vigor:</span>{' '}
+                <span>{formatDate(item.fechaEntradaEnVigor)}</span>
               </div>
             )}
             {item.fechaPublicacion && (
               <div>
-                <span className="text-slate-500">Publicado:</span>{' '}
-                <span className="text-slate-300">{formatDate(item.fechaPublicacion)}</span>
+                <span className="font-medium text-foreground">Publicado:</span>{' '}
+                <span>{formatDate(item.fechaPublicacion)}</span>
               </div>
             )}
             <div>
-              <span className="text-slate-500">Creado:</span>{' '}
-              <span className="text-slate-400">{formatDate(item.fechaCreacion)}</span>
+              <span>Creado: {formatDate(item.fechaCreacion)}</span>
             </div>
           </div>
         );
@@ -396,7 +394,7 @@ export default function ReglamentosAdminPage() {
               onClick={() => handleDownload(reg)}
               disabled={isDownloading}
               title="Descargar documento (PDF)"
-              className="text-xs flex items-center gap-1 text-blue-400 hover:text-blue-300 border-blue-500/30"
+              className="text-xs flex items-center gap-1 text-blue-600 dark:text-blue-400 border-blue-500/30 hover:bg-blue-50 dark:hover:bg-blue-950/30"
             >
               <Download className="w-3.5 h-3.5" />
               {isDownloading ? 'Descargando...' : 'Descargar'}
@@ -409,7 +407,7 @@ export default function ReglamentosAdminPage() {
                   size="sm"
                   onClick={() => handleOpenEdit(reg)}
                   title="Editar borrador"
-                  className="text-xs flex items-center gap-1 text-amber-400 hover:text-amber-300 border-amber-500/30"
+                  className="text-xs flex items-center gap-1 text-amber-600 dark:text-amber-400 border-amber-500/30 hover:bg-amber-50 dark:hover:bg-amber-950/30"
                 >
                   <Edit3 className="w-3.5 h-3.5" />
                   Editar
@@ -433,7 +431,7 @@ export default function ReglamentosAdminPage() {
                 size="sm"
                 onClick={() => handleInactivate(reg)}
                 title="Inactivar normativa"
-                className="text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/10"
+                className="text-xs text-rose-600 dark:text-rose-400 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30"
               >
                 <Power className="w-3.5 h-3.5" />
               </Button>
@@ -469,52 +467,52 @@ export default function ReglamentosAdminPage() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="p-4 rounded-xl border border-slate-700/60 bg-slate-800/40 space-y-1">
-          <div className="flex items-center justify-between text-xs text-slate-400">
+        <div className="p-4 rounded-xl border border-border bg-card text-card-foreground shadow-sm space-y-1">
+          <div className="flex items-center justify-between text-xs text-muted-foreground font-medium">
             <span>Normativas Vigentes</span>
-            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
           </div>
-          <div className="text-2xl font-bold text-slate-100">{kpis.vigentes}</div>
-          <div className="text-[11px] text-emerald-400/80">Publicadas para residentes</div>
+          <div className="text-2xl font-bold text-foreground">{kpis.vigentes}</div>
+          <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">Publicadas para residentes</div>
         </div>
 
-        <div className="p-4 rounded-xl border border-slate-700/60 bg-slate-800/40 space-y-1">
-          <div className="flex items-center justify-between text-xs text-slate-400">
+        <div className="p-4 rounded-xl border border-border bg-card text-card-foreground shadow-sm space-y-1">
+          <div className="flex items-center justify-between text-xs text-muted-foreground font-medium">
             <span>Borradores en Revisión</span>
-            <Clock className="w-4 h-4 text-amber-400" />
+            <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400" />
           </div>
-          <div className="text-2xl font-bold text-slate-100">{kpis.borradores}</div>
-          <div className="text-[11px] text-amber-400/80">Pendientes de publicación</div>
+          <div className="text-2xl font-bold text-foreground">{kpis.borradores}</div>
+          <div className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">Pendientes de publicación</div>
         </div>
 
-        <div className="p-4 rounded-xl border border-slate-700/60 bg-slate-800/40 space-y-1">
-          <div className="flex items-center justify-between text-xs text-slate-400">
+        <div className="p-4 rounded-xl border border-border bg-card text-card-foreground shadow-sm space-y-1">
+          <div className="flex items-center justify-between text-xs text-muted-foreground font-medium">
             <span>Histórico Reemplazados</span>
-            <History className="w-4 h-4 text-slate-400" />
+            <History className="w-4 h-4 text-muted-foreground" />
           </div>
-          <div className="text-2xl font-bold text-slate-100">{kpis.reemplazados}</div>
-          <div className="text-[11px] text-slate-400/80">Versiones normativas previas</div>
+          <div className="text-2xl font-bold text-foreground">{kpis.reemplazados}</div>
+          <div className="text-[11px] text-muted-foreground font-medium">Versiones normativas previas</div>
         </div>
 
-        <div className="p-4 rounded-xl border border-slate-700/60 bg-slate-800/40 space-y-1">
-          <div className="flex items-center justify-between text-xs text-slate-400">
+        <div className="p-4 rounded-xl border border-border bg-card text-card-foreground shadow-sm space-y-1">
+          <div className="flex items-center justify-between text-xs text-muted-foreground font-medium">
             <span>Total Registros</span>
-            <BookOpen className="w-4 h-4 text-blue-400" />
+            <BookOpen className="w-4 h-4 text-blue-600 dark:text-blue-400" />
           </div>
-          <div className="text-2xl font-bold text-slate-100">{kpis.total}</div>
-          <div className="text-[11px] text-blue-400/80">En el repositorio</div>
+          <div className="text-2xl font-bold text-foreground">{kpis.total}</div>
+          <div className="text-[11px] text-blue-600 dark:text-blue-400 font-medium">En el repositorio</div>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap items-center gap-3 p-4 rounded-xl border border-slate-700/60 bg-slate-800/20">
+      <div className="flex flex-wrap items-center gap-3 p-4 rounded-xl border border-border bg-card shadow-sm">
         <div className="flex-1 min-w-[200px]">
           <input
             type="text"
             placeholder="Buscar por título, descripción o archivo..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full px-3 py-2 text-sm rounded-lg bg-slate-900/60 border border-slate-700 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+            className="w-full px-3 py-2 text-sm rounded-lg bg-background border border-input text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500"
           />
         </div>
 
@@ -522,7 +520,7 @@ export default function ReglamentosAdminPage() {
           <select
             value={tipoFiltro}
             onChange={(e) => setTipoFiltro(e.target.value)}
-            className="w-full px-3 py-2 text-sm rounded-lg bg-slate-900/60 border border-slate-700 text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+            className="w-full px-3 py-2 text-sm rounded-lg bg-background border border-input text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500"
           >
             <option value="TODOS">Todos los Tipos</option>
             {TIPOS_NORMATIVA.map((t) => (
@@ -537,7 +535,7 @@ export default function ReglamentosAdminPage() {
           <select
             value={estadoFiltro}
             onChange={(e) => setEstadoFiltro(e.target.value)}
-            className="w-full px-3 py-2 text-sm rounded-lg bg-slate-900/60 border border-slate-700 text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+            className="w-full px-3 py-2 text-sm rounded-lg bg-background border border-input text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500"
           >
             <option value="TODOS">Todos los Estados</option>
             <option value="PUBLICADO">Vigente (Publicado)</option>
@@ -565,11 +563,11 @@ export default function ReglamentosAdminPage() {
       >
         <form onSubmit={handleCreate} className="space-y-4">
           <div className="space-y-1">
-            <label className="text-xs font-medium text-slate-300">Tipo de Normativa *</label>
+            <label className="text-xs font-medium text-foreground">Tipo de Normativa *</label>
             <select
               value={createForm.tipoNormativa}
               onChange={(e) => setCreateForm({ ...createForm, tipoNormativa: e.target.value })}
-              className="w-full px-3 py-2 text-sm rounded-lg bg-slate-900/80 border border-slate-700 text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              className="w-full px-3 py-2 text-sm rounded-lg bg-background border border-input text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500"
               required
             >
               {TIPOS_NORMATIVA.map((t) => (
@@ -581,36 +579,36 @@ export default function ReglamentosAdminPage() {
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs font-medium text-slate-300">Título del Reglamento *</label>
+            <label className="text-xs font-medium text-foreground">Título del Reglamento *</label>
             <input
               type="text"
               placeholder="Ej: Reglamento Interno de Propiedad Horizontal 2026"
               value={createForm.titulo}
               onChange={(e) => setCreateForm({ ...createForm, titulo: e.target.value })}
-              className="w-full px-3 py-2 text-sm rounded-lg bg-slate-900/80 border border-slate-700 text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              className="w-full px-3 py-2 text-sm rounded-lg bg-background border border-input text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500"
               required
               maxLength={255}
             />
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs font-medium text-slate-300">Descripción o Alcance</label>
+            <label className="text-xs font-medium text-foreground">Descripción o Alcance</label>
             <textarea
               placeholder="Breve resumen de normas, modificaciones clave o alcance de la norma..."
               value={createForm.descripcion}
               onChange={(e) => setCreateForm({ ...createForm, descripcion: e.target.value })}
               rows={3}
-              className="w-full px-3 py-2 text-sm rounded-lg bg-slate-900/80 border border-slate-700 text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              className="w-full px-3 py-2 text-sm rounded-lg bg-background border border-input text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500"
               maxLength={1000}
             />
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs font-medium text-slate-300">Documento Oficial Vinculado (F10-01) *</label>
+            <label className="text-xs font-medium text-foreground">Documento Oficial Vinculado (F10-01) *</label>
             <select
               value={createForm.idDocumento}
               onChange={(e) => setCreateForm({ ...createForm, idDocumento: e.target.value })}
-              className="w-full px-3 py-2 text-sm rounded-lg bg-slate-900/80 border border-slate-700 text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              className="w-full px-3 py-2 text-sm rounded-lg bg-background border border-input text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500"
               required
             >
               <option value="">Seleccione un documento del repositorio...</option>
@@ -620,12 +618,12 @@ export default function ReglamentosAdminPage() {
                 </option>
               ))}
             </select>
-            <p className="text-[11px] text-slate-400">
+            <p className="text-[11px] text-muted-foreground">
               El reglamento reutiliza la infraestructura de almacenamiento y hash SHA-256 de F10-01.
             </p>
           </div>
 
-          <div className="flex justify-end gap-3 pt-3 border-t border-slate-700">
+          <div className="flex justify-end gap-3 pt-3 border-t border-border">
             <Button variant="outline" type="button" onClick={() => setCreateModalOpen(false)}>
               Cancelar
             </Button>
@@ -644,11 +642,11 @@ export default function ReglamentosAdminPage() {
       >
         <form onSubmit={handleEdit} className="space-y-4">
           <div className="space-y-1">
-            <label className="text-xs font-medium text-slate-300">Tipo de Normativa *</label>
+            <label className="text-xs font-medium text-foreground">Tipo de Normativa *</label>
             <select
               value={editForm.tipoNormativa}
               onChange={(e) => setEditForm({ ...editForm, tipoNormativa: e.target.value })}
-              className="w-full px-3 py-2 text-sm rounded-lg bg-slate-900/80 border border-slate-700 text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              className="w-full px-3 py-2 text-sm rounded-lg bg-background border border-input text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500"
               required
             >
               {TIPOS_NORMATIVA.map((t) => (
@@ -660,34 +658,34 @@ export default function ReglamentosAdminPage() {
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs font-medium text-slate-300">Título *</label>
+            <label className="text-xs font-medium text-foreground">Título *</label>
             <input
               type="text"
               value={editForm.titulo}
               onChange={(e) => setEditForm({ ...editForm, titulo: e.target.value })}
-              className="w-full px-3 py-2 text-sm rounded-lg bg-slate-900/80 border border-slate-700 text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              className="w-full px-3 py-2 text-sm rounded-lg bg-background border border-input text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500"
               required
               maxLength={255}
             />
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs font-medium text-slate-300">Descripción</label>
+            <label className="text-xs font-medium text-foreground">Descripción</label>
             <textarea
               value={editForm.descripcion}
               onChange={(e) => setEditForm({ ...editForm, descripcion: e.target.value })}
               rows={3}
-              className="w-full px-3 py-2 text-sm rounded-lg bg-slate-900/80 border border-slate-700 text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              className="w-full px-3 py-2 text-sm rounded-lg bg-background border border-input text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500"
               maxLength={1000}
             />
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs font-medium text-slate-300">Documento Base Vinculado *</label>
+            <label className="text-xs font-medium text-foreground">Documento Base Vinculado *</label>
             <select
               value={editForm.idDocumento}
               onChange={(e) => setEditForm({ ...editForm, idDocumento: e.target.value })}
-              className="w-full px-3 py-2 text-sm rounded-lg bg-slate-900/80 border border-slate-700 text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              className="w-full px-3 py-2 text-sm rounded-lg bg-background border border-input text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500"
               required
             >
               {availableDocs.map((doc) => (
@@ -698,7 +696,7 @@ export default function ReglamentosAdminPage() {
             </select>
           </div>
 
-          <div className="flex justify-end gap-3 pt-3 border-t border-slate-700">
+          <div className="flex justify-end gap-3 pt-3 border-t border-border">
             <Button variant="outline" type="button" onClick={() => setEditModalOpen(false)}>
               Cancelar
             </Button>
@@ -716,8 +714,8 @@ export default function ReglamentosAdminPage() {
         title="Publicar y Poner en Vigor"
       >
         <form onSubmit={handlePublish} className="space-y-4">
-          <div className="p-3 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-200 text-xs space-y-1.5">
-            <div className="font-semibold flex items-center gap-1.5 text-amber-300">
+          <div className="p-3 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-200 text-xs space-y-1.5">
+            <div className="font-semibold flex items-center gap-1.5 text-amber-900 dark:text-amber-300">
               <AlertCircle className="w-4 h-4 flex-shrink-0" />
               <span>Regla de Unicidad Normativa Vigente</span>
             </div>
@@ -730,17 +728,17 @@ export default function ReglamentosAdminPage() {
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs font-medium text-slate-300">Fecha de Entrada en Vigor *</label>
+            <label className="text-xs font-medium text-foreground">Fecha de Entrada en Vigor *</label>
             <input
               type="date"
               value={publishForm.fechaEntradaEnVigor}
               onChange={(e) => setPublishForm({ ...publishForm, fechaEntradaEnVigor: e.target.value })}
-              className="w-full px-3 py-2 text-sm rounded-lg bg-slate-900/80 border border-slate-700 text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              className="w-full px-3 py-2 text-sm rounded-lg bg-background border border-input text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500"
               required
             />
           </div>
 
-          <div className="flex justify-end gap-3 pt-3 border-t border-slate-700">
+          <div className="flex justify-end gap-3 pt-3 border-t border-border">
             <Button variant="outline" type="button" onClick={() => setPublishModalOpen(false)}>
               Cancelar
             </Button>

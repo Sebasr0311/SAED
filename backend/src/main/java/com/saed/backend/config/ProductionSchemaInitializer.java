@@ -43,6 +43,7 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
         initPlantillasContratos();
         initRoles();
         initSuperAdminUser();
+        initPersonasTenantColumns();
         initJjuanAdminPropiedad();
         // cleanupLegacyTestData(); // Desactivado para no purgar usuarios reales en arranques del sistema
         initResidentesUnidadConstraints();
@@ -899,6 +900,69 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
             log.info("[SchemaInit] Administrador de propiedad 'jjuan123' (password: admin123) asegurado con éxito.");
         } catch (Exception e) {
             log.warn("[SchemaInit] Aviso al asegurar administrador jjuan123: {}", e.getMessage());
+        }
+    }
+
+    private void initPersonasTenantColumns() {
+        try {
+            // 1. Agregar ID_ORGANIZACION e ID_PROPIEDAD a PERSONAS si no existen
+            try {
+                jdbcTemplate.execute("ALTER TABLE PERSONAS ADD (ID_ORGANIZACION NUMBER, ID_PROPIEDAD NUMBER)");
+                log.info("[SchemaInit] Columnas ID_ORGANIZACION e ID_PROPIEDAD agregadas a PERSONAS");
+            } catch (Exception ignored) {
+                // Columnas ya existen
+            }
+
+            // 2. Backfill desde RESIDENTES_UNIDAD + UNIDADES + PROPIEDADES
+            jdbcTemplate.execute("""
+                BEGIN
+                    UPDATE PERSONAS p
+                    SET (ID_PROPIEDAD, ID_ORGANIZACION) = (
+                        SELECT u.ID_PROPIEDAD, pr.ID_ORGANIZACION
+                        FROM RESIDENTES_UNIDAD ru
+                        JOIN UNIDADES u ON ru.ID_UNIDAD = u.ID_UNIDAD
+                        JOIN PROPIEDADES pr ON u.ID_PROPIEDAD = pr.ID_PROPIEDAD
+                        WHERE ru.ID_PERSONA = p.ID_PERSONA AND ROWNUM = 1
+                    )
+                    WHERE p.ID_PROPIEDAD IS NULL AND EXISTS (
+                        SELECT 1 FROM RESIDENTES_UNIDAD ru WHERE ru.ID_PERSONA = p.ID_PERSONA
+                    );
+
+                    UPDATE PERSONAS p
+                    SET (ID_PROPIEDAD, ID_ORGANIZACION) = (
+                        SELECT u.ID_PROPIEDAD, pr.ID_ORGANIZACION
+                        FROM PROPIETARIOS_UNIDAD pu
+                        JOIN UNIDADES u ON pu.ID_UNIDAD = u.ID_UNIDAD
+                        JOIN PROPIEDADES pr ON u.ID_PROPIEDAD = pr.ID_PROPIEDAD
+                        WHERE pu.ID_PERSONA = p.ID_PERSONA AND ROWNUM = 1
+                    )
+                    WHERE p.ID_PROPIEDAD IS NULL AND EXISTS (
+                        SELECT 1 FROM PROPIETARIOS_UNIDAD pu WHERE pu.ID_PERSONA = p.ID_PERSONA
+                    );
+
+                    UPDATE PERSONAS p
+                    SET (ID_PROPIEDAD, ID_ORGANIZACION) = (
+                        SELECT ua.ID_PROPIEDAD, ua.ID_ORGANIZACION
+                        FROM USUARIOS u
+                        JOIN USUARIO_ASIGNACIONES ua ON u.ID_USUARIO = ua.ID_USUARIO
+                        WHERE u.ID_PERSONA = p.ID_PERSONA AND ua.ESTADO = 'ACTIVA' AND ROWNUM = 1
+                    )
+                    WHERE p.ID_PROPIEDAD IS NULL AND EXISTS (
+                        SELECT 1 FROM USUARIOS u JOIN USUARIO_ASIGNACIONES ua ON u.ID_USUARIO = ua.ID_USUARIO WHERE u.ID_PERSONA = p.ID_PERSONA
+                    );
+
+                    -- Asegurar que la persona de jjuan123 pertenezca a Org 201 y Propiedad 140
+                    UPDATE PERSONAS 
+                    SET ID_ORGANIZACION = 201, ID_PROPIEDAD = 140 
+                    WHERE (EMAIL = 'jjuan123@saed.com' OR NUMERO_DOCUMENTO = '1099999123');
+
+                    COMMIT;
+                EXCEPTION WHEN OTHERS THEN NULL;
+                END;
+            """);
+            log.info("[SchemaInit] Columnas de tenant de PERSONAS inicializadas y retroalimentadas exitosamente.");
+        } catch (Exception e) {
+            log.warn("[SchemaInit] Aviso al inicializar columnas tenant en PERSONAS: {}", e.getMessage());
         }
     }
 
