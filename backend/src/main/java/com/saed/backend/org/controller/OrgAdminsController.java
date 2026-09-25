@@ -590,11 +590,11 @@ public class OrgAdminsController {
         // 3. Actualizar datos de persona si se proporcionaron
         if (idPersona != null) {
             MapSqlParameterSource personParams = new MapSqlParameterSource()
-                    .addValue("pId", idPersona)
-                    .addValue("nombre", request.getPrimerNombre() != null && !request.getPrimerNombre().isBlank() ? request.getPrimerNombre().trim() : null)
-                    .addValue("apellido", request.getPrimerApellido() != null && !request.getPrimerApellido().isBlank() ? request.getPrimerApellido().trim() : null)
-                    .addValue("tel", request.getTelefono() != null && !request.getTelefono().isBlank() ? request.getTelefono().trim() : null)
-                    .addValue("email", request.getEmail() != null && !request.getEmail().isBlank() ? request.getEmail().trim() : null);
+                    .addValue("pId", idPersona, java.sql.Types.NUMERIC)
+                    .addValue("nombre", request.getPrimerNombre() != null && !request.getPrimerNombre().isBlank() ? request.getPrimerNombre().trim() : null, java.sql.Types.VARCHAR)
+                    .addValue("apellido", request.getPrimerApellido() != null && !request.getPrimerApellido().isBlank() ? request.getPrimerApellido().trim() : null, java.sql.Types.VARCHAR)
+                    .addValue("tel", request.getTelefono() != null && !request.getTelefono().isBlank() ? request.getTelefono().trim() : null, java.sql.Types.VARCHAR)
+                    .addValue("email", request.getEmail() != null && !request.getEmail().isBlank() ? request.getEmail().trim() : null, java.sql.Types.VARCHAR);
             jdbcTemplate.update("""
                 UPDATE PERSONAS
                 SET primer_nombre = COALESCE(:nombre, primer_nombre),
