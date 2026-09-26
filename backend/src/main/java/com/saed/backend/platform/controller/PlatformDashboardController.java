@@ -68,8 +68,10 @@ public class PlatformDashboardController {
             userStats.put("activos", activeUsers != null ? activeUsers.longValue() : 0);
 
             List<Map<String, Object>> rolesCount = jdbcTemplate.queryForList(
-                "SELECT r.CODIGO AS ROL, COUNT(ua.ID_USUARIO) AS CANTIDAD " +
-                "FROM ROLES r LEFT JOIN USUARIO_ASIGNACIONES ua ON r.ID_ROL = ua.ID_ROL AND ua.ESTADO = 'ACTIVA' " +
+                "SELECT r.CODIGO AS ROL, COUNT(DISTINCT u.ID_USUARIO) AS CANTIDAD " +
+                "FROM ROLES r " +
+                "LEFT JOIN USUARIO_ASIGNACIONES ua ON r.ID_ROL = ua.ID_ROL AND ua.ESTADO = 'ACTIVA' " +
+                "LEFT JOIN USUARIOS u ON ua.ID_USUARIO = u.ID_USUARIO AND u.ESTADO = 'ACTIVO' " +
                 "GROUP BY r.CODIGO", new MapSqlParameterSource()
             );
             userStats.put("desgloseRoles", rolesCount);

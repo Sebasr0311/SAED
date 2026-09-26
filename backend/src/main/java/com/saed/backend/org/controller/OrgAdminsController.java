@@ -842,8 +842,8 @@ public class OrgAdminsController {
             }
         }
 
-        // 3. Eliminar la asignación
-        jdbcTemplate.update("DELETE FROM USUARIO_ASIGNACIONES WHERE ID_ASIGNACION = :asigId", Map.of("asigId", assignmentId));
+        // 3. Eliminar todas las asignaciones del administrador dentro de esta organización
+        jdbcTemplate.update("DELETE FROM USUARIO_ASIGNACIONES WHERE ID_USUARIO = :uid AND ID_ORGANIZACION = :orgId", Map.of("uid", targetUserId, "orgId", orgId));
 
         // 4. Si el usuario ya no tiene más asignaciones, marcarlo como INACTIVO
         Integer activeCount = jdbcTemplate.queryForObject(
