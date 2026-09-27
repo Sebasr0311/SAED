@@ -43,9 +43,8 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
         initPlantillasContratos();
         initRoles();
         initSuperAdminUser();
-        initPersonasTenantColumns();
-        initJjuanAdminPropiedad();
-        // cleanupLegacyTestData(); // Desactivado para no purgar usuarios reales en arranques del sistema
+        // initJjuanAdminPropiedad(); // Desactivado para no re-crear cuenta demo jjuan123
+        purgeDemoSeedData(); // Purga definitiva de cuentas y asignaciones demo de prueba
         initResidentesUnidadConstraints();
         initTokensActivacion();
         initOnboardingIntenciones();
@@ -982,83 +981,142 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
         }
     }
 
-    private void cleanupLegacyTestData() {
+    private void purgeDemoSeedData() {
         try {
+            log.info("[SchemaInit] Ejecutando purga de cuentas y asignaciones demo residuales...");
             jdbcTemplate.execute("""
+                DECLARE
+                    CURSOR c_demo_users IS
+                        SELECT u.ID_USUARIO, u.ID_PERSONA, u.NOMBRE_USUARIO, u.EMAIL
+                        FROM USUARIOS u
+                        WHERE u.ID_USUARIO != 1
+                          AND LOWER(u.NOMBRE_USUARIO) != 'admin_global'
+                          AND LOWER(u.EMAIL) NOT LIKE '%gmail.com%'
+                          AND LOWER(u.EMAIL) NOT LIKE '%daniela%'
+                          AND LOWER(u.NOMBRE_USUARIO) NOT LIKE '%daniela%'
+                          AND LOWER(u.EMAIL) NOT LIKE '%rincon%'
+                          AND (
+                              LOWER(u.NOMBRE_USUARIO) IN ('admin', 'carlos_admin', 'admin_org', 'portero01', 'camartinez', 'residente_sol', 'residente_hor', 'anagomez', 'jjuan123', 'visitante.demo', 'carlos.mendez.demo', 'resident', 'propadmin', 'orgadmin', 'admin888', 'residente9927', 'portero9929', 'admin_org9921', 'admin_prop9923', 'admin_prop9925')
+                              OR LOWER(u.EMAIL) IN ('admin@saed.com', 'admin_org@saed.com', 'portero01@saed.com', 'camartinez@saed.com', 'jjuan123@saed.com', 'residente_sol@saed.com', 'residente_hor@saed.com', 'anagomez@saed.com', 'visitante.demo@saed.com', 'carlos.nuevo@ejemplo.com', 'adminorg9921@saed.com', 'adminprop9923@saed.com', 'adminprop9925@saed.com', 'residente9927@saed.com', 'portero9929@saed.com')
+                              OR LOWER(u.EMAIL) LIKE '%@test.com'
+                              OR (u.ID_USUARIO IN (2, 3, 4, 5, 6, 7, 8) AND LOWER(u.EMAIL) LIKE '%saed.com%')
+                          );
+
+                    CURSOR c_demo_personas IS
+                        SELECT p.ID_PERSONA, p.EMAIL
+                        FROM PERSONAS p
+                        WHERE p.ID_PERSONA != 1
+                          AND LOWER(p.EMAIL) NOT LIKE '%gmail.com%'
+                          AND LOWER(p.EMAIL) NOT LIKE '%daniela%'
+                          AND LOWER(p.EMAIL) NOT LIKE '%rincon%'
+                          AND (
+                              p.ID_PERSONA IN (2, 3, 4, 5, 6, 7, 8)
+                              OR LOWER(p.EMAIL) IN ('admin@saed.com', 'admin_org@saed.com', 'portero01@saed.com', 'camartinez@saed.com', 'jjuan123@saed.com', 'residente_sol@saed.com', 'residente_hor@saed.com', 'anagomez@saed.com', 'visitante.demo@saed.com', 'carlos.nuevo@ejemplo.com')
+                              OR LOWER(p.EMAIL) LIKE '%@test.com'
+                              OR p.NUMERO_DOCUMENTO IN ('1000000002', '1000000003', '1000000004', '1000000005', '1099999123')
+                          );
                 BEGIN
                     BEGIN EXECUTE IMMEDIATE 'ALTER SESSION DISABLE PARALLEL DML'; EXCEPTION WHEN OTHERS THEN NULL; END;
                     BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1); EXCEPTION WHEN OTHERS THEN NULL; END;
 
-                    -- 1. Liberar inmediatamente el correo juanrinconfarelo@gmail.com de cualquier cuenta vieja de prueba
+                    -- 1. Limpiar dependencias de personas demo
+                    FOR rp IN c_demo_personas LOOP
+                        BEGIN DELETE FROM RESIDENTES_UNIDAD WHERE ID_PERSONA = rp.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
+                        BEGIN DELETE FROM PROPIETARIOS_UNIDAD WHERE ID_PERSONA = rp.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
+                        BEGIN DELETE FROM CONTRATO_RESIDENTE WHERE ID_PERSONA = rp.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
+                        BEGIN DELETE FROM CONTRATOS WHERE ID_ARRENDATARIO_PRINCIPAL = rp.ID_PERSONA OR ID_TUTOR = rp.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
+                        BEGIN DELETE FROM PAZ_Y_SALVOS WHERE ID_PERSONA_SOLICITANTE = rp.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
+                        BEGIN DELETE FROM RESERVAS WHERE ID_PERSONA_SOLICITA = rp.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
+                        BEGIN DELETE FROM PQRS_TICKETS WHERE ID_PERSONA_RADICA = rp.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
+                        BEGIN DELETE FROM VISITANTES WHERE ID_PERSONA = rp.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
+                        BEGIN DELETE FROM TRABAJADORES WHERE ID_PERSONA = rp.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
+                        BEGIN DELETE FROM VEHICULOS WHERE ID_PERSONA = rp.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
+                        BEGIN DELETE FROM MASCOTAS WHERE ID_PERSONA_RESPONSABLE = rp.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
+                        BEGIN DELETE FROM ASISTENCIAS_ASAMBLEA WHERE ID_PERSONA_ASISTENTE = rp.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
+                        BEGIN DELETE FROM VOTOS WHERE ID_PERSONA_VOTANTE = rp.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
+                        BEGIN DELETE FROM PODERES_REPRESENTACION WHERE ID_PERSONA_PROPIETARIO = rp.ID_PERSONA OR ID_PERSONA_APODERADO = rp.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
+                        BEGIN DELETE FROM SANCIONES WHERE ID_PERSONA_IMPUTADA = rp.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
+                        BEGIN DELETE FROM SANCION_DESCARGOS WHERE ID_PERSONA_PRESENTA = rp.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
+                        BEGIN DELETE FROM ENCUESTA_RESPUESTAS WHERE ID_PERSONA = rp.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
+                        BEGIN DELETE FROM INCIDENTE_INVOLUCRADOS WHERE ID_PERSONA = rp.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
+                        BEGIN DELETE FROM REGISTROS_ACCESO WHERE ID_PERSONA = rp.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
+                        BEGIN DELETE FROM PAQUETES WHERE ID_PERSONA_DESTINATARIO = rp.ID_PERSONA OR ENTREGADO_A_PERSONA = rp.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
+                        BEGIN DELETE FROM PAGOS WHERE ID_PERSONA_PAGA = rp.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
+                    END LOOP;
+
+                    -- 2. Limpiar dependencias y eliminar usuarios demo
+                    FOR ru IN c_demo_users LOOP
+                        IF ru.ID_PERSONA IS NOT NULL AND ru.ID_PERSONA != 1 THEN
+                            BEGIN DELETE FROM RESIDENTES_UNIDAD WHERE ID_PERSONA = ru.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
+                            BEGIN DELETE FROM PROPIETARIOS_UNIDAD WHERE ID_PERSONA = ru.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
+                            BEGIN DELETE FROM CONTRATO_RESIDENTE WHERE ID_PERSONA = ru.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
+                            BEGIN DELETE FROM CONTRATOS WHERE ID_ARRENDATARIO_PRINCIPAL = ru.ID_PERSONA OR ID_TUTOR = ru.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
+                            BEGIN DELETE FROM PAZ_Y_SALVOS WHERE ID_PERSONA_SOLICITANTE = ru.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
+                            BEGIN DELETE FROM RESERVAS WHERE ID_PERSONA_SOLICITA = ru.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
+                            BEGIN DELETE FROM PQRS_TICKETS WHERE ID_PERSONA_RADICA = ru.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
+                            BEGIN DELETE FROM VISITANTES WHERE ID_PERSONA = ru.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
+                            BEGIN DELETE FROM TRABAJADORES WHERE ID_PERSONA = ru.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
+                            BEGIN DELETE FROM VEHICULOS WHERE ID_PERSONA = ru.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
+                            BEGIN DELETE FROM MASCOTAS WHERE ID_PERSONA_RESPONSABLE = ru.ID_PERSONA; EXCEPTION WHEN OTHERS THEN NULL; END;
+                        END IF;
+
+                        BEGIN DELETE FROM USUARIO_ASIGNACIONES WHERE ID_USUARIO = ru.ID_USUARIO; EXCEPTION WHEN OTHERS THEN NULL; END;
+                        BEGIN DELETE FROM ADMINISTRADORES_SAED WHERE ID_USUARIO = ru.ID_USUARIO AND ID_USUARIO != 1; EXCEPTION WHEN OTHERS THEN NULL; END;
+                        BEGIN DELETE FROM TOKENS_ACTIVACION WHERE ID_USUARIO = ru.ID_USUARIO; EXCEPTION WHEN OTHERS THEN NULL; END;
+                        BEGIN DELETE FROM PORTERIA_TURNOS WHERE ID_USUARIO = ru.ID_USUARIO; EXCEPTION WHEN OTHERS THEN NULL; END;
+                        BEGIN DELETE FROM NOTIFICACIONES WHERE ID_USUARIO_DESTINATARIO = ru.ID_USUARIO; EXCEPTION WHEN OTHERS THEN NULL; END;
+
+                        BEGIN UPDATE COMUNICADOS SET PUBLICADO_POR = NULL WHERE PUBLICADO_POR = ru.ID_USUARIO; EXCEPTION WHEN OTHERS THEN NULL; END;
+                        BEGIN UPDATE DOCUMENTOS SET CREADO_POR = NULL WHERE CREADO_POR = ru.ID_USUARIO; EXCEPTION WHEN OTHERS THEN NULL; END;
+                        BEGIN UPDATE REGLAMENTOS_NORMATIVA SET PUBLICADO_POR = NULL, CREADO_POR = NULL WHERE PUBLICADO_POR = ru.ID_USUARIO OR CREADO_POR = ru.ID_USUARIO; EXCEPTION WHEN OTHERS THEN NULL; END;
+                        BEGIN UPDATE INCIDENTES SET REGISTRADO_POR = NULL, INVESTIGADO_POR = NULL, ESCALADO_POR = NULL WHERE REGISTRADO_POR = ru.ID_USUARIO OR INVESTIGADO_POR = ru.ID_USUARIO OR ESCALADO_POR = ru.ID_USUARIO; EXCEPTION WHEN OTHERS THEN NULL; END;
+                        BEGIN UPDATE DOMICILIOS SET REGISTRADO_POR = NULL, FINALIZADO_POR = NULL WHERE REGISTRADO_POR = ru.ID_USUARIO OR FINALIZADO_POR = ru.ID_USUARIO; EXCEPTION WHEN OTHERS THEN NULL; END;
+                        BEGIN UPDATE PAQUETES SET RECIBIDO_POR_PORTERO = NULL, ENTREGADO_POR_PORTERO = NULL WHERE RECIBIDO_POR_PORTERO = ru.ID_USUARIO OR ENTREGADO_POR_PORTERO = ru.ID_USUARIO; EXCEPTION WHEN OTHERS THEN NULL; END;
+                        BEGIN UPDATE PAGOS SET APROBADO_POR = NULL, RECHAZADO_POR = NULL WHERE APROBADO_POR = ru.ID_USUARIO OR RECHAZADO_POR = ru.ID_USUARIO; EXCEPTION WHEN OTHERS THEN NULL; END;
+                        BEGIN UPDATE SANCIONES SET CREADO_POR = NULL WHERE CREADO_POR = ru.ID_USUARIO; EXCEPTION WHEN OTHERS THEN NULL; END;
+                        BEGIN UPDATE MANTENIMIENTOS SET SOLICITADO_POR = NULL WHERE SOLICITADO_POR = ru.ID_USUARIO; EXCEPTION WHEN OTHERS THEN NULL; END;
+                        BEGIN UPDATE GASTOS SET REGISTRADO_POR = NULL WHERE REGISTRADO_POR = ru.ID_USUARIO; EXCEPTION WHEN OTHERS THEN NULL; END;
+                        BEGIN DELETE FROM HISTORIAL_REPORTES WHERE ID_USUARIO_EJECUTO = ru.ID_USUARIO; EXCEPTION WHEN OTHERS THEN NULL; END;
+
+                        BEGIN
+                            DELETE FROM USUARIOS WHERE ID_USUARIO = ru.ID_USUARIO;
+                        EXCEPTION WHEN OTHERS THEN
+                            UPDATE USUARIOS SET ESTADO = 'INACTIVO' WHERE ID_USUARIO = ru.ID_USUARIO;
+                        END;
+
+                        IF ru.ID_PERSONA IS NOT NULL AND ru.ID_PERSONA != 1 THEN
+                            BEGIN
+                                DELETE FROM PERSONAS WHERE ID_PERSONA = ru.ID_PERSONA;
+                            EXCEPTION WHEN OTHERS THEN NULL;
+                            END;
+                        END IF;
+                    END LOOP;
+
+                    -- 3. Eliminar personas demo restantes
+                    FOR rp IN c_demo_personas LOOP
+                        BEGIN
+                            DELETE FROM PERSONAS WHERE ID_PERSONA = rp.ID_PERSONA;
+                        EXCEPTION WHEN OTHERS THEN NULL;
+                        END;
+                    END LOOP;
+
+                    -- 4. Inactivar cualquier asignacion residual de usuarios en estado INACTIVO
                     BEGIN
-                        UPDATE USUARIOS 
-                        SET EMAIL = 'carlos.mendez.freed.' || ID_USUARIO || '@saed.com' 
-                        WHERE LOWER(EMAIL) = 'juanrinconfarelo@gmail.com' AND ID_USUARIO != 163;
-                        
-                        UPDATE PERSONAS 
-                        SET EMAIL = 'carlos.mendez.freed.' || ID_PERSONA || '@saed.com' 
-                        WHERE LOWER(EMAIL) = 'juanrinconfarelo@gmail.com' 
-                          AND ID_PERSONA NOT IN (SELECT ID_PERSONA FROM USUARIOS WHERE ID_USUARIO = 163);
-                        COMMIT;
+                        UPDATE USUARIO_ASIGNACIONES ua
+                        SET ua.ESTADO = 'INACTIVA'
+                        WHERE ua.ID_USUARIO IN (
+                            SELECT u.ID_USUARIO FROM USUARIOS u
+                            WHERE u.ESTADO = 'INACTIVO'
+                        );
                     EXCEPTION WHEN OTHERS THEN NULL;
                     END;
 
-                    -- 2. Eliminar intenciones de onboarding de prueba (mantener las reales como rincon farelo / 1790301596749)
-                    BEGIN
-                        DELETE FROM ONBOARDING_INTENCIONES WHERE REFERENCIA NOT LIKE '%1790301596749%';
-                        COMMIT;
-                    EXCEPTION WHEN OTHERS THEN NULL;
-                    END;
-
-                    -- 3. Eliminar asignaciones de organizaciones de prueba y usuarios de prueba
-                    BEGIN
-                        DELETE FROM USUARIO_ASIGNACIONES WHERE ID_ORGANIZACION IS NOT NULL AND ID_ORGANIZACION NOT IN (1, 201);
-                        DELETE FROM USUARIO_ASIGNACIONES WHERE ID_USUARIO NOT IN (1, 2, 3, 4, 5, 6, 7, 8, 163);
-                        COMMIT;
-                    EXCEPTION WHEN OTHERS THEN NULL;
-                    END;
-
-                    -- 4. Eliminar membresías y transacciones de organizaciones de prueba
-                    BEGIN
-                        DELETE FROM MEMBRESIAS WHERE ID_ORGANIZACION IS NOT NULL AND ID_ORGANIZACION NOT IN (1, 201);
-                        DELETE FROM TRANSACCIONES_PAGO WHERE ID_ORGANIZACION IS NOT NULL AND ID_ORGANIZACION NOT IN (1, 201);
-                        DELETE FROM DOMICILIOS WHERE ID_ORGANIZACION IS NOT NULL AND ID_ORGANIZACION NOT IN (1, 201);
-                        DELETE FROM REGLAMENTOS_NORMATIVA WHERE ID_ORGANIZACION IS NOT NULL AND ID_ORGANIZACION NOT IN (1, 201);
-                        DELETE FROM ASAMBLEAS WHERE ID_ORGANIZACION IS NOT NULL AND ID_ORGANIZACION NOT IN (1, 201);
-                        COMMIT;
-                    EXCEPTION WHEN OTHERS THEN NULL;
-                    END;
-
-                    -- 5. Eliminar tokens y usuarios de prueba (excepto los canónicos 1..8 y 163)
-                    BEGIN
-                        DELETE FROM TOKENS_ACTIVACION_USUARIOS WHERE ID_USUARIO NOT IN (1, 2, 3, 4, 5, 6, 7, 8, 163);
-                        DELETE FROM PORTERIA_TURNOS WHERE ID_USUARIO NOT IN (1, 2, 3, 4, 5, 6, 7, 8, 163);
-                        DELETE FROM USUARIOS WHERE ID_USUARIO NOT IN (1, 2, 3, 4, 5, 6, 7, 8, 163);
-                        COMMIT;
-                    EXCEPTION WHEN OTHERS THEN NULL;
-                    END;
-
-                    -- 6. Eliminar o inactivar organizaciones de prueba
-                    BEGIN
-                        DELETE FROM ORGANIZACIONES WHERE ID_ORGANIZACION NOT IN (1, 201);
-                        COMMIT;
-                    EXCEPTION WHEN OTHERS THEN
-                        UPDATE ORGANIZACIONES SET ESTADO = 'INACTIVA' WHERE ID_ORGANIZACION NOT IN (1, 201);
-                        COMMIT;
-                    END;
-
-                    -- 7. Limpiar personas huérfanas de usuarios eliminados
-                    BEGIN
-                        DELETE FROM PERSONAS WHERE ID_PERSONA NOT IN (SELECT ID_PERSONA FROM USUARIOS WHERE ID_PERSONA IS NOT NULL)
-                                              AND ID_PERSONA NOT IN (1, 2, 3, 4, 5, 6, 7, 8);
-                        COMMIT;
-                    EXCEPTION WHEN OTHERS THEN NULL;
-                    END;
+                    COMMIT;
                 END;
             """);
-            log.info("[SchemaInit] Limpieza de datos de prueba completada exitosamente.");
+            log.info("[SchemaInit] Purga de cuentas y asignaciones demo completada exitosamente.");
         } catch (Exception e) {
-            log.warn("[SchemaInit] Aviso durante la limpieza de datos de prueba: {}", e.getMessage());
+            log.warn("[SchemaInit] Aviso durante la purga de cuentas demo: {}", e.getMessage());
         }
     }
 

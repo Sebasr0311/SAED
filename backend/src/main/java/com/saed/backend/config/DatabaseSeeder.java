@@ -112,99 +112,26 @@ public class DatabaseSeeder implements ApplicationRunner {
                    "SELECT 1, 1, 1, 'Apto 201', 'ACTIVA' FROM DUAL " +
                    "WHERE NOT EXISTS (SELECT 1 FROM UNIDADES WHERE ID_UNIDAD = 1)");
 
-            // 8. PERSONAS
+            // 8. PERSONAS (admin_global)
             runSqlSafe("INSERT INTO PERSONAS (ID_PERSONA, ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, PRIMER_NOMBRE, PRIMER_APELLIDO, EMAIL) " +
                    "SELECT 1, 1, '1000000001', 'NATURAL', 'Super', 'Admin', 'admin_global@saed.com' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM PERSONAS WHERE ID_PERSONA = 1)");
             runSqlSafe("UPDATE PERSONAS SET EMAIL = 'admin_global@saed.com' WHERE ID_PERSONA = 1");
 
-            runSqlSafe("INSERT INTO PERSONAS (ID_PERSONA, ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, PRIMER_NOMBRE, PRIMER_APELLIDO, EMAIL) " +
-                   "SELECT 2, 1, '1000000002', 'NATURAL', 'Admin', 'Propiedad', 'admin@saed.com' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM PERSONAS WHERE ID_PERSONA = 2)");
-            runSqlSafe("UPDATE PERSONAS SET EMAIL = 'admin@saed.com' WHERE ID_PERSONA = 2");
-
-            runSqlSafe("INSERT INTO PERSONAS (ID_PERSONA, ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, PRIMER_NOMBRE, PRIMER_APELLIDO, EMAIL) " +
-                   "SELECT 3, 1, '1000000003', 'NATURAL', 'Portero', 'Principal', 'portero01@saed.com' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM PERSONAS WHERE ID_PERSONA = 3)");
-            runSqlSafe("UPDATE PERSONAS SET EMAIL = 'portero01@saed.com' WHERE ID_PERSONA = 3");
-
-            runSqlSafe("INSERT INTO PERSONAS (ID_PERSONA, ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, PRIMER_NOMBRE, PRIMER_APELLIDO, EMAIL) " +
-                   "SELECT 4, 1, '1000000004', 'NATURAL', 'Carlos', 'Martinez', 'camartinez@saed.com' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM PERSONAS WHERE ID_PERSONA = 4)");
-            runSqlSafe("UPDATE PERSONAS SET EMAIL = 'camartinez@saed.com' WHERE ID_PERSONA = 4");
-
-            runSqlSafe("INSERT INTO PERSONAS (ID_PERSONA, ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, PRIMER_NOMBRE, PRIMER_APELLIDO, EMAIL) " +
-                   "SELECT 5, 1, '1000000005', 'NATURAL', 'Gerente', 'Organizacion', 'admin_org@saed.com' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM PERSONAS WHERE ID_PERSONA = 5)");
-            runSqlSafe("UPDATE PERSONAS SET EMAIL = 'admin_org@saed.com' WHERE ID_PERSONA = 5");
-
-            // 9. USUARIOS (admin_global -> admin_global123 | others -> admin123)
+            // 9. USUARIOS (admin_global -> admin_global123)
             runSqlSafe("INSERT INTO USUARIOS (ID_PERSONA, NOMBRE_USUARIO, EMAIL, HASH_PASSWORD, ESTADO, INTENTOS_FALLIDOS) " +
                    "SELECT 1, 'admin_global', 'admin_global@saed.com', '" + hashAdminGlobal + "', 'ACTIVO', 0 FROM DUAL " +
                    "WHERE NOT EXISTS (SELECT 1 FROM USUARIOS WHERE LOWER(NOMBRE_USUARIO) = 'admin_global')");
-
-            runSqlSafe("INSERT INTO USUARIOS (ID_PERSONA, NOMBRE_USUARIO, EMAIL, HASH_PASSWORD, ESTADO, INTENTOS_FALLIDOS) " +
-                   "SELECT 2, 'admin', 'admin@saed.com', '" + hashGeneral + "', 'ACTIVO', 0 FROM DUAL " +
-                   "WHERE NOT EXISTS (SELECT 1 FROM USUARIOS WHERE LOWER(NOMBRE_USUARIO) = 'admin')");
-
-            runSqlSafe("INSERT INTO USUARIOS (ID_PERSONA, NOMBRE_USUARIO, EMAIL, HASH_PASSWORD, ESTADO, INTENTOS_FALLIDOS) " +
-                   "SELECT 3, 'portero01', 'portero01@saed.com', '" + hashGeneral + "', 'ACTIVO', 0 FROM DUAL " +
-                   "WHERE NOT EXISTS (SELECT 1 FROM USUARIOS WHERE LOWER(NOMBRE_USUARIO) = 'portero01')");
-
-            runSqlSafe("INSERT INTO USUARIOS (ID_PERSONA, NOMBRE_USUARIO, EMAIL, HASH_PASSWORD, ESTADO, INTENTOS_FALLIDOS) " +
-                   "SELECT 4, 'camartinez', 'camartinez@saed.com', '" + hashGeneral + "', 'ACTIVO', 0 FROM DUAL " +
-                   "WHERE NOT EXISTS (SELECT 1 FROM USUARIOS WHERE LOWER(NOMBRE_USUARIO) = 'camartinez')");
-
-            runSqlSafe("INSERT INTO USUARIOS (ID_PERSONA, NOMBRE_USUARIO, EMAIL, HASH_PASSWORD, ESTADO, INTENTOS_FALLIDOS) " +
-                   "SELECT 5, 'admin_org', 'admin_org@saed.com', '" + hashGeneral + "', 'ACTIVO', 0 FROM DUAL " +
-                   "WHERE NOT EXISTS (SELECT 1 FROM USUARIOS WHERE LOWER(NOMBRE_USUARIO) = 'admin_org')");
 
             // 10. ADMINISTRADORES_SAED
             runSqlSafe("INSERT INTO ADMINISTRADORES_SAED (ID_ADMINISTRADOR_SAED, ID_USUARIO, NIVEL, ESTADO) " +
                    "SELECT 1, (SELECT ID_USUARIO FROM USUARIOS WHERE LOWER(NOMBRE_USUARIO) = 'admin_global'), 'SUPERADMIN', 'ACTIVO' FROM DUAL " +
                    "WHERE NOT EXISTS (SELECT 1 FROM ADMINISTRADORES_SAED WHERE ID_USUARIO = (SELECT ID_USUARIO FROM USUARIOS WHERE LOWER(NOMBRE_USUARIO) = 'admin_global'))");
 
-            // 11. USUARIO_ASIGNACIONES (Dinámico por NOMBRE_USUARIO)
-            // Desactivar asignaciones accidentales de roles administrativos a residentes
-            runSqlSafe("UPDATE USUARIO_ASIGNACIONES SET ESTADO = 'INACTIVA' " +
-                   "WHERE ID_USUARIO IN (SELECT ID_USUARIO FROM USUARIOS WHERE LOWER(NOMBRE_USUARIO) IN ('residente_sol', 'residente_hor')) " +
-                   "AND ID_ROL IN (SELECT ID_ROL FROM ROLES WHERE CODIGO IN ('PORTERO', 'ADMIN_PROPIEDAD'))");
-
+            // 11. USUARIO_ASIGNACIONES
             // admin_global -> SUPERADMIN
             runSqlSafe("INSERT INTO USUARIO_ASIGNACIONES (ID_USUARIO, ID_ROL, ESTADO, FECHA_INICIO) " +
                    "SELECT u.ID_USUARIO, r.ID_ROL, 'ACTIVA', TRUNC(SYSDATE) FROM USUARIOS u, ROLES r " +
                    "WHERE LOWER(u.NOMBRE_USUARIO) = 'admin_global' AND r.CODIGO = 'SUPERADMIN' " +
-                   "AND NOT EXISTS (SELECT 1 FROM USUARIO_ASIGNACIONES ua WHERE ua.ID_USUARIO = u.ID_USUARIO AND ua.ID_ROL = r.ID_ROL AND ua.ESTADO = 'ACTIVA')");
-
-            // admin_org -> ADMIN_ORGANIZACION
-            runSqlSafe("INSERT INTO USUARIO_ASIGNACIONES (ID_USUARIO, ID_ROL, ID_ORGANIZACION, ESTADO, FECHA_INICIO) " +
-                   "SELECT u.ID_USUARIO, r.ID_ROL, 1, 'ACTIVA', TRUNC(SYSDATE) FROM USUARIOS u, ROLES r " +
-                   "WHERE LOWER(u.NOMBRE_USUARIO) = 'admin_org' AND r.CODIGO = 'ADMIN_ORGANIZACION' " +
-                   "AND NOT EXISTS (SELECT 1 FROM USUARIO_ASIGNACIONES ua WHERE ua.ID_USUARIO = u.ID_USUARIO AND ua.ID_ROL = r.ID_ROL AND ua.ESTADO = 'ACTIVA')");
-
-            // admin -> ADMIN_PROPIEDAD
-            runSqlSafe("INSERT INTO USUARIO_ASIGNACIONES (ID_USUARIO, ID_ROL, ID_ORGANIZACION, ID_PROPIEDAD, ESTADO, FECHA_INICIO) " +
-                   "SELECT u.ID_USUARIO, r.ID_ROL, 1, 1, 'ACTIVA', TRUNC(SYSDATE) FROM USUARIOS u, ROLES r " +
-                   "WHERE LOWER(u.NOMBRE_USUARIO) = 'admin' AND r.CODIGO = 'ADMIN_PROPIEDAD' " +
-                   "AND NOT EXISTS (SELECT 1 FROM USUARIO_ASIGNACIONES ua WHERE ua.ID_USUARIO = u.ID_USUARIO AND ua.ID_ROL = r.ID_ROL AND ua.ESTADO = 'ACTIVA')");
-
-            // portero01 -> PORTERO
-            runSqlSafe("INSERT INTO USUARIO_ASIGNACIONES (ID_USUARIO, ID_ROL, ID_ORGANIZACION, ID_PROPIEDAD, ESTADO, FECHA_INICIO) " +
-                   "SELECT u.ID_USUARIO, r.ID_ROL, 1, 1, 'ACTIVA', TRUNC(SYSDATE) FROM USUARIOS u, ROLES r " +
-                   "WHERE LOWER(u.NOMBRE_USUARIO) = 'portero01' AND r.CODIGO = 'PORTERO' " +
-                   "AND NOT EXISTS (SELECT 1 FROM USUARIO_ASIGNACIONES ua WHERE ua.ID_USUARIO = u.ID_USUARIO AND ua.ID_ROL = r.ID_ROL AND ua.ESTADO = 'ACTIVA')");
-
-            // camartinez -> RESIDENTE
-            runSqlSafe("INSERT INTO USUARIO_ASIGNACIONES (ID_USUARIO, ID_ROL, ID_ORGANIZACION, ID_PROPIEDAD, ID_UNIDAD, ESTADO, FECHA_INICIO) " +
-                   "SELECT u.ID_USUARIO, r.ID_ROL, 1, 1, 1, 'ACTIVA', TRUNC(SYSDATE) FROM USUARIOS u, ROLES r " +
-                   "WHERE LOWER(u.NOMBRE_USUARIO) = 'camartinez' AND r.CODIGO = 'RESIDENTE' " +
-                   "AND NOT EXISTS (SELECT 1 FROM USUARIO_ASIGNACIONES ua WHERE ua.ID_USUARIO = u.ID_USUARIO AND ua.ID_ROL = r.ID_ROL AND ua.ESTADO = 'ACTIVA')");
-
-            // residente_sol -> RESIDENTE
-            runSqlSafe("INSERT INTO USUARIO_ASIGNACIONES (ID_USUARIO, ID_ROL, ID_ORGANIZACION, ID_PROPIEDAD, ID_UNIDAD, ESTADO, FECHA_INICIO) " +
-                   "SELECT u.ID_USUARIO, r.ID_ROL, 1, 1, 1, 'ACTIVA', TRUNC(SYSDATE) FROM USUARIOS u, ROLES r " +
-                   "WHERE LOWER(u.NOMBRE_USUARIO) = 'residente_sol' AND r.CODIGO = 'RESIDENTE' " +
-                   "AND NOT EXISTS (SELECT 1 FROM USUARIO_ASIGNACIONES ua WHERE ua.ID_USUARIO = u.ID_USUARIO AND ua.ID_ROL = r.ID_ROL AND ua.ESTADO = 'ACTIVA')");
-
-            // residente_hor -> RESIDENTE
-            runSqlSafe("INSERT INTO USUARIO_ASIGNACIONES (ID_USUARIO, ID_ROL, ID_ORGANIZACION, ID_PROPIEDAD, ID_UNIDAD, ESTADO, FECHA_INICIO) " +
-                   "SELECT u.ID_USUARIO, r.ID_ROL, 1, 1, 1, 'ACTIVA', TRUNC(SYSDATE) FROM USUARIOS u, ROLES r " +
-                   "WHERE LOWER(u.NOMBRE_USUARIO) = 'residente_hor' AND r.CODIGO = 'RESIDENTE' " +
                    "AND NOT EXISTS (SELECT 1 FROM USUARIO_ASIGNACIONES ua WHERE ua.ID_USUARIO = u.ID_USUARIO AND ua.ID_ROL = r.ID_ROL AND ua.ESTADO = 'ACTIVA')");
 
             // 12. Fix RLS en VERSIONES_DOCUMENTO (remover politica con ORA-00904 en tabla sin ID_PROPIEDAD)
