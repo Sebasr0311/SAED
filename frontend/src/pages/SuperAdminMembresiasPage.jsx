@@ -24,6 +24,14 @@ export default function SuperAdminMembresiasPage() {
   const [showModal, setShowModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  // Modal para cambio manual de plan (Upgrade / Downgrade / Asignación por SuperAdmin)
+  const [showPlanModal, setShowPlanModal] = useState(false);
+  const [selectedMembership, setSelectedMembership] = useState(null);
+  const [targetPlanId, setTargetPlanId] = useState('');
+  const [targetEstado, setTargetEstado] = useState('ACTIVA');
+  const [changeMotivo, setChangeMotivo] = useState('');
+  const [updatingPlan, setUpdatingPlan] = useState(false);
+
   const [form, setForm] = useState({
     idOrganizacion: '',
     idPlan: '',
@@ -66,9 +74,59 @@ export default function SuperAdminMembresiasPage() {
       (m) =>
         (m.organizacionNombre && m.organizacionNombre.toLowerCase().includes(q)) ||
         (m.planNombre && m.planNombre.toLowerCase().includes(q)) ||
+        (m.adminNombre && m.adminNombre.toLowerCase().includes(q)) ||
+        (m.adminEmail && m.adminEmail.toLowerCase().includes(q)) ||
+        (m.adminUsuario && m.adminUsuario.toLowerCase().includes(q)) ||
         (m.estado && m.estado.toLowerCase().includes(q))
     );
   }, [memberships, search]);
+
+  function openPlanModal(mem) {
+    setSelectedMembership(mem);
+    setTargetPlanId(String(mem.idPlan || ''));
+    setTargetEstado(mem.estado || 'ACTIVA');
+    setChangeMotivo('');
+    setShowPlanModal(true);
+  }
+
+  const selectedTargetPlan = useMemo(() => {
+    if (!targetPlanId) return null;
+    return plans.find((p) => String(p.id || p.idPlan || p.ID_PLAN) === String(targetPlanId));
+  }, [plans, targetPlanId]);
+
+  const changeType = useMemo(() => {
+    if (!selectedMembership || !selectedTargetPlan) return null;
+    const currentPrice = Number(selectedMembership.precioMensual || 0);
+    const newPrice = Number(selectedTargetPlan.precioMensual || selectedTargetPlan.PRECIO_MENSUAL || 0);
+    if (newPrice > currentPrice) return 'UPGRADE';
+    if (newPrice < currentPrice) return 'DOWNGRADE';
+    return 'RENOVACION';
+  }, [selectedMembership, selectedTargetPlan]);
+
+  async function handleCambiarPlan(e) {
+    e.preventDefault();
+    if (!targetPlanId) {
+      toast.error('Por favor selecciona un plan');
+      return;
+    }
+    try {
+      setUpdatingPlan(true);
+      const res = await api.put(`/platform/memberships/${selectedMembership.id}/plan`, {
+        idPlan: Number(targetPlanId),
+        estado: targetEstado,
+        motivo: changeMotivo.trim() || 'Cambio manual por SUPERADMIN',
+      });
+      toast.success(res?.data?.mensaje || 'Plan actualizado exitosamente');
+      setShowPlanModal(false);
+      setSelectedMembership(null);
+      loadData();
+    } catch (err) {
+      console.error(err);
+      toast.error(err.response?.data?.message || err.message || 'Error al cambiar el plan');
+    } finally {
+      setUpdatingPlan(false);
+    }
+  }
 
   async function handleCreate(e) {
     e.preventDefault();
@@ -191,7 +249,18 @@ export default function SuperAdminMembresiasPage() {
                   {filteredMemberships.map((m) => (
                     <tr key={m.id} className="hover:bg-muted/40 transition-colors">
                       <td className="py-3.5 px-4 font-mono text-xs text-muted-foreground">#{m.id}</td>
-                      <td className="py-3.5 px-4 font-semibold text-foreground">{m.organizacionNombre}</td>
+                      <td className="py-3.5 px-4">
+                        <div className="font-semibold text-foreground">{m.organizacionNombre}</div>
+                        {(m.adminNombre || m.adminEmail) && (
+                          <div className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                            <span className="material-symbols-outlined text-[13px] text-muted-foreground/70">person</span>
+                            <span>{m.adminNombre || m.adminEmail}</span>
+                            {m.adminNombre && m.adminEmail && (
+                              <span className="text-[10px] text-muted-foreground/60">({m.adminEmail})</span>
+                            )}
+                          </div>
+                        )}
+                      </td>
                       <td className="py-3.5 px-4">
                         <Badge variant="outline" className="font-mono text-xs">
                           {m.planNombre || m.planCodigo}
@@ -214,14 +283,26 @@ export default function SuperAdminMembresiasPage() {
                         </Badge>
                       </td>
                       <td className="py-3.5 px-4 text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-xs h-8 px-2"
-                          onClick={() => handleToggleStatus(m.id, m.estado)}
-                        >
-                          {m.estado === 'ACTIVA' ? 'Suspender' : 'Activar'}
-                        </Button>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-xs h-8 px-2.5 gap-1 border-primary/40 text-primary hover:bg-primary/10"
+                            onClick={() => openPlanModal(m)}
+                            title="Cambiar o reasignar plan (Upgrade / Downgrade)"
+                          >
+                            <span className="material-symbols-outlined text-sm">swap_horiz</span>
+                            Cambiar Plan
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-xs h-8 px-2"
+                            onClick={() => handleToggleStatus(m.id, m.estado)}
+                          >
+                            {m.estado === 'ACTIVA' ? 'Suspender' : 'Activar'}
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -308,6 +389,157 @@ export default function SuperAdminMembresiasPage() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal Cambiar Plan (Upgrade / Downgrade / Asignación Directa por SuperAdmin) */}
+      <Dialog open={showPlanModal} onOpenChange={setShowPlanModal}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg font-bold">
+              <span className="material-symbols-outlined text-primary">swap_horiz</span>
+              Cambiar Plan de Suscripción
+            </DialogTitle>
+          </DialogHeader>
+
+          {selectedMembership && (
+            <form onSubmit={handleCambiarPlan} className="space-y-4 pt-2">
+              {/* Resumen Actual */}
+              <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-1.5 text-xs">
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground font-medium">Organización:</span>
+                  <span className="font-bold text-foreground">{selectedMembership.organizacionNombre}</span>
+                </div>
+                {(selectedMembership.adminNombre || selectedMembership.adminEmail) && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground font-medium">Titular / Persona:</span>
+                    <span className="font-semibold text-foreground">
+                      {selectedMembership.adminNombre || selectedMembership.adminEmail}
+                    </span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground font-medium">Plan Actual:</span>
+                  <div className="flex items-center gap-1.5">
+                    <Badge variant="outline" className="font-mono text-xs">
+                      {selectedMembership.planNombre || selectedMembership.planCodigo}
+                    </Badge>
+                    <span className="font-mono text-muted-foreground">
+                      ({formatCurrency(selectedMembership.precioMensual)}/mes)
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Selector Plan Destino */}
+              <div className="space-y-1.5">
+                <div className="flex justify-between items-center">
+                  <Label htmlFor="target-plan" className="text-xs font-semibold uppercase text-muted-foreground">
+                    Nuevo Plan Destino *
+                  </Label>
+                  {changeType && (
+                    <Badge
+                      variant="outline"
+                      className={`text-xs font-semibold ${
+                        changeType === 'UPGRADE'
+                          ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30'
+                          : changeType === 'DOWNGRADE'
+                          ? 'bg-amber-500/10 text-amber-600 border-amber-500/30'
+                          : 'bg-muted text-muted-foreground'
+                      }`}
+                    >
+                      {changeType === 'UPGRADE' && '▲ UPGRADE'}
+                      {changeType === 'DOWNGRADE' && '▼ DOWNGRADE'}
+                      {changeType === 'RENOVACION' && '— MISMO PLAN'}
+                    </Badge>
+                  )}
+                </div>
+                <select
+                  id="target-plan"
+                  required
+                  value={targetPlanId}
+                  onChange={(e) => setTargetPlanId(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="">-- Selecciona el Plan Destino --</option>
+                  {plans.map((p) => {
+                    const pid = p.id || p.idPlan || p.ID_PLAN;
+                    const pnom = p.nombre || p.NOMBRE;
+                    const pprecio = p.precioMensual || p.PRECIO_MENSUAL || 0;
+                    return (
+                      <option key={pid} value={pid}>
+                        {pnom} — {formatCurrency(pprecio)}/mes
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+
+              {/* Detalles y Límites del Plan Destino */}
+              {selectedTargetPlan && (
+                <div className="rounded-md border border-border/80 bg-background/60 p-2.5 text-xs text-muted-foreground grid grid-cols-3 gap-2 text-center">
+                  <div className="border-r border-border/60 pr-1">
+                    <span className="block text-[10px] uppercase font-semibold text-muted-foreground">Propiedades</span>
+                    <span className="font-bold text-foreground">
+                      {selectedTargetPlan.limitePropiedades || selectedTargetPlan.LIMITE_PROPIEDADES || 'Ilimitadas'}
+                    </span>
+                  </div>
+                  <div className="border-r border-border/60 pr-1">
+                    <span className="block text-[10px] uppercase font-semibold text-muted-foreground">Unidades</span>
+                    <span className="font-bold text-foreground">
+                      {selectedTargetPlan.limiteUnidades || selectedTargetPlan.LIMITE_UNIDADES || 'Ilimitadas'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="block text-[10px] uppercase font-semibold text-muted-foreground">Usuarios</span>
+                    <span className="font-bold text-foreground">
+                      {selectedTargetPlan.limiteUsuarios || selectedTargetPlan.LIMITE_USUARIOS || 'Ilimitados'}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Estado de la suscripción */}
+              <div className="space-y-1.5">
+                <Label htmlFor="target-estado" className="text-xs font-semibold uppercase text-muted-foreground">
+                  Estado de la Membresía
+                </Label>
+                <select
+                  id="target-estado"
+                  value={targetEstado}
+                  onChange={(e) => setTargetEstado(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="ACTIVA">ACTIVA</option>
+                  <option value="PRUEBA">PRUEBA (Trial)</option>
+                  <option value="SUSPENDIDA">SUSPENDIDA</option>
+                </select>
+              </div>
+
+              {/* Motivo opcional */}
+              <div className="space-y-1.5">
+                <Label htmlFor="target-motivo" className="text-xs font-semibold uppercase text-muted-foreground">
+                  Motivo o Justificación (Auditoría)
+                </Label>
+                <Input
+                  id="target-motivo"
+                  placeholder="Ej: Solicitud comercial, ajuste de cuota, cortesía…"
+                  value={changeMotivo}
+                  onChange={(e) => setChangeMotivo(e.target.value)}
+                  className="text-sm"
+                />
+              </div>
+
+              <DialogFooter className="pt-3 gap-2">
+                <Button type="button" variant="outline" onClick={() => setShowPlanModal(false)} disabled={updatingPlan}>
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={updatingPlan || !targetPlanId} className="gap-2">
+                  {updatingPlan ? 'Aplicando…' : 'Confirmar Cambio de Plan'}
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
         </DialogContent>
       </Dialog>
     </div>

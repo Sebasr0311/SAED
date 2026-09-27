@@ -102,7 +102,7 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
 
             try {
                 Integer upToDate = jdbcTemplate.queryForObject(
-                    "SELECT COUNT(1) FROM USER_SOURCE WHERE NAME = 'PKG_SAED_SECURITY_RLS' AND TYPE = 'PACKAGE BODY' AND TEXT LIKE '%2026.09.25.V6_USUARIOS_FIX%'",
+                    "SELECT COUNT(1) FROM USER_SOURCE WHERE NAME = 'PKG_SAED_SECURITY_RLS' AND TYPE = 'PACKAGE BODY' AND TEXT LIKE '%2026.09.27.V7_TRANSACCIONES_PAGO_RLS_FIX%'",
                     Integer.class
                 );
                 String rlsStatus = jdbcTemplate.queryForObject(
@@ -110,7 +110,7 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
                     String.class
                 );
                 if (upToDate != null && upToDate > 0 && "VALID".equalsIgnoreCase(rlsStatus)) {
-                    log.info("[SchemaInit] PKG_SAED_SECURITY_RLS ya se encuentra actualizado (versión 2026.09.25.V6) y en estado VALID. Se omite recompilación DDL.");
+                    log.info("[SchemaInit] PKG_SAED_SECURITY_RLS ya se encuentra actualizado (versión 2026.09.27.V7) y en estado VALID. Se omite recompilación DDL.");
                     return;
                 }
             } catch (Exception ignored) {}
@@ -131,7 +131,7 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
 
             jdbcTemplate.execute("""
                 CREATE OR REPLACE PACKAGE BODY PKG_SAED_SECURITY_RLS AS
-                    -- RLS_BUILD_VERSION: 2026.09.25.V6_USUARIOS_FIX
+                    -- RLS_BUILD_VERSION: 2026.09.27.V7_TRANSACCIONES_PAGO_RLS_FIX
 
                     FUNCTION FN_FILTRO_ORGANIZACION (p_schema IN VARCHAR2, p_tab IN VARCHAR2) RETURN VARCHAR2 AS
                         v_org VARCHAR2(30) := SYS_CONTEXT('SAED_CTX', 'ID_ORGANIZACION');
@@ -322,7 +322,7 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
                             IF p_tab = 'OBRA_TRABAJADORES' THEN RETURN 'id_obra IN (SELECT id_obra FROM OBRAS WHERE id_unidad IN (SELECT id_unidad FROM UNIDADES WHERE id_propiedad = ' || v_prop || '))'; END IF;
                             IF p_tab = 'CONTRATO_RESIDENTE' THEN RETURN 'id_contrato IN (SELECT id_contrato FROM CONTRATOS WHERE id_unidad IN (SELECT id_unidad FROM UNIDADES WHERE id_propiedad = ' || v_prop || '))'; END IF;
                             IF p_tab IN ('QR_ACCESOS', 'VEHICULOS_VISITA') THEN RETURN 'id_visita IN (SELECT id_visita FROM VISITAS JOIN UNIDADES ON VISITAS.id_unidad = UNIDADES.id_unidad WHERE UNIDADES.id_propiedad = ' || v_prop || ')'; END IF;
-                            IF p_tab = 'TRANSACCIONES_PAGO' THEN RETURN 'id_unidad IN (SELECT id_unidad FROM UNIDADES WHERE id_propiedad = ' || v_prop || ')'; END IF;
+                            IF p_tab = 'TRANSACCIONES_PAGO' THEN RETURN '(id_unidad IN (SELECT id_unidad FROM UNIDADES WHERE id_propiedad = ' || v_prop || ') OR (id_organizacion = ' || v_org || ' AND id_unidad IS NULL))'; END IF;
                             IF p_tab = 'DOMICILIOS' THEN RETURN 'id_propiedad = ' || v_prop; END IF;
                             IF p_tab = 'PAQUETES' THEN RETURN 'id_propiedad = ' || v_prop; END IF;
                             IF p_tab = 'VISITAS' THEN RETURN 'id_unidad IN (SELECT id_unidad FROM UNIDADES WHERE id_propiedad = ' || v_prop || ')'; END IF;
@@ -337,7 +337,7 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
                             IF p_tab = 'OBRA_TRABAJADORES' THEN RETURN 'id_obra IN (SELECT id_obra FROM OBRAS WHERE id_unidad IN (SELECT id_unidad FROM UNIDADES WHERE id_propiedad IN (SELECT id_propiedad FROM PROPIEDADES WHERE id_organizacion = ' || v_org || ')))'; END IF;
                             IF p_tab = 'CONTRATO_RESIDENTE' THEN RETURN 'id_contrato IN (SELECT id_contrato FROM CONTRATOS WHERE id_unidad IN (SELECT id_unidad FROM UNIDADES WHERE id_propiedad IN (SELECT id_propiedad FROM PROPIEDADES WHERE id_organizacion = ' || v_org || ')))'; END IF;
                             IF p_tab IN ('QR_ACCESOS', 'VEHICULOS_VISITA') THEN RETURN 'id_visita IN (SELECT id_visita FROM VISITAS JOIN UNIDADES ON VISITAS.id_unidad = UNIDADES.id_unidad JOIN PROPIEDADES ON UNIDADES.id_propiedad = PROPIEDADES.id_propiedad WHERE PROPIEDADES.id_organizacion = ' || v_org || ')'; END IF;
-                            IF p_tab = 'TRANSACCIONES_PAGO' THEN RETURN 'id_propiedad IN (SELECT id_propiedad FROM PROPIEDADES WHERE id_organizacion = ' || v_org || ')'; END IF;
+                            IF p_tab = 'TRANSACCIONES_PAGO' THEN RETURN 'id_organizacion = ' || v_org; END IF;
                             IF p_tab = 'DOMICILIOS' THEN RETURN 'id_propiedad IN (SELECT id_propiedad FROM PROPIEDADES WHERE id_organizacion = ' || v_org || ')'; END IF;
                             IF p_tab = 'PAQUETES' THEN RETURN 'id_propiedad IN (SELECT id_propiedad FROM PROPIEDADES WHERE id_organizacion = ' || v_org || ')'; END IF;
                             IF p_tab = 'VISITAS' THEN RETURN 'id_unidad IN (SELECT id_unidad FROM UNIDADES WHERE id_propiedad IN (SELECT id_propiedad FROM PROPIEDADES WHERE id_organizacion = ' || v_org || '))'; END IF;
@@ -357,7 +357,7 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
                         v_usr VARCHAR2(30) := SYS_CONTEXT('SAED_CTX', 'ID_USUARIO');
                         v_state VARCHAR2(30) := NVL(SYS_CONTEXT('SAED_CTX', 'STATE'), 'ANONYMOUS');
                     BEGIN
-                        -- Version: 2026.09.25.V6_USUARIOS_FIX
+                        -- Version: 2026.09.27.V7_TRANSACCIONES_PAGO_RLS_FIX
                         IF v_state IN ('ANONYMOUS', 'CLEARING') THEN RETURN '1=0'; END IF;
                         IF v_state = 'BOOTSTRAP' THEN RETURN '1=1'; END IF;
 
@@ -540,6 +540,7 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
             refreshRlsPolicy("MANTENIMIENTOS", "POL_RLS_PROP_MANTENIMIENTOS", "PKG_SAED_SECURITY_RLS.FN_FILTRO_PROPIEDAD");
             refreshRlsPolicy("USUARIOS", "POL_RLS_SEC_USR", "PKG_SAED_SECURITY_RLS.FN_FILTRO_USUARIOS");
             refreshRlsPolicy("USUARIO_ASIGNACIONES", "POL_RLS_SEC_UA", "PKG_SAED_SECURITY_RLS.FN_FILTRO_ASIGNACION");
+            refreshRlsPolicy("TRANSACCIONES_PAGO", "POL_RLS_UNI_TRANSACCIONES_P", "PKG_SAED_SECURITY_RLS.FN_FILTRO_UNIDAD");
             log.info("[SchemaInit] Políticas RLS limpias y normalizadas aplicadas a todas las tablas del sistema.");
 
             // Limpieza de personas o usuarios truncos sin asignaciones activas para documento 1066268898
