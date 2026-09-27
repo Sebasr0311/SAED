@@ -5,6 +5,8 @@ import com.saed.backend.context.SaedContextHolder;
 import com.saed.backend.dashboard.dto.*;
 import com.saed.backend.dashboard.service.AnalyticsService;
 import com.saed.backend.platform.dto.PlatformAnalyticsDTO;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.security.access.AccessDeniedException;
@@ -22,6 +24,8 @@ import java.util.stream.IntStream;
 @Service
 @Transactional(readOnly = true)
 public class AnalyticsServiceImpl implements AnalyticsService {
+
+    private static final Logger log = LoggerFactory.getLogger(AnalyticsServiceImpl.class);
 
     private final NamedParameterJdbcTemplate jdbc;
 
@@ -588,7 +592,10 @@ public class AnalyticsServiceImpl implements AnalyticsService {
     @Override
     public PlatformAnalyticsDTO getPlatformAnalytics(String periodo, Long idOrganizacion) {
         MapSqlParameterSource params = new MapSqlParameterSource();
-        params.addValue("orgId", idOrganizacion);
+        boolean hasOrg = idOrganizacion != null;
+        if (hasOrg) {
+            params.addValue("orgId", idOrganizacion, java.sql.Types.NUMERIC);
+        }
 
         LocalDate fechaInicio = null;
         String effPeriodo = periodo != null ? periodo.toLowerCase().trim() : "30d";
@@ -605,29 +612,45 @@ public class AnalyticsServiceImpl implements AnalyticsService {
             fechaInicio = hoy.minusYears(1);
         }
         java.sql.Timestamp fechaInicioTs = fechaInicio != null ? java.sql.Timestamp.valueOf(fechaInicio.atStartOfDay()) : null;
-        params.addValue("fechaInicio", fechaInicio);
-        params.addValue("fechaInicioTs", fechaInicioTs);
+        boolean hasFecha = fechaInicioTs != null;
+        if (hasFecha) {
+            params.addValue("fechaInicioTs", fechaInicioTs, java.sql.Types.TIMESTAMP);
+        }
+
+        String orgF = hasOrg ? "ID_ORGANIZACION = :orgId" : "1=1";
+        String pOrgF = hasOrg ? "p.ID_ORGANIZACION = :orgId" : "1=1";
+        String uaOrgF = hasOrg ? "ua.ID_ORGANIZACION = :orgId" : "1=1";
+        String prOrgF = hasOrg ? "pr.ID_ORGANIZACION = :orgId" : "1=1";
+        String mOrgF = hasOrg ? "m.ID_ORGANIZACION = :orgId" : "1=1";
+        String fechaF_v = hasFecha ? "v.FECHA_INGRESO >= :fechaInicioTs" : "1=1";
+        String fechaF_pq = hasFecha ? "pq.FECHA_RECEPCION >= :fechaInicioTs" : "1=1";
+        String fechaF_tk = hasFecha ? "tk.FECHA_RADICACION >= :fechaInicioTs" : "1=1";
+        String fechaF_mt = hasFecha ? "mt.FECHA_CREACION >= :fechaInicioTs" : "1=1";
+        String fechaF_rs = hasFecha ? "rs.FECHA_SOLICITUD >= :fechaInicioTs" : "1=1";
+        String fechaF_cm = hasFecha ? "cm.FECHA_CREACION >= :fechaInicioTs" : "1=1";
+        String fechaF_tx = hasFecha ? "FECHA_REGISTRO >= :fechaInicioTs" : "1=1";
+        String fechaF_sec = hasFecha ? "FECHA_HORA >= :fechaInicioTs" : "1=1";
 
         // 1. Resumen Global Consolidado (1 solo round-trip a Oracle)
         Map<String, Object> resumenGlobal = new HashMap<>();
         long totalOrg = 0L;
         long activasOrg = 0L;
         try {
-            String sqlResumen = """
+            String sqlResumen = String.format("""
                 SELECT
-                    (SELECT COUNT(*) FROM ORGANIZACIONES WHERE (:orgId IS NULL OR ID_ORGANIZACION = :orgId)) AS TOTAL_ORG,
-                    (SELECT COUNT(*) FROM ORGANIZACIONES WHERE ESTADO = 'ACTIVA' AND (:orgId IS NULL OR ID_ORGANIZACION = :orgId)) AS ACTIVAS_ORG,
-                    (SELECT COUNT(*) FROM PROPIEDADES WHERE (:orgId IS NULL OR ID_ORGANIZACION = :orgId)) AS TOTAL_PROP,
-                    (SELECT COUNT(*) FROM PROPIEDADES WHERE ESTADO = 'ACTIVA' AND (:orgId IS NULL OR ID_ORGANIZACION = :orgId)) AS ACTIVAS_PROP,
-                    (SELECT COUNT(*) FROM UNIDADES u JOIN PROPIEDADES p ON u.ID_PROPIEDAD = p.ID_PROPIEDAD WHERE (:orgId IS NULL OR p.ID_ORGANIZACION = :orgId)) AS TOTAL_UNIDADES,
-                    (SELECT COUNT(DISTINCT u.ID_USUARIO) FROM USUARIOS u LEFT JOIN USUARIO_ASIGNACIONES ua ON u.ID_USUARIO = ua.ID_USUARIO WHERE (:orgId IS NULL OR ua.ID_ORGANIZACION = :orgId)) AS TOTAL_USERS,
-                    (SELECT COUNT(DISTINCT u.ID_USUARIO) FROM USUARIOS u LEFT JOIN USUARIO_ASIGNACIONES ua ON u.ID_USUARIO = ua.ID_USUARIO WHERE u.ESTADO = 'ACTIVO' AND (:orgId IS NULL OR ua.ID_ORGANIZACION = :orgId)) AS ACTIVE_USERS,
-                    (SELECT COUNT(*) FROM RESIDENTES_UNIDAD ru JOIN UNIDADES u ON ru.ID_UNIDAD = u.ID_UNIDAD JOIN PROPIEDADES p ON u.ID_PROPIEDAD = p.ID_PROPIEDAD WHERE (:orgId IS NULL OR p.ID_ORGANIZACION = :orgId)) AS TOTAL_RESID,
-                    (SELECT COUNT(*) FROM RESIDENTES_UNIDAD ru JOIN UNIDADES u ON ru.ID_UNIDAD = u.ID_UNIDAD JOIN PROPIEDADES p ON u.ID_PROPIEDAD = p.ID_PROPIEDAD WHERE ru.ESTADO = 'ACTIVO' AND (:orgId IS NULL OR p.ID_ORGANIZACION = :orgId)) AS ACTIVE_RESID,
-                    (SELECT COUNT(*) FROM TRABAJADORES t LEFT JOIN PROVEEDORES pr ON t.ID_PROVEEDOR = pr.ID_PROVEEDOR WHERE (:orgId IS NULL OR pr.ID_ORGANIZACION = :orgId)) AS TOTAL_TRAB,
-                    (SELECT COUNT(*) FROM TRABAJADORES t LEFT JOIN PROVEEDORES pr ON t.ID_PROVEEDOR = pr.ID_PROVEEDOR WHERE t.ESTADO = 'ACTIVO' AND (:orgId IS NULL OR pr.ID_ORGANIZACION = :orgId)) AS ACTIVE_TRAB
+                    (SELECT COUNT(*) FROM ORGANIZACIONES WHERE %s) AS TOTAL_ORG,
+                    (SELECT COUNT(*) FROM ORGANIZACIONES WHERE ESTADO = 'ACTIVA' AND %s) AS ACTIVAS_ORG,
+                    (SELECT COUNT(*) FROM PROPIEDADES WHERE %s) AS TOTAL_PROP,
+                    (SELECT COUNT(*) FROM PROPIEDADES WHERE ESTADO = 'ACTIVA' AND %s) AS ACTIVAS_PROP,
+                    (SELECT COUNT(*) FROM UNIDADES u JOIN PROPIEDADES p ON u.ID_PROPIEDAD = p.ID_PROPIEDAD WHERE %s) AS TOTAL_UNIDADES,
+                    (SELECT COUNT(DISTINCT u.ID_USUARIO) FROM USUARIOS u LEFT JOIN USUARIO_ASIGNACIONES ua ON u.ID_USUARIO = ua.ID_USUARIO WHERE %s) AS TOTAL_USERS,
+                    (SELECT COUNT(DISTINCT u.ID_USUARIO) FROM USUARIOS u LEFT JOIN USUARIO_ASIGNACIONES ua ON u.ID_USUARIO = ua.ID_USUARIO WHERE u.ESTADO = 'ACTIVO' AND %s) AS ACTIVE_USERS,
+                    (SELECT COUNT(*) FROM RESIDENTES_UNIDAD ru JOIN UNIDADES u ON ru.ID_UNIDAD = u.ID_UNIDAD JOIN PROPIEDADES p ON u.ID_PROPIEDAD = p.ID_PROPIEDAD WHERE %s) AS TOTAL_RESID,
+                    (SELECT COUNT(*) FROM RESIDENTES_UNIDAD ru JOIN UNIDADES u ON ru.ID_UNIDAD = u.ID_UNIDAD JOIN PROPIEDADES p ON u.ID_PROPIEDAD = p.ID_PROPIEDAD WHERE ru.ESTADO = 'ACTIVO' AND %s) AS ACTIVE_RESID,
+                    (SELECT COUNT(*) FROM TRABAJADORES t LEFT JOIN PROVEEDORES pr ON t.ID_PROVEEDOR = pr.ID_PROVEEDOR WHERE %s) AS TOTAL_TRAB,
+                    (SELECT COUNT(*) FROM TRABAJADORES t LEFT JOIN PROVEEDORES pr ON t.ID_PROVEEDOR = pr.ID_PROVEEDOR WHERE t.ESTADO = 'ACTIVO' AND %s) AS ACTIVE_TRAB
                 FROM DUAL
-            """;
+            """, orgF, orgF, orgF, orgF, pOrgF, uaOrgF, uaOrgF, pOrgF, pOrgF, prOrgF, prOrgF);
             Map<String, Object> r = jdbc.queryForMap(sqlResumen, params);
 
             totalOrg = ((Number) r.getOrDefault("TOTAL_ORG", 0)).longValue();
@@ -652,7 +675,9 @@ public class AnalyticsServiceImpl implements AnalyticsService {
             long totalTrab = ((Number) r.getOrDefault("TOTAL_TRAB", 0)).longValue();
             long activeTrab = ((Number) r.getOrDefault("ACTIVE_TRAB", 0)).longValue();
             resumenGlobal.put("trabajadores", Map.of("total", totalTrab, "activos", activeTrab, "inactivos", Math.max(0, totalTrab - activeTrab)));
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            log.error("Error cargando resumenGlobal en analítica: {}", e.getMessage());
+        }
 
         // 2. Tasa de Retención
         Double tasaRetencion = totalOrg == 0 ? 100.0 :
@@ -661,82 +686,94 @@ public class AnalyticsServiceImpl implements AnalyticsService {
         // 3. Distribución de Propiedades por Tipo
         List<Map<String, Object>> porTipoPropiedad = List.of();
         try {
-            String sqlTipoProp = """
+            String sqlTipoProp = String.format("""
                 SELECT tp.CODIGO AS "codigo", tp.NOMBRE AS "tipo", COUNT(p.ID_PROPIEDAD) AS "cantidad"
                 FROM TIPOS_PROPIEDAD tp
-                LEFT JOIN PROPIEDADES p ON tp.ID_TIPO_PROPIEDAD = p.ID_TIPO_PROPIEDAD AND (:orgId IS NULL OR p.ID_ORGANIZACION = :orgId)
+                LEFT JOIN PROPIEDADES p ON tp.ID_TIPO_PROPIEDAD = p.ID_TIPO_PROPIEDAD AND %s
                 GROUP BY tp.CODIGO, tp.NOMBRE
                 ORDER BY "cantidad" DESC
-            """;
+            """, pOrgF);
             porTipoPropiedad = jdbc.queryForList(sqlTipoProp, params);
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            log.error("Error cargando distribucionTipoPropiedad: {}", e.getMessage());
+        }
 
         // 4. Distribución de Propiedades por Ciudad
         List<Map<String, Object>> porCiudad = List.of();
         try {
-            String sqlCiudad = """
+            String sqlCiudad = String.format("""
                 SELECT NVL(CIUDAD, 'Sin Ciudad') AS "ciudad", COUNT(*) AS "total"
                 FROM PROPIEDADES
-                WHERE ESTADO = 'ACTIVA' AND (:orgId IS NULL OR ID_ORGANIZACION = :orgId)
+                WHERE ESTADO = 'ACTIVA' AND %s
                 GROUP BY NVL(CIUDAD, 'Sin Ciudad')
                 ORDER BY "total" DESC
-            """;
+            """, orgF);
             porCiudad = jdbc.queryForList(sqlCiudad, params);
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            log.error("Error cargando distribucionPropiedadesCiudad: {}", e.getMessage());
+        }
 
         // 5. Distribución de Unidades por Tipo
         List<Map<String, Object>> porTipoUnidad = List.of();
         try {
-            String sqlTipoUnidad = """
+            String sqlTipoUnidad = String.format("""
                 SELECT tu.CODIGO AS "codigo", tu.NOMBRE AS "tipo", COUNT(u.ID_UNIDAD) AS "cantidad"
                 FROM TIPOS_UNIDAD tu
                 LEFT JOIN UNIDADES u ON tu.ID_TIPO_UNIDAD = u.ID_TIPO_UNIDAD
                 LEFT JOIN PROPIEDADES p ON u.ID_PROPIEDAD = p.ID_PROPIEDAD
-                WHERE (:orgId IS NULL OR p.ID_ORGANIZACION = :orgId)
+                WHERE %s
                 GROUP BY tu.CODIGO, tu.NOMBRE
                 ORDER BY "cantidad" DESC
-            """;
+            """, pOrgF);
             porTipoUnidad = jdbc.queryForList(sqlTipoUnidad, params);
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            log.error("Error cargando distribucionTipoUnidad: {}", e.getMessage());
+        }
 
         // 6. Distribución de Roles
         List<Map<String, Object>> distribucionRoles = List.of();
         try {
-            String sqlRoles = """
+            String sqlRoles = String.format("""
                 SELECT r.CODIGO AS "rol", r.NOMBRE AS "rolNombre", COUNT(DISTINCT ua.ID_USUARIO) AS "cantidad"
                 FROM ROLES r
-                LEFT JOIN USUARIO_ASIGNACIONES ua ON r.ID_ROL = ua.ID_ROL AND ua.ESTADO = 'ACTIVA' AND (:orgId IS NULL OR ua.ID_ORGANIZACION = :orgId)
+                LEFT JOIN USUARIO_ASIGNACIONES ua ON r.ID_ROL = ua.ID_ROL AND ua.ESTADO = 'ACTIVA' AND %s
                 GROUP BY r.CODIGO, r.NOMBRE
                 ORDER BY "cantidad" DESC
-            """;
+            """, uaOrgF);
             distribucionRoles = jdbc.queryForList(sqlRoles, params);
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            log.error("Error cargando distribucionRoles: {}", e.getMessage());
+        }
 
         // 7. Distribución de Planes
         List<Map<String, Object>> distribucionPlanes = List.of();
         try {
-            String sqlPlanes = """
+            String sqlPlanes = String.format("""
                 SELECT pl.CODIGO AS "planCodigo", pl.NOMBRE AS "planNombre", pl.PRECIO_MENSUAL AS "precioMensual", COUNT(m.ID_MEMBRESIA) AS "organizaciones"
                 FROM PLANES pl
-                LEFT JOIN MEMBRESIAS m ON pl.ID_PLAN = m.ID_PLAN AND m.ESTADO = 'ACTIVA' AND (:orgId IS NULL OR m.ID_ORGANIZACION = :orgId)
+                LEFT JOIN MEMBRESIAS m ON pl.ID_PLAN = m.ID_PLAN AND m.ESTADO = 'ACTIVA' AND %s
                 GROUP BY pl.CODIGO, pl.NOMBRE, pl.PRECIO_MENSUAL
                 ORDER BY pl.PRECIO_MENSUAL ASC
-            """;
+            """, mOrgF);
             distribucionPlanes = jdbc.queryForList(sqlPlanes, params);
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            log.error("Error cargando distribucionPlanes: {}", e.getMessage());
+        }
 
         // 8. Membresías por Estado
         List<Map<String, Object>> membresiasPorEstado = List.of();
         try {
-            String sqlMemb = """
+            String sqlMemb = String.format("""
                 SELECT ESTADO AS "estado", COUNT(*) AS "cantidad"
                 FROM MEMBRESIAS
-                WHERE (:orgId IS NULL OR ID_ORGANIZACION = :orgId)
+                WHERE %s
                 GROUP BY ESTADO
                 ORDER BY "cantidad" DESC
-            """;
+            """, orgF);
             membresiasPorEstado = jdbc.queryForList(sqlMemb, params);
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            log.error("Error cargando membresiasPorEstado: {}", e.getMessage());
+        }
 
         // 9. Entitlements de Módulos
         List<Map<String, Object>> entitlementsModulos = List.of();
@@ -750,21 +787,23 @@ public class AnalyticsServiceImpl implements AnalyticsService {
                 ORDER BY "categoria", "nombre"
             """;
             entitlementsModulos = jdbc.queryForList(sqlModulos, params);
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            log.error("Error cargando entitlementsModulos: {}", e.getMessage());
+        }
 
         // 10. Actividad Operativa Global Consolidada (1 solo round-trip a Oracle)
         Map<String, Object> actividadOperativa = new HashMap<>();
         try {
-            String sqlOperativa = """
+            String sqlOperativa = String.format("""
                 SELECT
-                    (SELECT COUNT(*) FROM VISITAS v JOIN UNIDADES u ON v.ID_UNIDAD = u.ID_UNIDAD JOIN PROPIEDADES p ON u.ID_PROPIEDAD = p.ID_PROPIEDAD WHERE (:orgId IS NULL OR p.ID_ORGANIZACION = :orgId) AND (:fechaInicioTs IS NULL OR v.FECHA_INGRESO >= :fechaInicioTs)) AS VISITAS,
-                    (SELECT COUNT(*) FROM PAQUETES pq JOIN PROPIEDADES p ON pq.ID_PROPIEDAD = p.ID_PROPIEDAD WHERE (:orgId IS NULL OR p.ID_ORGANIZACION = :orgId) AND (:fechaInicioTs IS NULL OR pq.FECHA_RECEPCION >= :fechaInicioTs)) AS PAQUETES,
-                    (SELECT COUNT(*) FROM PQRS_TICKETS tk JOIN PROPIEDADES p ON tk.ID_PROPIEDAD = p.ID_PROPIEDAD WHERE (:orgId IS NULL OR p.ID_ORGANIZACION = :orgId) AND (:fechaInicioTs IS NULL OR tk.FECHA_RADICACION >= :fechaInicioTs)) AS PQRS,
-                    (SELECT COUNT(*) FROM MANTENIMIENTOS mt JOIN PROPIEDADES p ON mt.ID_PROPIEDAD = p.ID_PROPIEDAD WHERE (:orgId IS NULL OR p.ID_ORGANIZACION = :orgId) AND (:fechaInicioTs IS NULL OR mt.FECHA_CREACION >= :fechaInicioTs)) AS MANTENIMIENTOS,
-                    (SELECT COUNT(*) FROM RESERVAS rs JOIN ZONAS_COMUNES zc ON rs.ID_ZONA = zc.ID_ZONA JOIN PROPIEDADES p ON zc.ID_PROPIEDAD = p.ID_PROPIEDAD WHERE (:orgId IS NULL OR p.ID_ORGANIZACION = :orgId) AND (:fechaInicioTs IS NULL OR rs.FECHA_SOLICITUD >= :fechaInicioTs)) AS RESERVAS,
-                    (SELECT COUNT(*) FROM COMUNICADOS cm JOIN PROPIEDADES p ON cm.ID_PROPIEDAD = p.ID_PROPIEDAD WHERE (:orgId IS NULL OR p.ID_ORGANIZACION = :orgId) AND (:fechaInicioTs IS NULL OR cm.FECHA_CREACION >= :fechaInicioTs)) AS COMUNICADOS
+                    (SELECT COUNT(*) FROM VISITAS v JOIN UNIDADES u ON v.ID_UNIDAD = u.ID_UNIDAD JOIN PROPIEDADES p ON u.ID_PROPIEDAD = p.ID_PROPIEDAD WHERE %s AND %s) AS VISITAS,
+                    (SELECT COUNT(*) FROM PAQUETES pq JOIN PROPIEDADES p ON pq.ID_PROPIEDAD = p.ID_PROPIEDAD WHERE %s AND %s) AS PAQUETES,
+                    (SELECT COUNT(*) FROM PQRS_TICKETS tk JOIN PROPIEDADES p ON tk.ID_PROPIEDAD = p.ID_PROPIEDAD WHERE %s AND %s) AS PQRS,
+                    (SELECT COUNT(*) FROM MANTENIMIENTOS mt JOIN PROPIEDADES p ON mt.ID_PROPIEDAD = p.ID_PROPIEDAD WHERE %s AND %s) AS MANTENIMIENTOS,
+                    (SELECT COUNT(*) FROM RESERVAS rs JOIN ZONAS_COMUNES zc ON rs.ID_ZONA = zc.ID_ZONA JOIN PROPIEDADES p ON zc.ID_PROPIEDAD = p.ID_PROPIEDAD WHERE %s AND %s) AS RESERVAS,
+                    (SELECT COUNT(*) FROM COMUNICADOS cm JOIN PROPIEDADES p ON cm.ID_PROPIEDAD = p.ID_PROPIEDAD WHERE %s AND %s) AS COMUNICADOS
                 FROM DUAL
-            """;
+            """, pOrgF, fechaF_v, pOrgF, fechaF_pq, pOrgF, fechaF_tk, pOrgF, fechaF_mt, pOrgF, fechaF_rs, pOrgF, fechaF_cm);
             Map<String, Object> opRow = jdbc.queryForMap(sqlOperativa, params);
             actividadOperativa.put("visitas", ((Number) opRow.getOrDefault("VISITAS", 0)).longValue());
             actividadOperativa.put("paquetes", ((Number) opRow.getOrDefault("PAQUETES", 0)).longValue());
@@ -772,7 +811,8 @@ public class AnalyticsServiceImpl implements AnalyticsService {
             actividadOperativa.put("mantenimientos", ((Number) opRow.getOrDefault("MANTENIMIENTOS", 0)).longValue());
             actividadOperativa.put("reservas", ((Number) opRow.getOrDefault("RESERVAS", 0)).longValue());
             actividadOperativa.put("comunicados", ((Number) opRow.getOrDefault("COMUNICADOS", 0)).longValue());
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            log.error("Error cargando actividadOperativa: {}", e.getMessage());
             actividadOperativa.put("visitas", 0L); actividadOperativa.put("paquetes", 0L);
             actividadOperativa.put("pqrs", 0L); actividadOperativa.put("mantenimientos", 0L);
             actividadOperativa.put("reservas", 0L); actividadOperativa.put("comunicados", 0L);
@@ -781,7 +821,7 @@ public class AnalyticsServiceImpl implements AnalyticsService {
         // 11. Transacciones Sandbox Wompi Consolidadas (1 solo round-trip a Oracle)
         Map<String, Object> transaccionesSandbox = new HashMap<>();
         try {
-            String sqlTx = """
+            String sqlTx = String.format("""
                 SELECT
                     COUNT(*) AS TOTAL,
                     COUNT(CASE WHEN UPPER(ESTADO_PASARELA) = 'APPROVED' THEN 1 END) AS APROBADAS,
@@ -789,9 +829,8 @@ public class AnalyticsServiceImpl implements AnalyticsService {
                     COUNT(CASE WHEN UPPER(ESTADO_PASARELA) = 'PENDING' THEN 1 END) AS PENDIENTES,
                     NVL(SUM(CASE WHEN UPPER(ESTADO_PASARELA) = 'APPROVED' THEN MONTO_CENTAVOS ELSE 0 END), 0) AS MONTO_APROBADO
                 FROM TRANSACCIONES_PAGO
-                WHERE (:orgId IS NULL OR ID_ORGANIZACION = :orgId)
-                  AND (:fechaInicioTs IS NULL OR FECHA_REGISTRO >= :fechaInicioTs)
-            """;
+                WHERE %s AND %s
+            """, orgF, fechaF_tx);
             Map<String, Object> txRow = jdbc.queryForMap(sqlTx, params);
             transaccionesSandbox.put("total", ((Number) txRow.getOrDefault("TOTAL", 0)).longValue());
             transaccionesSandbox.put("aprobadas", ((Number) txRow.getOrDefault("APROBADAS", 0)).longValue());
@@ -799,7 +838,8 @@ public class AnalyticsServiceImpl implements AnalyticsService {
             transaccionesSandbox.put("pendientes", ((Number) txRow.getOrDefault("PENDIENTES", 0)).longValue());
             transaccionesSandbox.put("montoAprobadoCentavos", ((Number) txRow.getOrDefault("MONTO_APROBADO", 0)).longValue());
             transaccionesSandbox.put("aviso", "Entorno Sandbox Wompi activo — Datos de prueba y validación técnica, no facturación comercial.");
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            log.error("Error cargando transaccionesSandbox: {}", e.getMessage());
             transaccionesSandbox.put("total", 0L); transaccionesSandbox.put("aprobadas", 0L);
             transaccionesSandbox.put("rechazadas", 0L); transaccionesSandbox.put("pendientes", 0L);
             transaccionesSandbox.put("montoAprobadoCentavos", 0L);
@@ -809,20 +849,20 @@ public class AnalyticsServiceImpl implements AnalyticsService {
         // 12. Métricas de Seguridad y Auditoría Consolidadas (1 solo round-trip a Oracle)
         Map<String, Object> metricasSeguridad = new HashMap<>();
         try {
-            String sqlSec = """
+            String sqlSec = String.format("""
                 SELECT
-                    COUNT(CASE WHEN ACCION LIKE '%LOGIN%SUCCESS%' THEN 1 END) AS LOGINS_EXITOSOS,
-                    COUNT(CASE WHEN ACCION LIKE '%LOGIN%FAIL%' THEN 1 END) AS LOGINS_FALLIDOS,
+                    COUNT(CASE WHEN ACCION LIKE '%%LOGIN%%SUCCESS%%' THEN 1 END) AS LOGINS_EXITOSOS,
+                    COUNT(CASE WHEN ACCION LIKE '%%LOGIN%%FAIL%%' THEN 1 END) AS LOGINS_FALLIDOS,
                     COUNT(*) AS ACCIONES_AUDITADAS
                 FROM AUDITORIA_LOG
-                WHERE (:orgId IS NULL OR ID_ORGANIZACION = :orgId)
-                  AND (:fechaInicioTs IS NULL OR FECHA_HORA >= :fechaInicioTs)
-            """;
+                WHERE %s AND %s
+            """, orgF, fechaF_sec);
             Map<String, Object> secRow = jdbc.queryForMap(sqlSec, params);
             metricasSeguridad.put("loginsExitosos", ((Number) secRow.getOrDefault("LOGINS_EXITOSOS", 0)).longValue());
             metricasSeguridad.put("loginsFallidos", ((Number) secRow.getOrDefault("LOGINS_FALLIDOS", 0)).longValue());
             metricasSeguridad.put("accionesAuditadas", ((Number) secRow.getOrDefault("ACCIONES_AUDITADAS", 0)).longValue());
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            log.error("Error cargando metricasSeguridad: {}", e.getMessage());
             metricasSeguridad.put("loginsExitosos", 0L);
             metricasSeguridad.put("loginsFallidos", 0L);
             metricasSeguridad.put("accionesAuditadas", 0L);

@@ -50,11 +50,14 @@ public class DatabaseSeeder implements ApplicationRunner {
                 }
             } catch (Exception ignored) {}
 
-            if (!alreadySeeded) {
-
             BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
             String hashAdminGlobal = encoder.encode("admin_global123");
             String hashGeneral = encoder.encode("admin123");
+
+            // Garantizar que la cuenta de superadmin siempre tenga credenciales activas válidas
+            runSqlSafe("UPDATE USUARIOS SET HASH_PASSWORD = '" + hashAdminGlobal + "', INTENTOS_FALLIDOS = 0, ESTADO = 'ACTIVO' WHERE LOWER(NOMBRE_USUARIO) = 'admin_global'");
+
+            if (!alreadySeeded) {
 
             // 1. TIPOS_DOCUMENTO
             runSqlSafe("INSERT INTO TIPOS_DOCUMENTO (ID_TIPO_DOCUMENTO, CODIGO, NOMBRE, APLICA_PERSONA_NATURAL, APLICA_PERSONA_JURIDICA, ESTADO) " +

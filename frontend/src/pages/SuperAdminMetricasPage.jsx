@@ -76,8 +76,10 @@ export default function SuperAdminMetricasPage() {
     async function loadOrgs() {
       try {
         const res = await api.get('/organizations');
-        const list = res?.data || res || [];
-        setOrganizaciones(Array.isArray(list) ? list : []);
+        const rawList = res?.data || res || [];
+        const list = Array.isArray(rawList) ? rawList : (rawList?.id ? [rawList] : []);
+        const activeList = list.filter((o) => !o.estado || o.estado === 'ACTIVA');
+        setOrganizaciones(activeList);
       } catch (e) {
         console.warn('No se pudieron cargar organizaciones para el filtro:', e);
       }
