@@ -622,12 +622,12 @@ public class AnalyticsServiceImpl implements AnalyticsService {
         String uaOrgF = hasOrg ? "ua.ID_ORGANIZACION = :orgId" : "1=1";
         String prOrgF = hasOrg ? "pr.ID_ORGANIZACION = :orgId" : "1=1";
         String mOrgF = hasOrg ? "m.ID_ORGANIZACION = :orgId" : "1=1";
-        String fechaF_v = hasFecha ? "v.FECHA_INGRESO >= :fechaInicioTs" : "1=1";
+        String fechaF_v = hasFecha ? "v.FECHA_CREACION >= :fechaInicioTs" : "1=1";
         String fechaF_pq = hasFecha ? "pq.FECHA_RECEPCION >= :fechaInicioTs" : "1=1";
         String fechaF_tk = hasFecha ? "tk.FECHA_RADICACION >= :fechaInicioTs" : "1=1";
         String fechaF_mt = hasFecha ? "mt.FECHA_CREACION >= :fechaInicioTs" : "1=1";
         String fechaF_rs = hasFecha ? "rs.FECHA_SOLICITUD >= :fechaInicioTs" : "1=1";
-        String fechaF_cm = hasFecha ? "cm.FECHA_CREACION >= :fechaInicioTs" : "1=1";
+        String fechaF_cm = hasFecha ? "cm.FECHA_PUBLICACION >= :fechaInicioTs" : "1=1";
         String fechaF_tx = hasFecha ? "FECHA_REGISTRO >= :fechaInicioTs" : "1=1";
         String fechaF_sec = hasFecha ? "FECHA_HORA >= :fechaInicioTs" : "1=1";
 
@@ -779,12 +779,11 @@ public class AnalyticsServiceImpl implements AnalyticsService {
         List<Map<String, Object>> entitlementsModulos = List.of();
         try {
             String sqlModulos = """
-                SELECT m.CODIGO AS "codigo", m.NOMBRE AS "nombre", NVL(m.CATEGORIA, 'GENERAL') AS "categoria", COUNT(DISTINCT pm.ID_PLAN) AS "planesHabilitados"
+                SELECT m.CODIGO AS "codigo", m.NOMBRE AS "nombre", 'GENERAL' AS "categoria", COUNT(DISTINCT pm.ID_PLAN) AS "planesHabilitados"
                 FROM MODULOS m
-                LEFT JOIN PLAN_MODULOS pm ON m.ID_MODULO = pm.ID_MODULO AND pm.ESTADO = 'ACTIVO'
-                WHERE m.ESTADO = 'ACTIVO'
-                GROUP BY m.CODIGO, m.NOMBRE, m.CATEGORIA
-                ORDER BY "categoria", "nombre"
+                LEFT JOIN PLAN_MODULOS pm ON m.ID_MODULO = pm.ID_MODULO AND (pm.HABILITADO = 'S' OR pm.HABILITADO = '1')
+                GROUP BY m.CODIGO, m.NOMBRE
+                ORDER BY "nombre"
             """;
             entitlementsModulos = jdbc.queryForList(sqlModulos, params);
         } catch (Exception e) {

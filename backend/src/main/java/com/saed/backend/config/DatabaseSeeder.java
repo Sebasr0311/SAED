@@ -51,7 +51,7 @@ public class DatabaseSeeder implements ApplicationRunner {
             } catch (Exception ignored) {}
 
             BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
-            String hashAdminGlobal = encoder.encode("admin_global123");
+            String hashAdminGlobal = encoder.encode("admin123");
             String hashGeneral = encoder.encode("admin123");
 
             // Garantizar que la cuenta de superadmin siempre tenga credenciales activas válidas

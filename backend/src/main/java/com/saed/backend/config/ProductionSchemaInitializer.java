@@ -798,13 +798,13 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
                     COMMIT;
 
                     MERGE INTO USUARIO_ASIGNACIONES ua
-                    USING (SELECT 1 AS ID_ASIGNACION, 1 AS ID_USUARIO, 1 AS ID_ROL, CAST(NULL AS NUMBER) AS ID_ORGANIZACION, CAST(NULL AS NUMBER) AS ID_PROPIEDAD, CAST(NULL AS NUMBER) AS ID_UNIDAD, 'ACTIVA' AS ESTADO FROM DUAL) src
-                    ON (ua.ID_ASIGNACION = src.ID_ASIGNACION)
+                    USING (SELECT 1 AS ID_USUARIO, 1 AS ID_ROL, CAST(NULL AS NUMBER) AS ID_ORGANIZACION, CAST(NULL AS NUMBER) AS ID_PROPIEDAD, CAST(NULL AS NUMBER) AS ID_UNIDAD, 'ACTIVA' AS ESTADO FROM DUAL) src
+                    ON (ua.ID_USUARIO = src.ID_USUARIO AND ua.ID_ROL = src.ID_ROL)
                     WHEN NOT MATCHED THEN
-                        INSERT (ID_ASIGNACION, ID_USUARIO, ID_ROL, ID_ORGANIZACION, ID_PROPIEDAD, ID_UNIDAD, ESTADO)
-                        VALUES (src.ID_ASIGNACION, src.ID_USUARIO, src.ID_ROL, src.ID_ORGANIZACION, src.ID_PROPIEDAD, src.ID_UNIDAD, src.ESTADO)
+                        INSERT (ID_USUARIO, ID_ROL, ID_ORGANIZACION, ID_PROPIEDAD, ID_UNIDAD, ESTADO)
+                        VALUES (src.ID_USUARIO, src.ID_ROL, src.ID_ORGANIZACION, src.ID_PROPIEDAD, src.ID_UNIDAD, src.ESTADO)
                     WHEN MATCHED THEN
-                        UPDATE SET ID_USUARIO = src.ID_USUARIO, ID_ROL = src.ID_ROL, ESTADO = 'ACTIVA';
+                        UPDATE SET ESTADO = 'ACTIVA';
                     COMMIT;
                 END;
             """);
