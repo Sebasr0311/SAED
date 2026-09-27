@@ -309,7 +309,7 @@ public class WompiServiceImpl implements WompiService {
             }
 
             List<Map<String, Object>> targetPlanList = jdbcTemplate.queryForList(
-                "SELECT ID_PLAN, CODIGO, NOMBRE, PRECIO_MENSUAL, ESTADO FROM PLANES WHERE ID_PLAN = :p",
+                "SELECT ID_PLAN, CODIGO, NOMBRE, PRECIO_MENSUAL, LIMITE_PROPIEDADES, LIMITE_UNIDADES, LIMITE_USUARIOS, ESTADO FROM PLANES WHERE ID_PLAN = :p",
                 new MapSqlParameterSource("p", idPlanDestino)
             );
             if (targetPlanList.isEmpty() || !"ACTIVO".equalsIgnoreCase((String) targetPlanList.get(0).get("ESTADO"))) {
@@ -321,12 +321,81 @@ public class WompiServiceImpl implements WompiService {
 
             Map<String, Object> targetPlan = targetPlanList.get(0);
             BigDecimal precioNuevo = (BigDecimal) targetPlan.get("PRECIO_MENSUAL");
-            if (precioNuevo == null || (precioActual != null && precioNuevo.compareTo(precioActual) <= 0)) {
+            if (precioNuevo == null) {
                 throw new org.springframework.web.server.ResponseStatusException(
                     org.springframework.http.HttpStatus.BAD_REQUEST,
-                    "La operación no es un upgrade válido: el plan destino debe ser de nivel y tarifa superior"
+                    "El plan destino no tiene precio configurado"
                 );
             }
+
+            // FREE plan downgrade: no payment required, reject with guidance
+            if (precioNuevo.compareTo(java.math.BigDecimal.ZERO) == 0) {
+                throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "Para cambiar al plan gratuito, contacte al administrador de la plataforma"
+                );
+            }
+
+            int precioCmp = (precioActual != null) ? precioNuevo.compareTo(precioActual) : 1;
+
+            if (precioCmp < 0) {
+                // DOWNGRADE: validate that current usage fits within target plan limits
+                Long limiteProp = targetPlan.get("LIMITE_PROPIEDADES") != null
+                    ? ((Number) targetPlan.get("LIMITE_PROPIEDADES")).longValue() : null;
+                Long limiteUnit = targetPlan.get("LIMITE_UNIDADES") != null
+                    ? ((Number) targetPlan.get("LIMITE_UNIDADES")).longValue() : null;
+                Long limiteUsr = targetPlan.get("LIMITE_USUARIOS") != null
+                    ? ((Number) targetPlan.get("LIMITE_USUARIOS")).longValue() : null;
+
+                if (limiteProp != null && limiteProp > 0) {
+                    Number cProp = jdbcTemplate.queryForObject(
+                        "SELECT COUNT(*) FROM PROPIEDADES WHERE ID_ORGANIZACION = :org AND ESTADO = 'ACTIVA'",
+                        new MapSqlParameterSource("org", orgId), Number.class);
+                    long usedProp = cProp != null ? cProp.longValue() : 0L;
+                    if (usedProp > limiteProp) {
+                        throw new org.springframework.web.server.ResponseStatusException(
+                            org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY,
+                            "No es posible cambiar a este plan: su organización tiene " + usedProp +
+                            " propiedades activas y el plan destino permite máximo " + limiteProp +
+                            ". Debe reducir propiedades primero."
+                        );
+                    }
+                }
+
+                if (limiteUnit != null && limiteUnit > 0) {
+                    Number cUnit = jdbcTemplate.queryForObject(
+                        "SELECT COUNT(u.ID_UNIDAD) FROM UNIDADES u JOIN PROPIEDADES pr ON u.ID_PROPIEDAD = pr.ID_PROPIEDAD " +
+                        "WHERE pr.ID_ORGANIZACION = :org AND (u.ESTADO IS NULL OR u.ESTADO IN ('ACTIVA','ACTIVO'))",
+                        new MapSqlParameterSource("org", orgId), Number.class);
+                    long usedUnit = cUnit != null ? cUnit.longValue() : 0L;
+                    if (usedUnit > limiteUnit) {
+                        throw new org.springframework.web.server.ResponseStatusException(
+                            org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY,
+                            "No es posible cambiar a este plan: su organización tiene " + usedUnit +
+                            " unidades y el plan destino permite máximo " + limiteUnit +
+                            ". Debe reducir unidades primero."
+                        );
+                    }
+                }
+
+                if (limiteUsr != null && limiteUsr > 0) {
+                    Number cUsr = jdbcTemplate.queryForObject(
+                        "SELECT COUNT(DISTINCT ua.ID_USUARIO) FROM USUARIO_ASIGNACIONES ua " +
+                        "WHERE ua.ID_ORGANIZACION = :org AND ua.ESTADO IN ('ACTIVA','ACTIVO')",
+                        new MapSqlParameterSource("org", orgId), Number.class);
+                    long usedUsr = cUsr != null ? cUsr.longValue() : 0L;
+                    if (usedUsr > limiteUsr) {
+                        throw new org.springframework.web.server.ResponseStatusException(
+                            org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY,
+                            "No es posible cambiar a este plan: su organización tiene " + usedUsr +
+                            " usuarios activos y el plan destino permite máximo " + limiteUsr +
+                            ". Debe desactivar usuarios primero."
+                        );
+                    }
+                }
+            }
+            // precioCmp == 0 already rejected above (same plan)
+            // precioCmp > 0: standard upgrade, no extra validation needed
 
             idPlanCobrar = idPlanDestino;
             nombrePlanCobrar = (String) targetPlan.get("NOMBRE");
@@ -796,12 +865,28 @@ public class WompiServiceImpl implements WompiService {
 
                                 Long idAdmin = resolverAdminOrg(idOrg);
 
+                                // Determine if this is an actual upgrade or downgrade based on price comparison
+                                String tipoOperacion = "UPGRADE";
+                                String descripcionOp = "Upgrade";
+                                if (!pRows.isEmpty()) {
+                                    long precioNuevoPlan = ((Number) pRows.get(0).get("PRECIO_MENSUAL")).longValue();
+                                    List<Map<String, Object>> planActualRows = jdbcTemplate.queryForList(
+                                        "SELECT PRECIO_MENSUAL FROM PLANES WHERE ID_PLAN = :p",
+                                        new MapSqlParameterSource("p", idPlanActual));
+                                    if (!planActualRows.isEmpty()) {
+                                        long precioActualPlan = ((Number) planActualRows.get(0).get("PRECIO_MENSUAL")).longValue();
+                                        if (precioNuevoPlan < precioActualPlan) {
+                                            tipoOperacion = "DOWNGRADE";
+                                            descripcionOp = "Downgrade";
+                                        }
+                                    }
+                                }
                                 membershipHistoryService.recordChange(
                                     idMem,
                                     idPlanActual,
                                     idPlanNuevo,
-                                    "UPGRADE",
-                                    "Upgrade a " + planNombre + " (" + meses + " mes(es)) aprobado vía Wompi (Ref: " + referencia + ")",
+                                    tipoOperacion,
+                                    descripcionOp + " a " + planNombre + " (" + meses + " mes(es)) aprobado vía Wompi (Ref: " + referencia + ")",
                                     idAdmin
                                 );
 

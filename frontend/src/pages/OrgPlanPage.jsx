@@ -17,6 +17,8 @@ import {
   AlertCircle,
   RefreshCw,
   ArrowUpCircle,
+  ArrowDownCircle,
+  Info,
   Loader2
 } from 'lucide-react';
 
@@ -147,11 +149,13 @@ export default function OrgPlanPage() {
     );
   }
 
-  // Planes disponibles para upgrade (precio superior al actual)
+  // All available plans except the current one (supports both upgrade and downgrade)
   const currentPrice = sub?.precioMensualCop || 0;
-  const planesUpgrade = planesCatalogo.filter(
-    (p) => (p.idPlan || p.ID_PLAN) !== sub?.idPlan && (p.precioMensual || p.PRECIO_MENSUAL || 0) > currentPrice
+  const planesCambio = planesCatalogo.filter(
+    (p) => (p.idPlan || p.ID_PLAN) !== sub?.idPlan && (p.precioMensual || p.PRECIO_MENSUAL || 0) > 0
   );
+  // Keep planesUpgrade alias for button visibility
+  const planesUpgrade = planesCambio;
 
   return (
     <div className="p-6 space-y-8 animate-fadeIn">
@@ -226,8 +230,8 @@ export default function OrgPlanPage() {
               disabled={procesandoPago}
               className="flex items-center gap-1.5"
             >
-              <ArrowUpCircle className="w-4 h-4" />
-              <span>Mejorar Plan</span>
+              <CreditCard className="w-4 h-4" />
+              <span>Cambiar Plan</span>
             </Button>
           )}
         </div>
@@ -390,33 +394,64 @@ export default function OrgPlanPage() {
         </div>
       </div>
 
-      {/* Modal de Upgrade a Plan Superior */}
+      {/* Modal de Cambio de Plan */}
       <Dialog open={upgradeModalOpen} onOpenChange={setUpgradeModalOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold flex items-center gap-2">
-              <ArrowUpCircle className="w-5 h-5 text-primary" />
-              <span>Planes Disponibles para Upgrade</span>
+              <CreditCard className="w-5 h-5 text-primary" />
+              <span>Cambiar Plan de Suscripción</span>
             </DialogTitle>
             <DialogDescription>
-              Seleccione el plan al que desea migrar su organización. Las tarifas se calculan automáticamente según el ciclo seleccionado ({ciclo.toLowerCase()}).
+              Seleccione el plan al que desea migrar su organización. Los upgrades son inmediatos al confirmar el pago. Los downgrades requieren que su uso actual no exceda los límites del plan destino.
             </DialogDescription>
           </DialogHeader>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-            {planesUpgrade.map((plan) => {
+            {planesCambio.map((plan) => {
               const idPlan = plan.idPlan || plan.ID_PLAN;
               const precioMensual = plan.precioMensual || plan.PRECIO_MENSUAL || 0;
               const precioCiclo = ciclo === 'ANUAL'
                 ? Math.round(precioMensual * 12 * 0.80)
                 : precioMensual;
+              const isUpgrade = precioMensual > currentPrice;
+              const isDowngrade = precioMensual < currentPrice;
+
+              // Check if downgrade would be blocked by current usage
+              const propLimit = plan.limitePropiedades || plan.LIMITE_PROPIEDADES;
+              const unitLimit = plan.limiteUnidades || plan.LIMITE_UNIDADES;
+              const usrLimit = plan.limiteUsuarios || plan.LIMITE_USUARIOS;
+              const usedProp = sub?.propiedadesUsadas || 0;
+              const usedUnit = sub?.unidadesUsadas || 0;
+              const usedUsr = sub?.usuariosUsados || 0;
+
+              const blockedReasons = [];
+              if (isDowngrade) {
+                if (propLimit && propLimit > 0 && usedProp > propLimit)
+                  blockedReasons.push(`${usedProp} propiedades activas (máx. ${propLimit})`);
+                if (unitLimit && unitLimit > 0 && usedUnit > unitLimit)
+                  blockedReasons.push(`${usedUnit} unidades (máx. ${unitLimit})`);
+                if (usrLimit && usrLimit > 0 && usedUsr > usrLimit)
+                  blockedReasons.push(`${usedUsr} usuarios activos (máx. ${usrLimit})`);
+              }
+              const isBlocked = blockedReasons.length > 0;
 
               return (
-                <Card key={idPlan} className="border border-border/80 flex flex-col justify-between hover:border-primary/60 transition-colors">
+                <Card key={idPlan} className={`border flex flex-col justify-between transition-colors ${
+                  isBlocked ? 'border-destructive/40 opacity-70' : 'border-border/80 hover:border-primary/60'
+                }`}>
                   <CardHeader className="pb-3">
                     <div className="flex justify-between items-center">
                       <Badge variant="outline" className="text-xs uppercase">{plan.codigo || plan.CODIGO}</Badge>
-                      <span className="text-xs font-semibold text-emerald-600">Upgrade</span>
+                      {isUpgrade ? (
+                        <span className="text-xs font-semibold text-emerald-600 flex items-center gap-0.5">
+                          <ArrowUpCircle className="w-3.5 h-3.5" /> Upgrade
+                        </span>
+                      ) : (
+                        <span className="text-xs font-semibold text-amber-600 flex items-center gap-0.5">
+                          <ArrowDownCircle className="w-3.5 h-3.5" /> Downgrade
+                        </span>
+                      )}
                     </div>
                     <CardTitle className="text-lg font-bold mt-1">{plan.nombre || plan.NOMBRE}</CardTitle>
                     <p className="text-xs text-muted-foreground line-clamp-2">{plan.descripcion || plan.DESCRIPCION}</p>
@@ -430,22 +465,37 @@ export default function OrgPlanPage() {
                     </div>
 
                     <div className="text-xs space-y-1.5 text-muted-foreground border-t pt-3">
-                      <div>• Límite Propiedades: <span className="font-semibold text-foreground">{plan.limitePropiedades || plan.LIMITE_PROPIEDADES || 'Ilimitadas'}</span></div>
-                      <div>• Límite Unidades: <span className="font-semibold text-foreground">{plan.limiteUnidades || plan.LIMITE_UNIDADES || 'Ilimitadas'}</span></div>
-                      <div>• Límite Usuarios: <span className="font-semibold text-foreground">{plan.limiteUsuarios || plan.LIMITE_USUARIOS || 'Ilimitados'}</span></div>
+                      <div>• Límite Propiedades: <span className="font-semibold text-foreground">{propLimit || 'Ilimitadas'}</span></div>
+                      <div>• Límite Unidades: <span className="font-semibold text-foreground">{unitLimit || 'Ilimitadas'}</span></div>
+                      <div>• Límite Usuarios: <span className="font-semibold text-foreground">{usrLimit || 'Ilimitados'}</span></div>
                     </div>
+
+                    {isBlocked && (
+                      <div className="rounded-md bg-destructive/10 border border-destructive/30 p-3 text-xs text-destructive space-y-1">
+                        <div className="font-semibold flex items-center gap-1.5">
+                          <AlertCircle className="w-3.5 h-3.5" /> Downgrade bloqueado
+                        </div>
+                        {blockedReasons.map((r, i) => (
+                          <div key={i} className="pl-5">• {r}</div>
+                        ))}
+                        <div className="pt-1 text-muted-foreground">Reduzca el uso antes de cambiar a este plan.</div>
+                      </div>
+                    )}
 
                     <Button
                       className="w-full mt-2"
+                      variant={isDowngrade ? 'outline' : 'default'}
                       onClick={() => handleIniciarPago('UPGRADE', idPlan)}
-                      disabled={procesandoPago}
+                      disabled={procesandoPago || isBlocked}
                     >
                       {procesandoPago ? (
                         <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                      ) : (
+                      ) : isUpgrade ? (
                         <ArrowUpCircle className="w-4 h-4 mr-2" />
+                      ) : (
+                        <ArrowDownCircle className="w-4 h-4 mr-2" />
                       )}
-                      <span>Seleccionar y Pagar</span>
+                      <span>{isBlocked ? 'Uso excede límites' : isUpgrade ? 'Seleccionar y Pagar' : 'Confirmar Downgrade'}</span>
                     </Button>
                   </CardContent>
                 </Card>

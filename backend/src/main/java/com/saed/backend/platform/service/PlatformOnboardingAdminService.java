@@ -13,4 +13,6 @@ public interface PlatformOnboardingAdminService {
     EmailDispatchResponseDTO reenviarCredenciales(ReenviarCredencialesRequestDTO request);
     Map<String, Object> actualizarCredenciales(ActualizarCredencialesRequestDTO request);
     Map<String, Object> aprobarManualmente(String referencia);
+    Map<String, Object> rechazarSolicitud(String referencia, String motivo);
+    Map<String, Object> eliminarSolicitud(String referencia);
 }

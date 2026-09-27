@@ -37,6 +37,7 @@ import {
   AlertTriangle,
   ChevronLeft,
   ChevronRight,
+  Trash2,
 } from 'lucide-react';
 
 export default function SuperAdminOnboardingPage() {
@@ -72,6 +73,17 @@ export default function SuperAdminOnboardingPage() {
   const [approveModal, setApproveModal] = useState(false);
   const [selectedItemForApprove, setSelectedItemForApprove] = useState(null);
   const [approving, setApproving] = useState(false);
+
+  // Modal Rechazar
+  const [rechazarModal, setRechazarModal] = useState(false);
+  const [selectedItemForRechazar, setSelectedItemForRechazar] = useState(null);
+  const [rechazarMotivo, setRechazarMotivo] = useState('');
+  const [rechazando, setRechazando] = useState(false);
+
+  // Modal Eliminar
+  const [eliminarModal, setEliminarModal] = useState(false);
+  const [selectedItemForEliminar, setSelectedItemForEliminar] = useState(null);
+  const [eliminando, setEliminando] = useState(false);
 
   // Copied tracking
   const [copiedId, setCopiedId] = useState(null);
@@ -294,6 +306,52 @@ export default function SuperAdminOnboardingPage() {
       toast.error(err?.response?.data?.message || 'Error al aprobar solicitud');
     } finally {
       setApproving(false);
+    }
+  }
+
+  // Rechazar handlers
+  function openRechazarModal(item) {
+    setSelectedItemForRechazar(item);
+    setRechazarMotivo('');
+    setRechazarModal(true);
+  }
+
+  async function handleExecuteRechazar() {
+    if (!selectedItemForRechazar) return;
+    try {
+      setRechazando(true);
+      await api.post('/platform/onboarding/rechazar', {
+        referencia: selectedItemForRechazar.referencia,
+        motivo: rechazarMotivo.trim() || 'Rechazado por administrador de plataforma',
+      });
+      toast.success('Solicitud rechazada correctamente');
+      setRechazarModal(false);
+      loadData();
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Error al rechazar solicitud');
+    } finally {
+      setRechazando(false);
+    }
+  }
+
+  // Eliminar handlers
+  function openEliminarModal(item) {
+    setSelectedItemForEliminar(item);
+    setEliminarModal(true);
+  }
+
+  async function handleExecuteEliminar() {
+    if (!selectedItemForEliminar) return;
+    try {
+      setEliminando(true);
+      await api.delete(`/platform/onboarding/${selectedItemForEliminar.referencia}`);
+      toast.success('Solicitud eliminada correctamente');
+      setEliminarModal(false);
+      loadData();
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Error al eliminar solicitud');
+    } finally {
+      setEliminando(false);
     }
   }
 
@@ -683,6 +741,34 @@ export default function SuperAdminOnboardingPage() {
                               >
                                 <Check className="h-3.5 w-3.5" />
                                 <span className="hidden xl:inline">Aprobar</span>
+                              </Button>
+                            )}
+
+                            {/* Rechazar: solo si no está aprobada/completada */}
+                            {item.estadoIntencion !== 'APROBADA' && item.estadoIntencion !== 'COMPLETADA' && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 px-2.5 gap-1.5 text-xs text-amber-500 hover:text-amber-600 hover:bg-amber-500/10 border-amber-500/30"
+                                onClick={() => openRechazarModal(item)}
+                                title="Rechazar solicitud de onboarding"
+                              >
+                                <XCircle className="h-3.5 w-3.5" />
+                                <span className="hidden xl:inline">Rechazar</span>
+                              </Button>
+                            )}
+
+                            {/* Eliminar: solo si PENDIENTE o RECHAZADA (no APROBADA) */}
+                            {item.estadoIntencion !== 'APROBADA' && item.estadoIntencion !== 'COMPLETADA' && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 px-2.5 gap-1.5 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30"
+                                onClick={() => openEliminarModal(item)}
+                                title="Eliminar solicitud de onboarding permanentemente"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                                <span className="hidden xl:inline">Eliminar</span>
                               </Button>
                             )}
                           </div>
@@ -1145,6 +1231,130 @@ export default function SuperAdminOnboardingPage() {
                     <Check className="h-4 w-4" />
                   )}
                   {approving ? 'Activando...' : 'Confirmar y Activar'}
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* MODAL 4: RECHAZAR SOLICITUD */}
+      <Dialog open={rechazarModal} onOpenChange={setRechazarModal}>
+        <DialogContent className="sm:max-w-md bg-card border-border">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-foreground">
+              <XCircle className="h-5 w-5 text-amber-500" />
+              Rechazar Solicitud de Onboarding
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground text-xs">
+              La solicitud quedará marcada como <strong>RECHAZADA</strong>. El prospecto no podrá activar su cuenta hasta que se gestione una nueva solicitud.
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedItemForRechazar && (
+            <div className="space-y-4 pt-2">
+              <div className="bg-muted/40 p-3 rounded-lg border border-border space-y-1.5 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Referencia:</span>
+                  <span className="font-mono text-foreground">{selectedItemForRechazar.referencia}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Organización:</span>
+                  <span className="font-semibold text-foreground">{selectedItemForRechazar.nombreOrganizacion}</span>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="rechazar-motivo" className="text-xs">
+                  Motivo del rechazo <span className="text-muted-foreground">(opcional)</span>
+                </Label>
+                <textarea
+                  id="rechazar-motivo"
+                  value={rechazarMotivo}
+                  onChange={(e) => setRechazarMotivo(e.target.value)}
+                  placeholder="Ej: Documentación incompleta, NIT duplicado, datos inválidos..."
+                  rows={3}
+                  className="w-full px-3 py-2 text-xs rounded-md border border-input bg-background text-foreground resize-none focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+
+              <DialogFooter className="pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setRechazarModal(false)}
+                  disabled={rechazando}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleExecuteRechazar}
+                  disabled={rechazando}
+                  className="gap-2 bg-amber-600 hover:bg-amber-700 text-white"
+                >
+                  {rechazando ? (
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <XCircle className="h-4 w-4" />
+                  )}
+                  {rechazando ? 'Rechazando...' : 'Confirmar Rechazo'}
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* MODAL 5: ELIMINAR SOLICITUD */}
+      <Dialog open={eliminarModal} onOpenChange={setEliminarModal}>
+        <DialogContent className="sm:max-w-md bg-card border-border">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-foreground">
+              <Trash2 className="h-5 w-5 text-destructive" />
+              Eliminar Solicitud
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground text-xs">
+              Esta acción es <strong>permanente e irreversible</strong>. La solicitud será eliminada de la base de datos junto con cualquier transacción de pago pendiente asociada.
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedItemForEliminar && (
+            <div className="space-y-4 pt-2">
+              <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-xs flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                <div>
+                  <strong>¿Estás seguro?</strong> Se eliminará permanentemente la solicitud de{' '}
+                  <span className="font-semibold">{selectedItemForEliminar.nombreOrganizacion}</span> (ref: <code className="font-mono">{selectedItemForEliminar.referencia}</code>).
+                </div>
+              </div>
+
+              <DialogFooter className="pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setEliminarModal(false)}
+                  disabled={eliminando}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="destructive"
+                  onClick={handleExecuteEliminar}
+                  disabled={eliminando}
+                  className="gap-2"
+                >
+                  {eliminando ? (
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4" />
+                  )}
+                  {eliminando ? 'Eliminando...' : 'Eliminar Definitivamente'}
                 </Button>
               </DialogFooter>
             </div>

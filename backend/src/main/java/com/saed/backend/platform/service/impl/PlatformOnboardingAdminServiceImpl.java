@@ -561,6 +561,85 @@ public class PlatformOnboardingAdminServiceImpl implements PlatformOnboardingAdm
 
     @Override
     @Transactional
+    public Map<String, Object> rechazarSolicitud(String referencia, String motivo) {
+        if (referencia == null || referencia.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Referencia es obligatoria");
+        }
+        SaedContext prevCtx = SaedContextHolder.getContext();
+        try {
+            establecerContextoAdminGlobal();
+            List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                "SELECT ESTADO FROM ONBOARDING_INTENCIONES WHERE REFERENCIA = :ref",
+                new MapSqlParameterSource("ref", referencia)
+            );
+            if (rows.isEmpty()) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Intención de onboarding no encontrada");
+            }
+            String estadoActual = (String) rows.get(0).get("ESTADO");
+            if ("APROBADA".equalsIgnoreCase(estadoActual)) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "No se puede rechazar una solicitud que ya fue aprobada y materializada");
+            }
+            jdbcTemplate.update(
+                "UPDATE ONBOARDING_INTENCIONES SET ESTADO = 'RECHAZADA' WHERE REFERENCIA = :ref",
+                new MapSqlParameterSource("ref", referencia)
+            );
+            Map<String, Object> resp = new HashMap<>();
+            resp.put("referencia", referencia);
+            resp.put("estado", "RECHAZADA");
+            resp.put("motivo", motivo);
+            resp.put("mensaje", "Solicitud rechazada exitosamente.");
+            return resp;
+        } finally {
+            limpiarContexto(prevCtx);
+        }
+    }
+
+    @Override
+    @Transactional
+    public Map<String, Object> eliminarSolicitud(String referencia) {
+        if (referencia == null || referencia.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Referencia es obligatoria");
+        }
+        SaedContext prevCtx = SaedContextHolder.getContext();
+        try {
+            establecerContextoAdminGlobal();
+            List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                "SELECT ESTADO, ID_ORGANIZACION FROM ONBOARDING_INTENCIONES WHERE REFERENCIA = :ref",
+                new MapSqlParameterSource("ref", referencia)
+            );
+            if (rows.isEmpty()) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Intención de onboarding no encontrada");
+            }
+            String estadoActual = (String) rows.get(0).get("ESTADO");
+            if ("APROBADA".equalsIgnoreCase(estadoActual)) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "No se puede eliminar una solicitud que ya fue aprobada. Use cancelar membresía si es necesario");
+            }
+            // Delete any linked pending payment transaction first
+            jdbcTemplate.update(
+                "DELETE FROM TRANSACCIONES_PAGO WHERE REFERENCIA_INTERNA = :ref AND ESTADO_PASARELA = 'PENDIENTE'",
+                new MapSqlParameterSource("ref", referencia)
+            );
+            int deleted = jdbcTemplate.update(
+                "DELETE FROM ONBOARDING_INTENCIONES WHERE REFERENCIA = :ref",
+                new MapSqlParameterSource("ref", referencia)
+            );
+            if (deleted == 0) {
+                throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "No se pudo eliminar la solicitud");
+            }
+            Map<String, Object> resp = new HashMap<>();
+            resp.put("referencia", referencia);
+            resp.put("eliminado", true);
+            resp.put("mensaje", "Solicitud de onboarding eliminada exitosamente.");
+            return resp;
+        } finally {
+            limpiarContexto(prevCtx);
+        }
+    }
+
+    @Override
+    @Transactional
     public Map<String, Object> aprobarManualmente(String referencia) {
         if (referencia == null || referencia.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Referencia es obligatoria");

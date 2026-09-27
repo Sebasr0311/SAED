@@ -57,4 +57,20 @@ public class PlatformOnboardingAdminController {
         Map<String, Object> result = onboardingAdminService.aprobarManualmente(referencia);
         return ResponseEntity.ok(ApiResponse.success(result));
     }
+
+    @PostMapping("/rechazar")
+    @Auditable(action = "REJECT", resource = "ONBOARDING_REGISTRATION", category = AuditCategory.ADMINISTRATIVE, severity = AuditSeverity.HIGH)
+    public ResponseEntity<ApiResponse<Map<String, Object>>> rechazarSolicitud(@RequestBody Map<String, String> payload) {
+        String referencia = payload.get("referencia");
+        String motivo = payload.getOrDefault("motivo", "Rechazado por administrador de plataforma");
+        Map<String, Object> result = onboardingAdminService.rechazarSolicitud(referencia, motivo);
+        return ResponseEntity.ok(ApiResponse.success(result));
+    }
+
+    @DeleteMapping("/{referencia}")
+    @Auditable(action = "DELETE", resource = "ONBOARDING_REGISTRATION", category = AuditCategory.ADMINISTRATIVE, severity = AuditSeverity.HIGH)
+    public ResponseEntity<ApiResponse<Map<String, Object>>> eliminarSolicitud(@PathVariable String referencia) {
+        Map<String, Object> result = onboardingAdminService.eliminarSolicitud(referencia);
+        return ResponseEntity.ok(ApiResponse.success(result));
+    }
 }
