@@ -81,6 +81,7 @@ const NotFoundPage = lazy(() => import('./pages/NotFoundPage.jsx'));
 
 const IncidentesAdminPage = lazy(() => import('./pages/IncidentesAdminPage.jsx'));
 const SuperAdminDashboardPage = lazy(() => import('./pages/SuperAdminDashboardPage.jsx'));
+const SuperAdminMetricasPage = lazy(() => import('./pages/SuperAdminMetricasPage.jsx'));
 const SuperAdminOrganizacionesPage = lazy(() => import('./pages/SuperAdminOrganizacionesPage.jsx'));
 const SuperAdminPropiedadesPage = lazy(() => import('./pages/SuperAdminPropiedadesPage.jsx'));
 const SuperAdminPlanesPage = lazy(() => import('./pages/SuperAdminPlanesPage.jsx'));
@@ -275,7 +276,7 @@ export default function App() {
             path="superadmin/metricas"
             element={
               <ProtectedRoute roles={['SUPERADMIN']}>
-                <SuperAdminDashboardPage />
+                <SuperAdminMetricasPage />
               </ProtectedRoute>
             }
           />

@@ -90,6 +90,10 @@ export default function SuperAdminAdminsPage() {
   }
 
   async function handleToggleStatus(idUsuario, currentStatus) {
+    if (Number(idUsuario) === 1) {
+      toast.error('El Super Administrador principal (Root) está protegido y no puede ser desactivado.');
+      return;
+    }
     const nextStatus = currentStatus === 'ACTIVO' ? 'INACTIVO' : 'ACTIVO';
     try {
       await api.put(`/platform/admins/${idUsuario}/estado`, { estado: nextStatus });
@@ -205,14 +209,20 @@ export default function SuperAdminAdminsPage() {
                         </Badge>
                       </td>
                       <td className="py-3.5 px-4 text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-xs h-8 px-2"
-                          onClick={() => handleToggleStatus(adm.idUsuario || adm.ID_USUARIO, adm.estado || adm.ESTADO)}
-                        >
-                          {(adm.estado || adm.ESTADO) === 'ACTIVO' ? 'Desactivar' : 'Activar'}
-                        </Button>
+                        {(Number(adm.idUsuario || adm.ID_USUARIO) === 1 || (adm.nombreUsuario || adm.NOMBRE_USUARIO) === 'admin_global') ? (
+                          <Badge variant="outline" className="text-xs text-amber-600 dark:text-amber-400 border-amber-500/30 bg-amber-500/10 font-medium">
+                            Principal Protegido
+                          </Badge>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-xs h-8 px-2"
+                            onClick={() => handleToggleStatus(adm.idUsuario || adm.ID_USUARIO, adm.estado || adm.ESTADO)}
+                          >
+                            {(adm.estado || adm.ESTADO) === 'ACTIVO' ? 'Desactivar' : 'Activar'}
+                          </Button>
+                        )}
                       </td>
                     </tr>
                   ))}

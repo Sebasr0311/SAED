@@ -142,8 +142,21 @@ public class PlatformAdminsController {
         
         String nuevoEstado = payload.getOrDefault("estado", "ACTIVO");
 
-        // Regla Crítica: Protección del último SUPERADMIN activo
+        // Regla Crítica: Protección absoluta del SUPERADMIN principal (Root ID 1 / admin_global)
         if ("INACTIVO".equalsIgnoreCase(nuevoEstado) || "BLOQUEADO".equalsIgnoreCase(nuevoEstado)) {
+            if (Long.valueOf(1L).equals(id)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(ApiResponse.error("El Super Administrador principal (Root) de la plataforma está protegido y no puede ser desactivado."));
+            }
+            try {
+                String checkRootSql = "SELECT LOWER(NOMBRE_USUARIO) FROM USUARIOS WHERE ID_USUARIO = :id";
+                String username = jdbcTemplate.queryForObject(checkRootSql, new MapSqlParameterSource("id", id), String.class);
+                if ("admin_global".equalsIgnoreCase(username)) {
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                            .body(ApiResponse.error("El Super Administrador principal (Root) de la plataforma está protegido y no puede ser desactivado."));
+                }
+            } catch (Exception ignored) {}
+
             String countSql = """
                 SELECT COUNT(*) FROM USUARIOS u
                 JOIN USUARIO_ASIGNACIONES ua ON u.ID_USUARIO = ua.ID_USUARIO AND ua.ESTADO = 'ACTIVA'

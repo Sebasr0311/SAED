@@ -97,20 +97,18 @@ public class DatabaseSeeder implements ApplicationRunner {
             runSqlSafe("INSERT INTO ROLES (ID_ROL, CODIGO, NOMBRE, ALCANCE, ESTADO) SELECT 5, 'RESIDENTE', 'Residente', 'UNIDAD', 'ACTIVO' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM ROLES WHERE CODIGO = 'RESIDENTE')");
             runSqlSafe("INSERT INTO ROLES (ID_ROL, CODIGO, NOMBRE, ALCANCE, ESTADO) SELECT 6, 'RESIDENTE_CONVIVENCIA', 'Residente Conviviente', 'UNIDAD', 'ACTIVO' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM ROLES WHERE CODIGO = 'RESIDENTE_CONVIVENCIA')");
 
-            // 5. ORGANIZACIONES
-            runSqlSafe("INSERT INTO ORGANIZACIONES (ID_ORGANIZACION, NOMBRE, IDENTIFICACION_FISCAL, EMAIL_CONTACTO, PAIS, ESTADO) " +
-                   "SELECT 1, 'SAED Global S.A.S.', '900123456-1', 'contacto@saed.com', 'Colombia', 'ACTIVA' FROM DUAL " +
-                   "WHERE NOT EXISTS (SELECT 1 FROM ORGANIZACIONES WHERE ID_ORGANIZACION = 1)");
+            // 5. ORGANIZACIONES (Org 201 canónica: rincon farelo)
+            runSqlSafe("INSERT INTO ORGANIZACIONES (ID_ORGANIZACION, NOMBRE, IDENTIFICACION_FISCAL, EMAIL_CONTACTO, TELEFONO_CONTACTO, CIUDAD, PAIS, ESTADO) " +
+                   "SELECT 201, 'rincon farelo', '1066872103', 'danielaaacunaa8@gmail.com', '3146313413', 'Valledupar (Cesar)', 'Colombia', 'ACTIVA' FROM DUAL " +
+                   "WHERE NOT EXISTS (SELECT 1 FROM ORGANIZACIONES WHERE ID_ORGANIZACION = 201)");
 
-            // 6. PROPIEDADES
+            // 6. PROPIEDADES (Propiedades de Org 201: Algarrobillos y Amparo)
             runSqlSafe("INSERT INTO PROPIEDADES (ID_PROPIEDAD, ID_ORGANIZACION, ID_TIPO_PROPIEDAD, NOMBRE, DIRECCION, CIUDAD, PAIS, TIPO_OCUPACION_PREDOMINANTE, ESTADO) " +
-                   "SELECT 1, 1, 1, 'Edificio Residencial SAED', 'Calle 100 # 15-20', 'Bogota', 'Colombia', 'MIXTA', 'ACTIVA' FROM DUAL " +
-                   "WHERE NOT EXISTS (SELECT 1 FROM PROPIEDADES WHERE ID_PROPIEDAD = 1)");
-
-            // 7. UNIDADES
-            runSqlSafe("INSERT INTO UNIDADES (ID_UNIDAD, ID_PROPIEDAD, ID_TIPO_UNIDAD, IDENTIFICADOR, ESTADO) " +
-                   "SELECT 1, 1, 1, 'Apto 201', 'ACTIVA' FROM DUAL " +
-                   "WHERE NOT EXISTS (SELECT 1 FROM UNIDADES WHERE ID_UNIDAD = 1)");
+                   "SELECT 140, 201, 1, 'Algarrobillos', 'Carrera 19 # 12-45', 'Valledupar', 'Colombia', 'PROPIETARIOS', 'ACTIVA' FROM DUAL " +
+                   "WHERE NOT EXISTS (SELECT 1 FROM PROPIEDADES WHERE ID_PROPIEDAD = 140)");
+            runSqlSafe("INSERT INTO PROPIEDADES (ID_PROPIEDAD, ID_ORGANIZACION, ID_TIPO_PROPIEDAD, NOMBRE, DIRECCION, CIUDAD, PAIS, TIPO_OCUPACION_PREDOMINANTE, ESTADO) " +
+                   "SELECT 141, 201, 2, 'Amparo', 'Calle 16 # 9-30', 'Valledupar', 'Colombia', 'PROPIETARIOS', 'ACTIVA' FROM DUAL " +
+                   "WHERE NOT EXISTS (SELECT 1 FROM PROPIEDADES WHERE ID_PROPIEDAD = 141)");
 
             // 8. PERSONAS (admin_global)
             runSqlSafe("INSERT INTO PERSONAS (ID_PERSONA, ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, PRIMER_NOMBRE, PRIMER_APELLIDO, EMAIL) " +
@@ -167,41 +165,41 @@ public class DatabaseSeeder implements ApplicationRunner {
                 }
             }
 
-            // 15. Seed inicial de CONTACTOS_EMERGENCIA y PLANES_EMERGENCIA para propiedad 1
+            // 15. Seed inicial de CONTACTOS_EMERGENCIA y PLANES_EMERGENCIA para propiedad 140 (Algarrobillos)
             runSqlSafe("INSERT INTO CONTACTOS_EMERGENCIA (ID_PROPIEDAD, ENTIDAD, TIPO_SERVICIO, TELEFONO_PRINCIPAL, TELEFONO_ALTERNO, DIRECCION, ES_PRIORITARIO_MINUTA, ORDEN_VISUALIZACION) " +
-                   "SELECT 1, 'Cuerpo Oficial de Bomberos', 'BOMBEROS', '119', '123', 'Estacion Central', 'S', 1 FROM DUAL " +
-                   "WHERE NOT EXISTS (SELECT 1 FROM CONTACTOS_EMERGENCIA WHERE ID_PROPIEDAD = 1 AND TIPO_SERVICIO = 'BOMBEROS')");
+                   "SELECT 140, 'Cuerpo Oficial de Bomberos', 'BOMBEROS', '119', '123', 'Estacion Central', 'S', 1 FROM DUAL " +
+                   "WHERE NOT EXISTS (SELECT 1 FROM CONTACTOS_EMERGENCIA WHERE ID_PROPIEDAD = 140 AND TIPO_SERVICIO = 'BOMBEROS')");
 
             runSqlSafe("INSERT INTO CONTACTOS_EMERGENCIA (ID_PROPIEDAD, ENTIDAD, TIPO_SERVICIO, TELEFONO_PRINCIPAL, TELEFONO_ALTERNO, DIRECCION, ES_PRIORITARIO_MINUTA, ORDEN_VISUALIZACION) " +
-                   "SELECT 1, 'Policia Nacional - Cuadrante', 'POLICIA', '123', '3001234567', 'CAI del Sector', 'S', 2 FROM DUAL " +
-                   "WHERE NOT EXISTS (SELECT 1 FROM CONTACTOS_EMERGENCIA WHERE ID_PROPIEDAD = 1 AND TIPO_SERVICIO = 'POLICIA')");
+                   "SELECT 140, 'Policia Nacional - Cuadrante', 'POLICIA', '123', '3001234567', 'CAI del Sector', 'S', 2 FROM DUAL " +
+                   "WHERE NOT EXISTS (SELECT 1 FROM CONTACTOS_EMERGENCIA WHERE ID_PROPIEDAD = 140 AND TIPO_SERVICIO = 'POLICIA')");
 
             runSqlSafe("INSERT INTO CONTACTOS_EMERGENCIA (ID_PROPIEDAD, ENTIDAD, TIPO_SERVICIO, TELEFONO_PRINCIPAL, TELEFONO_ALTERNO, DIRECCION, ES_PRIORITARIO_MINUTA, ORDEN_VISUALIZACION) " +
-                   "SELECT 1, 'Emergencias Medicas / Ambulancia', 'AMBULANCIA', '125', '132', 'Red Hospitalaria', 'S', 3 FROM DUAL " +
-                   "WHERE NOT EXISTS (SELECT 1 FROM CONTACTOS_EMERGENCIA WHERE ID_PROPIEDAD = 1 AND TIPO_SERVICIO = 'AMBULANCIA')");
+                   "SELECT 140, 'Emergencias Medicas / Ambulancia', 'AMBULANCIA', '125', '132', 'Red Hospitalaria', 'S', 3 FROM DUAL " +
+                   "WHERE NOT EXISTS (SELECT 1 FROM CONTACTOS_EMERGENCIA WHERE ID_PROPIEDAD = 140 AND TIPO_SERVICIO = 'AMBULANCIA')");
 
             runSqlSafe("INSERT INTO CONTACTOS_EMERGENCIA (ID_PROPIEDAD, ENTIDAD, TIPO_SERVICIO, TELEFONO_PRINCIPAL, TELEFONO_ALTERNO, DIRECCION, ES_PRIORITARIO_MINUTA, ORDEN_VISUALIZACION) " +
-                   "SELECT 1, 'Empresa de Gas Natural', 'GAS_NATURAL', '164', '018000914040', 'Atencion Urgencias Gas', 'S', 4 FROM DUAL " +
-                   "WHERE NOT EXISTS (SELECT 1 FROM CONTACTOS_EMERGENCIA WHERE ID_PROPIEDAD = 1 AND TIPO_SERVICIO = 'GAS_NATURAL')");
+                   "SELECT 140, 'Empresa de Gas Natural', 'GAS_NATURAL', '164', '018000914040', 'Atencion Urgencias Gas', 'S', 4 FROM DUAL " +
+                   "WHERE NOT EXISTS (SELECT 1 FROM CONTACTOS_EMERGENCIA WHERE ID_PROPIEDAD = 140 AND TIPO_SERVICIO = 'GAS_NATURAL')");
 
             runSqlSafe("INSERT INTO CONTACTOS_EMERGENCIA (ID_PROPIEDAD, ENTIDAD, TIPO_SERVICIO, TELEFONO_PRINCIPAL, TELEFONO_ALTERNO, DIRECCION, ES_PRIORITARIO_MINUTA, ORDEN_VISUALIZACION) " +
-                   "SELECT 1, 'Mantenimiento de Ascensores 24/7', 'ASCENSORES', '6013000000', '3109998877', 'Servicio Tecnico Especializado', 'S', 5 FROM DUAL " +
-                   "WHERE NOT EXISTS (SELECT 1 FROM CONTACTOS_EMERGENCIA WHERE ID_PROPIEDAD = 1 AND TIPO_SERVICIO = 'ASCENSORES')");
+                   "SELECT 140, 'Mantenimiento de Ascensores 24/7', 'ASCENSORES', '6013000000', '3109998877', 'Servicio Tecnico Especializado', 'S', 5 FROM DUAL " +
+                   "WHERE NOT EXISTS (SELECT 1 FROM CONTACTOS_EMERGENCIA WHERE ID_PROPIEDAD = 140 AND TIPO_SERVICIO = 'ASCENSORES')");
 
             runSqlSafe("INSERT INTO PLANES_EMERGENCIA (ID_PROPIEDAD, TITULO, TIPO_CONTINGENCIA, PUNTOS_ENCUENTRO, RUTAS_EVACUACION_DESC, FECHA_ULTIMA_REVISION, ESTADO) " +
-                   "SELECT 1, 'Plan Integral de Evacuacion por Incendio', 'INCENDIO', 'Parque Central frente a la Porteria Principal', 'Descenso por escaleras de emergencia senalizadas hacia la salida vehicular y punto seguro exterior. Prohibido el uso de ascensores.', TRUNC(SYSDATE), 'ACTIVO' FROM DUAL " +
-                   "WHERE NOT EXISTS (SELECT 1 FROM PLANES_EMERGENCIA WHERE ID_PROPIEDAD = 1 AND TIPO_CONTINGENCIA = 'INCENDIO')");
+                   "SELECT 140, 'Plan Integral de Evacuacion por Incendio', 'INCENDIO', 'Parque Central frente a la Porteria Principal', 'Descenso por escaleras de emergencia senalizadas hacia la salida vehicular y punto seguro exterior. Prohibido el uso de ascensores.', TRUNC(SYSDATE), 'ACTIVO' FROM DUAL " +
+                   "WHERE NOT EXISTS (SELECT 1 FROM PLANES_EMERGENCIA WHERE ID_PROPIEDAD = 140 AND TIPO_CONTINGENCIA = 'INCENDIO')");
 
-            // 16. Seed inicial de MEDICIONES_CONSUMO para propiedad 1
+            // 16. Seed inicial de MEDICIONES_CONSUMO para propiedad 140
             runSqlSafe("INSERT INTO MEDICIONES_CONSUMO (ID_PROPIEDAD, ID_UNIDAD, TIPO_SERVICIO, NUMERO_MEDIDOR, PERIODO, " +
                    "LECTURA_ANTERIOR, LECTURA_ACTUAL, UNIDAD_MEDIDA, TARIFA_UNITARIA, COSTO_TOTAL, ANOMALIA_DETECTADA, OBSERVACION_ANOMALIA, FECHA_TOMA_LECTURA) " +
-                   "SELECT 1, NULL, 'AGUA', 'MED-AGUA-GEN-01', '2026-08', 540.00, 620.00, 'M3', 6800.00, 544000.00, 'N', 'Lectura mensual zonas comunes', TO_DATE('2026-08-30','YYYY-MM-DD') FROM DUAL " +
-                   "WHERE NOT EXISTS (SELECT 1 FROM MEDICIONES_CONSUMO WHERE ID_PROPIEDAD = 1 AND NUMERO_MEDIDOR = 'MED-AGUA-GEN-01' AND PERIODO = '2026-08')");
+                   "SELECT 140, NULL, 'AGUA', 'MED-AGUA-GEN-01', '2026-08', 540.00, 620.00, 'M3', 6800.00, 544000.00, 'N', 'Lectura mensual zonas comunes', TO_DATE('2026-08-30','YYYY-MM-DD') FROM DUAL " +
+                   "WHERE NOT EXISTS (SELECT 1 FROM MEDICIONES_CONSUMO WHERE ID_PROPIEDAD = 140 AND NUMERO_MEDIDOR = 'MED-AGUA-GEN-01' AND PERIODO = '2026-08')");
 
             runSqlSafe("INSERT INTO MEDICIONES_CONSUMO (ID_PROPIEDAD, ID_UNIDAD, TIPO_SERVICIO, NUMERO_MEDIDOR, PERIODO, " +
                    "LECTURA_ANTERIOR, LECTURA_ACTUAL, UNIDAD_MEDIDA, TARIFA_UNITARIA, COSTO_TOTAL, ANOMALIA_DETECTADA, OBSERVACION_ANOMALIA, FECHA_TOMA_LECTURA) " +
-                   "SELECT 1, NULL, 'ENERGIA', 'MED-ENERGIA-GEN-01', '2026-08', 12400.00, 13850.00, 'KWH', 890.00, 1290500.00, 'N', 'Iluminacion comunal y bombas hidraulicas', TO_DATE('2026-08-30','YYYY-MM-DD') FROM DUAL " +
-                   "WHERE NOT EXISTS (SELECT 1 FROM MEDICIONES_CONSUMO WHERE ID_PROPIEDAD = 1 AND NUMERO_MEDIDOR = 'MED-ENERGIA-GEN-01' AND PERIODO = '2026-08')");
+                   "SELECT 140, NULL, 'ENERGIA', 'MED-ENERGIA-GEN-01', '2026-08', 12400.00, 13850.00, 'KWH', 890.00, 1290500.00, 'N', 'Iluminacion comunal y bombas hidraulicas', TO_DATE('2026-08-30','YYYY-MM-DD') FROM DUAL " +
+                   "WHERE NOT EXISTS (SELECT 1 FROM MEDICIONES_CONSUMO WHERE ID_PROPIEDAD = 140 AND NUMERO_MEDIDOR = 'MED-ENERGIA-GEN-01' AND PERIODO = '2026-08')");
 
             runSqlSafe("INSERT INTO MEDICIONES_CONSUMO (ID_PROPIEDAD, ID_UNIDAD, TIPO_SERVICIO, NUMERO_MEDIDOR, PERIODO, " +
                    "LECTURA_ANTERIOR, LECTURA_ACTUAL, UNIDAD_MEDIDA, TARIFA_UNITARIA, COSTO_TOTAL, ANOMALIA_DETECTADA, OBSERVACION_ANOMALIA, FECHA_TOMA_LECTURA) " +
@@ -308,7 +306,7 @@ public class DatabaseSeeder implements ApplicationRunner {
                 }
 
                 Integer countTemplates = jdbcTemplate.queryForObject(
-                    "SELECT COUNT(1) FROM PLANTILLAS_CONTRATOS WHERE ID_ORGANIZACION = 1",
+                    "SELECT COUNT(1) FROM PLANTILLAS_CONTRATOS WHERE ID_ORGANIZACION = 201",
                     Integer.class
                 );
                 if (countTemplates == null || countTemplates == 0) {
@@ -319,7 +317,7 @@ public class DatabaseSeeder implements ApplicationRunner {
                             CONTENIDO_HTML, VARIABLES_DISPONIBLES, CAMPOS_REQUERIDOS, VERSION,
                             ESTADO, VIGENCIA_DESDE, CREADO_POR
                         ) VALUES (
-                            1, 'CONTRATO_ESTANDAR_2026', 'Contrato Estándar Residencial', 'INICIAL',
+                            201, 'CONTRATO_ESTANDAR_2026', 'Contrato Estándar Residencial', 'INICIAL',
                             'Plantilla base predeterminada para contratos de arrendamiento residencial.',
                             ?, '["propiedad.nombre","inquilino.nombre_completo","apartamento.numero","contrato.canon_mensual"]',
                             '["propiedad.nombre","inquilino.nombre_completo","apartamento.numero"]', 1,

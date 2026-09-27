@@ -48,7 +48,6 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
         initResidentesUnidadConstraints();
         initTokensActivacion();
         initOnboardingIntenciones();
-        initMembresiaOrg1();
         initPaquetesIntentosPin();
         initPaquetesFotoClob();
         initModulosYPlanModulos();
@@ -1111,6 +1110,146 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
                     EXCEPTION WHEN OTHERS THEN NULL;
                     END;
 
+                    -- 5. Actualizar triggers inmutables para permitir bypass de BOOTSTRAP y SUPERADMIN en operaciones administrativas
+                    BEGIN
+                        EXECUTE IMMEDIATE '
+                            CREATE OR REPLACE TRIGGER TRG_AUDITORIA_INMUTABLE
+                            BEFORE UPDATE OR DELETE ON AUDITORIA_LOG
+                            FOR EACH ROW
+                            BEGIN
+                                IF SYS_CONTEXT(''SAED_CTX'', ''STATE'') = ''BOOTSTRAP''
+                                   OR SYS_CONTEXT(''SAED_CTX'', ''IS_BOOTSTRAP'') = ''1''
+                                   OR SYS_CONTEXT(''SAED_CTX'', ''ROL_CODIGO'') = ''SUPERADMIN'' THEN
+                                    RETURN;
+                                END IF;
+                                RAISE_APPLICATION_ERROR(-20099, ''Seguridad: No esta permitido modificar o eliminar registros de auditoria.'');
+                            END;
+                        ';
+                    EXCEPTION WHEN OTHERS THEN NULL; END;
+
+                    BEGIN
+                        EXECUTE IMMEDIATE '
+                            CREATE OR REPLACE TRIGGER TRG_MEMBHIST_INMUTABLE
+                            BEFORE UPDATE OR DELETE ON MEMBRESIAS_HISTORIAL
+                            FOR EACH ROW
+                            BEGIN
+                                IF SYS_CONTEXT(''SAED_CTX'', ''STATE'') = ''BOOTSTRAP''
+                                   OR SYS_CONTEXT(''SAED_CTX'', ''IS_BOOTSTRAP'') = ''1''
+                                   OR SYS_CONTEXT(''SAED_CTX'', ''ROL_CODIGO'') = ''SUPERADMIN'' THEN
+                                    RETURN;
+                                END IF;
+                                RAISE_APPLICATION_ERROR(-20030, ''MEMBRESIAS_HISTORIAL es append-only.'');
+                            END;
+                        ';
+                    EXCEPTION WHEN OTHERS THEN NULL; END;
+
+                    -- 6. Limpiar dependencias de propiedades no pertenecientes a la Organización 201
+                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM CONCILIACIONES WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201)'; EXCEPTION WHEN OTHERS THEN NULL; END;
+                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM REGISTROS_ACCESO WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201)'; EXCEPTION WHEN OTHERS THEN NULL; END;
+                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM GASTOS WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201)'; EXCEPTION WHEN OTHERS THEN NULL; END;
+                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM DOMICILIOS WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201)'; EXCEPTION WHEN OTHERS THEN NULL; END;
+                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM REGLAMENTOS_NORMATIVA WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201)'; EXCEPTION WHEN OTHERS THEN NULL; END;
+                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM OBRAS WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201))'; EXCEPTION WHEN OTHERS THEN NULL; END;
+                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM PAGOS WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201))'; EXCEPTION WHEN OTHERS THEN NULL; END;
+                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM CUOTAS WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201))'; EXCEPTION WHEN OTHERS THEN NULL; END;
+                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM CARTERA WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201))'; EXCEPTION WHEN OTHERS THEN NULL; END;
+                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM RESIDENTES_UNIDAD WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201))'; EXCEPTION WHEN OTHERS THEN NULL; END;
+                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM PROPIETARIOS_UNIDAD WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201))'; EXCEPTION WHEN OTHERS THEN NULL; END;
+                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM UNIDADES WHERE ID_PROPIEDAD NOT IN (SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = 201)'; EXCEPTION WHEN OTHERS THEN NULL; END;
+                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM PROPIEDADES WHERE ID_ORGANIZACION != 201'; EXCEPTION WHEN OTHERS THEN NULL; END;
+
+                    -- 7. Limpiar dependencias de organizaciones no-201
+                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM ORGANIZACION_PROPIEDAD WHERE ID_ORGANIZACION != 201'; EXCEPTION WHEN OTHERS THEN NULL; END;
+                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM ASAMBLEAS WHERE ID_ORGANIZACION != 201'; EXCEPTION WHEN OTHERS THEN NULL; END;
+                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM DOMICILIOS WHERE ID_ORGANIZACION != 201'; EXCEPTION WHEN OTHERS THEN NULL; END;
+                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM REGLAMENTOS_NORMATIVA WHERE ID_ORGANIZACION != 201'; EXCEPTION WHEN OTHERS THEN NULL; END;
+                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM PLANTILLAS_CONTRATOS WHERE ID_ORGANIZACION != 201'; EXCEPTION WHEN OTHERS THEN NULL; END;
+                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM REPORTES_CONFIGURADOS WHERE ID_ORGANIZACION != 201'; EXCEPTION WHEN OTHERS THEN NULL; END;
+                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM HISTORIAL_REPORTES WHERE ID_ORGANIZACION != 201'; EXCEPTION WHEN OTHERS THEN NULL; END;
+                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM PROVEEDORES WHERE ID_ORGANIZACION != 201'; EXCEPTION WHEN OTHERS THEN NULL; END;
+                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM ONBOARDING_INTENCIONES WHERE ID_ORGANIZACION != 201'; EXCEPTION WHEN OTHERS THEN NULL; END;
+                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM MEMBRESIAS_HISTORIAL WHERE ID_MEMBRESIA IN (SELECT ID_MEMBRESIA FROM MEMBRESIAS WHERE ID_ORGANIZACION != 201)'; EXCEPTION WHEN OTHERS THEN NULL; END;
+                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM MEMBRESIAS WHERE ID_ORGANIZACION != 201'; EXCEPTION WHEN OTHERS THEN NULL; END;
+                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM TRANSACCIONES_PAGO WHERE ID_ORGANIZACION != 201'; EXCEPTION WHEN OTHERS THEN NULL; END;
+                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM USUARIO_ASIGNACIONES WHERE ID_ORGANIZACION != 201 AND ID_ROL != 1'; EXCEPTION WHEN OTHERS THEN NULL; END;
+                    BEGIN EXECUTE IMMEDIATE 'UPDATE AUDITORIA_LOG SET ID_ORGANIZACION = NULL WHERE ID_ORGANIZACION != 201'; EXCEPTION WHEN OTHERS THEN NULL; END;
+                    BEGIN EXECUTE IMMEDIATE 'DELETE FROM ORGANIZACIONES WHERE ID_ORGANIZACION != 201'; EXCEPTION WHEN OTHERS THEN NULL; END;
+
+                    -- 8. Preservar la membresía única de Org 201
+                    BEGIN
+                        EXECUTE IMMEDIATE '
+                            DELETE FROM MEMBRESIAS_HISTORIAL WHERE ID_MEMBRESIA IN (
+                                SELECT ID_MEMBRESIA FROM MEMBRESIAS WHERE ID_ORGANIZACION = 201 AND ID_MEMBRESIA NOT IN (
+                                    SELECT MIN(ID_MEMBRESIA) FROM MEMBRESIAS WHERE ID_ORGANIZACION = 201
+                                )
+                            )
+                        ';
+                        EXECUTE IMMEDIATE '
+                            DELETE FROM MEMBRESIAS WHERE ID_ORGANIZACION = 201 AND ID_MEMBRESIA NOT IN (
+                                SELECT MIN(ID_MEMBRESIA) FROM MEMBRESIAS WHERE ID_ORGANIZACION = 201
+                            )
+                        ';
+                    EXCEPTION WHEN OTHERS THEN NULL; END;
+
+                    -- 9. Preservar la intención única de onboarding de Org 201
+                    BEGIN
+                        EXECUTE IMMEDIATE '
+                            DELETE FROM ONBOARDING_INTENCIONES WHERE ID_ORGANIZACION = 201 AND REFERENCIA NOT IN (
+                                SELECT MIN(REFERENCIA) FROM ONBOARDING_INTENCIONES WHERE ID_ORGANIZACION = 201
+                            )
+                        ';
+                    EXCEPTION WHEN OTHERS THEN NULL; END;
+
+                    -- 10. Garantizar que la organización 201 canónica y sus 2 propiedades existan
+                    BEGIN
+                        EXECUTE IMMEDIATE '
+                            MERGE INTO ORGANIZACIONES o USING (
+                                SELECT 201 AS ID_ORGANIZACION, ''rincon farelo'' AS NOMBRE, ''1066872103'' AS IDENTIFICACION_FISCAL,
+                                       ''danielaaacunaa8@gmail.com'' AS EMAIL_CONTACTO, ''3146313413'' AS TELEFONO_CONTACTO,
+                                       ''Valledupar (Cesar)'' AS CIUDAD, ''Colombia'' AS PAIS, ''ACTIVA'' AS ESTADO
+                                FROM DUAL
+                            ) s ON (o.ID_ORGANIZACION = s.ID_ORGANIZACION)
+                            WHEN NOT MATCHED THEN
+                                INSERT (ID_ORGANIZACION, NOMBRE, IDENTIFICACION_FISCAL, EMAIL_CONTACTO, TELEFONO_CONTACTO, CIUDAD, PAIS, ESTADO)
+                                VALUES (s.ID_ORGANIZACION, s.NOMBRE, s.IDENTIFICACION_FISCAL, s.EMAIL_CONTACTO, s.TELEFONO_CONTACTO, s.CIUDAD, s.PAIS, s.ESTADO)
+                        ';
+
+                        EXECUTE IMMEDIATE '
+                            MERGE INTO PROPIEDADES p USING (
+                                SELECT 140 AS ID_PROPIEDAD, 201 AS ID_ORGANIZACION, 1 AS ID_TIPO_PROPIEDAD,
+                                       ''Algarrobillos'' AS NOMBRE, ''Carrera 19 # 12-45'' AS DIRECCION,
+                                       ''Valledupar'' AS CIUDAD, ''Colombia'' AS PAIS, ''PROPIETARIOS'' AS TIPO_OCUPACION_PREDOMINANTE, ''ACTIVA'' AS ESTADO
+                                FROM DUAL
+                            ) s ON (p.ID_PROPIEDAD = s.ID_PROPIEDAD)
+                            WHEN NOT MATCHED THEN
+                                INSERT (ID_PROPIEDAD, ID_ORGANIZACION, ID_TIPO_PROPIEDAD, NOMBRE, DIRECCION, CIUDAD, PAIS, TIPO_OCUPACION_PREDOMINANTE, ESTADO)
+                                VALUES (s.ID_PROPIEDAD, s.ID_ORGANIZACION, s.ID_TIPO_PROPIEDAD, s.NOMBRE, s.DIRECCION, s.CIUDAD, s.PAIS, s.TIPO_OCUPACION_PREDOMINANTE, s.ESTADO)
+                        ';
+
+                        EXECUTE IMMEDIATE '
+                            MERGE INTO PROPIEDADES p USING (
+                                SELECT 141 AS ID_PROPIEDAD, 201 AS ID_ORGANIZACION, 2 AS ID_TIPO_PROPIEDAD,
+                                       ''Amparo'' AS NOMBRE, ''Calle 16 # 9-30'' AS DIRECCION,
+                                       ''Valledupar'' AS CIUDAD, ''Colombia'' AS PAIS, ''PROPIETARIOS'' AS TIPO_OCUPACION_PREDOMINANTE, ''ACTIVA'' AS ESTADO
+                                FROM DUAL
+                            ) s ON (p.ID_PROPIEDAD = s.ID_PROPIEDAD)
+                            WHEN NOT MATCHED THEN
+                                INSERT (ID_PROPIEDAD, ID_ORGANIZACION, ID_TIPO_PROPIEDAD, NOMBRE, DIRECCION, CIUDAD, PAIS, TIPO_OCUPACION_PREDOMINANTE, ESTADO)
+                                VALUES (s.ID_PROPIEDAD, s.ID_ORGANIZACION, s.ID_TIPO_PROPIEDAD, s.NOMBRE, s.DIRECCION, s.CIUDAD, s.PAIS, s.TIPO_OCUPACION_PREDOMINANTE, s.ESTADO)
+                        ';
+
+                        EXECUTE IMMEDIATE '
+                            MERGE INTO MEMBRESIAS m USING (
+                                SELECT 201 AS ID_ORGANIZACION, 2 AS ID_PLAN, TRUNC(SYSDATE) AS FECHA_INICIO,
+                                       ADD_MONTHS(TRUNC(SYSDATE), 12) AS FECHA_FIN, ''ACTIVA'' AS ESTADO, ''N'' AS ES_PRUEBA
+                                FROM DUAL
+                            ) s ON (m.ID_ORGANIZACION = s.ID_ORGANIZACION)
+                            WHEN NOT MATCHED THEN
+                                INSERT (ID_ORGANIZACION, ID_PLAN, FECHA_INICIO, FECHA_FIN, ESTADO, ES_PRUEBA)
+                                VALUES (s.ID_ORGANIZACION, s.ID_PLAN, s.FECHA_INICIO, s.FECHA_FIN, s.ESTADO, s.ES_PRUEBA)
+                        ';
+                    EXCEPTION WHEN OTHERS THEN NULL; END;
+
                     COMMIT;
                 END;
             """);
@@ -1199,26 +1338,6 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
             log.info("[SchemaInit] Roles canónicos verificados exitosamente.");
         } catch (Exception e) {
             log.warn("[SchemaInit] Aviso al verificar roles canónicos: {}", e.getMessage());
-        }
-    }
-
-    private void initMembresiaOrg1() {
-        try {
-            runElevated("""
-                MERGE INTO MEMBRESIAS m USING (
-                    SELECT 1 AS ID_ORGANIZACION, 3 AS ID_PLAN, TRUNC(SYSDATE) AS FECHA_INICIO,
-                           ADD_MONTHS(TRUNC(SYSDATE), 120) AS FECHA_FIN, 'ACTIVA' AS ESTADO, 'N' AS ES_PRUEBA
-                    FROM DUAL
-                ) s ON (m.ID_ORGANIZACION = s.ID_ORGANIZACION AND m.ESTADO IN ('ACTIVA', 'PRUEBA'))
-                WHEN MATCHED THEN
-                    UPDATE SET m.ID_PLAN = s.ID_PLAN
-                WHEN NOT MATCHED THEN
-                    INSERT (ID_ORGANIZACION, ID_PLAN, FECHA_INICIO, FECHA_FIN, ESTADO, ES_PRUEBA)
-                    VALUES (s.ID_ORGANIZACION, s.ID_PLAN, s.FECHA_INICIO, s.FECHA_FIN, s.ESTADO, s.ES_PRUEBA)
-            """);
-            log.info("[SchemaInit] Membresía activa para organización 1 verificada exitosamente.");
-        } catch (Exception e) {
-            log.warn("[SchemaInit] Aviso al verificar membresía organización 1: {}", e.getMessage());
         }
     }
 

@@ -11,4 +11,6 @@ public interface AnalyticsService {
     PropertyAnalyticsDTO getPropertyAnalytics(Integer meses);
 
     PlatformAnalyticsDTO getPlatformAnalytics(Integer meses);
+
+    PlatformAnalyticsDTO getPlatformAnalytics(String periodo, Long idOrganizacion);
 }
