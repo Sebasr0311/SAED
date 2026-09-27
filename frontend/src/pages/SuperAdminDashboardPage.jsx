@@ -346,56 +346,58 @@ export default function SuperAdminDashboardPage() {
               No hay actividad reciente registrada en el log de auditoría.
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="text-xs">Fecha y Hora</TableHead>
-                  <TableHead className="text-xs">Acción</TableHead>
-                  <TableHead className="text-xs">Entidad</TableHead>
-                  <TableHead className="text-xs">Usuario</TableHead>
-                  <TableHead className="text-xs">IP Origen</TableHead>
-                  <TableHead className="text-xs text-right">Resultado</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {actividad.map((item, idx) => {
-                  const isSuccess = item.resultado === 'SUCCESS' || item.resultado === 'EXITO';
-                  return (
-                    <TableRow key={item.idLog || idx} className="hover:bg-muted/30">
-                      <TableCell className="text-xs font-mono text-muted-foreground whitespace-nowrap">
-                        {item.fechaHora ? item.fechaHora.replace('T', ' ') : '-'}
-                      </TableCell>
-                      <TableCell className="text-xs font-semibold text-foreground">
-                        {item.accion || 'OPERACION'}
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        <Badge variant="outline" className="text-[10px] font-normal">
-                          {item.entidad || 'GLOBAL'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-xs text-foreground font-medium">
-                        {item.usuario || 'Sistema'}
-                      </TableCell>
-                      <TableCell className="text-xs font-mono text-muted-foreground">
-                        {item.ip || '127.0.0.1'}
-                      </TableCell>
-                      <TableCell className="text-xs text-right">
-                        <Badge
-                          variant="outline"
-                          className={
-                            isSuccess
-                              ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20 text-[10px] font-bold'
-                              : 'bg-rose-500/10 text-rose-600 border-rose-500/20 text-[10px] font-bold'
-                          }
-                        >
-                          {item.resultado || 'SUCCESS'}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-xs">Fecha y Hora</TableHead>
+                    <TableHead className="text-xs">Acción</TableHead>
+                    <TableHead className="text-xs">Entidad</TableHead>
+                    <TableHead className="text-xs">Usuario</TableHead>
+                    <TableHead className="text-xs">IP Origen</TableHead>
+                    <TableHead className="text-xs text-right">Resultado</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {actividad.map((item, idx) => {
+                    const isSuccess = item.resultado === 'SUCCESS' || item.resultado === 'EXITO';
+                    return (
+                      <TableRow key={item.idLog || idx} className="hover:bg-muted/30">
+                        <TableCell className="text-xs font-mono text-muted-foreground whitespace-nowrap">
+                          {item.fechaHora ? item.fechaHora.replace('T', ' ') : '-'}
+                        </TableCell>
+                        <TableCell className="text-xs font-semibold text-foreground">
+                          {item.accion || 'OPERACION'}
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          <Badge variant="outline" className="text-[10px] font-normal">
+                            {item.entidad || 'GLOBAL'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-xs text-foreground font-medium">
+                          {item.usuario || 'Sistema'}
+                        </TableCell>
+                        <TableCell className="text-xs font-mono text-muted-foreground">
+                          {item.ip || '127.0.0.1'}
+                        </TableCell>
+                        <TableCell className="text-xs text-right">
+                          <Badge
+                            variant="outline"
+                            className={
+                              isSuccess
+                                ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20 text-[10px] font-bold'
+                                : 'bg-rose-500/10 text-rose-600 border-rose-500/20 text-[10px] font-bold'
+                            }
+                          >
+                            {item.resultado || 'SUCCESS'}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>
@@ -406,11 +408,11 @@ export default function SuperAdminDashboardPage() {
           <span className="material-symbols-outlined text-primary text-base">widgets</span>
           Accesos Rápidos de Gestión
         </h2>
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-7 gap-3">
           {[
             { label: 'Organizaciones', icon: 'domain', ruta: '/superadmin/organizaciones', desc: 'Tenants SaaS' },
             { label: 'Propiedades', icon: 'apartment', ruta: '/superadmin/propiedades', desc: 'Copropiedades' },
-            { label: 'Planes SaaS', icon: 'pricing_plan', ruta: '/superadmin/planes', desc: 'Tarifas y cupos' },
+            { label: 'Planes SaaS', icon: 'credit_card', ruta: '/superadmin/planes', desc: 'Tarifas y cupos' },
             { label: 'Membresías', icon: 'card_membership', ruta: '/superadmin/membresias', desc: 'Suscripciones' },
             { label: 'Onboarding', icon: 'how_to_reg', ruta: '/superadmin/onboarding', desc: 'Solicitudes' },
             { label: 'Administradores', icon: 'admin_panel_settings', ruta: '/superadmin/administradores', desc: 'Equipo SAED' },
@@ -422,14 +424,16 @@ export default function SuperAdminDashboardPage() {
               onClick={() => navigate(item.ruta)}
               className="p-3.5 rounded-xl border border-border/70 bg-card hover:bg-muted/40 hover:border-primary/40 transition-all text-left flex flex-col justify-between group shadow-sm"
             >
-              <span className="material-symbols-outlined text-primary group-hover:scale-110 transition-transform mb-2">
-                {item.icon}
-              </span>
+              <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center text-primary group-hover:scale-105 group-hover:bg-primary group-hover:text-primary-foreground transition-all shrink-0 mb-2.5">
+                <span className="material-symbols-outlined text-xl select-none leading-none">
+                  {item.icon}
+                </span>
+              </div>
               <div>
-                <div className="text-xs font-semibold text-foreground group-hover:text-primary transition-colors">
+                <div className="text-xs font-semibold text-foreground group-hover:text-primary transition-colors truncate">
                   {item.label}
                 </div>
-                <div className="text-[10px] text-muted-foreground">{item.desc}</div>
+                <div className="text-[10px] text-muted-foreground truncate">{item.desc}</div>
               </div>
             </button>
           ))}

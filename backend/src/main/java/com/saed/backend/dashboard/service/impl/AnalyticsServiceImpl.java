@@ -604,57 +604,57 @@ public class AnalyticsServiceImpl implements AnalyticsService {
         } else if ("1y".equals(effPeriodo) || "anio".equals(effPeriodo)) {
             fechaInicio = hoy.minusYears(1);
         }
+        java.sql.Timestamp fechaInicioTs = fechaInicio != null ? java.sql.Timestamp.valueOf(fechaInicio.atStartOfDay()) : null;
         params.addValue("fechaInicio", fechaInicio);
+        params.addValue("fechaInicioTs", fechaInicioTs);
 
-        // 1. Resumen Global
+        // 1. Resumen Global Consolidado (1 solo round-trip a Oracle)
         Map<String, Object> resumenGlobal = new HashMap<>();
+        long totalOrg = 0L;
+        long activasOrg = 0L;
         try {
-            Number totalOrgNum = jdbc.queryForObject("SELECT COUNT(*) FROM ORGANIZACIONES WHERE (:orgId IS NULL OR ID_ORGANIZACION = :orgId)", params, Number.class);
-            Number activasOrgNum = jdbc.queryForObject("SELECT COUNT(*) FROM ORGANIZACIONES WHERE ESTADO = 'ACTIVA' AND (:orgId IS NULL OR ID_ORGANIZACION = :orgId)", params, Number.class);
-            long totalOrg = totalOrgNum != null ? totalOrgNum.longValue() : 0L;
-            long activasOrg = activasOrgNum != null ? activasOrgNum.longValue() : 0L;
+            String sqlResumen = """
+                SELECT
+                    (SELECT COUNT(*) FROM ORGANIZACIONES WHERE (:orgId IS NULL OR ID_ORGANIZACION = :orgId)) AS TOTAL_ORG,
+                    (SELECT COUNT(*) FROM ORGANIZACIONES WHERE ESTADO = 'ACTIVA' AND (:orgId IS NULL OR ID_ORGANIZACION = :orgId)) AS ACTIVAS_ORG,
+                    (SELECT COUNT(*) FROM PROPIEDADES WHERE (:orgId IS NULL OR ID_ORGANIZACION = :orgId)) AS TOTAL_PROP,
+                    (SELECT COUNT(*) FROM PROPIEDADES WHERE ESTADO = 'ACTIVA' AND (:orgId IS NULL OR ID_ORGANIZACION = :orgId)) AS ACTIVAS_PROP,
+                    (SELECT COUNT(*) FROM UNIDADES u JOIN PROPIEDADES p ON u.ID_PROPIEDAD = p.ID_PROPIEDAD WHERE (:orgId IS NULL OR p.ID_ORGANIZACION = :orgId)) AS TOTAL_UNIDADES,
+                    (SELECT COUNT(DISTINCT u.ID_USUARIO) FROM USUARIOS u LEFT JOIN USUARIO_ASIGNACIONES ua ON u.ID_USUARIO = ua.ID_USUARIO WHERE (:orgId IS NULL OR ua.ID_ORGANIZACION = :orgId)) AS TOTAL_USERS,
+                    (SELECT COUNT(DISTINCT u.ID_USUARIO) FROM USUARIOS u LEFT JOIN USUARIO_ASIGNACIONES ua ON u.ID_USUARIO = ua.ID_USUARIO WHERE u.ESTADO = 'ACTIVO' AND (:orgId IS NULL OR ua.ID_ORGANIZACION = :orgId)) AS ACTIVE_USERS,
+                    (SELECT COUNT(*) FROM RESIDENTES_UNIDAD ru JOIN UNIDADES u ON ru.ID_UNIDAD = u.ID_UNIDAD JOIN PROPIEDADES p ON u.ID_PROPIEDAD = p.ID_PROPIEDAD WHERE (:orgId IS NULL OR p.ID_ORGANIZACION = :orgId)) AS TOTAL_RESID,
+                    (SELECT COUNT(*) FROM RESIDENTES_UNIDAD ru JOIN UNIDADES u ON ru.ID_UNIDAD = u.ID_UNIDAD JOIN PROPIEDADES p ON u.ID_PROPIEDAD = p.ID_PROPIEDAD WHERE ru.ESTADO = 'ACTIVO' AND (:orgId IS NULL OR p.ID_ORGANIZACION = :orgId)) AS ACTIVE_RESID,
+                    (SELECT COUNT(*) FROM TRABAJADORES t LEFT JOIN PROVEEDORES pr ON t.ID_PROVEEDOR = pr.ID_PROVEEDOR WHERE (:orgId IS NULL OR pr.ID_ORGANIZACION = :orgId)) AS TOTAL_TRAB,
+                    (SELECT COUNT(*) FROM TRABAJADORES t LEFT JOIN PROVEEDORES pr ON t.ID_PROVEEDOR = pr.ID_PROVEEDOR WHERE t.ESTADO = 'ACTIVO' AND (:orgId IS NULL OR pr.ID_ORGANIZACION = :orgId)) AS ACTIVE_TRAB
+                FROM DUAL
+            """;
+            Map<String, Object> r = jdbc.queryForMap(sqlResumen, params);
+
+            totalOrg = ((Number) r.getOrDefault("TOTAL_ORG", 0)).longValue();
+            activasOrg = ((Number) r.getOrDefault("ACTIVAS_ORG", 0)).longValue();
             resumenGlobal.put("organizaciones", Map.of("total", totalOrg, "activas", activasOrg, "inactivas", Math.max(0, totalOrg - activasOrg)));
 
-            Number totalPropNum = jdbc.queryForObject("SELECT COUNT(*) FROM PROPIEDADES WHERE (:orgId IS NULL OR ID_ORGANIZACION = :orgId)", params, Number.class);
-            Number activasPropNum = jdbc.queryForObject("SELECT COUNT(*) FROM PROPIEDADES WHERE ESTADO = 'ACTIVA' AND (:orgId IS NULL OR ID_ORGANIZACION = :orgId)", params, Number.class);
-            long totalProp = totalPropNum != null ? totalPropNum.longValue() : 0L;
-            long activasProp = activasPropNum != null ? activasPropNum.longValue() : 0L;
+            long totalProp = ((Number) r.getOrDefault("TOTAL_PROP", 0)).longValue();
+            long activasProp = ((Number) r.getOrDefault("ACTIVAS_PROP", 0)).longValue();
             resumenGlobal.put("propiedades", Map.of("total", totalProp, "activas", activasProp, "inactivas", Math.max(0, totalProp - activasProp)));
 
-            Number totalUnidadesNum = jdbc.queryForObject("SELECT COUNT(*) FROM UNIDADES u JOIN PROPIEDADES p ON u.ID_PROPIEDAD = p.ID_PROPIEDAD WHERE (:orgId IS NULL OR p.ID_ORGANIZACION = :orgId)", params, Number.class);
-            resumenGlobal.put("unidades", Map.of("total", totalUnidadesNum != null ? totalUnidadesNum.longValue() : 0L));
+            long totalUnidades = ((Number) r.getOrDefault("TOTAL_UNIDADES", 0)).longValue();
+            resumenGlobal.put("unidades", Map.of("total", totalUnidades));
 
-            Number totalUsersNum = jdbc.queryForObject("SELECT COUNT(DISTINCT u.ID_USUARIO) FROM USUARIOS u LEFT JOIN USUARIO_ASIGNACIONES ua ON u.ID_USUARIO = ua.ID_USUARIO WHERE (:orgId IS NULL OR ua.ID_ORGANIZACION = :orgId)", params, Number.class);
-            Number activeUsersNum = jdbc.queryForObject("SELECT COUNT(DISTINCT u.ID_USUARIO) FROM USUARIOS u LEFT JOIN USUARIO_ASIGNACIONES ua ON u.ID_USUARIO = ua.ID_USUARIO WHERE u.ESTADO = 'ACTIVO' AND (:orgId IS NULL OR ua.ID_ORGANIZACION = :orgId)", params, Number.class);
-            long totalUsers = totalUsersNum != null ? totalUsersNum.longValue() : 0L;
-            long activeUsers = activeUsersNum != null ? activeUsersNum.longValue() : 0L;
+            long totalUsers = ((Number) r.getOrDefault("TOTAL_USERS", 0)).longValue();
+            long activeUsers = ((Number) r.getOrDefault("ACTIVE_USERS", 0)).longValue();
             resumenGlobal.put("usuarios", Map.of("total", totalUsers, "activos", activeUsers, "inactivos", Math.max(0, totalUsers - activeUsers)));
 
-            Number totalResidNum = jdbc.queryForObject("SELECT COUNT(*) FROM RESIDENTES_UNIDAD ru JOIN UNIDADES u ON ru.ID_UNIDAD = u.ID_UNIDAD JOIN PROPIEDADES p ON u.ID_PROPIEDAD = p.ID_PROPIEDAD WHERE (:orgId IS NULL OR p.ID_ORGANIZACION = :orgId)", params, Number.class);
-            Number activeResidNum = jdbc.queryForObject("SELECT COUNT(*) FROM RESIDENTES_UNIDAD ru JOIN UNIDADES u ON ru.ID_UNIDAD = u.ID_UNIDAD JOIN PROPIEDADES p ON u.ID_PROPIEDAD = p.ID_PROPIEDAD WHERE ru.ESTADO = 'ACTIVO' AND (:orgId IS NULL OR p.ID_ORGANIZACION = :orgId)", params, Number.class);
-            long totalResid = totalResidNum != null ? totalResidNum.longValue() : 0L;
-            long activeResid = activeResidNum != null ? activeResidNum.longValue() : 0L;
+            long totalResid = ((Number) r.getOrDefault("TOTAL_RESID", 0)).longValue();
+            long activeResid = ((Number) r.getOrDefault("ACTIVE_RESID", 0)).longValue();
             resumenGlobal.put("residentes", Map.of("total", totalResid, "activos", activeResid, "inactivos", Math.max(0, totalResid - activeResid)));
 
-            Number totalTrabNum = jdbc.queryForObject("SELECT COUNT(*) FROM TRABAJADORES t LEFT JOIN PROVEEDORES pr ON t.ID_PROVEEDOR = pr.ID_PROVEEDOR WHERE (:orgId IS NULL OR pr.ID_ORGANIZACION = :orgId)", params, Number.class);
-            Number activeTrabNum = jdbc.queryForObject("SELECT COUNT(*) FROM TRABAJADORES t LEFT JOIN PROVEEDORES pr ON t.ID_PROVEEDOR = pr.ID_PROVEEDOR WHERE t.ESTADO = 'ACTIVO' AND (:orgId IS NULL OR pr.ID_ORGANIZACION = :orgId)", params, Number.class);
-            long totalTrab = totalTrabNum != null ? totalTrabNum.longValue() : 0L;
-            long activeTrab = activeTrabNum != null ? activeTrabNum.longValue() : 0L;
+            long totalTrab = ((Number) r.getOrDefault("TOTAL_TRAB", 0)).longValue();
+            long activeTrab = ((Number) r.getOrDefault("ACTIVE_TRAB", 0)).longValue();
             resumenGlobal.put("trabajadores", Map.of("total", totalTrab, "activos", activeTrab, "inactivos", Math.max(0, totalTrab - activeTrab)));
         } catch (Exception ignored) {}
 
         // 2. Tasa de Retención
-        long totalOrg = 0L;
-        long activasOrg = 0L;
-        try {
-            Object orgObj = resumenGlobal.get("organizaciones");
-            if (orgObj instanceof Map<?, ?> orgMap) {
-                Object t = orgMap.get("total");
-                Object a = orgMap.get("activas");
-                if (t instanceof Number nt) totalOrg = nt.longValue();
-                if (a instanceof Number na) activasOrg = na.longValue();
-            }
-        } catch (Exception ignored) {}
         Double tasaRetencion = totalOrg == 0 ? 100.0 :
             Math.round(((double) activasOrg / totalOrg * 100.0) * 100.0) / 100.0;
 
@@ -752,52 +752,81 @@ public class AnalyticsServiceImpl implements AnalyticsService {
             entitlementsModulos = jdbc.queryForList(sqlModulos, params);
         } catch (Exception ignored) {}
 
-        // 10. Actividad Operativa Global
+        // 10. Actividad Operativa Global Consolidada (1 solo round-trip a Oracle)
         Map<String, Object> actividadOperativa = new HashMap<>();
         try {
-            Number visitas = jdbc.queryForObject("SELECT COUNT(*) FROM VISITAS v JOIN UNIDADES u ON v.ID_UNIDAD = u.ID_UNIDAD JOIN PROPIEDADES p ON u.ID_PROPIEDAD = p.ID_PROPIEDAD WHERE (:orgId IS NULL OR p.ID_ORGANIZACION = :orgId) AND (:fechaInicio IS NULL OR TRUNC(v.FECHA_INGRESO) >= :fechaInicio)", params, Number.class);
-            Number paquetes = jdbc.queryForObject("SELECT COUNT(*) FROM PAQUETES pq JOIN PROPIEDADES p ON pq.ID_PROPIEDAD = p.ID_PROPIEDAD WHERE (:orgId IS NULL OR p.ID_ORGANIZACION = :orgId) AND (:fechaInicio IS NULL OR TRUNC(pq.FECHA_RECEPCION) >= :fechaInicio)", params, Number.class);
-            Number pqrs = jdbc.queryForObject("SELECT COUNT(*) FROM PQRS_TICKETS tk JOIN PROPIEDADES p ON tk.ID_PROPIEDAD = p.ID_PROPIEDAD WHERE (:orgId IS NULL OR p.ID_ORGANIZACION = :orgId) AND (:fechaInicio IS NULL OR TRUNC(tk.FECHA_RADICACION) >= :fechaInicio)", params, Number.class);
-            Number mantenimientos = jdbc.queryForObject("SELECT COUNT(*) FROM MANTENIMIENTOS mt JOIN PROPIEDADES p ON mt.ID_PROPIEDAD = p.ID_PROPIEDAD WHERE (:orgId IS NULL OR p.ID_ORGANIZACION = :orgId) AND (:fechaInicio IS NULL OR TRUNC(mt.FECHA_CREACION) >= :fechaInicio)", params, Number.class);
-            Number reservas = jdbc.queryForObject("SELECT COUNT(*) FROM RESERVAS rs JOIN ZONAS_COMUNES zc ON rs.ID_ZONA = zc.ID_ZONA JOIN PROPIEDADES p ON zc.ID_PROPIEDAD = p.ID_PROPIEDAD WHERE (:orgId IS NULL OR p.ID_ORGANIZACION = :orgId) AND (:fechaInicio IS NULL OR TRUNC(rs.FECHA_SOLICITUD) >= :fechaInicio)", params, Number.class);
-            Number comunicados = jdbc.queryForObject("SELECT COUNT(*) FROM COMUNICADOS cm JOIN PROPIEDADES p ON cm.ID_PROPIEDAD = p.ID_PROPIEDAD WHERE (:orgId IS NULL OR p.ID_ORGANIZACION = :orgId) AND (:fechaInicio IS NULL OR TRUNC(cm.FECHA_CREACION) >= :fechaInicio)", params, Number.class);
+            String sqlOperativa = """
+                SELECT
+                    (SELECT COUNT(*) FROM VISITAS v JOIN UNIDADES u ON v.ID_UNIDAD = u.ID_UNIDAD JOIN PROPIEDADES p ON u.ID_PROPIEDAD = p.ID_PROPIEDAD WHERE (:orgId IS NULL OR p.ID_ORGANIZACION = :orgId) AND (:fechaInicioTs IS NULL OR v.FECHA_INGRESO >= :fechaInicioTs)) AS VISITAS,
+                    (SELECT COUNT(*) FROM PAQUETES pq JOIN PROPIEDADES p ON pq.ID_PROPIEDAD = p.ID_PROPIEDAD WHERE (:orgId IS NULL OR p.ID_ORGANIZACION = :orgId) AND (:fechaInicioTs IS NULL OR pq.FECHA_RECEPCION >= :fechaInicioTs)) AS PAQUETES,
+                    (SELECT COUNT(*) FROM PQRS_TICKETS tk JOIN PROPIEDADES p ON tk.ID_PROPIEDAD = p.ID_PROPIEDAD WHERE (:orgId IS NULL OR p.ID_ORGANIZACION = :orgId) AND (:fechaInicioTs IS NULL OR tk.FECHA_RADICACION >= :fechaInicioTs)) AS PQRS,
+                    (SELECT COUNT(*) FROM MANTENIMIENTOS mt JOIN PROPIEDADES p ON mt.ID_PROPIEDAD = p.ID_PROPIEDAD WHERE (:orgId IS NULL OR p.ID_ORGANIZACION = :orgId) AND (:fechaInicioTs IS NULL OR mt.FECHA_CREACION >= :fechaInicioTs)) AS MANTENIMIENTOS,
+                    (SELECT COUNT(*) FROM RESERVAS rs JOIN ZONAS_COMUNES zc ON rs.ID_ZONA = zc.ID_ZONA JOIN PROPIEDADES p ON zc.ID_PROPIEDAD = p.ID_PROPIEDAD WHERE (:orgId IS NULL OR p.ID_ORGANIZACION = :orgId) AND (:fechaInicioTs IS NULL OR rs.FECHA_SOLICITUD >= :fechaInicioTs)) AS RESERVAS,
+                    (SELECT COUNT(*) FROM COMUNICADOS cm JOIN PROPIEDADES p ON cm.ID_PROPIEDAD = p.ID_PROPIEDAD WHERE (:orgId IS NULL OR p.ID_ORGANIZACION = :orgId) AND (:fechaInicioTs IS NULL OR cm.FECHA_CREACION >= :fechaInicioTs)) AS COMUNICADOS
+                FROM DUAL
+            """;
+            Map<String, Object> opRow = jdbc.queryForMap(sqlOperativa, params);
+            actividadOperativa.put("visitas", ((Number) opRow.getOrDefault("VISITAS", 0)).longValue());
+            actividadOperativa.put("paquetes", ((Number) opRow.getOrDefault("PAQUETES", 0)).longValue());
+            actividadOperativa.put("pqrs", ((Number) opRow.getOrDefault("PQRS", 0)).longValue());
+            actividadOperativa.put("mantenimientos", ((Number) opRow.getOrDefault("MANTENIMIENTOS", 0)).longValue());
+            actividadOperativa.put("reservas", ((Number) opRow.getOrDefault("RESERVAS", 0)).longValue());
+            actividadOperativa.put("comunicados", ((Number) opRow.getOrDefault("COMUNICADOS", 0)).longValue());
+        } catch (Exception ignored) {
+            actividadOperativa.put("visitas", 0L); actividadOperativa.put("paquetes", 0L);
+            actividadOperativa.put("pqrs", 0L); actividadOperativa.put("mantenimientos", 0L);
+            actividadOperativa.put("reservas", 0L); actividadOperativa.put("comunicados", 0L);
+        }
 
-            actividadOperativa.put("visitas", visitas != null ? visitas.longValue() : 0L);
-            actividadOperativa.put("paquetes", paquetes != null ? paquetes.longValue() : 0L);
-            actividadOperativa.put("pqrs", pqrs != null ? pqrs.longValue() : 0L);
-            actividadOperativa.put("mantenimientos", mantenimientos != null ? mantenimientos.longValue() : 0L);
-            actividadOperativa.put("reservas", reservas != null ? reservas.longValue() : 0L);
-            actividadOperativa.put("comunicados", comunicados != null ? comunicados.longValue() : 0L);
-        } catch (Exception ignored) {}
-
-        // 11. Transacciones Sandbox Wompi (Con aviso explícito: no revenue comercial)
+        // 11. Transacciones Sandbox Wompi Consolidadas (1 solo round-trip a Oracle)
         Map<String, Object> transaccionesSandbox = new HashMap<>();
         try {
-            Number totalTx = jdbc.queryForObject("SELECT COUNT(*) FROM TRANSACCIONES_PAGO WHERE (:orgId IS NULL OR ID_ORGANIZACION = :orgId) AND (:fechaInicio IS NULL OR TRUNC(FECHA_REGISTRO) >= :fechaInicio)", params, Number.class);
-            Number aprobadasTx = jdbc.queryForObject("SELECT COUNT(*) FROM TRANSACCIONES_PAGO WHERE UPPER(ESTADO_PASARELA) = 'APPROVED' AND (:orgId IS NULL OR ID_ORGANIZACION = :orgId) AND (:fechaInicio IS NULL OR TRUNC(FECHA_REGISTRO) >= :fechaInicio)", params, Number.class);
-            Number rechazadasTx = jdbc.queryForObject("SELECT COUNT(*) FROM TRANSACCIONES_PAGO WHERE UPPER(ESTADO_PASARELA) IN ('DECLINED', 'ERROR') AND (:orgId IS NULL OR ID_ORGANIZACION = :orgId) AND (:fechaInicio IS NULL OR TRUNC(FECHA_REGISTRO) >= :fechaInicio)", params, Number.class);
-            Number pendientesTx = jdbc.queryForObject("SELECT COUNT(*) FROM TRANSACCIONES_PAGO WHERE UPPER(ESTADO_PASARELA) = 'PENDING' AND (:orgId IS NULL OR ID_ORGANIZACION = :orgId) AND (:fechaInicio IS NULL OR TRUNC(FECHA_REGISTRO) >= :fechaInicio)", params, Number.class);
-            Number montoAprobado = jdbc.queryForObject("SELECT NVL(SUM(MONTO_CENTAVOS), 0) FROM TRANSACCIONES_PAGO WHERE UPPER(ESTADO_PASARELA) = 'APPROVED' AND (:orgId IS NULL OR ID_ORGANIZACION = :orgId) AND (:fechaInicio IS NULL OR TRUNC(FECHA_REGISTRO) >= :fechaInicio)", params, Number.class);
-
-            transaccionesSandbox.put("total", totalTx != null ? totalTx.longValue() : 0L);
-            transaccionesSandbox.put("aprobadas", aprobadasTx != null ? aprobadasTx.longValue() : 0L);
-            transaccionesSandbox.put("rechazadas", rechazadasTx != null ? rechazadasTx.longValue() : 0L);
-            transaccionesSandbox.put("pendientes", pendientesTx != null ? pendientesTx.longValue() : 0L);
-            transaccionesSandbox.put("montoAprobadoCentavos", montoAprobado != null ? montoAprobado.longValue() : 0L);
+            String sqlTx = """
+                SELECT
+                    COUNT(*) AS TOTAL,
+                    COUNT(CASE WHEN UPPER(ESTADO_PASARELA) = 'APPROVED' THEN 1 END) AS APROBADAS,
+                    COUNT(CASE WHEN UPPER(ESTADO_PASARELA) IN ('DECLINED', 'ERROR') THEN 1 END) AS RECHAZADAS,
+                    COUNT(CASE WHEN UPPER(ESTADO_PASARELA) = 'PENDING' THEN 1 END) AS PENDIENTES,
+                    NVL(SUM(CASE WHEN UPPER(ESTADO_PASARELA) = 'APPROVED' THEN MONTO_CENTAVOS ELSE 0 END), 0) AS MONTO_APROBADO
+                FROM TRANSACCIONES_PAGO
+                WHERE (:orgId IS NULL OR ID_ORGANIZACION = :orgId)
+                  AND (:fechaInicioTs IS NULL OR FECHA_REGISTRO >= :fechaInicioTs)
+            """;
+            Map<String, Object> txRow = jdbc.queryForMap(sqlTx, params);
+            transaccionesSandbox.put("total", ((Number) txRow.getOrDefault("TOTAL", 0)).longValue());
+            transaccionesSandbox.put("aprobadas", ((Number) txRow.getOrDefault("APROBADAS", 0)).longValue());
+            transaccionesSandbox.put("rechazadas", ((Number) txRow.getOrDefault("RECHAZADAS", 0)).longValue());
+            transaccionesSandbox.put("pendientes", ((Number) txRow.getOrDefault("PENDIENTES", 0)).longValue());
+            transaccionesSandbox.put("montoAprobadoCentavos", ((Number) txRow.getOrDefault("MONTO_APROBADO", 0)).longValue());
             transaccionesSandbox.put("aviso", "Entorno Sandbox Wompi activo — Datos de prueba y validación técnica, no facturación comercial.");
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+            transaccionesSandbox.put("total", 0L); transaccionesSandbox.put("aprobadas", 0L);
+            transaccionesSandbox.put("rechazadas", 0L); transaccionesSandbox.put("pendientes", 0L);
+            transaccionesSandbox.put("montoAprobadoCentavos", 0L);
+            transaccionesSandbox.put("aviso", "Entorno Sandbox Wompi activo.");
+        }
 
-        // 12. Métricas de Seguridad y Auditoría
+        // 12. Métricas de Seguridad y Auditoría Consolidadas (1 solo round-trip a Oracle)
         Map<String, Object> metricasSeguridad = new HashMap<>();
         try {
-            Number loginsExitosos = jdbc.queryForObject("SELECT COUNT(*) FROM AUDITORIA_LOG WHERE ACCION LIKE '%LOGIN%SUCCESS%' AND (:fechaInicio IS NULL OR TRUNC(FECHA_HORA) >= :fechaInicio)", params, Number.class);
-            Number loginsFallidos = jdbc.queryForObject("SELECT COUNT(*) FROM AUDITORIA_LOG WHERE ACCION LIKE '%LOGIN%FAIL%' AND (:fechaInicio IS NULL OR TRUNC(FECHA_HORA) >= :fechaInicio)", params, Number.class);
-            Number accionesAuditadas = jdbc.queryForObject("SELECT COUNT(*) FROM AUDITORIA_LOG WHERE (:orgId IS NULL OR ID_ORGANIZACION = :orgId) AND (:fechaInicio IS NULL OR TRUNC(FECHA_HORA) >= :fechaInicio)", params, Number.class);
-
-            metricasSeguridad.put("loginsExitosos", loginsExitosos != null ? loginsExitosos.longValue() : 0L);
-            metricasSeguridad.put("loginsFallidos", loginsFallidos != null ? loginsFallidos.longValue() : 0L);
-            metricasSeguridad.put("accionesAuditadas", accionesAuditadas != null ? accionesAuditadas.longValue() : 0L);
-        } catch (Exception ignored) {}
+            String sqlSec = """
+                SELECT
+                    COUNT(CASE WHEN ACCION LIKE '%LOGIN%SUCCESS%' THEN 1 END) AS LOGINS_EXITOSOS,
+                    COUNT(CASE WHEN ACCION LIKE '%LOGIN%FAIL%' THEN 1 END) AS LOGINS_FALLIDOS,
+                    COUNT(*) AS ACCIONES_AUDITADAS
+                FROM AUDITORIA_LOG
+                WHERE (:orgId IS NULL OR ID_ORGANIZACION = :orgId)
+                  AND (:fechaInicioTs IS NULL OR FECHA_HORA >= :fechaInicioTs)
+            """;
+            Map<String, Object> secRow = jdbc.queryForMap(sqlSec, params);
+            metricasSeguridad.put("loginsExitosos", ((Number) secRow.getOrDefault("LOGINS_EXITOSOS", 0)).longValue());
+            metricasSeguridad.put("loginsFallidos", ((Number) secRow.getOrDefault("LOGINS_FALLIDOS", 0)).longValue());
+            metricasSeguridad.put("accionesAuditadas", ((Number) secRow.getOrDefault("ACCIONES_AUDITADAS", 0)).longValue());
+        } catch (Exception ignored) {
+            metricasSeguridad.put("loginsExitosos", 0L);
+            metricasSeguridad.put("loginsFallidos", 0L);
+            metricasSeguridad.put("accionesAuditadas", 0L);
+        }
 
         // 13. Crecimiento mensual de organizaciones (últimos 12 meses)
         List<Map<String, Object>> crecimientoMensual = List.of();

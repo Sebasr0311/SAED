@@ -86,7 +86,7 @@ const NAV_BY_ROLE = {
       items: [
         { path: '/superadmin/organizaciones', label: 'Organizaciones', icon: 'domain' },
         { path: '/superadmin/propiedades', label: 'Propiedades Globales', icon: 'apartment' },
-        { path: '/superadmin/planes', label: 'Planes SaaS', icon: 'pricing_plan' },
+        { path: '/superadmin/planes', label: 'Planes SaaS', icon: 'credit_card' },
         { path: '/superadmin/membresias', label: 'Membresías', icon: 'card_membership' },
         { path: '/superadmin/onboarding', label: 'Suscripciones & Onboarding', icon: 'how_to_reg' },
       ],
@@ -144,7 +144,7 @@ const NAV_BY_ROLE = {
     {
       id: 'comercial',
       label: 'Plan y Control',
-      icon: 'pricing_plan',
+      icon: 'credit_card',
       items: [
         { path: '/org/plan', label: 'Plan y Suscripción', icon: 'card_membership' },
         { path: '/org/auditoria', label: 'Auditoría Organizacional', icon: 'policy' },
@@ -372,6 +372,7 @@ const ICON_COMPONENT_MAP = {
   dashboard: LayoutDashboard,
   domain: Building2,
   apartment: Building,
+  credit_card: CreditCard,
   pricing_plan: CreditCard,
   card_membership: ShieldCheck,
   security: Shield,

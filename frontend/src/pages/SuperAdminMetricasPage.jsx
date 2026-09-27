@@ -664,7 +664,7 @@ export default function SuperAdminMetricasPage() {
                 <Card className="border-border/80">
                   <CardHeader>
                     <CardTitle className="text-base font-semibold flex items-center gap-2">
-                      <span className="material-symbols-outlined text-primary text-base">pricing_plan</span>
+                      <span className="material-symbols-outlined text-primary text-base">credit_card</span>
                       Organizaciones por Plan
                     </CardTitle>
                     <p className="text-xs text-muted-foreground">Distribución de suscripciones por nivel de servicio.</p>
@@ -791,16 +791,18 @@ export default function SuperAdminMetricasPage() {
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
                     {[
                       { label: 'Visitas', val: actividadOperativa.visitas, icon: 'badge', color: 'text-blue-500' },
-                      { label: 'Paquetes', val: actividadOperativa.paquetes, icon: 'package_2', color: 'text-amber-500' },
+                      { label: 'Paquetes', val: actividadOperativa.paquetes, icon: 'inventory_2', color: 'text-amber-500' },
                       { label: 'PQRS Radicadas', val: actividadOperativa.pqrs, icon: 'contact_support', color: 'text-rose-500' },
                       { label: 'Mantenimientos', val: actividadOperativa.mantenimientos, icon: 'build', color: 'text-indigo-500' },
                       { label: 'Reservas Zonas', val: actividadOperativa.reservas, icon: 'event', color: 'text-emerald-500' },
                       { label: 'Comunicados', val: actividadOperativa.comunicados, icon: 'campaign', color: 'text-purple-500' },
                     ].map((item, idx) => (
-                      <div key={idx} className="p-4 rounded-xl border border-border/60 bg-muted/20 text-center space-y-1">
-                        <span className={`material-symbols-outlined text-2xl ${item.color}`}>
-                          {item.icon}
-                        </span>
+                      <div key={idx} className="p-4 rounded-xl border border-border/60 bg-muted/20 text-center space-y-1.5 flex flex-col items-center justify-center">
+                        <div className="w-10 h-10 rounded-lg bg-muted/40 flex items-center justify-center mb-1">
+                          <span className={`material-symbols-outlined text-xl select-none ${item.color}`}>
+                            {item.icon}
+                          </span>
+                        </div>
                         <div className="text-2xl font-bold text-foreground">{item.val}</div>
                         <div className="text-xs text-muted-foreground">{item.label}</div>
                       </div>

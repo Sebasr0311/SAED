@@ -34,43 +34,73 @@ public class PlatformDashboardController {
 
     @GetMapping
     public ApiResponse<PlatformDashboardDTO> getDashboard() {
-        // 1. Organizaciones
+        // 1. Estadísticas Consolidadas (1 solo round-trip a Oracle)
         Map<String, Object> orgStats = new HashMap<>();
-        try {
-            Number totalOrg = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM ORGANIZACIONES", new MapSqlParameterSource(), Number.class);
-            Number activasOrg = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM ORGANIZACIONES WHERE ESTADO = 'ACTIVA'", new MapSqlParameterSource(), Number.class);
-            orgStats.put("total", totalOrg != null ? totalOrg.longValue() : 0);
-            orgStats.put("activas", activasOrg != null ? activasOrg.longValue() : 0);
-            orgStats.put("inactivas", (totalOrg != null ? totalOrg.longValue() : 0) - (activasOrg != null ? activasOrg.longValue() : 0));
-        } catch (Exception e) {
-            orgStats.put("total", 0);
-            orgStats.put("activas", 0);
-            orgStats.put("inactivas", 0);
-        }
-
-        // 2. Propiedades
         Map<String, Object> propStats = new HashMap<>();
+        Map<String, Object> userStats = new HashMap<>();
+        Map<String, Object> planesMembresias = new HashMap<>();
+        long failedLogins = 0;
+        long pendingOnboarding = 0;
+        String dbStatus = "OPERATIVA";
+
         try {
-            Number totalProp = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM PROPIEDADES", new MapSqlParameterSource(), Number.class);
-            Number activasProp = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM PROPIEDADES WHERE ESTADO = 'ACTIVA'", new MapSqlParameterSource(), Number.class);
-            propStats.put("total", totalProp != null ? totalProp.longValue() : 0);
-            propStats.put("activas", activasProp != null ? activasProp.longValue() : 0);
-            propStats.put("inactivas", (totalProp != null ? totalProp.longValue() : 0) - (activasProp != null ? activasProp.longValue() : 0));
+            String sqlConsolidado = """
+                SELECT
+                    (SELECT COUNT(*) FROM ORGANIZACIONES) AS ORG_TOTAL,
+                    (SELECT COUNT(*) FROM ORGANIZACIONES WHERE ESTADO = 'ACTIVA') AS ORG_ACTIVAS,
+                    (SELECT COUNT(*) FROM PROPIEDADES) AS PROP_TOTAL,
+                    (SELECT COUNT(*) FROM PROPIEDADES WHERE ESTADO = 'ACTIVA') AS PROP_ACTIVAS,
+                    (SELECT COUNT(*) FROM USUARIOS) AS USR_TOTAL,
+                    (SELECT COUNT(*) FROM USUARIOS WHERE ESTADO = 'ACTIVO') AS USR_ACTIVOS,
+                    (SELECT COUNT(*) FROM PLANES WHERE ESTADO = 'ACTIVO') AS PLANES_ACTIVOS,
+                    (SELECT COUNT(*) FROM MEMBRESIAS WHERE ESTADO = 'ACTIVA') AS MEMB_ACTIVAS,
+                    (SELECT COUNT(*) FROM MEMBRESIAS WHERE ESTADO = 'ACTIVA' AND FECHA_FIN <= SYSDATE + 30 AND FECHA_FIN >= SYSDATE) AS MEMB_POR_VENCER,
+                    (SELECT COUNT(*) FROM MEMBRESIAS WHERE ESTADO = 'EXPIRADA' OR (ESTADO = 'ACTIVA' AND FECHA_FIN < SYSDATE)) AS MEMB_VENCIDAS,
+                    (SELECT NVL(SUM(p.PRECIO_MENSUAL), 0) FROM MEMBRESIAS m JOIN PLANES p ON m.ID_PLAN = p.ID_PLAN WHERE m.ESTADO = 'ACTIVA') AS MRR,
+                    (SELECT COUNT(*) FROM ONBOARDING_INTENCIONES WHERE ESTADO = 'PENDIENTE') AS PENDING_ONBOARDING,
+                    (SELECT COUNT(*) FROM AUDITORIA_LOG WHERE ACCION LIKE '%LOGIN%FAIL%' AND FECHA_HORA >= SYSTIMESTAMP - INTERVAL '1' DAY) AS FAILED_LOGINS
+                FROM DUAL
+            """;
+            Map<String, Object> row = jdbcTemplate.queryForMap(sqlConsolidado, new MapSqlParameterSource());
+
+            long orgTotal = ((Number) row.getOrDefault("ORG_TOTAL", 0)).longValue();
+            long orgActivas = ((Number) row.getOrDefault("ORG_ACTIVAS", 0)).longValue();
+            orgStats.put("total", orgTotal);
+            orgStats.put("activas", orgActivas);
+            orgStats.put("inactivas", Math.max(0, orgTotal - orgActivas));
+
+            long propTotal = ((Number) row.getOrDefault("PROP_TOTAL", 0)).longValue();
+            long propActivas = ((Number) row.getOrDefault("PROP_ACTIVAS", 0)).longValue();
+            propStats.put("total", propTotal);
+            propStats.put("activas", propActivas);
+            propStats.put("inactivas", Math.max(0, propTotal - propActivas));
+
+            long usrTotal = ((Number) row.getOrDefault("USR_TOTAL", 0)).longValue();
+            long usrActivos = ((Number) row.getOrDefault("USR_ACTIVOS", 0)).longValue();
+            userStats.put("total", usrTotal);
+            userStats.put("activos", usrActivos);
+            userStats.put("inactivos", Math.max(0, usrTotal - usrActivos));
+
+            planesMembresias.put("planesDisponibles", ((Number) row.getOrDefault("PLANES_ACTIVOS", 0)).longValue());
+            planesMembresias.put("membresiasActivas", ((Number) row.getOrDefault("MEMB_ACTIVAS", 0)).longValue());
+            planesMembresias.put("porVencer", ((Number) row.getOrDefault("MEMB_POR_VENCER", 0)).longValue());
+            planesMembresias.put("vencidas", ((Number) row.getOrDefault("MEMB_VENCIDAS", 0)).longValue());
+            planesMembresias.put("ingresosMensualesEstimados", ((Number) row.getOrDefault("MRR", 0)).doubleValue());
+
+            pendingOnboarding = ((Number) row.getOrDefault("PENDING_ONBOARDING", 0)).longValue();
+            failedLogins = ((Number) row.getOrDefault("FAILED_LOGINS", 0)).longValue();
         } catch (Exception e) {
-            propStats.put("total", 0);
-            propStats.put("activas", 0);
-            propStats.put("inactivas", 0);
+            dbStatus = "DEGRADADA";
+            orgStats.put("total", 0L); orgStats.put("activas", 0L); orgStats.put("inactivas", 0L);
+            propStats.put("total", 0L); propStats.put("activas", 0L); propStats.put("inactivas", 0L);
+            userStats.put("total", 0L); userStats.put("activos", 0L); userStats.put("inactivos", 0L);
+            planesMembresias.put("planesDisponibles", 0L); planesMembresias.put("membresiasActivas", 0L);
+            planesMembresias.put("porVencer", 0L); planesMembresias.put("vencidas", 0L);
+            planesMembresias.put("ingresosMensualesEstimados", 0.0);
         }
 
-        // 3. Usuarios
-        Map<String, Object> userStats = new HashMap<>();
+        // 2. Desglose de Roles (1 query ligera)
         try {
-            Number totalUsers = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM USUARIOS", new MapSqlParameterSource(), Number.class);
-            Number activeUsers = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM USUARIOS WHERE ESTADO = 'ACTIVO'", new MapSqlParameterSource(), Number.class);
-            userStats.put("total", totalUsers != null ? totalUsers.longValue() : 0);
-            userStats.put("activos", activeUsers != null ? activeUsers.longValue() : 0);
-            userStats.put("inactivos", (totalUsers != null ? totalUsers.longValue() : 0) - (activeUsers != null ? activeUsers.longValue() : 0));
-
             List<Map<String, Object>> rolesCount = jdbcTemplate.queryForList(
                 "SELECT r.CODIGO AS ROL, COUNT(DISTINCT u.ID_USUARIO) AS CANTIDAD " +
                 "FROM ROLES r " +
@@ -80,45 +110,10 @@ public class PlatformDashboardController {
             );
             userStats.put("desgloseRoles", rolesCount);
         } catch (Exception e) {
-            userStats.put("total", 0);
-            userStats.put("activos", 0);
-            userStats.put("inactivos", 0);
+            userStats.put("desgloseRoles", List.of());
         }
 
-        // 4. Planes y Membresías SaaS
-        Map<String, Object> planesMembresias = new HashMap<>();
-        try {
-            Number planesActivos = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM PLANES WHERE ESTADO = 'ACTIVO'", new MapSqlParameterSource(), Number.class);
-            Number membresiasActivas = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM MEMBRESIAS WHERE ESTADO = 'ACTIVA'", new MapSqlParameterSource(), Number.class);
-            Number porVencer = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM MEMBRESIAS WHERE ESTADO = 'ACTIVA' AND FECHA_FIN <= SYSDATE + 30 AND FECHA_FIN >= SYSDATE",
-                new MapSqlParameterSource(), Number.class
-            );
-            Number vencidas = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM MEMBRESIAS WHERE ESTADO = 'EXPIRADA' OR (ESTADO = 'ACTIVA' AND FECHA_FIN < SYSDATE)",
-                new MapSqlParameterSource(), Number.class
-            );
-            Number mrr = jdbcTemplate.queryForObject("""
-                SELECT NVL(SUM(p.PRECIO_MENSUAL), 0)
-                FROM MEMBRESIAS m
-                JOIN PLANES p ON m.ID_PLAN = p.ID_PLAN
-                WHERE m.ESTADO = 'ACTIVA'
-                """, new MapSqlParameterSource(), Number.class);
-
-            planesMembresias.put("planesDisponibles", planesActivos != null ? planesActivos.longValue() : 0);
-            planesMembresias.put("membresiasActivas", membresiasActivas != null ? membresiasActivas.longValue() : 0);
-            planesMembresias.put("porVencer", porVencer != null ? porVencer.longValue() : 0);
-            planesMembresias.put("vencidas", vencidas != null ? vencidas.longValue() : 0);
-            planesMembresias.put("ingresosMensualesEstimados", mrr != null ? mrr.doubleValue() : 0.0);
-        } catch (Exception e) {
-            planesMembresias.put("planesDisponibles", 0);
-            planesMembresias.put("membresiasActivas", 0);
-            planesMembresias.put("porVencer", 0);
-            planesMembresias.put("vencidas", 0);
-            planesMembresias.put("ingresosMensualesEstimados", 0.0);
-        }
-
-        // 5. Actividad Reciente (Auditoría Real)
+        // 3. Actividad Reciente (Auditoría Real, fetch first 10)
         List<Map<String, Object>> actividadReciente = new ArrayList<>();
         try {
             String sqlAudit = """
@@ -137,7 +132,7 @@ public class PlatformDashboardController {
             actividadReciente = jdbcTemplate.queryForList(sqlAudit, new MapSqlParameterSource());
         } catch (Exception ignored) {}
 
-        // 6. Alertas Reales que Requieren Atención
+        // 4. Alertas Reales que Requieren Atención
         List<Map<String, Object>> alertas = new ArrayList<>();
         try {
             // A. Membresías por vencer en <= 30 días
@@ -156,7 +151,7 @@ public class PlatformDashboardController {
                     "id", "MEMB-" + exp.get("idMembresia"),
                     "tipo", "WARNING",
                     "titulo", "Membresía próxima a vencer",
-                    "mensaje", "La organización '" + exp.get("orgNombre") + "' tiene membresía vence en " + exp.get("diasRestantes") + " días (" + exp.get("fechaFin") + ").",
+                    "mensaje", "La organización '" + exp.get("orgNombre") + "' tiene una membresía que vence en " + exp.get("diasRestantes") + " días (" + exp.get("fechaFin") + ").",
                     "ruta", "/superadmin/membresias"
                 ));
             }
@@ -178,32 +173,24 @@ public class PlatformDashboardController {
                 ));
             }
 
-            // C. Intentos de autenticación fallidos en las últimas 24h
-            Number failedLogins = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM AUDITORIA_LOG WHERE ACCION LIKE '%LOGIN%FAIL%' AND FECHA_HORA >= SYSTIMESTAMP - INTERVAL '1' DAY",
-                new MapSqlParameterSource(), Number.class
-            );
-            if (failedLogins != null && failedLogins.longValue() > 0) {
+            // C. Intentos de autenticación fallidos (leídos de la consulta consolidada)
+            if (failedLogins > 0) {
                 alertas.add(Map.of(
                     "id", "SEC-FAILED-LOGINS",
                     "tipo", "DANGER",
                     "titulo", "Intentos de acceso fallidos",
-                    "mensaje", "Se registraron " + failedLogins.longValue() + " intentos de autenticación fallidos en las últimas 24 horas.",
+                    "mensaje", "Se registraron " + failedLogins + " intentos de autenticación fallidos en las últimas 24 horas.",
                     "ruta", "/superadmin/auditoria"
                 ));
             }
 
-            // D. Onboarding pendientes
-            Number pendingOnboarding = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM ONBOARDING_INTENCIONES WHERE ESTADO = 'PENDIENTE'",
-                new MapSqlParameterSource(), Number.class
-            );
-            if (pendingOnboarding != null && pendingOnboarding.longValue() > 0) {
+            // D. Onboarding pendientes (leídos de la consulta consolidada)
+            if (pendingOnboarding > 0) {
                 alertas.add(Map.of(
                     "id", "ONB-PENDING",
                     "tipo", "INFO",
                     "titulo", "Solicitudes de Onboarding pendientes",
-                    "mensaje", "Hay " + pendingOnboarding.longValue() + " intención(es) de onboarding pendientes de validación.",
+                    "mensaje", "Hay " + pendingOnboarding + " intención(es) de onboarding pendientes de validación.",
                     "ruta", "/superadmin/onboarding"
                 ));
             }
@@ -211,7 +198,6 @@ public class PlatformDashboardController {
 
         // 7. Salud Técnica
         Map<String, Object> saludTecnica = new HashMap<>();
-        String dbStatus = "OPERATIVA";
         try {
             jdbcTemplate.queryForObject("SELECT 1 FROM DUAL", new MapSqlParameterSource(), Integer.class);
         } catch (Exception e) {
