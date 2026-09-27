@@ -30,6 +30,18 @@ import {
 } from '../components/ui/alert-dialog.tsx';
 import { toast } from 'sonner';
 
+// SAED Technical Limits (Oracle ATP & Business Architecture)
+const SAED_LIMITS = {
+  MAX_PROPIEDADES_CEILING: 999999,      // NUMBER(6,0)
+  MAX_UNIDADES_CEILING: 99999999,        // NUMBER(8,0)
+  MAX_USUARIOS_CEILING: 99999999,        // NUMBER(8,0)
+  MAX_ALMACENAMIENTO_CEILING: 999999,    // NUMBER(10,2) in GB
+  MAX_PRECIO_CEILING: 9999999999,        // NUMBER(12,2) COP
+  MAX_NOMBRE_LENGTH: 80,                 // VARCHAR2(80 CHAR)
+  MAX_CODIGO_LENGTH: 30,                 // VARCHAR2(30 CHAR)
+  MAX_DESCRIPCION_LENGTH: 500            // VARCHAR2(500 CHAR)
+};
+
 const MODULE_METADATA = {
   FINANZAS: {
     icon: 'payments',
@@ -94,9 +106,13 @@ const DEFAULT_FORM = {
   descripcion: '',
   precioMensual: 150000,
   maxPropiedades: 1,
+  unlimitedPropiedades: false,
   maxUnidades: 50,
+  unlimitedUnidades: false,
   maxUsuarios: 100,
+  unlimitedUsuarios: false,
   maxAlmacenamientoGb: 5,
+  unlimitedAlmacenamiento: false,
   estado: 'ACTIVO',
   modulos: ['FINANZAS', 'PQRS', 'PAQUETES', 'PARQUEADEROS'],
   nivelSoporte: 'ESTANDAR',
@@ -139,7 +155,6 @@ export default function SuperAdminPlanesPage() {
       if (Array.isArray(modulesList) && modulesList.length > 0) {
         setCatalogModules(modulesList);
       } else {
-        // Fallback to canonical list if table empty
         const fallback = Object.entries(MODULE_METADATA).map(([codigo, meta], idx) => ({
           id: idx + 1,
           codigo,
@@ -163,7 +178,7 @@ export default function SuperAdminPlanesPage() {
   function handleOpenCreate() {
     setForm({
       ...DEFAULT_FORM,
-      modulos: catalogModules.map(m => m.codigo) // default all modules enabled for new plan or customize
+      modulos: catalogModules.map(m => m.codigo)
     });
     setIsEditing(false);
     setActiveTab('general');
@@ -182,16 +197,25 @@ export default function SuperAdminPlanesPage() {
       cfg = {};
     }
 
+    const hasNoPropLimit = plan.maxPropiedades === null || plan.maxPropiedades === 0;
+    const hasNoUnitLimit = plan.maxUnidades === null || plan.maxUnidades === 0;
+    const hasNoUsrLimit = plan.maxUsuarios === null || plan.maxUsuarios === 0;
+    const hasNoStorageLimit = plan.maxAlmacenamientoGb === null || plan.maxAlmacenamientoGb === 0;
+
     setForm({
       id: plan.id,
       codigo: plan.codigo || '',
       nombre: plan.nombre || '',
       descripcion: plan.descripcion || '',
       precioMensual: plan.precioMensual || 0,
-      maxPropiedades: plan.maxPropiedades || 1,
-      maxUnidades: plan.maxUnidades || 50,
-      maxUsuarios: plan.maxUsuarios || 100,
-      maxAlmacenamientoGb: plan.maxAlmacenamientoGb || 5,
+      maxPropiedades: hasNoPropLimit ? 1 : plan.maxPropiedades,
+      unlimitedPropiedades: hasNoPropLimit,
+      maxUnidades: hasNoUnitLimit ? 50 : plan.maxUnidades,
+      unlimitedUnidades: hasNoUnitLimit,
+      maxUsuarios: hasNoUsrLimit ? 100 : plan.maxUsuarios,
+      unlimitedUsuarios: hasNoUsrLimit,
+      maxAlmacenamientoGb: hasNoStorageLimit ? 5 : plan.maxAlmacenamientoGb,
+      unlimitedAlmacenamiento: hasNoStorageLimit,
       estado: plan.estado || 'ACTIVO',
       modulos: Array.isArray(plan.modulos) ? [...plan.modulos] : [],
       nivelSoporte: cfg.nivelSoporte || 'ESTANDAR',
@@ -206,22 +230,88 @@ export default function SuperAdminPlanesPage() {
 
   async function handleSave(e) {
     e.preventDefault();
-    if (!form.nombre.trim()) {
+
+    // 1. Validaciones de Identificación
+    const nombre = (form.nombre || '').trim();
+    if (!nombre) {
       toast.error('El nombre comercial del plan es obligatorio');
       return;
+    }
+    if (nombre.length > SAED_LIMITS.MAX_NOMBRE_LENGTH) {
+      toast.error(`El nombre no puede exceder ${SAED_LIMITS.MAX_NOMBRE_LENGTH} caracteres`);
+      return;
+    }
+
+    const codigo = (form.codigo || '').trim().toUpperCase();
+    if (codigo && !/^[A-Z0-9_]{2,30}$/.test(codigo)) {
+      toast.error('El código debe contener entre 2 y 30 caracteres alfanuméricos y guiones bajos (sin espacios)');
+      return;
+    }
+
+    if (form.descripcion && form.descripcion.length > SAED_LIMITS.MAX_DESCRIPCION_LENGTH) {
+      toast.error(`La descripción no puede exceder ${SAED_LIMITS.MAX_DESCRIPCION_LENGTH} caracteres`);
+      return;
+    }
+
+    // 2. Validaciones de Tarifas
+    const precio = Number(form.precioMensual);
+    if (isNaN(precio) || precio < 0) {
+      toast.error('El precio mensual debe ser igual o mayor a $0 COP');
+      return;
+    }
+    if (precio > SAED_LIMITS.MAX_PRECIO_CEILING) {
+      toast.error(`El precio mensual no puede exceder $${SAED_LIMITS.MAX_PRECIO_CEILING.toLocaleString('es-CO')} COP`);
+      return;
+    }
+
+    // 3. Validaciones de Límites de Capacidad a límites de SAED
+    let propVal = null;
+    if (!form.unlimitedPropiedades) {
+      propVal = Number(form.maxPropiedades);
+      if (isNaN(propVal) || propVal < 1 || propVal > SAED_LIMITS.MAX_PROPIEDADES_CEILING) {
+        toast.error(`El límite de propiedades debe ser un número entre 1 y ${SAED_LIMITS.MAX_PROPIEDADES_CEILING.toLocaleString('es-CO')} (o marcar Ilimitado)`);
+        return;
+      }
+    }
+
+    let unitVal = null;
+    if (!form.unlimitedUnidades) {
+      unitVal = Number(form.maxUnidades);
+      if (isNaN(unitVal) || unitVal < 1 || unitVal > SAED_LIMITS.MAX_UNIDADES_CEILING) {
+        toast.error(`El límite de unidades debe ser un número entre 1 y ${SAED_LIMITS.MAX_UNIDADES_CEILING.toLocaleString('es-CO')} (o marcar Ilimitado)`);
+        return;
+      }
+    }
+
+    let usrVal = null;
+    if (!form.unlimitedUsuarios) {
+      usrVal = Number(form.maxUsuarios);
+      if (isNaN(usrVal) || usrVal < 1 || usrVal > SAED_LIMITS.MAX_USUARIOS_CEILING) {
+        toast.error(`El límite de usuarios debe ser un número entre 1 y ${SAED_LIMITS.MAX_USUARIOS_CEILING.toLocaleString('es-CO')} (o marcar Ilimitado)`);
+        return;
+      }
+    }
+
+    let storageVal = null;
+    if (!form.unlimitedAlmacenamiento) {
+      storageVal = Number(form.maxAlmacenamientoGb);
+      if (isNaN(storageVal) || storageVal < 1 || storageVal > SAED_LIMITS.MAX_ALMACENAMIENTO_CEILING) {
+        toast.error(`El almacenamiento en la nube debe ser entre 1 y ${SAED_LIMITS.MAX_ALMACENAMIENTO_CEILING.toLocaleString('es-CO')} GB (o marcar Ilimitado)`);
+        return;
+      }
     }
 
     try {
       setSubmitting(true);
       const payload = {
-        nombre: form.nombre.trim(),
-        codigo: form.codigo.trim() || undefined,
-        descripcion: form.descripcion.trim(),
-        precioMensual: Number(form.precioMensual) || 0,
-        maxPropiedades: Number(form.maxPropiedades) || 1,
-        maxUnidades: Number(form.maxUnidades) || 1,
-        maxUsuarios: Number(form.maxUsuarios) || 1,
-        maxAlmacenamientoGb: Number(form.maxAlmacenamientoGb) || 1,
+        nombre,
+        codigo: codigo || undefined,
+        descripcion: form.descripcion ? form.descripcion.trim() : '',
+        precioMensual: precio,
+        maxPropiedades: propVal,
+        maxUnidades: unitVal,
+        maxUsuarios: usrVal,
+        maxAlmacenamientoGb: storageVal,
         estado: form.estado || 'ACTIVO',
         modulos: form.modulos,
         configuracionAvanzada: JSON.stringify({
@@ -352,7 +442,7 @@ export default function SuperAdminPlanesPage() {
             Planes y Tarifas SaaS
           </h1>
           <p className="text-muted-foreground mt-1 text-sm">
-            Control comercial integral, límites de infraestructura y configuración de módulos habilitados para clientes de SAED.
+            Control comercial integral, límites de infraestructura validados a la capacidad de SAED y matriz de módulos habilitados.
           </p>
         </div>
         <Button onClick={handleOpenCreate} className="gap-2 shrink-0 shadow-sm">
@@ -558,7 +648,7 @@ export default function SuperAdminPlanesPage() {
                   <div>
                     <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1">
                       <span className="material-symbols-outlined text-xs">speed</span>
-                      Límites y Capacidades
+                      Límites y Capacidades SAED
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-xs">
                       <div className="bg-background/80 p-2 rounded border border-border/50">
@@ -567,7 +657,7 @@ export default function SuperAdminPlanesPage() {
                           Propiedades
                         </div>
                         <div className="font-bold text-foreground mt-0.5">
-                          {plan.maxPropiedades ? `Hasta ${plan.maxPropiedades}` : 'Ilimitadas'}
+                          {plan.maxPropiedades ? `Hasta ${plan.maxPropiedades.toLocaleString('es-CO')}` : 'Ilimitadas (∞)'}
                         </div>
                       </div>
 
@@ -577,7 +667,7 @@ export default function SuperAdminPlanesPage() {
                           Unidades
                         </div>
                         <div className="font-bold text-foreground mt-0.5">
-                          {plan.maxUnidades ? `Hasta ${plan.maxUnidades}` : 'Ilimitadas'}
+                          {plan.maxUnidades ? `Hasta ${plan.maxUnidades.toLocaleString('es-CO')}` : 'Ilimitadas (∞)'}
                         </div>
                       </div>
 
@@ -587,7 +677,7 @@ export default function SuperAdminPlanesPage() {
                           Usuarios
                         </div>
                         <div className="font-bold text-foreground mt-0.5">
-                          {plan.maxUsuarios ? `Hasta ${plan.maxUsuarios}` : 'Ilimitados'}
+                          {plan.maxUsuarios ? `Hasta ${plan.maxUsuarios.toLocaleString('es-CO')}` : 'Ilimitados (∞)'}
                         </div>
                       </div>
 
@@ -597,7 +687,7 @@ export default function SuperAdminPlanesPage() {
                           Almacenamiento
                         </div>
                         <div className="font-bold text-foreground mt-0.5">
-                          {plan.maxAlmacenamientoGb || 5} GB
+                          {plan.maxAlmacenamientoGb ? `${plan.maxAlmacenamientoGb} GB` : 'Ilimitado (∞)'}
                         </div>
                       </div>
                     </div>
@@ -706,7 +796,7 @@ export default function SuperAdminPlanesPage() {
               {isEditing ? `Editar Plan: ${form.nombre}` : 'Registrar Nuevo Plan SaaS'}
             </DialogTitle>
             <DialogDescription>
-              Configure las tarifas comerciales, límites cuantitativos de copropiedad y la matriz de módulos habilitados de SAED.
+              Configure las tarifas comerciales, límites cuantitativos de infraestructura y la matriz de módulos habilitados de SAED.
             </DialogDescription>
           </DialogHeader>
 
@@ -724,34 +814,38 @@ export default function SuperAdminPlanesPage() {
               <TabsContent value="general" className="space-y-3.5 pt-3">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1.5">
-                    <Label htmlFor="plan-nombre" className="text-xs font-semibold uppercase text-muted-foreground">
-                      Nombre Comercial del Plan *
+                    <Label htmlFor="plan-nombre" className="text-xs font-semibold uppercase text-muted-foreground flex justify-between">
+                      <span>Nombre Comercial *</span>
+                      <span className="text-[10px] text-muted-foreground font-normal">Máx {SAED_LIMITS.MAX_NOMBRE_LENGTH}</span>
                     </Label>
                     <Input
                       id="plan-nombre"
                       required
+                      maxLength={SAED_LIMITS.MAX_NOMBRE_LENGTH}
                       value={form.nombre}
                       onChange={(e) => setForm({ ...form, nombre: e.target.value })}
-                      placeholder="Ej. Plan Residencial Pro"
+                      placeholder="Ej. Plan Corporativo Multi-Conjunto"
                       className="text-sm"
                     />
                   </div>
 
                   <div className="space-y-1.5">
-                    <Label htmlFor="plan-codigo" className="text-xs font-semibold uppercase text-muted-foreground">
-                      Código Único (Identificador) *
+                    <Label htmlFor="plan-codigo" className="text-xs font-semibold uppercase text-muted-foreground flex justify-between">
+                      <span>Código Único *</span>
+                      <span className="text-[10px] text-muted-foreground font-normal">Máx {SAED_LIMITS.MAX_CODIGO_LENGTH}</span>
                     </Label>
                     <Input
                       id="plan-codigo"
                       required
-                      disabled={isEditing} // preserve code when editing
+                      disabled={isEditing}
+                      maxLength={SAED_LIMITS.MAX_CODIGO_LENGTH}
                       value={form.codigo}
-                      onChange={(e) => setForm({ ...form, codigo: e.target.value })}
-                      placeholder="Ej. RESIDENCIAL_PRO"
+                      onChange={(e) => setForm({ ...form, codigo: e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, '_') })}
+                      placeholder="Ej. CORP_MULTI"
                       className="text-sm font-mono uppercase"
                     />
                     {isEditing && (
-                      <p className="text-[10px] text-muted-foreground">El código del plan es inmutable para mantener consistencia con membresías activas.</p>
+                      <p className="text-[10px] text-muted-foreground">Inmutable para preservar integridad con membresías activas.</p>
                     )}
                   </div>
                 </div>
@@ -765,13 +859,14 @@ export default function SuperAdminPlanesPage() {
                       id="plan-precio"
                       type="number"
                       min="0"
+                      max={SAED_LIMITS.MAX_PRECIO_CEILING}
                       required
                       value={form.precioMensual}
-                      onChange={(e) => setForm({ ...form, precioMensual: Number(e.target.value) })}
+                      onChange={(e) => setForm({ ...form, precioMensual: Math.max(0, Number(e.target.value)) })}
                       className="text-sm font-mono"
                     />
                     <p className="text-[11px] text-muted-foreground font-mono">
-                      Equivalente anual: {formatCurrency(Math.round(form.precioMensual * 12 * 0.80))} (20% descuento)
+                      Equivalente anual: {formatCurrency(Math.round(form.precioMensual * 12 * 0.80))} (20% ahorro anual)
                     </p>
                   </div>
 
@@ -793,15 +888,17 @@ export default function SuperAdminPlanesPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor="plan-desc" className="text-xs font-semibold uppercase text-muted-foreground">
-                    Descripción Comercial
+                  <Label htmlFor="plan-desc" className="text-xs font-semibold uppercase text-muted-foreground flex justify-between">
+                    <span>Descripción Comercial</span>
+                    <span className="text-[10px] text-muted-foreground font-normal">Máx {SAED_LIMITS.MAX_DESCRIPCION_LENGTH}</span>
                   </Label>
                   <Textarea
                     id="plan-desc"
                     rows={2}
+                    maxLength={SAED_LIMITS.MAX_DESCRIPCION_LENGTH}
                     value={form.descripcion}
                     onChange={(e) => setForm({ ...form, descripcion: e.target.value })}
-                    placeholder="Resumen de beneficios para las organizaciones clientes..."
+                    placeholder="Resumen de capacidades y beneficios comerciales..."
                     className="text-xs"
                   />
                 </div>
@@ -810,7 +907,7 @@ export default function SuperAdminPlanesPage() {
                   <div className="flex items-center justify-between p-2.5 rounded-lg border border-border bg-muted/20">
                     <div>
                       <div className="text-xs font-semibold">Estado Activo</div>
-                      <div className="text-[10px] text-muted-foreground">Visible para contratación</div>
+                      <div className="text-[10px] text-muted-foreground">Habilitado para contratación</div>
                     </div>
                     <Switch
                       checked={form.estado === 'ACTIVO'}
@@ -831,84 +928,150 @@ export default function SuperAdminPlanesPage() {
                 </div>
               </TabsContent>
 
-              {/* TAB 2: Limits & Quotas */}
-              <TabsContent value="limites" className="space-y-3.5 pt-3">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="max-props" className="text-xs font-semibold uppercase text-muted-foreground">
-                      Máx. Copropiedades / Propiedades *
-                    </Label>
+              {/* TAB 2: Limits & Quotas validated to SAED boundaries */}
+              <TabsContent value="limites" className="space-y-4 pt-3">
+                <div className="p-3 bg-muted/40 rounded-lg border border-border text-xs space-y-1">
+                  <div className="font-semibold text-foreground flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-sm text-primary">verified</span>
+                    Límites de Infraestructura de SAED
+                  </div>
+                  <p className="text-muted-foreground text-[11px]">
+                    Configure los techos máximos permitidos por plan. Puede definir una cuota numérica o marcar <strong>"Sin límite (∞)"</strong> para organizaciones con acuerdos corporativos ilimitados.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Propiedades */}
+                  <div className="p-3 rounded-lg border border-border/80 space-y-2 bg-card">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="max-props" className="text-xs font-bold uppercase text-foreground flex items-center gap-1">
+                        <span className="material-symbols-outlined text-xs text-primary">apartment</span>
+                        Propiedades
+                      </Label>
+                      <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
+                        <Checkbox
+                          checked={form.unlimitedPropiedades}
+                          onCheckedChange={(checked) => setForm({ ...form, unlimitedPropiedades: !!checked })}
+                        />
+                        <span>Sin límite (∞)</span>
+                      </label>
+                    </div>
                     <Input
                       id="max-props"
                       type="number"
                       min="1"
-                      required
-                      value={form.maxPropiedades}
-                      onChange={(e) => setForm({ ...form, maxPropiedades: Number(e.target.value) })}
+                      max={SAED_LIMITS.MAX_PROPIEDADES_CEILING}
+                      disabled={form.unlimitedPropiedades}
+                      value={form.unlimitedPropiedades ? '' : form.maxPropiedades}
+                      placeholder={form.unlimitedPropiedades ? 'Ilimitadas (∞)' : `1 a ${SAED_LIMITS.MAX_PROPIEDADES_CEILING.toLocaleString('es-CO')}`}
+                      onChange={(e) => setForm({ ...form, maxPropiedades: Math.min(SAED_LIMITS.MAX_PROPIEDADES_CEILING, Math.max(1, Number(e.target.value))) })}
                       className="text-sm font-mono"
                     />
-                    <p className="text-[10px] text-muted-foreground">Número de conjuntos o edificios que la organización puede gestionar.</p>
+                    <div className="text-[10px] text-muted-foreground">
+                      {form.unlimitedPropiedades
+                        ? 'La organización puede crear copropiedades ilimitadas.'
+                        : `Permite entre 1 y ${SAED_LIMITS.MAX_PROPIEDADES_CEILING.toLocaleString('es-CO')} copropiedades.`}
+                    </div>
                   </div>
 
-                  <div className="space-y-1.5">
-                    <Label htmlFor="max-unidades" className="text-xs font-semibold uppercase text-muted-foreground">
-                      Máx. Unidades Residenciales *
-                    </Label>
+                  {/* Unidades */}
+                  <div className="p-3 rounded-lg border border-border/80 space-y-2 bg-card">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="max-unidades" className="text-xs font-bold uppercase text-foreground flex items-center gap-1">
+                        <span className="material-symbols-outlined text-xs text-primary">home</span>
+                        Unidades Privadas
+                      </Label>
+                      <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
+                        <Checkbox
+                          checked={form.unlimitedUnidades}
+                          onCheckedChange={(checked) => setForm({ ...form, unlimitedUnidades: !!checked })}
+                        />
+                        <span>Sin límite (∞)</span>
+                      </label>
+                    </div>
                     <Input
                       id="max-unidades"
                       type="number"
                       min="1"
-                      required
-                      value={form.maxUnidades}
-                      onChange={(e) => setForm({ ...form, maxUnidades: Number(e.target.value) })}
+                      max={SAED_LIMITS.MAX_UNIDADES_CEILING}
+                      disabled={form.unlimitedUnidades}
+                      value={form.unlimitedUnidades ? '' : form.maxUnidades}
+                      placeholder={form.unlimitedUnidades ? 'Ilimitadas (∞)' : `1 a ${SAED_LIMITS.MAX_UNIDADES_CEILING.toLocaleString('es-CO')}`}
+                      onChange={(e) => setForm({ ...form, maxUnidades: Math.min(SAED_LIMITS.MAX_UNIDADES_CEILING, Math.max(1, Number(e.target.value))) })}
                       className="text-sm font-mono"
                     />
-                    <p className="text-[10px] text-muted-foreground">Apartamentos, casas, oficinas o locales en total.</p>
+                    <div className="text-[10px] text-muted-foreground">
+                      {form.unlimitedUnidades
+                        ? 'Sin restricción en la cantidad de apartamentos o casas.'
+                        : `Tope máximo de unidades privadas: ${SAED_LIMITS.MAX_UNIDADES_CEILING.toLocaleString('es-CO')}.`}
+                    </div>
                   </div>
-                </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="max-usuarios" className="text-xs font-semibold uppercase text-muted-foreground">
-                      Máx. Usuarios Registrados *
-                    </Label>
+                  {/* Usuarios */}
+                  <div className="p-3 rounded-lg border border-border/80 space-y-2 bg-card">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="max-usuarios" className="text-xs font-bold uppercase text-foreground flex items-center gap-1">
+                        <span className="material-symbols-outlined text-xs text-primary">person</span>
+                        Usuarios Registrados
+                      </Label>
+                      <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
+                        <Checkbox
+                          checked={form.unlimitedUsuarios}
+                          onCheckedChange={(checked) => setForm({ ...form, unlimitedUsuarios: !!checked })}
+                        />
+                        <span>Sin límite (∞)</span>
+                      </label>
+                    </div>
                     <Input
                       id="max-usuarios"
                       type="number"
                       min="1"
-                      required
-                      value={form.maxUsuarios}
-                      onChange={(e) => setForm({ ...form, maxUsuarios: Number(e.target.value) })}
+                      max={SAED_LIMITS.MAX_USUARIOS_CEILING}
+                      disabled={form.unlimitedUsuarios}
+                      value={form.unlimitedUsuarios ? '' : form.maxUsuarios}
+                      placeholder={form.unlimitedUsuarios ? 'Ilimitados (∞)' : `1 a ${SAED_LIMITS.MAX_USUARIOS_CEILING.toLocaleString('es-CO')}`}
+                      onChange={(e) => setForm({ ...form, maxUsuarios: Math.min(SAED_LIMITS.MAX_USUARIOS_CEILING, Math.max(1, Number(e.target.value))) })}
                       className="text-sm font-mono"
                     />
-                    <p className="text-[10px] text-muted-foreground">Administradores, porteros, consejeros y residentes.</p>
+                    <div className="text-[10px] text-muted-foreground">
+                      {form.unlimitedUsuarios
+                        ? 'Usuarios y residentes sin restricción de cuenta.'
+                        : `Tope máximo de cuentas en el sistema: ${SAED_LIMITS.MAX_USUARIOS_CEILING.toLocaleString('es-CO')}.`}
+                    </div>
                   </div>
 
-                  <div className="space-y-1.5">
-                    <Label htmlFor="max-almacenamiento" className="text-xs font-semibold uppercase text-muted-foreground">
-                      Almacenamiento en la Nube (GB) *
-                    </Label>
+                  {/* Almacenamiento */}
+                  <div className="p-3 rounded-lg border border-border/80 space-y-2 bg-card">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="max-almacenamiento" className="text-xs font-bold uppercase text-foreground flex items-center gap-1">
+                        <span className="material-symbols-outlined text-xs text-primary">cloud</span>
+                        Almacenamiento (GB)
+                      </Label>
+                      <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
+                        <Checkbox
+                          checked={form.unlimitedAlmacenamiento}
+                          onCheckedChange={(checked) => setForm({ ...form, unlimitedAlmacenamiento: !!checked })}
+                        />
+                        <span>Sin límite (∞)</span>
+                      </label>
+                    </div>
                     <Input
                       id="max-almacenamiento"
                       type="number"
                       min="1"
-                      required
-                      value={form.maxAlmacenamientoGb}
-                      onChange={(e) => setForm({ ...form, maxAlmacenamientoGb: Number(e.target.value) })}
+                      max={SAED_LIMITS.MAX_ALMACENAMIENTO_CEILING}
+                      disabled={form.unlimitedAlmacenamiento}
+                      value={form.unlimitedAlmacenamiento ? '' : form.maxAlmacenamientoGb}
+                      placeholder={form.unlimitedAlmacenamiento ? 'Ilimitado (∞)' : `1 a ${SAED_LIMITS.MAX_ALMACENAMIENTO_CEILING.toLocaleString('es-CO')} GB`}
+                      onChange={(e) => setForm({ ...form, maxAlmacenamientoGb: Math.min(SAED_LIMITS.MAX_ALMACENAMIENTO_CEILING, Math.max(1, Number(e.target.value))) })}
                       className="text-sm font-mono"
                     />
-                    <p className="text-[10px] text-muted-foreground">Espacio seguro para actas, soportes, contratos y archivos.</p>
+                    <div className="text-[10px] text-muted-foreground">
+                      {form.unlimitedAlmacenamiento
+                        ? 'Espacio ilimitado en la nube para documentos y archivos.'
+                        : `Tope de almacenamiento seguro: ${SAED_LIMITS.MAX_ALMACENAMIENTO_CEILING.toLocaleString('es-CO')} GB.`}
+                    </div>
                   </div>
-                </div>
-
-                <div className="p-3 bg-muted/30 rounded-lg border border-border text-xs space-y-1">
-                  <div className="font-semibold text-foreground flex items-center gap-1.5">
-                    <span className="material-symbols-outlined text-sm text-primary">security</span>
-                    Control Automatizado por RLS
-                  </div>
-                  <p className="text-muted-foreground text-[11px]">
-                    El motor de cuotas de SAED bloquea automáticamente cualquier intento de registrar unidades, propiedades o usuarios que excedan estos valores contratados.
-                  </p>
                 </div>
               </TabsContent>
 

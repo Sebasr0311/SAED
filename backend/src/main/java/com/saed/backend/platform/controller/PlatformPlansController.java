@@ -109,18 +109,24 @@ public class PlatformPlansController {
     @Auditable(action = "CREATE", resource = "PLAN_SAAS", category = AuditCategory.ADMINISTRATIVE, severity = AuditSeverity.HIGH)
     public ResponseEntity<ApiResponse<Map<String, Object>>> createPlan(@RequestBody Map<String, Object> payload) {
         String nombre = (String) payload.getOrDefault("nombre", "");
-        if (nombre == null || nombre.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El nombre del plan es obligatorio");
+        if (nombre == null || nombre.trim().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El nombre comercial del plan es obligatorio.");
+        }
+        if (nombre.trim().length() > 80) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El nombre del plan no puede exceder 80 caracteres.");
         }
 
         String codigo = (String) payload.getOrDefault("codigo", "");
-        if (codigo == null || codigo.isBlank()) {
+        if (codigo == null || codigo.trim().isBlank()) {
             codigo = nombre.trim().toUpperCase().replaceAll("[^A-Z0-9]", "_");
         } else {
             codigo = codigo.trim().toUpperCase().replaceAll("[^A-Z0-9_]", "_");
         }
+        if (codigo.length() > 30) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El código del plan no puede exceder 30 caracteres.");
+        }
 
-        // Check if code already exists
+        // Validar unicidad del código
         Number exists = jdbcTemplate.queryForObject(
             "SELECT COUNT(1) FROM PLANES WHERE UPPER(CODIGO) = :cod",
             new MapSqlParameterSource("cod", codigo),
@@ -131,12 +137,30 @@ public class PlatformPlansController {
         }
 
         String descripcion = (String) payload.getOrDefault("descripcion", "");
-        Number precioMensual = (Number) payload.getOrDefault("precioMensual", 0);
-        Number maxPropiedades = (Number) payload.getOrDefault("maxPropiedades", 1);
-        Number maxUnidades = (Number) payload.getOrDefault("maxUnidades", 50);
-        Number maxUsuarios = (Number) payload.getOrDefault("maxUsuarios", 100);
-        Number maxAlmacenamientoGb = (Number) payload.getOrDefault("maxAlmacenamientoGb", 5);
+        if (descripcion != null && descripcion.length() > 500) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La descripción del plan no puede exceder 500 caracteres.");
+        }
+
+        Number precioMensualRaw = (Number) payload.getOrDefault("precioMensual", 0);
+        double precioMensual = precioMensualRaw != null ? precioMensualRaw.doubleValue() : 0.0;
+        if (precioMensual < 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El precio mensual no puede ser negativo.");
+        }
+        if (precioMensual > 9_999_999_999.0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El precio mensual excede el límite máximo permitido ($9.999.999.999 COP).");
+        }
+
+        // Validar y normalizar límites a la capacidad soportada por SAED
+        Long maxPropiedades = parseLimit(payload.get("maxPropiedades"), 999_999L, "propiedades");
+        Long maxUnidades = parseLimit(payload.get("maxUnidades"), 99_999_999L, "unidades");
+        Long maxUsuarios = parseLimit(payload.get("maxUsuarios"), 99_999_999L, "usuarios");
+        Double maxAlmacenamientoGb = parseStorageLimit(payload.get("maxAlmacenamientoGb"));
+
         String estado = (String) payload.getOrDefault("estado", "ACTIVO");
+        if (estado != null && !List.of("ACTIVO", "INACTIVO").contains(estado.trim().toUpperCase())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Estado inválido. Solo se permite ACTIVO o INACTIVO.");
+        }
+
         String configJson = extractConfigJson(payload.get("configuracionAvanzada"));
 
         String sql = """
@@ -153,28 +177,27 @@ public class PlatformPlansController {
 
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("codigo", codigo)
-                .addValue("nombre", nombre)
-                .addValue("descripcion", descripcion)
+                .addValue("nombre", nombre.trim())
+                .addValue("descripcion", descripcion != null ? descripcion.trim() : null)
                 .addValue("precioMensual", precioMensual)
                 .addValue("maxPropiedades", maxPropiedades)
                 .addValue("maxUnidades", maxUnidades)
                 .addValue("maxUsuarios", maxUsuarios)
                 .addValue("maxAlmacenamientoGb", maxAlmacenamientoGb)
                 .addValue("configJson", configJson)
-                .addValue("estado", estado != null ? estado.toUpperCase() : "ACTIVO");
+                .addValue("estado", estado != null ? estado.trim().toUpperCase() : "ACTIVO");
 
         KeyHolder keyHolder = new GeneratedKeyHolder();
         jdbcTemplate.update(sql, params, keyHolder, new String[]{"ID_PLAN"});
         Number newId = keyHolder.getKey();
         Long idPlan = newId != null ? newId.longValue() : 0L;
 
-        // Synchronize selected modules
+        // Sincronizar módulos seleccionados
         if (payload.containsKey("modulos")) {
             @SuppressWarnings("unchecked")
             List<String> modulos = (List<String>) payload.get("modulos");
             syncPlanModulos(idPlan, modulos);
         } else {
-            // Default: enable basic modules if none provided
             syncPlanModulos(idPlan, List.of("FINANZAS", "PQRS", "PAQUETES", "PARQUEADEROS"));
         }
 
@@ -182,8 +205,8 @@ public class PlatformPlansController {
                 "id", idPlan,
                 "codigo", codigo,
                 "nombre", nombre,
-                "estado", estado != null ? estado.toUpperCase() : "ACTIVO",
-                "message", "Plan SaaS creado exitosamente con sus capacidades y módulos."
+                "estado", estado != null ? estado.trim().toUpperCase() : "ACTIVO",
+                "message", "Plan SaaS creado exitosamente con sus capacidades y módulos validados."
         )));
     }
 
@@ -192,13 +215,40 @@ public class PlatformPlansController {
     @Auditable(action = "UPDATE", resource = "PLAN_SAAS", category = AuditCategory.ADMINISTRATIVE, severity = AuditSeverity.HIGH)
     public ResponseEntity<ApiResponse<Map<String, Object>>> updatePlan(@PathVariable Long id, @RequestBody Map<String, Object> payload) {
         String nombre = (String) payload.get("nombre");
+        if (nombre != null && nombre.trim().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El nombre comercial no puede estar vacío.");
+        }
+        if (nombre != null && nombre.trim().length() > 80) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El nombre del plan no puede exceder 80 caracteres.");
+        }
+
         String descripcion = (String) payload.get("descripcion");
-        Number precioMensual = (Number) payload.get("precioMensual");
-        Number maxPropiedades = (Number) payload.get("maxPropiedades");
-        Number maxUnidades = (Number) payload.get("maxUnidades");
-        Number maxUsuarios = (Number) payload.get("maxUsuarios");
-        Number maxAlmacenamientoGb = (Number) payload.get("maxAlmacenamientoGb");
+        if (descripcion != null && descripcion.length() > 500) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La descripción del plan no puede exceder 500 caracteres.");
+        }
+
+        Double precioMensual = null;
+        if (payload.containsKey("precioMensual") && payload.get("precioMensual") != null) {
+            precioMensual = ((Number) payload.get("precioMensual")).doubleValue();
+            if (precioMensual < 0) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El precio mensual no puede ser negativo.");
+            }
+            if (precioMensual > 9_999_999_999.0) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El precio mensual excede el límite máximo permitido.");
+            }
+        }
+
+        // Validar y normalizar límites numéricos
+        Long maxPropiedades = parseLimit(payload.get("maxPropiedades"), 999_999L, "propiedades");
+        Long maxUnidades = parseLimit(payload.get("maxUnidades"), 99_999_999L, "unidades");
+        Long maxUsuarios = parseLimit(payload.get("maxUsuarios"), 99_999_999L, "usuarios");
+        Double maxAlmacenamientoGb = parseStorageLimit(payload.get("maxAlmacenamientoGb"));
+
         String estado = (String) payload.get("estado");
+        if (estado != null && !List.of("ACTIVO", "INACTIVO").contains(estado.trim().toUpperCase())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Estado inválido. Solo se permite ACTIVO o INACTIVO.");
+        }
+
         String configJson = extractConfigJson(payload.get("configuracionAvanzada"));
 
         String sql = """
@@ -206,10 +256,10 @@ public class PlatformPlansController {
             SET NOMBRE = NVL(:nombre, NOMBRE),
                 DESCRIPCION = NVL(:descripcion, DESCRIPCION),
                 PRECIO_MENSUAL = NVL(:precioMensual, PRECIO_MENSUAL),
-                LIMITE_PROPIEDADES = NVL(:maxPropiedades, LIMITE_PROPIEDADES),
-                LIMITE_UNIDADES = NVL(:maxUnidades, LIMITE_UNIDADES),
-                LIMITE_USUARIOS = NVL(:maxUsuarios, LIMITE_USUARIOS),
-                LIMITE_ALMACENAMIENTO_GB = NVL(:maxAlmacenamientoGb, LIMITE_ALMACENAMIENTO_GB),
+                LIMITE_PROPIEDADES = :maxPropiedades,
+                LIMITE_UNIDADES = :maxUnidades,
+                LIMITE_USUARIOS = :maxUsuarios,
+                LIMITE_ALMACENAMIENTO_GB = :maxAlmacenamientoGb,
                 CONFIGURACION_AVANZADA = CASE WHEN :configJson IS NOT NULL THEN :configJson ELSE CONFIGURACION_AVANZADA END,
                 ESTADO = NVL(:estado, ESTADO)
             WHERE ID_PLAN = :id
@@ -217,15 +267,15 @@ public class PlatformPlansController {
 
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("id", id)
-                .addValue("nombre", nombre)
-                .addValue("descripcion", descripcion)
+                .addValue("nombre", nombre != null ? nombre.trim() : null)
+                .addValue("descripcion", descripcion != null ? descripcion.trim() : null)
                 .addValue("precioMensual", precioMensual)
                 .addValue("maxPropiedades", maxPropiedades)
                 .addValue("maxUnidades", maxUnidades)
                 .addValue("maxUsuarios", maxUsuarios)
                 .addValue("maxAlmacenamientoGb", maxAlmacenamientoGb)
                 .addValue("configJson", configJson)
-                .addValue("estado", estado != null ? estado.toUpperCase() : null);
+                .addValue("estado", estado != null ? estado.trim().toUpperCase() : null);
 
         int rows = jdbcTemplate.update(sql, params);
         if (rows == 0) {
@@ -339,6 +389,62 @@ public class PlatformPlansController {
                 "estado", estadoNorm,
                 "message", "Estado de plan actualizado exitosamente"
         )));
+    }
+
+    private Long parseLimit(Object rawValue, long maxAllowed, String fieldName) {
+        if (rawValue == null) return null;
+        if (rawValue instanceof Number num) {
+            long val = num.longValue();
+            if (val < 0) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El límite de " + fieldName + " no puede ser negativo.");
+            }
+            if (val == 0) return null; // 0 representa ilimitado en la lógica de negocio; se persiste como NULL en Oracle para cumplir con el check constraint > 0
+            if (val > maxAllowed) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El límite de " + fieldName + " no puede superar " + String.format("%,d", maxAllowed) + " (capacidad máxima soportada por SAED).");
+            }
+            return val;
+        }
+        if (rawValue instanceof String str) {
+            String clean = str.trim();
+            if (clean.isBlank() || "unlimited".equalsIgnoreCase(clean) || "ilimitado".equalsIgnoreCase(clean) || "ilimitada".equalsIgnoreCase(clean) || "ilimitadas".equalsIgnoreCase(clean) || "ilimitados".equalsIgnoreCase(clean)) {
+                return null;
+            }
+            try {
+                long val = Long.parseLong(clean);
+                return parseLimit(val, maxAllowed, fieldName);
+            } catch (NumberFormatException e) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Valor numérico inválido para " + fieldName + ".");
+            }
+        }
+        return null;
+    }
+
+    private Double parseStorageLimit(Object rawValue) {
+        if (rawValue == null) return null;
+        if (rawValue instanceof Number num) {
+            double val = num.doubleValue();
+            if (val < 0) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El límite de almacenamiento no puede ser negativo.");
+            }
+            if (val == 0) return null; // 0 representa ilimitado; NULL en Oracle
+            if (val > 999_999.0) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El almacenamiento en la nube no puede superar 999,999 GB.");
+            }
+            return val;
+        }
+        if (rawValue instanceof String str) {
+            String clean = str.trim();
+            if (clean.isBlank() || "unlimited".equalsIgnoreCase(clean) || "ilimitado".equalsIgnoreCase(clean)) {
+                return null;
+            }
+            try {
+                double val = Double.parseDouble(clean);
+                return parseStorageLimit(val);
+            } catch (NumberFormatException e) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Valor numérico inválido para almacenamiento.");
+            }
+        }
+        return null;
     }
 
     private void enrichPlansWithModules(List<Map<String, Object>> plans) {
