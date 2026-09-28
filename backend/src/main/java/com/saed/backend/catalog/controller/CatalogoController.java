@@ -44,9 +44,13 @@ public class CatalogoController {
 
     @GetMapping({"/bloques", "/catalogos/bloques"})
     @PreAuthorize("isAuthenticated()")
-    public List<Map<String, Object>> bloques() {
-        Long propiedadId = (SaedContextHolder.getContext() != null)
-                ? SaedContextHolder.getContext().getPropertyId() : null;
+    public List<Map<String, Object>> bloques(
+            @RequestParam(name = "propiedadId", required = false) Long paramPropiedadId,
+            @RequestParam(name = "propertyId", required = false) Long paramPropertyId) {
+        Long propiedadId = paramPropiedadId != null ? paramPropiedadId : paramPropertyId;
+        if (propiedadId == null && SaedContextHolder.getContext() != null) {
+            propiedadId = SaedContextHolder.getContext().getPropertyId();
+        }
         List<Map<String, Object>> raw;
         if (propiedadId != null) {
             raw = jdbcTemplate.queryForList(

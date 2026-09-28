@@ -524,6 +524,20 @@ export default function UnidadesPage() {
                                 <Button
                                   variant="ghost"
                                   size="sm"
+                                  onClick={() => {
+                                    setEditing(null);
+                                    setForm({ ...emptyForm, idBloque: String(b.idBloque) });
+                                    refetchBloques();
+                                    setDialogOpen(true);
+                                  }}
+                                  className="h-8 w-8 p-0 text-muted-foreground hover:text-primary"
+                                  title={`Registrar unidad en ${b.nombre}`}
+                                >
+                                  <span className="material-symbols-outlined text-base">add_circle</span>
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
                                   onClick={() => toggleBlockStatus(b)}
                                   className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
                                   title={b.estado === 'ACTIVO' ? 'Desactivar bloque' : 'Activar bloque'}
