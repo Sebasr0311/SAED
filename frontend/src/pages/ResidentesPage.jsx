@@ -254,9 +254,10 @@ export default function ResidentesPage() {
     list.forEach((u) => {
       const id = u.idApartamento || u.id || u.idUnidad;
       if (id) {
-        const desc = u.numero
-          ? `Apto ${u.numero}${u.bloque ? ` · ${u.bloque}` : ''}`
-          : `Unidad ${id}`;
+        const blockStr = u.bloqueNombre || u.bloqueCodigo || u.bloque;
+        const typeStr = u.tipoUnidadNombre || u.tipoUnidadCodigo || '';
+        const identStr = u.identificador || u.numero || `Unidad ${id}`;
+        const desc = `${typeStr ? `${typeStr} ` : ''}${identStr}${blockStr ? ` · ${blockStr}` : ''}`;
         map.set(Number(id), desc);
       }
     });
@@ -1807,10 +1808,13 @@ export default function ResidentesPage() {
               {(apartamentos?.items || (Array.isArray(apartamentos) ? apartamentos : [])).map(
                 (a) => {
                   const id = a.idApartamento || a.id || a.idUnidad;
+                  const blockStr = a.bloqueNombre || a.bloqueCodigo || a.bloque;
+                  const typeStr = a.tipoUnidadNombre || a.tipoUnidadCodigo || '';
+                  const identStr = a.identificador || a.numero || `Unidad ${id}`;
                   return (
                     <option key={id} value={id}>
-                      Apto {a.numero}
-                      {a.bloque ? ` - ${a.bloque}` : ''}
+                      {typeStr ? `${typeStr} ` : ''}{identStr}
+                      {blockStr ? ` · ${blockStr}` : ''}
                       {a.piso ? ` (Piso ${a.piso})` : ''}
                     </option>
                   );

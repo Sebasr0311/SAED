@@ -47,15 +47,30 @@ public class CatalogoController {
     public List<Map<String, Object>> bloques() {
         Long propiedadId = (SaedContextHolder.getContext() != null)
                 ? SaedContextHolder.getContext().getPropertyId() : null;
+        List<Map<String, Object>> raw;
         if (propiedadId != null) {
-            return jdbcTemplate.queryForList(
-                    "SELECT ID_BLOQUE, ID_PROPIEDAD, CODIGO, NOMBRE, TIPO, ORDEN, ESTADO FROM BLOQUES " +
+            raw = jdbcTemplate.queryForList(
+                    "SELECT ID_BLOQUE, ID_PROPIEDAD, ID_BLOQUE_PADRE, CODIGO, NOMBRE, TIPO, ORDEN, ESTADO FROM BLOQUES " +
                     "WHERE ID_PROPIEDAD = :propiedadId ORDER BY ORDEN, CODIGO",
                     new MapSqlParameterSource("propiedadId", propiedadId));
+        } else {
+            raw = jdbcTemplate.queryForList(
+                    "SELECT ID_BLOQUE, ID_PROPIEDAD, ID_BLOQUE_PADRE, CODIGO, NOMBRE, TIPO, ORDEN, ESTADO FROM BLOQUES ORDER BY ORDEN, CODIGO",
+                    new MapSqlParameterSource());
         }
-        return jdbcTemplate.queryForList(
-                "SELECT ID_BLOQUE, ID_PROPIEDAD, CODIGO, NOMBRE, TIPO, ORDEN, ESTADO FROM BLOQUES ORDER BY ORDEN, CODIGO",
-                new MapSqlParameterSource());
+        return raw.stream().map(row -> {
+            Map<String, Object> map = new java.util.LinkedHashMap<>(row);
+            map.put("id", row.get("ID_BLOQUE"));
+            map.put("idBloque", row.get("ID_BLOQUE"));
+            map.put("idPropiedad", row.get("ID_PROPIEDAD"));
+            map.put("idBloquePadre", row.get("ID_BLOQUE_PADRE"));
+            map.put("codigo", row.get("CODIGO"));
+            map.put("nombre", row.get("NOMBRE"));
+            map.put("tipo", row.get("TIPO"));
+            map.put("orden", row.get("ORDEN"));
+            map.put("estado", row.get("ESTADO"));
+            return map;
+        }).toList();
     }
 
     @GetMapping({"/tipos-propiedad", "/catalogos/tipos-propiedad"})

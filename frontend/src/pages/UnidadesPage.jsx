@@ -51,7 +51,7 @@ const BLOCK_TIPO_BADGE = {
 
 const emptyForm = {
   identificador: '',
-  idBloque: '',
+  idBloque: 'NONE',
   idTipoUnidad: '',
   areaM2: '',
   coeficienteCopropiedad: '',
@@ -100,7 +100,7 @@ export default function UnidadesPage() {
     idBloque: b.idBloque ?? b.ID_BLOQUE ?? b.id,
     idPropiedad: b.idPropiedad ?? b.ID_PROPIEDAD,
     idBloquePadre: b.idBloquePadre ?? b.ID_BLOQUE_PADRE,
-    nombreBloquePadre: b.nombreBloquePadre,
+    nombreBloquePadre: b.nombreBloquePadre ?? b.bloquePadreNombre ?? b.BLOQUE_PADRE_NOMBRE,
     tipo: b.tipo ?? b.TIPO ?? 'BLOQUE',
     codigo: b.codigo ?? b.CODIGO ?? '',
     nombre: b.nombre ?? b.NOMBRE ?? '',
@@ -284,7 +284,7 @@ export default function UnidadesPage() {
               Configuración
             </Button>
           )}
-          <Button onClick={() => { setEditing(null); setForm(emptyForm); setDialogOpen(true); }}>
+          <Button onClick={() => { setEditing(null); setForm(emptyForm); refetchBloques(); setDialogOpen(true); }}>
             <span className="material-symbols-outlined text-base mr-1">add</span>
             Nueva Unidad
           </Button>
@@ -392,11 +392,12 @@ export default function UnidadesPage() {
                                 setEditing(u);
                                 setForm({
                                   identificador: u.identificador || u.IDENTIFICADOR || '',
-                                  idBloque: u.idBloque != null ? String(u.idBloque) : (u.ID_BLOQUE != null ? String(u.ID_BLOQUE) : ''),
+                                  idBloque: (u.idBloque != null && u.idBloque !== '') ? String(u.idBloque) : ((u.ID_BLOQUE != null && u.ID_BLOQUE !== '') ? String(u.ID_BLOQUE) : 'NONE'),
                                   idTipoUnidad: u.idTipoUnidad != null ? String(u.idTipoUnidad) : (u.ID_TIPO_UNIDAD != null ? String(u.ID_TIPO_UNIDAD) : ''),
                                   areaM2: u.areaM2 != null ? String(u.areaM2) : (u.AREA_M2 != null ? String(u.AREA_M2) : ''),
                                   coeficienteCopropiedad: u.coeficienteCopropiedad != null ? String(u.coeficienteCopropiedad) : (u.COEFICIENTE_COPROPIEDAD != null ? String(u.COEFICIENTE_COPROPIEDAD) : ''),
                                 });
+                                refetchBloques();
                                 setDialogOpen(true);
                               }}
                               aria-label={`Editar ${u.identificador}`}
@@ -613,23 +614,34 @@ export default function UnidadesPage() {
               </Select>
             </div>
             <div className="grid gap-2">
-              <Label>Bloque / Torre (Estructura)</Label>
+              <div className="flex items-center justify-between">
+                <Label>Bloque / Torre / Manzana (Estructura)</Label>
+                {loadingBloques && (
+                  <span className="text-xs text-muted-foreground animate-pulse">Actualizando estructuras…</span>
+                )}
+              </div>
               <Select
-                value={form.idBloque}
+                value={form.idBloque || 'NONE'}
                 onValueChange={(v) => setForm((f) => ({ ...f, idBloque: v }))}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Sin bloque asignado" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="NONE">Sin bloque</SelectItem>
-                  {bloquesList.map((b) => (
-                    <SelectItem key={b.idBloque} value={String(b.idBloque)}>
-                      {b.tipo}: {b.nombre} ({b.codigo})
-                    </SelectItem>
-                  ))}
+                  <SelectItem value="NONE">Sin bloque (Inmueble independiente / sin subdivisión)</SelectItem>
+                  {bloquesList
+                    .filter((b) => b.estado === 'ACTIVO' || (editing && String(editing.idBloque) === String(b.idBloque)))
+                    .map((b) => (
+                      <SelectItem key={b.idBloque} value={String(b.idBloque)}>
+                        {b.tipo}: {b.nombre} {b.codigo ? `(${b.codigo})` : ''}
+                        {b.nombreBloquePadre ? ` · [Padre: ${b.nombreBloquePadre}]` : ''}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
+              <p className="text-[11px] text-muted-foreground">
+                Opcional para casas independientes o inmuebles unibloque. Recomendado para apartamentos en torres, etapas o manzanas.
+              </p>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">

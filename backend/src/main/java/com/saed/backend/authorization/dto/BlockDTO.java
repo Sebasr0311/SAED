@@ -17,6 +17,8 @@ public class BlockDTO {
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
+    public Long getIdBloque() { return id; }
+    public void setIdBloque(Long idBloque) { this.id = idBloque; }
 
     public Long getIdPropiedad() { return idPropiedad; }
     public void setIdPropiedad(Long idPropiedad) { this.idPropiedad = idPropiedad; }

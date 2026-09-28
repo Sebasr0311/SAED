@@ -31,17 +31,22 @@ public class UnitService {
     private void validateBlockAndType(Long propertyId, Long idBloque, Long idTipoUnidad) {
         if (jdbcTemplate == null) return;
         if (idBloque != null) {
-            String sql = "SELECT id_propiedad FROM BLOQUES WHERE id_bloque = :idBloque";
-            List<Long> propIds = jdbcTemplate.query(
+            String sql = "SELECT id_propiedad, estado FROM BLOQUES WHERE id_bloque = :idBloque";
+            List<java.util.Map<String, Object>> rows = jdbcTemplate.queryForList(
                     sql,
-                    new MapSqlParameterSource("idBloque", idBloque),
-                    (rs, rowNum) -> rs.getLong("id_propiedad")
+                    new MapSqlParameterSource("idBloque", idBloque)
             );
-            if (propIds.isEmpty()) {
+            if (rows.isEmpty()) {
                 throw new IllegalArgumentException("El bloque especificado no existe");
             }
-            if (propertyId != null && !propertyId.equals(propIds.get(0))) {
+            java.util.Map<String, Object> row = rows.get(0);
+            Long propId = ((Number) row.get("id_propiedad")).longValue();
+            if (propertyId != null && !propertyId.equals(propId)) {
                 throw new IllegalArgumentException("El bloque no pertenece a la propiedad de la unidad");
+            }
+            String estado = (String) row.get("estado");
+            if (estado != null && !"ACTIVO".equalsIgnoreCase(estado)) {
+                throw new IllegalArgumentException("El bloque seleccionado no se encuentra activo");
             }
         }
         if (idTipoUnidad != null) {
