@@ -13,10 +13,24 @@ function normalizeUser(user) {
     user.tipoResidente === 'CONVIVIENTE' ||
     user.tipoRelacion === 'CONVIVIENTE';
 
+  const isPropResidente =
+    user.tipoResidente === 'PROPIETARIO_RESIDENTE' ||
+    user.tipoRelacion === 'PROPIETARIO_RESIDENTE' ||
+    ((user.rol === 'PROPIETARIO' || user.rolCodigo === 'PROPIETARIO') &&
+      user.tipoResidente &&
+      user.tipoResidente !== 'PROPIETARIO_NO_RESIDENTE');
+
+  let effRol = normalizeRole(user.rol);
+  if (isConv) {
+    effRol = 'RESIDENTE_CONVIVENCIA';
+  } else if (isPropResidente) {
+    effRol = 'RESIDENTE';
+  }
+
   return {
     ...user,
-    rol: isConv ? 'RESIDENTE_CONVIVENCIA' : normalizeRole(user.rol),
-    tipoResidente: isConv ? 'CONVIVIENTE' : user.tipoResidente,
+    rol: effRol,
+    tipoResidente: isConv ? 'CONVIVIENTE' : (isPropResidente ? 'PROPIETARIO_RESIDENTE' : user.tipoResidente),
     username: user.nombreUsuario || user.username,
     idPersona: user.idPersona || user.idResidente,
     idResidente: user.idPersona || user.idResidente,
@@ -67,7 +81,7 @@ export function AuthProvider({ children }) {
     isOrgAdmin: user?.rol === 'ADMIN_ORGANIZACION',
     isSuperAdmin: user?.rol === 'SUPERADMIN',
     isPortero: user?.rol === 'PORTERO',
-    isResidente: (user?.rol === 'RESIDENTE' || user?.rolCodigo === 'RESIDENTE') && !isConv,
+    isResidente: (user?.rol === 'RESIDENTE' || user?.rolCodigo === 'RESIDENTE' || user?.tipoResidente === 'PROPIETARIO_RESIDENTE') && !isConv,
     isConviviente: isConv,
   };
 

@@ -76,7 +76,13 @@ export function normalizeRole(rol) {
   if (r === 'PORTERO' || r === 'VIGILANTE') {
     return 'PORTERO';
   }
-  if (r === 'PROPIETARIO' || r === 'PROPIETARIO_NO_RESIDENTE' || r === 'PROPIETARIO_UNIDAD') {
+  if (r === 'PROPIETARIO_NO_RESIDENTE' || r === 'PROPIETARIO_UNIDAD') {
+    return 'PROPIETARIO';
+  }
+  if (r === 'PROPIETARIO_RESIDENTE') {
+    return 'RESIDENTE';
+  }
+  if (r === 'PROPIETARIO') {
     return 'PROPIETARIO';
   }
   if (r === 'RESIDENTE_CONVIVENCIA' || r === 'CONVIVIENTE' || r === 'CONVIVENCIA') {
@@ -188,7 +194,11 @@ export const ACCESS_BY_ROLE = {
   ],
   PROPIETARIO: [
     '/res-perfil',
+    '/res-asambleas',
     '/res-documentos',
+    '/res-reglamentos',
+    '/res-seguros',
+    '/res-sanciones',
   ],
   RESIDENTE: [
     '/residente-dashboard',
@@ -205,7 +215,10 @@ export const ACCESS_BY_ROLE = {
     '/res-sanciones',
     '/res-obras',
     '/res-incidentes',
+    '/res-asambleas',
     '/res-documentos',
+    '/res-reglamentos',
+    '/res-seguros',
   ],
   RESIDENTE_CONVIVENCIA: [
     '/residente-dashboard',
@@ -218,7 +231,10 @@ export const ACCESS_BY_ROLE = {
     '/res-quejas',
     '/res-reservas',
     '/res-incidentes',
+    '/res-asambleas',
     '/res-documentos',
+    '/res-reglamentos',
+    '/res-seguros',
   ],
 };
 

@@ -430,9 +430,17 @@ export default function AppShell() {
   const location = useLocation();
 
   const groups = useMemo(() => {
-    const role = normalizeRole(user?.rol);
+    let role = normalizeRole(user?.rol);
+    if (
+      role === 'PROPIETARIO' &&
+      (user?.tipoResidente === 'PROPIETARIO_RESIDENTE' ||
+        user?.tipoRelacion === 'PROPIETARIO_RESIDENTE' ||
+        (user?.tipoResidente && user?.tipoResidente !== 'PROPIETARIO_NO_RESIDENTE'))
+    ) {
+      role = 'RESIDENTE';
+    }
     return NAV_BY_ROLE[role] || NAV_BY_ROLE[user?.rol] || NAV_BY_ROLE[user?.rol?.toUpperCase()] || [];
-  }, [user?.rol]);
+  }, [user?.rol, user?.tipoResidente, user?.tipoRelacion]);
   const allItems = useMemo(() => groups.flatMap((g) => g.items), [groups]);
 
   // Tema: localStorage gana; si no hay preferencia, se sigue la del sistema.

@@ -681,7 +681,7 @@ export default function ResidentesPage() {
             username: (form.usernameAcceso || form.email.split('@')[0]).trim().toLowerCase().replace(/[^a-z0-9._]/g, ''),
             password: form.generarPasswordAuto ? undefined : (form.passwordAcceso ? form.passwordAcceso.trim() : undefined),
             enviarCorreoActivacion: true,
-            rol: form.tipoRelacion?.startsWith('PROPIETARIO') ? 'PROPIETARIO' : 'RESIDENTE',
+            rol: form.tipoRelacion === 'PROPIETARIO_NO_RESIDENTE' ? 'PROPIETARIO' : 'RESIDENTE',
             activo: true,
             tipoDocumentoId: Number(form.idTipoDoc || 1),
             numeroDocumento: form.numeroDocumento.trim(),
@@ -803,7 +803,7 @@ export default function ResidentesPage() {
         const payload = {
           activo,
           estado: activo ? 'ACTIVO' : 'INACTIVO',
-          rol: residente.tipoRelacion?.startsWith('PROPIETARIO') ? 'PROPIETARIO' : 'RESIDENTE',
+          rol: residente.tipoRelacion === 'PROPIETARIO_NO_RESIDENTE' ? 'PROPIETARIO' : 'RESIDENTE',
         };
         if (password && password.trim()) {
           payload.password = password.trim();
@@ -817,7 +817,7 @@ export default function ResidentesPage() {
           username: username.trim().toLowerCase(),
           password: generarPasswordAuto ? undefined : (password ? password.trim() : undefined),
           enviarCorreoActivacion: true,
-          rol: residente.tipoRelacion?.startsWith('PROPIETARIO') ? 'PROPIETARIO' : 'RESIDENTE',
+          rol: residente.tipoRelacion === 'PROPIETARIO_NO_RESIDENTE' ? 'PROPIETARIO' : 'RESIDENTE',
           activo: true,
           tipoDocumentoId: Number(residente.idTipoDoc || 1),
           numeroDocumento: (residente.numeroDocumento || '').trim(),
@@ -860,7 +860,7 @@ export default function ResidentesPage() {
       await tenantApi.put(`/usuarios/${residente.idUsuario}`, {
         activo: nuevoActivo,
         estado: nuevoActivo ? 'ACTIVO' : 'INACTIVO',
-        rol: residente.tipoRelacion?.startsWith('PROPIETARIO') ? 'PROPIETARIO' : 'RESIDENTE',
+        rol: residente.tipoRelacion === 'PROPIETARIO_NO_RESIDENTE' ? 'PROPIETARIO' : 'RESIDENTE',
       });
       toast.success(
         nuevoActivo

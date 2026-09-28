@@ -135,6 +135,19 @@ public class AssignmentRepositoryImpl implements AssignmentRepository {
                         rolAlcance = "UNIDAD";
                     }
                 } catch (Exception ignored) {}
+            } else if ("PROPIETARIO".equalsIgnoreCase(rolCodigo)) {
+                try {
+                    Integer count = jdbcTemplate.queryForObject(
+                        "SELECT COUNT(1) FROM RESIDENTES_UNIDAD ru JOIN USUARIOS u ON u.ID_PERSONA = ru.ID_PERSONA " +
+                        "WHERE u.ID_USUARIO = ? AND ru.ESTADO = 'ACTIVO' AND (ru.TIPO_RESIDENTE IS NULL OR ru.TIPO_RESIDENTE != 'PROPIETARIO_NO_RESIDENTE')",
+                        Integer.class,
+                        idUsuario
+                    );
+                    if (count != null && count > 0) {
+                        rolCodigo = "RESIDENTE";
+                        rolAlcance = "UNIDAD";
+                    }
+                } catch (Exception ignored) {}
             }
 
             AssignmentResponseDTO dto = new AssignmentResponseDTO();

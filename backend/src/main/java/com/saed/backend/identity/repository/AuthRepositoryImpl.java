@@ -118,6 +118,20 @@ public class AuthRepositoryImpl implements AuthRepository {
         Number unidadIdNum = (Number) out.get("p_unidad_id");
         Long unidadId = unidadIdNum != null ? unidadIdNum.longValue() : null;
 
+        if (idPersona != null && unidadId == null) {
+            try {
+                java.util.List<Long> uList = jdbcTemplate.query(
+                    "SELECT ID_UNIDAD FROM RESIDENTES_UNIDAD WHERE ID_PERSONA = ? AND ESTADO = 'ACTIVO' AND ROWNUM = 1",
+                    (rs, rowNum) -> rs.getLong("ID_UNIDAD"),
+                    idPersona
+                );
+                if (!uList.isEmpty()) {
+                    unidadId = uList.get(0);
+                }
+            } catch (Exception ignored) {}
+        }
+
+        boolean isHabitanteFisico = false;
         if (idPersona != null && unidadId != null) {
             try {
                 java.util.List<String> tipList = jdbcTemplate.query(
@@ -126,6 +140,7 @@ public class AuthRepositoryImpl implements AuthRepository {
                     idPersona, unidadId
                 );
                 if (!tipList.isEmpty()) {
+                    isHabitanteFisico = true;
                     tipoResidente = tipList.get(0);
                 }
             } catch (Exception ignored) {}
@@ -148,6 +163,22 @@ public class AuthRepositoryImpl implements AuthRepository {
                       AND ID_ROL = (SELECT ID_ROL FROM ROLES WHERE CODIGO = 'RESIDENTE' AND ESTADO = 'ACTIVO')
                       AND ESTADO IN ('ACTIVO', 'ACTIVA')
                 """, userId, unidadId);
+            } catch (Exception ignored) {}
+        } else if ("PROPIETARIO".equalsIgnoreCase(rolCodigo) && isHabitanteFisico && !"PROPIETARIO_NO_RESIDENTE".equalsIgnoreCase(tipoResidente)) {
+            rolCodigo = "RESIDENTE";
+            alcance = "UNIDAD";
+            tipoResidente = "PROPIETARIO_RESIDENTE";
+
+            // Auto-reparar en caliente la asignación en USUARIO_ASIGNACIONES si apuntaba a PROPIETARIO pero habita físicamente la unidad
+            try {
+                jdbcTemplate.update("""
+                    UPDATE USUARIO_ASIGNACIONES
+                    SET ID_ROL = (SELECT ID_ROL FROM ROLES WHERE CODIGO = 'RESIDENTE' AND ESTADO = 'ACTIVO'),
+                        ID_UNIDAD = COALESCE(ID_UNIDAD, ?)
+                    WHERE ID_USUARIO = ?
+                      AND ID_ROL = (SELECT ID_ROL FROM ROLES WHERE CODIGO = 'PROPIETARIO' AND ESTADO = 'ACTIVO')
+                      AND ESTADO IN ('ACTIVO', 'ACTIVA')
+                """, unidadId, userId);
             } catch (Exception ignored) {}
         }
 
