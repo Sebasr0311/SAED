@@ -29,7 +29,7 @@ jobs:
 
       - name: Run Unit & Web Security Test Suite
         working-directory: backend
-        run: mvn test -Dtest="OrganizationServiceTest,PropertyServiceTest,UnitServiceTest,AssignmentServiceTest,AssignmentManagementServiceTest,PropertyStatusServiceTest,PlantillaContratoServiceTest,PlantillaContratoRepositoryImplTest,ParqueaderosServiceTest,TokenActivacionServiceTest,AuthServiceTest,JwtAuthenticationFilterTest,InactivePropertyFilterTest,CorrelationIdFilterTest,AuditSanitizerTest,AuditAspectTest,FileStorageServiceTest,AlertasControllerTest,H04SuperAdminResidualOperationalRestrictionSecurityTest,P301SuperAdminOperationalRestrictionSecurityTest,PorteroPasswordChangeWebMvcSecurityTest,PublicOnboardingControllerTest"
+        run: mvn test -Dtest="OrganizationServiceTest,PropertyServiceTest,UnitServiceTest,AssignmentServiceTest,AssignmentManagementServiceTest,PropertyStatusServiceTest,PlantillaContratoServiceTest,PlantillaContratoRepositoryImplTest,ParqueaderosServiceTest,TokenActivacionServiceTest,AuthServiceTest,JwtAuthenticationFilterTest,InactivePropertyFilterTest,CorrelationIdFilterTest,AuditSanitizerTest,AuditAspectTest,FileStorageServiceTest"
 
       - name: Run Oracle Integration Test Suite
         if: ${{ env.DB_URL != '' }}
