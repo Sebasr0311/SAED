@@ -74,10 +74,11 @@ export default function ResidenteDashboardPage() {
 
   // 1. Perfil del residente
   const { data: perfilData, refetch: refetchPerfil } = useFetch(
-    () => (residentId ? api.get(`/personas/${residentId}`) : Promise.resolve(null)),
+    () => api.get('/personas/me').catch(() => (residentId ? api.get(`/personas/${residentId}`) : Promise.resolve(null))),
     [residentId]
   );
   const perfil = useMemo(() => perfilData?.raw || perfilData || {}, [perfilData]);
+  const resolvedPersonaId = perfil.id || perfil.idPersona || user?.idPersona || user?.idResidente || residentId;
 
   const nombreResidente = useMemo(() => {
     const pNombre = perfil.primerNombre || perfil.nombres;
@@ -99,8 +100,8 @@ export default function ResidenteDashboardPage() {
 
   // 2. Dashboard financiero y de unidad (Solo residente titular)
   const { data: dashData, refetch: refetchDashboard } = useFetch(
-    () => (!isConviviente && residentId ? api.get(`/residentes/${residentId}/dashboard`) : Promise.resolve(null)),
-    [residentId, isConviviente]
+    () => (!isConviviente && resolvedPersonaId ? api.get(`/residentes/${resolvedPersonaId}/dashboard`) : Promise.resolve(null)),
+    [resolvedPersonaId, isConviviente]
   );
   const dashboard = useMemo(() => dashData?.raw || dashData || {}, [dashData]);
   const aptoInfo = useMemo(() => dashboard.apartamento || {}, [dashboard]);
@@ -120,13 +121,14 @@ export default function ResidenteDashboardPage() {
     u.identificador ||
     u.numero ||
     aptoInfo.numero ||
+    aptoInfo.identificador ||
     perfil.numeroApartamento ||
-    (unitId ? `Apto ${unitId}` : 'Apto 101');
+    (unitId ? `Apto ${unitId}` : 'Sin Asignar');
 
   // 4. Códigos QR activos para visitas
   const { data: qrsRaw, refetch: refetchQrs } = useFetch(
-    () => (residentId ? api.get(`/residentes/${residentId}/qr-activos`) : Promise.resolve([])),
-    [residentId]
+    () => (resolvedPersonaId ? api.get(`/residentes/${resolvedPersonaId}/qr-activos`) : Promise.resolve([])),
+    [resolvedPersonaId]
   );
   const qrActivos = useMemo(() => (Array.isArray(qrsRaw) ? qrsRaw : qrsRaw?.items || []), [qrsRaw]);
 

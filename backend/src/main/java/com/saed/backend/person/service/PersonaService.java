@@ -12,5 +12,6 @@ public interface PersonaService {
     void updatePersona(Long id, PersonaRequestDTO request);
     void deletePersona(Long id);
     PersonaDTO getPersonaById(Long id);
+    PersonaDTO getPersonaByUserId(Long userId);
     PersonaBatchResultDTO importarBatch(List<PersonaBatchItemDTO> items);
 }

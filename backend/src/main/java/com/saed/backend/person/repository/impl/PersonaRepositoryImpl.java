@@ -13,6 +13,7 @@ import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Repository
@@ -171,8 +172,10 @@ public class PersonaRepositoryImpl implements PersonaRepository {
         Long propId = ctx != null ? ctx.getPropertyId() : null;
         Long orgId = ctx != null ? ctx.getOrganizationId() : null;
         String role = ctx != null ? ctx.getRoleCode() : null;
+        Long currentUserId = ctx != null ? ctx.getUserId() : null;
 
-        MapSqlParameterSource params = new MapSqlParameterSource("id", id);
+        MapSqlParameterSource params = new MapSqlParameterSource("id", id)
+                .addValue("currentUserId", currentUserId != null ? currentUserId : -1L);
         String scopeSubquery;
         String scopeWhere;
 
@@ -181,15 +184,18 @@ public class PersonaRepositoryImpl implements PersonaRepository {
             scopeSubquery = " AND u.ID_PROPIEDAD = :propId ";
             scopeWhere = """
                 AND (
-                    (p.ID_PROPIEDAD = :propId AND NOT EXISTS (
-                        SELECT 1 FROM USUARIOS usr 
-                        JOIN USUARIO_ASIGNACIONES ua ON usr.ID_USUARIO = ua.ID_USUARIO 
-                        JOIN ROLES r ON ua.ID_ROL = r.ID_ROL
-                        WHERE usr.ID_PERSONA = p.ID_PERSONA 
-                          AND r.CODIGO IN ('SUPERADMIN', 'ADMIN_ORGANIZACION', 'ADMIN_PROPIEDAD')
-                          AND NOT EXISTS (SELECT 1 FROM RESIDENTES_UNIDAD ru WHERE ru.ID_PERSONA = p.ID_PERSONA)
-                          AND NOT EXISTS (SELECT 1 FROM PROPIETARIOS_UNIDAD pu WHERE pu.ID_PERSONA = p.ID_PERSONA)
-                    ))
+                    p.ID_PERSONA IN (SELECT usr_self.ID_PERSONA FROM USUARIOS usr_self WHERE usr_self.ID_USUARIO = :currentUserId)
+                    OR (
+                        p.ID_PROPIEDAD = :propId AND NOT EXISTS (
+                            SELECT 1 FROM USUARIOS usr 
+                            JOIN USUARIO_ASIGNACIONES ua ON usr.ID_USUARIO = ua.ID_USUARIO 
+                            JOIN ROLES r ON ua.ID_ROL = r.ID_ROL
+                            WHERE usr.ID_PERSONA = p.ID_PERSONA 
+                              AND r.CODIGO IN ('SUPERADMIN', 'ADMIN_ORGANIZACION', 'ADMIN_PROPIEDAD')
+                              AND NOT EXISTS (SELECT 1 FROM RESIDENTES_UNIDAD ru WHERE ru.ID_PERSONA = p.ID_PERSONA)
+                              AND NOT EXISTS (SELECT 1 FROM PROPIETARIOS_UNIDAD pu WHERE pu.ID_PERSONA = p.ID_PERSONA)
+                        )
+                    )
                     OR EXISTS (SELECT 1 FROM RESIDENTES_UNIDAD ru JOIN UNIDADES u ON ru.ID_UNIDAD = u.ID_UNIDAD WHERE ru.ID_PERSONA = p.ID_PERSONA AND u.ID_PROPIEDAD = :propId)
                     OR EXISTS (SELECT 1 FROM PROPIETARIOS_UNIDAD pu JOIN UNIDADES u ON pu.ID_UNIDAD = u.ID_UNIDAD WHERE pu.ID_PERSONA = p.ID_PERSONA AND u.ID_PROPIEDAD = :propId)
                 )
@@ -199,15 +205,18 @@ public class PersonaRepositoryImpl implements PersonaRepository {
             scopeSubquery = " AND EXISTS (SELECT 1 FROM PROPIEDADES pr WHERE pr.ID_PROPIEDAD = u.ID_PROPIEDAD AND pr.ID_ORGANIZACION = :orgId) ";
             scopeWhere = """
                 AND (
-                    (p.ID_ORGANIZACION = :orgId AND NOT EXISTS (
-                        SELECT 1 FROM USUARIOS usr 
-                        JOIN USUARIO_ASIGNACIONES ua ON usr.ID_USUARIO = ua.ID_USUARIO 
-                        JOIN ROLES r ON ua.ID_ROL = r.ID_ROL
-                        WHERE usr.ID_PERSONA = p.ID_PERSONA 
-                          AND r.CODIGO IN ('SUPERADMIN', 'ADMIN_ORGANIZACION')
-                          AND NOT EXISTS (SELECT 1 FROM RESIDENTES_UNIDAD ru WHERE ru.ID_PERSONA = p.ID_PERSONA)
-                          AND NOT EXISTS (SELECT 1 FROM PROPIETARIOS_UNIDAD pu WHERE pu.ID_PERSONA = p.ID_PERSONA)
-                    ))
+                    p.ID_PERSONA IN (SELECT usr_self.ID_PERSONA FROM USUARIOS usr_self WHERE usr_self.ID_USUARIO = :currentUserId)
+                    OR (
+                        p.ID_ORGANIZACION = :orgId AND NOT EXISTS (
+                            SELECT 1 FROM USUARIOS usr 
+                            JOIN USUARIO_ASIGNACIONES ua ON usr.ID_USUARIO = ua.ID_USUARIO 
+                            JOIN ROLES r ON ua.ID_ROL = r.ID_ROL
+                            WHERE usr.ID_PERSONA = p.ID_PERSONA 
+                              AND r.CODIGO IN ('SUPERADMIN', 'ADMIN_ORGANIZACION')
+                              AND NOT EXISTS (SELECT 1 FROM RESIDENTES_UNIDAD ru WHERE ru.ID_PERSONA = p.ID_PERSONA)
+                              AND NOT EXISTS (SELECT 1 FROM PROPIETARIOS_UNIDAD pu WHERE pu.ID_PERSONA = p.ID_PERSONA)
+                        )
+                    )
                     OR EXISTS (SELECT 1 FROM RESIDENTES_UNIDAD ru JOIN UNIDADES u ON ru.ID_UNIDAD = u.ID_UNIDAD JOIN PROPIEDADES pr ON u.ID_PROPIEDAD = pr.ID_PROPIEDAD WHERE ru.ID_PERSONA = p.ID_PERSONA AND pr.ID_ORGANIZACION = :orgId)
                     OR EXISTS (SELECT 1 FROM PROPIETARIOS_UNIDAD pu JOIN UNIDADES u ON pu.ID_UNIDAD = u.ID_UNIDAD JOIN PROPIEDADES pr ON u.ID_PROPIEDAD = pr.ID_PROPIEDAD WHERE pu.ID_PERSONA = p.ID_PERSONA AND pr.ID_ORGANIZACION = :orgId)
                 )
@@ -501,5 +510,17 @@ public class PersonaRepositoryImpl implements PersonaRepository {
         jdbcTemplate.update("UPDATE PERSONAS SET ESTADO = 'INACTIVO' WHERE ID_PERSONA = :id", params);
         jdbcTemplate.update("UPDATE RESIDENTES_UNIDAD SET ESTADO = 'INACTIVO' WHERE ID_PERSONA = :id AND ESTADO = 'ACTIVO'", params);
         jdbcTemplate.update("UPDATE USUARIOS SET ESTADO = 'INACTIVO' WHERE ID_PERSONA = :id AND ESTADO = 'ACTIVO'", params);
+    }
+
+    @Override
+    public Optional<PersonaDTO> findByUserId(Long userId) {
+        if (userId == null) return Optional.empty();
+        List<Long> pIds = jdbcTemplate.query(
+            "SELECT ID_PERSONA FROM USUARIOS WHERE ID_USUARIO = :uid",
+            Map.of("uid", userId),
+            (rs, rowNum) -> rs.getLong("ID_PERSONA")
+        );
+        if (pIds.isEmpty() || pIds.get(0) == null) return Optional.empty();
+        return findById(pIds.get(0));
     }
 }

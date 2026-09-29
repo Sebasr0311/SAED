@@ -9,6 +9,7 @@ import org.springframework.jdbc.core.simple.SimpleJdbcCall;
 import org.springframework.stereotype.Repository;
 
 import java.sql.Types;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -92,6 +93,11 @@ public class AuthRepositoryImpl implements AuthRepository {
             return null;
         }
 
+        // Establecer contexto bootstrap temporal para que las consultas de identidad y asignación no sean bloqueadas por VPD
+        try {
+            jdbcTemplate.update("CALL PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(?)", userId);
+        } catch (Exception ignored) {}
+
         Long idPersona = null;
         String nombreCompleto = null;
         try {
@@ -109,6 +115,15 @@ public class AuthRepositoryImpl implements AuthRepository {
                 if (nombreCompleto != null) {
                     nombreCompleto = nombreCompleto.replaceAll("\\s+", " ").trim();
                 }
+            } else {
+                List<Long> fallbackPersona = jdbcTemplate.query(
+                    "SELECT ID_PERSONA FROM USUARIOS WHERE ID_USUARIO = ?",
+                    (rs, r) -> rs.getLong("ID_PERSONA"),
+                    userId
+                );
+                if (!fallbackPersona.isEmpty()) {
+                    idPersona = fallbackPersona.get(0);
+                }
             }
         } catch (Exception ignored) {}
 
@@ -118,16 +133,39 @@ public class AuthRepositoryImpl implements AuthRepository {
         Number unidadIdNum = (Number) out.get("p_unidad_id");
         Long unidadId = unidadIdNum != null ? unidadIdNum.longValue() : null;
 
-        if (idPersona != null && unidadId == null) {
+        // Si la unidad no está en la asignación o apunta a una unidad desactualizada, consultar en RESIDENTES_UNIDAD
+        if (idPersona != null) {
             try {
                 java.util.List<Long> uList = jdbcTemplate.query(
-                    "SELECT ID_UNIDAD FROM RESIDENTES_UNIDAD WHERE ID_PERSONA = ? AND ESTADO = 'ACTIVO' AND ROWNUM = 1",
+                    "SELECT ID_UNIDAD FROM RESIDENTES_UNIDAD WHERE ID_PERSONA = ? AND ESTADO IN ('ACTIVO', 'ACTIVA') ORDER BY ID_RESIDENTE_UNIDAD DESC FETCH FIRST 1 ROWS ONLY",
                     (rs, rowNum) -> rs.getLong("ID_UNIDAD"),
                     idPersona
                 );
                 if (!uList.isEmpty()) {
                     unidadId = uList.get(0);
+                } else if (unidadId == null) {
+                    java.util.List<Long> puList = jdbcTemplate.query(
+                        "SELECT ID_UNIDAD FROM PROPIETARIOS_UNIDAD WHERE ID_PERSONA = ? AND ESTADO = 'ACTIVO' ORDER BY ID_PROPIETARIO_UNIDAD DESC FETCH FIRST 1 ROWS ONLY",
+                        (rs, rowNum) -> rs.getLong("ID_UNIDAD"),
+                        idPersona
+                    );
+                    if (!puList.isEmpty()) {
+                        unidadId = puList.get(0);
+                    }
                 }
+            } catch (Exception ignored) {}
+        }
+
+        // Sincronizar en caliente la asignación en USUARIO_ASIGNACIONES si difiere de la unidad real habitada
+        if (unidadId != null && idPersona != null) {
+            try {
+                jdbcTemplate.update("""
+                    UPDATE USUARIO_ASIGNACIONES
+                    SET ID_UNIDAD = ?,
+                        ID_PROPIEDAD = COALESCE((SELECT ID_PROPIEDAD FROM UNIDADES WHERE ID_UNIDAD = ?), ID_PROPIEDAD),
+                        ID_ORGANIZACION = COALESCE((SELECT p.ID_ORGANIZACION FROM UNIDADES u JOIN PROPIEDADES p ON u.ID_PROPIEDAD = p.ID_PROPIEDAD WHERE u.ID_UNIDAD = ?), ID_ORGANIZACION)
+                    WHERE ID_USUARIO = ? AND ESTADO IN ('ACTIVO', 'ACTIVA') AND (ID_UNIDAD IS NULL OR ID_UNIDAD != ?)
+                """, unidadId, unidadId, unidadId, userId, unidadId);
             } catch (Exception ignored) {}
         }
 
@@ -135,7 +173,7 @@ public class AuthRepositoryImpl implements AuthRepository {
         if (idPersona != null && unidadId != null) {
             try {
                 java.util.List<String> tipList = jdbcTemplate.query(
-                    "SELECT TIPO_RESIDENTE FROM RESIDENTES_UNIDAD WHERE ID_PERSONA = ? AND ID_UNIDAD = ? AND ESTADO = 'ACTIVO' AND ROWNUM = 1",
+                    "SELECT TIPO_RESIDENTE FROM RESIDENTES_UNIDAD WHERE ID_PERSONA = ? AND ID_UNIDAD = ? AND ESTADO IN ('ACTIVO', 'ACTIVA') ORDER BY ID_RESIDENTE_UNIDAD DESC FETCH FIRST 1 ROWS ONLY",
                     (rs, rowNum) -> rs.getString("TIPO_RESIDENTE"),
                     idPersona, unidadId
                 );
@@ -146,14 +184,18 @@ public class AuthRepositoryImpl implements AuthRepository {
             } catch (Exception ignored) {}
         }
 
-        if ("RESIDENTE_CONVIVENCIA".equalsIgnoreCase(rolCodigo)) {
+        if ("ARRENDATARIO".equalsIgnoreCase(tipoResidente)) {
+            rolCodigo = "RESIDENTE";
             alcance = "UNIDAD";
-            tipoResidente = "CONVIVIENTE";
-        } else if ("RESIDENTE".equalsIgnoreCase(rolCodigo) && "CONVIVIENTE".equalsIgnoreCase(tipoResidente)) {
+        } else if ("PROPIETARIO".equalsIgnoreCase(tipoResidente) || "PROPIETARIO_RESIDENTE".equalsIgnoreCase(tipoResidente)) {
+            rolCodigo = "RESIDENTE";
+            alcance = "UNIDAD";
+            tipoResidente = "PROPIETARIO_RESIDENTE";
+        } else if ("CONVIVIENTE".equalsIgnoreCase(tipoResidente) || "FAMILIAR".equalsIgnoreCase(tipoResidente) || "RESIDENTE_CONVIVENCIA".equalsIgnoreCase(rolCodigo)) {
             rolCodigo = "RESIDENTE_CONVIVENCIA";
             alcance = "UNIDAD";
+            tipoResidente = "CONVIVIENTE";
 
-            // Auto-reparar en caliente la asignación en USUARIO_ASIGNACIONES si aún apuntaba al rol RESIDENTE titular para esta unidad activa
             try {
                 jdbcTemplate.update("""
                     UPDATE USUARIO_ASIGNACIONES
@@ -169,7 +211,6 @@ public class AuthRepositoryImpl implements AuthRepository {
             alcance = "UNIDAD";
             tipoResidente = "PROPIETARIO_RESIDENTE";
 
-            // Auto-reparar en caliente la asignación en USUARIO_ASIGNACIONES si apuntaba a PROPIETARIO pero habita físicamente la unidad
             try {
                 jdbcTemplate.update("""
                     UPDATE USUARIO_ASIGNACIONES
@@ -182,6 +223,23 @@ public class AuthRepositoryImpl implements AuthRepository {
             } catch (Exception ignored) {}
         }
 
+        Long propId = (Number) out.get("p_prop_id") != null ? ((Number) out.get("p_prop_id")).longValue() : null;
+        Long orgId = (Number) out.get("p_org_id") != null ? ((Number) out.get("p_org_id")).longValue() : null;
+        if (unidadId != null) {
+            try {
+                List<Map<String, Object>> uInfo = jdbcTemplate.queryForList(
+                    "SELECT u.ID_PROPIEDAD, p.ID_ORGANIZACION FROM UNIDADES u JOIN PROPIEDADES p ON u.ID_PROPIEDAD = p.ID_PROPIEDAD WHERE u.ID_UNIDAD = ?",
+                    unidadId
+                );
+                if (!uInfo.isEmpty()) {
+                    Number pNum = (Number) uInfo.get(0).get("ID_PROPIEDAD");
+                    Number oNum = (Number) uInfo.get(0).get("ID_ORGANIZACION");
+                    if (pNum != null) propId = pNum.longValue();
+                    if (oNum != null) orgId = oNum.longValue();
+                }
+            } catch (Exception ignored) {}
+        }
+
         return new AuthUserDTO(
                 userId,
                 idPersona,
@@ -190,8 +248,8 @@ public class AuthRepositoryImpl implements AuthRepository {
                 (String) out.get("p_email"),
                 rolCodigo,
                 alcance,
-                (Number) out.get("p_org_id") != null ? ((Number) out.get("p_org_id")).longValue() : null,
-                (Number) out.get("p_prop_id") != null ? ((Number) out.get("p_prop_id")).longValue() : null,
+                orgId,
+                propId,
                 unidadId,
                 tipoResidente
         );

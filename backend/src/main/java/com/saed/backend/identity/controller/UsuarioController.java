@@ -464,26 +464,26 @@ public class UsuarioController {
             if (idUnidad == null && ("RESIDENTE".equals(rol) || "PROPIETARIO".equals(rol) || "RESIDENTE_CONVIVENCIA".equals(rol))) {
                 Object uObj = payload.get("idUnidad");
                 if (uObj != null && !uObj.toString().isBlank()) {
-                    idUnidad = Long.valueOf(uObj.toString());
+                    try {
+                        idUnidad = Long.valueOf(uObj.toString().trim());
+                    } catch (NumberFormatException ignored) {}
                 } else if (callerUnitId != null) {
                     idUnidad = callerUnitId;
-                } else {
+                } else if (idPersona != null) {
                     List<Long> uList = jdbcTemplate.queryForList(
-                            "SELECT ID_UNIDAD FROM RESIDENTES_UNIDAD WHERE ID_PERSONA = :p AND ROWNUM = 1",
+                            "SELECT ID_UNIDAD FROM RESIDENTES_UNIDAD WHERE ID_PERSONA = :p AND ESTADO IN ('ACTIVO', 'ACTIVA') ORDER BY ID_RESIDENTE_UNIDAD DESC FETCH FIRST 1 ROWS ONLY",
                             Map.of("p", idPersona),
                             Long.class
                     );
                     if (uList.isEmpty()) {
                         uList = jdbcTemplate.queryForList(
-                                "SELECT ID_UNIDAD FROM PROPIETARIOS_UNIDAD WHERE ID_PERSONA = :p AND ROWNUM = 1",
+                                "SELECT ID_UNIDAD FROM PROPIETARIOS_UNIDAD WHERE ID_PERSONA = :p AND ESTADO = 'ACTIVO' ORDER BY ID_PROPIETARIO_UNIDAD DESC FETCH FIRST 1 ROWS ONLY",
                                 Map.of("p", idPersona),
                                 Long.class
                         );
                     }
                     if (!uList.isEmpty()) {
                         idUnidad = uList.get(0);
-                    } else {
-                        idUnidad = 1L;
                     }
                 }
             }

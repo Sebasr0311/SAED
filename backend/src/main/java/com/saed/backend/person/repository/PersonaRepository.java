@@ -8,6 +8,7 @@ import java.util.Optional;
 public interface PersonaRepository {
     List<PersonaDTO> findAll(int limit, int offset);
     Optional<PersonaDTO> findById(Long id);
+    Optional<PersonaDTO> findByUserId(Long userId);
     Optional<PersonaDTO> findByNumeroDocumento(String numeroDocumento);
     Optional<Long> findTipoDocumentoIdByCodigo(String codigo);
     Optional<Long> findUnidadIdByNumero(Long propiedadId, String identificador);

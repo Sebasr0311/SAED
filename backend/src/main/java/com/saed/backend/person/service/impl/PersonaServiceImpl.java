@@ -55,6 +55,13 @@ public class PersonaServiceImpl implements PersonaService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public PersonaDTO getPersonaByUserId(Long userId) {
+        return personaRepository.findByUserId(userId)
+                .orElseThrow(() -> new RuntimeException("Persona no encontrada para el usuario con ID: " + userId));
+    }
+
+    @Override
     @Transactional
     public com.saed.backend.person.dto.PersonaBatchResultDTO importarBatch(List<com.saed.backend.person.dto.PersonaBatchItemDTO> items) {
         if (items == null || items.isEmpty()) {

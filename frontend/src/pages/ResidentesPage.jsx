@@ -67,7 +67,7 @@ const emptyForm = {
   email: '',
   idApartamento: '',
   tipoRelacion: 'ARRENDATARIO',
-  crearContrato: true,
+  crearContrato: false,
   idPlantilla: '',
   contratoCanon: '',
   contratoFechaInicio: new Date().toISOString().split('T')[0],
@@ -524,13 +524,16 @@ export default function ResidentesPage() {
       e.idApartamento = `La unidad seleccionada ya alcanzó el cupo máximo de ${aptQuota.limiteConfigurado || 4} convivientes activos.`;
     }
 
-    // Obligatoriedad de contrato para ARRENDATARIO (Fase 6)
-    if (form.tipoRelacion === 'ARRENDATARIO' && form.idApartamento) {
+    // Validación contractual cuando se activa formalización de contrato (Opcional para cualquier residente)
+    if (form.crearContrato && form.idApartamento) {
       if (!form.contratoCanon || Number(form.contratoCanon) <= 0) {
-        e.contratoCanon = 'El canon mensual es obligatorio y debe ser mayor a 0 para arrendatarios';
+        e.contratoCanon = 'El canon mensual es obligatorio y debe ser mayor a 0';
       }
       if (!form.contratoFechaInicio) {
         e.contratoFechaInicio = 'La fecha de inicio del contrato es obligatoria';
+      }
+      if (form.contratoFechaFin && form.contratoFechaInicio && form.contratoFechaFin < form.contratoFechaInicio) {
+        e.contratoFechaFin = 'La fecha de fin no puede ser anterior a la fecha de inicio';
       }
       if (plantillas && plantillas.length > 0 && !form.idPlantilla) {
         e.idPlantilla = 'Debe seleccionar una plantilla de contrato activa';
@@ -637,9 +640,9 @@ export default function ResidentesPage() {
             payloadAsignacion.idTutor = Number(idPersonaTutor);
           }
 
-          const debeCrearContrato = form.tipoRelacion === 'ARRENDATARIO' || Boolean(form.crearContrato && form.idPlantilla);
+          const debeCrearContrato = Boolean(form.crearContrato);
+          payloadAsignacion.crearContrato = debeCrearContrato;
           if (debeCrearContrato) {
-            payloadAsignacion.crearContrato = true;
             payloadAsignacion.canonMensual = Number(form.contratoCanon || 0);
             payloadAsignacion.fechaInicio = form.contratoFechaInicio || new Date().toISOString().split('T')[0];
             payloadAsignacion.fechaFin = form.contratoFechaFin || null;
@@ -692,6 +695,7 @@ export default function ResidentesPage() {
             email: form.email.trim().toLowerCase(),
             telefono: form.telefono?.trim() || '',
             idPersona: Number(idResidente),
+            idUnidad: form.idApartamento ? Number(form.idApartamento) : undefined,
           };
 
           const uRes = await tenantApi.post('/usuarios', userPayload);
@@ -733,11 +737,21 @@ export default function ResidentesPage() {
       );
       const res = await tenantApi.post(`/contratos/plantillas/${form.idPlantilla}/preview`, {
         nombre_residente: `${form.nombres} ${form.apellidos}`.trim() || 'NOMBRE_RESIDENTE',
+        'residente.nombreCompleto': `${form.nombres} ${form.apellidos}`.trim() || 'NOMBRE_RESIDENTE',
+        'residente.nombres': form.nombres || '',
+        'residente.apellidos': form.apellidos || '',
         numero_documento: form.numeroDocumento || 'NUMERO_DOCUMENTO',
+        'residente.numeroDocumento': form.numeroDocumento || 'NUMERO_DOCUMENTO',
         identificador_unidad: aptItem?.identificador || aptItem?.numero || 'UNIDAD_HABITACIONAL',
+        'unidad.identificador': aptItem?.identificador || aptItem?.numero || 'UNIDAD_HABITACIONAL',
+        'apartamento.numero': aptItem?.identificador || aptItem?.numero || 'UNIDAD_HABITACIONAL',
         canon_mensual: form.contratoCanon ? `$${Number(form.contratoCanon).toLocaleString('es-CO')}` : '$0',
+        'contrato.canon_mensual': form.contratoCanon ? `$${Number(form.contratoCanon).toLocaleString('es-CO')}` : '$0',
+        'contrato.valorMensual': form.contratoCanon ? `$${Number(form.contratoCanon).toLocaleString('es-CO')}` : '$0',
         fecha_inicio: form.contratoFechaInicio || new Date().toISOString().split('T')[0],
+        'contrato.fechaInicio': form.contratoFechaInicio || new Date().toISOString().split('T')[0],
         fecha_fin: form.contratoFechaFin || 'Indefinida',
+        'contrato.fechaFin': form.contratoFechaFin || 'Indefinida',
       });
       const html = res?.data || res;
       setPreviewHtml(typeof html === 'string' ? html : String(html || ''));
@@ -828,6 +842,7 @@ export default function ResidentesPage() {
           email: (residente.email || '').trim().toLowerCase(),
           telefono: (residente.telefono || '').trim(),
           idPersona: Number(residente.id),
+          idUnidad: (residente.idApartamento || residente.idUnidad || form.idApartamento) ? Number(residente.idApartamento || residente.idUnidad || form.idApartamento) : undefined,
         };
 
         const res = await tenantApi.post('/usuarios', payload);
@@ -1879,20 +1894,32 @@ export default function ResidentesPage() {
                 </div>
               )}
 
-              {form.tipoRelacion === 'ARRENDATARIO' && (
-                form.idApartamento ? (
-                  <div className="rounded-xl border border-primary/25 bg-primary/5 p-3.5 space-y-3 mt-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="default" className="text-[10px] bg-primary text-primary-foreground font-semibold">
-                          Contrato Obligatorio
-                        </Badge>
-                        <span className="text-xs font-semibold text-foreground">
-                          Contrato de Arrendamiento y Plantilla Organizacional
-                        </span>
-                      </div>
-                    </div>
+              {form.idApartamento && (
+                <div className="rounded-xl border border-primary/20 bg-primary/5 p-3.5 space-y-3 mt-2">
+                  <div className="flex items-center justify-between">
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={form.crearContrato}
+                        onChange={(e) => update('crearContrato', e.target.checked)}
+                        className="rounded border-border text-primary focus:ring-primary/30 h-4 w-4"
+                      />
+                      <span className="text-xs font-semibold text-foreground">
+                        Asociar o Formalizar Contrato (Opcional)
+                      </span>
+                    </label>
+                    {!form.crearContrato ? (
+                      <Badge variant="outline" className="text-[10px] text-muted-foreground border-border/60">
+                        Sin contrato formal
+                      </Badge>
+                    ) : (
+                      <Badge variant="default" className="text-[10px] bg-primary text-primary-foreground font-semibold">
+                        Formalización Activa
+                      </Badge>
+                    )}
+                  </div>
 
+                  {form.crearContrato && (
                     <div className="space-y-3 pt-2 border-t border-primary/15">
                       <div>
                         <div className="flex items-center justify-between mb-1">
@@ -1979,110 +2006,13 @@ export default function ResidentesPage() {
                             type="date"
                             value={form.contratoFechaFin}
                             onChange={(e) => update('contratoFechaFin', e.target.value)}
-                            className="w-full text-xs bg-background border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                            className={`w-full text-xs bg-background border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/30 ${
+                              errors.contratoFechaFin ? 'border-destructive ring-destructive/30' : 'border-border'
+                            }`}
                           />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-[11px] bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300 p-2.5 rounded-lg flex items-start gap-2">
-                    <Info className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
-                    <span>
-                      <strong>Contrato de Arrendamiento Requerido:</strong> Selecciona un apartamento arriba para configurar la plantilla de contrato y el canon mensual obligatorio.
-                    </span>
-                  </div>
-                )
-              )}
-
-              {form.idApartamento && form.tipoRelacion !== 'ARRENDATARIO' && !editing && (
-                <div className="rounded-xl border border-primary/20 bg-primary/5 p-3.5 space-y-3 mt-2">
-                  <label className="flex items-center gap-2 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={form.crearContrato}
-                      onChange={(e) => update('crearContrato', e.target.checked)}
-                      className="rounded border-border text-primary focus:ring-primary/30 h-4 w-4"
-                    />
-                    <span className="text-xs font-semibold text-foreground">
-                      Vincular Contrato con Plantilla Organizacional (Opcional)
-                    </span>
-                  </label>
-
-                  {form.crearContrato && (
-                    <div className="space-y-3 pt-2 border-t border-primary/15">
-                      <div>
-                        <div className="flex items-center justify-between mb-1">
-                          <label className="text-xs font-medium text-foreground block">
-                            Plantilla de Contrato
-                          </label>
-                          {form.idPlantilla && (
-                            <button
-                              type="button"
-                              onClick={handlePreviewPlantilla}
-                              disabled={previewLoading}
-                              className="text-[11px] font-semibold text-primary hover:underline flex items-center gap-1"
-                            >
-                              <Eye className="w-3.5 h-3.5" />
-                              {previewLoading ? 'Renderizando...' : 'Previsualizar'}
-                            </button>
+                          {errors.contratoFechaFin && (
+                            <p className="text-[11px] text-destructive mt-1 font-medium">{errors.contratoFechaFin}</p>
                           )}
-                        </div>
-                        <select
-                          value={form.idPlantilla}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            update('idPlantilla', val);
-                            if (val) {
-                              const p = plantillas.find((tpl) => String(tpl.idPlantilla) === String(val));
-                              if (p?.tipoContrato) update('contratoTipo', p.tipoContrato);
-                            }
-                          }}
-                          className="w-full text-xs bg-background border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/30"
-                        >
-                          <option value="">— Plantilla Estándar del Sistema —</option>
-                          {plantillas.map((p) => (
-                            <option key={p.idPlantilla} value={p.idPlantilla}>
-                              {p.nombre} (v{p.version} · {p.tipoContrato})
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                        <div>
-                          <label className="text-xs font-medium text-foreground block mb-1">
-                            Canon Mensual (COP) *
-                          </label>
-                          <input
-                            type="number"
-                            placeholder="Ej. 1500000"
-                            value={form.contratoCanon}
-                            onChange={(e) => update('contratoCanon', e.target.value)}
-                            className="w-full text-xs bg-background border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/30"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-xs font-medium text-foreground block mb-1">
-                            Fecha Inicio *
-                          </label>
-                          <input
-                            type="date"
-                            value={form.contratoFechaInicio}
-                            onChange={(e) => update('contratoFechaInicio', e.target.value)}
-                            className="w-full text-xs bg-background border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/30"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-xs font-medium text-foreground block mb-1">
-                            Fecha Fin
-                          </label>
-                          <input
-                            type="date"
-                            value={form.contratoFechaFin}
-                            onChange={(e) => update('contratoFechaFin', e.target.value)}
-                            className="w-full text-xs bg-background border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/30"
-                          />
                         </div>
                       </div>
                     </div>

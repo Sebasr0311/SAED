@@ -124,15 +124,16 @@ export default function ResPerfilPage() {
 
   // 1. Datos personales de la persona
   const { data: personaData, refetch: refetchPersona } = useFetch(
-    () => (residentId ? api.get(`/personas/${residentId}`) : Promise.resolve(null)),
+    () => api.get('/personas/me').catch(() => (residentId ? api.get(`/personas/${residentId}`) : Promise.resolve(null))),
     [residentId]
   );
   const perfil = useMemo(() => personaData?.raw || personaData || {}, [personaData]);
+  const resolvedPersonaId = perfil.id || perfil.idPersona || user?.idPersona || user?.idResidente || residentId;
 
   // 2. Dashboard financiero y de unidad del residente (Solo residente titular)
   const { data: dashboardData, refetch: refetchDashboard } = useFetch(
-    () => (!isConviviente && residentId ? api.get(`/residentes/${residentId}/dashboard`) : Promise.resolve(null)),
-    [residentId, isConviviente]
+    () => (!isConviviente && resolvedPersonaId ? api.get(`/residentes/${resolvedPersonaId}/dashboard`) : Promise.resolve(null)),
+    [resolvedPersonaId, isConviviente]
   );
   const dashboard = useMemo(() => dashboardData?.raw || dashboardData || {}, [dashboardData]);
   const aptoInfo = useMemo(() => dashboard.apartamento || {}, [dashboard]);
@@ -143,12 +144,12 @@ export default function ResPerfilPage() {
   const unitId =
     user?.idUnidad ||
     user?.idApartamento ||
-    user?.asignaciones?.[0]?.idUnidad ||
     perfil.idApartamento ||
     perfil.idUnidad ||
+    user?.asignaciones?.[0]?.idUnidad ||
     aptoInfo.idApartamento ||
     aptoInfo.id ||
-    1;
+    null;
   const { data: unitData } = useFetch(() => (unitId ? api.get(`/units/${unitId}`) : Promise.resolve(null)), [unitId]);
   const u = useMemo(() => unitData?.raw || unitData || {}, [unitData]);
 
@@ -178,17 +179,18 @@ export default function ResPerfilPage() {
 
   // 6. Visitantes frecuentes
   const { data: frecuentesData } = useFetch(
-    () => (residentId ? api.get(`/residentes/${residentId}/frecuentes`) : Promise.resolve([])),
-    [residentId]
+    () => (resolvedPersonaId ? api.get(`/residentes/${resolvedPersonaId}/frecuentes`) : Promise.resolve([])),
+    [resolvedPersonaId]
   );
 
   // Normalizaciones y cálculos
   const nombreCompleto = useMemo(() => {
-    const pNombre = perfil.primerNombre || perfil.nombres || user?.nombreCompleto || 'Carlos';
-    const sNombre = perfil.segundoNombre || '';
-    const pApellido = perfil.primerApellido || perfil.apellidos || (user?.nombreCompleto ? '' : 'Martínez');
-    const sApellido = perfil.segundoApellido || '';
-    return `${pNombre} ${sNombre} ${pApellido} ${sApellido}`.replace(/\s+/g, ' ').trim();
+    const pNombre = perfil.primerNombre || perfil.nombres || user?.primerNombre || user?.nombreCompleto || user?.username || 'Residente';
+    const sNombre = perfil.segundoNombre || user?.segundoNombre || '';
+    const pApellido = perfil.primerApellido || perfil.apellidos || user?.primerApellido || '';
+    const sApellido = perfil.segundoApellido || user?.segundoApellido || '';
+    const fullName = `${pNombre} ${sNombre} ${pApellido} ${sApellido}`.replace(/\s+/g, ' ').trim();
+    return fullName || user?.nombreCompleto || user?.username || 'Residente';
   }, [perfil, user]);
 
   const iniciales = useMemo(() => {
@@ -201,15 +203,16 @@ export default function ResPerfilPage() {
     u.identificador ||
     u.numero ||
     aptoInfo.numero ||
+    aptoInfo.identificador ||
     perfil.numeroApartamento ||
-    (user?.idUnidad ? `Apto 20${user.idUnidad}` : 'Apto 201');
-  const nombreBloque = u.bloqueNombre || aptoInfo.bloque || aptoInfo.torre || 'Torre 1';
-  const pisoApto = aptoInfo.piso || (numeroApto.match(/\d+/) ? numeroApto.match(/\d+/)[0][0] : '2');
-  const areaApto = u.areaM2 ? `${u.areaM2} m²` : aptoInfo.areaM2 ? `${aptoInfo.areaM2} m²` : '75.50 m²';
+    (unitId ? `Unidad ${unitId}` : 'Sin Asignar');
+  const nombreBloque = u.bloqueNombre || aptoInfo.bloque || aptoInfo.torre || '—';
+  const pisoApto = aptoInfo.piso || u.piso || (numeroApto.match(/\d+/) ? numeroApto.match(/\d+/)[0][0] : '—');
+  const areaApto = u.areaM2 ? `${u.areaM2} m²` : aptoInfo.areaM2 ? `${aptoInfo.areaM2} m²` : '—';
   const tipoUnidad = u.tipoUnidadNombre || aptoInfo.tipo || 'Apartamento Residencial';
   const coeficiente = u.coeficienteCopropiedad
     ? `${(Number(u.coeficienteCopropiedad) * 100).toFixed(2)}%`
-    : '1.2500%';
+    : '—';
   const estadoUnidad = u.estado || aptoInfo.estado || 'HABITADA';
 
   // Coarrendatarios y compañeros
@@ -218,18 +221,20 @@ export default function ResPerfilPage() {
       ? unitResidentsData
       : unitResidentsData?.items || [];
     if (rawList.length > 0) return rawList;
-    // Si no hay lista del backend, reflejar al menos al titular
-    return [
-      {
-        id: residentId || 4,
-        nombres: perfil.primerNombre || perfil.nombres || 'Carlos',
-        apellidos: perfil.primerApellido || perfil.apellidos || 'Martínez',
-        numeroDocumento: perfil.numeroDocumento || '1000000004',
-        tipoResidente: 'TITULAR',
-        estado: 'ACTIVO',
-      },
-    ];
-  }, [unitResidentsData, perfil, residentId]);
+    if (perfil.primerNombre || user?.nombreCompleto || user?.username) {
+      return [
+        {
+          id: resolvedPersonaId || residentId || 0,
+          nombres: perfil.primerNombre || perfil.nombres || user?.nombreCompleto || user?.username || 'Titular',
+          apellidos: perfil.primerApellido || perfil.apellidos || '',
+          numeroDocumento: perfil.numeroDocumento || '—',
+          tipoResidente: 'TITULAR',
+          estado: 'ACTIVO',
+        },
+      ];
+    }
+    return [];
+  }, [unitResidentsData, perfil, residentId, resolvedPersonaId, user]);
 
   // Cuotas y estado financiero
   const cuotasPendientes = useMemo(() => {
@@ -280,16 +285,17 @@ export default function ResPerfilPage() {
     savingRef.current = true;
     setSaving(true);
     try {
-      await api.put(`/personas/${residentId}`, {
+      const targetPersonaId = resolvedPersonaId || residentId;
+      await api.put(`/personas/${targetPersonaId}`, {
         tipoDocumentoId: Number(perfil.tipoDocumentoId || perfil.idTipoDoc || 1),
-        numeroDocumento: perfil.numeroDocumento || '1000000004',
+        numeroDocumento: perfil.numeroDocumento || user?.numeroDocumento || '',
         tipoPersona: perfil.tipoPersona || 'NATURAL',
-        primerNombre: perfil.primerNombre || perfil.nombres || 'Carlos',
-        segundoNombre: perfil.segundoNombre || '',
-        primerApellido: perfil.primerApellido || perfil.apellidos || 'Martínez',
-        segundoApellido: perfil.segundoApellido || '',
-        telefono: edit.telefono.replace(/\D/g, ''),
-        email: edit.email.trim() || null,
+        primerNombre: perfil.primerNombre || perfil.nombres || user?.primerNombre || user?.nombreCompleto || '',
+        segundoNombre: perfil.segundoNombre || user?.segundoNombre || '',
+        primerApellido: perfil.primerApellido || perfil.apellidos || user?.primerApellido || '',
+        segundoApellido: perfil.segundoApellido || user?.segundoApellido || '',
+        telefono: edit.telefono ? edit.telefono.replace(/\D/g, '') : null,
+        email: edit.email?.trim() || null,
       });
       toast.success('Perfil de residente actualizado exitosamente');
       setModalOpen(false);
@@ -384,17 +390,17 @@ export default function ResPerfilPage() {
               {/* Chips de contacto con copia rápida */}
               <div className="flex flex-wrap items-center gap-2 pt-1">
                 <CopyChip
-                  text={perfil.numeroDocumento || '1000000004'}
+                  text={perfil.numeroDocumento || user?.numeroDocumento || '—'}
                   label="Documento"
                   icon={Shield}
                 />
                 <CopyChip
-                  text={perfil.telefono || '3001234567'}
+                  text={perfil.telefono || user?.telefono || '—'}
                   label="Teléfono"
                   icon={Phone}
                 />
                 <CopyChip
-                  text={perfil.email || user?.email || ''}
+                  text={perfil.email || user?.email || '—'}
                   label="Correo"
                   icon={Mail}
                 />
@@ -534,7 +540,7 @@ export default function ResPerfilPage() {
                 <DetailItem
                   icon={Shield}
                   label="Documento de Identidad"
-                  value={`${perfil.numeroDocumento || '1000000004'}`}
+                  value={`${perfil.numeroDocumento || user?.numeroDocumento || '—'}`}
                   subtext={perfil.tipoDocumentoNombre || 'Cédula de Ciudadanía (CC)'}
                   badge={<Badge variant="success">Verificado</Badge>}
                   isMono
@@ -542,13 +548,13 @@ export default function ResPerfilPage() {
                 <DetailItem
                   icon={Calendar}
                   label="Fecha de Nacimiento"
-                  value={perfil.fechaNacimiento ? formatDate(perfil.fechaNacimiento) : '15/05/1988'}
+                  value={perfil.fechaNacimiento ? formatDate(perfil.fechaNacimiento) : '—'}
                   subtext="Mayor de edad legal (Colombia)"
                 />
                 <DetailItem
                   icon={Layers}
                   label="Tipo de Persona"
-                  value="Persona Natural"
+                  value={perfil.tipoPersona === 'JURIDICA' ? 'Persona Jurídica' : 'Persona Natural'}
                   subtext="Copropietario Habitante"
                 />
               </CardContent>
@@ -575,7 +581,7 @@ export default function ResPerfilPage() {
                 <DetailItem
                   icon={Phone}
                   label="Teléfono Celular"
-                  value={perfil.telefono || '3001234567'}
+                  value={perfil.telefono || user?.telefono || '—'}
                   badge={<Badge variant="outline">Principal</Badge>}
                   subtext="Habilitado para llamadas de citofonía y SMS"
                   isMono
@@ -590,8 +596,8 @@ export default function ResPerfilPage() {
                 <DetailItem
                   icon={MapPin}
                   label="Dirección de la Copropiedad"
-                  value="Calle 100 # 15-20"
-                  subtext="Bogotá D.C., Colombia"
+                  value={user?.direccionPropiedad || '—'}
+                  subtext={user?.ciudadPropiedad || ''}
                 />
                 <DetailItem
                   icon={Building2}

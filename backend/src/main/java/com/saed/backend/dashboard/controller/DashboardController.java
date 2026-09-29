@@ -624,82 +624,135 @@ public class DashboardController {
                 tipoResidenteDb = "OTRO";
             }
 
-            if ("ARRENDATARIO".equals(tipoResidenteDb)) {
+            // 2. Gestionar Contrato (Opcional, según GAP de Asignación Residencial y Formalización de Contratos)
+            boolean omitirContrato = Boolean.FALSE.equals(payload.get("crearContrato"))
+                    || Boolean.TRUE.equals(payload.get("sinContrato"))
+                    || Boolean.TRUE.equals(payload.get("omitirContrato"));
+            boolean solicitarCrearContrato = Boolean.TRUE.equals(payload.get("crearContrato"));
+            Object canonObj = payload.get("canonMensual") != null ? payload.get("canonMensual") : payload.get("contratoCanon");
+            Object idPlantillaObj = payload.get("idPlantilla");
+            boolean datosContratoPresentes = canonObj != null && !canonObj.toString().trim().isBlank();
+            boolean debeCrearContrato = solicitarCrearContrato || (datosContratoPresentes && !omitirContrato);
+
+            // Caso A: Asociar contrato existente si se suministra idContratoExistente
+            Object cExistenteObj = payload.get("idContratoExistente");
+            if (cExistenteObj != null && !cExistenteObj.toString().trim().isBlank()) {
+                Long idContratoExistente = null;
+                if (cExistenteObj instanceof Number n) {
+                    idContratoExistente = n.longValue();
+                } else {
+                    try { idContratoExistente = Long.parseLong(cExistenteObj.toString().trim()); } catch (Exception ignored) {}
+                }
+                if (idContratoExistente != null) {
+                    List<Map<String, Object>> cRows = jdbcTemplate.queryForList(
+                        "SELECT ID_UNIDAD, ID_ARRENDATARIO_PRINCIPAL, ESTADO FROM CONTRATOS WHERE ID_CONTRATO = :cId",
+                        Map.of("cId", idContratoExistente)
+                    );
+                    if (cRows.isEmpty()) {
+                        throw new IllegalArgumentException("Contrato existente no encontrado con ID: " + idContratoExistente);
+                    }
+                    Long cUnitId = ((Number) cRows.get(0).get("ID_UNIDAD")).longValue();
+                    if (!unitId.equals(cUnitId)) {
+                        throw new IllegalArgumentException("El contrato especificado no pertenece a la unidad seleccionada");
+                    }
+                    jdbcTemplate.update(
+                        "UPDATE CONTRATOS SET ID_ARRENDATARIO_PRINCIPAL = :pId WHERE ID_CONTRATO = :cId",
+                        Map.of("pId", id, "cId", idContratoExistente)
+                    );
+                }
+            }
+            // Caso B: Crear y formalizar contrato nuevo si se solicita
+            else if (debeCrearContrato) {
                 Integer activeContracts = jdbcTemplate.queryForObject(
                     "SELECT COUNT(1) FROM CONTRATOS WHERE ID_UNIDAD = :unitId AND ID_ARRENDATARIO_PRINCIPAL = :personaId AND ESTADO = 'ACTIVO'",
                     Map.of("unitId", unitId, "personaId", id),
                     Integer.class
                 );
                 if (activeContracts == null || activeContracts == 0) {
-                    Object canonObj = payload.get("canonMensual");
-                    if (canonObj == null) canonObj = payload.get("contratoCanon");
+                    if (canonObj == null || canonObj.toString().trim().isBlank()) {
+                        throw new IllegalArgumentException("El canon mensual es obligatorio y debe ser mayor a cero para crear el contrato.");
+                    }
+                    java.math.BigDecimal canon = new java.math.BigDecimal(canonObj.toString().trim());
+                    if (canon.compareTo(java.math.BigDecimal.ZERO) <= 0) {
+                        throw new IllegalArgumentException("El canon mensual debe ser mayor a cero");
+                    }
 
-                    if (canonObj != null && finanzasService != null) {
-                        java.math.BigDecimal canon = new java.math.BigDecimal(canonObj.toString().trim());
-                        java.time.LocalDate fInicio = payload.get("fechaInicio") != null 
-                            ? java.time.LocalDate.parse(payload.get("fechaInicio").toString().trim().substring(0, 10))
-                            : (payload.get("contratoFechaInicio") != null 
-                                ? java.time.LocalDate.parse(payload.get("contratoFechaInicio").toString().trim().substring(0, 10))
-                                : java.time.LocalDate.now());
+                    java.time.LocalDate fInicio = payload.get("fechaInicio") != null 
+                        ? java.time.LocalDate.parse(payload.get("fechaInicio").toString().trim().substring(0, 10))
+                        : (payload.get("contratoFechaInicio") != null 
+                            ? java.time.LocalDate.parse(payload.get("contratoFechaInicio").toString().trim().substring(0, 10))
+                            : java.time.LocalDate.now());
 
-                        java.time.LocalDate fFin = null;
-                        Object fFinObj = payload.get("fechaFin") != null ? payload.get("fechaFin") : payload.get("contratoFechaFin");
-                        if (fFinObj != null && !fFinObj.toString().trim().isBlank()) {
-                            fFin = java.time.LocalDate.parse(fFinObj.toString().trim().substring(0, 10));
+                    java.time.LocalDate fFin = null;
+                    Object fFinObj = payload.get("fechaFin") != null ? payload.get("fechaFin") : payload.get("contratoFechaFin");
+                    if (fFinObj != null && !fFinObj.toString().trim().isBlank()) {
+                        fFin = java.time.LocalDate.parse(fFinObj.toString().trim().substring(0, 10));
+                        if (fFin.isBefore(fInicio)) {
+                            throw new IllegalArgumentException("La fecha de fin no puede ser anterior a la fecha de inicio del contrato.");
                         }
+                    }
 
-                        String tipoContrato = "INICIAL";
-                        Object tipoObj = payload.get("tipoContrato") != null ? payload.get("tipoContrato") : payload.get("contratoTipo");
-                        if (tipoObj != null && !tipoObj.toString().trim().isBlank()) {
-                            tipoContrato = tipoObj.toString().trim().toUpperCase();
-                        }
+                    String tipoContrato = "INICIAL";
+                    Object tipoObj = payload.get("tipoContrato") != null ? payload.get("tipoContrato") : payload.get("contratoTipo");
+                    if (tipoObj != null && !tipoObj.toString().trim().isBlank()) {
+                        tipoContrato = tipoObj.toString().trim().toUpperCase();
+                    }
 
-                        Long idPlantilla = null;
-                        Object pltObj = payload.get("idPlantilla");
-                        if (pltObj instanceof Number pNum) {
-                            idPlantilla = pNum.longValue();
-                        } else if (pltObj != null && !pltObj.toString().trim().isBlank()) {
-                            try { idPlantilla = Long.parseLong(pltObj.toString().trim()); } catch (NumberFormatException ignored) {}
-                        }
+                    Long idPlantilla = null;
+                    if (idPlantillaObj instanceof Number pNum) {
+                        idPlantilla = pNum.longValue();
+                    } else if (idPlantillaObj != null && !idPlantillaObj.toString().trim().isBlank()) {
+                        try { idPlantilla = Long.parseLong(idPlantillaObj.toString().trim()); } catch (NumberFormatException ignored) {}
+                    }
 
-                        Long idTutor = null;
-                        Object tutObj = payload.get("idTutor");
-                        if (tutObj instanceof Number tNum) {
-                            idTutor = tNum.longValue();
-                        } else if (tutObj != null && !tutObj.toString().trim().isBlank()) {
-                            try { idTutor = Long.parseLong(tutObj.toString().trim()); } catch (NumberFormatException ignored) {}
-                        }
+                    Long idTutor = null;
+                    Object tutObj = payload.get("idTutor");
+                    if (tutObj instanceof Number tNum) {
+                        idTutor = tNum.longValue();
+                    } else if (tutObj != null && !tutObj.toString().trim().isBlank()) {
+                        try { idTutor = Long.parseLong(tutObj.toString().trim()); } catch (NumberFormatException ignored) {}
+                    }
 
-                        List<com.saed.backend.finanzas.dto.CoarrendatarioCreateDTO> coarrendatarios = null;
-                        Object coarrObj = payload.get("coarrendatarios");
-                        if (coarrObj instanceof List<?> rawList) {
-                            coarrendatarios = new java.util.ArrayList<>();
-                            for (Object item : rawList) {
-                                if (item instanceof Map<?, ?> m) {
-                                    Long coId = null;
-                                    Object coIdObj = m.get("idPersona");
-                                    if (coIdObj instanceof Number cNum) coId = cNum.longValue();
-                                    else if (coIdObj != null) {
-                                        try { coId = Long.parseLong(coIdObj.toString().trim()); } catch (Exception ignored) {}
-                                    }
-                                    if (coId != null) {
-                                        String tVinc = m.get("tipoVinculo") != null ? m.get("tipoVinculo").toString() : "COARRENDATARIO";
-                                        String esR = m.get("esResponsablePago") != null ? m.get("esResponsablePago").toString() : "N";
-                                        Boolean syncH = Boolean.TRUE.equals(m.get("sincronizarHabitabilidad"));
-                                        coarrendatarios.add(new com.saed.backend.finanzas.dto.CoarrendatarioCreateDTO(null, coId, tVinc, esR, syncH));
-                                    }
+                    List<com.saed.backend.finanzas.dto.CoarrendatarioCreateDTO> coarrendatarios = null;
+                    Object coarrObj = payload.get("coarrendatarios");
+                    if (coarrObj instanceof List<?> rawList) {
+                        coarrendatarios = new java.util.ArrayList<>();
+                        for (Object item : rawList) {
+                            if (item instanceof Map<?, ?> m) {
+                                Long coId = null;
+                                Object coIdObj = m.get("idPersona");
+                                if (coIdObj instanceof Number cNum) coId = cNum.longValue();
+                                else if (coIdObj != null) {
+                                    try { coId = Long.parseLong(coIdObj.toString().trim()); } catch (Exception ignored) {}
+                                }
+                                if (coId != null) {
+                                    String tVinc = m.get("tipoVinculo") != null ? m.get("tipoVinculo").toString() : "COARRENDATARIO";
+                                    String esR = m.get("esResponsablePago") != null ? m.get("esResponsablePago").toString() : "N";
+                                    Boolean syncH = Boolean.TRUE.equals(m.get("sincronizarHabitabilidad"));
+                                    coarrendatarios.add(new com.saed.backend.finanzas.dto.CoarrendatarioCreateDTO(null, coId, tVinc, esR, syncH));
                                 }
                             }
                         }
+                    }
 
-                        Boolean sincronizarHab = Boolean.TRUE.equals(payload.get("sincronizarHabitabilidad"));
+                    Boolean sincronizarHab = Boolean.TRUE.equals(payload.get("sincronizarHabitabilidad"));
 
+                    if (finanzasService != null) {
                         finanzasService.createContrato(new com.saed.backend.finanzas.dto.ContratoRequestDTO(
                             unitId, id, fInicio, fFin, tipoContrato, canon, idPlantilla, idTutor, coarrendatarios, sincronizarHab
                         ));
-                    } else {
-                        throw new IllegalArgumentException("Un residente con tipo ARRENDATARIO requiere un contrato de arrendamiento válido y activo asociado a la unidad.");
                     }
+                }
+            }
+            // Caso C: ARRENDATARIO sin datos de contrato y sin omitirContrato explícito (regla de retrocompatibilidad con tests Fase 6)
+            else if ("ARRENDATARIO".equals(tipoRelacion) && !omitirContrato) {
+                Integer activeContracts = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(1) FROM CONTRATOS WHERE ID_UNIDAD = :unitId AND ID_ARRENDATARIO_PRINCIPAL = :personaId AND ESTADO = 'ACTIVO'",
+                    Map.of("unitId", unitId, "personaId", id),
+                    Integer.class
+                );
+                if (activeContracts == null || activeContracts == 0) {
+                    throw new IllegalArgumentException("Un residente con tipo ARRENDATARIO requiere un contrato de arrendamiento válido y activo asociado a la unidad, o confirmación explícita de asignación sin contrato.");
                 }
             }
 

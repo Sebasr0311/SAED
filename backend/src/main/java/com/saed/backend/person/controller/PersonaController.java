@@ -10,6 +10,9 @@ import org.springframework.web.bind.annotation.*;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.security.access.prepost.PreAuthorize;
 
+import com.saed.backend.context.SaedContext;
+import com.saed.backend.context.SaedContextHolder;
+
 import java.util.List;
 
 @Tag(name = "Persona", description = "API para la gestion de Persona")
@@ -21,6 +24,16 @@ public class PersonaController {
 
     public PersonaController(PersonaService personaService) {
         this.personaService = personaService;
+    }
+
+    @GetMapping("/me")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<PersonaDTO> getMiPersona() {
+        SaedContext ctx = SaedContextHolder.getContext();
+        if (ctx == null || ctx.getUserId() == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        return ResponseEntity.ok(personaService.getPersonaByUserId(ctx.getUserId()));
     }
 
     @GetMapping

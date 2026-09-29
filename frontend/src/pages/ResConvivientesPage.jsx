@@ -19,15 +19,16 @@ export default function ResConvivientesPage() {
 
   // 1. Datos personales del titular
   const { data: personaData } = useFetch(
-    () => (residentId ? api.get(`/personas/${residentId}`) : Promise.resolve(null)),
+    () => api.get('/personas/me').catch(() => (residentId ? api.get(`/personas/${residentId}`) : Promise.resolve(null))),
     [residentId]
   );
   const perfil = useMemo(() => personaData?.raw || personaData || {}, [personaData]);
+  const resolvedPersonaId = perfil.id || perfil.idPersona || user?.idPersona || user?.idResidente || residentId;
 
   // 2. Dashboard de unidad
   const { data: dashboardData } = useFetch(
-    () => (residentId ? api.get(`/residentes/${residentId}/dashboard`) : Promise.resolve(null)),
-    [residentId]
+    () => (resolvedPersonaId ? api.get(`/residentes/${resolvedPersonaId}/dashboard`) : Promise.resolve(null)),
+    [resolvedPersonaId]
   );
   const dashboard = useMemo(() => dashboardData?.raw || dashboardData || {}, [dashboardData]);
   const aptoInfo = useMemo(() => dashboard.apartamento || {}, [dashboard]);
@@ -36,12 +37,12 @@ export default function ResConvivientesPage() {
   const unitId =
     user?.idUnidad ||
     user?.idApartamento ||
-    user?.asignaciones?.[0]?.idUnidad ||
     perfil.idApartamento ||
     perfil.idUnidad ||
+    user?.asignaciones?.[0]?.idUnidad ||
     aptoInfo.idApartamento ||
     aptoInfo.id ||
-    1;
+    null;
 
   const { data: unitData } = useFetch(
     () => (unitId ? api.get(`/units/${unitId}`) : Promise.resolve(null)),
@@ -75,11 +76,12 @@ export default function ResConvivientesPage() {
   };
 
   const nombreCompleto = useMemo(() => {
-    const pNombre = perfil.primerNombre || perfil.nombres || user?.nombreCompleto || 'Carlos';
-    const sNombre = perfil.segundoNombre || '';
-    const pApellido = perfil.primerApellido || perfil.apellidos || (user?.nombreCompleto ? '' : 'Martínez');
-    const sApellido = perfil.segundoApellido || '';
-    return `${pNombre} ${sNombre} ${pApellido} ${sApellido}`.replace(/\s+/g, ' ').trim();
+    const pNombre = perfil.primerNombre || perfil.nombres || user?.primerNombre || user?.nombreCompleto || user?.username || 'Residente';
+    const sNombre = perfil.segundoNombre || user?.segundoNombre || '';
+    const pApellido = perfil.primerApellido || perfil.apellidos || user?.primerApellido || '';
+    const sApellido = perfil.segundoApellido || user?.segundoApellido || '';
+    const fullName = `${pNombre} ${sNombre} ${pApellido} ${sApellido}`.replace(/\s+/g, ' ').trim();
+    return fullName || user?.nombreCompleto || user?.username || 'Residente';
   }, [perfil, user]);
 
   return (

@@ -64,11 +64,12 @@ const ESTADO_CONFIG = {
 
 export default function ResCuotasPage() {
   const { user } = useAuth();
-  const residentId = user?.idResidente || user?.idPersona || user?.idUsuario;
+  const { data: personaData } = useFetch(() => (!user?.idPersona ? api.get('/personas/me').catch(() => null) : Promise.resolve(null)), [user?.idPersona]);
+  const resolvedPersonaId = user?.idPersona || user?.idResidente || personaData?.id || personaData?.idPersona || user?.idUsuario;
 
   const { data, loading, error, refetch } = useFetch(
-    () => (residentId ? api.get(`/residentes/${residentId}/dashboard`) : Promise.resolve(null)),
-    [residentId]
+    () => (resolvedPersonaId ? api.get(`/residentes/${resolvedPersonaId}/dashboard`) : Promise.resolve(null)),
+    [resolvedPersonaId]
   );
 
   const { data: misPagosData, loading: loadingMisPagos, refetch: refetchMisPagos } = useFetch(
