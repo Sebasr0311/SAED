@@ -123,6 +123,7 @@ export default function ResidenteDashboardPage() {
     aptoInfo.numero ||
     aptoInfo.identificador ||
     perfil.numeroApartamento ||
+    user?.identificadorUnidad ||
     (unitId ? `Apto ${unitId}` : 'Sin Asignar');
 
   // 4. Códigos QR activos para visitas

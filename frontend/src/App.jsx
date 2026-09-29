@@ -115,7 +115,12 @@ function RoleIndexRedirect() {
   if (user?.rol === 'ADMIN_ORGANIZACION') return <Navigate to="/org/dashboard" replace />;
   if (user?.rol === 'ADMIN_PROPIEDAD') return <Navigate to="/dashboard" replace />;
   if (user?.rol === 'PORTERO') return <Navigate to="/portero-dashboard" replace />;
-  if (user?.rol === 'PROPIETARIO') return <Navigate to="/res-perfil" replace />;
+  if (user?.rol === 'PROPIETARIO') {
+    if (user?.tipoResidente === 'PROPIETARIO_NO_RESIDENTE') {
+      return <Navigate to="/res-perfil" replace />;
+    }
+    return <Navigate to="/residente-dashboard" replace />;
+  }
   if (user?.rol === 'RESIDENTE' || user?.rol === 'RESIDENTE_CONVIVENCIA') return <Navigate to="/residente-dashboard" replace />;
   return <Navigate to="/dashboard" replace />;
 }
@@ -697,7 +702,7 @@ export default function App() {
           <Route
             path="residente-dashboard"
             element={
-              <ProtectedRoute roles={['RESIDENTE', 'RESIDENTE_CONVIVENCIA']}>
+              <ProtectedRoute roles={['RESIDENTE', 'RESIDENTE_CONVIVENCIA', 'PROPIETARIO']}>
                 <ResidenteDashboardPage />
               </ProtectedRoute>
             }
@@ -713,7 +718,7 @@ export default function App() {
           <Route
             path="res-convivientes"
             element={
-              <ProtectedRoute roles={['RESIDENTE']}>
+              <ProtectedRoute roles={['RESIDENTE', 'PROPIETARIO']}>
                 <ResConvivientesPage />
               </ProtectedRoute>
             }
@@ -725,7 +730,7 @@ export default function App() {
           <Route
             path="res-cuotas"
             element={
-              <ProtectedRoute roles={['RESIDENTE']}>
+              <ProtectedRoute roles={['RESIDENTE', 'PROPIETARIO']}>
                 <ResCuotasPage />
               </ProtectedRoute>
             }
@@ -745,7 +750,7 @@ export default function App() {
           <Route
             path="res-visitas"
             element={
-              <ProtectedRoute roles={['RESIDENTE', 'RESIDENTE_CONVIVENCIA']}>
+              <ProtectedRoute roles={['RESIDENTE', 'RESIDENTE_CONVIVENCIA', 'PROPIETARIO']}>
                 <ResVisitasPage />
               </ProtectedRoute>
             }
@@ -761,7 +766,7 @@ export default function App() {
           <Route
             path="res-buzon"
             element={
-              <ProtectedRoute roles={['RESIDENTE', 'RESIDENTE_CONVIVENCIA']}>
+              <ProtectedRoute roles={['RESIDENTE', 'RESIDENTE_CONVIVENCIA', 'PROPIETARIO']}>
                 <ResBuzonPage />
               </ProtectedRoute>
             }
@@ -769,7 +774,7 @@ export default function App() {
           <Route
             path="res-quejas"
             element={
-              <ProtectedRoute roles={['RESIDENTE', 'RESIDENTE_CONVIVENCIA']}>
+              <ProtectedRoute roles={['RESIDENTE', 'RESIDENTE_CONVIVENCIA', 'PROPIETARIO']}>
                 <ResQuejasPage />
               </ProtectedRoute>
             }
@@ -777,7 +782,7 @@ export default function App() {
           <Route
             path="res-reservas"
             element={
-              <ProtectedRoute roles={['RESIDENTE', 'RESIDENTE_CONVIVENCIA']}>
+              <ProtectedRoute roles={['RESIDENTE', 'RESIDENTE_CONVIVENCIA', 'PROPIETARIO']}>
                 <ResReservasPage />
               </ProtectedRoute>
             }
@@ -793,9 +798,9 @@ export default function App() {
           <Route path="mis-sanciones" element={<Navigate to="/res-sanciones" replace />} />
           <Route path="res-multas" element={<Navigate to="/res-sanciones?tab=multas" replace />} />
           <Route path="mis-multas" element={<Navigate to="/res-sanciones?tab=multas" replace />} />
-          <Route path="res-obras" element={<ProtectedRoute roles={['RESIDENTE']}><ResObrasPage /></ProtectedRoute>} />
+          <Route path="res-obras" element={<ProtectedRoute roles={['RESIDENTE', 'PROPIETARIO']}><ResObrasPage /></ProtectedRoute>} />
           <Route path="mis-obras" element={<Navigate to="/res-obras" replace />} />
-          <Route path="res-incidentes" element={<ProtectedRoute roles={['RESIDENTE', 'RESIDENTE_CONVIVENCIA']}><ResIncidentesPage /></ProtectedRoute>} />
+          <Route path="res-incidentes" element={<ProtectedRoute roles={['RESIDENTE', 'RESIDENTE_CONVIVENCIA', 'PROPIETARIO']}><ResIncidentesPage /></ProtectedRoute>} />
           <Route path="res-documentos" element={<ProtectedRoute roles={['RESIDENTE', 'RESIDENTE_CONVIVENCIA', 'PROPIETARIO']}><ResDocumentosPage /></ProtectedRoute>} />
           <Route path="res-reglamentos" element={<ProtectedRoute roles={['RESIDENTE', 'RESIDENTE_CONVIVENCIA', 'PROPIETARIO']}><ResReglamentosPage /></ProtectedRoute>} />
           <Route path="mis-reglamentos" element={<Navigate to="/res-reglamentos" replace />} />

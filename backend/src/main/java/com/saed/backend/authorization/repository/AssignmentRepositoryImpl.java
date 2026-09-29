@@ -27,8 +27,20 @@ public class AssignmentRepositoryImpl implements AssignmentRepository {
         AssignmentResponseDTO dto = new AssignmentResponseDTO();
         dto.setIdAsignacion(rs.getLong("id_asignacion"));
 
-        RoleDTO rol = new RoleDTO(rs.getString("rol_codigo"), rs.getString("rol_alcance"));
-        dto.setRol(rol);
+        String rolCodigo = rs.getString("rol_codigo");
+        String rolAlcance = rs.getString("rol_alcance");
+        Long idUnidad = null;
+        if (rs.getObject("id_unidad") != null) {
+            idUnidad = rs.getLong("id_unidad");
+            dto.setUnidad(new UnitDTO(idUnidad, rs.getString("identificador_unidad")));
+        }
+
+        if ("PROPIETARIO".equalsIgnoreCase(rolCodigo) && idUnidad != null) {
+            rolCodigo = "RESIDENTE";
+            rolAlcance = "UNIDAD";
+        }
+
+        dto.setRol(new RoleDTO(rolCodigo, rolAlcance));
 
         if (rs.getObject("id_organizacion") != null) {
             dto.setOrganizacion(new OrganizationDTO(rs.getLong("id_organizacion"), rs.getString("organizacion_nombre")));
@@ -36,10 +48,6 @@ public class AssignmentRepositoryImpl implements AssignmentRepository {
 
         if (rs.getObject("id_propiedad") != null) {
             dto.setPropiedad(new PropertyDTO(rs.getLong("id_propiedad"), rs.getString("propiedad_nombre")));
-        }
-
-        if (rs.getObject("id_unidad") != null) {
-            dto.setUnidad(new UnitDTO(rs.getLong("id_unidad"), rs.getString("identificador_unidad")));
         }
 
         return dto;
@@ -139,11 +147,11 @@ public class AssignmentRepositoryImpl implements AssignmentRepository {
                 try {
                     Integer count = jdbcTemplate.queryForObject(
                         "SELECT COUNT(1) FROM RESIDENTES_UNIDAD ru JOIN USUARIOS u ON u.ID_PERSONA = ru.ID_PERSONA " +
-                        "WHERE u.ID_USUARIO = ? AND ru.ESTADO = 'ACTIVO' AND (ru.TIPO_RESIDENTE IS NULL OR ru.TIPO_RESIDENTE != 'PROPIETARIO_NO_RESIDENTE')",
+                        "WHERE u.ID_USUARIO = ? AND ru.ESTADO IN ('ACTIVO', 'ACTIVA') AND (ru.TIPO_RESIDENTE IS NULL OR ru.TIPO_RESIDENTE != 'PROPIETARIO_NO_RESIDENTE')",
                         Integer.class,
                         idUsuario
                     );
-                    if (count != null && count > 0) {
+                    if ((count != null && count > 0) || unidadId != null) {
                         rolCodigo = "RESIDENTE";
                         rolAlcance = "UNIDAD";
                     }

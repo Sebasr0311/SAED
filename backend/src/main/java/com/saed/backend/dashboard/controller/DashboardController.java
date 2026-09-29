@@ -57,7 +57,7 @@ public class DashboardController {
     }
 
     @GetMapping("/{id}/frecuentes")
-    @PreAuthorize("hasAnyAuthority('SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA', 'SCOPE_PROPIETARIO')")
     public List<Map<String, Object>> getFrecuentes(@PathVariable Long id) {
         Long userId = com.saed.backend.context.SaedContextHolder.getContext() != null
                 ? com.saed.backend.context.SaedContextHolder.getContext().getUserId() : null;
@@ -106,7 +106,7 @@ public class DashboardController {
     }
 
     @PostMapping("/{id}/frecuentes")
-    @PreAuthorize("hasAnyAuthority('SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA', 'SCOPE_PROPIETARIO')")
     public ResponseEntity<Map<String, Object>> crearFrecuente(@PathVariable Long id, @RequestBody Map<String, Object> body) {
         Long userId = com.saed.backend.context.SaedContextHolder.getContext() != null
                 ? com.saed.backend.context.SaedContextHolder.getContext().getUserId() : null;
@@ -275,7 +275,7 @@ public class DashboardController {
     }
 
     @DeleteMapping("/{id}/frecuentes/{idFrecuente}")
-    @PreAuthorize("hasAnyAuthority('SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA', 'SCOPE_PROPIETARIO')")
     public ResponseEntity<Void> deleteFrecuente(@PathVariable Long id, @PathVariable Long idFrecuente) {
         Long userId = com.saed.backend.context.SaedContextHolder.getContext() != null
                 ? com.saed.backend.context.SaedContextHolder.getContext().getUserId() : null;
@@ -294,7 +294,7 @@ public class DashboardController {
     }
 
     @GetMapping("/{id}/qr-activos")
-    @PreAuthorize("hasAnyAuthority('SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA', 'SCOPE_PROPIETARIO')")
     public List<Map<String, Object>> getQrActivos(@PathVariable Long id) {
         Long userId = com.saed.backend.context.SaedContextHolder.getContext() != null
                 ? com.saed.backend.context.SaedContextHolder.getContext().getUserId() : null;
@@ -343,7 +343,7 @@ public class DashboardController {
     }
 
     @GetMapping("/{id}/visitas-historial")
-    @PreAuthorize("hasAuthority('SCOPE_RESIDENTE')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_RESIDENTE', 'SCOPE_PROPIETARIO')")
     public ResponseEntity<ApiResponse<Map<String, Object>>> getVisitasHistorial(
             @PathVariable Long id,
             @RequestParam(defaultValue = "0") int page,

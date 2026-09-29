@@ -100,9 +100,10 @@ public class AuthRepositoryImpl implements AuthRepository {
 
         Long idPersona = null;
         String nombreCompleto = null;
+        String telefono = null;
         try {
             java.util.List<Map<String, Object>> pList = jdbcTemplate.queryForList(
-                "SELECT p.ID_PERSONA, TRIM(p.PRIMER_NOMBRE || ' ' || NVL(p.SEGUNDO_NOMBRE, '') || ' ' || p.PRIMER_APELLIDO || ' ' || NVL(p.SEGUNDO_APELLIDO, '')) AS NOMBRE_COMPLETO " +
+                "SELECT p.ID_PERSONA, p.TELEFONO, TRIM(p.PRIMER_NOMBRE || ' ' || NVL(p.SEGUNDO_NOMBRE, '') || ' ' || p.PRIMER_APELLIDO || ' ' || NVL(p.SEGUNDO_APELLIDO, '')) AS NOMBRE_COMPLETO " +
                 "FROM USUARIOS u JOIN PERSONAS p ON u.ID_PERSONA = p.ID_PERSONA WHERE u.ID_USUARIO = ?",
                 userId
             );
@@ -111,6 +112,7 @@ public class AuthRepositoryImpl implements AuthRepository {
                 if (row.get("ID_PERSONA") != null) {
                     idPersona = ((Number) row.get("ID_PERSONA")).longValue();
                 }
+                telefono = (String) row.get("TELEFONO");
                 nombreCompleto = (String) row.get("NOMBRE_COMPLETO");
                 if (nombreCompleto != null) {
                     nombreCompleto = nombreCompleto.replaceAll("\\s+", " ").trim();
@@ -123,6 +125,9 @@ public class AuthRepositoryImpl implements AuthRepository {
                 );
                 if (!fallbackPersona.isEmpty()) {
                     idPersona = fallbackPersona.get(0);
+                    try {
+                        telefono = jdbcTemplate.queryForObject("SELECT TELEFONO FROM PERSONAS WHERE ID_PERSONA = ?", String.class, idPersona);
+                    } catch (Exception ignored) {}
                 }
             }
         } catch (Exception ignored) {}
@@ -187,7 +192,7 @@ public class AuthRepositoryImpl implements AuthRepository {
         if ("ARRENDATARIO".equalsIgnoreCase(tipoResidente)) {
             rolCodigo = "RESIDENTE";
             alcance = "UNIDAD";
-        } else if ("PROPIETARIO".equalsIgnoreCase(tipoResidente) || "PROPIETARIO_RESIDENTE".equalsIgnoreCase(tipoResidente)) {
+        } else if ("PROPIETARIO".equalsIgnoreCase(tipoResidente) || "PROPIETARIO_RESIDENTE".equalsIgnoreCase(tipoResidente) || "TITULAR".equalsIgnoreCase(tipoResidente)) {
             rolCodigo = "RESIDENTE";
             alcance = "UNIDAD";
             tipoResidente = "PROPIETARIO_RESIDENTE";
@@ -206,10 +211,12 @@ public class AuthRepositoryImpl implements AuthRepository {
                       AND ESTADO IN ('ACTIVO', 'ACTIVA')
                 """, userId, unidadId);
             } catch (Exception ignored) {}
-        } else if ("PROPIETARIO".equalsIgnoreCase(rolCodigo) && isHabitanteFisico && !"PROPIETARIO_NO_RESIDENTE".equalsIgnoreCase(tipoResidente)) {
+        } else if (("PROPIETARIO".equalsIgnoreCase(rolCodigo) || "RESIDENTE".equalsIgnoreCase(rolCodigo)) && (isHabitanteFisico || unidadId != null) && !"PROPIETARIO_NO_RESIDENTE".equalsIgnoreCase(tipoResidente)) {
             rolCodigo = "RESIDENTE";
             alcance = "UNIDAD";
-            tipoResidente = "PROPIETARIO_RESIDENTE";
+            if (tipoResidente == null) {
+                tipoResidente = "PROPIETARIO_RESIDENTE";
+            }
 
             try {
                 jdbcTemplate.update("""
@@ -225,10 +232,11 @@ public class AuthRepositoryImpl implements AuthRepository {
 
         Long propId = (Number) out.get("p_prop_id") != null ? ((Number) out.get("p_prop_id")).longValue() : null;
         Long orgId = (Number) out.get("p_org_id") != null ? ((Number) out.get("p_org_id")).longValue() : null;
+        String identificadorUnidad = null;
         if (unidadId != null) {
             try {
                 List<Map<String, Object>> uInfo = jdbcTemplate.queryForList(
-                    "SELECT u.ID_PROPIEDAD, p.ID_ORGANIZACION FROM UNIDADES u JOIN PROPIEDADES p ON u.ID_PROPIEDAD = p.ID_PROPIEDAD WHERE u.ID_UNIDAD = ?",
+                    "SELECT u.ID_PROPIEDAD, p.ID_ORGANIZACION, u.IDENTIFICADOR FROM UNIDADES u JOIN PROPIEDADES p ON u.ID_PROPIEDAD = p.ID_PROPIEDAD WHERE u.ID_UNIDAD = ?",
                     unidadId
                 );
                 if (!uInfo.isEmpty()) {
@@ -236,6 +244,7 @@ public class AuthRepositoryImpl implements AuthRepository {
                     Number oNum = (Number) uInfo.get(0).get("ID_ORGANIZACION");
                     if (pNum != null) propId = pNum.longValue();
                     if (oNum != null) orgId = oNum.longValue();
+                    identificadorUnidad = (String) uInfo.get(0).get("IDENTIFICADOR");
                 }
             } catch (Exception ignored) {}
         }
@@ -251,7 +260,9 @@ public class AuthRepositoryImpl implements AuthRepository {
                 orgId,
                 propId,
                 unidadId,
-                tipoResidente
+                tipoResidente,
+                identificadorUnidad,
+                telefono
         );
     }
 

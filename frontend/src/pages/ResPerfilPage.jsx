@@ -200,11 +200,13 @@ export default function ResPerfilPage() {
   }, [nombreCompleto]);
 
   const numeroApto =
+    dashboard.identificadorUnidad ||
     u.identificador ||
     u.numero ||
     aptoInfo.numero ||
     aptoInfo.identificador ||
     perfil.numeroApartamento ||
+    user?.identificadorUnidad ||
     (unitId ? `Unidad ${unitId}` : 'Sin Asignar');
   const nombreBloque = u.bloqueNombre || aptoInfo.bloque || aptoInfo.torre || '—';
   const pisoApto = aptoInfo.piso || u.piso || (numeroApto.match(/\d+/) ? numeroApto.match(/\d+/)[0][0] : '—');
@@ -395,7 +397,7 @@ export default function ResPerfilPage() {
                   icon={Shield}
                 />
                 <CopyChip
-                  text={perfil.telefono || user?.telefono || '—'}
+                  text={perfil.telefono || perfil.celular || perfil.telefonoContacto || user?.telefono || '—'}
                   label="Teléfono"
                   icon={Phone}
                 />
@@ -581,7 +583,7 @@ export default function ResPerfilPage() {
                 <DetailItem
                   icon={Phone}
                   label="Teléfono Celular"
-                  value={perfil.telefono || user?.telefono || '—'}
+                  value={perfil.telefono || perfil.celular || perfil.telefonoContacto || user?.telefono || '—'}
                   badge={<Badge variant="outline">Principal</Badge>}
                   subtext="Habilitado para llamadas de citofonía y SMS"
                   isMono

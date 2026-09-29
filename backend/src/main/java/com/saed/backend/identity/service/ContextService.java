@@ -37,8 +37,15 @@ public class ContextService {
         long unitId = rs.getLong("id_unidad");
         if (!rs.wasNull()) dto.setIdUnidad(unitId);
         
-        dto.setRoleCode(rs.getString("codigo"));
-        dto.setScope(rs.getString("alcance"));
+        String rawRoleCode = rs.getString("codigo");
+        String rawScope = rs.getString("alcance");
+        if ("PROPIETARIO".equalsIgnoreCase(rawRoleCode) && dto.getIdUnidad() != null) {
+            dto.setRoleCode("RESIDENTE");
+            dto.setScope("UNIDAD");
+        } else {
+            dto.setRoleCode(rawRoleCode);
+            dto.setScope(rawScope);
+        }
 
         try {
             dto.setNombreOrganizacion(rs.getString("nombre_organizacion"));

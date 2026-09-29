@@ -263,10 +263,27 @@ const NAV_BY_ROLE = {
   ],
   PROPIETARIO: [
     {
+      id: 'inicio',
+      label: 'Inicio',
+      icon: 'home',
+      items: [{ path: '/residente-dashboard', label: 'Mi Panel', icon: 'dashboard' }],
+    },
+    {
       id: 'mi-cuenta',
       label: 'Mi Cuenta',
       icon: 'account_circle',
-      items: [{ path: '/res-perfil', label: 'Mi Perfil e Inmuebles', icon: 'person' }],
+      items: [
+        { path: '/res-perfil', label: 'Mi Perfil e Inmuebles', icon: 'person' },
+        { path: '/res-convivientes', label: 'Mis Convivientes', icon: 'groups' },
+      ],
+    },
+    {
+      id: 'inmueble',
+      label: 'Mi Inmueble',
+      icon: 'apartment',
+      items: [
+        { path: '/res-cuotas', label: 'Mis Cuotas y Pagos', icon: 'credit_card' },
+      ],
     },
     {
       id: 'documentos',
@@ -435,12 +452,16 @@ export default function AppShell() {
       role === 'PROPIETARIO' &&
       (user?.tipoResidente === 'PROPIETARIO_RESIDENTE' ||
         user?.tipoRelacion === 'PROPIETARIO_RESIDENTE' ||
+        user?.tipoResidente === 'TITULAR' ||
+        user?.tipoRelacion === 'TITULAR' ||
+        user?.idUnidad != null ||
+        user?.identificadorUnidad != null ||
         (user?.tipoResidente && user?.tipoResidente !== 'PROPIETARIO_NO_RESIDENTE'))
     ) {
       role = 'RESIDENTE';
     }
     return NAV_BY_ROLE[role] || NAV_BY_ROLE[user?.rol] || NAV_BY_ROLE[user?.rol?.toUpperCase()] || [];
-  }, [user?.rol, user?.tipoResidente, user?.tipoRelacion]);
+  }, [user?.rol, user?.tipoResidente, user?.tipoRelacion, user?.idUnidad, user?.identificadorUnidad]);
   const allItems = useMemo(() => groups.flatMap((g) => g.items), [groups]);
 
   // Tema: localStorage gana; si no hay preferencia, se sigue la del sistema.

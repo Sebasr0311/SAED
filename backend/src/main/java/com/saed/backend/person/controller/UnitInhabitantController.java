@@ -29,7 +29,7 @@ public class UnitInhabitantController {
     }
 
     @GetMapping("/owners")
-    @PreAuthorize("hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_PORTERO') or hasAuthority('SCOPE_RESIDENTE')")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_PORTERO') or hasAuthority('SCOPE_RESIDENTE') or hasAuthority('SCOPE_PROPIETARIO')")
     public ResponseEntity<List<UnitOwnerDTO>> getOwners(@PathVariable Long unitId) {
         return ResponseEntity.ok(unitInhabitantService.getOwnersByUnitId(unitId));
     }
@@ -44,13 +44,13 @@ public class UnitInhabitantController {
     }
 
     @GetMapping("/residents")
-    @PreAuthorize("hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_PORTERO') or hasAuthority('SCOPE_RESIDENTE')")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_PORTERO') or hasAuthority('SCOPE_RESIDENTE') or hasAuthority('SCOPE_PROPIETARIO')")
     public ResponseEntity<List<UnitResidentDTO>> getResidents(@PathVariable Long unitId) {
         return ResponseEntity.ok(unitInhabitantService.getResidentsByUnitId(unitId));
     }
 
     @GetMapping("/residents/quota")
-    @PreAuthorize("hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_RESIDENTE')")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_RESIDENTE') or hasAuthority('SCOPE_PROPIETARIO')")
     public ResponseEntity<com.saed.backend.person.dto.ConvivienteQuotaDTO> getQuota(@PathVariable Long unitId) {
         return ResponseEntity.ok(convivienteQuotaService.getQuota(unitId));
     }

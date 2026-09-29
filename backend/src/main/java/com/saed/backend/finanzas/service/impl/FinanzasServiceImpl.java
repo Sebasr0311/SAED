@@ -882,7 +882,7 @@ public class FinanzasServiceImpl implements FinanzasService {
     public ResidenteDashboardDTO getDashboardResidente(Long idResidente) {
         SaedContext ctx = SaedContextHolder.getContext();
         String role = ctx != null ? ctx.getRoleCode() : "";
-        if ("RESIDENTE".equalsIgnoreCase(role) || "UNIDAD".equals(ctx != null ? ctx.getRoleScope() : "")) {
+        if ("RESIDENTE".equalsIgnoreCase(role) || "PROPIETARIO".equalsIgnoreCase(role) || "UNIDAD".equals(ctx != null ? ctx.getRoleScope() : "")) {
             Long userId = ctx.getUserId();
             if (userId != null) {
                 try {
@@ -907,10 +907,14 @@ public class FinanzasServiceImpl implements FinanzasService {
         } else {
             try {
                 Map<String, Object> uRow = jdbcTemplate.queryForMap(
-                    "SELECT u.ID_UNIDAD, u.IDENTIFICADOR FROM RESIDENTES_UNIDAD ru " +
-                    "JOIN UNIDADES u ON ru.ID_UNIDAD = u.ID_UNIDAD " +
-                    "WHERE ru.ID_PERSONA = :idResidente AND ru.ESTADO IN ('ACTIVO', 'ACTIVA') " +
-                    "FETCH FIRST 1 ROWS ONLY",
+                    "SELECT u.ID_UNIDAD, u.IDENTIFICADOR FROM UNIDADES u " +
+                    "WHERE u.ID_UNIDAD IN (" +
+                    "  SELECT ru.ID_UNIDAD FROM RESIDENTES_UNIDAD ru WHERE ru.ID_PERSONA = :idResidente AND ru.ESTADO IN ('ACTIVO', 'ACTIVA') " +
+                    "  UNION " +
+                    "  SELECT pu.ID_UNIDAD FROM PROPIETARIOS_UNIDAD pu WHERE pu.ID_PERSONA = :idResidente AND pu.ESTADO IN ('ACTIVO', 'ACTIVA') " +
+                    "  UNION " +
+                    "  SELECT ua.ID_UNIDAD FROM USUARIOS usr JOIN USUARIO_ASIGNACIONES ua ON usr.ID_USUARIO = ua.ID_USUARIO WHERE usr.ID_PERSONA = :idResidente AND ua.ID_UNIDAD IS NOT NULL AND ua.ESTADO IN ('ACTIVA', 'ACTIVO') " +
+                    ") FETCH FIRST 1 ROWS ONLY",
                     new MapSqlParameterSource("idResidente", idResidente));
                 idUnidad = ((Number) uRow.get("ID_UNIDAD")).longValue();
                 identificadorUnidad = (String) uRow.get("IDENTIFICADOR");

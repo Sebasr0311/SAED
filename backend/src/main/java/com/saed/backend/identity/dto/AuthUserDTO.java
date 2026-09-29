@@ -12,22 +12,30 @@ public class AuthUserDTO {
     private Long idPropiedad;
     private Long idUnidad;
     private String tipoResidente;
+    private String identificadorUnidad;
+    private String telefono;
 
     public AuthUserDTO() {
     }
 
     public AuthUserDTO(Long idUsuario, String nombreUsuario, String email, String rol,
                        String alcance, Long idOrganizacion, Long idPropiedad, Long idUnidad) {
-        this(idUsuario, null, nombreUsuario, null, email, rol, alcance, idOrganizacion, idPropiedad, idUnidad, null);
+        this(idUsuario, null, nombreUsuario, null, email, rol, alcance, idOrganizacion, idPropiedad, idUnidad, null, null, null);
     }
 
     public AuthUserDTO(Long idUsuario, Long idPersona, String nombreUsuario, String nombreCompleto,
                        String email, String rol, String alcance, Long idOrganizacion, Long idPropiedad, Long idUnidad) {
-        this(idUsuario, idPersona, nombreUsuario, nombreCompleto, email, rol, alcance, idOrganizacion, idPropiedad, idUnidad, null);
+        this(idUsuario, idPersona, nombreUsuario, nombreCompleto, email, rol, alcance, idOrganizacion, idPropiedad, idUnidad, null, null, null);
     }
 
     public AuthUserDTO(Long idUsuario, Long idPersona, String nombreUsuario, String nombreCompleto,
                        String email, String rol, String alcance, Long idOrganizacion, Long idPropiedad, Long idUnidad, String tipoResidente) {
+        this(idUsuario, idPersona, nombreUsuario, nombreCompleto, email, rol, alcance, idOrganizacion, idPropiedad, idUnidad, tipoResidente, null, null);
+    }
+
+    public AuthUserDTO(Long idUsuario, Long idPersona, String nombreUsuario, String nombreCompleto,
+                       String email, String rol, String alcance, Long idOrganizacion, Long idPropiedad, Long idUnidad,
+                       String tipoResidente, String identificadorUnidad, String telefono) {
         this.idUsuario = idUsuario;
         this.idPersona = idPersona;
         this.nombreUsuario = nombreUsuario;
@@ -39,6 +47,8 @@ public class AuthUserDTO {
         this.idPropiedad = idPropiedad;
         this.idUnidad = idUnidad;
         this.tipoResidente = tipoResidente;
+        this.identificadorUnidad = identificadorUnidad;
+        this.telefono = telefono;
     }
 
     public Long getIdUsuario() { return idUsuario; }
@@ -63,4 +73,8 @@ public class AuthUserDTO {
     public void setIdUnidad(Long idUnidad) { this.idUnidad = idUnidad; }
     public String getTipoResidente() { return tipoResidente; }
     public void setTipoResidente(String tipoResidente) { this.tipoResidente = tipoResidente; }
+    public String getIdentificadorUnidad() { return identificadorUnidad; }
+    public void setIdentificadorUnidad(String identificadorUnidad) { this.identificadorUnidad = identificadorUnidad; }
+    public String getTelefono() { return telefono; }
+    public void setTelefono(String telefono) { this.telefono = telefono; }
 }

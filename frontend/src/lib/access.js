@@ -79,7 +79,7 @@ export function normalizeRole(rol) {
   if (r === 'PROPIETARIO_NO_RESIDENTE' || r === 'PROPIETARIO_UNIDAD') {
     return 'PROPIETARIO';
   }
-  if (r === 'PROPIETARIO_RESIDENTE') {
+  if (r === 'PROPIETARIO_RESIDENTE' || r === 'TITULAR') {
     return 'RESIDENTE';
   }
   if (r === 'PROPIETARIO') {
@@ -193,7 +193,16 @@ export const ACCESS_BY_ROLE = {
     '/incidentes-admin',
   ],
   PROPIETARIO: [
+    '/residente-dashboard',
     '/res-perfil',
+    '/res-apartamento',
+    '/res-cuotas',
+    '/res-convivientes',
+    '/res-visitas',
+    '/res-frecuentes',
+    '/res-buzon',
+    '/res-quejas',
+    '/res-reservas',
     '/res-asambleas',
     '/res-documentos',
     '/res-reglamentos',
