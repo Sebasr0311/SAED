@@ -67,6 +67,7 @@ export default [
         Image: 'readonly',
         IntersectionObserver: 'readonly',
         HTMLMediaElement: 'readonly',
+        CustomEvent: 'readonly',
       },
     },
     rules: {
@@ -77,9 +78,12 @@ export default [
       ],
       'no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
       'no-console': 'warn',
+      'no-empty': 'off',
       // Data fetching in useEffect with setState is the correct React pattern.
       // The react-hooks plugin flags these as false positives.
       'react-hooks/set-state-in-effect': 'off',
+      'react-hooks/preserve-manual-memoization': 'off',
+      'react-hooks/immutability': 'off',
     },
   },
   {

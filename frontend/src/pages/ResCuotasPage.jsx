@@ -250,9 +250,7 @@ export default function ResCuotasPage() {
   }, []);
 
   async function pollEstadoWompi(referencia) {
-    // eslint-disable-next-line react-hooks/purity
     const t0 = Date.now();
-    // eslint-disable-next-line react-hooks/purity
     while (Date.now() - t0 < 180000) {
       await new Promise((r) => setTimeout(r, 2500));
       try {

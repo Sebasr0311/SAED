@@ -189,7 +189,7 @@ export default function RolesYAsignacionesPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {asignacionesFiltradas.map((a) => {
+                  {asignacionesFiltradas.map((a, index) => {
                     const idAsig = a.idAsignacion || a.ID_ASIGNACION;
                     const userName = a.nombreUsuario || a.NOMBRE_USUARIO || a.username || '—';
                     const fullName = a.nombreCompleto || a.NOMBRE_COMPLETO || '';
@@ -201,7 +201,7 @@ export default function RolesYAsignacionesPage() {
                     const est = a.estado || a.ESTADO || 'ACTIVA';
 
                     return (
-                      <TableRow key={idAsig || Math.random()}>
+                      <TableRow key={idAsig || index}>
                         <TableCell>
                           <div className="font-medium text-sm text-foreground">{userName}</div>
                           {fullName && <div className="text-xs text-muted-foreground">{fullName}</div>}

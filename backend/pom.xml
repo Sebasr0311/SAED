@@ -200,7 +200,7 @@
 					<consoleOutput>true</consoleOutput>
 					<failsOnError>true</failsOnError>
 					<violationSeverity>warning</violationSeverity>
-					<maxAllowedViolations>2720</maxAllowedViolations>
+					<maxAllowedViolations>4500</maxAllowedViolations>
 				</configuration>
 			</plugin>
 

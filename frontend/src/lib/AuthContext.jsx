@@ -72,6 +72,7 @@ export function AuthProvider({ children }) {
   }
 
   const isConv = user?.rol === 'RESIDENTE_CONVIVENCIA' || user?.rolCodigo === 'RESIDENTE_CONVIVENCIA' || user?.tipoResidente === 'CONVIVIENTE';
+  const isPropResidente = (user?.rol === 'PROPIETARIO' || user?.rolCodigo === 'PROPIETARIO') && (user?.idUnidad != null || user?.identificadorUnidad != null);
 
   const value = {
     user,
