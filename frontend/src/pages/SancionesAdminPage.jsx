@@ -7,7 +7,7 @@ import { Select, Input, Textarea } from '../components/ui/Form.jsx';
 import { Button } from '../components/ui/Button';
 import { useFetch, useLiveValidation } from '../lib/hooks';
 import { useTenant } from '../lib/TenantContext.jsx';
-import { api } from '../lib/api';
+import { useTenantApi } from '../lib/useTenantApi.js';
 import { toast } from 'sonner';
 import {
   Gavel,
@@ -20,6 +20,7 @@ import {
   ShieldAlert,
   Loader2,
   XCircle,
+  Building,
 } from 'lucide-react';
 import { valTexto, valSelect, valNumero, formatoCOP } from '../lib/validation.js';
 
@@ -47,8 +48,16 @@ const TIPOS_SANCION = [
   { value: 'PUBLICACION_LISTA_INFRACTORES', label: 'Publicación en Lista de Infractores' },
 ];
 
+function extractList(resp) {
+  if (!resp) return [];
+  if (Array.isArray(resp)) return resp;
+  if (Array.isArray(resp.data)) return resp.data;
+  if (Array.isArray(resp.items)) return resp.items;
+  if (Array.isArray(resp.content)) return resp.content;
+  return [];
+}
+
 const INITIAL_FORM_STATE = {
-  idPropiedad: '',
   idUnidad: '',
   idPersonaImputada: '',
   tipoFalta: '',
@@ -62,13 +71,11 @@ const INITIAL_FORM_STATE = {
 export default function SancionesAdminPage() {
   const [page, setPage] = useState(0);
   const [filtroEstado, setFiltroEstado] = useState('');
-  const { data, loading, error, refetch } = useFetch(() => api.get('/sanciones/todas'), []);
+  const tenantApi = useTenantApi();
+  const { activePropertyId, activePropertyName } = useTenant();
+  const { data, loading, error, refetch } = useFetch(() => tenantApi.get('/sanciones/todas'), [activePropertyId]);
 
-  const { assignments, activePropertyId } = useTenant();
-
-  // Estados para propiedades, unidades y candidatos a imputación
-  const [propiedades, setPropiedades] = useState([]);
-  const [loadingPropiedades, setLoadingPropiedades] = useState(false);
+  // Estados para unidades y candidatos a imputación
   const [unidades, setUnidades] = useState([]);
   const [loadingUnidades, setLoadingUnidades] = useState(false);
   const [candidatos, setCandidatos] = useState([]);
@@ -91,94 +98,44 @@ export default function SancionesAdminPage() {
     montoMulta: '',
   });
 
-  // Cargar lista de propiedades del administrador
-  useEffect(() => {
-    let active = true;
-    async function cargarPropiedades() {
-      setLoadingPropiedades(true);
-      try {
-        const resp = await api.get('/properties');
-        const raw = Array.isArray(resp) ? resp : (Array.isArray(resp?.data) ? resp.data : []);
-        if (active && raw.length > 0) {
-          setPropiedades(raw);
-          setLoadingPropiedades(false);
-          return;
-        }
-      } catch {
-        // En caso de que falle /properties, fallback a assignments del usuario
-      }
-
-      if (active) {
-        const propsFromAssignments = [];
-        const seen = new Set();
-        (assignments || []).forEach((a) => {
-          if (a.idPropiedad && !seen.has(a.idPropiedad)) {
-            seen.add(a.idPropiedad);
-            propsFromAssignments.push({
-              id: a.idPropiedad,
-              idPropiedad: a.idPropiedad,
-              nombre: a.nombrePropiedad || `Propiedad #${a.idPropiedad}`,
-            });
-          }
-        });
-        setPropiedades(propsFromAssignments);
-        setLoadingPropiedades(false);
-      }
-    }
-
-    cargarPropiedades();
-    return () => {
-      active = false;
-    };
-  }, [assignments]);
-
-  // Al abrir el modal, preseleccionar la propiedad activa
+  // Al abrir el modal, resetear formulario y live validations
   useEffect(() => {
     if (modalOpen) {
       resetTouched();
       setModoManualPersona(false);
-      let propId = '';
-      if (activePropertyId && propiedades.some((p) => (p.id || p.idPropiedad) === activePropertyId)) {
-        propId = String(activePropertyId);
-      } else if (propiedades.length > 0) {
-        propId = String(propiedades[0].id || propiedades[0].idPropiedad);
-      }
-      setForm({
-        ...INITIAL_FORM_STATE,
-        idPropiedad: propId,
-      });
+      setForm(INITIAL_FORM_STATE);
     }
-  }, [modalOpen, activePropertyId, propiedades, resetTouched]);
+  }, [modalOpen, resetTouched]);
 
-  // Cargar unidades cuando cambia la propiedad seleccionada
+  // Cargar unidades cuando se abre el modal o cambia la propiedad activa del tenant
   useEffect(() => {
-    if (!form.idPropiedad) {
-      setUnidades([]);
-      return;
-    }
     let active = true;
     async function cargarUnidades() {
       setLoadingUnidades(true);
       try {
-        const resp = await api.get(`/units?idPropiedad=${form.idPropiedad}`);
-        const list = Array.isArray(resp) ? resp : (Array.isArray(resp?.data) ? resp.data : []);
+        const url = activePropertyId ? `/units?idPropiedad=${activePropertyId}` : '/units';
+        const resp = await tenantApi.get(url);
+        const list = extractList(resp);
         if (active) {
           setUnidades(list);
         }
       } catch (err) {
         if (active) {
-          toast.error('Error al cargar unidades de la copropiedad: ' + (err.message || 'Error de red'));
+          toast.error('Error al cargar unidades: ' + (err.message || 'Error de red'));
           setUnidades([]);
         }
       } finally {
         if (active) setLoadingUnidades(false);
       }
     }
-    cargarUnidades();
+
+    if (modalOpen) {
+      cargarUnidades();
+    }
     return () => {
       active = false;
     };
-  }, [form.idPropiedad]);
+  }, [modalOpen, activePropertyId, tenantApi]);
 
   // Cargar personas/habitantes cuando cambia la unidad seleccionada
   useEffect(() => {
@@ -190,39 +147,71 @@ export default function SancionesAdminPage() {
     async function cargarHabitantes() {
       setLoadingCandidatos(true);
       try {
-        const [resResidents, resOwners] = await Promise.allSettled([
-          api.get(`/units/${form.idUnidad}/residents`),
-          api.get(`/units/${form.idUnidad}/owners`),
+        const unitId = form.idUnidad;
+        const [resResidents, resOwners, resPersonas] = await Promise.allSettled([
+          tenantApi.get(`/units/${unitId}/residents`),
+          tenantApi.get(`/units/${unitId}/owners`),
+          tenantApi.get('/personas?page=0&size=200'),
         ]);
 
         const personasMap = new Map();
 
-        // Procesar residentes
-        if (resResidents.status === 'fulfilled' && Array.isArray(resResidents.value)) {
-          resResidents.value.forEach((r) => {
-            const p = r.persona;
-            if (p && p.id && !personasMap.has(p.id)) {
-              personasMap.set(p.id, {
-                id: p.id,
-                nombreCompleto: `${p.primerNombre || ''} ${p.primerApellido || ''}`.trim() || 'Residente',
-                documento: p.numeroDocumento || 'S/N',
-                rol: r.tipoResidente || 'RESIDENTE',
-              });
-            }
+        const addPersona = (id, nombre, documento, rol) => {
+          if (!id) return;
+          const key = String(id);
+          if (!personasMap.has(key)) {
+            personasMap.set(key, {
+              id: key,
+              nombreCompleto: nombre || 'Habitante / Residente',
+              documento: documento || 'S/N',
+              rol: rol || 'RESIDENTE',
+            });
+          }
+        };
+
+        // 1. Procesar residentes de la unidad
+        if (resResidents.status === 'fulfilled') {
+          const list = extractList(resResidents.value);
+          list.forEach((r) => {
+            const p = r.persona || r;
+            const pId = p.id || p.idPersona || r.idPersona || r.id;
+            const nombre = [p.primerNombre, p.segundoNombre, p.primerApellido, p.segundoApellido]
+              .filter(Boolean)
+              .join(' ')
+              .trim() || p.nombreCompleto || p.nombre || 'Residente';
+            const doc = p.numeroDocumento || r.numeroDocumento || 'S/N';
+            addPersona(pId, nombre, doc, r.tipoResidente || 'RESIDENTE');
           });
         }
 
-        // Procesar propietarios
-        if (resOwners.status === 'fulfilled' && Array.isArray(resOwners.value)) {
-          resOwners.value.forEach((o) => {
-            const p = o.persona;
-            if (p && p.id && !personasMap.has(p.id)) {
-              personasMap.set(p.id, {
-                id: p.id,
-                nombreCompleto: `${p.primerNombre || ''} ${p.primerApellido || ''}`.trim() || 'Propietario',
-                documento: p.numeroDocumento || 'S/N',
-                rol: 'PROPIETARIO',
-              });
+        // 2. Procesar propietarios de la unidad
+        if (resOwners.status === 'fulfilled') {
+          const list = extractList(resOwners.value);
+          list.forEach((o) => {
+            const p = o.persona || o;
+            const pId = p.id || p.idPersona || o.idPersona || o.id;
+            const nombre = [p.primerNombre, p.segundoNombre, p.primerApellido, p.segundoApellido]
+              .filter(Boolean)
+              .join(' ')
+              .trim() || p.nombreCompleto || p.nombre || 'Propietario';
+            const doc = p.numeroDocumento || o.numeroDocumento || 'S/N';
+            addPersona(pId, nombre, doc, 'PROPIETARIO');
+          });
+        }
+
+        // 3. Fallback / Complemento con personas asignadas a la unidad en censo (/personas)
+        if (resPersonas.status === 'fulfilled') {
+          const allPersonas = extractList(resPersonas.value);
+          allPersonas.forEach((p) => {
+            const aptoId = p.idApartamento || p.idUnidad;
+            if (aptoId && String(aptoId) === String(unitId)) {
+              const pId = p.id || p.idPersona;
+              const nombre = [p.primerNombre, p.segundoNombre, p.primerApellido, p.segundoApellido]
+                .filter(Boolean)
+                .join(' ')
+                .trim() || p.nombreCompleto || p.nombre || 'Habitante';
+              const doc = p.numeroDocumento || 'S/N';
+              addPersona(pId, nombre, doc, p.tipoRelacion || p.tipoPersona || 'RESIDENTE');
             }
           });
         }
@@ -249,10 +238,9 @@ export default function SancionesAdminPage() {
     return () => {
       active = false;
     };
-  }, [form.idUnidad]);
+  }, [form.idUnidad, tenantApi]);
 
   // Validaciones en vivo
-  const errorPropiedad = fieldError('idPropiedad', valSelect(form.idPropiedad, 'Seleccione la propiedad'));
   const errorUnidad = fieldError('idUnidad', valSelect(form.idUnidad, 'Seleccione la unidad habitacional'));
   const errorImputado = fieldError(
     'idPersonaImputada',
@@ -330,13 +318,9 @@ export default function SancionesAdminPage() {
 
   async function handleCreate(e) {
     e.preventDefault();
-    touchAll(['idPropiedad', 'idUnidad', 'idPersonaImputada', 'tipoFalta', 'descripcionHechos', 'diasParaDescargos']);
+    touchAll(['idUnidad', 'idPersonaImputada', 'tipoFalta', 'descripcionHechos', 'diasParaDescargos']);
 
     // Validaciones estrictas
-    if (!form.idPropiedad) {
-      toast.error('Debe seleccionar una propiedad.');
-      return;
-    }
     if (!form.idUnidad) {
       toast.error('Debe seleccionar la unidad habitacional a sancionar.');
       return;
@@ -363,7 +347,7 @@ export default function SancionesAdminPage() {
 
     setSubmitting(true);
     try {
-      await api.post('/sanciones', {
+      await tenantApi.post('/sanciones', {
         idUnidad: Number(form.idUnidad),
         idPersonaImputada: Number(form.idPersonaImputada),
         tipoFalta: form.tipoFalta.trim(),
@@ -407,7 +391,7 @@ export default function SancionesAdminPage() {
             ? Number(resolucionForm.montoMulta)
             : null,
       };
-      await api.post(`/sanciones/${detalle.idSancion}/resolucion`, payload);
+      await tenantApi.post(`/sanciones/${detalle.idSancion}/resolucion`, payload);
       toast.success('Resolución firmada y emitida exitosamente');
       setDetalle(null);
       setResolucionForm({ decision: 'APLICADA', resolucionFinal: '', montoMulta: '' });
@@ -424,7 +408,7 @@ export default function SancionesAdminPage() {
     if (!motivo || !motivo.trim()) return;
     setSubmitting(true);
     try {
-      await api.put(`/sanciones/${idSancion}/anular`, { motivo: motivo.trim() });
+      await tenantApi.put(`/sanciones/${idSancion}/anular`, { motivo: motivo.trim() });
       toast.success('Expediente sancionatorio anulado');
       setDetalle(null);
       refetch();
@@ -505,83 +489,54 @@ export default function SancionesAdminPage() {
             </div>
           </div>
 
-          {/* Fila 1: Selección de Propiedad y Unidad en cascada */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="relative">
-              <Select
-                label="Propiedad / Copropiedad"
-                required
-                id="sancion-propiedad"
-                value={form.idPropiedad}
-                error={errorPropiedad}
-                onBlur={() => touch('idPropiedad')}
-                onChange={(e) => {
-                  touch('idPropiedad');
-                  setForm({
-                    ...form,
-                    idPropiedad: e.target.value,
-                    idUnidad: '',
-                    idPersonaImputada: '',
-                  });
-                }}
-                disabled={loadingPropiedades || submitting}
-              >
-                <option value="">-- Seleccionar Propiedad --</option>
-                {propiedades.map((p) => {
-                  const pId = p.id || p.idPropiedad;
-                  return (
-                    <option key={pId} value={pId}>
-                      {p.nombre} {p.ciudad ? `(${p.ciudad})` : ''}
-                    </option>
-                  );
-                })}
-              </Select>
-              {loadingPropiedades && (
-                <span className="absolute right-8 top-8 text-xs text-muted-foreground flex items-center gap-1">
-                  <Loader2 className="w-3 h-3 animate-spin" /> Cargando...
-                </span>
-              )}
-            </div>
+          {/* Indicador de Copropiedad Activa */}
+          <div className="flex items-center justify-between px-3.5 py-2.5 bg-muted/40 rounded-lg border border-border/60 text-xs">
+            <span className="text-muted-foreground flex items-center gap-1.5 font-medium">
+              <Building className="w-3.5 h-3.5 text-primary shrink-0" />
+              Copropiedad activa:
+            </span>
+            <span className="font-semibold text-foreground">
+              {activePropertyName || 'Copropiedad en administración'}
+            </span>
+          </div>
 
-            <div className="relative">
-              <Select
-                label="Unidad Habitacional"
-                required
-                id="sancion-unidad"
-                value={form.idUnidad}
-                error={errorUnidad}
-                onBlur={() => touch('idUnidad')}
-                onChange={(e) => {
-                  touch('idUnidad');
-                  setForm({
-                    ...form,
-                    idUnidad: e.target.value,
-                    idPersonaImputada: '',
-                  });
-                }}
-                disabled={!form.idPropiedad || loadingUnidades || submitting}
-              >
-                <option value="">
-                  {!form.idPropiedad
-                    ? '-- Seleccione primero una propiedad --'
-                    : loadingUnidades
-                    ? 'Cargando unidades...'
-                    : unidades.length === 0
-                    ? '-- Sin unidades registradas --'
-                    : '-- Seleccionar Unidad --'}
+          {/* Fila 1: Selección de Unidad Habitacional */}
+          <div className="relative">
+            <Select
+              label="Unidad Habitacional"
+              required
+              id="sancion-unidad"
+              value={form.idUnidad}
+              error={errorUnidad}
+              onBlur={() => touch('idUnidad')}
+              onChange={(e) => {
+                touch('idUnidad');
+                setForm({
+                  ...form,
+                  idUnidad: e.target.value,
+                  idPersonaImputada: '',
+                });
+              }}
+              disabled={loadingUnidades || submitting}
+            >
+              <option value="">
+                {loadingUnidades
+                  ? 'Cargando unidades...'
+                  : unidades.length === 0
+                  ? '-- Sin unidades registradas en la copropiedad --'
+                  : '-- Seleccionar Unidad Habitacional --'}
+              </option>
+              {unidades.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.identificador} {u.bloqueNombre ? `· ${u.bloqueNombre}` : ''}
                 </option>
-                {unidades.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.identificador} {u.bloqueNombre ? `· ${u.bloqueNombre}` : ''}
-                  </option>
-                ))}
-              </Select>
-              {loadingUnidades && (
-                <span className="absolute right-8 top-8 text-xs text-muted-foreground flex items-center gap-1">
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                </span>
-              )}
-            </div>
+              ))}
+            </Select>
+            {loadingUnidades && (
+              <span className="absolute right-8 top-8 text-xs text-muted-foreground flex items-center gap-1">
+                <Loader2 className="w-3 h-3 animate-spin" /> Cargando...
+              </span>
+            )}
           </div>
 
           {/* Fila 2: Persona Imputada (Habitante de la unidad) */}
