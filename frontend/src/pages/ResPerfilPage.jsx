@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 
 import { useAuth } from '../lib/AuthContext.jsx';
+import { useTenant } from '../lib/TenantContext.jsx';
 import { useFetch, useLiveValidation, useTiposDocumento } from '../lib/hooks.js';
 import api from '../lib/api.js';
 import { formatCurrency, formatDate } from '../lib/utils.js';
@@ -98,6 +99,7 @@ function DetailItem({ icon: Icon, label, value, badge, subtext, isMono = false }
 
 export default function ResPerfilPage() {
   const { user } = useAuth();
+  const tenant = useTenant();
   const navigate = useNavigate();
   const isConviviente =
     user?.rol === 'RESIDENTE_CONVIVENCIA' ||
@@ -123,7 +125,7 @@ export default function ResPerfilPage() {
   const residentId = user?.idPersona || user?.idResidente || user?.idUsuario;
 
   // 1. Datos personales de la persona
-  const { data: personaData, refetch: refetchPersona } = useFetch(
+  const { data: personaData, loading: personaLoading, refetch: refetchPersona } = useFetch(
     () => api.get('/personas/me').catch(() => (residentId ? api.get(`/personas/${residentId}`) : Promise.resolve(null))),
     [residentId]
   );
@@ -131,7 +133,7 @@ export default function ResPerfilPage() {
   const resolvedPersonaId = perfil.id || perfil.idPersona || user?.idPersona || user?.idResidente || residentId;
 
   // 2. Dashboard financiero y de unidad del residente (Solo residente titular)
-  const { data: dashboardData, refetch: refetchDashboard } = useFetch(
+  const { data: dashboardData, loading: dashboardLoading, refetch: refetchDashboard } = useFetch(
     () => (!isConviviente && resolvedPersonaId ? api.get(`/residentes/${resolvedPersonaId}/dashboard`) : Promise.resolve(null)),
     [resolvedPersonaId, isConviviente]
   );
@@ -150,7 +152,7 @@ export default function ResPerfilPage() {
     aptoInfo.idApartamento ||
     aptoInfo.id ||
     null;
-  const { data: unitData } = useFetch(() => (unitId ? api.get(`/units/${unitId}`) : Promise.resolve(null)), [unitId]);
+  const { data: unitData, loading: unitLoading } = useFetch(() => (unitId ? api.get(`/units/${unitId}`) : Promise.resolve(null)), [unitId]);
   const u = useMemo(() => unitData?.raw || unitData || {}, [unitData]);
 
   // 4. Residentes / cohabitantes de la unidad
@@ -199,7 +201,9 @@ export default function ResPerfilPage() {
     return (partes[0][0] + (partes[1]?.[0] || '')).toUpperCase();
   }, [nombreCompleto]);
 
-  const numeroApto =
+  const isUnitDataLoading = personaLoading || dashboardLoading || (unitId && unitLoading);
+
+  const rawNumeroApto =
     dashboard.identificadorUnidad ||
     u.identificador ||
     u.numero ||
@@ -207,10 +211,12 @@ export default function ResPerfilPage() {
     aptoInfo.identificador ||
     perfil.numeroApartamento ||
     user?.identificadorUnidad ||
-    (unitId ? `Unidad ${unitId}` : 'Sin Asignar');
-  const nombreBloque = u.bloqueNombre || aptoInfo.bloque || aptoInfo.torre || '—';
-  const pisoApto = aptoInfo.piso || u.piso || (numeroApto.match(/\d+/) ? numeroApto.match(/\d+/)[0][0] : '—');
-  const areaApto = u.areaM2 ? `${u.areaM2} m²` : aptoInfo.areaM2 ? `${aptoInfo.areaM2} m²` : '—';
+    tenant?.activeUnitNumber;
+
+  const numeroApto = rawNumeroApto || (isUnitDataLoading ? '...' : 'Sin Asignar');
+  const nombreBloque = u.bloqueNombre || aptoInfo.bloque || aptoInfo.torre || (isUnitDataLoading ? '...' : '—');
+  const pisoApto = aptoInfo.piso || u.piso || (rawNumeroApto && rawNumeroApto.match(/\d+/) ? rawNumeroApto.match(/\d+/)[0][0] : '—');
+  const areaApto = u.areaM2 ? `${u.areaM2} m²` : aptoInfo.areaM2 ? `${aptoInfo.areaM2} m²` : (isUnitDataLoading ? '...' : '—');
   const tipoUnidad = u.tipoUnidadNombre || aptoInfo.tipo || 'Apartamento Residencial';
   const coeficiente = u.coeficienteCopropiedad
     ? `${(Number(u.coeficienteCopropiedad) * 100).toFixed(2)}%`

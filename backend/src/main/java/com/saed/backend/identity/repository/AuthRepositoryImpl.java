@@ -1,5 +1,7 @@
 package com.saed.backend.identity.repository;
 
+import com.saed.backend.context.SaedContext;
+import com.saed.backend.context.SaedContextHolder;
 import com.saed.backend.identity.dto.AuthData;
 import com.saed.backend.identity.dto.AuthUserDTO;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -93,177 +95,198 @@ public class AuthRepositoryImpl implements AuthRepository {
             return null;
         }
 
-        // Establecer contexto bootstrap temporal para que las consultas de identidad y asignación no sean bloqueadas por VPD
+        SaedContext previousContext = SaedContextHolder.getContext();
         try {
-            jdbcTemplate.update("CALL PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(?)", userId);
-        } catch (Exception ignored) {}
+            SaedContextHolder.setContext(SaedContext.builder().userId(userId).build());
 
-        Long idPersona = null;
-        String nombreCompleto = null;
-        String telefono = null;
-        try {
-            java.util.List<Map<String, Object>> pList = jdbcTemplate.queryForList(
-                "SELECT p.ID_PERSONA, p.TELEFONO, TRIM(p.PRIMER_NOMBRE || ' ' || NVL(p.SEGUNDO_NOMBRE, '') || ' ' || p.PRIMER_APELLIDO || ' ' || NVL(p.SEGUNDO_APELLIDO, '')) AS NOMBRE_COMPLETO " +
-                "FROM USUARIOS u JOIN PERSONAS p ON u.ID_PERSONA = p.ID_PERSONA WHERE u.ID_USUARIO = ?",
-                userId
-            );
-            if (!pList.isEmpty()) {
-                Map<String, Object> row = pList.get(0);
-                if (row.get("ID_PERSONA") != null) {
-                    idPersona = ((Number) row.get("ID_PERSONA")).longValue();
-                }
-                telefono = (String) row.get("TELEFONO");
-                nombreCompleto = (String) row.get("NOMBRE_COMPLETO");
-                if (nombreCompleto != null) {
-                    nombreCompleto = nombreCompleto.replaceAll("\\s+", " ").trim();
-                }
-            } else {
-                List<Long> fallbackPersona = jdbcTemplate.query(
-                    "SELECT ID_PERSONA FROM USUARIOS WHERE ID_USUARIO = ?",
-                    (rs, r) -> rs.getLong("ID_PERSONA"),
+            // Establecer contexto bootstrap temporal en sesión Oracle por si el driver reutiliza la conexión
+            try {
+                jdbcTemplate.update("CALL PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(?)", userId);
+            } catch (Exception ignored) {}
+
+            Long idPersona = null;
+            String nombreCompleto = null;
+            String telefono = null;
+            try {
+                java.util.List<Map<String, Object>> pList = jdbcTemplate.queryForList(
+                    "SELECT p.ID_PERSONA, p.TELEFONO, TRIM(p.PRIMER_NOMBRE || ' ' || NVL(p.SEGUNDO_NOMBRE, '') || ' ' || p.PRIMER_APELLIDO || ' ' || NVL(p.SEGUNDO_APELLIDO, '')) AS NOMBRE_COMPLETO " +
+                    "FROM USUARIOS u JOIN PERSONAS p ON u.ID_PERSONA = p.ID_PERSONA WHERE u.ID_USUARIO = ?",
                     userId
                 );
-                if (!fallbackPersona.isEmpty()) {
-                    idPersona = fallbackPersona.get(0);
-                    try {
-                        telefono = jdbcTemplate.queryForObject("SELECT TELEFONO FROM PERSONAS WHERE ID_PERSONA = ?", String.class, idPersona);
-                    } catch (Exception ignored) {}
-                }
-            }
-        } catch (Exception ignored) {}
-
-        String rolCodigo = (String) out.get("p_rol_codigo");
-        String alcance = (String) out.get("p_alcance");
-        String tipoResidente = null;
-        Number unidadIdNum = (Number) out.get("p_unidad_id");
-        Long unidadId = unidadIdNum != null ? unidadIdNum.longValue() : null;
-
-        // Si la unidad no está en la asignación o apunta a una unidad desactualizada, consultar en RESIDENTES_UNIDAD
-        if (idPersona != null) {
-            try {
-                java.util.List<Long> uList = jdbcTemplate.query(
-                    "SELECT ID_UNIDAD FROM RESIDENTES_UNIDAD WHERE ID_PERSONA = ? AND ESTADO IN ('ACTIVO', 'ACTIVA') ORDER BY ID_RESIDENTE_UNIDAD DESC FETCH FIRST 1 ROWS ONLY",
-                    (rs, rowNum) -> rs.getLong("ID_UNIDAD"),
-                    idPersona
-                );
-                if (!uList.isEmpty()) {
-                    unidadId = uList.get(0);
-                } else if (unidadId == null) {
-                    java.util.List<Long> puList = jdbcTemplate.query(
-                        "SELECT ID_UNIDAD FROM PROPIETARIOS_UNIDAD WHERE ID_PERSONA = ? AND ESTADO = 'ACTIVO' ORDER BY ID_PROPIETARIO_UNIDAD DESC FETCH FIRST 1 ROWS ONLY",
-                        (rs, rowNum) -> rs.getLong("ID_UNIDAD"),
-                        idPersona
+                if (!pList.isEmpty()) {
+                    Map<String, Object> row = pList.get(0);
+                    if (row.get("ID_PERSONA") != null) {
+                        idPersona = ((Number) row.get("ID_PERSONA")).longValue();
+                    }
+                    telefono = (String) row.get("TELEFONO");
+                    nombreCompleto = (String) row.get("NOMBRE_COMPLETO");
+                    if (nombreCompleto != null) {
+                        nombreCompleto = nombreCompleto.replaceAll("\\s+", " ").trim();
+                    }
+                } else {
+                    List<Long> fallbackPersona = jdbcTemplate.query(
+                        "SELECT ID_PERSONA FROM USUARIOS WHERE ID_USUARIO = ?",
+                        (rs, r) -> rs.getLong("ID_PERSONA"),
+                        userId
                     );
-                    if (!puList.isEmpty()) {
-                        unidadId = puList.get(0);
+                    if (!fallbackPersona.isEmpty()) {
+                        idPersona = fallbackPersona.get(0);
+                        try {
+                            telefono = jdbcTemplate.queryForObject("SELECT TELEFONO FROM PERSONAS WHERE ID_PERSONA = ?", String.class, idPersona);
+                        } catch (Exception ignored) {}
                     }
                 }
             } catch (Exception ignored) {}
-        }
 
-        // Sincronizar en caliente la asignación en USUARIO_ASIGNACIONES si difiere de la unidad real habitada
-        if (unidadId != null && idPersona != null) {
-            try {
-                jdbcTemplate.update("""
-                    UPDATE USUARIO_ASIGNACIONES
-                    SET ID_UNIDAD = ?,
-                        ID_PROPIEDAD = COALESCE((SELECT ID_PROPIEDAD FROM UNIDADES WHERE ID_UNIDAD = ?), ID_PROPIEDAD),
-                        ID_ORGANIZACION = COALESCE((SELECT p.ID_ORGANIZACION FROM UNIDADES u JOIN PROPIEDADES p ON u.ID_PROPIEDAD = p.ID_PROPIEDAD WHERE u.ID_UNIDAD = ?), ID_ORGANIZACION)
-                    WHERE ID_USUARIO = ? AND ESTADO IN ('ACTIVO', 'ACTIVA') AND (ID_UNIDAD IS NULL OR ID_UNIDAD != ?)
-                """, unidadId, unidadId, unidadId, userId, unidadId);
-            } catch (Exception ignored) {}
-        }
+            String rolCodigo = (String) out.get("p_rol_codigo");
+            String alcance = (String) out.get("p_alcance");
+            String tipoResidente = null;
+            Number unidadIdNum = (Number) out.get("p_unidad_id");
+            Long unidadId = unidadIdNum != null ? unidadIdNum.longValue() : null;
 
-        boolean isHabitanteFisico = false;
-        if (idPersona != null && unidadId != null) {
-            try {
-                java.util.List<String> tipList = jdbcTemplate.query(
-                    "SELECT TIPO_RESIDENTE FROM RESIDENTES_UNIDAD WHERE ID_PERSONA = ? AND ID_UNIDAD = ? AND ESTADO IN ('ACTIVO', 'ACTIVA') ORDER BY ID_RESIDENTE_UNIDAD DESC FETCH FIRST 1 ROWS ONLY",
-                    (rs, rowNum) -> rs.getString("TIPO_RESIDENTE"),
-                    idPersona, unidadId
-                );
-                if (!tipList.isEmpty()) {
-                    isHabitanteFisico = true;
-                    tipoResidente = tipList.get(0);
-                }
-            } catch (Exception ignored) {}
-        }
-
-        if ("ARRENDATARIO".equalsIgnoreCase(tipoResidente)) {
-            rolCodigo = "RESIDENTE";
-            alcance = "UNIDAD";
-        } else if ("PROPIETARIO".equalsIgnoreCase(tipoResidente) || "PROPIETARIO_RESIDENTE".equalsIgnoreCase(tipoResidente) || "TITULAR".equalsIgnoreCase(tipoResidente)) {
-            rolCodigo = "RESIDENTE";
-            alcance = "UNIDAD";
-            tipoResidente = "PROPIETARIO_RESIDENTE";
-        } else if ("CONVIVIENTE".equalsIgnoreCase(tipoResidente) || "FAMILIAR".equalsIgnoreCase(tipoResidente) || "RESIDENTE_CONVIVENCIA".equalsIgnoreCase(rolCodigo)) {
-            rolCodigo = "RESIDENTE_CONVIVENCIA";
-            alcance = "UNIDAD";
-            tipoResidente = "CONVIVIENTE";
-
-            try {
-                jdbcTemplate.update("""
-                    UPDATE USUARIO_ASIGNACIONES
-                    SET ID_ROL = (SELECT ID_ROL FROM ROLES WHERE CODIGO = 'RESIDENTE_CONVIVENCIA' AND ESTADO = 'ACTIVO')
-                    WHERE ID_USUARIO = ?
-                      AND ID_UNIDAD = ?
-                      AND ID_ROL = (SELECT ID_ROL FROM ROLES WHERE CODIGO = 'RESIDENTE' AND ESTADO = 'ACTIVO')
-                      AND ESTADO IN ('ACTIVO', 'ACTIVA')
-                """, userId, unidadId);
-            } catch (Exception ignored) {}
-        } else if (("PROPIETARIO".equalsIgnoreCase(rolCodigo) || "RESIDENTE".equalsIgnoreCase(rolCodigo)) && (isHabitanteFisico || unidadId != null) && !"PROPIETARIO_NO_RESIDENTE".equalsIgnoreCase(tipoResidente)) {
-            rolCodigo = "RESIDENTE";
-            alcance = "UNIDAD";
-            if (tipoResidente == null) {
-                tipoResidente = "PROPIETARIO_RESIDENTE";
+            // Si la unidad no está en la asignación o apunta a una unidad desactualizada, consultar en RESIDENTES_UNIDAD
+            if (idPersona != null) {
+                try {
+                    java.util.List<Long> uList = jdbcTemplate.query(
+                        "SELECT ID_UNIDAD FROM RESIDENTES_UNIDAD WHERE ID_PERSONA = ? AND ESTADO IN ('ACTIVO', 'ACTIVA') ORDER BY ID_RESIDENTE_UNIDAD DESC FETCH FIRST 1 ROWS ONLY",
+                        (rs, rowNum) -> rs.getLong("ID_UNIDAD"),
+                        idPersona
+                    );
+                    if (!uList.isEmpty()) {
+                        unidadId = uList.get(0);
+                    } else if (unidadId == null) {
+                        java.util.List<Long> puList = jdbcTemplate.query(
+                            "SELECT ID_UNIDAD FROM PROPIETARIOS_UNIDAD WHERE ID_PERSONA = ? AND ESTADO = 'ACTIVO' ORDER BY ID_PROPIETARIO_UNIDAD DESC FETCH FIRST 1 ROWS ONLY",
+                            (rs, rowNum) -> rs.getLong("ID_UNIDAD"),
+                            idPersona
+                        );
+                        if (!puList.isEmpty()) {
+                            unidadId = puList.get(0);
+                        }
+                    }
+                } catch (Exception ignored) {}
             }
 
-            try {
-                jdbcTemplate.update("""
-                    UPDATE USUARIO_ASIGNACIONES
-                    SET ID_ROL = (SELECT ID_ROL FROM ROLES WHERE CODIGO = 'RESIDENTE' AND ESTADO = 'ACTIVO'),
-                        ID_UNIDAD = COALESCE(ID_UNIDAD, ?)
-                    WHERE ID_USUARIO = ?
-                      AND ID_ROL = (SELECT ID_ROL FROM ROLES WHERE CODIGO = 'PROPIETARIO' AND ESTADO = 'ACTIVO')
-                      AND ESTADO IN ('ACTIVO', 'ACTIVA')
-                """, unidadId, userId);
-            } catch (Exception ignored) {}
-        }
+            // Sincronizar en caliente la asignación en USUARIO_ASIGNACIONES si difiere de la unidad real habitada
+            if (unidadId != null && idPersona != null) {
+                try {
+                    jdbcTemplate.update("""
+                        UPDATE USUARIO_ASIGNACIONES
+                        SET ID_UNIDAD = ?,
+                            ID_PROPIEDAD = COALESCE((SELECT ID_PROPIEDAD FROM UNIDADES WHERE ID_UNIDAD = ?), ID_PROPIEDAD),
+                            ID_ORGANIZACION = COALESCE((SELECT p.ID_ORGANIZACION FROM UNIDADES u JOIN PROPIEDADES p ON u.ID_PROPIEDAD = p.ID_PROPIEDAD WHERE u.ID_UNIDAD = ?), ID_ORGANIZACION)
+                        WHERE ID_USUARIO = ? AND ESTADO IN ('ACTIVO', 'ACTIVA') AND (ID_UNIDAD IS NULL OR ID_UNIDAD != ?)
+                    """, unidadId, unidadId, unidadId, userId, unidadId);
+                } catch (Exception ignored) {}
+            }
 
-        Long propId = (Number) out.get("p_prop_id") != null ? ((Number) out.get("p_prop_id")).longValue() : null;
-        Long orgId = (Number) out.get("p_org_id") != null ? ((Number) out.get("p_org_id")).longValue() : null;
-        String identificadorUnidad = null;
-        if (unidadId != null) {
-            try {
-                List<Map<String, Object>> uInfo = jdbcTemplate.queryForList(
-                    "SELECT u.ID_PROPIEDAD, p.ID_ORGANIZACION, u.IDENTIFICADOR FROM UNIDADES u JOIN PROPIEDADES p ON u.ID_PROPIEDAD = p.ID_PROPIEDAD WHERE u.ID_UNIDAD = ?",
-                    unidadId
-                );
-                if (!uInfo.isEmpty()) {
-                    Number pNum = (Number) uInfo.get(0).get("ID_PROPIEDAD");
-                    Number oNum = (Number) uInfo.get(0).get("ID_ORGANIZACION");
-                    if (pNum != null) propId = pNum.longValue();
-                    if (oNum != null) orgId = oNum.longValue();
-                    identificadorUnidad = (String) uInfo.get(0).get("IDENTIFICADOR");
+            boolean isHabitanteFisico = false;
+            if (idPersona != null && unidadId != null) {
+                try {
+                    java.util.List<String> tipList = jdbcTemplate.query(
+                        "SELECT TIPO_RESIDENTE FROM RESIDENTES_UNIDAD WHERE ID_PERSONA = ? AND ID_UNIDAD = ? AND ESTADO IN ('ACTIVO', 'ACTIVA') ORDER BY ID_RESIDENTE_UNIDAD DESC FETCH FIRST 1 ROWS ONLY",
+                        (rs, rowNum) -> rs.getString("TIPO_RESIDENTE"),
+                        idPersona, unidadId
+                    );
+                    if (!tipList.isEmpty()) {
+                        isHabitanteFisico = true;
+                        tipoResidente = tipList.get(0);
+                    }
+                } catch (Exception ignored) {}
+            }
+
+            if ("ARRENDATARIO".equalsIgnoreCase(tipoResidente)) {
+                rolCodigo = "RESIDENTE";
+                alcance = "UNIDAD";
+            } else if ("PROPIETARIO".equalsIgnoreCase(tipoResidente) || "PROPIETARIO_RESIDENTE".equalsIgnoreCase(tipoResidente) || "TITULAR".equalsIgnoreCase(tipoResidente)) {
+                rolCodigo = "RESIDENTE";
+                alcance = "UNIDAD";
+                tipoResidente = "PROPIETARIO_RESIDENTE";
+            } else if ("CONVIVIENTE".equalsIgnoreCase(tipoResidente) || "FAMILIAR".equalsIgnoreCase(tipoResidente) || "RESIDENTE_CONVIVENCIA".equalsIgnoreCase(rolCodigo)) {
+                rolCodigo = "RESIDENTE_CONVIVENCIA";
+                alcance = "UNIDAD";
+                tipoResidente = "CONVIVIENTE";
+
+                try {
+                    jdbcTemplate.update("""
+                        UPDATE USUARIO_ASIGNACIONES
+                        SET ID_ROL = (SELECT ID_ROL FROM ROLES WHERE CODIGO = 'RESIDENTE_CONVIVENCIA' AND ESTADO = 'ACTIVO')
+                        WHERE ID_USUARIO = ?
+                          AND ID_UNIDAD = ?
+                          AND ID_ROL = (SELECT ID_ROL FROM ROLES WHERE CODIGO = 'RESIDENTE' AND ESTADO = 'ACTIVO')
+                          AND ESTADO IN ('ACTIVO', 'ACTIVA')
+                    """, userId, unidadId);
+                } catch (Exception ignored) {}
+            } else if (("PROPIETARIO".equalsIgnoreCase(rolCodigo) || "RESIDENTE".equalsIgnoreCase(rolCodigo)) && (isHabitanteFisico || unidadId != null) && !"PROPIETARIO_NO_RESIDENTE".equalsIgnoreCase(tipoResidente)) {
+                rolCodigo = "RESIDENTE";
+                alcance = "UNIDAD";
+                if (tipoResidente == null) {
+                    tipoResidente = "PROPIETARIO_RESIDENTE";
                 }
-            } catch (Exception ignored) {}
-        }
 
-        return new AuthUserDTO(
-                userId,
-                idPersona,
-                nombreUsuario,
-                nombreCompleto,
-                (String) out.get("p_email"),
-                rolCodigo,
-                alcance,
-                orgId,
-                propId,
-                unidadId,
-                tipoResidente,
-                identificadorUnidad,
-                telefono
-        );
+                try {
+                    jdbcTemplate.update("""
+                        UPDATE USUARIO_ASIGNACIONES
+                        SET ID_ROL = (SELECT ID_ROL FROM ROLES WHERE CODIGO = 'RESIDENTE' AND ESTADO = 'ACTIVO'),
+                            ID_UNIDAD = COALESCE(ID_UNIDAD, ?)
+                        WHERE ID_USUARIO = ?
+                          AND ID_ROL = (SELECT ID_ROL FROM ROLES WHERE CODIGO = 'PROPIETARIO' AND ESTADO = 'ACTIVO')
+                          AND ESTADO IN ('ACTIVO', 'ACTIVA')
+                    """, unidadId, userId);
+                } catch (Exception ignored) {}
+            }
+
+            Long propId = (Number) out.get("p_prop_id") != null ? ((Number) out.get("p_prop_id")).longValue() : null;
+            Long orgId = (Number) out.get("p_org_id") != null ? ((Number) out.get("p_org_id")).longValue() : null;
+            String identificadorUnidad = null;
+            if (unidadId != null) {
+                try {
+                    List<Map<String, Object>> uInfo = jdbcTemplate.queryForList(
+                        "SELECT u.ID_PROPIEDAD, p.ID_ORGANIZACION, u.IDENTIFICADOR FROM UNIDADES u JOIN PROPIEDADES p ON u.ID_PROPIEDAD = p.ID_PROPIEDAD WHERE u.ID_UNIDAD = ?",
+                        unidadId
+                    );
+                    if (!uInfo.isEmpty()) {
+                        Number pNum = (Number) uInfo.get(0).get("ID_PROPIEDAD");
+                        Number oNum = (Number) uInfo.get(0).get("ID_ORGANIZACION");
+                        if (pNum != null) propId = pNum.longValue();
+                        if (oNum != null) orgId = oNum.longValue();
+                        identificadorUnidad = (String) uInfo.get(0).get("IDENTIFICADOR");
+                    } else {
+                        List<Map<String, Object>> uDirect = jdbcTemplate.queryForList(
+                            "SELECT ID_PROPIEDAD, IDENTIFICADOR FROM UNIDADES WHERE ID_UNIDAD = ?",
+                            unidadId
+                        );
+                        if (!uDirect.isEmpty()) {
+                            Number pNum = (Number) uDirect.get(0).get("ID_PROPIEDAD");
+                            if (pNum != null && propId == null) propId = pNum.longValue();
+                            identificadorUnidad = (String) uDirect.get(0).get("IDENTIFICADOR");
+                        }
+                    }
+                } catch (Exception ignored) {}
+            }
+
+            return new AuthUserDTO(
+                    userId,
+                    idPersona,
+                    nombreUsuario,
+                    nombreCompleto,
+                    (String) out.get("p_email"),
+                    rolCodigo,
+                    alcance,
+                    orgId,
+                    propId,
+                    unidadId,
+                    tipoResidente,
+                    identificadorUnidad,
+                    telefono
+            );
+        } finally {
+            if (previousContext != null) {
+                SaedContextHolder.setContext(previousContext);
+            } else {
+                SaedContextHolder.clearContext();
+            }
+        }
     }
 
     @Override

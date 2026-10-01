@@ -57,10 +57,16 @@ public class UnitRepositoryImpl implements UnitRepository {
 
     @Override
     public List<UnitDTO> findAll() {
+        return findAll(null);
+    }
+
+    @Override
+    public List<UnitDTO> findAll(Long propertyId) {
         SaedContext ctx = SaedContextHolder.getContext();
-        if (ctx != null && ctx.getPropertyId() != null) {
+        Long effectivePropId = propertyId != null ? propertyId : (ctx != null ? ctx.getPropertyId() : null);
+        if (effectivePropId != null) {
             return jdbcTemplate.query(BASE_SELECT + " WHERE u.id_propiedad = :propId ORDER BY u.identificador",
-                    new MapSqlParameterSource("propId", ctx.getPropertyId()), this::mapRow);
+                    new MapSqlParameterSource("propId", effectivePropId), this::mapRow);
         }
         return jdbcTemplate.query(BASE_SELECT + " ORDER BY u.identificador", this::mapRow);
     }

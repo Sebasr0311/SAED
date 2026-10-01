@@ -113,6 +113,10 @@ public class UnitService {
         return unitRepository.findAll();
     }
 
+    public List<UnitDTO> findAll(Long propertyId) {
+        return unitRepository.findAll(propertyId);
+    }
+
     @Transactional
     public void update(Long id, UnitRequestDTO request) {
         SaedContext ctx = SaedContextHolder.getContext();

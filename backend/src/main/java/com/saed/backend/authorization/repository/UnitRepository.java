@@ -9,5 +9,6 @@ public interface UnitRepository {
     Long create(UnitRequestDTO request);
     Optional<UnitDTO> findById(Long id);
     List<UnitDTO> findAll();
+    List<UnitDTO> findAll(Long propertyId);
     void update(Long id, UnitRequestDTO request);
 }

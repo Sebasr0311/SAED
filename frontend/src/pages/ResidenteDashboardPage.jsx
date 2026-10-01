@@ -33,6 +33,7 @@ import { toast } from 'sonner';
 
 import api from '../lib/api.js';
 import { useAuth } from '../lib/AuthContext.jsx';
+import { useTenant } from '../lib/TenantContext.jsx';
 import { useFetch } from '../lib/hooks.js';
 import {
   formatCurrency,
@@ -64,6 +65,7 @@ const MESES_W = [
  */
 export default function ResidenteDashboardPage() {
   const { user } = useAuth();
+  const tenant = useTenant();
   const navigate = useNavigate();
   const isConviviente =
     user?.rol === 'RESIDENTE_CONVIVENCIA' ||
@@ -73,7 +75,7 @@ export default function ResidenteDashboardPage() {
   const residentId = user?.idPersona || user?.idResidente || user?.idUsuario;
 
   // 1. Perfil del residente
-  const { data: perfilData, refetch: refetchPerfil } = useFetch(
+  const { data: perfilData, loading: loadingPerfil, refetch: refetchPerfil } = useFetch(
     () => api.get('/personas/me').catch(() => (residentId ? api.get(`/personas/${residentId}`) : Promise.resolve(null))),
     [residentId]
   );
@@ -99,7 +101,7 @@ export default function ResidenteDashboardPage() {
   }, [nombreResidente]);
 
   // 2. Dashboard financiero y de unidad (Solo residente titular)
-  const { data: dashData, refetch: refetchDashboard } = useFetch(
+  const { data: dashData, loading: loadingDash, refetch: refetchDashboard } = useFetch(
     () => (!isConviviente && resolvedPersonaId ? api.get(`/residentes/${resolvedPersonaId}/dashboard`) : Promise.resolve(null)),
     [resolvedPersonaId, isConviviente]
   );
@@ -110,13 +112,13 @@ export default function ResidenteDashboardPage() {
   // 3. Ficha básica de la unidad para el saludo
   const unitId =
     dashboard.idUnidad || user?.idUnidad || perfil.idApartamento || perfil.idUnidad || aptoInfo.idApartamento || aptoInfo.id;
-  const { data: unitData, refetch: refetchUnit } = useFetch(
+  const { data: unitData, loading: loadingUnit, refetch: refetchUnit } = useFetch(
     () => (!dashboard.identificadorUnidad && unitId ? api.get(`/units/${unitId}`) : Promise.resolve(null)),
     [unitId, dashboard.identificadorUnidad]
   );
   const u = useMemo(() => unitData?.raw || unitData || {}, [unitData]);
 
-  const numeroApto =
+  const rawNumeroApto =
     dashboard.identificadorUnidad ||
     u.identificador ||
     u.numero ||
@@ -124,7 +126,9 @@ export default function ResidenteDashboardPage() {
     aptoInfo.identificador ||
     perfil.numeroApartamento ||
     user?.identificadorUnidad ||
-    (unitId ? `Apto ${unitId}` : 'Sin Asignar');
+    tenant?.activeUnitNumber;
+
+  const numeroApto = rawNumeroApto || (loadingDash || loadingPerfil || (unitId && loadingUnit) ? '...' : 'Sin Asignar');
 
   // 4. Códigos QR activos para visitas
   const { data: qrsRaw, refetch: refetchQrs } = useFetch(
