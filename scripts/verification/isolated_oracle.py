@@ -112,8 +112,8 @@ def extract_sources() -> tuple[dict[str, str], list[dict], list[str]]:
     versions = set()
     for path in sorted((ROOT / "database/migrations").glob("V5.*__*.sql"), key=lambda p: int(p.name.split("__")[0].split(".")[1])):
         version = int(path.name.split("__")[0].split(".")[1])
-        # V5.30 (demo-seed purge) is deliberately excluded; V5.31 versions formerly startup-only schema.
-        if not (1 <= version <= 29 or version == 31):
+        # V5.30 (demo-seed purge) is deliberately excluded; V5.31/V5.32 version formerly startup-only schema.
+        if not (1 <= version <= 29 or version in (31, 32)):
             continue
         if version in versions:
             raise ValueError("Duplicate migration version")
@@ -138,8 +138,8 @@ def extract_sources() -> tuple[dict[str, str], list[dict], list[str]]:
                 "BEGIN " + create + " EXCEPTION WHEN OTHERS THEN IF SQLCODE != -1408 THEN RAISE; END IF; END;",
                 "equivalent assembly date index")
         parts[f"{100 + version:03}-{path.name}"] = source
-    if versions != set(range(1, 30)) | {31}:
-        raise ValueError("Migration chain V5.1 through V5.29 plus V5.31 is incomplete")
+    if versions != set(range(1, 30)) | {31, 32}:
+        raise ValueError("Migration chain V5.1 through V5.29 plus V5.31 and V5.32 is incomplete")
     for name in parts:
         content = sanitize_source(parts[name])
         if re.search(r"(?im)IDENTIFIED\s+BY|\$2[aby]\$|DROP\s+USER|^\s*(?:CONNECT\b|HOST\b|SPOOL\b|@)", content):
@@ -147,7 +147,7 @@ def extract_sources() -> tuple[dict[str, str], list[dict], list[str]]:
         if re.search(r"(?i)MERGE\s+INTO\s+(USUARIOS|PERSONAS|ORGANIZACIONES|PROPIEDADES|ADMINISTRADORES_SAED|USUARIO_ASIGNACIONES)\b", content):
             raise ValueError("Production identity seed in " + name)
         parts[name] = content
-    transformations = ["Exclude baseline security-user deletion, fixed credentials and original identity bootstrap.", "Complete the single dangling TRG_HISTREP_INMUTABLE ALTER with COMPILE.", "Allow RESIDENTE_CONVIVENCIA before V5.10 inserts it.", "Allow CONVIVIENTE resident type before V5.9 extends CK_RESIDUNIDAD_TIPO.","Run authentication grants as owner; synonyms/package as security owner without ANY grants.", "Authentication synonyms reference the isolated owner explicitly.", "V5.3 uses current isolated owner instead of SAED_APP.", "V5.20 adds FECHA_AUTORIZACION metadata-only, then sets its CURRENT_TIMESTAMP default (avoids VPD-blocked full-table rewrite).", "V5.23 tolerates only ORA-01408 for IX_ASAMBLEAS_FECHA (baseline IX_ASAMBLEAS_PROP is equivalent).","Remove imported SQLPlus SET/EXIT; exclude V5.30, V3/V4 and rollback files.", "Include V5.31 report tenant-scope migration after V5.29."]
+    transformations = ["Exclude baseline security-user deletion, fixed credentials and original identity bootstrap.", "Complete the single dangling TRG_HISTREP_INMUTABLE ALTER with COMPILE.", "Allow RESIDENTE_CONVIVENCIA before V5.10 inserts it.", "Allow CONVIVIENTE resident type before V5.9 extends CK_RESIDUNIDAD_TIPO.","Run authentication grants as owner; synonyms/package as security owner without ANY grants.", "Authentication synonyms reference the isolated owner explicitly.", "V5.3 uses current isolated owner instead of SAED_APP.", "V5.20 adds FECHA_AUTORIZACION metadata-only, then sets its CURRENT_TIMESTAMP default (avoids VPD-blocked full-table rewrite).", "V5.23 tolerates only ORA-01408 for IX_ASAMBLEAS_FECHA (baseline IX_ASAMBLEAS_PROP is equivalent).","Remove imported SQLPlus SET/EXIT; exclude V5.30, V3/V4 and rollback files.", "Include V5.31 report tenant-scope migration after V5.29.", "Include V5.32 startup-only schema drift (ONBOARDING_INTENCIONES, PERSONAS/BLOQUEOS_ZONA columns, BLOQUEOS_ZONA indexes, HISTORIAL_REPORTES/PORTERIA_TURNOS policies) after V5.31."]
     return parts, sources, transformations
 
 

@@ -132,7 +132,7 @@ class SourcePreparationTest(unittest.TestCase):
                 return harness.verify_prepared()
 
     def test_accepts_complete_prepared_inventory(self):
-        self.assertEqual(len(self.verifies()["files"]), 38)
+        self.assertEqual(len(self.verifies()["files"]), 39)
 
     def test_rejects_non_object_manifest_without_attribute_error(self):
         for value in (None, [], "invalid", 1):
@@ -222,10 +222,11 @@ class SourcePreparationTest(unittest.TestCase):
 
     def test_extraction_excludes_identity_and_purge(self):
         parts, sources, transformations = harness.extract_sources()
-        self.assertEqual(len(sources), 31)
-        self.assertEqual(len(parts), 36)
-        # V5.31 versions the report tenant-scope schema formerly created only at startup; V5.30 purge stays excluded.
+        self.assertEqual(len(sources), 32)
+        self.assertEqual(len(parts), 37)
+        # V5.31/V5.32 version schema formerly created only at startup; V5.30 purge stays excluded.
         self.assertIn("131-V5.31__reportes_configurados_tenant_scope.sql", parts)
+        self.assertIn("132-V5.32__startup_schema_drift.sql", parts)
         self.assertGreaterEqual(len(transformations), 7)
         text = "\n".join(parts.values())
         self.assertNotIn("DROP USER", text)
@@ -258,6 +259,44 @@ class SourcePreparationTest(unittest.TestCase):
         self.assertIn("EXCEPTION WHEN OTHERS THEN IF SQLCODE != -1408 THEN RAISE; END IF;", guarded)
         self.assertNotIn("WHEN OTHERS THEN NULL", guarded)
         self.assertTrue(any("V5.23" in item for item in transformations))
+
+    def test_v532_versions_startup_drift_with_guarded_vpd_safe_ddl(self):
+        # recovery-08: objects created only by startup DDL were absent from a migration-only schema
+        # (e.g. ORA-00904 on PERSONAS.ID_PROPIEDAD for every /api/v1/personas request).
+        parts, _, transformations = harness.extract_sources()
+        v532 = parts["132-V5.32__startup_schema_drift.sql"]
+        self.assertIsNone(re.search(r"ADD\s*\([^;']*DEFAULT\s+(CURRENT_TIMESTAMP|SYSTIMESTAMP|SYSDATE|CURRENT_DATE|SYS_GUID)", v532, re.IGNORECASE))
+        self.assertIsNone(re.search(r"\bMERGE\b", v532, re.IGNORECASE))
+        self.assertIsNone(re.search(r"WHEN\s+OTHERS\s+THEN\s+NULL", v532, re.IGNORECASE))
+        self.assertIn("PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1);", v532)
+        self.assertIn("PKG_SAED_SESSION.SET_CONTEXT(1, 1, 1, 'SUPERADMIN');", v532)
+        blocks = re.split(r"(?m)^/\s*$", v532)
+        guarded = {
+            "CREATE TABLE ONBOARDING_INTENCIONES": "USER_TABLES",
+            "add_column('ONBOARDING_INTENCIONES', 'CORREO_ESTADO'": "USER_TAB_COLS",
+            "add_column('ONBOARDING_INTENCIONES', 'CORREO_DETALLE'": "USER_TAB_COLS",
+            "add_column('ONBOARDING_INTENCIONES', 'CORREO_FECHA'": "USER_TAB_COLS",
+            "add_column('ONBOARDING_INTENCIONES', 'ID_ORGANIZACION'": "USER_TAB_COLS",
+            "add_column('ONBOARDING_INTENCIONES', 'ID_USUARIO'": "USER_TAB_COLS",
+            "add_column('PERSONAS', 'ID_ORGANIZACION'": "USER_TAB_COLS",
+            "add_column('PERSONAS', 'ID_PROPIEDAD'": "USER_TAB_COLS",
+            "add_column('BLOQUEOS_ZONA', 'ID_PROPIEDAD'": "USER_TAB_COLS",
+            "add_column('BLOQUEOS_ZONA', 'ID_MANTENIMIENTO'": "USER_TAB_COLS",
+            "add_index('IX_BLOQUEO_MANT'": "USER_INDEXES",
+            "add_index('IX_BLOQUEO_PROP'": "USER_INDEXES",
+            "add_policy('HISTORIAL_REPORTES', 'POL_RLS_PROP_HISTORIAL_REPORTES'": "USER_POLICIES",
+            "add_policy('PORTERIA_TURNOS', 'POL_RLS_PROP_PORT_TURNOS'": "USER_POLICIES",
+        }
+        for creation, view in guarded.items():
+            with self.subTest(object=creation):
+                owners = [block for block in blocks if creation in block]
+                self.assertEqual(len(owners), 1)
+                self.assertIn("FROM " + view, owners[0])
+        index_block = next(block for block in blocks if "add_index('IX_BLOQUEO_MANT'" in block)
+        self.assertIn("IF SQLCODE != -1408 THEN RAISE; END IF;", index_block)
+        # POL_RLS_ORG_PERSONAS is deliberately not re-added: startup drops every PERSONAS policy.
+        self.assertIsNone(re.search(r"add_policy\('PERSONAS'|ADD(?:_GROUPED)?_POLICY\([^;]*'PERSONAS'", v532, re.IGNORECASE))
+        self.assertTrue(any("V5.32" in item for item in transformations))
 
     def test_structure_allows_every_fixture_resident_type(self):
         # Stage 030 runs before V5.9 extends CK_RESIDUNIDAD_TIPO; recovery-03 failed with ORA-02290 on CONVIVIENTE.
