@@ -8,6 +8,7 @@ import com.saed.backend.context.SaedContext;
 import com.saed.backend.context.SaedContextHolder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -504,15 +505,20 @@ public class AsambleaServiceImpl implements AsambleaService {
         }
 
         if (repository.existeVotoUnidad(idVotacion, request.getIdUnidad())) {
-            throw new IllegalArgumentException("La unidad ID: " + request.getIdUnidad() + " ya emitió su voto en esta votación");
+            throw duplicateVote(request.getIdUnidad());
         }
 
-        BigDecimal coeficiente = request.getCoeficienteVoto();
-        if (coeficiente == null || coeficiente.compareTo(BigDecimal.ZERO) <= 0) {
-            coeficiente = repository.findCoeficienteUnidad(request.getIdUnidad());
-        }
+        // F10-01: the vote weight is always the unit's registered coefficient; any client-supplied value is ignored.
+        BigDecimal coeficiente = repository.findCoeficienteUnidad(request.getIdUnidad());
+        request.setCoeficienteVoto(coeficiente);
 
-        Long idVoto = repository.registrarVoto(idVotacion, request, coeficiente);
+        Long idVoto;
+        try {
+            idVoto = repository.registrarVoto(idVotacion, request, coeficiente);
+        } catch (DuplicateKeyException ex) {
+            // UQ_VOTO_UNIDAD_VOTACION (ID_VOTACION, ID_UNIDAD) rejected a concurrent duplicate insert.
+            throw duplicateVote(request.getIdUnidad());
+        }
         log.info("Voto registrado en votación ID: {} por unidad ID: {} con opción: {}", idVotacion, request.getIdUnidad(), request.getOpcionVoto());
 
         Long orgId = (ctx != null && ctx.getOrganizationId() != null) ? ctx.getOrganizationId() : asamblea.getIdOrganizacion();
@@ -523,5 +529,10 @@ public class AsambleaServiceImpl implements AsambleaService {
                 "EMITIR_VOTO", "VOTOS", idVoto,
                 "127.0.0.1", "SAED-Core", null, request.getOpcionVoto()
         );
+    }
+
+    private static ResponseStatusException duplicateVote(Long idUnidad) {
+        return new ResponseStatusException(HttpStatus.CONFLICT,
+                "La unidad ID: " + idUnidad + " ya emitió su voto en esta votación");
     }
 }
