@@ -193,7 +193,10 @@ DECLARE
                 function_schema => NULL,
                 policy_function => p_function,
                 statement_types => p_statements,
-                update_check    => FALSE,
+                -- Oracle 18 rejects update_check => FALSE here with ORA-28104 (lab-verified); V5.27 and the
+                -- startup initializer swallow that error, so PORTERIA_TURNOS never received this policy.
+                -- TRUE also enforces the predicate on inserted/updated rows, like the 90 baseline policies.
+                update_check    => TRUE,
                 enable          => TRUE,
                 static_policy   => FALSE,
                 policy_type     => DBMS_RLS.DYNAMIC,

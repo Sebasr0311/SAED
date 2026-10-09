@@ -291,6 +291,11 @@ class SourcePreparationTest(unittest.TestCase):
         for name in re.findall(r"add_policy\('[A-Z_]+',\s*'([A-Z0-9_]+)'", v532):
             self.assertLessEqual(len(name), 30, name)
         self.assertNotIn("add_policy('HISTORIAL_REPORTES'", v532)
+        # recovery-10 + lab probe: Oracle 18 rejects ADD_GROUPED_POLICY with update_check => FALSE for these
+        # statement types (ORA-28104); update_check => TRUE succeeds and matches the 90 baseline policies.
+        policy_block = next(block for block in blocks if "DBMS_RLS.ADD_GROUPED_POLICY" in block)
+        self.assertIn("update_check    => TRUE", policy_block)
+        self.assertNotIn("update_check    => FALSE", policy_block)
         for creation, view in guarded.items():
             with self.subTest(object=creation):
                 owners = [block for block in blocks if creation in block]
