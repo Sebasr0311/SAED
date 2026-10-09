@@ -477,12 +477,22 @@ public class WompiServiceImpl implements WompiService {
     }
 
     @Override
-    @Transactional
+    // rollbackFor = Exception.class: this method declares checked exceptions; any settlement
+    // failure must roll back the whole webhook transaction so the provider can retry.
+    @Transactional(rollbackFor = Exception.class)
     @Auditable(action = "PROCESS_WEBHOOK", resource = "WOMPI_WEBHOOK", category = AuditCategory.FINANCIAL, severity = AuditSeverity.CRITICAL)
     public void procesarWebhook(String payloadRaw) throws Exception {
         if (payloadRaw == null || payloadRaw.isBlank()) return;
 
-        Map<String, Object> evento = mapper.readValue(payloadRaw, Map.class);
+        Map<String, Object> evento;
+        try {
+            evento = mapper.readValue(payloadRaw, Map.class);
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            // Unparseable payloads can never be settled; discard them (acknowledged) instead of
+            // letting the provider retry them forever.
+            log.warn("[Wompi] Discarding unparseable webhook payload");
+            return;
+        }
         String event = (String) evento.get("event");
         if (!"transaction.updated".equals(event)) return;
 
@@ -669,9 +679,12 @@ public class WompiServiceImpl implements WompiService {
                     idItem = refParts.length >= 3 ? Long.parseLong(refParts[2]) : null;
                 } catch (NumberFormatException ignored) {}
 
-                try {
+                // F06: settlement failures are NOT swallowed. They propagate so the webhook
+                // transaction rolls back (including the PENDIENTE transition above), no receipt is
+                // sent for the failed attempt and the endpoint answers non-2xx for a provider retry.
+                {
                     if ("CUOTA".equals(concepto) && idItem != null) {
-                        finanzasService.registrarPago(new PagoRequestDTO(
+                        finanzasService.registrarPagoPasarelaVerificado(new PagoRequestDTO(
                             idItem,
                             java.time.LocalDate.now(),
                             montoPesos,
@@ -898,8 +911,6 @@ public class WompiServiceImpl implements WompiService {
                             }
                         }
                     }
-                } catch (Exception e) {
-                    log.error("[Wompi] Error registrando pago aprobado", e);
                 }
 
                 // Recibo por correo para unidades residenciales

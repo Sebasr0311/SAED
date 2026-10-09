@@ -15,6 +15,14 @@ public interface FinanzasService {
     Resource descargarPdfContrato(Long idContrato);
     List<CuotaDTO> getCuotasPendientes();
     void registrarPago(PagoRequestDTO request);
+
+    /**
+     * Internal settlement of a gateway payment. Only the provider webhook may call this, after it
+     * has verified the event signature, amount and the atomic PENDIENTE transition of the intent.
+     * It must never be exposed through an HTTP route that accepts client input.
+     */
+    void registrarPagoPasarelaVerificado(PagoRequestDTO request);
+
     ResidenteDashboardDTO getDashboardResidente(Long idResidente);
 
     // GAP-F6-05: Ciclo de vida y gestión de pagos manuales

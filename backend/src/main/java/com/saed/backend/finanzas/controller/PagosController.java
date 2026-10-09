@@ -138,13 +138,20 @@ public class PagosController {
 
     @PostMapping({"/pagos/wompi/webhook", "/pagos/notificacion"})
     @PreAuthorize("permitAll()")
-    public ResponseEntity<Void> wompiWebhook(@RequestBody String payload) {
+    public ResponseEntity<Map<String, Object>> wompiWebhook(@RequestBody String payload) {
         try {
+            // Ignored events (invalid signature, unknown event, duplicates, malformed payloads)
+            // complete normally and are acknowledged with 200.
             wompiService.procesarWebhook(payload);
             return ResponseEntity.ok().build();
         } catch (Exception e) {
+            // F06: a failed settlement must NOT be acknowledged. Wompi only retries on non-200
+            // responses. The body is deliberately generic: no exception text, SQL or stack data.
             log.error("Error procesando webhook Wompi", e);
-            return ResponseEntity.ok().build(); // Wompi espera 200 siempre si no es error de red
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                "success", false,
+                "error", "WEBHOOK_PROCESSING_FAILED"
+            ));
         }
     }
 }

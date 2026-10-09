@@ -220,14 +220,11 @@ public class FinanzasRepositoryImpl implements FinanzasRepository {
 
     @Override
     public Long registrarPago(PagoRequestDTO req, Long idUnidad, String estadoInicial, String hash, Long tamanoBytes) {
-        String estado;
-        if (estadoInicial != null && !estadoInicial.isBlank()) {
-            estado = estadoInicial;
-        } else if ("PASARELA_WOMPI".equalsIgnoreCase(req.metodoPago())) {
-            estado = "APROBADO";
-        } else {
-            estado = "PENDIENTE_APROBACION";
-        }
+        // F06/C-09: approval is never inferred from the payment method. Without an explicit
+        // state chosen by the service layer the payment is pending review.
+        String estado = (estadoInicial != null && !estadoInicial.isBlank())
+            ? estadoInicial
+            : "PENDIENTE_APROBACION";
 
         String sql = "INSERT INTO PAGOS (ID_UNIDAD, MONTO_TOTAL, METODO_PAGO, REFERENCIA_COMPROBANTE, ESTADO, " +
                      "COMPROBANTE_URL, COMPROBANTE_HASH, COMPROBANTE_TAMANO_BYTES, OBSERVACIONES, IDEMPOTENCY_KEY, FECHA_PAGO) " +
