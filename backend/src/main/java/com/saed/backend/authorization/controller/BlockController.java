@@ -29,25 +29,25 @@ public class BlockController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_PORTERO', 'SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_PORTERO', 'SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA')")
     public ResponseEntity<List<BlockDTO>> findAll(@PathVariable Long propertyId) {
         return ResponseEntity.ok(blockService.findByPropertyId(propertyId));
     }
 
     @GetMapping("/tree")
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_PORTERO', 'SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_PORTERO', 'SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA')")
     public ResponseEntity<List<BlockTreeDTO>> findTree(@PathVariable Long propertyId) {
         return ResponseEntity.ok(blockService.findTreeByPropertyId(propertyId));
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_PORTERO', 'SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_PORTERO', 'SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA')")
     public ResponseEntity<BlockDTO> findById(@PathVariable Long propertyId, @PathVariable Long id) {
         return ResponseEntity.ok(blockService.findById(propertyId, id));
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
     @Auditable(action = "CREATE", resource = "BLOQUE", category = AuditCategory.ADMINISTRATIVE, severity = AuditSeverity.INFO)
     public ResponseEntity<Map<String, Object>> create(
             @PathVariable Long propertyId,
@@ -57,7 +57,7 @@ public class BlockController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
     @Auditable(action = "UPDATE", resource = "BLOQUE", category = AuditCategory.ADMINISTRATIVE, severity = AuditSeverity.INFO)
     public ResponseEntity<Map<String, Object>> update(
             @PathVariable Long propertyId,
@@ -68,7 +68,7 @@ public class BlockController {
     }
 
     @PatchMapping("/{id}/status")
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
     @Auditable(action = "UPDATE_STATUS", resource = "BLOQUE", category = AuditCategory.ADMINISTRATIVE, severity = AuditSeverity.INFO)
     public ResponseEntity<Map<String, Object>> updateStatus(
             @PathVariable Long propertyId,
@@ -80,7 +80,7 @@ public class BlockController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
     @Auditable(action = "DELETE", resource = "BLOQUE", category = AuditCategory.ADMINISTRATIVE, severity = AuditSeverity.WARN)
     public ResponseEntity<Map<String, Object>> delete(
             @PathVariable Long propertyId,

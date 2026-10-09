@@ -43,7 +43,7 @@ public class WompiController {
     }
 
     @GetMapping("/wompi/estado")
-    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_SUPERADMIN', 'SCOPE_RESIDENTE')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_RESIDENTE')")
     public Map<String, Object> getEstadoWompi(@RequestParam String referencia) {
         return wompiServiceImpl.estadoIntencion(referencia);
     }

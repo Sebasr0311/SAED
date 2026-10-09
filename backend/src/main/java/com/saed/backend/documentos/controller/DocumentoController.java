@@ -31,7 +31,7 @@ public class DocumentoController {
     }
 
     @GetMapping("/admin")
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<ApiResponse<Map<String, Object>>> getDocumentosAdmin() {
         List<DocumentoDTO> docs = documentoService.getDocumentosAdmin();
         return ResponseEntity.ok(ApiResponse.success(Map.of("items", docs)));
@@ -45,14 +45,14 @@ public class DocumentoController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_PROPIETARIO', 'SCOPE_PROPIETARIO_UNIDAD', 'SCOPE_RESIDENTE_CONVIVENCIA')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_PROPIETARIO', 'SCOPE_PROPIETARIO_UNIDAD', 'SCOPE_RESIDENTE_CONVIVENCIA')")
     public ResponseEntity<ApiResponse<DocumentoDTO>> getDocumentoById(@PathVariable Long id) {
         DocumentoDTO doc = documentoService.getDocumentoById(id);
         return ResponseEntity.ok(ApiResponse.success(doc));
     }
 
     @GetMapping(value = {"/{id}/descargar", "/{id}/archivo"})
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_PROPIETARIO', 'SCOPE_PROPIETARIO_UNIDAD', 'SCOPE_RESIDENTE_CONVIVENCIA')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_PROPIETARIO', 'SCOPE_PROPIETARIO_UNIDAD', 'SCOPE_RESIDENTE_CONVIVENCIA')")
     public ResponseEntity<Resource> descargarDocumento(@PathVariable Long id) {
         DocumentoService.DocumentoDescarga descarga = documentoService.downloadDocumento(id);
 
@@ -83,7 +83,7 @@ public class DocumentoController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
     @Auditable(action = "CREATE_DOCUMENT_METADATA", resource = "DOCUMENTO", category = AuditCategory.OPERATIONAL, severity = AuditSeverity.INFO)
     public ResponseEntity<ApiResponse<Map<String, Long>>> uploadDocumento(@RequestBody DocumentoDTO request) {
         Long id = documentoService.uploadDocumento(request);
@@ -91,7 +91,7 @@ public class DocumentoController {
     }
 
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
     @Auditable(action = "UPLOAD_DOCUMENT", resource = "DOCUMENTO", category = AuditCategory.OPERATIONAL, severity = AuditSeverity.INFO)
     public ResponseEntity<ApiResponse<Map<String, Object>>> uploadDocumentoFile(
             @RequestPart("archivo") MultipartFile archivo,
@@ -113,7 +113,7 @@ public class DocumentoController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
     @Auditable(action = "UPDATE_DOCUMENT", resource = "DOCUMENTO", category = AuditCategory.OPERATIONAL, severity = AuditSeverity.INFO)
     public ResponseEntity<ApiResponse<DocumentoDTO>> updateDocumento(
             @PathVariable Long id,
@@ -124,7 +124,7 @@ public class DocumentoController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
     @Auditable(action = "DELETE_DOCUMENT", resource = "DOCUMENTO", category = AuditCategory.SECURITY, severity = AuditSeverity.HIGH)
     public ResponseEntity<ApiResponse<Void>> deleteDocumento(@PathVariable Long id) {
         documentoService.deleteDocumento(id);
@@ -132,7 +132,7 @@ public class DocumentoController {
     }
 
     @PostMapping(value = "/{id}/versiones", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
     @Auditable(action = "ADD_DOCUMENT_VERSION", resource = "DOCUMENTO", category = AuditCategory.OPERATIONAL, severity = AuditSeverity.INFO)
     public ResponseEntity<ApiResponse<Map<String, Object>>> addVersion(
             @PathVariable Long id,

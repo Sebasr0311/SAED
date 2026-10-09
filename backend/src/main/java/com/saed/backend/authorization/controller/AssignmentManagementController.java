@@ -15,7 +15,7 @@ import java.util.Map;
 @Tag(name = "AssignmentManagement", description = "API para la gestion de AssignmentManagement")
 @RestController
 @RequestMapping("/api/v1/assignments")
-@PreAuthorize("hasAuthority('SCOPE_SUPERADMIN') or hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
+@PreAuthorize("hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
 public class AssignmentManagementController {
 
     private final AssignmentManagementService assignmentManagementService;

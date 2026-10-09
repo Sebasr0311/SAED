@@ -58,7 +58,7 @@ public class ReservasController {
 
     // --- Reservas ---
     @GetMapping("/reservas/todas")
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<List<ReservaDTO>> getAllReservas() {
         return ResponseEntity.ok(reservasService.getAllReservas());
     }
@@ -70,7 +70,7 @@ public class ReservasController {
     }
 
     @GetMapping("/reservas/{id}")
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA')")
     public ResponseEntity<ReservaDTO> getReservaById(@PathVariable Long id) {
         return ResponseEntity.ok(reservasService.getReservaById(id));
     }

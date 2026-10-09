@@ -36,7 +36,7 @@ import java.util.List;
 @Tag(name = "Reportes", description = "Reportes operativos y financieros del sistema")
 @RestController
 @RequestMapping("/api/v1/reportes")
-@PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
+@PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
 public class ReportesController {
 
     private final ReportesService reportesService;

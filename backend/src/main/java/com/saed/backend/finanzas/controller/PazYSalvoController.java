@@ -40,7 +40,7 @@ import java.util.NoSuchElementException;
 @Tag(name = "Paz y Salvos", description = "Emisión, verificación y descarga de certificados de paz y salvo")
 @RestController
 @RequestMapping("/api/v1/paz-y-salvos")
-@PreAuthorize("hasAuthority('SCOPE_SUPERADMIN') or hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_RESIDENTE') or hasAuthority('SCOPE_RESIDENTE_CONVIVENCIA')")
+@PreAuthorize("hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_RESIDENTE') or hasAuthority('SCOPE_RESIDENTE_CONVIVENCIA')")
 public class PazYSalvoController {
 
     private final PazYSalvoService pazYSalvoService;
@@ -61,7 +61,7 @@ public class PazYSalvoController {
 
     @Operation(summary = "Consultar estado financiero de la unidad del usuario autenticado (residente o conviviente)")
     @GetMapping("/mi-estado-financiero")
-    @PreAuthorize("hasAuthority('SCOPE_RESIDENTE') or hasAuthority('SCOPE_RESIDENTE_CONVIVENCIA') or hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_SUPERADMIN')")
+    @PreAuthorize("hasAuthority('SCOPE_RESIDENTE') or hasAuthority('SCOPE_RESIDENTE_CONVIVENCIA') or hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<ApiResponse<PazYSalvoEstadoFinancieroDTO>> miEstadoFinanciero() {
         SaedContext ctx = SaedContextHolder.getContext();
         if (ctx == null || ctx.getUnitId() == null) {
@@ -82,7 +82,7 @@ public class PazYSalvoController {
 
     @Operation(summary = "Generar certificado oficial de paz y salvo (solo administración)")
     @PostMapping
-    @PreAuthorize("hasAuthority('SCOPE_SUPERADMIN') or hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
     @Auditable(action = "CREATE", resource = "PAZ_Y_SALVO", category = AuditCategory.FINANCIAL, severity = AuditSeverity.HIGH)
     public ResponseEntity<ApiResponse<Map<String, Object>>> generar(@RequestBody Map<String, Object> body) {
         Object rawIdUnidad = body != null ? body.get("idUnidad") : null;
