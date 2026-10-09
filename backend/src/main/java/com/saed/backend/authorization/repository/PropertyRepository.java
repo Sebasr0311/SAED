@@ -15,4 +15,10 @@ public interface PropertyRepository {
     Optional<Long> getPropertyLimit(Long orgId);
     Optional<String> getPropertyStatus(Long id);
     boolean deletePropertyCascade(Long propertyId, Long organizationId);
+
+    /**
+     * Returns the names of the protected tables (financial, legal or audit history) that still
+     * hold rows for the property. An empty list means the property may be hard-deleted.
+     */
+    List<String> findProtectedHistory(Long propertyId);
 }
