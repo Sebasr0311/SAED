@@ -300,3 +300,15 @@ This proves authentication and context resolution through the real Oracle authen
 **Corrected premise:** the startup initializer does not re-add `POL_RLS_ORG_PERSONAS`; it drops every PERSONAS policy (`ProductionSchemaInitializer.java:88-101, 435-445, 504-521`), as does V5.28. PERSONAS therefore has no RLS in any environment, by design; isolation relies on application SQL. With V5.32 adding scope columns, a PERSONAS policy is now technically possible but remains a product/security decision.
 
 recovery-11: 45/45 stages complete, backend started, six-profile login context matches the fixture (9 × 200, 2 expected 401).
+
+## 2026-10-09 F02 role switching, pooled-connection context and G01 two-start preservation (recovery-11)
+
+`scripts/verification/role_and_pool_checks.py <state> <port> [rounds]`:
+
+**A. Mixed-role switching** (user 91005: resident in property 91001 and ADMIN_PROPIEDAD of property 91021 via assignment 93001; context selected per request with `X-Assignment-Id`, validated server-side): own assignments listed; default resident context gets 403 on `/usuarios`; assignment 93001 gets 200 with no organization-92001 ids, reads property 91021 and gets 404 for foreign property 92001; forged headers — another user's assignment, an organization-92001 assignment, a nonexistent id (403), a negative id and an injection string (400) — are all rejected; the next request without the header is back to 403 (no sticky context). 12/12 pass.
+
+**B. Pooled-connection context:** 150 rounds × 6 interleaved callers (both organizations' admins, both property admins, the mixed user as admin, an organization-91001 conviviente) on 12 threads over the 4-connection Hikari pool: 900 requests, all 200, **zero** responses containing the other organization's ids, and every response contains its own organization's ids (so an empty, wrongly scoped response cannot pass silently). No 5xx.
+
+**G01 two-start preservation:** a read-only SYSDBA snapshot (row counts of 9 key tables including `AUDITORIA_LOG`; SHA-256 digests over user credentials/status, assignments and organizations; enabled policies = 95; owner objects 637 / invalid 0 and last DDL time; disabled triggers = 0) was taken, the backend was started twice more with no HTTP traffic, and the snapshot was taken again: **identical**. No ERROR lines. Startup cannot mutate schema or credentials because the runtime account has only `CREATE SESSION` plus object grants; the remaining startup DDL (`ProductionSchemaInitializer`, `PlantillaContratoRepositoryImpl`, `OnboardingServiceImpl`) fails harmlessly here and still has to be removed from the code (F01-01).
+
+Not yet proven: backup/restore into a second isolated destination (G03), removal of startup DDL from the codebase (F01-01), and domain flows with real business data (payments, packages, visits, assemblies) beyond the identity/tenancy fixture.
