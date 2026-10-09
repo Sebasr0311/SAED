@@ -152,3 +152,35 @@ The proposed minimal correction provisions only canonical stage 030 through the 
 Before interruption, the runtime-only actor began one fresh-container operation without SQL or host-file writes. A subsequent root read-only Docker snapshot shows original saed-isolated-cf2540e41716 and failed saed-isolated-0bd41784f0ac stopped and preserved, and new saed-isolated-3eba1726566e (observed ID prefix 461d56bc2672) running with 127.0.0.1:11521 mapped to 1521. The actor did not receive its command's final output; the new full ID/run and post-start isolation guards remain unconfirmed. Do not repeat creation, invent identity, rebind the applier or apply SQL until that outcome is reconciled read-only.
 
 Next: reconcile the new owned target, implement/test/review the fixture-only correction, then authorize one distinct guarded recovery-03 preparation/apply. Application startup, real six-profile HTTP/RLS/pool tests, two-start preservation, restore and F0-F11 phase closure remain pending. No production operations, commits, push or F12 work occurred. Engram writes remain unavailable because the host runtime identity is unregistered; this file checkpoint is not a memory save.
+
+## 2026-10-09 recovery-02 read-only reconciliation and recovery-03 correction
+
+Read-only reconciliation was attempted with `docker inspect saed-isolated-3eba1726566e`. The Docker API denied access to `npipe:////./pipe/dockerDesktopLinuxEngine`; therefore no full ID, labels, image digest, mounts, or port mapping were verified. The observed ID prefix and container name are not sufficient identity proof. No lifecycle command or SQL was run, and the Windows Oracle listener was not touched. The immutable target constants were not rebound.
+
+The minimal stage-030 correction routes only `030-synthetic-fixture.sql` through the existing SYS path. The existing same-session PDB/principal and run-marker guards execute before the fixed `CURRENT_SCHEMA=SAED_ISO_OWNER` change and its `SYS_CONTEXT` assertion; only then does the fixture payload run. Policies remain enabled, and no owner/runtime EXEMPT ACCESS POLICY, DBA, or ANY privileges were added. Two guard tests cover this ordering and ensure stage 031 remains owner-executed.
+
+| TDD proof | Result |
+|---|---|
+| RED | Both new guard tests failed before implementation (2 failing guard cases); no external process was launched. |
+| Focused GREEN | Both new guard tests passed (2 passed). |
+| Required full command | `C:\Python313\python.exe -B -m unittest discover -s scripts/verification -p "test_*.py"` ran 86 tests: 53 passed, 33 errors. Errors are Windows `PermissionError` during temporary-directory use/cleanup; no Docker or Oracle was launched. Full-suite GREEN is therefore not established. |
+
+Working-copy SHA-256 values (raw bytes): `isolated_oracle.py` `9c99988917f4eeb4fff3142a9398712511ec4cce99690799c41c2b136ef00c86`; `apply_isolated_oracle.py` `684c104883d5c27b4854d9f89e74020c25a07b472053146cb2684bda322be4b5`; `test_isolated_oracle.py` `acbce37806dd910aaefd72a0eff139535bd900a15d4defc82e34d28b64f44c1e`; `test_apply_isolated_oracle.py` `fdf91299af50b8bc1f785e972c40c79e7e7f099535c3557463703d0564b52c7e`. The first and third match the previously recorded hashes; the modified applier/test hashes identify the new candidate. No private-state hashes are reported.
+
+After the target is fully reconciled and recovery-03 is separately approved, the command that would apply it is `C:\Python313\python.exe -B scripts/verification/apply_isolated_oracle.py apply --state recovery-03 --container-id <confirmed-full-container-id> --run-id <confirmed-run-id>`. It was not run. Preparation, review, exact target identity and explicit user authorization remain prerequisites.
+
+## 2026-10-09 target reconciliation and rebind (coordinator)
+
+Read-only `docker inspect` from the coordinator (outside the Codex sandbox, which was denied the Linux engine pipe) confirmed the owned target:
+
+- ID `461d56bc26721beba86b3cd05044ddb03e9824812fa619e3f5bad83797ad1b67`, name `saed-isolated-3eba1726566e`, run label `3eba1726566eee334c7fa17135877e54`, scope `isolated-fixture`.
+- Image `gvenzl/oracle-xe@sha256:ee0d7b8ac3665fb80219cbcb5a080cc202cc970120e1fbef592d7592274cef22`, zero mounts, sole binding `127.0.0.1:11521 -> 1521/tcp`, restart `no`, 4 GiB, 2 CPUs, running.
+- Previous targets `saed-isolated-cf2540e41716` and `saed-isolated-0bd41784f0ac` remain stopped and preserved.
+
+The `CONTAINER`/`RUN_ID` constants in `apply_isolated_oracle.py` were rebound to this identity. The recovery-02 pair was added to the constructor rejection test; that test passed before the rebind as well, because the constructor raises earlier for unrelated reasons, so it does not by itself prove identity rejection (known test weakness).
+
+Stage 031 review: it inserts into `USUARIO_ASIGNACIONES` as OWNER without business context. The V5.0 baseline's 25 grouped policies do not cover that table (its policy exists only in the excluded V3.9 baseline), so 031 is not expected to hit ORA-28115. This is static reasoning, not Oracle proof.
+
+Full suite outside the sandbox: 86 tests, OK (the 33 Codex-reported errors were sandbox temp-directory permissions). Source SHA-256: applier `8b3af592f5cd60796cbe44833166b14a2847292f989e17346c49413a77220eae`; executor tests `18aea80b23bd10eb52648882c0a20bc2a9edc89b0cc1fb3420ba96de136510ac`.
+
+Next, requiring explicit user approval: `isolated_oracle.py prepare --state recovery-03`, ACL protection/readback, `check`, then one `apply_isolated_oracle.py apply --state recovery-03 --container-id 461d56bc26721beba86b3cd05044ddb03e9824812fa619e3f5bad83797ad1b67 --run-id 3eba1726566eee334c7fa17135877e54`. Preserve any failure; no retry or reset.

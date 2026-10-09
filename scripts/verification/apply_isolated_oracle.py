@@ -16,8 +16,8 @@ import sys
 
 import isolated_oracle as prepared
 
-CONTAINER = "9dceede37edd3018492bb3ad0bcb1b8ce9735200cf5c7e8c45332777d9c86e91"
-RUN_ID = "0bd41784f0ac76608626a4565c0e053e"
+CONTAINER = "461d56bc26721beba86b3cd05044ddb03e9824812fa619e3f5bad83797ad1b67"
+RUN_ID = "3eba1726566eee334c7fa17135877e54"
 CONTROL = "SAED_ISO_CONTROL"
 OWNER = prepared.OWNER
 RUNTIME = prepared.RUNTIME
@@ -170,7 +170,7 @@ CREATE CONTEXT SAED_CTX USING {OWNER}.PKG_SAED_SESSION;
     def build_stages(self) -> dict[str, tuple[str, str]]:
         stages = {"bootstrap": ("SYS", self.bootstrap())}
         for name in ("010-structure.sql", "020-catalogs.sql", "030-synthetic-fixture.sql", "031-mixed-assignment.sql", "040-auth-grants.sql", "050-auth-synonyms.sql", "060-auth-package.sql", "900-baseline-policies.sql"):
-            principal = SECURITY if name.startswith(("050-", "060-")) else OWNER
+            principal = "SYS" if name == "030-synthetic-fixture.sql" else SECURITY if name.startswith(("050-", "060-")) else OWNER
             stages[name] = (principal, (prepared.WORK / name).read_text(encoding="utf-8"))
         for name in sorted(self.manifest["files"]):
             if re.fullmatch(r"1[0-2][0-9]-V5[.][0-9]+__[A-Za-z0-9_]+[.]sql", name):
@@ -264,6 +264,9 @@ SELECT 'SAED_CATALOG:TABLES=' || (SELECT COUNT(*) FROM DBA_TABLES WHERE OWNER='{
             connection = principal + '/"' + self.private[key] + '"@//127.0.0.1:1521/' + PDB
             pdb_selection = ""
         guard = "" if stage == "bootstrap" else self.marker_guard(principal)
+        owner_schema = ""
+        if stage == "030-synthetic-fixture.sql":
+            owner_schema = f"ALTER SESSION SET CURRENT_SCHEMA={OWNER};\nDECLARE\nBEGIN\n IF SYS_CONTEXT('USERENV','CURRENT_SCHEMA') != '{OWNER}' THEN\n  RAISE_APPLICATION_ERROR(-20990,'ISOLATED_OWNER_SCHEMA_MISMATCH');\n END IF;\nEND;\n/\n"
         business_context = ""
         if principal == OWNER and stage not in ("010-structure.sql", "020-catalogs.sql", "030-synthetic-fixture.sql", "031-mixed-assignment.sql"):
             business_context = "BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1); PKG_SAED_SESSION.SET_CONTEXT(1,0,NULL,'SUPERADMIN'); END;\n/\n"
@@ -271,7 +274,7 @@ SELECT 'SAED_CATALOG:TABLES=' || (SELECT COUNT(*) FROM DBA_TABLES WHERE OWNER='{
         if principal in (OWNER, SECURITY):
             compile_guard = "DECLARE n NUMBER; BEGIN SELECT COUNT(*) INTO n FROM USER_OBJECTS WHERE STATUS != 'VALID'; IF n != 0 THEN RAISE_APPLICATION_ERROR(-20995,'ISOLATED_INVALID_OBJECTS'); END IF; END;\n/\n"
         settings = "\n".join("SET " + option for option in ("ECHO OFF", "VERIFY OFF", "FEEDBACK OFF", "HEADING OFF", "PAGESIZE 0", "DEFINE OFF", "SERVEROUTPUT OFF", "SQLBLANKLINES ON"))
-        wrapper = settings + "\nWHENEVER SQLERROR EXIT FAILURE ROLLBACK\nWHENEVER OSERROR EXIT FAILURE ROLLBACK\nCONNECT " + connection + "\n" + pdb_selection + guard + business_context + payload + "\n" + compile_guard + "PROMPT SAED_STAGE_OK:" + stage + "\nEXIT SUCCESS\n"
+        wrapper = settings + "\nWHENEVER SQLERROR EXIT FAILURE ROLLBACK\nWHENEVER OSERROR EXIT FAILURE ROLLBACK\nCONNECT " + connection + "\n" + pdb_selection + guard + owner_schema + business_context + payload + "\n" + compile_guard + "PROMPT SAED_STAGE_OK:" + stage + "\nEXIT SUCCESS\n"
         # The Linux SQLPlus client must agree with all three UTF-8 pipe streams;
         # neither the Windows ANSI page nor inherited Oracle settings are input.
         try:

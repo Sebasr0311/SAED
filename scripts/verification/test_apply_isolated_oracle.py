@@ -65,6 +65,27 @@ class ExecutorGuardTest(unittest.TestCase):
         self.assertLess(sql.index("ALTER SESSION SET CONTAINER=XEPDB1"), sql.index("SAED_ISO_CONTROL.RUN_GUARD"))
         self.assertLess(sql.index("SAED_ISO_CONTROL.RUN_GUARD"), sql.index("SELECT 1 FROM DUAL"))
 
+    def test_stage_030_uses_sys_guarded_owner_schema_before_fixture_payload(self):
+        installer = self.installer()
+        installer.stages["030-synthetic-fixture.sql"] = ("SYS", "INSERT INTO SAED_ISO_OWNER.FIXTURE_SENTINEL VALUES (1);")
+        _, called = self.invoke(installer, "030-synthetic-fixture.sql")
+        sql = called.kwargs["input"]
+        payload = "INSERT INTO SAED_ISO_OWNER.FIXTURE_SENTINEL"
+        self.assertIn("CONNECT / AS SYSDBA", sql)
+        self.assertLess(sql.index("ISOLATED_PDB_OR_PRINCIPAL_MISMATCH"), sql.index("SAED_ISO_CONTROL.RUN_GUARD"))
+        self.assertLess(sql.index("SAED_ISO_CONTROL.RUN_GUARD"), sql.index("ALTER SESSION SET CURRENT_SCHEMA=SAED_ISO_OWNER"))
+        self.assertLess(sql.index("ALTER SESSION SET CURRENT_SCHEMA=SAED_ISO_OWNER"), sql.index("SYS_CONTEXT('USERENV','CURRENT_SCHEMA') != 'SAED_ISO_OWNER'"))
+        self.assertLess(sql.index("SYS_CONTEXT('USERENV','CURRENT_SCHEMA') != 'SAED_ISO_OWNER'"), sql.index(payload))
+        self.assertNotIn("SET_BOOTSTRAP_CONTEXT", sql)
+
+    def test_stage_030_is_the_only_fixture_stage_promoted_to_sys(self):
+        installer = self.installer()
+        installer.manifest = {"files": {}}
+        with patch.object(executor.Path, "read_text", return_value='CREATE TABLE "EXAMPLE" (ID NUMBER);'), patch.object(installer, "catalog", return_value="SELECT 1 FROM DUAL;"):
+            stages = installer.build_stages()
+        self.assertEqual(stages["030-synthetic-fixture.sql"][0], "SYS")
+        self.assertEqual(stages["031-mixed-assignment.sql"][0], executor.OWNER)
+
     def test_bootstrap_is_bounded_freshness_and_account_creation(self):
         installer = self.installer()
         _, called = self.invoke(installer, "bootstrap")
@@ -154,7 +175,7 @@ class ExecutorGuardTest(unittest.TestCase):
         self.assertEqual(env["DOCKER_HOST"], "npipe:////./pipe/dockerDesktopLinuxEngine")
 
     def test_constructor_rejects_different_container_before_reading_secrets(self):
-        for container, run_id in (("a" * 64, executor.RUN_ID), ("4cc90670a9c69c5340985e355463cab8084e8c17bfbcdde5b920e9d4a7a81b6f", "cf2540e417164a4eada01516b8bb87b5"), (executor.CONTAINER, "f" * 32)):
+        for container, run_id in (("a" * 64, executor.RUN_ID), ("4cc90670a9c69c5340985e355463cab8084e8c17bfbcdde5b920e9d4a7a81b6f", "cf2540e417164a4eada01516b8bb87b5"), ("9dceede37edd3018492bb3ad0bcb1b8ce9735200cf5c7e8c45332777d9c86e91", "0bd41784f0ac76608626a4565c0e053e"), (executor.CONTAINER, "f" * 32)):
             with self.subTest(container=container, run=run_id), patch.object(executor, "credentials") as secrets_reader:
                 with self.assertRaises(ValueError):
                     executor.Installer(container, run_id)
