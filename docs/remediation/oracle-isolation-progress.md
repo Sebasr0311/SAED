@@ -208,3 +208,17 @@ Read-only diagnosis (`DBA_OBJECTS`/`DBA_ERRORS` as SYSDBA inside the container, 
 Correction (TDD): stage 030 now runs `DBMS_UTILITY.COMPILE_SCHEMA(schema => OWNER, compile_all => FALSE)` after its payload, then an owner-scoped `DBA_OBJECTS` invalid-object guard. Owner/security stages likewise recompile only invalid objects in their own schema before the existing `USER_OBJECTS` guard, because migration DDL (e.g. V5.4 column type change) causes the same dependency invalidation. Objects with real compile errors stay invalid and the guard still fails closed. RED: 88 tests / 1 failure, then 89 tests / 1 error; GREEN: 89 tests OK.
 
 Next, requiring new explicit user authorization: stop and preserve `saed-isolated-f87171a5bae3`, one fresh owned target, read-only reconciliation and rebind, then one guarded `recovery-05` prepare/check/apply.
+
+## 2026-10-09 recovery-05 result (user-authorized single attempt)
+
+With explicit user authorization: `saed-isolated-f87171a5bae3` stopped and preserved (exit 143, 60 s grace); fresh target `dbda7eeea47eb37aa3b99ecb51a027b9347a8cbceb6c6033341f049c459be27e`, name `saed-isolated-12eff4408903`, run `12eff4408903dc2483e0c25bf4c5fbd0`, same digest, zero mounts, sole binding `127.0.0.1:11521`, restart `no`, 4 GiB, 2 CPUs, random SYS password. Reconciliation, rebind, `check-container`, `prepare --state recovery-05` and `check-prepared` passed.
+
+Single apply: `BLOCKED: SQL stage failed: ORA-06512, ORA-28133`. Completed 28 of 37 stages: bootstrap, 010, 020, 030, 031, 040, 050, 060, 900 baseline policies and V5.1–V5.19 (the dependency-recompile correction is effective). Failing stage: `120-V5.20__trabajadores_arl_obras_authorization.sql`. Preserved; no retry or reset.
+
+Read-only diagnosis (SYSDBA catalog, names only): `TRABAJADORES.ARL_FECHA_AFILIACION` and `UQ_TRABAJADOR_PROV_PERSONA` exist; `OBRA_TRABAJADORES.FECHA_AUTORIZACION` does not. The failing statement is therefore `ALTER TABLE OBRA_TRABAJADORES ADD (FECHA_AUTORIZACION TIMESTAMP(6) WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP)`: a non-constant default cannot be added metadata-only, the required full-table rewrite is rejected by the enabled `POL_RLS_UNI_OBRA_TRABAJADOR` policy. `EXEMPT ACCESS POLICY` is held only by the harness authentication definer `SAED_SEC_MASTER` (intended) and Oracle's `GSMUSER`; owner and runtime remain non-exempt.
+
+Correction (TDD): V5.20 normalization adds the column metadata-only and then sets `DEFAULT CURRENT_TIMESTAMP` via `MODIFY`; on a fresh install the table is empty, so the result is equivalent. A new test rejects any extracted part that adds a column with a non-constant default (V5.20 is the only occurrence in V5.1–V5.29). RED 90/1, GREEN 90 OK. Index and constraint DDL in V5.21–V5.26 is not expected to hit ORA-28133 (V5.20's UNIQUE constraint was created under the same active policy), but that is inference, not proof.
+
+**F01 finding:** V5.20 as written cannot be applied by a non-exempt owner while VPD is active. How it was applied to existing environments is unknown; any future versioned migration runner must avoid non-constant defaults on policy-protected tables or run that step under a controlled exemption.
+
+Next, requiring new explicit user authorization: stop and preserve `saed-isolated-12eff4408903`, one fresh owned target, read-only reconciliation and rebind, then one guarded `recovery-06` prepare/check/apply.

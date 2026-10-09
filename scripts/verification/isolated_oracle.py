@@ -121,6 +121,14 @@ def extract_sources() -> tuple[dict[str, str], list[dict], list[str]]:
         sources.append({"file": str(path.relative_to(ROOT)).replace("\\", "/"), "sha256": digest(source)})
         if version == 3:
             source = replace_once(source, "ALTER TABLE SAED_APP.AUDITORIA_LOG", "ALTER TABLE AUDITORIA_LOG", "hardcoded application schema")
+        if version == 20:
+            # A non-constant DEFAULT forces a full-table rewrite that active VPD rejects (ORA-28133).
+            # Add the column metadata-only, then set the default for future inserts.
+            source = replace_once(source,
+                "EXECUTE IMMEDIATE 'ALTER TABLE OBRA_TRABAJADORES ADD (FECHA_AUTORIZACION TIMESTAMP(6) WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP)';",
+                "EXECUTE IMMEDIATE 'ALTER TABLE OBRA_TRABAJADORES ADD (FECHA_AUTORIZACION TIMESTAMP(6) WITH TIME ZONE)';\n"
+                "        EXECUTE IMMEDIATE 'ALTER TABLE OBRA_TRABAJADORES MODIFY (FECHA_AUTORIZACION DEFAULT CURRENT_TIMESTAMP)';",
+                "non-constant default under active VPD")
         parts[f"{100 + version:03}-{path.name}"] = source
     if versions != set(range(1, 30)):
         raise ValueError("Migration chain V5.1 through V5.29 is incomplete")
@@ -131,7 +139,7 @@ def extract_sources() -> tuple[dict[str, str], list[dict], list[str]]:
         if re.search(r"(?i)MERGE\s+INTO\s+(USUARIOS|PERSONAS|ORGANIZACIONES|PROPIEDADES|ADMINISTRADORES_SAED|USUARIO_ASIGNACIONES)\b", content):
             raise ValueError("Production identity seed in " + name)
         parts[name] = content
-    transformations = ["Exclude baseline security-user deletion, fixed credentials and original identity bootstrap.", "Complete the single dangling TRG_HISTREP_INMUTABLE ALTER with COMPILE.", "Allow RESIDENTE_CONVIVENCIA before V5.10 inserts it.", "Allow CONVIVIENTE resident type before V5.9 extends CK_RESIDUNIDAD_TIPO.","Run authentication grants as owner; synonyms/package as security owner without ANY grants.", "Authentication synonyms reference the isolated owner explicitly.", "V5.3 uses current isolated owner instead of SAED_APP.", "Remove imported SQLPlus SET/EXIT; exclude V5.30, V3/V4 and rollback files."]
+    transformations = ["Exclude baseline security-user deletion, fixed credentials and original identity bootstrap.", "Complete the single dangling TRG_HISTREP_INMUTABLE ALTER with COMPILE.", "Allow RESIDENTE_CONVIVENCIA before V5.10 inserts it.", "Allow CONVIVIENTE resident type before V5.9 extends CK_RESIDUNIDAD_TIPO.","Run authentication grants as owner; synonyms/package as security owner without ANY grants.", "Authentication synonyms reference the isolated owner explicitly.", "V5.3 uses current isolated owner instead of SAED_APP.", "V5.20 adds FECHA_AUTORIZACION metadata-only, then sets its CURRENT_TIMESTAMP default (avoids VPD-blocked full-table rewrite).","Remove imported SQLPlus SET/EXIT; exclude V5.30, V3/V4 and rollback files."]
     return parts, sources, transformations
 
 

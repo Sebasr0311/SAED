@@ -234,6 +234,17 @@ class SourcePreparationTest(unittest.TestCase):
         self.assertIn('ALTER TRIGGER "TRG_HISTREP_INMUTABLE" COMPILE;', parts["010-structure.sql"])
         self.assertIn("'RESIDENTE_CONVIVENCIA'", parts["010-structure.sql"])
 
+    def test_migrations_never_add_columns_with_non_constant_defaults(self):
+        # recovery-05: V5.20 ADD (... DEFAULT CURRENT_TIMESTAMP) needs a full-table rewrite; active VPD raised ORA-28133.
+        parts, _, transformations = harness.extract_sources()
+        offending = re.compile(r"ADD\s*\([^;']*DEFAULT\s+(CURRENT_TIMESTAMP|SYSTIMESTAMP|SYSDATE|CURRENT_DATE|SYS_GUID)", re.IGNORECASE)
+        for name, text in parts.items():
+            self.assertIsNone(offending.search(text), name)
+        v520 = parts["120-V5.20__trabajadores_arl_obras_authorization.sql"]
+        self.assertIn("ALTER TABLE OBRA_TRABAJADORES ADD (FECHA_AUTORIZACION TIMESTAMP(6) WITH TIME ZONE)", v520)
+        self.assertIn("ALTER TABLE OBRA_TRABAJADORES MODIFY (FECHA_AUTORIZACION DEFAULT CURRENT_TIMESTAMP)", v520)
+        self.assertTrue(any("V5.20" in item for item in transformations))
+
     def test_structure_allows_every_fixture_resident_type(self):
         # Stage 030 runs before V5.9 extends CK_RESIDUNIDAD_TIPO; recovery-03 failed with ORA-02290 on CONVIVIENTE.
         parts, _, _ = harness.extract_sources()
