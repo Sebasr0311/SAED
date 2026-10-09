@@ -270,3 +270,18 @@ Tables without a policy: global catalogs `MODULOS`, `PLANES`, `PLAN_MODULOS`, `P
 This proves that the versioned chain V5.0 + V5.1–V5.29 + V5.31 (with the recorded harness normalizations) installs on Oracle 18 XE under a non-exempt owner with RLS active and least-privilege runtime sealing. It does not yet prove application startup against this schema, six-profile HTTP/RLS isolation, pooled-connection context safety, two-start preservation or restore. The container is left running for those next steps.
 
 Normalizations that reflect real migration defects (F01 backlog): V5.20 non-constant default under VPD; V5.23 redundant TSTZ index; V5.31 now versions previously startup-only report schema. Normalizations that are harness-only: fixture ordering before V5.9/V5.10 constraint extensions, SYS fixture loading, dependency recompilation.
+
+## 2026-10-09 first backend launch against the isolated schema
+
+`scripts/verification/launch_isolated_backend.py <state> [wait]` starts the packaged backend (`backend-1.0.0-SNAPSHOT.jar`) with `--spring.config.location=file:backend/src/test/resources/application-isolated.yml` only (so `application.yml`, its `.env` import and its default 1521 datasource are never loaded) and a scrubbed child environment that carries only the runtime password and JWT secret from the state's private file. The log is written inside the Git-ignored state directory; no secret is printed.
+
+Result on recovery-08: `Started SaedBackendApplication in 11.529 seconds`, Hikari pool connected as `SAED_ISO_RUNTIME`, zero ERROR and zero ORA lines. One WARN: `PlantillaContratoRepositoryImpl` checks `USER_TABLES` as the runtime user (which owns nothing), concludes the table is missing and attempts `CREATE TABLE PLANTILLAS_CONTRATOS`, which the runtime cannot do. This is startup DDL to remove under F01-01; it is harmless here only because the error is caught.
+
+`scripts/verification/smoke_isolated_profiles.py <state> <port>` logs in every synthetic account (login is by email: `PKG_AUTH_BOOTSTRAP.GET_AUTH_DATA` matches `USUARIOS.EMAIL`) and compares the server-resolved context with the fixture:
+
+| Account | Result |
+|---|---|
+| SUPERADMIN, and ADMIN_ORGANIZACION / ADMIN_PROPIEDAD / PORTERO in both organizations, RESIDENTE and RESIDENTE_CONVIVENCIA in organization 91001 | 9 × HTTP 200, role/organization/property/unit **match** the fixture |
+| Organization 92001 RESIDENTE (lifecycle-fixture `INACTIVO`) and RESIDENTE_CONVIVENCIA (`BLOQUEADO`) | 2 × HTTP 401 with the uniform invalid-credentials message (expected) |
+
+This proves authentication and context resolution through the real Oracle authentication package for all six profiles. It does not yet prove cross-tenant data isolation on business endpoints, mixed-role switching, pooled-connection context safety, two-start preservation or restore.
