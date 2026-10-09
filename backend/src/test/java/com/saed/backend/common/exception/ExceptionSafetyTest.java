@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockingDetails;
 import static org.mockito.Mockito.when;
@@ -176,6 +177,29 @@ class ExceptionSafetyTest {
                 assertFalse(event.getFormattedMessage().contains(SENSITIVE_MARKER), "Raw error details must not be logged");
                 assertNull(event.getThrowableProxy(), "Sensitive nested stack traces must not be logged");
             }
+        } finally {
+            logger.detachAppender(appender);
+            appender.stop();
+        }
+    }
+
+    @Test
+    void unknownDatabaseFailureLogsBoundedDiagnosticWithoutRawDetails() {
+        // A 500 must stay diagnosable server-side: exception types and vendor codes only, never text/SQL/stack.
+        Logger logger = (Logger) LoggerFactory.getLogger(GlobalExceptionHandler.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        try {
+            CorrelationIdHolder.set("diag-trace");
+            SQLException vendor = new SQLException("ORA-00904: \"" + SENSITIVE_MARKER + "\": invalid identifier", "42000", 904);
+            handler.handleDatabaseException(new org.springframework.jdbc.BadSqlGrammarException("query", "SELECT " + SENSITIVE_MARKER, vendor));
+            String logged = appender.list.stream().map(ILoggingEvent::getFormattedMessage).reduce("", (a, b) -> a + "\n" + b);
+            assertTrue(logged.contains("ORA-00904"), "vendor code must be logged: " + logged);
+            assertTrue(logged.contains("BadSqlGrammarException"), "exception type must be logged: " + logged);
+            assertTrue(logged.contains("diag-trace"), "diagnostic must carry the trace id: " + logged);
+            assertFalse(logged.contains(SENSITIVE_MARKER), "raw message/SQL must not be logged");
+            appender.list.forEach(event -> assertNull(event.getThrowableProxy()));
         } finally {
             logger.detachAppender(appender);
             appender.stop();

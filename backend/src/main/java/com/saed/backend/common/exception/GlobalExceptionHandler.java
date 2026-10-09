@@ -70,6 +70,33 @@ public class GlobalExceptionHandler {
         return response;
     }
 
+    /**
+     * Server-side diagnostic for database failures: exception types and Oracle vendor codes only.
+     * Never logs exception messages, SQL text, bound values or stack traces.
+     */
+    private void logDatabaseDiagnostic(Throwable failure) {
+        StringBuilder types = new StringBuilder();
+        StringBuilder vendorCodes = new StringBuilder();
+        Set<Throwable> visited = Collections.newSetFromMap(new IdentityHashMap<>());
+        Throwable current = failure;
+        int depth = 0;
+        while (current != null && depth++ < MAX_ERROR_CAUSE_DEPTH && visited.add(current)) {
+            if (types.length() > 0) {
+                types.append('>');
+            }
+            types.append(current.getClass().getSimpleName());
+            if (current instanceof java.sql.SQLException sql && sql.getErrorCode() > 0) {
+                if (vendorCodes.length() > 0) {
+                    vendorCodes.append(',');
+                }
+                vendorCodes.append(String.format("ORA-%05d", sql.getErrorCode()));
+            }
+            current = current.getCause();
+        }
+        log.error("Database failure diagnostic: traceId={} types={} vendorCodes={}",
+                CorrelationIdHolder.get(), types, vendorCodes.length() > 0 ? vendorCodes : "none");
+    }
+
     /** Unknown/cyclic/truncated chains fail closed before any database audit or recovery. */
     private boolean requiresFailClosedResponse(Throwable failure) {
         Set<Throwable> visited = Collections.newSetFromMap(new IdentityHashMap<>());
@@ -122,6 +149,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(DataAccessException.class)
     public ResponseEntity<Map<String, Object>> handleDatabaseException(DataAccessException ex) {
+        logDatabaseDiagnostic(ex);
         // A broken policy must fail closed: do not query, repair or weaken database security.
         if (requiresFailClosedResponse(ex)) {
             Map<String, Object> response = createLoggedErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, "DATABASE_ERROR",
