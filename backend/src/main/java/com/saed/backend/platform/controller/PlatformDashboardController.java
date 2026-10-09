@@ -7,10 +7,8 @@ import com.saed.backend.platform.dto.PlatformDashboardDTO;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
-import com.saed.backend.config.ProductionSchemaInitializer;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -28,14 +26,11 @@ public class PlatformDashboardController {
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
     private final AnalyticsService analyticsService;
-    private final ProductionSchemaInitializer schemaInitializer;
 
     public PlatformDashboardController(NamedParameterJdbcTemplate jdbcTemplate,
-                                       AnalyticsService analyticsService,
-                                       ProductionSchemaInitializer schemaInitializer) {
+                                       AnalyticsService analyticsService) {
         this.jdbcTemplate = jdbcTemplate;
         this.analyticsService = analyticsService;
-        this.schemaInitializer = schemaInitializer;
     }
 
     @GetMapping
@@ -240,11 +235,5 @@ public class PlatformDashboardController {
         String effPeriodo = periodo != null ? periodo : (meses != null ? meses + "m" : "30d");
         PlatformAnalyticsDTO dto = analyticsService.getPlatformAnalytics(effPeriodo, idOrganizacion);
         return ApiResponse.success(dto);
-    }
-
-    @PostMapping("/purge-demo-seed")
-    public ApiResponse<Map<String, Object>> purgeDemoSeed() {
-        Map<String, Object> result = schemaInitializer.executeFullCascadePurge();
-        return ApiResponse.success(result);
     }
 }

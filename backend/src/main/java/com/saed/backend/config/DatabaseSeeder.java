@@ -4,18 +4,18 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 /**
- * Idempotent Database Seeder.
- * Executes on application startup in non-production environments to ensure that core catalog data,
- * default admin roles, and seed users exist with valid BCrypt passwords.
+ * Optional non-production demo catalogs. Disabled by default.
+ * Does not provision privileged users or modify security policies.
  */
 @Component
 @Profile("!prod")
+@ConditionalOnProperty(name = "saed.database.demo-seeding.enabled", havingValue = "true", matchIfMissing = false)
 public class DatabaseSeeder implements ApplicationRunner {
 
     private static final Logger log = LoggerFactory.getLogger(DatabaseSeeder.class);
@@ -30,7 +30,7 @@ public class DatabaseSeeder implements ApplicationRunner {
         try {
             jdbcTemplate.execute("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1); PKG_SAED_SESSION.SET_CONTEXT(1, 1, 1, 'SUPERADMIN'); " + sql + "; END;");
         } catch (Exception e) {
-            log.debug("Seeder notice for SQL [{}]: {}", sql, e.getMessage());
+            log.debug("Demo catalog operation failed; review the isolated database setup.");
         }
     }
 
@@ -49,13 +49,6 @@ public class DatabaseSeeder implements ApplicationRunner {
                     alreadySeeded = true;
                 }
             } catch (Exception ignored) {}
-
-            BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
-            String hashAdminGlobal = encoder.encode("admin123");
-            String hashGeneral = encoder.encode("admin123");
-
-            // Garantizar que la cuenta de superadmin siempre tenga credenciales activas válidas
-            runSqlSafe("UPDATE USUARIOS SET HASH_PASSWORD = '" + hashAdminGlobal + "', INTENTOS_FALLIDOS = 0, ESTADO = 'ACTIVO' WHERE LOWER(NOMBRE_USUARIO) = 'admin_global'");
 
             if (!alreadySeeded) {
 
@@ -112,61 +105,6 @@ public class DatabaseSeeder implements ApplicationRunner {
             runSqlSafe("INSERT INTO PROPIEDADES (ID_PROPIEDAD, ID_ORGANIZACION, ID_TIPO_PROPIEDAD, NOMBRE, DIRECCION, CIUDAD, PAIS, TIPO_OCUPACION_PREDOMINANTE, ESTADO) " +
                    "SELECT 141, 201, 2, 'Amparo', 'Calle 16 # 9-30', 'Valledupar', 'Colombia', 'PROPIETARIOS', 'ACTIVA' FROM DUAL " +
                    "WHERE NOT EXISTS (SELECT 1 FROM PROPIEDADES WHERE ID_PROPIEDAD = 141)");
-
-            // 8. PERSONAS (admin_global)
-            runSqlSafe("INSERT INTO PERSONAS (ID_PERSONA, ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, PRIMER_NOMBRE, PRIMER_APELLIDO, EMAIL) " +
-                   "SELECT 1, 1, '1000000001', 'NATURAL', 'Super', 'Admin', 'admin_global@saed.com' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM PERSONAS WHERE ID_PERSONA = 1)");
-            runSqlSafe("UPDATE PERSONAS SET EMAIL = 'admin_global@saed.com' WHERE ID_PERSONA = 1");
-
-            // 9. USUARIOS (admin_global -> admin_global123)
-            runSqlSafe("INSERT INTO USUARIOS (ID_PERSONA, NOMBRE_USUARIO, EMAIL, HASH_PASSWORD, ESTADO, INTENTOS_FALLIDOS) " +
-                   "SELECT 1, 'admin_global', 'admin_global@saed.com', '" + hashAdminGlobal + "', 'ACTIVO', 0 FROM DUAL " +
-                   "WHERE NOT EXISTS (SELECT 1 FROM USUARIOS WHERE LOWER(NOMBRE_USUARIO) = 'admin_global')");
-
-            // 10. ADMINISTRADORES_SAED
-            runSqlSafe("INSERT INTO ADMINISTRADORES_SAED (ID_ADMINISTRADOR_SAED, ID_USUARIO, NIVEL, ESTADO) " +
-                   "SELECT 1, (SELECT ID_USUARIO FROM USUARIOS WHERE LOWER(NOMBRE_USUARIO) = 'admin_global'), 'SUPERADMIN', 'ACTIVO' FROM DUAL " +
-                   "WHERE NOT EXISTS (SELECT 1 FROM ADMINISTRADORES_SAED WHERE ID_USUARIO = (SELECT ID_USUARIO FROM USUARIOS WHERE LOWER(NOMBRE_USUARIO) = 'admin_global'))");
-
-            // 11. USUARIO_ASIGNACIONES
-            // admin_global -> SUPERADMIN
-            runSqlSafe("INSERT INTO USUARIO_ASIGNACIONES (ID_USUARIO, ID_ROL, ESTADO, FECHA_INICIO) " +
-                   "SELECT u.ID_USUARIO, r.ID_ROL, 'ACTIVA', TRUNC(SYSDATE) FROM USUARIOS u, ROLES r " +
-                   "WHERE LOWER(u.NOMBRE_USUARIO) = 'admin_global' AND r.CODIGO = 'SUPERADMIN' " +
-                   "AND NOT EXISTS (SELECT 1 FROM USUARIO_ASIGNACIONES ua WHERE ua.ID_USUARIO = u.ID_USUARIO AND ua.ID_ROL = r.ID_ROL AND ua.ESTADO = 'ACTIVA')");
-
-            // 12. Fix RLS en VERSIONES_DOCUMENTO (remover politica con ORA-00904 en tabla sin ID_PROPIEDAD)
-            try {
-                jdbcTemplate.execute("BEGIN DBMS_RLS.DROP_POLICY(NULL, 'VERSIONES_DOCUMENTO', 'POL_RLS_PROP_VERSIONES_DOCUM'); EXCEPTION WHEN OTHERS THEN NULL; END;");
-                log.info("Verificada/eliminada política RLS conflictiva POL_RLS_PROP_VERSIONES_DOCUM de VERSIONES_DOCUMENTO");
-            } catch (Exception e) {
-                log.debug("Aviso al verificar RLS en VERSIONES_DOCUMENTO: {}", e.getMessage());
-            }
-
-            // 13. Fix RLS en VISITANTES (update_check=FALSE para permitir INSERT sin violar ORA-28115)
-            // Se usan dos llamadas simples (sin DECLARE) porque Oracle JDBC rechaza bloques
-            // PL/SQL anónimos con USER como argumento de schema en algunos contextos ATP.
-            try {
-                jdbcTemplate.execute("BEGIN DBMS_RLS.DROP_POLICY(NULL, 'VISITANTES', 'POL_RLS_PROP_VISITANTES'); EXCEPTION WHEN OTHERS THEN NULL; END;");
-                jdbcTemplate.execute("BEGIN " +
-                    "DBMS_RLS.ADD_POLICY(NULL, 'VISITANTES', 'POL_RLS_PROP_VISITANTES', NULL, " +
-                    "'PKG_SAED_SECURITY_RLS.FN_FILTRO_PROPIEDAD', 'SELECT,UPDATE,DELETE', FALSE, TRUE); " +
-                    "EXCEPTION WHEN OTHERS THEN NULL; END;");
-                log.info("Ajustada política RLS POL_RLS_PROP_VISITANTES en VISITANTES (SELECT,UPDATE,DELETE)");
-            } catch (Exception e) {
-                log.debug("Aviso al ajustar RLS en VISITANTES: {}", e.getMessage());
-            }
-
-            // 14. Fix RLS en tablas hijas de ASAMBLEAS y AUTOMATIZACIONES que no tienen columna ID_PROPIEDAD
-            String[] asambleaChildTables = {"ASISTENCIAS_ASAMBLEA", "PODERES_REPRESENTACION", "VOTACIONES", "VOTOS", "ACTAS_ASAMBLEA", "ACCIONES_AUTOMATIZACION", "EJECUCIONES_AUTOMATIZACION"};
-            String[] asambleaChildPolicies = {"POL_RLS_PROP_ASISTENCIAS_ASA", "POL_RLS_PROP_PODERES_REPRESE", "POL_RLS_PROP_VOTACIONES", "POL_RLS_PROP_VOTOS", "POL_RLS_PROP_ACTAS_ASAMBLEA", "POL_RLS_PROP_ACCIONES_AUTOMA", "POL_RLS_PROP_EJECUCIONES_AUT"};
-            for (int i = 0; i < asambleaChildTables.length; i++) {
-                try {
-                    jdbcTemplate.execute("BEGIN DBMS_RLS.DROP_POLICY(NULL, '" + asambleaChildTables[i] + "', '" + asambleaChildPolicies[i] + "'); EXCEPTION WHEN OTHERS THEN NULL; END;");
-                } catch (Exception e) {
-                    log.debug("Aviso al verificar RLS en {}: {}", asambleaChildTables[i], e.getMessage());
-                }
-            }
 
             // 15. Seed inicial de CONTACTOS_EMERGENCIA y PLANES_EMERGENCIA para propiedad 140 (Algarrobillos)
             runSqlSafe("INSERT INTO CONTACTOS_EMERGENCIA (ID_PROPIEDAD, ENTIDAD, TIPO_SERVICIO, TELEFONO_PRINCIPAL, TELEFONO_ALTERNO, DIRECCION, ES_PRIORITARIO_MINUTA, ORDEN_VISUALIZACION) " +
