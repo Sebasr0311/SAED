@@ -246,3 +246,27 @@ Read-only diagnosis: `REPORTES_CONFIGURADOS` has only its baseline catalog colum
 **F01-01 / F11-01 correction:** new idempotent migration `V5.31__reportes_configurados_tenant_scope.sql` versions those columns, FKs, indexes and templates, avoiding non-constant ADD defaults, MERGE on a VPD table and non-equivalent index errors. The startup initializer remains for now (it becomes a no-op where V5.31 ran); removing startup DDL is still open F01-01 work. The harness now includes V5.31 after V5.29 (V5.30 purge stays excluded); a new test caught that the applier's `1[0-2][0-9]` stage pattern would have silently dropped stage 131. Harness suite: 92 OK.
 
 **F02 finding (not fixed):** after V5.28 the `PERSONAS` table has no RLS policy at all (V5.28 drops `POL_RLS_ORG_PERSONAS`). PERSONAS isolation therefore depends only on application SQL. Requires a decision and a policy that does not reintroduce ORA-28112 recursion.
+
+## 2026-10-09 recovery-08: first complete isolated installation
+
+`saed-isolated-dd91f7a3ae0e` stopped and preserved; fresh target `e152c909c245ae9cb4a137eb774d2865104a1fbe8761a8e000f8fa9d087f4e1c`, name `saed-isolated-ead8c961bc76`, run `ead8c961bc7623b8fb7bd932667a0f82`, same guards. `prepare --state recovery-08` produced 38 artifacts.
+
+Single apply: `ISOLATED INSTALLATION COMPLETE: catalog counts recorded; application/RLS tests still pending`, exit 0, execution state `complete`, 44/44 stages including `catalog`, `seal` and `sealed-catalog`.
+
+Read-only snapshot (SYSDBA catalog, counts and names only):
+
+| Check | Result |
+|---|---|
+| Owner objects / invalid | 631 / 0 |
+| Owner tables | 102 |
+| Enabled RLS policies | 94 |
+| Runtime system privileges | `CREATE SESSION` only |
+| Accounts | CONTROL, OWNER, SEC_MASTER `LOCKED`; RUNTIME `OPEN` |
+| System report templates (V5.31) | 4 |
+| Tables without any RLS policy | 12 |
+
+Tables without a policy: global catalogs `MODULOS`, `PLANES`, `PLAN_MODULOS`, `PLATAFORMA_CONFIGURACION`, `TIPOS_DOCUMENTO`, `TIPOS_PROPIEDAD`, `TIPOS_UNIDAD` (expected to be shared), and tenant-relevant `PERSONAS`, `PORTERIA_TURNOS`, `GASTOS_SOPORTES_HISTORIAL`, `EVENTOS_SISTEMA`, `TOKENS_ACTIVACION`. The tenant-relevant five need an explicit F02 decision (policy, definer-only access, or documented application-level scoping).
+
+This proves that the versioned chain V5.0 + V5.1–V5.29 + V5.31 (with the recorded harness normalizations) installs on Oracle 18 XE under a non-exempt owner with RLS active and least-privilege runtime sealing. It does not yet prove application startup against this schema, six-profile HTTP/RLS isolation, pooled-connection context safety, two-start preservation or restore. The container is left running for those next steps.
+
+Normalizations that reflect real migration defects (F01 backlog): V5.20 non-constant default under VPD; V5.23 redundant TSTZ index; V5.31 now versions previously startup-only report schema. Normalizations that are harness-only: fixture ordering before V5.9/V5.10 constraint extensions, SYS fixture loading, dependency recompilation.
