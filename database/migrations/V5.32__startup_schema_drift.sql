@@ -174,8 +174,10 @@ END;
 
 -- 6. RLS policies registered at startup (same group, function, statement types and flags).
 --    Object and function schema are NULL, i.e. the current owner.
---    HISTORIAL_REPORTES keeps the baseline POL_RLS_PROP_HISTORIAL_REPOR as well; both evaluate the
---    same FN_FILTRO_PROPIEDAD predicate, exactly as in a startup-maintained schema.
+--    Startup also tries POL_RLS_PROP_HISTORIAL_REPORTES, but that name has 31 characters and
+--    DBMS_RLS rejects it (ORA-28104, verified on the isolated install); it would only duplicate the
+--    baseline POL_RLS_PROP_HISTORIAL_REPOR, which already applies FN_FILTRO_PROPIEDAD to all
+--    statement types. It is therefore not registered here.
 DECLARE
     PROCEDURE add_policy(p_table IN VARCHAR2, p_policy IN VARCHAR2, p_function IN VARCHAR2, p_statements IN VARCHAR2) IS
         v_count NUMBER;
@@ -200,7 +202,6 @@ DECLARE
         END IF;
     END;
 BEGIN
-    add_policy('HISTORIAL_REPORTES', 'POL_RLS_PROP_HISTORIAL_REPORTES', 'PKG_SAED_SECURITY_RLS.FN_FILTRO_PROPIEDAD', 'SELECT,INSERT');
     add_policy('PORTERIA_TURNOS', 'POL_RLS_PROP_PORT_TURNOS', 'PKG_SAED_SECURITY_RLS.FN_FILTRO_PROPIEDAD', 'SELECT,INSERT,UPDATE,DELETE');
 END;
 /

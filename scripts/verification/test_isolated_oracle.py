@@ -284,9 +284,13 @@ class SourcePreparationTest(unittest.TestCase):
             "add_column('BLOQUEOS_ZONA', 'ID_MANTENIMIENTO'": "USER_TAB_COLS",
             "add_index('IX_BLOQUEO_MANT'": "USER_INDEXES",
             "add_index('IX_BLOQUEO_PROP'": "USER_INDEXES",
-            "add_policy('HISTORIAL_REPORTES', 'POL_RLS_PROP_HISTORIAL_REPORTES'": "USER_POLICIES",
             "add_policy('PORTERIA_TURNOS', 'POL_RLS_PROP_PORT_TURNOS'": "USER_POLICIES",
         }
+        # recovery-09: DBMS_RLS rejects policy names over 30 characters (ORA-28104); the 31-character
+        # POL_RLS_PROP_HISTORIAL_REPORTES duplicated the baseline POL_RLS_PROP_HISTORIAL_REPOR anyway.
+        for name in re.findall(r"add_policy\('[A-Z_]+',\s*'([A-Z0-9_]+)'", v532):
+            self.assertLessEqual(len(name), 30, name)
+        self.assertNotIn("add_policy('HISTORIAL_REPORTES'", v532)
         for creation, view in guarded.items():
             with self.subTest(object=creation):
                 owners = [block for block in blocks if creation in block]
