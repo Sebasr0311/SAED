@@ -222,3 +222,15 @@ Correction (TDD): V5.20 normalization adds the column metadata-only and then set
 **F01 finding:** V5.20 as written cannot be applied by a non-exempt owner while VPD is active. How it was applied to existing environments is unknown; any future versioned migration runner must avoid non-constant defaults on policy-protected tables or run that step under a controlled exemption.
 
 Next, requiring new explicit user authorization: stop and preserve `saed-isolated-12eff4408903`, one fresh owned target, read-only reconciliation and rebind, then one guarded `recovery-06` prepare/check/apply.
+
+## 2026-10-09 recovery-06 result (user-authorized single attempt)
+
+With explicit user authorization: `saed-isolated-12eff4408903` stopped and preserved; fresh target `656656d105ff0bcc6c66b320d3b4297a15580ec8df2541b590ec58b1615ac9c9`, name `saed-isolated-8a4404142db4`, run `8a4404142db48006eb9c19c5fbe06ae4`, same digest, zero mounts, sole binding `127.0.0.1:11521`, restart `no`, 4 GiB, 2 CPUs, random SYS password. Reconciliation, rebind, `check-container`, `prepare --state recovery-06` and `check-prepared` passed.
+
+Single apply: `BLOCKED: SQL stage failed: ORA-01408, ORA-06512`. Completed 31 of 37 stages, through V5.22 (the V5.20 metadata-only correction is effective). Failing stage: `123-V5.23__asambleas_governance_pipeline.sql`. Preserved; no retry or reset.
+
+Read-only diagnosis (index catalog): every V5.23 index exists except `IX_ASAMBLEAS_FECHA (ID_PROPIEDAD, FECHA_HORA_PRIMERA_CONV)`. The baseline already has `IX_ASAMBLEAS_PROP (ID_PROPIEDAD, SYS_EXTRACT_UTC(FECHA_HORA_PRIMERA_CONV))`; Oracle indexes `TIMESTAMP WITH TIME ZONE` keys through `SYS_EXTRACT_UTC`, so the new index has an identical column list and fails with ORA-01408. V5.23 checks existence by index name only.
+
+**F01 finding:** V5.23 fails on any fresh install from the V5.0 baseline; the requested index is redundant with the baseline index.
+
+Correction (TDD): the V5.23 normalization wraps only that statement and tolerates only SQLCODE -1408; every other error re-raises (no `WHEN OTHERS THEN NULL`). RED 91/1, GREEN 91 OK. Remaining V5.24–V5.26 indexes target columns that the baseline does not index.

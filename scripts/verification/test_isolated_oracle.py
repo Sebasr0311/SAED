@@ -245,6 +245,18 @@ class SourcePreparationTest(unittest.TestCase):
         self.assertIn("ALTER TABLE OBRA_TRABAJADORES MODIFY (FECHA_AUTORIZACION DEFAULT CURRENT_TIMESTAMP)", v520)
         self.assertTrue(any("V5.20" in item for item in transformations))
 
+    def test_v523_tolerates_only_equivalent_existing_index_for_assembly_date(self):
+        # recovery-06: TSTZ columns are indexed as SYS_EXTRACT_UTC, so the baseline IX_ASAMBLEAS_PROP already
+        # covers (ID_PROPIEDAD, FECHA_HORA_PRIMERA_CONV) and the name-only existence check let ORA-01408 through.
+        parts, _, transformations = harness.extract_sources()
+        v523 = parts["123-V5.23__asambleas_governance_pipeline.sql"]
+        create = "EXECUTE IMMEDIATE 'CREATE INDEX IX_ASAMBLEAS_FECHA ON ASAMBLEAS (ID_PROPIEDAD, FECHA_HORA_PRIMERA_CONV)';"
+        self.assertEqual(v523.count(create), 1)
+        guarded = v523[v523.index(create):v523.index(create) + 200]
+        self.assertIn("EXCEPTION WHEN OTHERS THEN IF SQLCODE != -1408 THEN RAISE; END IF;", guarded)
+        self.assertNotIn("WHEN OTHERS THEN NULL", guarded)
+        self.assertTrue(any("V5.23" in item for item in transformations))
+
     def test_structure_allows_every_fixture_resident_type(self):
         # Stage 030 runs before V5.9 extends CK_RESIDUNIDAD_TIPO; recovery-03 failed with ORA-02290 on CONVIVIENTE.
         parts, _, _ = harness.extract_sources()

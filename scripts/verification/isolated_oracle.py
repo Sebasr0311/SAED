@@ -129,6 +129,13 @@ def extract_sources() -> tuple[dict[str, str], list[dict], list[str]]:
                 "EXECUTE IMMEDIATE 'ALTER TABLE OBRA_TRABAJADORES ADD (FECHA_AUTORIZACION TIMESTAMP(6) WITH TIME ZONE)';\n"
                 "        EXECUTE IMMEDIATE 'ALTER TABLE OBRA_TRABAJADORES MODIFY (FECHA_AUTORIZACION DEFAULT CURRENT_TIMESTAMP)';",
                 "non-constant default under active VPD")
+        if version == 23:
+            # TIMESTAMP WITH TIME ZONE keys are indexed as SYS_EXTRACT_UTC(...); the baseline IX_ASAMBLEAS_PROP is
+            # already equivalent, so only ORA-01408 (column list already indexed) is tolerated here.
+            create = "EXECUTE IMMEDIATE 'CREATE INDEX IX_ASAMBLEAS_FECHA ON ASAMBLEAS (ID_PROPIEDAD, FECHA_HORA_PRIMERA_CONV)';"
+            source = replace_once(source, create,
+                "BEGIN " + create + " EXCEPTION WHEN OTHERS THEN IF SQLCODE != -1408 THEN RAISE; END IF; END;",
+                "equivalent assembly date index")
         parts[f"{100 + version:03}-{path.name}"] = source
     if versions != set(range(1, 30)):
         raise ValueError("Migration chain V5.1 through V5.29 is incomplete")
@@ -139,7 +146,7 @@ def extract_sources() -> tuple[dict[str, str], list[dict], list[str]]:
         if re.search(r"(?i)MERGE\s+INTO\s+(USUARIOS|PERSONAS|ORGANIZACIONES|PROPIEDADES|ADMINISTRADORES_SAED|USUARIO_ASIGNACIONES)\b", content):
             raise ValueError("Production identity seed in " + name)
         parts[name] = content
-    transformations = ["Exclude baseline security-user deletion, fixed credentials and original identity bootstrap.", "Complete the single dangling TRG_HISTREP_INMUTABLE ALTER with COMPILE.", "Allow RESIDENTE_CONVIVENCIA before V5.10 inserts it.", "Allow CONVIVIENTE resident type before V5.9 extends CK_RESIDUNIDAD_TIPO.","Run authentication grants as owner; synonyms/package as security owner without ANY grants.", "Authentication synonyms reference the isolated owner explicitly.", "V5.3 uses current isolated owner instead of SAED_APP.", "V5.20 adds FECHA_AUTORIZACION metadata-only, then sets its CURRENT_TIMESTAMP default (avoids VPD-blocked full-table rewrite).","Remove imported SQLPlus SET/EXIT; exclude V5.30, V3/V4 and rollback files."]
+    transformations = ["Exclude baseline security-user deletion, fixed credentials and original identity bootstrap.", "Complete the single dangling TRG_HISTREP_INMUTABLE ALTER with COMPILE.", "Allow RESIDENTE_CONVIVENCIA before V5.10 inserts it.", "Allow CONVIVIENTE resident type before V5.9 extends CK_RESIDUNIDAD_TIPO.","Run authentication grants as owner; synonyms/package as security owner without ANY grants.", "Authentication synonyms reference the isolated owner explicitly.", "V5.3 uses current isolated owner instead of SAED_APP.", "V5.20 adds FECHA_AUTORIZACION metadata-only, then sets its CURRENT_TIMESTAMP default (avoids VPD-blocked full-table rewrite).", "V5.23 tolerates only ORA-01408 for IX_ASAMBLEAS_FECHA (baseline IX_ASAMBLEAS_PROP is equivalent).","Remove imported SQLPlus SET/EXIT; exclude V5.30, V3/V4 and rollback files."]
     return parts, sources, transformations
 
 
