@@ -91,6 +91,7 @@ def extract_sources() -> tuple[dict[str, str], list[dict], list[str]]:
     structure = section(baseline, "-- 2. TABLAS DEL SISTEMA", "-- 4. SEMILLAS MAESTRAS DE CONFIGURACION, CATALOGOS E IDENTIDAD")
     structure = replace_once(structure, 'ALTER TRIGGER "TRG_HISTREP_INMUTABLE" \n\n-- Constraints', 'ALTER TRIGGER "TRG_HISTREP_INMUTABLE" COMPILE;\n\n-- Constraints', "unfinished trigger compile")
     structure = replace_once(structure, "'PORTERO','VIGILANTE','RESIDENTE','PROPIETARIO_UNIDAD'", "'PORTERO','VIGILANTE','RESIDENTE','RESIDENTE_CONVIVENCIA','PROPIETARIO_UNIDAD'", "conviviente role constraint")
+    structure = replace_once(structure, "('PROPIETARIO','ARRENDATARIO','FAMILIAR','OTRO')", "('PROPIETARIO','ARRENDATARIO','FAMILIAR','CONVIVIENTE','OTRO')", "conviviente resident type constraint")
     catalogs = section(baseline, "-- 4.1 TIPOS_DOCUMENTO", "-- 4.5 BOOTSTRAP DE IDENTIDAD INICIAL")
     policies = section(baseline, "-- 7. REGISTRO DECLARATIVO DE LAS 90 POLITICAS RLS", "-- 8. PAQUETE DE AUTENTICACION MAESTRO")
     auth_heading = re.search(r"(?m)^-- 8\. PAQUETE DE AUTENTICACION MAESTRO[^\n]*\n", baseline)
@@ -130,7 +131,7 @@ def extract_sources() -> tuple[dict[str, str], list[dict], list[str]]:
         if re.search(r"(?i)MERGE\s+INTO\s+(USUARIOS|PERSONAS|ORGANIZACIONES|PROPIEDADES|ADMINISTRADORES_SAED|USUARIO_ASIGNACIONES)\b", content):
             raise ValueError("Production identity seed in " + name)
         parts[name] = content
-    transformations = ["Exclude baseline security-user deletion, fixed credentials and original identity bootstrap.", "Complete the single dangling TRG_HISTREP_INMUTABLE ALTER with COMPILE.", "Allow RESIDENTE_CONVIVENCIA before V5.10 inserts it.", "Run authentication grants as owner; synonyms/package as security owner without ANY grants.", "Authentication synonyms reference the isolated owner explicitly.", "V5.3 uses current isolated owner instead of SAED_APP.", "Remove imported SQLPlus SET/EXIT; exclude V5.30, V3/V4 and rollback files."]
+    transformations = ["Exclude baseline security-user deletion, fixed credentials and original identity bootstrap.", "Complete the single dangling TRG_HISTREP_INMUTABLE ALTER with COMPILE.", "Allow RESIDENTE_CONVIVENCIA before V5.10 inserts it.", "Allow CONVIVIENTE resident type before V5.9 extends CK_RESIDUNIDAD_TIPO.","Run authentication grants as owner; synonyms/package as security owner without ANY grants.", "Authentication synonyms reference the isolated owner explicitly.", "V5.3 uses current isolated owner instead of SAED_APP.", "Remove imported SQLPlus SET/EXIT; exclude V5.30, V3/V4 and rollback files."]
     return parts, sources, transformations
 
 

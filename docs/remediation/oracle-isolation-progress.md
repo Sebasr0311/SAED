@@ -184,3 +184,15 @@ Stage 031 review: it inserts into `USUARIO_ASIGNACIONES` as OWNER without busine
 Full suite outside the sandbox: 86 tests, OK (the 33 Codex-reported errors were sandbox temp-directory permissions). Source SHA-256: applier `8b3af592f5cd60796cbe44833166b14a2847292f989e17346c49413a77220eae`; executor tests `18aea80b23bd10eb52648882c0a20bc2a9edc89b0cc1fb3420ba96de136510ac`.
 
 Next, requiring explicit user approval: `isolated_oracle.py prepare --state recovery-03`, ACL protection/readback, `check`, then one `apply_isolated_oracle.py apply --state recovery-03 --container-id 461d56bc26721beba86b3cd05044ddb03e9824812fa619e3f5bad83797ad1b67 --run-id 3eba1726566eee334c7fa17135877e54`. Preserve any failure; no retry or reset.
+
+## 2026-10-09 recovery-03 result (user-authorized single attempt)
+
+With explicit user authorization, the coordinator ran `check-container` (pass), `prepare --state recovery-03` (37 artifacts, 2 organizations, 11 users, ACL protection), `check-prepared` (pass) and one `apply` against `461d56bc…ad1b67` / run `3eba1726…7e54`. Result: `BLOCKED: SQL stage failed: ORA-02290`. Execution state: `blocked`, completed `bootstrap`, `010-structure.sql`, `020-catalogs.sql`. State, lock and artifacts are preserved; no retry or reset occurred. The target is no longer fresh and must not receive another apply.
+
+Progress versus recovery-02: stage 030 now runs past the grouped-RLS denial (ORA-28115 did not recur), so the SYS + asserted owner-schema correction is effective for the earlier inserts.
+
+Root cause (source analysis, no database query): the V5.0 baseline defines `CK_RESIDUNIDAD_TIPO` as `('PROPIETARIO','ARRENDATARIO','FAMILIAR','OTRO')`; `CONVIVIENTE` is added only by V5.9, which runs after stage 030. The fixture inserts the conviviente resident with `TIPO_RESIDENTE='CONVIVIENTE'`, the value the application uses (`AssignmentRepositoryImpl`, `FinanzasRepositoryImpl`). The exact failing statement is inferred, not read from Oracle output.
+
+Correction: a structure normalization extends the extracted baseline constraint exactly as V5.9 does (V5.9 drops and re-adds it, so it stays compatible), and is recorded in the manifest transformations. New test `test_structure_allows_every_fixture_resident_type` checks that every resident type the fixture inserts is allowed by the extracted constraint: RED 87 tests / 1 failure reproducing the exact value set, then GREEN 87 / OK.
+
+Next, requiring new explicit user authorization: one fresh owned container (same immutable image, loopback 11521, no mounts), read-only reconciliation and rebind, then one guarded `recovery-04` prepare/check/apply.

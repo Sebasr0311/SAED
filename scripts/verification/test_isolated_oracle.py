@@ -234,6 +234,18 @@ class SourcePreparationTest(unittest.TestCase):
         self.assertIn('ALTER TRIGGER "TRG_HISTREP_INMUTABLE" COMPILE;', parts["010-structure.sql"])
         self.assertIn("'RESIDENTE_CONVIVENCIA'", parts["010-structure.sql"])
 
+    def test_structure_allows_every_fixture_resident_type(self):
+        # Stage 030 runs before V5.9 extends CK_RESIDUNIDAD_TIPO; recovery-03 failed with ORA-02290 on CONVIVIENTE.
+        parts, _, _ = harness.extract_sources()
+        check = re.search(r'"CK_RESIDUNIDAD_TIPO" CHECK \(tipo_residente IN\s*\(([^)]*)\)\)', parts["010-structure.sql"])
+        self.assertIsNotNone(check)
+        allowed = set(re.findall(r"'([A-Z_]+)'", check.group(1)))
+        accounts = harness.fixture_accounts()
+        fixture = harness.fixture_sql(accounts, ["$2b$12$" + "a" * 53] * len(accounts))
+        used = set(re.findall(r"INSERT INTO RESIDENTES_UNIDAD \([^)]*\) VALUES \([^,]+,[^,]+,[^,]+,'([A-Z_]+)'", fixture))
+        self.assertTrue(used)
+        self.assertLessEqual(used, allowed)
+
     def test_authentication_synonyms_use_explicit_owner(self):
         parts, _, _ = harness.extract_sources()
         synonyms = parts["050-auth-synonyms.sql"]
