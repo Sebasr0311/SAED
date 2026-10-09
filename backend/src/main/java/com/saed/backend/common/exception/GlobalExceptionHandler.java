@@ -71,10 +71,10 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * Server-side diagnostic for database failures: exception types and Oracle vendor codes only.
+     * Server-side diagnostic for unexpected failures: exception types and Oracle vendor codes only.
      * Never logs exception messages, SQL text, bound values or stack traces.
      */
-    private void logDatabaseDiagnostic(Throwable failure) {
+    private void logFailureDiagnostic(Throwable failure) {
         StringBuilder types = new StringBuilder();
         StringBuilder vendorCodes = new StringBuilder();
         Set<Throwable> visited = Collections.newSetFromMap(new IdentityHashMap<>());
@@ -93,7 +93,7 @@ public class GlobalExceptionHandler {
             }
             current = current.getCause();
         }
-        log.error("Database failure diagnostic: traceId={} types={} vendorCodes={}",
+        log.error("Failure diagnostic: traceId={} types={} vendorCodes={}",
                 CorrelationIdHolder.get(), types, vendorCodes.length() > 0 ? vendorCodes : "none");
     }
 
@@ -149,7 +149,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(DataAccessException.class)
     public ResponseEntity<Map<String, Object>> handleDatabaseException(DataAccessException ex) {
-        logDatabaseDiagnostic(ex);
+        logFailureDiagnostic(ex);
         // A broken policy must fail closed: do not query, repair or weaken database security.
         if (requiresFailClosedResponse(ex)) {
             Map<String, Object> response = createLoggedErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, "DATABASE_ERROR",
@@ -823,6 +823,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleGenericException(Exception ex) {
+        logFailureDiagnostic(ex);
         Map<String, Object> response = createLoggedErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_SERVER_ERROR",
                 "Error interno del servidor");
         return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);

@@ -206,6 +206,26 @@ class ExceptionSafetyTest {
         }
     }
 
+    @Test
+    void unexpectedFailureLogsExceptionTypesWithoutRawDetails() {
+        Logger logger = (Logger) LoggerFactory.getLogger(GlobalExceptionHandler.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        try {
+            CorrelationIdHolder.set("generic-trace");
+            handler.handleGenericException(new IllegalStateException(SENSITIVE_MARKER, new NullPointerException(SENSITIVE_MARKER)));
+            String logged = appender.list.stream().map(ILoggingEvent::getFormattedMessage).reduce("", (a, b) -> a + "\n" + b);
+            assertTrue(logged.contains("IllegalStateException>NullPointerException"), "exception types must be logged: " + logged);
+            assertTrue(logged.contains("generic-trace"), logged);
+            assertFalse(logged.contains(SENSITIVE_MARKER), "raw messages must not be logged");
+            appender.list.forEach(event -> assertNull(event.getThrowableProxy()));
+        } finally {
+            logger.detachAppender(appender);
+            appender.stop();
+        }
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"ORA-00001", "ORA-02292"})
     void conflictResponsesKeepExistingStatusAndNeverLeakRawErrors(String oracleError) {
