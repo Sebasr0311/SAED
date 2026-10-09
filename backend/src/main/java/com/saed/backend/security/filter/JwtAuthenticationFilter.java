@@ -14,8 +14,11 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
@@ -35,14 +38,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final Logger log = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
 
     private final JwtProvider jwtProvider;
-    private final org.springframework.beans.factory.ObjectProvider<AssignmentService> assignmentServiceProvider;
-    private final org.springframework.beans.factory.ObjectProvider<AuthRepository> authRepositoryProvider;
+    private final ObjectProvider<AssignmentService> assignmentServiceProvider;
+    private final ObjectProvider<AuthRepository> authRepositoryProvider;
     private final ObjectMapper objectMapper;
 
-    public JwtAuthenticationFilter(JwtProvider jwtProvider,
-                                   ObjectMapper objectMapper,
-                                   org.springframework.beans.factory.ObjectProvider<AssignmentService> assignmentServiceProvider,
-                                   org.springframework.beans.factory.ObjectProvider<AuthRepository> authRepositoryProvider) {
+    public JwtAuthenticationFilter(JwtProvider jwtProvider, ObjectMapper objectMapper,
+                                   ObjectProvider<AssignmentService> assignmentServiceProvider,
+                                   ObjectProvider<AuthRepository> authRepositoryProvider) {
         this.jwtProvider = jwtProvider;
         this.assignmentServiceProvider = assignmentServiceProvider;
         this.authRepositoryProvider = authRepositoryProvider;
@@ -53,65 +55,77 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
         try {
-            Long userId = null;
-            boolean isMockAuth = false;
+            try {
+                Long userId = null;
+                boolean isMockAuth = false;
+                Authentication inheritedAuth = SecurityContextHolder.getContext().getAuthentication();
+                if (inheritedAuth == null || !inheritedAuth.isAuthenticated()
+                        || inheritedAuth instanceof AnonymousAuthenticationToken) {
+                    SaedContextHolder.clearContext();
+                }
 
-            String jwt = parseJwt(request);
-            if (jwt != null && jwtProvider.validateToken(jwt)) {
-                userId = jwtProvider.getUserIdFromToken(jwt);
-            } else {
-                org.springframework.security.core.Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-                if (auth != null && auth.isAuthenticated() && !(auth instanceof org.springframework.security.authentication.AnonymousAuthenticationToken)) {
+                String jwt = parseJwt(request);
+                if (jwt != null && jwtProvider.validateToken(jwt)) {
+                    userId = jwtProvider.getUserIdFromToken(jwt);
+                    SaedContextHolder.clearContext();
+                    SecurityContextHolder.clearContext();
+                } else if (inheritedAuth != null && inheritedAuth.isAuthenticated()
+                        && !(inheritedAuth instanceof AnonymousAuthenticationToken)) {
                     try {
-                        userId = Long.parseLong(auth.getName());
+                        userId = Long.parseLong(inheritedAuth.getName());
                         isMockAuth = true;
-                    } catch (Exception ignored) {
-                        if (auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().contains("SUPERADMIN"))) {
+                    } catch (NumberFormatException ignored) {
+                        if (inheritedAuth.getAuthorities().stream().anyMatch(a -> a.getAuthority().contains("SUPERADMIN"))) {
                             userId = 1L;
                             isMockAuth = true;
-                        } else if (SaedContextHolder.getContext() != null && SaedContextHolder.getContext().getUserId() != null) {
+                        } else if (SaedContextHolder.getContext() != null
+                                && SaedContextHolder.getContext().getUserId() != null) {
                             userId = SaedContextHolder.getContext().getUserId();
                             isMockAuth = true;
                         }
                     }
                 }
-            }
 
-            if (userId != null) {
-                String requestPath = request.getRequestURI();
-                boolean isContextDiscovery = requestPath != null && (requestPath.endsWith("/me/contexts") || requestPath.endsWith("/auth/assignments"));
-
-                String assignmentHeader = request.getHeader("X-Assignment-Id");
-                SaedContext saedContext = null;
-
-                if (isContextDiscovery) {
-                    saedContext = SaedContext.builder().userId(userId).build();
-                } else if (StringUtils.hasText(assignmentHeader)) {
-                    SaedContextHolder.setContext(SaedContext.builder().userId(userId).build());
-                    AssignmentService assignmentService = assignmentServiceProvider.getIfAvailable();
-
-                    Long assignmentId;
-                    try {
-                        assignmentId = Long.parseLong(assignmentHeader);
-                    } catch (NumberFormatException e) {
-                        sendJsonError(response, HttpStatus.BAD_REQUEST, "Invalid X-Assignment-Id format");
-                        return;
-                    }
-
-                    if (assignmentService != null) {
+                if (userId != null) {
+                    String requestPath = request.getRequestURI();
+                    boolean isContextDiscovery = requestPath != null
+                            && (requestPath.endsWith("/me/contexts") || requestPath.endsWith("/auth/assignments"));
+                    String assignmentHeader = request.getHeader("X-Assignment-Id");
+                    SaedContext saedContext;
+                    if (isContextDiscovery) {
+                        saedContext = SaedContext.builder().userId(userId).build();
+                    } else if (StringUtils.hasText(assignmentHeader)) {
+                        Long assignmentId;
+                        try {
+                            assignmentId = Long.parseLong(assignmentHeader);
+                        } catch (NumberFormatException e) {
+                            sendJsonError(response, HttpStatus.BAD_REQUEST, "Invalid X-Assignment-Id format");
+                            return;
+                        }
+                        if (assignmentId <= 0) {
+                            sendJsonError(response, HttpStatus.BAD_REQUEST, "Invalid X-Assignment-Id format");
+                            return;
+                        }
+                        SaedContextHolder.setContext(SaedContext.builder().userId(userId).build());
+                        AssignmentService assignmentService = assignmentServiceProvider.getIfAvailable();
+                        if (assignmentService == null) {
+                            sendJsonError(response, HttpStatus.SERVICE_UNAVAILABLE,
+                                    "Authentication context could not be resolved");
+                            return;
+                        }
                         Optional<AssignmentResponseDTO> optAssign = assignmentService.validateAssignment(assignmentId, userId);
                         if (optAssign.isEmpty()) {
                             sendJsonError(response, HttpStatus.FORBIDDEN, "Invalid or inactive assignment");
                             return;
                         }
-
                         AssignmentResponseDTO assign = optAssign.get();
-
-                        SaedContext.Builder builder = SaedContext.builder()
-                                .userId(userId)
-                                .roleCode(assign.getRol().getCodigo())
-                                .roleScope(assign.getRol().getAlcance());
-
+                        if (assign.getRol() == null || !StringUtils.hasText(assign.getRol().getCodigo())
+                                || !StringUtils.hasText(assign.getRol().getAlcance())) {
+                            sendJsonError(response, HttpStatus.FORBIDDEN, "Invalid or inactive assignment");
+                            return;
+                        }
+                        SaedContext.Builder builder = SaedContext.builder().userId(userId)
+                                .roleCode(assign.getRol().getCodigo()).roleScope(assign.getRol().getAlcance());
                         if (assign.getOrganizacion() != null) {
                             builder.organizationId(assign.getOrganizacion().getId());
                         }
@@ -122,68 +136,42 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                             builder.unitId(assign.getUnidad().getId());
                         }
                         saedContext = builder.build();
+                    } else if (isMockAuth && SaedContextHolder.getContext() != null
+                            && SaedContextHolder.getContext().getRoleCode() != null) {
+                        saedContext = SaedContextHolder.getContext();
                     } else {
-                        saedContext = SaedContext.builder().userId(userId).build();
+                        AuthRepository authRepository = authRepositoryProvider.getIfAvailable();
+                        AuthUserDTO perfil = authRepository != null ? authRepository.getUserProfile(userId) : null;
+                        if (perfil != null && perfil.getRol() != null) {
+                            saedContext = SaedContext.builder().userId(userId).roleCode(perfil.getRol())
+                                    .roleScope(perfil.getAlcance()).organizationId(perfil.getIdOrganizacion())
+                                    .propertyId(perfil.getIdPropiedad()).unitId(perfil.getIdUnidad()).build();
+                        } else {
+                            saedContext = SaedContext.builder().userId(userId).build();
+                        }
                     }
-                } else if (isMockAuth && SaedContextHolder.getContext() != null && SaedContextHolder.getContext().getRoleCode() != null) {
-                    saedContext = SaedContextHolder.getContext();
-                } else {
-                    // Sin X-Assignment-Id: resolver la asignacion ACTIVA principal del usuario via PKG_AUTH_BOOTSTRAP
-                    AuthRepository authRepository = authRepositoryProvider.getIfAvailable();
-                    AuthUserDTO perfil = authRepository != null ? authRepository.getUserProfile(userId) : null;
-
-                    if (perfil != null && perfil.getRol() != null) {
-                        SaedContext.Builder builder = SaedContext.builder()
-                                .userId(userId)
-                                .roleCode(perfil.getRol())
-                                .roleScope(perfil.getAlcance());
-                        if (perfil.getIdOrganizacion() != null) {
-                            builder.organizationId(perfil.getIdOrganizacion());
-                        }
-                        if (perfil.getIdPropiedad() != null) {
-                            builder.propertyId(perfil.getIdPropiedad());
-                        }
-                        if (perfil.getIdUnidad() != null) {
-                            builder.unitId(perfil.getIdUnidad());
-                        }
-                        saedContext = builder.build();
-                    } else {
-                        saedContext = SaedContext.builder().userId(userId).build();
+                    SaedContextHolder.setContext(saedContext);
+                    List<SimpleGrantedAuthority> authorities = new ArrayList<>();
+                    if (saedContext.getRoleCode() != null) {
+                        authorities.add(new SimpleGrantedAuthority("ROLE_" + saedContext.getRoleCode()));
+                        authorities.add(new SimpleGrantedAuthority("SCOPE_" + saedContext.getRoleCode()));
+                    }
+                    if (saedContext.getRoleScope() != null) {
+                        authorities.add(new SimpleGrantedAuthority("SCOPE_" + saedContext.getRoleScope()));
+                    }
+                    if (authorities.isEmpty()) {
+                        authorities.add(new SimpleGrantedAuthority("ROLE_USER"));
+                    }
+                    if (!isMockAuth) {
+                        SecurityContextHolder.getContext().setAuthentication(
+                                new UsernamePasswordAuthenticationToken(userId, null, authorities));
                     }
                 }
-
-                // Set into ThreadLocal for Oracle Proxy
-                SaedContextHolder.setContext(saedContext);
-
-                // Set into Spring Security for @PreAuthorize:
-                // Strict isolation: users receive ONLY their exact role and scope
-                List<SimpleGrantedAuthority> authorities = new ArrayList<>();
-                if (saedContext.getRoleCode() != null) {
-                    String code = saedContext.getRoleCode();
-                    authorities.add(new SimpleGrantedAuthority("ROLE_" + code));
-                    authorities.add(new SimpleGrantedAuthority("SCOPE_" + code));
-                }
-                if (saedContext.getRoleScope() != null) {
-                    authorities.add(new SimpleGrantedAuthority("SCOPE_" + saedContext.getRoleScope()));
-                }
-                if (authorities.isEmpty()) {
-                    authorities.add(new SimpleGrantedAuthority("ROLE_USER"));
-                }
-
-                if (!isMockAuth) {
-                    UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                            userId,
-                            null,
-                            authorities
-                    );
-                    SecurityContextHolder.getContext().setAuthentication(authentication);
-                }
+            } catch (RuntimeException e) {
+                log.warn("Authentication context resolution failed ({})", e.getClass().getSimpleName());
+                sendJsonError(response, HttpStatus.SERVICE_UNAVAILABLE, "Authentication context could not be resolved");
+                return;
             }
-        } catch (Exception e) {
-            log.error("CRITICAL SECURITY ERROR: Cannot set user authentication: {}", e.getMessage());
-        }
-
-        try {
             filterChain.doFilter(request, response);
         } finally {
             SaedContextHolder.clearContext();
