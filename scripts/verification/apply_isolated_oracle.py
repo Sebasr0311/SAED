@@ -173,7 +173,7 @@ CREATE CONTEXT SAED_CTX USING {OWNER}.PKG_SAED_SESSION;
             principal = "SYS" if name == "030-synthetic-fixture.sql" else SECURITY if name.startswith(("050-", "060-")) else OWNER
             stages[name] = (principal, (prepared.WORK / name).read_text(encoding="utf-8"))
         for name in sorted(self.manifest["files"]):
-            if re.fullmatch(r"1[0-2][0-9]-V5[.][0-9]+__[A-Za-z0-9_]+[.]sql", name):
+            if re.fullmatch(r"1[0-3][0-9]-V5[.][0-9]+__[A-Za-z0-9_]+[.]sql", name):
                 stages[name] = (OWNER, (prepared.WORK / name).read_text(encoding="utf-8"))
         stages["lifecycle-fixture"] = (OWNER, """BEGIN
  UPDATE USUARIOS SET ESTADO='INACTIVO' WHERE ID_USUARIO=92005;

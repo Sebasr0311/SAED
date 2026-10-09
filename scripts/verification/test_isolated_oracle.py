@@ -132,7 +132,7 @@ class SourcePreparationTest(unittest.TestCase):
                 return harness.verify_prepared()
 
     def test_accepts_complete_prepared_inventory(self):
-        self.assertEqual(len(self.verifies()["files"]), 37)
+        self.assertEqual(len(self.verifies()["files"]), 38)
 
     def test_rejects_non_object_manifest_without_attribute_error(self):
         for value in (None, [], "invalid", 1):
@@ -222,8 +222,10 @@ class SourcePreparationTest(unittest.TestCase):
 
     def test_extraction_excludes_identity_and_purge(self):
         parts, sources, transformations = harness.extract_sources()
-        self.assertEqual(len(sources), 30)
-        self.assertEqual(len(parts), 35)
+        self.assertEqual(len(sources), 31)
+        self.assertEqual(len(parts), 36)
+        # V5.31 versions the report tenant-scope schema formerly created only at startup; V5.30 purge stays excluded.
+        self.assertIn("131-V5.31__reportes_configurados_tenant_scope.sql", parts)
         self.assertGreaterEqual(len(transformations), 7)
         text = "\n".join(parts.values())
         self.assertNotIn("DROP USER", text)

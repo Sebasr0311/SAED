@@ -234,3 +234,15 @@ Read-only diagnosis (index catalog): every V5.23 index exists except `IX_ASAMBLE
 **F01 finding:** V5.23 fails on any fresh install from the V5.0 baseline; the requested index is redundant with the baseline index.
 
 Correction (TDD): the V5.23 normalization wraps only that statement and tolerates only SQLCODE -1408; every other error re-raises (no `WHEN OTHERS THEN NULL`). RED 91/1, GREEN 91 OK. Remaining V5.24–V5.26 indexes target columns that the baseline does not index.
+
+## 2026-10-09 recovery-07 result (standing user authorization)
+
+`saed-isolated-8a4404142db4` stopped and preserved; fresh target `310dc25e6bcaf66d865899d666011b49ef262311188a9da66503b289105c218e`, name `saed-isolated-dd91f7a3ae0e`, run `dd91f7a3ae0e35bed9283ff5dfb6c5ff`, same guards. A prior read-only static review of V5.24–V5.29 found no likely failure.
+
+Single apply: `BLOCKED: SQL stage failed: ORA-06512, ORA-20998`. Completed 40 stages: every migration V5.1–V5.29, `lifecycle-fixture` and `runtime-grants`. The failing stage is `catalog`, guard `ISOLATED_REPORT_COLUMNS_MISSING`. Preserved; no retry.
+
+Read-only diagnosis: `REPORTES_CONFIGURADOS` has only its baseline catalog columns; all six of `ID_ORGANIZACION`, `ID_PROPIEDAD`, `PARAMETROS_FILTRO_JSON`, `ID_USUARIO_CREO`, `FECHA_CREACION`, `FECHA_ACTUALIZACION` are missing. They, their FKs/indexes and the four system report templates exist only in `ProductionSchemaInitializer.initReportesConfiguradosYHistorialPipeline` (startup DDL with swallowed errors). V5.28 nevertheless installs RLS predicates on this table that reference `id_organizacion`/`id_propiedad`, so a migration-only schema breaks every query on it. 94 policies are enabled (≥ 90).
+
+**F01-01 / F11-01 correction:** new idempotent migration `V5.31__reportes_configurados_tenant_scope.sql` versions those columns, FKs, indexes and templates, avoiding non-constant ADD defaults, MERGE on a VPD table and non-equivalent index errors. The startup initializer remains for now (it becomes a no-op where V5.31 ran); removing startup DDL is still open F01-01 work. The harness now includes V5.31 after V5.29 (V5.30 purge stays excluded); a new test caught that the applier's `1[0-2][0-9]` stage pattern would have silently dropped stage 131. Harness suite: 92 OK.
+
+**F02 finding (not fixed):** after V5.28 the `PERSONAS` table has no RLS policy at all (V5.28 drops `POL_RLS_ORG_PERSONAS`). PERSONAS isolation therefore depends only on application SQL. Requires a decision and a policy that does not reintroduce ORA-28112 recursion.

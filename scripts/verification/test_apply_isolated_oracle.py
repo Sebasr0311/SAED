@@ -142,6 +142,19 @@ class ExecutorGuardTest(unittest.TestCase):
         self.assertLess(stages.index("900-baseline-policies.sql"), stages.index("101-V5.1__mock.sql"))
         self.assertLess(stages.index("129-V5.29__mock.sql"), stages.index("lifecycle-fixture"))
 
+    def test_migrations_after_v529_are_staged_in_order_before_lifecycle(self):
+        # V5.31 (stage 131) must not be silently dropped by a 100-129 stage-name pattern.
+        installer = self.installer()
+        versions = list(range(1, 30)) + [31]
+        installer.manifest = {"files": {f"{100 + version}-V5.{version}__mock.sql": "a" * 64 for version in versions}}
+        with patch.object(executor.Path, "read_text", return_value='CREATE TABLE "EXAMPLE" (ID NUMBER);'):
+            built = installer.build_stages()
+        stages = list(built)
+        self.assertIn("131-V5.31__mock.sql", stages)
+        self.assertLess(stages.index("129-V5.29__mock.sql"), stages.index("131-V5.31__mock.sql"))
+        self.assertLess(stages.index("131-V5.31__mock.sql"), stages.index("lifecycle-fixture"))
+        self.assertEqual(built["131-V5.31__mock.sql"][0], executor.OWNER)
+
     def test_post_policy_lifecycle_fixture_has_context_before_dml(self):
         installer = self.installer()
         installer.stages["lifecycle-fixture"] = (executor.OWNER, "UPDATE USUARIOS SET ESTADO='INACTIVO' WHERE ID_USUARIO=92005;")
