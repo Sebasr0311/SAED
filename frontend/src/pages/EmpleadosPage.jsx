@@ -304,7 +304,9 @@ export default function EmpleadosPage() {
 
         const res = await tenantApi.post('/usuarios', payload);
         const passMsg = res?.data?.passwordGenerada || res?.passwordGenerada;
-        if (passMsg) {
+        if ((res?.data || res)?.accountCreated === false) {
+          toast.success("Cuenta existente vinculada sin modificar sus credenciales.");
+        } else if (passMsg) {
           toast.success(
             `Portero creado con éxito. Clave temporal asignada: ${passMsg}. Se enviaron las credenciales a ${form.email}.`,
             { duration: 8000 }
