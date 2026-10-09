@@ -272,7 +272,14 @@ SELECT 'SAED_CATALOG:TABLES=' || (SELECT COUNT(*) FROM DBA_TABLES WHERE OWNER='{
             business_context = "BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1); PKG_SAED_SESSION.SET_CONTEXT(1,0,NULL,'SUPERADMIN'); END;\n/\n"
         compile_guard = ""
         if principal in (OWNER, SECURITY):
-            compile_guard = "DECLARE n NUMBER; BEGIN SELECT COUNT(*) INTO n FROM USER_OBJECTS WHERE STATUS != 'VALID'; IF n != 0 THEN RAISE_APPLICATION_ERROR(-20995,'ISOLATED_INVALID_OBJECTS'); END IF; END;\n/\n"
+            # DDL invalidates dependents without compile errors; recompile only invalid objects first.
+            # Objects with real compile errors stay INVALID and the guard still fails closed.
+            compile_guard = "BEGIN DBMS_UTILITY.COMPILE_SCHEMA(schema => USER, compile_all => FALSE); END;\n/\nDECLARE n NUMBER; BEGIN SELECT COUNT(*) INTO n FROM USER_OBJECTS WHERE STATUS != 'VALID'; IF n != 0 THEN RAISE_APPLICATION_ERROR(-20995,'ISOLATED_INVALID_OBJECTS'); END IF; END;\n/\n"
+        elif stage == "030-synthetic-fixture.sql":
+            # The fixture's identity DDL invalidates dependent owner objects without compile errors;
+            # recompile only invalid ones and still fail closed if any remain invalid.
+            compile_guard = (f"BEGIN DBMS_UTILITY.COMPILE_SCHEMA(schema => '{OWNER}', compile_all => FALSE); END;\n/\n"
+                             f"DECLARE n NUMBER; BEGIN SELECT COUNT(*) INTO n FROM DBA_OBJECTS WHERE OWNER = '{OWNER}' AND STATUS != 'VALID'; IF n != 0 THEN RAISE_APPLICATION_ERROR(-20995,'ISOLATED_INVALID_OBJECTS'); END IF; END;\n/\n")
         settings = "\n".join("SET " + option for option in ("ECHO OFF", "VERIFY OFF", "FEEDBACK OFF", "HEADING OFF", "PAGESIZE 0", "DEFINE OFF", "SERVEROUTPUT OFF", "SQLBLANKLINES ON"))
         wrapper = settings + "\nWHENEVER SQLERROR EXIT FAILURE ROLLBACK\nWHENEVER OSERROR EXIT FAILURE ROLLBACK\nCONNECT " + connection + "\n" + pdb_selection + guard + owner_schema + business_context + payload + "\n" + compile_guard + "PROMPT SAED_STAGE_OK:" + stage + "\nEXIT SUCCESS\n"
         # The Linux SQLPlus client must agree with all three UTF-8 pipe streams;

@@ -78,6 +78,34 @@ class ExecutorGuardTest(unittest.TestCase):
         self.assertLess(sql.index("SYS_CONTEXT('USERENV','CURRENT_SCHEMA') != 'SAED_ISO_OWNER'"), sql.index(payload))
         self.assertNotIn("SET_BOOTSTRAP_CONTEXT", sql)
 
+    def test_stage_030_recompiles_and_guards_owner_objects_after_fixture_payload(self):
+        # recovery-04: the fixture's identity DDL left 3 owner objects INVALID (no DBA_ERRORS) and stage 031's guard failed.
+        installer = self.installer()
+        installer.stages["030-synthetic-fixture.sql"] = ("SYS", "INSERT INTO SAED_ISO_OWNER.FIXTURE_SENTINEL VALUES (1);")
+        _, called = self.invoke(installer, "030-synthetic-fixture.sql")
+        sql = called.kwargs["input"]
+        payload = "INSERT INTO SAED_ISO_OWNER.FIXTURE_SENTINEL"
+        recompile = "DBMS_UTILITY.COMPILE_SCHEMA(schema => 'SAED_ISO_OWNER', compile_all => FALSE)"
+        guard = "FROM DBA_OBJECTS WHERE OWNER = 'SAED_ISO_OWNER' AND STATUS != 'VALID'"
+        self.assertIn(recompile, sql)
+        self.assertIn(guard, sql)
+        self.assertLess(sql.index(payload), sql.index(recompile))
+        self.assertLess(sql.index(recompile), sql.index(guard))
+        self.assertLess(sql.index(guard), sql.index("SAED_STAGE_OK:030-synthetic-fixture.sql"))
+
+    def test_owner_migration_recompiles_own_schema_before_invalid_object_guard(self):
+        # Migration DDL (e.g. V5.4 column type change) invalidates dependents; only real compile errors may fail the guard.
+        installer = self.installer()
+        stage = "104-V5.4__alter_paquetes_foto_clob.sql"
+        installer.stages[stage] = (executor.OWNER, "ALTER TABLE PAQUETES MODIFY (FOTO CLOB);")
+        _, called = self.invoke(installer, stage)
+        sql = called.kwargs["input"]
+        recompile = "DBMS_UTILITY.COMPILE_SCHEMA(schema => USER, compile_all => FALSE)"
+        guard = "FROM USER_OBJECTS WHERE STATUS != 'VALID'"
+        self.assertLess(sql.index("ALTER TABLE PAQUETES MODIFY"), sql.index(recompile))
+        self.assertLess(sql.index(recompile), sql.index(guard))
+        self.assertIn("ISOLATED_INVALID_OBJECTS", sql)
+
     def test_stage_030_is_the_only_fixture_stage_promoted_to_sys(self):
         installer = self.installer()
         installer.manifest = {"files": {}}

@@ -196,3 +196,15 @@ Root cause (source analysis, no database query): the V5.0 baseline defines `CK_R
 Correction: a structure normalization extends the extracted baseline constraint exactly as V5.9 does (V5.9 drops and re-adds it, so it stays compatible), and is recorded in the manifest transformations. New test `test_structure_allows_every_fixture_resident_type` checks that every resident type the fixture inserts is allowed by the extracted constraint: RED 87 tests / 1 failure reproducing the exact value set, then GREEN 87 / OK.
 
 Next, requiring new explicit user authorization: one fresh owned container (same immutable image, loopback 11521, no mounts), read-only reconciliation and rebind, then one guarded `recovery-04` prepare/check/apply.
+
+## 2026-10-09 recovery-04 result (user-authorized single attempt)
+
+With explicit user authorization the coordinator stopped `saed-isolated-3eba1726566e` (preserved; exit 137 after Docker's default stop grace period) and created one fresh owned target: ID `3a8094922c610c2acf504933437cf91c90e374459168072638ca439290bd0e18`, name `saed-isolated-f87171a5bae3`, run `f87171a5bae3baaa03302b507618bd31`, scope `isolated-fixture`, same immutable image digest, zero mounts, sole binding `127.0.0.1:11521 -> 1521/tcp`, restart `no`, 4 GiB, 2 CPUs, random SYS password (`ORACLE_RANDOM_PASSWORD`, never printed). Read-only reconciliation, rebind (commit c0c078a), `check-container`, `prepare --state recovery-04` and `check-prepared` passed.
+
+The single apply returned `BLOCKED: SQL stage failed: ORA-06512, ORA-20995`. Completed: `bootstrap`, `010-structure.sql`, `020-catalogs.sql`, **`030-synthetic-fixture.sql`** (the CONVIVIENTE constraint correction is effective). The failing stage is `031-mixed-assignment.sql`, at its `ISOLATED_INVALID_OBJECTS` guard. State, lock and artifacts are preserved; no retry or reset.
+
+Read-only diagnosis (`DBA_OBJECTS`/`DBA_ERRORS` as SYSDBA inside the container, names only): 3 invalid owner objects — `PACKAGE BODY PKG_SAED_SESSION`, `TRIGGER TRG_CONTRATO_SYNC_RESIDENTES`, `TRIGGER TRG_TUTORES_VALIDA_MENOR` — and zero `DBA_ERRORS` rows. These are dependency invalidations caused by the fixture's identity `ALTER TABLE ... MODIFY`, not compile errors. Stage 030 runs as SYS and had no owner-scoped guard, so stage 031 was the first to observe them.
+
+Correction (TDD): stage 030 now runs `DBMS_UTILITY.COMPILE_SCHEMA(schema => OWNER, compile_all => FALSE)` after its payload, then an owner-scoped `DBA_OBJECTS` invalid-object guard. Owner/security stages likewise recompile only invalid objects in their own schema before the existing `USER_OBJECTS` guard, because migration DDL (e.g. V5.4 column type change) causes the same dependency invalidation. Objects with real compile errors stay invalid and the guard still fails closed. RED: 88 tests / 1 failure, then 89 tests / 1 error; GREEN: 89 tests OK.
+
+Next, requiring new explicit user authorization: stop and preserve `saed-isolated-f87171a5bae3`, one fresh owned target, read-only reconciliation and rebind, then one guarded `recovery-05` prepare/check/apply.
