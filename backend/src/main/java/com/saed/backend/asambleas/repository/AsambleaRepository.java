@@ -22,7 +22,7 @@ public interface AsambleaRepository {
 
     Long registrarAsistencia(Long idAsamblea, AsistenciaRequestDTO request, BigDecimal coeficiente);
 
-    void retirarAsistencia(Long idAsamblea, Long idUnidad);
+    int retirarAsistencia(Long idAsamblea, Long idUnidad);
 
     BigDecimal calcularQuorumAlcanzadoPct(Long idAsamblea, Long idPropiedad);
 
@@ -42,6 +42,7 @@ public interface AsambleaRepository {
 
     Long registrarVoto(Long idVotacion, VotoRequestDTO request, BigDecimal coeficiente);
 
+    /** Registered unit coefficient, or {@code null} when missing or not positive. */
     BigDecimal findCoeficienteUnidad(Long idUnidad);
 
     boolean existeAsistenciaUnidad(Long idAsamblea, Long idUnidad);
@@ -66,7 +67,14 @@ public interface AsambleaRepository {
 
     boolean esApoderadoAprobado(Long idAsamblea, Long idUnidad, Long idPersonaApoderado);
 
-    boolean usuarioPerteneceAUnidad(Long idUsuario, Long idUnidad, Long idPersona);
-
     Long findPersonaUsuario(Long idUsuario);
+
+    /** Active legal ownership (PROPIETARIOS_UNIDAD ESTADO = 'ACTIVO' and not ended). */
+    boolean esPropietarioLegalActivo(Long idUnidad, Long idPersona);
+
+    /** The unit has an attendance row in the assembly that has not been withdrawn. */
+    boolean tieneAsistenciaVigente(Long idAsamblea, Long idUnidad);
+
+    /** The given power is APROBADO for this assembly and unit and names this person as proxy. */
+    boolean esPoderAprobadoDe(Long idPoder, Long idAsamblea, Long idUnidad, Long idPersonaApoderado);
 }

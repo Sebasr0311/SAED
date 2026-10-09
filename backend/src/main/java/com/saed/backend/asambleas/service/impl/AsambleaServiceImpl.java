@@ -17,6 +17,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Set;
 
@@ -219,10 +220,10 @@ public class AsambleaServiceImpl implements AsambleaService {
             throw new IllegalArgumentException("La unidad ID " + request.getIdUnidad() + " ya tiene asistencia registrada en esta asamblea");
         }
 
-        BigDecimal coeficiente = request.getCoeficientePonderado();
-        if (coeficiente == null || coeficiente.compareTo(BigDecimal.ZERO) <= 0) {
-            coeficiente = repository.findCoeficienteUnidad(request.getIdUnidad());
-        }
+        validarAsistente(idAsamblea, request);
+
+        // DEC-03: the attendance weight is always the registered unit coefficient; the client value is ignored.
+        BigDecimal coeficiente = requireUnitCoefficient(request.getIdUnidad());
 
         Long idAsistencia = repository.registrarAsistencia(idAsamblea, request, coeficiente);
 
@@ -258,7 +259,9 @@ public class AsambleaServiceImpl implements AsambleaService {
         }
 
         repository.lockAsambleaForUpdate(idAsamblea);
-        repository.retirarAsistencia(idAsamblea, idUnidad);
+        if (repository.retirarAsistencia(idAsamblea, idUnidad) == 0) {
+            throw new NoSuchElementException("La unidad ID " + idUnidad + " no tiene asistencia vigente en esta asamblea");
+        }
 
         BigDecimal nuevoQuorum = repository.calcularQuorumAlcanzadoPct(idAsamblea, asamblea.getIdPropiedad());
         repository.updateQuorumAlcanzado(idAsamblea, nuevoQuorum);
@@ -458,58 +461,48 @@ public class AsambleaServiceImpl implements AsambleaService {
 
         AsambleaDTO asamblea = obtenerDetalleAsamblea(votacion.getIdAsamblea());
 
-        if (!"EN_CURSO".equals(asamblea.getEstado()) && !"CONVOCADA".equals(asamblea.getEstado())) {
-            throw new IllegalStateException("Solo se puede votar en asambleas CONVOCADAS o EN_CURSO (actual: " + asamblea.getEstado() + ")");
+        // DEC-03: votes are accepted only while the assembly is EN_CURSO (CONVOCADA is rejected).
+        if (!"EN_CURSO".equals(asamblea.getEstado())) {
+            throw new IllegalStateException("Solo se puede votar en asambleas EN_CURSO (actual: " + asamblea.getEstado() + ")");
         }
 
         if (!"ABIERTA".equals(votacion.getEstado())) {
             throw new IllegalStateException("No se puede votar en una votación en estado " + votacion.getEstado());
         }
 
-        // Cross-check unit coproperty
         Long propUnidad = repository.findPropiedadUnidad(request.getIdUnidad());
         if (propUnidad == null || !propUnidad.equals(asamblea.getIdPropiedad())) {
             throw new IllegalArgumentException("La unidad ID " + request.getIdUnidad() + " no pertenece a la copropiedad de la asamblea");
         }
 
         SaedContext ctx = SaedContextHolder.getContext();
-        String role = (ctx != null) ? ctx.getRoleCode() : null;
         Long userId = resolveUserId();
 
-        // Check caller eligibility and persona
+        // DEC-03: only the unit's active legal owner or an APROBADO proxy may vote, whatever the caller's role.
+        // The voter is always the caller's own person; a client-supplied idPersonaVotante is never trusted.
         Long callerPersonaId = repository.findPersonaUsuario(userId);
-        boolean isAdmin = role != null && (
-                "SUPERADMIN".equalsIgnoreCase(role) ||
-                "ADMIN_ORGANIZACION".equalsIgnoreCase(role) ||
-                "ADMIN_PROPIEDAD".equalsIgnoreCase(role)
-        );
+        if (callerPersonaId == null) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "El usuario no tiene una persona asociada para votar");
+        }
+        boolean isLegalOwner = repository.esPropietarioLegalActivo(request.getIdUnidad(), callerPersonaId);
+        boolean isApprovedProxy = !isLegalOwner
+                && repository.esApoderadoAprobado(asamblea.getIdAsamblea(), request.getIdUnidad(), callerPersonaId);
+        if (!isLegalOwner && !isApprovedProxy) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "No tiene autorización para emitir voto por la unidad ID " + request.getIdUnidad());
+        }
+        request.setIdPersonaVotante(callerPersonaId);
 
-        if (!isAdmin) {
-            if (callerPersonaId == null) {
-                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "El usuario no tiene una persona asociada para votar");
-            }
-
-            boolean isOwnerOrInhabitant = repository.usuarioPerteneceAUnidad(userId, request.getIdUnidad(), callerPersonaId);
-            boolean isApprovedProxy = repository.esApoderadoAprobado(asamblea.getIdAsamblea(), request.getIdUnidad(), callerPersonaId);
-
-            if (!isOwnerOrInhabitant && !isApprovedProxy) {
-                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "No tiene autorización para emitir voto por la unidad ID " + request.getIdUnidad());
-            }
-
-            // Always enforce caller's persona ID to avoid spoofing
-            request.setIdPersonaVotante(callerPersonaId);
-        } else {
-            if (request.getIdPersonaVotante() == null) {
-                request.setIdPersonaVotante(callerPersonaId != null ? callerPersonaId : 1L);
-            }
+        if (!repository.tieneAsistenciaVigente(asamblea.getIdAsamblea(), request.getIdUnidad())) {
+            throw new IllegalStateException("La unidad ID " + request.getIdUnidad() + " no tiene asistencia vigente registrada en la asamblea");
         }
 
         if (repository.existeVotoUnidad(idVotacion, request.getIdUnidad())) {
             throw duplicateVote(request.getIdUnidad());
         }
 
-        // F10-01: the vote weight is always the unit's registered coefficient; any client-supplied value is ignored.
-        BigDecimal coeficiente = repository.findCoeficienteUnidad(request.getIdUnidad());
+        // F10-01 / DEC-03: the vote weight is always the unit's registered coefficient; any client-supplied
+        // value is ignored and a missing coefficient rejects the vote.
+        BigDecimal coeficiente = requireUnitCoefficient(request.getIdUnidad());
         request.setCoeficienteVoto(coeficiente);
 
         Long idVoto;
@@ -529,6 +522,31 @@ public class AsambleaServiceImpl implements AsambleaService {
                 "EMITIR_VOTO", "VOTOS", idVoto,
                 "127.0.0.1", "SAED-Core", null, request.getOpcionVoto()
         );
+    }
+
+    private BigDecimal requireUnitCoefficient(Long idUnidad) {
+        BigDecimal coeficiente = repository.findCoeficienteUnidad(idUnidad);
+        if (coeficiente == null || coeficiente.signum() <= 0) {
+            throw new IllegalStateException("La unidad ID " + idUnidad + " no tiene coeficiente de copropiedad registrado");
+        }
+        return coeficiente;
+    }
+
+    /**
+     * An attendee is the unit's active legal owner (direct attendance) or the proxy named in an
+     * APROBADO power for this assembly and unit.
+     */
+    private void validarAsistente(Long idAsamblea, AsistenciaRequestDTO request) {
+        if ("S".equals(request.getEsPropietarioDirecto())) {
+            if (!repository.esPropietarioLegalActivo(request.getIdUnidad(), request.getIdPersonaAsistente())) {
+                throw new IllegalArgumentException("La persona asistente no es propietaria activa de la unidad ID " + request.getIdUnidad());
+            }
+            request.setIdPoder(null);
+            return;
+        }
+        if (!repository.esPoderAprobadoDe(request.getIdPoder(), idAsamblea, request.getIdUnidad(), request.getIdPersonaAsistente())) {
+            throw new IllegalArgumentException("La asistencia por representación requiere un poder APROBADO de la unidad para la persona asistente");
+        }
     }
 
     private static ResponseStatusException duplicateVote(Long idUnidad) {
