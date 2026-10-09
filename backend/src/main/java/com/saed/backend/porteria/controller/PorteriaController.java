@@ -108,7 +108,7 @@ public class PorteriaController {
     @GetMapping("/porteros-disponibles")
     @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<ApiResponse<List<Map<String, Object>>>> listarPorterosDisponibles() {
-        Long propId = SaedContextHolder.getContext() != null ? SaedContextHolder.getContext().getPropertyId() : 1L;
+        Long propId = requireCallerPropertyId();
         String sql = """
             SELECT u.ID_USUARIO, u.NOMBRE_USUARIO, u.EMAIL,
                    p.PRIMER_NOMBRE, p.SEGUNDO_NOMBRE, p.PRIMER_APELLIDO, p.SEGUNDO_APELLIDO, p.NUMERO_DOCUMENTO
@@ -150,7 +150,7 @@ public class PorteriaController {
     @GetMapping("/{id}/turnos")
     @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_PORTERO')")
     public ResponseEntity<ApiResponse<List<PorteroTurnoDTO>>> listarTurnos(@PathVariable Long id) {
-        Long propId = SaedContextHolder.getContext() != null ? SaedContextHolder.getContext().getPropertyId() : 1L;
+        Long propId = requireCallerPropertyId();
         String sql = """
             SELECT pt.ID_ASIGNACION_TURNO, pt.ID_PORTERIA, pt.ID_USUARIO,
                    u.NOMBRE_USUARIO,
@@ -201,43 +201,58 @@ public class PorteriaController {
     public ResponseEntity<ApiResponse<Void>> asignarTurno(
             @PathVariable Long id,
             @RequestBody @Valid PorteroTurnoRequestDTO req) {
-        Long propId = SaedContextHolder.getContext() != null ? SaedContextHolder.getContext().getPropertyId() : 1L;
+        Long propId = requireCallerPropertyId();
 
         Map<String, String> infoTurno = CATALOGO_TURNOS.get(req.codigoTurno());
         if (infoTurno == null) {
             return ResponseEntity.badRequest().body(ApiResponse.error("Código de turno inválido según la Ley 1920 de 2018"));
         }
 
-        String mergeSql = """
-            MERGE INTO PORTERIA_TURNOS tgt
-            USING (SELECT :propId AS ID_PROPIEDAD, :idPorteria AS ID_PORTERIA, :idUsuario AS ID_USUARIO,
-                          :codigoTurno AS CODIGO_TURNO, :nombreTurno AS NOMBRE_TURNO,
-                          :horaInicio AS HORA_INICIO, :horaFin AS HORA_FIN,
-                          :diasSemana AS DIAS_SEMANA, 'ACTIVO' AS ESTADO FROM DUAL) src
-            ON (tgt.ID_PORTERIA = src.ID_PORTERIA AND tgt.ID_USUARIO = src.ID_USUARIO)
-            WHEN MATCHED THEN
-                UPDATE SET tgt.CODIGO_TURNO = src.CODIGO_TURNO,
-                           tgt.NOMBRE_TURNO = src.NOMBRE_TURNO,
-                           tgt.HORA_INICIO = src.HORA_INICIO,
-                           tgt.HORA_FIN = src.HORA_FIN,
-                           tgt.DIAS_SEMANA = src.DIAS_SEMANA,
-                           tgt.ESTADO = src.ESTADO,
-                           tgt.FECHA_ASIGNACION = CURRENT_TIMESTAMP
-            WHEN NOT MATCHED THEN
-                INSERT (ID_PROPIEDAD, ID_PORTERIA, ID_USUARIO, CODIGO_TURNO, NOMBRE_TURNO, HORA_INICIO, HORA_FIN, DIAS_SEMANA, ESTADO)
-                VALUES (src.ID_PROPIEDAD, src.ID_PORTERIA, src.ID_USUARIO, src.CODIGO_TURNO, src.NOMBRE_TURNO, src.HORA_INICIO, src.HORA_FIN, src.DIAS_SEMANA, src.ESTADO)
-            """;
+        // The porteria and the assigned user must both belong to the caller's property.
+        List<Long> porteria = jdbcTemplate.query(
+            "SELECT ID_PORTERIA FROM PORTERIAS WHERE ID_PORTERIA = :idPorteria AND ID_PROPIEDAD = :propId",
+            Map.of("idPorteria", id, "propId", propId), (rs, r) -> rs.getLong("ID_PORTERIA")
+        );
+        if (porteria.isEmpty()) {
+            throw new org.springframework.security.access.AccessDeniedException("La portería no pertenece a la propiedad asignada");
+        }
+        List<Long> portero = jdbcTemplate.query(
+            "SELECT ua.ID_USUARIO FROM USUARIO_ASIGNACIONES ua JOIN ROLES r ON r.ID_ROL = ua.ID_ROL "
+                + "JOIN USUARIOS u ON u.ID_USUARIO = ua.ID_USUARIO "
+                + "WHERE ua.ID_USUARIO = :idUsuario AND ua.ID_PROPIEDAD = :propId AND r.CODIGO = 'PORTERO' "
+                + "AND ua.ESTADO IN ('ACTIVA', 'ACTIVO') AND u.ACTIVO = 1",
+            Map.of("idUsuario", req.idUsuario(), "propId", propId), (rs, r) -> rs.getLong("ID_USUARIO")
+        );
+        if (portero.isEmpty()) {
+            throw new org.springframework.security.access.AccessDeniedException("El usuario no es un portero activo de la propiedad");
+        }
 
-        jdbcTemplate.update(mergeSql, Map.of(
-            "propId", propId,
-            "idPorteria", id,
-            "idUsuario", req.idUsuario(),
-            "codigoTurno", req.codigoTurno(),
-            "nombreTurno", infoTurno.get("nombre"),
-            "horaInicio", infoTurno.get("inicio"),
-            "horaFin", infoTurno.get("fin"),
-            "diasSemana", req.diasSemana() != null && !req.diasSemana().isBlank() ? req.diasSemana().trim() : "L-D"
-        ));
+        // PORTERIA_TURNOS is VPD-protected (V5.32): MERGE raises ORA-28132, so update first, then insert.
+        Map<String, Object> params = new HashMap<>();
+        params.put("propId", propId);
+        params.put("idPorteria", id);
+        params.put("idUsuario", req.idUsuario());
+        params.put("codigoTurno", req.codigoTurno());
+        params.put("nombreTurno", infoTurno.get("nombre"));
+        params.put("horaInicio", infoTurno.get("inicio"));
+        params.put("horaFin", infoTurno.get("fin"));
+        params.put("diasSemana", req.diasSemana() != null && !req.diasSemana().isBlank() ? req.diasSemana().trim() : "L-D");
+
+        int updated = jdbcTemplate.update(
+            "UPDATE PORTERIA_TURNOS SET CODIGO_TURNO = :codigoTurno, NOMBRE_TURNO = :nombreTurno, "
+                + "HORA_INICIO = :horaInicio, HORA_FIN = :horaFin, DIAS_SEMANA = :diasSemana, ESTADO = 'ACTIVO', "
+                + "FECHA_ASIGNACION = CURRENT_TIMESTAMP "
+                + "WHERE ID_PROPIEDAD = :propId AND ID_PORTERIA = :idPorteria AND ID_USUARIO = :idUsuario",
+            params
+        );
+        if (updated == 0) {
+            jdbcTemplate.update(
+                "INSERT INTO PORTERIA_TURNOS (ID_PROPIEDAD, ID_PORTERIA, ID_USUARIO, CODIGO_TURNO, NOMBRE_TURNO, "
+                    + "HORA_INICIO, HORA_FIN, DIAS_SEMANA, ESTADO) VALUES (:propId, :idPorteria, :idUsuario, "
+                    + ":codigoTurno, :nombreTurno, :horaInicio, :horaFin, :diasSemana, 'ACTIVO')",
+                params
+            );
+        }
 
         return ResponseEntity.ok(ApiResponse.success(null));
     }
@@ -246,7 +261,7 @@ public class PorteriaController {
     @DeleteMapping("/{id}/turnos/{idAsignacion}")
     @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<ApiResponse<Void>> desasignarTurno(@PathVariable Long id, @PathVariable Long idAsignacion) {
-        Long propId = SaedContextHolder.getContext() != null ? SaedContextHolder.getContext().getPropertyId() : 1L;
+        Long propId = requireCallerPropertyId();
         jdbcTemplate.update(
             "DELETE FROM PORTERIA_TURNOS WHERE ID_ASIGNACION_TURNO = :idAsignacion AND ID_PORTERIA = :idPorteria AND ID_PROPIEDAD = :propId",
             Map.of("idAsignacion", idAsignacion, "idPorteria", id, "propId", propId)
@@ -927,6 +942,15 @@ public class PorteriaController {
             }
         }
         return null;
+    }
+
+    /** Tenant scope for property-level endpoints; never falls back to a default property. */
+    private static Long requireCallerPropertyId() {
+        SaedContext ctx = SaedContextHolder.getContext();
+        if (ctx == null || ctx.getPropertyId() == null) {
+            throw new org.springframework.security.access.AccessDeniedException("Missing property context");
+        }
+        return ctx.getPropertyId();
     }
 
     private void requireUnitInCallerProperty(Long unitId, Long propId) {
