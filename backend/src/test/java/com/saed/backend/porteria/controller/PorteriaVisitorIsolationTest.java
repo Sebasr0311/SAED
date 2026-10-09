@@ -309,6 +309,21 @@ class PorteriaVisitorIsolationTest {
     }
 
     @Test
+    @DisplayName("F7-02: no resolvable unit is rejected instead of defaulting to an arbitrary unit of the property")
+    void unresolvableUnitIsRejectedEvenWhenPropertyHasUnits() {
+        asCaller("ADMIN_PROPIEDAD", "PROPIEDAD", null);
+        idQueryAnswer = (sql, p) -> {
+            String s = sql.toUpperCase();
+            if (s.contains("FROM VISITANTES WHERE ID_VISITANTE")) return List.of(10L);
+            if (s.contains("FROM UNIDADES WHERE ID_PROPIEDAD")) return List.of(OWN_UNIT);
+            return List.of();
+        };
+
+        assertThrows(IllegalArgumentException.class, () -> controller.programarVisita(visitBody(null, 10L)));
+        verify(porteriaService, never()).programarVisita(any());
+    }
+
+    @Test
     @DisplayName("F7-02: a client-supplied visitor id not visible in caller scope is never used")
     void invisibleVisitorIdIsNotUsed() {
         asCaller("RESIDENTE", "UNIDAD", OWN_UNIT);

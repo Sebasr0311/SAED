@@ -50,3 +50,9 @@ Fully removing it requires a DB-side definer procedure (for example `UPSERT_VISI
 - `asignarTurno` does not check that `idUsuario` is a PORTERO of the property, and its MERGE `ON` clause has no `ID_PROPIEDAD`.
 - The QR email is still sent to whatever email the visitor's PERSONA row holds.
 - Run the DB-backed adversarial suites on Oracle. Before, unresolvable `visitanteId=10` returned 201. It now returns 400 unless that visitor is visible.
+
+## 2026-10-09 cross-model review follow-up
+
+An independent review (Gemini 3.1 Pro via Antigravity, read-only) found that `programarVisita` still fell back to the first unit of the caller's property (`ROWNUM = 1`) when no unit was resolvable; only the final `unidadId = 1L` default had been removed. The existing test passed because its mock returned no units. A new test (`unresolvableUnitIsRejectedEvenWhenPropertyHasUnits`) failed first (13 tests, 1 failure), and removing the fallback made it pass. Full CI selection plus remediation tests: 234 tests, 0 failures, 0 errors; compile and checkstyle pass. Frontend: `VisitasPage` already requires a unit or resident; resident pages send their unit or rely on assignment resolution.
+
+Dismissed review items after code inspection: self-invocation from `programarVisitaRapida` (both methods carry identical `@PreAuthorize` and the scope checks live in the method body); self-invocation of `PaquetesServiceImpl.getPaqueteById` (PIN filtering is in the method body, not an aspect). Retained as a follow-up, not caused by these commits: `PropertyDeletionService` reports "code sent" even when OTP email delivery fails.

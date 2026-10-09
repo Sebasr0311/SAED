@@ -438,18 +438,7 @@ public class PorteriaController {
             }
         }
 
-        if (unidadId == null) {
-            Long propId = SaedContextHolder.getContext() != null ? SaedContextHolder.getContext().getPropertyId() : null;
-            if (propId != null) {
-                List<Long> firstUnit = jdbcTemplate.query(
-                    "SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD = :p AND ROWNUM = 1",
-                    Map.of("p", propId), (rs, r) -> rs.getLong("ID_UNIDAD")
-                );
-                if (!firstUnit.isEmpty()) {
-                    unidadId = firstUnit.get(0);
-                }
-            }
-        }
+        // F7-02: never attribute a visit to an arbitrary unit of the property; the destination must be explicit or resolvable.
         if (unidadId == null) {
             throw new IllegalArgumentException("No fue posible determinar la unidad de la visita");
         }
