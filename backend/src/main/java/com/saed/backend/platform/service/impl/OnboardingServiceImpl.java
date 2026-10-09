@@ -7,7 +7,6 @@ import com.saed.backend.context.SaedContext;
 import com.saed.backend.context.SaedContextHolder;
 import com.saed.backend.platform.dto.OnboardingRegistroRequestDTO;
 import com.saed.backend.platform.service.OnboardingService;
-import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -57,38 +56,7 @@ public class OnboardingServiceImpl implements OnboardingService {
         this.membershipHistoryService = membershipHistoryService;
     }
 
-    @PostConstruct
-    public void init() {
-        inicializarEsquemaStaging();
-    }
 
-    private void inicializarEsquemaStaging() {
-        try {
-            Integer count = jdbcTemplate.getJdbcOperations().queryForObject(
-                "SELECT COUNT(1) FROM USER_TABLES WHERE TABLE_NAME = 'ONBOARDING_INTENCIONES'",
-                Integer.class
-            );
-            if (count != null && count > 0) {
-                return;
-            }
-            jdbcTemplate.getJdbcOperations().execute("""
-                CREATE TABLE ONBOARDING_INTENCIONES (
-                    REFERENCIA VARCHAR(100) PRIMARY KEY,
-                    DATOS_REGISTRO CLOB NOT NULL,
-                    MONTO_CENTAVOS NUMERIC(14,0) NOT NULL,
-                    ESTADO VARCHAR(30) DEFAULT 'PENDIENTE' NOT NULL,
-                    FECHA_CREACION TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
-                    FECHA_ACTUALIZACION TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
-                )
-            """);
-            log.info("[Onboarding] Tabla ONBOARDING_INTENCIONES creada exitosamente.");
-        } catch (Exception e) {
-            String msg = e.getMessage() != null ? e.getMessage().toLowerCase() : "";
-            if (!msg.contains("ora-00955") && !msg.contains("already exists")) {
-                log.debug("[Onboarding] Aviso al inicializar ONBOARDING_INTENCIONES: {}", e.getMessage());
-            }
-        }
-    }
 
     @Override
     public List<Map<String, Object>> listarPlanesPublicos() {
