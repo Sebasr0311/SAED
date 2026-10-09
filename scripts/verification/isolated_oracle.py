@@ -113,7 +113,8 @@ def extract_sources() -> tuple[dict[str, str], list[dict], list[str]]:
     for path in sorted((ROOT / "database/migrations").glob("V5.*__*.sql"), key=lambda p: int(p.name.split("__")[0].split(".")[1])):
         version = int(path.name.split("__")[0].split(".")[1])
         # V5.30 (demo-seed purge) is deliberately excluded; V5.31/V5.32 version formerly startup-only schema.
-        if not (1 <= version <= 29 or version in (31, 32)):
+        # V5.30 (demo-seed purge) is deliberately excluded; every other V5.x migration is applied in order.
+        if version < 1 or version == 30:
             continue
         if version in versions:
             raise ValueError("Duplicate migration version")
@@ -138,8 +139,8 @@ def extract_sources() -> tuple[dict[str, str], list[dict], list[str]]:
                 "BEGIN " + create + " EXCEPTION WHEN OTHERS THEN IF SQLCODE != -1408 THEN RAISE; END IF; END;",
                 "equivalent assembly date index")
         parts[f"{100 + version:03}-{path.name}"] = source
-    if versions != set(range(1, 30)) | {31, 32}:
-        raise ValueError("Migration chain V5.1 through V5.29 plus V5.31 and V5.32 is incomplete")
+    if not set(range(1, 30)) <= versions or 30 in versions:
+        raise ValueError("Migration chain V5.1 through V5.29 is incomplete or includes the excluded V5.30 purge")
     for name in parts:
         content = sanitize_source(parts[name])
         if re.search(r"(?im)IDENTIFIED\s+BY|\$2[aby]\$|DROP\s+USER|^\s*(?:CONNECT\b|HOST\b|SPOOL\b|@)", content):

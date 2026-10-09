@@ -16,6 +16,12 @@ RUN = "c" * 32
 CONTAINER = "a" * 64
 
 
+
+def included_migration_count() -> int:
+    """V5.1+ migrations staged by the harness: everything on disk except the excluded V5.30 purge."""
+    versions = {int(p.name.split("__")[0].split(".")[1]) for p in (harness.ROOT / "database/migrations").glob("V5.*__*.sql")}
+    return len({v for v in versions if v >= 1 and v != 30})
+
 class ContainerGuardsTest(unittest.TestCase):
     def metadata(self):
         return {"Id": CONTAINER, "Name": "/saed-isolated-" + RUN[:12], "Image": harness.IMAGE_REF, "Labels": {harness.LABEL: RUN, harness.SCOPE_LABEL: harness.SCOPE}, "Running": True, "Ports": {"1521/tcp": [{"HostIp": "127.0.0.1", "HostPort": "11521"}]}, "Mounts": []}
@@ -132,7 +138,7 @@ class SourcePreparationTest(unittest.TestCase):
                 return harness.verify_prepared()
 
     def test_accepts_complete_prepared_inventory(self):
-        self.assertEqual(len(self.verifies()["files"]), 39)
+        self.assertEqual(len(self.verifies()["files"]), 8 + included_migration_count())
 
     def test_rejects_non_object_manifest_without_attribute_error(self):
         for value in (None, [], "invalid", 1):
@@ -222,8 +228,8 @@ class SourcePreparationTest(unittest.TestCase):
 
     def test_extraction_excludes_identity_and_purge(self):
         parts, sources, transformations = harness.extract_sources()
-        self.assertEqual(len(sources), 32)
-        self.assertEqual(len(parts), 37)
+        self.assertEqual(len(sources), 1 + included_migration_count())
+        self.assertEqual(len(parts), 6 + included_migration_count())
         # V5.31/V5.32 version schema formerly created only at startup; V5.30 purge stays excluded.
         self.assertIn("131-V5.31__reportes_configurados_tenant_scope.sql", parts)
         self.assertIn("132-V5.32__startup_schema_drift.sql", parts)
@@ -306,6 +312,14 @@ class SourcePreparationTest(unittest.TestCase):
         # POL_RLS_ORG_PERSONAS is deliberately not re-added: startup drops every PERSONAS policy.
         self.assertIsNone(re.search(r"add_policy\('PERSONAS'|ADD(?:_GROUPED)?_POLICY\([^;]*'PERSONAS'", v532, re.IGNORECASE))
         self.assertTrue(any("V5.32" in item for item in transformations))
+
+    def test_every_migration_from_v531_is_included_and_v530_stays_excluded(self):
+        # New remediation migrations (V5.33+) must be picked up without editing the harness.
+        on_disk = {int(p.name.split("__")[0].split(".")[1]) for p in (harness.ROOT / "database/migrations").glob("V5.*__*.sql")}
+        parts, _, _ = harness.extract_sources()
+        staged = {int(name.split("-V5.")[1].split("__")[0]) for name in parts if "-V5." in name}
+        self.assertEqual(staged, {v for v in on_disk if v >= 1 and v != 30})
+        self.assertNotIn(30, staged)
 
     def test_structure_allows_every_fixture_resident_type(self):
         # Stage 030 runs before V5.9 extends CK_RESIDUNIDAD_TIPO; recovery-03 failed with ORA-02290 on CONVIVIENTE.
