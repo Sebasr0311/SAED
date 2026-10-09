@@ -1,5 +1,6 @@
 package com.saed.backend.finanzas.controller;
 
+import com.saed.backend.platform.annotation.RequireModule;
 import com.saed.backend.audit.AuditCategory;
 import com.saed.backend.audit.AuditSeverity;
 import com.saed.backend.audit.Auditable;
@@ -52,6 +53,7 @@ public class PazYSalvoController {
     // --- LISTAR ---
 
     @Operation(summary = "Listar certificados de paz y salvo visibles según el rol del usuario")
+    @RequireModule("FINANZAS")
     @GetMapping
     public ApiResponse<List<Map<String, Object>>> listar() {
         return ApiResponse.success(pazYSalvoService.listar());
@@ -60,6 +62,7 @@ public class PazYSalvoController {
     // --- ESTADO FINANCIERO DE UNIDAD ---
 
     @Operation(summary = "Consultar estado financiero de la unidad del usuario autenticado (residente o conviviente)")
+    @RequireModule("FINANZAS")
     @GetMapping("/mi-estado-financiero")
     @PreAuthorize("hasAuthority('SCOPE_RESIDENTE') or hasAuthority('SCOPE_RESIDENTE_CONVIVENCIA') or hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<ApiResponse<PazYSalvoEstadoFinancieroDTO>> miEstadoFinanciero() {
@@ -72,6 +75,7 @@ public class PazYSalvoController {
     }
 
     @Operation(summary = "Consultar estado financiero integral de una unidad (cartera + multas sin doble conteo)")
+    @RequireModule("FINANZAS")
     @GetMapping("/unidad/{idUnidad}/estado-financiero")
     public ResponseEntity<ApiResponse<PazYSalvoEstadoFinancieroDTO>> estadoFinanciero(@PathVariable Long idUnidad) {
         PazYSalvoEstadoFinancieroDTO estado = pazYSalvoService.verificarEstadoFinanciero(idUnidad);
@@ -81,6 +85,7 @@ public class PazYSalvoController {
     // --- GENERAR ---
 
     @Operation(summary = "Generar certificado oficial de paz y salvo (solo administración)")
+    @RequireModule("FINANZAS")
     @PostMapping
     @PreAuthorize("hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
     @Auditable(action = "CREATE", resource = "PAZ_Y_SALVO", category = AuditCategory.FINANCIAL, severity = AuditSeverity.HIGH)
@@ -116,6 +121,7 @@ public class PazYSalvoController {
     // --- DETALLE ---
 
     @Operation(summary = "Detalle de un paz y salvo con validación anti-IDOR")
+    @RequireModule("FINANZAS")
     @GetMapping("/{id}")
     public ApiResponse<Object> detalle(@PathVariable Long id) {
         try {
@@ -129,12 +135,14 @@ public class PazYSalvoController {
     // --- DESCARGAR PDF ---
 
     @Operation(summary = "Descargar el documento PDF oficial del paz y salvo con validación de integridad SHA-256")
+    @RequireModule("FINANZAS")
     @GetMapping("/{id}/descargar")
     public ResponseEntity<Resource> descargar(@PathVariable Long id) {
         return buildPdfDownloadResponse(id);
     }
 
     @Operation(summary = "Alias de descarga del PDF oficial del paz y salvo")
+    @RequireModule("FINANZAS")
     @GetMapping("/{id}/pdf")
     public ResponseEntity<Resource> descargarPdfAlias(@PathVariable Long id) {
         return buildPdfDownloadResponse(id);

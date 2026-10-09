@@ -1,5 +1,6 @@
 package com.saed.backend.asambleas.controller;
 
+import com.saed.backend.platform.annotation.RequireModule;
 import com.saed.backend.asambleas.dto.ActaCreateRequestDTO;
 import com.saed.backend.asambleas.dto.ActaDTO;
 import com.saed.backend.asambleas.dto.ActaEstadoUpdateRequestDTO;
@@ -20,6 +21,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
+@RequireModule("ASAMBLEAS")
 @RestController
 @RequestMapping("/api/v1/actas")
 public class ActasController {
