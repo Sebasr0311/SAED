@@ -164,7 +164,7 @@ public class WompiServiceImpl implements WompiService {
                     new MapSqlParameterSource("id", idItem)
                 );
             }
-            if (cuotas.isEmpty()) throw new RuntimeException("Cuota no encontrada, ya pagada o sin acceso");
+            if (cuotas.isEmpty()) throw new java.util.NoSuchElementException("Cuota no encontrada, ya pagada o sin acceso");
             idCuota = ((Number) cuotas.get(0).get("ID_CUOTA")).longValue();
             idUnidad = ((Number) cuotas.get(0).get("ID_UNIDAD")).longValue();
             monto = (BigDecimal) cuotas.get(0).get("SALDO_PENDIENTE");
@@ -176,7 +176,7 @@ public class WompiServiceImpl implements WompiService {
             if (idUnidad != null) params.addValue("u", idUnidad);
 
             List<Map<String, Object>> multas = jdbcTemplate.queryForList(sqlMulta, params);
-            if (multas.isEmpty()) throw new RuntimeException("Multa no encontrada, ya pagada o sin acceso");
+            if (multas.isEmpty()) throw new java.util.NoSuchElementException("Multa no encontrada, ya pagada o sin acceso");
             idCuota = ((Number) multas.get(0).get("ID_MULTA")).longValue();
             idUnidad = ((Number) multas.get(0).get("ID_UNIDAD")).longValue();
             monto = (BigDecimal) multas.get(0).get("MONTO");

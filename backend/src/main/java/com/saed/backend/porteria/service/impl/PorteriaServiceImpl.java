@@ -166,7 +166,7 @@ public class PorteriaServiceImpl implements PorteriaService {
     @Transactional(readOnly = true)
     public VisitaDTO getVisitaById(Long id) {
         return porteriaRepository.getVisitaById(id)
-                .orElseThrow(() -> new RuntimeException("Visita no encontrada"));
+                .orElseThrow(() -> new java.util.NoSuchElementException("Visita no encontrada"));
     }
 
     @Override
@@ -227,7 +227,7 @@ public class PorteriaServiceImpl implements PorteriaService {
     @Transactional(readOnly = true)
     public VisitaDetalleDTO getVisitaDetalle(Long id) {
         VisitaDetalleDTO v = porteriaRepository.getVisitaDetalle(id)
-                .orElseThrow(() -> new RuntimeException("Visita no encontrada"));
+                .orElseThrow(() -> new java.util.NoSuchElementException("Visita no encontrada"));
         SaedContext ctx = SaedContextHolder.getContext();
         Long propId = (ctx != null && ctx.getPropertyId() != null) ? ctx.getPropertyId() : 1L;
         int maxMinutos = 240;
@@ -338,7 +338,7 @@ public class PorteriaServiceImpl implements PorteriaService {
     @Transactional(readOnly = true)
     public QrAccesoDTO getQrAccesoById(Long id) {
         return porteriaRepository.getQrAccesoById(id)
-                .orElseThrow(() -> new RuntimeException("QR Acceso no encontrado"));
+                .orElseThrow(() -> new java.util.NoSuchElementException("QR Acceso no encontrado"));
     }
 
     @Override
