@@ -270,6 +270,8 @@ public class PorteriaController {
         Long unidadId = null;
         if (body.get("unidadId") != null && !body.get("unidadId").toString().isBlank()) {
             unidadId = Long.valueOf(body.get("unidadId").toString());
+        } else if (body.get("idUnidad") != null && !body.get("idUnidad").toString().isBlank()) {
+            unidadId = Long.valueOf(body.get("idUnidad").toString());
         }
 
         Long visitanteId = null;
@@ -282,21 +284,27 @@ public class PorteriaController {
         }
 
         if (visitanteId != null) {
+            // F7-02: a client-supplied visitor id is only honored when it is visible under the
+            // caller's own context (RLS); otherwise it is discarded and never reaches the insert.
+            Long visibleVisitanteId = null;
             try {
                 List<Long> vCheck = jdbcTemplate.query(
                     "SELECT ID_VISITANTE FROM VISITANTES WHERE ID_VISITANTE = :v",
                     Map.of("v", visitanteId), (rs, r) -> rs.getLong("ID_VISITANTE")
                 );
-                if (vCheck.isEmpty()) {
+                if (!vCheck.isEmpty()) {
+                    visibleVisitanteId = vCheck.get(0);
+                } else {
                     List<Long> vByPersona = jdbcTemplate.query(
                         "SELECT ID_VISITANTE FROM VISITANTES WHERE ID_PERSONA = :p",
                         Map.of("p", visitanteId), (rs, r) -> rs.getLong("ID_VISITANTE")
                     );
                     if (!vByPersona.isEmpty()) {
-                        visitanteId = vByPersona.get(0);
+                        visibleVisitanteId = vByPersona.get(0);
                     }
                 }
             } catch (Exception ignored) {}
+            visitanteId = visibleVisitanteId;
         }
 
         String rawMetodo = body.get("metodoIngreso") != null ? body.get("metodoIngreso").toString().trim().toUpperCase() : "CODIGO_QR";
@@ -329,11 +337,29 @@ public class PorteriaController {
         }
 
         SaedContext ctx = SaedContextHolder.getContext();
-        String roleCode = ctx != null ? ctx.getRoleCode() : null;
-        String roleScope = ctx != null ? ctx.getRoleScope() : null;
+        if (ctx == null) {
+            throw new org.springframework.security.access.AccessDeniedException("Missing tenant context");
+        }
+        String roleCode = ctx.getRoleCode();
+        String roleScope = ctx.getRoleScope();
+        boolean residentCaller = "RESIDENTE".equals(roleCode) || "RESIDENTE_CONVIVENCIA".equals(roleCode) || "UNIDAD".equals(roleScope);
+
+        // F7-02: a client-supplied property id must match the authenticated property scope.
+        Object rawPropId = body.get("idPropiedad") != null ? body.get("idPropiedad") : body.get("propiedadId");
+        if (rawPropId != null && !rawPropId.toString().isBlank()) {
+            Long requestedPropId;
+            try {
+                requestedPropId = Long.valueOf(rawPropId.toString());
+            } catch (NumberFormatException e) {
+                throw new org.springframework.security.access.AccessDeniedException("Invalid property scope");
+            }
+            if (!requestedPropId.equals(ctx.getPropertyId())) {
+                throw new org.springframework.security.access.AccessDeniedException("No tiene permisos para programar visitas en otra propiedad");
+            }
+        }
 
         // Validar autorizacion de ambito residencial para RESIDENTE y RESIDENTE_CONVIVENCIA
-        if (ctx != null && ("RESIDENTE".equals(roleCode) || "RESIDENTE_CONVIVENCIA".equals(roleCode) || "UNIDAD".equals(roleScope))) {
+        if (residentCaller) {
             Long userUnitId = ctx.getUnitId();
             if (userUnitId == null && currentUserId != null) {
                 try {
@@ -353,16 +379,13 @@ public class PorteriaController {
                 throw new org.springframework.security.access.AccessDeniedException("No tiene permisos para programar visitas en otra unidad");
             }
             unidadId = userUnitId;
-        } else if (ctx != null && "ADMIN_PROPIEDAD".equals(roleCode)) {
-            Long userPropId = ctx.getPropertyId();
-            if (userPropId != null && unidadId != null) {
-                List<Long> match = jdbcTemplate.query(
-                    "SELECT ID_UNIDAD FROM UNIDADES WHERE ID_UNIDAD = :u AND ID_PROPIEDAD = :p",
-                    Map.of("u", unidadId, "p", userPropId), (rs, r) -> rs.getLong("ID_UNIDAD")
-                );
-                if (match.isEmpty()) {
-                    throw new org.springframework.security.access.AccessDeniedException("La unidad no pertenece a la propiedad asignada");
-                }
+        } else {
+            // F7-02: admin and portero callers are restricted to their own property.
+            if (ctx.getPropertyId() == null) {
+                throw new org.springframework.security.access.AccessDeniedException("El usuario no tiene una propiedad asignada");
+            }
+            if (unidadId != null) {
+                requireUnitInCallerProperty(unidadId, ctx.getPropertyId());
             }
         }
 
@@ -428,7 +451,11 @@ public class PorteriaController {
             }
         }
         if (unidadId == null) {
-            unidadId = 1L;
+            throw new IllegalArgumentException("No fue posible determinar la unidad de la visita");
+        }
+        if (!residentCaller) {
+            // Units resolved from idResidente or assignments must still belong to the caller's property.
+            requireUnitInCallerProperty(unidadId, ctx.getPropertyId());
         }
 
         // Resolver autorizadoPor garantizando que sea un ID_USUARIO valido en USUARIOS (FK_VISITAS_AUTORIZADOR)
@@ -483,13 +510,11 @@ public class PorteriaController {
             if (visMap.get("idTipoDoc") != null) {
                 try { idTipoDoc = Long.valueOf(visMap.get("idTipoDoc").toString()); } catch (Exception ignored) {}
             }
-            if (visMap.get("idVisitante") != null) {
-                try { visitanteId = Long.valueOf(visMap.get("idVisitante").toString()); } catch (Exception ignored) {}
-            }
+            // F7-02: client-supplied idPersona / idVisitante are ignored; the visitor identity is
+            // resolved only from the document below. The elevated block that follows is limited to the
+            // global visitor-identity upsert (PERSONAS is globally unique by document and VISITANTES
+            // INSERT is RLS-checked against existing visits) and runs only after all scope checks passed.
             Long personaId = null;
-            if (visMap.get("idPersona") != null) {
-                try { personaId = Long.valueOf(visMap.get("idPersona").toString()); } catch (Exception ignored) {}
-            }
 
             SaedContext prevCtx = SaedContextHolder.getContext();
             try {
@@ -698,35 +723,25 @@ public class PorteriaController {
     }
 
     @GetMapping("/visitas/buscar")
-    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA', 'SCOPE_PORTERO')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_PORTERO')")
     public ResponseEntity<Map<String, Object>> buscarVisitantePorDocumento(@RequestParam(required = false) String documento) {
-        if (documento == null || documento.trim().isEmpty()) {
+        // C-06: gate-only lookup. Runs under the caller's own context (no SUPERADMIN/bootstrap elevation)
+        // and is explicitly scoped to visitors with a visit to a unit in the caller's property.
+        // Out-of-scope and nonexistent documents return the same empty response (no existence oracle).
+        SaedContext ctx = SaedContextHolder.getContext();
+        Long propId = ctx != null ? ctx.getPropertyId() : null;
+        if (documento == null || documento.trim().isEmpty() || propId == null) {
             return ResponseEntity.ok(Map.of());
         }
-        SaedContext prevCtx = SaedContextHolder.getContext();
         try {
-            Long orgId = prevCtx != null && prevCtx.getOrganizationId() != null ? prevCtx.getOrganizationId() : 1L;
-            Long propId = prevCtx != null && prevCtx.getPropertyId() != null ? prevCtx.getPropertyId() : 1L;
-            SaedContext systemCtx = SaedContext.builder()
-                .userId(1L)
-                .organizationId(orgId)
-                .propertyId(propId)
-                .roleCode("SUPERADMIN")
-                .roleScope("GLOBAL")
-                .build();
-            SaedContextHolder.setContext(systemCtx);
-            try {
-                jdbcTemplate.getJdbcOperations().execute("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1); END;");
-                jdbcTemplate.getJdbcOperations().execute(
-                    String.format("BEGIN PKG_SAED_SESSION.SET_CONTEXT(1, %d, %d, 'SUPERADMIN'); END;", orgId, propId)
-                );
-            } catch (Exception ignored) {}
-
             List<Map<String, Object>> list = jdbcTemplate.queryForList(
-                "SELECT p.ID_PERSONA, p.ID_TIPO_DOCUMENTO, p.NUMERO_DOCUMENTO, p.PRIMER_NOMBRE, p.PRIMER_APELLIDO, p.TELEFONO, p.EMAIL, v.ID_VISITANTE " +
-                "FROM PERSONAS p LEFT JOIN VISITANTES v ON p.ID_PERSONA = v.ID_PERSONA " +
-                "WHERE p.NUMERO_DOCUMENTO = :doc AND ROWNUM = 1",
-                Map.of("doc", documento.trim())
+                "SELECT p.ID_PERSONA, p.ID_TIPO_DOCUMENTO, p.NUMERO_DOCUMENTO, p.PRIMER_NOMBRE, p.PRIMER_APELLIDO, p.TELEFONO, v.ID_VISITANTE "
+                    + "FROM PERSONAS p JOIN VISITANTES v ON p.ID_PERSONA = v.ID_PERSONA "
+                    + "WHERE p.NUMERO_DOCUMENTO = :doc "
+                    + "AND EXISTS (SELECT 1 FROM VISITAS vi JOIN UNIDADES un ON un.ID_UNIDAD = vi.ID_UNIDAD "
+                    + "WHERE vi.ID_VISITANTE = v.ID_VISITANTE AND un.ID_PROPIEDAD = :propId) "
+                    + "AND ROWNUM = 1",
+                Map.of("doc", documento.trim(), "propId", propId)
             );
             if (!list.isEmpty()) {
                 Map<String, Object> row = list.get(0);
@@ -737,16 +752,24 @@ public class PorteriaController {
                 res.put("numeroDocumento", row.get("NUMERO_DOCUMENTO"));
                 res.put("nombres", row.get("PRIMER_NOMBRE"));
                 res.put("apellidos", row.get("PRIMER_APELLIDO"));
-                res.put("telefono", row.get("TELEFONO"));
-                res.put("email", row.get("EMAIL"));
+                res.put("telefono", maskPhone(row.get("TELEFONO")));
                 return ResponseEntity.ok(res);
             }
         } catch (Exception e) {
             log.warning("Error buscando visitante por documento: " + e.getMessage());
-        } finally {
-            restoreSaedContext(prevCtx);
         }
         return ResponseEntity.ok(Map.of());
+    }
+
+    private static String maskPhone(Object raw) {
+        if (raw == null) {
+            return null;
+        }
+        String phone = raw.toString().trim();
+        if (phone.length() <= 4) {
+            return "****";
+        }
+        return "*".repeat(phone.length() - 4) + phone.substring(phone.length() - 4);
     }
 
     @GetMapping("/visitas/{id}")
@@ -915,6 +938,16 @@ public class PorteriaController {
             }
         }
         return null;
+    }
+
+    private void requireUnitInCallerProperty(Long unitId, Long propId) {
+        List<Long> match = jdbcTemplate.query(
+            "SELECT ID_UNIDAD FROM UNIDADES WHERE ID_UNIDAD = :u AND ID_PROPIEDAD = :p",
+            Map.of("u", unitId, "p", propId), (rs, r) -> rs.getLong("ID_UNIDAD")
+        );
+        if (match.isEmpty()) {
+            throw new org.springframework.security.access.AccessDeniedException("La unidad no pertenece a la propiedad asignada");
+        }
     }
 
     private void restoreSaedContext(SaedContext prevCtx) {
