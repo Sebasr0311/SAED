@@ -37,10 +37,11 @@ public class OnboardingServiceImpl implements OnboardingService {
     private final ObjectMapper objectMapper;
     private final com.saed.backend.platform.service.MembershipHistoryService membershipHistoryService;
 
-    @Value("${wompi.public.key:${WOMPI_PUBLIC_KEY:pub_test_IZg6dmwtip4WYXjPP8G7zYvWzCU5wRaH}}")
+    // Keys come only from configuration (saed.wompi.*); no hardcoded or environment fallback.
+    @Value("${saed.wompi.public-key:}")
     private String wompiPublicKey;
 
-    @Value("${wompi.integrity.secret:${WOMPI_INTEGRITY_SECRET:test_integrity_CT3taBwOqVtSQITYMGUTcrJftHdoLoPQ}}")
+    @Value("${saed.wompi.integrity-secret:}")
     private String wompiIntegritySecret;
 
     public OnboardingServiceImpl(
@@ -857,13 +858,11 @@ public class OnboardingServiceImpl implements OnboardingService {
     }
 
     private String getPublicKey() {
-        String env = System.getenv("WOMPI_PUBLIC_KEY");
-        return (env != null && !env.isBlank()) ? env : wompiPublicKey;
+        return wompiPublicKey;
     }
 
     private String getIntegritySecret() {
-        String env = System.getenv("WOMPI_INTEGRITY_SECRET");
-        return (env != null && !env.isBlank()) ? env : wompiIntegritySecret;
+        return wompiIntegritySecret;
     }
 
     private String calcularFirmaIntegridad(String referencia, long montoCentavos) {

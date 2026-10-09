@@ -18,3 +18,14 @@ jwt:
   secret: c2VjcmV0LWtleS1kZWJlLXNlci1sYXJnYS1wYXJhLWhtYWMtc2hhMjU2
   expiration:
     ms: 86400000
+
+# Test-profile placeholders (not real credentials): the paid-onboarding and payment-intention
+# flows require configured keys and fail closed without them.
+saed:
+  cors:
+    allowed-origins: http://localhost:5173
+  wompi:
+    environment: SANDBOX
+    public-key: pub_test_saed_test_profile
+    integrity-secret: test_integrity_saed_test_profile
+    events-secret: test_events_saed_test_profile
