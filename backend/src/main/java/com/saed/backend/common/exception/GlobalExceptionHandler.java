@@ -32,6 +32,7 @@ import java.util.*;
 public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+    private static final int MAX_ERROR_CAUSE_DEPTH = 16;
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
 
@@ -50,7 +51,7 @@ public class GlobalExceptionHandler {
         response.put("message", message);
 
         String traceId = CorrelationIdHolder.get();
-        if (traceId == null || traceId.isBlank()) {
+        if (traceId == null || !traceId.matches("[a-zA-Z0-9_-]{1,64}")) {
             traceId = UUID.randomUUID().toString();
         }
         response.put("traceId", traceId);
@@ -58,6 +59,38 @@ public class GlobalExceptionHandler {
         return response;
     }
 
+    /** Logs stable classifications and bounded correlation only, never raw exceptions or database details. */
+    private Map<String, Object> createLoggedErrorResponse(HttpStatus status, String code, String message) {
+        Map<String, Object> response = createErrorResponse(status, code, message);
+        if (status.is5xxServerError()) {
+            log.error("Request failed: code={} traceId={}", code, response.get("traceId"));
+        } else {
+            log.warn("Request rejected: code={} traceId={}", code, response.get("traceId"));
+        }
+        return response;
+    }
+
+    /** Unknown/cyclic/truncated chains fail closed before any database audit or recovery. */
+    private boolean requiresFailClosedResponse(Throwable failure) {
+        Set<Throwable> visited = Collections.newSetFromMap(new IdentityHashMap<>());
+        Throwable current = failure;
+        int depth = 0;
+        while (current != null) {
+            if (depth++ >= MAX_ERROR_CAUSE_DEPTH || !visited.add(current)) {
+                return true;
+            }
+            try {
+                String detail = current.getMessage();
+                if (detail != null && detail.contains("ORA-28112")) {
+                    return true;
+                }
+                current = current.getCause();
+            } catch (RuntimeException unreadableCause) {
+                return true;
+            }
+        }
+        return false;
+    }
     /** Registra un intento denegado en AUDITORIA_LOG (best-effort, nunca rompe la respuesta). */
     private void registrarAccesoDenegado(String motivo, String entidad) {
         try {
@@ -89,98 +122,44 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(DataAccessException.class)
     public ResponseEntity<Map<String, Object>> handleDatabaseException(DataAccessException ex) {
+        // A broken policy must fail closed: do not query, repair or weaken database security.
+        if (requiresFailClosedResponse(ex)) {
+            Map<String, Object> response = createLoggedErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, "DATABASE_ERROR",
+                    "Ha ocurrido un error en la capa de datos.");
+            return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
         String message = ex.getMessage();
 
         // ORA-28115 RLS Violation (IDOR entre tenants)
         if (message != null && message.contains("ORA-28115")) {
             registrarAccesoDenegado("Violacion RLS: intento de acceso a recurso de otro tenant", "RLS");
-            Map<String, Object> response = createErrorResponse(HttpStatus.FORBIDDEN, "ACCESS_DENIED_RLS",
+            Map<String, Object> response = createLoggedErrorResponse(HttpStatus.FORBIDDEN, "ACCESS_DENIED_RLS",
                     "Operación bloqueada por la política de seguridad RLS. Acceso al tenant denegado.");
             return new ResponseEntity<>(response, HttpStatus.FORBIDDEN);
-        }
-
-        // ORA-28112 RLS Policy Function Failure Diagnostic
-        if (message != null && message.contains("ORA-28112")) {
-            log.error("Fallo de función de política RLS detectado: {}", message);
-            Map<String, Object> response = createErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, "DATABASE_ERROR",
-                    "Ha ocurrido un error en la capa de datos: " + message);
-            try {
-                var errors = jdbcTemplate.getJdbcOperations().queryForList(
-                    "SELECT NAME, TYPE, LINE, POSITION, TEXT FROM USER_ERRORS WHERE NAME IN ('PKG_SAED_SECURITY_RLS', 'PKG_SAED_SESSION')"
-                );
-                response.put("plsqlErrors", errors);
-                var objects = jdbcTemplate.getJdbcOperations().queryForList(
-                    "SELECT OBJECT_NAME, OBJECT_TYPE, STATUS FROM USER_OBJECTS WHERE OBJECT_NAME IN ('PKG_SAED_SECURITY_RLS', 'PKG_SAED_SESSION')"
-                );
-                response.put("objectStatus", objects);
-                var policies = jdbcTemplate.getJdbcOperations().queryForList(
-                    "SELECT OBJECT_NAME, POLICY_NAME, PF_OWNER, PACKAGE, FUNCTION FROM USER_POLICIES WHERE OBJECT_NAME IN ('CUOTAS', 'PERSONAS', 'SANCIONES')"
-                );
-                response.put("userPolicies", policies);
-                var currentUser = jdbcTemplate.getJdbcOperations().queryForObject("SELECT USER FROM DUAL", String.class);
-                response.put("dbUser", currentUser);
-                try {
-                    String testPred = jdbcTemplate.getJdbcOperations().queryForObject(
-                        "SELECT PKG_SAED_SECURITY_RLS.FN_FILTRO_UNIDAD(USER, 'CUOTAS') FROM DUAL", String.class
-                    );
-                    response.put("testPredUnidad", testPred);
-                } catch (Exception exTest) {
-                    response.put("testPredUnidadError", exTest.getMessage());
-                }
-                try {
-                    jdbcTemplate.getJdbcOperations().execute("ALTER PACKAGE PKG_SAED_SECURITY_RLS COMPILE BODY");
-                    response.put("recompileRls", "SUCCESS");
-                } catch (Exception exComp) {
-                    response.put("recompileRlsError", exComp.getMessage());
-                }
-                try {
-                    jdbcTemplate.getJdbcOperations().execute("""
-                        BEGIN
-                            FOR r IN (SELECT object_name, policy_name, policy_group FROM user_policies WHERE object_name = 'PERSONAS') LOOP
-                                BEGIN
-                                    DBMS_RLS.DROP_GROUPED_POLICY(USER, r.object_name, r.policy_group, r.policy_name);
-                                EXCEPTION WHEN OTHERS THEN
-                                    BEGIN
-                                        DBMS_RLS.DROP_POLICY(USER, r.object_name, r.policy_name);
-                                    EXCEPTION WHEN OTHERS THEN NULL;
-                                    END;
-                                END;
-                            END LOOP;
-                        END;
-                    """);
-                    response.put("dropPersonaPolicy", "SUCCESS");
-                } catch (Exception exDrop) {
-                    response.put("dropPersonaPolicyError", exDrop.getMessage());
-                }
-            } catch (Exception exDiag) {
-                response.put("diagError", exDiag.getMessage());
-            }
-            return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
         }
 
         // Custom PKG_SAED_SESSION application errors (-20083, -20084, -20099)
         if (message != null && message.contains("ORA-2008")) {
             registrarAccesoDenegado("Contexto spoofing detectado (PKG_SAED_SESSION)", "SEGURIDAD");
-            Map<String, Object> response = createErrorResponse(HttpStatus.FORBIDDEN, "CONTEXT_SPOOFING_DETECTED",
+            Map<String, Object> response = createLoggedErrorResponse(HttpStatus.FORBIDDEN, "CONTEXT_SPOOFING_DETECTED",
                     "Operación rechazada por contexto de seguridad inválido.");
             return new ResponseEntity<>(response, HttpStatus.FORBIDDEN);
         }
 
         if (message != null && message.contains("ORA-20099")) {
-            Map<String, Object> response = createErrorResponse(HttpStatus.FORBIDDEN, "AUDIT_IMMUTABILITY_VIOLATION",
+            Map<String, Object> response = createLoggedErrorResponse(HttpStatus.FORBIDDEN, "AUDIT_IMMUTABILITY_VIOLATION",
                     "No está permitido alterar o eliminar registros de auditoría.");
             return new ResponseEntity<>(response, HttpStatus.FORBIDDEN);
         }
 
         if (message != null && message.contains("ORA-20060")) {
-            Map<String, Object> response = createErrorResponse(HttpStatus.FORBIDDEN, "REPORT_HISTORY_IMMUTABILITY_VIOLATION",
+            Map<String, Object> response = createLoggedErrorResponse(HttpStatus.FORBIDDEN, "REPORT_HISTORY_IMMUTABILITY_VIOLATION",
                     "HISTORIAL_REPORTES es inmutable. No se permite modificar ni eliminar registros de auditoría.");
             return new ResponseEntity<>(response, HttpStatus.FORBIDDEN);
         }
 
         // ORA-00001 Conflicto de unicidad
         if (message != null && (message.contains("ORA-00001") || message.contains("UIX_ASIGNACION_UNICA"))) {
-            log.warn("Conflicto de base de datos detectado: {}", message);
             String code = "CONFLICT";
             String conflictMsg = "El registro ya existe o la asignación está duplicada.";
 
@@ -217,76 +196,72 @@ public class GlobalExceptionHandler {
                 conflictMsg = "Ya existe un activo registrado con ese código en esta copropiedad.";
             }
 
-            Map<String, Object> response = createErrorResponse(HttpStatus.CONFLICT, code, conflictMsg);
+            Map<String, Object> response = createLoggedErrorResponse(HttpStatus.CONFLICT, code, conflictMsg);
             return new ResponseEntity<>(response, HttpStatus.CONFLICT);
         }
 
         // ORA-02292 Foreign key / Integrity constraint violated (Child record found)
         if (message != null && message.contains("ORA-02292")) {
-            log.warn("Violación de clave foránea / registro dependiente detectado: {}", message);
-            Map<String, Object> response = createErrorResponse(HttpStatus.CONFLICT, "FOREIGN_KEY_VIOLATION",
+            Map<String, Object> response = createLoggedErrorResponse(HttpStatus.CONFLICT, "FOREIGN_KEY_VIOLATION",
                     "No se puede eliminar o modificar el recurso porque tiene registros dependientes asociados.");
             return new ResponseEntity<>(response, HttpStatus.CONFLICT);
         }
 
         // ORA-02291 Parent key not found
         if (message != null && message.contains("ORA-02291")) {
-            log.warn("Violación de clave foránea (padre inexistente): {}", message);
-            Map<String, Object> response = createErrorResponse(HttpStatus.BAD_REQUEST, "FOREIGN_KEY_NOT_FOUND",
+            Map<String, Object> response = createLoggedErrorResponse(HttpStatus.BAD_REQUEST, "FOREIGN_KEY_NOT_FOUND",
                     "El registro hace referencia a una entidad inexistente.");
             return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
         }
 
         // ORA-01400 Cannot insert NULL into mandatory column
         if (message != null && message.contains("ORA-01400")) {
-            log.warn("Intento de insertar valor nulo en columna requerida: {}", message);
-            Map<String, Object> response = createErrorResponse(HttpStatus.BAD_REQUEST, "NULL_VALUE_NOT_ALLOWED",
+            Map<String, Object> response = createLoggedErrorResponse(HttpStatus.BAD_REQUEST, "NULL_VALUE_NOT_ALLOWED",
                     "Un campo obligatorio no fue proporcionado en la solicitud.");
             return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
         }
 
         // ORA-01839 / ORA-01843 / ORA-01847 / ORA-01861 Date format or invalid date value
         if (message != null && (message.contains("ORA-01839") || message.contains("ORA-01843") || message.contains("ORA-01847") || message.contains("ORA-01861"))) {
-            log.warn("Error de fecha detectado en base de datos: {}", message);
-            Map<String, Object> response = createErrorResponse(HttpStatus.BAD_REQUEST, "INVALID_DATE_FORMAT",
+            Map<String, Object> response = createLoggedErrorResponse(HttpStatus.BAD_REQUEST, "INVALID_DATE_FORMAT",
                     "Formato o valor de fecha no válido en la solicitud.");
             return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
         }
 
         // ORA-01722 Invalid number
         if (message != null && message.contains("ORA-01722")) {
-            log.warn("Error de conversión numérica detectado en base de datos: {}", message);
-            Map<String, Object> response = createErrorResponse(HttpStatus.BAD_REQUEST, "INVALID_NUMBER",
+            Map<String, Object> response = createLoggedErrorResponse(HttpStatus.BAD_REQUEST, "INVALID_NUMBER",
                     "Se envió un valor no numérico en un campo que requiere número.");
             return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
         }
 
         // ORA-12899 Value too large for column
         if (message != null && message.contains("ORA-12899")) {
-            log.warn("Desborde de longitud de columna detectado: {}", message);
-            Map<String, Object> response = createErrorResponse(HttpStatus.BAD_REQUEST, "FIELD_TOO_LONG",
+            Map<String, Object> response = createLoggedErrorResponse(HttpStatus.BAD_REQUEST, "FIELD_TOO_LONG",
                     "Uno de los textos enviados supera la longitud máxima permitida.");
             return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
         }
 
         // ORA-02290 Check constraint violated
         if (message != null && message.contains("ORA-02290")) {
-            log.warn("Violación de restricción de validación detectada: {}", message);
-            Map<String, Object> response = createErrorResponse(HttpStatus.BAD_REQUEST, "CONSTRAINT_VIOLATION",
+            Map<String, Object> response = createLoggedErrorResponse(HttpStatus.BAD_REQUEST, "CONSTRAINT_VIOLATION",
                     "Los valores enviados violan una restricción de validación.");
             return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
         }
 
         // Generic fallback for DB
-        String specificError = (ex.getMostSpecificCause() != null ? ex.getMostSpecificCause().getMessage() : ex.getMessage());
-        log.error("DB Error: " + message + " | Cause: " + specificError, ex);
-        Map<String, Object> response = createErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, "DATABASE_ERROR",
-                "Ha ocurrido un error en la capa de datos: " + specificError);
+        Map<String, Object> response = createLoggedErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, "DATABASE_ERROR",
+                "Ha ocurrido un error en la capa de datos.");
         return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
     @ExceptionHandler(CannotCreateTransactionException.class)
     public ResponseEntity<Map<String, Object>> handleTransactionException(CannotCreateTransactionException ex) {
+        if (requiresFailClosedResponse(ex)) {
+            Map<String, Object> response = createLoggedErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_SERVER_ERROR",
+                    "Error al iniciar transacción en la base de datos.");
+            return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
         String message = ex.getMessage();
         if (ex.getCause() != null) {
             message += " " + ex.getCause().getMessage();
@@ -294,13 +269,11 @@ public class GlobalExceptionHandler {
 
         if (message != null && message.contains("ORA-2008")) {
             registrarAccesoDenegado("Contexto spoofing en transaccion", "SEGURIDAD");
-            Map<String, Object> response = createErrorResponse(HttpStatus.FORBIDDEN, "CONTEXT_SPOOFING_DETECTED",
+            Map<String, Object> response = createLoggedErrorResponse(HttpStatus.FORBIDDEN, "CONTEXT_SPOOFING_DETECTED",
                     "Operación rechazada por contexto de seguridad inválido.");
             return new ResponseEntity<>(response, HttpStatus.FORBIDDEN);
         }
-
-        log.error("Error al iniciar transacción en la base de datos: {}", message, ex);
-        Map<String, Object> response = createErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_SERVER_ERROR",
+        Map<String, Object> response = createLoggedErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_SERVER_ERROR",
                 "Error al iniciar transacción en la base de datos.");
         return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
     }
@@ -822,8 +795,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleGenericException(Exception ex) {
-        log.error("Unhandled unexpected exception: {}", ex.getMessage(), ex);
-        Map<String, Object> response = createErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_SERVER_ERROR",
+        Map<String, Object> response = createLoggedErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_SERVER_ERROR",
                 "Error interno del servidor");
         return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
     }
