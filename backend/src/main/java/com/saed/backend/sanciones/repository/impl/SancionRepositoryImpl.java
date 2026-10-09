@@ -67,6 +67,13 @@ public class SancionRepositoryImpl implements SancionRepository {
         long creador = rs.getLong("CREADO_POR");
         if (!rs.wasNull()) dto.setCreadoPor(creador);
 
+        if (rs.getDate("RESTRICCION_DESDE") != null) {
+            dto.setRestriccionDesde(rs.getDate("RESTRICCION_DESDE").toLocalDate());
+        }
+        if (rs.getDate("RESTRICCION_HASTA") != null) {
+            dto.setRestriccionHasta(rs.getDate("RESTRICCION_HASTA").toLocalDate());
+        }
+
         return dto;
     };
 
@@ -97,7 +104,7 @@ public class SancionRepositoryImpl implements SancionRepository {
                 "s.ID_INCIDENTE_ORIGEN, s.NUMERO_EXPEDIENTE, s.TIPO_FALTA, s.GRAVEDAD, s.DESCRIPCION_HECHOS, " +
                 "s.ARTICULO_REGLAMENTO_VIOLADO, s.EVIDENCIAS_URLS, s.TIPO_SANCION_PROPUESTA, " +
                 "s.FECHA_APERTURA_PLIEGO, s.FECHA_LIMITE_DESCARGOS, s.RESOLUCION_FINAL, s.FECHA_RESOLUCION, " +
-                "s.ESTADO, s.CREADO_POR " +
+                "s.ESTADO, s.CREADO_POR, s.RESTRICCION_DESDE, s.RESTRICCION_HASTA " +
                 "FROM SANCIONES s " +
                 "LEFT JOIN UNIDADES u ON s.ID_UNIDAD = u.ID_UNIDAD " +
                 "LEFT JOIN PERSONAS p ON s.ID_PERSONA_IMPUTADA = p.ID_PERSONA " +
@@ -118,7 +125,7 @@ public class SancionRepositoryImpl implements SancionRepository {
            .append("s.ID_INCIDENTE_ORIGEN, s.NUMERO_EXPEDIENTE, s.TIPO_FALTA, s.GRAVEDAD, s.DESCRIPCION_HECHOS, ")
            .append("s.ARTICULO_REGLAMENTO_VIOLADO, s.EVIDENCIAS_URLS, s.TIPO_SANCION_PROPUESTA, ")
            .append("s.FECHA_APERTURA_PLIEGO, s.FECHA_LIMITE_DESCARGOS, s.RESOLUCION_FINAL, s.FECHA_RESOLUCION, ")
-           .append("s.ESTADO, s.CREADO_POR ")
+           .append("s.ESTADO, s.CREADO_POR, s.RESTRICCION_DESDE, s.RESTRICCION_HASTA ")
            .append("FROM SANCIONES s ")
            .append("LEFT JOIN UNIDADES u ON s.ID_UNIDAD = u.ID_UNIDAD ")
            .append("LEFT JOIN PERSONAS p ON s.ID_PERSONA_IMPUTADA = p.ID_PERSONA ")
@@ -146,7 +153,7 @@ public class SancionRepositoryImpl implements SancionRepository {
                 "s.ID_INCIDENTE_ORIGEN, s.NUMERO_EXPEDIENTE, s.TIPO_FALTA, s.GRAVEDAD, s.DESCRIPCION_HECHOS, " +
                 "s.ARTICULO_REGLAMENTO_VIOLADO, s.EVIDENCIAS_URLS, s.TIPO_SANCION_PROPUESTA, " +
                 "s.FECHA_APERTURA_PLIEGO, s.FECHA_LIMITE_DESCARGOS, s.RESOLUCION_FINAL, s.FECHA_RESOLUCION, " +
-                "s.ESTADO, s.CREADO_POR " +
+                "s.ESTADO, s.CREADO_POR, s.RESTRICCION_DESDE, s.RESTRICCION_HASTA " +
                 "FROM SANCIONES s " +
                 "LEFT JOIN UNIDADES u ON s.ID_UNIDAD = u.ID_UNIDAD " +
                 "LEFT JOIN PERSONAS p ON s.ID_PERSONA_IMPUTADA = p.ID_PERSONA " +
@@ -219,20 +226,6 @@ public class SancionRepositoryImpl implements SancionRepository {
     }
 
     @Override
-    public void emitirResolucion(Long idSancion, String decision, String resolucionFinal) {
-        String sql = "UPDATE SANCIONES SET " +
-                "ESTADO = :decision, " +
-                "RESOLUCION_FINAL = :resolucion, " +
-                "FECHA_RESOLUCION = CURRENT_TIMESTAMP " +
-                "WHERE ID_SANCION = :id";
-
-        jdbc.update(sql, new MapSqlParameterSource()
-                .addValue("decision", decision)
-                .addValue("resolucion", resolucionFinal)
-                .addValue("id", idSancion));
-    }
-
-    @Override
     public List<DescargoDTO> findDescargosBySancion(Long idSancion) {
         String sql = "SELECT d.ID_DESCARGO, d.ID_SANCION, d.ID_PERSONA_PRESENTA, " +
                 "TRIM(NVL(p.PRIMER_NOMBRE, '') || ' ' || NVL(p.SEGUNDO_NOMBRE, '') || ' ' || NVL(p.PRIMER_APELLIDO, '') || ' ' || NVL(p.SEGUNDO_APELLIDO, '')) as NOMBRE_PRESENTA, " +
@@ -267,7 +260,7 @@ public class SancionRepositoryImpl implements SancionRepository {
     }
 
     @Override
-    public void crearMultaDesdeSancion(Long idSancion, Long idUnidad, Long idPersona, Long idConcepto, BigDecimal monto, String motivo, Long idUsuario) {
+    public Long crearMultaDesdeSancion(Long idSancion, Long idUnidad, Long idPersona, Long idConcepto, BigDecimal monto, String motivo, Long idUsuario) {
         if (monto == null || monto.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("El monto de la multa debe ser mayor a 0");
         }
@@ -278,6 +271,7 @@ public class SancionRepositoryImpl implements SancionRepository {
                 ":idUnidad, :idPersona, :idConcepto, :monto, :motivo, " +
                 ":idSancion, 'IMPUESTA', :idUsuario, CURRENT_TIMESTAMP)";
 
+        KeyHolder keyHolder = new GeneratedKeyHolder();
         jdbc.update(sql, new MapSqlParameterSource()
                 .addValue("idUnidad", idUnidad)
                 .addValue("idPersona", idPersona)
@@ -285,6 +279,94 @@ public class SancionRepositoryImpl implements SancionRepository {
                 .addValue("monto", monto)
                 .addValue("motivo", motivo != null ? motivo : "Sanción económica derivada de proceso disciplinario")
                 .addValue("idSancion", idSancion)
-                .addValue("idUsuario", idUsuario));
+                .addValue("idUsuario", idUsuario), keyHolder, new String[]{"ID_MULTA"});
+        Number key = keyHolder.getKey();
+        return key != null ? key.longValue() : null;
+    }
+
+    @Override
+    public int emitirResolucionSiAbierta(Long idSancion, String decision, String resolucionFinal,
+                                         LocalDate restriccionDesde, LocalDate restriccionHasta) {
+        String sql = "UPDATE SANCIONES SET " +
+                "ESTADO = :decision, " +
+                "RESOLUCION_FINAL = :resolucion, " +
+                "FECHA_RESOLUCION = CURRENT_TIMESTAMP, " +
+                "RESTRICCION_DESDE = :desde, " +
+                "RESTRICCION_HASTA = :hasta " +
+                "WHERE ID_SANCION = :id AND ESTADO IN ('NOTIFICADA', 'EN_DESCARGOS', 'EN_DELIBERACION_CONSEJO')";
+
+        return jdbc.update(sql, new MapSqlParameterSource()
+                .addValue("decision", decision)
+                .addValue("resolucion", resolucionFinal)
+                .addValue("desde", restriccionDesde != null ? Date.valueOf(restriccionDesde) : null, Types.DATE)
+                .addValue("hasta", restriccionHasta != null ? Date.valueOf(restriccionHasta) : null, Types.DATE)
+                .addValue("id", idSancion));
+    }
+
+    @Override
+    public Optional<Long> findMultaPorSancion(Long idSancion) {
+        String sql = "SELECT ID_MULTA FROM MULTAS WHERE ID_SANCION_ORIGEN = :idSancion ORDER BY ID_MULTA";
+        List<Long> ids = jdbc.queryForList(sql, new MapSqlParameterSource("idSancion", idSancion), Long.class);
+        return ids.stream().findFirst();
+    }
+
+    @Override
+    public void vincularCuotaMulta(Long idMulta, Long idCuota) {
+        String sql = "UPDATE MULTAS SET ID_CUOTA = :idCuota WHERE ID_MULTA = :idMulta AND ID_CUOTA IS NULL";
+        jdbc.update(sql, new MapSqlParameterSource().addValue("idCuota", idCuota).addValue("idMulta", idMulta));
+    }
+
+    @Override
+    public boolean existeRestriccionZonasComunes(Long idUnidad, LocalDate fecha) {
+        String sql = "SELECT COUNT(1) FROM SANCIONES " +
+                "WHERE ID_UNIDAD = :idUnidad AND ESTADO = 'APLICADA' " +
+                "AND TIPO_SANCION_PROPUESTA = 'SUSPENSION_ZONAS_COMUNES' " +
+                "AND RESTRICCION_DESDE IS NOT NULL AND RESTRICCION_HASTA IS NOT NULL " +
+                "AND :fecha BETWEEN RESTRICCION_DESDE AND RESTRICCION_HASTA";
+        Integer count = jdbc.queryForObject(sql, new MapSqlParameterSource()
+                .addValue("idUnidad", idUnidad)
+                .addValue("fecha", Date.valueOf(fecha), Types.DATE), Integer.class);
+        return count != null && count > 0;
+    }
+
+    @Override
+    public Long findPersonaUsuario(Long idUsuario) {
+        List<Long> ids = jdbc.queryForList("SELECT ID_PERSONA FROM USUARIOS WHERE ID_USUARIO = :id",
+                new MapSqlParameterSource("id", idUsuario), Long.class);
+        return ids.isEmpty() ? null : ids.get(0);
+    }
+
+    @Override
+    public boolean personaVinculadaAUnidad(Long idPersona, Long idUnidad) {
+        if (idPersona == null || idUnidad == null) {
+            return false;
+        }
+        String sql = "SELECT " +
+                "(SELECT COUNT(1) FROM PROPIETARIOS_UNIDAD WHERE ID_UNIDAD = :idUnidad AND ID_PERSONA = :idPersona " +
+                " AND ESTADO = 'ACTIVO' AND (FECHA_FIN IS NULL OR FECHA_FIN >= TRUNC(SYSDATE))) + " +
+                "(SELECT COUNT(1) FROM RESIDENTES_UNIDAD WHERE ID_UNIDAD = :idUnidad AND ID_PERSONA = :idPersona " +
+                " AND NVL(ESTADO, 'ACTIVO') = 'ACTIVO') FROM DUAL";
+        Integer count = jdbc.queryForObject(sql, new MapSqlParameterSource()
+                .addValue("idUnidad", idUnidad)
+                .addValue("idPersona", idPersona), Integer.class);
+        return count != null && count > 0;
+    }
+
+    @Override
+    public List<Long> findUnidadesPersona(Long idPersona) {
+        String sql = "SELECT ID_UNIDAD FROM RESIDENTES_UNIDAD WHERE ID_PERSONA = :pId AND NVL(ESTADO, 'ACTIVO') = 'ACTIVO' " +
+                "UNION " +
+                "SELECT ID_UNIDAD FROM PROPIETARIOS_UNIDAD WHERE ID_PERSONA = :pId AND ESTADO = 'ACTIVO'";
+        return jdbc.queryForList(sql, new MapSqlParameterSource("pId", idPersona), Long.class);
+    }
+
+    @Override
+    public Long findPropiedadUnidad(Long idUnidad) {
+        if (idUnidad == null) {
+            return null;
+        }
+        List<Long> ids = jdbc.queryForList("SELECT ID_PROPIEDAD FROM UNIDADES WHERE ID_UNIDAD = :id",
+                new MapSqlParameterSource("id", idUnidad), Long.class);
+        return ids.isEmpty() ? null : ids.get(0);
     }
 }
