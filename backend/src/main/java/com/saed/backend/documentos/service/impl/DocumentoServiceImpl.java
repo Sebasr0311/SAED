@@ -1,7 +1,6 @@
 package com.saed.backend.documentos.service.impl;
 
 import com.saed.backend.common.service.FileStorageService;
-import com.saed.backend.common.service.impl.FileStorageServiceImpl;
 import com.saed.backend.context.SaedContext;
 import com.saed.backend.context.SaedContextHolder;
 import com.saed.backend.documentos.dto.DocumentoDTO;
@@ -12,6 +11,8 @@ import org.springframework.core.io.Resource;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
@@ -32,6 +33,8 @@ public class DocumentoServiceImpl implements DocumentoService {
             "MANUAL_CONVIVENCIA",
             "OTRO"
     );
+
+    private static final String DOCUMENTS_AREA = "documentos";
 
     private final DocumentoRepository documentoRepository;
     private final StorageQuotaService storageQuotaService;
@@ -57,12 +60,9 @@ public class DocumentoServiceImpl implements DocumentoService {
             throw new AccessDeniedException("Contexto de seguridad no autenticado");
         }
         String role = ctx.getRoleCode();
-        if ("SUPERADMIN".equalsIgnoreCase(role)) {
-            return;
-        }
 
-        // Porteros do not have access to document repository
-        if ("PORTERO".equalsIgnoreCase(role)) {
+        // DEC-02: SUPERADMIN does not read operational data; porters have no document repository access.
+        if ("SUPERADMIN".equalsIgnoreCase(role) || "PORTERO".equalsIgnoreCase(role)) {
             throw new AccessDeniedException("Rol sin privilegios para acceder al repositorio documental");
         }
 
@@ -93,7 +93,7 @@ public class DocumentoServiceImpl implements DocumentoService {
         // Resident / Copropietario verification
         if ("RESIDENTE".equalsIgnoreCase(role) || "PROPIETARIO_UNIDAD".equalsIgnoreCase(role)
                 || "PROPIETARIO".equalsIgnoreCase(role) || "RESIDENTE_CONVIVENCIA".equalsIgnoreCase(role)) {
-            if (!"S".equalsIgnoreCase(doc.getEsPublicoResidentes())) {
+            if (!"S".equalsIgnoreCase(doc.getEsPublicoResidentes()) || !"ACTIVO".equalsIgnoreCase(doc.getEstado())) {
                 throw new AccessDeniedException("Este documento es confidencial y no está disponible para residentes");
             }
             if (ctx.getPropertyId() != null && doc.getIdPropiedad() != null
@@ -120,17 +120,58 @@ public class DocumentoServiceImpl implements DocumentoService {
 
     @Override
     public DocumentoDTO getDocumentoById(Long idDocumento) {
+        DocumentoDTO doc = findAccessible(idDocumento);
+        if (!isAdministrator()) {
+            // The storage path is internal; residents download through the document endpoint.
+            doc.setArchivoUrl(null);
+        }
+        return doc;
+    }
+
+    private DocumentoDTO findAccessible(Long idDocumento) {
         DocumentoDTO doc = documentoRepository.findById(idDocumento)
                 .orElseThrow(() -> new NoSuchElementException("Documento no encontrado con ID " + idDocumento));
         validateDocumentAccess(doc);
         return doc;
     }
 
+    private static boolean isAdministrator() {
+        SaedContext ctx = SaedContextHolder.getContext();
+        String role = ctx != null ? ctx.getRoleCode() : null;
+        return "ADMIN_ORGANIZACION".equalsIgnoreCase(role) || "ADMIN_PROPIEDAD".equalsIgnoreCase(role);
+    }
+
+    /** Server-side storage partition for an organization's documents. */
+    static String storageDirectory(Long idOrganizacion) {
+        return DOCUMENTS_AREA + "/org-" + idOrganizacion;
+    }
+
+    /**
+     * F10-05: a document may only serve a file from the documents area of its own organization.
+     * Legacy uploads stored directly under {@code documentos/} (before partitioning) remain readable;
+     * any other module's file or another organization's partition is reported as missing.
+     */
+    private static boolean belongsToDocumentArea(String path, Long idOrganizacion) {
+        String normalized = path.replace('\\', '/');
+        if (normalized.contains("..") || !normalized.startsWith(DOCUMENTS_AREA + "/")) {
+            return false;
+        }
+        String rest = normalized.substring(DOCUMENTS_AREA.length() + 1);
+        if (!rest.contains("/")) {
+            return true;
+        }
+        return idOrganizacion != null && normalized.startsWith(storageDirectory(idOrganizacion) + "/")
+                && normalized.indexOf('/', storageDirectory(idOrganizacion).length() + 1) < 0;
+    }
+
     @Override
     public DocumentoDescarga downloadDocumento(Long idDocumento) {
-        DocumentoDTO doc = getDocumentoById(idDocumento);
+        DocumentoDTO doc = findAccessible(idDocumento);
         if (doc.getArchivoUrl() == null || doc.getArchivoUrl().isBlank()) {
             throw new IllegalStateException("El documento no tiene un archivo físico asociado");
+        }
+        if (!belongsToDocumentArea(doc.getArchivoUrl(), doc.getIdOrganizacion())) {
+            throw new NoSuchElementException("El archivo físico asociado al documento no existe en el almacenamiento");
         }
         Resource resource = fileStorageService.loadAsResource(doc.getArchivoUrl());
         if (resource == null || !resource.exists()) {
@@ -149,12 +190,9 @@ public class DocumentoServiceImpl implements DocumentoService {
     @Override
     @Transactional
     public Long uploadDocumento(DocumentoDTO request) {
-        Long idOrganizacion = request.getIdOrganizacion() != null
-                ? request.getIdOrganizacion()
-                : (SaedContextHolder.getContext() != null ? SaedContextHolder.getContext().getOrganizationId() : null);
-        Long idPropiedad = request.getIdPropiedad() != null
-                ? request.getIdPropiedad()
-                : (SaedContextHolder.getContext() != null ? SaedContextHolder.getContext().getPropertyId() : null);
+        // F10-05: tenant scope comes only from the session; body organization/property ids are ignored.
+        Long idOrganizacion = SaedContextHolder.getContext() != null ? SaedContextHolder.getContext().getOrganizationId() : null;
+        Long idPropiedad = SaedContextHolder.getContext() != null ? SaedContextHolder.getContext().getPropertyId() : null;
         Long creadoPor = SaedContextHolder.getContext() != null ? SaedContextHolder.getContext().getUserId() : null;
 
         if (idOrganizacion == null) {
@@ -167,28 +205,12 @@ public class DocumentoServiceImpl implements DocumentoService {
 
         validateCategoria(request.getCategoria());
 
-        // Validate storage quota if an attachment size is reported
-        if (request.getArchivoUrl() != null && request.getArchivoTamanoBytes() != null && request.getArchivoTamanoBytes() > 0) {
-            long sizeBytes = request.getArchivoTamanoBytes();
-            if (sizeBytes > FileStorageServiceImpl.MAX_FILE_SIZE_BYTES) {
-                throw new IllegalArgumentException("El archivo excede el tamaño máximo permitido de 10 MB");
-            }
-            storageQuotaService.validateUpload(idOrganizacion, sizeBytes);
+        // F10-05: files are attached only through the multipart upload, which stores them server side.
+        if (request.getArchivoUrl() != null && !request.getArchivoUrl().isBlank()) {
+            throw new IllegalArgumentException("No se acepta archivoUrl; adjunte el archivo mediante /documentos/upload");
         }
 
-        // 1. Create document metadata
-        Long idDoc = documentoRepository.createDocumento(request, idOrganizacion, idPropiedad, creadoPor);
-
-        // 2. Add first version if file data provided
-        if (request.getArchivoUrl() != null) {
-            if (request.getArchivoNombreOrig() == null) request.setArchivoNombreOrig("documento.pdf");
-            if (request.getArchivoMimeType() == null) request.setArchivoMimeType("application/pdf");
-            if (request.getArchivoTamanoBytes() == null) request.setArchivoTamanoBytes(0L);
-
-            documentoRepository.addVersion(idDoc, request, creadoPor);
-        }
-
-        return idDoc;
+        return documentoRepository.createDocumento(request, idOrganizacion, idPropiedad, creadoPor);
     }
 
     @Override
@@ -210,7 +232,7 @@ public class DocumentoServiceImpl implements DocumentoService {
         validateCategoria(categoria);
 
         // Stores file validating both single-file limit and cumulative organizational quota
-        FileStorageService.StoredFile stored = fileStorageService.store(file, "documentos", idOrganizacion);
+        FileStorageService.StoredFile stored = fileStorageService.store(file, storageDirectory(idOrganizacion), idOrganizacion);
 
         DocumentoDTO doc = new DocumentoDTO();
         doc.setTitulo(titulo.trim());
@@ -224,19 +246,20 @@ public class DocumentoServiceImpl implements DocumentoService {
         doc.setArchivoTamanoBytes(stored.sizeBytes());
         doc.setArchivoSha256(stored.sha256());
 
-        Long idDoc = documentoRepository.createDocumento(doc, idOrganizacion, idPropiedad, creadoPor);
-        documentoRepository.addVersion(idDoc, doc, creadoPor);
-
-        return idDoc;
+        return withOrphanCleanup(stored, () -> {
+            Long idDoc = documentoRepository.createDocumento(doc, idOrganizacion, idPropiedad, creadoPor);
+            documentoRepository.addVersion(idDoc, doc, creadoPor);
+            return idDoc;
+        });
     }
 
     @Override
     @Transactional
     public void updateDocumento(Long idDocumento, DocumentoDTO request) {
-        DocumentoDTO existing = getDocumentoById(idDocumento);
+        DocumentoDTO existing = findAccessible(idDocumento);
         SaedContext ctx = SaedContextHolder.getContext();
         String role = ctx != null ? ctx.getRoleCode() : null;
-        if (!"SUPERADMIN".equalsIgnoreCase(role) && !"ADMIN_ORGANIZACION".equalsIgnoreCase(role) && !"ADMIN_PROPIEDAD".equalsIgnoreCase(role)) {
+        if (!"ADMIN_ORGANIZACION".equalsIgnoreCase(role) && !"ADMIN_PROPIEDAD".equalsIgnoreCase(role)) {
             throw new AccessDeniedException("Solo administradores pueden modificar metadatos de documentos");
         }
 
@@ -270,10 +293,10 @@ public class DocumentoServiceImpl implements DocumentoService {
     @Override
     @Transactional
     public void deleteDocumento(Long idDocumento) {
-        DocumentoDTO existing = getDocumentoById(idDocumento);
+        DocumentoDTO existing = findAccessible(idDocumento);
         SaedContext ctx = SaedContextHolder.getContext();
         String role = ctx != null ? ctx.getRoleCode() : null;
-        if (!"SUPERADMIN".equalsIgnoreCase(role) && !"ADMIN_ORGANIZACION".equalsIgnoreCase(role) && !"ADMIN_PROPIEDAD".equalsIgnoreCase(role)) {
+        if (!"ADMIN_ORGANIZACION".equalsIgnoreCase(role) && !"ADMIN_PROPIEDAD".equalsIgnoreCase(role)) {
             throw new AccessDeniedException("Solo administradores pueden eliminar documentos");
         }
 
@@ -293,10 +316,10 @@ public class DocumentoServiceImpl implements DocumentoService {
         // 1. Pessimistic lock on parent document row in Oracle to serialize concurrent version uploads
         documentoRepository.lockDocumentoForUpdate(idDocumento);
 
-        DocumentoDTO existing = getDocumentoById(idDocumento);
+        DocumentoDTO existing = findAccessible(idDocumento);
         SaedContext ctx = SaedContextHolder.getContext();
         String role = ctx != null ? ctx.getRoleCode() : null;
-        if (!"SUPERADMIN".equalsIgnoreCase(role) && !"ADMIN_ORGANIZACION".equalsIgnoreCase(role) && !"ADMIN_PROPIEDAD".equalsIgnoreCase(role)) {
+        if (!"ADMIN_ORGANIZACION".equalsIgnoreCase(role) && !"ADMIN_PROPIEDAD".equalsIgnoreCase(role)) {
             throw new AccessDeniedException("Solo administradores pueden agregar nuevas versiones a documentos");
         }
 
@@ -307,7 +330,7 @@ public class DocumentoServiceImpl implements DocumentoService {
         }
 
         Long idOrganizacion = existing.getIdOrganizacion();
-        FileStorageService.StoredFile stored = fileStorageService.store(file, "documentos", idOrganizacion);
+        FileStorageService.StoredFile stored = fileStorageService.store(file, storageDirectory(idOrganizacion), idOrganizacion);
 
         DocumentoDTO newVersion = new DocumentoDTO();
         newVersion.setArchivoUrl(stored.relativePath());
@@ -318,6 +341,35 @@ public class DocumentoServiceImpl implements DocumentoService {
         newVersion.setNotasCambio(notasCambio != null ? notasCambio.trim() : null);
 
         Long subidoPor = ctx != null ? ctx.getUserId() : null;
-        documentoRepository.addVersion(idDocumento, newVersion, subidoPor);
+        // Versions are append-only: earlier VERSIONES_DOCUMENTO rows and their files are kept.
+        withOrphanCleanup(stored, () -> {
+            documentoRepository.addVersion(idDocumento, newVersion, subidoPor);
+            return idDocumento;
+        });
+    }
+
+    /**
+     * Runs the metadata write for a file that is already on disk. If the write fails, or the
+     * surrounding transaction later rolls back, the stored file is deleted so no orphan remains.
+     */
+    private <T> T withOrphanCleanup(FileStorageService.StoredFile stored, java.util.function.Supplier<T> metadataWrite) {
+        T result;
+        try {
+            result = metadataWrite.get();
+        } catch (RuntimeException ex) {
+            fileStorageService.delete(stored.relativePath());
+            throw ex;
+        }
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCompletion(int status) {
+                    if (status == STATUS_ROLLED_BACK) {
+                        fileStorageService.delete(stored.relativePath());
+                    }
+                }
+            });
+        }
+        return result;
     }
 }
