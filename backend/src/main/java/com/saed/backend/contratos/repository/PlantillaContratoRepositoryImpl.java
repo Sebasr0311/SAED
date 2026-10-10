@@ -145,7 +145,7 @@ public class PlantillaContratoRepositoryImpl implements PlantillaContratoReposit
             FROM PLANTILLAS_CONTRATOS
             WHERE id_organizacion = :orgId
               AND estado = 'ACTIVA'
-              AND (vigencia_hasta IS NULL OR vigencia_hasta >= CURRENT_DATE)
+              AND (vigencia_hasta IS NULL OR vigencia_hasta >= TRUNC(SYSDATE))
             ORDER BY nombre
         """;
         return jdbcTemplate.query(sql, new MapSqlParameterSource("orgId", orgId), this::mapRow);

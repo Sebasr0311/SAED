@@ -241,7 +241,7 @@ public class OrgAdminsController {
                 KeyHolder khAsig = new GeneratedKeyHolder();
                 jdbcTemplate.update("""
                     INSERT INTO USUARIO_ASIGNACIONES (id_usuario, id_rol, id_organizacion, id_propiedad, estado, fecha_inicio)
-                    VALUES (:uid, :rolId, :orgId, NULL, 'INACTIVA', TRUNC(CURRENT_DATE))
+                    VALUES (:uid, :rolId, :orgId, NULL, 'INACTIVA', TRUNC(SYSDATE))
                 """, new MapSqlParameterSource()
                     .addValue("uid", idUsuario)
                     .addValue("rolId", requestedRoleId)
@@ -410,7 +410,7 @@ public class OrgAdminsController {
                 if (placeholderCount == null || placeholderCount == 0) {
                     jdbcTemplate.update("""
                         INSERT INTO USUARIO_ASIGNACIONES (id_usuario, id_rol, id_organizacion, id_propiedad, estado, fecha_inicio)
-                        VALUES (:uid, :rolId, :orgId, NULL, 'INACTIVA', TRUNC(CURRENT_DATE))
+                        VALUES (:uid, :rolId, :orgId, NULL, 'INACTIVA', TRUNC(SYSDATE))
                     """, Map.of("uid", targetUserId, "rolId", roleId, "orgId", orgId));
                 }
             }
@@ -559,7 +559,7 @@ public class OrgAdminsController {
             if (placeholderCount == null || placeholderCount == 0) {
                 jdbcTemplate.update("""
                     INSERT INTO USUARIO_ASIGNACIONES (id_usuario, id_rol, id_organizacion, id_propiedad, estado, fecha_inicio)
-                    VALUES (:uid, :rolId, :orgId, NULL, 'INACTIVA', TRUNC(CURRENT_DATE))
+                    VALUES (:uid, :rolId, :orgId, NULL, 'INACTIVA', TRUNC(SYSDATE))
                 """, Map.of("uid", userId, "rolId", adminPropRoleId, "orgId", orgId));
             }
         }
