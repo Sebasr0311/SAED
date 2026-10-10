@@ -60,6 +60,9 @@ export default function ActivosPage() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [selectedActivo, setSelectedActivo] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [historial, setHistorial] = useState([]);
+  const [historialLoading, setHistorialLoading] = useState(false);
+  const [historialError, setHistorialError] = useState(null);
 
   // Form states
   const initialForm = {
@@ -140,9 +143,20 @@ export default function ActivosPage() {
     setShowEditModal(true);
   };
 
-  const handleOpenDetail = (activo) => {
+  const handleOpenDetail = async (activo) => {
     setSelectedActivo(activo);
     setShowDetailModal(true);
+    setHistorial([]);
+    setHistorialError(null);
+    setHistorialLoading(true);
+    try {
+      const res = await api.get(`/activos/${activo.idActivo}/historial`);
+      setHistorial(Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : []);
+    } catch (error) {
+      setHistorialError(error?.response?.data?.message || 'No se pudo cargar el historial del activo');
+    } finally {
+      setHistorialLoading(false);
+    }
   };
 
   const handleOpenCambiarEstado = (activo) => {
@@ -857,27 +871,49 @@ export default function ActivosPage() {
               </div>
             </div>
 
-            {/* Historial de Mantenimientos (Placeholder Próximamente GAP-F9-03) */}
+            {/* Historial de Mantenimientos (F09-01) */}
             <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h4 className="font-semibold text-sm text-foreground flex items-center gap-2">
-                  <Wrench className="h-4 w-4 text-primary" />
-                  Historial de Mantenimientos y Órdenes de Servicio
-                </h4>
-                <span className="text-xs px-2 py-0.5 bg-primary/10 text-primary font-medium rounded-full">
-                  Próximamente GAP-F9-03
-                </span>
-              </div>
-
-              <div className="border border-dashed border-border rounded-xl p-6 text-center space-y-2 bg-muted/20">
-                <Clock className="h-8 w-8 text-muted-foreground/60 mx-auto" />
-                <p className="text-sm font-medium text-foreground">
-                  Bitácora de Mantenimientos Preventivos y Correctivos
-                </p>
-                <p className="text-xs text-muted-foreground max-w-md mx-auto">
-                  La trazabilidad de intervenciones técnicas, contratos de soporte asociados y registro de bitácora estará vinculada directamente en el siguiente módulo de la Fase 9.
-                </p>
-              </div>
+              <h4 className="font-semibold text-sm text-foreground flex items-center gap-2">
+                <Wrench className="h-4 w-4 text-primary" />
+                Historial de Mantenimientos y Órdenes de Servicio
+              </h4>
+              {historialLoading ? (
+                <p className="text-xs text-muted-foreground">Cargando historial...</p>
+              ) : historialError ? (
+                <div role="alert" className="border border-destructive/30 rounded-xl p-4 text-xs text-destructive">
+                  {historialError}
+                </div>
+              ) : historial.length === 0 ? (
+                <div className="border border-dashed border-border rounded-xl p-6 text-center space-y-2 bg-muted/20">
+                  <Clock className="h-8 w-8 text-muted-foreground/60 mx-auto" />
+                  <p className="text-sm text-muted-foreground">Este activo no tiene órdenes de mantenimiento registradas.</p>
+                </div>
+              ) : (
+                <ul className="divide-y divide-border border border-border rounded-xl">
+                  {historial.map((h) => (
+                    <li key={h.idMantenimiento} className="p-3 text-xs space-y-1">
+                      <div className="flex justify-between gap-2">
+                        <span className="font-semibold text-foreground">{h.titulo}</span>
+                        <span className="text-muted-foreground">{h.estado}</span>
+                      </div>
+                      <div className="flex flex-wrap gap-3 text-muted-foreground">
+                        <span>{h.tipoMantenimiento}</span>
+                        <span>Programado: {h.fechaProgramada ? formatDate(h.fechaProgramada) : '-'}</span>
+                        {h.fechaEjecucion && <span>Ejecutado: {formatDate(h.fechaEjecucion)}</span>}
+                        <span>
+                          Costo: {formatCurrency(Number(h.costoReal) > 0 ? h.costoReal : h.costoEstimado || 0)}
+                        </span>
+                        {h.proveedor && <span>Proveedor: {h.proveedor}</span>}
+                        {h.informeTecnicoUrl && /^https?:\/\//i.test(h.informeTecnicoUrl) && (
+                          <a href={h.informeTecnicoUrl} target="_blank" rel="noopener noreferrer" className="text-primary underline">
+                            Informe técnico
+                          </a>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
 
             <div className="flex justify-end pt-4 border-t border-border">

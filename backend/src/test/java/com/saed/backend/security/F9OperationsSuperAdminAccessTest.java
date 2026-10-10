@@ -15,6 +15,7 @@ class F9OperationsSuperAdminAccessTest {
     private static final List<String> F9_CONTROLLERS = List.of(
             "com.saed.backend.activos.controller.ActivoController",
             "com.saed.backend.mantenimiento.controller.MantenimientoController",
+            "com.saed.backend.mantenimiento.controller.PlanMantenimientoController",
             "com.saed.backend.obras.controller.ObraController",
             "com.saed.backend.incidentes.controller.IncidenteController",
             "com.saed.backend.pqrs.controller.TicketController",

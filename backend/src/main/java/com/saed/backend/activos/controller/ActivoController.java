@@ -3,6 +3,7 @@ package com.saed.backend.activos.controller;
 import com.saed.backend.activos.dto.ActivoCreateDTO;
 import com.saed.backend.activos.dto.ActivoDTO;
 import com.saed.backend.activos.dto.ActivoEstadoDTO;
+import com.saed.backend.activos.dto.ActivoHistorialDTO;
 import com.saed.backend.activos.dto.ActivoUpdateDTO;
 import com.saed.backend.activos.service.ActivoService;
 import com.saed.backend.audit.AuditCategory;
@@ -46,6 +47,12 @@ public class ActivoController {
     public ResponseEntity<ApiResponse<ActivoDTO>> obtenerPorId(@PathVariable Long id) {
         ActivoDTO dto = activoService.obtenerPorId(id);
         return ResponseEntity.ok(ApiResponse.success(dto));
+    }
+
+    @Operation(summary = "Hoja de vida: historial real de órdenes de mantenimiento del activo")
+    @GetMapping("/{id}/historial")
+    public ResponseEntity<ApiResponse<List<ActivoHistorialDTO>>> historial(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.success(activoService.historial(id)));
     }
 
     @Operation(summary = "Registrar un nuevo activo en la copropiedad")
