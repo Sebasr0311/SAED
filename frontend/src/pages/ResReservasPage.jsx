@@ -312,10 +312,16 @@ export default function ResReservasPage() {
                 </Badge>
               </div>
               <p className="text-xs text-rose-800 dark:text-rose-300 leading-relaxed">
-                Tu unidad {estadoFinanciero.identificadorUnidad ? `(${estadoFinanciero.identificadorUnidad})` : ''} presenta un saldo pendiente de{' '}
-                <strong className="font-semibold text-rose-950 dark:text-rose-100">
-                  {formatCurrency(estadoFinanciero.saldoTotalExigible || 0)}
-                </strong>
+                Tu unidad {estadoFinanciero.identificadorUnidad ? `(${estadoFinanciero.identificadorUnidad})` : ''} presenta un saldo pendiente
+                {/* Convivencia receives only the arrears flag (F5-H03): the amount is shown when the API provides it. */}
+                {estadoFinanciero.saldoTotalExigible != null && (
+                  <>
+                    {' '}de{' '}
+                    <strong className="font-semibold text-rose-950 dark:text-rose-100">
+                      {formatCurrency(estadoFinanciero.saldoTotalExigible)}
+                    </strong>
+                  </>
+                )}
                 . Conforme al reglamento de propiedad horizontal, la aprobación y confirmación de nuevas reservas de zonas comunes se encuentra restringida hasta normalizar el estado de cartera.
               </p>
               {Array.isArray(estadoFinanciero.motivosBloqueo) && estadoFinanciero.motivosBloqueo.length > 0 && (

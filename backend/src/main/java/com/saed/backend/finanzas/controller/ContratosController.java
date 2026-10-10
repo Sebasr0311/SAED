@@ -25,7 +25,8 @@ import java.util.Map;
 @Tag(name = "Contratos", description = "API para la gestión y descarga documental de Contratos de Arrendamiento")
 @RestController
 @RequestMapping("/api/v1/contratos")
-@PreAuthorize("hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_RESIDENTE') or hasAuthority('SCOPE_RESIDENTE_CONVIVENCIA')")
+// F5-H03: lease contracts carry rent, deposit and values; RESIDENTE_CONVIVENCIA has no access.
+@PreAuthorize("hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_RESIDENTE')")
 public class ContratosController {
 
     private final FinanzasService finanzasService;
