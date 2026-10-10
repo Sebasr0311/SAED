@@ -742,28 +742,8 @@ public class WompiServiceImpl implements WompiService {
                             String orgNombre = (String) adminData.get("ORG_NOMBRE");
                             String planNombre = (String) adminData.get("PLAN_NOMBRE");
 
-                            String autoPass = com.saed.backend.common.util.PasswordGenerator.generate();
-                            jdbcTemplate.update(
-                                "UPDATE USUARIOS SET ESTADO = 'ACTIVO', HASH_PASSWORD = :pwd WHERE ID_USUARIO = :usr",
-                                new MapSqlParameterSource("usr", idAdmin)
-                                    .addValue("pwd", passwordEncoder.encode(autoPass))
-                            );
-
-                            try {
-                                emailService.enviarBienvenidaCredenciales(
-                                    emailAdmin,
-                                    nombreAdmin,
-                                    orgNombre != null ? orgNombre : "SAED",
-                                    planNombre != null ? planNombre : "Plan Comercial",
-                                    "ADMIN_ORGANIZACION",
-                                    usernameAdmin != null ? usernameAdmin : emailAdmin,
-                                    autoPass,
-                                    "https://saedfront.vercel.app/login"
-                                );
-                            } catch (Exception exCreds) {
-                                log.warn("[Wompi] Error enviando credenciales de bienvenida a {}: {}", emailAdmin, exCreds.getMessage());
-                            }
-
+                            // F3-06: paying a membership never rotates or e-mails the administrator's
+                            // password; the account keeps its own credentials (or activation link).
                             try {
                                 emailService.enviarReciboPago(emailAdmin, "MEMBRESIA_SAED", montoPesos, referencia, java.time.LocalDate.now().toString());
                             } catch (Exception exEmail) {
