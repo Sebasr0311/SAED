@@ -7,7 +7,9 @@ import com.saed.backend.person.dto.PersonaBatchItemDTO;
 import com.saed.backend.person.dto.PersonaBatchResultDTO;
 import com.saed.backend.person.dto.PersonaDTO;
 import com.saed.backend.person.dto.PersonaRequestDTO;
+import com.saed.backend.person.exception.ConvivienteLimitExceededException;
 import com.saed.backend.person.repository.PersonaRepository;
+import com.saed.backend.person.service.ConvivienteQuotaService;
 import com.saed.backend.person.service.PersonaService;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DuplicateKeyException;
@@ -43,9 +45,16 @@ public class PersonaServiceImpl implements PersonaService {
     private static final Set<String> ADMIN_ROLES = Set.of("ADMIN_PROPIEDAD", "ADMIN_ORGANIZACION");
 
     private final PersonaRepository personaRepository;
+    private final ConvivienteQuotaService convivienteQuotaService;
 
     public PersonaServiceImpl(PersonaRepository personaRepository) {
+        this(personaRepository, null);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public PersonaServiceImpl(PersonaRepository personaRepository, ConvivienteQuotaService convivienteQuotaService) {
         this.personaRepository = personaRepository;
+        this.convivienteQuotaService = convivienteQuotaService;
     }
 
     private static boolean isUnitCaller(SaedContext ctx) {
@@ -216,6 +225,19 @@ public class PersonaServiceImpl implements PersonaService {
                         item.telefono() != null ? item.telefono().trim() : null
                 );
 
+                // Resolve the unit and reserve conviviente quota before any write of this row.
+                Optional<Long> unidadOpt = Optional.empty();
+                if (item.apartamento() != null && !item.apartamento().isBlank() && propId != null) {
+                    unidadOpt = personaRepository.findUnidadIdByNumero(propId, item.apartamento().trim());
+                    if (unidadOpt.isPresent() && "CONVIVIENTE".equalsIgnoreCase(
+                            item.tipoRelacion() == null ? "" : item.tipoRelacion().trim())) {
+                        if (convivienteQuotaService == null) {
+                            throw new IllegalStateException("Servicio de cupo de convivientes no disponible");
+                        }
+                        convivienteQuotaService.validateAndLockQuota(unidadOpt.get());
+                    }
+                }
+
                 Long personaId;
                 Optional<PersonaDTO> exist = personaRepository.findByNumeroDocumento(item.numeroDocumento().trim());
                 if (exist.isPresent()) {
@@ -232,7 +254,6 @@ public class PersonaServiceImpl implements PersonaService {
                 }
 
                 if (item.apartamento() != null && !item.apartamento().isBlank() && propId != null) {
-                    Optional<Long> unidadOpt = personaRepository.findUnidadIdByNumero(propId, item.apartamento().trim());
                     if (unidadOpt.isPresent()) {
                         personaRepository.asignarUnidad(personaId, unidadOpt.get(), item.tipoRelacion());
                     } else {
@@ -243,6 +264,10 @@ public class PersonaServiceImpl implements PersonaService {
                 }
 
                 procesados++;
+            } catch (ConvivienteLimitExceededException ex) {
+                fallidos++;
+                errores.add(new PersonaBatchFilaErrorDTO(fila, item.numeroDocumento(),
+                        "La unidad alcanzó el cupo máximo de convivientes"));
             } catch (DuplicateKeyException ex) {
                 fallidos++;
                 errores.add(new PersonaBatchFilaErrorDTO(fila, item.numeroDocumento(),

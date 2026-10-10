@@ -1,7 +1,5 @@
 package com.saed.backend.person.repository.impl;
 
-import com.saed.backend.context.SaedContext;
-import com.saed.backend.context.SaedContextHolder;
 import com.saed.backend.person.dto.PersonaDTO;
 import com.saed.backend.person.dto.UnitOwnerDTO;
 import com.saed.backend.person.dto.UnitOwnerRequestDTO;
@@ -16,7 +14,6 @@ import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 @Repository
@@ -188,143 +185,59 @@ public class UnitInhabitantRepositoryImpl implements UnitInhabitantRepository {
 
     @Override
     public int unlinkResident(Long unitId, Long residentId) {
-        Long personaId = null;
-        try {
-            List<Long> pList = jdbcTemplate.query(
-                "SELECT ID_PERSONA FROM RESIDENTES_UNIDAD WHERE ID_UNIDAD = :unitId AND (ID_RESIDENTE_UNIDAD = :residentId OR ID_PERSONA = :residentId)",
-                new MapSqlParameterSource("unitId", unitId).addValue("residentId", residentId),
-                (rs, rowNum) -> rs.getLong(1)
-            );
-            if (!pList.isEmpty()) personaId = pList.get(0);
-        } catch (Exception ignored) {}
-
+        // F05-01: only the residence row of this unit changes; access revocation is a separate, scoped step
+        // and the database context is never elevated.
         String sql = """
             UPDATE RESIDENTES_UNIDAD
             SET ESTADO = 'INACTIVO', FECHA_FIN = TRUNC(SYSDATE)
             WHERE ID_UNIDAD = :unitId AND (ID_RESIDENTE_UNIDAD = :residentId OR ID_PERSONA = :residentId)
             """;
-        MapSqlParameterSource params = new MapSqlParameterSource()
+        return jdbcTemplate.update(sql, new MapSqlParameterSource()
                 .addValue("unitId", unitId)
-                .addValue("residentId", residentId);
-        int updated = jdbcTemplate.update(sql, params);
-
-        // Desactivar asignación de usuario correspondiente si existe
-        if (personaId != null) {
-            SaedContext prevCtx = SaedContextHolder.getContext();
-            try {
-                jdbcTemplate.getJdbcOperations().execute("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1); END;");
-                jdbcTemplate.getJdbcOperations().execute("BEGIN PKG_SAED_SESSION.SET_CONTEXT(1, 1, 1, 'SUPERADMIN'); END;");
-
-                String sqlAsignacion = """
-                    UPDATE USUARIO_ASIGNACIONES
-                    SET ESTADO = 'INACTIVA', FECHA_FIN = TRUNC(SYSDATE)
-                    WHERE ID_UNIDAD = :unitId
-                      AND ID_USUARIO IN (
-                          SELECT u.ID_USUARIO
-                          FROM USUARIOS u
-                          WHERE u.ID_PERSONA = :personaId
-                      )
-                    """;
-                jdbcTemplate.update(sqlAsignacion, new MapSqlParameterSource("unitId", unitId).addValue("personaId", personaId));
-
-                String sqlUsuario = """
-                    UPDATE USUARIOS
-                    SET ESTADO = 'INACTIVO'
-                    WHERE ID_PERSONA = :personaId
-                    """;
-                jdbcTemplate.update(sqlUsuario, Map.of("personaId", personaId));
-            } catch (Exception ignored) {
-            } finally {
-                if (prevCtx != null) {
-                    SaedContextHolder.setContext(prevCtx);
-                    try {
-                        jdbcTemplate.getJdbcOperations().execute(
-                            String.format("BEGIN PKG_SAED_SESSION.SET_CONTEXT(1, %d, %d, '%s'); END;",
-                                prevCtx.getOrganizationId() != null ? prevCtx.getOrganizationId() : 1L,
-                                prevCtx.getPropertyId() != null ? prevCtx.getPropertyId() : 1L,
-                                prevCtx.getRoleCode() != null ? prevCtx.getRoleCode() : "RESIDENTE"
-                            )
-                        );
-                    } catch (Exception ignored) {}
-                }
-            }
-        }
-
-        return updated;
+                .addValue("residentId", residentId));
     }
 
     @Override
     public int deleteResidentPermanently(Long unitId, Long residentId) {
-        Long personaId = null;
-        try {
-            List<Long> pList = jdbcTemplate.query(
-                "SELECT ID_PERSONA FROM RESIDENTES_UNIDAD WHERE ID_UNIDAD = :unitId AND (ID_RESIDENTE_UNIDAD = :residentId OR ID_PERSONA = :residentId)",
-                new MapSqlParameterSource("unitId", unitId).addValue("residentId", residentId),
-                (rs, rowNum) -> rs.getLong(1)
-            );
-            if (!pList.isEmpty()) personaId = pList.get(0);
-        } catch (Exception ignored) {}
-
         String sql = """
             DELETE FROM RESIDENTES_UNIDAD
             WHERE ID_UNIDAD = :unitId AND (ID_RESIDENTE_UNIDAD = :residentId OR ID_PERSONA = :residentId)
             """;
-        MapSqlParameterSource params = new MapSqlParameterSource()
+        return jdbcTemplate.update(sql, new MapSqlParameterSource()
                 .addValue("unitId", unitId)
-                .addValue("residentId", residentId);
-        int deleted = jdbcTemplate.update(sql, params);
+                .addValue("residentId", residentId));
+    }
 
-        if (personaId != null) {
-            SaedContext prevCtx = SaedContextHolder.getContext();
-            try {
-                jdbcTemplate.getJdbcOperations().execute("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1); END;");
-                jdbcTemplate.getJdbcOperations().execute("BEGIN PKG_SAED_SESSION.SET_CONTEXT(1, 1, 1, 'SUPERADMIN'); END;");
+    @Override
+    public Optional<UnitScope> findUnitScope(Long unitId) {
+        List<UnitScope> rows = jdbcTemplate.query(
+                "SELECT u.ID_PROPIEDAD, p.ID_ORGANIZACION FROM UNIDADES u "
+                        + "JOIN PROPIEDADES p ON p.ID_PROPIEDAD = u.ID_PROPIEDAD WHERE u.ID_UNIDAD = :unitId",
+                new MapSqlParameterSource("unitId", unitId),
+                (rs, i) -> new UnitScope(rs.getLong(1), rs.getLong(2)));
+        return rows.stream().findFirst();
+    }
 
-                // Eliminar o inactivar asignaciones de usuario asociadas a esta unidad
-                String sqlAsignacion = """
-                    DELETE FROM USUARIO_ASIGNACIONES
-                    WHERE ID_UNIDAD = :unitId
-                      AND ID_USUARIO IN (
-                          SELECT u.ID_USUARIO
-                          FROM USUARIOS u
-                          WHERE u.ID_PERSONA = :personaId
-                      )
-                    """;
-                jdbcTemplate.update(sqlAsignacion, new MapSqlParameterSource("unitId", unitId).addValue("personaId", personaId));
+    @Override
+    public int revokeUnitResidentAccess(Long unitId, Long personaId) {
+        String sql = """
+            UPDATE USUARIO_ASIGNACIONES
+            SET ESTADO = 'INACTIVA', FECHA_FIN = TRUNC(SYSDATE)
+            WHERE ID_UNIDAD = :unitId
+              AND ESTADO = 'ACTIVA'
+              AND ID_USUARIO IN (SELECT ID_USUARIO FROM USUARIOS WHERE ID_PERSONA = :personaId)
+              AND ID_ROL IN (SELECT ID_ROL FROM ROLES WHERE CODIGO IN ('RESIDENTE', 'RESIDENTE_CONVIVENCIA'))
+            """;
+        return jdbcTemplate.update(sql, new MapSqlParameterSource()
+                .addValue("unitId", unitId)
+                .addValue("personaId", personaId));
+    }
 
-                // Si el usuario no tiene más asignaciones, marcar como inactivo
-                List<Long> uList = jdbcTemplate.query(
-                    "SELECT ID_USUARIO FROM USUARIOS WHERE ID_PERSONA = :personaId",
-                    Map.of("personaId", personaId),
-                    (rs, rowNum) -> rs.getLong(1)
-                );
-                for (Long uid : uList) {
-                    Integer countAsig = jdbcTemplate.queryForObject(
-                        "SELECT COUNT(1) FROM USUARIO_ASIGNACIONES WHERE ID_USUARIO = :uid AND ESTADO = 'ACTIVA'",
-                        Map.of("uid", uid),
-                        Integer.class
-                    );
-                    if (countAsig == null || countAsig == 0) {
-                        jdbcTemplate.update("UPDATE USUARIOS SET ESTADO = 'INACTIVO' WHERE ID_USUARIO = :uid", Map.of("uid", uid));
-                    }
-                }
-            } catch (Exception ignored) {
-            } finally {
-                if (prevCtx != null) {
-                    SaedContextHolder.setContext(prevCtx);
-                    try {
-                        jdbcTemplate.getJdbcOperations().execute(
-                            String.format("BEGIN PKG_SAED_SESSION.SET_CONTEXT(1, %d, %d, '%s'); END;",
-                                prevCtx.getOrganizationId() != null ? prevCtx.getOrganizationId() : 1L,
-                                prevCtx.getPropertyId() != null ? prevCtx.getPropertyId() : 1L,
-                                prevCtx.getRoleCode() != null ? prevCtx.getRoleCode() : "RESIDENTE"
-                            )
-                        );
-                    } catch (Exception ignored) {}
-                }
-            }
-        }
-
-        return deleted;
+    @Override
+    public void revokeHouseholdAccessAsTitular(Long unitId, Long personaId) {
+        jdbcTemplate.update("BEGIN SAED_SEC_MASTER.SP_REVOCAR_ACCESO_UNIDAD(:unitId, :personaId); END;",
+                new MapSqlParameterSource()
+                        .addValue("unitId", unitId)
+                        .addValue("personaId", personaId));
     }
 }

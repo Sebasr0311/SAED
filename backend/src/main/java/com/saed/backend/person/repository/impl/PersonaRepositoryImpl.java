@@ -469,6 +469,9 @@ public class PersonaRepositoryImpl implements PersonaRepository {
                 tipoResidenteDb = "PROPIETARIO";
             } else if ("ARRENDATARIO".equals(tr)) {
                 tipoResidenteDb = "ARRENDATARIO";
+            } else if ("CONVIVIENTE".equals(tr)) {
+                // F5-H09: a conviviente stays a conviviente so it counts against the unit quota.
+                tipoResidenteDb = "CONVIVIENTE";
             } else {
                 tipoResidenteDb = "FAMILIAR";
             }
