@@ -24,4 +24,7 @@ public interface ReservasService {
 
     // --- Estado de Mora Preventivo (GAP-F8-08) ---
     com.saed.backend.finanzas.dto.PazYSalvoEstadoFinancieroDTO getMiEstadoMora();
+
+    /** Records the deposit amount paid for a reservation (F08-01). */
+    void registrarDeposito(Long idReserva, java.math.BigDecimal monto);
 }

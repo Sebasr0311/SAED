@@ -124,4 +124,35 @@ public class UpdateZonaComunDTO {
     public void setIdPropiedad(Long idPropiedad) {
         this.idPropiedad = idPropiedad;
     }
+
+    // F08-01 booking policy; null keeps the stored value.
+    @jakarta.validation.constraints.Pattern(regexp = "^([01]\\d|2[0-3]):[0-5]\\d$", message = "La hora de apertura debe tener formato HH:MM.")
+    private String horaApertura;
+    @jakarta.validation.constraints.Pattern(regexp = "^([01]\\d|2[0-3]):[0-5]\\d$", message = "La hora de cierre debe tener formato HH:MM.")
+    private String horaCierre;
+    @jakarta.validation.constraints.PositiveOrZero
+    private Integer anticipacionMinHoras;
+    @Positive
+    private Integer anticipacionMaxDias;
+    @Positive
+    private Integer maxReservasActivasUnidad;
+    @DecimalMin(value = "0.00", message = "El depósito debe ser mayor o igual a 0.")
+    private BigDecimal valorDeposito;
+    @jakarta.validation.constraints.PositiveOrZero
+    private Integer horasLimiteCancelacion;
+
+    public String getHoraApertura() { return horaApertura; }
+    public void setHoraApertura(String horaApertura) { this.horaApertura = horaApertura; }
+    public String getHoraCierre() { return horaCierre; }
+    public void setHoraCierre(String horaCierre) { this.horaCierre = horaCierre; }
+    public Integer getAnticipacionMinHoras() { return anticipacionMinHoras; }
+    public void setAnticipacionMinHoras(Integer anticipacionMinHoras) { this.anticipacionMinHoras = anticipacionMinHoras; }
+    public Integer getAnticipacionMaxDias() { return anticipacionMaxDias; }
+    public void setAnticipacionMaxDias(Integer anticipacionMaxDias) { this.anticipacionMaxDias = anticipacionMaxDias; }
+    public Integer getMaxReservasActivasUnidad() { return maxReservasActivasUnidad; }
+    public void setMaxReservasActivasUnidad(Integer maxReservasActivasUnidad) { this.maxReservasActivasUnidad = maxReservasActivasUnidad; }
+    public BigDecimal getValorDeposito() { return valorDeposito; }
+    public void setValorDeposito(BigDecimal valorDeposito) { this.valorDeposito = valorDeposito; }
+    public Integer getHorasLimiteCancelacion() { return horasLimiteCancelacion; }
+    public void setHorasLimiteCancelacion(Integer horasLimiteCancelacion) { this.horasLimiteCancelacion = horasLimiteCancelacion; }
 }
