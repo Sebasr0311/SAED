@@ -145,7 +145,7 @@ public class DependentRepositoryImpl implements DependentRepository {
                 .addValue("foto", request.fotoUrl())
                 .addValue("estado", estado);
         jdbcTemplate.update(sql, params);
-        return getMascotaById(id).orElseThrow();
+        return getMascotaById(id).orElseThrow(() -> new java.util.NoSuchElementException("Mascota no encontrada"));
     }
 
     @Override
@@ -246,7 +246,7 @@ public class DependentRepositoryImpl implements DependentRepository {
                 .addValue("tagRfid", request.tagRfid())
                 .addValue("estado", estado);
         jdbcTemplate.update(sql, params);
-        return getVehiculoById(id).orElseThrow();
+        return getVehiculoById(id).orElseThrow(() -> new java.util.NoSuchElementException("Vehiculo no encontrado"));
     }
 
     @Override
@@ -333,7 +333,7 @@ public class DependentRepositoryImpl implements DependentRepository {
                 .addValue("documento", request.documentoSoporteUrl())
                 .addValue("estado", request.estado() != null ? request.estado() : "ACTIVO");
         jdbcTemplate.update(sql, params);
-        return getTutorById(id).orElseThrow();
+        return getTutorById(id).orElseThrow(() -> new java.util.NoSuchElementException("Tutor no encontrado"));
     }
 
     @Override
@@ -407,11 +407,31 @@ public class DependentRepositoryImpl implements DependentRepository {
                 .addValue("obs", request.observaciones())
                 .addValue("estado", request.estado() != null ? request.estado() : "ACTIVO");
         jdbcTemplate.update(sql, params);
-        return getVisitanteById(id).orElseThrow();
+        return getVisitanteById(id).orElseThrow(() -> new java.util.NoSuchElementException("Visitante no encontrado"));
     }
 
     @Override
     public void deleteVisitante(Long id) {
         jdbcTemplate.update("DELETE FROM VISITANTES WHERE id_visitante = :id", new MapSqlParameterSource("id", id));
+    }
+
+    // --- F08-04 ownership checks ---
+    @Override
+    public boolean isPersonOfUnit(Long personaId, Long unidadId) {
+        Integer count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(1) FROM DUAL WHERE EXISTS (SELECT 1 FROM RESIDENTES_UNIDAD ru WHERE ru.ID_PERSONA = :p "
+                        + "AND ru.ID_UNIDAD = :u AND NVL(ru.ESTADO, 'ACTIVO') = 'ACTIVO') "
+                        + "OR EXISTS (SELECT 1 FROM PROPIETARIOS_UNIDAD pu WHERE pu.ID_PERSONA = :p AND pu.ID_UNIDAD = :u "
+                        + "AND NVL(pu.ESTADO, 'ACTIVO') IN ('ACTIVO', 'ACTIVA'))",
+                new MapSqlParameterSource("p", personaId).addValue("u", unidadId), Integer.class);
+        return count != null && count > 0;
+    }
+
+    @Override
+    public boolean isUnitInProperty(Long unidadId, Long propiedadId) {
+        Integer count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(1) FROM UNIDADES WHERE ID_UNIDAD = :u AND ID_PROPIEDAD = :p",
+                new MapSqlParameterSource("u", unidadId).addValue("p", propiedadId), Integer.class);
+        return count != null && count > 0;
     }
 }

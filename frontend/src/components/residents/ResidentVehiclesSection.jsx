@@ -136,7 +136,7 @@ export default function ResidentVehiclesSection({
     setSaving(true);
     const payload = {
       unidadId: Number(unitId),
-      personaId: Number(editingVehicle?.personaId || defaultPersonaId || 1),
+      personaId: Number(editingVehicle?.personaId || defaultPersonaId) || null,
       placa: form.placa.trim().toUpperCase(),
       tipoVehiculo: form.tipoVehiculo.toUpperCase(),
       marca: form.marca ? form.marca.trim() : null,
