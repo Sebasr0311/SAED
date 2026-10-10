@@ -1,5 +1,6 @@
 package com.saed.backend.comunicacion.controller;
 
+import com.saed.backend.platform.annotation.RequireModule;
 import com.saed.backend.finanzas.service.WompiService;
 import com.saed.backend.finanzas.service.impl.WompiServiceImpl;
 import org.springframework.http.ResponseEntity;
@@ -26,12 +27,14 @@ public class WompiController {
         this.wompiServiceImpl = wompiServiceImpl;
     }
 
+    @RequireModule("FINANZAS")
     @GetMapping("/registrados")
     @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_RESIDENTE')")
     public List<Map<String, Object>> getPagosRegistrados() {
         return jdbcTemplate.queryForList("SELECT * FROM PAGOS ORDER BY FECHA_PAGO DESC", new MapSqlParameterSource());
     }
 
+    @RequireModule("FINANZAS")
     @GetMapping("/wompi/historial")
     @PreAuthorize("hasAuthority('SCOPE_RESIDENTE')")
     public List<Map<String, Object>> getHistorialWompi() {
@@ -43,11 +46,12 @@ public class WompiController {
     }
 
     @GetMapping("/wompi/estado")
-    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_SUPERADMIN', 'SCOPE_RESIDENTE')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_RESIDENTE')")
     public Map<String, Object> getEstadoWompi(@RequestParam String referencia) {
         return wompiServiceImpl.estadoIntencion(referencia);
     }
 
+    @RequireModule("FINANZAS")
     @PostMapping("/wompi/solicitud")
     @PreAuthorize("hasAuthority('SCOPE_RESIDENTE')")
     public Map<String, Object> postSolicitud(@RequestBody Map<String, Object> payload) {
@@ -64,6 +68,7 @@ public class WompiController {
         }
     }
 
+    @RequireModule("FINANZAS")
     @PostMapping("/wompi/transaccion")
     @PreAuthorize("hasAuthority('SCOPE_RESIDENTE')")
     public ResponseEntity<Void> postTransaccion(@RequestBody Map<String, Object> payload) {

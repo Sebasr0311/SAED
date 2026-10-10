@@ -53,13 +53,15 @@ public class WompiServiceImpl implements WompiService {
 
     private static final Logger log = LoggerFactory.getLogger(WompiServiceImpl.class);
 
-    @org.springframework.beans.factory.annotation.Value("${wompi.public-key:${WOMPI_PUBLIC_KEY:pub_test_IZg6dmwtip4WYXjPP8G7zYvWzCU5wRaH}}")
+    // Keys come only from configuration (saed.wompi.*); there is no hardcoded or environment fallback.
+    // Production-like profiles refuse to start without them (ProductionConfigurationGuard).
+    @org.springframework.beans.factory.annotation.Value("${saed.wompi.public-key:}")
     private String wompiPublicKey;
 
-    @org.springframework.beans.factory.annotation.Value("${wompi.integrity-secret:${WOMPI_INTEGRITY_SECRET:test_integrity_CT3taBwOqVtSQITYMGUTcrJftHdoLoPQ}}")
+    @org.springframework.beans.factory.annotation.Value("${saed.wompi.integrity-secret:}")
     private String wompiIntegritySecret;
 
-    @org.springframework.beans.factory.annotation.Value("${wompi.events-secret:${WOMPI_EVENTS_SECRET:test_events_VgrGtdTPd9q6XKtBz3iRTgTHJSUuwBBy}}")
+    @org.springframework.beans.factory.annotation.Value("${saed.wompi.events-secret:}")
     private String wompiEventsSecret;
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
@@ -98,10 +100,7 @@ public class WompiServiceImpl implements WompiService {
     }
 
     public String getPublicKey() {
-        if (wompiPublicKey != null && !wompiPublicKey.isBlank()) return wompiPublicKey;
-        String env = System.getenv("WOMPI_PUBLIC_KEY");
-        if (env != null && !env.isBlank()) return env;
-        return "pub_test_IZg6dmwtip4WYXjPP8G7zYvWzCU5wRaH";
+        return (wompiPublicKey != null && !wompiPublicKey.isBlank()) ? wompiPublicKey : null;
     }
 
     public void setPublicKey(String key) {
@@ -109,10 +108,7 @@ public class WompiServiceImpl implements WompiService {
     }
 
     public String getIntegritySecret() {
-        if (wompiIntegritySecret != null && !wompiIntegritySecret.isBlank()) return wompiIntegritySecret;
-        String env = System.getenv("WOMPI_INTEGRITY_SECRET");
-        if (env != null && !env.isBlank()) return env;
-        return "test_integrity_CT3taBwOqVtSQITYMGUTcrJftHdoLoPQ";
+        return (wompiIntegritySecret != null && !wompiIntegritySecret.isBlank()) ? wompiIntegritySecret : null;
     }
 
     public void setIntegritySecret(String secret) {
@@ -120,10 +116,7 @@ public class WompiServiceImpl implements WompiService {
     }
 
     public String getEventsSecret() {
-        if (wompiEventsSecret != null && !wompiEventsSecret.isBlank()) return wompiEventsSecret;
-        String env = System.getenv("WOMPI_EVENTS_SECRET");
-        if (env != null && !env.isBlank()) return env;
-        return "test_events_VgrGtdTPd9q6XKtBz3iRTgTHJSUuwBBy";
+        return (wompiEventsSecret != null && !wompiEventsSecret.isBlank()) ? wompiEventsSecret : null;
     }
 
     public void setEventsSecret(String secret) {
@@ -472,7 +465,11 @@ public class WompiServiceImpl implements WompiService {
     }
 
     private String firmaIntegridad(String referencia, long montoCentavos) throws Exception {
-        String s = referencia + montoCentavos + "COP" + getIntegritySecret();
+        String secret = getIntegritySecret();
+        if (secret == null) {
+            throw new IllegalStateException("Wompi integrity secret is not configured");
+        }
+        String s = referencia + montoCentavos + "COP" + secret;
         return sha256Hex(s);
     }
 
@@ -745,28 +742,8 @@ public class WompiServiceImpl implements WompiService {
                             String orgNombre = (String) adminData.get("ORG_NOMBRE");
                             String planNombre = (String) adminData.get("PLAN_NOMBRE");
 
-                            String autoPass = com.saed.backend.common.util.PasswordGenerator.generate();
-                            jdbcTemplate.update(
-                                "UPDATE USUARIOS SET ESTADO = 'ACTIVO', HASH_PASSWORD = :pwd WHERE ID_USUARIO = :usr",
-                                new MapSqlParameterSource("usr", idAdmin)
-                                    .addValue("pwd", passwordEncoder.encode(autoPass))
-                            );
-
-                            try {
-                                emailService.enviarBienvenidaCredenciales(
-                                    emailAdmin,
-                                    nombreAdmin,
-                                    orgNombre != null ? orgNombre : "SAED",
-                                    planNombre != null ? planNombre : "Plan Comercial",
-                                    "ADMIN_ORGANIZACION",
-                                    usernameAdmin != null ? usernameAdmin : emailAdmin,
-                                    autoPass,
-                                    "https://saedfront.vercel.app/login"
-                                );
-                            } catch (Exception exCreds) {
-                                log.warn("[Wompi] Error enviando credenciales de bienvenida a {}: {}", emailAdmin, exCreds.getMessage());
-                            }
-
+                            // F3-06: paying a membership never rotates or e-mails the administrator's
+                            // password; the account keeps its own credentials (or activation link).
                             try {
                                 emailService.enviarReciboPago(emailAdmin, "MEMBRESIA_SAED", montoPesos, referencia, java.time.LocalDate.now().toString());
                             } catch (Exception exEmail) {
@@ -998,7 +975,10 @@ public class WompiServiceImpl implements WompiService {
         sb.append(eventsSecret);
 
         String calc = sha256Hex(sb.toString());
-        return calc.equalsIgnoreCase(String.valueOf(checksum));
+        // Constant-time comparison: the checksum authenticates an unauthenticated public webhook.
+        return MessageDigest.isEqual(
+                calc.toLowerCase(java.util.Locale.ROOT).getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                String.valueOf(checksum).toLowerCase(java.util.Locale.ROOT).getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 
     private Object navegar(Map<String, Object> data, String ruta) {

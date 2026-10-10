@@ -19,7 +19,7 @@ import java.util.NoSuchElementException;
 @Tag(name = "PropertyConfig", description = "API para la configuración y parámetros dinámicos de propiedades")
 @RestController
 @RequestMapping("/api/v1/properties/{propertyId}/config")
-@PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
+@PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
 public class PropertyConfigController {
 
     private final PropertyConfigService propertyConfigService;

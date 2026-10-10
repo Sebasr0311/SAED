@@ -30,7 +30,7 @@ import java.util.Map;
 @Tag(name = "Reportes Configurables", description = "Gestión de plantillas y configuraciones de reportes con filtros y formatos")
 @RestController
 @RequestMapping("/api/v1/reportes/configurados")
-@PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
+@PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
 public class ReportesConfiguradosController {
 
     private final ReportesConfiguradosService reportesConfiguradosService;

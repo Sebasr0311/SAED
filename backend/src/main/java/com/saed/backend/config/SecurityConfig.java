@@ -2,6 +2,7 @@ package com.saed.backend.config;
 
 import com.saed.backend.audit.CorrelationIdFilter;
 import com.saed.backend.security.filter.JwtAuthenticationFilter;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -28,13 +29,16 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final CorrelationIdFilter correlationIdFilter;
     private final org.springframework.beans.factory.ObjectProvider<com.saed.backend.security.filter.InactivePropertyFilter> inactivePropertyFilterProvider;
+    private final String allowedOrigins;
 
     public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
                           CorrelationIdFilter correlationIdFilter,
-                          org.springframework.beans.factory.ObjectProvider<com.saed.backend.security.filter.InactivePropertyFilter> inactivePropertyFilterProvider) {
+                          org.springframework.beans.factory.ObjectProvider<com.saed.backend.security.filter.InactivePropertyFilter> inactivePropertyFilterProvider,
+                          @Value("${saed.cors.allowed-origins:}") String allowedOrigins) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.correlationIdFilter = correlationIdFilter;
         this.inactivePropertyFilterProvider = inactivePropertyFilterProvider;
+        this.allowedOrigins = allowedOrigins;
     }
 
     @Bean
@@ -68,16 +72,16 @@ public class SecurityConfig {
     }
 
     /**
-     * CORS habilitado para el frontend desplegado en Vercel (u otro origen).
-     * Los origenes se configuran via CORS_ALLOWED_ORIGINS (separados por coma);
-     * por defecto permite cualquier origen (dev / Render free sin dominio fijo).
+     * CORS origins come only from saed.cors.allowed-origins (CORS_ALLOWED_ORIGINS, comma separated).
+     * There is no wildcard default: without configuration no cross-origin request is allowed, and
+     * production-like profiles refuse to start without explicit origins (ProductionConfigurationGuard).
      */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
-        String allowed = System.getenv().getOrDefault("CORS_ALLOWED_ORIGINS", "*");
+        String allowed = allowedOrigins == null ? "" : allowedOrigins;
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(Arrays.stream(allowed.split(","))
-                .map(String::trim).filter(s -> !s.isEmpty()).toList());
+                .map(String::trim).filter(s -> !s.isEmpty() && !s.contains("*")).toList());
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(false);

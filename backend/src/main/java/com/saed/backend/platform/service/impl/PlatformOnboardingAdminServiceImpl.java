@@ -2,7 +2,6 @@ package com.saed.backend.platform.service.impl;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.saed.backend.common.service.EmailService;
-import com.saed.backend.common.util.PasswordGenerator;
 import com.saed.backend.context.SaedContext;
 import com.saed.backend.context.SaedContextHolder;
 import com.saed.backend.platform.dto.ActualizarCredencialesRequestDTO;
@@ -35,18 +34,21 @@ public class PlatformOnboardingAdminServiceImpl implements PlatformOnboardingAdm
     private final EmailService emailService;
     private final ObjectMapper objectMapper;
     private final OnboardingService onboardingService;
+    private final com.saed.backend.identity.service.TokenActivacionService tokenActivacionService;
 
     public PlatformOnboardingAdminServiceImpl(
             NamedParameterJdbcTemplate jdbcTemplate,
             PasswordEncoder passwordEncoder,
             EmailService emailService,
             ObjectMapper objectMapper,
-            OnboardingService onboardingService) {
+            OnboardingService onboardingService,
+            @org.springframework.context.annotation.Lazy com.saed.backend.identity.service.TokenActivacionService tokenActivacionService) {
         this.jdbcTemplate = jdbcTemplate;
         this.passwordEncoder = passwordEncoder;
         this.emailService = emailService;
         this.objectMapper = objectMapper;
         this.onboardingService = onboardingService;
+        this.tokenActivacionService = tokenActivacionService;
     }
 
     @Override
@@ -349,17 +351,6 @@ public class PlatformOnboardingAdminServiceImpl implements PlatformOnboardingAdm
             String planNombre = (String) uRow.get("PLAN_NOMBRE");
             if (planNombre == null) planNombre = "Plan SAED";
 
-            String passwordToSend;
-            if (request.getPasswordManual() != null && !request.getPasswordManual().isBlank()) {
-                passwordToSend = request.getPasswordManual().trim();
-                jdbcTemplate.update("UPDATE USUARIOS SET HASH_PASSWORD = :pwd, ESTADO = 'ACTIVO' WHERE ID_USUARIO = :id",
-                        new MapSqlParameterSource("pwd", passwordEncoder.encode(passwordToSend)).addValue("id", idUsuario));
-            } else {
-                passwordToSend = PasswordGenerator.generate();
-                jdbcTemplate.update("UPDATE USUARIOS SET HASH_PASSWORD = :pwd, ESTADO = 'ACTIVO' WHERE ID_USUARIO = :id",
-                        new MapSqlParameterSource("pwd", passwordEncoder.encode(passwordToSend)).addValue("id", idUsuario));
-            }
-
             // Sincronizar el correo en USUARIOS, PERSONAS y ORGANIZACIONES
             try {
                 jdbcTemplate.update("UPDATE USUARIOS SET EMAIL = :e WHERE ID_USUARIO = :id",
@@ -379,16 +370,11 @@ public class PlatformOnboardingAdminServiceImpl implements PlatformOnboardingAdm
                 log.warn("Aviso al sincronizar email del usuario {}: {}. Se despachará el correo directamente a {}.", idUsuario, e.getMessage(), targetEmail);
             }
 
-            EmailService.EmailDispatchResult result = emailService.enviarBienvenidaCredencialesConResultado(
-                    targetEmail,
-                    nombreCompleto,
-                    orgNombre,
-                    planNombre,
-                    "ADMIN_ORGANIZACION",
-                    username,
-                    passwordToSend,
-                    "https://saedfront.vercel.app/login"
-            );
+            // F3-06: no password is generated, set or e-mailed; the administrator receives a
+            // single-use activation/reset link and defines the password personally.
+            tokenActivacionService.generarYEnviarTokenActivacion(idUsuario, null);
+            EmailService.EmailDispatchResult result = new EmailService.EmailDispatchResult(
+                    "ENLACE_ACTIVACION", "Enlace de activación enviado a " + targetEmail, true);
 
             if (referencia != null) {
                 try {
@@ -413,7 +399,7 @@ public class PlatformOnboardingAdminServiceImpl implements PlatformOnboardingAdm
                     result.real(),
                     targetEmail,
                     username,
-                    passwordToSend,
+                    null,
                     LocalDate.now().toString()
             );
         } finally {
@@ -477,24 +463,12 @@ public class PlatformOnboardingAdminServiceImpl implements PlatformOnboardingAdm
                     .addValue("user", nuevoUsername)
                     .addValue("email", nuevoEmail);
 
-            if (nuevaPassword != null && !nuevaPassword.isBlank()) {
-                params.addValue("pwd", passwordEncoder.encode(nuevaPassword.trim()));
-                jdbcTemplate.update("""
-                    UPDATE USUARIOS
-                    SET NOMBRE_USUARIO = :user,
-                        EMAIL = :email,
-                        HASH_PASSWORD = :pwd,
-                        INTENTOS_FALLIDOS = 0
-                    WHERE ID_USUARIO = :id
-                    """, params);
-            } else {
-                jdbcTemplate.update("""
-                    UPDATE USUARIOS
-                    SET NOMBRE_USUARIO = :user,
-                        EMAIL = :email
-                    WHERE ID_USUARIO = :id
-                    """, params);
-            }
+            jdbcTemplate.update("""
+                UPDATE USUARIOS
+                SET NOMBRE_USUARIO = :user,
+                    EMAIL = :email
+                WHERE ID_USUARIO = :id
+                """, params);
 
             jdbcTemplate.update("UPDATE PERSONAS SET EMAIL = :email WHERE ID_PERSONA = :idP",
                     new MapSqlParameterSource("email", nuevoEmail).addValue("idP", idPersona));
@@ -521,32 +495,21 @@ public class PlatformOnboardingAdminServiceImpl implements PlatformOnboardingAdm
                 log.warn("Aviso al sincronizar ORGANIZACIONES.EMAIL_CONTACTO en actualizarCredenciales: {}", e.getMessage());
             }
 
+            // F3-06: a requested password is never set by the platform administrator; the account
+            // owner receives a single-use link to define it.
             EmailService.EmailDispatchResult dispatchResult = null;
-            if (Boolean.TRUE.equals(request.getReenviarCorreo()) && nuevaPassword != null && !nuevaPassword.isBlank()) {
-                List<String> names = jdbcTemplate.query(
-                        "SELECT PRIMER_NOMBRE || ' ' || PRIMER_APELLIDO FROM PERSONAS WHERE ID_PERSONA = :id",
-                        new MapSqlParameterSource("id", idPersona),
-                        (rs, rowNum) -> rs.getString(1)
-                );
-                String fullName = !names.isEmpty() ? names.get(0) : "Administrador";
-
-                dispatchResult = emailService.enviarBienvenidaCredencialesConResultado(
-                        nuevoEmail,
-                        fullName,
-                        "SAED",
-                        "Plan SAED",
-                        "ADMIN_ORGANIZACION",
-                        nuevoUsername,
-                        nuevaPassword.trim(),
-                        "https://saedfront.vercel.app/login"
-                );
+            if (nuevaPassword != null && !nuevaPassword.isBlank()) {
+                tokenActivacionService.generarYEnviarTokenActivacion(idUsuario, null);
+                dispatchResult = new EmailService.EmailDispatchResult(
+                        "ENLACE_ACTIVACION", "Enlace para definir contraseña enviado a " + nuevoEmail, true);
             }
 
             Map<String, Object> resp = new HashMap<>();
             resp.put("idUsuario", idUsuario);
             resp.put("nombreUsuario", nuevoUsername);
             resp.put("email", nuevoEmail);
-            resp.put("passwordActualizada", nuevaPassword != null && !nuevaPassword.isBlank());
+            resp.put("passwordActualizada", false);
+            resp.put("enlaceContrasenaEnviado", dispatchResult != null);
             resp.put("mensaje", "Credenciales actualizadas exitosamente");
             if (dispatchResult != null) {
                 resp.put("correoEstado", dispatchResult.estado());
@@ -576,13 +539,17 @@ public class PlatformOnboardingAdminServiceImpl implements PlatformOnboardingAdm
                 throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Intención de onboarding no encontrada");
             }
             String estadoActual = (String) rows.get(0).get("ESTADO");
-            if ("APROBADA".equalsIgnoreCase(estadoActual)) {
+            // F3-08: only an unpaid pending intention can be rejected. Its payment transaction is
+            // kept: if the customer still pays, the webhook records the payment and the intention
+            // moves to PAGO_REQUIERE_REVISION for recovery (refund or approval).
+            if (!"PENDIENTE".equalsIgnoreCase(estadoActual)) {
                 throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "No se puede rechazar una solicitud que ya fue aprobada y materializada");
+                    "Solo se puede rechazar una solicitud PENDIENTE (estado actual: " + estadoActual + ")");
             }
             jdbcTemplate.update(
-                "UPDATE ONBOARDING_INTENCIONES SET ESTADO = 'RECHAZADA' WHERE REFERENCIA = :ref",
-                new MapSqlParameterSource("ref", referencia)
+                "UPDATE ONBOARDING_INTENCIONES SET ESTADO = 'RECHAZADA', MOTIVO_ESTADO = :motivo, "
+                    + "FECHA_ACTUALIZACION = CURRENT_TIMESTAMP WHERE REFERENCIA = :ref AND ESTADO = 'PENDIENTE'",
+                new MapSqlParameterSource("ref", referencia).addValue("motivo", motivo)
             );
             Map<String, Object> resp = new HashMap<>();
             resp.put("referencia", referencia);
@@ -612,15 +579,20 @@ public class PlatformOnboardingAdminServiceImpl implements PlatformOnboardingAdm
                 throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Intención de onboarding no encontrada");
             }
             String estadoActual = (String) rows.get(0).get("ESTADO");
-            if ("APROBADA".equalsIgnoreCase(estadoActual)) {
+            // F3-08: provisioned or paid intentions are payment evidence and are never deleted.
+            if (!"PENDIENTE".equalsIgnoreCase(estadoActual) && !"RECHAZADA".equalsIgnoreCase(estadoActual)) {
                 throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "No se puede eliminar una solicitud que ya fue aprobada. Use cancelar membresía si es necesario");
+                    "No se puede eliminar una solicitud en estado " + estadoActual);
             }
-            // Delete any linked pending payment transaction first
-            jdbcTemplate.update(
-                "DELETE FROM TRANSACCIONES_PAGO WHERE REFERENCIA_INTERNA = :ref AND ESTADO_PASARELA = 'PENDIENTE'",
-                new MapSqlParameterSource("ref", referencia)
-            );
+            // A payment that is pending or approved may still settle against this reference.
+            Long livePayments = jdbcTemplate.queryForObject(
+                "SELECT COUNT(1) FROM TRANSACCIONES_PAGO WHERE REFERENCIA_INTERNA = :ref "
+                    + "AND ESTADO_PASARELA IN ('PENDIENTE', 'APROBADO')",
+                new MapSqlParameterSource("ref", referencia), Long.class);
+            if (livePayments != null && livePayments > 0) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "La solicitud tiene un pago pendiente o aprobado; recházela en lugar de eliminarla.");
+            }
             int deleted = jdbcTemplate.update(
                 "DELETE FROM ONBOARDING_INTENCIONES WHERE REFERENCIA = :ref",
                 new MapSqlParameterSource("ref", referencia)
@@ -644,17 +616,9 @@ public class PlatformOnboardingAdminServiceImpl implements PlatformOnboardingAdm
         if (referencia == null || referencia.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Referencia es obligatoria");
         }
-        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
-                "SELECT MONTO_CENTAVOS FROM ONBOARDING_INTENCIONES WHERE REFERENCIA = :ref",
-                new MapSqlParameterSource("ref", referencia)
-        );
-        if (rows.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Intención de onboarding no encontrada");
-        }
-        Number monto = (Number) rows.get(0).get("MONTO_CENTAVOS");
-        Long centavos = monto != null ? monto.longValue() : 0L;
-
-        boolean ok = onboardingService.materializarOrganizacion(referencia, centavos, "APROBADO_MANUAL_SUPERADMIN");
+        // DEC-06: explicit platform approval of a PENDIENTE or PAGO_REQUIERE_REVISION intention.
+        // No gateway transaction is marked as approved.
+        boolean ok = onboardingService.aprobarManualmente(referencia, "Aprobación manual de plataforma");
         if (!ok) {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "No se pudo materializar la organización");
         }

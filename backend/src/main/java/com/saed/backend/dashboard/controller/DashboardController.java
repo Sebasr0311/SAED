@@ -524,7 +524,7 @@ public class DashboardController {
     
     @PostMapping("/{id}/asignar-apartamento")
     @org.springframework.transaction.annotation.Transactional
-    @PreAuthorize("hasAuthority('SCOPE_SUPERADMIN') or hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<Void> asignarApartamento(@PathVariable Long id, @RequestBody(required = false) Map<String, Object> payload) {
         if (payload == null || !payload.containsKey("idApartamento")) {
             return ResponseEntity.badRequest().build();
