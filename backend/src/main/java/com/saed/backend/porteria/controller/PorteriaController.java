@@ -887,17 +887,6 @@ public class PorteriaController {
         return porteriaService.validarQrDetalle(token);
     }
 
-    @PostMapping("/qr/notificar")
-    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_PORTERO')")
-    public Map<String, Object> notificarVisita(@RequestBody Map<String, String> body) {
-        String token = body.get("codigoQr");
-        if (token == null || token.isBlank()) {
-            token = body.get("token");
-        }
-        String fotoCaptura = body.get("fotoCaptura");
-        return porteriaService.notificarVisitaQr(token, fotoCaptura);
-    }
-
     @PostMapping("/qr/entrada")
     @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_PORTERO')")
     public Map<String, Object> registrarEntradaQr(@RequestBody Map<String, String> body) {

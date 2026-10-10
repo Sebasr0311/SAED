@@ -31,7 +31,6 @@ public interface PorteriaService {
     QrAccesoDTO generarQrAcceso(QrAccesoRequestDTO request);
     QrAccesoDTO getQrAccesoById(Long id);
     Map<String, Object> validarQrDetalle(String token);
-    Map<String, Object> notificarVisitaQr(String token, String fotoCaptura);
     Map<String, Object> registrarEntradaQr(String token, String medioTransporte, String placa, String descripcion);
 
     VehiculoVisitaDTO registrarIngresoVehiculo(VehiculoVisitaRequestDTO request);
