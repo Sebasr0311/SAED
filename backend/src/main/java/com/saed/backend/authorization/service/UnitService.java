@@ -25,13 +25,16 @@ public class UnitService {
     private final UnitRepository unitRepository;
     private final com.saed.backend.platform.service.PlanLimitService planLimitService;
     private final NamedParameterJdbcTemplate jdbcTemplate;
+    private final PropertyStatusService propertyStatusService;
 
     public UnitService(UnitRepository unitRepository,
                        com.saed.backend.platform.service.PlanLimitService planLimitService,
-                       NamedParameterJdbcTemplate jdbcTemplate) {
+                       NamedParameterJdbcTemplate jdbcTemplate,
+                       PropertyStatusService propertyStatusService) {
         this.unitRepository = unitRepository;
         this.planLimitService = planLimitService;
         this.jdbcTemplate = jdbcTemplate;
+        this.propertyStatusService = propertyStatusService;
     }
 
     private void validateBlockAndType(Long propertyId, Long idBloque, Long idTipoUnidad) {
@@ -99,6 +102,8 @@ public class UnitService {
             }
         }
 
+        // F04-03: no unit may be created in an inactive property, whatever the scope of the caller.
+        propertyStatusService.validatePropertyIsActive(request.getIdPropiedad());
         validateUniqueIdentifier(request, null);
 
         // Enforce plan limit with pessimistic lock on organization membership
@@ -209,6 +214,8 @@ public class UnitService {
 
         validateCoefficientRange(request.getCoeficienteCopropiedad());
         validateBlockAndType(request.getIdPropiedad(), request.getIdBloque(), request.getIdTipoUnidad());
+        propertyStatusService.validatePropertyIsActive(existing.getIdPropiedad());
+        propertyStatusService.validatePropertyIsActive(request.getIdPropiedad());
         validateUniqueIdentifier(request, id);
         validateCoefficientSum(request.getIdPropiedad(), request.getCoeficienteCopropiedad(), id);
 

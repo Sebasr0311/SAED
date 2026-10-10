@@ -44,16 +44,22 @@ public class PropertyStatusService {
             return "ACTIVA".equalsIgnoreCase(entry.status());
         }
 
+        // F4-H08 / F04-03: fail closed. An unknown (or RLS-hidden) property or a failed lookup is never
+        // treated as writable; only a positively read status is cached.
+        Optional<String> statusOpt;
         try {
-            Optional<String> statusOpt = propertyRepository.getPropertyStatus(propertyId);
-            // If not found in DB, default to ACTIVA to avoid locking unpersisted or test entities
-            String status = statusOpt.orElse("ACTIVA");
-            cache.put(propertyId, new CachedStatus(status, now));
-            return "ACTIVA".equalsIgnoreCase(status);
-        } catch (Exception e) {
-            log.warn("Error querying status for propertyId={}, defaulting to ACTIVA: {}", propertyId, e.getMessage());
-            return true;
+            statusOpt = propertyRepository.getPropertyStatus(propertyId);
+        } catch (RuntimeException e) {
+            log.warn("Property status lookup failed for propertyId={} ({}); treating as not active",
+                    propertyId, e.getClass().getSimpleName());
+            return false;
         }
+        if (statusOpt.isEmpty()) {
+            return false;
+        }
+        String status = statusOpt.get();
+        cache.put(propertyId, new CachedStatus(status, now));
+        return "ACTIVA".equalsIgnoreCase(status);
     }
 
     /**

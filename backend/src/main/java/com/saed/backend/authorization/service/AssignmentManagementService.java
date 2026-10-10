@@ -24,12 +24,15 @@ public class AssignmentManagementService {
     private final PropertyRepository propertyRepository;
     private final com.saed.backend.platform.service.PlanLimitService planLimitService;
     private final org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbcTemplate;
+    private final PropertyStatusService propertyStatusService;
 
     public AssignmentManagementService(AssignmentRepository assignmentRepository,
                                        RoleRepository roleRepository,
                                        PropertyRepository propertyRepository,
                                        com.saed.backend.platform.service.PlanLimitService planLimitService,
-                                       org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbcTemplate) {
+                                       org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate jdbcTemplate,
+                                       PropertyStatusService propertyStatusService) {
+        this.propertyStatusService = propertyStatusService;
         this.assignmentRepository = assignmentRepository;
         this.roleRepository = roleRepository;
         this.propertyRepository = propertyRepository;
@@ -124,6 +127,11 @@ public class AssignmentManagementService {
                 break;
             default:
                 throw new IllegalArgumentException("Unknown role scope: " + targetRole.getAlcance());
+        }
+
+        // F04-03: no new access may be granted inside an inactive property (revocation stays possible).
+        if (request.getIdPropiedad() != null) {
+            propertyStatusService.validatePropertyIsActive(request.getIdPropiedad());
         }
 
         if (request.getIdOrganizacion() != null) {

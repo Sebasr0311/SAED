@@ -22,10 +22,13 @@ public class BlockServiceImpl implements BlockService {
 
     private final BlockRepository blockRepository;
     private final PlanLimitService planLimitService;
+    private final PropertyStatusService propertyStatusService;
 
-    public BlockServiceImpl(BlockRepository blockRepository, PlanLimitService planLimitService) {
+    public BlockServiceImpl(BlockRepository blockRepository, PlanLimitService planLimitService,
+                            PropertyStatusService propertyStatusService) {
         this.blockRepository = blockRepository;
         this.planLimitService = planLimitService;
+        this.propertyStatusService = propertyStatusService;
     }
 
     private void validatePropertyAccess(Long propertyId) {
@@ -146,6 +149,7 @@ public class BlockServiceImpl implements BlockService {
     @Transactional
     public Long create(Long propertyId, BlockRequestDTO request) {
         validatePropertyAccess(propertyId);
+        propertyStatusService.validatePropertyIsActive(propertyId);
         request.setIdPropiedad(propertyId);
         validateBlockData(propertyId, null, request);
         return blockRepository.create(request);
@@ -155,6 +159,7 @@ public class BlockServiceImpl implements BlockService {
     @Transactional
     public void update(Long propertyId, Long id, BlockRequestDTO request) {
         validatePropertyAccess(propertyId);
+        propertyStatusService.validatePropertyIsActive(propertyId);
         BlockDTO existing = findById(propertyId, id);
         request.setIdPropiedad(propertyId);
         validateBlockData(propertyId, existing.getId(), request);
@@ -165,6 +170,7 @@ public class BlockServiceImpl implements BlockService {
     @Transactional
     public void updateStatus(Long propertyId, Long id, String estado) {
         validatePropertyAccess(propertyId);
+        propertyStatusService.validatePropertyIsActive(propertyId);
         findById(propertyId, id);
         if (estado == null || (!estado.equalsIgnoreCase("ACTIVO") && !estado.equalsIgnoreCase("INACTIVO"))) {
             throw new IllegalArgumentException("Estado inválido. Debe ser ACTIVO o INACTIVO");
@@ -176,6 +182,7 @@ public class BlockServiceImpl implements BlockService {
     @Transactional
     public void delete(Long propertyId, Long id) {
         validatePropertyAccess(propertyId);
+        propertyStatusService.validatePropertyIsActive(propertyId);
         findById(propertyId, id);
 
         int children = blockRepository.countChildren(id);

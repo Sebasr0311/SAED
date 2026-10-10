@@ -61,7 +61,7 @@ class UnitPropertyContractTest {
     }
 
     private UnitService service() {
-        return new UnitService(unitRepository, planLimitService, null);
+        return new UnitService(unitRepository, planLimitService, null, org.mockito.Mockito.mock(PropertyStatusService.class));
     }
 
     private static void propertyAdmin() {
