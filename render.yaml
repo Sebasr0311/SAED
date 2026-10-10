@@ -24,7 +24,22 @@ services:
         sync: false
       - key: JWT_SECRET
         sync: false
+      # Required in prod: the backend refuses to start when any of these is missing
+      # (ProductionConfigurationGuard). Values are set in the Render dashboard, never here.
       - key: CORS_ALLOWED_ORIGINS
+        sync: false
+      - key: APP_FRONTEND_URL
+        sync: false
+      # SANDBOX or LIVE; the three keys below must match the declared environment.
+      - key: WOMPI_ENVIRONMENT
+        sync: false
+      - key: WOMPI_PUBLIC_KEY
+        sync: false
+      - key: WOMPI_INTEGRITY_SECRET
+        sync: false
+      - key: WOMPI_EVENTS_SECRET
+        sync: false
+      - key: BREVO_API_KEY
         sync: false
       - key: SPRING_MAIL_HOST
         sync: false

@@ -1,5 +1,6 @@
 package com.saed.backend.finanzas.controller;
 
+import com.saed.backend.platform.annotation.RequireModule;
 import com.saed.backend.common.service.FileStorageService;
 import com.saed.backend.finanzas.dto.*;
 import com.saed.backend.finanzas.service.FinanzasService;
@@ -37,14 +38,16 @@ public class PagosController {
         this.wompiService = wompiService;
     }
 
+    @RequireModule("FINANZAS")
     @GetMapping("/cuotas")
-    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_SUPERADMIN')")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_ADMIN_ORGANIZACION')")
     public ResponseEntity<List<CuotaDTO>> getCuotasPendientes(@RequestParam(required = false) Boolean pendientes) {
         return ResponseEntity.ok(finanzasService.getCuotasPendientes());
     }
 
+    @RequireModule("FINANZAS")
     @GetMapping("/pagos")
-    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_SUPERADMIN', 'SCOPE_RESIDENTE')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_RESIDENTE')")
     @Operation(summary = "Listar pagos con filtros de auditoría y estado")
     public ResponseEntity<List<PagoResponseDTO>> getPagos(
             @RequestParam(required = false) String estado,
@@ -55,15 +58,17 @@ public class PagosController {
         return ResponseEntity.ok(finanzasService.getPagos(estado, idUnidad, fechaDesde, fechaHasta, metodoPago));
     }
 
+    @RequireModule("FINANZAS")
     @GetMapping("/pagos/{id}")
-    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_SUPERADMIN', 'SCOPE_RESIDENTE')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_RESIDENTE')")
     @Operation(summary = "Consultar detalle de un pago por ID")
     public ResponseEntity<PagoResponseDTO> getPagoById(@PathVariable("id") Long id) {
         return ResponseEntity.ok(finanzasService.getPagoDetalle(id));
     }
 
+    @RequireModule("FINANZAS")
     @PostMapping("/pagos")
-    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_SUPERADMIN', 'SCOPE_RESIDENTE')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_RESIDENTE')")
     @Operation(summary = "Registrar un pago (JSON)")
     public ResponseEntity<Map<String, Object>> registrarPago(@Valid @RequestBody PagoRequestDTO request) {
         finanzasService.registrarPago(request);
@@ -73,8 +78,9 @@ public class PagosController {
         ));
     }
 
+    @RequireModule("FINANZAS")
     @PostMapping(value = "/pagos/manual", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_SUPERADMIN', 'SCOPE_RESIDENTE')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_RESIDENTE')")
     @Operation(summary = "Registrar pago manual con comprobante físico adjunto")
     public ResponseEntity<Map<String, Object>> registrarPagoManual(
             @RequestPart("pago") @Valid PagoRequestDTO request,
@@ -88,16 +94,18 @@ public class PagosController {
         ));
     }
 
+    @RequireModule("FINANZAS")
     @PostMapping("/pagos/comprobante")
-    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_SUPERADMIN', 'SCOPE_RESIDENTE')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_RESIDENTE')")
     @Operation(summary = "Subir archivo de comprobante de pago")
     public ResponseEntity<FileStorageService.StoredFile> subirComprobante(@RequestParam("file") MultipartFile file) {
         FileStorageService.StoredFile stored = finanzasService.subirComprobante(file);
         return ResponseEntity.status(HttpStatus.CREATED).body(stored);
     }
 
+    @RequireModule("FINANZAS")
     @GetMapping("/pagos/{id}/comprobante")
-    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_SUPERADMIN', 'SCOPE_RESIDENTE')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_RESIDENTE')")
     @Operation(summary = "Descargar o visualizar el comprobante de un pago")
     public ResponseEntity<Resource> descargarComprobante(@PathVariable("id") Long id) {
         PagoResponseDTO pago = finanzasService.getPagoDetalle(id);
@@ -118,16 +126,18 @@ public class PagosController {
                 .body(resource);
     }
 
+    @RequireModule("FINANZAS")
     @PostMapping("/pagos/{id}/aprobar")
-    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_SUPERADMIN')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION')")
     @Operation(summary = "Aprobar un pago manual en estado PENDIENTE_APROBACION")
     public ResponseEntity<PagoResponseDTO> aprobarPago(@PathVariable("id") Long id) {
         PagoResponseDTO aprobado = finanzasService.aprobarPago(id);
         return ResponseEntity.ok(aprobado);
     }
 
+    @RequireModule("FINANZAS")
     @PostMapping("/pagos/{id}/rechazar")
-    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_SUPERADMIN')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION')")
     @Operation(summary = "Rechazar un pago manual en estado PENDIENTE_APROBACION con motivo obligatorio")
     public ResponseEntity<PagoResponseDTO> rechazarPago(
             @PathVariable("id") Long id,

@@ -1,5 +1,6 @@
 package com.saed.backend.finanzas.controller;
 
+import com.saed.backend.platform.annotation.RequireModule;
 import com.saed.backend.common.dto.ApiResponse;
 import com.saed.backend.finanzas.dto.*;
 import com.saed.backend.finanzas.service.FlujoCajaService;
@@ -12,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @Tag(name = "FlujoCaja", description = "API para la gestión del flujo de caja")
+@RequireModule("FINANZAS")
 @RestController
 @RequestMapping("/api/v1/flujo-caja")
 @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")

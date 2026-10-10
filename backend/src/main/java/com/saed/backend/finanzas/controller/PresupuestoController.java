@@ -1,5 +1,6 @@
 package com.saed.backend.finanzas.controller;
 
+import com.saed.backend.platform.annotation.RequireModule;
 import com.saed.backend.audit.Auditable;
 import com.saed.backend.audit.AuditCategory;
 import com.saed.backend.audit.AuditSeverity;
@@ -31,6 +32,7 @@ import java.util.Map;
  *   GET    /api/v1/presupuestos/resumen      - resumen: totales, saldo, % ejecucion
  */
 @Tag(name = "Presupuestos", description = "Gestion de presupuestos por propiedad")
+@RequireModule("FINANZAS")
 @RestController
 @RequestMapping("/api/v1/presupuestos")
 @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")

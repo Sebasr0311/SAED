@@ -29,7 +29,7 @@ public class UnitController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_PORTERO', 'SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA', 'SCOPE_PROPIETARIO')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_PORTERO', 'SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA', 'SCOPE_PROPIETARIO')")
     public ResponseEntity<List<UnitDTO>> findAll(@RequestParam(required = false) Long idPropiedad) {
         return ResponseEntity.ok(unitService.findAll(idPropiedad));
     }

@@ -68,7 +68,7 @@ public class AssignmentRepositoryImpl implements AssignmentRepository {
         LEFT JOIN UNIDADES u ON ua.id_unidad = u.id_unidad
         WHERE ua.id_usuario = ? 
           AND ua.estado = 'ACTIVA' 
-          AND TRUNC(CURRENT_DATE) BETWEEN ua.fecha_inicio AND COALESCE(ua.fecha_fin, TRUNC(CURRENT_DATE))
+          AND TRUNC(SYSDATE) BETWEEN TRUNC(ua.fecha_inicio) AND COALESCE(ua.fecha_fin, TRUNC(SYSDATE))
     """;
 
     @Override

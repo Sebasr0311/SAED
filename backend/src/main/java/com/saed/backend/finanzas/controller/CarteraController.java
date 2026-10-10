@@ -1,5 +1,6 @@
 package com.saed.backend.finanzas.controller;
 
+import com.saed.backend.platform.annotation.RequireModule;
 import com.saed.backend.audit.Auditable;
 import com.saed.backend.audit.AuditCategory;
 import com.saed.backend.audit.AuditSeverity;
@@ -27,6 +28,7 @@ import java.util.Map;
  *   GET    /api/v1/cartera/antiguedad   - reporte de antiguedad de deuda
  */
 @Tag(name = "Cartera", description = "Gestion de cartera y saldos de unidades")
+@RequireModule("FINANZAS")
 @RestController
 @RequestMapping("/api/v1/cartera")
 @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
