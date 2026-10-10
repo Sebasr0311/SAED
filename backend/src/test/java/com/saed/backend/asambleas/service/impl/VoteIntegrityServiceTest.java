@@ -67,6 +67,7 @@ class VoteIntegrityServiceTest {
         when(repository.findPersonaUsuario(USER_ID)).thenReturn(PERSON_ID);
         when(repository.findCoeficienteUnidad(UNIT_ID)).thenReturn(UNIT_COEFFICIENT);
         when(repository.existeVotoUnidad(VOTING_ID, UNIT_ID)).thenReturn(false);
+        when(repository.tieneAsistenciaVigente(ASSEMBLY_ID, UNIT_ID)).thenReturn(true);
         when(repository.registrarVoto(eq(VOTING_ID), any(VotoRequestDTO.class), any(BigDecimal.class))).thenReturn(99L);
     }
 
@@ -87,19 +88,20 @@ class VoteIntegrityServiceTest {
     }
 
     @Test
-    void forgedClientWeightIsIgnoredForAdminOperatedVote() {
+    void forgedClientWeightIsIgnoredWhenTheOwnerIsAnAdministrator() {
         loginAs("ADMIN_PROPIEDAD");
+        givenCallerOwnsUnit();
 
         service.emitirVoto(VOTING_ID, voteWithWeight(new BigDecimal("99")));
 
         assertEquals(0, UNIT_COEFFICIENT.compareTo(capturedStoredWeight()),
-                "Admin-operated votes must also use the server-derived unit coefficient");
+                "Votes cast by an owner who is also an administrator must use the server-derived unit coefficient");
     }
 
     @Test
     void voterWithoutEligibleUnitIsRejectedWithoutInsert() {
         loginAs("RESIDENTE");
-        when(repository.usuarioPerteneceAUnidad(USER_ID, UNIT_ID, PERSON_ID)).thenReturn(false);
+        when(repository.esPropietarioLegalActivo(UNIT_ID, PERSON_ID)).thenReturn(false);
         when(repository.esApoderadoAprobado(ASSEMBLY_ID, UNIT_ID, PERSON_ID)).thenReturn(false);
 
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
@@ -148,7 +150,7 @@ class VoteIntegrityServiceTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"FINALIZADA", "CANCELADA", "BORRADOR", "EN_RECESO"})
+    @ValueSource(strings = {"FINALIZADA", "CANCELADA", "BORRADOR", "EN_RECESO", "CONVOCADA"})
     void voteIsRejectedWhenAssemblyIsNotOpen(String assemblyState) {
         loginAs("RESIDENTE");
         givenCallerOwnsUnit();
@@ -183,7 +185,7 @@ class VoteIntegrityServiceTest {
     }
 
     private void givenCallerOwnsUnit() {
-        when(repository.usuarioPerteneceAUnidad(USER_ID, UNIT_ID, PERSON_ID)).thenReturn(true);
+        when(repository.esPropietarioLegalActivo(UNIT_ID, PERSON_ID)).thenReturn(true);
     }
 
     private void givenAssemblyInState(String state) {

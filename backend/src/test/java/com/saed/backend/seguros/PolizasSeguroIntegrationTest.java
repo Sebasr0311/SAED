@@ -8,7 +8,7 @@ import com.saed.backend.seguros.controller.PolizaSeguroController;
 import com.saed.backend.seguros.dto.PolizaSeguroDTO;
 import com.saed.backend.seguros.dto.ResumenPolizasDTO;
 import com.saed.backend.seguros.service.PolizaSeguroService;
-import com.saed.backend.seguros.service.PolizaVencimientoScheduler;
+import com.saed.backend.seguros.service.PolizaVencimientoService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -42,7 +42,7 @@ public class PolizasSeguroIntegrationTest {
     private PolizaSeguroService polizaService;
 
     @Autowired
-    private PolizaVencimientoScheduler scheduler;
+    private PolizaVencimientoService vencimientoService;
 
     @Autowired
     private DocumentoRepository documentoRepository;
@@ -439,8 +439,9 @@ public class PolizasSeguroIntegrationTest {
                 .orElseThrow()
                 .getIdPoliza();
 
-        // 1. Ejecutar scheduler primera vez
-        scheduler.verificarYAlertarVencimientos();
+        // 1. First tenant-scoped detection run for the caller's property
+        Long idPropiedad = com.saed.backend.context.SaedContextHolder.getContext().getPropertyId();
+        vencimientoService.detectarVencimientos(idPropiedad, LocalDate.now());
 
         // 2. Verificar que se insertó la alerta administrativa estructurada con ID_POLIZA
         Integer countAlertas = jdbcTemplate.queryForObject(
@@ -452,14 +453,14 @@ public class PolizasSeguroIntegrationTest {
         assertEquals(1, countAlertas, "Debe existir exactamente 1 alerta generada y vinculada a ID_POLIZA");
 
         // 3. Ejecutar scheduler segunda vez (deduplicación atómica activa vía MERGE)
-        scheduler.verificarYAlertarVencimientos();
+        vencimientoService.detectarVencimientos(idPropiedad, LocalDate.now());
 
         Integer countAlertas2 = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM ALERTAS_ADMIN WHERE TIPO_ALERTA = 'VENCIMIENTO_POLIZA' AND ID_POLIZA = ?",
                 Integer.class,
                 idPoliza
         );
-        assertEquals(1, countAlertas2, "La deduplicación atómica MERGE debe evitar crear alertas repetidas en ventana de 15 días");
+        assertEquals(1, countAlertas2, "A second run for the same policy and period must not record another alert");
     }
 
     @Test

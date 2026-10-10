@@ -2,8 +2,6 @@ package com.saed.backend.documentos.repository.impl;
 
 import com.saed.backend.documentos.dto.DocumentoDTO;
 import com.saed.backend.documentos.repository.DocumentoRepository;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
@@ -19,7 +17,6 @@ import java.util.Optional;
 @Repository
 public class DocumentoRepositoryImpl implements DocumentoRepository {
 
-    private static final Logger log = LoggerFactory.getLogger(DocumentoRepositoryImpl.class);
     private final JdbcTemplate jdbcTemplate;
 
     public DocumentoRepositoryImpl(JdbcTemplate jdbcTemplate) {
@@ -75,22 +72,7 @@ public class DocumentoRepositoryImpl implements DocumentoRepository {
                      "WHERE (? IS NULL OR D.ID_PROPIEDAD = ? OR D.ID_PROPIEDAD IS NULL) " +
                      "AND D.ESTADO <> 'ELIMINADO' " +
                      "ORDER BY D.FECHA_CREACION DESC";
-        try {
-            return jdbcTemplate.query(sql, rowMapper, idPropiedad, idPropiedad);
-        } catch (Exception e) {
-            log.warn("Error consultando documentos admin con versiones, ejecutando fallback sin join: {}", e.getMessage());
-            String fallbackSql = "SELECT D.*, NULL AS ARCHIVO_URL, NULL AS ARCHIVO_NOMBRE_ORIG, 0 AS ARCHIVO_TAMANO_BYTES, NULL AS ARCHIVO_MIME_TYPE, NULL AS ARCHIVO_SHA256, 1 AS NUMERO_VERSION, NULL AS NOTAS_CAMBIO " +
-                                 "FROM DOCUMENTOS D " +
-                                 "WHERE (? IS NULL OR D.ID_PROPIEDAD = ? OR D.ID_PROPIEDAD IS NULL) " +
-                                 "AND D.ESTADO <> 'ELIMINADO' " +
-                                 "ORDER BY D.FECHA_CREACION DESC";
-            try {
-                return jdbcTemplate.query(fallbackSql, rowMapper, idPropiedad, idPropiedad);
-            } catch (Exception ex) {
-                log.error("Fallo crítico en fallback de documentos admin: {}", ex.getMessage());
-                return List.of();
-            }
-        }
+        return jdbcTemplate.query(sql, rowMapper, idPropiedad, idPropiedad);
     }
 
     @Override
@@ -103,22 +85,7 @@ public class DocumentoRepositoryImpl implements DocumentoRepository {
                      "WHERE (? IS NULL OR D.ID_PROPIEDAD = ? OR D.ID_PROPIEDAD IS NULL) " +
                      "AND D.ES_PUBLICO_RESIDENTES = 'S' AND D.ESTADO = 'ACTIVO' " +
                      "ORDER BY D.FECHA_CREACION DESC";
-        try {
-            return jdbcTemplate.query(sql, rowMapper, idPropiedad, idPropiedad);
-        } catch (Exception e) {
-            log.warn("Error consultando documentos publicos con versiones, ejecutando fallback sin join: {}", e.getMessage());
-            String fallbackSql = "SELECT D.*, NULL AS ARCHIVO_URL, NULL AS ARCHIVO_NOMBRE_ORIG, 0 AS ARCHIVO_TAMANO_BYTES, NULL AS ARCHIVO_MIME_TYPE, NULL AS ARCHIVO_SHA256, 1 AS NUMERO_VERSION, NULL AS NOTAS_CAMBIO " +
-                                 "FROM DOCUMENTOS D " +
-                                 "WHERE (? IS NULL OR D.ID_PROPIEDAD = ? OR D.ID_PROPIEDAD IS NULL) " +
-                                 "AND D.ES_PUBLICO_RESIDENTES = 'S' AND D.ESTADO = 'ACTIVO' " +
-                                 "ORDER BY D.FECHA_CREACION DESC";
-            try {
-                return jdbcTemplate.query(fallbackSql, rowMapper, idPropiedad, idPropiedad);
-            } catch (Exception ex) {
-                log.error("Fallo crítico en fallback de documentos residentes: {}", e.getMessage());
-                return List.of();
-            }
-        }
+        return jdbcTemplate.query(sql, rowMapper, idPropiedad, idPropiedad);
     }
 
     @Override
@@ -129,17 +96,8 @@ public class DocumentoRepositoryImpl implements DocumentoRepository {
                      "(SELECT ID_DOCUMENTO, MAX(NUMERO_VERSION) FROM VERSIONES_DOCUMENTO GROUP BY ID_DOCUMENTO)) V " +
                      "ON D.ID_DOCUMENTO = V.ID_DOCUMENTO " +
                      "WHERE D.ID_DOCUMENTO = ? AND D.ESTADO <> 'ELIMINADO'";
-        try {
-            List<DocumentoDTO> list = jdbcTemplate.query(sql, rowMapper, idDocumento);
-            return list.stream().findFirst();
-        } catch (Exception e) {
-            log.warn("Error consultando documento por ID con versiones, ejecutando fallback: {}", e.getMessage());
-            String fallbackSql = "SELECT D.*, NULL AS ARCHIVO_URL, NULL AS ARCHIVO_NOMBRE_ORIG, 0 AS ARCHIVO_TAMANO_BYTES, NULL AS ARCHIVO_MIME_TYPE, NULL AS ARCHIVO_SHA256, 1 AS NUMERO_VERSION, NULL AS NOTAS_CAMBIO " +
-                                 "FROM DOCUMENTOS D " +
-                                 "WHERE D.ID_DOCUMENTO = ? AND D.ESTADO <> 'ELIMINADO'";
-            List<DocumentoDTO> list = jdbcTemplate.query(fallbackSql, rowMapper, idDocumento);
-            return list.stream().findFirst();
-        }
+        List<DocumentoDTO> list = jdbcTemplate.query(sql, rowMapper, idDocumento);
+        return list.stream().findFirst();
     }
 
     @Override

@@ -26,6 +26,8 @@ public class SancionDTO {
     private LocalDateTime fechaResolucion;
     private String estado;
     private Long creadoPor;
+    private LocalDate restriccionDesde;
+    private LocalDate restriccionHasta;
     private List<DescargoDTO> descargos = new ArrayList<>();
 
     public SancionDTO() {}
@@ -92,4 +94,10 @@ public class SancionDTO {
 
     public List<DescargoDTO> getDescargos() { return descargos; }
     public void setDescargos(List<DescargoDTO> descargos) { this.descargos = descargos; }
+
+    public LocalDate getRestriccionDesde() { return restriccionDesde; }
+    public void setRestriccionDesde(LocalDate restriccionDesde) { this.restriccionDesde = restriccionDesde; }
+
+    public LocalDate getRestriccionHasta() { return restriccionHasta; }
+    public void setRestriccionHasta(LocalDate restriccionHasta) { this.restriccionHasta = restriccionHasta; }
 }

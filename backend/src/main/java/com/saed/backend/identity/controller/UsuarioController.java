@@ -99,7 +99,10 @@ public class UsuarioController {
             } else {
                 sql.append(" AND 1=0");
             }
-        } else if (!"SUPERADMIN".equals(roleCode)) {
+        } else if ("SUPERADMIN".equals(roleCode)) {
+            // DEC-02: the platform administrator sees platform accounts only, never residents or staff.
+            sql.append(" AND r.CODIGO IN ('SUPERADMIN', 'ADMIN_ORGANIZACION')");
+        } else {
             Long userId = ctx != null ? ctx.getUserId() : null;
             if (userId != null) {
                 sql.append(" AND u.ID_USUARIO = :userId");
