@@ -13,6 +13,7 @@ import com.saed.backend.pqrs.dto.TicketTrazabilidadDTO;
 import com.saed.backend.pqrs.exception.PqrsInvalidStateException;
 import com.saed.backend.pqrs.exception.PqrsInvalidTransitionException;
 import com.saed.backend.pqrs.repository.TicketRepository;
+import com.saed.backend.pqrs.service.PqrsSlaPolicy;
 import com.saed.backend.pqrs.service.TicketService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,9 +41,13 @@ public class TicketServiceImpl implements TicketService {
             "SEGURIDAD", "MANTENIMIENTO", "LIMPIEZA", "CONVIVENCIA", "ZONAS_COMUNES", "ADMINISTRACION", "FINANCIERA", "OTRA"
     );
 
+    /** Stored priorities (CK_PQRS_PRIORIDAD); CRITICA is accepted as an alias of EMERGENCIA (DEC-05). */
     private static final Set<String> VALID_PRIORIDADES = Set.of(
             "EMERGENCIA", "ALTA", "MEDIA", "BAJA"
     );
+
+    private static final Set<String> ADMIN_ROLES = Set.of("ADMIN_PROPIEDAD", "ADMIN_ORGANIZACION");
+    private static final Set<String> RESIDENT_ROLES = Set.of("RESIDENTE", "RESIDENTE_CONVIVENCIA");
 
     private static final Map<String, Set<String>> ALLOWED_TRANSITIONS = Map.of(
             "RADICADO", Set.of("ASIGNADO", "EN_GESTION", "RECHAZADO"),
@@ -84,9 +89,8 @@ public class TicketServiceImpl implements TicketService {
 
     @Override
     public List<TicketResponseDTO> getAllTickets() {
-        SaedContext ctx = SaedContextHolder.getContext();
-        Long propId = ctx != null ? ctx.getPropertyId() : null;
-        return ticketRepository.findAll(propId);
+        requirePropertyAdministrator();
+        return ticketRepository.findAll(getRequiredPropertyId());
     }
 
     @Override
@@ -103,15 +107,16 @@ public class TicketServiceImpl implements TicketService {
         }
         Long propId = getRequiredPropertyId();
         TicketResponseDTO ticket = ticketRepository.findById(id, propId)
-                .orElseThrow(() -> new IllegalArgumentException("Ticket PQRS no encontrado para la propiedad activa."));
+                .orElseThrow(() -> new NoSuchElementException("Ticket PQRS no encontrado."));
 
-        SaedContext ctx = SaedContextHolder.getContext();
-        String role = ctx != null ? ctx.getRoleCode() : "";
-        if ("RESIDENTE".equals(role) || "RESIDENTE_CONVIVENCIA".equals(role)) {
-            Long myPersonaId = ticketRepository.getIdPersonaFromUsuario(ctx.getUserId());
-            if (ticket.getIdPersonaRadica() != null && !ticket.getIdPersonaRadica().equals(myPersonaId)) {
-                throw new AccessDeniedException("No tiene permisos para consultar este ticket.");
+        if (isResident()) {
+            // A resident only sees tickets they filed; others are indistinguishable from missing ones.
+            Long myPersonaId = ticketRepository.getIdPersonaFromUsuario(getRequiredUserId());
+            if (myPersonaId == null || !myPersonaId.equals(ticket.getIdPersonaRadica())) {
+                throw new NoSuchElementException("Ticket PQRS no encontrado.");
             }
+        } else {
+            requirePropertyAdministrator();
         }
         return ticket;
     }
@@ -156,8 +161,8 @@ public class TicketServiceImpl implements TicketService {
         }
         request.setCategoria(cat);
 
-        // Normalize prioridad
-        String prioridad = request.getPrioridad() != null ? request.getPrioridad().trim().toUpperCase() : "MEDIA";
+        // Normalize prioridad (CRITICA is stored as EMERGENCIA, DEC-05)
+        String prioridad = request.getPrioridad() != null ? PqrsSlaPolicy.normalizePriority(request.getPrioridad()) : "MEDIA";
         if (!VALID_PRIORIDADES.contains(prioridad)) {
             throw new IllegalArgumentException("Prioridad de ticket inválida: " + prioridad + ". Valores permitidos: " + VALID_PRIORIDADES);
         }
@@ -166,13 +171,19 @@ public class TicketServiceImpl implements TicketService {
         Long propId = getRequiredPropertyId();
         Long userId = getRequiredUserId();
 
-        // Resolve unit ID if available
-        Long unitId = request.getIdUnidad();
-        if (unitId == null && SaedContextHolder.getContext() != null) {
+        // Unit: residents always file for their own session unit; admins may name a unit of the property.
+        Long unitId;
+        if (isResident()) {
             unitId = SaedContextHolder.getContext().getUnitId();
-        }
-        if (unitId == null) {
-            unitId = ticketRepository.getIdUnidadFromUsuario(userId, propId);
+            if (unitId == null) {
+                unitId = ticketRepository.getIdUnidadFromUsuario(userId, propId);
+            }
+        } else {
+            requirePropertyAdministrator();
+            unitId = request.getIdUnidad();
+            if (unitId != null && !ticketRepository.unidadPerteneceAPropiedad(unitId, propId)) {
+                throw new NoSuchElementException("Unidad no encontrada.");
+            }
         }
 
         // Dynamic SLA calculation from PQRS_SLA_CONFIGURACION
@@ -208,14 +219,7 @@ public class TicketServiceImpl implements TicketService {
     }
 
     private int fallbackHorasSla(String prioridad) {
-        switch (prioridad) {
-            case "EMERGENCIA": return 12;
-            case "ALTA": return 24;
-            case "BAJA": return 120;
-            case "MEDIA":
-            default:
-                return 72;
-        }
+        return PqrsSlaPolicy.defaultHours(prioridad);
     }
 
     public static String normalizeEstado(String estado) {
@@ -254,6 +258,7 @@ public class TicketServiceImpl implements TicketService {
     @Transactional
     @Auditable(action = "UPDATE_STATUS", resource = "PQRS", category = AuditCategory.OPERATIONAL, severity = AuditSeverity.INFO)
     public void updateTicketStatus(Long id, String estado, String observacion) {
+        requirePropertyAdministrator();
         Long propId = getRequiredPropertyId();
         Long userId = getRequiredUserId();
 
@@ -278,7 +283,7 @@ public class TicketServiceImpl implements TicketService {
         int updated = ticketRepository.updateEstado(id, propId, estadoActual, nuevoEstado, observacion);
         if (updated == 0) {
             TicketResponseDTO fresh = ticketRepository.findById(id, propId)
-                    .orElseThrow(() -> new IllegalArgumentException("Ticket no encontrado."));
+                    .orElseThrow(() -> new NoSuchElementException("Ticket PQRS no encontrado."));
             throw new PqrsInvalidTransitionException(estadoActual, nuevoEstado,
                     "Conflicto de concurrencia: el ticket ya fue modificado por otra transacción. Estado actual: " + fresh.getEstado());
         }
@@ -316,19 +321,26 @@ public class TicketServiceImpl implements TicketService {
         Long userId = getRequiredUserId();
         TicketResponseDTO ticket = getTicketById(id);
 
-        SaedContext ctx = SaedContextHolder.getContext();
-        String role = ctx != null ? ctx.getRoleCode() : "";
-        boolean isResident = "RESIDENTE".equals(role) || "RESIDENTE_CONVIVENCIA".equals(role);
+        boolean isResident = isResident();
 
         String targetEstado = ticket.getEstado();
         if (nuevoEstado != null && !nuevoEstado.isBlank()) {
             String norm = normalizeEstado(nuevoEstado);
             if (!norm.equals(ticket.getEstado())) {
+                // F9-01: a reply never lets a resident move the ticket; only property admins transition it.
+                if (isResident) {
+                    throw new AccessDeniedException("Residents may reply but cannot change the ticket status.");
+                }
+                requirePropertyAdministrator();
                 Set<String> permitidos = ALLOWED_TRANSITIONS.getOrDefault(ticket.getEstado(), Set.of());
                 if (!permitidos.contains(norm)) {
                     throw new PqrsInvalidTransitionException(ticket.getEstado(), norm);
                 }
-                ticketRepository.updateEstado(id, propId, ticket.getEstado(), norm, respuesta.trim());
+                int updated = ticketRepository.updateEstado(id, propId, ticket.getEstado(), norm, respuesta.trim());
+                if (updated == 0) {
+                    throw new PqrsInvalidTransitionException(ticket.getEstado(), norm,
+                            "The ticket changed concurrently; reload it before replying.");
+                }
                 targetEstado = norm;
             }
         }
@@ -354,6 +366,7 @@ public class TicketServiceImpl implements TicketService {
     @Transactional
     @Auditable(action = "ASSIGN", resource = "PQRS", category = AuditCategory.OPERATIONAL, severity = AuditSeverity.INFO)
     public void asignarTicket(Long id, Long idResponsable, String observacion) {
+        requirePropertyAdministrator();
         if (idResponsable == null || idResponsable <= 0) {
             throw new IllegalArgumentException("Debe especificar un responsable válido.");
         }
@@ -371,7 +384,13 @@ public class TicketServiceImpl implements TicketService {
             }
         }
 
-        ticketRepository.asignarResponsable(id, propId, idResponsable);
+        if (!ticketRepository.esResponsableDePropiedad(idResponsable, propId)) {
+            throw new NoSuchElementException("Responsable no encontrado.");
+        }
+
+        if (ticketRepository.asignarResponsable(id, propId, idResponsable) == 0) {
+            throw new NoSuchElementException("Ticket PQRS no encontrado.");
+        }
 
         String comment = "Asignado a responsable ID: " + idResponsable +
                 (observacion != null && !observacion.isBlank() ? " - " + observacion.trim() : "");
@@ -383,10 +402,11 @@ public class TicketServiceImpl implements TicketService {
     @Transactional
     @Auditable(action = "UPDATE_PRIORITY", resource = "PQRS", category = AuditCategory.OPERATIONAL, severity = AuditSeverity.INFO)
     public void actualizarPrioridad(Long id, String prioridad) {
+        requirePropertyAdministrator();
         if (prioridad == null || prioridad.isBlank()) {
             throw new IllegalArgumentException("La prioridad no puede estar vacía.");
         }
-        String p = prioridad.trim().toUpperCase();
+        String p = PqrsSlaPolicy.normalizePriority(prioridad);
         if (!VALID_PRIORIDADES.contains(p)) {
             throw new IllegalArgumentException("Prioridad inválida: " + p + ". Permitidas: " + VALID_PRIORIDADES);
         }
@@ -415,6 +435,7 @@ public class TicketServiceImpl implements TicketService {
 
     @Override
     public List<PqrsSlaConfigDTO> getSlaConfigs() {
+        requirePropertyAdministrator();
         Long propId = getRequiredPropertyId();
         return ticketRepository.getSlaConfigs(propId);
     }
@@ -422,9 +443,10 @@ public class TicketServiceImpl implements TicketService {
     @Override
     @Transactional
     public void upsertSlaConfig(PqrsSlaConfigDTO config) {
+        requirePropertyAdministrator();
         if (config == null) throw new IllegalArgumentException("Configuración no puede ser nula.");
         Long propId = getRequiredPropertyId();
-        String prioridad = config.getPrioridad() != null ? config.getPrioridad().trim().toUpperCase() : "";
+        String prioridad = config.getPrioridad() != null ? PqrsSlaPolicy.normalizePriority(config.getPrioridad()) : "";
         if (!VALID_PRIORIDADES.contains(prioridad)) {
             throw new IllegalArgumentException("Prioridad inválida: " + prioridad);
         }
@@ -436,6 +458,22 @@ public class TicketServiceImpl implements TicketService {
         ticketRepository.upsertSlaConfig(propId, prioridad, horas, alerta);
         log.info("[TicketService] SLA actualizado para propiedad {} prioridad {}: {} horas (Alerta: {}h)",
                 propId, prioridad, horas, alerta);
+    }
+
+    private static String currentRole() {
+        SaedContext ctx = SaedContextHolder.getContext();
+        return ctx != null ? ctx.getRoleCode() : null;
+    }
+
+    private static boolean isResident() {
+        return RESIDENT_ROLES.contains(currentRole());
+    }
+
+    /** Administrative PQRS operations belong to property admins only (no SUPERADMIN, DEC-02). */
+    private static void requirePropertyAdministrator() {
+        if (!ADMIN_ROLES.contains(currentRole())) {
+            throw new AccessDeniedException("Only property administrators may manage PQRS tickets.");
+        }
     }
 
     private void notificarCambioEstado(Long idTicket, String estado, String respuesta) {
