@@ -85,8 +85,16 @@ public class PropertyDeletionService {
         try {
             emailService.enviarCodigoOtpEliminacion(email, property.getNombre(), genChallenge.rawOtp(), 5);
         } catch (Exception e) {
-            // The OTP value must never be logged (audit F4-H02)
-            log.warn("Fallo al enviar correo de eliminación vía Brevo a {}: {}", maskEmail(email), e.getMessage());
+            // F04-02: an OTP that was not delivered is revoked; the request fails visibly. Neither the OTP nor the
+            // provider error text is logged (audit F4-H02).
+            challengeService.revokeChallenge(genChallenge.challengeId());
+            log.warn("Fallo al enviar correo de eliminación a {} ({}); desafío revocado",
+                    maskEmail(email), e.getClass().getSimpleName());
+            auditService.recordFailure(ctx.getUserId(), orgId, propertyId,
+                    "REQUEST_PROPERTY_DELETION", "PROPIEDAD", propertyId,
+                    ipAddress, userAgent, property.getEstado(), "OTP_DELIVERY_FAILED");
+            throw new IllegalStateException(
+                    "No fue posible enviar el código de seguridad. Intente nuevamente más tarde.");
         }
 
         auditService.recordSuccess(ctx.getUserId(), orgId, propertyId,
