@@ -248,4 +248,12 @@ public class ParqueaderosRepositoryImpl implements ParqueaderosRepository {
         String sql = "UPDATE PARQUEADEROS SET ESTADO = :estado WHERE ID_PARQUEADERO = :id";
         jdbcTemplate.update(sql, new MapSqlParameterSource("id", idParqueadero).addValue("estado", estado));
     }
+
+    @Override
+    public boolean reservarParqueadero(Long idParqueadero, Long idPropiedad) {
+        return jdbcTemplate.update(
+            "UPDATE PARQUEADEROS SET ESTADO = 'ASIGNADO' WHERE ID_PARQUEADERO = :id AND ID_PROPIEDAD = :prop "
+                + "AND ESTADO = 'DISPONIBLE'",
+            new MapSqlParameterSource("id", idParqueadero).addValue("prop", idPropiedad)) == 1;
+    }
 }
