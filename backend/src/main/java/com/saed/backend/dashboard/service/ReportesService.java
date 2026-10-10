@@ -58,4 +58,10 @@ public interface ReportesService {
      * @return Resumen consolidado con ingresos/egresos presupuestados vs ejecutados (recaudo efectivo aprobado).
      */
     EjecucionPresupuestalGlobalDTO getEjecucionPresupuestal(Long propertyId, Integer vigenciaAnio);
+
+    /**
+     * Property that a report request is effectively scoped to (the context property for a property
+     * administrator; the validated requested property, or null for organization-wide, otherwise).
+     */
+    Long resolveScopePropertyId(Long requestedPropertyId);
 }

@@ -221,4 +221,15 @@ public class ReporteConfiguradoRepositoryImpl implements ReporteConfiguradoRepos
         int rows = jdbcTemplate.update(sql, id);
         return rows > 0;
     }
+
+    @Override
+    public boolean propertyBelongsToOrganization(Long propertyId, Long organizationId) {
+        if (propertyId == null || organizationId == null) {
+            return false;
+        }
+        Integer count = jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM PROPIEDADES WHERE ID_PROPIEDAD = ? AND ID_ORGANIZACION = ?",
+            Integer.class, propertyId, organizationId);
+        return count != null && count > 0;
+    }
 }

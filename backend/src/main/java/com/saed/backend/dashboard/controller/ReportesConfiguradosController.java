@@ -1,5 +1,6 @@
 package com.saed.backend.dashboard.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.saed.backend.common.dto.ApiResponse;
 import com.saed.backend.dashboard.dto.GenerarReporteResponseDTO;
@@ -18,6 +19,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -100,33 +102,28 @@ public class ReportesConfiguradosController {
 
         String overrideFiltrosJson = null;
         if (bodyPayload != null && !bodyPayload.isEmpty()) {
-            if (bodyPayload.containsKey("formato") && effFormat == null) {
-                effFormat = String.valueOf(bodyPayload.get("formato"));
+            Map<String, Object> filtros = new LinkedHashMap<>(bodyPayload);
+            Object bodyFormat = filtros.remove("formato");
+            if (bodyFormat != null && (effFormat == null || effFormat.isBlank())) {
+                effFormat = String.valueOf(bodyFormat);
             }
-            if (bodyPayload.containsKey("filtros")) {
+            Object payload = filtros.containsKey("filtros") ? filtros.get("filtros") : filtros;
+            if (!(payload instanceof Map<?, ?> map) || !map.isEmpty()) {
                 try {
-                    overrideFiltrosJson = objectMapper.writeValueAsString(bodyPayload.get("filtros"));
-                } catch (Exception ignored) {}
-            } else {
-                try {
-                    overrideFiltrosJson = objectMapper.writeValueAsString(bodyPayload);
-                } catch (Exception ignored) {}
+                    overrideFiltrosJson = objectMapper.writeValueAsString(payload);
+                } catch (JsonProcessingException e) {
+                    throw new IllegalArgumentException("Los filtros del reporte no son válidos.");
+                }
             }
         }
 
-        if (metadata) {
+        // Validates the format before any execution; a JSON request returns metadata from a single execution.
+        if (metadata || ExportFormat.fromString(effFormat) == ExportFormat.JSON) {
             GenerarReporteResponseDTO meta = reportesConfiguradosService.generarReporteMetadata(id, effFormat, overrideFiltrosJson);
             return ResponseEntity.ok(ApiResponse.success(meta));
         }
 
         ExportResult result = reportesConfiguradosService.generarReporte(id, effFormat, overrideFiltrosJson);
-        ExportFormat expFormat = ExportFormat.fromString(effFormat);
-
-        if (expFormat == ExportFormat.JSON) {
-            GenerarReporteResponseDTO meta = reportesConfiguradosService.generarReporteMetadata(id, effFormat, overrideFiltrosJson);
-            return ResponseEntity.ok(ApiResponse.success(meta));
-        }
-
         return result.toResponseEntity();
     }
 }
