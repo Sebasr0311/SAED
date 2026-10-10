@@ -321,6 +321,21 @@ class SourcePreparationTest(unittest.TestCase):
         self.assertEqual(staged, {v for v in on_disk if v >= 1 and v != 30})
         self.assertNotIn(30, staged)
 
+    def test_q_quoted_literals_do_not_close_early(self):
+        # recovery-12: V5.33 used q'[ ... ]' around a regex containing "]'", closing the literal early (ORA-01756).
+        closers = {"[": "]", "{": "}", "(": ")", "<": ">"}
+        parts, _, _ = harness.extract_sources()
+        for name, text in parts.items():
+            for match in re.finditer(r"EXECUTE\s+IMMEDIATE\s+q'(.)", text, re.IGNORECASE):
+                opener = match.group(1)
+                closer = closers.get(opener, opener)
+                end = text.find(closer + "'", match.end())
+                self.assertNotEqual(end, -1, f"{name}: unterminated q-quote")
+                # The literal is the whole dynamic statement, so only ';', USING or INTO may follow its close.
+                tail = text[end + 2:end + 40].lstrip().upper()
+                self.assertTrue(tail.startswith(";") or tail.startswith("USING") or tail.startswith("INTO"),
+                                f"{name}: q-quote closes early near: {text[end - 30:end + 2]!r} …{tail[:30]!r}")
+
     def test_structure_allows_every_fixture_resident_type(self):
         # Stage 030 runs before V5.9 extends CK_RESIDUNIDAD_TIPO; recovery-03 failed with ORA-02290 on CONVIVIENTE.
         parts, _, _ = harness.extract_sources()
