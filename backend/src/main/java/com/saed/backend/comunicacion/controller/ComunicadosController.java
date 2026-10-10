@@ -4,6 +4,7 @@ import com.saed.backend.audit.Auditable;
 import com.saed.backend.audit.AuditCategory;
 import com.saed.backend.audit.AuditSeverity;
 import com.saed.backend.common.service.EmailService;
+import com.saed.backend.comunicacion.service.ComunicadoService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -20,147 +21,57 @@ import java.util.logging.Logger;
 public class ComunicadosController {
     private final NamedParameterJdbcTemplate jdbcTemplate;
     private final EmailService emailService;
+    private final ComunicadoService comunicadoService;
     private static final Logger log = Logger.getLogger(ComunicadosController.class.getName());
 
-    public ComunicadosController(NamedParameterJdbcTemplate jdbcTemplate, EmailService emailService) {
+    public ComunicadosController(NamedParameterJdbcTemplate jdbcTemplate, EmailService emailService,
+                                 ComunicadoService comunicadoService) {
         this.jdbcTemplate = jdbcTemplate;
         this.emailService = emailService;
+        this.comunicadoService = comunicadoService;
     }
 
+    /** F08-03: notices of the caller's property, filtered by segment, expiry and per-user archive. */
     @GetMapping("/avisos")
     @PreAuthorize("isAuthenticated()")
     public List<Map<String, Object>> getAvisos(@RequestParam(required = false) Long idPropiedad) {
-        String sql = """
-            SELECT c.ID_COMUNICADO, c.ID_PROPIEDAD, c.TITULO, TO_CHAR(c.CONTENIDO) AS CONTENIDO, c.TIPO_SEGMENTACION,
-                   c.PRIORIDAD, c.ESTADO, c.FECHA_PUBLICACION, c.FECHA_EXPIRACION AS FECHA_VENCIMIENTO,
-                   p.NOMBRE AS PROPIEDAD_NOMBRE
-            FROM COMUNICADOS c
-            LEFT JOIN PROPIEDADES p ON p.ID_PROPIEDAD = c.ID_PROPIEDAD
-            WHERE NVL(c.ESTADO, 'PUBLICADO') != 'ARCHIVADO'
-        """;
-        Map<String, Object> params = new HashMap<>();
-        if (idPropiedad != null) {
-            sql += " AND c.ID_PROPIEDAD = :idPropiedad";
-            params.put("idPropiedad", idPropiedad);
-        }
-        sql += " ORDER BY c.FECHA_PUBLICACION DESC";
-        try {
-            return jdbcTemplate.queryForList(sql, params);
-        } catch (Exception e) {
-            log.warning("Notice querying avisos: " + e.getMessage());
-            return List.of();
-        }
+        return comunicadoService.listVisible(idPropiedad);
     }
 
+    @GetMapping("/avisos/archivados")
+    @PreAuthorize("isAuthenticated()")
+    public List<Map<String, Object>> getAvisosArchivados() {
+        return comunicadoService.listArchivedForUser();
+    }
+
+    @PutMapping("/avisos/{id}/leido")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Void> marcarLeido(@PathVariable Long id) {
+        comunicadoService.markRead(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    /** Archives the notice only for the caller (persisted per user, shared across sessions). */
+    @PutMapping("/avisos/{id}/archivar")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Void> archivarParaMi(@PathVariable Long id) {
+        comunicadoService.archiveForUser(id);
+        return ResponseEntity.noContent().build();
+    }
 
     @PostMapping("/aviso")
     @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
+    @Auditable(action = "PUBLICAR_AVISO", resource = "COMUNICADO", category = AuditCategory.OPERATIONAL, severity = AuditSeverity.INFO)
     public ResponseEntity<Map<String, Object>> postAviso(@RequestBody Map<String, Object> payload) {
-        String titulo = (String) payload.getOrDefault("titulo", "Aviso Oficial");
-        String contenido = (String) payload.getOrDefault("mensaje", payload.getOrDefault("contenido", ""));
-        String rawPrioridad = ((String) payload.getOrDefault("prioridad", "NORMAL")).toUpperCase();
-        String prioridad;
-        if ("ALTA".equals(rawPrioridad) || "IMPORTANTE".equals(rawPrioridad)) {
-            prioridad = "IMPORTANTE";
-        } else if ("URGENTE".equals(rawPrioridad)) {
-            prioridad = "URGENTE";
-        } else if ("BAJA".equals(rawPrioridad)) {
-            prioridad = "BAJA";
-        } else {
-            prioridad = "NORMAL";
-        }
-        String segmentacion = (String) payload.getOrDefault("tipoSegmentacion", "TODOS");
-
-        Long propId = null;
-        if (payload.get("idPropiedad") != null && !payload.get("idPropiedad").toString().isBlank() && !"TODAS".equalsIgnoreCase(payload.get("idPropiedad").toString())) {
-            try {
-                propId = Long.valueOf(payload.get("idPropiedad").toString());
-            } catch (NumberFormatException ignored) {}
-        }
-
-        com.saed.backend.context.SaedContext ctx = com.saed.backend.context.SaedContextHolder.getContext();
-        String roleCode = ctx != null ? ctx.getRoleCode() : null;
-        Long orgId = ctx != null ? ctx.getOrganizationId() : null;
-        Long contextPropId = ctx != null ? ctx.getPropertyId() : null;
-
-        List<Long> targetPropertyIds = new java.util.ArrayList<>();
-
-        if (propId != null) {
-            targetPropertyIds.add(propId);
-        } else if (contextPropId != null) {
-            targetPropertyIds.add(contextPropId);
-        } else if (orgId != null) {
-            // ADMIN_ORGANIZACION sin propId o con "TODAS": difundir a todas las propiedades activas de la organización
-            List<Long> props = jdbcTemplate.query(
-                "SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_ORGANIZACION = :orgId AND NVL(ESTADO, 'ACTIVA') != 'INACTIVA'",
-                Map.of("orgId", orgId),
-                (rs, r) -> rs.getLong("ID_PROPIEDAD")
-            );
-            if (!props.isEmpty()) {
-                targetPropertyIds.addAll(props);
-            }
-        }
-
-        if (targetPropertyIds.isEmpty()) {
-            throw new IllegalArgumentException("Debe especificar una propiedad válida para publicar el aviso.");
-        }
-
-        String insertSql = "INSERT INTO COMUNICADOS (ID_PROPIEDAD, TITULO, CONTENIDO, TIPO_SEGMENTACION, PRIORIDAD, ESTADO) " +
-                           "VALUES (:propId, :titulo, :contenido, :segmentacion, :prioridad, 'PUBLICADO')";
-
-        for (Long targetPropId : targetPropertyIds) {
-            Map<String, Object> params = new HashMap<>();
-            params.put("propId", targetPropId);
-            params.put("titulo", titulo);
-            params.put("contenido", contenido);
-            params.put("segmentacion", segmentacion);
-            params.put("prioridad", prioridad);
-            jdbcTemplate.update(insertSql, params);
-        }
-
-        // Envío de email masivo a residentes de cada propiedad destino (opcional según payload)
-        boolean enviarEmail = Boolean.TRUE.equals(payload.get("enviarEmail")) || !Boolean.FALSE.equals(payload.get("enviarEmail"));
-        int totalEmailsSent = 0;
-        if (enviarEmail) {
-            String asunto = "[SAED " + prioridad + "] " + titulo;
-            String html = "<h2>" + titulo + "</h2><p>" + contenido + "</p><hr><p style='color:#888;font-size:12px'>Enviado desde SAED — Centro de Comunicaciones</p>";
-            for (Long targetPropId : targetPropertyIds) {
-                try {
-                    String emailSql = """
-                        SELECT DISTINCT u.EMAIL FROM USUARIOS u 
-                        JOIN USUARIO_ASIGNACIONES ua ON u.ID_USUARIO = ua.ID_USUARIO 
-                        WHERE ua.ESTADO = 'ACTIVA' AND u.EMAIL IS NOT NULL 
-                          AND ua.ID_PROPIEDAD = :propId
-                    """;
-                    List<Map<String, Object>> emails = jdbcTemplate.queryForList(emailSql, Map.of("propId", targetPropId));
-                    for (Map<String, Object> row : emails) {
-                        String email = (String) row.get("EMAIL");
-                        if (email != null && !email.isBlank()) {
-                            emailService.enviarHtmlPublico(email, asunto, html);
-                            totalEmailsSent++;
-                        }
-                    }
-                } catch (Exception e) {
-                    log.warning("No se pudieron enviar emails del aviso para propiedad " + targetPropId + ": " + e.getMessage());
-                }
-            }
-            log.info("Aviso enviado por email a " + totalEmailsSent + " residentes en " + targetPropertyIds.size() + " propiedad(es)");
-        }
-
-        String msg = targetPropertyIds.size() > 1
-            ? "Aviso publicado exitosamente en " + targetPropertyIds.size() + " propiedades de la organización"
-            : "Aviso publicado exitosamente";
-
-        return ResponseEntity.ok(Map.of(
-            "mensaje", msg,
-            "propiedadesAfectadas", targetPropertyIds.size()
-        ));
+        return ResponseEntity.ok(comunicadoService.publish(payload));
     }
 
+    /** Archives the notice for everyone (administration). */
     @DeleteMapping("/aviso/{id}")
     @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
+    @Auditable(action = "ARCHIVAR_AVISO", resource = "COMUNICADO", category = AuditCategory.OPERATIONAL, severity = AuditSeverity.INFO)
     public ResponseEntity<Void> archivarAviso(@PathVariable Long id) {
-        jdbcTemplate.update("UPDATE COMUNICADOS SET ESTADO = 'ARCHIVADO' WHERE ID_COMUNICADO = :id", Map.of("id", id));
+        comunicadoService.archiveOfficial(id);
         return ResponseEntity.noContent().build();
     }
 
@@ -170,6 +81,22 @@ public class ComunicadosController {
         Long idResidente = payload.get("idResidente") != null ? Long.valueOf(payload.get("idResidente").toString()) : null;
         Long idApartamento = payload.get("idApartamento") != null ? Long.valueOf(payload.get("idApartamento").toString()) : null;
         String cuerpo = payload.get("cuerpo") != null ? payload.get("cuerpo").toString() : "Por favor modere el ruido en su apartamento.";
+
+        // F08-03: the target unit must belong to the caller's property; residents are resolved from it.
+        com.saed.backend.context.SaedContext ctx = com.saed.backend.context.SaedContextHolder.getContext();
+        if (ctx == null || ctx.getPropertyId() == null) {
+            throw new org.springframework.security.access.AccessDeniedException("Missing property context");
+        }
+        if (idApartamento == null) {
+            throw new IllegalArgumentException("idApartamento es obligatorio");
+        }
+        List<Long> unidad = jdbcTemplate.query(
+            "SELECT ID_UNIDAD FROM UNIDADES WHERE ID_UNIDAD = :u AND ID_PROPIEDAD = :p",
+            Map.of("u", idApartamento, "p", ctx.getPropertyId()), (rs, r) -> rs.getLong("ID_UNIDAD"));
+        if (unidad.isEmpty()) {
+            throw new org.springframework.security.access.AccessDeniedException("La unidad no pertenece a la propiedad");
+        }
+        idResidente = null; // recipients come from the verified unit only
 
         List<Long> userIds = new java.util.ArrayList<>();
         if (idResidente != null) {
@@ -213,10 +140,8 @@ public class ComunicadosController {
             }
         }
 
-        if (userIds.isEmpty() && idApartamento != null) {
-            Long currentUserId = com.saed.backend.context.SaedContextHolder.getContext() != null
-                ? com.saed.backend.context.SaedContextHolder.getContext().getUserId() : 1L;
-            userIds.add(currentUserId != null ? currentUserId : 1L);
+        if (userIds.isEmpty()) {
+            throw new IllegalStateException("La unidad no tiene residentes con usuario para notificar");
         }
 
         String sql = "INSERT INTO NOTIFICACIONES (ID_USUARIO_DESTINATARIO, CANAL, TITULO, MENSAJE, ENLACE_DESTINO, ESTADO_ENVIO) " +
