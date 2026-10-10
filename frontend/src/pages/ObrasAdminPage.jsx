@@ -90,6 +90,7 @@ export default function ObrasAdminPage() {
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [confirmModal, setConfirmModal] = useState({ open: false, type: null, obra: null });
+  const [inspeccion, setInspeccion] = useState({ resultado: 'APROBADA', observaciones: '' });
   const [selectedObra, setSelectedObra] = useState(null);
 
   const [filterTab, setFilterTab] = useState('TODAS');
@@ -314,6 +315,7 @@ export default function ObrasAdminPage() {
   }
 
   function handleActionClick(obra, type) {
+    setInspeccion({ resultado: 'APROBADA', observaciones: '' });
     setConfirmModal({ open: true, type, obra });
   }
 
@@ -328,7 +330,18 @@ export default function ObrasAdminPage() {
       if (confirmModal.type === 'RECHAZAR') endpoint = `/obras/${idObra}/rechazar`;
       if (confirmModal.type === 'FINALIZADA') endpoint = `/obras/${idObra}/finalizar`;
 
-      await tenantApi.post(endpoint);
+      if (confirmModal.type === 'FINALIZADA') {
+        if (inspeccion.observaciones.trim().length < 5) {
+          toast.error('Registre las observaciones de la inspección final (mínimo 5 caracteres).');
+          return;
+        }
+        await tenantApi.post(endpoint, {
+          resultado: inspeccion.resultado,
+          observaciones: inspeccion.observaciones.trim(),
+        });
+      } else {
+        await tenantApi.post(endpoint);
+      }
       toast.success(
         confirmModal.type === 'APROBAR'
           ? 'Obra autorizada correctamente'
@@ -1130,6 +1143,34 @@ export default function ObrasAdminPage() {
               ? 'Se notificará al residente que la obra no cumple los requerimientos técnicos o de reglamento.'
               : 'Se dará por cerrada la intervención y se habilitará la liquidación o devolución del depósito de garantía.'}
           </p>
+          {confirmModal.type === 'FINALIZADA' && (
+            <div className="space-y-2 pt-2">
+              <label className="block text-xs font-medium text-foreground" htmlFor="inspeccion-resultado">
+                Resultado de la inspección final
+              </label>
+              <select
+                id="inspeccion-resultado"
+                value={inspeccion.resultado}
+                onChange={(e) => setInspeccion((prev) => ({ ...prev, resultado: e.target.value }))}
+                className="w-full h-9 px-2 rounded-lg border border-border bg-background text-sm"
+              >
+                <option value="APROBADA">Aprobada</option>
+                <option value="CON_OBSERVACIONES">Aprobada con observaciones</option>
+                <option value="RECHAZADA">Rechazada (la obra no se finaliza)</option>
+              </select>
+              <label className="block text-xs font-medium text-foreground" htmlFor="inspeccion-observaciones">
+                Observaciones de la inspección
+              </label>
+              <textarea
+                id="inspeccion-observaciones"
+                value={inspeccion.observaciones}
+                onChange={(e) => setInspeccion((prev) => ({ ...prev, observaciones: e.target.value }))}
+                rows={3}
+                maxLength={1000}
+                className="w-full px-2 py-1 rounded-lg border border-border bg-background text-sm"
+              />
+            </div>
+          )}
         </div>
       </Modal>
     </div>
