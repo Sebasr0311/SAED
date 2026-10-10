@@ -384,7 +384,7 @@ public class AsambleaServiceImpl implements AsambleaService {
         );
 
         return repository.findVotacionById(idVotacion)
-                .orElseThrow(() -> new IllegalArgumentException("Votación creada no encontrada"));
+                .orElseThrow(() -> new NoSuchElementException("Votación creada no encontrada"));
     }
 
     @Override
@@ -416,7 +416,7 @@ public class AsambleaServiceImpl implements AsambleaService {
         );
 
         return repository.findVotacionById(idVotacion)
-                .orElseThrow(() -> new IllegalArgumentException("Votación no encontrada tras cerrar"));
+                .orElseThrow(() -> new NoSuchElementException("Votación no encontrada tras cerrar"));
     }
 
     @Override
@@ -448,7 +448,7 @@ public class AsambleaServiceImpl implements AsambleaService {
         );
 
         return repository.findVotacionById(idVotacion)
-                .orElseThrow(() -> new IllegalArgumentException("Votación no encontrada tras anular"));
+                .orElseThrow(() -> new NoSuchElementException("Votación no encontrada tras anular"));
     }
 
     @Override

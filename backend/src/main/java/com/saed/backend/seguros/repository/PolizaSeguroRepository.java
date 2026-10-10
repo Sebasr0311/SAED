@@ -117,22 +117,22 @@ public class PolizaSeguroRepository {
                 dto.getDeducible(), dto.getIdDocumento());
     }
 
-    public void update(PolizaSeguroDTO dto) {
+    public int update(PolizaSeguroDTO dto) {
         String sql = "UPDATE POLIZAS_SEGURO SET COMPANIA_ASEGURADORA = ?, NUMERO_POLIZA = ?, RAMO_COBERTURA = ?, " +
                      "VALOR_ASEGURADO = ?, VALOR_PRIMA_ANUAL = ?, FECHA_INICIO = ?, FECHA_FIN = ?, " +
                      "DIAS_ALERTA_VENCIMIENTO = ?, NOMBRE_CORREDOR_AGENTE = ?, TELEFONO_CONTACTO_AGENTE = ?, " +
                      "DOCUMENTO_CARATULA_URL = ?, ESTADO = ?, DEDUCIBLE = ?, ID_DOCUMENTO = ? " +
                      "WHERE ID_POLIZA = ? AND ID_PROPIEDAD = ?";
-        jdbcTemplate.update(sql, dto.getCompaniaAseguradora(), dto.getNumeroPoliza(), dto.getRamoCobertura(),
+        return jdbcTemplate.update(sql, dto.getCompaniaAseguradora(), dto.getNumeroPoliza(), dto.getRamoCobertura(),
                 dto.getValorAsegurado(), dto.getValorPrimaAnual(), dto.getFechaInicio(), dto.getFechaFin(),
                 dto.getDiasAlertaVencimiento(), dto.getNombreCorredorAgente(), dto.getTelefonoContactoAgente(),
                 dto.getDocumentoCaratulaUrl(), dto.getEstado(), dto.getDeducible(), dto.getIdDocumento(),
                 dto.getIdPoliza(), dto.getIdPropiedad());
     }
 
-    public void delete(Long idPoliza, Long idPropiedad) {
+    public int delete(Long idPoliza, Long idPropiedad) {
         String sql = "DELETE FROM POLIZAS_SEGURO WHERE ID_POLIZA = ? AND ID_PROPIEDAD = ?";
-        jdbcTemplate.update(sql, idPoliza, idPropiedad);
+        return jdbcTemplate.update(sql, idPoliza, idPropiedad);
     }
 
     public boolean validarDocumentoPerteneceAPropiedad(Long idDocumento, Long idPropiedad) {

@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.NoSuchElementException;
 
 /**
  * Servicio de dominio para la gestión y cálculo dinámico de Pólizas de Seguro (F10-07).
@@ -122,7 +123,7 @@ public class PolizaSeguroService {
     public PolizaSeguroDTO getPolizaById(Long id) {
         Long propiedadId = SaedContextHolder.getContext().getPropertyId();
         PolizaSeguroDTO dto = repository.findByIdAndPropiedad(id, propiedadId)
-                .orElseThrow(() -> new IllegalArgumentException("Póliza no encontrada con ID: " + id));
+                .orElseThrow(() -> new NoSuchElementException("Póliza no encontrada con ID: " + id));
         dto.setEstado(calcularEstadoDinamico(dto));
         return dto;
     }
@@ -147,7 +148,9 @@ public class PolizaSeguroService {
             dto.setDiasAlertaVencimiento(DEFAULT_DIAS_ALERTA);
         }
         dto.setEstado(calcularEstadoDinamico(dto));
-        repository.update(dto);
+        if (repository.update(dto) == 0) {
+            throw new NoSuchElementException("Póliza no encontrada con ID: " + id);
+        }
     }
 
     public void delete(Long id) {
@@ -156,7 +159,9 @@ public class PolizaSeguroService {
 
     public void deletePoliza(Long id) {
         Long propiedadId = SaedContextHolder.getContext().getPropertyId();
-        repository.delete(id, propiedadId);
+        if (repository.delete(id, propiedadId) == 0) {
+            throw new NoSuchElementException("Póliza no encontrada con ID: " + id);
+        }
     }
 
     private void validarReglasNegocio(PolizaSeguroDTO dto, Long propiedadId) {
