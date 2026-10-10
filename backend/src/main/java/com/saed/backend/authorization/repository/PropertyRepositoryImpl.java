@@ -26,7 +26,7 @@ public class PropertyRepositoryImpl implements PropertyRepository {
 
     private static final String BASE_SELECT = """
         SELECT p.id_propiedad, p.id_organizacion, p.id_tipo_propiedad, p.nombre,
-               p.direccion, p.ciudad, p.tipo_ocupacion_predominante, p.estado,
+               p.direccion, p.ciudad, p.departamento, p.pais, p.tipo_ocupacion_predominante, p.estado,
                o.nombre AS organizacion_nombre,
                tp.codigo AS tipo_propiedad_codigo, tp.nombre AS tipo_propiedad_nombre
         FROM PROPIEDADES p
@@ -36,14 +36,17 @@ public class PropertyRepositoryImpl implements PropertyRepository {
 
     @Override
     public Long create(PropertyRequestDTO request) {
-        String sql = "INSERT INTO PROPIEDADES (id_organizacion, id_tipo_propiedad, nombre, direccion, ciudad, tipo_ocupacion_predominante) " +
-                     "VALUES (:idOrganizacion, :idTipoPropiedad, :nombre, :direccion, :ciudad, :tipoOcupacion)";
+        String sql = "INSERT INTO PROPIEDADES (id_organizacion, id_tipo_propiedad, nombre, direccion, ciudad, departamento, pais, "
+                     + "tipo_ocupacion_predominante) VALUES (:idOrganizacion, :idTipoPropiedad, :nombre, :direccion, :ciudad, "
+                     + ":departamento, :pais, :tipoOcupacion)";
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("idOrganizacion", request.getIdOrganizacion())
                 .addValue("idTipoPropiedad", request.getIdTipoPropiedad())
                 .addValue("nombre", request.getNombre())
                 .addValue("direccion", request.getDireccion())
                 .addValue("ciudad", request.getCiudad())
+                .addValue("departamento", request.getDepartamento())
+                .addValue("pais", countryOrDefault(request.getPais()))
                 .addValue("tipoOcupacion", request.getTipoOcupacionPredominante());
 
         KeyHolder keyHolder = new GeneratedKeyHolder();
@@ -72,6 +75,8 @@ public class PropertyRepositoryImpl implements PropertyRepository {
         dto.setNombre(rs.getString("nombre"));
         dto.setDireccion(rs.getString("direccion"));
         dto.setCiudad(rs.getString("ciudad"));
+        dto.setDepartamento(rs.getString("departamento"));
+        dto.setPais(rs.getString("pais"));
         dto.setTipoOcupacionPredominante(rs.getString("tipo_ocupacion_predominante"));
         dto.setEstado(rs.getString("estado"));
         dto.setOrganizacionNombre(rs.getString("organizacion_nombre"));
@@ -80,20 +85,31 @@ public class PropertyRepositoryImpl implements PropertyRepository {
         return dto;
     }
 
+    /** PAIS is NOT NULL with default 'Colombia'; an absent value keeps that default. */
+    private static String countryOrDefault(String pais) {
+        return pais == null || pais.isBlank() ? "Colombia" : pais.trim();
+    }
+
     @Override
     public void update(Long id, PropertyRequestDTO request) {
         String sql = "UPDATE PROPIEDADES SET nombre = :nombre, direccion = :direccion, ciudad = :ciudad, " +
+                     "departamento = :departamento, pais = :pais, " +
                      "tipo_ocupacion_predominante = :tipoOcupacion, id_tipo_propiedad = :idTipoPropiedad, " +
-                     "id_organizacion = :idOrganizacion WHERE id_propiedad = :id";
+                     "id_organizacion = NVL(:idOrganizacion, id_organizacion) WHERE id_propiedad = :id";
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("id", id)
                 .addValue("nombre", request.getNombre())
                 .addValue("direccion", request.getDireccion())
                 .addValue("ciudad", request.getCiudad())
+                .addValue("departamento", request.getDepartamento())
+                .addValue("pais", countryOrDefault(request.getPais()))
                 .addValue("tipoOcupacion", request.getTipoOcupacionPredominante())
                 .addValue("idTipoPropiedad", request.getIdTipoPropiedad())
                 .addValue("idOrganizacion", request.getIdOrganizacion());
-        jdbcTemplate.update(sql, params);
+        // F4-H07: a row hidden by RLS or absent must not be reported as updated.
+        if (jdbcTemplate.update(sql, params) == 0) {
+            throw new java.util.NoSuchElementException("Property not found");
+        }
     }
 
     @Override

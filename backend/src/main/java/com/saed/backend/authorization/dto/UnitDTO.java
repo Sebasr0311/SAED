@@ -12,6 +12,7 @@ public class UnitDTO {
     private String tipoUnidadNombre;
     private String bloqueCodigo;
     private String bloqueNombre;
+    private String piso;
     private BigDecimal areaM2;
     private BigDecimal coeficienteCopropiedad;
     private String estado;
@@ -43,6 +44,8 @@ public class UnitDTO {
     public void setBloqueCodigo(String bloqueCodigo) { this.bloqueCodigo = bloqueCodigo; }
     public String getBloqueNombre() { return bloqueNombre; }
     public void setBloqueNombre(String bloqueNombre) { this.bloqueNombre = bloqueNombre; }
+    public String getPiso() { return piso; }
+    public void setPiso(String piso) { this.piso = piso; }
     public BigDecimal getAreaM2() { return areaM2; }
     public void setAreaM2(BigDecimal areaM2) { this.areaM2 = areaM2; }
     public BigDecimal getCoeficienteCopropiedad() { return coeficienteCopropiedad; }
