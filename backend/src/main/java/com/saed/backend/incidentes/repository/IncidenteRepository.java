@@ -17,6 +17,12 @@ public interface IncidenteRepository {
     void concluirInvestigacion(Long idIncidente, Long idPropiedad, String hallazgos, String estadoDestino);
     void escalarIncidente(Long idIncidente, Long idPropiedad, Long escaladoPor, String motivo, String sancionSugerida);
 
+    /**
+     * Moves a CERRADO incident back to EN_INVESTIGACION, recording reason, user and time.
+     * Conditional on the current state; returns the number of rows updated (0 when it is no longer closed).
+     */
+    int reabrir(Long idIncidente, Long idPropiedad, Long reabiertoPor, String motivo);
+
     // Involucrados
     List<IncidenteInvolucradoDTO> findInvolucradosByIncidente(Long idIncidente);
     Long addInvolucrado(Long idIncidente, IncidenteInvolucradoDTO dto);

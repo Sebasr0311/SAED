@@ -84,6 +84,14 @@ public class IncidenteRepositoryImpl implements IncidenteRepository {
             dto.setSancionSugerida(rs.getString("SANCION_SUGERIDA"));
         } catch (Exception ignored) {}
 
+        // Reopen trail (V5.40, F9-03)
+        dto.setMotivoReapertura(rs.getString("MOTIVO_REAPERTURA"));
+        long reabiertoPor = rs.getLong("REABIERTO_POR");
+        if (!rs.wasNull()) dto.setReabiertoPor(reabiertoPor);
+        Timestamp fra = rs.getTimestamp("FECHA_REAPERTURA");
+        if (fra != null) dto.setFechaReapertura(fra.toInstant().atZone(ZoneId.of("America/Bogota")));
+        dto.setNumeroReaperturas(rs.getInt("NUMERO_REAPERTURAS"));
+
         // Visual helpers
         try {
             dto.setUnidadIdentificador(rs.getString("UNIDAD_IDENTIFICADOR"));
@@ -217,7 +225,7 @@ public class IncidenteRepositoryImpl implements IncidenteRepository {
             updated = jdbcTemplate.update(sql, estado, conclusiones, idIncidente, idPropiedad);
         }
         if (updated == 0) {
-            throw new IllegalArgumentException("Incidente no encontrado o sin acceso");
+            throw new java.util.NoSuchElementException("Incidente no encontrado.");
         }
     }
 
@@ -228,7 +236,7 @@ public class IncidenteRepositoryImpl implements IncidenteRepository {
                      "WHERE ID_INCIDENTE = ? AND ID_PROPIEDAD = ?";
         int updated = jdbcTemplate.update(sql, investigadoPor, idIncidente, idPropiedad);
         if (updated == 0) {
-            throw new IllegalArgumentException("Incidente no encontrado o sin acceso");
+            throw new java.util.NoSuchElementException("Incidente no encontrado.");
         }
     }
 
@@ -238,7 +246,7 @@ public class IncidenteRepositoryImpl implements IncidenteRepository {
                      "WHERE ID_INCIDENTE = ? AND ID_PROPIEDAD = ?";
         int updated = jdbcTemplate.update(sql, hallazgos, idIncidente, idPropiedad);
         if (updated == 0) {
-            throw new IllegalArgumentException("Incidente no encontrado o sin acceso");
+            throw new java.util.NoSuchElementException("Incidente no encontrado.");
         }
     }
 
@@ -250,7 +258,7 @@ public class IncidenteRepositoryImpl implements IncidenteRepository {
                      "WHERE ID_INCIDENTE = ? AND ID_PROPIEDAD = ?";
         int updated = jdbcTemplate.update(sql, dest, hallazgos, idIncidente, idPropiedad);
         if (updated == 0) {
-            throw new IllegalArgumentException("Incidente no encontrado o sin acceso");
+            throw new java.util.NoSuchElementException("Incidente no encontrado.");
         }
     }
 
@@ -261,8 +269,17 @@ public class IncidenteRepositoryImpl implements IncidenteRepository {
                      "WHERE ID_INCIDENTE = ? AND ID_PROPIEDAD = ?";
         int updated = jdbcTemplate.update(sql, escaladoPor, motivo, sancionSugerida, idIncidente, idPropiedad);
         if (updated == 0) {
-            throw new IllegalArgumentException("Incidente no encontrado o sin acceso");
+            throw new java.util.NoSuchElementException("Incidente no encontrado.");
         }
+    }
+
+    @Override
+    public int reabrir(Long idIncidente, Long idPropiedad, Long reabiertoPor, String motivo) {
+        String sql = "UPDATE INCIDENTES SET ESTADO = 'EN_INVESTIGACION', MOTIVO_REAPERTURA = ?, " +
+                     "REABIERTO_POR = ?, FECHA_REAPERTURA = SYSTIMESTAMP, " +
+                     "NUMERO_REAPERTURAS = NVL(NUMERO_REAPERTURAS, 0) + 1, FECHA_CIERRE = NULL " +
+                     "WHERE ID_INCIDENTE = ? AND ID_PROPIEDAD = ? AND ESTADO = 'CERRADO'";
+        return jdbcTemplate.update(sql, motivo, reabiertoPor, idIncidente, idPropiedad);
     }
 
     @Override
@@ -311,7 +328,7 @@ public class IncidenteRepositoryImpl implements IncidenteRepository {
         String sql = "DELETE FROM INCIDENTE_INVOLUCRADOS WHERE ID_INCIDENTE = ? AND ID_INCIDENTE_INVOLUCRADO = ?";
         int deleted = jdbcTemplate.update(sql, idIncidente, idInvolucrado);
         if (deleted == 0) {
-            throw new IllegalArgumentException("Involucrado no encontrado en el incidente indicado.");
+            throw new java.util.NoSuchElementException("Involucrado no encontrado en el incidente indicado.");
         }
     }
 

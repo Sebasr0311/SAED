@@ -53,6 +53,21 @@ public class IncidenteDTO {
     private String motivoEscalamiento;
     private String sancionSugerida;
 
+    // Reopen trail (F9-03)
+    private String motivoReapertura;
+    private Long reabiertoPor;
+    private ZonedDateTime fechaReapertura;
+    private Integer numeroReaperturas;
+
+    public String getMotivoReapertura() { return motivoReapertura; }
+    public void setMotivoReapertura(String motivoReapertura) { this.motivoReapertura = motivoReapertura; }
+    public Long getReabiertoPor() { return reabiertoPor; }
+    public void setReabiertoPor(Long reabiertoPor) { this.reabiertoPor = reabiertoPor; }
+    public ZonedDateTime getFechaReapertura() { return fechaReapertura; }
+    public void setFechaReapertura(ZonedDateTime fechaReapertura) { this.fechaReapertura = fechaReapertura; }
+    public Integer getNumeroReaperturas() { return numeroReaperturas; }
+    public void setNumeroReaperturas(Integer numeroReaperturas) { this.numeroReaperturas = numeroReaperturas; }
+
     // Personas/vehículos involucrados
     private List<IncidenteInvolucradoDTO> involucrados = new ArrayList<>();
 
