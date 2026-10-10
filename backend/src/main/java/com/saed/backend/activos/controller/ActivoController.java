@@ -22,7 +22,7 @@ import java.util.List;
 @Tag(name = "Activos", description = "Módulo Completo de Activos e Inventario Físico de la Copropiedad (GAP-F9-02)")
 @RestController
 @RequestMapping("/api/v1/activos")
-@PreAuthorize("hasAuthority('SCOPE_SUPERADMIN') or hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
+@PreAuthorize("hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
 public class ActivoController {
 
     private final ActivoService activoService;
