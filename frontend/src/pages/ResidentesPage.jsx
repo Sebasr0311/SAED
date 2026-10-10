@@ -607,18 +607,8 @@ export default function ResidentesPage() {
             }
           }
 
-          if (idPersonaTutor && idResidente) {
-            const rel = tutorForm.parentesco === 'OTRO' ? tutorForm.otroParentesco : tutorForm.parentesco;
-            await tenantApi.post('/tutores', {
-              personaMenorId: Number(idResidente),
-              personaTutorId: Number(idPersonaTutor),
-              parentesco: rel || 'TUTOR LEGAL',
-              estado: 'ACTIVO',
-            });
-            toast.success('Tutor legal vinculado con éxito');
-          }
         } catch (tutorErr) {
-          console.warn('Error guardando tutor legal:', tutorErr);
+          toast.warning(`No se pudo registrar la persona tutora: ${tutorErr.message}`);
         }
       }
 
@@ -674,6 +664,23 @@ export default function ResidentesPage() {
               `Residente guardado, pero la asignación al apartamento falló: ${err.message}`
             );
           }
+        }
+      }
+
+      // F5-H08: guardian rights are scoped to a dependent of the unit, so the guardian is linked after the
+      // dependent has been assigned to the unit; a failure is reported, never hidden.
+      if (idPersonaTutor && idResidente) {
+        try {
+          const rel = tutorForm.parentesco === 'OTRO' ? tutorForm.otroParentesco : tutorForm.parentesco;
+          await tenantApi.post('/tutores', {
+            personaMenorId: Number(idResidente),
+            personaTutorId: Number(idPersonaTutor),
+            parentesco: rel || 'TUTOR LEGAL',
+            estado: 'ACTIVO',
+          });
+          toast.success('Tutor legal vinculado con éxito');
+        } catch (tutorErr) {
+          toast.warning(`Residente guardado, pero no se pudo vincular el tutor legal: ${tutorErr.message}`);
         }
       }
 
