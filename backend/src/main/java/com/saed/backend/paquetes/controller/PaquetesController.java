@@ -71,6 +71,13 @@ public class PaquetesController {
         return ResponseEntity.ok(paquetesService.actualizarPaquete(id, request));
     }
 
+    /** F08-02: re-sends a missing pickup notification to the residents of the package unit. */
+    @PostMapping("/{id}/notificar")
+    @PreAuthorize("hasAnyAuthority('SCOPE_PORTERO', 'SCOPE_ADMIN_PROPIEDAD')")
+    public ResponseEntity<java.util.Map<String, Object>> reenviarNotificacion(@PathVariable Long id) {
+        return ResponseEntity.ok(java.util.Map.of("notificados", paquetesService.reenviarNotificacion(id)));
+    }
+
     @PostMapping("/{id}/entrega")
     @PreAuthorize("hasAnyAuthority('SCOPE_PORTERO', 'SCOPE_ADMIN_PROPIEDAD')")
     public ResponseEntity<PaqueteDTO> registrarEntrega(@PathVariable Long id, @Valid @RequestBody PaqueteEntregaDTO request) {
