@@ -49,3 +49,4 @@ Frontend (from `frontend/`): `npm run lint` and `npm run build` if you change fr
 - A section in `docs/remediation/<phase>-progress.md`: fixed items with audit IDs, RED/GREEN counts, changed files, migrations added, open items.
 - Final report (under 300 words) with the same information.
   - `q'X…X'` literals: choose a delimiter whose closing sequence (`]'`, `}'`, `)'`, `>'`) does not occur inside the text (e.g. regex `'[^0-9]'` contains `]'`). `test_q_quoted_literals_do_not_close_early` enforces this for `EXECUTE IMMEDIATE`.
+  - Objects owned by the security account (e.g. `PKG_AUTH_BOOTSTRAP`, an `AUTHID DEFINER` package) can only be changed by a migration whose file name contains `__sec_` (e.g. `V5.34__sec_auth_profile_deterministic.sql`). The isolated installer runs those as the security principal; in production they must be executed by the security schema owner. Do not start such files with the `PKG_SAED_SESSION` context block.

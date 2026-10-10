@@ -174,7 +174,9 @@ CREATE CONTEXT SAED_CTX USING {OWNER}.PKG_SAED_SESSION;
             stages[name] = (principal, (prepared.WORK / name).read_text(encoding="utf-8"))
         for name in sorted(self.manifest["files"]):
             if re.fullmatch(r"1[0-9][0-9]-V5[.][0-9]+__[A-Za-z0-9_]+[.]sql", name):
-                stages[name] = (OWNER, (prepared.WORK / name).read_text(encoding="utf-8"))
+                # "__sec_" migrations change objects owned by the security account (e.g. PKG_AUTH_BOOTSTRAP).
+                principal = SECURITY if "__sec_" in name else OWNER
+                stages[name] = (principal, (prepared.WORK / name).read_text(encoding="utf-8"))
         stages["lifecycle-fixture"] = (OWNER, """BEGIN
  UPDATE USUARIOS SET ESTADO='INACTIVO' WHERE ID_USUARIO=92005;
  IF SQL%ROWCOUNT != 1 THEN RAISE_APPLICATION_ERROR(-20994,'INACTIVE_FIXTURE_MISSING'); END IF;
