@@ -207,6 +207,46 @@ public class TrabajadorRepositoryImpl implements TrabajadorRepository {
         }
     }
 
+    /**
+     * Workers relevant to one property: assigned to a work of a unit of the property, or employed by a
+     * supplier holding a current contract with the property (F9-02).
+     */
+    private static final String PROPERTY_SCOPE = """
+             AND t.ESTADO = 'ACTIVO'
+             AND (t.ID_TRABAJADOR IN (SELECT ot.ID_TRABAJADOR FROM OBRA_TRABAJADORES ot
+                                      JOIN OBRAS o ON o.ID_OBRA = ot.ID_OBRA
+                                      JOIN UNIDADES u ON u.ID_UNIDAD = o.ID_UNIDAD
+                                      WHERE u.ID_PROPIEDAD = :idPropiedad)
+                  OR t.ID_PROVEEDOR IN (SELECT cp.ID_PROVEEDOR FROM CONTRATOS_PROVEEDOR cp
+                                        WHERE cp.ID_PROPIEDAD = :idPropiedad AND cp.ESTADO = 'VIGENTE'))
+            """;
+
+    @Override
+    public List<TrabajadorDTO> listarParaPropiedad(Long idPropiedad, String search) {
+        StringBuilder sql = new StringBuilder(BASE_SELECT).append(" WHERE 1=1").append(PROPERTY_SCOPE);
+        MapSqlParameterSource params = new MapSqlParameterSource("idPropiedad", idPropiedad);
+        if (search != null && !search.isBlank()) {
+            sql.append("""
+                     AND (LOWER(p.PRIMER_NOMBRE) LIKE :search
+                          OR LOWER(p.PRIMER_APELLIDO) LIKE :search
+                          OR LOWER(t.OFICIO_ESPECIALIDAD) LIKE :search
+                          OR LOWER(pr.RAZON_SOCIAL) LIKE :search)
+                    """);
+            params.addValue("search", "%" + search.trim().toLowerCase() + "%");
+        }
+        sql.append(" ORDER BY p.PRIMER_NOMBRE, p.PRIMER_APELLIDO");
+        return jdbc.query(sql.toString(), params, rowMapper);
+    }
+
+    @Override
+    public Optional<TrabajadorDTO> buscarPorIdEnPropiedad(Long idTrabajador, Long idPropiedad) {
+        String sql = BASE_SELECT + " WHERE t.ID_TRABAJADOR = :idTrabajador" + PROPERTY_SCOPE;
+        MapSqlParameterSource params = new MapSqlParameterSource("idTrabajador", idTrabajador)
+                .addValue("idPropiedad", idPropiedad);
+        List<TrabajadorDTO> rows = jdbc.query(sql, params, rowMapper);
+        return rows.isEmpty() ? Optional.empty() : Optional.of(rows.get(0));
+    }
+
     @Override
     public Optional<TrabajadorDTO> buscarPorIdDirecto(Long idTrabajador) {
         String sql = BASE_SELECT + " WHERE t.ID_TRABAJADOR = :idTrabajador";

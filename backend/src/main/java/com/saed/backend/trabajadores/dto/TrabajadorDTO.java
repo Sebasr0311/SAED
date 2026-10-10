@@ -25,6 +25,16 @@ public record TrabajadorDTO(
         String estado,
         boolean arlVigente
 ) {
+    /**
+     * Minimal view for residents and owners (F9-02, Ley 1581): name, trade, company and whether the
+     * worker is currently eligible. Identity document, contact data and ARL details are withheld.
+     */
+    public TrabajadorDTO resumenPublico() {
+        return new TrabajadorDTO(idTrabajador, null, idProveedor, razonSocialProveedor, null, null,
+                primerNombre, null, primerApellido, null, nombreCompleto, null, null, oficioEspecialidad,
+                null, null, null, null, empresaIndependiente, estado, arlVigente);
+    }
+
     public static boolean calcularArlVigente(LocalDate vencimiento, LocalDate afiliacion) {
         return calcularArlVigente(vencimiento, afiliacion, LocalDate.now());
     }

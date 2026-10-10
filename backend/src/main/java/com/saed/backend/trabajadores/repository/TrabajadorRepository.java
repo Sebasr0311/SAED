@@ -15,6 +15,11 @@ public interface TrabajadorRepository {
 
     Optional<TrabajadorDTO> buscarPorId(Long idTrabajador, Long idOrganizacion);
 
+    /** Active workers relevant to the property (assigned to its works or employed by a supplier under contract). */
+    List<TrabajadorDTO> listarParaPropiedad(Long idPropiedad, String search);
+
+    Optional<TrabajadorDTO> buscarPorIdEnPropiedad(Long idTrabajador, Long idPropiedad);
+
     Optional<TrabajadorDTO> buscarPorIdDirecto(Long idTrabajador);
 
     Optional<TrabajadorDTO> buscarPorIdForUpdate(Long idTrabajador);
