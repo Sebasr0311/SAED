@@ -3,10 +3,9 @@ package com.saed.backend.reservas.service;
 import java.time.LocalDate;
 
 /**
- * F10-07 seam: tells whether a unit has an active sanction that restricts the use of common areas on a
- * date. The sanctions module (F10) is expected to provide {@code hasActiveCommonAreaRestriction}; until
- * then {@link com.saed.backend.reservas.service.impl.JdbcCommonAreaRestrictionChecker} reads SANCIONES
- * directly. Replace the bean to swap the implementation.
+ * F10-07 seam: whether a unit has an active sanction that restricts the use of common areas on a date.
+ * Implemented by {@link com.saed.backend.reservas.service.impl.SanctionsCommonAreaRestrictionChecker},
+ * which delegates to {@code SancionService.hasActiveCommonAreaRestriction}.
  */
 public interface CommonAreaRestrictionChecker {
 
