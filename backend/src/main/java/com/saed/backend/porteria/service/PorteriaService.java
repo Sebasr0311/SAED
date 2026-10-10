@@ -30,13 +30,16 @@ public interface PorteriaService {
 
     QrAccesoDTO generarQrAcceso(QrAccesoRequestDTO request);
     QrAccesoDTO getQrAccesoById(Long id);
-    boolean validarQr(String token);
     Map<String, Object> validarQrDetalle(String token);
     Map<String, Object> notificarVisitaQr(String token, String fotoCaptura);
     Map<String, Object> registrarEntradaQr(String token, String medioTransporte, String placa, String descripcion);
 
     VehiculoVisitaDTO registrarIngresoVehiculo(VehiculoVisitaRequestDTO request);
-    void registrarSalidaVehiculo(Long vehiculoVisitaId, BigDecimal costoTotal);
+    /** Closes the vehicle and frees its spot; the fee is computed server side. */
+    void registrarSalidaVehiculo(Long vehiculoVisitaId);
+
+    void cancelarVisita(Long id);
+    void revocarQr(Long idQr, String motivo);
 }
 
 

@@ -651,14 +651,17 @@ public class PorteriaController {
         // Duración QR
         int validezMin = 1440;
         if (body.get("tiempoValidezMin") != null) {
-            try { validezMin = Integer.parseInt(body.get("tiempoValidezMin").toString()); } catch (Exception ignored) {}
+            try { validezMin = Integer.parseInt(body.get("tiempoValidezMin").toString()); } catch (NumberFormatException ignored) {
+                validezMin = 1440;
+            }
         }
+        // F07-01: bounded validity; the service also clamps the expiry and issues the token itself.
+        validezMin = Math.max(5, Math.min(7 * 24 * 60, validezMin));
 
-        // Generar QR automatico y notificar al VISITANTE
-        String token = UUID.randomUUID().toString();
+        // Generar QR automatico y notificar al VISITANTE (token emitido por el servicio)
         QrAccesoRequestDTO qrReq = new QrAccesoRequestDTO(
             visita.idVisita(),
-            token,
+            UUID.randomUUID().toString(),
             ZonedDateTime.now(ZoneId.of("America/Bogota")).plusMinutes(validezMin),
             1,
             "ACTIVO",
@@ -666,6 +669,7 @@ public class PorteriaController {
         );
 
         QrAccesoDTO qr = porteriaService.generarQrAcceso(qrReq);
+        String token = qr.tokenQr();
 
         // Vehiculo si vino en payload con placa (objeto vehiculo o campos planos en raíz)
         String placa = null;
@@ -794,6 +798,13 @@ public class PorteriaController {
         return porteriaService.actualizarVisita(id, request);
     }
 
+    @PutMapping("/visitas/{id}/cancelar")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA')")
+    public void cancelarVisita(@PathVariable Long id) {
+        porteriaService.cancelarVisita(id);
+    }
+
     @PutMapping("/visitas/{id}/salida")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_PORTERO')")
@@ -850,6 +861,13 @@ public class PorteriaController {
         return porteriaService.generarQrAcceso(request);
     }
 
+    @PostMapping("/qr/{id}/revocar")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA')")
+    public void revocarQr(@PathVariable Long id, @RequestBody(required = false) Map<String, String> body) {
+        porteriaService.revocarQr(id, body != null ? body.get("motivo") : null);
+    }
+
     @GetMapping("/qr/{id}")
     @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA', 'SCOPE_PORTERO')")
     public QrAccesoDTO getQrAccesoById(@PathVariable Long id) {
@@ -904,8 +922,10 @@ public class PorteriaController {
     @PostMapping("/vehiculos/{id}/salida")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_PORTERO')")
-    public void registrarSalidaVehiculo(@PathVariable Long id, @RequestBody Map<String, BigDecimal> body) {
-        porteriaService.registrarSalidaVehiculo(id, body.getOrDefault("costoTotal", BigDecimal.ZERO));
+    public void registrarSalidaVehiculo(@PathVariable Long id,
+                                        @RequestBody(required = false) Map<String, BigDecimal> body) {
+        // F07-03: the parking fee is computed server side; a client-supplied costoTotal is ignored.
+        porteriaService.registrarSalidaVehiculo(id);
     }
 
     private Long extractGeneratedKey(KeyHolder kh, String columnName) {

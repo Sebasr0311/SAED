@@ -12,6 +12,7 @@ import com.saed.backend.porteria.service.PorteriaService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +23,9 @@ import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.Set;
+import java.util.UUID;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
@@ -38,6 +42,23 @@ public class PorteriaServiceImpl implements PorteriaService {
 
     private static final Logger log = LoggerFactory.getLogger(PorteriaServiceImpl.class);
 
+    public static final int MAX_QR_USES = 10;
+    public static final int MIN_QR_VALIDITY_MINUTES = 5;
+    public static final int MAX_QR_VALIDITY_MINUTES = 7 * 24 * 60;
+    /** Per-property overtime tariff for visitor parking, per started hour. Default 0 (no charge). */
+    public static final String KEY_TARIFA_PARQUEADERO_HORA = "TARIFA_PARQUEADERO_VISITANTE_HORA";
+    /** Free visitor parking minutes before the tariff applies. Defaults to the maximum visit time. */
+    public static final String KEY_MINUTOS_GRATIS_PARQUEADERO = "MINUTOS_GRATIS_PARQUEADERO_VISITANTE";
+
+    private static final ZoneId BOGOTA = ZoneId.of("America/Bogota");
+    private static final List<String> OPEN_VISIT_STATES = List.of("PROGRAMADA", "EN_CURSO");
+    private static final Set<String> TERMINAL_VISIT_STATES = Set.of("CANCELADA", "RECHAZADA", "FINALIZADA");
+    private static final Set<String> RESIDENT_VISIT_STATES = Set.of("PROGRAMADA", "CANCELADA");
+    private static final Set<String> STAFF_VISIT_STATES =
+        Set.of("PROGRAMADA", "EN_CURSO", "FINALIZADA", "CANCELADA", "RECHAZADA");
+    private static final Set<String> METODOS_INGRESO =
+        Set.of("CODIGO_QR", "LLAMADA_PORTERIA", "PREAUTORIZADA", "EMERGENCIA");
+
     private final PorteriaRepository porteriaRepository;
     private final EmailService emailService;
     private final NamedParameterJdbcTemplate jdbcTemplate;
@@ -53,12 +74,60 @@ public class PorteriaServiceImpl implements PorteriaService {
         this.propertyConfigService = propertyConfigService;
     }
 
+    // --- SCOPE ---
+
+    /** Tenant context for operational data. SUPERADMIN never reads porteria data (DEC-02). */
+    private static SaedContext requireOperationalContext() {
+        SaedContext ctx = SaedContextHolder.getContext();
+        if (ctx == null || ctx.getUserId() == null) {
+            throw new AccessDeniedException("Missing tenant context");
+        }
+        if ("SUPERADMIN".equals(ctx.getRoleCode()) || "GLOBAL".equals(ctx.getRoleScope())) {
+            throw new AccessDeniedException("Platform administrators do not access porteria operational data");
+        }
+        return ctx;
+    }
+
+    private static Long requirePropertyId(SaedContext ctx) {
+        if (ctx.getPropertyId() == null) {
+            throw new AccessDeniedException("Missing property context");
+        }
+        return ctx.getPropertyId();
+    }
+
+    private static boolean isResident(SaedContext ctx) {
+        return "RESIDENTE".equals(ctx.getRoleCode()) || "RESIDENTE_CONVIVENCIA".equals(ctx.getRoleCode())
+            || "UNIDAD".equals(ctx.getRoleScope());
+    }
+
+    /**
+     * Loads a visit only when it is in the caller's scope: residents see visits of their unit, staff see
+     * visits of their property. Out-of-scope and nonexistent visits are indistinguishable (404).
+     */
+    private VisitaDTO requireVisitInScope(Long visitaId) {
+        SaedContext ctx = requireOperationalContext();
+        VisitaDTO visita = porteriaRepository.getVisitaById(visitaId)
+            .orElseThrow(() -> new NoSuchElementException("Visita no encontrada"));
+        boolean inScope;
+        if (isResident(ctx)) {
+            inScope = ctx.getUnitId() != null
+                ? ctx.getUnitId().equals(visita.unidadId())
+                : porteriaRepository.findActiveUnitIdsForUser(ctx.getUserId()).contains(visita.unidadId());
+        } else {
+            Long propId = ctx.getPropertyId();
+            inScope = propId != null && propId.equals(porteriaRepository.findVisitaPropertyId(visitaId).orElse(null));
+        }
+        if (!inScope) {
+            throw new NoSuchElementException("Visita no encontrada");
+        }
+        return visita;
+    }
+
     // --- ADMIN CRUD PORTERÍAS ---
     @Override
     @Transactional(readOnly = true)
     public List<PorteriaDTO> listarPorterias() {
-        Long orgId = SaedContextHolder.getContext().getOrganizationId();
-        Long propId = SaedContextHolder.getContext().getPropertyId();
+        Long propId = requirePropertyId(requireOperationalContext());
         return jdbcTemplate.query(
             "SELECT ID_PORTERIA, NOMBRE, UBICACION, TELEFONO_CONTACTO, ESTADO FROM PORTERIAS " +
             "WHERE ID_PROPIEDAD = :propId ORDER BY NOMBRE",
@@ -74,29 +143,33 @@ public class PorteriaServiceImpl implements PorteriaService {
     @Override
     @Transactional(readOnly = true)
     public PorteriaDTO getPorteriaById(Long id) {
-        return jdbcTemplate.queryForObject(
-            "SELECT ID_PORTERIA, NOMBRE, UBICACION, TELEFONO_CONTACTO, ESTADO FROM PORTERIAS WHERE ID_PORTERIA = :id",
-            Map.of("id", id),
+        Long propId = requirePropertyId(requireOperationalContext());
+        List<PorteriaDTO> found = jdbcTemplate.query(
+            "SELECT ID_PORTERIA, NOMBRE, UBICACION, TELEFONO_CONTACTO, ESTADO FROM PORTERIAS "
+                + "WHERE ID_PORTERIA = :id AND ID_PROPIEDAD = :propId",
+            Map.of("id", id, "propId", propId),
             (rs, rowNum) -> new PorteriaDTO(
                 rs.getLong("ID_PORTERIA"), rs.getString("NOMBRE"),
                 rs.getString("UBICACION"), rs.getString("TELEFONO_CONTACTO"),
                 rs.getString("ESTADO")
             )
         );
+        return found.stream().findFirst().orElseThrow(() -> new NoSuchElementException("Portería no encontrada"));
     }
 
     @Override
     public PorteriaDTO crearPorteria(PorteriaCreateDTO request) {
-        Long propId = SaedContextHolder.getContext().getPropertyId();
+        Long propId = requirePropertyId(requireOperationalContext());
         var keyHolder = new org.springframework.jdbc.support.GeneratedKeyHolder();
         jdbcTemplate.update(
             "INSERT INTO PORTERIAS (ID_PROPIEDAD, NOMBRE, UBICACION, TELEFONO_CONTACTO) VALUES (:propId, :nombre, :ubicacion, :tel)",
-            new org.springframework.jdbc.core.namedparam.MapSqlParameterSource()
+            new MapSqlParameterSource()
                 .addValue("propId", propId)
                 .addValue("nombre", request.nombre())
                 .addValue("ubicacion", request.ubicacion())
                 .addValue("tel", request.telefonoContacto()),
-            keyHolder
+            keyHolder,
+            new String[]{"ID_PORTERIA"}
         );
         Number id = keyHolder.getKey();
         return getPorteriaById(id.longValue());
@@ -104,20 +177,31 @@ public class PorteriaServiceImpl implements PorteriaService {
 
     @Override
     public PorteriaDTO actualizarPorteria(Long id, PorteriaCreateDTO request) {
-        jdbcTemplate.update(
-            "UPDATE PORTERIAS SET NOMBRE = :nombre, UBICACION = :ubicacion, TELEFONO_CONTACTO = :tel WHERE ID_PORTERIA = :id",
-            new org.springframework.jdbc.core.namedparam.MapSqlParameterSource()
+        Long propId = requirePropertyId(requireOperationalContext());
+        int updated = jdbcTemplate.update(
+            "UPDATE PORTERIAS SET NOMBRE = :nombre, UBICACION = :ubicacion, TELEFONO_CONTACTO = :tel "
+                + "WHERE ID_PORTERIA = :id AND ID_PROPIEDAD = :propId",
+            new MapSqlParameterSource()
                 .addValue("id", id)
+                .addValue("propId", propId)
                 .addValue("nombre", request.nombre())
                 .addValue("ubicacion", request.ubicacion())
                 .addValue("tel", request.telefonoContacto())
         );
+        if (updated == 0) {
+            throw new NoSuchElementException("Portería no encontrada");
+        }
         return getPorteriaById(id);
     }
 
     @Override
     public void eliminarPorteria(Long id) {
-        jdbcTemplate.update("DELETE FROM PORTERIAS WHERE ID_PORTERIA = :id", Map.of("id", id));
+        Long propId = requirePropertyId(requireOperationalContext());
+        int deleted = jdbcTemplate.update("DELETE FROM PORTERIAS WHERE ID_PORTERIA = :id AND ID_PROPIEDAD = :propId",
+            Map.of("id", id, "propId", propId));
+        if (deleted == 0) {
+            throw new NoSuchElementException("Portería no encontrada");
+        }
     }
 
     // --- OPERACIONES PORTERO ---
@@ -165,8 +249,7 @@ public class PorteriaServiceImpl implements PorteriaService {
     @Override
     @Transactional(readOnly = true)
     public VisitaDTO getVisitaById(Long id) {
-        return porteriaRepository.getVisitaById(id)
-                .orElseThrow(() -> new java.util.NoSuchElementException("Visita no encontrada"));
+        return requireVisitInScope(id);
     }
 
     @Override
@@ -181,19 +264,19 @@ public class PorteriaServiceImpl implements PorteriaService {
         return porteriaRepository.getVisitasByUnidad(unidadId);
     }
 
+    private int maxVisitMinutes(Long propId) {
+        return propertyConfigService != null
+            ? propertyConfigService.getIntValue(propId, PropertyConfigServiceImpl.KEY_TIEMPO_MAXIMO_VISITA, 240)
+            : 240;
+    }
+
     @Override
     @Transactional(readOnly = true)
     public List<VisitaListDTO> getVisitasResumen() {
-        List<VisitaListDTO> visitas = porteriaRepository.getVisitasResumen();
-        SaedContext ctx = SaedContextHolder.getContext();
-        Long propId = (ctx != null && ctx.getPropertyId() != null) ? ctx.getPropertyId() : 1L;
-        int maxMinutos = 240;
-        if (propertyConfigService != null) {
-            maxMinutos = propertyConfigService.getIntValue(propId, PropertyConfigServiceImpl.KEY_TIEMPO_MAXIMO_VISITA, 240);
-        }
-
-        ZonedDateTime now = ZonedDateTime.now(ZoneId.of("America/Bogota"));
-        final int limit = maxMinutos;
+        Long propId = requirePropertyId(requireOperationalContext());
+        List<VisitaListDTO> visitas = porteriaRepository.getVisitasResumen(propId);
+        final int limit = maxVisitMinutes(propId);
+        ZonedDateTime now = ZonedDateTime.now(BOGOTA);
 
         return visitas.stream().map(v -> {
             Long minutos = null;
@@ -211,31 +294,49 @@ public class PorteriaServiceImpl implements PorteriaService {
         }).toList();
     }
 
+    /**
+     * F07-03: one transactional exit. Finalizes the visit, closes every vehicle still inside with a
+     * server-side fee, frees its parking spot, revokes remaining QRs and records the SALIDA access.
+     * A repeated or concurrent exit is a no-op.
+     */
     @Override
+    @Auditable(action = "CHECKOUT_VISITA", resource = "ACCESO_PORTERIA", category = AuditCategory.SECURITY, severity = AuditSeverity.INFO)
     public void registrarSalidaVisita(Long id) {
-        porteriaRepository.getVisitaById(id).orElseThrow();
-        porteriaRepository.updateVisitaEstado(id, "FINALIZADA");
+        SaedContext ctx = requireOperationalContext();
+        VisitaDTO visita = requireVisitInScope(id);
+        if (!OPEN_VISIT_STATES.contains(visita.estado())) {
+            return;
+        }
+        if (porteriaRepository.transitionVisitaEstado(id, "FINALIZADA", OPEN_VISIT_STATES) == 0) {
+            return;
+        }
+        Long propId = requirePropertyId(ctx);
+        for (VehiculoVisitaDTO vehiculo : porteriaRepository.findVehiculosDentro(id)) {
+            closeVehicle(vehiculo, propId);
+        }
+        porteriaRepository.revokeActiveQrs(id, ctx.getUserId(), "SALIDA_REGISTRADA");
+        Long porteriaId = porteriaRepository.findFirstPorteriaId(propId)
+            .orElseThrow(() -> new IllegalStateException("La propiedad no tiene porterías configuradas"));
+        porteriaRepository.insertSalidaVisita(id, porteriaId, ctx.getUserId());
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<VisitaHistorialDTO> getVisitasHistorial(String fechaInicio, String fechaFin) {
-        return porteriaRepository.getVisitasHistorial(fechaInicio, fechaFin);
+        Long propId = requirePropertyId(requireOperationalContext());
+        return porteriaRepository.getVisitasHistorial(propId, fechaInicio, fechaFin);
     }
 
     @Override
     @Transactional(readOnly = true)
     public VisitaDetalleDTO getVisitaDetalle(Long id) {
+        requireVisitInScope(id);
         VisitaDetalleDTO v = porteriaRepository.getVisitaDetalle(id)
-                .orElseThrow(() -> new java.util.NoSuchElementException("Visita no encontrada"));
-        SaedContext ctx = SaedContextHolder.getContext();
-        Long propId = (ctx != null && ctx.getPropertyId() != null) ? ctx.getPropertyId() : 1L;
-        int maxMinutos = 240;
-        if (propertyConfigService != null) {
-            maxMinutos = propertyConfigService.getIntValue(propId, PropertyConfigServiceImpl.KEY_TIEMPO_MAXIMO_VISITA, 240);
-        }
+                .orElseThrow(() -> new NoSuchElementException("Visita no encontrada"));
+        Long propId = porteriaRepository.findVisitaPropertyId(id).orElse(null);
+        int maxMinutos = propId != null ? maxVisitMinutes(propId) : 240;
 
-        ZonedDateTime now = ZonedDateTime.now(ZoneId.of("America/Bogota"));
+        ZonedDateTime now = ZonedDateTime.now(BOGOTA);
         Long minutos = null;
         Boolean excedido = false;
         if (v.fechaVisita() != null) {
@@ -250,20 +351,71 @@ public class PorteriaServiceImpl implements PorteriaService {
         return v.withPermanencia(minutos, maxMinutos, excedido);
     }
 
+    /**
+     * F7-07: unit and visitor are immutable after creation; residents may only keep or cancel their visit;
+     * a closed visit is never reopened; closing a visit revokes its QR codes.
+     */
     @Override
     public VisitaDTO actualizarVisita(Long id, VisitaRequestDTO request) {
-        VisitaDTO existing = getVisitaById(id);
+        SaedContext ctx = requireOperationalContext();
+        VisitaDTO existing = requireVisitInScope(id);
+        String estado = request.estado() != null ? request.estado().trim().toUpperCase() : existing.estado();
+        Set<String> allowed = isResident(ctx) ? RESIDENT_VISIT_STATES : STAFF_VISIT_STATES;
+        if (!allowed.contains(estado)) {
+            throw new IllegalArgumentException("Estado de visita no permitido: " + estado);
+        }
+        if (TERMINAL_VISIT_STATES.contains(existing.estado()) && !estado.equals(existing.estado())) {
+            throw new IllegalStateException("La visita ya fue cerrada y no puede modificarse");
+        }
+        String metodo = request.metodoIngreso() != null && METODOS_INGRESO.contains(request.metodoIngreso().trim().toUpperCase())
+            ? request.metodoIngreso().trim().toUpperCase() : existing.metodoIngreso();
         // SEC-02: Retain original autorizadoPor to prevent tampering on update
         VisitaRequestDTO safeRequest = new VisitaRequestDTO(
-            request.unidadId(),
-            request.visitanteId(),
-            request.metodoIngreso(),
+            existing.unidadId(),
+            existing.visitanteId(),
+            metodo,
             request.motivo(),
             existing.autorizadoPor(),
-            request.fechaProgramada(),
-            request.estado()
+            request.fechaProgramada() != null ? request.fechaProgramada() : existing.fechaProgramada(),
+            estado
         );
-        return porteriaRepository.updateVisita(id, safeRequest);
+        VisitaDTO updated = porteriaRepository.updateVisita(id, safeRequest);
+        if (TERMINAL_VISIT_STATES.contains(estado)) {
+            porteriaRepository.revokeActiveQrs(id, ctx.getUserId(), "VISITA_" + estado);
+        }
+        return updated;
+    }
+
+    @Override
+    @Auditable(action = "CANCELAR_VISITA", resource = "ACCESO_PORTERIA", category = AuditCategory.SECURITY, severity = AuditSeverity.INFO)
+    public void cancelarVisita(Long id) {
+        SaedContext ctx = requireOperationalContext();
+        VisitaDTO visita = requireVisitInScope(id);
+        if ("CANCELADA".equals(visita.estado())) {
+            porteriaRepository.revokeActiveQrs(id, ctx.getUserId(), "VISITA_CANCELADA");
+            return;
+        }
+        if (porteriaRepository.transitionVisitaEstado(id, "CANCELADA", List.of("PROGRAMADA")) == 0) {
+            throw new IllegalStateException("Solo se pueden cancelar visitas programadas");
+        }
+        porteriaRepository.revokeActiveQrs(id, ctx.getUserId(), "VISITA_CANCELADA");
+    }
+
+    @Override
+    @Auditable(action = "REVOCAR_QR", resource = "ACCESO_PORTERIA", category = AuditCategory.SECURITY, severity = AuditSeverity.INFO)
+    public void revocarQr(Long idQr, String motivo) {
+        SaedContext ctx = requireOperationalContext();
+        QrAccesoDTO qr = porteriaRepository.getQrAccesoById(idQr)
+            .orElseThrow(() -> new NoSuchElementException("QR Acceso no encontrado"));
+        if (qr.visitaId() == null) {
+            throw new NoSuchElementException("QR Acceso no encontrado");
+        }
+        requireVisitInScope(qr.visitaId());
+        String reason = motivo == null || motivo.isBlank() ? "REVOCADO_POR_USUARIO"
+            : (motivo.length() > 200 ? motivo.substring(0, 200) : motivo);
+        if (porteriaRepository.revokeQr(idQr, ctx.getUserId(), reason) == 0 && !"REVOCADO".equals(qr.estado())) {
+            throw new IllegalStateException("El código QR ya no se encuentra activo");
+        }
     }
 
     @Override
@@ -293,74 +445,83 @@ public class PorteriaServiceImpl implements PorteriaService {
     @Override
     @Transactional(readOnly = true)
     public List<RegistroAccesoDTO> getRegistrosByPropiedad(Long propiedadId) {
+        Long propId = requirePropertyId(requireOperationalContext());
+        if (!propId.equals(propiedadId)) {
+            throw new AccessDeniedException("No tiene permisos sobre la propiedad indicada");
+        }
         return porteriaRepository.getRegistrosByPropiedad(propiedadId);
     }
 
+    /**
+     * F07-01: the QR token, uses, state and generator are server-controlled; the requested expiry is
+     * clamped to [MIN_QR_VALIDITY_MINUTES, MAX_QR_VALIDITY_MINUTES]; the visit must be open and in scope.
+     */
     @Override
     public QrAccesoDTO generarQrAcceso(QrAccesoRequestDTO request) {
-        // SEC-02: Enforce server-controlled generadoPor
-        Long serverGeneradoPor = SaedContextHolder.getContext() != null ? SaedContextHolder.getContext().getUserId() : null;
-        if (serverGeneradoPor == null) {
-            org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
-            if (auth != null && auth.isAuthenticated() && !(auth instanceof org.springframework.security.authentication.AnonymousAuthenticationToken)) {
-                try { serverGeneradoPor = Long.parseLong(auth.getName()); } catch (Exception ignored) {}
-            }
+        SaedContext ctx = requireOperationalContext();
+        VisitaDTO visita = requireVisitInScope(request.visitaId());
+        if (!OPEN_VISIT_STATES.contains(visita.estado())) {
+            throw new IllegalStateException("No se puede generar un código QR para una visita cerrada");
         }
-        if (serverGeneradoPor == null) {
-            serverGeneradoPor = request.generadoPor();
-        }
+        ZonedDateTime now = ZonedDateTime.now(BOGOTA);
+        ZonedDateTime min = now.plusMinutes(MIN_QR_VALIDITY_MINUTES);
+        ZonedDateTime max = now.plusMinutes(MAX_QR_VALIDITY_MINUTES);
+        ZonedDateTime requested = request.fechaExpiracion();
+        ZonedDateTime expiry = requested == null || requested.isAfter(max) ? max
+            : (requested.isBefore(min) ? min : requested);
+        int usos = request.usosPermitidos() == null ? 1
+            : Math.max(1, Math.min(MAX_QR_USES, request.usosPermitidos()));
+
         QrAccesoRequestDTO safeRequest = new QrAccesoRequestDTO(
-            request.visitaId(),
-            request.tokenQr(),
-            request.fechaExpiracion(),
-            request.usosPermitidos(),
-            request.estado(),
-            serverGeneradoPor
+            visita.idVisita(),
+            UUID.randomUUID().toString(),
+            expiry,
+            usos,
+            "ACTIVO",
+            ctx.getUserId()
         );
         QrAccesoDTO qr = porteriaRepository.createQrAcceso(safeRequest);
         try {
-            Long unitId = SaedContextHolder.getContext().getUnitId();
             List<Map<String, Object>> residentes = jdbcTemplate.queryForList(
                 "SELECT P.EMAIL FROM PERSONAS P " +
                 "JOIN RESIDENTES_UNIDAD UH ON UH.ID_PERSONA = P.ID_PERSONA " +
-                "WHERE UH.ID_UNIDAD = :u AND P.EMAIL IS NOT NULL", 
-                Map.of("u", unitId)
+                "WHERE UH.ID_UNIDAD = :u AND P.EMAIL IS NOT NULL",
+                Map.of("u", visita.unidadId())
             );
             if (!residentes.isEmpty()) {
                 String destinatario = (String) residentes.get(0).get("EMAIL");
                 emailService.enviarCorreoQRAsync(destinatario, qr.tokenQr(), qr.fechaExpiracion().toString(), "Visitante");
             }
-        } catch(Exception e) { log.error("Error sending QR email", e); }
+        } catch (RuntimeException e) {
+            // The QR is valid without the courtesy e-mail; record only the failure type.
+            log.warn("QR e-mail for visit {} not sent ({})", visita.idVisita(), e.getClass().getSimpleName());
+        }
         return qr;
     }
 
     @Override
     @Transactional(readOnly = true)
     public QrAccesoDTO getQrAccesoById(Long id) {
-        return porteriaRepository.getQrAccesoById(id)
-                .orElseThrow(() -> new java.util.NoSuchElementException("QR Acceso no encontrado"));
-    }
-
-    @Override
-    public boolean validarQr(String token) {
-        QrAccesoDTO qr = porteriaRepository.getQrAccesoByToken(token).orElse(null);
-        if (qr == null) return false;
-        if (!"ACTIVO".equals(qr.estado())) return false;
-        if (qr.fechaExpiracion().isBefore(ZonedDateTime.now())) return false;
-        if (qr.usosConsumidos() >= qr.usosPermitidos()) return false;
-        
-        porteriaRepository.consumeQrUso(qr.idQr());
-        return true;
+        QrAccesoDTO qr = porteriaRepository.getQrAccesoById(id)
+                .orElseThrow(() -> new NoSuchElementException("QR Acceso no encontrado"));
+        if (qr.visitaId() == null) {
+            throw new NoSuchElementException("QR Acceso no encontrado");
+        }
+        requireVisitInScope(qr.visitaId());
+        return qr;
     }
 
     @Override
     @Transactional(readOnly = true)
     public Map<String, Object> validarQrDetalle(String token) {
+        SaedContext ctx = requireOperationalContext();
         if (token == null || token.isBlank()) {
             return Map.of("valido", false, "mensaje", "Token no proporcionado");
         }
         QrAccesoDTO qr = porteriaRepository.getQrAccesoByToken(token).orElse(null);
-        if (qr == null) {
+        Long qrPropId = qr != null && qr.visitaId() != null
+            ? porteriaRepository.findVisitaPropertyId(qr.visitaId()).orElse(null) : null;
+        if (qr == null || ctx.getPropertyId() == null || !ctx.getPropertyId().equals(qrPropId)) {
             return Map.of("valido", false, "mensaje", "Código QR no encontrado");
         }
         if (!"ACTIVO".equalsIgnoreCase(qr.estado())) {
@@ -372,6 +533,10 @@ public class PorteriaServiceImpl implements PorteriaService {
         if (qr.usosPermitidos() != null && qr.usosConsumidos() != null && qr.usosConsumidos() >= qr.usosPermitidos()) {
             return Map.of("valido", false, "mensaje", "El código QR ya superó el límite de usos permitidos");
         }
+        VisitaDTO visita = porteriaRepository.getVisitaById(qr.visitaId()).orElse(null);
+        if (visita == null || !OPEN_VISIT_STATES.contains(visita.estado())) {
+            return Map.of("valido", false, "mensaje", "La visita asociada al código QR fue cancelada o finalizada");
+        }
 
         Map<String, Object> result = new HashMap<>();
         result.put("valido", true);
@@ -381,11 +546,11 @@ public class PorteriaServiceImpl implements PorteriaService {
         result.put("fechaExpiracion", qr.fechaExpiracion() != null ? qr.fechaExpiracion().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME) : null);
         result.put("fechaGeneracion", qr.fechaGeneracion() != null ? qr.fechaGeneracion().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME) : null);
         if (qr.fechaExpiracion() != null) {
-            long minRestantes = java.time.Duration.between(ZonedDateTime.now(ZoneId.of("America/Bogota")), qr.fechaExpiracion()).toMinutes();
+            long minRestantes = java.time.Duration.between(ZonedDateTime.now(BOGOTA), qr.fechaExpiracion()).toMinutes();
             result.put("minutosRestantes", minRestantes);
         }
 
-        VisitaDetalleDTO detalle = qr.visitaId() != null ? porteriaRepository.getVisitaDetalle(qr.visitaId()).orElse(null) : null;
+        VisitaDetalleDTO detalle = porteriaRepository.getVisitaDetalle(qr.visitaId()).orElse(null);
         if (detalle != null) {
             String nombre = detalle.nombreVisitante() != null ? detalle.nombreVisitante() : "";
             if (detalle.apellidoVisitante() != null && !detalle.apellidoVisitante().isBlank()) {
@@ -472,43 +637,43 @@ public class PorteriaServiceImpl implements PorteriaService {
         return resp;
     }
 
+    /**
+     * F07-01 / F7-08: entry by QR. Requires the caller's property context (no default property or
+     * portero), refuses QRs of closed visits, and consumes the QR only through the atomic
+     * SP_VALIDAR_CONSUMIR_QR. Parking is claimed with a conditional update (F7-04).
+     */
     @Override
     @Auditable(action = "CHECKIN_QR", resource = "ACCESO_PORTERIA", category = AuditCategory.SECURITY, severity = AuditSeverity.INFO)
     public Map<String, Object> registrarEntradaQr(String token, String medioTransporte, String placa, String descripcion) {
+        SaedContext ctx = requireOperationalContext();
+        Long propId = requirePropertyId(ctx);
+        Long porteroId = ctx.getUserId();
         if (token == null || token.isBlank()) {
             throw new QrAccessException("Token QR requerido", "BAD_REQUEST", HttpStatus.BAD_REQUEST);
         }
 
-        // 1. Identificar portería y portero operador
-        Long propId = SaedContextHolder.getContext() != null ? SaedContextHolder.getContext().getPropertyId() : null;
-        Long porteroId = SaedContextHolder.getContext() != null ? SaedContextHolder.getContext().getUserId() : null;
-        if (porteroId == null) porteroId = 1L;
-        if (propId == null) propId = 1L;
-
-        Long porteriaId = null;
-        if (propId != null) {
-            try {
-                porteriaId = jdbcTemplate.queryForObject(
-                    "SELECT MIN(ID_PORTERIA) FROM PORTERIAS WHERE ID_PROPIEDAD = :propId",
-                    new MapSqlParameterSource("propId", propId),
-                    Long.class
-                );
-            } catch (Exception ignored) {}
-            if (porteriaId == null) {
-                porteriaId = -1L * propId;
+        // A QR of a cancelled/rejected/finished visit never admits entry, even if it is still ACTIVO.
+        QrAccesoDTO visible = porteriaRepository.getQrAccesoByToken(token).orElse(null);
+        if (visible != null && visible.visitaId() != null) {
+            VisitaDTO visita = porteriaRepository.getVisitaById(visible.visitaId()).orElse(null);
+            if (visita != null && !OPEN_VISIT_STATES.contains(visita.estado())) {
+                throw new QrAccessException("La visita asociada al código QR fue cancelada o finalizada",
+                    "QR_REVOKED", HttpStatus.CONFLICT);
             }
-        } else {
-            try {
-                porteriaId = jdbcTemplate.queryForObject("SELECT MIN(ID_PORTERIA) FROM PORTERIAS", new MapSqlParameterSource(), Long.class);
-            } catch (Exception ignored) {}
-            if (porteriaId == null) porteriaId = 1L;
         }
 
-        // 2. Validación y Consumo Atómico mediante Stored Procedure Oracle (GAP-F7-02)
+        Long porteriaId = porteriaRepository.findFirstPorteriaId(propId)
+            .orElseThrow(() -> new IllegalStateException("La propiedad no tiene porterías configuradas"));
+
         QrConsumoResultadoDTO resultadoSp = porteriaRepository.validarYConsumirQrSp(token, porteriaId, porteroId);
 
         if (!resultadoSp.valido()) {
             String msg = resultadoSp.mensaje() != null ? resultadoSp.mensaje() : "Acceso denegado con código QR";
+            if (msg.startsWith("Error interno")) {
+                log.warn("SP_VALIDAR_CONSUMIR_QR reported an internal error for property {}", propId);
+                throw new QrAccessException("No fue posible validar el código QR", "QR_VALIDATION_ERROR",
+                    HttpStatus.INTERNAL_SERVER_ERROR);
+            }
             String msgUpper = msg.toUpperCase();
             if (msgUpper.contains("NO ENCONTRADO") || msgUpper.contains("INVÁLIDO") || msgUpper.contains("INVALIDO")) {
                 throw new QrAccessException(msg, "QR_NOT_FOUND", HttpStatus.NOT_FOUND);
@@ -525,59 +690,31 @@ public class PorteriaServiceImpl implements PorteriaService {
 
         Long visitaId = resultadoSp.visitaId();
 
-        // 3. Actualizar visita a EN_CURSO si aplica (F7-01 canónico)
         if (visitaId != null) {
             porteriaRepository.updateVisitaEstado(visitaId, "EN_CURSO");
+            String obs = (medioTransporte != null ? medioTransporte : "A_PIE") +
+                    (descripcion != null && !descripcion.isBlank() ? " - " + descripcion : "");
+            porteriaRepository.complementEntrada(visitaId,
+                placa != null && !placa.isBlank() ? placa.trim().toUpperCase() : null,
+                obs.length() > 300 ? obs.substring(0, 300) : obs);
         }
 
-        // 4. Complementar metadata en REGISTROS_ACCESO (placa y observaciones) si aplica
-        String obs = (medioTransporte != null ? medioTransporte : "A_PIE") +
-                (descripcion != null && !descripcion.isBlank() ? " - " + descripcion : "");
-        if (visitaId != null) {
-            try {
-                jdbcTemplate.update(
-                    "UPDATE REGISTROS_ACCESO SET PLACA_VEHICULO = :placa, OBSERVACIONES = :obs " +
-                    "WHERE ID_REGISTRO_ACCESO = (" +
-                    "  SELECT MAX(ID_REGISTRO_ACCESO) FROM REGISTROS_ACCESO " +
-                    "  WHERE ID_VISITA = :visitaId AND TIPO_MOVIMIENTO = 'ENTRADA'" +
-                    ")",
-                    new MapSqlParameterSource()
-                        .addValue("placa", placa != null && !placa.isBlank() ? placa.trim().toUpperCase() : null)
-                        .addValue("obs", obs)
-                        .addValue("visitaId", visitaId)
-                );
-            } catch (Exception e) {
-                log.warn("Aviso al complementar registro de acceso: {}", e.getMessage());
-            }
-        }
-
-        // 5. Asignar parqueadero y registrar vehículo si aplica
         String parqAsignado = null;
-        if (visitaId != null && ("CARRO".equalsIgnoreCase(medioTransporte) || "MOTO".equalsIgnoreCase(medioTransporte))) {
-            try {
-                List<Map<String, Object>> parqs = jdbcTemplate.queryForList(
-                    "SELECT ID_PARQUEADERO, NUMERO_PARQUEADERO FROM PARQUEADEROS " +
-                    "WHERE ID_PROPIEDAD = :propId AND ESTADO = 'DISPONIBLE' " +
-                    "ORDER BY ID_PARQUEADERO",
-                    new MapSqlParameterSource("propId", propId)
-                );
-                Long parqId = null;
-                if (!parqs.isEmpty()) {
-                    parqId = ((Number) parqs.get(0).get("ID_PARQUEADERO")).longValue();
-                    parqAsignado = (String) parqs.get(0).get("NUMERO_PARQUEADERO");
-                    jdbcTemplate.update("UPDATE PARQUEADEROS SET ESTADO = 'ASIGNADO' WHERE ID_PARQUEADERO = :id", new MapSqlParameterSource("id", parqId));
-                }
-                VehiculoVisitaRequestDTO vehRequest = new VehiculoVisitaRequestDTO(
-                    visitaId,
-                    parqId,
-                    placa != null ? placa : "",
-                    "CARRO".equalsIgnoreCase(medioTransporte) ? "CARRO" : "MOTO",
-                    "DENTRO"
-                );
-                porteriaRepository.createVehiculoVisita(vehRequest);
-            } catch (Exception e) {
-                log.warn("No se pudo asignar parqueadero o registrar vehículo: {}", e.getMessage());
+        boolean carro = "CARRO".equalsIgnoreCase(medioTransporte);
+        boolean moto = "MOTO".equalsIgnoreCase(medioTransporte);
+        if (visitaId != null && (carro || moto)) {
+            ParkingSpotClaim claim = porteriaRepository.claimAvailableSpot(propId, moto ? "MOTOS" : "VISITANTES")
+                .orElse(null);
+            if (claim != null) {
+                parqAsignado = claim.numeroParqueadero();
             }
+            porteriaRepository.createVehiculoVisita(new VehiculoVisitaRequestDTO(
+                visitaId,
+                claim != null ? claim.idParqueadero() : null,
+                placa != null ? placa.trim().toUpperCase() : "",
+                carro ? "CARRO" : "MOTO",
+                "DENTRO"
+            ));
         }
 
         Map<String, Object> resp = new HashMap<>();
@@ -596,44 +733,41 @@ public class PorteriaServiceImpl implements PorteriaService {
 
     @Override
     @Auditable(action = "CHECKOUT_VEHICULO", resource = "ACCESO_VEHICULO", category = AuditCategory.SECURITY, severity = AuditSeverity.INFO)
-    public void registrarSalidaVehiculo(Long vehiculoVisitaId, BigDecimal costoTotal) {
-        porteriaRepository.registerSalidaVehiculo(vehiculoVisitaId, costoTotal);
+    public void registrarSalidaVehiculo(Long vehiculoVisitaId) {
+        SaedContext ctx = requireOperationalContext();
+        VehiculoVisitaDTO vehiculo = porteriaRepository.getVehiculoVisitaById(vehiculoVisitaId)
+            .orElseThrow(() -> new NoSuchElementException("Vehículo no encontrado"));
+        requireVisitInScope(vehiculo.visitaId());
+        if (!"DENTRO".equals(vehiculo.estado())) {
+            return;
+        }
+        closeVehicle(vehiculo, requirePropertyId(ctx));
     }
 
-    private Map<String, Object> checkExistingEntry(QrAccesoDTO qr) {
-        if (qr == null || qr.visitaId() == null) {
-            return null;
+    private void closeVehicle(VehiculoVisitaDTO vehiculo, Long propId) {
+        BigDecimal fee = computeParkingFee(propId, vehiculo.fechaIngreso(), ZonedDateTime.now(BOGOTA));
+        boolean closed = porteriaRepository.closeVehiculoVisita(vehiculo.idVehiculoVisita(), fee);
+        if (closed && vehiculo.parqueaderoId() != null) {
+            porteriaRepository.releaseParqueadero(vehiculo.parqueaderoId());
         }
-        try {
-            List<Map<String, Object>> existing = jdbcTemplate.queryForList(
-                "SELECT ra.ID_REGISTRO_ACCESO, p.NUMERO_PARQUEADERO " +
-                "FROM REGISTROS_ACCESO ra " +
-                "LEFT JOIN VEHICULOS_VISITA vv ON vv.ID_VISITA = ra.ID_VISITA AND vv.ESTADO = 'DENTRO' " +
-                "LEFT JOIN PARQUEADEROS p ON p.ID_PARQUEADERO = vv.ID_PARQUEADERO " +
-                "WHERE ra.ID_QR = :idQr AND ra.TIPO_ACCESO = 'ENTRADA' " +
-                "ORDER BY ra.FECHA_ACCESO DESC",
-                new MapSqlParameterSource("idQr", qr.idQr())
-            );
-            if (!existing.isEmpty()) {
-                Map<String, Object> resp = new HashMap<>();
-                resp.put("success", true);
-                resp.put("mensaje", "Entrada ya registrada previamente para este visitante");
-                resp.put("idVisita", qr.visitaId());
-                Object parqObj = existing.get(0).get("NUMERO_PARQUEADERO");
-                String parq = parqObj != null ? parqObj.toString() : null;
-                resp.put("parqueadero", parq);
-                resp.put("yaRegistrado", true);
-                return resp;
-            }
-        } catch (Exception e) {
-            log.debug("Aviso al verificar entrada existente para QR {}: {}", qr.idQr(), e.getMessage());
+    }
+
+    /**
+     * Overtime fee: the per-property hourly tariff applied to every started hour beyond the free minutes.
+     * With no tariff configured (default) the fee is zero.
+     */
+    BigDecimal computeParkingFee(Long propId, ZonedDateTime ingreso, ZonedDateTime salida) {
+        int tarifa = propertyConfigService.getIntValue(propId, KEY_TARIFA_PARQUEADERO_HORA, 0);
+        if (tarifa <= 0 || ingreso == null || salida == null) {
+            return BigDecimal.ZERO;
         }
-        return null;
+        int gratis = propertyConfigService.getIntValue(propId, KEY_MINUTOS_GRATIS_PARQUEADERO, maxVisitMinutes(propId));
+        long minutos = Math.max(0, Duration.between(ingreso, salida).toMinutes());
+        long exceso = minutos - Math.max(0, gratis);
+        if (exceso <= 0) {
+            return BigDecimal.ZERO;
+        }
+        long horas = (exceso + 59) / 60;
+        return BigDecimal.valueOf(horas * tarifa);
     }
 }
-
-
-
-
-
-
