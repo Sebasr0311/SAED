@@ -140,7 +140,7 @@ public class PorteriaRepositoryImpl implements PorteriaRepository {
     );
 
     @Override
-    public List<VisitaHistorialDTO> getVisitasHistorial(String fechaInicio, String fechaFin) {
+    public List<VisitaHistorialDTO> getVisitasHistorial(Long propId, String fechaInicio, String fechaFin) {
         String sql = "SELECT v.ID_VISITA, " +
                      "       pv.PRIMER_NOMBRE || ' ' || COALESCE(pv.SEGUNDO_NOMBRE, '') AS NOMBRE_VISITANTE, pv.PRIMER_APELLIDO || ' ' || COALESCE(pv.SEGUNDO_APELLIDO, '') AS APELLIDO_VISITANTE, pv.NUMERO_DOCUMENTO AS DOCUMENTO_VISITANTE, " +
                      "       COALESCE(TRIM(p_aut.PRIMER_NOMBRE || ' ' || COALESCE(p_aut.PRIMER_APELLIDO, '')), TRIM(pr.PRIMER_NOMBRE || ' ' || COALESCE(pr.PRIMER_APELLIDO, ''))) AS NOMBRE_RESIDENTE, " +
@@ -160,11 +160,13 @@ public class PorteriaRepositoryImpl implements PorteriaRepository {
                      "LEFT JOIN PERSONAS pr ON uh.ID_PERSONA = pr.ID_PERSONA " +
                      "LEFT JOIN VEHICULOS_VISITA vv ON vv.ID_VISITA = v.ID_VISITA " +
                      "LEFT JOIN PARQUEADEROS pq ON pq.ID_PARQUEADERO = vv.ID_PARQUEADERO " +
-                     "WHERE TRUNC(v.FECHA_CREACION) BETWEEN TO_DATE(:fechaInicio, 'YYYY-MM-DD') AND TO_DATE(:fechaFin, 'YYYY-MM-DD') " +
+                     "WHERE u.ID_PROPIEDAD = :propId " +
+                     "AND TRUNC(v.FECHA_CREACION) BETWEEN TO_DATE(:fechaInicio, 'YYYY-MM-DD') AND TO_DATE(:fechaFin, 'YYYY-MM-DD') " +
                      "ORDER BY v.FECHA_CREACION DESC";
 
         return jdbcTemplate.query(sql,
                 new org.springframework.jdbc.core.namedparam.MapSqlParameterSource()
+                        .addValue("propId", propId)
                         .addValue("fechaInicio", fechaInicio)
                         .addValue("fechaFin", fechaFin),
                 historialMapper);
@@ -226,7 +228,7 @@ public class PorteriaRepositoryImpl implements PorteriaRepository {
     }
 
     @Override
-    public List<VisitaListDTO> getVisitasResumen() {
+    public List<VisitaListDTO> getVisitasResumen(Long propId) {
         String sql = "SELECT v.ID_VISITA, p.PRIMER_NOMBRE || ' ' || COALESCE(p.SEGUNDO_NOMBRE, '') || ' ' || p.PRIMER_APELLIDO || ' ' || COALESCE(p.SEGUNDO_APELLIDO, '') AS nombreVisitante, p.NUMERO_DOCUMENTO AS documentoVisitante, u.IDENTIFICADOR AS numeroApartamento, " +
                      "(SELECT MIN(FECHA_HORA) FROM REGISTROS_ACCESO ra WHERE ra.ID_VISITA = v.ID_VISITA AND ra.TIPO_MOVIMIENTO = 'ENTRADA') AS fechaIngreso, " +
                      "(SELECT MAX(FECHA_HORA) FROM REGISTROS_ACCESO ra WHERE ra.ID_VISITA = v.ID_VISITA AND ra.TIPO_MOVIMIENTO = 'SALIDA') AS fechaSalida, " +
@@ -235,10 +237,10 @@ public class PorteriaRepositoryImpl implements PorteriaRepository {
                      "JOIN UNIDADES u ON v.ID_UNIDAD = u.ID_UNIDAD " +
                      "JOIN VISITANTES vis ON v.ID_VISITANTE = vis.ID_VISITANTE " +
                      "JOIN PERSONAS p ON vis.ID_PERSONA = p.ID_PERSONA " +
-                     "WHERE 1=1 " +
+                     "WHERE u.ID_PROPIEDAD = :propId " +
                      "ORDER BY v.ID_VISITA DESC";
         
-        return jdbcTemplate.query(sql,  (rs, rowNum) -> new VisitaListDTO(
+        return jdbcTemplate.query(sql, new MapSqlParameterSource("propId", propId), (rs, rowNum) -> new VisitaListDTO(
                 rs.getLong("ID_VISITA"),
                 rs.getString("nombreVisitante"),
                 rs.getString("documentoVisitante"),
@@ -414,6 +416,120 @@ public class PorteriaRepositoryImpl implements PorteriaRepository {
     public void registerSalidaVehiculo(Long id, BigDecimal costoTotal) {
         String sql = "UPDATE VEHICULOS_VISITA SET FECHA_SALIDA = CURRENT_TIMESTAMP, COSTO_TOTAL = :costoTotal, ESTADO = 'SALIO' WHERE ID_VEHICULO_VISITA = :id";
         jdbcTemplate.update(sql, new MapSqlParameterSource("id", id).addValue("costoTotal", costoTotal));
+    }
+
+    // --- LIFECYCLE (F07-01 / F07-03) ---
+    @Override
+    public void complementEntrada(Long visitaId, String placa, String observaciones) {
+        jdbcTemplate.update(
+                "UPDATE REGISTROS_ACCESO SET PLACA_VEHICULO = :placa, OBSERVACIONES = :obs "
+                        + "WHERE ID_REGISTRO_ACCESO = (SELECT MAX(ID_REGISTRO_ACCESO) FROM REGISTROS_ACCESO "
+                        + "WHERE ID_VISITA = :visitaId AND TIPO_MOVIMIENTO = 'ENTRADA')",
+                new MapSqlParameterSource("placa", placa).addValue("obs", observaciones).addValue("visitaId", visitaId));
+    }
+
+    @Override
+    public List<Long> findActiveUnitIdsForUser(Long userId) {
+        return jdbcTemplate.query(
+                "SELECT ID_UNIDAD FROM USUARIO_ASIGNACIONES WHERE ID_USUARIO = :u AND ESTADO IN ('ACTIVA', 'ACTIVO') "
+                        + "AND ID_UNIDAD IS NOT NULL",
+                new MapSqlParameterSource("u", userId), (rs, r) -> rs.getLong("ID_UNIDAD"));
+    }
+
+    @Override
+    public Optional<Long> findVisitaPropertyId(Long visitaId) {
+        List<Long> ids = jdbcTemplate.query(
+                "SELECT u.ID_PROPIEDAD FROM VISITAS v JOIN UNIDADES u ON u.ID_UNIDAD = v.ID_UNIDAD WHERE v.ID_VISITA = :id",
+                new MapSqlParameterSource("id", visitaId), (rs, r) -> rs.getLong("ID_PROPIEDAD"));
+        return ids.stream().findFirst();
+    }
+
+    @Override
+    public Optional<Long> findFirstPorteriaId(Long propId) {
+        List<Long> ids = jdbcTemplate.query(
+                "SELECT ID_PORTERIA FROM PORTERIAS WHERE ID_PROPIEDAD = :propId ORDER BY ID_PORTERIA FETCH FIRST 1 ROWS ONLY",
+                new MapSqlParameterSource("propId", propId), (rs, r) -> rs.getLong("ID_PORTERIA"));
+        return ids.stream().findFirst();
+    }
+
+    @Override
+    public int transitionVisitaEstado(Long visitaId, String nuevoEstado, List<String> desde) {
+        return jdbcTemplate.update(
+                "UPDATE VISITAS SET ESTADO = :estado WHERE ID_VISITA = :id AND ESTADO IN (:desde)",
+                new MapSqlParameterSource("id", visitaId).addValue("estado", nuevoEstado).addValue("desde", desde));
+    }
+
+    @Override
+    public int revokeActiveQrs(Long visitaId, Long revocadoPor, String motivo) {
+        return jdbcTemplate.update(
+                "UPDATE QR_ACCESOS SET ESTADO = 'REVOCADO', FECHA_REVOCACION = CURRENT_TIMESTAMP, "
+                        + "MOTIVO_REVOCACION = :motivo, REVOCADO_POR = :por WHERE ID_VISITA = :id AND ESTADO = 'ACTIVO'",
+                new MapSqlParameterSource("id", visitaId).addValue("motivo", motivo).addValue("por", revocadoPor));
+    }
+
+    @Override
+    public int revokeQr(Long idQr, Long revocadoPor, String motivo) {
+        return jdbcTemplate.update(
+                "UPDATE QR_ACCESOS SET ESTADO = 'REVOCADO', FECHA_REVOCACION = CURRENT_TIMESTAMP, "
+                        + "MOTIVO_REVOCACION = :motivo, REVOCADO_POR = :por WHERE ID_QR = :id AND ESTADO = 'ACTIVO'",
+                new MapSqlParameterSource("id", idQr).addValue("motivo", motivo).addValue("por", revocadoPor));
+    }
+
+    @Override
+    public Optional<ParkingSpotClaim> claimAvailableSpot(Long propId, String tipoParqueadero) {
+        MapSqlParameterSource params = new MapSqlParameterSource("propId", propId).addValue("tipo", tipoParqueadero);
+        List<Map<String, Object>> candidates = jdbcTemplate.queryForList(
+                "SELECT ID_PARQUEADERO, NUMERO_PARQUEADERO FROM PARQUEADEROS "
+                        + "WHERE ID_PROPIEDAD = :propId AND TIPO = :tipo AND ESTADO = 'DISPONIBLE' "
+                        + "ORDER BY ID_PARQUEADERO FETCH FIRST 20 ROWS ONLY",
+                params);
+        for (Map<String, Object> c : candidates) {
+            Long id = ((Number) c.get("ID_PARQUEADERO")).longValue();
+            // Conditional update: two concurrent claims of the same spot cannot both succeed.
+            int claimed = jdbcTemplate.update(
+                    "UPDATE PARQUEADEROS SET ESTADO = 'ASIGNADO' WHERE ID_PARQUEADERO = :id "
+                            + "AND ID_PROPIEDAD = :propId AND TIPO = :tipo AND ESTADO = 'DISPONIBLE'",
+                    new MapSqlParameterSource("id", id).addValue("propId", propId).addValue("tipo", tipoParqueadero));
+            if (claimed == 1) {
+                Object numero = c.get("NUMERO_PARQUEADERO");
+                return Optional.of(new ParkingSpotClaim(id, numero != null ? numero.toString() : null));
+            }
+        }
+        return Optional.empty();
+    }
+
+    @Override
+    public List<VehiculoVisitaDTO> findVehiculosDentro(Long visitaId) {
+        return jdbcTemplate.query(
+                "SELECT * FROM VEHICULOS_VISITA WHERE ID_VISITA = :id AND ESTADO = 'DENTRO'",
+                new MapSqlParameterSource("id", visitaId), vehiculoMapper);
+    }
+
+    @Override
+    public boolean closeVehiculoVisita(Long id, BigDecimal costoTotal) {
+        return jdbcTemplate.update(
+                "UPDATE VEHICULOS_VISITA SET FECHA_SALIDA = CURRENT_TIMESTAMP, COSTO_TOTAL = :costo, ESTADO = 'SALIO' "
+                        + "WHERE ID_VEHICULO_VISITA = :id AND ESTADO = 'DENTRO'",
+                new MapSqlParameterSource("id", id).addValue("costo", costoTotal)) == 1;
+    }
+
+    @Override
+    public void releaseParqueadero(Long parqueaderoId) {
+        jdbcTemplate.update(
+                "UPDATE PARQUEADEROS SET ESTADO = 'DISPONIBLE' WHERE ID_PARQUEADERO = :id AND ESTADO = 'ASIGNADO' "
+                        + "AND NOT EXISTS (SELECT 1 FROM VEHICULOS_VISITA vv WHERE vv.ID_PARQUEADERO = :id AND vv.ESTADO = 'DENTRO')",
+                new MapSqlParameterSource("id", parqueaderoId));
+    }
+
+    @Override
+    public void insertSalidaVisita(Long visitaId, Long porteriaId, Long porteroId) {
+        jdbcTemplate.update(
+                "INSERT INTO REGISTROS_ACCESO (ID_PROPIEDAD, ID_PORTERIA, ID_VISITA, ID_PERSONA, ID_UNIDAD, "
+                        + "TIPO_MOVIMIENTO, METODO_AUTORIZACION, PORTERO_OPERADOR) "
+                        + "SELECT u.ID_PROPIEDAD, :porteria, v.ID_VISITA, vis.ID_PERSONA, v.ID_UNIDAD, 'SALIDA', 'MANUAL_PORTERO', :portero "
+                        + "FROM VISITAS v JOIN UNIDADES u ON u.ID_UNIDAD = v.ID_UNIDAD "
+                        + "JOIN VISITANTES vis ON vis.ID_VISITANTE = v.ID_VISITANTE WHERE v.ID_VISITA = :id",
+                new MapSqlParameterSource("id", visitaId).addValue("porteria", porteriaId).addValue("portero", porteroId));
     }
 }
 

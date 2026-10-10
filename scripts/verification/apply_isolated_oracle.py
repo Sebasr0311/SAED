@@ -16,8 +16,8 @@ import sys
 
 import isolated_oracle as prepared
 
-CONTAINER = "83199c574ef685ac911ba425017be1be36e1e0ce82c01a6cadb4d84a26c888f5"
-RUN_ID = "d07d772ad7b7a43e24d3f85fa664afae"
+CONTAINER = "0828f8ed71cf22ebaabd67ac7c20afbdc07e0b5ac491ffd17b1b9112efc1c5a3"
+RUN_ID = "9bef87b0a0d9fb9476be2e907decaf0b"
 CONTROL = "SAED_ISO_CONTROL"
 OWNER = prepared.OWNER
 RUNTIME = prepared.RUNTIME
@@ -174,7 +174,9 @@ CREATE CONTEXT SAED_CTX USING {OWNER}.PKG_SAED_SESSION;
             stages[name] = (principal, (prepared.WORK / name).read_text(encoding="utf-8"))
         for name in sorted(self.manifest["files"]):
             if re.fullmatch(r"1[0-9][0-9]-V5[.][0-9]+__[A-Za-z0-9_]+[.]sql", name):
-                stages[name] = (OWNER, (prepared.WORK / name).read_text(encoding="utf-8"))
+                # "__sec_" migrations change objects owned by the security account (e.g. PKG_AUTH_BOOTSTRAP).
+                principal = SECURITY if "__sec_" in name else OWNER
+                stages[name] = (principal, (prepared.WORK / name).read_text(encoding="utf-8"))
         stages["lifecycle-fixture"] = (OWNER, """BEGIN
  UPDATE USUARIOS SET ESTADO='INACTIVO' WHERE ID_USUARIO=92005;
  IF SQL%ROWCOUNT != 1 THEN RAISE_APPLICATION_ERROR(-20994,'INACTIVE_FIXTURE_MISSING'); END IF;

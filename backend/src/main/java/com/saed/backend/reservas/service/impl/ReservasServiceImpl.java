@@ -17,7 +17,9 @@ import com.saed.backend.reservas.exception.UnidadEnMoraException;
 import com.saed.backend.reservas.exception.ZonaNoDisponibleException;
 import com.saed.backend.reservas.exception.ZonaNombreDuplicadoException;
 import com.saed.backend.reservas.repository.ReservasRepository;
+import com.saed.backend.reservas.service.CommonAreaRestrictionChecker;
 import com.saed.backend.reservas.service.ReservasService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -25,7 +27,10 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Set;
 
@@ -34,25 +39,41 @@ public class ReservasServiceImpl implements ReservasService {
 
     private final ReservasRepository reservasRepository;
     private final PazYSalvoService pazYSalvoService;
+    private final CommonAreaRestrictionChecker restrictionChecker;
+    private final Clock clock;
 
-    public ReservasServiceImpl(ReservasRepository reservasRepository, PazYSalvoService pazYSalvoService) {
+    @Autowired
+    public ReservasServiceImpl(ReservasRepository reservasRepository, PazYSalvoService pazYSalvoService,
+                               CommonAreaRestrictionChecker restrictionChecker) {
+        this(reservasRepository, pazYSalvoService, restrictionChecker, Clock.system(ZoneId.of("America/Bogota")));
+    }
+
+    public ReservasServiceImpl(ReservasRepository reservasRepository, PazYSalvoService pazYSalvoService,
+                               CommonAreaRestrictionChecker restrictionChecker, Clock clock) {
         this.reservasRepository = reservasRepository;
         this.pazYSalvoService = pazYSalvoService;
+        this.restrictionChecker = restrictionChecker;
+        this.clock = clock;
     }
 
     @Override
     public List<ZonaComunDTO> getAllZonasComunes() {
-        SaedContext ctx = SaedContextHolder.getContext();
-        Long idPropiedad = ctx != null ? ctx.getPropertyId() : null;
-        String role = ctx != null ? ctx.getRoleCode() : null;
+        return reservasRepository.findZonasByPropiedad(requireTenantProperty());
+    }
 
-        if ("SUPERADMIN".equalsIgnoreCase(role)) {
-            return reservasRepository.findAllZonas();
+    /** Property of the caller; SUPERADMIN never reads operational reservation data (DEC-02). */
+    private static Long requireTenantProperty() {
+        SaedContext ctx = SaedContextHolder.getContext();
+        if (ctx == null || ctx.getUserId() == null) {
+            throw new AccessDeniedException("Contexto de usuario no válido.");
         }
-        if (idPropiedad != null) {
-            return reservasRepository.findZonasByPropiedad(idPropiedad);
+        if ("SUPERADMIN".equalsIgnoreCase(ctx.getRoleCode()) || "GLOBAL".equalsIgnoreCase(ctx.getRoleScope())) {
+            throw new AccessDeniedException("SUPERADMIN no tiene acceso operacional a reservas.");
         }
-        return reservasRepository.findAllZonas();
+        if (ctx.getPropertyId() == null) {
+            throw new AccessDeniedException("Contexto de propiedad no válido.");
+        }
+        return ctx.getPropertyId();
     }
 
     @Override
@@ -178,17 +199,7 @@ public class ReservasServiceImpl implements ReservasService {
 
     @Override
     public List<ReservaDTO> getAllReservas() {
-        SaedContext ctx = SaedContextHolder.getContext();
-        Long idPropiedad = ctx != null ? ctx.getPropertyId() : null;
-        String role = ctx != null ? ctx.getRoleCode() : null;
-
-        if ("SUPERADMIN".equalsIgnoreCase(role)) {
-            return reservasRepository.findAllReservas();
-        }
-        if (idPropiedad != null) {
-            return reservasRepository.findReservasByPropiedad(idPropiedad);
-        }
-        return reservasRepository.findAllReservas();
+        return reservasRepository.findReservasByPropiedad(requireTenantProperty());
     }
 
     @Override
@@ -208,20 +219,16 @@ public class ReservasServiceImpl implements ReservasService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El ID de reserva no puede ser nulo.");
         }
 
+        Long idPropiedad = requireTenantProperty();
         SaedContext ctx = SaedContextHolder.getContext();
-        Long idPropiedad = ctx != null ? ctx.getPropertyId() : null;
-        String role = ctx != null ? ctx.getRoleCode() : null;
-        Long contextUnitId = ctx != null ? ctx.getUnitId() : null;
+        String role = ctx.getRoleCode();
+        Long contextUnitId = ctx.getUnitId();
 
         ReservaDTO reserva = reservasRepository.findReservaById(idReserva)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Reserva no encontrada."));
 
-        if ("SUPERADMIN".equalsIgnoreCase(role)) {
-            return reserva;
-        }
-
         // Validación de copropiedad (Cross-Property)
-        if (idPropiedad != null && !reservasRepository.existsZonaInPropiedad(reserva.getIdZona(), idPropiedad)) {
+        if (!reservasRepository.existsZonaInPropiedad(reserva.getIdZona(), idPropiedad)) {
             throw new AccessDeniedException("No tiene permisos para acceder a reservas de otra copropiedad.");
         }
 
@@ -242,14 +249,10 @@ public class ReservasServiceImpl implements ReservasService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La solicitud de reserva no puede ser nula.");
         }
 
+        Long idPropiedad = requireTenantProperty();
         SaedContext ctx = SaedContextHolder.getContext();
-        Long idUsuario = ctx != null ? ctx.getUserId() : null;
-        Long idPropiedad = ctx != null ? ctx.getPropertyId() : null;
-        String role = ctx != null ? ctx.getRoleCode() : null;
-
-        if (idUsuario == null || idPropiedad == null) {
-            throw new IllegalStateException("Contexto de usuario inválido.");
-        }
+        Long idUsuario = ctx.getUserId();
+        String role = ctx.getRoleCode();
 
         // 1. Resolución segura de unidad y validación Anti-IDOR
         Long unitIdEfectiva;
@@ -292,17 +295,9 @@ public class ReservasServiceImpl implements ReservasService {
             );
         }
 
-        // 3. GAP-F8-02: Validación canónica de estado financiero y bloqueo automático por mora con F6
-        PazYSalvoEstadoFinancieroDTO estadoFinanciero = pazYSalvoService.verificarEstadoFinanciero(unitIdEfectiva);
-        if (!estadoFinanciero.pazYSalvo() || (estadoFinanciero.saldoTotalExigible() != null && estadoFinanciero.saldoTotalExigible().compareTo(BigDecimal.ZERO) > 0)) {
-            throw new UnidadEnMoraException(
-                "La unidad presenta obligaciones financieras pendientes y no puede realizar reservas de zonas comunes."
-            );
-        }
-
-        // 4. Parámetros por defecto y validación estricta de intervalo horario
+        // 4. Parámetros por defecto y validación estricta de intervalo horario (F08-01)
         if (reserva.getFechaReserva() == null) {
-            reserva.setFechaReserva(LocalDate.now().plusDays(1));
+            reserva.setFechaReserva(LocalDate.now(clock).plusDays(1));
         }
         if (reserva.getHoraInicio() == null) {
             reserva.setHoraInicio("10:00");
@@ -310,9 +305,23 @@ public class ReservasServiceImpl implements ReservasService {
         if (reserva.getHoraFin() == null) {
             reserva.setHoraFin("12:00");
         }
-        if (reserva.getHoraInicio().compareTo(reserva.getHoraFin()) >= 0) {
-            throw new IllegalArgumentException("La hora de inicio debe ser anterior a la hora de finalización.");
+        validateSchedule(zona, reserva.getFechaReserva(), reserva.getHoraInicio(), reserva.getHoraFin());
+
+        // F10-07: an active sanction restricting common areas blocks the booking.
+        if (restrictionChecker.hasActiveCommonAreaRestriction(unitIdEfectiva, reserva.getFechaReserva())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                "La unidad tiene una restricción vigente de uso de zonas comunes.");
         }
+
+        // 3. GAP-F8-02: Validación canónica de estado financiero y bloqueo automático por mora con F6.
+        // The message never carries amounts or reasons (RESIDENTE_CONVIVENCIA must not learn debt details).
+        PazYSalvoEstadoFinancieroDTO estadoFinanciero = pazYSalvoService.verificarEstadoFinanciero(unitIdEfectiva);
+        if (!estadoFinanciero.pazYSalvo() || (estadoFinanciero.saldoTotalExigible() != null && estadoFinanciero.saldoTotalExigible().compareTo(BigDecimal.ZERO) > 0)) {
+            throw new UnidadEnMoraException(
+                "La unidad presenta obligaciones financieras pendientes y no puede realizar reservas de zonas comunes."
+            );
+        }
+
         // GAP-F8-07-02: Validación semántica de asistentes (> 0)
         if (reserva.getCantidadAsistentes() != null && reserva.getCantidadAsistentes() <= 0) {
             throw new AsistentesInvalidosException("La cantidad de asistentes debe ser un número entero mayor a cero.");
@@ -335,6 +344,18 @@ public class ReservasServiceImpl implements ReservasService {
             reserva.setCostoTotal(zona.getCostoReserva());
         } else {
             reserva.setCostoTotal(BigDecimal.ZERO);
+        }
+
+        // 5a. F08-01: serialize bookings of the same unit (any zone), then enforce quota and parallel booking.
+        reservasRepository.lockUnidadForUpdate(unitIdEfectiva);
+        int maxActivas = valueOr(zona.getMaxReservasActivasUnidad(), DEFAULT_MAX_RESERVAS_ACTIVAS);
+        if (reservasRepository.countActiveReservasUnidad(unitIdEfectiva, LocalDate.now(clock)) >= maxActivas) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                "La unidad alcanzó el máximo de " + maxActivas + " reservas activas.");
+        }
+        if (reservasRepository.hasOverlappingReservaUnidad(unitIdEfectiva, reserva.getFechaReserva(),
+                reserva.getHoraInicio(), reserva.getHoraFin())) {
+            throw new ReservaSolapadaException("La unidad ya tiene otra reserva activa en ese horario.");
         }
 
         // 5. GAP-F8-03: Bloqueo pesimista a nivel de fila de zona en Oracle para serialización concurrente
@@ -401,6 +422,16 @@ public class ReservasServiceImpl implements ReservasService {
         // 3. Validación de máquina de estados estricta (GAP-F8-07-05)
         validarTransicionEstado(estadoActual, targetEstado);
 
+        if ("APROBADA".equals(targetEstado) && !"APROBADA".equalsIgnoreCase(estadoActual)) {
+            BigDecimal deposito = reservasRepository.findZonaByIdAndPropiedad(freshReserva.getIdZona(), requireTenantProperty())
+                .map(ZonaComunDTO::getValorDeposito).orElse(BigDecimal.ZERO);
+            BigDecimal pagado = freshReserva.getDepositoPagado() != null ? freshReserva.getDepositoPagado() : BigDecimal.ZERO;
+            if (deposito != null && deposito.compareTo(BigDecimal.ZERO) > 0 && pagado.compareTo(deposito) < 0) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "La reserva requiere el pago del depósito de la zona antes de ser aprobada.");
+            }
+        }
+
         Long aprobadoPor = null;
         if ("APROBADA".equals(targetEstado) || "RECHAZADA".equals(targetEstado)) {
             aprobadoPor = idPersona;
@@ -451,7 +482,76 @@ public class ReservasServiceImpl implements ReservasService {
             );
         }
 
+        // F08-01: residents cancel only before the zone cancellation window; administrators at any time.
+        if ("RESIDENTE".equalsIgnoreCase(role) || "RESIDENTE_CONVIVENCIA".equalsIgnoreCase(role)) {
+            int horasLimite = reservasRepository.findZonaByIdAndPropiedad(freshReserva.getIdZona(), requireTenantProperty())
+                .map(z -> valueOr(z.getHorasLimiteCancelacion(), DEFAULT_HORAS_CANCELACION))
+                .orElse(DEFAULT_HORAS_CANCELACION);
+            ZonedDateTime inicio = startOf(freshReserva.getFechaReserva(), freshReserva.getHoraInicio());
+            if (inicio != null && ZonedDateTime.now(clock).isAfter(inicio.minusHours(horasLimite))) {
+                throw new ReservaTransicionInvalidaException(
+                    "Solo se puede cancelar hasta " + horasLimite + " horas antes del inicio; contacte a la administración.");
+            }
+        }
+
         reservasRepository.updateEstadoReserva(idReserva, "CANCELADA", null);
+    }
+
+    @Override
+    @Transactional
+    public void registrarDeposito(Long idReserva, BigDecimal monto) {
+        if (monto == null || monto.compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("El monto del depósito debe ser mayor o igual a cero.");
+        }
+        getReservaById(idReserva);
+        reservasRepository.registrarDeposito(idReserva, monto);
+    }
+
+    private static final java.util.regex.Pattern HORA = java.util.regex.Pattern.compile("^([01]\\d|2[0-3]):[0-5]\\d$");
+    private static final String DEFAULT_APERTURA = "06:00";
+    private static final String DEFAULT_CIERRE = "22:00";
+    private static final int DEFAULT_ANTICIPACION_MIN_HORAS = 2;
+    private static final int DEFAULT_ANTICIPACION_MAX_DIAS = 60;
+    private static final int DEFAULT_MAX_RESERVAS_ACTIVAS = 2;
+    private static final int DEFAULT_HORAS_CANCELACION = 24;
+
+    private static int valueOr(Integer value, int fallback) {
+        return value != null ? value : fallback;
+    }
+
+    private ZonedDateTime startOf(LocalDate fecha, String hora) {
+        if (fecha == null || hora == null || !HORA.matcher(hora).matches()) {
+            return null;
+        }
+        return fecha.atTime(java.time.LocalTime.parse(hora)).atZone(clock.getZone());
+    }
+
+    /** F08-01: HH:MM format, operating hours, no past dates, minimum and maximum advance. */
+    private void validateSchedule(ZonaComunDTO zona, LocalDate fecha, String horaInicio, String horaFin) {
+        if (!HORA.matcher(horaInicio).matches() || !HORA.matcher(horaFin).matches()) {
+            throw new IllegalArgumentException("Las horas deben tener el formato HH:MM (00:00 a 23:59).");
+        }
+        if (horaInicio.compareTo(horaFin) >= 0) {
+            throw new IllegalArgumentException("La hora de inicio debe ser anterior a la hora de finalización.");
+        }
+        String apertura = zona.getHoraApertura() != null ? zona.getHoraApertura() : DEFAULT_APERTURA;
+        String cierre = zona.getHoraCierre() != null ? zona.getHoraCierre() : DEFAULT_CIERRE;
+        if (horaInicio.compareTo(apertura) < 0 || horaFin.compareTo(cierre) > 0) {
+            throw new IllegalArgumentException("La zona '" + zona.getNombre() + "' solo se puede reservar entre "
+                + apertura + " y " + cierre + ".");
+        }
+        LocalDate hoy = LocalDate.now(clock);
+        if (fecha.isBefore(hoy)) {
+            throw new IllegalArgumentException("No se puede reservar en una fecha pasada.");
+        }
+        int maxDias = valueOr(zona.getAnticipacionMaxDias(), DEFAULT_ANTICIPACION_MAX_DIAS);
+        if (fecha.isAfter(hoy.plusDays(maxDias))) {
+            throw new IllegalArgumentException("Solo se puede reservar con hasta " + maxDias + " días de anticipación.");
+        }
+        int minHoras = valueOr(zona.getAnticipacionMinHoras(), DEFAULT_ANTICIPACION_MIN_HORAS);
+        if (startOf(fecha, horaInicio).isBefore(ZonedDateTime.now(clock).plusHours(minHoras))) {
+            throw new IllegalArgumentException("La reserva debe hacerse con al menos " + minHoras + " horas de anticipación.");
+        }
     }
 
     private void validarTransicionEstado(String estadoActual, String nuevoEstado) {
@@ -508,6 +608,12 @@ public class ReservasServiceImpl implements ReservasService {
         if (ctx == null || ctx.getUnitId() == null) {
             throw new AccessDeniedException("El usuario no tiene una unidad asignada en su contexto.");
         }
-        return pazYSalvoService.verificarEstadoFinanciero(ctx.getUnitId());
+        PazYSalvoEstadoFinancieroDTO estado = pazYSalvoService.verificarEstadoFinanciero(ctx.getUnitId());
+        if ("RESIDENTE_CONVIVENCIA".equalsIgnoreCase(ctx.getRoleCode())) {
+            // F08-01 / G04: a conviviente only learns whether the unit may book, never amounts or reasons.
+            return new PazYSalvoEstadoFinancieroDTO(estado.idUnidad(), estado.identificadorUnidad(),
+                null, null, null, estado.pazYSalvo(), List.of());
+        }
+        return estado;
     }
 }

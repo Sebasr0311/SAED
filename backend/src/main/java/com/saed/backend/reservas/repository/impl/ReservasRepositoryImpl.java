@@ -42,8 +42,20 @@ public class ReservasRepositoryImpl implements ReservasRepository {
         dto.setRequiereReserva(rs.getString("REQUIERE_RESERVA"));
         dto.setCostoReserva(rs.getBigDecimal("COSTO_RESERVA"));
         dto.setEstado(rs.getString("ESTADO"));
+        dto.setHoraApertura(rs.getString("HORA_APERTURA"));
+        dto.setHoraCierre(rs.getString("HORA_CIERRE"));
+        dto.setAnticipacionMinHoras(nullableInt(rs, "ANTICIPACION_MIN_HORAS"));
+        dto.setAnticipacionMaxDias(nullableInt(rs, "ANTICIPACION_MAX_DIAS"));
+        dto.setMaxReservasActivasUnidad(nullableInt(rs, "MAX_RESERVAS_ACTIVAS_UNIDAD"));
+        dto.setValorDeposito(rs.getBigDecimal("VALOR_DEPOSITO"));
+        dto.setHorasLimiteCancelacion(nullableInt(rs, "HORAS_LIMITE_CANCELACION"));
         return dto;
     };
+
+    private static Integer nullableInt(java.sql.ResultSet rs, String column) throws java.sql.SQLException {
+        int value = rs.getInt(column);
+        return rs.wasNull() ? null : value;
+    }
 
     private final RowMapper<ReservaDTO> reservaMapper = (rs, rowNum) -> {
         ReservaDTO dto = new ReservaDTO();
@@ -59,6 +71,7 @@ public class ReservasRepositoryImpl implements ReservasRepository {
         dto.setHoraFin(rs.getString("HORA_FIN"));
         dto.setCantidadAsistentes(rs.getInt("CANTIDAD_ASISTENTES"));
         dto.setCostoTotal(rs.getBigDecimal("COSTO_TOTAL"));
+        dto.setDepositoPagado(rs.getBigDecimal("DEPOSITO_PAGADO"));
         dto.setObservaciones(rs.getString("OBSERVACIONES"));
         dto.setEstado(rs.getString("ESTADO"));
         
@@ -314,7 +327,14 @@ public class ReservasRepositoryImpl implements ReservasRepository {
                      "AFORO_MAXIMO = ?, " +
                      "REQUIERE_RESERVA = ?, " +
                      "COSTO_RESERVA = ?, " +
-                     "ESTADO = ? " +
+                     "ESTADO = ?, " +
+                     "HORA_APERTURA = NVL(?, HORA_APERTURA), " +
+                     "HORA_CIERRE = NVL(?, HORA_CIERRE), " +
+                     "ANTICIPACION_MIN_HORAS = NVL(?, ANTICIPACION_MIN_HORAS), " +
+                     "ANTICIPACION_MAX_DIAS = NVL(?, ANTICIPACION_MAX_DIAS), " +
+                     "MAX_RESERVAS_ACTIVAS_UNIDAD = NVL(?, MAX_RESERVAS_ACTIVAS_UNIDAD), " +
+                     "VALOR_DEPOSITO = NVL(?, VALOR_DEPOSITO), " +
+                     "HORAS_LIMITE_CANCELACION = NVL(?, HORAS_LIMITE_CANCELACION) " +
                      "WHERE ID_ZONA = ? AND ID_PROPIEDAD = ?";
         int updated = jdbcTemplate.update(
                 sql,
@@ -324,6 +344,13 @@ public class ReservasRepositoryImpl implements ReservasRepository {
                 dto.getRequiereReservaDb(),
                 dto.getCostoReserva() != null ? dto.getCostoReserva() : BigDecimal.ZERO,
                 dto.getEstado(),
+                dto.getHoraApertura(),
+                dto.getHoraCierre(),
+                dto.getAnticipacionMinHoras(),
+                dto.getAnticipacionMaxDias(),
+                dto.getMaxReservasActivasUnidad(),
+                dto.getValorDeposito(),
+                dto.getHorasLimiteCancelacion(),
                 idZona,
                 idPropiedad
         );
@@ -379,5 +406,34 @@ public class ReservasRepositoryImpl implements ReservasRepository {
                 );
             }
         } catch (Exception ignored) {}
+    }
+
+    // --- F08-01 parallel booking and deposit ---
+    @Override
+    public void lockUnidadForUpdate(Long idUnidad) {
+        jdbcTemplate.queryForList("SELECT ID_UNIDAD FROM UNIDADES WHERE ID_UNIDAD = ? FOR UPDATE", Long.class, idUnidad);
+    }
+
+    @Override
+    public int countActiveReservasUnidad(Long idUnidad, LocalDate desde) {
+        Integer count = jdbcTemplate.queryForObject(
+            "SELECT COUNT(1) FROM RESERVAS WHERE ID_UNIDAD = ? AND FECHA_RESERVA >= ? "
+                + "AND ESTADO IN ('PENDIENTE', 'APROBADA', 'CONFIRMADA')",
+            Integer.class, idUnidad, Date.valueOf(desde));
+        return count != null ? count : 0;
+    }
+
+    @Override
+    public boolean hasOverlappingReservaUnidad(Long idUnidad, LocalDate fechaReserva, String horaInicio, String horaFin) {
+        Integer count = jdbcTemplate.queryForObject(
+            "SELECT COUNT(1) FROM RESERVAS WHERE ID_UNIDAD = ? AND FECHA_RESERVA = ? "
+                + "AND ESTADO IN ('PENDIENTE', 'APROBADA', 'CONFIRMADA') AND HORA_INICIO < ? AND HORA_FIN > ?",
+            Integer.class, idUnidad, Date.valueOf(fechaReserva), horaFin, horaInicio);
+        return count != null && count > 0;
+    }
+
+    @Override
+    public void registrarDeposito(Long idReserva, java.math.BigDecimal monto) {
+        jdbcTemplate.update("UPDATE RESERVAS SET DEPOSITO_PAGADO = ? WHERE ID_RESERVA = ?", monto, idReserva);
     }
 }

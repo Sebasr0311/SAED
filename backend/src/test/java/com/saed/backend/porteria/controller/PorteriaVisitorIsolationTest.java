@@ -272,6 +272,36 @@ class PorteriaVisitorIsolationTest {
     }
 
     @Test
+    @DisplayName("F07-01: response carries the server-issued QR token and the validity is bounded")
+    void responseCarriesServerIssuedTokenAndBoundedValidity() {
+        asCaller("RESIDENTE", "UNIDAD", OWN_UNIT);
+        defaultScopeAnswers();
+        when(porteriaService.generarQrAcceso(any())).thenReturn(new QrAccesoDTO(1L, 5000L, "server-token",
+                ZonedDateTime.now(), ZonedDateTime.now().plusDays(1), 1, 0, null, null, null, "ACTIVO", 42L));
+        Map<String, Object> body = visitBody(OWN_UNIT, 10L);
+        body.put("tiempoValidezMin", "99999999");
+
+        Map<String, Object> res = controller.programarVisita(body);
+
+        assertEquals("server-token", res.get("codigoQr"));
+        assertEquals("server-token", res.get("token"));
+        ArgumentCaptor<com.saed.backend.porteria.dto.QrAccesoRequestDTO> qr =
+                ArgumentCaptor.forClass(com.saed.backend.porteria.dto.QrAccesoRequestDTO.class);
+        verify(porteriaService).generarQrAcceso(qr.capture());
+        assertTrue(qr.getValue().fechaExpiracion().isBefore(ZonedDateTime.now().plusDays(8)));
+    }
+
+    @Test
+    @DisplayName("F07-01: cancel and revoke endpoints delegate to the scoped service operations")
+    void cancelAndRevokeDelegate() {
+        asCaller("RESIDENTE", "UNIDAD", OWN_UNIT);
+        controller.cancelarVisita(5000L);
+        controller.revocarQr(77L, Map.of("motivo", "no viene"));
+        verify(porteriaService).cancelarVisita(5000L);
+        verify(porteriaService).revocarQr(77L, "no viene");
+    }
+
+    @Test
     @DisplayName("F7-02: portero scheduling for a unit outside the caller property gets 403")
     void porteroForeignUnitIsDenied() {
         asCaller("PORTERO", "PROPIEDAD", null);

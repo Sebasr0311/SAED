@@ -88,6 +88,14 @@ public class ReservasController {
         return ResponseEntity.ok().build();
     }
 
+    /** F08-01: the administrator records the deposit paid; approval requires the zone deposit. */
+    @PutMapping("/reservas/{id}/deposito")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
+    public ResponseEntity<Void> registrarDeposito(@PathVariable Long id, @RequestBody Map<String, java.math.BigDecimal> payload) {
+        reservasService.registrarDeposito(id, payload.get("monto"));
+        return ResponseEntity.ok().build();
+    }
+
     @PutMapping("/reservas/{id}/cancelar")
     @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA')")
     public ResponseEntity<Void> cancelReserva(@PathVariable Long id) {
