@@ -524,6 +524,10 @@ export default function ResidentesPage() {
       e.idApartamento = `La unidad seleccionada ya alcanzó el cupo máximo de ${aptQuota.limiteConfigurado || 4} convivientes activos.`;
     }
 
+    if (!editing && form.idApartamento && form.tipoRelacion === 'ARRENDATARIO' && !form.crearContrato) {
+      e.crearContrato = 'Un arrendatario se registra con su contrato de arrendamiento';
+    }
+
     // Validación contractual cuando se activa formalización de contrato (Opcional para cualquier residente)
     if (form.crearContrato && form.idApartamento) {
       if (!form.contratoCanon || Number(form.contratoCanon) <= 0) {
@@ -566,6 +570,67 @@ export default function ResidentesPage() {
     };
 
     try {
+      if (!editing && form.idApartamento !== '') {
+        // F05-01: person, guardian, unit link, lease and account are registered in ONE backend transaction.
+        const nombresT = (tutorForm.nombres || '').trim().split(' ');
+        const apellidosT = (tutorForm.apellidos || '').trim().split(' ');
+        const guardianRequired = requiereTutor || Boolean(tutorForm.numeroDocumento?.trim());
+        const body = {
+          unitId: Number(form.idApartamento),
+          tipoRelacion: form.tipoRelacion,
+          person: payload,
+        };
+        if (guardianRequired) {
+          body.guardian = {
+            parentesco:
+              (tutorForm.parentesco === 'OTRO' ? tutorForm.otroParentesco : tutorForm.parentesco) || 'TUTOR LEGAL',
+            person: {
+              tipoDocumentoId: Number(tutorForm.idTipoDoc || 1),
+              numeroDocumento: tutorForm.numeroDocumento.trim(),
+              tipoPersona: 'NATURAL',
+              primerNombre: nombresT[0] || '',
+              segundoNombre: nombresT.slice(1).join(' ') || '',
+              primerApellido: apellidosT[0] || '',
+              segundoApellido: apellidosT.slice(1).join(' ') || '',
+              email: tutorForm.email || '',
+              telefono: tutorForm.telefono || '',
+            },
+          };
+        }
+        if (form.crearContrato && form.tipoRelacion === 'ARRENDATARIO') {
+          body.contract = {
+            canonMensual: Number(form.contratoCanon || 0),
+            fechaInicio: form.contratoFechaInicio || new Date().toISOString().split('T')[0],
+            fechaFin: form.contratoFechaFin || null,
+            tipoContrato: form.contratoTipo || 'INICIAL',
+            idPlantilla: form.idPlantilla ? Number(form.idPlantilla) : null,
+          };
+        }
+        if (form.crearCuentaAcceso && form.email) {
+          body.account = {
+            username: (form.usernameAcceso || form.email.split('@')[0])
+              .trim()
+              .toLowerCase()
+              .replace(/[^a-z0-9._]/g, ''),
+            password: form.generarPasswordAuto ? undefined : form.passwordAcceso?.trim() || undefined,
+            enviarCorreoActivacion: true,
+          };
+        }
+        const registered = await tenantApi.post('/residentes/registro-integral', body);
+        const generated = registered?.data?.generatedPassword || registered?.generatedPassword;
+        if (generated && body.account) {
+          toast.success(
+            `Residente registrado. Cuenta ${body.account.username} creada con clave temporal ${generated}.`,
+            { duration: 8000 }
+          );
+        } else {
+          toast.success('Residente registrado con éxito');
+        }
+        setModalOpen(false);
+        refetch();
+        return;
+      }
+
       let idResidente;
       if (editing) {
         await tenantApi.put(`/personas/${editing.id}`, payload);
@@ -731,7 +796,7 @@ export default function ResidentesPage() {
       savingRef.current = false;
       setSaving(false);
     }
-  }, [editing, form, refetch, tenantApi, validate]);
+  }, [editing, form, refetch, requiereTutor, tenantApi, tutorForm, validate]);
 
   // Vista Previa de Plantilla de Contrato con Variables (Requisito #10)
   const handlePreviewPlantilla = useCallback(async () => {
