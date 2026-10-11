@@ -46,7 +46,7 @@ public class OrgDashboardController {
 
         // 1. Propiedades
         Map<String, Object> propStats = new HashMap<>();
-        try {
+        {
             Number totalProp = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM PROPIEDADES WHERE id_organizacion = :orgId", params, Number.class);
             Number activasProp = jdbcTemplate.queryForObject(
@@ -56,26 +56,20 @@ public class OrgDashboardController {
             propStats.put("total", total);
             propStats.put("activas", activas);
             propStats.put("inactivas", total - activas);
-        } catch (Exception e) {
-            propStats.put("total", 0);
-            propStats.put("activas", 0);
-            propStats.put("inactivas", 0);
         }
 
         // 2. Unidades
         Map<String, Object> unitStats = new HashMap<>();
-        try {
+        {
             Number totalUnidades = jdbcTemplate.queryForObject(
                 "SELECT COUNT(u.id_unidad) FROM UNIDADES u JOIN PROPIEDADES p ON u.id_propiedad = p.id_propiedad WHERE p.id_organizacion = :orgId",
                 params, Number.class);
             unitStats.put("total", totalUnidades != null ? totalUnidades.longValue() : 0L);
-        } catch (Exception e) {
-            unitStats.put("total", 0);
         }
 
         // 3. Administradores de Propiedad
         Map<String, Object> adminStats = new HashMap<>();
-        try {
+        {
             Number totalAdmins = jdbcTemplate.queryForObject("""
                 SELECT COUNT(DISTINCT ua.id_usuario)
                 FROM USUARIO_ASIGNACIONES ua
@@ -85,24 +79,20 @@ public class OrgDashboardController {
                   AND ua.estado = 'ACTIVA'
             """, params, Number.class);
             adminStats.put("activos", totalAdmins != null ? totalAdmins.longValue() : 0L);
-        } catch (Exception e) {
-            adminStats.put("activos", 0);
         }
 
         // 4. Usuarios de la Organización
         Map<String, Object> userStats = new HashMap<>();
-        try {
+        {
             Number totalUsers = jdbcTemplate.queryForObject(
                 "SELECT COUNT(DISTINCT id_usuario) FROM USUARIO_ASIGNACIONES WHERE id_organizacion = :orgId AND estado = 'ACTIVA'",
                 params, Number.class);
             userStats.put("total", totalUsers != null ? totalUsers.longValue() : 0L);
-        } catch (Exception e) {
-            userStats.put("total", 0);
         }
 
         // 5. Suscripción y Límites
         Map<String, Object> suscripcionStats = new HashMap<>();
-        try {
+        {
             String planSql = """
                 SELECT p.codigo AS plan_codigo, p.nombre AS plan_nombre, m.estado AS membresia_estado,
                        m.fecha_fin, p.limite_propiedades, p.limite_unidades, p.limite_usuarios
@@ -140,13 +130,11 @@ public class OrgDashboardController {
                 suscripcionStats.put("consumoUsuarios", usedUsr);
                 suscripcionStats.put("porcentajeUsuarios", limUsr > 0 ? Math.min(100.0, Math.round((double) usedUsr / limUsr * 1000.0) / 10.0) : 0.0);
             }
-        } catch (Exception e) {
-            suscripcionStats.put("estado", "INDEFINIDO");
         }
 
         // 6. Finanzas Agregadas (BD-03)
         Map<String, Object> finanzasStats = new HashMap<>();
-        try {
+        {
             Number totalPagos = jdbcTemplate.queryForObject("""
                 SELECT NVL(SUM(pg.monto_total), 0)
                 FROM PAGOS pg
@@ -160,19 +148,16 @@ public class OrgDashboardController {
                 FROM CUOTAS c
                 JOIN UNIDADES u ON c.id_unidad = u.id_unidad
                 JOIN PROPIEDADES p ON u.id_propiedad = p.id_propiedad
-                WHERE p.id_organizacion = :orgId AND c.estado IN ('PENDIENTE', 'VENCIDA', 'EN_MORA')
+                WHERE p.id_organizacion = :orgId AND c.estado IN ('PENDIENTE', 'PAGADA_PARCIAL', 'VENCIDA')
             """, params, Number.class);
 
             finanzasStats.put("totalRecaudado", totalPagos != null ? totalPagos.doubleValue() : 0.0);
             finanzasStats.put("carteraPendiente", totalCartera != null ? totalCartera.doubleValue() : 0.0);
-        } catch (Exception e) {
-            finanzasStats.put("totalRecaudado", 0.0);
-            finanzasStats.put("carteraPendiente", 0.0);
         }
 
         // 7. Propiedades Recientes
-        List<Map<String, Object>> recientes = List.of();
-        try {
+        List<Map<String, Object>> recientes;
+        {
             String sqlRecientes = """
                 SELECT p.id_propiedad, p.nombre, p.direccion, p.ciudad, p.estado,
                        p.tipo_ocupacion_predominante,
@@ -186,7 +171,7 @@ public class OrgDashboardController {
                 FETCH FIRST 5 ROWS ONLY
             """;
             recientes = jdbcTemplate.queryForList(sqlRecientes, params);
-        } catch (Exception ignored) {}
+        }
 
         return ApiResponse.success(new OrgDashboardDTO(
                 propStats, unitStats, adminStats, userStats, suscripcionStats, finanzasStats, recientes
@@ -206,8 +191,8 @@ public class OrgDashboardController {
             SELECT p.id_propiedad, p.nombre, p.ciudad, p.estado,
                    (SELECT COUNT(*) FROM UNIDADES u WHERE u.id_propiedad = p.id_propiedad) AS total_unidades,
                    NVL((SELECT SUM(pg.monto_total) FROM PAGOS pg JOIN UNIDADES u1 ON pg.id_unidad = u1.id_unidad WHERE u1.id_propiedad = p.id_propiedad AND pg.estado = 'APROBADO'), 0) AS total_recaudado,
-                   NVL((SELECT SUM(c.saldo_pendiente) FROM CUOTAS c JOIN UNIDADES u2 ON c.id_unidad = u2.id_unidad WHERE u2.id_propiedad = p.id_propiedad AND c.estado IN ('PENDIENTE', 'VENCIDA', 'EN_MORA')), 0) AS cartera_pendiente,
-                   NVL((SELECT SUM(c.saldo_pendiente) FROM CUOTAS c JOIN UNIDADES u3 ON c.id_unidad = u3.id_unidad WHERE u3.id_propiedad = p.id_propiedad AND c.estado = 'EN_MORA'), 0) AS cartera_mora
+                   NVL((SELECT SUM(c.saldo_pendiente) FROM CUOTAS c JOIN UNIDADES u2 ON c.id_unidad = u2.id_unidad WHERE u2.id_propiedad = p.id_propiedad AND c.estado IN ('PENDIENTE', 'PAGADA_PARCIAL', 'VENCIDA')), 0) AS cartera_pendiente,
+                   NVL((SELECT SUM(c.saldo_pendiente) FROM CUOTAS c JOIN UNIDADES u3 ON c.id_unidad = u3.id_unidad WHERE u3.id_propiedad = p.id_propiedad AND c.estado IN ('PENDIENTE', 'PAGADA_PARCIAL', 'VENCIDA') AND c.saldo_pendiente > 0 AND c.fecha_vencimiento < TRUNC(SYSDATE)), 0) AS cartera_mora
             FROM PROPIEDADES p
             WHERE p.id_organizacion = :orgId
             ORDER BY cartera_pendiente DESC

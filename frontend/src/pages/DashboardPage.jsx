@@ -26,6 +26,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card.
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs.tsx';
 import { PageContainer } from '../components/layout/PageContainer.jsx';
 import { PropertyAnaliticaSection } from '../components/PropertyAnaliticaSection.jsx';
+import { KpiSummaryPanel } from '../components/KpiSummaryPanel.jsx';
 
 /**
  * DashboardPage 2.0 — Centro Operativo ADMIN_PROPIEDAD.
@@ -240,6 +241,7 @@ export default function DashboardPage() {
 
   return (
     <PageContainer className="space-y-6">
+      <KpiSummaryPanel deps={[tenant.activeAssignmentId]} />
       {/* 1. Header Contextual Enterprise */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between border-b border-border/70 pb-5">
         <div className="space-y-1">

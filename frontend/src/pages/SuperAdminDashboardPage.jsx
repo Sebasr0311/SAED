@@ -13,6 +13,7 @@ import {
   TableRow,
   TableCell,
 } from '../components/ui/table.tsx';
+import { KpiSummaryPanel } from '../components/KpiSummaryPanel.jsx';
 
 export default function SuperAdminDashboardPage() {
   const navigate = useNavigate();
@@ -71,6 +72,7 @@ export default function SuperAdminDashboardPage() {
 
   return (
     <div className="p-6 space-y-8 animate-fadeIn">
+      <KpiSummaryPanel />
       {/* 1. Header Operativo */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-border pb-6">
         <div>
@@ -274,12 +276,12 @@ export default function SuperAdminDashboardPage() {
                 <div>
                   <div className="text-xs font-semibold text-foreground">API Backend Spring Boot</div>
                   <div className="text-[10px] text-muted-foreground">
-                    {salud.api?.version || 'SAED 2.0.0-PROD'} · Latencia: {salud.api?.latenciaMs || 14}ms
+                    {salud.api?.version || 'Sin medición registrada'}
                   </div>
                 </div>
               </div>
               <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 text-[10px] font-bold">
-                {salud.api?.estado || 'OPERATIVA'}
+                {salud.api?.estado || 'SIN DATOS'}
               </Badge>
             </div>
 
@@ -290,12 +292,12 @@ export default function SuperAdminDashboardPage() {
                 <div>
                   <div className="text-xs font-semibold text-foreground">Oracle Autonomous DB</div>
                   <div className="text-[10px] text-muted-foreground">
-                    {salud.database?.motor || 'Oracle Cloud ATP 23ai'} · RLS/VPD: {salud.database?.vpdRls || 'ACTIVO'}
+                    Estado reportado por la consulta del tablero
                   </div>
                 </div>
               </div>
               <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 text-[10px] font-bold">
-                {salud.database?.estado || 'OPERATIVA'}
+                {salud.database?.estado || 'SIN DATOS'}
               </Badge>
             </div>
 
@@ -306,12 +308,12 @@ export default function SuperAdminDashboardPage() {
                 <div>
                   <div className="text-xs font-semibold text-foreground">Schedulers & Background Jobs</div>
                   <div className="text-[10px] text-muted-foreground">
-                    Tareas concurrentes: {salud.schedulers?.tareasActivas || 4} activas
+                    Sin monitoreo de tareas programadas
                   </div>
                 </div>
               </div>
               <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 text-[10px] font-bold">
-                {salud.schedulers?.estado || 'OPERATIVO'}
+                {salud.schedulers?.estado || 'SIN DATOS'}
               </Badge>
             </div>
           </CardContent>

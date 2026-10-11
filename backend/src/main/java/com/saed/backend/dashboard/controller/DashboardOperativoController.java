@@ -4,6 +4,8 @@ import com.saed.backend.common.dto.ApiResponse;
 import com.saed.backend.dashboard.dto.DashboardPorteriaDTO;
 import com.saed.backend.dashboard.dto.DashboardPropiedadDTO;
 import com.saed.backend.dashboard.dto.PropertyAnalyticsDTO;
+import com.saed.backend.dashboard.kpi.DashboardKpiService;
+import com.saed.backend.dashboard.kpi.DashboardKpisDTO;
 import com.saed.backend.dashboard.service.AnalyticsService;
 import com.saed.backend.dashboard.service.DashboardOperativoService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -22,10 +24,20 @@ public class DashboardOperativoController {
 
     private final DashboardOperativoService dashboardService;
     private final AnalyticsService analyticsService;
+    private final DashboardKpiService kpiService;
 
-    public DashboardOperativoController(DashboardOperativoService dashboardService, AnalyticsService analyticsService) {
+    public DashboardOperativoController(DashboardOperativoService dashboardService, AnalyticsService analyticsService,
+                                        DashboardKpiService kpiService) {
         this.dashboardService = dashboardService;
         this.analyticsService = analyticsService;
+        this.kpiService = kpiService;
+    }
+
+    @Operation(summary = "KPIs reconciliados del perfil en sesión (plataforma, organización, propiedad, portería, titular, conviviente)")
+    @GetMapping("/kpis")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<DashboardKpisDTO>> getKpis() {
+        return ResponseEntity.ok(ApiResponse.success(kpiService.forCurrentUser()));
     }
 
     @Operation(summary = "KPIs operativos consolidados para Administrador de Propiedad")
