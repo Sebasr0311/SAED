@@ -226,6 +226,30 @@ class ExceptionSafetyTest {
         }
     }
 
+    @Test
+    void exhaustedConnectionPoolIsRetryable503WithBoundedDiagnostic() {
+        // recovery-20: five concurrent approvals on one row over a 4-connection pool made Hikari time out;
+        // the client got an undiagnosed 500. Pool exhaustion is a transient, retryable condition.
+        Logger logger = (Logger) LoggerFactory.getLogger(GlobalExceptionHandler.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        try {
+            CorrelationIdHolder.set("pool-trace");
+            CannotCreateTransactionException ex = new CannotCreateTransactionException(SENSITIVE_MARKER,
+                    new java.sql.SQLTransientConnectionException(SENSITIVE_MARKER));
+            var response = handler.handleTransactionException(ex);
+            assertEquals(503, response.getStatusCode().value());
+            String logged = appender.list.stream().map(ILoggingEvent::getFormattedMessage).reduce("", (a, b) -> a + "\n" + b);
+            assertTrue(logged.contains("CannotCreateTransactionException>SQLTransientConnectionException"), logged);
+            assertFalse(logged.contains(SENSITIVE_MARKER));
+            assertFalse(response.getBody().toString().contains(SENSITIVE_MARKER));
+        } finally {
+            logger.detachAppender(appender);
+            appender.stop();
+        }
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"ORA-00001", "ORA-02292"})
     void conflictResponsesKeepExistingStatusAndNeverLeakRawErrors(String oracleError) {
