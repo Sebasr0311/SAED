@@ -80,6 +80,7 @@ public class SancionServiceImpl implements SancionService {
             throw new IllegalArgumentException("Nivel de gravedad inválido. Debe ser LEVE, GRAVE o GRAVISIMA.");
         }
         request.setGravedad(grav);
+        request.setEvidenciasUrls(com.saed.backend.common.util.EvidenceUrlPolicy.validate(request.getEvidenciasUrls()));
 
         // F10-15: the property always comes from the session; there is no default property fallback.
         Long propId = resolvePropertyId();

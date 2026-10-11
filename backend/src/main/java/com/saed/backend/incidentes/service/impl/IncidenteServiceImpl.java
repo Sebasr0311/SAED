@@ -212,6 +212,8 @@ public class IncidenteServiceImpl implements IncidenteService {
             throw new IllegalArgumentException("La descripcion de los hechos es obligatoria");
         }
 
+        request.setEvidenciasUrls(com.saed.backend.common.util.EvidenceUrlPolicy.validate(request.getEvidenciasUrls()));
+
         if (request.getFechaHoraIncidente() == null) {
             request.setFechaHoraIncidente(ZonedDateTime.now());
         }
