@@ -5,7 +5,9 @@ import com.saed.backend.audit.AuditCategory;
 import com.saed.backend.audit.AuditSeverity;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.saed.backend.finanzas.domain.OutstandingFees;
 import com.saed.backend.finanzas.dto.PagoRequestDTO;
+import com.saed.backend.finanzas.service.AfterCommit;
 import com.saed.backend.finanzas.service.FinanzasService;
 import com.saed.backend.finanzas.service.WompiService;
 import com.saed.backend.identity.service.TokenActivacionService;
@@ -63,6 +65,12 @@ public class WompiServiceImpl implements WompiService {
 
     @org.springframework.beans.factory.annotation.Value("${saed.wompi.events-secret:}")
     private String wompiEventsSecret;
+
+    // Provider environment this deployment settles: "sandbox" (events carry environment=test) or "live"
+    // (environment=prod). When unset it is derived from the public key prefix (pub_test_ / pub_prod_);
+    // if neither says anything, events are rejected (fail closed).
+    @org.springframework.beans.factory.annotation.Value("${saed.wompi.environment:}")
+    private String wompiEnvironment;
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
     private final FinanzasService finanzasService;
@@ -130,64 +138,63 @@ public class WompiServiceImpl implements WompiService {
         String pubKey = getPublicKey();
         String integritySec = getIntegritySecret();
         if (pubKey == null || pubKey.isBlank() || integritySec == null || integritySec.isBlank()) {
-            throw new RuntimeException("Wompi no configurado.");
+            throw new IllegalStateException("Wompi no configurado.");
         }
         if (!"CUOTA".equals(concepto) && !"MULTA".equals(concepto)) {
-            throw new RuntimeException("Concepto invalido");
+            throw new IllegalArgumentException("Concepto invalido");
         }
 
         SaedContext ctx = SaedContextHolder.getContext();
+        if (ctx == null || ctx.getUnitId() == null) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                "Pago residencial requiere una unidad valida asociada");
+        }
         Long idUnidad = ctx.getUnitId();
 
-        // Monto y validacion segun el esquema 2.0 real (CUOTAS / MULTAS)
+        // Monto y validacion segun el esquema 2.0 real (CUOTAS / MULTAS); the unit always comes from the session.
         BigDecimal monto;
-        Long idCuota = null;
+        MapSqlParameterSource params = new MapSqlParameterSource("id", idItem).addValue("u", idUnidad);
         if ("CUOTA".equals(concepto)) {
-            String sqlCuota = (idUnidad != null)
-                ? "SELECT ID_CUOTA, ID_UNIDAD, SALDO_PENDIENTE FROM CUOTAS WHERE ID_CUOTA = :id AND ID_UNIDAD = :u AND ESTADO IN ('PENDIENTE', 'VENCIDA')"
-                : "SELECT ID_CUOTA, ID_UNIDAD, SALDO_PENDIENTE FROM CUOTAS WHERE ID_CUOTA = :id AND ESTADO IN ('PENDIENTE', 'VENCIDA')";
-            MapSqlParameterSource params = new MapSqlParameterSource("id", idItem);
-            if (idUnidad != null) params.addValue("u", idUnidad);
-
-            List<Map<String, Object>> cuotas = jdbcTemplate.queryForList(sqlCuota, params);
-            if (cuotas.isEmpty() && idUnidad != null) {
-                // Fallback sin restriccion estricta de unidad en caso de inconsistencia de contexto
-                cuotas = jdbcTemplate.queryForList(
-                    "SELECT ID_CUOTA, ID_UNIDAD, SALDO_PENDIENTE FROM CUOTAS WHERE ID_CUOTA = :id AND ESTADO IN ('PENDIENTE', 'VENCIDA')",
-                    new MapSqlParameterSource("id", idItem)
-                );
-            }
+            List<Map<String, Object>> cuotas = jdbcTemplate.queryForList(
+                "SELECT ID_CUOTA, ID_UNIDAD, SALDO_PENDIENTE FROM CUOTAS c WHERE c.ID_CUOTA = :id AND c.ID_UNIDAD = :u AND "
+                    + OutstandingFees.predicate("c"),
+                params);
             if (cuotas.isEmpty()) throw new java.util.NoSuchElementException("Cuota no encontrada, ya pagada o sin acceso");
-            idCuota = ((Number) cuotas.get(0).get("ID_CUOTA")).longValue();
-            idUnidad = ((Number) cuotas.get(0).get("ID_UNIDAD")).longValue();
             monto = (BigDecimal) cuotas.get(0).get("SALDO_PENDIENTE");
         } else {
-            String sqlMulta = (idUnidad != null)
-                ? "SELECT ID_MULTA, ID_UNIDAD, MONTO FROM MULTAS WHERE ID_MULTA = :id AND ID_UNIDAD = :u AND ESTADO IN ('IMPUESTA','EN_DESCARGOS','RATIFICADA')"
-                : "SELECT ID_MULTA, ID_UNIDAD, MONTO FROM MULTAS WHERE ID_MULTA = :id AND ESTADO IN ('IMPUESTA','EN_DESCARGOS','RATIFICADA')";
-            MapSqlParameterSource params = new MapSqlParameterSource("id", idItem);
-            if (idUnidad != null) params.addValue("u", idUnidad);
-
-            List<Map<String, Object>> multas = jdbcTemplate.queryForList(sqlMulta, params);
+            List<Map<String, Object>> multas = jdbcTemplate.queryForList(
+                "SELECT ID_MULTA, ID_UNIDAD, MONTO, ID_CUOTA FROM MULTAS WHERE ID_MULTA = :id AND ID_UNIDAD = :u "
+                    + "AND ESTADO IN ('IMPUESTA','RATIFICADA')",
+                params);
             if (multas.isEmpty()) throw new java.util.NoSuchElementException("Multa no encontrada, ya pagada o sin acceso");
-            idCuota = ((Number) multas.get(0).get("ID_MULTA")).longValue();
-            idUnidad = ((Number) multas.get(0).get("ID_UNIDAD")).longValue();
+            if (multas.get(0).get("ID_CUOTA") != null) {
+                // A fine posted to the receivables is collected through its fee only (no double collection).
+                throw new IllegalStateException("La multa ya esta incluida en la cartera; pague la cuota correspondiente");
+            }
             monto = (BigDecimal) multas.get(0).get("MONTO");
         }
 
         if (monto == null || monto.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new RuntimeException("Monto invalido");
+            throw new IllegalStateException("Monto invalido");
         }
 
-        long montoCentavos = monto.multiply(new BigDecimal(100)).longValue();
-        String ts = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
-        String referencia = "SAED-" + concepto + "-" + idItem + "-" + ts;
+        // One live intent per charge: a second widget while one is pending would allow a double payment.
+        Integer pending = jdbcTemplate.queryForObject(
+            "SELECT COUNT(1) FROM TRANSACCIONES_PAGO WHERE PASARELA = 'WOMPI' AND ESTADO_PASARELA = 'PENDIENTE' "
+                + "AND ID_UNIDAD = :u AND REFERENCIA_INTERNA LIKE :prefix "
+                + "AND FECHA_REGISTRO > SYSTIMESTAMP - INTERVAL '15' MINUTE",
+            new MapSqlParameterSource("u", idUnidad).addValue("prefix", "SAED-" + concepto + "-" + idItem + "-%"),
+            Integer.class);
+        if (pending != null && pending > 0) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.CONFLICT,
+                "Ya existe un pago en curso para este cobro; espere su confirmacion antes de reintentar");
+        }
+
+        long montoCentavos = monto.movePointRight(2).setScale(0, java.math.RoundingMode.HALF_UP).longValue();
+        String referencia = "SAED-" + concepto + "-" + idItem + "-" + System.currentTimeMillis();
 
         String firma = firmaIntegridad(referencia, montoCentavos);
-
-        if (idUnidad == null) {
-            throw new IllegalStateException("Pago residencial requiere una unidad válida asociada");
-        }
 
         // Esquema 2.0 real de TRANSACCIONES_PAGO para pagos residenciales
         String sql = "INSERT INTO TRANSACCIONES_PAGO " +
@@ -223,7 +230,7 @@ public class WompiServiceImpl implements WompiService {
         String pubKey = getPublicKey();
         String integritySec = getIntegritySecret();
         if (pubKey == null || pubKey.isBlank() || integritySec == null || integritySec.isBlank()) {
-            throw new RuntimeException("Wompi no configurado.");
+            throw new IllegalStateException("Wompi no configurado.");
         }
 
         SaedContext ctx = SaedContextHolder.getContext();
@@ -512,9 +519,15 @@ public class WompiServiceImpl implements WompiService {
 
         if (referencia == null || status == null || idWompi == null || amountInCents == null) return;
 
-        // 2. Validación de moneda
-        if (currency != null && !"COP".equalsIgnoreCase(currency)) {
-            log.warn("[Wompi] Moneda no coincide: {}", currency);
+        // 2. Moneda obligatoria y entorno del evento (sandbox vs produccion) contra la configuracion
+        if (currency == null || !"COP".equalsIgnoreCase(currency)) {
+            log.warn("[Wompi] Moneda ausente o no coincide: {}", currency);
+            return;
+        }
+        String expectedEnvironment = expectedEnvironment();
+        String eventEnvironment = normalizeEnvironment(evento.get("environment"));
+        if (expectedEnvironment == null || !expectedEnvironment.equals(eventEnvironment)) {
+            log.warn("[Wompi] Evento de entorno '{}' rechazado: este despliegue liquida '{}'", eventEnvironment, expectedEnvironment);
             return;
         }
 
@@ -561,7 +574,7 @@ public class WompiServiceImpl implements WompiService {
             }
 
             List<Map<String, Object>> txs = jdbcTemplate.queryForList(
-                "SELECT ID_TRANSACCION, ID_UNIDAD, ID_PAGO, PASARELA, ESTADO_PASARELA, METODO_ORIGEN, MONTO_CENTAVOS " +
+                "SELECT ID_TRANSACCION, ID_UNIDAD, ID_PAGO, PASARELA, ESTADO_PASARELA, METODO_ORIGEN, MONTO_CENTAVOS, MONEDA " +
                 "FROM TRANSACCIONES_PAGO WHERE REFERENCIA_INTERNA = :ref",
                 new MapSqlParameterSource("ref", referencia)
             );
@@ -576,9 +589,14 @@ public class WompiServiceImpl implements WompiService {
             Long idUnidad = intencion.get("ID_UNIDAD") != null ? ((Number) intencion.get("ID_UNIDAD")).longValue() : null;
             long expectedCentavos = ((Number) intencion.get("MONTO_CENTAVOS")).longValue();
 
-            // 4. Validación exacta de monto en centavos
+            // 4. Validación exacta de monto en centavos y de la moneda persistida en la intención
             if (amountInCents.longValue() != expectedCentavos) {
                 log.warn("[Wompi] Monto en centavos no coincide: recibido={}, esperado={}", amountInCents, expectedCentavos);
+                return;
+            }
+            Object intentCurrency = intencion.get("MONEDA");
+            if (intentCurrency == null || !currency.equalsIgnoreCase(String.valueOf(intentCurrency))) {
+                log.warn("[Wompi] Moneda del evento no coincide con la intencion {}", referencia);
                 return;
             }
 
@@ -648,6 +666,21 @@ public class WompiServiceImpl implements WompiService {
                 }
             }
 
+            // 5b. El cobro referenciado debe pertenecer a la unidad de la intencion (inquilino) y el id de
+            // transaccion del proveedor no puede estar ya ligado a otra intencion.
+            if (!cobroPerteneceALaIntencion(referencia, idUnidad)) {
+                log.warn("[Wompi] El cobro de la referencia {} no pertenece a la unidad de la intencion", referencia);
+                return;
+            }
+            Integer boundElsewhere = jdbcTemplate.queryForObject(
+                "SELECT COUNT(1) FROM TRANSACCIONES_PAGO WHERE PASARELA = 'WOMPI' " +
+                "AND ID_TRANSACCION_PASARELA = :wompi AND ID_TRANSACCION <> :id",
+                new MapSqlParameterSource("wompi", idWompi).addValue("id", idTransaccion), Integer.class);
+            if (boundElsewhere != null && boundElsewhere > 0) {
+                log.warn("[Wompi] La transaccion del proveedor {} ya esta ligada a otra intencion", idWompi);
+                return;
+            }
+
             // 6. Transición Atómica de Estado (Idempotencia y Replay Protection)
             int updated = jdbcTemplate.update(
                 "UPDATE TRANSACCIONES_PAGO SET ESTADO_PASARELA = :est, PAYLOAD_WEBHOOK = :pay, ID_TRANSACCION_PASARELA = :wompi, METODO_ORIGEN = :metodo " +
@@ -679,232 +712,232 @@ public class WompiServiceImpl implements WompiService {
                 // F06: settlement failures are NOT swallowed. They propagate so the webhook
                 // transaction rolls back (including the PENDIENTE transition above), no receipt is
                 // sent for the failed attempt and the endpoint answers non-2xx for a provider retry.
-                {
-                    if ("CUOTA".equals(concepto) && idItem != null) {
-                        finanzasService.registrarPagoPasarelaVerificado(new PagoRequestDTO(
-                            idItem,
-                            java.time.LocalDate.now(),
-                            montoPesos,
-                            "PASARELA_WOMPI",
-                            referencia
-                        ));
-                    } else if ("MULTA".equals(concepto) && idItem != null && idUnidad != null) {
+                if ("CUOTA".equals(concepto) && idItem != null) {
+                    Long idPago = finanzasService.registrarPagoPasarelaVerificado(new PagoRequestDTO(
+                        idItem,
+                        java.time.LocalDate.now(),
+                        montoPesos,
+                        "PASARELA_WOMPI",
+                        referencia
+                    ));
+                    if (idPago != null) {
+                        // Intent -> payment linkage, persisted in the same transaction as the settlement.
                         jdbcTemplate.update(
-                            "UPDATE MULTAS SET ESTADO = 'PAGADA' WHERE ID_MULTA = :id AND ID_UNIDAD = :u",
-                            new MapSqlParameterSource("id", idItem).addValue("u", idUnidad)
+                            "UPDATE TRANSACCIONES_PAGO SET ID_PAGO = :pago WHERE ID_TRANSACCION = :id",
+                            new MapSqlParameterSource("pago", idPago).addValue("id", idTransaccion)
                         );
-                    } else if ("MEMBRESIA".equals(concepto) && idItem != null) {
-                        Long idOrg = idItem;
-                        jdbcTemplate.update(
-                            "UPDATE ORGANIZACIONES SET ESTADO = 'ACTIVA' WHERE ID_ORGANIZACION = :org",
-                            new MapSqlParameterSource("org", idOrg)
-                        );
-                        jdbcTemplate.update(
-                            "UPDATE MEMBRESIAS SET ESTADO = 'ACTIVA' WHERE ID_ORGANIZACION = :org AND (ESTADO = 'SUSPENDIDA' OR ESTADO = 'PENDIENTE')",
-                            new MapSqlParameterSource("org", idOrg)
-                        );
+                    }
+                } else if ("MULTA".equals(concepto) && idItem != null && idUnidad != null) {
+                    int paid = jdbcTemplate.update(
+                        "UPDATE MULTAS SET ESTADO = 'PAGADA' WHERE ID_MULTA = :id AND ID_UNIDAD = :u "
+                            + "AND ESTADO IN ('IMPUESTA','EN_DESCARGOS','RATIFICADA')",
+                        new MapSqlParameterSource("id", idItem).addValue("u", idUnidad)
+                    );
+                    if (paid == 0) {
+                        log.warn("[Wompi] Double charge detected: fine {} was already settled when {} arrived", idItem, referencia);
+                    }
+                } else if ("MEMBRESIA".equals(concepto) && idItem != null) {
+                    Long idOrg = idItem;
+                    jdbcTemplate.update(
+                        "UPDATE ORGANIZACIONES SET ESTADO = 'ACTIVA' WHERE ID_ORGANIZACION = :org",
+                        new MapSqlParameterSource("org", idOrg)
+                    );
+                    jdbcTemplate.update(
+                        "UPDATE MEMBRESIAS SET ESTADO = 'ACTIVA' WHERE ID_ORGANIZACION = :org AND (ESTADO = 'SUSPENDIDA' OR ESTADO = 'PENDIENTE')",
+                        new MapSqlParameterSource("org", idOrg)
+                    );
 
-                        // Buscar el usuario administrador principal de la organización
-                        List<Map<String, Object>> admins = jdbcTemplate.queryForList(
-                            "SELECT UA.ID_USUARIO, U.EMAIL, U.NOMBRE_USUARIO, P.PRIMER_NOMBRE, P.PRIMER_APELLIDO, " +
-                            "O.NOMBRE AS ORG_NOMBRE, PL.NOMBRE AS PLAN_NOMBRE, M.ID_MEMBRESIA, M.ID_PLAN " +
-                            "FROM USUARIO_ASIGNACIONES UA " +
-                            "JOIN USUARIOS U ON UA.ID_USUARIO = U.ID_USUARIO " +
-                            "JOIN PERSONAS P ON U.ID_PERSONA = P.ID_PERSONA " +
-                            "JOIN ORGANIZACIONES O ON UA.ID_ORGANIZACION = O.ID_ORGANIZACION " +
-                            "LEFT JOIN MEMBRESIAS M ON M.ID_ORGANIZACION = O.ID_ORGANIZACION " +
-                            "LEFT JOIN PLANES PL ON M.ID_PLAN = PL.ID_PLAN " +
-                            "WHERE UA.ID_ORGANIZACION = :org AND UA.ESTADO IN ('ACTIVA', 'ACTIVO') AND ROWNUM = 1",
-                            new MapSqlParameterSource("org", idOrg)
-                        );
+                    // Buscar el usuario administrador principal de la organización
+                    List<Map<String, Object>> admins = jdbcTemplate.queryForList(
+                        "SELECT UA.ID_USUARIO, U.EMAIL, U.NOMBRE_USUARIO, P.PRIMER_NOMBRE, P.PRIMER_APELLIDO, " +
+                        "O.NOMBRE AS ORG_NOMBRE, PL.NOMBRE AS PLAN_NOMBRE, M.ID_MEMBRESIA, M.ID_PLAN " +
+                        "FROM USUARIO_ASIGNACIONES UA " +
+                        "JOIN USUARIOS U ON UA.ID_USUARIO = U.ID_USUARIO " +
+                        "JOIN PERSONAS P ON U.ID_PERSONA = P.ID_PERSONA " +
+                        "JOIN ORGANIZACIONES O ON UA.ID_ORGANIZACION = O.ID_ORGANIZACION " +
+                        "LEFT JOIN MEMBRESIAS M ON M.ID_ORGANIZACION = O.ID_ORGANIZACION " +
+                        "LEFT JOIN PLANES PL ON M.ID_PLAN = PL.ID_PLAN " +
+                        "WHERE UA.ID_ORGANIZACION = :org AND UA.ESTADO IN ('ACTIVA', 'ACTIVO') AND ROWNUM = 1",
+                        new MapSqlParameterSource("org", idOrg)
+                    );
 
-                        if (!admins.isEmpty()) {
-                            Map<String, Object> adminData = admins.get(0);
-                            Long idAdmin = ((Number) adminData.get("ID_USUARIO")).longValue();
-                            String emailAdmin = (String) adminData.get("EMAIL");
-                            String usernameAdmin = (String) adminData.get("NOMBRE_USUARIO");
+                    if (!admins.isEmpty()) {
+                        Map<String, Object> adminData = admins.get(0);
+                        Long idAdmin = ((Number) adminData.get("ID_USUARIO")).longValue();
+                        String emailAdmin = (String) adminData.get("EMAIL");
+                        String usernameAdmin = (String) adminData.get("NOMBRE_USUARIO");
 
-                            if (adminData.get("ID_MEMBRESIA") != null && adminData.get("ID_PLAN") != null) {
-                                Long idMem = ((Number) adminData.get("ID_MEMBRESIA")).longValue();
-                                Long idPlan = ((Number) adminData.get("ID_PLAN")).longValue();
-                                try {
-                                    membershipHistoryService.recordChange(
-                                        idMem, idPlan, idPlan, "REACTIVACION",
-                                        "Reactivación de membresía aprobada vía Wompi (Ref: " + referencia + ")",
-                                        idAdmin
-                                    );
-                                } catch (Exception exHist) {
-                                    log.warn("[Wompi] Error registrando reactivación en historial: {}", exHist.getMessage());
-                                }
-                            }
-                            String nombreAdmin = ((adminData.get("PRIMER_NOMBRE") != null ? adminData.get("PRIMER_NOMBRE") : "") + " " +
-                                                  (adminData.get("PRIMER_APELLIDO") != null ? adminData.get("PRIMER_APELLIDO") : "")).trim();
-                            String orgNombre = (String) adminData.get("ORG_NOMBRE");
-                            String planNombre = (String) adminData.get("PLAN_NOMBRE");
-
-                            // F3-06: paying a membership never rotates or e-mails the administrator's
-                            // password; the account keeps its own credentials (or activation link).
+                        if (adminData.get("ID_MEMBRESIA") != null && adminData.get("ID_PLAN") != null) {
+                            Long idMem = ((Number) adminData.get("ID_MEMBRESIA")).longValue();
+                            Long idPlan = ((Number) adminData.get("ID_PLAN")).longValue();
                             try {
-                                emailService.enviarReciboPago(emailAdmin, "MEMBRESIA_SAED", montoPesos, referencia, java.time.LocalDate.now().toString());
-                            } catch (Exception exEmail) {
-                                log.warn("[Wompi] Error enviando comprobante de membresía a {}", emailAdmin, exEmail);
-                            }
-                        }
-                    } else if ("ONBOARDING".equals(concepto) || referencia.contains("-ONB-")) {
-                        onboardingService.materializarOrganizacion(referencia, expectedCentavos, idWompi);
-                    } else if ("RENOVACION".equals(concepto) || referencia.startsWith("SAED-RENOVACION-")) {
-                        String[] parts = referencia.split("-");
-                        if (parts.length >= 4) {
-                            Long idOrg = Long.parseLong(parts[2]);
-                            Long idMem = Long.parseLong(parts[3]);
-
-                            // Bloqueo pesimista FOR UPDATE para serialización estricta de callbacks concurrentes
-                            List<Map<String, Object>> memRows = jdbcTemplate.queryForList(
-                                "SELECT ID_MEMBRESIA, ID_ORGANIZACION, ID_PLAN, FECHA_FIN, ESTADO FROM MEMBRESIAS WHERE ID_MEMBRESIA = :id AND ID_ORGANIZACION = :org FOR UPDATE",
-                                new MapSqlParameterSource("id", idMem).addValue("org", idOrg)
-                            );
-                            if (!memRows.isEmpty()) {
-                                Map<String, Object> memRow = memRows.get(0);
-                                Long idPlan = ((Number) memRow.get("ID_PLAN")).longValue();
-                                String estadoAnterior = (String) memRow.get("ESTADO");
-
-                                List<Map<String, Object>> pRows = jdbcTemplate.queryForList(
-                                    "SELECT PRECIO_MENSUAL FROM PLANES WHERE ID_PLAN = :p",
-                                    new MapSqlParameterSource("p", idPlan)
-                                );
-                                long precioMensual = !pRows.isEmpty() ? ((Number) pRows.get(0).get("PRECIO_MENSUAL")).longValue() : 0L;
-                                int meses = (precioMensual > 0 && expectedCentavos >= precioMensual * 100 * 10) ? 12 : 1;
-
-                                jdbcTemplate.update("""
-                                    UPDATE MEMBRESIAS
-                                    SET FECHA_FIN = ADD_MONTHS(GREATEST(NVL(FECHA_FIN, TRUNC(SYSDATE)), TRUNC(SYSDATE)), :meses),
-                                        FECHA_RENOVACION = TRUNC(SYSDATE),
-                                        ESTADO = 'ACTIVA',
-                                        ES_PRUEBA = 'N'
-                                    WHERE ID_MEMBRESIA = :id
-                                    """,
-                                    new MapSqlParameterSource("id", idMem).addValue("meses", meses)
-                                );
-
-                                jdbcTemplate.update(
-                                    "UPDATE ORGANIZACIONES SET ESTADO = 'ACTIVA' WHERE ID_ORGANIZACION = :org",
-                                    new MapSqlParameterSource("org", idOrg)
-                                );
-
-                                Long idAdmin = resolverAdminOrg(idOrg);
-
                                 membershipHistoryService.recordChange(
-                                    idMem,
-                                    idPlan,
-                                    idPlan,
-                                    "RENOVACION",
-                                    "Renovación de membresía por " + meses + " mes(es) aprobada vía Wompi (Ref: " + referencia + ")",
+                                    idMem, idPlan, idPlan, "REACTIVACION",
+                                    "Reactivación de membresía aprobada vía Wompi (Ref: " + referencia + ")",
                                     idAdmin
                                 );
-
-                                if (auditService != null) {
-                                    auditService.recordSuccess(idAdmin, idOrg, null, "PAGO", "MEMBRESIAS", idMem, "127.0.0.1", "WompiWebhook", estadoAnterior, "ACTIVA");
-                                }
-
-                                enviarComprobanteAdmin(idOrg, "RENOVACION_MEMBRESIA", montoPesos, referencia);
+                            } catch (Exception exHist) {
+                                log.warn("[Wompi] Error registrando reactivación en historial: {}", exHist.getMessage());
                             }
                         }
-                    } else if ("UPGRADE".equals(concepto) || referencia.startsWith("SAED-UPGRADE-")) {
-                        String[] parts = referencia.split("-");
-                        if (parts.length >= 5) {
-                            Long idOrg = Long.parseLong(parts[2]);
-                            Long idMem = Long.parseLong(parts[3]);
-                            Long idPlanNuevo = Long.parseLong(parts[4]);
+                        String nombreAdmin = ((adminData.get("PRIMER_NOMBRE") != null ? adminData.get("PRIMER_NOMBRE") : "") + " " +
+                                              (adminData.get("PRIMER_APELLIDO") != null ? adminData.get("PRIMER_APELLIDO") : "")).trim();
+                        String orgNombre = (String) adminData.get("ORG_NOMBRE");
+                        String planNombre = (String) adminData.get("PLAN_NOMBRE");
 
-                            List<Map<String, Object>> memRows = jdbcTemplate.queryForList(
-                                "SELECT ID_MEMBRESIA, ID_ORGANIZACION, ID_PLAN, FECHA_FIN, ESTADO FROM MEMBRESIAS WHERE ID_MEMBRESIA = :id AND ID_ORGANIZACION = :org FOR UPDATE",
-                                new MapSqlParameterSource("id", idMem).addValue("org", idOrg)
+                        // F3-06: paying a membership never rotates or e-mails the administrator's
+                        // password; the account keeps its own credentials (or activation link).
+                        programarRecibo(emailAdmin, "MEMBRESIA_SAED", montoPesos, referencia);
+                    }
+                } else if ("ONBOARDING".equals(concepto) || referencia.contains("-ONB-")) {
+                    onboardingService.materializarOrganizacion(referencia, expectedCentavos, idWompi);
+                } else if ("RENOVACION".equals(concepto) || referencia.startsWith("SAED-RENOVACION-")) {
+                    String[] parts = referencia.split("-");
+                    if (parts.length >= 4) {
+                        Long idOrg = Long.parseLong(parts[2]);
+                        Long idMem = Long.parseLong(parts[3]);
+
+                        // Bloqueo pesimista FOR UPDATE para serialización estricta de callbacks concurrentes
+                        List<Map<String, Object>> memRows = jdbcTemplate.queryForList(
+                            "SELECT ID_MEMBRESIA, ID_ORGANIZACION, ID_PLAN, FECHA_FIN, ESTADO FROM MEMBRESIAS WHERE ID_MEMBRESIA = :id AND ID_ORGANIZACION = :org FOR UPDATE",
+                            new MapSqlParameterSource("id", idMem).addValue("org", idOrg)
+                        );
+                        if (!memRows.isEmpty()) {
+                            Map<String, Object> memRow = memRows.get(0);
+                            Long idPlan = ((Number) memRow.get("ID_PLAN")).longValue();
+                            String estadoAnterior = (String) memRow.get("ESTADO");
+
+                            List<Map<String, Object>> pRows = jdbcTemplate.queryForList(
+                                "SELECT PRECIO_MENSUAL FROM PLANES WHERE ID_PLAN = :p",
+                                new MapSqlParameterSource("p", idPlan)
                             );
-                            if (!memRows.isEmpty()) {
-                                Map<String, Object> memRow = memRows.get(0);
-                                Long idPlanActual = ((Number) memRow.get("ID_PLAN")).longValue();
-                                String estadoAnterior = (String) memRow.get("ESTADO");
+                            long precioMensual = !pRows.isEmpty() ? ((Number) pRows.get(0).get("PRECIO_MENSUAL")).longValue() : 0L;
+                            int meses = (precioMensual > 0 && expectedCentavos >= precioMensual * 100 * 10) ? 12 : 1;
 
-                                List<Map<String, Object>> pRows = jdbcTemplate.queryForList(
-                                    "SELECT PRECIO_MENSUAL, NOMBRE FROM PLANES WHERE ID_PLAN = :p",
-                                    new MapSqlParameterSource("p", idPlanNuevo)
-                                );
-                                long precioMensual = !pRows.isEmpty() ? ((Number) pRows.get(0).get("PRECIO_MENSUAL")).longValue() : 0L;
-                                String planNombre = !pRows.isEmpty() ? (String) pRows.get(0).get("NOMBRE") : ("Plan " + idPlanNuevo);
-                                int meses = (precioMensual > 0 && expectedCentavos >= precioMensual * 100 * 10) ? 12 : 1;
+                            jdbcTemplate.update("""
+                                UPDATE MEMBRESIAS
+                                SET FECHA_FIN = ADD_MONTHS(GREATEST(NVL(FECHA_FIN, TRUNC(SYSDATE)), TRUNC(SYSDATE)), :meses),
+                                    FECHA_RENOVACION = TRUNC(SYSDATE),
+                                    ESTADO = 'ACTIVA',
+                                    ES_PRUEBA = 'N'
+                                WHERE ID_MEMBRESIA = :id
+                                """,
+                                new MapSqlParameterSource("id", idMem).addValue("meses", meses)
+                            );
 
-                                jdbcTemplate.update("""
-                                    UPDATE MEMBRESIAS
-                                    SET ID_PLAN = :idPlanNuevo,
-                                        FECHA_INICIO = TRUNC(SYSDATE),
-                                        FECHA_FIN = ADD_MONTHS(TRUNC(SYSDATE), :meses),
-                                        FECHA_RENOVACION = TRUNC(SYSDATE),
-                                        ESTADO = 'ACTIVA',
-                                        ES_PRUEBA = 'N'
-                                    WHERE ID_MEMBRESIA = :id
-                                    """,
-                                    new MapSqlParameterSource("id", idMem)
-                                        .addValue("idPlanNuevo", idPlanNuevo)
-                                        .addValue("meses", meses)
-                                );
+                            jdbcTemplate.update(
+                                "UPDATE ORGANIZACIONES SET ESTADO = 'ACTIVA' WHERE ID_ORGANIZACION = :org",
+                                new MapSqlParameterSource("org", idOrg)
+                            );
 
-                                jdbcTemplate.update(
-                                    "UPDATE ORGANIZACIONES SET ESTADO = 'ACTIVA' WHERE ID_ORGANIZACION = :org",
-                                    new MapSqlParameterSource("org", idOrg)
-                                );
+                            Long idAdmin = resolverAdminOrg(idOrg);
 
-                                Long idAdmin = resolverAdminOrg(idOrg);
+                            membershipHistoryService.recordChange(
+                                idMem,
+                                idPlan,
+                                idPlan,
+                                "RENOVACION",
+                                "Renovación de membresía por " + meses + " mes(es) aprobada vía Wompi (Ref: " + referencia + ")",
+                                idAdmin
+                            );
 
-                                // Determine if this is an actual upgrade or downgrade based on price comparison
-                                String tipoOperacion = "UPGRADE";
-                                String descripcionOp = "Upgrade";
-                                if (!pRows.isEmpty()) {
-                                    long precioNuevoPlan = ((Number) pRows.get(0).get("PRECIO_MENSUAL")).longValue();
-                                    List<Map<String, Object>> planActualRows = jdbcTemplate.queryForList(
-                                        "SELECT PRECIO_MENSUAL FROM PLANES WHERE ID_PLAN = :p",
-                                        new MapSqlParameterSource("p", idPlanActual));
-                                    if (!planActualRows.isEmpty()) {
-                                        long precioActualPlan = ((Number) planActualRows.get(0).get("PRECIO_MENSUAL")).longValue();
-                                        if (precioNuevoPlan < precioActualPlan) {
-                                            tipoOperacion = "DOWNGRADE";
-                                            descripcionOp = "Downgrade";
-                                        }
+                            if (auditService != null) {
+                                auditService.recordSuccess(idAdmin, idOrg, null, "PAGO", "MEMBRESIAS", idMem, "127.0.0.1", "WompiWebhook", estadoAnterior, "ACTIVA");
+                            }
+
+                            enviarComprobanteAdmin(idOrg, "RENOVACION_MEMBRESIA", montoPesos, referencia);
+                        }
+                    }
+                } else if ("UPGRADE".equals(concepto) || referencia.startsWith("SAED-UPGRADE-")) {
+                    String[] parts = referencia.split("-");
+                    if (parts.length >= 5) {
+                        Long idOrg = Long.parseLong(parts[2]);
+                        Long idMem = Long.parseLong(parts[3]);
+                        Long idPlanNuevo = Long.parseLong(parts[4]);
+
+                        List<Map<String, Object>> memRows = jdbcTemplate.queryForList(
+                            "SELECT ID_MEMBRESIA, ID_ORGANIZACION, ID_PLAN, FECHA_FIN, ESTADO FROM MEMBRESIAS WHERE ID_MEMBRESIA = :id AND ID_ORGANIZACION = :org FOR UPDATE",
+                            new MapSqlParameterSource("id", idMem).addValue("org", idOrg)
+                        );
+                        if (!memRows.isEmpty()) {
+                            Map<String, Object> memRow = memRows.get(0);
+                            Long idPlanActual = ((Number) memRow.get("ID_PLAN")).longValue();
+                            String estadoAnterior = (String) memRow.get("ESTADO");
+
+                            List<Map<String, Object>> pRows = jdbcTemplate.queryForList(
+                                "SELECT PRECIO_MENSUAL, NOMBRE FROM PLANES WHERE ID_PLAN = :p",
+                                new MapSqlParameterSource("p", idPlanNuevo)
+                            );
+                            long precioMensual = !pRows.isEmpty() ? ((Number) pRows.get(0).get("PRECIO_MENSUAL")).longValue() : 0L;
+                            String planNombre = !pRows.isEmpty() ? (String) pRows.get(0).get("NOMBRE") : ("Plan " + idPlanNuevo);
+                            int meses = (precioMensual > 0 && expectedCentavos >= precioMensual * 100 * 10) ? 12 : 1;
+
+                            jdbcTemplate.update("""
+                                UPDATE MEMBRESIAS
+                                SET ID_PLAN = :idPlanNuevo,
+                                    FECHA_INICIO = TRUNC(SYSDATE),
+                                    FECHA_FIN = ADD_MONTHS(TRUNC(SYSDATE), :meses),
+                                    FECHA_RENOVACION = TRUNC(SYSDATE),
+                                    ESTADO = 'ACTIVA',
+                                    ES_PRUEBA = 'N'
+                                WHERE ID_MEMBRESIA = :id
+                                """,
+                                new MapSqlParameterSource("id", idMem)
+                                    .addValue("idPlanNuevo", idPlanNuevo)
+                                    .addValue("meses", meses)
+                            );
+
+                            jdbcTemplate.update(
+                                "UPDATE ORGANIZACIONES SET ESTADO = 'ACTIVA' WHERE ID_ORGANIZACION = :org",
+                                new MapSqlParameterSource("org", idOrg)
+                            );
+
+                            Long idAdmin = resolverAdminOrg(idOrg);
+
+                            // Determine if this is an actual upgrade or downgrade based on price comparison
+                            String tipoOperacion = "UPGRADE";
+                            String descripcionOp = "Upgrade";
+                            if (!pRows.isEmpty()) {
+                                long precioNuevoPlan = ((Number) pRows.get(0).get("PRECIO_MENSUAL")).longValue();
+                                List<Map<String, Object>> planActualRows = jdbcTemplate.queryForList(
+                                    "SELECT PRECIO_MENSUAL FROM PLANES WHERE ID_PLAN = :p",
+                                    new MapSqlParameterSource("p", idPlanActual));
+                                if (!planActualRows.isEmpty()) {
+                                    long precioActualPlan = ((Number) planActualRows.get(0).get("PRECIO_MENSUAL")).longValue();
+                                    if (precioNuevoPlan < precioActualPlan) {
+                                        tipoOperacion = "DOWNGRADE";
+                                        descripcionOp = "Downgrade";
                                     }
                                 }
-                                membershipHistoryService.recordChange(
-                                    idMem,
-                                    idPlanActual,
-                                    idPlanNuevo,
-                                    tipoOperacion,
-                                    descripcionOp + " a " + planNombre + " (" + meses + " mes(es)) aprobado vía Wompi (Ref: " + referencia + ")",
-                                    idAdmin
-                                );
-
-                                if (auditService != null) {
-                                    auditService.recordSuccess(idAdmin, idOrg, null, "PAGO", "MEMBRESIAS", idMem, "127.0.0.1", "WompiWebhook", estadoAnterior, "ACTIVA");
-                                }
-
-                                enviarComprobanteAdmin(idOrg, "UPGRADE_MEMBRESIA", montoPesos, referencia);
                             }
+                            membershipHistoryService.recordChange(
+                                idMem,
+                                idPlanActual,
+                                idPlanNuevo,
+                                tipoOperacion,
+                                descripcionOp + " a " + planNombre + " (" + meses + " mes(es)) aprobado vía Wompi (Ref: " + referencia + ")",
+                                idAdmin
+                            );
+
+                            if (auditService != null) {
+                                auditService.recordSuccess(idAdmin, idOrg, null, "PAGO", "MEMBRESIAS", idMem, "127.0.0.1", "WompiWebhook", estadoAnterior, "ACTIVA");
+                            }
+
+                            enviarComprobanteAdmin(idOrg, "UPGRADE_MEMBRESIA", montoPesos, referencia);
                         }
                     }
                 }
 
-                // Recibo por correo para unidades residenciales
+                // Recibo por correo para unidades residenciales: una sola vez, solo despues del commit.
                 if (idUnidad != null && !"MEMBRESIA".equals(concepto) && !"RENOVACION".equals(concepto) && !"UPGRADE".equals(concepto) && !referencia.startsWith("SAED-RENOVACION-") && !referencia.startsWith("SAED-UPGRADE-")) {
-                    try {
-                        List<Map<String, Object>> residentes = jdbcTemplate.queryForList(
-                            "SELECT P.EMAIL FROM PERSONAS P " +
-                            "JOIN RESIDENTES_UNIDAD RU ON RU.ID_PERSONA = P.ID_PERSONA " +
-                            "WHERE RU.ID_UNIDAD = :u AND P.EMAIL IS NOT NULL",
-                            new MapSqlParameterSource("u", idUnidad)
-                        );
-                        if (!residentes.isEmpty()) {
-                            String destinatario = (String) residentes.get(0).get("EMAIL");
-                            emailService.enviarReciboPago(destinatario, concepto, montoPesos, referencia, java.time.LocalDate.now().toString());
-                        }
-                    } catch (Exception e) {
-                        log.error("[Wompi] Error enviando recibo de pago", e);
+                    List<Map<String, Object>> residentes = jdbcTemplate.queryForList(
+                        "SELECT P.EMAIL FROM PERSONAS P " +
+                        "JOIN RESIDENTES_UNIDAD RU ON RU.ID_PERSONA = P.ID_PERSONA " +
+                        "WHERE RU.ID_UNIDAD = :u AND P.EMAIL IS NOT NULL",
+                        new MapSqlParameterSource("u", idUnidad)
+                    );
+                    if (!residentes.isEmpty()) {
+                        programarRecibo((String) residentes.get(0).get("EMAIL"), concepto, montoPesos, referencia);
                     }
                 }
             }
@@ -1026,21 +1059,86 @@ public class WompiServiceImpl implements WompiService {
     }
 
     private void enviarComprobanteAdmin(Long idOrg, String concepto, BigDecimal montoPesos, String referencia) {
-        try {
-            List<String> emails = jdbcTemplate.queryForList(
-                "SELECT U.EMAIL FROM USUARIO_ASIGNACIONES UA " +
-                "JOIN USUARIOS U ON UA.ID_USUARIO = U.ID_USUARIO " +
-                "JOIN ROLES R ON UA.ID_ROL = R.ID_ROL " +
-                "WHERE UA.ID_ORGANIZACION = :org AND R.CODIGO = 'ADMIN_ORGANIZACION' AND UA.ESTADO IN ('ACTIVA', 'ACTIVO') AND U.EMAIL IS NOT NULL " +
-                "ORDER BY UA.ID_USUARIO ASC",
-                new MapSqlParameterSource("org", idOrg),
-                String.class
-            );
-            if (!emails.isEmpty() && emails.get(0) != null) {
-                emailService.enviarReciboPago(emails.get(0), concepto, montoPesos, referencia, java.time.LocalDate.now().toString());
-            }
-        } catch (Exception ex) {
-            log.warn("[Wompi] Error enviando comprobante a admin de org {}: {}", idOrg, ex.getMessage());
+        List<String> emails = jdbcTemplate.queryForList(
+            "SELECT U.EMAIL FROM USUARIO_ASIGNACIONES UA " +
+            "JOIN USUARIOS U ON UA.ID_USUARIO = U.ID_USUARIO " +
+            "JOIN ROLES R ON UA.ID_ROL = R.ID_ROL " +
+            "WHERE UA.ID_ORGANIZACION = :org AND R.CODIGO = 'ADMIN_ORGANIZACION' AND UA.ESTADO IN ('ACTIVA', 'ACTIVO') AND U.EMAIL IS NOT NULL " +
+            "ORDER BY UA.ID_USUARIO ASC",
+            new MapSqlParameterSource("org", idOrg),
+            String.class
+        );
+        if (!emails.isEmpty() && emails.get(0) != null) {
+            programarRecibo(emails.get(0), concepto, montoPesos, referencia);
         }
+    }
+
+    /**
+     * Receipts leave only after the webhook transaction commits (F06-04): a rolled-back attempt sends
+     * nothing and the provider retry of a failed attempt cannot produce a duplicate.
+     */
+    private void programarRecibo(String destinatario, String concepto, BigDecimal montoPesos, String referencia) {
+        String fecha = java.time.LocalDate.now().toString();
+        AfterCommit.run("recibo Wompi " + referencia,
+                () -> emailService.enviarReciboPago(destinatario, concepto, montoPesos, referencia, fecha));
+    }
+
+    /** True when the item named by the reference belongs to the unit that owns the intent. */
+    private boolean cobroPerteneceALaIntencion(String referencia, Long idUnidad) {
+        if (idUnidad == null) {
+            return true;   // platform (SaaS) intents have no unit; their organization comes from the reference
+        }
+        String[] parts = referencia.split("-");
+        if (parts.length < 3) {
+            return true;
+        }
+        String sql;
+        if ("CUOTA".equals(parts[1])) {
+            sql = "SELECT ID_UNIDAD FROM CUOTAS WHERE ID_CUOTA = :id";
+        } else if ("MULTA".equals(parts[1])) {
+            sql = "SELECT ID_UNIDAD FROM MULTAS WHERE ID_MULTA = :id";
+        } else {
+            return true;
+        }
+        long itemId;
+        try {
+            itemId = Long.parseLong(parts[2]);
+        } catch (NumberFormatException e) {
+            return false;
+        }
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql, new MapSqlParameterSource("id", itemId));
+        return !rows.isEmpty() && rows.get(0).get("ID_UNIDAD") != null
+                && ((Number) rows.get(0).get("ID_UNIDAD")).longValue() == idUnidad;
+    }
+
+    /** "test" (sandbox) or "prod" (live) from configuration, else from the public key prefix; null if unknown. */
+    private String expectedEnvironment() {
+        String configured = normalizeEnvironment(wompiEnvironment);
+        if (configured != null) {
+            return configured;
+        }
+        String key = getPublicKey();
+        if (key == null) {
+            return null;
+        }
+        if (key.startsWith("pub_test_")) {
+            return "test";
+        }
+        if (key.startsWith("pub_prod_")) {
+            return "prod";
+        }
+        return null;
+    }
+
+    private static String normalizeEnvironment(Object raw) {
+        if (raw == null) {
+            return null;
+        }
+        String v = raw.toString().trim().toLowerCase(java.util.Locale.ROOT);
+        return switch (v) {
+            case "test", "sandbox" -> "test";
+            case "prod", "production", "live" -> "prod";
+            default -> null;
+        };
     }
 }
