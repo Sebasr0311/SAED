@@ -80,7 +80,7 @@ public final class KpiCalculator {
             String priority = ticket.prioridad() == null ? "MEDIA" : ticket.prioridad().toUpperCase(Locale.ROOT);
             long slaMinutes = SLA_HOURS.getOrDefault(priority, SLA_HOURS.get("MEDIA")) * 60;
             long elapsedMinutes = Duration.between(ticket.fechaRadicacion(), now).toMinutes();
-            if (elapsedMinutes * 100 >= slaMinutes * 100) {
+            if (elapsedMinutes > slaMinutes) { // DEC-05: overdue only PAST 100 % (same as PqrsSlaPolicy)
                 overdue++;
             } else if (elapsedMinutes * 100 >= slaMinutes * 75) {
                 atRisk++;

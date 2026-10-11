@@ -58,14 +58,15 @@ class KpiCalculatorGoldenTest {
             new TicketRow("EMERGENCIA", "ASIGNADO", NOW.minus(50, ChronoUnit.MINUTES)),   // 83%: at risk
             new TicketRow("ALTA", "EN_GESTION", NOW.minus(5, ChronoUnit.HOURS)),         // 125% of 4h: overdue
             new TicketRow("MEDIA", "ESCALADO", NOW.minus(18, ChronoUnit.HOURS)),         // 75% of 24h: at risk
-            new TicketRow("BAJA", "RADICADO", NOW.minus(72, ChronoUnit.HOURS)),          // 100% of 72h: overdue
+            new TicketRow("BAJA", "RADICADO", NOW.minus(72, ChronoUnit.HOURS)),          // exactly 100% of 72h: at risk (DEC-05: overdue only PAST 100%, as PqrsSlaPolicy)
+            new TicketRow("BAJA", "RADICADO", NOW.minus(73, ChronoUnit.HOURS)),          // 101% of 72h: overdue
             new TicketRow("BAJA", "CERRADO", NOW.minus(500, ChronoUnit.HOURS)),          // closed: ignored
             new TicketRow("ALTA", "RESUELTO", NOW.minus(500, ChronoUnit.HOURS)));        // resolved: ignored
 
         PqrsKpis k = KpiCalculator.pqrs(tickets, NOW);
 
-        assertEquals(5, k.abiertas());
-        assertEquals(2, k.enRiesgo());
+        assertEquals(6, k.abiertas());
+        assertEquals(3, k.enRiesgo());
         assertEquals(2, k.vencidas());
     }
 
