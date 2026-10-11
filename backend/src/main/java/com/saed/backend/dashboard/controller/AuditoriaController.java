@@ -139,7 +139,9 @@ public class AuditoriaController {
         }
 
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(sb.toString(), params);
-        if (rows.isEmpty()) return ApiResponse.error("Registro no encontrado");
+        if (rows.isEmpty()) {
+            throw new java.util.NoSuchElementException("Registro no encontrado");
+        }
         return ApiResponse.success(rows.get(0));
     }
 }

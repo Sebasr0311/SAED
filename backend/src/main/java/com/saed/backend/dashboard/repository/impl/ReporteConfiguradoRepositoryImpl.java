@@ -212,7 +212,7 @@ public class ReporteConfiguradoRepositoryImpl implements ReporteConfiguradoRepos
         params.add(id);
 
         jdbcTemplate.update(sql.toString(), params.toArray());
-        return findById(id).orElseThrow(() -> new IllegalStateException("Reporte configurado no encontrado tras actualización."));
+        return findById(id).orElseThrow(() -> new java.util.NoSuchElementException("Reporte configurado no encontrado."));
     }
 
     @Override
