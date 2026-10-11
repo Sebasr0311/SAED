@@ -176,7 +176,7 @@ public class FinanzasRepositoryImpl implements FinanzasRepository {
     public List<CuotaDTO> getCuotasPendientes() {
         Long propId = (SaedContextHolder.getContext() != null) ? SaedContextHolder.getContext().getPropertyId() : null;
         String sql = "SELECT c.ID_CUOTA, c.ID_UNIDAD, u.IDENTIFICADOR as numeroApartamento, p.PRIMER_NOMBRE || ' ' || p.PRIMER_APELLIDO as nombreResidente, c.ID_CONTRATO, " +
-                     "co.NOMBRE as concepto, c.PERIODO, c.VALOR_BASE, c.VALOR_TOTAL, c.SALDO_PENDIENTE, c.FECHA_VENCIMIENTO as FECHA_LIMITE, c.ESTADO " +
+                     "co.NOMBRE as concepto, c.PERIODO, c.VALOR_BASE, (c.VALOR_BASE - c.VALOR_DESCUENTO + c.VALOR_INTERES_MORA) AS VALOR_TOTAL, c.SALDO_PENDIENTE, c.FECHA_VENCIMIENTO as FECHA_LIMITE, c.ESTADO " +
                      "FROM CUOTAS c " +
                      "JOIN UNIDADES u ON c.ID_UNIDAD = u.ID_UNIDAD " +
                      "JOIN CONCEPTOS_COBRO co ON c.ID_CONCEPTO = co.ID_CONCEPTO " +
@@ -196,14 +196,18 @@ public class FinanzasRepositoryImpl implements FinanzasRepository {
     @Override
     public List<CuotaDTO> getCuotasByResidente(Long idResidente) {
         Long propId = (SaedContextHolder.getContext() != null) ? SaedContextHolder.getContext().getPropertyId() : null;
-        String sql = "SELECT c.ID_CUOTA, c.ID_UNIDAD, u.IDENTIFICADOR as numeroApartamento, p.PRIMER_NOMBRE || ' ' || p.PRIMER_APELLIDO as nombreResidente, c.ID_CONTRATO, " +
-                     "co.NOMBRE as concepto, c.PERIODO, c.VALOR_BASE, c.VALOR_TOTAL, c.SALDO_PENDIENTE, c.FECHA_VENCIMIENTO as FECHA_LIMITE, c.ESTADO " +
+        // The fees of the units the person belongs to (resident, owner or main tenant), not only of their
+        // rental contracts: administration fees are generated per unit without a contract.
+        String sql = "SELECT c.ID_CUOTA, c.ID_UNIDAD, u.IDENTIFICADOR as numeroApartamento, per.PRIMER_NOMBRE || ' ' || per.PRIMER_APELLIDO as nombreResidente, c.ID_CONTRATO, " +
+                     "co.NOMBRE as concepto, c.PERIODO, c.VALOR_BASE, (c.VALOR_BASE - c.VALOR_DESCUENTO + c.VALOR_INTERES_MORA) AS VALOR_TOTAL, c.SALDO_PENDIENTE, c.FECHA_VENCIMIENTO as FECHA_LIMITE, c.ESTADO " +
                      "FROM CUOTAS c " +
                      "JOIN UNIDADES u ON c.ID_UNIDAD = u.ID_UNIDAD " +
                      "JOIN CONCEPTOS_COBRO co ON c.ID_CONCEPTO = co.ID_CONCEPTO " +
-                     "JOIN CONTRATOS con ON c.ID_CONTRATO = con.ID_CONTRATO " +
-                     "JOIN PERSONAS p ON con.ID_ARRENDATARIO_PRINCIPAL = p.ID_PERSONA " +
-                     "WHERE con.ID_ARRENDATARIO_PRINCIPAL = :idRes" +
+                     "JOIN PERSONAS per ON per.ID_PERSONA = :idRes " +
+                     "WHERE c.ID_UNIDAD IN (" +
+                     "SELECT ru.ID_UNIDAD FROM RESIDENTES_UNIDAD ru WHERE ru.ID_PERSONA = :idRes AND ru.ESTADO IN ('ACTIVO', 'ACTIVA') " +
+                     "UNION SELECT pu.ID_UNIDAD FROM PROPIETARIOS_UNIDAD pu WHERE pu.ID_PERSONA = :idRes AND pu.ESTADO IN ('ACTIVO', 'ACTIVA') " +
+                     "UNION SELECT con.ID_UNIDAD FROM CONTRATOS con WHERE con.ID_ARRENDATARIO_PRINCIPAL = :idRes AND con.ESTADO = 'ACTIVO')" +
                      (propId != null ? " AND u.ID_PROPIEDAD = :propId " : " ") +
                      "ORDER BY c.FECHA_VENCIMIENTO DESC";
         MapSqlParameterSource params = new MapSqlParameterSource("idRes", idResidente);
@@ -585,26 +589,23 @@ public class FinanzasRepositoryImpl implements FinanzasRepository {
 
     @Override
     public void generarCuotasIniciales(Long idContrato) {
-        try {
-            jdbcTemplate.update(
-                "MERGE INTO CONCEPTOS_COBRO cc " +
-                "USING (SELECT u.ID_PROPIEDAD as p, p.ID_ORGANIZACION as o, 'CANON_ARRIENDO' as c, 'Canon de Arriendo' as n, 'ARRIENDO' as t " +
-                "       FROM CONTRATOS con JOIN UNIDADES u ON con.ID_UNIDAD = u.ID_UNIDAD JOIN PROPIEDADES p ON u.ID_PROPIEDAD = p.ID_PROPIEDAD " +
-                "       WHERE con.ID_CONTRATO = :id) s " +
-                "ON (cc.ID_PROPIEDAD = s.p AND cc.TIPO = s.t) " +
-                "WHEN NOT MATCHED THEN INSERT (ID_ORGANIZACION, ID_PROPIEDAD, CODIGO, NOMBRE, TIPO, APLICA_MORA, ESTADO) " +
-                "VALUES (s.o, s.p, s.c, s.n, s.t, 'S', 'ACTIVO')",
-                new MapSqlParameterSource("id", idContrato)
-            );
-        } catch (Exception ignored) {}
+        MapSqlParameterSource params = new MapSqlParameterSource("id", idContrato);
+        // The rent concept of the property is created on first use. INSERT ... WHERE NOT EXISTS (never MERGE:
+        // Oracle rejects it on policy-protected tables) and no swallowed errors: a contract must not be left
+        // silently without its first fee.
+        jdbcTemplate.update(
+            "INSERT INTO CONCEPTOS_COBRO (ID_ORGANIZACION, ID_PROPIEDAD, CODIGO, NOMBRE, TIPO, APLICA_MORA, ESTADO) " +
+            "SELECT p.ID_ORGANIZACION, u.ID_PROPIEDAD, 'CANON_ARRIENDO', 'Canon de Arriendo', 'ARRIENDO', 'S', 'ACTIVO' " +
+            "FROM CONTRATOS con JOIN UNIDADES u ON con.ID_UNIDAD = u.ID_UNIDAD JOIN PROPIEDADES p ON u.ID_PROPIEDAD = p.ID_PROPIEDAD " +
+            "WHERE con.ID_CONTRATO = :id " +
+            "AND NOT EXISTS (SELECT 1 FROM CONCEPTOS_COBRO cc WHERE cc.ID_PROPIEDAD = u.ID_PROPIEDAD AND cc.TIPO = 'ARRIENDO')",
+            params
+        );
 
+        String rentConcept = "(SELECT MIN(cc.ID_CONCEPTO) FROM CONCEPTOS_COBRO cc " +
+                             "WHERE cc.TIPO = 'ARRIENDO' AND cc.ID_PROPIEDAD = u.ID_PROPIEDAD)";
         String sql = "INSERT INTO CUOTAS (ID_UNIDAD, ID_CONCEPTO, ID_CONTRATO, PERIODO, VALOR_BASE, SALDO_PENDIENTE, FECHA_VENCIMIENTO, ESTADO) " +
-                     "SELECT c.ID_UNIDAD, " +
-                     "COALESCE(" +
-                     "    (SELECT ID_CONCEPTO FROM CONCEPTOS_COBRO WHERE TIPO = 'ARRIENDO' AND ID_PROPIEDAD = u.ID_PROPIEDAD FETCH FIRST 1 ROWS ONLY), " +
-                     "    (SELECT ID_CONCEPTO FROM CONCEPTOS_COBRO WHERE ID_PROPIEDAD = u.ID_PROPIEDAD FETCH FIRST 1 ROWS ONLY), " +
-                     "    1" +
-                     "), " +
+                     "SELECT c.ID_UNIDAD, " + rentConcept + ", " +
                      "c.ID_CONTRATO, " +
                      "TO_CHAR(c.FECHA_INICIO, 'YYYY-MM'), " +
                      "c.CANON_MENSUAL, c.CANON_MENSUAL, " +
@@ -616,11 +617,7 @@ public class FinanzasRepositoryImpl implements FinanzasRepository {
                      "  AND NOT EXISTS (SELECT 1 FROM CUOTAS cu WHERE cu.ID_CONTRATO = c.ID_CONTRATO) " +
                      "  AND NOT EXISTS (SELECT 1 FROM CUOTAS cu2 WHERE cu2.ID_UNIDAD = c.ID_UNIDAD " +
                      "                    AND cu2.PERIODO = TO_CHAR(c.FECHA_INICIO, 'YYYY-MM') " +
-                     "                    AND cu2.ID_CONCEPTO = COALESCE(" +
-                     "                        (SELECT ID_CONCEPTO FROM CONCEPTOS_COBRO WHERE TIPO = 'ARRIENDO' AND ID_PROPIEDAD = u.ID_PROPIEDAD FETCH FIRST 1 ROWS ONLY), " +
-                     "                        (SELECT ID_CONCEPTO FROM CONCEPTOS_COBRO WHERE ID_PROPIEDAD = u.ID_PROPIEDAD FETCH FIRST 1 ROWS ONLY), 1))";
-        try {
-            jdbcTemplate.update(sql, new MapSqlParameterSource("id", idContrato));
-        } catch (Exception ignored) {}
+                     "                    AND cu2.ID_CONCEPTO = " + rentConcept + ")";
+        jdbcTemplate.update(sql, params);
     }
 }

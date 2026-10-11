@@ -440,7 +440,9 @@ public class PazYSalvoServiceImpl implements PazYSalvoService {
     private void enforceUnitAccess(SaedContext ctx, Map<String, Object> unitInfo, String actionDescription) {
         if (ctx == null) return;
         String role = ctx.getRoleCode();
-        if ("SUPERADMIN".equalsIgnoreCase(role)) return;
+        if ("SUPERADMIN".equalsIgnoreCase(role)) {
+            throw new AccessDeniedException("La administracion de plataforma no accede a datos financieros operativos");
+        }
 
         Long unitPropId = ((Number) unitInfo.get("ID_PROPIEDAD")).longValue();
         Long unitOrgId = ((Number) unitInfo.get("ID_ORGANIZACION")).longValue();
@@ -464,7 +466,9 @@ public class PazYSalvoServiceImpl implements PazYSalvoService {
     private void enforceDetalleAccess(SaedContext ctx, PazYSalvoDetalleDTO detalle) {
         if (ctx == null) return;
         String role = ctx.getRoleCode();
-        if ("SUPERADMIN".equalsIgnoreCase(role)) return;
+        if ("SUPERADMIN".equalsIgnoreCase(role)) {
+            throw new AccessDeniedException("La administracion de plataforma no accede a datos financieros operativos");
+        }
 
         if ("ADMIN_ORGANIZACION".equalsIgnoreCase(role)) {
             if (ctx.getOrganizationId() != null && !ctx.getOrganizationId().equals(detalle.idOrganizacion())) {
