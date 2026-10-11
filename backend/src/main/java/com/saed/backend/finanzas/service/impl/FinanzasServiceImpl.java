@@ -147,26 +147,23 @@ public class FinanzasServiceImpl implements FinanzasService {
         }
 
         SaedContext ctx = SaedContextHolder.getContext();
-        if (ctx != null) {
-            String role = ctx.getRoleCode();
-            if ("RESIDENTE".equalsIgnoreCase(role) || "RESIDENTE_CONVIVENCIA".equalsIgnoreCase(role) || "PORTERO".equalsIgnoreCase(role)) {
-                throw new AccessDeniedException("No tiene permisos para crear contratos de arrendamiento");
-            }
+        if (ctx == null || ctx.getUserId() == null) {
+            throw new AccessDeniedException("Se requiere un usuario autenticado para crear contratos de arrendamiento");
+        }
+        boolean propertyAdmin = "ADMIN_PROPIEDAD".equalsIgnoreCase(ctx.getRoleCode());
+        boolean organizationAdmin = "ADMIN_ORGANIZACION".equalsIgnoreCase(ctx.getRoleCode());
+        if (!propertyAdmin && !organizationAdmin) {
+            throw new AccessDeniedException("No tiene permisos para crear contratos de arrendamiento");
         }
 
         // 1. Validar unidad y resolver propiedad / organización
         List<Map<String, Object>> unitInfo = null;
-        try {
-            setElevatedContext();
-            unitInfo = jdbcTemplate.queryForList(
+        unitInfo = jdbcTemplate.queryForList(
                 "SELECT u.ID_PROPIEDAD, p.ID_ORGANIZACION FROM UNIDADES u " +
                 "JOIN PROPIEDADES p ON u.ID_PROPIEDAD = p.ID_PROPIEDAD " +
                 "WHERE u.ID_UNIDAD = :unitId",
                 new MapSqlParameterSource("unitId", request.idApartamento())
             );
-        } finally {
-            restoreSaedContext(ctx);
-        }
 
         if (unitInfo == null || unitInfo.isEmpty()) {
             throw new NoSuchElementException("Unidad no encontrada: " + request.idApartamento());
@@ -174,29 +171,21 @@ public class FinanzasServiceImpl implements FinanzasService {
         Long unitPropId = ((Number) unitInfo.get(0).get("ID_PROPIEDAD")).longValue();
         Long unitOrgId = ((Number) unitInfo.get(0).get("ID_ORGANIZACION")).longValue();
 
-        // 2. Control de acceso por propiedad / organización (Aislamiento IDOR)
-        if (ctx != null) {
-            String role = ctx.getRoleCode();
-            if ("ADMIN_PROPIEDAD".equalsIgnoreCase(role) && ctx.getPropertyId() != null && !ctx.getPropertyId().equals(unitPropId)) {
-                throw new AccessDeniedException("No tiene permisos para gestionar contratos en otra propiedad");
-            }
-            if ("ADMIN_ORGANIZACION".equalsIgnoreCase(role) && ctx.getOrganizationId() != null && !ctx.getOrganizationId().equals(unitOrgId)) {
-                throw new AccessDeniedException("No tiene permisos para gestionar contratos en otra organización");
-            }
+        // 2. Scope comes from the server context; a unit outside it is indistinguishable from a missing one.
+        boolean inScope = propertyAdmin
+                ? ctx.getPropertyId() != null && ctx.getPropertyId().equals(unitPropId)
+                : ctx.getOrganizationId() != null && ctx.getOrganizationId().equals(unitOrgId);
+        if (!inScope) {
+            throw new NoSuchElementException("Unidad no encontrada: " + request.idApartamento());
         }
 
         // 3. Validar plantilla contractual organizacional y aislamiento IDOR de plantilla
         Integer countPlantillasActivas = null;
-        try {
-            setElevatedContext();
-            countPlantillasActivas = jdbcTemplate.queryForObject(
+        countPlantillasActivas = jdbcTemplate.queryForObject(
                 "SELECT COUNT(1) FROM PLANTILLAS_CONTRATOS WHERE ID_ORGANIZACION = :orgId AND ESTADO = 'ACTIVA'",
                 new MapSqlParameterSource("orgId", unitOrgId),
                 Integer.class
             );
-        } finally {
-            restoreSaedContext(ctx);
-        }
 
         if (countPlantillasActivas != null && countPlantillasActivas > 0 && request.idPlantilla() == null) {
             throw new IllegalArgumentException("La organización requiere el uso de una plantilla de contrato activa");
@@ -205,15 +194,10 @@ public class FinanzasServiceImpl implements FinanzasService {
         String rawHtmlTemplate = null;
         if (request.idPlantilla() != null) {
             List<Map<String, Object>> templateInfo = null;
-            try {
-                setElevatedContext();
-                templateInfo = jdbcTemplate.queryForList(
+                            templateInfo = jdbcTemplate.queryForList(
                     "SELECT ID_ORGANIZACION, ESTADO, CONTENIDO_HTML FROM PLANTILLAS_CONTRATOS WHERE ID_PLANTILLA = :tplId",
                     new MapSqlParameterSource("tplId", request.idPlantilla())
                 );
-            } finally {
-                restoreSaedContext(ctx);
-            }
 
             if (templateInfo == null || templateInfo.isEmpty()) {
                 throw new NoSuchElementException("Plantilla de contrato no encontrada");
@@ -239,25 +223,18 @@ public class FinanzasServiceImpl implements FinanzasService {
 
         // 4. Validar existencia de la persona arrendataria
         Integer countPersona = 0;
-        try {
-            setElevatedContext();
-            countPersona = jdbcTemplate.queryForObject(
-                "SELECT COUNT(1) FROM PERSONAS WHERE ID_PERSONA = :pId",
-                new MapSqlParameterSource("pId", request.idResidente()),
+        countPersona = jdbcTemplate.queryForObject(
+                "SELECT COUNT(1) FROM PERSONAS WHERE ID_PERSONA = :pId AND ID_ORGANIZACION = :orgId",
+                new MapSqlParameterSource("pId", request.idResidente()).addValue("orgId", unitOrgId),
                 Integer.class
             );
-        } finally {
-            restoreSaedContext(ctx);
-        }
         if (countPersona == null || countPersona == 0) {
             throw new NoSuchElementException("Persona arrendataria no encontrada");
         }
 
         // 4b. Validar si el arrendatario es menor de edad y requerir tutor
         java.sql.Date fechaNac = null;
-        try {
-            setElevatedContext();
-            List<Map<String, Object>> pRows = jdbcTemplate.queryForList(
+                    List<Map<String, Object>> pRows = jdbcTemplate.queryForList(
                 "SELECT FECHA_NACIMIENTO FROM PERSONAS WHERE ID_PERSONA = :pId",
                 new MapSqlParameterSource("pId", request.idResidente())
             );
@@ -266,9 +243,6 @@ public class FinanzasServiceImpl implements FinanzasService {
                 if (fnObj instanceof java.sql.Date d) fechaNac = d;
                 else if (fnObj instanceof java.sql.Timestamp ts) fechaNac = new java.sql.Date(ts.getTime());
             }
-        } finally {
-            restoreSaedContext(ctx);
-        }
 
         boolean esMenor = false;
         if (fechaNac != null) {
@@ -290,32 +264,22 @@ public class FinanzasServiceImpl implements FinanzasService {
                 throw new IllegalArgumentException("El tutor legal no puede ser la misma persona que el arrendatario principal");
             }
             Integer countTutor = 0;
-            try {
-                setElevatedContext();
-                countTutor = jdbcTemplate.queryForObject(
-                    "SELECT COUNT(1) FROM PERSONAS WHERE ID_PERSONA = :tId",
-                    new MapSqlParameterSource("tId", request.idTutor()),
+                            countTutor = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(1) FROM PERSONAS WHERE ID_PERSONA = :tId AND ID_ORGANIZACION = :orgId",
+                    new MapSqlParameterSource("tId", request.idTutor()).addValue("orgId", unitOrgId),
                     Integer.class
                 );
-            } finally {
-                restoreSaedContext(ctx);
-            }
             if (countTutor == null || countTutor == 0) {
                 throw new NoSuchElementException("Persona tutor no encontrada con ID: " + request.idTutor());
             }
 
             if (esMenor) {
                 Integer countRelTutor = 0;
-                try {
-                    setElevatedContext();
-                    countRelTutor = jdbcTemplate.queryForObject(
+                                    countRelTutor = jdbcTemplate.queryForObject(
                         "SELECT COUNT(1) FROM TUTORES WHERE ID_PERSONA_MENOR = :menorId AND ID_PERSONA_TUTOR = :tutorId AND ESTADO = 'ACTIVO'",
                         new MapSqlParameterSource("menorId", request.idResidente()).addValue("tutorId", request.idTutor()),
                         Integer.class
                     );
-                } finally {
-                    restoreSaedContext(ctx);
-                }
                 if (countRelTutor == null || countRelTutor == 0) {
                     throw new IllegalArgumentException("No existe una relación de tutoría legal activa entre el menor y el tutor seleccionado");
                 }
@@ -337,21 +301,16 @@ public class FinanzasServiceImpl implements FinanzasService {
                     throw new IllegalArgumentException("Coarrendatario duplicado en la solicitud: ID " + co.idPersona());
                 }
                 Integer countCo = 0;
-                try {
-                    setElevatedContext();
-                    countCo = jdbcTemplate.queryForObject(
-                        "SELECT COUNT(1) FROM PERSONAS WHERE ID_PERSONA = :coId",
-                        new MapSqlParameterSource("coId", co.idPersona()),
+                                    countCo = jdbcTemplate.queryForObject(
+                        "SELECT COUNT(1) FROM PERSONAS WHERE ID_PERSONA = :coId AND ID_ORGANIZACION = :orgId",
+                        new MapSqlParameterSource("coId", co.idPersona()).addValue("orgId", unitOrgId),
                         Integer.class
                     );
-                } finally {
-                    restoreSaedContext(ctx);
-                }
                 if (countCo == null || countCo == 0) {
                     throw new NoSuchElementException("Persona coarrendataria no encontrada con ID: " + co.idPersona());
                 }
                 if (Boolean.TRUE.equals(co.sincronizarHabitabilidad())) {
-                    syncCualquiera = true;
+        syncCualquiera = true;
                 }
             }
 
@@ -362,16 +321,11 @@ public class FinanzasServiceImpl implements FinanzasService {
 
         // 5. Validar que la unidad no tenga ya un contrato activo
         Integer activeContractCount = null;
-        try {
-            setElevatedContext();
-            activeContractCount = jdbcTemplate.queryForObject(
+        activeContractCount = jdbcTemplate.queryForObject(
                 "SELECT COUNT(1) FROM CONTRATOS WHERE ID_UNIDAD = :unitId AND ESTADO = 'ACTIVO'",
                 new MapSqlParameterSource("unitId", request.idApartamento()),
                 Integer.class
             );
-        } finally {
-            restoreSaedContext(ctx);
-        }
         if (activeContractCount != null && activeContractCount > 0) {
             throw new IllegalStateException("La unidad ya cuenta con un contrato de arrendamiento activo");
         }
@@ -385,12 +339,7 @@ public class FinanzasServiceImpl implements FinanzasService {
         FileStorageService.StoredFile storedFile = null;
         try {
             ContratoDetalleDTO detalle = null;
-            try {
-                setElevatedContext();
-                detalle = finanzasRepository.getContratoDetalle(id);
-            } finally {
-                restoreSaedContext(ctx);
-            }
+                            detalle = finanzasRepository.getContratoDetalle(id);
             if (detalle != null) {
                 Map<String, Object> variables = variableResolverService.construirMapaVariables(detalle);
                 String htmlCongelado = variableResolverService.resolverVariables(rawHtmlTemplate, variables);
@@ -426,7 +375,9 @@ public class FinanzasServiceImpl implements FinanzasService {
                 try {
                     fileStorageService.delete(storedFile.relativePath());
                     log.info("Archivo huérfano limpiado exitosamente: {}", storedFile.relativePath());
-                } catch (Exception ignored) {}
+                } catch (RuntimeException cleanupFailure) {
+                    log.warn("No se pudo limpiar el archivo huérfano {}", storedFile.relativePath());
+                }
             }
             if (e instanceof RuntimeException re) {
                 throw re;
@@ -958,7 +909,12 @@ public class FinanzasServiceImpl implements FinanzasService {
         if (!esCuotaPagable(cuota.estado())) {
             throw new IllegalStateException("La cuota " + cuota.id() + " no admite pagos en estado " + cuota.estado());
         }
-        if (cuota.saldoPendiente() != null && valorPagado.compareTo(cuota.saldoPendiente()) > 0) {
+        // Policy: a payment can never exceed the outstanding balance (400). Only a gateway payment that is already
+        // collected is stored and flagged SOBREPAGO for refund (registrarPagoPasarelaVerificado).
+        if (cuota.saldoPendiente() == null) {
+            throw new IllegalStateException("La cuota " + cuota.id() + " no tiene un saldo pendiente conocido");
+        }
+        if (valorPagado.compareTo(cuota.saldoPendiente()) > 0) {
             throw new IllegalArgumentException("El valor pagado excede el saldo pendiente de la cuota");
         }
     }
@@ -1054,34 +1010,5 @@ public class FinanzasServiceImpl implements FinanzasService {
         } catch (EmptyResultDataAccessException e) {
             return null;
         }
-    }
-
-    private void setElevatedContext() {
-        SaedContextHolder.setContext(SaedContext.builder()
-                .userId(1L).organizationId(1L).propertyId(1L).roleCode("SUPERADMIN").roleScope("GLOBAL").build());
-        try {
-            jdbcTemplate.getJdbcOperations().execute("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1); PKG_SAED_SESSION.SET_CONTEXT(1, 1, 1, 'SUPERADMIN'); END;");
-        } catch (Exception ignored) {}
-    }
-
-    private void restoreSaedContext(SaedContext ctx) {
-        if (ctx != null) {
-            SaedContextHolder.setContext(ctx);
-        } else {
-            SaedContextHolder.clearContext();
-        }
-        try {
-            if (ctx == null || ctx.getUserId() == null) {
-                jdbcTemplate.getJdbcOperations().execute("BEGIN PKG_SAED_SESSION.CLEAR_CONTEXT; END;");
-            } else {
-                long u = ctx.getUserId();
-                String o = ctx.getOrganizationId() != null ? String.valueOf(ctx.getOrganizationId()) : "NULL";
-                String p = ctx.getPropertyId() != null ? String.valueOf(ctx.getPropertyId()) : "NULL";
-                String r = ctx.getRoleCode() != null ? ctx.getRoleCode() : "ANONYMOUS";
-                jdbcTemplate.getJdbcOperations().execute(
-                    String.format("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(%d); PKG_SAED_SESSION.SET_CONTEXT(%d, %s, %s, '%s'); END;", u, u, o, p, r)
-                );
-            }
-        } catch (Exception ignored) {}
     }
 }
