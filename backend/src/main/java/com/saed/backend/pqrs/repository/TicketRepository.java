@@ -25,4 +25,10 @@ public interface TicketRepository {
     void upsertSlaConfig(Long idPropiedad, String prioridad, int tiempoMaximoHoras, int alertaHoras);
     Long getIdPersonaFromUsuario(Long idUsuario);
     Long getIdUnidadFromUsuario(Long idUsuario, Long idPropiedad);
+
+    /** True when the user holds an active staff assignment (admin roles) for the property. */
+    boolean esResponsableDePropiedad(Long idUsuario, Long idPropiedad);
+
+    /** True when the unit belongs to the property. */
+    boolean unidadPerteneceAPropiedad(Long idUnidad, Long idPropiedad);
 }

@@ -77,11 +77,37 @@ public class TrabajadorServiceImpl implements TrabajadorService {
                     .orElseThrow(() -> new AccessDeniedException("No se pudo resolver la organización asociada a la propiedad activa " + ctx.getPropertyId()));
         }
 
-        if ("SUPERADMIN".equals(ctx.getRoleCode())) {
-            return null;
-        }
-
         throw new AccessDeniedException("No se pudo determinar la organización activa para la operación.");
+    }
+
+    private static String currentRole() {
+        SaedContext ctx = SaedContextHolder.getContext();
+        return ctx != null ? ctx.getRoleCode() : null;
+    }
+
+    /** Property/organization admins manage the worker registry; SUPERADMIN has no operational access (DEC-02). */
+    private static boolean isAdmin() {
+        String role = currentRole();
+        return "ADMIN_ORGANIZACION".equals(role) || "ADMIN_PROPIEDAD".equals(role);
+    }
+
+    private static boolean isUnitMember() {
+        String role = currentRole();
+        return "RESIDENTE".equals(role) || "PROPIETARIO".equals(role);
+    }
+
+    private static void requireWorkerReader() {
+        if (!isAdmin() && !isUnitMember()) {
+            throw new AccessDeniedException("Operación denegada para el rol actual.");
+        }
+    }
+
+    private static Long requirePropertyId() {
+        SaedContext ctx = SaedContextHolder.getContext();
+        if (ctx == null || ctx.getPropertyId() == null) {
+            throw new AccessDeniedException("No se encontró una propiedad activa en la sesión.");
+        }
+        return ctx.getPropertyId();
     }
 
     private Long getUserIdFromContext() {
@@ -94,10 +120,10 @@ public class TrabajadorServiceImpl implements TrabajadorService {
                 .orElseThrow(() -> new AccessDeniedException("Acceso denegado: obra no encontrada o no autorizada para el usuario"));
 
         SaedContext ctx = SaedContextHolder.getContext();
+        requireWorkerReader();
         if (ctx != null) {
             String role = ctx.getRoleCode();
-            boolean isAdmin = "SUPERADMIN".equals(role) || "ADMIN_ORGANIZACION".equals(role) || "ADMIN_PROPIEDAD".equals(role);
-            if (!isAdmin) {
+            if (!isAdmin()) {
                 Long userUnitId = ctx.getUnitId();
                 if (userUnitId == null || !userUnitId.equals(obra.getIdUnidad())) {
                     throw new AccessDeniedException("Acceso denegado: no tiene permisos para gestionar trabajadores en esta obra");
@@ -111,10 +137,7 @@ public class TrabajadorServiceImpl implements TrabajadorService {
     }
 
     private void validarAccesoAdmin() {
-        SaedContext ctx = SaedContextHolder.getContext();
-        String role = (ctx != null) ? ctx.getRoleCode() : null;
-        boolean isAdmin = "SUPERADMIN".equals(role) || "ADMIN_ORGANIZACION".equals(role) || "ADMIN_PROPIEDAD".equals(role);
-        if (!isAdmin) {
+        if (!isAdmin()) {
             throw new AccessDeniedException("Operación denegada: solo la administración puede autorizar o revocar trabajadores.");
         }
     }
@@ -190,12 +213,25 @@ public class TrabajadorServiceImpl implements TrabajadorService {
 
     @Override
     public List<TrabajadorDTO> listarTrabajadores(Long idProveedor, String estado, String search) {
+        requireWorkerReader();
+        if (!isAdmin()) {
+            // F9-02: residents/owners only see minimal data of workers relevant to their own property.
+            return trabajadorRepository.listarParaPropiedad(requirePropertyId(), search).stream()
+                    .map(TrabajadorDTO::resumenPublico)
+                    .toList();
+        }
         Long idOrganizacion = resolveOrganizationId();
         return trabajadorRepository.listar(idOrganizacion, idProveedor, estado, search);
     }
 
     @Override
     public TrabajadorDTO obtenerTrabajador(Long idTrabajador) {
+        requireWorkerReader();
+        if (!isAdmin()) {
+            return trabajadorRepository.buscarPorIdEnPropiedad(idTrabajador, requirePropertyId())
+                    .map(TrabajadorDTO::resumenPublico)
+                    .orElseThrow(() -> new TrabajadorNoEncontradoException(idTrabajador));
+        }
         Long idOrganizacion = resolveOrganizationId();
         return trabajadorRepository.buscarPorId(idTrabajador, idOrganizacion)
                 .orElseThrow(() -> new TrabajadorNoEncontradoException(idTrabajador));
@@ -236,7 +272,15 @@ public class TrabajadorServiceImpl implements TrabajadorService {
     @Override
     public List<ObraTrabajadorDTO> listarTrabajadoresObra(Long idObra) {
         validarAccesoObra(idObra);
-        return obraTrabajadorRepository.listarPorObra(idObra);
+        List<ObraTrabajadorDTO> asignados = obraTrabajadorRepository.listarPorObra(idObra);
+        if (isAdmin()) {
+            return asignados;
+        }
+        return asignados.stream()
+                .map(ot -> new ObraTrabajadorDTO(ot.idObraTrabajador(), ot.idObra(), ot.idTrabajador(), ot.autorizado(),
+                        ot.fechaAutorizacion(), ot.fechaRevocacion(), ot.autorizadoPor(),
+                        ot.trabajador() != null ? ot.trabajador().resumenPublico() : null))
+                .toList();
     }
 
     @Override
@@ -255,12 +299,10 @@ public class TrabajadorServiceImpl implements TrabajadorService {
         }
 
         SaedContext ctx = SaedContextHolder.getContext();
-        String role = (ctx != null) ? ctx.getRoleCode() : null;
-        boolean isAdmin = "SUPERADMIN".equals(role) || "ADMIN_ORGANIZACION".equals(role) || "ADMIN_PROPIEDAD".equals(role);
 
         String aut;
         Long autorizadoPor;
-        if (isAdmin) {
+        if (isAdmin()) {
             aut = (autorizado != null && autorizado.equalsIgnoreCase("N")) ? "N" : "S";
             if ("S".equals(aut)) {
                 validarRequisitosTrabajador(trabajador);

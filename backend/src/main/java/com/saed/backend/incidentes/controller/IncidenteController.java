@@ -91,9 +91,20 @@ public class IncidenteController {
         return ResponseEntity.ok().build();
     }
 
+    @PostMapping("/{id}/reabrir")
+    @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
+    public ResponseEntity<Void> reabrirIncidente(@PathVariable Long id, @RequestBody(required = false) Map<String, String> payload) {
+        String motivo = null;
+        if (payload != null) {
+            motivo = payload.containsKey("motivo") ? payload.get("motivo") : payload.get("motivoReapertura");
+        }
+        incidenteService.reabrirIncidente(id, motivo);
+        return ResponseEntity.ok().build();
+    }
+
     // Involucrados
     @GetMapping("/{id}/involucrados")
-    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_PORTERO', 'SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_PORTERO')")
     public ResponseEntity<List<IncidenteInvolucradoDTO>> getInvolucrados(@PathVariable Long id) {
         return ResponseEntity.ok(incidenteService.getInvolucrados(id));
     }

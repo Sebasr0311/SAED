@@ -2,6 +2,7 @@ package com.saed.backend.activos.service.impl;
 
 import com.saed.backend.activos.dto.ActivoCreateDTO;
 import com.saed.backend.activos.dto.ActivoDTO;
+import com.saed.backend.activos.dto.ActivoHistorialDTO;
 import com.saed.backend.activos.dto.ActivoUpdateDTO;
 import com.saed.backend.activos.exception.ActivoEstadoInvalidoException;
 import com.saed.backend.activos.exception.ActivoNoEncontradoException;
@@ -11,6 +12,7 @@ import com.saed.backend.activos.repository.ActivoRepository;
 import com.saed.backend.activos.service.ActivoService;
 import com.saed.backend.context.SaedContext;
 import com.saed.backend.context.SaedContextHolder;
+import com.saed.backend.mantenimiento.repository.MantenimientoRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.access.AccessDeniedException;
@@ -28,9 +30,24 @@ public class ActivoServiceImpl implements ActivoService {
     private static final Set<String> ESTADOS_VALIDOS = Set.of("OPERATIVO", "MANTENIMIENTO", "DADO_DE_BAJA");
 
     private final ActivoRepository activoRepo;
+    private final MantenimientoRepository mantenimientoRepo;
 
-    public ActivoServiceImpl(ActivoRepository activoRepo) {
+    public ActivoServiceImpl(ActivoRepository activoRepo, MantenimientoRepository mantenimientoRepo) {
         this.activoRepo = activoRepo;
+        this.mantenimientoRepo = mantenimientoRepo;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ActivoHistorialDTO> historial(Long idActivo) {
+        Long propId = resolvePropertyId();
+        obtenerPorId(idActivo);
+        return mantenimientoRepo.findAllByPropiedad(propId, null, null, null, idActivo, null).stream()
+                .map(m -> new ActivoHistorialDTO(m.getIdMantenimiento(), m.getTipoMantenimiento(), m.getTitulo(),
+                        m.getEstado(), m.getFechaProgramada(), m.getFechaEjecucion(), m.getCostoEstimado(),
+                        m.getCostoReal(), m.getRazonSocialProveedor(), m.getTecnicoResponsable(),
+                        m.getInformeTecnicoUrl(), m.getNotasCierre()))
+                .toList();
     }
 
     /**
@@ -108,14 +125,8 @@ public class ActivoServiceImpl implements ActivoService {
         Long propId = resolvePropertyId();
 
         return activoRepo.buscarPorId(idActivo, propId)
-                .orElseGet(() -> {
-                    // Verificación Anti-IDOR: Si existe en otra propiedad, rechazar con 403
-                    if (activoRepo.buscarPorIdDirecto(idActivo).isPresent()) {
-                        log.warn("[Anti-IDOR] Intento de acceso denegado: Activo {} solicitado por propiedad {}", idActivo, propId);
-                        throw new AccessDeniedException("Acceso denegado: El activo " + idActivo + " pertenece a otra propiedad.");
-                    }
-                    throw new ActivoNoEncontradoException("Activo no encontrado con ID: " + idActivo);
-                });
+                // Anti-IDOR: an asset of another property is indistinguishable from a missing one (404)
+                .orElseThrow(() -> new ActivoNoEncontradoException("Activo no encontrado con ID: " + idActivo));
     }
 
     @Override
