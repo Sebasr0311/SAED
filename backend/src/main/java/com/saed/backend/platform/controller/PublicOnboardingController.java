@@ -5,6 +5,7 @@ import com.saed.backend.audit.AuditSeverity;
 import com.saed.backend.audit.Auditable;
 import com.saed.backend.common.dto.ApiResponse;
 import com.saed.backend.platform.dto.OnboardingRegistroRequestDTO;
+import com.saed.backend.platform.service.OnboardingRateLimiter;
 import com.saed.backend.platform.service.OnboardingService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -23,9 +24,11 @@ import java.util.Map;
 public class PublicOnboardingController {
 
     private final OnboardingService onboardingService;
+    private final OnboardingRateLimiter rateLimiter;
 
-    public PublicOnboardingController(OnboardingService onboardingService) {
+    public PublicOnboardingController(OnboardingService onboardingService, OnboardingRateLimiter rateLimiter) {
         this.onboardingService = onboardingService;
+        this.rateLimiter = rateLimiter;
     }
 
     @Operation(summary = "Catálogo público de planes disponibles para suscripción")
@@ -42,13 +45,17 @@ public class PublicOnboardingController {
             @Valid @RequestBody OnboardingRegistroRequestDTO request,
             HttpServletRequest httpRequest) {
 
+        rateLimiter.checkRegistration(OnboardingRateLimiter.clientIp(httpRequest),
+                request.getIdentificacionFiscal(), request.getEmailOrganizacion());
         Map<String, Object> resp = onboardingService.registrar(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(resp));
     }
 
     @Operation(summary = "Consultar estado de transacción de membresía / onboarding")
     @GetMapping("/estado-pago")
-    public ResponseEntity<ApiResponse<Map<String, Object>>> consultarEstadoPago(@RequestParam String referencia) {
+    public ResponseEntity<ApiResponse<Map<String, Object>>> consultarEstadoPago(
+            @RequestParam String referencia, HttpServletRequest httpRequest) {
+        rateLimiter.checkStatusLookup(OnboardingRateLimiter.clientIp(httpRequest));
         Map<String, Object> resp = onboardingService.consultarEstadoPago(referencia);
         return ResponseEntity.ok(ApiResponse.success(resp));
     }
