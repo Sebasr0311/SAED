@@ -44,7 +44,7 @@ public class MultaServiceImpl implements MultaService {
     public MultaDTO findById(Long id) {
         MultaDTO multa = repo.findById(id);
         if (multa == null) {
-            throw new IllegalArgumentException("Multa no encontrada con ID: " + id);
+            throw new NoSuchElementException("Multa no encontrada con ID: " + id);
         }
         return multa;
     }
@@ -83,7 +83,7 @@ public class MultaServiceImpl implements MultaService {
     public void pagar(Long id, String metodo) {
         MultaDTO multa = repo.findById(id);
         if (multa == null) {
-            throw new IllegalArgumentException("Multa no encontrada con ID: " + id);
+            throw new NoSuchElementException("Multa no encontrada con ID: " + id);
         }
 
         String estadoActual = multa.getEstado();
@@ -95,6 +95,13 @@ public class MultaServiceImpl implements MultaService {
         }
         if (!Arrays.asList("IMPUESTA", "EN_DESCARGOS", "RATIFICADA", "PENDIENTE").contains(estadoActual)) {
             throw new IllegalStateException("La multa no se encuentra en un estado válido para recibir pago: " + estadoActual);
+        }
+
+        // A fine posted to the receivables (F10-06) is collected only through its fee, never twice.
+        List<Map<String, Object>> posted = jdbcTemplate.queryForList(
+            "SELECT ID_CUOTA FROM MULTAS WHERE ID_MULTA = :id", new MapSqlParameterSource("id", id));
+        if (!posted.isEmpty() && posted.get(0).get("ID_CUOTA") != null) {
+            throw new IllegalStateException("La multa ya esta incluida en la cartera de la unidad; registre el pago de su cuota");
         }
 
         repo.updateEstado(id, "PAGADA");
@@ -138,7 +145,7 @@ public class MultaServiceImpl implements MultaService {
     public void anular(Long id) {
         MultaDTO multa = repo.findById(id);
         if (multa == null) {
-            throw new IllegalArgumentException("Multa no encontrada con ID: " + id);
+            throw new NoSuchElementException("Multa no encontrada con ID: " + id);
         }
 
         String estadoActual = multa.getEstado();
