@@ -8,6 +8,7 @@ import com.saed.backend.common.dto.ApiResponse;
 import com.saed.backend.common.service.FileStorageService;
 import com.saed.backend.context.SaedContext;
 import com.saed.backend.context.SaedContextHolder;
+import com.saed.backend.finanzas.domain.BudgetExecution;
 import com.saed.backend.finanzas.dto.GastoRequestDTO;
 import com.saed.backend.finanzas.dto.GastoResponseDTO;
 import com.saed.backend.finanzas.dto.GastoSoporteHistorialDTO;
@@ -25,6 +26,7 @@ import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -40,6 +42,7 @@ import java.util.*;
 public class GastosController {
 
     private static final Logger log = LoggerFactory.getLogger(GastosController.class);
+    private static final Set<String> ESTADOS_GASTO = Set.of("REGISTRADO", "PAGADO", "ANULADO");
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
     private final FileStorageService fileStorageService;
@@ -221,6 +224,7 @@ public class GastosController {
     // --- 4. CREAR GASTO (JSON) ---
 
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
+    @Transactional
     @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
     @Auditable(action = "CREATE", resource = "GASTO", category = AuditCategory.FINANCIAL, severity = AuditSeverity.HIGH)
     public ResponseEntity<ApiResponse<Map<String, Object>>> crearJson(@RequestBody Map<String, Object> body) {
@@ -242,6 +246,7 @@ public class GastosController {
     // --- 5. CREAR GASTO CON ARCHIVO SOPORTE (MULTIPART) ---
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Transactional
     @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
     @Auditable(action = "CREATE_WITH_SUPPORT", resource = "GASTO", category = AuditCategory.FINANCIAL, severity = AuditSeverity.HIGH)
     public ResponseEntity<ApiResponse<Map<String, Object>>> crearMultipart(
@@ -284,9 +289,12 @@ public class GastosController {
         }
 
         String safeMetodoPago = metodoPago != null ? metodoPago.toUpperCase().trim() : "EFECTIVO";
-        String safeEstado = estado != null ? estado.toUpperCase().trim() : "REGISTRADO";
-        if (!Set.of("REGISTRADO", "PAGADO", "ANULADO").contains(safeEstado)) {
-            safeEstado = "REGISTRADO";
+        String safeEstado = estado != null && !estado.isBlank() ? estado.toUpperCase().trim() : "REGISTRADO";
+        if (!ESTADOS_GASTO.contains(safeEstado)) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("Estado no valido. Permitidos: REGISTRADO, PAGADO, ANULADO"));
+        }
+        if (idPresupuesto != null && !budgetBelongsToSessionProperty(idPresupuesto)) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error("Presupuesto no encontrado"));
         }
 
         String soporteUrl = facturaSoporteUrlManual;
@@ -350,11 +358,7 @@ public class GastosController {
         jdbcTemplate.update(sql, params, keyHolder, new String[]{"ID_GASTO"});
         Long id = keyHolder.getKey().longValue();
 
-        if (idPresupuesto != null) {
-            jdbcTemplate.update(
-                    "UPDATE PRESUPUESTOS SET MONTO_EJECUTADO = MONTO_EJECUTADO + :monto WHERE ID_PRESUPUESTO = :idPresupuesto",
-                    new MapSqlParameterSource("idPresupuesto", idPresupuesto).addValue("monto", monto));
-        }
+        applyBudgetMovements(BudgetExecution.between(null, null, null, idPresupuesto, monto, safeEstado));
 
         Map<String, Object> resp = new HashMap<>();
         resp.put("id", id);
@@ -458,11 +462,12 @@ public class GastosController {
     // --- 7. ACTUALIZAR GASTO ---
 
     @PutMapping("/{id}")
+    @Transactional
     @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
     @Auditable(action = "UPDATE", resource = "GASTO", category = AuditCategory.FINANCIAL, severity = AuditSeverity.HIGH)
     public ResponseEntity<ApiResponse<String>> actualizar(@PathVariable Long id, @RequestBody Map<String, Object> body) {
         List<Map<String, Object>> prevList = jdbcTemplate.queryForList(
-                "SELECT ID_PRESUPUESTO, MONTO FROM GASTOS WHERE ID_GASTO = :id",
+                "SELECT ID_PRESUPUESTO, MONTO, ESTADO FROM GASTOS WHERE ID_GASTO = :id",
                 new MapSqlParameterSource("id", id));
         if (prevList.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error("Gasto no encontrado"));
@@ -472,6 +477,7 @@ public class GastosController {
         Number prevPresupuesto = (Number) prev.get("ID_PRESUPUESTO");
         Number prevMontoNum = (Number) prev.get("MONTO");
         BigDecimal prevMonto = prevMontoNum != null ? new BigDecimal(prevMontoNum.toString()) : BigDecimal.ZERO;
+        String prevEstado = (String) prev.get("ESTADO");
 
         String categoria = (String) body.getOrDefault("categoria", null);
         String beneficiario = (String) body.getOrDefault("beneficiario", null);
@@ -485,8 +491,14 @@ public class GastosController {
         Number newPresupuestoNum = (Number) body.getOrDefault("idPresupuesto", null);
         Long newPresupuesto = newPresupuestoNum != null ? newPresupuestoNum.longValue() : null;
 
-        if (estado != null && !Set.of("REGISTRADO", "PAGADO", "ANULADO").contains(estado)) {
+        if (estado != null && !ESTADOS_GASTO.contains(estado)) {
             return ResponseEntity.badRequest().body(ApiResponse.error("Estado no valido. Permitidos: REGISTRADO, PAGADO, ANULADO"));
+        }
+        if (newMonto != null && newMonto.compareTo(BigDecimal.ZERO) <= 0) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("El monto debe ser mayor a 0"));
+        }
+        if (newPresupuesto != null && !budgetBelongsToSessionProperty(newPresupuesto)) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error("Presupuesto no encontrado"));
         }
 
         StringBuilder sb = new StringBuilder("UPDATE GASTOS SET ");
@@ -549,13 +561,13 @@ public class GastosController {
         int rows = jdbcTemplate.update(sb.toString(), params);
         if (rows == 0) return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error("Gasto no encontrado"));
 
-        // Conciliar monto ejecutado en PRESUPUESTOS si el monto o el presupuesto cambiaron
-        if (newMonto != null && prevPresupuesto != null && (newPresupuesto == null || newPresupuesto.equals(prevPresupuesto.longValue()))) {
-            BigDecimal diff = newMonto.subtract(prevMonto);
-            jdbcTemplate.update(
-                    "UPDATE PRESUPUESTOS SET MONTO_EJECUTADO = MONTO_EJECUTADO + :diff WHERE ID_PRESUPUESTO = :pId",
-                    new MapSqlParameterSource("diff", diff).addValue("pId", prevPresupuesto));
-        }
+        // Executed amounts follow the expense: both budgets of a move, an amount change and a cancellation
+        // are applied together with the expense update, in this transaction.
+        Long newBudgetId = body.containsKey("idPresupuesto") ? newPresupuesto
+                : (prevPresupuesto != null ? prevPresupuesto.longValue() : null);
+        applyBudgetMovements(BudgetExecution.between(
+                prevPresupuesto != null ? prevPresupuesto.longValue() : null, prevMonto, prevEstado,
+                newBudgetId, newMonto != null ? newMonto : prevMonto, estado != null ? estado : prevEstado));
 
         return ResponseEntity.ok(ApiResponse.success("OK"));
     }
@@ -563,11 +575,12 @@ public class GastosController {
     // --- 8. ELIMINAR GASTO ---
 
     @DeleteMapping("/{id}")
+    @Transactional
     @PreAuthorize("hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
     @Auditable(action = "DELETE", resource = "GASTO", category = AuditCategory.FINANCIAL, severity = AuditSeverity.HIGH)
     public ResponseEntity<ApiResponse<String>> eliminar(@PathVariable Long id) {
         List<Map<String, Object>> gastos = jdbcTemplate.queryForList(
-                "SELECT ID_PRESUPUESTO, MONTO, FACTURA_SOPORTE_URL FROM GASTOS WHERE ID_GASTO = :id",
+                "SELECT ID_PRESUPUESTO, MONTO, ESTADO, FACTURA_SOPORTE_URL FROM GASTOS WHERE ID_GASTO = :id",
                 new MapSqlParameterSource("id", id));
 
         if (gastos.isEmpty()) {
@@ -582,9 +595,8 @@ public class GastosController {
         jdbcTemplate.update("DELETE FROM GASTOS WHERE ID_GASTO = :id", new MapSqlParameterSource("id", id));
 
         if (idPresupuesto != null && monto != null) {
-            jdbcTemplate.update(
-                    "UPDATE PRESUPUESTOS SET MONTO_EJECUTADO = MONTO_EJECUTADO - :monto WHERE ID_PRESUPUESTO = :idPresupuesto",
-                    new MapSqlParameterSource("idPresupuesto", idPresupuesto).addValue("monto", monto));
+            applyBudgetMovements(BudgetExecution.between(idPresupuesto.longValue(), new BigDecimal(monto.toString()),
+                    (String) gasto.get("ESTADO"), null, null, null));
         }
 
         if (soporteUrl != null && !soporteUrl.isBlank()) {
@@ -592,6 +604,38 @@ public class GastosController {
         }
 
         return ResponseEntity.ok(ApiResponse.success("Gasto eliminado exitosamente"));
+    }
+
+    // --- PRESUPUESTO: contabilidad del monto ejecutado ---
+
+    private boolean budgetBelongsToSessionProperty(Long idPresupuesto) {
+        SaedContext ctx = SaedContextHolder.getContext();
+        if (ctx == null || ctx.getPropertyId() == null) {
+            throw new AccessDeniedException("Se requiere una propiedad activa en la sesion");
+        }
+        Integer count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(1) FROM PRESUPUESTOS WHERE ID_PRESUPUESTO = :id AND ID_PROPIEDAD = :propId",
+                new MapSqlParameterSource("id", idPresupuesto).addValue("propId", ctx.getPropertyId()),
+                Integer.class);
+        return count != null && count > 0;
+    }
+
+    /** Locks the affected budgets in id order (no deadlocks between concurrent moves) and applies the net deltas. */
+    private void applyBudgetMovements(List<BudgetExecution.Movement> movements) {
+        if (movements.isEmpty()) {
+            return;
+        }
+        jdbcTemplate.queryForList(
+                "SELECT ID_PRESUPUESTO FROM PRESUPUESTOS WHERE ID_PRESUPUESTO IN (:ids) ORDER BY ID_PRESUPUESTO FOR UPDATE",
+                new MapSqlParameterSource("ids", movements.stream().map(BudgetExecution.Movement::idPresupuesto).toList()));
+        for (BudgetExecution.Movement movement : movements) {
+            int rows = jdbcTemplate.update(
+                    "UPDATE PRESUPUESTOS SET MONTO_EJECUTADO = GREATEST(MONTO_EJECUTADO + :diff, 0) WHERE ID_PRESUPUESTO = :pId",
+                    new MapSqlParameterSource("diff", movement.delta()).addValue("pId", movement.idPresupuesto()));
+            if (rows == 0) {
+                throw new IllegalStateException("Presupuesto " + movement.idPresupuesto() + " no encontrado");
+            }
+        }
     }
 
     // --- HELPER DE MAPEO ---
