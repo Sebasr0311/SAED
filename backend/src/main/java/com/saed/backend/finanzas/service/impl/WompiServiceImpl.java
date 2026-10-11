@@ -531,6 +531,19 @@ public class WompiServiceImpl implements WompiService {
             return;
         }
 
+        // 2b. Confirmación autoritativa con el proveedor (cuando está habilitada): referencia, estado y monto.
+        if (transactionVerifier != null && transactionVerifier.enabled()) {
+            java.util.Optional<com.saed.backend.finanzas.service.WompiTransactionVerifier.VerifiedTransaction> confirmed =
+                    transactionVerifier.find(idWompi);
+            if (confirmed.isEmpty()
+                    || !referencia.equals(confirmed.get().reference())
+                    || !status.equalsIgnoreCase(confirmed.get().status())
+                    || amountInCents.longValue() != confirmed.get().amountInCents()) {
+                log.warn("[Wompi] La confirmacion del proveedor no coincide con el evento; evento ignorado");
+                return;
+            }
+        }
+
         // 3. Establecer contexto de ejecución seguro para consultar TRANSACCIONES_PAGO
         SaedContext prevCtx = SaedContextHolder.getContext();
         SaedContext systemCtx = SaedContext.builder()
@@ -985,6 +998,14 @@ public class WompiServiceImpl implements WompiService {
         return "PENDIENTE";
     }
 
+    /** Optional authoritative lookup; absent or disabled means the signed checks alone apply. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.saed.backend.finanzas.service.WompiTransactionVerifier transactionVerifier;
+
+    /** The signature must at least cover the transaction id, its status and its amount. */
+    private static final List<String> REQUIRED_SIGNED_PROPERTIES =
+            List.of("transaction.id", "transaction.status", "transaction.amount_in_cents");
+
     private boolean verificarChecksum(Map<String, Object> evento) throws Exception {
         String eventsSecret = getEventsSecret();
         if (eventsSecret == null || eventsSecret.isBlank()) return false;
@@ -997,6 +1018,7 @@ public class WompiServiceImpl implements WompiService {
         Object timestamp = evento.get("timestamp");
 
         if (properties == null || checksum == null || timestamp == null) return false;
+        if (!properties.containsAll(REQUIRED_SIGNED_PROPERTIES)) return false;
 
         Map<String, Object> data = (Map<String, Object>) evento.get("data");
         StringBuilder sb = new StringBuilder();

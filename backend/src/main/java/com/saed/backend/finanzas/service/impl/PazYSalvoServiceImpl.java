@@ -170,7 +170,7 @@ public class PazYSalvoServiceImpl implements PazYSalvoService {
         String solicitanteNombre = solicitanteInfo != null ? (String) solicitanteInfo.get("NOMBRE") : "PROPIETARIO / RESIDENTE";
         String solicitanteDoc = solicitanteInfo != null ? (String) solicitanteInfo.get("DOCUMENTO") : "NO REGISTRADO";
 
-        String codigoVerificacion = UUID.randomUUID().toString();
+        String codigoVerificacion = nuevoCodigoVerificacion();
         LocalDate fechaEmision = LocalDate.now();
         LocalDate fechaVencimiento = fechaEmision.plusDays(30);
 
@@ -342,6 +342,15 @@ public class PazYSalvoServiceImpl implements PazYSalvoService {
         return fileStorageService.loadAsResource(detalle.documentoPdfUrl());
     }
 
+    private static final java.security.SecureRandom CODE_RANDOM = new java.security.SecureRandom();
+
+    /** 192 random bits, URL-safe (32 characters): the public verification endpoint relies on it being unguessable. */
+    public static String nuevoCodigoVerificacion() {
+        byte[] bytes = new byte[24];
+        CODE_RANDOM.nextBytes(bytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    }
+
     @Override
     public Map<String, Object> verificarPorCodigo(String codigo) {
         if (codigo == null || codigo.isBlank()) {
@@ -352,9 +361,10 @@ public class PazYSalvoServiceImpl implements PazYSalvoService {
         List<Map<String, Object>> rows;
         setElevatedContext();
         try {
-            String sql = "SELECT p.ID_PAZ_SALVO, p.ID_UNIDAD, u.IDENTIFICADOR AS NUMERO_UNIDAD, " +
+            // Minimal answer for an unauthenticated caller: authenticity only (no balance, reason or internal ids).
+            String sql = "SELECT u.IDENTIFICADOR AS NUMERO_UNIDAD, " +
                     "pr.NOMBRE AS NOMBRE_PROPIEDAD, p.CODIGO_VERIFICACION, p.FECHA_EMISION, " +
-                    "p.FECHA_VENCIMIENTO, p.SALDO_A_LA_FECHA, p.MOTIVO, p.DOCUMENTO_HASH, p.ESTADO " +
+                    "p.FECHA_VENCIMIENTO, p.DOCUMENTO_HASH, p.ESTADO " +
                     "FROM PAZ_Y_SALVOS p " +
                     "JOIN UNIDADES u ON p.ID_UNIDAD = u.ID_UNIDAD " +
                     "JOIN PROPIEDADES pr ON u.ID_PROPIEDAD = pr.ID_PROPIEDAD " +
@@ -645,7 +655,10 @@ public class PazYSalvoServiceImpl implements PazYSalvoService {
                 .userId(1L).organizationId(1L).propertyId(1L).roleCode("SUPERADMIN").roleScope("GLOBAL").build());
         try {
             jdbcTemplate.getJdbcOperations().execute("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1); PKG_SAED_SESSION.SET_CONTEXT(1, 1, 1, 'SUPERADMIN'); END;");
-        } catch (Exception ignored) {}
+        } catch (RuntimeException e) {
+            SaedContextHolder.clearContext();
+            throw new IllegalStateException("No fue posible establecer el contexto de verificación", e);
+        }
     }
 
     private void restoreSaedContext(SaedContext ctx) {
@@ -666,6 +679,8 @@ public class PazYSalvoServiceImpl implements PazYSalvoService {
                     String.format("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(%d); PKG_SAED_SESSION.SET_CONTEXT(%d, %s, %s, '%s'); END;", u, u, o, p, r)
                 );
             }
-        } catch (Exception ignored) {}
+        } catch (RuntimeException e) {
+            throw new IllegalStateException("No fue posible restablecer el contexto de sesión", e);
+        }
     }
 }
