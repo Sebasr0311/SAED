@@ -152,28 +152,28 @@ class WompiEventBindingTest {
 
     @Test
     void sandboxEventIsAcceptedByASandboxDeployment() throws Exception {
-        service("sandbox").procesarWebhook(event("test", "COP", AMOUNT_CENTS, "tx-1"));
+        service("SANDBOX").procesarWebhook(event("test", "COP", AMOUNT_CENTS, "tx-1"));
 
         verify(finanzas).registrarPagoPasarelaVerificado(any());
     }
 
     @Test
     void sandboxEventIsRejectedByALiveDeployment() throws Exception {
-        service("live").procesarWebhook(event("test", "COP", AMOUNT_CENTS, "tx-1"));
+        service("LIVE").procesarWebhook(event("test", "COP", AMOUNT_CENTS, "tx-1"));
 
         assertIgnored();
     }
 
     @Test
     void liveEventIsRejectedByASandboxDeployment() throws Exception {
-        service("sandbox").procesarWebhook(event("prod", "COP", AMOUNT_CENTS, "tx-1"));
+        service("SANDBOX").procesarWebhook(event("prod", "COP", AMOUNT_CENTS, "tx-1"));
 
         assertIgnored();
     }
 
     @Test
     void eventsWithoutAnEnvironmentAreRejected() throws Exception {
-        service("sandbox").procesarWebhook(event(null, "COP", AMOUNT_CENTS, "tx-1"));
+        service("SANDBOX").procesarWebhook(event(null, "COP", AMOUNT_CENTS, "tx-1"));
 
         assertIgnored();
     }
@@ -186,25 +186,15 @@ class WompiEventBindingTest {
     }
 
     @Test
-    void theEnvironmentIsDerivedFromThePublicKeyWhenNotConfigured() throws Exception {
-        WompiServiceImpl svc = service("");
-        svc.setPublicKey("pub_test_synthetic");
-
-        svc.procesarWebhook(event("test", "COP", AMOUNT_CENTS, "tx-1"));
-
-        verify(finanzas).registrarPagoPasarelaVerificado(any());
-    }
-
-    @Test
     void aMissingCurrencyIsRejected() throws Exception {
-        service("sandbox").procesarWebhook(event("test", null, AMOUNT_CENTS, "tx-1"));
+        service("SANDBOX").procesarWebhook(event("test", null, AMOUNT_CENTS, "tx-1"));
 
         assertIgnored();
     }
 
     @Test
     void aForeignCurrencyIsRejected() throws Exception {
-        service("sandbox").procesarWebhook(event("test", "USD", AMOUNT_CENTS, "tx-1"));
+        service("SANDBOX").procesarWebhook(event("test", "USD", AMOUNT_CENTS, "tx-1"));
 
         assertIgnored();
     }
@@ -213,14 +203,14 @@ class WompiEventBindingTest {
     void anIntentStoredInAnotherCurrencyIsRejected() throws Exception {
         intentCurrency = "USD";
 
-        service("sandbox").procesarWebhook(event("test", "COP", AMOUNT_CENTS, "tx-1"));
+        service("SANDBOX").procesarWebhook(event("test", "COP", AMOUNT_CENTS, "tx-1"));
 
         assertIgnored();
     }
 
     @Test
     void aTamperedAmountIsRejected() throws Exception {
-        service("sandbox").procesarWebhook(event("test", "COP", AMOUNT_CENTS - 100, "tx-1"));
+        service("SANDBOX").procesarWebhook(event("test", "COP", AMOUNT_CENTS - 100, "tx-1"));
 
         assertIgnored();
     }
@@ -229,7 +219,7 @@ class WompiEventBindingTest {
     void aFeeThatBelongsToAnotherUnitThanTheIntentIsRejected() throws Exception {
         feeUnit = 2000L;
 
-        service("sandbox").procesarWebhook(event("test", "COP", AMOUNT_CENTS, "tx-1"));
+        service("SANDBOX").procesarWebhook(event("test", "COP", AMOUNT_CENTS, "tx-1"));
 
         assertIgnored();
     }
@@ -238,14 +228,14 @@ class WompiEventBindingTest {
     void aProviderTransactionAlreadyBoundToAnotherIntentIsIgnored() throws Exception {
         providerIdAlreadyBound = 1;
 
-        service("sandbox").procesarWebhook(event("test", "COP", AMOUNT_CENTS, "tx-1"));
+        service("SANDBOX").procesarWebhook(event("test", "COP", AMOUNT_CENTS, "tx-1"));
 
         assertIgnored();
     }
 
     @Test
     void theSettledPaymentIsLinkedToItsIntentInTheSameTransaction() throws Exception {
-        service("sandbox").procesarWebhook(event("test", "COP", AMOUNT_CENTS, "tx-1"));
+        service("SANDBOX").procesarWebhook(event("test", "COP", AMOUNT_CENTS, "tx-1"));
 
         ArgumentCaptor<SqlParameterSource> params = ArgumentCaptor.forClass(SqlParameterSource.class);
         verify(jdbc).update(contains("SET ID_PAGO"), params.capture());
@@ -257,7 +247,7 @@ class WompiEventBindingTest {
     void theReceiptIsSentOnlyAfterCommitAndOnlyOnce() throws Exception {
         TransactionSynchronizationManager.initSynchronization();
 
-        service("sandbox").procesarWebhook(event("test", "COP", AMOUNT_CENTS, "tx-1"));
+        service("SANDBOX").procesarWebhook(event("test", "COP", AMOUNT_CENTS, "tx-1"));
 
         verify(email, never()).enviarReciboPago(any(), any(), any(), any(), any());
         for (TransactionSynchronization sync : TransactionSynchronizationManager.getSynchronizations()) {
@@ -270,7 +260,7 @@ class WompiEventBindingTest {
     void aRolledBackAttemptSendsNothingAndTheRetryOnlyOneReceipt() throws Exception {
         when(finanzas.registrarPagoPasarelaVerificado(any()))
                 .thenThrow(new IllegalStateException("settlement failed")).thenReturn(900L);
-        WompiServiceImpl svc = service("sandbox");
+        WompiServiceImpl svc = service("SANDBOX");
 
         TransactionSynchronizationManager.initSynchronization();
         assertThrows(IllegalStateException.class, () -> svc.procesarWebhook(event("test", "COP", AMOUNT_CENTS, "tx-1")));
@@ -299,7 +289,7 @@ class WompiEventBindingTest {
 
     @Test
     void unconfiguredGatewayFailsAsAnIllegalState() {
-        WompiServiceImpl svc = service("sandbox");
+        WompiServiceImpl svc = service("SANDBOX");
         SaedContextHolder.setContext(SaedContext.builder().userId(5L).organizationId(10L).propertyId(100L)
                 .unitId(INTENT_UNIT).roleCode("RESIDENTE").roleScope("UNIDAD").build());
 
@@ -307,7 +297,7 @@ class WompiEventBindingTest {
     }
 
     private WompiServiceImpl configuredService() {
-        WompiServiceImpl svc = service("sandbox");
+        WompiServiceImpl svc = service("SANDBOX");
         svc.setPublicKey("pub_test_synthetic");
         svc.setIntegritySecret("synthetic-integrity");
         SaedContextHolder.setContext(SaedContext.builder().userId(5L).organizationId(10L).propertyId(100L)

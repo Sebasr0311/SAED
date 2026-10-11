@@ -66,9 +66,9 @@ public class WompiServiceImpl implements WompiService {
     @org.springframework.beans.factory.annotation.Value("${saed.wompi.events-secret:}")
     private String wompiEventsSecret;
 
-    // Provider environment this deployment settles: "sandbox" (events carry environment=test) or "live"
-    // (environment=prod). When unset it is derived from the public key prefix (pub_test_ / pub_prod_);
-    // if neither says anything, events are rejected (fail closed).
+    // Provider environment this deployment settles: SANDBOX (events carry environment=test) or LIVE
+    // (environment=prod), from saed.wompi.environment (WOMPI_ENVIRONMENT). When unset, events are rejected
+    // (fail closed). ProductionConfigurationGuard already refuses to start production-like profiles without it.
     @org.springframework.beans.factory.annotation.Value("${saed.wompi.environment:}")
     private String wompiEnvironment;
 
@@ -1111,23 +1111,9 @@ public class WompiServiceImpl implements WompiService {
                 && ((Number) rows.get(0).get("ID_UNIDAD")).longValue() == idUnidad;
     }
 
-    /** "test" (sandbox) or "prod" (live) from configuration, else from the public key prefix; null if unknown. */
+    /** "test" (SANDBOX) or "prod" (LIVE) from saed.wompi.environment; null when unset (events are rejected). */
     private String expectedEnvironment() {
-        String configured = normalizeEnvironment(wompiEnvironment);
-        if (configured != null) {
-            return configured;
-        }
-        String key = getPublicKey();
-        if (key == null) {
-            return null;
-        }
-        if (key.startsWith("pub_test_")) {
-            return "test";
-        }
-        if (key.startsWith("pub_prod_")) {
-            return "prod";
-        }
-        return null;
+        return normalizeEnvironment(wompiEnvironment);
     }
 
     private static String normalizeEnvironment(Object raw) {
