@@ -114,9 +114,9 @@ public class MedicionConsumoServiceImpl implements MedicionConsumoService {
     @Override
     public void update(Long id, MedicionConsumoRequestDTO dto) {
         Long propId = getCurrentPropertyId();
-        repository.findByIdAndPropiedad(id, propId)
+        MedicionConsumoDTO existing = repository.findByIdAndPropiedad(id, propId)
                 .orElseThrow(() -> new NoSuchElementException("Medición de consumo no encontrada."));
-        BigDecimal consumo = normalizeReadings(dto);
+        BigDecimal consumo = keepsStoredReset(existing, dto) ? preserveStoredReset(existing, dto) : normalizeReadings(dto);
         BigDecimal costoTotal = cost(consumo, dto);
         BigDecimal promedio = repository.calcularPromedioHistorico(propId, dto.getIdUnidad(), dto.getNumeroMedidor(),
                 dto.getTipoServicio(), id);
@@ -143,6 +143,27 @@ public class MedicionConsumoServiceImpl implements MedicionConsumoService {
     public List<ConsumoTendenciaDTO> getTendencias(String tipoServicio, int ultimosMeses) {
         int meses = Math.max(1, Math.min(60, ultimosMeses));
         return repository.getTendencias(getCurrentPropertyId(), tipoServicio, meses, boundUnit());
+    }
+
+    /**
+     * An edit of a stored meter-reset reading arrives with the stored 0 baseline and without the reset flag
+     * (the edit form does not resend it). Such an edit keeps the reset instead of erasing it.
+     */
+    static boolean keepsStoredReset(MedicionConsumoDTO existing, MedicionConsumoRequestDTO dto) {
+        return existing.isReinicioMedidor()
+                && !Boolean.TRUE.equals(dto.getReinicioMedidor())
+                && dto.getLecturaAnterior() != null && dto.getLecturaAnterior().signum() == 0;
+    }
+
+    static BigDecimal preserveStoredReset(MedicionConsumoDTO existing, MedicionConsumoRequestDTO dto) {
+        BigDecimal actual = dto.getLecturaActual();
+        if (actual == null || actual.signum() < 0) {
+            throw new IllegalArgumentException("La lectura actual es obligatoria y no puede ser negativa.");
+        }
+        dto.setReinicioMedidor(true);
+        dto.setLecturaPreviaReinicio(existing.getLecturaPreviaReinicio());
+        dto.setLecturaAnterior(BigDecimal.ZERO);
+        return actual;
     }
 
     /** Applies the negative/reset policy and returns the consumption of the reading. */

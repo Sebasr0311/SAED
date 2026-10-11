@@ -123,6 +123,28 @@ class ConsumptionReadingPolicyTest {
     }
 
     @Test
+    void editingAStoredMeterResetKeepsTheResetAndThePreviousReading() {
+        // Review finding: the edit form sends reinicioMedidor=false with the stored 0 baseline, which used to
+        // turn the reset into a normal reading and erase LECTURA_PREVIA_REINICIO.
+        MedicionConsumoDTO storedReset = stored("N", null);
+        storedReset.setReinicioMedidor(true);
+        storedReset.setLecturaPreviaReinicio(new BigDecimal("9990"));
+        when(repo.findByIdAndPropiedad(READING, PROP)).thenReturn(Optional.of(storedReset));
+
+        MedicionConsumoRequestDTO edit = reading("0", "18");
+        edit.setReinicioMedidor(false);
+        service.update(READING, edit);
+
+        ArgumentCaptor<MedicionConsumoRequestDTO> saved = ArgumentCaptor.forClass(MedicionConsumoRequestDTO.class);
+        ArgumentCaptor<BigDecimal> cost = ArgumentCaptor.forClass(BigDecimal.class);
+        verify(repo).update(eq(READING), eq(PROP), saved.capture(), cost.capture(), anyString(), any());
+        assertTrue(saved.getValue().getReinicioMedidor());
+        assertEquals(0, saved.getValue().getLecturaPreviaReinicio().compareTo(new BigDecimal("9990")));
+        assertEquals(0, saved.getValue().getLecturaAnterior().compareTo(BigDecimal.ZERO));
+        assertEquals(new BigDecimal("36.00"), cost.getValue(), "consumption since reset is the edited reading");
+    }
+
+    @Test
     void meterResetFlagWithoutRollbackIsRejected() {
         MedicionConsumoRequestDTO dto = reading("100", "120");
         dto.setReinicioMedidor(true);
