@@ -6,7 +6,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.net.InetAddress;
 import java.time.Duration;
 import java.util.Locale;
 import java.util.function.LongSupplier;
@@ -75,27 +74,6 @@ public class OnboardingRateLimiter {
      * appended by that proxy, the last one of X-Forwarded-For, is used; entries before it are client-controlled.
      */
     public static String clientIp(HttpServletRequest request) {
-        String remote = request.getRemoteAddr() == null ? "unknown" : request.getRemoteAddr();
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (forwarded != null && !forwarded.isBlank() && isInternal(remote)) {
-            String[] parts = forwarded.split(",");
-            String last = parts[parts.length - 1].trim();
-            if (!last.isEmpty() && last.length() <= 45) {
-                return last;
-            }
-        }
-        return remote;
-    }
-
-    private static boolean isInternal(String address) {
-        try {
-            if (!address.matches("[0-9a-fA-F:.]+")) {
-                return false;
-            }
-            InetAddress parsed = InetAddress.getByName(address);
-            return parsed.isLoopbackAddress() || parsed.isSiteLocalAddress() || parsed.isLinkLocalAddress();
-        } catch (java.net.UnknownHostException e) {
-            return false;
-        }
+        return com.saed.backend.common.util.ClientRequestInfo.clientIp(request);
     }
 }

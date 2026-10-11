@@ -1,5 +1,7 @@
 package com.saed.backend.asambleas.service.impl;
 
+import com.saed.backend.common.util.ClientRequestInfo;
+
 import com.saed.backend.asambleas.dto.*;
 import com.saed.backend.asambleas.repository.ActaRepository;
 import com.saed.backend.asambleas.repository.AsambleaRepository;
@@ -149,7 +151,7 @@ public class ActaServiceImpl implements ActaService {
         auditService.recordSuccess(
                 userId, orgId, asamblea.getIdPropiedad(),
                 "CREAR_ACTA", "ACTAS_ASAMBLEA", idActa,
-                "127.0.0.1", "SAED-Core", null, "BORRADOR"
+                ClientRequestInfo.ip(), ClientRequestInfo.userAgent(), null, "BORRADOR"
         );
 
         log.info("Acta ID: {} creada en estado BORRADOR para asamblea ID: {}", idActa, request.getIdAsamblea());
@@ -178,7 +180,7 @@ public class ActaServiceImpl implements ActaService {
         auditService.recordSuccess(
                 userId, orgId, existing.getIdPropiedad(),
                 "MODIFICAR_ACTA", "ACTAS_ASAMBLEA", idActa,
-                "127.0.0.1", "SAED-Core", existing.getEstado(), existing.getEstado()
+                ClientRequestInfo.ip(), ClientRequestInfo.userAgent(), existing.getEstado(), existing.getEstado()
         );
 
         log.info("Acta ID: {} modificada por usuario ID: {}", idActa, userId);
@@ -243,7 +245,7 @@ public class ActaServiceImpl implements ActaService {
         auditService.recordSuccess(
                 userId, orgId, asamblea.getIdPropiedad(),
                 "CAMBIO_ESTADO_ACTA", "ACTAS_ASAMBLEA", idActa,
-                "127.0.0.1", "SAED-Core", estadoActual, nuevoEstado
+                ClientRequestInfo.ip(), ClientRequestInfo.userAgent(), estadoActual, nuevoEstado
         );
 
         log.info("Acta ID: {} cambió estado de {} a {} por usuario ID: {}", idActa, estadoActual, nuevoEstado, userId);
@@ -273,7 +275,7 @@ public class ActaServiceImpl implements ActaService {
         auditService.recordSuccess(
                 userId, orgId, existing.getIdPropiedad(),
                 "ASOCIAR_DOCUMENTO_ACTA", "ACTAS_ASAMBLEA", idActa,
-                "127.0.0.1", "SAED-Core", null, "DOC_" + idDocumento
+                ClientRequestInfo.ip(), ClientRequestInfo.userAgent(), null, "DOC_" + idDocumento
         );
 
         log.info("Documento ID: {} asociado al Acta ID: {}", idDocumento, idActa);

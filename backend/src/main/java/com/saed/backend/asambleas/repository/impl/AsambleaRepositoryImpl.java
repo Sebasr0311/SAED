@@ -383,15 +383,26 @@ public class AsambleaRepositoryImpl implements AsambleaRepository {
     }
 
     @Override
-    public void decidirPoder(Long idPoder, String nuevoEstado, Long idUsuarioValidador) {
+    public int decidirPoder(Long idAsamblea, Long idPoder, String nuevoEstado, Long idUsuarioValidador) {
+        // Conditional update: only a pending power of THIS assembly can be decided, once.
         String sql = "UPDATE PODERES_REPRESENTACION " +
                 "SET ESTADO = :nuevoEstado, VALIDADO_POR = :idValidador " +
-                "WHERE ID_PODER = :idPoder";
+                "WHERE ID_PODER = :idPoder AND ID_ASAMBLEA = :idAsamblea AND ESTADO = 'PENDIENTE_REVISION'";
 
-        jdbcTemplate.update(sql, new MapSqlParameterSource()
+        return jdbcTemplate.update(sql, new MapSqlParameterSource()
                 .addValue("nuevoEstado", nuevoEstado)
                 .addValue("idValidador", idUsuarioValidador)
-                .addValue("idPoder", idPoder));
+                .addValue("idPoder", idPoder)
+                .addValue("idAsamblea", idAsamblea));
+    }
+
+    @Override
+    public boolean existePoder(Long idAsamblea, Long idPoder) {
+        Integer count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(1) FROM PODERES_REPRESENTACION WHERE ID_PODER = :idPoder AND ID_ASAMBLEA = :idAsamblea",
+                new MapSqlParameterSource().addValue("idPoder", idPoder).addValue("idAsamblea", idAsamblea),
+                Integer.class);
+        return count != null && count > 0;
     }
 
     @Override

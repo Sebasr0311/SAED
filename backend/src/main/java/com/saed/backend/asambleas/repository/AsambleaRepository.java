@@ -30,7 +30,11 @@ public interface AsambleaRepository {
 
     Long registrarPoder(Long idAsamblea, PoderRequestDTO request);
 
-    void decidirPoder(Long idPoder, String nuevoEstado, Long idUsuarioValidador);
+    /** Decides a pending power of the given assembly only; returns the rows changed (0 when it is not pending there). */
+    int decidirPoder(Long idAsamblea, Long idPoder, String nuevoEstado, Long idUsuarioValidador);
+
+    /** Whether the assembly has a power with that id (any state). */
+    boolean existePoder(Long idAsamblea, Long idPoder);
 
     List<VotacionDTO> findVotaciones(Long idAsamblea);
 
