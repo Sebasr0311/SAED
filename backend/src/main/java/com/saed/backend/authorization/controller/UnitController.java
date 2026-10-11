@@ -34,8 +34,19 @@ public class UnitController {
         return ResponseEntity.ok(unitService.findAll(idPropiedad));
     }
 
+    /** DEC-04: coefficient census of a property; an incomplete sum is reported as a warning. */
+    @GetMapping("/coefficient-summary")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
+    public ResponseEntity<com.saed.backend.authorization.dto.UnitCoefficientSummaryDTO> coefficientSummary(
+            @RequestParam(required = false) Long idPropiedad) {
+        Long propertyId = idPropiedad != null ? idPropiedad
+                : com.saed.backend.context.SaedContextHolder.getContext() != null
+                        ? com.saed.backend.context.SaedContextHolder.getContext().getPropertyId() : null;
+        return ResponseEntity.ok(unitService.coefficientSummary(propertyId));
+    }
+
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_PORTERO', 'SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA', 'SCOPE_PROPIETARIO')")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_PORTERO','SCOPE_RESIDENTE', 'SCOPE_RESIDENTE_CONVIVENCIA', 'SCOPE_PROPIETARIO')")
     public ResponseEntity<UnitDTO> findById(@PathVariable Long id) {
         return ResponseEntity.ok(unitService.findById(id));
     }

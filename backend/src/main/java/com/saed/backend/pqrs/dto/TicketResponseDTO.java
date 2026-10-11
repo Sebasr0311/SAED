@@ -1,5 +1,7 @@
 package com.saed.backend.pqrs.dto;
 
+import com.saed.backend.pqrs.service.PqrsSlaPolicy;
+
 import java.time.Duration;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -107,12 +109,25 @@ public class TicketResponseDTO {
     public Long getTiempoRestanteHoras() { return tiempoRestanteHoras; }
     public void setTiempoRestanteHoras(Long tiempoRestanteHoras) { this.tiempoRestanteHoras = tiempoRestanteHoras; }
 
-    public void calcularSlaMetrics() {
-        if (fechaLimiteSla != null) {
-            ZonedDateTime now = ZonedDateTime.now(ZoneId.of("America/Bogota"));
-            boolean esCerrado = "RESUELTO".equalsIgnoreCase(estado) || "CERRADO".equalsIgnoreCase(estado);
-            this.vencido = !esCerrado && now.isAfter(fechaLimiteSla);
-            this.tiempoRestanteHoras = Duration.between(now, fechaLimiteSla).toHours();
+    private String slaEstado;
+    private Integer slaPorcentajeConsumido;
+
+    public String getSlaEstado() { return slaEstado; }
+    public Integer getSlaPorcentajeConsumido() { return slaPorcentajeConsumido; }
+
+    /** Computes the server-side SLA fields (DEC-05) at the given instant. */
+    public void aplicarSla(ZonedDateTime now) {
+        if (fechaLimiteSla == null) {
+            return;
         }
+        PqrsSlaPolicy.SlaStatus status = PqrsSlaPolicy.evaluate(fechaRadicacion, fechaLimiteSla, estado, fechaCierre, now);
+        this.slaEstado = status.estado();
+        this.slaPorcentajeConsumido = status.porcentajeConsumido();
+        this.vencido = status.vencido();
+        this.tiempoRestanteHoras = Duration.between(now, fechaLimiteSla).toHours();
+    }
+
+    public void calcularSlaMetrics() {
+        aplicarSla(ZonedDateTime.now(ZoneId.of("America/Bogota")));
     }
 }

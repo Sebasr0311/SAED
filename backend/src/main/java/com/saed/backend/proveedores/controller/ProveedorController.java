@@ -22,7 +22,7 @@ import java.util.List;
 @Tag(name = "Proveedores", description = "Catálogo Maestro de Proveedores y Contratistas (GAP-F9-01)")
 @RestController
 @RequestMapping("/api/v1/proveedores")
-@PreAuthorize("hasAuthority('SCOPE_SUPERADMIN') or hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
+@PreAuthorize("hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
 public class ProveedorController {
 
     private final ProveedorService proveedorService;

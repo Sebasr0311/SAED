@@ -10,6 +10,8 @@ public class PropertyRequestDTO {
     @NotBlank @Size(max = 150) private String nombre;
     @NotBlank @Size(max = 200) private String direccion;
     @NotBlank @Size(max = 80) private String ciudad;
+    @Size(max = 80) private String departamento;
+    @Size(max = 60) private String pais;
     @Size(max = 20) private String tipoOcupacionPredominante = "MIXTA";
 
     public Long getIdOrganizacion() { return idOrganizacion; }
@@ -22,6 +24,10 @@ public class PropertyRequestDTO {
     public void setDireccion(String v) { this.direccion = v; }
     public String getCiudad() { return ciudad; }
     public void setCiudad(String v) { this.ciudad = v; }
+    public String getDepartamento() { return departamento; }
+    public void setDepartamento(String v) { this.departamento = v; }
+    public String getPais() { return pais; }
+    public void setPais(String v) { this.pais = v; }
     public String getTipoOcupacionPredominante() { return tipoOcupacionPredominante; }
     public void setTipoOcupacionPredominante(String v) { this.tipoOcupacionPredominante = v; }
 }

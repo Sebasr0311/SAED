@@ -221,35 +221,77 @@ public class DependentServiceImpl implements DependentService {
         dependentRepository.deleteVehiculo(id);
     }
 
-    // --- Tutores ---
+    // --- Tutores (F5-H08: guardian rights are scoped to the dependent) ---
+
+    /** The dependent must live in (or own) a unit the caller may manage. */
+    private void requireDependentAccess(Long menorId) {
+        com.saed.backend.context.SaedContext ctx = requireContext();
+        if (menorId == null) {
+            throw new IllegalArgumentException("La persona dependiente es obligatoria");
+        }
+        List<Long> units = dependentRepository.findActiveUnitIdsOfPersona(menorId);
+        boolean allowed;
+        if (isResident(ctx)) {
+            allowed = ctx.getUnitId() != null && units.contains(ctx.getUnitId());
+        } else {
+            allowed = ctx.getPropertyId() != null
+                    && units.stream().anyMatch(u -> dependentRepository.isUnitInProperty(u, ctx.getPropertyId()));
+        }
+        if (!allowed) {
+            throw new AccessDeniedException("La persona dependiente no pertenece a su alcance");
+        }
+    }
+
+    /** Reads and changes of an existing guardian: out of scope looks like not found. */
+    private TutorDTO requireReadableTutor(Long id) {
+        TutorDTO tutor = dependentRepository.getTutorById(id)
+                .orElseThrow(() -> new NoSuchElementException("Tutor no encontrado"));
+        try {
+            requireDependentAccess(tutor.personaMenorId());
+        } catch (AccessDeniedException e) {
+            requireContext();
+            throw new NoSuchElementException("Tutor no encontrado");
+        }
+        return tutor;
+    }
+
     @Override
     @Auditable(action = "CREATE", resource = "TUTOR", category = AuditCategory.OPERATIONAL, severity = AuditSeverity.INFO)
     public TutorDTO createTutor(TutorRequestDTO request) {
+        requireDependentAccess(request.personaMenorId());
         return dependentRepository.createTutor(request);
     }
 
     @Override
     @Transactional(readOnly = true)
     public TutorDTO getTutorById(Long id) {
-        return dependentRepository.getTutorById(id)
-                .orElseThrow(() -> new java.util.NoSuchElementException("Tutor no encontrado"));
+        return requireReadableTutor(id);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<TutorDTO> getTutoresByMenor(Long menorId) {
+        try {
+            requireDependentAccess(menorId);
+        } catch (AccessDeniedException e) {
+            requireContext();
+            throw new NoSuchElementException("Persona no encontrada");
+        }
         return dependentRepository.getTutoresByMenor(menorId);
     }
 
     @Override
     @Auditable(action = "UPDATE", resource = "TUTOR", category = AuditCategory.OPERATIONAL, severity = AuditSeverity.INFO)
     public TutorDTO updateTutor(Long id, TutorRequestDTO request) {
+        requireReadableTutor(id);
+        requireDependentAccess(request.personaMenorId());
         return dependentRepository.updateTutor(id, request);
     }
 
     @Override
     @Auditable(action = "DELETE", resource = "TUTOR", category = AuditCategory.OPERATIONAL, severity = AuditSeverity.WARN)
     public void deleteTutor(Long id) {
+        requireReadableTutor(id);
         dependentRepository.deleteTutor(id);
     }
 

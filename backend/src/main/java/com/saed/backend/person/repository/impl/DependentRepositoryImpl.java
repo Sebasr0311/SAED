@@ -428,6 +428,14 @@ public class DependentRepositoryImpl implements DependentRepository {
     }
 
     @Override
+    public List<Long> findActiveUnitIdsOfPersona(Long personaId) {
+        return jdbcTemplate.query(
+                "SELECT ID_UNIDAD FROM RESIDENTES_UNIDAD WHERE ID_PERSONA = :p AND ESTADO = 'ACTIVO' "
+                        + "UNION SELECT ID_UNIDAD FROM PROPIETARIOS_UNIDAD WHERE ID_PERSONA = :p AND ESTADO = 'ACTIVO'",
+                new MapSqlParameterSource("p", personaId), (rs, i) -> rs.getLong(1));
+    }
+
+    @Override
     public boolean isUnitInProperty(Long unidadId, Long propiedadId) {
         Integer count = jdbcTemplate.queryForObject(
                 "SELECT COUNT(1) FROM UNIDADES WHERE ID_UNIDAD = :u AND ID_PROPIEDAD = :p",

@@ -81,6 +81,8 @@ public class PropertyService {
         if (!"SUPERADMIN".equals(ctx.getRoleCode()) && !"GLOBAL".equals(scope)) {
             request.setIdOrganizacion(ctx.getOrganizationId());
         }
+        // F04-03: an inactive property is read-only; only the status endpoint may change it.
+        propertyStatusService.validatePropertyIsActive(id);
         propertyRepository.update(id, request);
     }
 

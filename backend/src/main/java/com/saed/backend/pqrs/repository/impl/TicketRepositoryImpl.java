@@ -419,6 +419,32 @@ public class TicketRepositoryImpl implements TicketRepository {
     }
 
     @Override
+    public boolean esResponsableDePropiedad(Long idUsuario, Long idPropiedad) {
+        String sql = """
+            SELECT COUNT(1)
+            FROM USUARIO_ASIGNACIONES ua
+            JOIN ROLES r ON ua.ID_ROL = r.ID_ROL
+            JOIN PROPIEDADES pr ON pr.ID_PROPIEDAD = ?
+            WHERE ua.ID_USUARIO = ?
+              AND ua.ESTADO = 'ACTIVA'
+              AND TRUNC(SYSDATE) BETWEEN TRUNC(ua.FECHA_INICIO) AND COALESCE(ua.FECHA_FIN, TRUNC(SYSDATE))
+              AND r.CODIGO IN ('ADMIN_PROPIEDAD', 'ADMIN_ORGANIZACION', 'PORTERO')
+              AND (ua.ID_PROPIEDAD = pr.ID_PROPIEDAD
+                   OR (ua.ID_PROPIEDAD IS NULL AND ua.ID_ORGANIZACION = pr.ID_ORGANIZACION))
+        """;
+        Integer count = jdbcTemplate.queryForObject(sql, Integer.class, idPropiedad, idUsuario);
+        return count != null && count > 0;
+    }
+
+    @Override
+    public boolean unidadPerteneceAPropiedad(Long idUnidad, Long idPropiedad) {
+        Integer count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(1) FROM UNIDADES WHERE ID_UNIDAD = ? AND ID_PROPIEDAD = ?",
+                Integer.class, idUnidad, idPropiedad);
+        return count != null && count > 0;
+    }
+
+    @Override
     public Long getIdUnidadFromUsuario(Long idUsuario, Long idPropiedad) {
         try {
             String sql = """

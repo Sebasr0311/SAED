@@ -156,14 +156,19 @@ class PropertyDeletionServiceTest {
         appender.start();
         logger.addAppender(appender);
         try {
-            service.requestDeletion(PROPERTY_ID, "127.0.0.1", "JUnit");
+            // F04-02: an undelivered OTP is revoked and the request fails instead of reporting success.
+            IllegalStateException ex = assertThrows(IllegalStateException.class,
+                    () -> service.requestDeletion(PROPERTY_ID, "127.0.0.1", "JUnit"));
+            assertFalse(ex.getMessage().contains(RAW_OTP));
         } finally {
             logger.detachAppender(appender);
         }
 
+        verify(challengeService).revokeChallenge("challenge-1");
         assertFalse(appender.list.isEmpty(), "Email failure should still be logged");
         for (ILoggingEvent event : appender.list) {
             assertFalse(event.getFormattedMessage().contains(RAW_OTP), "OTP must never be logged");
+            assertFalse(event.getFormattedMessage().contains("Brevo down"), "Provider error text is not logged");
         }
     }
 }

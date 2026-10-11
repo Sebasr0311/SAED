@@ -41,7 +41,8 @@ import java.util.NoSuchElementException;
 @Tag(name = "Paz y Salvos", description = "Emisión, verificación y descarga de certificados de paz y salvo")
 @RestController
 @RequestMapping("/api/v1/paz-y-salvos")
-@PreAuthorize("hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_RESIDENTE') or hasAuthority('SCOPE_RESIDENTE_CONVIVENCIA')")
+// F5-H03: RESIDENTE_CONVIVENCIA reads no finances; it keeps only the arrears flag of mi-estado-financiero.
+@PreAuthorize("hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD') or hasAuthority('SCOPE_RESIDENTE')")
 public class PazYSalvoController {
 
     private final PazYSalvoService pazYSalvoService;
@@ -71,6 +72,12 @@ public class PazYSalvoController {
             throw new AccessDeniedException("El contexto de usuario no tiene una unidad asignada.");
         }
         PazYSalvoEstadoFinancieroDTO estado = pazYSalvoService.verificarEstadoFinanciero(ctx.getUnitId());
+        if ("RESIDENTE_CONVIVENCIA".equals(ctx.getRoleCode())) {
+            // Booking/works pages only need to know whether the unit is in arrears: no amounts, no itemized debt.
+            estado = new PazYSalvoEstadoFinancieroDTO(estado.idUnidad(), estado.identificadorUnidad(), null, null, null,
+                    estado.pazYSalvo(),
+                    estado.pazYSalvo() ? List.of() : List.of("La unidad tiene obligaciones pendientes con la administración"));
+        }
         return ResponseEntity.ok(ApiResponse.success(estado));
     }
 

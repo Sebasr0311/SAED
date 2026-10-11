@@ -327,7 +327,7 @@ public class Phase9IncidentesIntegrationTest {
                 .addValue("idUnidad", idUnidad, Types.NUMERIC);
 
         namedJdbc.update("""
-            DELETE FROM USUARIO_ASIGNACIONES 
+            DELETE FROM USUARIO_ASIGNACIONES
             WHERE (ID_USUARIO = :idUsuario AND ID_ROL = :idRol
                    AND NVL(ID_ORGANIZACION, -1) = NVL(:idOrg, -1)
                    AND NVL(ID_PROPIEDAD, -1) = NVL(:idProp, -1)
@@ -600,7 +600,7 @@ public class Phase9IncidentesIntegrationTest {
 
     @Test
     @Order(14)
-    @DisplayName("Test 14: Reapertura de incidente CERRADO hacia EN_INVESTIGACION permitida exclusivamente")
+    @DisplayName("Test 14: Reapertura de incidente CERRADO solo por /reabrir con motivo persistido (F9-03)")
     void test14_transicion_cerradoHaciaEnInvestigacion_reaperturaValida() throws Exception {
         String token = jwtProvider.generateIdentityToken(USER_ADMIN_PROP_1);
         Long id = crearIncidenteHelper(token, ASSIGN_ADMIN_PROP_1, "TEST-F907-14 Reapertura", "SEGURIDAD_HURTO", "GRAVE", null);
@@ -613,7 +613,7 @@ public class Phase9IncidentesIntegrationTest {
                         .content(objectMapper.writeValueAsString(Map.of("conclusiones", "Cerrado inicialmente."))))
                 .andExpect(status().isOk());
 
-        // Reabrir hacia EN_INVESTIGACION
+        // The generic status endpoint cannot reopen without a reason
         IncidenteEstadoRequestDTO dto = new IncidenteEstadoRequestDTO();
         dto.setEstado("EN_INVESTIGACION");
 
@@ -622,10 +622,20 @@ public class Phase9IncidentesIntegrationTest {
                         .header("X-Assignment-Id", ASSIGN_ADMIN_PROP_1)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(dto)))
+                .andExpect(status().isBadRequest());
+
+        // Reabrir hacia EN_INVESTIGACION con motivo
+        mockMvc.perform(post("/api/v1/incidentes/" + id + "/reabrir")
+                        .header("Authorization", "Bearer " + token)
+                        .header("X-Assignment-Id", ASSIGN_ADMIN_PROP_1)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("motivo", "Nueva evidencia aportada por el vecino"))))
                 .andExpect(status().isOk());
 
         setElevatedContext();
         assertEquals("EN_INVESTIGACION", jdbcTemplate.queryForObject("SELECT ESTADO FROM INCIDENTES WHERE ID_INCIDENTE = ?", String.class, id));
+        assertEquals("Nueva evidencia aportada por el vecino",
+                jdbcTemplate.queryForObject("SELECT MOTIVO_REAPERTURA FROM INCIDENTES WHERE ID_INCIDENTE = ?", String.class, id));
     }
 
     @Test
@@ -1030,7 +1040,7 @@ public class Phase9IncidentesIntegrationTest {
 
     @Test
     @Order(32)
-    @DisplayName("Test 32: Residente consulta involucrados de su propio incidente -> 200 OK")
+    @DisplayName("Test 32: Residente no consulta involucrados ni de su propio incidente (datos de terceros, F9-08) -> 403")
     void test32_getInvolucrados_residenteDeSuIncidente_retornaLista() throws Exception {
         String tokenAdmin = jwtProvider.generateIdentityToken(USER_ADMIN_PROP_1);
         Long id = crearIncidenteHelper(tokenAdmin, ASSIGN_ADMIN_PROP_1, "TEST-F907-32 Residente Inv", "DANO_BIEN_COMUN", "LEVE", UNIT_1_ID);
@@ -1050,9 +1060,7 @@ public class Phase9IncidentesIntegrationTest {
         mockMvc.perform(get("/api/v1/incidentes/" + id + "/involucrados")
                         .header("Authorization", "Bearer " + tokenRes)
                         .header("X-Assignment-Id", ASSIGN_RESIDENTE_1))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$", isA(List.class)))
-                .andExpect(jsonPath("$.length()", equalTo(1)));
+                .andExpect(status().isForbidden());
     }
 
     @Test

@@ -11,21 +11,30 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.saed.backend.authorization.dto.UnitCoefficientSummaryDTO;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 
 @Service
 public class UnitService {
 
+    private static final int COEFFICIENT_SCALE = 4;
+
     private final UnitRepository unitRepository;
     private final com.saed.backend.platform.service.PlanLimitService planLimitService;
     private final NamedParameterJdbcTemplate jdbcTemplate;
+    private final PropertyStatusService propertyStatusService;
 
     public UnitService(UnitRepository unitRepository,
                        com.saed.backend.platform.service.PlanLimitService planLimitService,
-                       NamedParameterJdbcTemplate jdbcTemplate) {
+                       NamedParameterJdbcTemplate jdbcTemplate,
+                       PropertyStatusService propertyStatusService) {
         this.unitRepository = unitRepository;
         this.planLimitService = planLimitService;
         this.jdbcTemplate = jdbcTemplate;
+        this.propertyStatusService = propertyStatusService;
     }
 
     private void validateBlockAndType(Long propertyId, Long idBloque, Long idTipoUnidad) {
@@ -81,6 +90,7 @@ public class UnitService {
             throw new IllegalArgumentException("Property ID required to create unit");
         }
 
+        validateCoefficientRange(request.getCoeficienteCopropiedad());
         validateBlockAndType(request.getIdPropiedad(), request.getIdBloque(), request.getIdTipoUnidad());
 
         // Resolve owning organization for property and check tenant isolation
@@ -92,10 +102,79 @@ public class UnitService {
             }
         }
 
+        // F04-03: no unit may be created in an inactive property, whatever the scope of the caller.
+        propertyStatusService.validatePropertyIsActive(request.getIdPropiedad());
+        validateUniqueIdentifier(request, null);
+
         // Enforce plan limit with pessimistic lock on organization membership
         planLimitService.validateAndLockUnitLimit(propOrgId);
 
+        validateCoefficientSum(request.getIdPropiedad(), request.getCoeficienteCopropiedad(), null);
+
         return unitRepository.create(request);
+    }
+
+    /** DEC-04: a coefficient is a fraction, 0 &lt; c &le; 1. */
+    private static void validateCoefficientRange(BigDecimal coefficient) {
+        if (coefficient == null) {
+            return;
+        }
+        if (coefficient.signum() <= 0 || coefficient.compareTo(BigDecimal.ONE) > 0) {
+            throw new IllegalArgumentException(
+                    "El coeficiente de copropiedad debe ser una fracción mayor que 0 y menor o igual a 1");
+        }
+    }
+
+    /**
+     * DEC-04: the property sum may not exceed 1.0000 (4-decimal tolerance). The property row is locked so two
+     * concurrent saves cannot both pass the check.
+     */
+    private void validateCoefficientSum(Long propertyId, BigDecimal coefficient, Long excludeUnitId) {
+        if (coefficient == null) {
+            return;
+        }
+        BigDecimal others = unitRepository.lockPropertyAndSumCoefficients(propertyId, excludeUnitId);
+        BigDecimal total = (others == null ? BigDecimal.ZERO : others).add(coefficient)
+                .setScale(COEFFICIENT_SCALE, RoundingMode.HALF_UP);
+        if (total.compareTo(BigDecimal.ONE) > 0) {
+            throw new IllegalStateException("La suma de coeficientes de la propiedad superaría 1.0000 (resultado: "
+                    + total.toPlainString() + ")");
+        }
+    }
+
+    private void validateUniqueIdentifier(UnitRequestDTO request, Long excludeUnitId) {
+        if (request.getIdentificador() != null && unitRepository.existsIdentifier(request.getIdPropiedad(),
+                request.getIdBloque(), request.getIdentificador(), excludeUnitId)) {
+            throw new IllegalStateException("Ya existe una unidad con ese identificador en la misma propiedad y bloque");
+        }
+    }
+
+    /** Coefficient census of a property; an incomplete sum is reported as a warning, not an error (DEC-04). */
+    public UnitCoefficientSummaryDTO coefficientSummary(Long propertyId) {
+        SaedContext ctx = SaedContextHolder.getContext();
+        if (ctx == null || propertyId == null) {
+            throw new AccessDeniedException("Sin contexto de propiedad");
+        }
+        if ("ORGANIZACION".equals(ctx.getRoleScope())) {
+            Long propOrgId = planLimitService.getOrganizationIdForProperty(propertyId);
+            if (ctx.getOrganizationId() == null || !ctx.getOrganizationId().equals(propOrgId)) {
+                throw new AccessDeniedException("Propiedad fuera de su organización");
+            }
+        } else if (!"PROPIEDAD".equals(ctx.getRoleScope()) || !propertyId.equals(ctx.getPropertyId())) {
+            throw new AccessDeniedException("Propiedad fuera de su alcance");
+        }
+        UnitCoefficientSummaryDTO summary = unitRepository.coefficientSummary(propertyId);
+        BigDecimal sum = summary.getSumaCoeficientes() == null ? BigDecimal.ZERO : summary.getSumaCoeficientes();
+        sum = sum.setScale(COEFFICIENT_SCALE, RoundingMode.HALF_UP);
+        summary.setSumaCoeficientes(sum);
+        BigDecimal missing = BigDecimal.ONE.setScale(COEFFICIENT_SCALE).subtract(sum);
+        summary.setFaltante(missing.signum() > 0 ? missing : BigDecimal.ZERO.setScale(COEFFICIENT_SCALE));
+        summary.setCompleto(sum.compareTo(BigDecimal.ONE) == 0 && summary.getUnidadesSinCoeficiente() == 0);
+        if (!summary.isCompleto()) {
+            summary.setAdvertencia("Censo de coeficientes incompleto: la suma es " + sum.toPlainString()
+                    + " de 1.0000 y " + summary.getUnidadesSinCoeficiente() + " unidad(es) no tienen coeficiente");
+        }
+        return summary;
     }
 
     public UnitDTO findById(Long id) {
@@ -133,7 +212,12 @@ public class UnitService {
             request.setIdPropiedad(existing.getIdPropiedad());
         }
 
+        validateCoefficientRange(request.getCoeficienteCopropiedad());
         validateBlockAndType(request.getIdPropiedad(), request.getIdBloque(), request.getIdTipoUnidad());
+        propertyStatusService.validatePropertyIsActive(existing.getIdPropiedad());
+        propertyStatusService.validatePropertyIsActive(request.getIdPropiedad());
+        validateUniqueIdentifier(request, id);
+        validateCoefficientSum(request.getIdPropiedad(), request.getCoeficienteCopropiedad(), id);
 
         unitRepository.update(id, request);
     }

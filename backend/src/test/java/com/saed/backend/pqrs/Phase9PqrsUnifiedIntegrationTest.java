@@ -1146,7 +1146,7 @@ public class Phase9PqrsUnifiedIntegrationTest {
 
     @Test
     @Order(24)
-    @DisplayName("Test 24: Anti-IDOR Inter-Residente: Residente 2 no puede ver ni consultar ticket de Residente 1 -> 403 Forbidden")
+    @DisplayName("Test 24: Anti-IDOR Inter-Residente: Residente 2 no puede ver ni consultar ticket de Residente 1 -> 404 (indistinguible de inexistente)")
     void test24_seguridadMultiTenant_residenteNoPuedeVerTicketDeOtroResidente() throws Exception {
         String tokenRes1 = jwtProvider.generateIdentityToken(USER_RESIDENTE_1);
         String tokenRes2 = jwtProvider.generateIdentityToken(USER_RESIDENTE_2);
@@ -1171,8 +1171,8 @@ public class Phase9PqrsUnifiedIntegrationTest {
         mockMvc.perform(get("/api/v1/pqrs/" + idTicket)
                 .header("Authorization", "Bearer " + tokenRes2)
                 .header("X-Assignment-Id", String.valueOf(ASSIGN_RESIDENTE_2)))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code", is("FORBIDDEN")));
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code", is("NOT_FOUND")));
     }
 
     @Test

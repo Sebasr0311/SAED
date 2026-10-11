@@ -35,7 +35,8 @@ class BlockServiceTest {
 
     @BeforeEach
     void setUp() {
-        blockService = new BlockServiceImpl(blockRepository, planLimitService);
+        blockService = new BlockServiceImpl(blockRepository, planLimitService,
+                org.mockito.Mockito.mock(PropertyStatusService.class));
     }
 
     @AfterEach
