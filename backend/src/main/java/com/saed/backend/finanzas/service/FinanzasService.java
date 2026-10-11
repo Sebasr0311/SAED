@@ -21,7 +21,7 @@ public interface FinanzasService {
      * has verified the event signature, amount and the atomic PENDIENTE transition of the intent.
      * It must never be exposed through an HTTP route that accepts client input.
      */
-    void registrarPagoPasarelaVerificado(PagoRequestDTO request);
+    Long registrarPagoPasarelaVerificado(PagoRequestDTO request);
 
     ResidenteDashboardDTO getDashboardResidente(Long idResidente);
 

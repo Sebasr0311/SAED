@@ -67,6 +67,9 @@ class OrdinaryPaymentRegistrationIntegrityTest {
                 "2099-01", new BigDecimal("100.00"), new BigDecimal("100.00"), new BigDecimal("100.00"),
                 LocalDate.of(2099, 1, 31), "PENDIENTE");
         doReturn(List.of(fee)).when(jdbc).query(anyString(), any(SqlParameterSource.class), any(RowMapper.class));
+        when(jdbc.queryForList(contains("FROM CUOTAS"), any(SqlParameterSource.class)))
+                .thenReturn(List.of(Map.of("ID_CUOTA", FEE_ID, "SALDO_PENDIENTE", new BigDecimal("100.00"),
+                        "ESTADO", "PENDIENTE")));
         SaedContextHolder.setContext(SaedContext.builder().userId(20L).organizationId(10L)
                 .propertyId(100L).unitId(UNIT_ID).roleCode("RESIDENTE").roleScope("UNIDAD").build());
     }
@@ -100,19 +103,18 @@ class OrdinaryPaymentRegistrationIntegrityTest {
 
         verify(repository).registrarPago(any(PagoRequestDTO.class), eq(UNIT_ID), eq("PENDIENTE_APROBACION"), isNull(), isNull());
         verify(repository, never()).registrarPago(any(PagoRequestDTO.class), anyLong(), eq("APROBADO"), any(), any());
-        verify(repository, never()).actualizarSaldoCuota(anyLong(), any());
         verify(repository, never()).recalcularCarteraUnidad(anyLong());
     }
 
     @Test
-    void internalGatewaySettlementKeepsPreviousApprovalAndDebitBehavior() {
+    void internalGatewaySettlementApprovesWithoutJavaDebit() {
         SaedContextHolder.setContext(SaedContext.builder().userId(1L).organizationId(10L)
                 .propertyId(100L).roleCode("SUPERADMIN").roleScope("GLOBAL").build());
 
         service.registrarPagoPasarelaVerificado(request("PASARELA_WOMPI"));
 
         verify(repository).registrarPago(any(PagoRequestDTO.class), eq(UNIT_ID), eq("APROBADO"), isNull(), isNull());
-        verify(repository, times(1)).actualizarSaldoCuota(FEE_ID, new BigDecimal("30.00"));
+        // The fee debit belongs to the V5.17 trigger (see PaymentSingleDebitOwnerTest).
         verify(repository).recalcularCarteraUnidad(UNIT_ID);
     }
 

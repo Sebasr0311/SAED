@@ -256,20 +256,6 @@ public class FinanzasRepositoryImpl implements FinanzasRepository {
     }
 
     @Override
-    public void actualizarSaldoCuota(Long idCuota, BigDecimal montoAplicado) {
-        Long propId = (SaedContextHolder.getContext() != null) ? SaedContextHolder.getContext().getPropertyId() : null;
-        String sql = "UPDATE CUOTAS SET SALDO_PENDIENTE = GREATEST(SALDO_PENDIENTE - :monto, 0), " +
-                     "ESTADO = CASE WHEN SALDO_PENDIENTE - :monto <= 0 THEN 'PAGADA' ELSE 'PAGADA_PARCIAL' END " +
-                     "WHERE ID_CUOTA = :idCuota" +
-                     (propId != null ? " AND ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD = :propId)" : "");
-        MapSqlParameterSource params = new MapSqlParameterSource()
-                .addValue("monto", montoAplicado)
-                .addValue("idCuota", idCuota);
-        if (propId != null) params.addValue("propId", propId);
-        jdbcTemplate.update(sql, params);
-    }
-
-    @Override
     public List<PagoResponseDTO> getPagos(String estado, Long idUnidad, LocalDate fechaDesde, LocalDate fechaHasta, String metodoPago) {
         com.saed.backend.context.SaedContext ctx = SaedContextHolder.getContext();
         Long propId = (ctx != null) ? ctx.getPropertyId() : null;
@@ -386,11 +372,17 @@ public class FinanzasRepositoryImpl implements FinanzasRepository {
 
     @Override
     public void aprobarPago(Long idPago, Long idAprobador) {
+        // Conditional single-shot transition. The balance of the fees is debited by the database
+        // trigger TRG_PAGOS_APROBACION_ESTADO on exactly this transition (F06-03); a repeated or
+        // concurrent approval matches no row and must fail instead of succeeding twice.
         String sql = "UPDATE PAGOS SET ESTADO = 'APROBADO', APROBADO_POR = :aprobador, " +
-                     "FECHA_APROBACION = SYSTIMESTAMP WHERE ID_PAGO = :idPago";
-        jdbcTemplate.update(sql, new MapSqlParameterSource()
+                     "FECHA_APROBACION = SYSTIMESTAMP WHERE ID_PAGO = :idPago AND ESTADO = 'PENDIENTE_APROBACION'";
+        int updated = jdbcTemplate.update(sql, new MapSqlParameterSource()
             .addValue("idPago", idPago)
             .addValue("aprobador", idAprobador));
+        if (updated != 1) {
+            throw new IllegalStateException("El pago ya no está pendiente de aprobación");
+        }
     }
 
     @Override
