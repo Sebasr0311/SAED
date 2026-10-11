@@ -50,6 +50,7 @@ const PaquetesAdminPage = lazy(() => import('./pages/PaquetesAdminPage.jsx'));
 const EscannerQRPage = lazy(() => import('./pages/EscannerQRPage.jsx'));
 const CarteraPage = lazy(() => import('./pages/CarteraPage.jsx'));
 const PresupuestoPage = lazy(() => import('./pages/PresupuestoPage.jsx'));
+const FacturacionAdminPage = lazy(() => import('./pages/FacturacionAdminPage.jsx'));
 const GastosPage = lazy(() => import('./pages/GastosPage.jsx'));
 const ConciliacionPage = lazy(() => import('./pages/ConciliacionPage.jsx'));
 const PazYSalvoPage = lazy(() => import('./pages/PazYSalvoPage.jsx'));
@@ -634,6 +635,14 @@ export default function App() {
             element={
               <ProtectedRoute roles={['ADMIN_PROPIEDAD']}>
                 <CarteraPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="facturacion"
+            element={
+              <ProtectedRoute roles={['ADMIN_PROPIEDAD']}>
+                <FacturacionAdminPage />
               </ProtectedRoute>
             }
           />
