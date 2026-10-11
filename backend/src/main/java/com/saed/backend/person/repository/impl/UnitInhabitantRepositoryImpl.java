@@ -219,6 +219,29 @@ public class UnitInhabitantRepositoryImpl implements UnitInhabitantRepository {
     }
 
     @Override
+    public boolean personBelongsToOrganization(Long personaId, Long organizationId) {
+        if (personaId == null || organizationId == null) {
+            return false;
+        }
+        Integer count = jdbcTemplate.queryForObject("""
+            SELECT COUNT(1) FROM PERSONAS p
+            WHERE p.ID_PERSONA = :personaId
+              AND (p.ID_ORGANIZACION = :orgId
+                   OR (p.ID_ORGANIZACION IS NULL AND (
+                        EXISTS (SELECT 1 FROM RESIDENTES_UNIDAD ru
+                                  JOIN UNIDADES u ON u.ID_UNIDAD = ru.ID_UNIDAD
+                                  JOIN PROPIEDADES pr ON pr.ID_PROPIEDAD = u.ID_PROPIEDAD
+                                 WHERE ru.ID_PERSONA = p.ID_PERSONA AND pr.ID_ORGANIZACION = :orgId)
+                     OR EXISTS (SELECT 1 FROM PROPIETARIOS_UNIDAD pu
+                                  JOIN UNIDADES u ON u.ID_UNIDAD = pu.ID_UNIDAD
+                                  JOIN PROPIEDADES pr ON pr.ID_PROPIEDAD = u.ID_PROPIEDAD
+                                 WHERE pu.ID_PERSONA = p.ID_PERSONA AND pr.ID_ORGANIZACION = :orgId))))
+            """, new MapSqlParameterSource().addValue("personaId", personaId).addValue("orgId", organizationId),
+                Integer.class);
+        return count != null && count > 0;
+    }
+
+    @Override
     public int revokeUnitResidentAccess(Long unitId, Long personaId) {
         String sql = """
             UPDATE USUARIO_ASIGNACIONES

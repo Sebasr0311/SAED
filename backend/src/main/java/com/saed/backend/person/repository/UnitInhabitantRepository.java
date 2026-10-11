@@ -25,6 +25,13 @@ public interface UnitInhabitantRepository {
     Optional<UnitScope> findUnitScope(Long unitId);
 
     /**
+     * Whether the person belongs to the organization: its home organization is that one, or (legacy identity without
+     * a home organization) it is already linked to a unit of one of its properties. PERSONAS has no row-level policy
+     * (DEC-01), so linking a person to a unit must check this explicitly.
+     */
+    boolean personBelongsToOrganization(Long personaId, Long organizationId);
+
+    /**
      * Deactivates the resident-level assignments (RESIDENTE, RESIDENTE_CONVIVENCIA) of the person for this unit only,
      * in the caller's database context (administrators). Other units, properties and accounts are untouched.
      */
