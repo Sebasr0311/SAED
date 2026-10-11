@@ -104,6 +104,7 @@ export default function ConsumosAdminPage() {
     fotoMedidorUrl: '',
     observacionAnomalia: '',
     fechaTomaLectura: new Date().toISOString().split('T')[0],
+    reinicioMedidor: false,
   };
 
   const [form, setForm] = useState(initialFormState);
@@ -128,7 +129,7 @@ export default function ConsumosAdminPage() {
   } = useFetch(
     () =>
       tenantApi.get(
-        `/consumos?periodo=${periodoFiltro}${servicioFiltro !== 'TODOS' ? `&tipoServicio=${servicioFiltro}` : ''}${unidadFiltro !== 'TODOS' ? (unidadFiltro === 'ZONAS_COMUNES' ? '&idUnidad=' : `&idUnidad=${unidadFiltro}`) : ''}`
+        `/consumos?periodo=${periodoFiltro}${servicioFiltro !== 'TODOS' ? `&tipoServicio=${servicioFiltro}` : ''}${unidadFiltro !== 'TODOS' ? (unidadFiltro === 'ZONAS_COMUNES' ? '&areasComunes=true' : `&idUnidad=${unidadFiltro}`) : ''}`
       ),
     [periodoFiltro, servicioFiltro, unidadFiltro, tenant.activeAssignmentId]
   );
@@ -174,8 +175,8 @@ export default function ConsumosAdminPage() {
     return mediciones.filter((m) => {
       const medidor = (m.numeroMedidor || '').toLowerCase();
       const servicio = (m.tipoServicio || '').toLowerCase();
-      const unidad = (m.identificadorUnidad || 'zonas comunes').toLowerCase();
-      const leido = (m.leidoPor || '').toLowerCase();
+      const unidad = (m.unidadIdentificador || 'zonas comunes').toLowerCase();
+      const leido = String(m.leidoPor ?? '').toLowerCase();
       return (
         medidor.includes(q) ||
         servicio.includes(q) ||
@@ -218,6 +219,7 @@ export default function ConsumosAdminPage() {
       tarifaUnitaria: medicion.tarifaUnitaria != null ? String(medicion.tarifaUnitaria) : '',
       fotoMedidorUrl: medicion.fotoMedidorUrl || '',
       observacionAnomalia: medicion.observacionAnomalia || '',
+      reinicioMedidor: false,
       fechaTomaLectura: medicion.fechaTomaLectura || new Date().toISOString().split('T')[0],
     });
     setModalOpen(true);
@@ -226,12 +228,16 @@ export default function ConsumosAdminPage() {
   // Autocompletar última lectura desde backend
   const handleConsultarUltimaLectura = async (servicio, unidadId, medidor) => {
     try {
-      let url = `/consumos/ultima-lectura?tipoServicio=${servicio}`;
+      if (!medidor || !medidor.trim()) {
+        toast.info('Ingrese el número de medidor para consultar la última lectura.');
+        return;
+      }
+      let url = `/consumos/ultima-lectura?tipoServicio=${servicio}&numeroMedidor=${encodeURIComponent(medidor.trim())}`;
       if (unidadId) url += `&idUnidad=${unidadId}`;
-      if (medidor) url += `&numeroMedidor=${encodeURIComponent(medidor)}`;
+      if (form.periodo) url += `&periodo=${form.periodo}`;
 
       const res = await tenantApi.get(url);
-      if (res && res.lecturaActual != null) {
+      if (res && res.encontrada && res.lecturaActual != null) {
         setForm((prev) => ({
           ...prev,
           lecturaAnterior: String(res.lecturaActual),
@@ -243,8 +249,8 @@ export default function ConsumosAdminPage() {
       } else {
         toast.info('No se encontraron lecturas previas para este medidor/unidad.');
       }
-    } catch {
-      // Sin lecturas previas
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'No fue posible consultar la última lectura.');
     }
   };
 
@@ -277,8 +283,17 @@ export default function ConsumosAdminPage() {
       return;
     }
 
-    if (actual < anterior) {
-      toast.error('La lectura actual no puede ser menor a la lectura anterior.');
+    if (anterior < 0 || actual < 0) {
+      toast.error('Las lecturas no pueden ser negativas.');
+      return;
+    }
+
+    if (actual < anterior && !form.reinicioMedidor) {
+      toast.error('La lectura actual es menor a la anterior. Marque "Reinicio de medidor" si el medidor se reinició o reemplazó.');
+      return;
+    }
+    if (actual >= anterior && form.reinicioMedidor) {
+      toast.error('Un reinicio de medidor requiere una lectura actual menor a la anterior.');
       return;
     }
 
@@ -294,6 +309,7 @@ export default function ConsumosAdminPage() {
       fotoMedidorUrl: form.fotoMedidorUrl.trim() || null,
       observacionAnomalia: form.observacionAnomalia.trim() || null,
       fechaTomaLectura: form.fechaTomaLectura || null,
+      reinicioMedidor: form.reinicioMedidor || false,
     };
 
     setIsSubmitting(true);
@@ -340,8 +356,11 @@ export default function ConsumosAdminPage() {
     if (!isNaN(ant) && !isNaN(act) && act >= ant) {
       return (act - ant).toFixed(2);
     }
+    if (!isNaN(act) && act >= 0 && form.reinicioMedidor) {
+      return act.toFixed(2);
+    }
     return '0.00';
-  }, [form.lecturaAnterior, form.lecturaActual]);
+  }, [form.lecturaAnterior, form.lecturaActual, form.reinicioMedidor]);
 
   const costoEstimado = useMemo(() => {
     const consumo = parseFloat(consumoEstimado);
@@ -682,7 +701,7 @@ export default function ConsumosAdminPage() {
                         {m.idUnidad ? (
                           <span className="inline-flex items-center gap-1 text-foreground">
                             <Building2 className="w-3.5 h-3.5 text-muted-foreground" />
-                            {m.identificadorUnidad || `Unidad #${m.idUnidad}`}
+                            {m.unidadIdentificador || `Unidad #${m.idUnidad}`}
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 text-primary font-medium">
@@ -887,6 +906,15 @@ export default function ConsumosAdminPage() {
               />
             </div>
           </div>
+
+          <label className="flex items-center gap-2 text-xs text-foreground">
+            <input
+              type="checkbox"
+              checked={form.reinicioMedidor}
+              onChange={(e) => setForm({ ...form, reinicioMedidor: e.target.checked })}
+            />
+            Reinicio o reemplazo de medidor (la lectura actual es menor a la anterior)
+          </label>
 
           {/* Fila 3: Lectura Anterior, Lectura Actual y Unidad de Medida */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
