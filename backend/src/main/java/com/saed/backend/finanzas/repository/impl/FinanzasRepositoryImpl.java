@@ -1,4 +1,7 @@
 package com.saed.backend.finanzas.repository.impl;
+
+import com.saed.backend.finanzas.domain.CarteraRecalculation;
+import com.saed.backend.finanzas.domain.OutstandingFees;
 import com.saed.backend.finanzas.dto.*;
 import com.saed.backend.finanzas.repository.FinanzasRepository;
 import com.saed.backend.context.SaedContextHolder;
@@ -179,7 +182,7 @@ public class FinanzasRepositoryImpl implements FinanzasRepository {
                      "JOIN CONCEPTOS_COBRO co ON c.ID_CONCEPTO = co.ID_CONCEPTO " +
                      "LEFT JOIN CONTRATOS con ON c.ID_CONTRATO = con.ID_CONTRATO " +
                      "LEFT JOIN PERSONAS p ON con.ID_ARRENDATARIO_PRINCIPAL = p.ID_PERSONA " +
-                     "WHERE c.ESTADO = 'PENDIENTE'" + (propId != null ? " AND u.ID_PROPIEDAD = :propId" : "");
+                     "WHERE " + OutstandingFees.predicate("c") + (propId != null ? " AND u.ID_PROPIEDAD = :propId" : "");
         MapSqlParameterSource params = new MapSqlParameterSource();
         if (propId != null) params.addValue("propId", propId);
         return jdbcTemplate.query(sql, params, (rs, rowNum) -> new CuotaDTO(
@@ -397,40 +400,7 @@ public class FinanzasRepositoryImpl implements FinanzasRepository {
 
     @Override
     public void recalcularCarteraUnidad(Long idUnidad) {
-        String sqlRecalc = "MERGE INTO CARTERA dest " +
-                "USING ( " +
-                "  SELECT u.ID_UNIDAD, " +
-                "    NVL(SUM(CASE WHEN c.FECHA_VENCIMIENTO >= TRUNC(SYSDATE) THEN c.SALDO_PENDIENTE ELSE 0 END), 0) AS SALDO_CORRIENTE, " +
-                "    NVL(SUM(CASE WHEN c.FECHA_VENCIMIENTO < TRUNC(SYSDATE) AND TRUNC(SYSDATE) - c.FECHA_VENCIMIENTO <= 30 THEN c.SALDO_PENDIENTE ELSE 0 END), 0) AS SALDO_MORA_30, " +
-                "    NVL(SUM(CASE WHEN TRUNC(SYSDATE) - c.FECHA_VENCIMIENTO BETWEEN 31 AND 60 THEN c.SALDO_PENDIENTE ELSE 0 END), 0) AS SALDO_MORA_60, " +
-                "    NVL(SUM(CASE WHEN TRUNC(SYSDATE) - c.FECHA_VENCIMIENTO > 60 THEN c.SALDO_PENDIENTE ELSE 0 END), 0) AS SALDO_MORA_90_MAS " +
-                "  FROM UNIDADES u " +
-                "  LEFT JOIN CUOTAS c ON u.ID_UNIDAD = c.ID_UNIDAD AND c.ESTADO IN ('PENDIENTE', 'VENCIDA', 'PAGADA_PARCIAL') " +
-                "  WHERE u.ID_UNIDAD = :idUnidad " +
-                "  GROUP BY u.ID_UNIDAD " +
-                ") src " +
-                "ON (dest.ID_UNIDAD = src.ID_UNIDAD) " +
-                "WHEN MATCHED THEN UPDATE SET " +
-                "  dest.SALDO_CORRIENTE = src.SALDO_CORRIENTE, " +
-                "  dest.SALDO_MORA_30 = src.SALDO_MORA_30, " +
-                "  dest.SALDO_MORA_60 = src.SALDO_MORA_60, " +
-                "  dest.SALDO_MORA_90_MAS = src.SALDO_MORA_90_MAS, " +
-                "  dest.FECHA_CORTE = TRUNC(SYSDATE), " +
-                "  dest.ESTADO_CARTERA = CASE " +
-                "    WHEN src.SALDO_MORA_90_MAS > 0 THEN 'MORA_CRITICA' " +
-                "    WHEN src.SALDO_MORA_60 > 0 THEN 'MORA_60' " +
-                "    WHEN src.SALDO_MORA_30 > 0 THEN 'MORA_30' " +
-                "    ELSE 'AL_DIA' " +
-                "  END " +
-                "WHEN NOT MATCHED THEN INSERT (ID_UNIDAD, SALDO_CORRIENTE, SALDO_MORA_30, SALDO_MORA_60, SALDO_MORA_90_MAS, FECHA_CORTE, ESTADO_CARTERA) " +
-                "  VALUES (src.ID_UNIDAD, src.SALDO_CORRIENTE, src.SALDO_MORA_30, src.SALDO_MORA_60, src.SALDO_MORA_90_MAS, TRUNC(SYSDATE), " +
-                "    CASE " +
-                "      WHEN src.SALDO_MORA_90_MAS > 0 THEN 'MORA_CRITICA' " +
-                "      WHEN src.SALDO_MORA_60 > 0 THEN 'MORA_60' " +
-                "      WHEN src.SALDO_MORA_30 > 0 THEN 'MORA_30' " +
-                "      ELSE 'AL_DIA' " +
-                "    END)";
-        jdbcTemplate.update(sqlRecalc, new MapSqlParameterSource("idUnidad", idUnidad));
+        CarteraRecalculation.recalcularUnidad(jdbcTemplate, idUnidad);
     }
 
     private PagoResponseDTO mapRowToPagoResponse(java.sql.ResultSet rs, int rowNum) throws java.sql.SQLException {

@@ -1,5 +1,6 @@
 package com.saed.backend.finanzas.repository;
 
+import com.saed.backend.finanzas.domain.OutstandingFees;
 import com.saed.backend.finanzas.dto.*;
 import com.saed.backend.context.SaedContext;
 import com.saed.backend.context.SaedContextHolder;
@@ -11,8 +12,17 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Cash-flow reads. Database failures propagate (F06): a failed query must never be reported to the
+ * administrator as a balance of zero or an empty list.
+ */
 @Repository
 public class FlujoCajaRepository {
+
+    private static final String TENANT_FILTER_UNIT = """
+                WHERE ((:propId IS NOT NULL AND u.ID_PROPIEDAD = :propId)
+                   OR (:propId IS NULL AND :orgId IS NOT NULL AND prop.ID_ORGANIZACION = :orgId))
+            """;
 
     private final NamedParameterJdbcTemplate jdbc;
 
@@ -43,86 +53,55 @@ public class FlujoCajaRepository {
     }
 
     public BigDecimal getTotalIngresos() {
-        Map<String, Object> params = tenantParams();
-        try {
-            String sql = """
-                SELECT NVL(SUM(p.MONTO_TOTAL), 0)
-                FROM PAGOS p
-                JOIN UNIDADES u ON p.ID_UNIDAD = u.ID_UNIDAD
-                JOIN PROPIEDADES prop ON u.ID_PROPIEDAD = prop.ID_PROPIEDAD
-                WHERE ((:propId IS NOT NULL AND u.ID_PROPIEDAD = :propId)
-                   OR (:propId IS NULL AND :orgId IS NOT NULL AND prop.ID_ORGANIZACION = :orgId))
-                  AND p.ESTADO = 'APROBADO'
-                """;
-            BigDecimal val = jdbc.queryForObject(sql, params, BigDecimal.class);
-            return val != null ? val : BigDecimal.ZERO;
-        } catch (org.springframework.security.access.AccessDeniedException e) {
-            throw e;
-        } catch (Exception e) {
-            return BigDecimal.ZERO;
-        }
+        String sql = """
+            SELECT NVL(SUM(p.MONTO_TOTAL), 0)
+            FROM PAGOS p
+            JOIN UNIDADES u ON p.ID_UNIDAD = u.ID_UNIDAD
+            JOIN PROPIEDADES prop ON u.ID_PROPIEDAD = prop.ID_PROPIEDAD
+            """ + TENANT_FILTER_UNIT + """
+              AND p.ESTADO = 'APROBADO'
+            """;
+        return scalar(sql);
     }
 
     public BigDecimal getTotalEgresos() {
-        Map<String, Object> params = tenantParams();
-        try {
-            String sql = """
-                SELECT NVL(SUM(g.MONTO), 0)
-                FROM GASTOS g
-                JOIN PROPIEDADES prop ON g.ID_PROPIEDAD = prop.ID_PROPIEDAD
-                WHERE ((:propId IS NOT NULL AND g.ID_PROPIEDAD = :propId)
-                   OR (:propId IS NULL AND :orgId IS NOT NULL AND prop.ID_ORGANIZACION = :orgId))
-                  AND g.ESTADO = 'PAGADO'
-                """;
-            BigDecimal val = jdbc.queryForObject(sql, params, BigDecimal.class);
-            return val != null ? val : BigDecimal.ZERO;
-        } catch (org.springframework.security.access.AccessDeniedException e) {
-            throw e;
-        } catch (Exception e) {
-            return BigDecimal.ZERO;
-        }
+        String sql = """
+            SELECT NVL(SUM(g.MONTO), 0)
+            FROM GASTOS g
+            JOIN PROPIEDADES prop ON g.ID_PROPIEDAD = prop.ID_PROPIEDAD
+            WHERE ((:propId IS NOT NULL AND g.ID_PROPIEDAD = :propId)
+               OR (:propId IS NULL AND :orgId IS NOT NULL AND prop.ID_ORGANIZACION = :orgId))
+              AND g.ESTADO = 'PAGADO'
+            """;
+        return scalar(sql);
     }
 
     public BigDecimal getIngresosEsperados() {
-        Map<String, Object> params = tenantParams();
-        try {
-            String sql = """
-                SELECT NVL(SUM(c.SALDO_PENDIENTE), 0)
-                FROM CUOTAS c
-                JOIN UNIDADES u ON c.ID_UNIDAD = u.ID_UNIDAD
-                JOIN PROPIEDADES prop ON u.ID_PROPIEDAD = prop.ID_PROPIEDAD
-                WHERE ((:propId IS NOT NULL AND u.ID_PROPIEDAD = :propId)
-                   OR (:propId IS NULL AND :orgId IS NOT NULL AND prop.ID_ORGANIZACION = :orgId))
-                  AND c.ESTADO IN ('PENDIENTE', 'VENCIDA')
-                """;
-            BigDecimal val = jdbc.queryForObject(sql, params, BigDecimal.class);
-            return val != null ? val : BigDecimal.ZERO;
-        } catch (org.springframework.security.access.AccessDeniedException e) {
-            throw e;
-        } catch (Exception e) {
-            return BigDecimal.ZERO;
-        }
+        String sql = """
+            SELECT NVL(SUM(c.SALDO_PENDIENTE), 0)
+            FROM CUOTAS c
+            JOIN UNIDADES u ON c.ID_UNIDAD = u.ID_UNIDAD
+            JOIN PROPIEDADES prop ON u.ID_PROPIEDAD = prop.ID_PROPIEDAD
+            """ + TENANT_FILTER_UNIT + "  AND " + OutstandingFees.predicate("c") + "\n";
+        return scalar(sql);
     }
 
     public BigDecimal getGastosProgramados() {
-        Map<String, Object> params = tenantParams();
-        try {
-            String sql = """
-                SELECT NVL(SUM(pr.MONTO_PRESUPUESTADO - NVL(pr.MONTO_EJECUTADO, 0)), 0)
-                FROM PRESUPUESTOS pr
-                JOIN PROPIEDADES prop ON pr.ID_PROPIEDAD = prop.ID_PROPIEDAD
-                WHERE ((:propId IS NOT NULL AND pr.ID_PROPIEDAD = :propId)
-                   OR (:propId IS NULL AND :orgId IS NOT NULL AND prop.ID_ORGANIZACION = :orgId))
-                  AND pr.TIPO = 'EGRESO'
-                  AND pr.ESTADO = 'APROBADO'
-                """;
-            BigDecimal val = jdbc.queryForObject(sql, params, BigDecimal.class);
-            return val != null ? val : BigDecimal.ZERO;
-        } catch (org.springframework.security.access.AccessDeniedException e) {
-            throw e;
-        } catch (Exception e) {
-            return BigDecimal.ZERO;
-        }
+        String sql = """
+            SELECT NVL(SUM(pr.MONTO_PRESUPUESTADO - NVL(pr.MONTO_EJECUTADO, 0)), 0)
+            FROM PRESUPUESTOS pr
+            JOIN PROPIEDADES prop ON pr.ID_PROPIEDAD = prop.ID_PROPIEDAD
+            WHERE ((:propId IS NOT NULL AND pr.ID_PROPIEDAD = :propId)
+               OR (:propId IS NULL AND :orgId IS NOT NULL AND prop.ID_ORGANIZACION = :orgId))
+              AND pr.TIPO = 'EGRESO'
+              AND pr.ESTADO = 'APROBADO'
+            """;
+        return scalar(sql);
+    }
+
+    private BigDecimal scalar(String sql) {
+        BigDecimal val = jdbc.queryForObject(sql, tenantParams(), BigDecimal.class);
+        return val != null ? val : BigDecimal.ZERO;
     }
 
     public List<FlujoCajaMovimientoDTO> getMovimientosRecientes(int limite) {
@@ -153,22 +132,7 @@ public class FlujoCajaRepository {
             ) WHERE ROWNUM <= :limite
             """;
 
-        try {
-            return jdbc.query(sql, params, (rs, rowNum) -> new FlujoCajaMovimientoDTO(
-                rs.getLong("id"),
-                rs.getString("tipo"),
-                rs.getString("categoria"),
-                rs.getString("descripcion"),
-                rs.getBigDecimal("monto"),
-                rs.getDate("fecha") != null ? rs.getDate("fecha").toLocalDate() : null,
-                rs.getString("estado"),
-                rs.getString("unidad")
-            ));
-        } catch (org.springframework.security.access.AccessDeniedException e) {
-            throw e;
-        } catch (Exception e) {
-            return List.of();
-        }
+        return jdbc.query(sql, params, (rs, rowNum) -> mapMovimiento(rs));
     }
 
     public List<FlujoCajaMovimientoDTO> getProyeccionMensual() {
@@ -188,26 +152,25 @@ public class FlujoCajaRepository {
                 JOIN PROPIEDADES prop ON u.ID_PROPIEDAD = prop.ID_PROPIEDAD
                 WHERE ((:propId IS NOT NULL AND u.ID_PROPIEDAD = :propId)
                    OR (:propId IS NULL AND :orgId IS NOT NULL AND prop.ID_ORGANIZACION = :orgId))
-                  AND c.ESTADO IN ('PENDIENTE', 'VENCIDA')
+                  AND """ + " " + OutstandingFees.predicate("c") + """
+
                 ORDER BY fecha ASC
             ) WHERE ROWNUM <= 20
             """;
 
-        try {
-            return jdbc.query(sql, params, (rs, rowNum) -> new FlujoCajaMovimientoDTO(
-                rs.getLong("id"),
-                rs.getString("tipo"),
-                rs.getString("categoria"),
-                rs.getString("descripcion"),
-                rs.getBigDecimal("monto"),
-                rs.getDate("fecha") != null ? rs.getDate("fecha").toLocalDate() : null,
-                rs.getString("estado"),
-                rs.getString("unidad")
-            ));
-        } catch (org.springframework.security.access.AccessDeniedException e) {
-            throw e;
-        } catch (Exception e) {
-            return List.of();
-        }
+        return jdbc.query(sql, params, (rs, rowNum) -> mapMovimiento(rs));
+    }
+
+    private static FlujoCajaMovimientoDTO mapMovimiento(java.sql.ResultSet rs) throws java.sql.SQLException {
+        return new FlujoCajaMovimientoDTO(
+            rs.getLong("id"),
+            rs.getString("tipo"),
+            rs.getString("categoria"),
+            rs.getString("descripcion"),
+            rs.getBigDecimal("monto"),
+            rs.getDate("fecha") != null ? rs.getDate("fecha").toLocalDate() : null,
+            rs.getString("estado"),
+            rs.getString("unidad")
+        );
     }
 }

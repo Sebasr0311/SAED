@@ -6,6 +6,8 @@ import com.saed.backend.audit.AuditCategory;
 import com.saed.backend.audit.AuditSeverity;
 
 import com.saed.backend.common.dto.ApiResponse;
+import com.saed.backend.finanzas.domain.CarteraRecalculation;
+import com.saed.backend.finanzas.domain.OutstandingFees;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -88,9 +90,10 @@ public class CarteraController {
                 "NVL(SUM(c.SALDO_TOTAL), 0) AS TOTAL_CARTERA, " +
                 "NVL(SUM(c.SALDO_MORA_30 + c.SALDO_MORA_60 + c.SALDO_MORA_90_MAS), 0) AS TOTAL_MORA, " +
                 "SUM(CASE WHEN c.ESTADO_CARTERA = 'AL_DIA' THEN 1 ELSE 0 END) AS COUNT_AL_DIA, " +
-                "SUM(CASE WHEN c.ESTADO_CARTERA = 'MORA_LEVE' THEN 1 ELSE 0 END) AS COUNT_MORA_LEVE, " +
-                "SUM(CASE WHEN c.ESTADO_CARTERA = 'MORA_MEDIA' THEN 1 ELSE 0 END) AS COUNT_MORA_MEDIA, " +
-                "SUM(CASE WHEN c.ESTADO_CARTERA = 'MORA_GRAVE' THEN 1 ELSE 0 END) AS COUNT_MORA_GRAVE " +
+                "SUM(CASE WHEN c.ESTADO_CARTERA = 'MORA_30' THEN 1 ELSE 0 END) AS COUNT_MORA_30, " +
+                "SUM(CASE WHEN c.ESTADO_CARTERA = 'MORA_60' THEN 1 ELSE 0 END) AS COUNT_MORA_60, " +
+                "SUM(CASE WHEN c.ESTADO_CARTERA = 'MORA_CRITICA' THEN 1 ELSE 0 END) AS COUNT_MORA_CRITICA, " +
+                "SUM(CASE WHEN c.ESTADO_CARTERA = 'COBRO_JURIDICO' THEN 1 ELSE 0 END) AS COUNT_COBRO_JURIDICO " +
                 "FROM CARTERA c " +
                 "JOIN UNIDADES u ON c.ID_UNIDAD = u.ID_UNIDAD " +
                 (propId != null ? "WHERE u.ID_PROPIEDAD = :propId" : "");
@@ -105,44 +108,13 @@ public class CarteraController {
     @PostMapping("/recalcular")
     @Auditable(action = "EXECUTE", resource = "CARTERA", category = AuditCategory.FINANCIAL, severity = AuditSeverity.HIGH)
     public ApiResponse<String> recalcular() {
-        Long propId = (com.saed.backend.context.SaedContextHolder.getContext() != null) ? com.saed.backend.context.SaedContextHolder.getContext().getPropertyId() : null;
-        String sqlRecalc = "MERGE INTO CARTERA dest " +
-                "USING ( " +
-                "  SELECT u.ID_UNIDAD, " +
-                "    NVL(SUM(CASE WHEN c.FECHA_VENCIMIENTO >= TRUNC(SYSDATE) THEN c.SALDO_PENDIENTE ELSE 0 END), 0) AS SALDO_CORRIENTE, " +
-                "    NVL(SUM(CASE WHEN c.FECHA_VENCIMIENTO < TRUNC(SYSDATE) AND TRUNC(SYSDATE) - c.FECHA_VENCIMIENTO <= 30 THEN c.SALDO_PENDIENTE ELSE 0 END), 0) AS SALDO_MORA_30, " +
-                "    NVL(SUM(CASE WHEN TRUNC(SYSDATE) - c.FECHA_VENCIMIENTO BETWEEN 31 AND 60 THEN c.SALDO_PENDIENTE ELSE 0 END), 0) AS SALDO_MORA_60, " +
-                "    NVL(SUM(CASE WHEN TRUNC(SYSDATE) - c.FECHA_VENCIMIENTO > 60 THEN c.SALDO_PENDIENTE ELSE 0 END), 0) AS SALDO_MORA_90_MAS " +
-                "  FROM UNIDADES u " +
-                "  LEFT JOIN CUOTAS c ON u.ID_UNIDAD = c.ID_UNIDAD AND c.ESTADO IN ('PENDIENTE', 'VENCIDA') " +
-                (propId != null ? "  WHERE u.ID_PROPIEDAD = :propId " : " ") +
-                "  GROUP BY u.ID_UNIDAD " +
-                ") src " +
-                "ON (dest.ID_UNIDAD = src.ID_UNIDAD) " +
-                "WHEN MATCHED THEN UPDATE SET " +
-                "  dest.SALDO_CORRIENTE = src.SALDO_CORRIENTE, " +
-                "  dest.SALDO_MORA_30 = src.SALDO_MORA_30, " +
-                "  dest.SALDO_MORA_60 = src.SALDO_MORA_60, " +
-                "  dest.SALDO_MORA_90_MAS = src.SALDO_MORA_90_MAS, " +
-                "  dest.FECHA_CORTE = TRUNC(SYSDATE), " +
-                "  dest.ESTADO_CARTERA = CASE " +
-                "    WHEN src.SALDO_MORA_90_MAS > 0 THEN 'MORA_GRAVE' " +
-                "    WHEN src.SALDO_MORA_60 > 0 THEN 'MORA_MEDIA' " +
-                "    WHEN src.SALDO_MORA_30 > 0 THEN 'MORA_LEVE' " +
-                "    ELSE 'AL_DIA' " +
-                "  END " +
-                "WHEN NOT MATCHED THEN INSERT (ID_UNIDAD, SALDO_CORRIENTE, SALDO_MORA_30, SALDO_MORA_60, SALDO_MORA_90_MAS, FECHA_CORTE, ESTADO_CARTERA) " +
-                "  VALUES (src.ID_UNIDAD, src.SALDO_CORRIENTE, src.SALDO_MORA_30, src.SALDO_MORA_60, src.SALDO_MORA_90_MAS, TRUNC(SYSDATE), " +
-                "    CASE " +
-                "      WHEN src.SALDO_MORA_90_MAS > 0 THEN 'MORA_GRAVE' " +
-                "      WHEN src.SALDO_MORA_60 > 0 THEN 'MORA_MEDIA' " +
-                "      WHEN src.SALDO_MORA_30 > 0 THEN 'MORA_LEVE' " +
-                "      ELSE 'AL_DIA' " +
-                "    END)";
-
-        MapSqlParameterSource params = new MapSqlParameterSource();
-        if (propId != null) params.addValue("propId", propId);
-        int rows = jdbcTemplate.update(sqlRecalc, params);
+        com.saed.backend.context.SaedContext ctx = com.saed.backend.context.SaedContextHolder.getContext();
+        Long propId = ctx != null ? ctx.getPropertyId() : null;
+        if (propId == null) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "Se requiere una propiedad activa en la sesion para recalcular la cartera");
+        }
+        int rows = CarteraRecalculation.recalcularPropiedad(jdbcTemplate, propId);
         return ApiResponse.success("Cartera recalculada. " + rows + " registros procesados.");
     }
 
@@ -163,7 +135,7 @@ public class CarteraController {
                 "  NVL(SUM(c.SALDO_PENDIENTE), 0) AS TOTAL_SALDO " +
                 "FROM CUOTAS c " +
                 "JOIN UNIDADES u ON c.ID_UNIDAD = u.ID_UNIDAD " +
-                "WHERE c.ESTADO IN ('PENDIENTE', 'VENCIDA') " +
+                "WHERE " + OutstandingFees.predicate("c") + " " +
                 (propId != null ? "AND u.ID_PROPIEDAD = :propId " : "") +
                 "GROUP BY " +
                 "  CASE " +

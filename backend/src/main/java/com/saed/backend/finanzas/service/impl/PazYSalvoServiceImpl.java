@@ -4,6 +4,7 @@ import com.saed.backend.common.service.FileStorageService;
 import com.saed.backend.common.service.PdfService;
 import com.saed.backend.context.SaedContext;
 import com.saed.backend.context.SaedContextHolder;
+import com.saed.backend.finanzas.domain.OutstandingFees;
 import com.saed.backend.finanzas.dto.PazYSalvoDetalleDTO;
 import com.saed.backend.finanzas.dto.PazYSalvoEstadoFinancieroDTO;
 import com.saed.backend.finanzas.service.PazYSalvoService;
@@ -63,7 +64,7 @@ public class PazYSalvoServiceImpl implements PazYSalvoService {
 
         Map<String, Object> unitInfo = getUnitInfo(idUnidad);
         if (unitInfo == null) {
-            throw new IllegalArgumentException("Unidad no encontrada: " + idUnidad);
+            throw new NoSuchElementException("Unidad no encontrada: " + idUnidad);
         }
 
         // Anti-IDOR enforcement on financial status inquiry
@@ -73,7 +74,7 @@ public class PazYSalvoServiceImpl implements PazYSalvoService {
 
         // 1. Cartera & Cuotas corrientes / vencidas
         String cuotasSql = "SELECT COALESCE(SUM(c.SALDO_PENDIENTE), 0) FROM CUOTAS c " +
-                "WHERE c.ID_UNIDAD = :unitId AND c.ESTADO IN ('PENDIENTE', 'VENCIDA', 'EN_MORA')";
+                "WHERE c.ID_UNIDAD = :unitId AND " + OutstandingFees.predicate("c");
         BigDecimal saldoCuotas = jdbcTemplate.queryForObject(
                 cuotasSql,
                 new MapSqlParameterSource("unitId", idUnidad),
@@ -144,7 +145,7 @@ public class PazYSalvoServiceImpl implements PazYSalvoService {
 
         Map<String, Object> unitInfo = getUnitInfo(idUnidad);
         if (unitInfo == null) {
-            throw new IllegalArgumentException("Unidad no encontrada: " + idUnidad);
+            throw new NoSuchElementException("Unidad no encontrada: " + idUnidad);
         }
 
         // Anti-IDOR check for admin
