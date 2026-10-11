@@ -338,3 +338,21 @@ Behavior change to note: no default contract template is created for organizatio
 - recovery-18: 59/59 stages; backend 0 WARN / 0 ERROR; smoke 9 MATCH + 2 expected 401; matrix 0 × 5xx, only the known resident-dashboard id echo (F6); role/pool 0 failures. CI selection + remediation unit tier on the merged branch: 92 classes / 798 tests.
 - recovery-19 (+F11 V5.80): 60/60 stages; same green battery. Unit tier 100 classes / 865 tests; frontend build and lint OK. `GET /api/v1/dashboard/kpis` returns 200 for every active profile with profile-appropriate sections: SUPERADMIN platform only (DEC-02), administrators and titular resident finance + PQRS + reservations, RESIDENTE_CONVIVENCIA without finance, PORTERO reservations only.
 - Docker Desktop had stopped between sessions; it was restarted with `docker desktop start`. No state was lost (previous containers preserved).
+
+## 2026-10-11 F6 finance on the isolated stack (recovery-20)
+
+recovery-20 (+F6 V5.50–V5.53): 64/64 stages at the first attempt. Backend 0 WARN / 0 ERROR; six-profile smoke 9 MATCH + 2 expected 401; matrix **0 cross-tenant responses** (the resident-dashboard id echo now returns 404); role/pool checks 0 failures. Unit tier 114 classes / 1010 tests.
+
+`scripts/verification/payment_debit_scenario.py <state> <container> <port>` seeds one fee of 100 for unit 91001 (SYSDBA) and drives the real HTTP API — resident registers, property admin approves/rejects — reading `CUOTAS.SALDO_PENDIENTE`/`ESTADO` from Oracle after each step. Final run, 15/15 PASS:
+
+| Step | Oracle balance |
+|---|---|
+| fee created | 100 PENDIENTE |
+| resident registers 30 (pending) | 100 (unchanged) |
+| admin approves | **70 PAGADA_PARCIAL** (debited once — the V5.50 triggers are the single debit owner) |
+| repeated approval | HTTP 409, still 70 |
+| 5 concurrent approvals of a 20 payment | exactly one 200, four 409; **50** |
+| rejected payment of 10 | 200, still 50 |
+| remaining 50 approved | **0 PAGADA** |
+
+A first run exposed two 500s among concurrent approvals that `handleTransactionException` returned without diagnostics. That handler now logs the bounded diagnostic and maps connection-pool exhaustion (`SQLTransientConnectionException`) to a retryable **503 SERVICE_BUSY** with `Retry-After`; never a bare 500. Note: `POST /api/v1/pagos` returns only `{success, message}` (no payment id) — minor API gap.
