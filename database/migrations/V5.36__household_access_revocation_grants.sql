@@ -7,7 +7,9 @@
 -- procedure (V5.37, SP_REVOCAR_ACCESO_UNIDAD). This file grants the minimum it needs:
 --   * SELECT on RESIDENTES_UNIDAD (validate the member's residence),
 --   * UPDATE (ESTADO, FECHA_FIN) on USUARIO_ASIGNACIONES (revoke the assignment).
--- The grantee is the owner of PKG_AUTH_BOOTSTRAP (the security account), resolved from the catalog.
+-- The grantee is the security account that owns PKG_AUTH_BOOTSTRAP. It is named SAED_SEC_MASTER, as in the
+-- V5.0 baseline authentication grants. (It cannot be resolved through ALL_OBJECTS: the application owner has no
+-- privilege on that package, so the lookup returned no row — ORA-01403 on the isolated install.)
 -- Idempotent: GRANT is repeatable. No data or policy is changed.
 
 BEGIN
@@ -17,12 +19,13 @@ END;
 /
 
 DECLARE
-    v_sec_owner VARCHAR2(128);
+    v_sec_owner CONSTANT VARCHAR2(128) := 'SAED_SEC_MASTER';
+    v_count NUMBER;
 BEGIN
-    SELECT OWNER INTO v_sec_owner
-    FROM ALL_OBJECTS
-    WHERE OBJECT_NAME = 'PKG_AUTH_BOOTSTRAP' AND OBJECT_TYPE = 'PACKAGE'
-      AND ROWNUM = 1;
+    SELECT COUNT(1) INTO v_count FROM ALL_USERS WHERE USERNAME = v_sec_owner;
+    IF v_count = 0 THEN
+        RAISE_APPLICATION_ERROR(-20936, 'Security account ' || v_sec_owner || ' does not exist');
+    END IF;
     EXECUTE IMMEDIATE 'GRANT SELECT ON RESIDENTES_UNIDAD TO ' || DBMS_ASSERT.ENQUOTE_NAME(v_sec_owner, FALSE);
     EXECUTE IMMEDIATE 'GRANT UPDATE (ESTADO, FECHA_FIN) ON USUARIO_ASIGNACIONES TO '
         || DBMS_ASSERT.ENQUOTE_NAME(v_sec_owner, FALSE);
