@@ -141,6 +141,7 @@ public class WompiSaaSSegregationSecurityTest {
         payload.put("data", data);
         payload.put("signature", signature);
         payload.put("timestamp", timestamp);
+        payload.put("environment", "test");   // the deployment settles SANDBOX events only
         payload.put("sent_at", "2026-09-17T12:00:00.000Z");
         return payload;
     }
