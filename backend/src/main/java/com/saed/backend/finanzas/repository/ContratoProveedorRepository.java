@@ -4,6 +4,7 @@ import com.saed.backend.context.SaedContext;
 import com.saed.backend.context.SaedContextHolder;
 import com.saed.backend.finanzas.dto.ContratoProveedorCreateDTO;
 import com.saed.backend.finanzas.dto.ContratoProveedorDTO;
+import com.saed.backend.proveedores.contratos.ContratoProveedorValidator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -14,7 +15,10 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.Set;
 
 /**
  * Repositorio de Contratos de Proveedor (GAP-F9-01).
@@ -24,6 +28,9 @@ import java.util.Map;
 public class ContratoProveedorRepository {
 
     private static final Logger log = LoggerFactory.getLogger(ContratoProveedorRepository.class);
+
+    /** CK_CONTPROV_ESTADO. */
+    private static final Set<String> ESTADOS = Set.of("VIGENTE", "VENCIDO", "TERMINADO", "SUSPENDIDO");
 
     private final NamedParameterJdbcTemplate jdbc;
 
@@ -40,20 +47,15 @@ public class ContratoProveedorRepository {
     }
 
     public List<ContratoProveedorDTO> listar() {
-        SaedContext ctx = SaedContextHolder.getContext();
-        Long propId = (ctx != null) ? ctx.getPropertyId() : null;
+        Long propId = resolveActivePropertyId();
 
-        MapSqlParameterSource params = new MapSqlParameterSource();
+        MapSqlParameterSource params = new MapSqlParameterSource().addValue("propId", propId);
         StringBuilder sql = new StringBuilder("""
             SELECT cp.*, pr.RAZON_SOCIAL AS NOMBRE_PROVEEDOR
             FROM CONTRATOS_PROVEEDOR cp
             JOIN PROVEEDORES pr ON cp.ID_PROVEEDOR = pr.ID_PROVEEDOR
+            WHERE cp.ID_PROPIEDAD = :propId
             """);
-
-        if (propId != null) {
-            sql.append(" WHERE cp.ID_PROPIEDAD = :propId");
-            params.addValue("propId", propId);
-        }
 
         sql.append(" ORDER BY cp.ID_CONTRATO_PROVEEDOR DESC");
 
@@ -78,15 +80,9 @@ public class ContratoProveedorRepository {
     }
 
     public ContratoProveedorDTO crear(ContratoProveedorCreateDTO req) {
+        // Business validation first (required fields, dates, value, alert days), before any database work.
+        ContratoProveedorValidator.validar(req);
         Long propId = resolveActivePropertyId();
-
-        if (req.idProveedor() == null) {
-            throw new IllegalArgumentException("El ID del proveedor es obligatorio");
-        }
-
-        if (req.fechaInicio() != null && req.fechaFin() != null && req.fechaFin().isBefore(req.fechaInicio())) {
-            throw new IllegalArgumentException("La fecha de finalización no puede ser anterior a la fecha de inicio (CK_CONTPROV_FECHAS)");
-        }
 
         // 1. Validar existencia del proveedor y correspondencia tenant con la propiedad activa
         String checkSql = """
@@ -106,10 +102,7 @@ public class ContratoProveedorRepository {
         );
 
         if (rows.isEmpty()) {
-            throw new AccessDeniedException(
-                "Violación de aislamiento multi-tenant: El proveedor " + req.idProveedor() +
-                " no está autorizado o pertenece a otra organización para la propiedad " + propId + "."
-            );
+            throw new NoSuchElementException("Proveedor no encontrado: " + req.idProveedor());
         }
 
         Map<String, Object> check = rows.get(0);
@@ -121,11 +114,8 @@ public class ContratoProveedorRepository {
         if (!provOrgId.equals(propOrgId)) {
             log.warn("[Cross-Tenant Attack Blocked] Intento de vincular proveedor {} (Org {}) con propiedad {} (Org {})",
                     req.idProveedor(), provOrgId, propId, propOrgId);
-            throw new AccessDeniedException(
-                "Violación de aislamiento multi-tenant: El proveedor " + req.idProveedor() +
-                " pertenece a la organización " + provOrgId + " y no puede ser vinculado a la propiedad " +
-                propId + " perteneciente a la organización " + propOrgId + "."
-            );
+            // Indistinguishable from a missing supplier: never reveal that it exists in another organization.
+            throw new NoSuchElementException("Proveedor no encontrado: " + req.idProveedor());
         }
 
         // VALIDACIÓN DE ESTADO DEL PROVEEDOR
@@ -193,13 +183,17 @@ public class ContratoProveedorRepository {
     }
 
     public void actualizarEstado(Long id, String estado) {
+        String target = estado == null ? "" : estado.trim().toUpperCase(Locale.ROOT);
+        if (!ESTADOS.contains(target)) {
+            throw new IllegalArgumentException("Estado de contrato no valido. Permitidos: VIGENTE, VENCIDO, TERMINADO, SUSPENDIDO");
+        }
         Long propId = resolveActivePropertyId();
         int updated = jdbc.update(
             "UPDATE CONTRATOS_PROVEEDOR SET ESTADO = :estado WHERE ID_CONTRATO_PROVEEDOR = :id AND ID_PROPIEDAD = :propId",
-            Map.of("id", id, "estado", estado, "propId", propId)
+            Map.of("id", id, "estado", target, "propId", propId)
         );
         if (updated == 0) {
-            throw new AccessDeniedException("Contrato no encontrado o no pertenece a la propiedad activa");
+            throw new NoSuchElementException("Contrato de proveedor no encontrado: " + id);
         }
     }
 
@@ -210,7 +204,7 @@ public class ContratoProveedorRepository {
             Map.of("id", id, "propId", propId)
         );
         if (deleted == 0) {
-            throw new AccessDeniedException("Contrato no encontrado o no pertenece a la propiedad activa");
+            throw new NoSuchElementException("Contrato de proveedor no encontrado: " + id);
         }
     }
 }
