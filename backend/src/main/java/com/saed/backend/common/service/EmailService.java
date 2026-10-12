@@ -36,14 +36,18 @@ public class EmailService {
     private final ObjectMapper objectMapper;
     private final HttpClient httpClient;
     private final org.thymeleaf.TemplateEngine templateEngine;
+    /** Spring's task executor: its threads carry the application class loader, unlike the JDK common pool. */
+    private final java.util.concurrent.Executor mailExecutor;
 
     @org.springframework.beans.factory.annotation.Value("${brevo.api-key:${BREVO_API_KEY:}}")
     private String brevoApiKey;
 
-    public EmailService(TemplateRenderService templateService, ObjectMapper objectMapper, org.thymeleaf.TemplateEngine templateEngine) {
+    public EmailService(TemplateRenderService templateService, ObjectMapper objectMapper, org.thymeleaf.TemplateEngine templateEngine,
+                        @org.springframework.beans.factory.annotation.Qualifier("applicationTaskExecutor") java.util.concurrent.Executor mailExecutor) {
         this.templateService = templateService;
         this.objectMapper = objectMapper;
         this.templateEngine = templateEngine;
+        this.mailExecutor = mailExecutor;
         this.httpClient = HttpClient.newBuilder().connectTimeout(java.time.Duration.ofSeconds(15)).build();
     }
 
@@ -143,7 +147,7 @@ public class EmailService {
                 org.slf4j.LoggerFactory.getLogger(EmailService.class)
                     .warn("Fallo en envío asíncrono de correo QR a {}: {}", destinatario, e.getMessage());
             }
-        });
+        }, mailExecutor);
     }
 
     public void enviarNotificacionPQRS(String destinatario, String radicado, String estado, String respuesta) throws Exception {
@@ -308,7 +312,7 @@ public class EmailService {
                 org.slf4j.LoggerFactory.getLogger(EmailService.class)
                         .warn("Fallo en envío asíncrono de bienvenida credenciales a {}: {}", destinatario, e.getMessage());
             }
-        });
+        }, mailExecutor);
     }
 
     public void enviarCredencialesCreadoPorUsuario(
@@ -364,6 +368,6 @@ public class EmailService {
                 org.slf4j.LoggerFactory.getLogger(EmailService.class)
                         .warn("Fallo en envío asíncrono de credenciales creadas por usuario a {}: {}", destinatario, e.getMessage());
             }
-        });
+        }, mailExecutor);
     }
 }
