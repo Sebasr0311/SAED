@@ -1,25 +1,27 @@
 package com.saed.backend.audit;
 
+import com.saed.backend.common.util.ClientRequestInfo;
 import com.saed.backend.context.SaedContext;
 import com.saed.backend.context.SaedContextHolder;
-import jakarta.servlet.http.HttpServletRequest;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
-import org.springframework.web.context.request.RequestContextHolder;
-import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.lang.reflect.Method;
 import java.util.Map;
 
+/**
+ * Records successful {@link Auditable} operations. It is the innermost advice, inside the transaction advisor (see
+ * {@link com.saed.backend.config.TransactionOrderConfig}), so the success record joins the audited transaction and
+ * commits atomically with it. Failures are recorded by {@link AuditFailureAspect} once the transaction has ended.
+ */
 @Aspect
 @Component
+@Order(Ordered.LOWEST_PRECEDENCE)
 public class AuditAspect {
-
-    private static final Logger log = LoggerFactory.getLogger(AuditAspect.class);
 
     private final AuditService auditService;
     private final AuditSanitizer auditSanitizer;
@@ -36,13 +38,6 @@ public class AuditAspect {
         Long orgId = (context != null && context.getOrganizationId() != null) ? context.getOrganizationId() : null;
         Long propId = (context != null && context.getPropertyId() != null) ? context.getPropertyId() : null;
 
-        String ipOrigen = resolveClientIp();
-        String userAgent = resolveUserAgent();
-        String correlationId = CorrelationIdHolder.get();
-
-        String action = auditable.action();
-        String resource = auditable.resource();
-
         String payloadJson = null;
         if (auditable.includePayload() && joinPoint.getArgs() != null && joinPoint.getArgs().length > 0) {
             payloadJson = auditSanitizer.sanitizeToJson(joinPoint.getArgs());
@@ -50,40 +45,29 @@ public class AuditAspect {
 
         Long affectedEntityId = extractEntityId(joinPoint.getArgs());
 
-        try {
-            Object result = joinPoint.proceed();
+        Object result = joinPoint.proceed();
 
-            // Try to extract entity ID from result if not already found in args
-            if (affectedEntityId == null) {
-                affectedEntityId = extractEntityIdFromResult(result);
-            }
-
-            String stateNew = null;
-            if (result != null) {
-                stateNew = auditSanitizer.sanitizeToJson(result);
-            }
-
-            auditService.recordSuccess(
-                    userId, orgId, propId,
-                    action, resource, affectedEntityId,
-                    ipOrigen, userAgent,
-                    payloadJson, stateNew
-            );
-
-            return result;
-        } catch (Throwable ex) {
-            String sanitizedError = "Error: " + ex.getClass().getSimpleName() + " - " + ex.getMessage();
-            auditService.recordFailure(
-                    userId, orgId, propId,
-                    action, resource, affectedEntityId,
-                    ipOrigen, userAgent,
-                    payloadJson, sanitizedError
-            );
-            throw ex;
+        // Try to extract entity ID from result if not already found in args
+        if (affectedEntityId == null) {
+            affectedEntityId = extractEntityIdFromResult(result);
         }
+
+        String stateNew = null;
+        if (result != null) {
+            stateNew = auditSanitizer.sanitizeToJson(result);
+        }
+
+        auditService.recordSuccess(
+                userId, orgId, propId,
+                auditable.action(), auditable.resource(), affectedEntityId,
+                ClientRequestInfo.ip(), ClientRequestInfo.userAgent(),
+                payloadJson, stateNew
+        );
+
+        return result;
     }
 
-    private Long extractEntityId(Object[] args) {
+    static Long extractEntityId(Object[] args) {
         if (args == null || args.length == 0) {
             return null;
         }
@@ -108,7 +92,7 @@ public class AuditAspect {
         return null;
     }
 
-    private Long extractEntityIdFromResult(Object result) {
+    private static Long extractEntityIdFromResult(Object result) {
         if (result == null) {
             return null;
         }
@@ -134,32 +118,5 @@ public class AuditAspect {
         } catch (Exception ignored) {
         }
         return null;
-    }
-
-    private String resolveClientIp() {
-        ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
-        if (attributes == null) {
-            return "127.0.0.1";
-        }
-        HttpServletRequest request = attributes.getRequest();
-        String xForwardedFor = request.getHeader("X-Forwarded-For");
-        if (xForwardedFor != null && !xForwardedFor.isBlank()) {
-            String[] ips = xForwardedFor.split(",");
-            return ips[0].trim();
-        }
-        String xRealIp = request.getHeader("X-Real-IP");
-        if (xRealIp != null && !xRealIp.isBlank()) {
-            return xRealIp.trim();
-        }
-        return request.getRemoteAddr();
-    }
-
-    private String resolveUserAgent() {
-        ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
-        if (attributes == null) {
-            return "System/Internal";
-        }
-        HttpServletRequest request = attributes.getRequest();
-        return request.getHeader("User-Agent");
     }
 }

@@ -66,8 +66,25 @@ class AuditAspectTest {
     }
 
     @Test
-    @DisplayName("Failed method execution records audit log with FALLIDO and rethrows original exception")
-    void testAuditMethodFailureRethrowsException() throws Throwable {
+    @DisplayName("Failed method execution rethrows without auditing: the outer failure aspect records it")
+    void testAuditMethodFailureLeavesFailureAuditToOuterAspect() throws Throwable {
+        ProceedingJoinPoint joinPoint = mock(ProceedingJoinPoint.class);
+        Auditable auditable = mock(Auditable.class);
+        when(auditable.action()).thenReturn("DELETE");
+        when(auditable.resource()).thenReturn("PERSONA");
+        when(auditable.includePayload()).thenReturn(true);
+        when(joinPoint.getArgs()).thenReturn(new Object[]{55L});
+        when(joinPoint.proceed()).thenThrow(new IllegalArgumentException("Persona no encontrada"));
+
+        assertThrows(IllegalArgumentException.class, () -> aspect.auditMethod(joinPoint, auditable));
+
+        verifyNoInteractions(auditService);
+    }
+
+    @Test
+    @DisplayName("Failure aspect records audit log with FALLIDO and rethrows original exception")
+    void testFailureAspectRecordsAndRethrows() throws Throwable {
+        AuditFailureAspect failureAspect = new AuditFailureAspect(auditService, auditSanitizer);
         ProceedingJoinPoint joinPoint = mock(ProceedingJoinPoint.class);
         Auditable auditable = mock(Auditable.class);
         when(auditable.action()).thenReturn("DELETE");
@@ -78,7 +95,7 @@ class AuditAspectTest {
         when(joinPoint.proceed()).thenThrow(new IllegalArgumentException("Persona no encontrada"));
 
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-                () -> aspect.auditMethod(joinPoint, auditable));
+                () -> failureAspect.auditFailure(joinPoint, auditable));
 
         assertThat(ex.getMessage()).isEqualTo("Persona no encontrada");
         verify(auditService, times(1)).recordFailure(
