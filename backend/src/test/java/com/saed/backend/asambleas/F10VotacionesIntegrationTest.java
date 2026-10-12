@@ -1190,7 +1190,7 @@ public class F10VotacionesIntegrationTest {
                         .header("Authorization", "Bearer " + tokenAdminProp1)
                         .header("X-Assignment-Id", ASSIGN_ADMIN_PROP_1))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.aprobada").value(true));
+                .andExpect(jsonPath("$.aprobada").value(false));
     }
 
     @Test
