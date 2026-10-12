@@ -4,6 +4,7 @@ import com.saed.backend.audit.Auditable;
 import com.saed.backend.audit.AuditCategory;
 import com.saed.backend.audit.AuditSeverity;
 
+import com.saed.backend.seguros.dto.PolizaResidenteDTO;
 import com.saed.backend.seguros.dto.PolizaSeguroDTO;
 import com.saed.backend.seguros.dto.ResumenPolizasDTO;
 import com.saed.backend.seguros.service.PolizaSeguroService;
@@ -29,7 +30,7 @@ public class PolizaSeguroController {
 
     @GetMapping("/vigentes")
     @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_RESIDENTE', 'SCOPE_PROPIETARIO', 'SCOPE_RESIDENTE_CONVIVENCIA')")
-    public ResponseEntity<List<PolizaSeguroDTO>> getVigentes() {
+    public ResponseEntity<List<PolizaResidenteDTO>> getVigentes() {
         return ResponseEntity.ok(service.getPolizasVigentesResidentes());
     }
 
