@@ -32,6 +32,7 @@ public class UsuarioController {
     private final NamedParameterJdbcTemplate jdbcTemplate;
     private final PasswordEncoder passwordEncoder;
     private final com.saed.backend.identity.service.UserRegistrationPolicy registrationPolicy;
+    private final com.saed.backend.identity.service.CohabitantAccountRegistry cohabitantRegistry;
     private final org.springframework.beans.factory.ObjectProvider<com.saed.backend.identity.service.TokenActivacionService> tokenServiceProvider;
     private final com.saed.backend.common.service.EmailService emailService;
     private final com.saed.backend.person.service.ConvivienteQuotaService convivienteQuotaService;
@@ -47,6 +48,7 @@ public class UsuarioController {
         this.jdbcTemplate = jdbcTemplate;
         this.passwordEncoder = passwordEncoder;
         this.registrationPolicy = new com.saed.backend.identity.service.UserRegistrationPolicy(jdbcTemplate);
+        this.cohabitantRegistry = new com.saed.backend.identity.service.CohabitantAccountRegistry(jdbcTemplate);
         this.tokenServiceProvider = tokenServiceProvider;
         this.emailService = emailService;
         this.convivienteQuotaService = convivienteQuotaService;
@@ -380,8 +382,15 @@ public class UsuarioController {
                 }
             }
 
+            // A resident session cannot insert users or assignments (row-level policies): the validated
+            // security-schema procedure creates the cohabitant account and its assignment (V5.66).
+            boolean viaSecurityProcedure = "RESIDENTE".equals(callerRole) && "RESIDENTE_CONVIVENCIA".equals(rol);
+
             // 2. Insertar o Reactivar USUARIO
-            if (existingUserId != null) {
+            if (viaSecurityProcedure) {
+                idUsuario = cohabitantRegistry.register(targetUnitId, idPersona, existingUserId, username, userEmail,
+                        existingUserId == null ? passwordEncoder.encode(rawPassword.trim()) : null);
+            } else if (existingUserId != null) {
                 idUsuario = existingUserId;
                 // Registration adds an authorized assignment; it never resets an existing identity.
             } else {
@@ -422,7 +431,7 @@ public class UsuarioController {
                     new MapSqlParameterSource("uid", idUsuario).addValue("roleId", idRol)
                             .addValue("orgId", effectiveOrgId).addValue("propId", effectivePropId)
                             .addValue("unitId", idUnidad), (rs, r) -> rs.getLong(1));
-            if (asigExistentes.isEmpty()) {
+            if (!viaSecurityProcedure && asigExistentes.isEmpty()) {
                 String sqlAsig = """
                     INSERT INTO USUARIO_ASIGNACIONES (ID_USUARIO, ID_ROL, ID_ORGANIZACION, ID_PROPIEDAD, ID_UNIDAD, ESTADO, FECHA_INICIO)
                     VALUES (:idUsuario, :idRol, :orgId, :propId, :idUnidad, 'ACTIVA', TRUNC(SYSDATE))
