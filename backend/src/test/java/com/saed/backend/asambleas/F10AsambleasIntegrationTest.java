@@ -124,6 +124,7 @@ public class F10AsambleasIntegrationTest {
                         SELECT ID_ASAMBLEA FROM ASAMBLEAS WHERE TITULO LIKE 'ASAMBLEA-TEST-%'
                     );
                     DELETE FROM ASAMBLEAS WHERE TITULO LIKE 'ASAMBLEA-TEST-%';
+                    DELETE FROM PROPIETARIOS_UNIDAD WHERE ID_UNIDAD IN (9101, 9102, 9103, 9201);
                 END;
             """);
 
@@ -168,6 +169,11 @@ public class F10AsambleasIntegrationTest {
             ensureAsignacion(ASSIGN_RESIDENTE, USER_RESIDENTE, "RESIDENTE", ORG_1_ID, PROP_1_ID, UNIDAD_1_ID);
             ensureAsignacion(ASSIGN_PORTERO, USER_PORTERO, "PORTERO", ORG_1_ID, PROP_1_ID, null);
 
+            // DEC-03: only the unit's active legal owner (PROPIETARIOS_UNIDAD) may attend, grant a proxy or vote; the demo
+            // seed has no owner rows, so the units used here get their own owners.
+            ensurePropietario(UNIDAD_1_ID, USER_RESIDENTE);
+            ensurePropietario(UNIDAD_2_ID, USER_ADMIN_PROP_1B);
+
             setupMockAssignments();
 
             tokenSuperAdmin = jwtProvider.generateIdentityToken(USER_SUPERADMIN);
@@ -204,6 +210,7 @@ public class F10AsambleasIntegrationTest {
                         SELECT ID_ASAMBLEA FROM ASAMBLEAS WHERE TITULO LIKE 'ASAMBLEA-TEST-%'
                     );
                     DELETE FROM ASAMBLEAS WHERE TITULO LIKE 'ASAMBLEA-TEST-%';
+                    DELETE FROM PROPIETARIOS_UNIDAD WHERE ID_UNIDAD IN (9101, 9102, 9103, 9201);
                 END;
             """);
         } catch (Exception ignored) {}
@@ -291,7 +298,7 @@ public class F10AsambleasIntegrationTest {
     private void ensureOrganizacion(long id, String nombre, String nit, String email) {
         Integer c = jdbcTemplate.queryForObject("SELECT COUNT(1) FROM ORGANIZACIONES WHERE ID_ORGANIZACION = ?", Integer.class, id);
         if (c == null || c == 0) {
-            jdbcTemplate.update("INSERT INTO ORGANIZACIONES (ID_ORGANIZACION, NOMBRE, NIT, EMAIL_CONTACTO, ESTADO) VALUES (?, ?, ?, ?, 'ACTIVA')",
+            jdbcTemplate.update("INSERT INTO ORGANIZACIONES (ID_ORGANIZACION, NOMBRE, IDENTIFICACION_FISCAL, EMAIL_CONTACTO, ESTADO) VALUES (?, ?, ?, ?, 'ACTIVA')",
                     id, nombre, nit, email);
         }
     }
@@ -327,9 +334,19 @@ public class F10AsambleasIntegrationTest {
     private void ensureUsuario(long id, long idPersona, String username, String email) {
         Integer c = jdbcTemplate.queryForObject("SELECT COUNT(1) FROM USUARIOS WHERE ID_USUARIO = ?", Integer.class, id);
         if (c == null || c == 0) {
-            jdbcTemplate.update("INSERT INTO USUARIOS (ID_USUARIO, ID_PERSONA, USERNAME, EMAIL, PASSWORD_HASH, ESTADO) " +
+            jdbcTemplate.update("INSERT INTO USUARIOS (ID_USUARIO, ID_PERSONA, NOMBRE_USUARIO, EMAIL, HASH_PASSWORD, ESTADO) " +
                             "VALUES (?, ?, ?, ?, '$2a$10$abcdefghijklmnopqrstuvwxyzABCDEF12345678901234567890', 'ACTIVO')",
                     id, idPersona, username, email);
+        }
+    }
+
+    private void ensurePropietario(long idUnidad, long idPersona) {
+        Integer c = jdbcTemplate.queryForObject(
+                "SELECT COUNT(1) FROM PROPIETARIOS_UNIDAD WHERE ID_UNIDAD = ? AND ID_PERSONA = ? AND ESTADO = 'ACTIVO'",
+                Integer.class, idUnidad, idPersona);
+        if (c == null || c == 0) {
+            jdbcTemplate.update("INSERT INTO PROPIETARIOS_UNIDAD (ID_UNIDAD, ID_PERSONA, PORCENTAJE_PROPIEDAD, ES_PRINCIPAL, FECHA_INICIO, ESTADO) "
+                    + "VALUES (?, ?, 100, 'S', TRUNC(SYSDATE) - 1, 'ACTIVO')", idUnidad, idPersona);
         }
     }
 
