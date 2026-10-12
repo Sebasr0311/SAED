@@ -48,8 +48,10 @@ public class DebidoProcesoSancionesIntegrationTest {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
-    private Long testUnidadId = 1L;
-    private Long testPersonaId = 1L;
+    // Test-owned unit and resident: a sanction is only valid for a person who is an active owner/resident of the unit
+    // (the first unit/person of the database used to be picked, which is not).
+    private Long testUnidadId = 9962L;
+    private Long testPersonaId = 9975L;
 
     @BeforeEach
     public void setup() {
@@ -79,14 +81,18 @@ public class DebidoProcesoSancionesIntegrationTest {
             jdbcTemplate.execute("BEGIN SAED_SEC_MASTER.PKG_SAED_SESSION.SET_CONTEXT(1, 1, 1, 'SUPERADMIN'); END;");
         } catch (Exception ignored) {}
 
-        // Obtener una unidad y persona real existentes en la base de datos
-        try {
-            List<Long> uList = jdbcTemplate.queryForList("SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD = 1 AND ROWNUM = 1", Long.class);
-            if (!uList.isEmpty()) testUnidadId = uList.get(0);
-
-            List<Long> pList = jdbcTemplate.queryForList("SELECT ID_PERSONA FROM PERSONAS WHERE ROWNUM = 1", Long.class);
-            if (!pList.isEmpty()) testPersonaId = pList.get(0);
-        } catch (Exception ignored) {}
+        cleanFixture();
+        Integer unit = jdbcTemplate.queryForObject("SELECT COUNT(1) FROM UNIDADES WHERE ID_UNIDAD = ?", Integer.class, testUnidadId);
+        if (unit == null || unit == 0) {
+            jdbcTemplate.update("INSERT INTO UNIDADES (ID_UNIDAD, ID_PROPIEDAD, ID_TIPO_UNIDAD, IDENTIFICADOR, ESTADO) VALUES (?, 1, 1, 'T-9962', 'ACTIVA')", testUnidadId);
+        }
+        Integer persona = jdbcTemplate.queryForObject("SELECT COUNT(1) FROM PERSONAS WHERE ID_PERSONA = ?", Integer.class, testPersonaId);
+        if (persona == null || persona == 0) {
+            jdbcTemplate.update("INSERT INTO PERSONAS (ID_PERSONA, ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, PRIMER_NOMBRE, PRIMER_APELLIDO, EMAIL, ESTADO, ID_ORGANIZACION, ID_PROPIEDAD) "
+                    + "VALUES (?, 1, '1000009975', 'NATURAL', 'Sancion', 'Test', 'sancion9975@saed.com', 'ACTIVO', 1, 1)", testPersonaId);
+        }
+        jdbcTemplate.update("INSERT INTO RESIDENTES_UNIDAD (ID_UNIDAD, ID_PERSONA, TIPO_RESIDENTE, FECHA_INICIO, ESTADO) VALUES (?, ?, 'ARRENDATARIO', TRUNC(SYSDATE), 'ACTIVO')",
+                testUnidadId, testPersonaId);
 
         // Garantizar concepto de cobro tipo MULTA activo para propiedad 1
         try {
@@ -101,8 +107,23 @@ public class DebidoProcesoSancionesIntegrationTest {
         } catch (Exception ignored) {}
     }
 
+    /** Removes only what this suite creates for its own unit: fines (and the fees they generate), discharges, sanctions and the household link. */
+    private void cleanFixture() {
+        jdbcTemplate.update("DELETE FROM SANCION_DESCARGOS WHERE ID_SANCION IN (SELECT ID_SANCION FROM SANCIONES WHERE ID_UNIDAD = ?)", testUnidadId);
+        jdbcTemplate.update("DELETE FROM PAGO_DETALLE WHERE ID_CUOTA IN (SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD = ?)", testUnidadId);
+        jdbcTemplate.update("DELETE FROM MULTAS WHERE ID_UNIDAD = ?", testUnidadId);
+        jdbcTemplate.update("DELETE FROM CUOTAS WHERE ID_UNIDAD = ?", testUnidadId);
+        jdbcTemplate.update("DELETE FROM SANCIONES WHERE ID_UNIDAD = ?", testUnidadId);
+        jdbcTemplate.update("DELETE FROM RESIDENTES_UNIDAD WHERE ID_UNIDAD = ?", testUnidadId);
+    }
+
     @AfterEach
     public void tearDown() {
+        try {
+            cleanFixture();
+        } catch (RuntimeException ignored) {
+            // best effort: the fixture ids are test-owned and reset at the next setup
+        }
         SaedContextHolder.clearContext();
         SecurityContextHolder.clearContext();
     }

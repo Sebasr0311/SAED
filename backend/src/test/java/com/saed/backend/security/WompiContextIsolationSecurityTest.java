@@ -484,14 +484,6 @@ public class WompiContextIsolationSecurityTest {
     }
 
     private Long ensureTestCuota() {
-        List<Long> ids = jdbcTemplate.queryForList(
-                "SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD = 1 ORDER BY ID_CUOTA ASC",
-                Long.class
-        );
-        if (!ids.isEmpty()) {
-            return ids.get(0);
-        }
-
         List<Long> conceptos = jdbcTemplate.queryForList(
                 "SELECT ID_CONCEPTO FROM CONCEPTOS_COBRO WHERE ID_PROPIEDAD = 1 ORDER BY ID_CONCEPTO ASC",
                 Long.class
@@ -509,7 +501,12 @@ public class WompiContextIsolationSecurityTest {
             );
         }
 
-        String periodoUnico = "P" + (System.currentTimeMillis() % 1000000);
+        // CK_CUOTAS_PERIODO requires 'YYYY-MM' and (unit, concept, period) is unique: take the month after the latest
+        // fee this suite created (periods from 2200-01 on never collide with the demo fees of 2026).
+        String ultimo = jdbcTemplate.queryForObject(
+                "SELECT MAX(PERIODO) FROM CUOTAS WHERE ID_UNIDAD = 1 AND ID_CONCEPTO = ? AND PERIODO >= '2200-01'",
+                String.class, idConcepto);
+        String periodoUnico = ultimo == null ? "2200-01" : java.time.YearMonth.parse(ultimo).plusMonths(1).toString();
         jdbcTemplate.update(
                 "INSERT INTO CUOTAS (ID_UNIDAD, ID_CONCEPTO, PERIODO, VALOR_BASE, SALDO_PENDIENTE, FECHA_VENCIMIENTO, ESTADO) " +
                 "VALUES (1, ?, ?, 250000, 250000, SYSDATE + 15, 'PENDIENTE')",
@@ -517,8 +514,8 @@ public class WompiContextIsolationSecurityTest {
         );
 
         return jdbcTemplate.queryForObject(
-                "SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD = 1 AND PERIODO = ?",
-                Long.class, periodoUnico
+                "SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD = 1 AND ID_CONCEPTO = ? AND PERIODO = ?",
+                Long.class, idConcepto, periodoUnico
         );
     }
 
