@@ -525,6 +525,8 @@ public class PorteriaController {
             // global visitor-identity upsert (PERSONAS is globally unique by document and VISITANTES
             // INSERT is RLS-checked against existing visits) and runs only after all scope checks passed.
             Long personaId = null;
+            // DEC-01: the visitor person belongs to the organization of the caller context, resolved before any elevation.
+            Long personaOrgId = com.saed.backend.person.service.PersonaOrganizationBinding.contextOrganization(jdbcTemplate);
 
             SaedContext prevCtx = SaedContextHolder.getContext();
             try {
@@ -559,19 +561,10 @@ public class PorteriaController {
 
                 if (personaId == null) {
                     try {
-                        KeyHolder kh = new GeneratedKeyHolder();
-                        MapSqlParameterSource pParams = new MapSqlParameterSource()
-                            .addValue("idTipo", idTipoDoc)
-                            .addValue("doc", !doc.isEmpty() ? doc : "V-" + System.currentTimeMillis())
-                            .addValue("nom", nom)
-                            .addValue("ape", ape.isBlank() ? "N/A" : ape)
-                            .addValue("tel", tel.isBlank() ? null : tel)
-                            .addValue("email", email.isBlank() ? null : email);
-                        jdbcTemplate.update(
-                            "INSERT INTO PERSONAS (ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, PRIMER_NOMBRE, PRIMER_APELLIDO, TELEFONO, EMAIL, ESTADO) " +
-                            "VALUES (:idTipo, :doc, 'NATURAL', :nom, :ape, :tel, :email, 'ACTIVO')",
-                            pParams, kh, new String[]{"ID_PERSONA"}
-                        );
+                        KeyHolder kh = com.saed.backend.person.service.PersonaOrganizationBinding.insertNaturalPerson(
+                            jdbcTemplate, personaOrgId, idTipoDoc,
+                            !doc.isEmpty() ? doc : "V-" + System.currentTimeMillis(), nom, ape.isBlank() ? "N/A" : ape,
+                            email.isBlank() ? null : email, tel.isBlank() ? null : tel);
                         personaId = extractGeneratedKey(kh, "ID_PERSONA");
                     } catch (Exception e) {
                         log.warning("Error creando persona para visitante: " + e.getMessage());

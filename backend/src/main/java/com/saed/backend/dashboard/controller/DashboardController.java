@@ -134,6 +134,8 @@ public class DashboardController {
 
         Long personaId = null;
         Long visitanteId = null;
+        // DEC-01: the visitor person belongs to the organization of the caller context, resolved before any elevation.
+        Long personaOrgId = com.saed.backend.person.service.PersonaOrganizationBinding.contextOrganization(jdbcTemplate);
         com.saed.backend.context.SaedContext prevCtx = com.saed.backend.context.SaedContextHolder.getContext();
         try {
             Long orgId = prevCtx != null && prevCtx.getOrganizationId() != null ? prevCtx.getOrganizationId() : 1L;
@@ -167,19 +169,10 @@ public class DashboardController {
 
             if (personaId == null) {
                 try {
-                    org.springframework.jdbc.support.KeyHolder kh = new org.springframework.jdbc.support.GeneratedKeyHolder();
-                    org.springframework.jdbc.core.namedparam.MapSqlParameterSource pParams = new org.springframework.jdbc.core.namedparam.MapSqlParameterSource()
-                        .addValue("idTipo", idTipoDoc)
-                        .addValue("doc", !doc.isEmpty() ? doc : "V-" + System.currentTimeMillis())
-                        .addValue("nom", nom)
-                        .addValue("ape", ape.isBlank() ? "N/A" : ape)
-                        .addValue("tel", tel.isBlank() ? null : tel)
-                        .addValue("email", email.isBlank() ? null : email);
-                    jdbcTemplate.update(
-                        "INSERT INTO PERSONAS (ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, PRIMER_NOMBRE, PRIMER_APELLIDO, TELEFONO, EMAIL, ESTADO) " +
-                        "VALUES (:idTipo, :doc, 'NATURAL', :nom, :ape, :tel, :email, 'ACTIVO')",
-                        pParams, kh, new String[]{"ID_PERSONA"}
-                    );
+                    org.springframework.jdbc.support.KeyHolder kh = com.saed.backend.person.service.PersonaOrganizationBinding
+                        .insertNaturalPerson(jdbcTemplate, personaOrgId, idTipoDoc,
+                            !doc.isEmpty() ? doc : "V-" + System.currentTimeMillis(), nom, ape.isBlank() ? "N/A" : ape,
+                            email.isBlank() ? null : email, tel.isBlank() ? null : tel);
                     personaId = extractGeneratedKey(kh, "ID_PERSONA");
                 } catch (Exception ignored) {}
                 if (personaId == null && !doc.isEmpty()) {
