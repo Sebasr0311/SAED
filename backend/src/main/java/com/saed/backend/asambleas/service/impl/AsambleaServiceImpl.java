@@ -410,7 +410,14 @@ public class AsambleaServiceImpl implements AsambleaService {
             throw new IllegalStateException("La votación ya se encuentra " + votacion.getEstado());
         }
 
-        repository.cerrarVotacion(idVotacion);
+        // F10-12 / DEC-11: weighted result and required majority are evaluated and stored with the closing.
+        VotacionResultado resultado = VotacionResultadoCalculator.evaluar(
+                votacion.getTipoMayoriaRequerida(), votacion.getVotosSi(), votacion.getVotosNo(),
+                votacion.getVotosBlanco(), votacion.getVotosAbstencion(),
+                repository.sumCoeficientesPropiedad(asamblea.getIdPropiedad()));
+        if (repository.cerrarVotacion(idVotacion, resultado) == 0) {
+            throw new IllegalStateException("La votación ya fue cerrada por otra solicitud");
+        }
         log.info("Votación ID: {} cerrada con éxito", idVotacion);
 
         Long userId = resolveUserId();

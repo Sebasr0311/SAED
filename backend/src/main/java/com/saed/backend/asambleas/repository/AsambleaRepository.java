@@ -42,7 +42,14 @@ public interface AsambleaRepository {
 
     Long createVotacion(Long idAsamblea, VotacionCreateRequestDTO request);
 
-    void cerrarVotacion(Long idVotacion);
+    /**
+     * Closes an ABIERTA voting and stores its computed outcome in one statement; returns the rows changed
+     * (0 when the voting is no longer open).
+     */
+    int cerrarVotacion(Long idVotacion, VotacionResultado resultado);
+
+    /** Summed coefficient of the property's active units (the coefficient base of the voting result). */
+    BigDecimal sumCoeficientesPropiedad(Long idPropiedad);
 
     Long registrarVoto(Long idVotacion, VotoRequestDTO request, BigDecimal coeficiente);
 

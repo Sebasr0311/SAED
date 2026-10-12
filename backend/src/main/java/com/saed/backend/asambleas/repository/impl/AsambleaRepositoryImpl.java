@@ -120,6 +120,12 @@ public class AsambleaRepositoryImpl implements AsambleaRepository {
         return dto;
     };
 
+    // F10-12: outcome columns persisted when a voting is closed
+    private static final String RESULT_COLUMNS = "v.RESULTADO, v.OPCION_GANADORA, v.PESO_TOTAL_EMITIDO, " +
+            "v.BASE_COEFICIENTES, v.PORCENTAJE_SI, ";
+    private static final String RESULT_COLUMNS_GROUP = "v.RESULTADO, v.OPCION_GANADORA, v.PESO_TOTAL_EMITIDO, " +
+            "v.BASE_COEFICIENTES, v.PORCENTAJE_SI ";
+
     private final RowMapper<VotacionDTO> votacionRowMapper = (rs, rowNum) -> {
         VotacionDTO dto = new VotacionDTO();
         dto.setIdVotacion(rs.getLong("ID_VOTACION"));
@@ -162,6 +168,17 @@ public class AsambleaRepositoryImpl implements AsambleaRepository {
             }
         }
         dto.setAprobada(aprobada);
+
+        String resultado = rs.getString("RESULTADO");
+        if (resultado != null) {
+            // F10-12: the persisted outcome of a closed voting is authoritative over the live recount.
+            dto.setResultado(resultado);
+            dto.setAprobada("APROBADA".equals(resultado));
+            dto.setOpcionGanadora(rs.getString("OPCION_GANADORA"));
+            dto.setPesoTotalEmitido(rs.getBigDecimal("PESO_TOTAL_EMITIDO"));
+            dto.setBaseCoeficientes(rs.getBigDecimal("BASE_COEFICIENTES"));
+            dto.setPorcentajeSi(rs.getBigDecimal("PORCENTAJE_SI"));
+        }
 
         return dto;
     };
@@ -408,7 +425,7 @@ public class AsambleaRepositoryImpl implements AsambleaRepository {
     @Override
     public List<VotacionDTO> findVotaciones(Long idAsamblea) {
         String sql = "SELECT v.ID_VOTACION, v.ID_ASAMBLEA, v.PUNTO_ORDEN_DIA, v.TITULO, v.DESCRIPCION, " +
-                "v.TIPO_MAYORIA_REQUERIDA, v.HORA_APERTURA, v.HORA_CIERRE, v.ESTADO, " +
+                "v.TIPO_MAYORIA_REQUERIDA, v.HORA_APERTURA, v.HORA_CIERRE, v.ESTADO, " + RESULT_COLUMNS +
                 "COALESCE(SUM(CASE WHEN vt.OPCION_VOTO = 'SI' THEN vt.COEFICIENTE_VOTO ELSE 0 END), 0) as VOTOS_SI, " +
                 "COALESCE(SUM(CASE WHEN vt.OPCION_VOTO = 'NO' THEN vt.COEFICIENTE_VOTO ELSE 0 END), 0) as VOTOS_NO, " +
                 "COALESCE(SUM(CASE WHEN vt.OPCION_VOTO = 'BLANCO' THEN vt.COEFICIENTE_VOTO ELSE 0 END), 0) as VOTOS_BLANCO, " +
@@ -418,7 +435,7 @@ public class AsambleaRepositoryImpl implements AsambleaRepository {
                 "LEFT JOIN VOTOS vt ON v.ID_VOTACION = vt.ID_VOTACION " +
                 "WHERE v.ID_ASAMBLEA = :idAsamblea " +
                 "GROUP BY v.ID_VOTACION, v.ID_ASAMBLEA, v.PUNTO_ORDEN_DIA, v.TITULO, v.DESCRIPCION, " +
-                "         v.TIPO_MAYORIA_REQUERIDA, v.HORA_APERTURA, v.HORA_CIERRE, v.ESTADO " +
+                "         v.TIPO_MAYORIA_REQUERIDA, v.HORA_APERTURA, v.HORA_CIERRE, v.ESTADO, " + RESULT_COLUMNS_GROUP +
                 "ORDER BY v.PUNTO_ORDEN_DIA ASC";
 
         return jdbcTemplate.query(sql, new MapSqlParameterSource("idAsamblea", idAsamblea), votacionRowMapper);
@@ -427,7 +444,7 @@ public class AsambleaRepositoryImpl implements AsambleaRepository {
     @Override
     public Optional<VotacionDTO> findVotacionById(Long idVotacion) {
         String sql = "SELECT v.ID_VOTACION, v.ID_ASAMBLEA, v.PUNTO_ORDEN_DIA, v.TITULO, v.DESCRIPCION, " +
-                "v.TIPO_MAYORIA_REQUERIDA, v.HORA_APERTURA, v.HORA_CIERRE, v.ESTADO, " +
+                "v.TIPO_MAYORIA_REQUERIDA, v.HORA_APERTURA, v.HORA_CIERRE, v.ESTADO, " + RESULT_COLUMNS +
                 "COALESCE(SUM(CASE WHEN vt.OPCION_VOTO = 'SI' THEN vt.COEFICIENTE_VOTO ELSE 0 END), 0) as VOTOS_SI, " +
                 "COALESCE(SUM(CASE WHEN vt.OPCION_VOTO = 'NO' THEN vt.COEFICIENTE_VOTO ELSE 0 END), 0) as VOTOS_NO, " +
                 "COALESCE(SUM(CASE WHEN vt.OPCION_VOTO = 'BLANCO' THEN vt.COEFICIENTE_VOTO ELSE 0 END), 0) as VOTOS_BLANCO, " +
@@ -437,7 +454,7 @@ public class AsambleaRepositoryImpl implements AsambleaRepository {
                 "LEFT JOIN VOTOS vt ON v.ID_VOTACION = vt.ID_VOTACION " +
                 "WHERE v.ID_VOTACION = :idVotacion " +
                 "GROUP BY v.ID_VOTACION, v.ID_ASAMBLEA, v.PUNTO_ORDEN_DIA, v.TITULO, v.DESCRIPCION, " +
-                "         v.TIPO_MAYORIA_REQUERIDA, v.HORA_APERTURA, v.HORA_CIERRE, v.ESTADO";
+                "         v.TIPO_MAYORIA_REQUERIDA, v.HORA_APERTURA, v.HORA_CIERRE, v.ESTADO, " + RESULT_COLUMNS_GROUP;
 
         try {
             VotacionDTO dto = jdbcTemplate.queryForObject(sql, new MapSqlParameterSource("idVotacion", idVotacion), votacionRowMapper);
@@ -476,12 +493,33 @@ public class AsambleaRepositoryImpl implements AsambleaRepository {
     }
 
     @Override
-    public void cerrarVotacion(Long idVotacion) {
+    public int cerrarVotacion(Long idVotacion, VotacionResultado resultado) {
         String sql = "UPDATE VOTACIONES " +
-                "SET ESTADO = 'CERRADA', HORA_CIERRE = FROM_TZ(CAST(SYSTIMESTAMP AS TIMESTAMP), 'America/Bogota') " +
-                "WHERE ID_VOTACION = :idVotacion";
+                "SET ESTADO = 'CERRADA', HORA_CIERRE = FROM_TZ(CAST(SYSTIMESTAMP AS TIMESTAMP), 'America/Bogota'), " +
+                "RESULTADO = :resultado, OPCION_GANADORA = :opcionGanadora, " +
+                "PESO_SI = :pesoSi, PESO_NO = :pesoNo, PESO_BLANCO = :pesoBlanco, PESO_ABSTENCION = :pesoAbstencion, " +
+                "PESO_TOTAL_EMITIDO = :pesoTotal, BASE_COEFICIENTES = :base, PORCENTAJE_SI = :porcentajeSi " +
+                "WHERE ID_VOTACION = :idVotacion AND ESTADO = 'ABIERTA'";
 
-        jdbcTemplate.update(sql, new MapSqlParameterSource("idVotacion", idVotacion));
+        return jdbcTemplate.update(sql, new MapSqlParameterSource()
+                .addValue("idVotacion", idVotacion)
+                .addValue("resultado", resultado.resultado())
+                .addValue("opcionGanadora", resultado.opcionGanadora())
+                .addValue("pesoSi", resultado.pesoSi())
+                .addValue("pesoNo", resultado.pesoNo())
+                .addValue("pesoBlanco", resultado.pesoBlanco())
+                .addValue("pesoAbstencion", resultado.pesoAbstencion())
+                .addValue("pesoTotal", resultado.pesoTotalEmitido())
+                .addValue("base", resultado.baseCoeficientes())
+                .addValue("porcentajeSi", resultado.porcentajeSi()));
+    }
+
+    @Override
+    public BigDecimal sumCoeficientesPropiedad(Long idPropiedad) {
+        String sql = "SELECT COALESCE(SUM(COEFICIENTE_COPROPIEDAD), 0) FROM UNIDADES " +
+                "WHERE ID_PROPIEDAD = :idPropiedad AND ESTADO = 'ACTIVA'";
+        BigDecimal sum = jdbcTemplate.queryForObject(sql, new MapSqlParameterSource("idPropiedad", idPropiedad), BigDecimal.class);
+        return sum != null ? sum : BigDecimal.ZERO;
     }
 
     @Override
