@@ -8,6 +8,10 @@
 --   * INSERT on USUARIOS and USUARIO_ASIGNACIONES (create the account and its assignment),
 --   * SELECT on UNIDADES (unit, property and organization of the target unit),
 --   * SELECT on PROPIEDAD_CONFIGURACION (LIMITE_CONVIVIENTES_POR_UNIDAD).
+-- The visitor identity resolver (V5.67, SP_RESOLVER_VISITANTE) needs, for the same reason (UQ_VISITANTES_PERSONA is
+-- global but a caller only sees its own visitors): SELECT and INSERT on VISITANTES, UPDATE (ID_PROPIEDAD,
+-- REGISTRADO_POR) to adopt an unclaimed legacy row, and SELECT on PERSONAS.
+-- Revised in place: no non-disposable database has applied V5.63-V5.66 (branch not pushed).
 -- Idempotent: GRANT is repeatable. No data or policy is changed.
 
 BEGIN
@@ -28,6 +32,11 @@ BEGIN
     EXECUTE IMMEDIATE 'GRANT INSERT ON USUARIO_ASIGNACIONES TO ' || DBMS_ASSERT.ENQUOTE_NAME(v_sec_owner, FALSE);
     EXECUTE IMMEDIATE 'GRANT SELECT ON UNIDADES TO ' || DBMS_ASSERT.ENQUOTE_NAME(v_sec_owner, FALSE);
     EXECUTE IMMEDIATE 'GRANT SELECT ON PROPIEDAD_CONFIGURACION TO ' || DBMS_ASSERT.ENQUOTE_NAME(v_sec_owner, FALSE);
+    EXECUTE IMMEDIATE 'GRANT SELECT ON VISITANTES TO ' || DBMS_ASSERT.ENQUOTE_NAME(v_sec_owner, FALSE);
+    EXECUTE IMMEDIATE 'GRANT INSERT ON VISITANTES TO ' || DBMS_ASSERT.ENQUOTE_NAME(v_sec_owner, FALSE);
+    EXECUTE IMMEDIATE 'GRANT UPDATE (ID_PROPIEDAD, REGISTRADO_POR) ON VISITANTES TO '
+        || DBMS_ASSERT.ENQUOTE_NAME(v_sec_owner, FALSE);
+    EXECUTE IMMEDIATE 'GRANT SELECT ON PERSONAS TO ' || DBMS_ASSERT.ENQUOTE_NAME(v_sec_owner, FALSE);
 END;
 /
 

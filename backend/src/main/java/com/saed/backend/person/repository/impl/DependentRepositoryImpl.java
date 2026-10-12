@@ -4,6 +4,7 @@ import com.saed.backend.context.SaedContext;
 import com.saed.backend.context.SaedContextHolder;
 import com.saed.backend.person.dto.*;
 import com.saed.backend.person.repository.DependentRepository;
+import com.saed.backend.person.service.VisitorIdentityRegistry;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
@@ -21,8 +22,11 @@ public class DependentRepositoryImpl implements DependentRepository {
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
 
+    private final VisitorIdentityRegistry visitorRegistry;
+
     public DependentRepositoryImpl(NamedParameterJdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
+        this.visitorRegistry = new VisitorIdentityRegistry(jdbcTemplate);
     }
 
     // --- Mascotas ---
@@ -347,34 +351,26 @@ public class DependentRepositoryImpl implements DependentRepository {
     // --- Visitantes ---
     @Override
     public VisitanteDTO createVisitante(VisitanteRequestDTO request) {
-        String sql = "INSERT INTO VISITANTES (id_persona, es_frecuente, empresa, foto_url, observaciones, estado, id_propiedad, registrado_por) " +
-                     "VALUES (:personaId, :esFrecuente, :empresa, :foto, :obs, :estado, :propiedadId, :registradoPor)";
         SaedContext ctx = SaedContextHolder.getContext();
         if (ctx == null || ctx.getPropertyId() == null || ctx.getUserId() == null) {
             throw new AccessDeniedException("Acceso denegado: operación sin contexto de propiedad");
         }
+        String esFrecuente = request.esFrecuente() != null ? request.esFrecuente() : "N";
+        String estado = request.estado() != null ? request.estado() : "ACTIVO";
+        // The visitor identity is global (one row per person) but the row-level policy only shows a caller its own
+        // visitors: the security-schema resolver finds or creates the row and returns just its id (V5.67).
+        Long id = visitorRegistry.resolveByPerson(request.personaId(), "S".equalsIgnoreCase(esFrecuente), request.empresa());
         MapSqlParameterSource params = new MapSqlParameterSource()
-                .addValue("propiedadId", ctx.getPropertyId())
-                .addValue("registradoPor", ctx.getUserId())
-                .addValue("personaId", request.personaId())
-                .addValue("esFrecuente", request.esFrecuente() != null ? request.esFrecuente() : "N")
+                .addValue("id", id)
+                .addValue("esFrecuente", esFrecuente)
                 .addValue("empresa", request.empresa())
                 .addValue("foto", request.fotoUrl())
                 .addValue("obs", request.observaciones())
-                .addValue("estado", request.estado() != null ? request.estado() : "ACTIVO");
-        KeyHolder keyHolder = new GeneratedKeyHolder();
-        jdbcTemplate.update(sql, params, keyHolder, new String[]{"ID_VISITANTE"});
-        Number key = keyHolder.getKey();
-        Long id = key != null ? key.longValue() : null;
+                .addValue("estado", estado);
+        jdbcTemplate.update("UPDATE VISITANTES SET es_frecuente = :esFrecuente, empresa = :empresa, foto_url = :foto, "
+                + "observaciones = :obs, estado = :estado WHERE id_visitante = :id", params);
         return getVisitanteById(id).orElseGet(() -> new VisitanteDTO(
-                id,
-                request.personaId(),
-                request.esFrecuente() != null ? request.esFrecuente() : "N",
-                request.empresa(),
-                request.fotoUrl(),
-                request.observaciones(),
-                request.estado() != null ? request.estado() : "ACTIVO"
-        ));
+                id, request.personaId(), esFrecuente, request.empresa(), request.fotoUrl(), request.observaciones(), estado));
     }
 
     @Override

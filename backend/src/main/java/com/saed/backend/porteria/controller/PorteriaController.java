@@ -6,6 +6,7 @@ import com.saed.backend.porteria.service.PorteriaService;
 import com.saed.backend.common.service.EmailService;
 import com.saed.backend.context.SaedContextHolder;
 import com.saed.backend.context.SaedContext;
+import com.saed.backend.person.service.VisitorIdentityRegistry;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -319,6 +320,11 @@ public class PorteriaController {
                     }
                 }
             } catch (Exception ignored) {}
+            if (visibleVisitanteId == null) {
+                // A legacy visitor nobody has claimed is hidden by the row-level policy: the resolver adopts it for
+                // this property; a visitor of any property (or of another resident) is never returned.
+                visibleVisitanteId = new VisitorIdentityRegistry(jdbcTemplate).claimUnclaimed(visitanteId);
+            }
             visitanteId = visibleVisitanteId;
         }
 
@@ -583,47 +589,20 @@ public class PorteriaController {
                     }
                 }
 
-                if (personaId != null && visitanteId == null) {
-                    try {
-                        List<Long> visList = jdbcTemplate.query(
-                            "SELECT ID_VISITANTE FROM VISITANTES WHERE ID_PERSONA = :p",
-                            Map.of("p", personaId), (rs, r) -> rs.getLong("ID_VISITANTE")
-                        );
-                        if (!visList.isEmpty()) {
-                            visitanteId = visList.get(0);
-                            if (esFrecuente) {
-                                jdbcTemplate.update("UPDATE VISITANTES SET ES_FRECUENTE = 'S' WHERE ID_VISITANTE = :v", Map.of("v", visitanteId));
-                            }
-                        } else {
-                            KeyHolder khVis = new GeneratedKeyHolder();
-                            jdbcTemplate.update(
-                                "INSERT INTO VISITANTES (ID_PERSONA, ES_FRECUENTE, ESTADO, ID_PROPIEDAD, REGISTRADO_POR) VALUES (:p, :frec, 'ACTIVO', :prop, :usr)",
-                                new MapSqlParameterSource()
-                                    .addValue("prop", prevCtx != null ? prevCtx.getPropertyId() : null)
-                                    .addValue("usr", prevCtx != null ? prevCtx.getUserId() : null)
-                                    .addValue("p", personaId)
-                                    .addValue("frec", esFrecuente ? "S" : "N"),
-                                khVis, new String[]{"ID_VISITANTE"}
-                            );
-                            visitanteId = extractGeneratedKey(khVis, "ID_VISITANTE");
-                        }
-                    } catch (Exception e) {
-                        log.warning("Error resolviendo ID_VISITANTE: " + e.getMessage());
-                    }
-                    if (visitanteId == null) {
-                        try {
-                            List<Long> visList = jdbcTemplate.query(
-                                "SELECT ID_VISITANTE FROM VISITANTES WHERE ID_PERSONA = :p",
-                                Map.of("p", personaId), (rs, r) -> rs.getLong("ID_VISITANTE")
-                            );
-                            if (!visList.isEmpty()) {
-                                visitanteId = visList.get(0);
-                            }
-                        } catch (Exception ignored) {}
-                    }
-                }
             } finally {
                 restoreSaedContext(prevCtx);
+            }
+
+            // The visitor row is resolved under the caller's own context by the security-schema resolver (V5.67):
+            // the person may already be a visitor the caller cannot see, and the unique key is global.
+            if (personaId != null) {
+                try {
+                    visitanteId = new VisitorIdentityRegistry(jdbcTemplate).resolveByPerson(personaId, esFrecuente, null);
+                } catch (org.springframework.security.access.AccessDeniedException denied) {
+                    throw denied;
+                } catch (RuntimeException e) {
+                    log.warning("Error resolviendo ID_VISITANTE (" + e.getClass().getSimpleName() + ")");
+                }
             }
         }
 

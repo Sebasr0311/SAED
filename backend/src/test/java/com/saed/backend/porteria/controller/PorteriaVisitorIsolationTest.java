@@ -359,7 +359,16 @@ class PorteriaVisitorIsolationTest {
         asCaller("RESIDENTE", "UNIDAD", OWN_UNIT);
         defaultScopeAnswers();
 
+        // The security-schema resolver (V5.67) only adopts a visitor nobody has claimed; a visitor that belongs to
+        // a property (or to another resident) is not returned, so the id stays unusable.
+        java.sql.CallableStatement statement = resolverReturning(null);
+
         assertThrows(IllegalStateException.class, () -> controller.programarVisita(visitBody(OWN_UNIT, 777L)));
+        try {
+            verify(statement).setLong(1, 777L);
+        } catch (java.sql.SQLException e) {
+            throw new IllegalStateException(e);
+        }
         verify(porteriaService, never()).programarVisita(any());
     }
 
@@ -377,7 +386,7 @@ class PorteriaVisitorIsolationTest {
             if (s.contains("FROM USUARIOS WHERE ID_USUARIO")) return List.of(42L);
             return List.of();
         };
-        when(jdbc.getJdbcOperations()).thenReturn(mock(org.springframework.jdbc.core.JdbcOperations.class));
+        java.sql.CallableStatement statement = resolverReturning(66L);
         Map<String, Object> visitante = new HashMap<>();
         visitante.put("numeroDocumento", "CC-55");
         visitante.put("nombres", "Luis");
@@ -391,9 +400,32 @@ class PorteriaVisitorIsolationTest {
         ArgumentCaptor<VisitaRequestDTO> captor = ArgumentCaptor.forClass(VisitaRequestDTO.class);
         verify(porteriaService).programarVisita(captor.capture());
         assertEquals(66L, captor.getValue().visitanteId());
+        try {
+            verify(statement).setLong(2, 55L);
+        } catch (java.sql.SQLException e) {
+            throw new IllegalStateException(e);
+        }
         for (Map<String, ?> params : paramsSeen) {
             assertNotEquals(999L, asLong(params.get("p")), "client idPersona must never reach a query");
         }
         assertEquals("RESIDENTE", SaedContextHolder.getContext().getRoleCode(), "caller context restored");
+    }
+
+    /** Stubs SP_RESOLVER_VISITANTE: the visitor id it returns (null = unresolvable). */
+    @SuppressWarnings("unchecked")
+    private java.sql.CallableStatement resolverReturning(Long id) {
+        try {
+            org.springframework.jdbc.core.JdbcOperations operations = mock(org.springframework.jdbc.core.JdbcOperations.class);
+            java.sql.CallableStatement statement = mock(java.sql.CallableStatement.class);
+            when(statement.getLong(5)).thenReturn(id == null ? 0L : id);
+            when(statement.wasNull()).thenReturn(id == null);
+            when(jdbc.getJdbcOperations()).thenReturn(operations);
+            when(operations.execute(anyString(), any(org.springframework.jdbc.core.CallableStatementCallback.class)))
+                    .thenAnswer(inv -> ((org.springframework.jdbc.core.CallableStatementCallback<?>) inv.getArgument(1))
+                            .doInCallableStatement(statement));
+            return statement;
+        } catch (java.sql.SQLException e) {
+            throw new IllegalStateException(e);
+        }
     }
 }

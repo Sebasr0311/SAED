@@ -199,47 +199,20 @@ public class DashboardController {
                 return ResponseEntity.badRequest().body(Map.of("error", "No se pudo registrar la persona del visitante"));
             }
 
-            try {
-                List<Long> visList = jdbcTemplate.query(
-                    "SELECT ID_VISITANTE FROM VISITANTES WHERE ID_PERSONA = :p",
-                    Map.of("p", personaId), (rs, r) -> rs.getLong("ID_VISITANTE")
-                );
-                if (!visList.isEmpty()) {
-                    visitanteId = visList.get(0);
-                    jdbcTemplate.update(
-                        "UPDATE VISITANTES SET ES_FRECUENTE = 'S', EMPRESA = NVL(:emp, EMPRESA) WHERE ID_VISITANTE = :v",
-                        new org.springframework.jdbc.core.namedparam.MapSqlParameterSource()
-                            .addValue("emp", empresa)
-                            .addValue("v", visitanteId)
-                    );
-                } else {
-                    org.springframework.jdbc.support.KeyHolder khVis = new org.springframework.jdbc.support.GeneratedKeyHolder();
-                    jdbcTemplate.update(
-                        "INSERT INTO VISITANTES (ID_PERSONA, ES_FRECUENTE, EMPRESA, ESTADO, ID_PROPIEDAD, REGISTRADO_POR) VALUES (:p, 'S', :emp, 'ACTIVO', :prop, :usr)",
-                        new org.springframework.jdbc.core.namedparam.MapSqlParameterSource()
-                            .addValue("prop", prevCtx != null ? prevCtx.getPropertyId() : null)
-                            .addValue("usr", prevCtx != null ? prevCtx.getUserId() : null)
-                            .addValue("p", personaId)
-                            .addValue("emp", empresa),
-                        khVis, new String[]{"ID_VISITANTE"}
-                    );
-                    visitanteId = extractGeneratedKey(khVis, "ID_VISITANTE");
-                }
-            } catch (Exception ignored) {}
-
-            if (visitanteId == null) {
-                try {
-                    List<Long> visList = jdbcTemplate.query(
-                        "SELECT ID_VISITANTE FROM VISITANTES WHERE ID_PERSONA = :p",
-                        Map.of("p", personaId), (rs, r) -> rs.getLong("ID_VISITANTE")
-                    );
-                    if (!visList.isEmpty()) {
-                        visitanteId = visList.get(0);
-                    }
-                } catch (Exception ignored) {}
-            }
         } finally {
             restoreSaedContext(prevCtx);
+        }
+
+        // The visitor row is resolved under the caller's own context by the security-schema resolver (V5.67): the
+        // person may already be a visitor the caller cannot see, and the unique key is global.
+        visitanteId = new com.saed.backend.person.service.VisitorIdentityRegistry(jdbcTemplate)
+                .resolveByPerson(personaId, true, empresa);
+        if (visitanteId != null) {
+            jdbcTemplate.update(
+                "UPDATE VISITANTES SET ES_FRECUENTE = 'S', EMPRESA = NVL(:emp, EMPRESA) WHERE ID_VISITANTE = :v",
+                new org.springframework.jdbc.core.namedparam.MapSqlParameterSource()
+                    .addValue("emp", empresa)
+                    .addValue("v", visitanteId));
         }
 
         // Vincular con unidad del residente

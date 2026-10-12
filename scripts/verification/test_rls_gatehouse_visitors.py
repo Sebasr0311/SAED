@@ -129,15 +129,22 @@ class VisitantesScopeColumnsTest(unittest.TestCase):
         self.assertNotRegex(self.text.upper(), r"WHEN OTHERS")
 
 
-class VisitorInsertsCarryTheirScopeTest(unittest.TestCase):
-    def test_every_application_visitor_insert_sets_property_and_registrant(self):
-        inserts = []
-        for path in JAVA.rglob("*.java"):
-            for match in re.finditer(r"INSERT INTO VISITANTES\s*\(([^)]*)\)", path.read_text(encoding="utf-8"), re.IGNORECASE):
-                inserts.append((path.name, match.group(1).upper()))
-        self.assertGreaterEqual(len(inserts), 3)
-        offenders = [name for name, cols in inserts if "ID_PROPIEDAD" not in cols or "REGISTRADO_POR" not in cols]
+class VisitorInsertsGoThroughTheResolverTest(unittest.TestCase):
+    """UQ_VISITANTES_PERSONA is global, so a caller that cannot see an existing visitor row (other resident, other
+    property, unclaimed legacy row) must not insert again (ORA-00001 -> 409). Visitor identity is therefore resolved
+    only by SP_RESOLVER_VISITANTE (V5.67), never by an application INSERT."""
+
+    def test_no_application_code_inserts_into_visitantes(self):
+        offenders = [path.name for path in JAVA.rglob("*.java")
+                     if re.search(r"INSERT INTO VISITANTES", path.read_text(encoding="utf-8"), re.IGNORECASE)]
         self.assertEqual(offenders, [])
+
+    def test_the_three_registration_paths_use_the_resolver(self):
+        for relative in ("person/repository/impl/DependentRepositoryImpl.java",
+                         "porteria/controller/PorteriaController.java",
+                         "dashboard/controller/DashboardController.java"):
+            text = (JAVA / "com" / "saed" / "backend" / relative).read_text(encoding="utf-8")
+            self.assertIn("VisitorIdentityRegistry", text, relative)
 
 
 if __name__ == "__main__":
