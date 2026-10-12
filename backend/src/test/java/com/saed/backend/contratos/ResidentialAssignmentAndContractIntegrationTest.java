@@ -82,8 +82,9 @@ public class ResidentialAssignmentAndContractIntegrationTest {
     private static final Long PERSONA_RESIDENTE = 998821L;
     private static final Long PERSONA_PROPIETARIO = 998822L;
 
-    private static final Long PLANTILLA_ACTIVA_ID = 998831L;
-    private static final Long PLANTILLA_BORRADOR_ID = 998832L;
+    // ID_PLANTILLA is an ALWAYS-generated identity, so the ids are read back after the insert.
+    private Long plantillaActivaId;
+    private Long plantillaBorradorId;
 
     @BeforeEach
     public void setUp() {
@@ -205,19 +206,23 @@ public class ResidentialAssignmentAndContractIntegrationTest {
             }
 
             // 7. Plantillas contractuales
-            jdbcTemplate.update("DELETE FROM PLANTILLAS_CONTRATOS WHERE ID_PLANTILLA IN (998831, 998832)");
+            jdbcTemplate.update("DELETE FROM PLANTILLAS_CONTRATOS WHERE ID_ORGANIZACION = 998801 AND CODIGO IN ('TPL_TEST_ACTIVA', 'TPL_TEST_BORRADOR')");
             jdbcTemplate.update("""
-                INSERT INTO PLANTILLAS_CONTRATOS (ID_PLANTILLA, ID_ORGANIZACION, CODIGO, NOMBRE, TIPO_CONTRATO, CONTENIDO_HTML, ESTADO, VERSION, CREADO_POR) 
-                VALUES (998831, 998801, 'TPL_TEST_ACTIVA', 'Plantilla Residencial Activa', 'INICIAL', 
+                INSERT INTO PLANTILLAS_CONTRATOS (ID_ORGANIZACION, CODIGO, NOMBRE, TIPO_CONTRATO, CONTENIDO_HTML, ESTADO, VERSION, CREADO_POR) 
+                VALUES (998801, 'TPL_TEST_ACTIVA', 'Plantilla Residencial Activa', 'INICIAL', 
                         '<html><head><style>body{font-family:sans-serif;}</style></head><body><h1>CONTRATO DE ARRENDAMIENTO</h1><p>Arrendatario: ${residente.nombreCompleto}</p><p>Documento: ${residente.numeroDocumento}</p><p>Inmueble: ${unidad.identificador}</p><p>Canon: ${contrato.canon_mensual}</p></body></html>', 
                         'ACTIVA', 1, 998811)
             """);
             jdbcTemplate.update("""
-                INSERT INTO PLANTILLAS_CONTRATOS (ID_PLANTILLA, ID_ORGANIZACION, CODIGO, NOMBRE, TIPO_CONTRATO, CONTENIDO_HTML, ESTADO, VERSION, CREADO_POR) 
-                VALUES (998832, 998801, 'TPL_TEST_BORRADOR', 'Plantilla Residencial Borrador', 'INICIAL', 
+                INSERT INTO PLANTILLAS_CONTRATOS (ID_ORGANIZACION, CODIGO, NOMBRE, TIPO_CONTRATO, CONTENIDO_HTML, ESTADO, VERSION, CREADO_POR) 
+                VALUES (998801, 'TPL_TEST_BORRADOR', 'Plantilla Residencial Borrador', 'INICIAL', 
                         '<html><body><h1>BORRADOR NO VALIDO</h1></body></html>', 
                         'BORRADOR', 1, 998811)
             """);
+            plantillaActivaId = jdbcTemplate.queryForObject(
+                    "SELECT ID_PLANTILLA FROM PLANTILLAS_CONTRATOS WHERE ID_ORGANIZACION = 998801 AND CODIGO = 'TPL_TEST_ACTIVA'", Long.class);
+            plantillaBorradorId = jdbcTemplate.queryForObject(
+                    "SELECT ID_PLANTILLA FROM PLANTILLAS_CONTRATOS WHERE ID_ORGANIZACION = 998801 AND CODIGO = 'TPL_TEST_BORRADOR'", Long.class);
         } catch (Exception e) {
             System.err.println("ERROR SETUP SEEDING: " + e.getMessage());
             e.printStackTrace();
@@ -366,7 +371,7 @@ public class ResidentialAssignmentAndContractIntegrationTest {
         payload.put("canonMensual", new BigDecimal("1750000.00"));
         payload.put("fechaInicio", "2026-10-01");
         payload.put("fechaFin", "2027-09-30");
-        payload.put("idPlantilla", PLANTILLA_ACTIVA_ID);
+        payload.put("idPlantilla", plantillaActivaId);
 
         mockMvc.perform(post("/api/v1/residentes/" + PERSONA_RESIDENTE + "/asignar-apartamento")
                 .header("Authorization", "Bearer " + token)
@@ -415,7 +420,7 @@ public class ResidentialAssignmentAndContractIntegrationTest {
         payload.put("crearContrato", true);
         payload.put("canonMensual", new BigDecimal("-500.00"));
         payload.put("fechaInicio", "2026-10-01");
-        payload.put("idPlantilla", PLANTILLA_ACTIVA_ID);
+        payload.put("idPlantilla", plantillaActivaId);
 
         mockMvc.perform(post("/api/v1/residentes/" + PERSONA_RESIDENTE + "/asignar-apartamento")
                 .header("Authorization", "Bearer " + token)
@@ -447,7 +452,7 @@ public class ResidentialAssignmentAndContractIntegrationTest {
         payload.put("canonMensual", new BigDecimal("1500000.00"));
         payload.put("fechaInicio", "2026-10-15");
         payload.put("fechaFin", "2026-10-01"); // Fecha fin anterior
-        payload.put("idPlantilla", PLANTILLA_ACTIVA_ID);
+        payload.put("idPlantilla", plantillaActivaId);
 
         mockMvc.perform(post("/api/v1/residentes/" + PERSONA_RESIDENTE + "/asignar-apartamento")
                 .header("Authorization", "Bearer " + token)
@@ -471,7 +476,7 @@ public class ResidentialAssignmentAndContractIntegrationTest {
         payload.put("crearContrato", true);
         payload.put("canonMensual", new BigDecimal("1500000.00"));
         payload.put("fechaInicio", "2026-10-01");
-        payload.put("idPlantilla", PLANTILLA_BORRADOR_ID); // Estado BORRADOR
+        payload.put("idPlantilla", plantillaBorradorId); // Estado BORRADOR
 
         mockMvc.perform(post("/api/v1/residentes/" + PERSONA_RESIDENTE + "/asignar-apartamento")
                 .header("Authorization", "Bearer " + token)

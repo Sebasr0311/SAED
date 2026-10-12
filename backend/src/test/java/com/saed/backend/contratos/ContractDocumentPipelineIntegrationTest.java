@@ -116,15 +116,14 @@ public class ContractDocumentPipelineIntegrationTest {
     // Entidades multi-tenant
     private static final long ORG_1_ID = 1L;
     private static final long PROP_1_ID = 1L;
-    // Test-owned units: the demo units 1/2 carry seeded contracts, fees and payments other suites rely on.
-    private static final long UNIT_1_ID = 9953L;
-    private static final long UNIT_2_ID = 9954L;
+    private static final long UNIT_1_ID = 1L;
+    private static final long UNIT_2_ID = 2L;
 
     private static final long ORG_2_ID = 9992L;
     private static final long PROP_2_ID = 9992L;
     private static final long UNIT_ORG2_ID = 9992L;
 
-    private long personaResidente1Id = 9962L; // test-owned tenant; demo persona 4 already holds the seeded contract
+    private long personaResidente1Id = 4L;
     private long personaResidente2Id = 5L;
 
     private Long plantillaActivaOrg1Id;
@@ -139,14 +138,17 @@ public class ContractDocumentPipelineIntegrationTest {
                     + "PKG_SAED_SESSION.SET_CONTEXT(1, 1, 1, 'SUPERADMIN'); END;");
         } catch (Exception ignored) {}
 
-        // Limpiar contratos previos en unidades de prueba
+        // Limpiar contratos previos en unidades de prueba. The seeded active contracts 1 and 2 (the demo tenants of
+        // Apto 101/102) are set aside for the duration of each test and restored afterwards; only contracts, fees and
+        // payments created above the seeded ids are removed.
         try {
+            jdbcTemplate.update("UPDATE CONTRATOS SET ESTADO = 'CANCELADO' WHERE ID_CONTRATO IN (1, 2) AND ESTADO = 'ACTIVO'");
             jdbcTemplate.execute("""
                 BEGIN
-                    DELETE FROM PAGO_DETALLE WHERE ID_CUOTA IN (SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD IN (9953, 9954, 9992));
-                    DELETE FROM MULTAS WHERE ID_CUOTA IN (SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD IN (9953, 9954, 9992)) OR ID_UNIDAD IN (9953, 9954, 9992);
-                    DELETE FROM CUOTAS WHERE ID_UNIDAD IN (9953, 9954, 9992);
-                    DELETE FROM CONTRATOS WHERE ID_UNIDAD IN (9953, 9954, 9992);
+                    DELETE FROM PAGO_DETALLE WHERE ID_CUOTA IN (SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 9992) AND ID_CUOTA > 3);
+                    DELETE FROM MULTAS WHERE ID_CUOTA IN (SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 9992) AND ID_CUOTA > 3);
+                    DELETE FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 9992) AND ID_CUOTA > 3;
+                    DELETE FROM CONTRATOS WHERE ID_UNIDAD IN (1, 2, 9992) AND ID_CONTRATO > 2;
                 END;
             """);
         } catch (Exception e) {
@@ -162,12 +164,12 @@ public class ContractDocumentPipelineIntegrationTest {
 
             // Asegurar Propiedad 1 y Unidades 1 y 2
             ensurePropiedad(1L, 1L, "Edificio Residencial SAED");
-            ensureUnidad(UNIT_1_ID, 1L, "Apto 101-DP");
-            ensureUnidad(UNIT_2_ID, 1L, "Apto 102-DP");
+            ensureUnidad(UNIT_1_ID, 1L, "Apto 101");
+            ensureUnidad(UNIT_2_ID, 1L, "Apto 102");
 
             // Asegurar Personas y Usuarios de prueba
             // Users 1, 2, 4 and 5 (and their personas) come from the demo seed and are not rewritten here.
-            ensurePersona(personaResidente1Id, "1000009962", "Carlos", "Arrendatario", "arrendatario.dp@saed.com");
+            jdbcTemplate.update("UPDATE PERSONAS SET ID_ORGANIZACION = 1 WHERE ID_PERSONA IN (4, 5) AND ID_ORGANIZACION IS NULL");
 
             ensurePersona(8L, "1000000008", "AdminOrg1", "SAED", "admin_org1@saed.com");
             ensureUsuario(8L, 8L, "admin_org1", "admin_org1@saed.com");
@@ -272,13 +274,14 @@ public class ContractDocumentPipelineIntegrationTest {
 
             jdbcTemplate.execute("""
                 BEGIN
-                    DELETE FROM PAGO_DETALLE WHERE ID_CUOTA IN (SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD IN (9953, 9954, 9992));
-                    DELETE FROM MULTAS WHERE ID_CUOTA IN (SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD IN (9953, 9954, 9992)) OR ID_UNIDAD IN (9953, 9954, 9992);
-                    DELETE FROM CUOTAS WHERE ID_UNIDAD IN (9953, 9954, 9992);
-                    DELETE FROM CONTRATOS WHERE ID_UNIDAD IN (9953, 9954, 9992);
+                    DELETE FROM PAGO_DETALLE WHERE ID_CUOTA IN (SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 9992) AND ID_CUOTA > 3);
+                    DELETE FROM MULTAS WHERE ID_CUOTA IN (SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 9992) AND ID_CUOTA > 3);
+                    DELETE FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 9992) AND ID_CUOTA > 3;
+                    DELETE FROM CONTRATOS WHERE ID_UNIDAD IN (1, 2, 9992) AND ID_CONTRATO > 2;
                 END;
             """);
 
+            jdbcTemplate.update("UPDATE CONTRATOS SET ESTADO = 'ACTIVO' WHERE ID_CONTRATO IN (1, 2) AND ESTADO = 'CANCELADO'");
             jdbcTemplate.execute("BEGIN PKG_SAED_SESSION.CLEAR_CONTEXT; END;");
         } catch (Exception ignored) {}
         SaedContextHolder.clearContext();
@@ -554,7 +557,7 @@ public class ContractDocumentPipelineIntegrationTest {
     }
 
     @Test
-    @DisplayName("GAP-F5-02.6: Control de acceso anti-IDOR estricto (403 Forbidden para accesos no autorizados)")
+    @DisplayName("GAP-F5-02.6: Control de acceso anti-IDOR estricto (404 sin revelar contratos ajenos)")
     public void testPipeline_AntiIdorEnforcement() throws Exception {
         Long contratoId = createTestContractViaApi();
 
@@ -562,29 +565,29 @@ public class ContractDocumentPipelineIntegrationTest {
         String tokenAdminProp2 = jwtProvider.generateIdentityToken(USER_ADMIN_PROP_2);
         String tokenAdminOrg2 = jwtProvider.generateIdentityToken(USER_ADMIN_ORG_2);
 
-        // 1. Residente 2 (otra unidad) intenta descargar contrato de Unidad 1 -> 403 Forbidden
+        // 1. Residente 2 (otra unidad) intenta descargar contrato de Unidad 1 -> 404 Not Found
         mockMvc.perform(get("/api/v1/contratos/" + contratoId + "/pdf")
                 .header("Authorization", "Bearer " + tokenResidente2)
                 .header("X-Assignment-Id", String.valueOf(ASSIGN_RESIDENTE_2)))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isNotFound()); // non-disclosure (DEC-01): a foreign contract is "not found"
 
-        // 2. Residente 2 intenta ver detalle del contrato de Unidad 1 -> 403 Forbidden
+        // 2. Residente 2 intenta ver detalle del contrato de Unidad 1 -> 404 Not Found
         mockMvc.perform(get("/api/v1/contratos/" + contratoId)
                 .header("Authorization", "Bearer " + tokenResidente2)
                 .header("X-Assignment-Id", String.valueOf(ASSIGN_RESIDENTE_2)))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isNotFound()); // non-disclosure (DEC-01): a foreign contract is "not found"
 
-        // 3. Admin Propiedad 2 (otra propiedad) intenta descargar contrato -> 403 Forbidden
+        // 3. Admin Propiedad 2 (otra propiedad) intenta descargar contrato -> 404 Not Found
         mockMvc.perform(get("/api/v1/contratos/" + contratoId + "/pdf")
                 .header("Authorization", "Bearer " + tokenAdminProp2)
                 .header("X-Assignment-Id", String.valueOf(ASSIGN_ADMIN_PROP_2)))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isNotFound()); // non-disclosure (DEC-01): a foreign contract is "not found"
 
-        // 4. Admin Organización 2 (otra organización) intenta descargar contrato -> 403 Forbidden
+        // 4. Admin Organización 2 (otra organización) intenta descargar contrato -> 404 Not Found
         mockMvc.perform(get("/api/v1/contratos/" + contratoId + "/pdf")
                 .header("Authorization", "Bearer " + tokenAdminOrg2)
                 .header("X-Assignment-Id", String.valueOf(ASSIGN_ADMIN_ORG_2)))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isNotFound()); // non-disclosure (DEC-01): a foreign contract is "not found"
 
         // 5. Descarga anónima / sin token -> 401 Unauthorized o 403 Forbidden
         mockMvc.perform(get("/api/v1/contratos/" + contratoId + "/pdf"))

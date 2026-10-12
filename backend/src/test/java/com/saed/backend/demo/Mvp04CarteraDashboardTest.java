@@ -70,7 +70,11 @@ public class Mvp04CarteraDashboardTest {
                     .orElseThrow(() -> new AssertionError("Apto 101 not found in cartera"));
             BigDecimal saldo101 = new BigDecimal(apto101.get("SALDO_TOTAL").toString());
             assertEquals(0, new BigDecimal("250000").compareTo(saldo101), "Apto 101 must have 250,000 COP balance");
-            assertEquals("AL_DIA", apto101.get("ESTADO_CARTERA"));
+            // The seeded fee of Apto 101 is due on 2026-09-15; the portfolio ages it against the current date, so the
+            // expected bucket depends on how long ago it fell due (AL_DIA only before the due date).
+            long diasVencida = java.time.temporal.ChronoUnit.DAYS.between(java.time.LocalDate.of(2026, 9, 15), java.time.LocalDate.now());
+            String estadoEsperado101 = diasVencida <= 0 ? "AL_DIA" : diasVencida <= 30 ? "MORA_30" : diasVencida <= 60 ? "MORA_60" : "MORA_90_MAS";
+            assertEquals(estadoEsperado101, apto101.get("ESTADO_CARTERA"));
 
             // Verify Apto 102 has 0 balance (paid in full via Wompi)
             Map<String, Object> apto102 = unidades.stream()
@@ -90,7 +94,8 @@ public class Mvp04CarteraDashboardTest {
             assertTrue(((Number) resumen.get("TOTAL_UNIDADES")).intValue() >= 4, "The summary must cover at least the 4 demo units");
             BigDecimal totalCartera = new BigDecimal(resumen.get("TOTAL_CARTERA").toString());
             assertTrue(totalCartera.compareTo(new BigDecimal("250000")) >= 0, "Total Cartera must include the 250,000 COP of the demo dataset");
-            assertTrue(((Number) resumen.get("COUNT_AL_DIA")).intValue() >= 4, "The 4 demo units are AL_DIA");
+            assertTrue(((Number) resumen.get("COUNT_AL_DIA")).intValue() >= (diasVencida <= 0 ? 4 : 3),
+                    "Every demo unit without an overdue fee is AL_DIA");
             // The demo units alone: 250,000 COP outstanding and nothing overdue.
             BigDecimal demoTotal = demo.stream().map(u -> new BigDecimal(u.get("SALDO_TOTAL").toString())).reduce(BigDecimal.ZERO, BigDecimal::add);
             assertEquals(0, new BigDecimal("250000").compareTo(demoTotal), "The demo units must hold 250,000 COP in total");
@@ -99,7 +104,8 @@ public class Mvp04CarteraDashboardTest {
                             .add(new BigDecimal(u.get("SALDO_MORA_60").toString()))
                             .add(new BigDecimal(u.get("SALDO_MORA_90_MAS").toString())))
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
-            assertEquals(0, BigDecimal.ZERO.compareTo(demoMora), "The demo units must have no overdue balance");
+            assertEquals(0, new BigDecimal(diasVencida <= 0 ? "0" : "250000").compareTo(demoMora),
+                    "The overdue balance of the demo units is the seeded fee once its due date has passed");
 
             // 5. Verify getCuotasPendientes() returns only Cuota 2 (Apto 101)
             ResponseEntity<List<CuotaDTO>> cuotasResp = pagosController.getCuotasPendientes(true);

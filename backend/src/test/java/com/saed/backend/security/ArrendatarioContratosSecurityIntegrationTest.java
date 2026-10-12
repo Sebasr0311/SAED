@@ -397,7 +397,7 @@ public class ArrendatarioContratosSecurityIntegrationTest {
     }
 
     @Test
-    @DisplayName("SEC-F6-04: Cross-tenant template usage is rejected (403 Forbidden)")
+    @DisplayName("SEC-F6-04: Cross-tenant template usage is rejected (404 non-disclosure)")
     public void testSecF604_CrossTenantTemplateUsage_Forbidden() throws Exception {
         String token = jwtProvider.generateIdentityToken(USER_ADMIN_PROP_1);
 
@@ -414,7 +414,7 @@ public class ArrendatarioContratosSecurityIntegrationTest {
                 .header("X-Assignment-Id", String.valueOf(ASSIGN_ADMIN_PROP_1))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(payload)))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isNotFound()); // non-disclosure (DEC-01): the foreign template/unit answers 404, never 403
     }
 
     @Test
@@ -439,7 +439,7 @@ public class ArrendatarioContratosSecurityIntegrationTest {
     }
 
     @Test
-    @DisplayName("SEC-F6-06: Cross-property contract creation by ADMIN_PROPIEDAD is rejected (403 Forbidden)")
+    @DisplayName("SEC-F6-06: Cross-property contract creation by ADMIN_PROPIEDAD is rejected (404 non-disclosure)")
     public void testSecF606_CrossPropertyContractCreationByAdminPropiedad_Forbidden() throws Exception {
         String token = jwtProvider.generateIdentityToken(USER_ADMIN_PROP_1);
 
@@ -457,7 +457,7 @@ public class ArrendatarioContratosSecurityIntegrationTest {
                 .header("X-Assignment-Id", String.valueOf(ASSIGN_ADMIN_PROP_1))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(payload)))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isNotFound()); // non-disclosure (DEC-01): the foreign template/unit answers 404, never 403
     }
 
     @Test
