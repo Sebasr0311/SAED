@@ -215,8 +215,10 @@ public class DashboardController {
                 } else {
                     org.springframework.jdbc.support.KeyHolder khVis = new org.springframework.jdbc.support.GeneratedKeyHolder();
                     jdbcTemplate.update(
-                        "INSERT INTO VISITANTES (ID_PERSONA, ES_FRECUENTE, EMPRESA, ESTADO) VALUES (:p, 'S', :emp, 'ACTIVO')",
+                        "INSERT INTO VISITANTES (ID_PERSONA, ES_FRECUENTE, EMPRESA, ESTADO, ID_PROPIEDAD, REGISTRADO_POR) VALUES (:p, 'S', :emp, 'ACTIVO', :prop, :usr)",
                         new org.springframework.jdbc.core.namedparam.MapSqlParameterSource()
+                            .addValue("prop", prevCtx != null ? prevCtx.getPropertyId() : null)
+                            .addValue("usr", prevCtx != null ? prevCtx.getUserId() : null)
                             .addValue("p", personaId)
                             .addValue("emp", empresa),
                         khVis, new String[]{"ID_VISITANTE"}

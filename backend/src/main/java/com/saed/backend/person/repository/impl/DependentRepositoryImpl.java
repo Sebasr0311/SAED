@@ -1,11 +1,14 @@
 package com.saed.backend.person.repository.impl;
 
+import com.saed.backend.context.SaedContext;
+import com.saed.backend.context.SaedContextHolder;
 import com.saed.backend.person.dto.*;
 import com.saed.backend.person.repository.DependentRepository;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -344,9 +347,15 @@ public class DependentRepositoryImpl implements DependentRepository {
     // --- Visitantes ---
     @Override
     public VisitanteDTO createVisitante(VisitanteRequestDTO request) {
-        String sql = "INSERT INTO VISITANTES (id_persona, es_frecuente, empresa, foto_url, observaciones, estado) " +
-                     "VALUES (:personaId, :esFrecuente, :empresa, :foto, :obs, :estado)";
+        String sql = "INSERT INTO VISITANTES (id_persona, es_frecuente, empresa, foto_url, observaciones, estado, id_propiedad, registrado_por) " +
+                     "VALUES (:personaId, :esFrecuente, :empresa, :foto, :obs, :estado, :propiedadId, :registradoPor)";
+        SaedContext ctx = SaedContextHolder.getContext();
+        if (ctx == null || ctx.getPropertyId() == null || ctx.getUserId() == null) {
+            throw new AccessDeniedException("Acceso denegado: operación sin contexto de propiedad");
+        }
         MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("propiedadId", ctx.getPropertyId())
+                .addValue("registradoPor", ctx.getUserId())
                 .addValue("personaId", request.personaId())
                 .addValue("esFrecuente", request.esFrecuente() != null ? request.esFrecuente() : "N")
                 .addValue("empresa", request.empresa())

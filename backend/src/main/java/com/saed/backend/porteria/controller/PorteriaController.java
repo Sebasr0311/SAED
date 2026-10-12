@@ -597,8 +597,10 @@ public class PorteriaController {
                         } else {
                             KeyHolder khVis = new GeneratedKeyHolder();
                             jdbcTemplate.update(
-                                "INSERT INTO VISITANTES (ID_PERSONA, ES_FRECUENTE, ESTADO) VALUES (:p, :frec, 'ACTIVO')",
+                                "INSERT INTO VISITANTES (ID_PERSONA, ES_FRECUENTE, ESTADO, ID_PROPIEDAD, REGISTRADO_POR) VALUES (:p, :frec, 'ACTIVO', :prop, :usr)",
                                 new MapSqlParameterSource()
+                                    .addValue("prop", prevCtx != null ? prevCtx.getPropertyId() : null)
+                                    .addValue("usr", prevCtx != null ? prevCtx.getUserId() : null)
                                     .addValue("p", personaId)
                                     .addValue("frec", esFrecuente ? "S" : "N"),
                                 khVis, new String[]{"ID_VISITANTE"}
