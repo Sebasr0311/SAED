@@ -59,6 +59,12 @@ public interface AsambleaRepository {
     /** Registered unit coefficient, or {@code null} when missing or not positive. */
     BigDecimal findCoeficienteUnidad(Long idUnidad);
 
+    /**
+     * Weight recorded for the unit's current attendance in the assembly, or {@code null} when absent or not positive.
+     * Readable by any participant of the assembly's property, unlike the unit row itself.
+     */
+    BigDecimal findCoeficienteAsistencia(Long idAsamblea, Long idUnidad);
+
     boolean existeAsistenciaUnidad(Long idAsamblea, Long idUnidad);
 
     boolean existeVotoUnidad(Long idVotacion, Long idUnidad);
