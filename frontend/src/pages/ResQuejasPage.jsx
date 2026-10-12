@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import {
   Clock,
@@ -137,6 +137,12 @@ export default function ResQuejasPage() {
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
   const [errors, setErrors] = useState({});
+  const [traza, setTraza] = useState([]);
+  const [trazaLoading, setTrazaLoading] = useState(false);
+  const [trazaError, setTrazaError] = useState('');
+  const [respuesta, setRespuesta] = useState('');
+  const [replying, setReplying] = useState(false);
+  const [replyError, setReplyError] = useState('');
 
   const [tabFiltro, setTabFiltro] = useState('TODOS'); // 'TODOS' | 'EN_TRAMITE' | 'RESUELTOS'
   const [searchTerm, setSearchTerm] = useState('');
@@ -189,6 +195,51 @@ export default function ResQuejasPage() {
       return true;
     });
   }, [tickets, tabFiltro, searchTerm]);
+
+  const idDetalle = modalDetalle?.idTicket;
+  const loadTraza = useCallback(async (id) => {
+    setTrazaLoading(true);
+    setTrazaError('');
+    try {
+      const res = await api.get(`/pqrs/${id}/trazabilidad`);
+      setTraza(Array.isArray(res) ? res : res?.items || []);
+    } catch (err) {
+      setTraza([]);
+      setTrazaError(err?.message || 'No se pudo cargar el historial');
+    } finally {
+      setTrazaLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (idDetalle) loadTraza(idDetalle);
+  }, [idDetalle, loadTraza]);
+
+  function openDetalle(t) {
+    setRespuesta('');
+    setReplyError('');
+    setModalDetalle(t);
+  }
+
+  async function handleReply() {
+    if (respuesta.trim().length < 3) {
+      setReplyError('El mensaje debe tener al menos 3 caracteres.');
+      return;
+    }
+    setReplying(true);
+    setReplyError('');
+    try {
+      await api.post(`/pqrs/${modalDetalle.idTicket}/responder`, { respuesta: respuesta.trim() });
+      toast.success('Mensaje enviado a la administración');
+      setRespuesta('');
+      loadTraza(modalDetalle.idTicket);
+      refetch();
+    } catch (err) {
+      setReplyError(err?.message || 'No se pudo enviar el mensaje');
+    } finally {
+      setReplying(false);
+    }
+  }
 
   function validate() {
     const e = {};
@@ -339,11 +390,8 @@ export default function ResQuejasPage() {
           {filteredTickets.map((t) => {
             const config = ESTADO_CONFIG[t.estado] || ESTADO_CONFIG.RADICADO;
             const Icon = config.icon;
-            const esVencidoSla =
-              t.fechaLimiteSla &&
-              new Date(t.fechaLimiteSla) < new Date() &&
-              t.estado !== 'RESUELTO' &&
-              t.estado !== 'CERRADO';
+            const esVencidoSla = t.slaEstado === 'VENCIDO';
+            const enRiesgoSla = t.slaEstado === 'EN_RIESGO';
 
             return (
               <div
@@ -391,6 +439,7 @@ export default function ResQuejasPage() {
                           }
                         >
                           Vence SLA: {formatDate(t.fechaLimiteSla)}
+                          {esVencidoSla ? ' (vencido)' : enRiesgoSla ? ' (en riesgo)' : ''}
                         </span>
                       )}
                     </div>
@@ -401,7 +450,7 @@ export default function ResQuejasPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setModalDetalle(t)}
+                    onClick={() => openDetalle(t)}
                   >
                     <Eye className="w-4 h-4 mr-1.5" />
                     Ver Trazabilidad
@@ -564,6 +613,14 @@ export default function ResQuejasPage() {
                   {formatDate(modalDetalle.fechaRadicacion)}
                 </div>
               </div>
+              {modalDetalle.fechaLimiteSla && (
+                <div>
+                  <div className="text-xs text-muted-foreground font-medium">Vencimiento SLA</div>
+                  <div className="text-sm font-semibold text-foreground">
+                    {formatDateTime(modalDetalle.fechaLimiteSla)}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Asunto y Descripción */}
@@ -578,6 +635,55 @@ export default function ResQuejasPage() {
                 {modalDetalle.descripcion}
               </p>
             </div>
+
+            {/* Historial de movimientos */}
+            <div className="p-3.5 rounded-xl border border-border space-y-2">
+              <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                Historial y respuestas
+              </div>
+              {trazaLoading ? (
+                <p className="text-xs text-muted-foreground">Cargando historial...</p>
+              ) : trazaError ? (
+                <p role="alert" className="text-xs text-destructive">{trazaError}</p>
+              ) : traza.length === 0 ? (
+                <p className="text-xs text-muted-foreground">Sin movimientos registrados.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {traza.map((x) => (
+                    <li key={x.idTrazabilidad} className="text-xs bg-muted/50 p-2.5 rounded-lg">
+                      <div className="font-semibold text-foreground">
+                        {x.tipoIntervencion}
+                        {x.estadoNuevo && x.estadoAnterior !== x.estadoNuevo
+                          ? ` · ${x.estadoAnterior || '—'} → ${x.estadoNuevo}`
+                          : ''}
+                      </div>
+                      <div className="text-muted-foreground">
+                        {x.nombreUsuario || 'Sistema'} · {formatDateTime(x.fechaHora)}
+                      </div>
+                      {x.comentario && <div className="whitespace-pre-wrap mt-1">{x.comentario}</div>}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            {/* Responder a la administración (no cambia el estado) */}
+            {!['CERRADO', 'RECHAZADO'].includes(modalDetalle.estado) && (
+              <div className="p-3.5 rounded-xl border border-border space-y-2">
+                <Textarea
+                  id="respuesta-residente"
+                  label="Responder a la administración"
+                  rows={3}
+                  placeholder="Agrega información o responde a la administración..."
+                  value={respuesta}
+                  onChange={(e) => setRespuesta(e.target.value)}
+                />
+                {replyError && <p role="alert" className="text-xs text-destructive">{replyError}</p>}
+                <Button size="sm" onClick={handleReply} disabled={replying}>
+                  {replying ? 'Enviando...' : 'Enviar mensaje'}
+                </Button>
+              </div>
+            )}
 
             {/* Respuesta formal de la administración si existe */}
             {modalDetalle.observacionCierre || modalDetalle.respuestaAdministracion || modalDetalle.ultimaRespuesta ? (
