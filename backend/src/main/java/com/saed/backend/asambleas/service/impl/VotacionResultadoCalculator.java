@@ -7,7 +7,7 @@ import java.math.RoundingMode;
 
 /**
  * Weighted tally and majority evaluation applied when a voting is closed (F10-12, DEC-11).
- * Weights are the unit coefficients recorded with each vote (DEC-03).
+ * Weights are the unit coefficients recorded with each vote (DEC-03); the majority rules are DEC-11.
  */
 public final class VotacionResultadoCalculator {
 
@@ -19,29 +19,38 @@ public final class VotacionResultadoCalculator {
     }
 
     public static VotacionResultado evaluar(String tipoMayoria, BigDecimal si, BigDecimal no, BigDecimal blanco,
-                                            BigDecimal abstencion, BigDecimal baseCoeficientes) {
+                                            BigDecimal abstencion, BigDecimal baseCoeficientes,
+                                            BigDecimal pesoRepresentado) {
         BigDecimal pesoSi = nz(si);
         BigDecimal pesoNo = nz(no);
         BigDecimal pesoBlanco = nz(blanco);
         BigDecimal pesoAbstencion = nz(abstencion);
         BigDecimal total = pesoSi.add(pesoNo).add(pesoBlanco).add(pesoAbstencion);
 
+        BigDecimal represented = nz(pesoRepresentado);
+        BigDecimal base = nz(baseCoeficientes);
+
+        // Ley 675 de 2001: art. 45 (ordinary decisions) counts against the coefficients represented in the session,
+        // art. 46 (qualified decisions) against the total coefficients of the property.
+        boolean qualified = "CALIFICADA_70_PCT".equals(tipoMayoria);
+        BigDecimal denominator = qualified ? base : represented;
+
         BigDecimal porcentajeSi = BigDecimal.ZERO.setScale(4);
         boolean aprobada = false;
-        if (total.signum() > 0) {
-            porcentajeSi = pesoSi.multiply(HUNDRED).divide(total, 4, RoundingMode.HALF_UP);
-            BigDecimal ratio = pesoSi.divide(total, 4, RoundingMode.HALF_UP);
-            if ("CALIFICADA_70_PCT".equals(tipoMayoria)) {
-                aprobada = ratio.compareTo(SEVENTY_PERCENT) >= 0;
+        if (total.signum() > 0 && denominator.signum() > 0) {
+            porcentajeSi = pesoSi.multiply(HUNDRED).divide(denominator, 4, RoundingMode.HALF_UP);
+            if (qualified) {
+                aprobada = pesoSi.compareTo(denominator.multiply(SEVENTY_PERCENT)) >= 0;
             } else if ("UNANIMIDAD_100_PCT".equals(tipoMayoria)) {
-                aprobada = pesoSi.compareTo(total) == 0;
+                // Defined over the represented coefficients: every represented coefficient voted SI.
+                aprobada = pesoSi.compareTo(denominator) == 0;
             } else {
-                // SIMPLE_50_MAS_1 and any unknown value fall back to the most conservative common rule
-                aprobada = pesoSi.compareTo(pesoNo) > 0 && ratio.compareTo(HALF) > 0;
+                // SIMPLE_50_MAS_1 and any unknown value: the most common rule, more than half of the represented.
+                aprobada = pesoSi.compareTo(denominator.multiply(HALF)) > 0;
             }
         }
         return new VotacionResultado(ganadora(pesoSi, pesoNo, pesoBlanco, pesoAbstencion, total), pesoSi, pesoNo,
-                pesoBlanco, pesoAbstencion, total, baseCoeficientes, porcentajeSi, aprobada);
+                pesoBlanco, pesoAbstencion, total, baseCoeficientes, pesoRepresentado, porcentajeSi, aprobada);
     }
 
     private static String ganadora(BigDecimal si, BigDecimal no, BigDecimal blanco, BigDecimal abstencion,

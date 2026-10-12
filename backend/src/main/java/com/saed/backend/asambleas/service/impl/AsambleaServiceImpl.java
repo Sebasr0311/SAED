@@ -436,7 +436,8 @@ public class AsambleaServiceImpl implements AsambleaService {
         VotacionResultado resultado = VotacionResultadoCalculator.evaluar(
                 votacion.getTipoMayoriaRequerida(), votacion.getVotosSi(), votacion.getVotosNo(),
                 votacion.getVotosBlanco(), votacion.getVotosAbstencion(),
-                repository.sumCoeficientesPropiedad(asamblea.getIdPropiedad()));
+                repository.sumCoeficientesPropiedad(asamblea.getIdPropiedad()),
+                repository.sumCoeficientesRepresentados(votacion.getIdAsamblea()));
         if (repository.cerrarVotacion(idVotacion, resultado) == 0) {
             throw new IllegalStateException("La votación ya fue cerrada por otra solicitud");
         }

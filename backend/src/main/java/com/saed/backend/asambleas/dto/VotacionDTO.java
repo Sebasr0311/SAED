@@ -24,6 +24,7 @@ public class VotacionDTO {
     private String opcionGanadora;
     private BigDecimal pesoTotalEmitido;
     private BigDecimal baseCoeficientes;
+    private BigDecimal pesoRepresentado;
     private BigDecimal porcentajeSi;
 
     public VotacionDTO() {}
@@ -150,6 +151,9 @@ public class VotacionDTO {
 
     public BigDecimal getBaseCoeficientes() { return baseCoeficientes; }
     public void setBaseCoeficientes(BigDecimal baseCoeficientes) { this.baseCoeficientes = baseCoeficientes; }
+
+    public BigDecimal getPesoRepresentado() { return pesoRepresentado; }
+    public void setPesoRepresentado(BigDecimal pesoRepresentado) { this.pesoRepresentado = pesoRepresentado; }
 
     public BigDecimal getPorcentajeSi() { return porcentajeSi; }
     public void setPorcentajeSi(BigDecimal porcentajeSi) { this.porcentajeSi = porcentajeSi; }

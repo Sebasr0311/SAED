@@ -51,6 +51,9 @@ public interface AsambleaRepository {
     /** Summed coefficient of the property's active units (the coefficient base of the voting result). */
     BigDecimal sumCoeficientesPropiedad(Long idPropiedad);
 
+    /** Coefficients represented in the assembly: attendance rows still present, proxies included (Ley 675 art. 45). */
+    BigDecimal sumCoeficientesRepresentados(Long idAsamblea);
+
     Long registrarVoto(Long idVotacion, VotoRequestDTO request, BigDecimal coeficiente);
 
     /** Registered unit coefficient, or {@code null} when missing or not positive. */

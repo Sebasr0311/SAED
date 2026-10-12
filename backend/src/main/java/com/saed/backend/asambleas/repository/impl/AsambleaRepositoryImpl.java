@@ -122,9 +122,9 @@ public class AsambleaRepositoryImpl implements AsambleaRepository {
 
     // F10-12: outcome columns persisted when a voting is closed
     private static final String RESULT_COLUMNS = "v.RESULTADO, v.OPCION_GANADORA, v.PESO_TOTAL_EMITIDO, " +
-            "v.BASE_COEFICIENTES, v.PORCENTAJE_SI, ";
+            "v.BASE_COEFICIENTES, v.PESO_REPRESENTADO, v.PORCENTAJE_SI, ";
     private static final String RESULT_COLUMNS_GROUP = "v.RESULTADO, v.OPCION_GANADORA, v.PESO_TOTAL_EMITIDO, " +
-            "v.BASE_COEFICIENTES, v.PORCENTAJE_SI ";
+            "v.BASE_COEFICIENTES, v.PESO_REPRESENTADO, v.PORCENTAJE_SI ";
 
     private final RowMapper<VotacionDTO> votacionRowMapper = (rs, rowNum) -> {
         VotacionDTO dto = new VotacionDTO();
@@ -177,6 +177,7 @@ public class AsambleaRepositoryImpl implements AsambleaRepository {
             dto.setOpcionGanadora(rs.getString("OPCION_GANADORA"));
             dto.setPesoTotalEmitido(rs.getBigDecimal("PESO_TOTAL_EMITIDO"));
             dto.setBaseCoeficientes(rs.getBigDecimal("BASE_COEFICIENTES"));
+            dto.setPesoRepresentado(rs.getBigDecimal("PESO_REPRESENTADO"));
             dto.setPorcentajeSi(rs.getBigDecimal("PORCENTAJE_SI"));
         }
 
@@ -498,7 +499,7 @@ public class AsambleaRepositoryImpl implements AsambleaRepository {
                 "SET ESTADO = 'CERRADA', HORA_CIERRE = FROM_TZ(CAST(SYSTIMESTAMP AS TIMESTAMP), 'America/Bogota'), " +
                 "RESULTADO = :resultado, OPCION_GANADORA = :opcionGanadora, " +
                 "PESO_SI = :pesoSi, PESO_NO = :pesoNo, PESO_BLANCO = :pesoBlanco, PESO_ABSTENCION = :pesoAbstencion, " +
-                "PESO_TOTAL_EMITIDO = :pesoTotal, BASE_COEFICIENTES = :base, PORCENTAJE_SI = :porcentajeSi " +
+                "PESO_TOTAL_EMITIDO = :pesoTotal, BASE_COEFICIENTES = :base, PESO_REPRESENTADO = :representado, PORCENTAJE_SI = :porcentajeSi " +
                 "WHERE ID_VOTACION = :idVotacion AND ESTADO = 'ABIERTA'";
 
         return jdbcTemplate.update(sql, new MapSqlParameterSource()
@@ -511,6 +512,7 @@ public class AsambleaRepositoryImpl implements AsambleaRepository {
                 .addValue("pesoAbstencion", resultado.pesoAbstencion())
                 .addValue("pesoTotal", resultado.pesoTotalEmitido())
                 .addValue("base", resultado.baseCoeficientes())
+                .addValue("representado", resultado.pesoRepresentado())
                 .addValue("porcentajeSi", resultado.porcentajeSi()));
     }
 
@@ -519,6 +521,14 @@ public class AsambleaRepositoryImpl implements AsambleaRepository {
         String sql = "SELECT COALESCE(SUM(COEFICIENTE_COPROPIEDAD), 0) FROM UNIDADES " +
                 "WHERE ID_PROPIEDAD = :idPropiedad AND ESTADO = 'ACTIVA'";
         BigDecimal sum = jdbcTemplate.queryForObject(sql, new MapSqlParameterSource("idPropiedad", idPropiedad), BigDecimal.class);
+        return sum != null ? sum : BigDecimal.ZERO;
+    }
+
+    @Override
+    public BigDecimal sumCoeficientesRepresentados(Long idAsamblea) {
+        String sql = "SELECT COALESCE(SUM(COEFICIENTE_PONDERADO), 0) FROM ASISTENCIAS_ASAMBLEA " +
+                "WHERE ID_ASAMBLEA = :idAsamblea AND HORA_RETIRO IS NULL";
+        BigDecimal sum = jdbcTemplate.queryForObject(sql, new MapSqlParameterSource("idAsamblea", idAsamblea), BigDecimal.class);
         return sum != null ? sum : BigDecimal.ZERO;
     }
 

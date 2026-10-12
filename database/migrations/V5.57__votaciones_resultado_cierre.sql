@@ -1,19 +1,27 @@
 -- =============================================================================
 -- SAED 2.0 - V5.57: PERSISTED VOTING RESULT ON CLOSE
 -- =============================================================================
--- Audit F10-12 (DEC-03, DEC-11). Closing a voting now computes the weighted result and the outcome of
--- the required majority (TIPO_MAYORIA_REQUERIDA) and stores them with the closing in one statement.
+-- Audit F10-12 (DEC-03, DEC-11). Closing a voting computes the weighted result and the outcome of
+-- the required majority (TIPO_MAYORIA_REQUERIDA) per Ley 675 de 2001 and stores them with the closing.
 --   RESULTADO            APROBADA | RECHAZADA (null while the voting is not closed)
 --   OPCION_GANADORA      SI | NO | BLANCO | ABSTENCION | EMPATE (null without votes)
 --   PESO_SI/NO/BLANCO/ABSTENCION   summed unit coefficient per option
 --   PESO_TOTAL_EMITIDO   total weight cast
---   BASE_COEFICIENTES    summed coefficient of the property's active units when the voting was closed
---   PORCENTAJE_SI        SI weight as a percentage of the weight cast
+--   BASE_COEFICIENTES    summed coefficient of the property's active units when the voting was closed (art. 46)
+--   PESO_REPRESENTADO    coefficients represented in the session when the voting was closed (art. 45)
+--   PORCENTAJE_SI        SI weight as a percentage of the denominator the majority rule uses:
+--                        BASE_COEFICIENTES for CALIFICADA_70_PCT, PESO_REPRESENTADO otherwise
+-- Rules: SIMPLE_50_MAS_1 = SI > 50 % of PESO_REPRESENTADO (art. 45); CALIFICADA_70_PCT = SI >= 70 % of
+-- BASE_COEFICIENTES (art. 46); UNANIMIDAD_100_PCT = SI equals PESO_REPRESENTADO.
 -- The closing timestamp is the existing HORA_CIERRE.
+--
+-- Revised in place (the earlier draft used the weight cast as denominator and had no PESO_REPRESENTADO): this
+-- file has never been applied to any database and the branch is unpushed, so no follow-up migration is needed.
 --
 -- Idempotent; runs as a non-exempt owner under active VPD on a policy-protected table:
 --   * columns are added WITHOUT a default (nothing here needs one);
---   * already closed votings are back-filled with plain UPDATE statements (no MERGE);
+--   * already closed votings are back-filled with plain UPDATE statements (no MERGE); for those legacy rows the
+--     represented coefficients are approximated by the attendance still registered (HORA_RETIRO IS NULL);
 --   * no blanket exception handlers.
 
 BEGIN
@@ -41,6 +49,7 @@ BEGIN
     add_column('PESO_ABSTENCION', 'NUMBER(12,6)');
     add_column('PESO_TOTAL_EMITIDO', 'NUMBER(12,6)');
     add_column('BASE_COEFICIENTES', 'NUMBER(12,6)');
+    add_column('PESO_REPRESENTADO', 'NUMBER(12,6)');
     add_column('PORCENTAJE_SI', 'NUMBER(7,4)');
 END;
 /
@@ -56,14 +65,21 @@ SET (PESO_SI, PESO_NO, PESO_BLANCO, PESO_ABSTENCION) = (
     BASE_COEFICIENTES = (
         SELECT NVL(SUM(u.COEFICIENTE_COPROPIEDAD), 0)
         FROM UNIDADES u JOIN ASAMBLEAS a ON a.ID_PROPIEDAD = u.ID_PROPIEDAD
-        WHERE a.ID_ASAMBLEA = v.ID_ASAMBLEA AND u.ESTADO = 'ACTIVA')
+        WHERE a.ID_ASAMBLEA = v.ID_ASAMBLEA AND u.ESTADO = 'ACTIVA'),
+    PESO_REPRESENTADO = (
+        SELECT NVL(SUM(asi.COEFICIENTE_PONDERADO), 0)
+        FROM ASISTENCIAS_ASAMBLEA asi
+        WHERE asi.ID_ASAMBLEA = v.ID_ASAMBLEA AND asi.HORA_RETIRO IS NULL)
 WHERE v.ESTADO = 'CERRADA' AND v.RESULTADO IS NULL AND v.PESO_SI IS NULL;
 
--- Back-fill: outcome with the same rules the application applies (DEC-11).
+-- Back-fill: outcome with the same rules the application applies (DEC-11, Ley 675 arts. 45 and 46).
 UPDATE VOTACIONES v
 SET PESO_TOTAL_EMITIDO = PESO_SI + PESO_NO + PESO_BLANCO + PESO_ABSTENCION,
-    PORCENTAJE_SI = CASE WHEN PESO_SI + PESO_NO + PESO_BLANCO + PESO_ABSTENCION = 0 THEN 0
-                         ELSE ROUND(PESO_SI * 100 / (PESO_SI + PESO_NO + PESO_BLANCO + PESO_ABSTENCION), 4) END,
+    PORCENTAJE_SI = CASE
+        WHEN PESO_SI + PESO_NO + PESO_BLANCO + PESO_ABSTENCION = 0 THEN 0
+        WHEN TIPO_MAYORIA_REQUERIDA = 'CALIFICADA_70_PCT' THEN
+            CASE WHEN BASE_COEFICIENTES > 0 THEN LEAST(ROUND(PESO_SI * 100 / BASE_COEFICIENTES, 4), 100) ELSE 0 END
+        ELSE CASE WHEN PESO_REPRESENTADO > 0 THEN LEAST(ROUND(PESO_SI * 100 / PESO_REPRESENTADO, 4), 100) ELSE 0 END END,
     OPCION_GANADORA = CASE
         WHEN PESO_SI + PESO_NO + PESO_BLANCO + PESO_ABSTENCION = 0 THEN NULL
         WHEN (CASE WHEN PESO_SI = GREATEST(PESO_SI, PESO_NO, PESO_BLANCO, PESO_ABSTENCION) THEN 1 ELSE 0 END)
@@ -76,13 +92,12 @@ SET PESO_TOTAL_EMITIDO = PESO_SI + PESO_NO + PESO_BLANCO + PESO_ABSTENCION,
         ELSE 'ABSTENCION' END,
     RESULTADO = CASE
         WHEN PESO_SI + PESO_NO + PESO_BLANCO + PESO_ABSTENCION = 0 THEN 'RECHAZADA'
-        WHEN TIPO_MAYORIA_REQUERIDA = 'CALIFICADA_70_PCT'
-             AND ROUND(PESO_SI / (PESO_SI + PESO_NO + PESO_BLANCO + PESO_ABSTENCION), 4) >= 0.70 THEN 'APROBADA'
-        WHEN TIPO_MAYORIA_REQUERIDA = 'UNANIMIDAD_100_PCT'
-             AND PESO_SI = PESO_SI + PESO_NO + PESO_BLANCO + PESO_ABSTENCION THEN 'APROBADA'
-        WHEN TIPO_MAYORIA_REQUERIDA = 'SIMPLE_50_MAS_1'
-             AND PESO_SI > PESO_NO
-             AND ROUND(PESO_SI / (PESO_SI + PESO_NO + PESO_BLANCO + PESO_ABSTENCION), 4) > 0.50 THEN 'APROBADA'
+        WHEN TIPO_MAYORIA_REQUERIDA = 'CALIFICADA_70_PCT' AND BASE_COEFICIENTES > 0
+             AND PESO_SI >= BASE_COEFICIENTES * 0.70 THEN 'APROBADA'
+        WHEN TIPO_MAYORIA_REQUERIDA = 'UNANIMIDAD_100_PCT' AND PESO_REPRESENTADO > 0
+             AND PESO_SI = PESO_REPRESENTADO THEN 'APROBADA'
+        WHEN TIPO_MAYORIA_REQUERIDA = 'SIMPLE_50_MAS_1' AND PESO_REPRESENTADO > 0
+             AND PESO_SI > PESO_REPRESENTADO * 0.50 THEN 'APROBADA'
         ELSE 'RECHAZADA' END
 WHERE v.ESTADO = 'CERRADA' AND v.RESULTADO IS NULL AND v.PESO_SI IS NOT NULL;
 
@@ -102,7 +117,7 @@ BEGIN
         'OPCION_GANADORA IS NULL OR OPCION_GANADORA IN (''SI'', ''NO'', ''BLANCO'', ''ABSTENCION'', ''EMPATE'')');
     add_check('CK_VOTACIONES_RESULT_CERRADA', 'RESULTADO IS NULL OR ESTADO = ''CERRADA''');
     add_check('CK_VOTACIONES_PESOS', 'NVL(PESO_SI, 0) >= 0 AND NVL(PESO_NO, 0) >= 0 AND NVL(PESO_BLANCO, 0) >= 0 '
-        || 'AND NVL(PESO_ABSTENCION, 0) >= 0 AND NVL(PESO_TOTAL_EMITIDO, 0) >= 0 AND NVL(BASE_COEFICIENTES, 0) >= 0 '
+        || 'AND NVL(PESO_ABSTENCION, 0) >= 0 AND NVL(PESO_TOTAL_EMITIDO, 0) >= 0 AND NVL(BASE_COEFICIENTES, 0) >= 0 AND NVL(PESO_REPRESENTADO, 0) >= 0 '
         || 'AND NVL(PORCENTAJE_SI, 0) BETWEEN 0 AND 100');
 END;
 /

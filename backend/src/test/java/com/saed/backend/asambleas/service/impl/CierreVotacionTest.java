@@ -49,6 +49,7 @@ class CierreVotacionTest {
         assembly.setEstado("EN_CURSO");
         when(repository.findById(ASSEMBLY)).thenReturn(Optional.of(assembly));
         when(repository.sumCoeficientesPropiedad(PROPERTY)).thenReturn(new BigDecimal("1.000000"));
+        when(repository.sumCoeficientesRepresentados(ASSEMBLY)).thenReturn(new BigDecimal("0.800000"));
     }
 
     @AfterEach
@@ -86,6 +87,7 @@ class CierreVotacionTest {
         assertEquals("SI", stored.opcionGanadora());
         assertEquals(0, stored.pesoTotalEmitido().compareTo(new BigDecimal("0.40")));
         assertEquals(0, stored.baseCoeficientes().compareTo(BigDecimal.ONE));
+        assertEquals(0, stored.pesoRepresentado().compareTo(new BigDecimal("0.80")));
         verify(audit).recordSuccess(any(), any(), any(), eq("CERRAR_VOTACION"), eq("VOTACIONES"), eq(VOTING), any(),
                 any(), eq("ABIERTA"), eq("CERRADA"));
     }

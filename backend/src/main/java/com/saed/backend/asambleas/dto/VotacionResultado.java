@@ -12,12 +12,13 @@ import java.math.BigDecimal;
  * @param pesoAbstencion      summed unit coefficient of the ABSTENCION votes
  * @param pesoTotalEmitido    total weight cast
  * @param baseCoeficientes    summed coefficient of the property's active units when the voting was closed
+ * @param pesoRepresentado    coefficients represented in the session at close (units present, proxies included)
  * @param porcentajeSi        SI weight as a percentage of the weight cast (4 decimals)
  * @param aprobada            whether the voting's required majority was reached
  */
 public record VotacionResultado(String opcionGanadora, BigDecimal pesoSi, BigDecimal pesoNo, BigDecimal pesoBlanco,
                                 BigDecimal pesoAbstencion, BigDecimal pesoTotalEmitido, BigDecimal baseCoeficientes,
-                                BigDecimal porcentajeSi, boolean aprobada) {
+                                BigDecimal pesoRepresentado, BigDecimal porcentajeSi, boolean aprobada) {
 
     public String resultado() {
         return aprobada ? "APROBADA" : "RECHAZADA";
