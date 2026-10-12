@@ -33,6 +33,7 @@ public class UsuarioController {
     private final PasswordEncoder passwordEncoder;
     private final com.saed.backend.identity.service.UserRegistrationPolicy registrationPolicy;
     private final com.saed.backend.identity.service.CohabitantAccountRegistry cohabitantRegistry;
+    private final com.saed.backend.identity.service.AdministratorAccountRegistry accountRegistry;
     private final org.springframework.beans.factory.ObjectProvider<com.saed.backend.identity.service.TokenActivacionService> tokenServiceProvider;
     private final com.saed.backend.common.service.EmailService emailService;
     private final com.saed.backend.person.service.ConvivienteQuotaService convivienteQuotaService;
@@ -49,6 +50,7 @@ public class UsuarioController {
         this.passwordEncoder = passwordEncoder;
         this.registrationPolicy = new com.saed.backend.identity.service.UserRegistrationPolicy(jdbcTemplate);
         this.cohabitantRegistry = new com.saed.backend.identity.service.CohabitantAccountRegistry(jdbcTemplate);
+        this.accountRegistry = new com.saed.backend.identity.service.AdministratorAccountRegistry(jdbcTemplate);
         this.tokenServiceProvider = tokenServiceProvider;
         this.emailService = emailService;
         this.convivienteQuotaService = convivienteQuotaService;
@@ -406,6 +408,9 @@ public class UsuarioController {
             } else if (existingUserId != null) {
                 idUsuario = existingUserId;
                 // Registration adds an authorized assignment; it never resets an existing identity.
+            } else if ("ADMIN_PROPIEDAD".equals(callerRole) || "ADMIN_ORGANIZACION".equals(callerRole)) {
+                // V5.68: the USUARIOS policy refuses the first row of an account that has no assignment yet.
+                idUsuario = accountRegistry.create(idPersona, username, userEmail, passwordEncoder.encode(rawPassword.trim()));
             } else {
                 KeyHolder khUsuario = new GeneratedKeyHolder();
                 String sqlUsuario = """
