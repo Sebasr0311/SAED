@@ -71,6 +71,22 @@ public class WompiContextIsolationSecurityTest {
 
     @AfterEach
     void tearDown() {
+        // The fees created for the webhooks (periods from 2200-01 on) must not stay outstanding on the demo unit, where
+        // the real-time paz y salvo gate (1ca286d) would read them in every later suite.
+        try {
+            SaedContextHolder.setContext(com.saed.backend.context.SaedContext.builder()
+                    .userId(1L).organizationId(1L).propertyId(1L).roleCode("SUPERADMIN").roleScope("GLOBAL").build());
+            jdbcTemplate.update("DELETE FROM PAGO_DETALLE WHERE ID_CUOTA IN (SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD = 1 AND PERIODO >= '2200-01')");
+            jdbcTemplate.update("UPDATE MULTAS SET ID_CUOTA = NULL WHERE ID_CUOTA IN (SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD = 1 AND PERIODO >= '2200-01')");
+            jdbcTemplate.update("DELETE FROM CUOTAS WHERE ID_UNIDAD = 1 AND PERIODO >= '2200-01'");
+        } catch (Exception ignored) {
+            // referenced by payment intents of the webhooks: marked as settled so they are not outstanding
+            try {
+                jdbcTemplate.update("UPDATE CUOTAS SET SALDO_PENDIENTE = 0, ESTADO = 'ANULADA' WHERE ID_UNIDAD = 1 AND PERIODO >= '2200-01'");
+            } catch (Exception ignoredToo) {
+                // best effort
+            }
+        }
         SaedContextHolder.clearContext();
         try {
             jdbcTemplate.execute("BEGIN PKG_SAED_SESSION.CLEAR_CONTEXT(); END;");
