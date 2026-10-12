@@ -546,17 +546,18 @@ public class DashboardController {
         if (ctx != null) {
             String role = ctx.getRoleCode();
             if ("ADMIN_PROPIEDAD".equalsIgnoreCase(role) && ctx.getPropertyId() != null) {
-                Long unitPropId = jdbcTemplate.queryForObject(
+                // A unit hidden by RLS is indistinguishable from a foreign one: both answer 403 (no existence leak).
+                List<Long> unitProps = jdbcTemplate.queryForList(
                     "SELECT ID_PROPIEDAD FROM UNIDADES WHERE ID_UNIDAD = :u",
                     Map.of("u", unitId), Long.class);
-                if (unitPropId != null && !unitPropId.equals(ctx.getPropertyId())) {
+                if (unitProps.isEmpty() || (unitProps.get(0) != null && !unitProps.get(0).equals(ctx.getPropertyId()))) {
                     throw new AccessDeniedException("No tiene permisos para asignar habitantes en otra propiedad");
                 }
             } else if ("ADMIN_ORGANIZACION".equalsIgnoreCase(role) && ctx.getOrganizationId() != null) {
-                Long unitOrgId = jdbcTemplate.queryForObject(
+                List<Long> unitOrgs = jdbcTemplate.queryForList(
                     "SELECT p.ID_ORGANIZACION FROM UNIDADES u JOIN PROPIEDADES p ON u.ID_PROPIEDAD = p.ID_PROPIEDAD WHERE u.ID_UNIDAD = :u",
                     Map.of("u", unitId), Long.class);
-                if (unitOrgId != null && !unitOrgId.equals(ctx.getOrganizationId())) {
+                if (unitOrgs.isEmpty() || (unitOrgs.get(0) != null && !unitOrgs.get(0).equals(ctx.getOrganizationId()))) {
                     throw new AccessDeniedException("No tiene permisos para asignar habitantes en otra organización");
                 }
             }
