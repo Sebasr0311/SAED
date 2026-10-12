@@ -562,8 +562,8 @@ public class ConvivienteQuotaIntegrationTest {
 
     @Test
     @Order(14)
-    @DisplayName("P2-02 [REQ-15-REAC]: Residente puede re-crear/reactivar un conviviente eliminado previamente con el mismo documento y usuario")
-    public void test14_ResidentCanRecreateOrReactivatePreviouslyDeletedConvivienteAccount() {
+    @DisplayName("P2-02 [REQ-15-REAC]: Residente NO reactiva por registro un conviviente inactivo (política de registro)")
+    public void test14_ResidentCannotReactivateInactiveConvivienteByRegistration() {
         setResidentAuth(TEST_UNIT_ID);
 
         String testUsername = "reac_" + System.currentTimeMillis();
@@ -600,37 +600,24 @@ public class ConvivienteQuotaIntegrationTest {
         jdbcTemplate.update("UPDATE USUARIOS SET ESTADO = 'INACTIVO' WHERE ID_USUARIO = ?", idUsuario1.longValue());
         jdbcTemplate.update("UPDATE USUARIO_ASIGNACIONES SET ESTADO = 'INACTIVA' WHERE ID_USUARIO = ?", idUsuario1.longValue());
 
-        // 3. Volver a registrar con la misma cédula y mismo username
+        // 3. Registration never reactivates an inactive identity (UserRegistrationPolicy.authorizeAccount,
+        //    F-series registration hardening; UserRegistrationAuthorizationTest.registrationCannotReactivateInactiveIdentity):
+        //    the resident is refused and an administrator must reactivate the account.
         setResidentAuth(TEST_UNIT_ID);
-        ResponseEntity<com.saed.backend.common.dto.ApiResponse<Map<String, Object>>> resp2 =
-                usuarioController.crearUsuario(payload);
+        assertThrows(org.springframework.security.access.AccessDeniedException.class,
+                () -> usuarioController.crearUsuario(payload));
 
-        assertNotNull(resp2);
-        assertEquals(201, resp2.getStatusCode().value(), () -> "Reactivation failed: " + (resp2.getBody() != null ? resp2.getBody().getMessage() : "null"));
-        assertNotNull(resp2.getBody());
-        assertEquals("success", resp2.getBody().getStatus());
-
-        Number idUsuario2 = (Number) resp2.getBody().getData().get("idUsuario");
-        assertEquals(idUsuario1.longValue(), idUsuario2.longValue(), "Debe reactivar la cuenta de usuario existente");
-
-        // 4. Verificar bajo SUPERADMIN que el usuario y asignaciones están activos
+        // 4. The refused attempt changed nothing: the account stays inactive and no assignment is active.
         setSuperadminAuth();
         try {
             jdbcTemplate.execute("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1); PKG_SAED_SESSION.SET_CONTEXT(1, 1, 1, 'SUPERADMIN'); END;");
         } catch (Exception ignored) {}
         String userEstado = jdbcTemplate.queryForObject(
-                "SELECT ESTADO FROM USUARIOS WHERE ID_USUARIO = ?",
-                String.class,
-                idUsuario1.longValue()
-        );
-        assertEquals("ACTIVO", userEstado, "El usuario debe quedar ACTIVO");
-
+                "SELECT ESTADO FROM USUARIOS WHERE ID_USUARIO = ?", String.class, idUsuario1.longValue());
+        assertEquals("INACTIVO", userEstado, "El usuario inactivo no se reactiva por registro");
         Integer activeAsigs = jdbcTemplate.queryForObject(
                 "SELECT COUNT(1) FROM USUARIO_ASIGNACIONES WHERE ID_USUARIO = ? AND ESTADO = 'ACTIVA' AND ID_UNIDAD = ?",
-                Integer.class,
-                idUsuario1.longValue(),
-                TEST_UNIT_ID
-        );
-        assertTrue(activeAsigs != null && activeAsigs >= 1, "Debe tener asignación ACTIVA a la unidad");
+                Integer.class, idUsuario1.longValue(), TEST_UNIT_ID);
+        assertEquals(0, activeAsigs, "No debe haber asignación ACTIVA tras el intento rechazado");
     }
 }

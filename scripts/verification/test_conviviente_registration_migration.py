@@ -61,6 +61,12 @@ class CohabitantProcedureTest(unittest.TestCase):
         self.assertIn("ru.ID_PERSONA IN (SELECT ID_PERSONA FROM USUARIOS WHERE ID_USUARIO = v_usr)", self.code)
         self.assertRegex(self.code, r"ID_PROPIEDAD\s*=\s*v_prop")
 
+    def test_a_household_member_cannot_register_but_a_titular_assignment_without_residence_row_can(self):
+        # The titular assignment is the authority; only an ACTIVE non-titular residence row of the caller denies.
+        self.assertRegex(self.code, r"ru\.TIPO_RESIDENTE IN \('FAMILIAR', 'CONVIVIENTE', 'OTRO'\)")
+        self.assertRegex(self.code, r"v_titular\s*=\s*0 AND v_member\s*>\s*0")
+        self.assertNotRegex(self.code, r"IF v_count = 0 THEN\s+RAISE_APPLICATION_ERROR\(-20474")
+
     def test_enforces_the_cohabitant_quota_under_a_unit_lock(self):
         self.assertIn("LIMITE_CONVIVIENTES_POR_UNIDAD", self.code)
         self.assertRegex(self.code, r"FROM UNIDADES[^;]*FOR UPDATE")

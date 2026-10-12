@@ -10,7 +10,8 @@
 -- registration therefore runs here, with definer rights, after validating from the caller's own session context:
 --   1. an authenticated tenant session (not anonymous / clearing / bootstrap) of a RESIDENTE or PROPIETARIO;
 --   2. the caller holds a titular assignment on that unit, IN FORCE today, in the context property;
---   3. the caller, as a person, has an ACTIVE titular residence (PROPIETARIO or ARRENDATARIO) on the unit;
+--   3. the caller is not, as a person, an ACTIVE household member (FAMILIAR/CONVIVIENTE/OTRO) of the unit without a
+--      titular residence row (a titular assignment with no residence row at all is accepted);
 --   4. the unit has room under LIMITE_CONVIVIENTES_POR_UNIDAD (property setting, default 4; a missing, non-numeric or
 --      non-positive value means the default). The unit row is locked so concurrent registrations serialize;
 --   5. an existing target account must belong to the given person and must not be the caller.
@@ -56,6 +57,8 @@ CREATE OR REPLACE PROCEDURE SP_REGISTRAR_CONVIVIENTE(
     v_limit    NUMBER;
     v_active   NUMBER;
     v_count    NUMBER;
+    v_titular  NUMBER;
+    v_member   NUMBER;
     v_id_rol   NUMBER;
 BEGIN
     IF v_state IN ('ANONYMOUS', 'CLEARING', 'BOOTSTRAP') OR v_usr_txt IS NULL OR v_prop_txt IS NULL
@@ -82,15 +85,19 @@ BEGIN
     IF v_count = 0 THEN
         RAISE_APPLICATION_ERROR(-20473, 'Registro no autorizado: el solicitante no es titular vigente de la unidad');
     END IF;
+    v_org := NVL(v_org, TO_NUMBER(SYS_CONTEXT('SAED_CTX', 'ID_ORGANIZACION')));
 
-    SELECT COUNT(1) INTO v_count
+    -- The in-force titular assignment is the authority. Only an ACTIVE residence row of the caller that makes it a
+    -- household member (and no titular row) denies: an assignment without any residence row is still a titular.
+    SELECT NVL(SUM(CASE WHEN ru.TIPO_RESIDENTE IN ('PROPIETARIO', 'ARRENDATARIO') THEN 1 ELSE 0 END), 0),
+           NVL(SUM(CASE WHEN ru.TIPO_RESIDENTE IN ('FAMILIAR', 'CONVIVIENTE', 'OTRO') THEN 1 ELSE 0 END), 0)
+      INTO v_titular, v_member
     FROM RESIDENTES_UNIDAD ru
     WHERE ru.ID_UNIDAD = p_id_unidad
       AND ru.ESTADO = 'ACTIVO'
-      AND ru.TIPO_RESIDENTE IN ('PROPIETARIO', 'ARRENDATARIO')
       AND ru.ID_PERSONA IN (SELECT ID_PERSONA FROM USUARIOS WHERE ID_USUARIO = v_usr);
-    IF v_count = 0 THEN
-        RAISE_APPLICATION_ERROR(-20474, 'Registro no autorizado: el solicitante no reside en la unidad como titular');
+    IF v_titular = 0 AND v_member > 0 THEN
+        RAISE_APPLICATION_ERROR(-20474, 'Registro no autorizado: el solicitante es miembro del hogar, no titular');
     END IF;
 
     SELECT ID_PROPIEDAD INTO v_unit_prop FROM UNIDADES WHERE ID_UNIDAD = p_id_unidad FOR UPDATE;
