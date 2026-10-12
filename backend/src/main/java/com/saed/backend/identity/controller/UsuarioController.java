@@ -370,19 +370,9 @@ public class UsuarioController {
                     try { idTipoDoc = Long.valueOf(tipoDocObj.toString()); } catch (Exception ignored) {}
                 }
 
-                KeyHolder khPersona = new GeneratedKeyHolder();
-                String sqlPersona = """
-                    INSERT INTO PERSONAS (ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, PRIMER_NOMBRE, PRIMER_APELLIDO, EMAIL, TELEFONO, ESTADO)
-                    VALUES (:tipoDoc, :doc, 'NATURAL', :nombre, :apellido, :email, :tel, 'ACTIVO')
-                    """;
-                MapSqlParameterSource paramP = new MapSqlParameterSource()
-                        .addValue("tipoDoc", idTipoDoc)
-                        .addValue("doc", docFinal)
-                        .addValue("nombre", primerNombre)
-                        .addValue("apellido", primerApellido)
-                        .addValue("email", userEmail)
-                        .addValue("tel", tel);
-                jdbcTemplate.update(sqlPersona, paramP, khPersona, new String[]{"ID_PERSONA"});
+                // DEC-01: the person belongs to the organization of the validated registration scope.
+                KeyHolder khPersona = com.saed.backend.person.service.PersonaOrganizationBinding.insertNaturalPerson(
+                        jdbcTemplate, effectiveOrgId, idTipoDoc, docFinal, primerNombre, primerApellido, userEmail, tel);
                 idPersona = extractGeneratedKey(khPersona, "ID_PERSONA");
                 if (idPersona == null) {
                     List<Long> pIds = jdbcTemplate.query(
