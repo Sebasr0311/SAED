@@ -17,6 +17,7 @@ STATE, CONTAINER = sys.argv[1], sys.argv[2]
 state = json.loads((REPO / "local" / "isolated-oracle" / STATE / "private-state.json").read_text(encoding="utf-8"))
 
 PROFILES = [
+    ("SUPERADMIN", 1, None, "NULL"),
     ("ADMIN_ORGANIZACION", 91002, 91001, "NULL"),
     ("ADMIN_PROPIEDAD", 91003, 91001, 91001),
     ("PORTERO", 91004, 91001, 91001),
@@ -37,12 +38,14 @@ tables = [l.split()[1] for l in run(
 print(f"{len(tables)} policy-protected tables")
 
 broken = {}
+superadmin_visible = []
 for role, user, prop, unit in PROFILES:
-    org = 91001
-    prop_sql = "NULL" if role == "ADMIN_ORGANIZACION" else prop
-    unit_sql = unit if role in ("RESIDENTE", "RESIDENTE_CONVIVENCIA") else "NULL"
+    # SUPERADMIN runs without organization or property, exactly as the application sets its context.
+    org = "NULL" if role == "SUPERADMIN" else 91001
+    prop_sql = "NULL" if role in ("SUPERADMIN", "ADMIN_ORGANIZACION") else prop
     probes = "\n".join(
-        f"  BEGIN EXECUTE IMMEDIATE 'SELECT COUNT(*) FROM {t}' INTO n; EXCEPTION WHEN OTHERS THEN "
+        f"  BEGIN EXECUTE IMMEDIATE 'SELECT COUNT(*) FROM {t}' INTO n; "
+        f"IF n > 0 THEN DBMS_OUTPUT.PUT_LINE('ROWS {t} ' || n); END IF; EXCEPTION WHEN OTHERS THEN "
         f"DBMS_OUTPUT.PUT_LINE('ERR {t} ' || SQLCODE); END;" for t in tables)
     script = (f'CONNECT SAED_ISO_RUNTIME/"{state["runtime_password"]}"@//localhost:1521/XEPDB1\n'
               "SET SERVEROUTPUT ON SIZE UNLIMITED FEEDBACK OFF\nALTER SESSION SET CURRENT_SCHEMA=SAED_ISO_OWNER;\n"
@@ -56,8 +59,14 @@ for role, user, prop, unit in PROFILES:
         continue
     for table, code in errors:
         broken.setdefault(table, {})[role] = code
+    if role == "SUPERADMIN":
+        superadmin_visible = [l.split()[1:] for l in out.splitlines() if l.startswith("ROWS ")]
     print(f"{role:<22} broken tables: {len(errors)}")
 
+# DEC-02: SUPERADMIN sees platform data only; review this list for operational tables.
+print("\nSUPERADMIN tables with visible rows:")
+for table, count in superadmin_visible:
+    print(f"  {table:<32} {count}")
 print()
 for table in sorted(broken):
     print(f"  {table:<32} " + ", ".join(f"{r}={c}" for r, c in sorted(broken[table].items())))
