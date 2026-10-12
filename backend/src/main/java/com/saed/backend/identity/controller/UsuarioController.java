@@ -217,6 +217,19 @@ public class UsuarioController {
         Long effectiveOrgId = registrationScope.organizationId();
         Long effectivePropId = registrationScope.propertyId();
 
+        // DEC-12: a registered RESIDENTE is stored with a real domain relation, never a synthetic value.
+        String residenceType = null;
+        if ("RESIDENTE".equals(rol)) {
+            Object requested = payload.get("tipoResidente");
+            String normalized = requested == null || requested.toString().isBlank()
+                    ? "PROPIETARIO" : requested.toString().trim().toUpperCase();
+            if (!"PROPIETARIO".equals(normalized) && !"ARRENDATARIO".equals(normalized)) {
+                return ResponseEntity.badRequest()
+                        .body(ApiResponse.error("El tipo de residente debe ser PROPIETARIO o ARRENDATARIO"));
+            }
+            residenceType = normalized;
+        }
+
         Long idPersona = null;
         Long idUsuario = null;
         Long existingUserId = null;
@@ -454,7 +467,7 @@ public class UsuarioController {
                     throw new IllegalStateException("No se pudo validar la relación residencial");
                 }
                 if (ruCount == 0) {
-                    String tipoRes = "RESIDENTE_CONVIVENCIA".equals(rol) ? "CONVIVIENTE" : "TITULAR";
+                    String tipoRes = "RESIDENTE_CONVIVENCIA".equals(rol) ? "CONVIVIENTE" : residenceType;
                     jdbcTemplate.update(
                             "INSERT INTO RESIDENTES_UNIDAD (ID_UNIDAD, ID_PERSONA, TIPO_RESIDENTE, FECHA_INICIO, ESTADO) VALUES (:u, :p, :tipo, TRUNC(SYSDATE), 'ACTIVO')",
                             Map.of("u", idUnidad, "p", idPersona, "tipo", tipoRes));

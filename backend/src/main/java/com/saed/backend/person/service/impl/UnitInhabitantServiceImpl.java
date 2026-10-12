@@ -34,7 +34,7 @@ import java.util.Set;
 public class UnitInhabitantServiceImpl implements UnitInhabitantService {
 
     private static final Set<String> UNIT_ROLES = Set.of("RESIDENTE", "PROPIETARIO", "RESIDENTE_CONVIVENCIA");
-    private static final Set<String> TITULAR_TYPES = Set.of("PROPIETARIO", "ARRENDATARIO", "TITULAR", "PRINCIPAL");
+    private static final Set<String> TITULAR_TYPES = Set.of("PROPIETARIO", "ARRENDATARIO", "PRINCIPAL");
     private static final Set<String> HOUSEHOLD_TYPES = Set.of("FAMILIAR", "CONVIVIENTE", "OTRO");
 
     private final UnitInhabitantRepository unitInhabitantRepository;

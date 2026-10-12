@@ -227,6 +227,45 @@ class UserRegistrationAuthorizationTest {
         verify(operations, never()).execute(anyString());
     }
 
+    private String residenceTypeStoredFor(Map<String, Object> request) {
+        freshRegistration();
+        var response = controller.crearUsuario(request);
+        assertEquals(201, response.getStatusCode().value());
+        return mockingDetails(jdbc).getInvocations().stream()
+                .filter(call -> call.getMethod().getName().equals("update")
+                        && ((String) call.getArgument(0)).startsWith("INSERT INTO RESIDENTES_UNIDAD"))
+                .map(call -> (String) ((Map<?, ?>) call.getArgument(1)).get("tipo"))
+                .findFirst().orElseThrow();
+    }
+
+    @Test
+    void registeredResidentStoresADomainResidenceTypeNeverTitular() {
+        var request = new java.util.HashMap<>(payload());
+        request.remove("idPersona");
+        // Documented default (DEC-12): a RESIDENTE registered without a relation is the owner.
+        assertEquals("PROPIETARIO", residenceTypeStoredFor(request));
+    }
+
+    @Test
+    void registeredResidentTakesTheRelationFromTheRequest() {
+        var request = new java.util.HashMap<>(payload());
+        request.remove("idPersona");
+        request.put("tipoResidente", "arrendatario");
+        assertEquals("ARRENDATARIO", residenceTypeStoredFor(request));
+    }
+
+    @Test
+    void residentRelationOutsideTheDomainIsRejectedBeforeAnyWrite() {
+        freshRegistration();
+        for (String invalid : List.of("TITULAR", "CONVIVIENTE", "FAMILIAR", "x")) {
+            var request = new java.util.HashMap<>(payload());
+            request.remove("idPersona");
+            request.put("tipoResidente", invalid);
+            assertEquals(400, controller.crearUsuario(request).getStatusCode().value(), invalid);
+        }
+        noWrites();
+    }
+
     @Test
     void propertyAdminCanRegisterPorteroWithoutUnit() {
         freshRegistration();

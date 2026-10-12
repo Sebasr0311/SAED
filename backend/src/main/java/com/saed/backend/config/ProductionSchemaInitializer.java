@@ -654,8 +654,8 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
             jdbcTemplate.execute("ALTER TABLE RESIDENTES_UNIDAD DROP CONSTRAINT CK_RESIDUNIDAD_TIPO");
         } catch (Exception ignored) {}
         try {
-            jdbcTemplate.execute("ALTER TABLE RESIDENTES_UNIDAD ADD CONSTRAINT CK_RESIDUNIDAD_TIPO CHECK (tipo_residente IN ('PROPIETARIO', 'ARRENDATARIO', 'FAMILIAR', 'CONVIVIENTE', 'OTRO', 'TITULAR'))");
-            log.info("[SchemaInit] Restricción CK_RESIDUNIDAD_TIPO actualizada para soportar CONVIVIENTE y TITULAR.");
+            jdbcTemplate.execute("ALTER TABLE RESIDENTES_UNIDAD ADD CONSTRAINT CK_RESIDUNIDAD_TIPO CHECK (tipo_residente IN ('PROPIETARIO', 'ARRENDATARIO', 'FAMILIAR', 'CONVIVIENTE', 'OTRO'))");
+            log.info("[SchemaInit] Restricción CK_RESIDUNIDAD_TIPO actualizada para soportar CONVIVIENTE.");
         } catch (Exception e) {
             log.debug("[SchemaInit] Aviso al actualizar CK_RESIDUNIDAD_TIPO: {}", e.getMessage());
         }

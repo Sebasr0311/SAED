@@ -270,13 +270,13 @@ public class DatabaseSeeder implements ApplicationRunner {
                 log.debug("Aviso al verificar PLANTILLAS_CONTRATOS: {}", e.getMessage());
             }
 
-            // 20. Actualizar CK_RESIDUNIDAD_TIPO en RESIDENTES_UNIDAD para soportar CONVIVIENTE y TITULAR
+            // 20. Actualizar CK_RESIDUNIDAD_TIPO en RESIDENTES_UNIDAD para soportar CONVIVIENTE
             try {
                 jdbcTemplate.execute("ALTER TABLE RESIDENTES_UNIDAD DROP CONSTRAINT CK_RESIDUNIDAD_TIPO");
             } catch (Exception ignored) {}
             try {
-                jdbcTemplate.execute("ALTER TABLE RESIDENTES_UNIDAD ADD CONSTRAINT CK_RESIDUNIDAD_TIPO CHECK (tipo_residente IN ('PROPIETARIO', 'ARRENDATARIO', 'FAMILIAR', 'CONVIVIENTE', 'OTRO', 'TITULAR'))");
-                log.info("Actualizada restricción CK_RESIDUNIDAD_TIPO en RESIDENTES_UNIDAD para soportar CONVIVIENTE y TITULAR");
+                jdbcTemplate.execute("ALTER TABLE RESIDENTES_UNIDAD ADD CONSTRAINT CK_RESIDUNIDAD_TIPO CHECK (tipo_residente IN ('PROPIETARIO', 'ARRENDATARIO', 'FAMILIAR', 'CONVIVIENTE', 'OTRO'))");
+                log.info("Actualizada restricción CK_RESIDUNIDAD_TIPO en RESIDENTES_UNIDAD para soportar CONVIVIENTE");
             } catch (Exception e) {
                 log.debug("Aviso al actualizar CK_RESIDUNIDAD_TIPO: {}", e.getMessage());
             }

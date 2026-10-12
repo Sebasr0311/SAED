@@ -156,7 +156,7 @@ public class PorteriaRepositoryImpl implements PorteriaRepository {
                      "JOIN PERSONAS pv ON vis.ID_PERSONA = pv.ID_PERSONA " +
                      "LEFT JOIN USUARIOS u_aut ON v.AUTORIZADO_POR = u_aut.ID_USUARIO " +
                      "LEFT JOIN PERSONAS p_aut ON u_aut.ID_PERSONA = p_aut.ID_PERSONA " +
-                     "LEFT JOIN RESIDENTES_UNIDAD uh ON uh.ID_UNIDAD = v.ID_UNIDAD AND uh.TIPO_RESIDENTE IN ('PROPIETARIO', 'ARRENDATARIO', 'TITULAR') " +
+                     "LEFT JOIN RESIDENTES_UNIDAD uh ON uh.ID_UNIDAD = v.ID_UNIDAD AND uh.TIPO_RESIDENTE IN ('PROPIETARIO', 'ARRENDATARIO') " +
                      "LEFT JOIN PERSONAS pr ON uh.ID_PERSONA = pr.ID_PERSONA " +
                      "LEFT JOIN VEHICULOS_VISITA vv ON vv.ID_VISITA = v.ID_VISITA " +
                      "LEFT JOIN PARQUEADEROS pq ON pq.ID_PARQUEADERO = vv.ID_PARQUEADERO " +
@@ -194,7 +194,7 @@ public class PorteriaRepositoryImpl implements PorteriaRepository {
                      "JOIN PERSONAS pv ON vis.ID_PERSONA = pv.ID_PERSONA " +
                      "LEFT JOIN USUARIOS u_aut ON v.AUTORIZADO_POR = u_aut.ID_USUARIO " +
                      "LEFT JOIN PERSONAS p_aut ON u_aut.ID_PERSONA = p_aut.ID_PERSONA " +
-                     "LEFT JOIN RESIDENTES_UNIDAD uh ON uh.ID_UNIDAD = v.ID_UNIDAD AND uh.TIPO_RESIDENTE IN ('PROPIETARIO', 'ARRENDATARIO', 'TITULAR') " +
+                     "LEFT JOIN RESIDENTES_UNIDAD uh ON uh.ID_UNIDAD = v.ID_UNIDAD AND uh.TIPO_RESIDENTE IN ('PROPIETARIO', 'ARRENDATARIO') " +
                      "LEFT JOIN PERSONAS pr ON uh.ID_PERSONA = pr.ID_PERSONA " +
                      "LEFT JOIN VEHICULOS_VISITA vv ON vv.ID_VISITA = v.ID_VISITA " +
                      "LEFT JOIN PARQUEADEROS pq ON pq.ID_PARQUEADERO = vv.ID_PARQUEADERO " +
