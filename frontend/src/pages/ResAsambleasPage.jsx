@@ -166,18 +166,25 @@ export default function ResAsambleasPage() {
   const miPersonaId = miPersona?.id ?? user?.idPersona ?? null;
   const ownUnitId = tenant.activeAssignment?.idUnidad ?? user?.idUnidad ?? null;
   const ownUnitLabel = user?.identificadorUnidad || (ownUnitId ? `#${ownUnitId}` : '');
+  // Only an owner may grant a proxy (Ley 675); a cohabitant has no access to the unit's owners/residents either.
+  const canFileProxy = !(
+    user?.rol === 'RESIDENTE_CONVIVENCIA' ||
+    user?.rolCodigo === 'RESIDENTE_CONVIVENCIA' ||
+    user?.tipoResidente === 'CONVIVIENTE' ||
+    user?.tipoRelacion === 'CONVIVIENTE'
+  );
 
-  // People of the caller's own unit (units/{id}/owners and /residents are granted to the resident role).
+  // People of the caller's own unit (units/{id}/owners and /residents are granted to owners/residents, not cohabitants).
   const { data: ownersRaw } = useFetch(
     useCallback(
-      () => (ownUnitId ? tenantApi.get(`/units/${ownUnitId}/owners`).catch(() => []) : Promise.resolve([])),
-      [ownUnitId, tenant.activeAssignmentId]
+      () => (canFileProxy && ownUnitId ? tenantApi.get(`/units/${ownUnitId}/owners`).catch(() => []) : Promise.resolve([])),
+      [canFileProxy, ownUnitId, tenant.activeAssignmentId]
     )
   );
   const { data: residentsRaw } = useFetch(
     useCallback(
-      () => (ownUnitId ? tenantApi.get(`/units/${ownUnitId}/residents`).catch(() => []) : Promise.resolve([])),
-      [ownUnitId, tenant.activeAssignmentId]
+      () => (canFileProxy && ownUnitId ? tenantApi.get(`/units/${ownUnitId}/residents`).catch(() => []) : Promise.resolve([])),
+      [canFileProxy, ownUnitId, tenant.activeAssignmentId]
     )
   );
 
@@ -485,7 +492,7 @@ export default function ResAsambleasPage() {
                     </div>
 
                     {/* Botón Radicar Poder si no está finalizada */}
-                    {asambleaActiva.estado !== 'FINALIZADA' && asambleaActiva.estado !== 'CANCELADA' && (
+                    {canFileProxy && asambleaActiva.estado !== 'FINALIZADA' && asambleaActiva.estado !== 'CANCELADA' && (
                       <button
                         onClick={() => setModalPoderOpen(true)}
                         className="inline-flex items-center gap-2 px-3.5 py-2 text-sm font-medium rounded-lg bg-primary text-white hover:bg-primary/90 transition-colors shadow-sm"
