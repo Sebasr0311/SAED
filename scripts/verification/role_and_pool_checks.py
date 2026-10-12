@@ -16,11 +16,14 @@ import sys
 import urllib.error
 import urllib.request
 
+import fixture_scope
+
 REPO = pathlib.Path(__file__).resolve().parents[2]
 state = json.loads((REPO / "local" / "isolated-oracle" / sys.argv[1] / "private-state.json").read_text(encoding="utf-8"))
 BASE = f"http://127.0.0.1:{sys.argv[2]}"
 ROUNDS = int(sys.argv[3]) if len(sys.argv) > 3 else 60
-RANGES = {91001: (91000, 91999), 92001: (92000, 92999)}
+# Exact fixture ids per organization: a numeric range would flag ids that sequences hand out to scenario-created rows.
+FIXTURE_IDS = {tenant: fixture_scope.fixture_ids(state["accounts"], tenant) for tenant in (91001, 92001)}
 
 
 def call(path, token, headers=None):
@@ -57,12 +60,7 @@ def login(username):
 
 
 def ids_in(raw, org):
-    low, high = RANGES[org]
-    try:
-        text = json.dumps(json.loads(raw or b"null"))
-    except ValueError:
-        text = raw.decode("utf-8", "replace")
-    return sorted({int(m) for m in re.findall(r"(?<!\d)(\d{5})(?!\d)", text) if low <= int(m) <= high})
+    return fixture_scope.found_ids(raw, FIXTURE_IDS[org])
 
 
 failures = []

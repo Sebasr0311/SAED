@@ -163,6 +163,11 @@ def generate_hashes(passwords: list[str]) -> list[str]:
     return hashes
 
 
+def tenant_layout(tenant: int) -> list[tuple[int, tuple[int, int]]]:
+    """(property id, (unit ids)) of one synthetic organization: the single definition of the fixture layout."""
+    return [(property_id, (property_id, property_id + 10)) for property_id in (tenant, tenant + 20)]
+
+
 def fixture_accounts() -> list[dict]:
     accounts = []
     for tenant_index in range(2):
@@ -183,9 +188,9 @@ def fixture_sql(accounts: list[dict], hashes: list[str]) -> str:
         statements.append(f"INSERT INTO ORGANIZACIONES (ID_ORGANIZACION,NOMBRE,IDENTIFICACION_FISCAL,EMAIL_CONTACTO,ESTADO) VALUES ({tenant},'Synthetic organization {tenant}','ISO-{tenant}','org-{tenant}@example.invalid','ACTIVA');")
         # Active ENTERPRISE (plan 3) membership so plan-module guards allow every module (F3-07).
         statements.append(f"INSERT INTO MEMBRESIAS (ID_MEMBRESIA,ID_ORGANIZACION,ID_PLAN,FECHA_INICIO,FECHA_FIN,ESTADO,ES_PRUEBA) VALUES ({tenant},{tenant},3,TRUNC(SYSDATE)-1,ADD_MONTHS(TRUNC(SYSDATE),12),'ACTIVA','N');")
-        for property_id in (tenant, tenant + 20):
+        for property_id, unit_ids in tenant_layout(tenant):
             statements.append(f"INSERT INTO PROPIEDADES (ID_PROPIEDAD,ID_ORGANIZACION,ID_TIPO_PROPIEDAD,NOMBRE,DIRECCION,CIUDAD,PAIS,ESTADO) VALUES ({property_id},{tenant},1,'Synthetic property {property_id}','Synthetic address','Synthetic city','Colombia','ACTIVA');")
-            for unit_id in (property_id, property_id + 10):
+            for unit_id in unit_ids:
                 statements.append(f"INSERT INTO UNIDADES (ID_UNIDAD,ID_PROPIEDAD,ID_TIPO_UNIDAD,IDENTIFICADOR,COEFICIENTE_COPROPIEDAD,ESTADO) VALUES ({unit_id},{property_id},1,'ISO-{unit_id}',0.5,'ACTIVA');")
     role_ids = {"SUPERADMIN": 1, "ADMIN_PROPIEDAD": 2, "ADMIN_ORGANIZACION": 3, "PORTERO": 4, "RESIDENTE": 5, "RESIDENTE_CONVIVENCIA": 6}
     for account, hashed in zip(accounts, hashes):
