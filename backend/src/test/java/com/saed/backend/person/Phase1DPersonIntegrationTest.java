@@ -22,6 +22,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.math.BigDecimal;
 import java.util.UUID;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -121,7 +122,7 @@ public class Phase1DPersonIntegrationTest {
     }
 
     @Test
-    public void testCreateOwner_InvalidUnit_FailsWithDatabaseErrorOr403() throws Exception {
+    public void testCreateOwner_InvalidUnit_Returns404() throws Exception {
         String token = jwtProvider.generateIdentityToken(ORG_ADMIN_USER_ID);
 
         UnitOwnerRequestDTO request = new UnitOwnerRequestDTO(
@@ -136,13 +137,13 @@ public class Phase1DPersonIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(result -> {
-                    int status = result.getResponse().getStatus();
-                    assertTrue(status == 403 || status == 500);
+                    // DEC-01 non-disclosure: an unknown or foreign unit answers 404 "Unidad no encontrada" (never a DB error).
+                    assertEquals(404, result.getResponse().getStatus());
                 });
     }
 
     @Test
-    public void testCreateResident_InvalidUnit_FailsWithDatabaseErrorOr403() throws Exception {
+    public void testCreateResident_InvalidUnit_Returns404() throws Exception {
         String token = jwtProvider.generateIdentityToken(ORG_ADMIN_USER_ID);
 
         UnitResidentRequestDTO request = new UnitResidentRequestDTO(
@@ -156,8 +157,8 @@ public class Phase1DPersonIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(result -> {
-                    int status = result.getResponse().getStatus();
-                    assertTrue(status == 400 || status == 403 || status == 500);
+                    // DEC-01 non-disclosure: an unknown or foreign unit answers 404 "Unidad no encontrada" (never a DB error).
+                    assertEquals(404, result.getResponse().getStatus());
                 });
     }
 

@@ -6,7 +6,6 @@ import com.saed.backend.common.service.FileStorageService;
 import com.saed.backend.common.service.impl.FileStorageServiceImpl;
 import com.saed.backend.context.SaedContext;
 import com.saed.backend.context.SaedContextHolder;
-import com.saed.backend.documentos.dto.DocumentoDTO;
 import com.saed.backend.documentos.service.DocumentoService;
 import com.saed.backend.platform.dto.StorageQuotaDTO;
 import com.saed.backend.platform.exception.InactiveMembershipException;
@@ -672,8 +671,8 @@ public class StorageQuotaSecurityTest {
         // DEC-02 / c074514: documents are operational data, so SUPERADMIN cannot upload them; the property
         // administrator (demo user 2) gets a test-owned ADMIN_PROPIEDAD assignment in the test organization.
         jdbcTemplate.update("INSERT INTO USUARIO_ASIGNACIONES (ID_USUARIO, ID_ROL, ID_ORGANIZACION, ID_PROPIEDAD, ESTADO, FECHA_INICIO) "
-                + "VALUES (2, (SELECT ID_ROL FROM ROLES WHERE CODIGO = 'ADMIN_PROPIEDAD'), ?, ?, 'ACTIVA', TRUNC(SYSDATE))",
-                testOrgId, testPropId);
+                + "VALUES (2, (SELECT ID_ROL FROM ROLES WHERE CODIGO = 'ADMIN_PROPIEDAD'), :org, :prop, 'ACTIVA', TRUNC(SYSDATE))",
+                new org.springframework.jdbc.core.namedparam.MapSqlParameterSource("org", testOrgId).addValue("prop", testPropId));
         try {
         SaedContextHolder.setContext(SaedContext.builder()
                 .userId(2L)
@@ -683,27 +682,25 @@ public class StorageQuotaSecurityTest {
                 .roleScope("PROPIEDAD")
                 .build());
 
-        // Documento solicitando 8 MB adicionales (supera 1 GB)
-        DocumentoDTO docDto = new DocumentoDTO();
-        docDto.setIdOrganizacion(testOrgId);
-        docDto.setIdPropiedad(testPropId);
-        docDto.setTitulo("Reglamento 2026");
-        docDto.setCategoria("REGLAMENTO_INTERNO");
-        docDto.setArchivoUrl("docs/reglamento.pdf");
-        docDto.setArchivoNombreOrig("reglamento.pdf");
-        docDto.setArchivoMimeType("application/pdf");
-        docDto.setArchivoTamanoBytes(8L * 1024L * 1024L);
+        // Documento solicitando 8 MB adicionales (supera 1 GB). The JSON endpoint no longer accepts archivoUrl
+        // (documents are uploaded through /documentos/upload), so the quota is exercised with a real multipart upload.
+        byte[] pdf = new byte[8 * 1024 * 1024];
+        byte[] header = "%PDF-1.4
+".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+        System.arraycopy(header, 0, pdf, 0, header.length);
 
-        mockMvc.perform(post("/api/v1/documentos")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(docDto)))
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart("/api/v1/documentos/upload")
+                        .file(new org.springframework.mock.web.MockMultipartFile("archivo", "reglamento.pdf", "application/pdf", pdf))
+                        .param("titulo", "Reglamento 2026")
+                        .param("categoria", "REGLAMENTO_INTERNO"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code", is("STORAGE_QUOTA_EXCEEDED")))
                 .andExpect(jsonPath("$.limitBytes", is(1024 * 1024 * 1024)))
                 .andExpect(jsonPath("$.requestedBytes", is(8 * 1024 * 1024)));
         } finally {
             elevateToSuperAdmin();
-            jdbcTemplate.update("DELETE FROM USUARIO_ASIGNACIONES WHERE ID_USUARIO = 2 AND ID_ORGANIZACION = ?", testOrgId);
+            jdbcTemplate.update("DELETE FROM USUARIO_ASIGNACIONES WHERE ID_USUARIO = 2 AND ID_ORGANIZACION = :org",
+                    new org.springframework.jdbc.core.namedparam.MapSqlParameterSource("org", testOrgId));
         }
     }
 }
