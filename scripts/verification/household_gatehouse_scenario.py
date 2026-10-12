@@ -194,6 +194,29 @@ if other_token and visit_id is not None:
     status, _ = call("GET", f"/api/v1/porteria/unidades/{PROPERTY_UNIT_RESIDENT}/visitas", None, other_token)
     expect(f"other unit's visit list is denied (status {status})", status in (403, 404))
 
+print("f. resident revokes the cohabitant (keeps the unit within its quota, so the scenario is repeatable)")
+status, residents = call("GET", f"/api/v1/units/{PROPERTY_UNIT_RESIDENT}/residents", None, resident)
+expect(f"resident lists its unit's residents (status {status})", status == 200)
+entries = residents if isinstance(residents, list) else (residents or {}).get("data") or []
+cohabitant_entry = next((e for e in entries if isinstance(e, dict)
+                         and cohabitant["document"] in json.dumps(e.get("persona") or {})), None)
+expect("the new cohabitant appears in the unit's residents", cohabitant_entry is not None)
+if cohabitant_entry is not None:
+    status, _ = call("DELETE", f"/api/v1/units/{PROPERTY_UNIT_RESIDENT}/residents/{cohabitant_entry['id']}/permanent",
+                     None, resident)
+    expect(f"cohabitant revocation answers 204 (status {status})", status == 204)
+    status, residents = call("GET", f"/api/v1/units/{PROPERTY_UNIT_RESIDENT}/residents", None, resident)
+    entries = residents if isinstance(residents, list) else (residents or {}).get("data") or []
+    expect("the cohabitant no longer appears among active residents",
+           not any(cohabitant["document"] in json.dumps(e.get("persona") or {}) and e.get("estado") == "ACTIVO"
+                   for e in entries if isinstance(e, dict)))
+    revoked_token = login_with(cohabitant["email"], cohabitant["password"])
+    if revoked_token:
+        status, _ = call("GET", f"/api/v1/porteria/unidades/{PROPERTY_UNIT_RESIDENT}/visitas", None, revoked_token)
+        expect(f"revoked cohabitant has no unit access (status {status})", status in (401, 403))
+    else:
+        expect("revoked cohabitant cannot log in", True)
+
 print(f"\nFAILURES: {len(failures)}")
 for item in failures:
     print("  -", item)
