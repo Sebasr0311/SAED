@@ -1111,7 +1111,7 @@ public class Phase9PqrsUnifiedIntegrationTest {
                 .header("X-Assignment-Id", String.valueOf(ASSIGN_ADMIN_PROP_2)))
                 // Non-disclosure: a ticket of another property is indistinguishable from a missing one (404, as in Test 24).
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.message", containsString("no encontrado para la propiedad activa")));
+                .andExpect(jsonPath("$.message", containsString("Ticket PQRS no encontrado")));
     }
 
     @Test
@@ -1143,7 +1143,7 @@ public class Phase9PqrsUnifiedIntegrationTest {
                 .param("estado", "EN_GESTION"))
                 // Non-disclosure: a ticket of another property is indistinguishable from a missing one (404, as in Test 24).
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.message", containsString("no encontrado para la propiedad activa")));
+                .andExpect(jsonPath("$.message", containsString("Ticket PQRS no encontrado")));
     }
 
     @Test

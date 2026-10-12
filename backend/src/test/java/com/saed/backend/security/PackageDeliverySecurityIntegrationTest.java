@@ -234,6 +234,22 @@ public class PackageDeliverySecurityIntegrationTest {
         } catch (Exception ignored) {
         }
 
+        // The foreign-tenant user needs a real property/unit/assignment too: the session context is validated against
+        // USUARIO_ASIGNACIONES (ORA-20080 otherwise), and the test expects a clean 403/404, not a connection failure.
+        try {
+            jdbcTemplate.update("MERGE INTO PROPIEDADES p USING (SELECT 888888 AS id FROM DUAL) s ON (p.ID_PROPIEDAD = s.id) "
+                    + "WHEN NOT MATCHED THEN INSERT (ID_PROPIEDAD, ID_ORGANIZACION, ID_TIPO_PROPIEDAD, NOMBRE, DIRECCION, CIUDAD, TIPO_OCUPACION_PREDOMINANTE, ESTADO) "
+                    + "VALUES (888888, 888888, 1, 'Prop Alien 888888', 'Calle Alien 1', 'Bogota', 'MIXTA', 'ACTIVA')");
+            jdbcTemplate.update("MERGE INTO UNIDADES u USING (SELECT 888888 AS id FROM DUAL) s ON (u.ID_UNIDAD = s.id) "
+                    + "WHEN NOT MATCHED THEN INSERT (ID_UNIDAD, ID_PROPIEDAD, ID_TIPO_UNIDAD, IDENTIFICADOR, ESTADO) "
+                    + "VALUES (888888, 888888, 1, 'Alien-888888', 'ACTIVA')");
+            Long idRolResAlien = jdbcTemplate.queryForObject("SELECT ID_ROL FROM ROLES WHERE CODIGO = 'RESIDENTE'", Long.class);
+            jdbcTemplate.update("MERGE INTO USUARIO_ASIGNACIONES ua USING (SELECT 888 AS id FROM DUAL) s ON (ua.ID_ASIGNACION = s.id) "
+                    + "WHEN NOT MATCHED THEN INSERT (ID_ASIGNACION, ID_USUARIO, ID_ROL, ID_ORGANIZACION, ID_PROPIEDAD, ID_UNIDAD, ESTADO, FECHA_INICIO) "
+                    + "VALUES (888, 888888, ?, 888888, 888888, 888888, 'ACTIVA', TRUNC(SYSDATE))", idRolResAlien);
+        } catch (Exception ignored) {
+        }
+
         // Asignaciones
         try {
             jdbcTemplate.update("MERGE INTO USUARIO_ASIGNACIONES ua USING (SELECT 103 AS id, 3 AS u, ? AS r, 1 AS o, 1 AS p, "
@@ -342,11 +358,11 @@ public class PackageDeliverySecurityIntegrationTest {
         aAlien.setRol(new RoleDTO("RESIDENTE", "UNIDAD"));
         aAlien.setOrganizacion(new OrganizationDTO(888888L, "Org Alien"));
         PropertyDTO alienProp = new PropertyDTO();
-        alienProp.setId(888L);
+        alienProp.setId(888888L);
         alienProp.setIdOrganizacion(888888L);
         aAlien.setPropiedad(alienProp);
         UnitDTO alienUnit = new UnitDTO();
-        alienUnit.setId(888L);
+        alienUnit.setId(888888L);
         aAlien.setUnidad(alienUnit);
         Mockito.when(assignmentService.validateAssignment(888L, 888888L)).thenReturn(Optional.of(aAlien));
 

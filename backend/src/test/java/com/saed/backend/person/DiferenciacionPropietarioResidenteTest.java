@@ -86,7 +86,8 @@ public class DiferenciacionPropietarioResidenteTest {
             jdbcTemplate.update("INSERT INTO PERSONAS (ID_PERSONA, ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, PRIMER_NOMBRE, PRIMER_APELLIDO, EMAIL, ESTADO, ID_ORGANIZACION, ID_PROPIEDAD) "
                     + "VALUES (?, 1, '1000009970', 'NATURAL', 'Diferenciacion', 'Test', 'dif9970@saed.com', 'ACTIVO', 1, 1)", TEST_PERSONA_ID);
         }
-        jdbcTemplate.update("UPDATE PERSONAS SET ESTADO = 'ACTIVO' WHERE ID_PERSONA = ?", TEST_PERSONA_ID);
+        // The application start-up clears the tenant columns of persons without a household link, so they are set on every run.
+        jdbcTemplate.update("UPDATE PERSONAS SET ESTADO = 'ACTIVO', ID_ORGANIZACION = 1, ID_PROPIEDAD = 1 WHERE ID_PERSONA = ?", TEST_PERSONA_ID);
         cleanFixture();
         asPropertyAdmin();
     }

@@ -107,6 +107,9 @@ public class ConvivienteQuotaIntegrationTest {
                         + "VALUES (?, 1, ?, 'NATURAL', 'Cuota', 'Test', ?, 'ACTIVO', 1, 1)", id, "CQ" + id, "cq" + id + "@saed.com");
             }
         }
+        // The application start-up clears the tenant columns of persons without a household link, so they are set on every run.
+        jdbcTemplate.update("UPDATE PERSONAS SET ID_ORGANIZACION = 1, ID_PROPIEDAD = ?, ESTADO = 'ACTIVO' WHERE ID_PERSONA IN (?, ?, ?, ?, ?)",
+                TEST_PROP_ID, PERSONA_TITULAR, PERSONA_CONV_1, PERSONA_CONV_2, PERSONA_CONV_3, RESIDENT_USER_ID);
         Integer usr = jdbcTemplate.queryForObject("SELECT COUNT(1) FROM USUARIOS WHERE ID_USUARIO = ?", Integer.class, RESIDENT_USER_ID);
         if (usr == null || usr == 0) {
             jdbcTemplate.update("INSERT INTO USUARIOS (ID_USUARIO, ID_PERSONA, NOMBRE_USUARIO, EMAIL, HASH_PASSWORD, ESTADO) "
@@ -456,6 +459,11 @@ public class ConvivienteQuotaIntegrationTest {
         // Llenar el cupo
         unitInhabitantController.addResident(TEST_UNIT_ID, new UnitResidentRequestDTO(PERSONA_CONV_1, "CONVIVIENTE"));
         unitInhabitantController.addResident(TEST_UNIT_ID, new UnitResidentRequestDTO(PERSONA_CONV_2, "CONVIVIENTE"));
+
+        // UserRegistrationPolicy.authorizePerson: the target person must already belong to the caller's property
+        // (a non-conviviente household link, which does not consume quota).
+        jdbcTemplate.update("INSERT INTO RESIDENTES_UNIDAD (ID_UNIDAD, ID_PERSONA, TIPO_RESIDENTE, FECHA_INICIO, ESTADO) VALUES (?, ?, 'FAMILIAR', TRUNC(SYSDATE), 'ACTIVO')",
+                TEST_UNIT_ID, PERSONA_CONV_3);
 
         // Intentar crear un usuario con rol RESIDENTE_CONVIVENCIA para TEST_UNIT_ID
         String testUser = "conv_byp_" + System.currentTimeMillis();

@@ -234,6 +234,13 @@ public class ResidenteConvivenciaSecurityIntegrationTest {
 
         Long unitId = 100L;
 
+        // DEC-02: the service refuses SUPERADMIN, so the quota rule is exercised as the property administrator of a
+        // unit in its own property, adding persons of its organization (repository stubbed).
+        SaedContextHolder.setContext(SaedContext.builder().userId(2L).organizationId(1L).propertyId(1L)
+                .roleCode("ADMIN_PROPIEDAD").roleScope("PROPIEDAD").build());
+        when(mockRepo.findUnitScope(unitId)).thenReturn(java.util.Optional.of(new UnitInhabitantRepository.UnitScope(1L, 1L)));
+        when(mockRepo.personBelongsToOrganization(any(), any())).thenReturn(true);
+
         // 1. Registro con tipo FAMILIAR -> NO debe llamar a validateAndLockQuota
         UnitResidentRequestDTO reqFamiliar = new UnitResidentRequestDTO(1L, "FAMILIAR");
         service.addResident(unitId, reqFamiliar);
