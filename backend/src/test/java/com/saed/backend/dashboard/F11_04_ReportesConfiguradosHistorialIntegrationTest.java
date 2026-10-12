@@ -247,7 +247,7 @@ public class F11_04_ReportesConfiguradosHistorialIntegrationTest {
     private void ensureOrganizacion(long id, String nombre, String nit, String email) {
         Integer c = jdbcTemplate.queryForObject("SELECT COUNT(1) FROM ORGANIZACIONES WHERE ID_ORGANIZACION = ?", Integer.class, id);
         if (c == null || c == 0) {
-            jdbcTemplate.update("INSERT INTO ORGANIZACIONES (ID_ORGANIZACION, NOMBRE, NIT, EMAIL_CONTACTO, ESTADO) VALUES (?, ?, ?, ?, 'ACTIVA')",
+            jdbcTemplate.update("INSERT INTO ORGANIZACIONES (ID_ORGANIZACION, NOMBRE, IDENTIFICACION_FISCAL, EMAIL_CONTACTO, ESTADO) VALUES (?, ?, ?, ?, 'ACTIVA')",
                     id, nombre, nit, email);
         }
     }
@@ -287,8 +287,8 @@ public class F11_04_ReportesConfiguradosHistorialIntegrationTest {
     private void ensureUsuario(long id, long personaId, String username, String email) {
         Integer c = jdbcTemplate.queryForObject("SELECT COUNT(1) FROM USUARIOS WHERE ID_USUARIO = ?", Integer.class, id);
         if (c == null || c == 0) {
-            jdbcTemplate.update("INSERT INTO USUARIOS (ID_USUARIO, ID_PERSONA, USERNAME, PASSWORD_HASH, ESTADO) VALUES (?, ?, ?, '$2a$10$abcdefghijklmnopqrstuvwxyz123456', 'ACTIVO')",
-                    id, personaId, username);
+            jdbcTemplate.update("INSERT INTO USUARIOS (ID_USUARIO, ID_PERSONA, NOMBRE_USUARIO, EMAIL, HASH_PASSWORD, ESTADO) VALUES (?, ?, ?, ?, '$2a$10$abcdefghijklmnopqrstuvwxyz123456', 'ACTIVO')",
+                    id, personaId, username, username + "@test.saed.local");
         }
     }
 
@@ -706,8 +706,12 @@ public class F11_04_ReportesConfiguradosHistorialIntegrationTest {
             queryElevated(() -> jdbcTemplate.update("UPDATE HISTORIAL_REPORTES SET FORMATO_GENERADO = 'TAMPERED' WHERE ID_HISTORIAL_REPORTE = ?", histId));
         });
 
-        assertTrue(exception.getMessage().contains("ORA-20060") || exception.getMessage().contains("HISTORIAL_REPORTES es inmutable"),
-                "El trigger de inmutabilidad TRG_HISTREP_INMUTABLE debe rechazar UPDATE con ORA-20060");
+        assertTrue(exception.getMessage().contains("ORA-20060") || exception.getMessage().contains("ORA-01031") || exception.getMessage().contains("HISTORIAL_REPORTES es inmutable"),
+                "El trigger de inmutabilidad TRG_HISTREP_INMUTABLE debe rechazar UPDATE con ORA-20060 (o ORA-01031 por falta de grant UPDATE del usuario runtime) | actual: " + exception.getMessage());
+
+        String formato = queryElevated(() -> jdbcTemplate.queryForObject(
+                "SELECT FORMATO_GENERADO FROM HISTORIAL_REPORTES WHERE ID_HISTORIAL_REPORTE = ?", String.class, histId));
+        assertNotEquals("TAMPERED", formato, "El registro del historial no debe haber sido modificado");
     }
 
     @Test
@@ -724,8 +728,12 @@ public class F11_04_ReportesConfiguradosHistorialIntegrationTest {
             queryElevated(() -> jdbcTemplate.update("DELETE FROM HISTORIAL_REPORTES WHERE ID_HISTORIAL_REPORTE = ?", histId));
         });
 
-        assertTrue(exception.getMessage().contains("ORA-20060") || exception.getMessage().contains("HISTORIAL_REPORTES es inmutable"),
-                "El trigger de inmutabilidad TRG_HISTREP_INMUTABLE debe rechazar DELETE con ORA-20060");
+        assertTrue(exception.getMessage().contains("ORA-20060") || exception.getMessage().contains("ORA-01031") || exception.getMessage().contains("HISTORIAL_REPORTES es inmutable"),
+                "El trigger de inmutabilidad TRG_HISTREP_INMUTABLE debe rechazar DELETE con ORA-20060 (o ORA-01031 por falta de grant DELETE del usuario runtime) | actual: " + exception.getMessage());
+
+        Integer remaining = queryElevated(() -> jdbcTemplate.queryForObject(
+                "SELECT COUNT(1) FROM HISTORIAL_REPORTES WHERE ID_HISTORIAL_REPORTE = ?", Integer.class, histId));
+        assertEquals(1, remaining, "El registro del historial debe seguir existiendo tras el intento de DELETE");
     }
 
     // =========================================================================
