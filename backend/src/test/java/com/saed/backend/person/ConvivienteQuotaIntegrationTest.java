@@ -80,13 +80,6 @@ public class ConvivienteQuotaIntegrationTest {
         } catch (Exception ignored) {}
 
         try {
-            jdbcTemplate.execute("ALTER TABLE RESIDENTES_UNIDAD DROP CONSTRAINT CK_RESIDUNIDAD_TIPO");
-        } catch (Exception ignored) {}
-        try {
-            jdbcTemplate.execute("ALTER TABLE RESIDENTES_UNIDAD ADD CONSTRAINT CK_RESIDUNIDAD_TIPO CHECK (tipo_residente IN ('PROPIETARIO', 'ARRENDATARIO', 'FAMILIAR', 'CONVIVIENTE', 'OTRO', 'TITULAR'))");
-        } catch (Exception ignored) {}
-
-        try {
             fixture();
         } catch (RuntimeException e) {
             throw new IllegalStateException("ConvivienteQuota fixture failed", e);

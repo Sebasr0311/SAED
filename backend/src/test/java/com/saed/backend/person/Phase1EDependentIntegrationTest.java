@@ -71,7 +71,7 @@ public class Phase1EDependentIntegrationTest {
         try {
             jdbcTemplate.update("MERGE INTO PERSONAS p USING (SELECT 4 AS id, 1 AS td, 'CC4000' AS nd, 'NATURAL' AS tp, 'Carlos' AS pn, 'Martinez' AS pa, 'camartinez@saed.com' AS em FROM DUAL) s ON (p.ID_PERSONA = s.id) WHEN NOT MATCHED THEN INSERT (ID_PERSONA, ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, PRIMER_NOMBRE, PRIMER_APELLIDO, EMAIL) VALUES (s.id, s.td, s.nd, s.tp, s.pn, s.pa, s.em)");
             jdbcTemplate.update("MERGE INTO USUARIOS u USING (SELECT 4 AS id, 4 AS ip, 'camartinez' AS nu, 'camartinez@saed.com' AS em, '$2a$10$abcdef' AS pw, 'ACTIVO' AS st FROM DUAL) s ON (u.ID_USUARIO = s.id) WHEN NOT MATCHED THEN INSERT (ID_USUARIO, ID_PERSONA, NOMBRE_USUARIO, EMAIL, HASH_PASSWORD, ESTADO) VALUES (s.id, s.ip, s.nu, s.em, s.pw, s.st) WHEN MATCHED THEN UPDATE SET u.ESTADO = 'ACTIVO'");
-            jdbcTemplate.update("MERGE INTO RESIDENTES_UNIDAD ru USING (SELECT 1 AS u, 4 AS p, 'TITULAR' AS tr, 'ACTIVO' AS st FROM DUAL) s ON (ru.ID_UNIDAD = s.u AND ru.ID_PERSONA = s.p) WHEN NOT MATCHED THEN INSERT (ID_UNIDAD, ID_PERSONA, TIPO_RESIDENTE, ESTADO) VALUES (s.u, s.p, s.tr, s.st) WHEN MATCHED THEN UPDATE SET ru.ESTADO = 'ACTIVO', ru.TIPO_RESIDENTE = 'TITULAR'");
+            jdbcTemplate.update("MERGE INTO RESIDENTES_UNIDAD ru USING (SELECT 1 AS u, 4 AS p, 'PROPIETARIO' AS tr, 'ACTIVO' AS st FROM DUAL) s ON (ru.ID_UNIDAD = s.u AND ru.ID_PERSONA = s.p) WHEN NOT MATCHED THEN INSERT (ID_UNIDAD, ID_PERSONA, TIPO_RESIDENTE, ESTADO) VALUES (s.u, s.p, s.tr, s.st) WHEN MATCHED THEN UPDATE SET ru.ESTADO = 'ACTIVO', ru.TIPO_RESIDENTE = 'PROPIETARIO'");
         } catch (Exception e) {
             System.err.println("SETUP USER 4 ERROR: " + e.getMessage());
         }
