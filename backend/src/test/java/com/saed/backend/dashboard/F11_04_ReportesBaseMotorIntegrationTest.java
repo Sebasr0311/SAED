@@ -230,10 +230,10 @@ public class F11_04_ReportesBaseMotorIntegrationTest {
             VALUES (?, ?, '2026-08', 500000, 500000, 'VENCIDA', DATE '2026-08-15')
         """, UNIDAD_2_ID, CONCEPTO_2_ID);
 
-        // Pago en Prop 1 (Unidad 9101) con timestamp reciente para aparecer primero en orden desc
+        // Pago en Prop 1 (Unidad 9101) con timestamp futuro: aparece primero en orden desc aunque otras suites registren pagos con la fecha actual
         jdbcTemplate.update("""
             INSERT INTO PAGOS (ID_UNIDAD, MONTO_TOTAL, METODO_PAGO, ESTADO, FECHA_PAGO, REFERENCIA_COMPROBANTE)
-            VALUES (?, 200000, 'TRANSFERENCIA', 'APROBADO', TIMESTAMP '2026-09-30 14:30:00', 'REF-PAGO-001')
+            VALUES (?, 200000, 'TRANSFERENCIA', 'APROBADO', SYSTIMESTAMP + INTERVAL '1' DAY, 'REF-PAGO-001')
         """, UNIDAD_1_ID);
     }
 

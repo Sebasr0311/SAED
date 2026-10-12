@@ -134,8 +134,10 @@ public class DebidoProcesoSancionesIntegrationTest {
     private void cleanFixture() {
         jdbcTemplate.update("DELETE FROM SANCION_DESCARGOS WHERE ID_SANCION IN (SELECT ID_SANCION FROM SANCIONES WHERE ID_UNIDAD = ?)", testUnidadId);
         jdbcTemplate.update("DELETE FROM PAGO_DETALLE WHERE ID_CUOTA IN (SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD = ? AND ID_CUOTA > 3)", testUnidadId);
-        jdbcTemplate.update("DELETE FROM MULTAS WHERE ID_UNIDAD = ?", testUnidadId);
+        // CUOTAS.ID_MULTA_ORIGEN and MULTAS.ID_CUOTA reference each other: detach the fine before removing the fees.
+        jdbcTemplate.update("UPDATE MULTAS SET ID_CUOTA = NULL WHERE ID_UNIDAD = ?", testUnidadId);
         jdbcTemplate.update("DELETE FROM CUOTAS WHERE ID_UNIDAD = ? AND ID_CUOTA > 3", testUnidadId);
+        jdbcTemplate.update("DELETE FROM MULTAS WHERE ID_UNIDAD = ?", testUnidadId);
         jdbcTemplate.update("DELETE FROM SANCIONES WHERE ID_UNIDAD = ?", testUnidadId);
     }
 
@@ -404,15 +406,19 @@ public class DebidoProcesoSancionesIntegrationTest {
         assertFalse(multas.isEmpty());
         Long idMulta = ((Number) multas.get(0).get("ID_MULTA")).longValue();
 
-        // 1. Pagar multa
-        ResponseEntity<Void> pagarResp = multasController.pagarMulta(idMulta, Map.of("metodoPago", "TRANSFERENCIA"));
-        assertEquals(200, pagarResp.getStatusCode().value());
+        // 1. de09f16 (F10-06): a resolved fine is posted to the receivables as a fee, so it is collected only through
+        // that fee and a direct fine payment is rejected (never collected twice).
+        IllegalStateException posted = assertThrows(IllegalStateException.class,
+                () -> multasController.pagarMulta(idMulta, Map.of("metodoPago", "TRANSFERENCIA")));
+        assertTrue(posted.getMessage().contains("cartera"), posted.getMessage());
 
-        MultaDTO pagada = multasController.getMultaById(idMulta).getBody();
-        assertEquals("PAGADA", pagada.getEstado());
+        MultaDTO sinPagar = multasController.getMultaById(idMulta).getBody();
+        assertEquals("IMPUESTA", sinPagar.getEstado());
 
-        // 2. Intentar anular una multa ya PAGADA -> debe lanzar IllegalStateException
-        assertThrows(IllegalStateException.class, () -> multasController.anularMulta(idMulta));
+        // 2. Anulling a fine with a posted fee is a valid transition from IMPUESTA
+        ResponseEntity<Void> anularResp = multasController.anularMulta(idMulta);
+        assertEquals(200, anularResp.getStatusCode().value());
+        assertEquals("ANULADA", multasController.getMultaById(idMulta).getBody().getEstado());
     }
 
     @Test
