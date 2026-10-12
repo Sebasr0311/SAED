@@ -83,6 +83,9 @@ public interface AsambleaRepository {
     /** Active legal ownership (PROPIETARIOS_UNIDAD ESTADO = 'ACTIVO' and not ended). */
     boolean esPropietarioLegalActivo(Long idUnidad, Long idPersona);
 
+    /** Whether the persona exists in the organization (PERSONAS has no RLS, so the organization is checked explicitly). */
+    boolean personaPerteneceAOrganizacion(Long idPersona, Long idOrganizacion);
+
     /** The unit has an attendance row in the assembly that has not been withdrawn. */
     boolean tieneAsistenciaVigente(Long idAsamblea, Long idUnidad);
 

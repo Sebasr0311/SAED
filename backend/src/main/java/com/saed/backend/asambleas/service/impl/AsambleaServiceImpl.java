@@ -12,6 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -51,6 +52,9 @@ public class AsambleaServiceImpl implements AsambleaService {
         }
         throw new IllegalStateException("No hay una propiedad activa en el contexto de sesión");
     }
+
+    private static final Set<String> RESIDENT_ROLES =
+            Set.of("RESIDENTE", "RESIDENTE_CONVIVENCIA", "PROPIETARIO", "PROPIETARIO_UNIDAD");
 
     private Long resolveUserId() {
         SaedContext ctx = SaedContextHolder.getContext();
@@ -292,6 +296,17 @@ public class AsambleaServiceImpl implements AsambleaService {
     public PoderDTO radicarPoder(Long idAsamblea, PoderRequestDTO request) {
         AsambleaDTO asamblea = obtenerDetalleAsamblea(idAsamblea);
 
+        // A resident files only as the grantor: the caller's own persona must be the unit's active owner.
+        SaedContext filer = SaedContextHolder.getContext();
+        if (filer != null && filer.getRoleCode() != null && RESIDENT_ROLES.contains(filer.getRoleCode().toUpperCase())) {
+            Long callerPersonaId = repository.findPersonaUsuario(filer.getUserId());
+            if (callerPersonaId == null
+                    || !callerPersonaId.equals(request.getIdPersonaPropietario())
+                    || !repository.esPropietarioLegalActivo(request.getIdUnidad(), callerPersonaId)) {
+                throw new AccessDeniedException("Solo el propietario de la unidad puede radicar su poder de representación");
+            }
+        }
+
         if (Objects.equals(request.getIdPersonaPropietario(), request.getIdPersonaApoderado())) {
             throw new IllegalArgumentException("El propietario no puede otorgarse poder de representación a sí mismo");
         }
@@ -299,6 +314,13 @@ public class AsambleaServiceImpl implements AsambleaService {
         Long propUnidad = repository.findPropiedadUnidad(request.getIdUnidad());
         if (propUnidad == null || !propUnidad.equals(asamblea.getIdPropiedad())) {
             throw new IllegalArgumentException("La unidad ID " + request.getIdUnidad() + " no pertenece a la copropiedad de la asamblea");
+        }
+
+        if (!repository.esPropietarioLegalActivo(request.getIdUnidad(), request.getIdPersonaPropietario())) {
+            throw new IllegalArgumentException("La persona indicada no es propietaria vigente de la unidad ID " + request.getIdUnidad());
+        }
+        if (!repository.personaPerteneceAOrganizacion(request.getIdPersonaApoderado(), asamblea.getIdOrganizacion())) {
+            throw new IllegalArgumentException("El apoderado indicado no existe en la organización de la asamblea");
         }
 
         if (repository.existePoderUnidad(idAsamblea, request.getIdUnidad())) {

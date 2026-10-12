@@ -696,6 +696,16 @@ public class AsambleaRepositoryImpl implements AsambleaRepository {
     }
 
     @Override
+    public boolean personaPerteneceAOrganizacion(Long idPersona, Long idOrganizacion) {
+        if (idPersona == null || idOrganizacion == null) return false;
+        String sql = "SELECT COUNT(1) FROM PERSONAS WHERE ID_PERSONA = :idPersona AND ID_ORGANIZACION = :idOrganizacion";
+        Integer count = jdbcTemplate.queryForObject(sql, new MapSqlParameterSource()
+                .addValue("idPersona", idPersona)
+                .addValue("idOrganizacion", idOrganizacion), Integer.class);
+        return count != null && count > 0;
+    }
+
+    @Override
     public boolean tieneAsistenciaVigente(Long idAsamblea, Long idUnidad) {
         String sql = "SELECT COUNT(1) FROM ASISTENCIAS_ASAMBLEA " +
                 "WHERE ID_ASAMBLEA = :idAsamblea AND ID_UNIDAD = :idUnidad AND HORA_RETIRO IS NULL";
