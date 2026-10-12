@@ -403,3 +403,10 @@ Defects found and fixed during this attempt:
 - Audit advice ordering (`6d44970`): the transaction advisor and the audit aspect shared the default precedence, so nesting was unspecified. A losing concurrent approval held its connection while its REQUIRES_NEW failure audit waited for another, and the timed-out audit replaced the 409 with a 503. recovery-21's clean run was ordering luck. The transaction order is now explicit: success audits run inside the transaction, failure audits run outermost after rollback, and a failing audit never replaces the business exception. The audited IP comes from `ClientRequestInfo`.
 - `ResAsambleasPage` offered proxy filing to cohabitants and requested owners/residents they may not read (403); proxy filing is now limited to owners (`975ae7e`).
 - Ley 675: DEC-11 first measured majorities over the weight cast; corrected to Art. 45 (represented coefficients) and Art. 46 (total property coefficients).
+
+## Household and gatehouse registration (resident relation, administrator account creation)
+
+- Resident registration stored `TIPO_RESIDENTE = 'TITULAR'`, a value no migration allows (`CK_RESIDUNIDAD_TIPO` is V5.0 extended with `CONVIVIENTE` by V5.9). It now stores `PROPIETARIO` or `ARRENDATARIO` from the optional `tipoResidente` request field (default `PROPIETARIO`, DEC-12); `TITULAR` was removed from the startup DDL classes and from the SQL reads.
+- A property or organization administrator could not register any new account: `FN_FILTRO_USUARIOS` (V5.64) admits only accounts that already hold an assignment, so the insert failed with ORA-28115 (HTTP 403). V5.68 (`SP_REGISTRAR_CUENTA`, security schema) creates the account row after validating the caller from the session context; the assignment is still inserted by the administrator under the policies.
+- Tests no longer alter the shared schema (`TestSchemaImmutabilityGuardTest`); the `Phase1DPersonIntegrationTest` org-admin fixture is test-owned and deterministic.
+- End-to-end scenario: `python -B scripts/verification/household_gatehouse_scenario.py <state> <container> <port>`.
