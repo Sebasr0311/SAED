@@ -685,8 +685,7 @@ public class StorageQuotaSecurityTest {
         // Documento solicitando 8 MB adicionales (supera 1 GB). The JSON endpoint no longer accepts archivoUrl
         // (documents are uploaded through /documentos/upload), so the quota is exercised with a real multipart upload.
         byte[] pdf = new byte[8 * 1024 * 1024];
-        byte[] header = "%PDF-1.4
-".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+        byte[] header = "%PDF-1.4 ".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
         System.arraycopy(header, 0, pdf, 0, header.length);
 
         mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart("/api/v1/documentos/upload")

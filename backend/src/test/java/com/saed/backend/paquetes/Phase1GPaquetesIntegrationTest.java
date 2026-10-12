@@ -40,8 +40,11 @@ public class Phase1GPaquetesIntegrationTest {
     public void setupMocks() {
         com.saed.backend.context.SaedContextHolder.setContext(com.saed.backend.context.SaedContext.builder().userId(1L).organizationId(1L).propertyId(1L).roleCode("SUPERADMIN").roleScope("GLOBAL").build());
         jdbcTemplate.execute("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1); PKG_SAED_SESSION.SET_CONTEXT(1, 1, 1, 'SUPERADMIN'); END;");
-        try { jdbcTemplate.update("DELETE FROM ENTREGAS_PAQUETE"); } catch (Exception e) {}
-        try { jdbcTemplate.update("DELETE FROM PAQUETES"); } catch (Exception e) {}
+        // Only this suite's own rows (property 999992); the demo packages must survive.
+        try { jdbcTemplate.update("DELETE FROM ENTREGAS_PAQUETE WHERE ID_PAQUETE IN (SELECT ID_PAQUETE FROM PAQUETES WHERE ID_PROPIEDAD = 999992)"); } catch (Exception e) {}
+        try { jdbcTemplate.update("DELETE FROM PAQUETES WHERE ID_PROPIEDAD = 999992"); } catch (Exception e) {}
+        try { jdbcTemplate.update("DELETE FROM PORTERIAS WHERE ID_PORTERIA = 999992"); } catch (Exception e) {}
+        try { jdbcTemplate.update("DELETE FROM MEMBRESIAS WHERE ID_ORGANIZACION = 999992"); } catch (Exception e) {}
         try { jdbcTemplate.update("DELETE FROM ADMINISTRADORES_SAED WHERE ID_USUARIO IN (999992, 999993)"); } catch (Exception e) {}
         try { jdbcTemplate.update("DELETE FROM USUARIO_ASIGNACIONES WHERE ID_USUARIO IN (999992, 999993)"); } catch (Exception e) {}
         try { jdbcTemplate.update("DELETE FROM USUARIOS WHERE ID_USUARIO IN (999992, 999993)"); } catch (Exception e) {}
@@ -55,8 +58,10 @@ public class Phase1GPaquetesIntegrationTest {
         try { jdbcTemplate.update("INSERT INTO ADMINISTRADORES_SAED (ID_ADMINISTRADOR_SAED, ID_USUARIO, NIVEL, ESTADO) VALUES (999992, 999992, 'SUPERADMIN', 'ACTIVO')"); } catch (Exception e) {}
         
         try { jdbcTemplate.update("INSERT INTO ORGANIZACIONES (ID_ORGANIZACION, NOMBRE, IDENTIFICACION_FISCAL, EMAIL_CONTACTO) VALUES (999992, 'Org 999992', 'NIT999992', 'org@test.com')"); } catch (Exception e) {}
+        // The PAQUETES module requires an active membership (MODULE_NOT_ENTITLED otherwise); the ENTERPRISE plan includes it (PAQUETES is not enabled in FREE).
+        try { jdbcTemplate.update("INSERT INTO MEMBRESIAS (ID_ORGANIZACION, ID_PLAN, ESTADO, FECHA_INICIO, FECHA_FIN, ES_PRUEBA) VALUES (999992, (SELECT ID_PLAN FROM PLANES WHERE CODIGO = 'ENTERPRISE'), 'ACTIVA', TRUNC(SYSDATE), TRUNC(SYSDATE) + 365, 'N')"); } catch (Exception e) {}
         try { jdbcTemplate.update("INSERT INTO PROPIEDADES (ID_PROPIEDAD, ID_ORGANIZACION, ID_TIPO_PROPIEDAD, NOMBRE, DIRECCION, CIUDAD, PAIS) VALUES (999992, 999992, 1, 'Prop999992', 'Dir1', 'Cid1', 'COL')"); } catch (Exception e) {}
-        try { jdbcTemplate.update("INSERT INTO PORTERIAS (ID_PORTERIA, ID_PROPIEDAD, NOMBRE, ESTADO) VALUES (1, 999992, 'Porteria Principal', 'ACTIVA')"); } catch (Exception e) {}
+        try { jdbcTemplate.update("INSERT INTO PORTERIAS (ID_PORTERIA, ID_PROPIEDAD, NOMBRE, ESTADO) VALUES (999992, 999992, 'Porteria Principal', 'ACTIVA')"); } catch (Exception e) {}
         try { jdbcTemplate.update("INSERT INTO UNIDADES (ID_UNIDAD, ID_PROPIEDAD, IDENTIFICADOR, ID_TIPO_UNIDAD, AREA_M2) VALUES (999992, 999992, 'UNIDAD999992', 1, 100)"); } catch (Exception e) {}
 
         try { jdbcTemplate.update("INSERT INTO PERSONAS (ID_PERSONA, ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, EMAIL, PRIMER_NOMBRE, PRIMER_APELLIDO) VALUES (999993, 1, 'DOC999993', 'NATURAL', 'u999993@test.com', 'N3', 'A3')"); } catch (Exception e) {}
@@ -91,7 +96,7 @@ public class Phase1GPaquetesIntegrationTest {
             "Caja amazon",
             "MEDIANO",
             null,
-            1L
+            999992L
         );
 
         String token = jwtProvider.generateIdentityToken(999992L);

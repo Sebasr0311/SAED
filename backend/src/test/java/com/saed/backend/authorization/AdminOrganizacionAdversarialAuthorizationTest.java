@@ -63,11 +63,11 @@ public class AdminOrganizacionAdversarialAuthorizationTest {
 
         // 1. Seed Tenant A (999993)
         try { jdbcTemplate.update("MERGE INTO ORGANIZACIONES o USING (SELECT 999993 AS id, 'Org Test 999993' AS n, 'NIT999993' AS if, 'org999993@test.com' AS ec FROM DUAL) s ON (o.ID_ORGANIZACION = s.id) WHEN NOT MATCHED THEN INSERT (ID_ORGANIZACION, NOMBRE, IDENTIFICACION_FISCAL, EMAIL_CONTACTO) VALUES (s.id, s.n, s.if, s.ec) WHEN MATCHED THEN UPDATE SET o.EMAIL_CONTACTO = s.ec"); } catch (Exception ignored) {}
-        try { jdbcTemplate.update("MERGE INTO PROPIEDADES pr USING (SELECT 999993 AS id, 999993 AS o, 1 AS t, 'Prop Test 999993' AS n, 'ACTIVA' AS st FROM DUAL) s ON (pr.ID_PROPIEDAD = s.id) WHEN NOT MATCHED THEN INSERT (ID_PROPIEDAD, ID_ORGANIZACION, ID_TIPO_PROPIEDAD, NOMBRE, ESTADO) VALUES (s.id, s.o, s.t, s.n, s.st)"); } catch (Exception ignored) {}
+        try { jdbcTemplate.update("MERGE INTO PROPIEDADES pr USING (SELECT 999993 AS id, 999993 AS o, 1 AS t, 'Prop Test 999993' AS n, 'ACTIVA' AS st FROM DUAL) s ON (pr.ID_PROPIEDAD = s.id) WHEN NOT MATCHED THEN INSERT (ID_PROPIEDAD, ID_ORGANIZACION, ID_TIPO_PROPIEDAD, NOMBRE, DIRECCION, CIUDAD, ESTADO) VALUES (s.id, s.o, s.t, s.n, 'Calle Test 1', 'Bogota', s.st)"); } catch (Exception ignored) {}
 
         // 2. Seed Tenant B (888888)
         try { jdbcTemplate.update("MERGE INTO ORGANIZACIONES o USING (SELECT 888888 AS id, 'Org Test 888888' AS n, 'NIT888888' AS if, 'org888888@test.com' AS ec FROM DUAL) s ON (o.ID_ORGANIZACION = s.id) WHEN NOT MATCHED THEN INSERT (ID_ORGANIZACION, NOMBRE, IDENTIFICACION_FISCAL, EMAIL_CONTACTO) VALUES (s.id, s.n, s.if, s.ec) WHEN MATCHED THEN UPDATE SET o.EMAIL_CONTACTO = s.ec"); } catch (Exception ignored) {}
-        try { jdbcTemplate.update("MERGE INTO PROPIEDADES pr USING (SELECT 888888 AS id, 888888 AS o, 1 AS t, 'Prop Test 888888' AS n, 'ACTIVA' AS st FROM DUAL) s ON (pr.ID_PROPIEDAD = s.id) WHEN NOT MATCHED THEN INSERT (ID_PROPIEDAD, ID_ORGANIZACION, ID_TIPO_PROPIEDAD, NOMBRE, ESTADO) VALUES (s.id, s.o, s.t, s.n, s.st)"); } catch (Exception ignored) {}
+        try { jdbcTemplate.update("MERGE INTO PROPIEDADES pr USING (SELECT 888888 AS id, 888888 AS o, 1 AS t, 'Prop Test 888888' AS n, 'ACTIVA' AS st FROM DUAL) s ON (pr.ID_PROPIEDAD = s.id) WHEN NOT MATCHED THEN INSERT (ID_PROPIEDAD, ID_ORGANIZACION, ID_TIPO_PROPIEDAD, NOMBRE, DIRECCION, CIUDAD, ESTADO) VALUES (s.id, s.o, s.t, s.n, 'Calle Test 1', 'Bogota', s.st)"); } catch (Exception ignored) {}
 
         // 3. Seed Users & Personas
         try { jdbcTemplate.update("INSERT INTO PERSONAS (ID_PERSONA, ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, EMAIL, PRIMER_NOMBRE, PRIMER_APELLIDO) VALUES (999993, 1, 'DOC999993', 'NATURAL', 'admin2@test.com', 'N2', 'A2')"); } catch (Exception ignored) {}
@@ -246,13 +246,14 @@ public class AdminOrganizacionAdversarialAuthorizationTest {
     // ==========================================
 
     @Test
-    @DisplayName("ADMIN_ORGANIZACION no puede consultar multas operativas de copropiedad")
-    public void adminOrg_cannotAccessMultas() throws Exception {
+    @DisplayName("ADMIN_ORGANIZACION puede consultar las multas de su organizacion (3206461)")
+    public void adminOrg_canListMultas() throws Exception {
+        // 3206461 opened GET /multas/todas (and the other fine management routes) to ADMIN_ORGANIZACION.
         String token = jwtProvider.generateIdentityToken(999993L);
         mockMvc.perform(get("/api/v1/multas/todas")
                 .header("Authorization", "Bearer " + token)
                 .header("X-Assignment-Id", orgAdminAssignment))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isOk());
     }
 
     @Test
@@ -450,7 +451,7 @@ public class AdminOrganizacionAdversarialAuthorizationTest {
                 "direccion": "Calle 1 # 2-3",
                 "ciudad": "Bogotá",
                 "pais": "Colombia",
-                "tipoOcupacionPredominante": "RESIDENCIAL"
+                "tipoOcupacionPredominante": "MIXTA"
             }
         """;
 

@@ -268,8 +268,8 @@ public class Phase9FinalCertificationAdversarialTest {
     private void ensureUnidad(Long idU, Long idP, String ident) {
         Integer c = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM UNIDADES WHERE ID_UNIDAD = ?", Integer.class, idU);
         if (c == null || c == 0) {
-            jdbcTemplate.update("INSERT INTO UNIDADES (ID_UNIDAD, ID_PROPIEDAD, IDENTIFICADOR, TIPO_UNIDAD, COEFICIENTE_COPROPIEDAD, ESTADO) " +
-                    "VALUES (?, ?, ?, 'RESIDENCIAL', 0.05, 'DISPONIBLE')", idU, idP, ident);
+            jdbcTemplate.update("INSERT INTO UNIDADES (ID_UNIDAD, ID_PROPIEDAD, ID_TIPO_UNIDAD, IDENTIFICADOR, COEFICIENTE_COPROPIEDAD, ESTADO) " +
+                    "VALUES (?, ?, 1, ?, 0.05, 'ACTIVA')", idU, idP, ident);
         }
     }
 
@@ -342,7 +342,8 @@ public class Phase9FinalCertificationAdversarialTest {
         mockMvc.perform(get("/api/v1/incidentes/" + idIncidenteProp2)
                         .header("Authorization", "Bearer " + tokenAdminProp1)
                         .header("X-Assignment-Id", ASSIGN_ADMIN_PROP1))
-                .andExpect(status().isBadRequest())
+                // Non-disclosure (DEC-01): the incident of another property answers 404 "Incidente no encontrado".
+                .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.success").value(false));
     }
 
@@ -446,7 +447,8 @@ public class Phase9FinalCertificationAdversarialTest {
                         .header("X-Assignment-Id", ASSIGN_ADMIN_PROP1)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"conclusiones\": \"Cierre cruzado no permitido\"}"))
-                .andExpect(status().isBadRequest())
+                // Non-disclosure (DEC-01): a foreign incident cannot be told apart from a missing one (404).
+                .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.success").value(false));
     }
 

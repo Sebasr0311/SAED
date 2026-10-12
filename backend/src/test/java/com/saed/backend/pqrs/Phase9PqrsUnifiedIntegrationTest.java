@@ -247,8 +247,8 @@ public class Phase9PqrsUnifiedIntegrationTest {
     private void ensureUnidad(Long idUnidad, Long idProp, String ident) {
         Integer c = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM UNIDADES WHERE ID_UNIDAD = ?", Integer.class, idUnidad);
         if (c == null || c == 0) {
-            jdbcTemplate.update("INSERT INTO UNIDADES (ID_UNIDAD, ID_PROPIEDAD, IDENTIFICADOR, TIPO_UNIDAD, COEFICIENTE_COPROPIEDAD, ESTADO) " +
-                    "VALUES (?, ?, ?, 'RESIDENCIAL', 0.05, 'DISPONIBLE')", idUnidad, idProp, ident);
+            jdbcTemplate.update("INSERT INTO UNIDADES (ID_UNIDAD, ID_PROPIEDAD, ID_TIPO_UNIDAD, IDENTIFICADOR, COEFICIENTE_COPROPIEDAD, ESTADO) " +
+                    "VALUES (?, ?, 1, ?, 0.05, 'ACTIVA')", idUnidad, idProp, ident);
         }
     }
 
