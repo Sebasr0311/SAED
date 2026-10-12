@@ -202,8 +202,14 @@ class UserRegistrationAuthorizationTest {
     }
 
     @Test
-    void residentCanRegisterConvivienteWithOwnUnitQuotaAndPreservedContext() {
+    void residentCanRegisterConvivienteWithOwnUnitQuotaAndPreservedContext() throws Exception {
         freshRegistration();
+        // V5.66: the resident session creates the account only through the security-schema procedure.
+        java.sql.CallableStatement statement = mock(java.sql.CallableStatement.class);
+        when(statement.getLong(7)).thenReturn(77L);
+        when(operations.execute(anyString(), any(org.springframework.jdbc.core.CallableStatementCallback.class)))
+                .thenAnswer(invocation -> ((org.springframework.jdbc.core.CallableStatementCallback<?>)
+                        invocation.getArgument(1)).doInCallableStatement(statement));
         SaedContext original = SaedContextHolder.getContext();
         original.setRoleCode("RESIDENTE");
         var request = new java.util.HashMap<>(payload());
