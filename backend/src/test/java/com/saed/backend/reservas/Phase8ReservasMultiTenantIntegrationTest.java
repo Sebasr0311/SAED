@@ -696,8 +696,8 @@ public class Phase8ReservasMultiTenantIntegrationTest {
     }
 
     @Test
-    @DisplayName("17 — Rol Superadmin: Acceso global y lectura de reservas entre distintas copropiedades")
-    void test17_RolSuperadmin_AccesoGlobalAutorizado() throws Exception {
+    @DisplayName("17 — Rol Superadmin: sin acceso operacional a reservas de ninguna copropiedad (DEC-02)")
+    void test17_RolSuperadmin_SinAccesoOperacional() throws Exception {
         Long rProp1 = crearReservaDirecta(ZONA_1_ID, UNIT_1_ID, USER_RESIDENTE_1,
                 LocalDate.now().plusDays(11), "09:00", "10:00", "PENDIENTE");
         Long rProp2 = crearReservaDirecta(ZONA_3_ID, UNIT_3_ID, USER_RESIDENTE_PROP_2,
@@ -706,14 +706,13 @@ public class Phase8ReservasMultiTenantIntegrationTest {
         mockMvc.perform(get("/api/v1/reservas/" + rProp1)
                 .header("Authorization", "Bearer " + tokenSuperAdmin)
                 .header("X-Assignment-Id", String.valueOf(ASSIGN_SUPERADMIN)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.idReserva", is(rProp1.intValue())));
+                // DEC-02 / ReservasServiceImpl: SUPERADMIN never reads operational reservation data.
+                .andExpect(status().isForbidden());
 
         mockMvc.perform(get("/api/v1/reservas/" + rProp2)
                 .header("Authorization", "Bearer " + tokenSuperAdmin)
                 .header("X-Assignment-Id", String.valueOf(ASSIGN_SUPERADMIN)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.idReserva", is(rProp2.intValue())));
+                .andExpect(status().isForbidden());
     }
 
     @Test

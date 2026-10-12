@@ -333,6 +333,8 @@ public class F10VotacionesIntegrationTest {
                             "VALUES (?, 1, ?, ?, ?, ?, 'ACTIVO')",
                     id, doc, nombre, apellido, email);
         }
+        // A proxy (apoderado) must belong to the assembly's organization (AsambleaServiceImpl.radicarPoder).
+        jdbcTemplate.update("UPDATE PERSONAS SET ID_ORGANIZACION = ? WHERE ID_PERSONA = ? AND ID_ORGANIZACION IS NULL", ORG_1_ID, id);
     }
 
     private void ensureUsuario(long id, long idPersona, String username, String email) {
@@ -1365,6 +1367,7 @@ public class F10VotacionesIntegrationTest {
                 .andExpect(status().isCreated());
 
         // Verificar directamente en BD que COEFICIENTE_VOTO es exactamente 0.250000
+        setElevatedContext(); // direct verification query: VOTOS is protected by RLS (tearDown clears the context)
         BigDecimal coefEnBd = jdbcTemplate.queryForObject(
                 "SELECT COEFICIENTE_VOTO FROM VOTOS WHERE ID_VOTACION = ? AND ID_UNIDAD = ?",
                 BigDecimal.class, idVotacion, UNIDAD_1_ID

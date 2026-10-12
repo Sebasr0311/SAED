@@ -724,7 +724,7 @@ public class PazYSalvoFinancialIntegrityTest {
     }
 
     @Test
-    @DisplayName("PS-18: Descarga Global SuperAdmin: SUPERADMIN puede descargar cualquier certificado de Paz y Salvo")
+    @DisplayName("PS-18: SUPERADMIN no descarga certificados de Paz y Salvo (dato operativo, DEC-02)")
     void test18_superAdminPuedeDescargarCualquierPdf() throws Exception {
         // Emitir paz y salvo en Propiedad 1
         String tokenAdminProp1 = jwtProvider.generateIdentityToken(USER_ADMIN_PROP_1);
@@ -739,13 +739,12 @@ public class PazYSalvoFinancialIntegrityTest {
 
         long id = objectMapper.readTree(emitRes.getResponse().getContentAsString()).get("data").get("id").asLong();
 
-        // SuperAdmin descarga globalmente
+        // DEC-02 / c074514: the SUPERADMIN scope was removed from operational endpoints (certificates included).
         String tokenSuperAdmin = jwtProvider.generateIdentityToken(USER_SUPERADMIN);
         mockMvc.perform(get("/api/v1/paz-y-salvos/" + id + "/descargar")
                 .header("Authorization", "Bearer " + tokenSuperAdmin)
                 .header("X-Assignment-Id", String.valueOf(ASSIGN_SUPERADMIN)))
-                .andExpect(status().isOk())
-                .andExpect(header().string("Content-Type", "application/pdf"));
+                .andExpect(status().isForbidden());
     }
 
     // --- MÉTODOS AUXILIARES DE ASEGURAMIENTO DE DATOS ---

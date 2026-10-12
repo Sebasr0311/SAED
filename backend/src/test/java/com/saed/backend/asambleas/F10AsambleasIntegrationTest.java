@@ -329,6 +329,8 @@ public class F10AsambleasIntegrationTest {
                             "VALUES (?, 1, ?, ?, ?, ?, 'ACTIVO')",
                     id, doc, nombre, apellido, email);
         }
+        // A proxy (apoderado) must belong to the assembly's organization (AsambleaServiceImpl.radicarPoder).
+        jdbcTemplate.update("UPDATE PERSONAS SET ID_ORGANIZACION = ? WHERE ID_PERSONA = ? AND ID_ORGANIZACION IS NULL", ORG_1_ID, id);
     }
 
     private void ensureUsuario(long id, long idPersona, String username, String email) {
@@ -338,6 +340,19 @@ public class F10AsambleasIntegrationTest {
                             "VALUES (?, ?, ?, ?, '$2a$10$abcdefghijklmnopqrstuvwxyzABCDEF12345678901234567890', 'ACTIVO')",
                     id, idPersona, username, email);
         }
+    }
+
+    private void registrarAsistenciaPropietario(Long idAsamblea, long idUnidad, long idPersona) throws Exception {
+        mockMvc.perform(post("/api/v1/asambleas/" + idAsamblea + "/asistencias")
+                        .header("Authorization", "Bearer " + tokenAdminProp1)
+                        .header("X-Assignment-Id", ASSIGN_ADMIN_PROP_1)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(AsistenciaRequestDTO.builder()
+                                .idUnidad(idUnidad)
+                                .idPersonaAsistente(idPersona)
+                                .esPropietarioDirecto("S")
+                                .build())))
+                .andExpect(status().isCreated());
     }
 
     private void ensurePropietario(long idUnidad, long idPersona) {
@@ -960,6 +975,10 @@ public class F10AsambleasIntegrationTest {
 
         // Mover a EN_CURSO
         actualizarEstado(id, "EN_CURSO", tokenAdminProp1, ASSIGN_ADMIN_PROP_1);
+
+        // DEC-03: a unit votes only with registered attendance of its owner.
+        registrarAsistenciaPropietario(id, UNIDAD_1_ID, USER_RESIDENTE);
+        registrarAsistenciaPropietario(id, UNIDAD_2_ID, USER_ADMIN_PROP_1B);
 
         // 1. Crear punto de votación
         VotacionCreateRequestDTO votReq = VotacionCreateRequestDTO.builder()

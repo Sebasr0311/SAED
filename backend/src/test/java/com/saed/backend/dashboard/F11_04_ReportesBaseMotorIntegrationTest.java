@@ -258,6 +258,9 @@ public class F11_04_ReportesBaseMotorIntegrationTest {
         if (c == null || c == 0) {
             jdbcTemplate.update("INSERT INTO UNIDADES (ID_UNIDAD, ID_PROPIEDAD, ID_TIPO_UNIDAD, IDENTIFICADOR, COEFICIENTE_COPROPIEDAD, ESTADO) VALUES (?, ?, 1, ?, ?, 'ACTIVA')",
                     id, propId, identificador, coef);
+        } else {
+            // Other suites reuse the same ids with their own identifiers; this suite asserts on the identifier.
+            jdbcTemplate.update("UPDATE UNIDADES SET IDENTIFICADOR = ? WHERE ID_UNIDAD = ?", identificador, id);
         }
     }
 

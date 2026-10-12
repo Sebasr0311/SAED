@@ -40,7 +40,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * - Test 02: Unidad con cuota en mora bloquea radicación de obra (422 UNIDAD_EN_MORA).
  * - Test 03: Tras regularización de cartera / pago de cuota, radicación exitosa (201 Created).
  * - Test 04: Anti-IDOR: Residente de Unidad A no puede radicar obra en Unidad B (403 Forbidden).
- * - Test 05: Aislamiento Cross-Property: Admin de Propiedad 1 no puede operar obra de Propiedad 2 (403/400).
+ * - Test 05: Aislamiento Cross-Property: Admin de Propiedad 1 no puede operar obra de Propiedad 2 (404 no-disclosure).
  * - Test 06: Manipulación de payload: Intento de forzar unidad foránea en cuerpo de petición (403 Forbidden).
  * - Test 07: Prevención de bypass de estados (SOLICITADA -> EN_EJECUCION -> 400 Bad Request) y control de mora al iniciar (422).
  * - Test 08: Validación de unidad obligatoria en solicitud administrativa (400 Bad Request).
@@ -242,6 +242,11 @@ public class Phase9ObrasMoraIntegrationTest {
         } catch (Exception ignored) {}
     }
 
+    private void setAdminPropiedadContext() {
+        SaedContextHolder.setContext(SaedContext.builder()
+                .userId(USER_ADMIN_PROP_1).organizationId(1L).propertyId(1L).roleCode("ADMIN_PROPIEDAD").roleScope("PROPIEDAD").build());
+    }
+
     private void clearContext() {
         try {
             jdbcTemplate.execute("BEGIN PKG_SAED_SESSION.CLEAR_CONTEXT; END;");
@@ -374,7 +379,7 @@ public class Phase9ObrasMoraIntegrationTest {
 
     @Test
     @Order(5)
-    @DisplayName("Test 05: Aislamiento Cross-Property: Admin de Propiedad 1 no puede operar obra de Propiedad 2 (403/400)")
+    @DisplayName("Test 05: Aislamiento Cross-Property: Admin de Propiedad 1 no puede operar obra de Propiedad 2 (404 no-disclosure)")
     void test05_crossProperty_adminProp1_intentaOperarObraProp2_403o400() throws Exception {
         setElevatedContext();
         // Insertar una obra perteneciente a Propiedad 2 (Unidad 9992)
@@ -394,13 +399,13 @@ public class Phase9ObrasMoraIntegrationTest {
         mockMvc.perform(get("/api/v1/obras/" + idObraForanea)
                 .header("Authorization", "Bearer " + tokenAdminProp1)
                 .header("X-Assignment-Id", String.valueOf(ASSIGN_ADMIN_PROP_1)))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isNotFound()); // non-disclosure: a foreign property resource answers 404 (DEC-01)
 
         // Admin de Propiedad 1 intenta aprobar la obra de Propiedad 2
         mockMvc.perform(post("/api/v1/obras/" + idObraForanea + "/aprobar")
                 .header("Authorization", "Bearer " + tokenAdminProp1)
                 .header("X-Assignment-Id", String.valueOf(ASSIGN_ADMIN_PROP_1)))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isNotFound()); // non-disclosure: a foreign property resource answers 404 (DEC-01)
     }
 
     @Test
@@ -549,10 +554,11 @@ public class Phase9ObrasMoraIntegrationTest {
     @DisplayName("Test 10: Unidad con saldo total exigible en CARTERA > 0 bloquea radicación (422 UNIDAD_EN_MORA)")
     void test10_solicitarObra_unidadConSaldoTotalExigibleMayorACero_rechazado422() throws Exception {
         setElevatedContext();
-        // Insertar saldo en CARTERA para Unidad 2 (SALDO_TOTAL es columna virtual computada)
+        // 1ca286d: the paz y salvo gate computes the exigible balance in real time from CUOTAS (not from the CARTERA
+        // snapshot), so the outstanding balance is created as an open fee of Unidad 2.
         jdbcTemplate.update("""
-            INSERT INTO CARTERA (ID_UNIDAD, SALDO_CORRIENTE, SALDO_MORA_30, SALDO_MORA_60, SALDO_MORA_90_MAS, FECHA_CORTE, ESTADO_CARTERA)
-            VALUES (2, 250000, 0, 0, 0, TRUNC(SYSDATE), 'AL_DIA')
+            INSERT INTO CUOTAS (ID_UNIDAD, ID_CONCEPTO, PERIODO, VALOR_BASE, SALDO_PENDIENTE, FECHA_VENCIMIENTO, ESTADO)
+            VALUES (2, 1, '2026-03', 250000, 250000, TRUNC(SYSDATE) - 20, 'VENCIDA')
         """);
         clearContext();
 
@@ -631,7 +637,7 @@ public class Phase9ObrasMoraIntegrationTest {
                 .header("X-Assignment-Id", String.valueOf(ASSIGN_ADMIN_PROP_1))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(body)))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isNotFound()); // non-disclosure: a foreign property resource answers 404 (DEC-01)
     }
 
     @Test
@@ -707,18 +713,23 @@ public class Phase9ObrasMoraIntegrationTest {
         jdbcTemplate.update("DELETE FROM MULTAS WHERE ID_UNIDAD = 1");
         jdbcTemplate.update("DELETE FROM CARTERA WHERE ID_UNIDAD = 1");
 
+        // DEC-02: SUPERADMIN cannot read operational finance data; the service is queried as the property administrator.
+        setAdminPropiedadContext();
+
         // 1. Verificar directamente con PazYSalvoService que la unidad está a paz y salvo
         PazYSalvoEstadoFinancieroDTO estadoLimpio = pazYSalvoService.verificarEstadoFinanciero(UNIT_1_ID);
         assertTrue(estadoLimpio.pazYSalvo(), "La unidad debe estar a paz y salvo inicialmente");
         assertFalse(estadoLimpio.enMora(), "La unidad no debe estar en mora");
 
         // 2. Insertar deuda en mora con estado canónico VENCIDA
+        setElevatedContext();
         jdbcTemplate.update("""
             INSERT INTO CUOTAS (ID_UNIDAD, ID_CONCEPTO, PERIODO, VALOR_BASE, SALDO_PENDIENTE, FECHA_VENCIMIENTO, ESTADO)
             VALUES (1, 1, '2026-04', 500000, 500000, TRUNC(SYSDATE) - 30, 'VENCIDA')
         """);
 
         // 3. Verificar directamente con PazYSalvoService que ahora reporta enMora == true
+        setAdminPropiedadContext();
         PazYSalvoEstadoFinancieroDTO estadoMora = pazYSalvoService.verificarEstadoFinanciero(UNIT_1_ID);
         assertFalse(estadoMora.pazYSalvo(), "La unidad debe reportar pazYSalvo = false");
         assertTrue(estadoMora.enMora(), "La unidad debe reportar enMora = true");

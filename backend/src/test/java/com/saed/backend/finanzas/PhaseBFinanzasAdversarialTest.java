@@ -204,12 +204,13 @@ public class PhaseBFinanzasAdversarialTest {
     @Test
     @WithMockUser(authorities = {"SCOPE_ADMIN_PROPIEDAD"}, username = "2")
     void adminCanCreateGasto() throws Exception {
+        // dca67d6: the allowed expense states are REGISTRADO, PAGADO and ANULADO (PENDIENTE no longer exists).
         Map<String, Object> body = Map.of(
             "categoria", "Mantenimiento",
             "beneficiario", "Proveedor XYZ",
             "monto", 150000,
             "metodoPago", "EFECTIVO",
-            "estado", "PENDIENTE"
+            "estado", "REGISTRADO"
         );
 
         mockMvc.perform(post("/api/v1/gastos")
@@ -249,7 +250,8 @@ public class PhaseBFinanzasAdversarialTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(body)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("categoria y beneficiario son obligatorios"));
+                // Wording of GastosController (dca67d6).
+                .andExpect(jsonPath("$.message").value("Categoria y beneficiario son obligatorios"));
     }
 
     @Test
@@ -339,7 +341,8 @@ public class PhaseBFinanzasAdversarialTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"estado\": \"ESTADO_INVALIDO\"}"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("estado debe ser EN_PROCESO, CONCILIADA o DISCREPANCIA"));
+                // Reconciliation states are EN_PROCESO, CONCILIADO and CON_DIFERENCIAS since 1ca286d.
+                .andExpect(jsonPath("$.message").value("estado debe ser EN_PROCESO, CONCILIADO o CON_DIFERENCIAS"));
     }
 
     // ======================== PAZ Y SALVOS ========================

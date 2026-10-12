@@ -1109,7 +1109,8 @@ public class Phase9PqrsUnifiedIntegrationTest {
         mockMvc.perform(get("/api/v1/pqrs/" + idTicket)
                 .header("Authorization", "Bearer " + tokenAdmin2)
                 .header("X-Assignment-Id", String.valueOf(ASSIGN_ADMIN_PROP_2)))
-                .andExpect(status().isBadRequest())
+                // Non-disclosure: a ticket of another property is indistinguishable from a missing one (404, as in Test 24).
+                .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message", containsString("no encontrado para la propiedad activa")));
     }
 
@@ -1140,7 +1141,8 @@ public class Phase9PqrsUnifiedIntegrationTest {
                 .header("Authorization", "Bearer " + tokenAdmin2)
                 .header("X-Assignment-Id", String.valueOf(ASSIGN_ADMIN_PROP_2))
                 .param("estado", "EN_GESTION"))
-                .andExpect(status().isBadRequest())
+                // Non-disclosure: a ticket of another property is indistinguishable from a missing one (404, as in Test 24).
+                .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message", containsString("no encontrado para la propiedad activa")));
     }
 

@@ -464,8 +464,8 @@ public class Phase9IncidentesIntegrationTest {
 
     @Test
     @Order(8)
-    @DisplayName("Test 08: Residente intenta ver detalle de incidente de otra unidad -> 403 Forbidden")
-    void test08_residente_verIncidenteDeOtraUnidad_retorna403() throws Exception {
+    @DisplayName("Test 08: Residente intenta ver detalle de incidente de otra unidad -> 404 (no-disclosure)")
+    void test08_residente_verIncidenteDeOtraUnidad_retorna404() throws Exception {
         String tokenAdmin = jwtProvider.generateIdentityToken(USER_ADMIN_PROP_1);
         Long idIncidenteUnidad2 = crearIncidenteHelper(tokenAdmin, ASSIGN_ADMIN_PROP_1, "TEST-F907-08 Privado U2", "DANO_BIEN_COMUN", "LEVE", UNIT_2_ID);
 
@@ -473,7 +473,8 @@ public class Phase9IncidentesIntegrationTest {
         mockMvc.perform(get("/api/v1/incidentes/" + idIncidenteUnidad2)
                         .header("Authorization", "Bearer " + tokenRes1)
                         .header("X-Assignment-Id", ASSIGN_RESIDENTE_1))
-                .andExpect(status().isForbidden());
+                // Non-disclosure: an incident of another unit is "not found" for the resident (IncidenteServiceImpl.obtener).
+                .andExpect(status().isNotFound());
     }
 
     // =========================================================================
@@ -1289,15 +1290,22 @@ public class Phase9IncidentesIntegrationTest {
         setElevatedContext();
         assertEquals("CERRADO", jdbcTemplate.queryForObject("SELECT ESTADO FROM INCIDENTES WHERE ID_INCIDENTE = ?", String.class, id));
 
-        // 2. Reabrir mediante transición a EN_INVESTIGACION
-        IncidenteEstadoRequestDTO reabrirDto = new IncidenteEstadoRequestDTO();
-        reabrirDto.setEstado("EN_INVESTIGACION");
-
+        // 2. Reabrir mediante la ruta auditada con motivo (V5.40 / 96ba362: CERRADO es terminal para las transiciones
+        // genericas; solo POST /{id}/reabrir con motivo lo devuelve a EN_INVESTIGACION).
+        IncidenteEstadoRequestDTO genericDto = new IncidenteEstadoRequestDTO();
+        genericDto.setEstado("EN_INVESTIGACION");
         mockMvc.perform(put("/api/v1/incidentes/" + id + "/estado")
                         .header("Authorization", "Bearer " + token)
                         .header("X-Assignment-Id", ASSIGN_ADMIN_PROP_1)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(reabrirDto)))
+                        .content(objectMapper.writeValueAsString(genericDto)))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(post("/api/v1/incidentes/" + id + "/reabrir")
+                        .header("Authorization", "Bearer " + token)
+                        .header("X-Assignment-Id", ASSIGN_ADMIN_PROP_1)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("motivo", "Nueva evidencia aportada por la administracion"))))
                 .andExpect(status().isOk());
 
         setElevatedContext();

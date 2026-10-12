@@ -143,6 +143,13 @@ public class QrAtomicConsumptionIntegrationTest {
         // 3. Mock para portero asignado a OTRA propiedad (Property 999994) para Test 5 (Multi-tenant)
         testOtraPropiedadId = 999994L;
         try {
+            // The other-property scenario needs a real ACTIVA property: InactivePropertyFilter answers PROPERTY_INACTIVE
+            // for a property id that does not exist, before the QR property check can run.
+            Integer otraProp = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM PROPIEDADES WHERE ID_PROPIEDAD = ?", Integer.class, testOtraPropiedadId);
+            if (otraProp == null || otraProp == 0) {
+                jdbcTemplate.update("INSERT INTO PROPIEDADES (ID_PROPIEDAD, ID_ORGANIZACION, ID_TIPO_PROPIEDAD, NOMBRE, DIRECCION, CIUDAD, ESTADO) "
+                        + "VALUES (?, 1, 1, 'Prop Test 999994', 'Calle Test 999', 'Bogota', 'ACTIVA')", testOtraPropiedadId);
+            }
             List<Map<String, Object>> portsOtra = jdbcTemplate.queryForList("SELECT ID_PORTERIA FROM PORTERIAS WHERE ID_PROPIEDAD = ? AND ROWNUM = 1", testOtraPropiedadId);
             if (portsOtra.isEmpty()) {
                 jdbcTemplate.update(
