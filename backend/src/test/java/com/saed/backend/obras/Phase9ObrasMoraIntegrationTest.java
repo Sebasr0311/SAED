@@ -98,8 +98,9 @@ public class Phase9ObrasMoraIntegrationTest {
 
     private static final long ORG_1_ID = 1L;
     private static final long PROP_1_ID = 1L;
-    private static final long UNIT_1_ID = 1L;
-    private static final long UNIT_2_ID = 2L;
+    // Test-owned units: the demo units 1/2 carry the seeded fees, payments and portfolio other suites rely on.
+    private static final long UNIT_1_ID = 9956L;
+    private static final long UNIT_2_ID = 9957L;
 
     private static final long ORG_2_ID = 9992L;
     private static final long PROP_2_ID = 9992L;
@@ -113,12 +114,12 @@ public class Phase9ObrasMoraIntegrationTest {
             // Limpieza de datos de prueba en obras y finanzas
             jdbcTemplate.execute("""
                 BEGIN
-                    DELETE FROM OBRAS WHERE ID_UNIDAD IN (1, 2, 9992);
-                    DELETE FROM PAZ_Y_SALVOS WHERE ID_UNIDAD IN (1, 2, 9992);
-                    DELETE FROM PAGO_DETALLE WHERE ID_CUOTA IN (SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 9992));
-                    DELETE FROM MULTAS WHERE ID_UNIDAD IN (1, 2, 9992);
-                    DELETE FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 9992);
-                    DELETE FROM CARTERA WHERE ID_UNIDAD IN (1, 2, 9992);
+                    DELETE FROM OBRAS WHERE ID_UNIDAD IN (9956, 9957, 9992);
+                    DELETE FROM PAZ_Y_SALVOS WHERE ID_UNIDAD IN (9956, 9957, 9992);
+                    DELETE FROM PAGO_DETALLE WHERE ID_CUOTA IN (SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD IN (9956, 9957, 9992));
+                    DELETE FROM MULTAS WHERE ID_UNIDAD IN (9956, 9957, 9992);
+                    DELETE FROM CUOTAS WHERE ID_UNIDAD IN (9956, 9957, 9992);
+                    DELETE FROM CARTERA WHERE ID_UNIDAD IN (9956, 9957, 9992);
                 END;
             """);
 
@@ -128,21 +129,13 @@ public class Phase9ObrasMoraIntegrationTest {
             ensurePropiedad(1L, 1L, "Torre Central SAED");
             ensurePropiedad(9992L, 9992L, "Torre Foránea 9992");
 
-            ensureUnidad(1L, 1L, "Apto 101");
-            ensureUnidad(2L, 1L, "Apto 102");
+            ensureUnidad(UNIT_1_ID, 1L, "Apto 101-OM");
+            ensureUnidad(UNIT_2_ID, 1L, "Apto 102-OM");
             ensureUnidad(9992L, 9992L, "Apto 9992");
 
-            ensurePersona(1L, "1000000001", "Super", "Admin", "superadmin@saed.com");
-            ensureUsuario(1L, 1L, "superadmin", "superadmin@saed.com");
-
-            ensurePersona(2L, "1000000002", "Admin", "Propiedad", "admin@saed.com");
-            ensureUsuario(2L, 2L, "admin", "admin@saed.com");
-
-            ensurePersona(4L, "1000000004", "Carlos", "Martinez", "camartinez@saed.com");
-            ensureUsuario(4L, 4L, "carlos_m", "camartinez@saed.com");
-
-            ensurePersona(5L, "1000000005", "Ana", "Gomez", "anagomez@saed.com");
-            ensureUsuario(5L, 5L, "ana_g", "anagomez@saed.com");
+            // Users 1, 2, 4 and 5 (and their personas) come from the demo seed and are not rewritten here.
+            ensureResidente(UNIT_1_ID, 4L);
+            ensureResidente(UNIT_2_ID, 5L);
 
             ensurePersona(8L, "1000000008", "AdminOrg1", "SAED", "admin_org1@saed.com");
             ensureUsuario(8L, 8L, "admin_org1", "admin_org1@saed.com");
@@ -169,12 +162,13 @@ public class Phase9ObrasMoraIntegrationTest {
             setElevatedContext();
             jdbcTemplate.execute("""
                 BEGIN
-                    DELETE FROM OBRAS WHERE ID_UNIDAD IN (1, 2, 9992);
-                    DELETE FROM PAZ_Y_SALVOS WHERE ID_UNIDAD IN (1, 2, 9992);
-                    DELETE FROM PAGO_DETALLE WHERE ID_CUOTA IN (SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 9992));
-                    DELETE FROM MULTAS WHERE ID_UNIDAD IN (1, 2, 9992);
-                    DELETE FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 9992);
-                    DELETE FROM CARTERA WHERE ID_UNIDAD IN (1, 2, 9992);
+                    DELETE FROM OBRAS WHERE ID_UNIDAD IN (9956, 9957, 9992);
+                    DELETE FROM PAZ_Y_SALVOS WHERE ID_UNIDAD IN (9956, 9957, 9992);
+                    DELETE FROM PAGO_DETALLE WHERE ID_CUOTA IN (SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD IN (9956, 9957, 9992));
+                    DELETE FROM MULTAS WHERE ID_UNIDAD IN (9956, 9957, 9992);
+                    DELETE FROM CUOTAS WHERE ID_UNIDAD IN (9956, 9957, 9992);
+                    DELETE FROM CARTERA WHERE ID_UNIDAD IN (9956, 9957, 9992);
+                    DELETE FROM RESIDENTES_UNIDAD WHERE ID_UNIDAD IN (9956, 9957);
                 END;
             """);
         } catch (Exception ignored) {}
@@ -242,6 +236,13 @@ public class Phase9ObrasMoraIntegrationTest {
         } catch (Exception ignored) {}
     }
 
+    private void ensureResidente(long unitId, long personaId) {
+        Integer c = jdbcTemplate.queryForObject("SELECT COUNT(1) FROM RESIDENTES_UNIDAD WHERE ID_UNIDAD = ? AND ID_PERSONA = ?", Integer.class, unitId, personaId);
+        if (c == null || c == 0) {
+            jdbcTemplate.update("INSERT INTO RESIDENTES_UNIDAD (ID_UNIDAD, ID_PERSONA, TIPO_RESIDENTE, FECHA_INICIO, ESTADO) VALUES (?, ?, 'PROPIETARIO', TRUNC(SYSDATE), 'ACTIVO')", unitId, personaId);
+        }
+    }
+
     private void setAdminPropiedadContext() {
         SaedContextHolder.setContext(SaedContext.builder()
                 .userId(USER_ADMIN_PROP_1).organizationId(1L).propertyId(1L).roleCode("ADMIN_PROPIEDAD").roleScope("PROPIEDAD").build());
@@ -284,7 +285,7 @@ public class Phase9ObrasMoraIntegrationTest {
         // Verificar inserción en base de datos con contexto elevado
         setElevatedContext();
         Integer count = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM OBRAS WHERE ID_UNIDAD = 1 AND ESTADO = 'SOLICITADA'", Integer.class);
+                "SELECT COUNT(*) FROM OBRAS WHERE ID_UNIDAD = 9956 AND ESTADO = 'SOLICITADA'", Integer.class);
         clearContext();
         assertEquals(1, count);
     }
@@ -297,7 +298,7 @@ public class Phase9ObrasMoraIntegrationTest {
         // Insertar cuota vencida en Unidad 1
         jdbcTemplate.update("""
             INSERT INTO CUOTAS (ID_UNIDAD, ID_CONCEPTO, PERIODO, VALOR_BASE, SALDO_PENDIENTE, FECHA_VENCIMIENTO, ESTADO)
-            VALUES (1, 1, '2026-05', 450000, 450000, TRUNC(SYSDATE) - 15, 'VENCIDA')
+            VALUES (9956, 1, '2026-05', 450000, 450000, TRUNC(SYSDATE) - 15, 'VENCIDA')
         """);
         clearContext();
 
@@ -328,7 +329,7 @@ public class Phase9ObrasMoraIntegrationTest {
     void test03_solicitarObra_trasPagoRegularizacion_exitoso201() throws Exception {
         setElevatedContext();
         // Regularizar deuda eliminando la cuota pendiente
-        jdbcTemplate.update("DELETE FROM CUOTAS WHERE ID_UNIDAD = 1");
+        jdbcTemplate.update("DELETE FROM CUOTAS WHERE ID_UNIDAD = 9956");
         clearContext();
 
         String tokenResidente = jwtProvider.generateIdentityToken(USER_RESIDENTE_1);
@@ -443,11 +444,11 @@ public class Phase9ObrasMoraIntegrationTest {
         jdbcTemplate.update("""
             INSERT INTO OBRAS (ID_UNIDAD, DESCRIPCION, FECHA_INICIO, FECHA_FIN_ESTIMADA, RESPONSABLE_OBRA,
                                TELEFONO_RESPONSABLE, DEPOSITO_GARANTIA, ESTADO, SOLICITADO_POR)
-            VALUES (1, 'Obra Prueba Bypass', TRUNC(SYSDATE) + 1, TRUNC(SYSDATE) + 10,
+            VALUES (9956, 'Obra Prueba Bypass', TRUNC(SYSDATE) + 1, TRUNC(SYSDATE) + 10,
                     'Ingeniería SAS', '3104445566', 0, 'SOLICITADA', 4)
         """);
         Long idObra = jdbcTemplate.queryForObject(
-                "SELECT ID_OBRA FROM OBRAS WHERE ID_UNIDAD = 1 AND DESCRIPCION = 'Obra Prueba Bypass'", Long.class);
+                "SELECT ID_OBRA FROM OBRAS WHERE ID_UNIDAD = 9956 AND DESCRIPCION = 'Obra Prueba Bypass'", Long.class);
         clearContext();
 
         String tokenAdmin = jwtProvider.generateIdentityToken(USER_ADMIN_PROP_1);
@@ -469,7 +470,7 @@ public class Phase9ObrasMoraIntegrationTest {
         setElevatedContext();
         jdbcTemplate.update("""
             INSERT INTO CUOTAS (ID_UNIDAD, ID_CONCEPTO, PERIODO, VALOR_BASE, SALDO_PENDIENTE, FECHA_VENCIMIENTO, ESTADO)
-            VALUES (1, 1, '2026-06', 380000, 380000, TRUNC(SYSDATE) - 5, 'VENCIDA')
+            VALUES (9956, 1, '2026-06', 380000, 380000, TRUNC(SYSDATE) - 5, 'VENCIDA')
         """);
         clearContext();
 
@@ -520,11 +521,11 @@ public class Phase9ObrasMoraIntegrationTest {
     void test09_solicitarObra_unidadConMultasPendientesSinCartera_rechazado422() throws Exception {
         setElevatedContext();
         // Cartera en 0 pero multa exigible impuesta en Unidad 2
-        jdbcTemplate.update("DELETE FROM CUOTAS WHERE ID_UNIDAD = 2");
-        jdbcTemplate.update("DELETE FROM CARTERA WHERE ID_UNIDAD = 2");
+        jdbcTemplate.update("DELETE FROM CUOTAS WHERE ID_UNIDAD = 9957");
+        jdbcTemplate.update("DELETE FROM CARTERA WHERE ID_UNIDAD = 9957");
         jdbcTemplate.update("""
             INSERT INTO MULTAS (ID_UNIDAD, ID_CONCEPTO, MONTO, MOTIVO, ESTADO, ID_CUOTA)
-            VALUES (2, 1, 180000, 'Ruidos molestos y afectación a convivencia', 'IMPUESTA', NULL)
+            VALUES (9957, 1, 180000, 'Ruidos molestos y afectación a convivencia', 'IMPUESTA', NULL)
         """);
         clearContext();
 
@@ -558,7 +559,7 @@ public class Phase9ObrasMoraIntegrationTest {
         // snapshot), so the outstanding balance is created as an open fee of Unidad 2.
         jdbcTemplate.update("""
             INSERT INTO CUOTAS (ID_UNIDAD, ID_CONCEPTO, PERIODO, VALOR_BASE, SALDO_PENDIENTE, FECHA_VENCIMIENTO, ESTADO)
-            VALUES (2, 1, '2026-03', 250000, 250000, TRUNC(SYSDATE) - 20, 'VENCIDA')
+            VALUES (9957, 1, '2026-03', 250000, 250000, TRUNC(SYSDATE) - 20, 'VENCIDA')
         """);
         clearContext();
 
@@ -589,9 +590,9 @@ public class Phase9ObrasMoraIntegrationTest {
     void test11_obraYUnidadMismaPropiedad_permitidoCuandoPazYSalvo() throws Exception {
         setElevatedContext();
         // Asegurar unidad 2 limpia de deudas
-        jdbcTemplate.update("DELETE FROM MULTAS WHERE ID_UNIDAD = 2");
-        jdbcTemplate.update("DELETE FROM CARTERA WHERE ID_UNIDAD = 2");
-        jdbcTemplate.update("DELETE FROM CUOTAS WHERE ID_UNIDAD = 2");
+        jdbcTemplate.update("DELETE FROM MULTAS WHERE ID_UNIDAD = 9957");
+        jdbcTemplate.update("DELETE FROM CARTERA WHERE ID_UNIDAD = 9957");
+        jdbcTemplate.update("DELETE FROM CUOTAS WHERE ID_UNIDAD = 9957");
         clearContext();
 
         String tokenAdmin = jwtProvider.generateIdentityToken(USER_ADMIN_PROP_1);
@@ -708,10 +709,10 @@ public class Phase9ObrasMoraIntegrationTest {
     void test15_consistenciaRechazoObraConPazYSalvoService() throws Exception {
         setElevatedContext();
         // Limpiar unidad 1
-        jdbcTemplate.update("DELETE FROM OBRAS WHERE ID_UNIDAD = 1");
-        jdbcTemplate.update("DELETE FROM CUOTAS WHERE ID_UNIDAD = 1");
-        jdbcTemplate.update("DELETE FROM MULTAS WHERE ID_UNIDAD = 1");
-        jdbcTemplate.update("DELETE FROM CARTERA WHERE ID_UNIDAD = 1");
+        jdbcTemplate.update("DELETE FROM OBRAS WHERE ID_UNIDAD = 9956");
+        jdbcTemplate.update("DELETE FROM CUOTAS WHERE ID_UNIDAD = 9956");
+        jdbcTemplate.update("DELETE FROM MULTAS WHERE ID_UNIDAD = 9956");
+        jdbcTemplate.update("DELETE FROM CARTERA WHERE ID_UNIDAD = 9956");
 
         // DEC-02: SUPERADMIN cannot read operational finance data; the service is queried as the property administrator.
         setAdminPropiedadContext();
@@ -725,7 +726,7 @@ public class Phase9ObrasMoraIntegrationTest {
         setElevatedContext();
         jdbcTemplate.update("""
             INSERT INTO CUOTAS (ID_UNIDAD, ID_CONCEPTO, PERIODO, VALOR_BASE, SALDO_PENDIENTE, FECHA_VENCIMIENTO, ESTADO)
-            VALUES (1, 1, '2026-04', 500000, 500000, TRUNC(SYSDATE) - 30, 'VENCIDA')
+            VALUES (9956, 1, '2026-04', 500000, 500000, TRUNC(SYSDATE) - 30, 'VENCIDA')
         """);
 
         // 3. Verificar directamente con PazYSalvoService que ahora reporta enMora == true

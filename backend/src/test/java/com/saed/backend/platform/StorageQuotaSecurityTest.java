@@ -663,18 +663,24 @@ public class StorageQuotaSecurityTest {
     // ========================================================================
     @Test
     @DisplayName("21. Error contract: Subida excedida en DocumentoController responde HTTP 409 STORAGE_QUOTA_EXCEEDED")
-    @WithMockUser(username = "1", authorities = {"SCOPE_SUPERADMIN"})
+    @WithMockUser(username = "admin_prop_storage", authorities = {"SCOPE_ADMIN_PROPIEDAD"})
     void test21_errorContractHttp409Conflict() throws Exception {
         elevateToSuperAdmin();
         // Simular uso de casi 1 GB
         createTestDocumentVersion(testOrgId, testPropId, 1_070_000_000L);
 
+        // DEC-02 / c074514: documents are operational data, so SUPERADMIN cannot upload them; the property
+        // administrator (demo user 2) gets a test-owned ADMIN_PROPIEDAD assignment in the test organization.
+        jdbcTemplate.update("INSERT INTO USUARIO_ASIGNACIONES (ID_USUARIO, ID_ROL, ID_ORGANIZACION, ID_PROPIEDAD, ESTADO, FECHA_INICIO) "
+                + "VALUES (2, (SELECT ID_ROL FROM ROLES WHERE CODIGO = 'ADMIN_PROPIEDAD'), ?, ?, 'ACTIVA', TRUNC(SYSDATE))",
+                testOrgId, testPropId);
+        try {
         SaedContextHolder.setContext(SaedContext.builder()
-                .userId(1L)
+                .userId(2L)
                 .organizationId(testOrgId)
                 .propertyId(testPropId)
-                .roleCode("SUPERADMIN")
-                .roleScope("GLOBAL")
+                .roleCode("ADMIN_PROPIEDAD")
+                .roleScope("PROPIEDAD")
                 .build());
 
         // Documento solicitando 8 MB adicionales (supera 1 GB)
@@ -695,5 +701,9 @@ public class StorageQuotaSecurityTest {
                 .andExpect(jsonPath("$.code", is("STORAGE_QUOTA_EXCEEDED")))
                 .andExpect(jsonPath("$.limitBytes", is(1024 * 1024 * 1024)))
                 .andExpect(jsonPath("$.requestedBytes", is(8 * 1024 * 1024)));
+        } finally {
+            elevateToSuperAdmin();
+            jdbcTemplate.update("DELETE FROM USUARIO_ASIGNACIONES WHERE ID_USUARIO = 2 AND ID_ORGANIZACION = ?", testOrgId);
+        }
     }
 }

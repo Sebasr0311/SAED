@@ -101,14 +101,14 @@ public class ResidentialAssignmentAndContractIntegrationTest {
         try {
             jdbcTemplate.update("""
                 MERGE INTO ORGANIZACIONES o 
-                USING (SELECT 998801 AS id, 'Org Residencial A' AS n, '900008801-1' AS if, 'adminA@test.com' AS ec FROM DUAL) s 
+                USING (SELECT 998801 AS id, 'Org Residencial A' AS n, 'RA-900008801-1' AS if, 'ra.adminA@test.com' AS ec FROM DUAL) s 
                 ON (o.ID_ORGANIZACION = s.id) 
                 WHEN NOT MATCHED THEN INSERT (ID_ORGANIZACION, NOMBRE, IDENTIFICACION_FISCAL, EMAIL_CONTACTO) VALUES (s.id, s.n, s.if, s.ec) 
                 WHEN MATCHED THEN UPDATE SET o.EMAIL_CONTACTO = s.ec
             """);
             jdbcTemplate.update("""
                 MERGE INTO ORGANIZACIONES o 
-                USING (SELECT 998802 AS id, 'Org Foranea B' AS n, '900008802-2' AS if, 'adminB@test.com' AS ec FROM DUAL) s 
+                USING (SELECT 998802 AS id, 'Org Foranea B' AS n, 'RA-900008802-2' AS if, 'ra.adminB@test.com' AS ec FROM DUAL) s 
                 ON (o.ID_ORGANIZACION = s.id) 
                 WHEN NOT MATCHED THEN INSERT (ID_ORGANIZACION, NOMBRE, IDENTIFICACION_FISCAL, EMAIL_CONTACTO) VALUES (s.id, s.n, s.if, s.ec) 
                 WHEN MATCHED THEN UPDATE SET o.EMAIL_CONTACTO = s.ec
@@ -148,26 +148,26 @@ public class ResidentialAssignmentAndContractIntegrationTest {
             // 3. Personas y Usuarios de Administrador
             jdbcTemplate.update("""
                 MERGE INTO PERSONAS p 
-                USING (SELECT 998811 AS id, 1 AS td, 'CC998811' AS doc, 'NATURAL' AS tp, 'adminA@test.com' AS em, 'AdminProp' AS n, 'A' AS a FROM DUAL) s 
+                USING (SELECT 998811 AS id, 1 AS td, 'CC998811' AS doc, 'NATURAL' AS tp, 'ra.adminA@test.com' AS em, 'AdminProp' AS n, 'A' AS a FROM DUAL) s 
                 ON (p.ID_PERSONA = s.id) 
                 WHEN NOT MATCHED THEN INSERT (ID_PERSONA, ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, EMAIL, PRIMER_NOMBRE, PRIMER_APELLIDO) VALUES (s.id, s.td, s.doc, s.tp, s.em, s.n, s.a)
             """);
             jdbcTemplate.update("""
                 MERGE INTO USUARIOS u 
-                USING (SELECT 998811 AS id, 998811 AS p, 'admin_prop_a_test' AS u, 'adminA@test.com' AS em, '$2a$10$Y8yWwG2uR38jM8eIq0f6oOV3/1vM7Z13GkIefw7U9M/P0FqX3q4P3' AS h, 'ACTIVO' AS st FROM DUAL) s 
+                USING (SELECT 998811 AS id, 998811 AS p, 'ra_admin_prop_a_test' AS u, 'ra.adminA@test.com' AS em, '$2a$10$Y8yWwG2uR38jM8eIq0f6oOV3/1vM7Z13GkIefw7U9M/P0FqX3q4P3' AS h, 'ACTIVO' AS st FROM DUAL) s 
                 ON (u.ID_USUARIO = s.id) 
                 WHEN NOT MATCHED THEN INSERT (ID_USUARIO, ID_PERSONA, NOMBRE_USUARIO, EMAIL, HASH_PASSWORD, ESTADO) VALUES (s.id, s.p, s.u, s.em, s.h, s.st)
             """);
 
             jdbcTemplate.update("""
                 MERGE INTO PERSONAS p 
-                USING (SELECT 998812 AS id, 1 AS td, 'CC998812' AS doc, 'NATURAL' AS tp, 'adminB@test.com' AS em, 'AdminProp' AS n, 'B' AS a FROM DUAL) s 
+                USING (SELECT 998812 AS id, 1 AS td, 'CC998812' AS doc, 'NATURAL' AS tp, 'ra.adminB@test.com' AS em, 'AdminProp' AS n, 'B' AS a FROM DUAL) s 
                 ON (p.ID_PERSONA = s.id) 
                 WHEN NOT MATCHED THEN INSERT (ID_PERSONA, ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, EMAIL, PRIMER_NOMBRE, PRIMER_APELLIDO) VALUES (s.id, s.td, s.doc, s.tp, s.em, s.n, s.a)
             """);
             jdbcTemplate.update("""
                 MERGE INTO USUARIOS u 
-                USING (SELECT 998812 AS id, 998812 AS p, 'admin_prop_b_test' AS u, 'adminB@test.com' AS em, '$2a$10$Y8yWwG2uR38jM8eIq0f6oOV3/1vM7Z13GkIefw7U9M/P0FqX3q4P3' AS h, 'ACTIVO' AS st FROM DUAL) s 
+                USING (SELECT 998812 AS id, 998812 AS p, 'ra_admin_prop_b_test' AS u, 'ra.adminB@test.com' AS em, '$2a$10$Y8yWwG2uR38jM8eIq0f6oOV3/1vM7Z13GkIefw7U9M/P0FqX3q4P3' AS h, 'ACTIVO' AS st FROM DUAL) s 
                 ON (u.ID_USUARIO = s.id) 
                 WHEN NOT MATCHED THEN INSERT (ID_USUARIO, ID_PERSONA, NOMBRE_USUARIO, EMAIL, HASH_PASSWORD, ESTADO) VALUES (s.id, s.p, s.u, s.em, s.h, s.st)
             """);
@@ -175,13 +175,13 @@ public class ResidentialAssignmentAndContractIntegrationTest {
             // 4. Personas para pruebas de asignación residencial
             jdbcTemplate.update("""
                 MERGE INTO PERSONAS p 
-                USING (SELECT 998821 AS id, 1 AS td, 'CC998821' AS doc, 'NATURAL' AS tp, 'residente@test.com' AS em, 'Carlos' AS n, 'Arrendatario' AS a FROM DUAL) s 
+                USING (SELECT 998821 AS id, 1 AS td, 'CC998821' AS doc, 'NATURAL' AS tp, 'ra.residente@test.com' AS em, 'Carlos' AS n, 'Arrendatario' AS a FROM DUAL) s 
                 ON (p.ID_PERSONA = s.id) 
                 WHEN NOT MATCHED THEN INSERT (ID_PERSONA, ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, EMAIL, PRIMER_NOMBRE, PRIMER_APELLIDO) VALUES (s.id, s.td, s.doc, s.tp, s.em, s.n, s.a)
             """);
             jdbcTemplate.update("""
                 MERGE INTO PERSONAS p 
-                USING (SELECT 998822 AS id, 1 AS td, 'CC998822' AS doc, 'NATURAL' AS tp, 'propietario@test.com' AS em, 'Gloria' AS n, 'Propietaria' AS a FROM DUAL) s 
+                USING (SELECT 998822 AS id, 1 AS td, 'CC998822' AS doc, 'NATURAL' AS tp, 'ra.propietario@test.com' AS em, 'Gloria' AS n, 'Propietaria' AS a FROM DUAL) s 
                 ON (p.ID_PERSONA = s.id) 
                 WHEN NOT MATCHED THEN INSERT (ID_PERSONA, ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, EMAIL, PRIMER_NOMBRE, PRIMER_APELLIDO) VALUES (s.id, s.td, s.doc, s.tp, s.em, s.n, s.a)
             """);

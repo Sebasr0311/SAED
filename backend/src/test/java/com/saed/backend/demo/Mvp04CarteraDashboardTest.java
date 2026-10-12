@@ -55,7 +55,13 @@ public class Mvp04CarteraDashboardTest {
             assertNotNull(listResp);
             List<Map<String, Object>> unidades = listResp.getData();
             assertNotNull(unidades);
-            assertEquals(4, unidades.size(), "Property 1 must have exactly 4 units in Cartera");
+            // Other suites add their own units to property 1, so the demo dataset is checked by identifier instead of by
+            // the global size of the portfolio.
+            List<String> demoUnits = List.of("Apto 101", "Apto 102", "Apto 201", "Apto 202");
+            List<Map<String, Object>> demo = unidades.stream()
+                    .filter(u -> demoUnits.contains(String.valueOf(u.get("NUMERO_APARTAMENTO"))))
+                    .toList();
+            assertEquals(4, demo.size(), "The 4 demo units of Property 1 must be in Cartera");
 
             // Verify Apto 101 has 250,000 pending debt
             Map<String, Object> apto101 = unidades.stream()
@@ -81,20 +87,28 @@ public class Mvp04CarteraDashboardTest {
             Map<String, Object> resumen = resResp.getData();
             assertNotNull(resumen);
 
-            assertEquals(4, ((Number) resumen.get("TOTAL_UNIDADES")).intValue());
+            assertTrue(((Number) resumen.get("TOTAL_UNIDADES")).intValue() >= 4, "The summary must cover at least the 4 demo units");
             BigDecimal totalCartera = new BigDecimal(resumen.get("TOTAL_CARTERA").toString());
-            assertEquals(0, new BigDecimal("250000").compareTo(totalCartera), "Total Cartera must be 250,000 COP");
-            BigDecimal totalMora = new BigDecimal(resumen.get("TOTAL_MORA").toString());
-            assertEquals(0, BigDecimal.ZERO.compareTo(totalMora), "Total Mora must be 0 COP (not overdue yet)");
-            assertEquals(4, ((Number) resumen.get("COUNT_AL_DIA")).intValue());
+            assertTrue(totalCartera.compareTo(new BigDecimal("250000")) >= 0, "Total Cartera must include the 250,000 COP of the demo dataset");
+            assertTrue(((Number) resumen.get("COUNT_AL_DIA")).intValue() >= 4, "The 4 demo units are AL_DIA");
+            // The demo units alone: 250,000 COP outstanding and nothing overdue.
+            BigDecimal demoTotal = demo.stream().map(u -> new BigDecimal(u.get("SALDO_TOTAL").toString())).reduce(BigDecimal.ZERO, BigDecimal::add);
+            assertEquals(0, new BigDecimal("250000").compareTo(demoTotal), "The demo units must hold 250,000 COP in total");
+            BigDecimal demoMora = demo.stream()
+                    .map(u -> new BigDecimal(u.get("SALDO_MORA_30").toString())
+                            .add(new BigDecimal(u.get("SALDO_MORA_60").toString()))
+                            .add(new BigDecimal(u.get("SALDO_MORA_90_MAS").toString())))
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            assertEquals(0, BigDecimal.ZERO.compareTo(demoMora), "The demo units must have no overdue balance");
 
             // 5. Verify getCuotasPendientes() returns only Cuota 2 (Apto 101)
             ResponseEntity<List<CuotaDTO>> cuotasResp = pagosController.getCuotasPendientes(true);
             assertNotNull(cuotasResp);
             List<CuotaDTO> cuotas = cuotasResp.getBody();
             assertNotNull(cuotas);
-            assertEquals(1, cuotas.size(), "There must be exactly 1 pending cuota for Property 1");
-            CuotaDTO cuotaPendiente = cuotas.get(0);
+            List<CuotaDTO> demoCuotas = cuotas.stream().filter(c -> "Apto 101".equals(c.numeroApartamento())).toList();
+            assertEquals(1, demoCuotas.size(), "There must be exactly 1 pending cuota for the demo Apto 101");
+            CuotaDTO cuotaPendiente = demoCuotas.get(0);
             assertEquals("Apto 101", cuotaPendiente.numeroApartamento());
             assertEquals("Carlos Martinez", cuotaPendiente.nombreResidente());
             assertEquals(0, new BigDecimal("250000").compareTo(cuotaPendiente.saldoPendiente()));

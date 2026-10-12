@@ -101,15 +101,16 @@ public class ContractParticipantsIntegrationTest {
 
     private static final long ORG_1_ID = 1L;
     private static final long PROP_1_ID = 1L;
-    private static final long UNIT_1_ID = 1L;
-    private static final long UNIT_2_ID = 2L;
+    // Test-owned units: the demo units 1/2 carry the seeded contracts, fees and payments that other suites rely on.
+    private static final long UNIT_1_ID = 9951L;
+    private static final long UNIT_2_ID = 9952L;
 
     private static final long ORG_2_ID = 9992L;
     private static final long PROP_2_ID = 9992L;
     private static final long UNIT_ORG2_ID = 9992L;
 
     // Personas
-    private static final long PERSONA_ADULTO_1 = 4L; // Carlos Martinez (adulto)
+    private static final long PERSONA_ADULTO_1 = 9961L; // test-owned principal tenant (adult); demo persona 4 already holds the seeded contract
     private static final long PERSONA_COARRENDATARIO_1 = 20L; // Pedro Picapiedra
     private static final long PERSONA_COARRENDATARIO_2 = 21L; // Pablo Marmol
     private static final long PERSONA_MENOR_1 = 22L; // Pepito Perez (menor de edad, 16 años)
@@ -132,22 +133,16 @@ public class ContractParticipantsIntegrationTest {
         // Asegurar entidades multi-tenant
         ensureOrganizacion(1L, "Organización Central", "900000001-1", "org1@test.com");
         ensurePropiedad(1L, 1L, "Edificio Residencial SAED");
-        ensureUnidad(1L, 1L, "Apto 101");
-        ensureUnidad(2L, 1L, "Apto 102");
+        ensureUnidad(UNIT_1_ID, 1L, "Apto 101-CP");
+        ensureUnidad(UNIT_2_ID, 1L, "Apto 102-CP");
 
         ensureOrganizacion(9992L, "Organización Foránea", "900009992-9", "org9992@test.com");
         ensurePropiedad(9992L, 9992L, "Propiedad 9992 Test");
         ensureUnidad(9992L, 9992L, "Apto 9992");
 
         // Asegurar Personas con fechas de nacimiento
-        ensurePersona(1L, "1000000001", "Super", "Admin", "superadmin@saed.com", LocalDate.now().minusYears(35));
-        ensureUsuario(1L, 1L, "superadmin", "superadmin@saed.com");
-
-        ensurePersona(2L, "1000000002", "Admin", "Propiedad", "admin@saed.com", LocalDate.now().minusYears(38));
-        ensureUsuario(2L, 2L, "admin", "admin@saed.com");
-
-        ensurePersona(4L, "1000000004", "Carlos", "Martinez", "camartinez@saed.com", LocalDate.now().minusYears(30));
-        ensureUsuario(4L, 4L, "carlos_m", "camartinez@saed.com");
+        // Users 1, 2 and 4 (and their personas) come from the demo seed and are not rewritten here.
+        ensurePersona(PERSONA_ADULTO_1, "1000009961", "Carlos", "Arrendatario", "arrendatario.cp@saed.com", LocalDate.now().minusYears(30));
 
         ensurePersona(8L, "1000000008", "AdminOrg1", "SAED", "admin_org1@saed.com", LocalDate.now().minusYears(40));
         ensureUsuario(8L, 8L, "admin_org1", "admin_org1@saed.com");
@@ -200,12 +195,12 @@ public class ContractParticipantsIntegrationTest {
 
             jdbcTemplate.execute("""
                 BEGIN
-                    DELETE FROM CONTRATO_RESIDENTE WHERE ID_CONTRATO IN (SELECT ID_CONTRATO FROM CONTRATOS WHERE ID_UNIDAD IN (1, 2, 9992));
-                    DELETE FROM PAGO_DETALLE WHERE ID_CUOTA IN (SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 9992));
-                    DELETE FROM MULTAS WHERE ID_CUOTA IN (SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 9992)) OR ID_UNIDAD IN (1, 2, 9992);
-                    DELETE FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 9992);
-                    DELETE FROM CONTRATOS WHERE ID_UNIDAD IN (1, 2, 9992);
-                    DELETE FROM RESIDENTES_UNIDAD WHERE ID_UNIDAD IN (1, 2, 9992) AND ID_PERSONA IN (20, 21, 22, 23);
+                    DELETE FROM CONTRATO_RESIDENTE WHERE ID_CONTRATO IN (SELECT ID_CONTRATO FROM CONTRATOS WHERE ID_UNIDAD IN (9951, 9952, 9992));
+                    DELETE FROM PAGO_DETALLE WHERE ID_CUOTA IN (SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD IN (9951, 9952, 9992));
+                    DELETE FROM MULTAS WHERE ID_CUOTA IN (SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD IN (9951, 9952, 9992)) OR ID_UNIDAD IN (9951, 9952, 9992);
+                    DELETE FROM CUOTAS WHERE ID_UNIDAD IN (9951, 9952, 9992);
+                    DELETE FROM CONTRATOS WHERE ID_UNIDAD IN (9951, 9952, 9992);
+                    DELETE FROM RESIDENTES_UNIDAD WHERE ID_UNIDAD IN (9951, 9952, 9992) AND ID_PERSONA IN (9961, 20, 21, 22, 23);
                 END;
             """);
         } catch (Exception e) {
@@ -729,6 +724,8 @@ public class ContractParticipantsIntegrationTest {
                     "UPDATE PERSONAS SET NUMERO_DOCUMENTO = ?, PRIMER_NOMBRE = ?, PRIMER_APELLIDO = ?, EMAIL = ?, FECHA_NACIMIENTO = ? WHERE ID_PERSONA = ?",
                     doc, nombre, apellido, email, sqlBirth, id);
         }
+        // b4f0179: a tenant must belong to the organization of the unit's property to be accepted in a contract.
+        jdbcTemplate.update("UPDATE PERSONAS SET ID_ORGANIZACION = 1 WHERE ID_PERSONA = ? AND ID_ORGANIZACION IS NULL", id);
     }
 
     private void ensureUsuario(long id, long personaId, String username, String email) {
@@ -774,10 +771,6 @@ public class ContractParticipantsIntegrationTest {
                     jdbcTemplate.update(
                             "INSERT INTO MEMBRESIAS (ID_ORGANIZACION, ID_PLAN, ESTADO, FECHA_INICIO, FECHA_FIN, ES_PRUEBA) " +
                             "VALUES (1, ?, 'ACTIVA', TRUNC(SYSDATE), TRUNC(SYSDATE) + 365, 'N')",
-                            defaultPlanId);
-                } else {
-                    jdbcTemplate.update(
-                            "UPDATE MEMBRESIAS SET ID_PLAN = ?, ESTADO = 'ACTIVA', FECHA_FIN = TRUNC(SYSDATE) + 365 WHERE ID_ORGANIZACION = 1",
                             defaultPlanId);
                 }
 
@@ -835,19 +828,12 @@ public class ContractParticipantsIntegrationTest {
                 SELECT ID_ROL INTO v_rol_prop  FROM ROLES WHERE CODIGO = 'ADMIN_PROPIEDAD';
                 SELECT ID_ROL INTO v_rol_res   FROM ROLES WHERE CODIGO = 'RESIDENTE';
 
-                DELETE FROM USUARIO_ASIGNACIONES WHERE ID_ASIGNACION IN (101, 102, 301, 981, 991, 104)
-                    OR (ID_USUARIO = 1 AND ID_ROL = v_rol_super)
-                    OR (ID_USUARIO = 2 AND ID_ROL = v_rol_prop AND NVL(ID_ORGANIZACION, -1) = 1 AND NVL(ID_PROPIEDAD, -1) = 1)
+                -- Assignments 101 (user 1), 102 (user 2) and 104 (user 4) belong to the demo seed and are left untouched;
+                -- only the assignments of this suite's own users (8, 98, 99) are recreated.
+                DELETE FROM USUARIO_ASIGNACIONES WHERE ID_ASIGNACION IN (301, 981, 991)
                     OR (ID_USUARIO = 8 AND ID_ROL = v_rol_org AND NVL(ID_ORGANIZACION, -1) = 1)
                     OR (ID_USUARIO = 98 AND ID_ROL = v_rol_org AND NVL(ID_ORGANIZACION, -1) = 9992)
-                    OR (ID_USUARIO = 99 AND ID_ROL = v_rol_prop AND NVL(ID_ORGANIZACION, -1) = 9992 AND NVL(ID_PROPIEDAD, -1) = 9992)
-                    OR (ID_USUARIO = 4 AND ID_ROL = v_rol_res AND NVL(ID_UNIDAD, -1) = 1);
-
-                INSERT INTO USUARIO_ASIGNACIONES (ID_ASIGNACION, ID_USUARIO, ID_ROL, ID_ORGANIZACION, ID_PROPIEDAD, ESTADO, FECHA_INICIO)
-                VALUES (101, 1, v_rol_super, NULL, NULL, 'ACTIVA', TRUNC(SYSDATE));
-
-                INSERT INTO USUARIO_ASIGNACIONES (ID_ASIGNACION, ID_USUARIO, ID_ROL, ID_ORGANIZACION, ID_PROPIEDAD, ESTADO, FECHA_INICIO)
-                VALUES (102, 2, v_rol_prop, 1, 1, 'ACTIVA', TRUNC(SYSDATE));
+                    OR (ID_USUARIO = 99 AND ID_ROL = v_rol_prop AND NVL(ID_ORGANIZACION, -1) = 9992 AND NVL(ID_PROPIEDAD, -1) = 9992);
 
                 INSERT INTO USUARIO_ASIGNACIONES (ID_ASIGNACION, ID_USUARIO, ID_ROL, ID_ORGANIZACION, ID_PROPIEDAD, ESTADO, FECHA_INICIO)
                 VALUES (301, 8, v_rol_org, 1, NULL, 'ACTIVA', TRUNC(SYSDATE));
@@ -857,9 +843,6 @@ public class ContractParticipantsIntegrationTest {
 
                 INSERT INTO USUARIO_ASIGNACIONES (ID_ASIGNACION, ID_USUARIO, ID_ROL, ID_ORGANIZACION, ID_PROPIEDAD, ESTADO, FECHA_INICIO)
                 VALUES (991, 99, v_rol_prop, 9992, 9992, 'ACTIVA', TRUNC(SYSDATE));
-
-                INSERT INTO USUARIO_ASIGNACIONES (ID_ASIGNACION, ID_USUARIO, ID_ROL, ID_ORGANIZACION, ID_PROPIEDAD, ID_UNIDAD, ESTADO, FECHA_INICIO)
-                VALUES (104, 4, v_rol_res, 1, 1, 1, 'ACTIVA', TRUNC(SYSDATE));
             END;
         """);
     }

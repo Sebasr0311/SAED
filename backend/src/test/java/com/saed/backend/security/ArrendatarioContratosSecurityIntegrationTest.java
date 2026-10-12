@@ -93,7 +93,8 @@ public class ArrendatarioContratosSecurityIntegrationTest {
 
     private static final long ORG_1_ID = 1L;
     private static final long PROP_1_ID = 1L;
-    private static final long UNIT_1_ID = 1L;
+    // Test-owned unit: demo unit 1 carries the seeded contract, fees and payments other suites rely on.
+    private static final long UNIT_1_ID = 9955L;
 
     private static final long ORG_2_ID = 9992L;
     private static final long PROP_2_ID = 9992L;
@@ -116,8 +117,13 @@ public class ArrendatarioContratosSecurityIntegrationTest {
         } catch (Exception ignored) {
         }
 
-        // Restaurar estado canonico de Unidad 2 en Propiedad 1
-        try { jdbcTemplate.update("UPDATE UNIDADES SET ID_PROPIEDAD = 1 WHERE ID_UNIDAD = 2"); } catch (Exception ignored) {}
+        // Unidad de prueba propia en Propiedad 1
+        try {
+            Integer unitExists = jdbcTemplate.queryForObject("SELECT COUNT(1) FROM UNIDADES WHERE ID_UNIDAD = ?", Integer.class, UNIT_1_ID);
+            if (unitExists == null || unitExists == 0) {
+                jdbcTemplate.update("INSERT INTO UNIDADES (ID_UNIDAD, ID_PROPIEDAD, ID_TIPO_UNIDAD, IDENTIFICADOR, ESTADO) VALUES (?, 1, 1, 'Apto 101-AC', 'ACTIVA')", UNIT_1_ID);
+            }
+        } catch (Exception ignored) {}
 
         // Limpiar datos previos de pruebas en unidades de test
         try { jdbcTemplate.update("DELETE FROM CUOTAS WHERE ID_UNIDAD IN (?, ?)", UNIT_1_ID, UNIT_2_ID); } catch (Exception ignored) {}
@@ -189,6 +195,9 @@ public class ArrendatarioContratosSecurityIntegrationTest {
                 personaArrendatarioId = kh11.getKey().longValue();
             }
         }
+
+        // b4f0179: a tenant must belong to the organization of the unit's property to be accepted in a contract.
+        jdbcTemplate.update("UPDATE PERSONAS SET ID_ORGANIZACION = 1 WHERE ID_PERSONA IN (?, ?) AND ID_ORGANIZACION IS NULL", personaPropietarioId, personaArrendatarioId);
 
         // Asegurar Plantillas de contrato
         try {
