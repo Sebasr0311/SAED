@@ -155,10 +155,10 @@ export default function ResPerfilPage() {
   const { data: unitData, loading: unitLoading } = useFetch(() => (unitId ? api.get(`/units/${unitId}`) : Promise.resolve(null)), [unitId]);
   const u = useMemo(() => unitData?.raw || unitData || {}, [unitData]);
 
-  // 4. Residentes / cohabitantes de la unidad
+  // 4. Residentes / cohabitantes de la unidad (household members without titular privileges do not call these endpoints)
   const { data: unitResidentsData, loading: residentsLoading, refetch: refetchResidents } = useFetch(
-    () => (unitId ? api.get(`/units/${unitId}/residents`) : Promise.resolve([])),
-    [unitId]
+    () => (unitId && !isConviviente ? api.get(`/units/${unitId}/residents`) : Promise.resolve([])),
+    [unitId, isConviviente]
   );
 
   // 4b. Cupo parametrizado de convivientes de la unidad (P2-01)
@@ -167,8 +167,8 @@ export default function ResPerfilPage() {
     loading: quotaLoading,
     refetch: refetchQuota,
   } = useFetch(
-    () => (unitId ? api.get(`/units/${unitId}/residents/quota`) : Promise.resolve(null)),
-    [unitId]
+    () => (unitId && !isConviviente ? api.get(`/units/${unitId}/residents/quota`) : Promise.resolve(null)),
+    [unitId, isConviviente]
   );
 
   const handleRefreshHabitantes = () => {
@@ -177,7 +177,10 @@ export default function ResPerfilPage() {
   };
 
   // 5. Asignaciones de parqueadero
-  const { data: asignacionesParqueadero } = useFetch(() => api.get('/parqueaderos/asignaciones'), []);
+  const { data: asignacionesParqueadero } = useFetch(
+    () => (isConviviente ? Promise.resolve([]) : api.get('/parqueaderos/asignaciones')),
+    [isConviviente]
+  );
 
   // 6. Visitantes frecuentes
   const { data: frecuentesData } = useFetch(
