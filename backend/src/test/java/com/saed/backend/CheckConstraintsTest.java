@@ -18,7 +18,7 @@ public class CheckConstraintsTest {
     @Test
     public void test() {
         try (Connection conn = dataSource.getConnection(); Statement stmt = conn.createStatement()) {
-            ResultSet rs = stmt.executeQuery("SELECT SEARCH_CONDITION FROM USER_CONSTRAINTS WHERE CONSTRAINT_NAME IN ('CK_ROLES_ALCANCE', 'CK_ROLES_CODIGO')");
+            ResultSet rs = stmt.executeQuery("SELECT SEARCH_CONDITION FROM ALL_CONSTRAINTS WHERE OWNER = SYS_CONTEXT('USERENV','CURRENT_SCHEMA') AND CONSTRAINT_NAME IN ('CK_ROLES_ALCANCE', 'CK_ROLES_CODIGO')");
             while(rs.next()) {
                 System.out.println(rs.getString(1));
             }

@@ -216,7 +216,7 @@ public class QrAtomicConsumptionIntegrationTest {
     void test0_verificarObjetoOracleValid() {
         setElevatedContext();
         String status = jdbcTemplate.queryForObject(
-                "SELECT STATUS FROM USER_OBJECTS WHERE OBJECT_NAME = 'SP_VALIDAR_CONSUMIR_QR' AND OBJECT_TYPE = 'PROCEDURE'",
+                "SELECT STATUS FROM ALL_OBJECTS WHERE OWNER = SYS_CONTEXT('USERENV','CURRENT_SCHEMA') AND OBJECT_NAME = 'SP_VALIDAR_CONSUMIR_QR' AND OBJECT_TYPE = 'PROCEDURE'",
                 String.class
         );
         assertNotNull(status, "El objeto SP_VALIDAR_CONSUMIR_QR debe existir en Oracle");
