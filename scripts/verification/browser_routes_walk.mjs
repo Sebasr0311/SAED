@@ -42,6 +42,12 @@ for (const username of users) {
   await page.click('button[type="submit"]');
   await page.waitForTimeout(3000);
   const home = new URL(page.url()).pathname;
+  if (home === '/login') {
+    // A failed login would make every route "redirected" and the walk silently green.
+    report.push({ username, role: account.role, home, rendered: [], redirected: [], loginFailed: true });
+    await context.close();
+    continue;
+  }
 
   const rendered = [];
   const redirected = [];
@@ -70,6 +76,11 @@ writeFileSync(join('local', 'isolated-oracle', stateName, 'browser-routes.json')
 
 let defects = 0;
 for (const r of report) {
+  if (r.loginFailed) {
+    defects++;
+    console.log(`${r.username.padEnd(28)} ${r.role.padEnd(22)} LOGIN FAILED (still on /login)`);
+    continue;
+  }
   const bad = r.rendered.filter((x) => x.api.length || x.errors.length || x.blank);
   defects += bad.length;
   console.log(`${r.username.padEnd(28)} ${r.role.padEnd(22)} home=${r.home.padEnd(24)} rendered=${String(r.rendered.length).padStart(3)} redirected=${String(r.redirected.length).padStart(3)} withIssues=${bad.length}`);
@@ -78,3 +89,4 @@ for (const r of report) {
   }
 }
 console.log(`\nROUTES WITH ISSUES: ${defects}`);
+process.exitCode = defects ? 1 : 0;
