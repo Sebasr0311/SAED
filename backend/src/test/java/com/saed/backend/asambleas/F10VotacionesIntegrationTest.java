@@ -322,7 +322,7 @@ public class F10VotacionesIntegrationTest {
             jdbcTemplate.update("INSERT INTO UNIDADES (ID_UNIDAD, ID_PROPIEDAD, ID_TIPO_UNIDAD, IDENTIFICADOR, COEFICIENTE_COPROPIEDAD, ESTADO) VALUES (?, ?, 1, ?, ?, 'ACTIVA')",
                     id, propId, identificador, coeficiente);
         } else {
-            jdbcTemplate.update("UPDATE UNIDADES SET COEFICIENTE_COPROPIEDAD = ? WHERE ID_UNIDAD = ?", coeficiente, id);
+            jdbcTemplate.update("UPDATE UNIDADES SET ID_PROPIEDAD = ?, COEFICIENTE_COPROPIEDAD = ? WHERE ID_UNIDAD = ?", propId, coeficiente, id);
         }
     }
 

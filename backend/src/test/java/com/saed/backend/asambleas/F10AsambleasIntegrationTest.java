@@ -172,7 +172,7 @@ public class F10AsambleasIntegrationTest {
             // DEC-03: only the unit's active legal owner (PROPIETARIOS_UNIDAD) may attend, grant a proxy or vote; the demo
             // seed has no owner rows, so the units used here get their own owners.
             ensurePropietario(UNIDAD_1_ID, USER_RESIDENTE);
-            ensurePropietario(UNIDAD_2_ID, USER_ADMIN_PROP_1B);
+            ensurePropietario(UNIDAD_2_ID, USER_ADMIN_PROP_1); // DEC-03: the voter is the caller itself, so the administrator who votes is the owner of unit 2
 
             setupMockAssignments();
 
@@ -318,7 +318,7 @@ public class F10AsambleasIntegrationTest {
             jdbcTemplate.update("INSERT INTO UNIDADES (ID_UNIDAD, ID_PROPIEDAD, ID_TIPO_UNIDAD, IDENTIFICADOR, COEFICIENTE_COPROPIEDAD, ESTADO) VALUES (?, ?, 1, ?, ?, 'ACTIVA')",
                     id, propId, identificador, coeficiente);
         } else {
-            jdbcTemplate.update("UPDATE UNIDADES SET COEFICIENTE_COPROPIEDAD = ? WHERE ID_UNIDAD = ?", coeficiente, id);
+            jdbcTemplate.update("UPDATE UNIDADES SET ID_PROPIEDAD = ?, COEFICIENTE_COPROPIEDAD = ? WHERE ID_UNIDAD = ?", propId, coeficiente, id);
         }
     }
 
@@ -692,7 +692,7 @@ public class F10AsambleasIntegrationTest {
         // 3. Registrar Unidad 2 (coeficiente 30%)
         AsistenciaRequestDTO asis2 = AsistenciaRequestDTO.builder()
                 .idUnidad(UNIDAD_2_ID)
-                .idPersonaAsistente(USER_ADMIN_PROP_1B)
+                .idPersonaAsistente(USER_ADMIN_PROP_1)
                 .esPropietarioDirecto("S")
                 .coeficientePonderado(BigDecimal.valueOf(30.000000))
                 .build();
@@ -816,7 +816,7 @@ public class F10AsambleasIntegrationTest {
                 .build();
         AsistenciaRequestDTO asis2 = AsistenciaRequestDTO.builder()
                 .idUnidad(UNIDAD_2_ID)
-                .idPersonaAsistente(USER_ADMIN_PROP_1B)
+                .idPersonaAsistente(USER_ADMIN_PROP_1)
                 .esPropietarioDirecto("S")
                 .coeficientePonderado(BigDecimal.valueOf(30.000000))
                 .build();
@@ -978,7 +978,7 @@ public class F10AsambleasIntegrationTest {
 
         // DEC-03: a unit votes only with registered attendance of its owner.
         registrarAsistenciaPropietario(id, UNIDAD_1_ID, USER_RESIDENTE);
-        registrarAsistenciaPropietario(id, UNIDAD_2_ID, USER_ADMIN_PROP_1B);
+        registrarAsistenciaPropietario(id, UNIDAD_2_ID, USER_ADMIN_PROP_1);
 
         // 1. Crear punto de votación
         VotacionCreateRequestDTO votReq = VotacionCreateRequestDTO.builder()
@@ -1027,7 +1027,7 @@ public class F10AsambleasIntegrationTest {
         // 4. Emitir Voto Unidad 2 (NO)
         VotoRequestDTO voto2 = VotoRequestDTO.builder()
                 .idUnidad(UNIDAD_2_ID)
-                .idPersonaVotante(USER_ADMIN_PROP_1B)
+                .idPersonaVotante(USER_ADMIN_PROP_1)
                 .opcionVoto("NO")
                 .coeficienteVoto(BigDecimal.valueOf(10.000000))
                 .build();
@@ -1045,7 +1045,9 @@ public class F10AsambleasIntegrationTest {
                         .header("X-Assignment-Id", ASSIGN_ADMIN_PROP_1))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.estado").value("CERRADA"))
-                .andExpect(jsonPath("$.aprobada").value(true)); // 25 > 10
+                // DEC-11 (Ley 675 art. 45): SIMPLE_50_MAS_1 needs SI > 50% of the coefficients represented in the session;
+                // SI 25% of the 55% represented (units 1 and 2) is 45.5%, so the point is rejected.
+                .andExpect(jsonPath("$.aprobada").value(false));
     }
 
     // =========================================================================
@@ -1277,7 +1279,7 @@ public class F10AsambleasIntegrationTest {
             try {
                 AsistenciaRequestDTO asis = AsistenciaRequestDTO.builder()
                         .idUnidad(UNIDAD_2_ID)
-                        .idPersonaAsistente(USER_ADMIN_PROP_1B)
+                        .idPersonaAsistente(USER_ADMIN_PROP_1)
                         .esPropietarioDirecto("S")
                         .coeficientePonderado(BigDecimal.valueOf(30.000000))
                         .build();

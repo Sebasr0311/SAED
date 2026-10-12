@@ -41,35 +41,61 @@ public class DiferenciacionPropietarioResidenteTest {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
-    private static final Long TEST_UNIT_ID = 1L;
-    private static final Long TEST_PERSONA_ID = 4L;
+    // Test-owned unit and person: the demo unit 1 / person 4 are the seeded household of Apto 101 and must not be
+    // re-assigned, deactivated or unlinked by this suite.
+    private static final Long TEST_UNIT_ID = 9960L;
+    private static final Long TEST_PERSONA_ID = 9970L;
+    private static final String TEST_UNIT_IDENTIFIER = "T-9960";
+
+    private void asSuperadmin() {
+        SaedContextHolder.setContext(SaedContext.builder()
+                .userId(1L).organizationId(1L).propertyId(1L).roleCode("SUPERADMIN").roleScope("GLOBAL").build());
+    }
+
+    /** DEC-02: SUPERADMIN has no operational access; the suite acts as the demo property administrator (user 2). */
+    private void asPropertyAdmin() {
+        SaedContextHolder.setContext(SaedContext.builder()
+                .userId(2L).organizationId(1L).propertyId(1L).roleCode("ADMIN_PROPIEDAD").roleScope("PROPIEDAD").build());
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                        "admin", "n/a",
+                        java.util.List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("SCOPE_ADMIN_PROPIEDAD"))));
+    }
+
+    private void cleanFixture() {
+        asSuperadmin();
+        jdbcTemplate.update("DELETE FROM RESIDENTES_UNIDAD WHERE ID_UNIDAD = ?", TEST_UNIT_ID);
+        jdbcTemplate.update("DELETE FROM PROPIETARIOS_UNIDAD WHERE ID_UNIDAD = ?", TEST_UNIT_ID);
+        jdbcTemplate.update("DELETE FROM RESIDENTES_UNIDAD WHERE ID_PERSONA IN (SELECT ID_PERSONA FROM PERSONAS WHERE NUMERO_DOCUMENTO LIKE 'BATCH_%')");
+        jdbcTemplate.update("DELETE FROM PROPIETARIOS_UNIDAD WHERE ID_PERSONA IN (SELECT ID_PERSONA FROM PERSONAS WHERE NUMERO_DOCUMENTO LIKE 'BATCH_%')");
+    }
 
     @BeforeEach
     public void setup() {
-        SaedContextHolder.setContext(SaedContext.builder()
-                .userId(1L)
-                .organizationId(1L)
-                .propertyId(1L)
-                .roleCode("SUPERADMIN")
-                .roleScope("GLOBAL")
-                .build());
-
-        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
-                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
-                        "admin_global",
-                        "n/a",
-                        java.util.List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("SCOPE_SUPERADMIN"))
-                )
-        );
-
+        asSuperadmin();
         try {
             jdbcTemplate.execute("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1); PKG_SAED_SESSION.SET_CONTEXT(1, 1, 1, 'SUPERADMIN'); END;");
         } catch (Exception ignored) {}
+        Integer unit = jdbcTemplate.queryForObject("SELECT COUNT(1) FROM UNIDADES WHERE ID_UNIDAD = ?", Integer.class, TEST_UNIT_ID);
+        if (unit == null || unit == 0) {
+            jdbcTemplate.update("INSERT INTO UNIDADES (ID_UNIDAD, ID_PROPIEDAD, ID_TIPO_UNIDAD, IDENTIFICADOR, ESTADO) VALUES (?, 1, 1, ?, 'ACTIVA')",
+                    TEST_UNIT_ID, TEST_UNIT_IDENTIFIER);
+        }
+        Integer persona = jdbcTemplate.queryForObject("SELECT COUNT(1) FROM PERSONAS WHERE ID_PERSONA = ?", Integer.class, TEST_PERSONA_ID);
+        if (persona == null || persona == 0) {
+            jdbcTemplate.update("INSERT INTO PERSONAS (ID_PERSONA, ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, PRIMER_NOMBRE, PRIMER_APELLIDO, EMAIL, ESTADO, ID_ORGANIZACION, ID_PROPIEDAD) "
+                    + "VALUES (?, 1, '1000009970', 'NATURAL', 'Diferenciacion', 'Test', 'dif9970@saed.com', 'ACTIVO', 1, 1)", TEST_PERSONA_ID);
+        }
+        jdbcTemplate.update("UPDATE PERSONAS SET ESTADO = 'ACTIVO' WHERE ID_PERSONA = ?", TEST_PERSONA_ID);
+        cleanFixture();
+        asPropertyAdmin();
     }
 
     @AfterEach
     public void tearDown() {
         try {
+            cleanFixture();
+            jdbcTemplate.update("UPDATE PERSONAS SET ESTADO = 'ACTIVO' WHERE ID_PERSONA = ?", TEST_PERSONA_ID);
             jdbcTemplate.execute("BEGIN PKG_SAED_SESSION.CLEAR_CONTEXT; END;");
         } catch (Exception ignored) {}
         org.springframework.security.core.context.SecurityContextHolder.clearContext();
@@ -133,7 +159,8 @@ public class DiferenciacionPropietarioResidenteTest {
     public void testAsignarArrendatario_ActiveOnlyInResidentesUnidad() {
         Map<String, Object> payload = Map.of(
                 "idApartamento", TEST_UNIT_ID,
-                "tipoRelacion", "ARRENDATARIO"
+                "tipoRelacion", "ARRENDATARIO",
+                "sinContrato", true // a tenant needs an active contract or an explicit no-contract confirmation
         );
 
         ResponseEntity<Void> response = dashboardController.asignarApartamento(TEST_PERSONA_ID, payload);
@@ -169,6 +196,7 @@ public class DiferenciacionPropietarioResidenteTest {
         // Requisitos #14 y #15: No destrucción física, soft-delete y preservación de auditoría
         // F05-01: unlinking is scoped to the caller's property; the identity is deactivated only when no active
         // link remains (this fixture has links only in that property).
+        dashboardController.asignarApartamento(TEST_PERSONA_ID, Map.of("idApartamento", TEST_UNIT_ID, "tipoRelacion", "ARRENDATARIO", "sinContrato", true));
         Long propId = jdbcTemplate.queryForObject(
                 "SELECT ID_PROPIEDAD FROM UNIDADES WHERE ID_UNIDAD = ?", Long.class, TEST_UNIT_ID);
         Long orgId = jdbcTemplate.queryForObject(
@@ -201,7 +229,7 @@ public class DiferenciacionPropietarioResidenteTest {
                 "Restrepo Ochoa",
                 "maria.batch@saed.com",
                 "3119876543",
-                "101",
+                TEST_UNIT_IDENTIFIER,
                 "PROPIETARIO_RESIDENTE"
         );
 

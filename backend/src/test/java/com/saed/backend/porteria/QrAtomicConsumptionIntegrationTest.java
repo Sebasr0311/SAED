@@ -158,6 +158,11 @@ public class QrAtomicConsumptionIntegrationTest {
                     testOtraPropiedadId
                 );
             }
+            // V5.58: a porter only sees the properties of its own active assignments, so the porter of the other
+            // property needs a real (test-owned) assignment there, or the property reads as inactive.
+            jdbcTemplate.update("DELETE FROM USUARIO_ASIGNACIONES WHERE ID_USUARIO = ? AND ID_PROPIEDAD = ?", testPorteroUserId, testOtraPropiedadId);
+            jdbcTemplate.update("INSERT INTO USUARIO_ASIGNACIONES (ID_USUARIO, ID_ROL, ID_ORGANIZACION, ID_PROPIEDAD, ESTADO, FECHA_INICIO) "
+                    + "VALUES (?, (SELECT ID_ROL FROM ROLES WHERE CODIGO = 'PORTERO'), 1, ?, 'ACTIVA', TRUNC(SYSDATE))", testPorteroUserId, testOtraPropiedadId);
         } catch (Exception ignored) {}
 
         AssignmentResponseDTO porteroOtraProp = new AssignmentResponseDTO();
@@ -190,6 +195,7 @@ public class QrAtomicConsumptionIntegrationTest {
     void tearDown() {
         setElevatedContext();
         try {
+            jdbcTemplate.update("DELETE FROM USUARIO_ASIGNACIONES WHERE ID_USUARIO = ? AND ID_PROPIEDAD = ?", testPorteroUserId, testOtraPropiedadId);
             for (String token : generatedTokens) {
                 jdbcTemplate.update("DELETE FROM REGISTROS_ACCESO WHERE ID_QR IN (SELECT ID_QR FROM QR_ACCESOS WHERE TOKEN_QR = ?)", token);
                 jdbcTemplate.update("DELETE FROM QR_ACCESOS WHERE TOKEN_QR = ?", token);
