@@ -48,14 +48,14 @@ public class Phase1IFinanzasIntegrationTest {
     }
 
     @Test
-    @WithMockUser(authorities = {"SCOPE_ADMIN_PROPIEDAD"}, username="1")
+    @WithMockUser(authorities = {"SCOPE_ADMIN_PROPIEDAD"}, username="2")
     void adminCanCreateContrato() throws Exception {
         ContratoRequestDTO request = new ContratoRequestDTO(
             1L, 1L, LocalDate.now(), LocalDate.now().plusYears(1), "INICIAL", new BigDecimal("1200000")
         );
 
         mockMvc.perform(post("/api/v1/contratos")
-                .header("X-Assignment-Id", "1")
+                .header("X-Assignment-Id", "102")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(result -> {
@@ -65,24 +65,24 @@ public class Phase1IFinanzasIntegrationTest {
     }
 
     @Test
-    @WithMockUser(authorities = {"SCOPE_RESIDENTE"}, username="2")
+    @WithMockUser(authorities = {"SCOPE_RESIDENTE"}, username="4")
     void residenteCannotCreateContrato() throws Exception {
         ContratoRequestDTO request = new ContratoRequestDTO(
             1L, 1L, LocalDate.now(), LocalDate.now().plusYears(1), "INICIAL", new BigDecimal("1200000")
         );
 
         mockMvc.perform(post("/api/v1/contratos")
-                .header("X-Assignment-Id", "2")
+                .header("X-Assignment-Id", "104")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isForbidden());
     }
 
     @Test
-    @WithMockUser(authorities = {"SCOPE_ADMIN_PROPIEDAD"}, username="1")
+    @WithMockUser(authorities = {"SCOPE_ADMIN_PROPIEDAD"}, username="2")
     void adminCanGetCuotas() throws Exception {
         mockMvc.perform(get("/api/v1/cuotas?pendientes=true")
-                .header("X-Assignment-Id", "1"))
+                .header("X-Assignment-Id", "102"))
                 .andExpect(status().isOk());
     }
 }

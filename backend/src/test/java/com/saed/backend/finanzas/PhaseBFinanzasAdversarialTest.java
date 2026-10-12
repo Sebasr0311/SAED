@@ -62,50 +62,50 @@ public class PhaseBFinanzasAdversarialTest {
     // ======================== CARTERA ========================
 
     @Test
-    @WithMockUser(authorities = {"SCOPE_ADMIN_PROPIEDAD"}, username = "1")
+    @WithMockUser(authorities = {"SCOPE_ADMIN_PROPIEDAD"}, username = "2")
     void adminCanListCartera() throws Exception {
         mockMvc.perform(get("/api/v1/cartera")
-                .header("X-Assignment-Id", "1"))
+                .header("X-Assignment-Id", "102"))
                 .andExpect(status().isOk());
     }
 
     @Test
-    @WithMockUser(authorities = {"SCOPE_RESIDENTE"}, username = "2")
+    @WithMockUser(authorities = {"SCOPE_RESIDENTE"}, username = "4")
     void residenteCannotAccessCartera() throws Exception {
         mockMvc.perform(get("/api/v1/cartera")
-                .header("X-Assignment-Id", "2"))
+                .header("X-Assignment-Id", "104"))
                 .andExpect(status().isForbidden());
     }
 
     @Test
-    @WithMockUser(authorities = {"SCOPE_ADMIN_PROPIEDAD"}, username = "1")
+    @WithMockUser(authorities = {"SCOPE_ADMIN_PROPIEDAD"}, username = "2")
     void adminCanGetCarteraResumen() throws Exception {
         mockMvc.perform(get("/api/v1/cartera/resumen")
-                .header("X-Assignment-Id", "1"))
+                .header("X-Assignment-Id", "102"))
                 .andExpect(status().isOk());
     }
 
     @Test
-    @WithMockUser(authorities = {"SCOPE_ADMIN_PROPIEDAD"}, username = "1")
+    @WithMockUser(authorities = {"SCOPE_ADMIN_PROPIEDAD"}, username = "2")
     void adminCanRecalcularCartera() throws Exception {
         mockMvc.perform(post("/api/v1/cartera/recalcular")
-                .header("X-Assignment-Id", "1"))
+                .header("X-Assignment-Id", "102"))
                 .andExpect(status().isOk());
     }
 
     @Test
-    @WithMockUser(authorities = {"SCOPE_ADMIN_PROPIEDAD"}, username = "1")
+    @WithMockUser(authorities = {"SCOPE_ADMIN_PROPIEDAD"}, username = "2")
     void adminCanGetAntiguedad() throws Exception {
         mockMvc.perform(get("/api/v1/cartera/antiguedad")
-                .header("X-Assignment-Id", "1"))
+                .header("X-Assignment-Id", "102"))
                 .andExpect(status().isOk());
     }
 
     @Test
-    @WithMockUser(authorities = {"SCOPE_ADMIN_PROPIEDAD"}, username = "1")
+    @WithMockUser(authorities = {"SCOPE_ADMIN_PROPIEDAD"}, username = "2")
     void carteraPorUnidadNoExistenteReturnsError() throws Exception {
         mockMvc.perform(get("/api/v1/cartera/999999")
-                .header("X-Assignment-Id", "1"))
+                .header("X-Assignment-Id", "102"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message").value("No se encontro cartera para la unidad"));
     }
@@ -113,7 +113,7 @@ public class PhaseBFinanzasAdversarialTest {
     // ======================== PRESUPUESTOS ========================
 
     @Test
-    @WithMockUser(authorities = {"SCOPE_ADMIN_PROPIEDAD"}, username = "1")
+    @WithMockUser(authorities = {"SCOPE_ADMIN_PROPIEDAD"}, username = "2")
     void adminCanCreatePresupuesto() throws Exception {
         Map<String, Object> body = Map.of(
             "rubro", "Mantenimiento",
@@ -123,7 +123,7 @@ public class PhaseBFinanzasAdversarialTest {
         );
 
         mockMvc.perform(post("/api/v1/presupuestos")
-                .header("X-Assignment-Id", "1")
+                .header("X-Assignment-Id", "102")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(body)))
                 .andExpect(status().isCreated())
@@ -132,7 +132,7 @@ public class PhaseBFinanzasAdversarialTest {
     }
 
     @Test
-    @WithMockUser(authorities = {"SCOPE_RESIDENTE"}, username = "2")
+    @WithMockUser(authorities = {"SCOPE_RESIDENTE"}, username = "4")
     void residenteCannotCreatePresupuesto() throws Exception {
         Map<String, Object> body = Map.of(
             "rubro", "Mantenimiento",
@@ -142,14 +142,14 @@ public class PhaseBFinanzasAdversarialTest {
         );
 
         mockMvc.perform(post("/api/v1/presupuestos")
-                .header("X-Assignment-Id", "2")
+                .header("X-Assignment-Id", "104")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(body)))
                 .andExpect(status().isForbidden());
     }
 
     @Test
-    @WithMockUser(authorities = {"SCOPE_ADMIN_PROPIEDAD"}, username = "1")
+    @WithMockUser(authorities = {"SCOPE_ADMIN_PROPIEDAD"}, username = "2")
     void crearPresupuestoSinRubroFails() throws Exception {
         Map<String, Object> body = Map.of(
             "tipo", "EGRESO",
@@ -158,7 +158,7 @@ public class PhaseBFinanzasAdversarialTest {
         );
 
         mockMvc.perform(post("/api/v1/presupuestos")
-                .header("X-Assignment-Id", "1")
+                .header("X-Assignment-Id", "102")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(body)))
                 .andExpect(status().isBadRequest())
@@ -166,7 +166,7 @@ public class PhaseBFinanzasAdversarialTest {
     }
 
     @Test
-    @WithMockUser(authorities = {"SCOPE_ADMIN_PROPIEDAD"}, username = "1")
+    @WithMockUser(authorities = {"SCOPE_ADMIN_PROPIEDAD"}, username = "2")
     void crearPresupuestoTipoInvalidoFails() throws Exception {
         Map<String, Object> body = Map.of(
             "rubro", "Mantenimiento",
@@ -176,7 +176,7 @@ public class PhaseBFinanzasAdversarialTest {
         );
 
         mockMvc.perform(post("/api/v1/presupuestos")
-                .header("X-Assignment-Id", "1")
+                .header("X-Assignment-Id", "102")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(body)))
                 .andExpect(status().isBadRequest())
@@ -184,25 +184,25 @@ public class PhaseBFinanzasAdversarialTest {
     }
 
     @Test
-    @WithMockUser(authorities = {"SCOPE_ADMIN_PROPIEDAD"}, username = "1")
+    @WithMockUser(authorities = {"SCOPE_ADMIN_PROPIEDAD"}, username = "2")
     void adminCanGetResumen() throws Exception {
         mockMvc.perform(get("/api/v1/presupuestos/resumen")
-                .header("X-Assignment-Id", "1"))
+                .header("X-Assignment-Id", "102"))
                 .andExpect(status().isOk());
     }
 
     @Test
-    @WithMockUser(authorities = {"SCOPE_ADMIN_PROPIEDAD"}, username = "1")
+    @WithMockUser(authorities = {"SCOPE_ADMIN_PROPIEDAD"}, username = "2")
     void adminCanGetEjecucion() throws Exception {
         mockMvc.perform(get("/api/v1/presupuestos/ejecucion")
-                .header("X-Assignment-Id", "1"))
+                .header("X-Assignment-Id", "102"))
                 .andExpect(status().isOk());
     }
 
     // ======================== GASTOS ========================
 
     @Test
-    @WithMockUser(authorities = {"SCOPE_ADMIN_PROPIEDAD"}, username = "1")
+    @WithMockUser(authorities = {"SCOPE_ADMIN_PROPIEDAD"}, username = "2")
     void adminCanCreateGasto() throws Exception {
         Map<String, Object> body = Map.of(
             "categoria", "Mantenimiento",
@@ -213,7 +213,7 @@ public class PhaseBFinanzasAdversarialTest {
         );
 
         mockMvc.perform(post("/api/v1/gastos")
-                .header("X-Assignment-Id", "1")
+                .header("X-Assignment-Id", "102")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(body)))
                 .andExpect(status().isCreated())
@@ -221,7 +221,7 @@ public class PhaseBFinanzasAdversarialTest {
     }
 
     @Test
-    @WithMockUser(authorities = {"SCOPE_RESIDENTE"}, username = "2")
+    @WithMockUser(authorities = {"SCOPE_RESIDENTE"}, username = "4")
     void residenteCannotCreateGasto() throws Exception {
         Map<String, Object> body = Map.of(
             "categoria", "Mantenimiento",
@@ -230,14 +230,14 @@ public class PhaseBFinanzasAdversarialTest {
         );
 
         mockMvc.perform(post("/api/v1/gastos")
-                .header("X-Assignment-Id", "2")
+                .header("X-Assignment-Id", "104")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(body)))
                 .andExpect(status().isForbidden());
     }
 
     @Test
-    @WithMockUser(authorities = {"SCOPE_ADMIN_PROPIEDAD"}, username = "1")
+    @WithMockUser(authorities = {"SCOPE_ADMIN_PROPIEDAD"}, username = "2")
     void crearGastoSinCategoriaFails() throws Exception {
         Map<String, Object> body = Map.of(
             "beneficiario", "Proveedor XYZ",
@@ -245,7 +245,7 @@ public class PhaseBFinanzasAdversarialTest {
         );
 
         mockMvc.perform(post("/api/v1/gastos")
-                .header("X-Assignment-Id", "1")
+                .header("X-Assignment-Id", "102")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(body)))
                 .andExpect(status().isBadRequest())
@@ -253,18 +253,18 @@ public class PhaseBFinanzasAdversarialTest {
     }
 
     @Test
-    @WithMockUser(authorities = {"SCOPE_ADMIN_PROPIEDAD"}, username = "1")
+    @WithMockUser(authorities = {"SCOPE_ADMIN_PROPIEDAD"}, username = "2")
     void adminCanListGastos() throws Exception {
             mockMvc.perform(get("/api/v1/gastos")
-                .header("X-Assignment-Id", "1"))
+                .header("X-Assignment-Id", "102"))
                 .andExpect(status().isOk());
     }
 
     @Test
-    @WithMockUser(authorities = {"SCOPE_ADMIN_PROPIEDAD"}, username = "1")
+    @WithMockUser(authorities = {"SCOPE_ADMIN_PROPIEDAD"}, username = "2")
     void adminCanDeleteGastoNoExistente() throws Exception {
         mockMvc.perform(delete("/api/v1/gastos/999999")
-                .header("X-Assignment-Id", "1"))
+                .header("X-Assignment-Id", "102"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message").value("Gasto no encontrado"));
     }
@@ -272,7 +272,7 @@ public class PhaseBFinanzasAdversarialTest {
     // ======================== CONCILIACIONES ========================
 
     @Test
-    @WithMockUser(authorities = {"SCOPE_ADMIN_PROPIEDAD"}, username = "1")
+    @WithMockUser(authorities = {"SCOPE_ADMIN_PROPIEDAD"}, username = "2")
     void adminCanCreateConciliacion() throws Exception {
         Map<String, Object> body = Map.of(
             "bancoCuenta", "Bancolombia 12345",
@@ -282,7 +282,7 @@ public class PhaseBFinanzasAdversarialTest {
         );
 
         mockMvc.perform(post("/api/v1/conciliaciones")
-                .header("X-Assignment-Id", "1")
+                .header("X-Assignment-Id", "102")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(body)))
                 .andExpect(status().isCreated())
@@ -290,7 +290,7 @@ public class PhaseBFinanzasAdversarialTest {
     }
 
     @Test
-    @WithMockUser(authorities = {"SCOPE_RESIDENTE"}, username = "2")
+    @WithMockUser(authorities = {"SCOPE_RESIDENTE"}, username = "4")
     void residenteCannotCreateConciliacion() throws Exception {
         Map<String, Object> body = Map.of(
             "bancoCuenta", "Bancolombia 12345",
@@ -300,14 +300,14 @@ public class PhaseBFinanzasAdversarialTest {
         );
 
         mockMvc.perform(post("/api/v1/conciliaciones")
-                .header("X-Assignment-Id", "2")
+                .header("X-Assignment-Id", "104")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(body)))
                 .andExpect(status().isForbidden());
     }
 
     @Test
-    @WithMockUser(authorities = {"SCOPE_ADMIN_PROPIEDAD"}, username = "1")
+    @WithMockUser(authorities = {"SCOPE_ADMIN_PROPIEDAD"}, username = "2")
     void crearConciliacionSinPeriodoFails() throws Exception {
         Map<String, Object> body = Map.of(
             "bancoCuenta", "Bancolombia 12345",
@@ -316,7 +316,7 @@ public class PhaseBFinanzasAdversarialTest {
         );
 
         mockMvc.perform(post("/api/v1/conciliaciones")
-                .header("X-Assignment-Id", "1")
+                .header("X-Assignment-Id", "102")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(body)))
                 .andExpect(status().isBadRequest())
@@ -324,18 +324,18 @@ public class PhaseBFinanzasAdversarialTest {
     }
 
     @Test
-    @WithMockUser(authorities = {"SCOPE_ADMIN_PROPIEDAD"}, username = "1")
+    @WithMockUser(authorities = {"SCOPE_ADMIN_PROPIEDAD"}, username = "2")
     void adminCanGetResumenConciliaciones() throws Exception {
         mockMvc.perform(get("/api/v1/conciliaciones/resumen")
-                .header("X-Assignment-Id", "1"))
+                .header("X-Assignment-Id", "102"))
                 .andExpect(status().isOk());
     }
 
     @Test
-    @WithMockUser(authorities = {"SCOPE_ADMIN_PROPIEDAD"}, username = "1")
+    @WithMockUser(authorities = {"SCOPE_ADMIN_PROPIEDAD"}, username = "2")
     void cambiarEstadoConciliacionInvalidoFails() throws Exception {
         mockMvc.perform(patch("/api/v1/conciliaciones/1/estado")
-                .header("X-Assignment-Id", "1")
+                .header("X-Assignment-Id", "102")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"estado\": \"ESTADO_INVALIDO\"}"))
                 .andExpect(status().isBadRequest())
@@ -345,15 +345,15 @@ public class PhaseBFinanzasAdversarialTest {
     // ======================== PAZ Y SALVOS ========================
 
     @Test
-    @WithMockUser(authorities = {"SCOPE_ADMIN_PROPIEDAD"}, username = "1")
+    @WithMockUser(authorities = {"SCOPE_ADMIN_PROPIEDAD"}, username = "2")
     void adminCanListPazYSalvos() throws Exception {
         mockMvc.perform(get("/api/v1/paz-y-salvos")
-                .header("X-Assignment-Id", "1"))
+                .header("X-Assignment-Id", "102"))
                 .andExpect(status().isOk());
     }
 
     @Test
-    @WithMockUser(authorities = {"SCOPE_RESIDENTE"}, username = "2")
+    @WithMockUser(authorities = {"SCOPE_RESIDENTE"}, username = "4")
     void residenteCannotGeneratePazYSalvo() throws Exception {
         Map<String, Object> body = Map.of(
             "idUnidad", 1,
@@ -361,21 +361,21 @@ public class PhaseBFinanzasAdversarialTest {
         );
 
         mockMvc.perform(post("/api/v1/paz-y-salvos")
-                .header("X-Assignment-Id", "2")
+                .header("X-Assignment-Id", "104")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(body)))
                 .andExpect(status().isForbidden());
     }
 
     @Test
-    @WithMockUser(authorities = {"SCOPE_ADMIN_PROPIEDAD"}, username = "1")
+    @WithMockUser(authorities = {"SCOPE_ADMIN_PROPIEDAD"}, username = "2")
     void generarPazYSalvoSinUnidadFails() throws Exception {
         Map<String, Object> body = Map.of(
             "motivo", "Venta de inmueble"
         );
 
         mockMvc.perform(post("/api/v1/paz-y-salvos")
-                .header("X-Assignment-Id", "1")
+                .header("X-Assignment-Id", "102")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(body)))
                 .andExpect(status().isBadRequest())
@@ -383,10 +383,10 @@ public class PhaseBFinanzasAdversarialTest {
     }
 
     @Test
-    @WithMockUser(authorities = {"SCOPE_ADMIN_PROPIEDAD"}, username = "1")
+    @WithMockUser(authorities = {"SCOPE_ADMIN_PROPIEDAD"}, username = "2")
     void verificarCodigoNoExistente() throws Exception {
         mockMvc.perform(get("/api/v1/paz-y-salvos/verificar/CODIGO_INVALIDO")
-                .header("X-Assignment-Id", "1"))
+                .header("X-Assignment-Id", "102"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message").value("Codigo de verificacion no valido"));
     }
