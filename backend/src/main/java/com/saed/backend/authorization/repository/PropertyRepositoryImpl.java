@@ -163,7 +163,8 @@ public class PropertyRepositoryImpl implements PropertyRepository {
         m.put("CUOTAS", "ID_UNIDAD IN " + UNITS_OF_PROPERTY);
         m.put("PAGOS", "ID_UNIDAD IN " + UNITS_OF_PROPERTY);
         m.put("TRANSACCIONES_PAGO", "ID_UNIDAD IN " + UNITS_OF_PROPERTY);
-        m.put("CARTERA", "ID_PROPIEDAD = :propId OR ID_UNIDAD IN " + UNITS_OF_PROPERTY);
+        // CARTERA has no ID_PROPIEDAD column: it is linked to the property through its unit only.
+        m.put("CARTERA", "ID_UNIDAD IN " + UNITS_OF_PROPERTY);
         m.put("MULTAS", "ID_UNIDAD IN " + UNITS_OF_PROPERTY);
         m.put("SANCIONES", "ID_PROPIEDAD = :propId OR ID_UNIDAD IN " + UNITS_OF_PROPERTY);
         m.put("CONTRATOS", "ID_UNIDAD IN " + UNITS_OF_PROPERTY);
@@ -176,6 +177,11 @@ public class PropertyRepositoryImpl implements PropertyRepository {
         m.put("CONCILIACIONES", "ID_PROPIEDAD = :propId");
         m.put("REGISTROS_ACCESO", "ID_PROPIEDAD = :propId");
         return Collections.unmodifiableMap(m);
+    }
+
+    /** Table-to-predicate view of the protected history checks, exposed to the schema consistency test. */
+    static Map<String, String> protectedHistoryPredicates() {
+        return PROTECTED_HISTORY;
     }
 
     @Override
