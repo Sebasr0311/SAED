@@ -96,9 +96,10 @@ public class Phase8MoraBannerIntegrationTest {
             jdbcTemplate.execute("""
                 BEGIN
                     DELETE FROM PAGO_DETALLE WHERE ID_CUOTA IN (SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD IN (2, 701));
+                    UPDATE MULTAS SET ID_CUOTA = NULL WHERE ID_UNIDAD IN (2, 701);
+                    DELETE FROM CUOTAS WHERE ID_UNIDAD IN (2, 701) AND ID_CUOTA > 3;
                     DELETE FROM MULTAS WHERE ID_UNIDAD IN (2, 701);
-                    DELETE FROM CUOTAS WHERE ID_UNIDAD IN (2, 701);
-                    DELETE FROM CARTERA WHERE ID_UNIDAD IN (2, 701);
+                    DELETE FROM CARTERA WHERE ID_UNIDAD IN (2, 701) AND ID_CARTERA > 4;
                 END;
             """);
 

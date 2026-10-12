@@ -126,9 +126,11 @@ public class Phase8ReservasSecurityIntegrationTest {
                     DELETE FROM RESERVAS WHERE ID_UNIDAD IN (1, 2, 9992);
                     DELETE FROM PAZ_Y_SALVOS WHERE ID_UNIDAD IN (1, 2, 9992);
                     DELETE FROM PAGO_DETALLE WHERE ID_CUOTA IN (SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 9992));
+                    UPDATE MULTAS SET ID_CUOTA = NULL WHERE ID_UNIDAD IN (1, 2, 9992);
+                    DELETE FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 9992) AND ID_CUOTA > 3;
                     DELETE FROM MULTAS WHERE ID_UNIDAD IN (1, 2, 9992);
-                    DELETE FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 9992);
-                    DELETE FROM CARTERA WHERE ID_UNIDAD IN (1, 2, 9992);
+                    DELETE FROM CARTERA WHERE ID_UNIDAD IN (1, 2, 9992) AND ID_CARTERA > 4;
+                    UPDATE CUOTAS SET ESTADO = 'ANULADA' WHERE ID_CUOTA = 2 AND ESTADO <> 'ANULADA';
                 END;
             """);
 
@@ -183,9 +185,11 @@ public class Phase8ReservasSecurityIntegrationTest {
                     DELETE FROM RESERVAS WHERE ID_UNIDAD IN (1, 2, 9992);
                     DELETE FROM PAZ_Y_SALVOS WHERE ID_UNIDAD IN (1, 2, 9992);
                     DELETE FROM PAGO_DETALLE WHERE ID_CUOTA IN (SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 9992));
+                    UPDATE CUOTAS SET ESTADO = 'PENDIENTE' WHERE ID_CUOTA = 2 AND ESTADO = 'ANULADA';
+                    UPDATE MULTAS SET ID_CUOTA = NULL WHERE ID_UNIDAD IN (1, 2, 9992);
+                    DELETE FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 9992) AND ID_CUOTA > 3;
                     DELETE FROM MULTAS WHERE ID_UNIDAD IN (1, 2, 9992);
-                    DELETE FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 9992);
-                    DELETE FROM CARTERA WHERE ID_UNIDAD IN (1, 2, 9992);
+                    DELETE FROM CARTERA WHERE ID_UNIDAD IN (1, 2, 9992) AND ID_CARTERA > 4;
                 END;
             """);
         } catch (Exception ignored) {}
@@ -359,7 +363,7 @@ public class Phase8ReservasSecurityIntegrationTest {
         setElevatedContext();
         try {
             jdbcTemplate.update("UPDATE CUOTAS SET SALDO_PENDIENTE = 0, ESTADO = 'PAGADA' WHERE ID_UNIDAD = 1");
-            jdbcTemplate.update("DELETE FROM CARTERA WHERE ID_UNIDAD = 1");
+            jdbcTemplate.update("DELETE FROM CARTERA WHERE ID_UNIDAD = 1 AND ID_CARTERA > 4");
             finanzasRepository.recalcularCarteraUnidad(UNIT_1_ID);
         } finally {
             clearContext();
@@ -496,7 +500,7 @@ public class Phase8ReservasSecurityIntegrationTest {
         setElevatedContext();
         try {
             jdbcTemplate.update("UPDATE CUOTAS SET SALDO_PENDIENTE = 0, ESTADO = 'PAGADA' WHERE ID_UNIDAD = 1");
-            jdbcTemplate.update("DELETE FROM CARTERA WHERE ID_UNIDAD = 1");
+            jdbcTemplate.update("DELETE FROM CARTERA WHERE ID_UNIDAD = 1 AND ID_CARTERA > 4");
             finanzasRepository.recalcularCarteraUnidad(UNIT_1_ID);
         } finally {
             clearContext();
