@@ -142,7 +142,9 @@ public class ContractDocumentPipelineIntegrationTest {
         // Apto 101/102) are set aside for the duration of each test and restored afterwards; only contracts, fees and
         // payments created above the seeded ids are removed.
         try {
-            jdbcTemplate.update("UPDATE CONTRATOS SET ESTADO = 'CANCELADO' WHERE ID_CONTRATO IN (1, 2) AND ESTADO = 'ACTIVO'");
+            ensureParkingUnit(9949L);
+            ensureParkingUnit(9950L);
+            jdbcTemplate.update("UPDATE CONTRATOS SET ID_UNIDAD = 9948 + ID_CONTRATO WHERE ID_CONTRATO IN (1, 2) AND ID_UNIDAD = ID_CONTRATO");
             jdbcTemplate.execute("""
                 BEGIN
                     DELETE FROM PAGO_DETALLE WHERE ID_CUOTA IN (SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 9992) AND ID_CUOTA > 3);
@@ -281,7 +283,7 @@ public class ContractDocumentPipelineIntegrationTest {
                 END;
             """);
 
-            jdbcTemplate.update("UPDATE CONTRATOS SET ESTADO = 'ACTIVO' WHERE ID_CONTRATO IN (1, 2) AND ESTADO = 'CANCELADO'");
+            jdbcTemplate.update("UPDATE CONTRATOS SET ID_UNIDAD = ID_CONTRATO WHERE ID_CONTRATO IN (1, 2) AND ID_UNIDAD = 9948 + ID_CONTRATO");
             jdbcTemplate.execute("BEGIN PKG_SAED_SESSION.CLEAR_CONTEXT; END;");
         } catch (Exception ignored) {}
         SaedContextHolder.clearContext();
@@ -778,5 +780,14 @@ public class ContractDocumentPipelineIntegrationTest {
                 VALUES (991, 99, v_rol_prop, 9992, 9992, 'ACTIVA', TRUNC(SYSDATE));
             END;
         """);
+    }
+
+    /** Parking units for the seeded contracts while a test owns the demo units (ID_UNIDAD of a contract is moved, not its state: the
+     *  unique index UIX_CONTRATOS_ACTIVO_UNIDAD admits a single non-active contract per unit). */
+    private void ensureParkingUnit(long id) {
+        Integer c = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM UNIDADES WHERE ID_UNIDAD = ?", Integer.class, id);
+        if (c == null || c == 0) {
+            jdbcTemplate.update("INSERT INTO UNIDADES (ID_UNIDAD, ID_PROPIEDAD, ID_TIPO_UNIDAD, IDENTIFICADOR, ESTADO) VALUES (?, 1, 1, ?, 'ACTIVA')", id, "Parking-" + id);
+        }
     }
 }

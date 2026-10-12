@@ -187,6 +187,9 @@ public class ResidentialAssignmentAndContractIntegrationTest {
                 WHEN NOT MATCHED THEN INSERT (ID_PERSONA, ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, EMAIL, PRIMER_NOMBRE, PRIMER_APELLIDO) VALUES (s.id, s.td, s.doc, s.tp, s.em, s.n, s.a)
             """);
 
+            // b4f0179: a tenant must belong to the organization of the unit's property to be accepted in a contract.
+            jdbcTemplate.update("UPDATE PERSONAS SET ID_ORGANIZACION = 998801 WHERE ID_PERSONA IN (998821, 998822)");
+
             // 5. Asignaciones reales en Oracle para que SaedDataSourceProxy / PKG_SAED_SESSION no lance ORA-20080
             Long idRolProp = jdbcTemplate.queryForObject("SELECT ID_ROL FROM ROLES WHERE CODIGO = 'ADMIN_PROPIEDAD'", Long.class);
             jdbcTemplate.update("DELETE FROM USUARIO_ASIGNACIONES WHERE ID_ASIGNACION IN (998811, 998812)");
