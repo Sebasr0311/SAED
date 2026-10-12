@@ -384,3 +384,22 @@ Defects found and fixed during this attempt:
 - Verification gaps closed: the route walk now fails when a role cannot log in (a stale Vite proxy produced a silent all-redirect run), the RLS sweep covers SUPERADMIN with its real context, and the isolation matrix's blind spot for SUPERADMIN is covered by `superadmin_operational_probe.py`.
 
 Observation, not a defect: SUPERADMIN reads tenant rows at the database level (RLS returns no predicate for it), so DEC-02 is enforced by the application layer; the HTTP probe is the regression guard for it.
+
+## recovery-22 — F9/F10 completion (PQRS screens, proxy voting, voting close, policies)
+
+Fresh target `saed-isolated-fd8bba9ec6b9` (run `fd8bba9ec6b953823d45a0c5973b5b26`), V5.57 (voting close result) applied under VPD at the first attempt.
+
+| Check | Result |
+|---|---|
+| Unit tier | 139 classes / 1152 tests, 0 failures |
+| RLS sweep, 97 tables × 6 profiles | 0 broken |
+| Smoke / isolation matrix / role and pool / SUPERADMIN probe | 9 MATCH + 2 expected 401 / 0 leaks / 0 failures / 0 server errors |
+| Payment scenario, five consecutive runs | each 15/15, concurrent approvals `[200, 409, 409, 409, 409]`, 3–6 s, 0 SERVICE_BUSY, 0 lost audits |
+| Browser route walk, 6 roles | 0 routes with issues |
+| `voting_close_scenario.py`, two runs | 64/64 each: Art. 45 simple majority over represented coefficients (0.31/0.60 approved, 0.29/0.60 rejected although SI > NO), Art. 46 qualified majority over the property base (0.65 rejected, 0.70 approved), second close and annulment of a closed voting 409 with the stored result unchanged, API and VOTACIONES columns equal, proxy filing 403/403/201 |
+
+Defects found and fixed during this attempt:
+
+- Audit advice ordering (`6d44970`): the transaction advisor and the audit aspect shared the default precedence, so nesting was unspecified. A losing concurrent approval held its connection while its REQUIRES_NEW failure audit waited for another, and the timed-out audit replaced the 409 with a 503. recovery-21's clean run was ordering luck. The transaction order is now explicit: success audits run inside the transaction, failure audits run outermost after rollback, and a failing audit never replaces the business exception. The audited IP comes from `ClientRequestInfo`.
+- `ResAsambleasPage` offered proxy filing to cohabitants and requested owners/residents they may not read (403); proxy filing is now limited to owners (`975ae7e`).
+- Ley 675: DEC-11 first measured majorities over the weight cast; corrected to Art. 45 (represented coefficients) and Art. 46 (total property coefficients).
