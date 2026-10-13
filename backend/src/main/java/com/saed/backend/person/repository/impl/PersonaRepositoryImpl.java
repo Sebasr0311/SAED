@@ -125,8 +125,9 @@ public class PersonaRepositoryImpl implements PersonaRepository {
                 )
             """;
         } else {
-            scopeSubquery = "";
-            scopeWhere = "";
+            // DEC-01 / DEC-02: PERSONAS has no row-level policy. Without a tenant scope (absent context or
+            // SUPERADMIN) nothing is listed.
+            return List.of();
         }
 
         String sql = String.format("""
@@ -228,8 +229,10 @@ public class PersonaRepositoryImpl implements PersonaRepository {
                 )
             """;
         } else {
-            scopeSubquery = "";
-            scopeWhere = "";
+            // DEC-01 / DEC-02: without a tenant scope only the caller's own person is visible.
+            scopeSubquery = " AND 1 = 0 ";
+            scopeWhere = " AND p.ID_PERSONA IN (SELECT usr_self.ID_PERSONA FROM USUARIOS usr_self "
+                    + "WHERE usr_self.ID_USUARIO = :currentUserId) ";
         }
 
         String sql = String.format("""
@@ -281,13 +284,11 @@ public class PersonaRepositoryImpl implements PersonaRepository {
         Long propId = ctx != null ? ctx.getPropertyId() : null;
 
         if (propId != null && orgId == null) {
-            try {
-                orgId = jdbcTemplate.queryForObject(
-                        "SELECT ID_ORGANIZACION FROM PROPIEDADES WHERE ID_PROPIEDAD = :propId",
-                        new MapSqlParameterSource("propId", propId),
-                        Long.class
-                );
-            } catch (Exception ignored) {}
+            List<Long> orgs = jdbcTemplate.query(
+                    "SELECT ID_ORGANIZACION FROM PROPIEDADES WHERE ID_PROPIEDAD = :propId",
+                    new MapSqlParameterSource("propId", propId),
+                    (rs, i) -> rs.getLong(1));
+            orgId = orgs.isEmpty() ? null : orgs.get(0);
         }
 
         String sql = """
@@ -396,12 +397,8 @@ public class PersonaRepositoryImpl implements PersonaRepository {
     public Optional<Long> findTipoDocumentoIdByCodigo(String codigo) {
         if (codigo == null || codigo.isBlank()) return Optional.of(1L);
         String sql = "SELECT ID_TIPO_DOCUMENTO FROM TIPOS_DOCUMENTO WHERE UPPER(CODIGO) = UPPER(:codigo) AND ROWNUM = 1";
-        try {
-            List<Long> ids = jdbcTemplate.query(sql, new MapSqlParameterSource("codigo", codigo.trim()), (rs, r) -> rs.getLong("ID_TIPO_DOCUMENTO"));
-            return ids.stream().findFirst();
-        } catch (Exception e) {
-            return Optional.of(1L);
-        }
+        List<Long> ids = jdbcTemplate.query(sql, new MapSqlParameterSource("codigo", codigo.trim()), (rs, r) -> rs.getLong("ID_TIPO_DOCUMENTO"));
+        return ids.stream().findFirst();
     }
 
     @Override
@@ -415,19 +412,15 @@ public class PersonaRepositoryImpl implements PersonaRepository {
               AND (
                   UPPER(IDENTIFICADOR) = UPPER(:ident)
                   OR UPPER(REPLACE(IDENTIFICADOR, 'APTO ', '')) = UPPER(:ident)
-                  OR UPPER(IDENTIFICADOR) LIKE '%' || UPPER(:ident)
               )
               AND ROWNUM = 1
             """;
+        // A suffix LIKE match could bind a person to the wrong unit ('101' would match '1101').
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("propId", propiedadId)
                 .addValue("ident", clean);
-        try {
-            List<Long> ids = jdbcTemplate.query(sql, params, (rs, r) -> rs.getLong("ID_UNIDAD"));
-            return ids.stream().findFirst();
-        } catch (Exception e) {
-            return Optional.empty();
-        }
+        List<Long> ids = jdbcTemplate.query(sql, params, (rs, r) -> rs.getLong("ID_UNIDAD"));
+        return ids.stream().findFirst();
     }
 
     @Override
@@ -476,6 +469,9 @@ public class PersonaRepositoryImpl implements PersonaRepository {
                 tipoResidenteDb = "PROPIETARIO";
             } else if ("ARRENDATARIO".equals(tr)) {
                 tipoResidenteDb = "ARRENDATARIO";
+            } else if ("CONVIVIENTE".equals(tr)) {
+                // F5-H09: a conviviente stays a conviviente so it counts against the unit quota.
+                tipoResidenteDb = "CONVIVIENTE";
             } else {
                 tipoResidenteDb = "FAMILIAR";
             }
@@ -512,24 +508,91 @@ public class PersonaRepositoryImpl implements PersonaRepository {
         }
 
         // 3. Retroalimentar ID_PROPIEDAD e ID_ORGANIZACION en PERSONAS si están nulos
-        try {
-            jdbcTemplate.update(
-                "UPDATE PERSONAS SET " +
-                "ID_PROPIEDAD = (SELECT ID_PROPIEDAD FROM UNIDADES WHERE ID_UNIDAD = :unitId), " +
-                "ID_ORGANIZACION = (SELECT pr.ID_ORGANIZACION FROM UNIDADES u JOIN PROPIEDADES pr ON u.ID_PROPIEDAD = pr.ID_PROPIEDAD WHERE u.ID_UNIDAD = :unitId) " +
-                "WHERE ID_PERSONA = :personaId AND ID_PROPIEDAD IS NULL",
-                new MapSqlParameterSource().addValue("unitId", unidadId).addValue("personaId", personaId)
-            );
-        } catch (Exception ignored) {}
+        jdbcTemplate.update(
+            "UPDATE PERSONAS SET " +
+            "ID_PROPIEDAD = (SELECT ID_PROPIEDAD FROM UNIDADES WHERE ID_UNIDAD = :unitId), " +
+            "ID_ORGANIZACION = (SELECT pr.ID_ORGANIZACION FROM UNIDADES u JOIN PROPIEDADES pr ON u.ID_PROPIEDAD = pr.ID_PROPIEDAD WHERE u.ID_UNIDAD = :unitId) " +
+            "WHERE ID_PERSONA = :personaId AND ID_PROPIEDAD IS NULL",
+            new MapSqlParameterSource().addValue("unitId", unidadId).addValue("personaId", personaId)
+        );
     }
 
     @Override
-    public void delete(Long id) {
-        // Requisitos #14 y #15: Desvinculación protegida, soft-delete y preservación de trazabilidad histórica
-        MapSqlParameterSource params = new MapSqlParameterSource("id", id);
-        jdbcTemplate.update("UPDATE PERSONAS SET ESTADO = 'INACTIVO' WHERE ID_PERSONA = :id", params);
-        jdbcTemplate.update("UPDATE RESIDENTES_UNIDAD SET ESTADO = 'INACTIVO' WHERE ID_PERSONA = :id AND ESTADO = 'ACTIVO'", params);
-        jdbcTemplate.update("UPDATE USUARIOS SET ESTADO = 'INACTIVO' WHERE ID_PERSONA = :id AND ESTADO = 'ACTIVO'", params);
+    public Optional<Long> findOrganizationId(Long personaId) {
+        List<Long> rows = jdbcTemplate.query(
+                "SELECT ID_ORGANIZACION FROM PERSONAS WHERE ID_PERSONA = :id",
+                new MapSqlParameterSource("id", personaId),
+                (rs, i) -> {
+                    long v = rs.getLong(1);
+                    return rs.wasNull() ? null : v;
+                });
+        return rows.isEmpty() ? Optional.empty() : Optional.ofNullable(rows.get(0));
+    }
+
+    @Override
+    public Optional<Long> findPersonaIdByUserId(Long userId) {
+        if (userId == null) {
+            return Optional.empty();
+        }
+        List<Long> rows = jdbcTemplate.query(
+                "SELECT ID_PERSONA FROM USUARIOS WHERE ID_USUARIO = :uid AND ID_PERSONA IS NOT NULL",
+                new MapSqlParameterSource("uid", userId),
+                (rs, i) -> rs.getLong(1));
+        return rows.stream().findFirst();
+    }
+
+    @Override
+    public Optional<String> findActiveResidentType(Long personaId, Long unitId) {
+        List<String> rows = jdbcTemplate.query(
+                "SELECT TIPO_RESIDENTE FROM RESIDENTES_UNIDAD WHERE ID_PERSONA = :personaId "
+                        + "AND ID_UNIDAD = :unitId AND ESTADO = 'ACTIVO'",
+                new MapSqlParameterSource("personaId", personaId).addValue("unitId", unitId),
+                (rs, i) -> rs.getString(1));
+        return rows.stream().findFirst();
+    }
+
+    @Override
+    public boolean isLinkedToUnit(Long personaId, Long unitId) {
+        Integer n = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM DUAL WHERE EXISTS (SELECT 1 FROM RESIDENTES_UNIDAD WHERE ID_PERSONA = :personaId "
+                        + "AND ID_UNIDAD = :unitId AND ESTADO = 'ACTIVO') OR EXISTS (SELECT 1 FROM PROPIETARIOS_UNIDAD "
+                        + "WHERE ID_PERSONA = :personaId AND ID_UNIDAD = :unitId AND ESTADO = 'ACTIVO')",
+                new MapSqlParameterSource("personaId", personaId).addValue("unitId", unitId),
+                Integer.class);
+        return n != null && n > 0;
+    }
+
+    @Override
+    public int unlinkFromScope(Long personaId, Long propertyId, Long organizationId) {
+        if (personaId == null || (propertyId == null && organizationId == null)) {
+            throw new IllegalArgumentException("Se requiere un alcance de propiedad u organización");
+        }
+        MapSqlParameterSource p = new MapSqlParameterSource("personaId", personaId)
+                .addValue("propId", propertyId)
+                .addValue("orgId", organizationId);
+        String unitsInScope = propertyId != null
+                ? "(SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD = :propId)"
+                : "(SELECT u.ID_UNIDAD FROM UNIDADES u JOIN PROPIEDADES pr ON pr.ID_PROPIEDAD = u.ID_PROPIEDAD "
+                        + "WHERE pr.ID_ORGANIZACION = :orgId)";
+        String assignmentScope = propertyId != null ? "ID_PROPIEDAD = :propId" : "ID_ORGANIZACION = :orgId";
+
+        int changed = jdbcTemplate.update("UPDATE RESIDENTES_UNIDAD SET ESTADO = 'INACTIVO', FECHA_FIN = TRUNC(SYSDATE) "
+                + "WHERE ID_PERSONA = :personaId AND ESTADO = 'ACTIVO' AND ID_UNIDAD IN " + unitsInScope, p);
+        changed += jdbcTemplate.update("UPDATE PROPIETARIOS_UNIDAD SET ESTADO = 'INACTIVO' "
+                + "WHERE ID_PERSONA = :personaId AND ESTADO = 'ACTIVO' AND ID_UNIDAD IN " + unitsInScope, p);
+        // Only resident-level assignments inside the scope; administrative roles are managed elsewhere.
+        changed += jdbcTemplate.update("UPDATE USUARIO_ASIGNACIONES SET ESTADO = 'INACTIVA', FECHA_FIN = TRUNC(SYSDATE) "
+                + "WHERE ESTADO = 'ACTIVA' AND " + assignmentScope + " "
+                + "AND ID_USUARIO IN (SELECT ID_USUARIO FROM USUARIOS WHERE ID_PERSONA = :personaId) "
+                + "AND ID_ROL IN (SELECT ID_ROL FROM ROLES WHERE CODIGO IN "
+                + "('RESIDENTE', 'PROPIETARIO', 'RESIDENTE_CONVIVENCIA'))", p);
+        // The identity row is shared across tenants (DEC-01): deactivate it only when it belongs to this
+        // organization and no active residence or ownership remains.
+        jdbcTemplate.update("UPDATE PERSONAS SET ESTADO = 'INACTIVO' WHERE ID_PERSONA = :personaId "
+                + "AND ID_ORGANIZACION = NVL(:orgId, (SELECT ID_ORGANIZACION FROM PROPIEDADES WHERE ID_PROPIEDAD = :propId)) "
+                + "AND NOT EXISTS (SELECT 1 FROM RESIDENTES_UNIDAD ru WHERE ru.ID_PERSONA = :personaId AND ru.ESTADO = 'ACTIVO') "
+                + "AND NOT EXISTS (SELECT 1 FROM PROPIETARIOS_UNIDAD pu WHERE pu.ID_PERSONA = :personaId AND pu.ESTADO = 'ACTIVO')", p);
+        return changed;
     }
 
     @Override

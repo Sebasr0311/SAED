@@ -16,9 +16,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import java.math.BigDecimal;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @Tag(name = "Consumos y Sostenibilidad", description = "Control de mediciones de servicios públicos, detección de anomalías y tendencias")
 @RestController
@@ -37,8 +38,9 @@ public class ConsumosController {
     public ResponseEntity<List<MedicionConsumoDTO>> getAll(
             @RequestParam(required = false) String periodo,
             @RequestParam(required = false) String tipoServicio,
-            @RequestParam(required = false) Long idUnidad) {
-        return ResponseEntity.ok(service.getAll(periodo, tipoServicio, idUnidad));
+            @RequestParam(required = false) Long idUnidad,
+            @RequestParam(defaultValue = "false") boolean areasComunes) {
+        return ResponseEntity.ok(service.getAll(periodo, tipoServicio, idUnidad, areasComunes));
     }
 
     @Operation(summary = "Resumen de consumo consolidado y costos por período")
@@ -53,19 +55,39 @@ public class ConsumosController {
     @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_RESIDENTE')")
     public ResponseEntity<List<ConsumoTendenciaDTO>> getTendencias(
             @RequestParam(required = false) String tipoServicio,
-            @RequestParam(defaultValue = "12") int ultimosMeses) {
-        return ResponseEntity.ok(service.getTendencias(tipoServicio, ultimosMeses));
+            @RequestParam(required = false) Integer ultimosMeses,
+            @RequestParam(required = false) Integer meses) {
+        int window = ultimosMeses != null ? ultimosMeses : (meses != null ? meses : 12);
+        return ResponseEntity.ok(service.getTendencias(tipoServicio, window));
     }
 
-    @Operation(summary = "Consultar última lectura registrada para un medidor")
+    @Operation(summary = "Consultar última lectura registrada para un medidor",
+            description = "Sin idUnidad se consulta un medidor de zona común. Con periodo (YYYY-MM) solo se consideran "
+                    + "periodos anteriores. Responde encontrada=false cuando no hay lecturas previas.")
     @GetMapping("/ultima-lectura")
     @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_ADMIN_ORGANIZACION')")
     public ResponseEntity<Map<String, Object>> getUltimaLectura(
             @RequestParam(required = false) Long idUnidad,
             @RequestParam String numeroMedidor,
-            @RequestParam(required = false) String tipoServicio) {
-        BigDecimal ultima = service.getUltimaLectura(idUnidad, numeroMedidor, tipoServicio).orElse(null);
-        return ResponseEntity.ok(Map.of("ultimaLectura", ultima != null ? ultima : BigDecimal.ZERO));
+            @RequestParam(required = false) String tipoServicio,
+            @RequestParam(required = false) String periodo) {
+        if (periodo != null && !periodo.isBlank() && !periodo.matches("^[0-9]{4}-(0[1-9]|1[0-2])$")) {
+            throw new IllegalArgumentException("El período debe tener formato YYYY-MM.");
+        }
+        Map<String, Object> body = new LinkedHashMap<>();
+        Optional<MedicionConsumoDTO> last = service.getUltimaLectura(idUnidad, numeroMedidor, tipoServicio, periodo);
+        body.put("encontrada", last.isPresent());
+        last.ifPresent(m -> {
+            body.put("lecturaActual", m.getLecturaActual());
+            body.put("periodo", m.getPeriodo());
+            body.put("numeroMedidor", m.getNumeroMedidor());
+            body.put("tipoServicio", m.getTipoServicio());
+            body.put("idUnidad", m.getIdUnidad());
+            body.put("unidadMedida", m.getUnidadMedida());
+            body.put("tarifaUnitaria", m.getTarifaUnitaria());
+            body.put("fechaTomaLectura", m.getFechaTomaLectura());
+        });
+        return ResponseEntity.ok(body);
     }
 
     @Operation(summary = "Detalle de una medición de consumo")

@@ -34,7 +34,8 @@ class PropertyConfigServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new PropertyConfigServiceImpl(repository, planLimitService);
+        service = new PropertyConfigServiceImpl(repository, planLimitService,
+                org.mockito.Mockito.mock(PropertyStatusService.class));
     }
 
     @AfterEach

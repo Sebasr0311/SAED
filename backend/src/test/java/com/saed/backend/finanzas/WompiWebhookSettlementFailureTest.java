@@ -46,7 +46,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  */
 class WompiWebhookSettlementFailureTest {
     private static final String EVENTS_SECRET = "synthetic-events-secret";
-    private static final String REFERENCE = "SAED-CUOTA-55-1700000000";
+    private static final String REFERENCE = "SAED-CUOTA-55-1700000000000";
     private static final long AMOUNT_CENTS = 3_000_000L;
     private static final String DB_LEAK = "ORA-00001: unique constraint (SAED_OWNER.UK_PAGOS) violated";
 
@@ -69,7 +69,11 @@ class WompiWebhookSettlementFailureTest {
                 intent.put("ID_TRANSACCION", 9L);
                 intent.put("ID_UNIDAD", 1000L);
                 intent.put("MONTO_CENTAVOS", AMOUNT_CENTS);
+                intent.put("MONEDA", "COP");
                 return List.of(intent);
+            }
+            if (sql.contains("FROM CUOTAS")) {
+                return List.of(Map.of("ID_UNIDAD", 1000L));
             }
             if (sql.contains("FROM UNIDADES u")) {
                 return List.of(Map.of("ID_PROPIEDAD", 100L, "ID_ORGANIZACION", 10L));
@@ -91,6 +95,7 @@ class WompiWebhookSettlementFailureTest {
                 mock(TokenActivacionService.class), mock(PasswordEncoder.class),
                 mock(OnboardingService.class), mock(MembershipHistoryService.class));
         ReflectionTestUtils.setField(svc, "wompiEventsSecret", EVENTS_SECRET);
+        ReflectionTestUtils.setField(svc, "wompiEnvironment", "sandbox");
         return svc;
     }
 
@@ -118,7 +123,8 @@ class WompiWebhookSettlementFailureTest {
                 "signature", Map.of("properties",
                         List.of("transaction.id", "transaction.status", "transaction.amount_in_cents"),
                         "checksum", checksum),
-                "timestamp", timestamp);
+                "timestamp", timestamp,
+                "environment", "test");
         return mapper.writeValueAsString(event);
     }
 

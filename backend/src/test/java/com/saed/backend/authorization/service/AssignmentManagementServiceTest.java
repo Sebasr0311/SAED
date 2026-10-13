@@ -35,6 +35,9 @@ class AssignmentManagementServiceTest {
     @Mock
     private com.saed.backend.platform.service.PlanLimitService planLimitService;
 
+    @Mock
+    private PropertyStatusService propertyStatusService;
+
     @InjectMocks
     private AssignmentManagementService service;
 

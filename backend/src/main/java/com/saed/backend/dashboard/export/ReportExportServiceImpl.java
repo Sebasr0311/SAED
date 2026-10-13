@@ -1,5 +1,6 @@
 package com.saed.backend.dashboard.export;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.saed.backend.audit.AuditService;
 import com.saed.backend.common.service.PdfService;
@@ -16,13 +17,14 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
-import java.nio.charset.StandardCharsets;
+import java.math.RoundingMode;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
-import java.text.NumberFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 
@@ -37,9 +39,9 @@ public class ReportExportServiceImpl implements ReportExportService {
 
     private static final Logger log = LoggerFactory.getLogger(ReportExportServiceImpl.class);
     private static final int MAX_EXPORT_LIMIT = 10000;
-    private static final String CSV_CRLF = "\r\n";
-    private static final String UTF8_BOM = "\uFEFF";
     private static final MediaType MEDIA_TYPE_CSV = MediaType.parseMediaType("text/csv;charset=UTF-8");
+    private static final MediaType MEDIA_TYPE_XLSX =
+            MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
 
     private static final DateTimeFormatter FILENAME_DATE_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss");
     private static final DateTimeFormatter DISPLAY_DATETIME_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
@@ -66,43 +68,38 @@ public class ReportExportServiceImpl implements ReportExportService {
         String timestamp = LocalDateTime.now().format(FILENAME_DATE_FORMAT);
         String baseFilename = "cartera_morosa_" + timestamp;
 
-        ExportResult result;
-        switch (format) {
-            case CSV -> {
-                byte[] csvBytes = generateCarteraMorosaCsv(items);
-                result = new ExportResult(csvBytes, baseFilename + ".csv", MEDIA_TYPE_CSV);
-            }
-            case PDF -> {
-                byte[] pdfBytes = generateCarteraMorosaPdf(items, propertyId, fechaInicio, fechaFin);
-                result = new ExportResult(pdfBytes, baseFilename + ".pdf", MediaType.APPLICATION_PDF);
-            }
-            default -> {
-                byte[] jsonBytes = serializeToJson(items);
-                result = new ExportResult(jsonBytes, baseFilename + ".json", MediaType.APPLICATION_JSON);
-            }
-        }
+        ExportResult result = switch (format) {
+            case CSV, XLSX -> tabular(format, baseFilename, "Cartera Morosa", CARTERA_HEADERS, carteraRows(items));
+            case PDF -> new ExportResult(generateCarteraMorosaPdf(items, propertyId, fechaInicio, fechaFin),
+                    baseFilename + ".pdf", MediaType.APPLICATION_PDF);
+            case JSON -> new ExportResult(serializeToJson(items), baseFilename + ".json", MediaType.APPLICATION_JSON);
+        };
 
         recordAudit(format, "CARTERA_MOROSA", propertyId);
         return result;
     }
 
-    private byte[] generateCarteraMorosaCsv(List<CarteraMorosaDTO> items) {
-        StringBuilder sb = new StringBuilder();
-        sb.append(UTF8_BOM);
-        sb.append("Unidad,Propiedad,Cuotas Pendientes,Deuda Total,Primer Vencimiento,Ultimo Vencimiento,Dias Mora").append(CSV_CRLF);
+    private static final List<String> CARTERA_HEADERS = List.of("Unidad", "Propiedad", "Cuotas Pendientes",
+            "Deuda Total", "Primer Vencimiento", "Ultimo Vencimiento", "Dias Mora");
 
+    private static List<List<Object>> carteraRows(List<CarteraMorosaDTO> items) {
+        List<List<Object>> rows = new ArrayList<>();
         if (items != null) {
             for (CarteraMorosaDTO item : items) {
-                sb.append(escapeCsv(item.unidad())).append(",")
-                  .append(escapeCsv(item.propiedad())).append(",")
-                  .append(escapeCsv(item.cuotasPendientes())).append(",")
-                  .append(escapeCsv(item.deudaTotal() != null ? item.deudaTotal().toPlainString() : "0")).append(",")
-                  .append(escapeCsv(item.primerVencimiento() != null ? item.primerVencimiento().toString() : "")).append(",")
-                  .append(escapeCsv(item.ultimoVencimiento() != null ? item.ultimoVencimiento().toString() : "")).append(",")
-                  .append(escapeCsv(item.diasMora())).append(CSV_CRLF);
+                rows.add(Arrays.asList(item.unidad(), item.propiedad(), item.cuotasPendientes(),
+                        item.deudaTotal() != null ? item.deudaTotal() : BigDecimal.ZERO,
+                        item.primerVencimiento(), item.ultimoVencimiento(), item.diasMora()));
             }
         }
-        return sb.toString().getBytes(StandardCharsets.UTF_8);
+        return rows;
+    }
+
+    private static ExportResult tabular(ExportFormat format, String baseFilename, String sheetName,
+                                        List<String> headers, List<List<Object>> rows) {
+        if (format == ExportFormat.XLSX) {
+            return new ExportResult(TabularExport.xlsx(sheetName, headers, rows), baseFilename + ".xlsx", MEDIA_TYPE_XLSX);
+        }
+        return new ExportResult(TabularExport.csv(headers, rows), baseFilename + ".csv", MEDIA_TYPE_CSV);
     }
 
     private byte[] generateCarteraMorosaPdf(List<CarteraMorosaDTO> items, Long propertyId, LocalDate fechaInicio, LocalDate fechaFin) {
@@ -179,44 +176,34 @@ public class ReportExportServiceImpl implements ReportExportService {
         String timestamp = LocalDateTime.now().format(FILENAME_DATE_FORMAT);
         String baseFilename = "ejecucion_cuotas_" + timestamp;
 
-        ExportResult result;
-        switch (format) {
-            case CSV -> {
-                byte[] csvBytes = generateEjecucionCuotasCsv(items);
-                result = new ExportResult(csvBytes, baseFilename + ".csv", MEDIA_TYPE_CSV);
-            }
-            case PDF -> {
-                byte[] pdfBytes = generateEjecucionCuotasPdf(items, propertyId, periodoInicio, periodoFin);
-                result = new ExportResult(pdfBytes, baseFilename + ".pdf", MediaType.APPLICATION_PDF);
-            }
-            default -> {
-                byte[] jsonBytes = serializeToJson(items);
-                result = new ExportResult(jsonBytes, baseFilename + ".json", MediaType.APPLICATION_JSON);
-            }
-        }
+        ExportResult result = switch (format) {
+            case CSV, XLSX -> tabular(format, baseFilename, "Ejecucion Cuotas", CUOTAS_HEADERS, cuotasRows(items));
+            case PDF -> new ExportResult(generateEjecucionCuotasPdf(items, propertyId, periodoInicio, periodoFin),
+                    baseFilename + ".pdf", MediaType.APPLICATION_PDF);
+            case JSON -> new ExportResult(serializeToJson(items), baseFilename + ".json", MediaType.APPLICATION_JSON);
+        };
 
         recordAudit(format, "EJECUCION_CUOTAS", propertyId);
         return result;
     }
 
-    private byte[] generateEjecucionCuotasCsv(List<EjecucionCuotasDTO> items) {
-        StringBuilder sb = new StringBuilder();
-        sb.append(UTF8_BOM);
-        sb.append("Periodo,Total Cuotas,Pagadas,Pendientes,Total Facturado,Total Pendiente,Total Recaudado,Porcentaje Recaudado (%)").append(CSV_CRLF);
+    private static final List<String> CUOTAS_HEADERS = List.of("Periodo", "Total Cuotas", "Pagadas", "Pendientes",
+            "Total Facturado", "Total Pendiente", "Total Recaudado", "Porcentaje Recaudado (%)");
 
+    private static List<List<Object>> cuotasRows(List<EjecucionCuotasDTO> items) {
+        List<List<Object>> rows = new ArrayList<>();
         if (items != null) {
             for (EjecucionCuotasDTO item : items) {
-                sb.append(escapeCsv(item.periodo())).append(",")
-                  .append(escapeCsv(item.totalCuotas())).append(",")
-                  .append(escapeCsv(item.pagadas())).append(",")
-                  .append(escapeCsv(item.pendientes())).append(",")
-                  .append(escapeCsv(item.totalFacturado() != null ? item.totalFacturado().toPlainString() : "0")).append(",")
-                  .append(escapeCsv(item.totalPendiente() != null ? item.totalPendiente().toPlainString() : "0")).append(",")
-                  .append(escapeCsv(item.totalRecaudado() != null ? item.totalRecaudado().toPlainString() : "0")).append(",")
-                  .append(escapeCsv(item.porcentajeRecaudado())).append(CSV_CRLF);
+                rows.add(Arrays.asList(item.periodo(), item.totalCuotas(), item.pagadas(), item.pendientes(),
+                        orZero(item.totalFacturado()), orZero(item.totalPendiente()), orZero(item.totalRecaudado()),
+                        item.porcentajeRecaudado()));
             }
         }
-        return sb.toString().getBytes(StandardCharsets.UTF_8);
+        return rows;
+    }
+
+    private static BigDecimal orZero(BigDecimal value) {
+        return value != null ? value : BigDecimal.ZERO;
     }
 
     private byte[] generateEjecucionCuotasPdf(List<EjecucionCuotasDTO> items, Long propertyId, String periodoInicio, String periodoFin) {
@@ -313,43 +300,29 @@ public class ReportExportServiceImpl implements ReportExportService {
         String timestamp = LocalDateTime.now().format(FILENAME_DATE_FORMAT);
         String baseFilename = "pagos_recientes_" + timestamp;
 
-        ExportResult result;
-        switch (format) {
-            case CSV -> {
-                byte[] csvBytes = generatePagosRecientesCsv(items);
-                result = new ExportResult(csvBytes, baseFilename + ".csv", MEDIA_TYPE_CSV);
-            }
-            case PDF -> {
-                byte[] pdfBytes = generatePagosRecientesPdf(items, propertyId, fechaInicio, fechaFin);
-                result = new ExportResult(pdfBytes, baseFilename + ".pdf", MediaType.APPLICATION_PDF);
-            }
-            default -> {
-                byte[] jsonBytes = serializeToJson(items);
-                result = new ExportResult(jsonBytes, baseFilename + ".json", MediaType.APPLICATION_JSON);
-            }
-        }
+        ExportResult result = switch (format) {
+            case CSV, XLSX -> tabular(format, baseFilename, "Pagos Recientes", PAGOS_HEADERS, pagosRows(items));
+            case PDF -> new ExportResult(generatePagosRecientesPdf(items, propertyId, fechaInicio, fechaFin),
+                    baseFilename + ".pdf", MediaType.APPLICATION_PDF);
+            case JSON -> new ExportResult(serializeToJson(items), baseFilename + ".json", MediaType.APPLICATION_JSON);
+        };
 
         recordAudit(format, "PAGOS_RECIENTES", propertyId);
         return result;
     }
 
-    private byte[] generatePagosRecientesCsv(List<PagoRecienteDTO> items) {
-        StringBuilder sb = new StringBuilder();
-        sb.append(UTF8_BOM);
-        sb.append("ID Pago,Unidad,Monto Total,Metodo Pago,Estado,Fecha Pago,Referencia Comprobante").append(CSV_CRLF);
+    private static final List<String> PAGOS_HEADERS = List.of("ID Pago", "Unidad", "Monto Total", "Metodo Pago",
+            "Estado", "Fecha Pago", "Referencia Comprobante");
 
+    private static List<List<Object>> pagosRows(List<PagoRecienteDTO> items) {
+        List<List<Object>> rows = new ArrayList<>();
         if (items != null) {
             for (PagoRecienteDTO item : items) {
-                sb.append(escapeCsv(item.idPago())).append(",")
-                  .append(escapeCsv(item.unidad())).append(",")
-                  .append(escapeCsv(item.montoTotal() != null ? item.montoTotal().toPlainString() : "0")).append(",")
-                  .append(escapeCsv(item.metodoPago())).append(",")
-                  .append(escapeCsv(item.estado())).append(",")
-                  .append(escapeCsv(item.fechaPago() != null ? item.fechaPago().format(DISPLAY_DATETIME_FORMAT) : "")).append(",")
-                  .append(escapeCsv(item.referenciaComprobante())).append(CSV_CRLF);
+                rows.add(Arrays.asList(item.idPago(), item.unidad(), orZero(item.montoTotal()), item.metodoPago(),
+                        item.estado(), item.fechaPago(), item.referenciaComprobante()));
             }
         }
-        return sb.toString().getBytes(StandardCharsets.UTF_8);
+        return rows;
     }
 
     private byte[] generatePagosRecientesPdf(List<PagoRecienteDTO> items, Long propertyId, LocalDate fechaInicio, LocalDate fechaFin) {
@@ -429,46 +402,34 @@ public class ReportExportServiceImpl implements ReportExportService {
         int effVigencia = vigencia != null ? vigencia : (dto != null && dto.vigenciaAnio() != null ? dto.vigenciaAnio() : LocalDate.now().getYear());
         String baseFilename = "ejecucion_presupuestal_" + effVigencia + "_" + timestamp;
 
-        ExportResult result;
-        switch (format) {
-            case CSV -> {
-                byte[] csvBytes = generateEjecucionPresupuestalCsv(dto);
-                result = new ExportResult(csvBytes, baseFilename + ".csv", MEDIA_TYPE_CSV);
-            }
-            case PDF -> {
-                byte[] pdfBytes = generateEjecucionPresupuestalPdf(dto, propertyId, effVigencia);
-                result = new ExportResult(pdfBytes, baseFilename + ".pdf", MediaType.APPLICATION_PDF);
-            }
-            default -> {
-                byte[] jsonBytes = serializeToJson(dto);
-                result = new ExportResult(jsonBytes, baseFilename + ".json", MediaType.APPLICATION_JSON);
-            }
-        }
+        ExportResult result = switch (format) {
+            case CSV, XLSX -> tabular(format, baseFilename, "Ejecucion Presupuestal", PRESUPUESTO_HEADERS,
+                    presupuestoRows(dto));
+            case PDF -> new ExportResult(generateEjecucionPresupuestalPdf(dto, propertyId, effVigencia),
+                    baseFilename + ".pdf", MediaType.APPLICATION_PDF);
+            case JSON -> new ExportResult(serializeToJson(dto), baseFilename + ".json", MediaType.APPLICATION_JSON);
+        };
 
         recordAudit(format, "EJECUCION_PRESUPUESTAL", propertyId);
         return result;
     }
 
-    private byte[] generateEjecucionPresupuestalCsv(EjecucionPresupuestalGlobalDTO dto) {
-        StringBuilder sb = new StringBuilder();
-        sb.append(UTF8_BOM);
-        sb.append("Vigencia,Ingresos Presupuestados,Ingresos Ejecutados,% Ejecucion Ingresos,Egresos Presupuestados,Egresos Ejecutados,% Ejecucion Egresos,Superavit Presupuestado,Superavit Ejecutado,Estado Financiero,Total Pagos Aprobados,Total Gastos Pagados").append(CSV_CRLF);
+    private static final List<String> PRESUPUESTO_HEADERS = List.of("Vigencia", "Ingresos Presupuestados",
+            "Ingresos Ejecutados", "% Ejecucion Ingresos", "Egresos Presupuestados", "Egresos Ejecutados",
+            "% Ejecucion Egresos", "Superavit Presupuestado", "Superavit Ejecutado", "Estado Financiero",
+            "Total Pagos Aprobados", "Total Gastos Pagados");
 
+    private static List<List<Object>> presupuestoRows(EjecucionPresupuestalGlobalDTO dto) {
+        List<List<Object>> rows = new ArrayList<>();
         if (dto != null) {
-            sb.append(escapeCsv(dto.vigenciaAnio())).append(",")
-              .append(escapeCsv(dto.ingresosPresupuestados() != null ? dto.ingresosPresupuestados().toPlainString() : "0")).append(",")
-              .append(escapeCsv(dto.ingresosEjecutados() != null ? dto.ingresosEjecutados().toPlainString() : "0")).append(",")
-              .append(escapeCsv(dto.porcentajeEjecucionIngresos())).append(",")
-              .append(escapeCsv(dto.egresosPresupuestados() != null ? dto.egresosPresupuestados().toPlainString() : "0")).append(",")
-              .append(escapeCsv(dto.egresosEjecutados() != null ? dto.egresosEjecutados().toPlainString() : "0")).append(",")
-              .append(escapeCsv(dto.porcentajeEjecucionEgresos())).append(",")
-              .append(escapeCsv(dto.superavitPresupuestado() != null ? dto.superavitPresupuestado().toPlainString() : "0")).append(",")
-              .append(escapeCsv(dto.superavitEjecutado() != null ? dto.superavitEjecutado().toPlainString() : "0")).append(",")
-              .append(escapeCsv(dto.estadoFinanciero())).append(",")
-              .append(escapeCsv(dto.totalPagosAprobados())).append(",")
-              .append(escapeCsv(dto.totalGastosPagados())).append(CSV_CRLF);
+            rows.add(Arrays.asList(dto.vigenciaAnio(), orZero(dto.ingresosPresupuestados()),
+                    orZero(dto.ingresosEjecutados()), dto.porcentajeEjecucionIngresos(),
+                    orZero(dto.egresosPresupuestados()), orZero(dto.egresosEjecutados()),
+                    dto.porcentajeEjecucionEgresos(), orZero(dto.superavitPresupuestado()),
+                    orZero(dto.superavitEjecutado()), dto.estadoFinanciero(), dto.totalPagosAprobados(),
+                    dto.totalGastosPagados()));
         }
-        return sb.toString().getBytes(StandardCharsets.UTF_8);
+        return rows;
     }
 
     private byte[] generateEjecucionPresupuestalPdf(EjecucionPresupuestalGlobalDTO dto, Long propertyId, Integer vigencia) {
@@ -561,8 +522,9 @@ public class ReportExportServiceImpl implements ReportExportService {
                         null,
                         estadoNuevo
                 );
-            } catch (Exception e) {
-                log.warn("Fallo no bloqueante al registrar auditoría de exportación: {}", e.getMessage());
+            } catch (RuntimeException e) {
+                // Non-blocking audit: the export already succeeded; only the failure class is logged.
+                log.warn("Fallo no bloqueante al registrar auditoría de exportación ({})", e.getClass().getSimpleName());
             }
         }
     }
@@ -570,9 +532,8 @@ public class ReportExportServiceImpl implements ReportExportService {
     private byte[] serializeToJson(Object object) {
         try {
             return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsBytes(object);
-        } catch (Exception e) {
-            log.error("Error al serializar reporte a JSON: {}", e.getMessage(), e);
-            throw new RuntimeException("Error al generar formato JSON del reporte: " + e.getMessage(), e);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Error al generar formato JSON del reporte.", e);
         }
     }
 
@@ -580,18 +541,9 @@ public class ReportExportServiceImpl implements ReportExportService {
         try {
             return pdfService.generarPdf(xhtml);
         } catch (Exception e) {
-            log.error("Error al renderizar PDF para reporte {}: {}", reportName, e.getMessage(), e);
-            throw new RuntimeException("Error al generar archivo PDF del reporte: " + e.getMessage(), e);
+            log.error("Error al renderizar PDF para reporte {} ({})", reportName, e.getClass().getSimpleName());
+            throw new IllegalStateException("Error al generar archivo PDF del reporte.", e);
         }
-    }
-
-    private String escapeCsv(Object val) {
-        if (val == null) return "";
-        String str = String.valueOf(val);
-        if (str.contains(",") || str.contains("\"") || str.contains("\n") || str.contains("\r")) {
-            return "\"" + str.replace("\"", "\"\"") + "\"";
-        }
-        return str;
     }
 
     private String escapeXml(Object val) {
@@ -605,20 +557,21 @@ public class ReportExportServiceImpl implements ReportExportService {
                 .replace("\u00A0", "&#160;");
     }
 
-    private static final DecimalFormat CURRENCY_FORMAT = (DecimalFormat) NumberFormat.getCurrencyInstance(new Locale("es", "CO"));
-    static {
-        DecimalFormatSymbols symbols = CURRENCY_FORMAT.getDecimalFormatSymbols();
-        symbols.setCurrencySymbol("$ ");
+    /**
+     * Colombian peso amount, e.g. {@code $ 1.234.567} or {@code -$ 1.500}. Built per call with an explicit
+     * pattern (DecimalFormat is not thread-safe and the JDK es-CO pattern inserts a non-breaking space).
+     */
+    static String formatCurrency(BigDecimal amount) {
+        if (amount == null) {
+            return "$ 0";
+        }
+        DecimalFormatSymbols symbols = new DecimalFormatSymbols(Locale.ROOT);
         symbols.setGroupingSeparator('.');
         symbols.setDecimalSeparator(',');
-        CURRENCY_FORMAT.setDecimalFormatSymbols(symbols);
-        CURRENCY_FORMAT.setMaximumFractionDigits(0);
-        CURRENCY_FORMAT.setMinimumFractionDigits(0);
-    }
-
-    private String formatCurrency(BigDecimal amount) {
-        if (amount == null) return "$ 0";
-        return CURRENCY_FORMAT.format(amount);
+        DecimalFormat format = new DecimalFormat("#,##0", symbols);
+        format.setRoundingMode(RoundingMode.HALF_UP);
+        String digits = format.format(amount.abs());
+        return (amount.signum() < 0 ? "-$ " : "$ ") + digits;
     }
 
     private void appendHtmlHeader(StringBuilder html, String title) {

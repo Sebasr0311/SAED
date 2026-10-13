@@ -14,6 +14,7 @@ import com.saed.backend.context.SaedContextHolder;
 import com.saed.backend.finanzas.dto.*;
 import com.saed.backend.finanzas.exception.GatewayPaymentMethodNotAllowedException;
 import com.saed.backend.finanzas.repository.FinanzasRepository;
+import com.saed.backend.finanzas.service.AfterCommit;
 import com.saed.backend.finanzas.service.FinanzasService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -70,7 +71,8 @@ public class FinanzasServiceImpl implements FinanzasService {
     @Override
     public List<ContratoDTO> getContratos() {
         SaedContext ctx = SaedContextHolder.getContext();
-        if (ctx != null && ("RESIDENTE".equalsIgnoreCase(ctx.getRoleCode()) || "RESIDENTE_CONVIVENCIA".equalsIgnoreCase(ctx.getRoleCode()))) {
+        denyOperationalFinanceRead(ctx);
+        if (ctx != null && "RESIDENTE".equalsIgnoreCase(ctx.getRoleCode())) {
             Long myPersonaId = resolvePersonaIdForUser(ctx.getUserId());
             Long unitId = ctx.getUnitId();
             return finanzasRepository.getContratos().stream()
@@ -82,38 +84,33 @@ public class FinanzasServiceImpl implements FinanzasService {
 
     @Override
     public ContratoDetalleDTO getContratoDetalle(Long idContrato) {
-        SaedContext currentCtx = SaedContextHolder.getContext();
-        ContratoDetalleDTO detalle = null;
-        try {
-            setElevatedContext();
-            detalle = finanzasRepository.getContratoDetalle(idContrato);
-        } finally {
-            restoreSaedContext(currentCtx);
-        }
+        SaedContext ctx = SaedContextHolder.getContext();
+        denyOperationalFinanceRead(ctx);
 
+        // Read under the caller's own tenant context (no privilege elevation): the database already hides
+        // contracts of other tenants, and the checks below are defense in depth. Out-of-scope and missing
+        // contracts are indistinguishable (404).
+        ContratoDetalleDTO detalle = finanzasRepository.getContratoDetalle(idContrato);
         if (detalle == null) {
             throw new NoSuchElementException("Contrato no encontrado: " + idContrato);
         }
 
-        SaedContext ctx = SaedContextHolder.getContext();
         if (ctx != null) {
             String role = ctx.getRoleCode();
-            if ("SUPERADMIN".equalsIgnoreCase(role)) {
-                // Global superadmin access permitted
-            } else if ("ADMIN_ORGANIZACION".equalsIgnoreCase(role)) {
+            if ("ADMIN_ORGANIZACION".equalsIgnoreCase(role)) {
                 if (ctx.getOrganizationId() != null && !ctx.getOrganizationId().equals(detalle.getIdOrganizacion())) {
-                    throw new AccessDeniedException("No tiene permisos para consultar contratos de otra organización");
+                    throw new NoSuchElementException("Contrato no encontrado: " + idContrato);
                 }
             } else if ("ADMIN_PROPIEDAD".equalsIgnoreCase(role)) {
                 if (ctx.getPropertyId() != null && !ctx.getPropertyId().equals(detalle.getIdPropiedad())) {
-                    throw new AccessDeniedException("No tiene permisos para consultar contratos de otra propiedad");
+                    throw new NoSuchElementException("Contrato no encontrado: " + idContrato);
                 }
-            } else if ("RESIDENTE".equalsIgnoreCase(role) || "RESIDENTE_CONVIVENCIA".equalsIgnoreCase(role)) {
+            } else if ("RESIDENTE".equalsIgnoreCase(role)) {
                 boolean matchesUnit = ctx.getUnitId() != null && ctx.getUnitId().equals(detalle.getIdUnidad());
                 Long myPersonaId = resolvePersonaIdForUser(ctx.getUserId());
                 boolean matchesPersona = myPersonaId != null && myPersonaId.equals(detalle.getIdArrendatarioPrincipal());
                 if (!matchesUnit && !matchesPersona) {
-                    throw new AccessDeniedException("No tiene permisos para consultar contratos de otras unidades");
+                    throw new NoSuchElementException("Contrato no encontrado: " + idContrato);
                 }
             } else {
                 throw new AccessDeniedException("Rol no autorizado para consultar contratos");
@@ -172,7 +169,7 @@ public class FinanzasServiceImpl implements FinanzasService {
         }
 
         if (unitInfo == null || unitInfo.isEmpty()) {
-            throw new IllegalArgumentException("Unidad no encontrada: " + request.idApartamento());
+            throw new NoSuchElementException("Unidad no encontrada: " + request.idApartamento());
         }
         Long unitPropId = ((Number) unitInfo.get(0).get("ID_PROPIEDAD")).longValue();
         Long unitOrgId = ((Number) unitInfo.get(0).get("ID_ORGANIZACION")).longValue();
@@ -219,7 +216,7 @@ public class FinanzasServiceImpl implements FinanzasService {
             }
 
             if (templateInfo == null || templateInfo.isEmpty()) {
-                throw new IllegalArgumentException("Plantilla de contrato no encontrada");
+                throw new NoSuchElementException("Plantilla de contrato no encontrada");
             }
             Long tplOrgId = ((Number) templateInfo.get(0).get("ID_ORGANIZACION")).longValue();
             String tplEstado = (String) templateInfo.get(0).get("ESTADO");
@@ -253,7 +250,7 @@ public class FinanzasServiceImpl implements FinanzasService {
             restoreSaedContext(ctx);
         }
         if (countPersona == null || countPersona == 0) {
-            throw new IllegalArgumentException("Persona arrendataria no encontrada");
+            throw new NoSuchElementException("Persona arrendataria no encontrada");
         }
 
         // 4b. Validar si el arrendatario es menor de edad y requerir tutor
@@ -304,7 +301,7 @@ public class FinanzasServiceImpl implements FinanzasService {
                 restoreSaedContext(ctx);
             }
             if (countTutor == null || countTutor == 0) {
-                throw new IllegalArgumentException("Persona tutor no encontrada con ID: " + request.idTutor());
+                throw new NoSuchElementException("Persona tutor no encontrada con ID: " + request.idTutor());
             }
 
             if (esMenor) {
@@ -351,7 +348,7 @@ public class FinanzasServiceImpl implements FinanzasService {
                     restoreSaedContext(ctx);
                 }
                 if (countCo == null || countCo == 0) {
-                    throw new IllegalArgumentException("Persona coarrendataria no encontrada con ID: " + co.idPersona());
+                    throw new NoSuchElementException("Persona coarrendataria no encontrada con ID: " + co.idPersona());
                 }
                 if (Boolean.TRUE.equals(co.sincronizarHabitabilidad())) {
                     syncCualquiera = true;
@@ -504,6 +501,7 @@ public class FinanzasServiceImpl implements FinanzasService {
 
     @Override
     public List<CuotaDTO> getCuotasPendientes() {
+        denyOperationalFinanceRead(SaedContextHolder.getContext());
         return finanzasRepository.getCuotasPendientes();
     }
 
@@ -521,12 +519,15 @@ public class FinanzasServiceImpl implements FinanzasService {
             throw new IllegalArgumentException("El valor pagado debe ser mayor a cero");
         }
 
+        denyConvivencia(SaedContextHolder.getContext());
+
         // F06/C-09: a client-supplied gateway method must never approve a payment. Reject it
         // before any lookup or ledger write; gateway settlement is webhook-only.
         rechazarMetodoPasarela(request.metodoPago());
 
         CuotaDTO cuota = findCuotaById(request.idCuota());
         validarPermisoUnidadResidente(cuota.idUnidad());
+        validarCuotaPagable(cuota, request.valorPagado());
 
         // Ordinary payments are ALWAYS registered as PENDIENTE_APROBACION: no fee debit,
         // no portfolio recalculation and no receipt until an administrator approves them.
@@ -536,7 +537,7 @@ public class FinanzasServiceImpl implements FinanzasService {
     @Override
     @Transactional
     @Auditable(action = "CREATE", resource = "PAGO_PASARELA", category = AuditCategory.FINANCIAL, severity = AuditSeverity.CRITICAL)
-    public void registrarPagoPasarelaVerificado(PagoRequestDTO request) {
+    public Long registrarPagoPasarelaVerificado(PagoRequestDTO request) {
         if (request == null) {
             throw new IllegalArgumentException("La solicitud de pago no puede ser nula");
         }
@@ -550,11 +551,28 @@ public class FinanzasServiceImpl implements FinanzasService {
         CuotaDTO cuota = findCuotaById(request.idCuota());
         validarPermisoUnidadResidente(cuota.idUnidad());
 
-        // Debit behavior intentionally unchanged (the V5.17 trigger double-debit is tracked separately).
-        finanzasRepository.registrarPago(request, cuota.idUnidad(), "APROBADO", null, null);
-        finanzasRepository.actualizarSaldoCuota(request.idCuota(), request.valorPagado());
+        // The provider already collected the money: the payment is always stored. A charge that
+        // exceeds the outstanding balance (double charge: two intents, gateway plus manual payment)
+        // is not rejected, it is flagged on the payment so it can be refunded (F6-08).
+        Map<String, Object> locked = lockCuota(request.idCuota());
+        BigDecimal saldo = saldoDe(locked);
+        PagoRequestDTO toStore = request;
+        if (request.valorPagado().compareTo(saldo) > 0 || !esCuotaPagable(estadoDe(locked))) {
+            BigDecimal excess = request.valorPagado().subtract(saldo.max(BigDecimal.ZERO));
+            log.warn("[Finanzas] Double charge detected on fee {}: paid {} with outstanding {}",
+                    request.idCuota(), request.valorPagado(), saldo);
+            toStore = new PagoRequestDTO(request.idCuota(), request.fechaPago(), request.valorPagado(),
+                    request.metodoPago(), request.referencia(), request.comprobanteUrl(),
+                    "SOBREPAGO: excedente " + excess.toPlainString() + " sobre saldo " + saldo.toPlainString(),
+                    request.idempotencyKey());
+        }
+
+        // Single debit owner: the V5.17 trigger TRG_APLICAR_PAGO_CUOTA debits the fee when the
+        // APROBADO payment detail is inserted. Java never debits CUOTAS (F06-03).
+        Long idPago = finanzasRepository.registrarPago(toStore, cuota.idUnidad(), "APROBADO", null, null);
         finanzasRepository.recalcularCarteraUnidad(cuota.idUnidad());
-        enviarReciboPagoSilencioso(cuota, request);
+        // The single receipt of a gateway payment belongs to the webhook, sent after commit.
+        return idPago;
     }
 
     private static void rechazarMetodoPasarela(String metodoPago) {
@@ -580,10 +598,12 @@ public class FinanzasServiceImpl implements FinanzasService {
         if (request.valorPagado() == null || request.valorPagado().compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("El valor pagado debe ser mayor a cero");
         }
+        denyConvivencia(SaedContextHolder.getContext());
         rechazarMetodoPasarela(request.metodoPago());
 
         CuotaDTO cuota = findCuotaById(request.idCuota());
         validarPermisoUnidadResidente(cuota.idUnidad());
+        validarCuotaPagable(cuota, request.valorPagado());
 
         String compUrl = request.comprobanteUrl();
         String compHash = null;
@@ -613,10 +633,11 @@ public class FinanzasServiceImpl implements FinanzasService {
     @Override
     public List<PagoResponseDTO> getPagos(String estado, Long idUnidad, LocalDate fechaDesde, LocalDate fechaHasta, String metodoPago) {
         SaedContext ctx = SaedContextHolder.getContext();
+        denyOperationalFinanceRead(ctx);
         Long filterUnidad = idUnidad;
         if (ctx != null) {
             String role = ctx.getRoleCode();
-            if ("RESIDENTE".equalsIgnoreCase(role) || "RESIDENTE_CONVIVENCIA".equalsIgnoreCase(role) || "UNIDAD".equalsIgnoreCase(ctx.getRoleScope())) {
+            if ("RESIDENTE".equalsIgnoreCase(role) || "UNIDAD".equalsIgnoreCase(ctx.getRoleScope())) {
                 if (ctx.getUnitId() != null) {
                     filterUnidad = ctx.getUnitId();
                 } else {
@@ -636,6 +657,7 @@ public class FinanzasServiceImpl implements FinanzasService {
 
     @Override
     public PagoResponseDTO getPagoDetalle(Long idPago) {
+        denyOperationalFinanceRead(SaedContextHolder.getContext());
         PagoResponseDTO pago = finanzasRepository.getPagoById(idPago);
         if (pago == null) {
             throw new NoSuchElementException("Pago no encontrado: " + idPago);
@@ -643,7 +665,7 @@ public class FinanzasServiceImpl implements FinanzasService {
         SaedContext ctx = SaedContextHolder.getContext();
         if (ctx != null) {
             String role = ctx.getRoleCode();
-            if ("RESIDENTE".equalsIgnoreCase(role) || "RESIDENTE_CONVIVENCIA".equalsIgnoreCase(role) || "UNIDAD".equalsIgnoreCase(ctx.getRoleScope())) {
+            if ("RESIDENTE".equalsIgnoreCase(role) || "UNIDAD".equalsIgnoreCase(ctx.getRoleScope())) {
                 validarPermisoUnidadResidente(pago.idUnidad());
             } else if ("ADMIN_PROPIEDAD".equalsIgnoreCase(role) && ctx.getPropertyId() != null) {
                 Integer countProp = jdbcTemplate.queryForObject(
@@ -680,6 +702,9 @@ public class FinanzasServiceImpl implements FinanzasService {
                 throw new AccessDeniedException("No tiene permisos para aprobar pagos");
             }
         }
+        if (ctx == null || ctx.getUserId() == null) {
+            throw new AccessDeniedException("Se requiere un usuario autenticado para aprobar pagos");
+        }
 
         List<Map<String, Object>> pagoRows = jdbcTemplate.queryForList(
             "SELECT ID_PAGO, ID_UNIDAD, MONTO_TOTAL, ESTADO FROM PAGOS WHERE ID_PAGO = :id FOR UPDATE",
@@ -696,51 +721,48 @@ public class FinanzasServiceImpl implements FinanzasService {
             throw new IllegalStateException("Solo se pueden aprobar pagos en estado PENDIENTE_APROBACION. Estado actual: " + estadoActual);
         }
 
-        if (ctx != null) {
-            if ("ADMIN_PROPIEDAD".equalsIgnoreCase(ctx.getRoleCode()) && ctx.getPropertyId() != null) {
-                Integer countProp = jdbcTemplate.queryForObject(
-                    "SELECT COUNT(1) FROM UNIDADES WHERE ID_UNIDAD = :un AND ID_PROPIEDAD = :propId",
-                    new MapSqlParameterSource("un", idUnidad).addValue("propId", ctx.getPropertyId()),
-                    Integer.class
-                );
-                if (countProp == null || countProp == 0) {
-                    throw new AccessDeniedException("No tiene permisos para aprobar pagos de otra propiedad");
-                }
+        if ("ADMIN_PROPIEDAD".equalsIgnoreCase(ctx.getRoleCode()) && ctx.getPropertyId() != null) {
+            Integer countProp = jdbcTemplate.queryForObject(
+                "SELECT COUNT(1) FROM UNIDADES WHERE ID_UNIDAD = :un AND ID_PROPIEDAD = :propId",
+                new MapSqlParameterSource("un", idUnidad).addValue("propId", ctx.getPropertyId()),
+                Integer.class
+            );
+            if (countProp == null || countProp == 0) {
+                throw new AccessDeniedException("No tiene permisos para aprobar pagos de otra propiedad");
             }
         }
 
-        Long idAprobador = (ctx != null && ctx.getUserId() != null) ? ctx.getUserId() : 1L;
+        Long idAprobador = ctx.getUserId();
 
         List<Map<String, Object>> detalles = jdbcTemplate.queryForList(
             "SELECT ID_CUOTA, MONTO_APLICADO FROM PAGO_DETALLE WHERE ID_PAGO = :idPago",
             new MapSqlParameterSource("idPago", idPago)
         );
 
+        // Lock every fee and refuse an approval that would pay more than what is still owed (another
+        // payment settled it meanwhile). The balance itself is debited by the database trigger on the
+        // PENDIENTE_APROBACION -> APROBADO transition, never from Java (F06-03).
         for (Map<String, Object> det : detalles) {
             Long idCuota = ((Number) det.get("ID_CUOTA")).longValue();
-            BigDecimal monto = (BigDecimal) det.get("MONTO_APLICADO");
-            jdbcTemplate.queryForList(
-                "SELECT ID_CUOTA FROM CUOTAS WHERE ID_CUOTA = :idCuota FOR UPDATE",
-                new MapSqlParameterSource("idCuota", idCuota)
-            );
-            finanzasRepository.actualizarSaldoCuota(idCuota, monto);
+            BigDecimal monto = new BigDecimal(det.get("MONTO_APLICADO").toString());
+            Map<String, Object> locked = lockCuota(idCuota);
+            if (!esCuotaPagable(estadoDe(locked)) || monto.compareTo(saldoDe(locked)) > 0) {
+                throw new IllegalStateException("El pago excede el saldo pendiente de la cuota " + idCuota
+                        + " (ya fue pagada o abonada); rechace este pago");
+            }
         }
 
         finanzasRepository.aprobarPago(idPago, idAprobador);
         finanzasRepository.recalcularCarteraUnidad(idUnidad);
 
-        // Envío de recibo al residente ahora que el pago fue aprobado
-        try {
-            if (!detalles.isEmpty()) {
-                Long idCuota = ((Number) detalles.get(0).get("ID_CUOTA")).longValue();
-                CuotaDTO cuota = findCuotaById(idCuota);
-                PagoResponseDTO response = finanzasRepository.getPagoById(idPago);
-                enviarReciboPagoSilencioso(cuota, new PagoRequestDTO(
-                    idCuota, response.montoTotal(), response.metodoPago(), response.referenciaComprobante(), response.fechaPago()
-                ));
-            }
-        } catch (Exception e) {
-            log.error("Error enviando recibo de pago aprobado {}", idPago, e);
+        // The receipt leaves only after the approval is committed.
+        if (!detalles.isEmpty()) {
+            Long idCuota = ((Number) detalles.get(0).get("ID_CUOTA")).longValue();
+            CuotaDTO cuota = findCuotaById(idCuota);
+            PagoResponseDTO response = finanzasRepository.getPagoById(idPago);
+            programarReciboPago(cuota, new PagoRequestDTO(
+                idCuota, response.montoTotal(), response.metodoPago(), response.referenciaComprobante(), response.fechaPago()
+            ));
         }
 
         return finanzasRepository.getPagoById(idPago);
@@ -790,7 +812,10 @@ public class FinanzasServiceImpl implements FinanzasService {
             }
         }
 
-        Long idRechazador = (ctx != null && ctx.getUserId() != null) ? ctx.getUserId() : 1L;
+        if (ctx == null || ctx.getUserId() == null) {
+            throw new AccessDeniedException("Se requiere un usuario autenticado para rechazar pagos");
+        }
+        Long idRechazador = ctx.getUserId();
         finanzasRepository.rechazarPago(idPago, idRechazador, motivoRechazo.trim());
 
         return finanzasRepository.getPagoById(idPago);
@@ -829,7 +854,7 @@ public class FinanzasServiceImpl implements FinanzasService {
         List<CuotaDTO> list = jdbcTemplate.query(
             "SELECT c.ID_CUOTA, c.ID_UNIDAD, u.IDENTIFICADOR as numeroApartamento, " +
             "NVL(p.PRIMER_NOMBRE || ' ' || p.PRIMER_APELLIDO, 'Residente') as nombreResidente, " +
-            "c.ID_CONTRATO, co.NOMBRE as concepto, c.PERIODO, c.VALOR_BASE, c.VALOR_TOTAL, c.SALDO_PENDIENTE, " +
+            "c.ID_CONTRATO, co.NOMBRE as concepto, c.PERIODO, c.VALOR_BASE, (c.VALOR_BASE - c.VALOR_DESCUENTO + c.VALOR_INTERES_MORA) AS VALOR_TOTAL, c.SALDO_PENDIENTE, " +
             "c.FECHA_VENCIMIENTO as FECHA_LIMITE, c.ESTADO " +
             "FROM CUOTAS c " +
             "JOIN UNIDADES u ON c.ID_UNIDAD = u.ID_UNIDAD " +
@@ -855,7 +880,10 @@ public class FinanzasServiceImpl implements FinanzasService {
         SaedContext ctx = SaedContextHolder.getContext();
         if (ctx == null) return;
         String role = ctx.getRoleCode();
-        if ("RESIDENTE".equalsIgnoreCase(role) || "RESIDENTE_CONVIVENCIA".equalsIgnoreCase(role) || "UNIDAD".equalsIgnoreCase(ctx.getRoleScope())) {
+        if ("RESIDENTE_CONVIVENCIA".equalsIgnoreCase(role)) {
+            throw new AccessDeniedException("El rol de convivencia no tiene acceso a informacion financiera");
+        }
+        if ("RESIDENTE".equalsIgnoreCase(role) || "UNIDAD".equalsIgnoreCase(ctx.getRoleScope())) {
             if (ctx.getUnitId() != null && ctx.getUnitId().equals(idUnidad)) {
                 return;
             }
@@ -892,67 +920,129 @@ public class FinanzasServiceImpl implements FinanzasService {
         }
     }
 
-    private void enviarReciboPagoSilencioso(CuotaDTO cuota, PagoRequestDTO request) {
+    /**
+     * Resolves the recipient inside the transaction (tenant context still valid) and e-mails the
+     * receipt only after the transaction commits, so a rollback or a retried request never sends it.
+     */
+    private void programarReciboPago(CuotaDTO cuota, PagoRequestDTO request) {
+        String destinatario;
         try {
             List<Map<String, Object>> residentes = jdbcTemplate.queryForList(
                 "SELECT P.EMAIL FROM PERSONAS P " +
                 "JOIN RESIDENTES_UNIDAD RU ON RU.ID_PERSONA = P.ID_PERSONA " +
                 "WHERE RU.ID_UNIDAD = :u AND P.EMAIL IS NOT NULL",
                 new MapSqlParameterSource("u", cuota.idUnidad()));
-            if (!residentes.isEmpty()) {
-                String destinatario = (String) residentes.get(0).get("EMAIL");
-                String referencia = request.referencia() != null ? request.referencia() : "PAGO-" + request.idCuota();
-                emailService.enviarReciboPago(destinatario, cuota.concepto(), cuota.valorTotal(), referencia, LocalDate.now().toString());
+            if (residentes.isEmpty()) {
+                return;
             }
-        } catch (Exception e) {
-            log.error("Error enviando recibo de pago", e);
+            destinatario = (String) residentes.get(0).get("EMAIL");
+        } catch (RuntimeException e) {
+            log.warn("No se pudo resolver el destinatario del recibo de la cuota {}", cuota.id());
+            return;
         }
+        String referencia = request.referencia() != null ? request.referencia() : "PAGO-" + request.idCuota();
+        String concepto = cuota.concepto();
+        BigDecimal valor = request.valorPagado();
+        String fecha = LocalDate.now().toString();
+        AfterCommit.run("recibo de pago " + referencia,
+                () -> emailService.enviarReciboPago(destinatario, concepto, valor, referencia, fecha));
+    }
+
+    private static final Set<String> ESTADOS_CUOTA_PAGABLES = Set.of("PENDIENTE", "VENCIDA", "PAGADA_PARCIAL");
+
+    private static boolean esCuotaPagable(String estado) {
+        return estado != null && ESTADOS_CUOTA_PAGABLES.contains(estado.trim().toUpperCase(Locale.ROOT));
+    }
+
+    private void validarCuotaPagable(CuotaDTO cuota, BigDecimal valorPagado) {
+        if (!esCuotaPagable(cuota.estado())) {
+            throw new IllegalStateException("La cuota " + cuota.id() + " no admite pagos en estado " + cuota.estado());
+        }
+        if (cuota.saldoPendiente() != null && valorPagado.compareTo(cuota.saldoPendiente()) > 0) {
+            throw new IllegalArgumentException("El valor pagado excede el saldo pendiente de la cuota");
+        }
+    }
+
+    private Map<String, Object> lockCuota(Long idCuota) {
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+            "SELECT ID_CUOTA, SALDO_PENDIENTE, ESTADO FROM CUOTAS WHERE ID_CUOTA = :idCuota FOR UPDATE",
+            new MapSqlParameterSource("idCuota", idCuota));
+        if (rows.isEmpty()) {
+            throw new NoSuchElementException("Cuota no encontrada: " + idCuota);
+        }
+        return rows.get(0);
+    }
+
+    private static BigDecimal saldoDe(Map<String, Object> cuotaRow) {
+        Object v = cuotaRow.get("SALDO_PENDIENTE");
+        return v == null ? BigDecimal.ZERO : new BigDecimal(v.toString());
+    }
+
+    private static String estadoDe(Map<String, Object> cuotaRow) {
+        Object v = cuotaRow.get("ESTADO");
+        return v == null ? null : v.toString();
     }
 
     @Override
     public ResidenteDashboardDTO getDashboardResidente(Long idResidente) {
         SaedContext ctx = SaedContextHolder.getContext();
-        String role = ctx != null ? ctx.getRoleCode() : "";
-        if ("RESIDENTE".equalsIgnoreCase(role) || "PROPIETARIO".equalsIgnoreCase(role) || "UNIDAD".equals(ctx != null ? ctx.getRoleScope() : "")) {
-            Long userId = ctx.getUserId();
-            if (userId != null) {
-                try {
-                    Long myPersonaId = resolvePersonaIdForUser(userId);
-                    if (myPersonaId != null && !myPersonaId.equals(idResidente)) {
-                        throw new AccessDeniedException("No tiene permisos para ver las finanzas de otro residente");
-                    }
-                } catch (EmptyResultDataAccessException ignored) {}
-            }
+        denyOperationalFinanceRead(ctx);
+        if (ctx == null) {
+            throw new AccessDeniedException("Se requiere una sesion autenticada");
         }
+        String role = ctx.getRoleCode();
+        boolean household = "RESIDENTE".equalsIgnoreCase(role) || "PROPIETARIO".equalsIgnoreCase(role)
+                || "UNIDAD".equalsIgnoreCase(ctx.getRoleScope());
+        MapSqlParameterSource params = new MapSqlParameterSource("idResidente", idResidente);
+        StringBuilder sql = new StringBuilder("SELECT u.ID_UNIDAD, u.IDENTIFICADOR FROM UNIDADES u WHERE u.ID_UNIDAD IN (" +
+                "SELECT ru.ID_UNIDAD FROM RESIDENTES_UNIDAD ru WHERE ru.ID_PERSONA = :idResidente AND ru.ESTADO IN ('ACTIVO', 'ACTIVA') " +
+                "UNION SELECT pu.ID_UNIDAD FROM PROPIETARIOS_UNIDAD pu WHERE pu.ID_PERSONA = :idResidente AND pu.ESTADO IN ('ACTIVO', 'ACTIVA') " +
+                "UNION SELECT c.ID_UNIDAD FROM CONTRATOS c WHERE c.ID_ARRENDATARIO_PRINCIPAL = :idResidente AND c.ESTADO = 'ACTIVO') ");
+        if (household) {
+            // A household member sees only their own dashboard; anyone else's is simply not found.
+            Long myPersonaId = resolvePersonaIdForUser(ctx.getUserId());
+            if (myPersonaId == null || !myPersonaId.equals(idResidente)) {
+                throw new NoSuchElementException("Residente no encontrado: " + idResidente);
+            }
+            if (ctx.getUnitId() != null) {
+                sql.append("AND u.ID_UNIDAD = :unitId ");
+                params.addValue("unitId", ctx.getUnitId());
+            }
+        } else if ("ADMIN_PROPIEDAD".equalsIgnoreCase(role)) {
+            if (ctx.getPropertyId() == null) {
+                throw new AccessDeniedException("Se requiere una propiedad activa en la sesion");
+            }
+            sql.append("AND u.ID_PROPIEDAD = :propId ");
+            params.addValue("propId", ctx.getPropertyId());
+        } else {
+            throw new AccessDeniedException("Rol no autorizado para consultar el estado de cuenta de un residente");
+        }
+        sql.append("ORDER BY u.ID_UNIDAD FETCH FIRST 1 ROWS ONLY");
+
+        List<Map<String, Object>> unit = jdbcTemplate.queryForList(sql.toString(), params);
+        if (unit.isEmpty()) {
+            throw new NoSuchElementException("Residente no encontrado: " + idResidente);
+        }
+        Long idUnidad = ((Number) unit.get(0).get("ID_UNIDAD")).longValue();
+        String identificadorUnidad = (String) unit.get(0).get("IDENTIFICADOR");
 
         List<CuotaDTO> cuotas = finanzasRepository.getCuotasByResidente(idResidente);
-
-        Long idUnidad = ctx != null ? ctx.getUnitId() : null;
-        String identificadorUnidad = null;
-        if (idUnidad != null) {
-            try {
-                identificadorUnidad = jdbcTemplate.queryForObject(
-                    "SELECT IDENTIFICADOR FROM UNIDADES WHERE ID_UNIDAD = :idUnidad",
-                    new MapSqlParameterSource("idUnidad", idUnidad), String.class);
-            } catch (Exception ignored) {}
-        } else {
-            try {
-                Map<String, Object> uRow = jdbcTemplate.queryForMap(
-                    "SELECT u.ID_UNIDAD, u.IDENTIFICADOR FROM UNIDADES u " +
-                    "WHERE u.ID_UNIDAD IN (" +
-                    "  SELECT ru.ID_UNIDAD FROM RESIDENTES_UNIDAD ru WHERE ru.ID_PERSONA = :idResidente AND ru.ESTADO IN ('ACTIVO', 'ACTIVA') " +
-                    "  UNION " +
-                    "  SELECT pu.ID_UNIDAD FROM PROPIETARIOS_UNIDAD pu WHERE pu.ID_PERSONA = :idResidente AND pu.ESTADO IN ('ACTIVO', 'ACTIVA') " +
-                    "  UNION " +
-                    "  SELECT ua.ID_UNIDAD FROM USUARIOS usr JOIN USUARIO_ASIGNACIONES ua ON usr.ID_USUARIO = ua.ID_USUARIO WHERE usr.ID_PERSONA = :idResidente AND ua.ID_UNIDAD IS NOT NULL AND ua.ESTADO IN ('ACTIVA', 'ACTIVO') " +
-                    ") FETCH FIRST 1 ROWS ONLY",
-                    new MapSqlParameterSource("idResidente", idResidente));
-                idUnidad = ((Number) uRow.get("ID_UNIDAD")).longValue();
-                identificadorUnidad = (String) uRow.get("IDENTIFICADOR");
-            } catch (Exception ignored) {}
-        }
-
         return new ResidenteDashboardDTO(idResidente, idUnidad, identificadorUnidad, cuotas);
+    }
+
+    /** RESIDENTE_CONVIVENCIA receives no monetary detail (F06-06). */
+    private static void denyConvivencia(SaedContext ctx) {
+        if (ctx != null && "RESIDENTE_CONVIVENCIA".equalsIgnoreCase(ctx.getRoleCode())) {
+            throw new AccessDeniedException("El rol de convivencia no tiene acceso a informacion financiera");
+        }
+    }
+
+    /** Operational finance reads: no cohabitant (F06-06) and no SUPERADMIN (DEC-02). */
+    private static void denyOperationalFinanceRead(SaedContext ctx) {
+        denyConvivencia(ctx);
+        if (ctx != null && "SUPERADMIN".equalsIgnoreCase(ctx.getRoleCode())) {
+            throw new AccessDeniedException("La administracion de plataforma no accede a datos financieros operativos");
+        }
     }
 
     private Long resolvePersonaIdForUser(Long userId) {
@@ -961,7 +1051,7 @@ public class FinanzasServiceImpl implements FinanzasService {
             return jdbcTemplate.queryForObject(
                 "SELECT ID_PERSONA FROM USUARIOS WHERE ID_USUARIO = :u",
                 new MapSqlParameterSource("u", userId), Long.class);
-        } catch (Exception e) {
+        } catch (EmptyResultDataAccessException e) {
             return null;
         }
     }

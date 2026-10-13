@@ -572,15 +572,14 @@ public class F11_04_ExportacionesIntegrationTest {
 
     @Test
     @Order(15)
-    @DisplayName("Seguridad: SUPERADMIN puede exportar reportes de cualquier propiedad legítima")
-    public void testSuperAdminCanExportReports() throws Exception {
+    @DisplayName("Seguridad: SUPERADMIN no exporta reportes operativos (DEC-02)")
+    public void testSuperAdminCannotExportReports() throws Exception {
         mockMvc.perform(get("/api/v1/reportes/cartera-morosa")
                         .param("propertyId", String.valueOf(PROP_1_ID))
                         .param("formato", "CSV")
                         .header("Authorization", "Bearer " + tokenSuperAdmin)
                         .header("X-Assignment-Id", String.valueOf(ASSIGN_SUPERADMIN)))
-                .andExpect(status().isOk())
-                .andExpect(header().string(HttpHeaders.CONTENT_TYPE, "text/csv;charset=UTF-8"));
+                .andExpect(status().isForbidden());
     }
 
     // =========================================================================

@@ -66,7 +66,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * 25. RESIDENTE no puede consultar historial (403).
  * 26. Desactivar configuración (éxito, estado cambia a INACTIVO).
  * 27. Desactivar no borra historial previo.
- * 28. SUPERADMIN puede consultar configuración e historial global.
+ * 28. SUPERADMIN no consulta configuración ni historial operativo (DEC-02, 403).
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -936,20 +936,16 @@ public class F11_04_ReportesConfiguradosHistorialIntegrationTest {
 
     @Test
     @Order(28)
-    @DisplayName("28. SUPERADMIN puede consultar configuración e historial global")
-    public void test28_superadminPuedeConsultarConfiguracionEHistorialGlobal() throws Exception {
+    @DisplayName("28. SUPERADMIN no consulta configuración ni historial operativo (DEC-02)")
+    public void test28_superadminNoConsultaReportesOperativos() throws Exception {
         mockMvc.perform(get("/api/v1/reportes/configurados")
                 .header("Authorization", "Bearer " + tokenSuperAdmin)
                 .header("X-Assignment-Id", ASSIGN_SUPERADMIN))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data").isArray());
+                .andExpect(status().isForbidden());
 
         mockMvc.perform(get("/api/v1/reportes/historial")
                 .header("Authorization", "Bearer " + tokenSuperAdmin)
                 .header("X-Assignment-Id", ASSIGN_SUPERADMIN))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data").isArray());
+                .andExpect(status().isForbidden());
     }
 }

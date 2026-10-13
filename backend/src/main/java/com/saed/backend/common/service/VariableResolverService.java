@@ -55,7 +55,8 @@ public class VariableResolverService {
                 throw new IllegalStateException("Variable contractual esencial requerida y no resuelta: " + key);
             }
 
-            String valor = formatearValor(rawValue);
+            // F5-H06: every value is escaped; only HTML fragments built by this service are inserted verbatim.
+            String valor = rawValue instanceof TrustedHtml trusted ? trusted.html() : escapeXml(formatearValor(rawValue));
             matcher.appendReplacement(sb, Matcher.quoteReplacement(valor));
         }
         matcher.appendTail(sb);
@@ -223,7 +224,7 @@ public class VariableResolverService {
 
             vars.put("coarrendatarios.lista", sbLista.toString());
             vars.put("coarrendatarios.nombres", sbNombres.toString());
-            vars.put("coarrendatarios.firmas_html", sbFirmas.toString());
+            vars.put("coarrendatarios.firmas_html", new TrustedHtml(sbFirmas.toString()));
         }
 
         // 7. Parqueadero y Administrativo
@@ -247,7 +248,15 @@ public class VariableResolverService {
         return vars;
     }
 
-    private String escapeXml(String text) {
+    /** HTML fragment built server-side from escaped values; never constructed from request data. */
+    public record TrustedHtml(String html) {
+        @Override
+        public String toString() {
+            return html;
+        }
+    }
+
+    private static String escapeXml(String text) {
         if (text == null) return "";
         return text.replace("&", "&amp;")
                    .replace("<", "&lt;")

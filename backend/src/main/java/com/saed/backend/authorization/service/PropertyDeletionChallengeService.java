@@ -8,6 +8,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
@@ -28,6 +29,37 @@ public class PropertyDeletionChallengeService {
 
     private final SecureRandom secureRandom = new SecureRandom();
     private final Map<String, DeletionChallenge> challengeStore = new ConcurrentHashMap<>();
+
+    private final Clock clock;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public PropertyDeletionChallengeService() {
+        this(Clock.systemUTC());
+    }
+
+    PropertyDeletionChallengeService(Clock clock) {
+        this.clock = clock;
+    }
+
+    int storedChallengeCount() {
+        return challengeStore.size();
+    }
+
+    /** Removes a challenge whose OTP could not be delivered, so it can never be used. */
+    public void revokeChallenge(String challengeId) {
+        if (challengeId != null) {
+            challengeStore.remove(challengeId);
+        }
+    }
+
+    /** Drops expired and finished challenges (F4-H05: the store must not grow without bound). */
+    private void purgeStale() {
+        Instant now = clock.instant();
+        challengeStore.values().removeIf(c -> now.isAfter(c.getExpiresAt())
+                || c.getState() == ChallengeState.CONSUMED
+                || c.getState() == ChallengeState.EXPIRED
+                || c.getState() == ChallengeState.BLOCKED);
+    }
 
     public enum ChallengeState {
         PENDING,
@@ -78,8 +110,8 @@ public class PropertyDeletionChallengeService {
         public ChallengeState getState() { return state; }
         public void setState(ChallengeState state) { this.state = state; }
 
-        public boolean isExpired() {
-            return Instant.now().isAfter(expiresAt);
+        public boolean isExpired(Instant now) {
+            return now.isAfter(expiresAt);
         }
 
         public int incrementAttempts() {
@@ -98,7 +130,8 @@ public class PropertyDeletionChallengeService {
      * Invalida desafíos previos para la misma propiedad y usuario, y crea uno nuevo.
      */
     public GeneratedChallenge createChallenge(Long propertyId, Long organizationId, Long userId, String userEmail, String propertyName) {
-        // 1. Invalidar desafíos previos activos
+        // 1. Invalidar desafíos previos activos y purgar los caducados o terminados
+        purgeStale();
         challengeStore.values().removeIf(c -> 
                 c.getPropertyId().equals(propertyId) && 
                 c.getUserId().equals(userId) && 
@@ -110,7 +143,7 @@ public class PropertyDeletionChallengeService {
         String salt = UUID.randomUUID().toString();
         String otpHash = hashOtp(rawOtp, salt);
         String challengeId = UUID.randomUUID().toString();
-        Instant now = Instant.now();
+        Instant now = clock.instant();
         Instant expiresAt = now.plus(Duration.ofMinutes(EXPIRATION_MINUTES));
 
         DeletionChallenge challenge = new DeletionChallenge(
@@ -134,6 +167,13 @@ public class PropertyDeletionChallengeService {
             throw new IllegalArgumentException("El desafío de eliminación no existe o ya caducó.");
         }
 
+        synchronized (challenge) {
+            return verifyLocked(challenge, challengeId, propertyId, organizationId, userId, submittedOtp);
+        }
+    }
+
+    private boolean verifyLocked(DeletionChallenge challenge, String challengeId, Long propertyId, Long organizationId,
+                                 Long userId, String submittedOtp) {
         // Validar correspondencia estricta de tenant, usuario y propiedad
         if (!challenge.getPropertyId().equals(propertyId) ||
             !challenge.getOrganizationId().equals(organizationId) ||
@@ -143,7 +183,7 @@ public class PropertyDeletionChallengeService {
         }
 
         // Validar expiración
-        if (challenge.isExpired()) {
+        if (challenge.isExpired(clock.instant())) {
             challenge.setState(ChallengeState.EXPIRED);
             log.warn("Desafío {} expiró el {}", challengeId, challenge.getExpiresAt());
             throw new IllegalStateException("El código de verificación ha expirado. Solicite uno nuevo.");
@@ -169,9 +209,14 @@ public class PropertyDeletionChallengeService {
         }
 
         // Comprobación criptográfica del hash
+        if (submittedOtp == null || submittedOtp.isBlank()) {
+            blockIfExhausted(challenge, attempts);
+            return false;
+        }
         String computedHash = hashOtp(submittedOtp.trim(), challenge.salt);
         if (!MessageDigest.isEqual(computedHash.getBytes(StandardCharsets.UTF_8), challenge.otpHash.getBytes(StandardCharsets.UTF_8))) {
             log.warn("Código incorrecto para desafío {}. Intento {}/{}", challengeId, attempts, MAX_ATTEMPTS);
+            blockIfExhausted(challenge, attempts);
             return false;
         }
 
@@ -179,6 +224,12 @@ public class PropertyDeletionChallengeService {
         challenge.setState(ChallengeState.VERIFIED);
         log.info("Desafío {} verificado correctamente. Listo para confirmación final.", challengeId);
         return true;
+    }
+
+    private static void blockIfExhausted(DeletionChallenge challenge, int attempts) {
+        if (attempts >= MAX_ATTEMPTS) {
+            challenge.setState(ChallengeState.BLOCKED);
+        }
     }
 
     /**
@@ -197,7 +248,7 @@ public class PropertyDeletionChallengeService {
                 throw new org.springframework.security.access.AccessDeniedException("Contexto de seguridad no coincide con el desafío.");
             }
 
-            if (challenge.isExpired()) {
+            if (challenge.isExpired(clock.instant())) {
                 challenge.setState(ChallengeState.EXPIRED);
                 throw new IllegalStateException("El código de verificación ha expirado.");
             }
@@ -232,7 +283,7 @@ public class PropertyDeletionChallengeService {
             byte[] hash = digest.digest(otp.getBytes(StandardCharsets.UTF_8));
             return Base64.getEncoder().encodeToString(hash);
         } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException("Error en algoritmo criptográfico SHA-256", e);
+            throw new IllegalStateException("Error en algoritmo criptográfico SHA-256", e);
         }
     }
 }

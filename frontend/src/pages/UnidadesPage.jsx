@@ -53,6 +53,7 @@ const emptyForm = {
   identificador: '',
   idBloque: 'NONE',
   idTipoUnidad: '',
+  piso: '',
   areaM2: '',
   coeficienteCopropiedad: '',
 };
@@ -85,6 +86,14 @@ export default function UnidadesPage() {
     () => activePropertyId
       ? tenantApi.get(`/properties/${activePropertyId}/blocks`).catch(() => tenantApi.get('/bloques'))
       : tenantApi.get('/bloques'),
+    [tenant.activeAssignmentId, activePropertyId]
+  );
+
+  // DEC-04: coefficient census of the property; an incomplete sum is shown as a warning.
+  const { data: coefSummary, refetch: refetchCoef } = useFetch(
+    () => (activePropertyId
+      ? tenantApi.get(`/units/coefficient-summary?idPropiedad=${activePropertyId}`)
+      : Promise.resolve(null)),
     [tenant.activeAssignmentId, activePropertyId]
   );
 
@@ -164,6 +173,7 @@ export default function UnidadesPage() {
         idTipoUnidad: Number(form.idTipoUnidad),
         identificador: form.identificador.trim(),
         idBloque: form.idBloque && form.idBloque !== 'NONE' ? Number(form.idBloque) : null,
+        piso: form.piso && form.piso.trim() ? form.piso.trim() : null,
         areaM2: areaVal,
         coeficienteCopropiedad: coefVal,
       };
@@ -176,6 +186,8 @@ export default function UnidadesPage() {
       }
       setDialogOpen(false);
       refetchUnidades();
+      // The census banner is advisory; its own fetch error state is kept by useFetch.
+      refetchCoef().catch(() => undefined);
     } catch (err) {
       toast.error(err.message || 'No se pudo guardar la unidad');
     } finally {
@@ -307,6 +319,12 @@ export default function UnidadesPage() {
         ))}
       </div>
 
+      {coefSummary?.advertencia && (
+        <div role="status" className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          {coefSummary.advertencia}
+        </div>
+      )}
+
       <Tabs defaultValue="unidades" className="w-full space-y-4">
         <TabsList className="grid w-full max-w-md grid-cols-2">
           <TabsTrigger value="unidades" className="flex items-center gap-2">
@@ -394,6 +412,7 @@ export default function UnidadesPage() {
                                   identificador: u.identificador || u.IDENTIFICADOR || '',
                                   idBloque: (u.idBloque != null && u.idBloque !== '') ? String(u.idBloque) : ((u.ID_BLOQUE != null && u.ID_BLOQUE !== '') ? String(u.ID_BLOQUE) : 'NONE'),
                                   idTipoUnidad: u.idTipoUnidad != null ? String(u.idTipoUnidad) : (u.ID_TIPO_UNIDAD != null ? String(u.ID_TIPO_UNIDAD) : ''),
+                                  piso: u.piso || '',
                                   areaM2: u.areaM2 != null ? String(u.areaM2) : (u.AREA_M2 != null ? String(u.AREA_M2) : ''),
                                   coeficienteCopropiedad: u.coeficienteCopropiedad != null ? String(u.coeficienteCopropiedad) : (u.COEFICIENTE_COPROPIEDAD != null ? String(u.COEFICIENTE_COPROPIEDAD) : ''),
                                 });
@@ -656,6 +675,16 @@ export default function UnidadesPage() {
               <p className="text-[11px] text-muted-foreground">
                 Opcional para casas independientes o inmuebles unibloque. Recomendado para apartamentos en torres, etapas o manzanas.
               </p>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="piso">Piso</Label>
+              <Input
+                id="piso"
+                maxLength={10}
+                value={form.piso}
+                onChange={(e) => setForm((f) => ({ ...f, piso: e.target.value }))}
+                placeholder="Ej: 12, PH, S1"
+              />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">

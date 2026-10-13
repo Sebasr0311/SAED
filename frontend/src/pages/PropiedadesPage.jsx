@@ -158,7 +158,7 @@ export default function PropiedadesPage() {
       idTipoPropiedad: prop.idTipoPropiedad != null ? String(prop.idTipoPropiedad) : '',
       nombre: prop.nombre || '',
       direccion: prop.direccion || '',
-      departamento: inferredDept,
+      departamento: prop.departamento || inferredDept,
       ciudad: prop.ciudad || 'Bogotá',
       pais: prop.pais || 'Colombia',
       tipoOcupacionPredominante: prop.tipoOcupacionPredominante || 'MIXTA',
@@ -196,6 +196,8 @@ export default function PropiedadesPage() {
         nombre: form.nombre.trim(),
         direccion: form.direccion.trim(),
         ciudad: form.ciudad.trim(),
+        departamento: form.departamento || null,
+        pais: form.pais || 'Colombia',
         tipoOcupacionPredominante: form.tipoOcupacionPredominante || 'MIXTA',
       };
 

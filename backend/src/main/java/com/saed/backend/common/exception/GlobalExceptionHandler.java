@@ -97,6 +97,19 @@ public class GlobalExceptionHandler {
                 CorrelationIdHolder.get(), types, vendorCodes.length() > 0 ? vendorCodes : "none");
     }
 
+    private static boolean hasCause(Throwable failure, Class<? extends Throwable> type) {
+        Set<Throwable> visited = Collections.newSetFromMap(new IdentityHashMap<>());
+        Throwable current = failure;
+        int depth = 0;
+        while (current != null && depth++ < MAX_ERROR_CAUSE_DEPTH && visited.add(current)) {
+            if (type.isInstance(current)) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
+    }
+
     /** Unknown/cyclic/truncated chains fail closed before any database audit or recovery. */
     private boolean requiresFailClosedResponse(Throwable failure) {
         Set<Throwable> visited = Collections.newSetFromMap(new IdentityHashMap<>());
@@ -285,6 +298,13 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(CannotCreateTransactionException.class)
     public ResponseEntity<Map<String, Object>> handleTransactionException(CannotCreateTransactionException ex) {
+        logFailureDiagnostic(ex);
+        // No connection could be obtained in time (pool exhausted): transient and retryable, not a server fault.
+        if (hasCause(ex, java.sql.SQLTransientConnectionException.class)) {
+            Map<String, Object> response = createLoggedErrorResponse(HttpStatus.SERVICE_UNAVAILABLE, "SERVICE_BUSY",
+                    "El servicio está ocupado. Intente nuevamente en unos segundos.");
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).header("Retry-After", "2").body(response);
+        }
         if (requiresFailClosedResponse(ex)) {
             Map<String, Object> response = createLoggedErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_SERVER_ERROR",
                     "Error al iniciar transacción en la base de datos.");

@@ -98,6 +98,8 @@ export default function OrgPropiedadesPage() {
         idTipoPropiedad: Number(newProp.idTipoPropiedad),
         direccion: newProp.direccion.trim(),
         ciudad: newProp.ciudad || 'Bogotá',
+        departamento: newProp.departamento || null,
+        pais: newProp.pais || 'Colombia',
         tipoOcupacionPredominante: newProp.tipoOcupacionPredominante || 'MIXTA',
       });
       setSuccessMsg('Propiedad registrada exitosamente.');

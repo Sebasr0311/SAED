@@ -53,10 +53,13 @@ public class PropertyConfigServiceImpl implements PropertyConfigService {
 
     private final PropertyConfigRepository repository;
     private final PlanLimitService planLimitService;
+    private final PropertyStatusService propertyStatusService;
 
-    public PropertyConfigServiceImpl(PropertyConfigRepository repository, PlanLimitService planLimitService) {
+    public PropertyConfigServiceImpl(PropertyConfigRepository repository, PlanLimitService planLimitService,
+                                     PropertyStatusService propertyStatusService) {
         this.repository = repository;
         this.planLimitService = planLimitService;
+        this.propertyStatusService = propertyStatusService;
     }
 
     private void validatePropertyAccess(Long propertyId) {
@@ -216,6 +219,7 @@ public class PropertyConfigServiceImpl implements PropertyConfigService {
     @Transactional
     public void saveOrUpdate(Long propertyId, String key, String value, String descripcion) {
         validatePropertyAccess(propertyId);
+        propertyStatusService.validatePropertyIsActive(propertyId);
         String cleanKey = key.trim().toUpperCase();
         validateValue(cleanKey, value);
         String desc = descripcion;
@@ -229,6 +233,7 @@ public class PropertyConfigServiceImpl implements PropertyConfigService {
     @Transactional
     public void saveBatch(Long propertyId, Map<String, String> configs) {
         validatePropertyAccess(propertyId);
+        propertyStatusService.validatePropertyIsActive(propertyId);
         if (configs == null || configs.isEmpty()) return;
         for (Map.Entry<String, String> entry : configs.entrySet()) {
             saveOrUpdate(propertyId, entry.getKey(), entry.getValue(), null);

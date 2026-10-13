@@ -6,6 +6,7 @@ import { Badge } from '../components/ui/badge.tsx';
 import { Skeleton } from '../components/ui/skeleton.tsx';
 import { Button } from '../components/ui/button.tsx';
 import { Building2, Home, Users, DollarSign, ShieldCheck, ArrowUpRight, TrendingUp, AlertCircle } from 'lucide-react';
+import { KpiSummaryPanel } from '../components/KpiSummaryPanel.jsx';
 
 export default function OrgDashboardPage() {
   const [data, setData] = useState(null);
@@ -72,6 +73,7 @@ export default function OrgDashboardPage() {
 
   return (
     <div className="p-6 space-y-8 animate-fadeIn">
+      <KpiSummaryPanel />
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-border pb-6">
         <div>

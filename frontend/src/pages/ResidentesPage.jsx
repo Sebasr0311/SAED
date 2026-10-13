@@ -607,18 +607,8 @@ export default function ResidentesPage() {
             }
           }
 
-          if (idPersonaTutor && idResidente) {
-            const rel = tutorForm.parentesco === 'OTRO' ? tutorForm.otroParentesco : tutorForm.parentesco;
-            await tenantApi.post('/tutores', {
-              personaMenorId: Number(idResidente),
-              personaTutorId: Number(idPersonaTutor),
-              parentesco: rel || 'TUTOR LEGAL',
-              estado: 'ACTIVO',
-            });
-            toast.success('Tutor legal vinculado con éxito');
-          }
         } catch (tutorErr) {
-          console.warn('Error guardando tutor legal:', tutorErr);
+          toast.warning(`No se pudo registrar la persona tutora: ${tutorErr.message}`);
         }
       }
 
@@ -674,6 +664,23 @@ export default function ResidentesPage() {
               `Residente guardado, pero la asignación al apartamento falló: ${err.message}`
             );
           }
+        }
+      }
+
+      // F5-H08: guardian rights are scoped to a dependent of the unit, so the guardian is linked after the
+      // dependent has been assigned to the unit; a failure is reported, never hidden.
+      if (idPersonaTutor && idResidente) {
+        try {
+          const rel = tutorForm.parentesco === 'OTRO' ? tutorForm.otroParentesco : tutorForm.parentesco;
+          await tenantApi.post('/tutores', {
+            personaMenorId: Number(idResidente),
+            personaTutorId: Number(idPersonaTutor),
+            parentesco: rel || 'TUTOR LEGAL',
+            estado: 'ACTIVO',
+          });
+          toast.success('Tutor legal vinculado con éxito');
+        } catch (tutorErr) {
+          toast.warning(`Residente guardado, pero no se pudo vincular el tutor legal: ${tutorErr.message}`);
         }
       }
 
@@ -2830,9 +2837,12 @@ export default function ResidentesPage() {
         }
       >
         <div className="max-h-[60vh] overflow-y-auto p-4 bg-muted/30 border border-border/60 rounded-xl">
-          <div
-            className="prose prose-sm dark:prose-invert max-w-none text-xs leading-relaxed"
-            dangerouslySetInnerHTML={{ __html: previewHtml || '' }}
+          {/* F5-H06: contract HTML is rendered in a sandboxed frame (no scripts, no same-origin access). */}
+          <iframe
+            title="Vista previa del contrato"
+            sandbox=""
+            srcDoc={previewHtml || ''}
+            className="w-full min-h-[50vh] bg-white rounded border-0"
           />
         </div>
       </Modal>

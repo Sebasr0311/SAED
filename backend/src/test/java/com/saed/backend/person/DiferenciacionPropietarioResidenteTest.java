@@ -167,7 +167,13 @@ public class DiferenciacionPropietarioResidenteTest {
     @Test
     public void testDesvinculacionProtegida_SoftDeletePreservaHistorico() {
         // Requisitos #14 y #15: No destrucción física, soft-delete y preservación de auditoría
-        personaRepository.delete(TEST_PERSONA_ID);
+        // F05-01: unlinking is scoped to the caller's property; the identity is deactivated only when no active
+        // link remains (this fixture has links only in that property).
+        Long propId = jdbcTemplate.queryForObject(
+                "SELECT ID_PROPIEDAD FROM UNIDADES WHERE ID_UNIDAD = ?", Long.class, TEST_UNIT_ID);
+        Long orgId = jdbcTemplate.queryForObject(
+                "SELECT ID_ORGANIZACION FROM PROPIEDADES WHERE ID_PROPIEDAD = ?", Long.class, propId);
+        personaRepository.unlinkFromScope(TEST_PERSONA_ID, propId, orgId);
 
         String estadoPersona = jdbcTemplate.queryForObject(
                 "SELECT ESTADO FROM PERSONAS WHERE ID_PERSONA = ?",

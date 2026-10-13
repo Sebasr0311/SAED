@@ -102,7 +102,7 @@ export default function ReportesPage() {
     const key = `gen-${config.idReporteConfig}-${formato}`;
     setExportando((prev) => ({ ...prev, [key]: true }));
     try {
-      const ext = formato.toLowerCase() === 'pdf' ? 'pdf' : 'csv';
+      const ext = { PDF: 'pdf', CSV: 'csv', XLSX: 'xlsx' }[formato.toUpperCase()] || 'pdf';
       const defaultFilename = `${(config.codigo || 'reporte').toLowerCase()}_${new Date().toISOString().slice(0, 10)}.${ext}`;
       await downloadReportFile(
         `/reportes/configurados/${config.idReporteConfig}/generar?formato=${formato}`,
@@ -1113,6 +1113,7 @@ export default function ReportesPage() {
                   >
                     <option value="PDF">PDF</option>
                     <option value="CSV">CSV</option>
+                    <option value="XLSX">Excel (XLSX)</option>
                   </select>
                 </div>
                 <div>

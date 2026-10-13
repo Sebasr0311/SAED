@@ -761,20 +761,17 @@ public class F11_04_FinalIntegrationTest {
 
     @Test
     @Order(11)
-    @DisplayName("11. SUPERADMIN puede auditar configuraciones e historial de múltiples organizaciones")
-    public void test11_superAdmin_accesoGlobal() throws Exception {
+    @DisplayName("11. SUPERADMIN no audita reportes operativos de las organizaciones (DEC-02)")
+    public void test11_superAdmin_sinAccesoOperativo() throws Exception {
         mockMvc.perform(get("/api/v1/reportes/configurados")
                 .header("Authorization", "Bearer " + tokenSuperAdmin)
                 .header("X-Assignment-Id", ASSIGN_SUPERADMIN))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data").isArray())
-                .andExpect(jsonPath("$.data.length()").value(org.hamcrest.Matchers.greaterThanOrEqualTo(4)));
+                .andExpect(status().isForbidden());
 
         mockMvc.perform(get("/api/v1/reportes/historial")
                 .header("Authorization", "Bearer " + tokenSuperAdmin)
                 .header("X-Assignment-Id", ASSIGN_SUPERADMIN))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data").isArray());
+                .andExpect(status().isForbidden());
     }
 
     // =========================================================================

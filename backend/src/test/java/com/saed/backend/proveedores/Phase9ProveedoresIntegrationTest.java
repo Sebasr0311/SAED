@@ -511,7 +511,7 @@ public class Phase9ProveedoresIntegrationTest {
                 .header("X-Assignment-Id", ASSIGN_ADMIN_PROP_1)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(contratoCrossTenant)))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isNotFound());   // F06: indistinguishable from a missing supplier
 
         // Verificación en Oracle XE: exactamente 0 contratos insertados
         setElevatedContext();

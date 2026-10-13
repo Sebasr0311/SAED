@@ -19,9 +19,19 @@ public class PdfServiceImpl implements PdfService {
         if (!safeHtml.contains("<!DOCTYPE")) {
             safeHtml = "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd\">\n" + safeHtml;
         }
-        builder.withHtmlContent(safeHtml, "file:///");
+        // F5-H06: no local-file or network resources (blind SSRF / file disclosure); only inline data: URIs.
+        builder.useUriResolver(PdfServiceImpl::resolveResource);
+        builder.withHtmlContent(safeHtml, null);
         builder.toStream(outputStream);
         builder.run();
         return outputStream.toByteArray();
+    }
+
+    /** Resource policy of the renderer: inline {@code data:} URIs only; anything else is not loaded. */
+    public static String resolveResource(String baseUri, String uri) {
+        if (uri != null && uri.regionMatches(true, 0, "data:", 0, 5)) {
+            return uri;
+        }
+        return null;
     }
 }

@@ -25,6 +25,9 @@ class UnitServiceTest {
     @Mock
     private com.saed.backend.platform.service.PlanLimitService planLimitService;
 
+    @Mock
+    private PropertyStatusService propertyStatusService;
+
     @InjectMocks
     private UnitService unitService;
 

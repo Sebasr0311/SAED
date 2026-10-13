@@ -22,6 +22,14 @@ public class MedicionConsumoDTO {
     private String observacionAnomalia;
     private Long leidoPor;
     private LocalDate fechaTomaLectura;
+    private boolean reinicioMedidor;
+    private BigDecimal lecturaPreviaReinicio;
+
+    public boolean isReinicioMedidor() { return reinicioMedidor; }
+    public void setReinicioMedidor(boolean reinicioMedidor) { this.reinicioMedidor = reinicioMedidor; }
+
+    public BigDecimal getLecturaPreviaReinicio() { return lecturaPreviaReinicio; }
+    public void setLecturaPreviaReinicio(BigDecimal lecturaPreviaReinicio) { this.lecturaPreviaReinicio = lecturaPreviaReinicio; }
 
     public MedicionConsumoDTO() {}
 

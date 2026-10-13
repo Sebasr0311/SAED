@@ -192,6 +192,7 @@ const NAV_BY_ROLE = {
         { path: '/pagos', label: 'Pagos', icon: 'payments' },
         { path: '/cartera', label: 'Cartera', icon: 'account_balance_wallet' },
         { path: '/presupuestos', label: 'Presupuestos', icon: 'calculate' },
+        { path: '/facturacion', label: 'Facturación', icon: 'request_quote' },
         { path: '/gastos', label: 'Gastos', icon: 'receipt_long' },
         { path: '/flujo-caja', label: 'Flujo de Caja', icon: 'show_chart' },
         { path: '/conciliaciones', label: 'Conciliaciones', icon: 'fact_check' },

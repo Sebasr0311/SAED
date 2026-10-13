@@ -67,7 +67,7 @@ public class ContratoParticipanteServiceImpl implements ContratoParticipanteServ
             Long contractOrgId = ((Number) rows.get(0).get("ID_ORGANIZACION")).longValue();
 
             if ("SUPERADMIN".equalsIgnoreCase(role)) {
-                // Permitido
+                throw new AccessDeniedException("La administracion de plataforma no accede a contratos de arrendamiento");
             } else if ("ADMIN_ORGANIZACION".equalsIgnoreCase(role)) {
                 if (ctx.getOrganizationId() != null && !ctx.getOrganizationId().equals(contractOrgId)) {
                     throw new AccessDeniedException("No tiene permisos sobre contratos de otra organización");
@@ -125,7 +125,7 @@ public class ContratoParticipanteServiceImpl implements ContratoParticipanteServ
             restoreSaedContext(ctx);
         }
         if (countPersona == null || countPersona == 0) {
-            throw new IllegalArgumentException("Persona no encontrada con ID: " + request.idPersona());
+            throw new NoSuchElementException("Persona no encontrada con ID: " + request.idPersona());
         }
 
         // 2. Validar que la persona no es ya el arrendatario principal del contrato
