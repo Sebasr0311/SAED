@@ -21,6 +21,8 @@ public class OnboardingRateLimiter {
     static final int REGISTRATIONS_PER_IP = 10;
     static final int REGISTRATIONS_PER_IDENTITY = 3;
     static final int STATUS_LOOKUPS_PER_IP = 60;
+    static final int ACTIVATION_RESENDS_PER_IP = 10;
+    static final int ACTIVATION_RESENDS_PER_TARGET = 3;
     private static final Duration REGISTRATION_WINDOW = Duration.ofHours(1);
     private static final Duration STATUS_WINDOW = Duration.ofMinutes(10);
     private static final int MAX_KEYS = 10_000;
@@ -28,6 +30,8 @@ public class OnboardingRateLimiter {
     private final SlidingWindowRateLimiter registrationsByIp;
     private final SlidingWindowRateLimiter registrationsByIdentity;
     private final SlidingWindowRateLimiter statusByIp;
+    private final SlidingWindowRateLimiter activationResendsByIp;
+    private final SlidingWindowRateLimiter activationResendsByTarget;
 
     public OnboardingRateLimiter() {
         this(System::currentTimeMillis);
@@ -37,6 +41,8 @@ public class OnboardingRateLimiter {
         this.registrationsByIp = new SlidingWindowRateLimiter(REGISTRATIONS_PER_IP, REGISTRATION_WINDOW, MAX_KEYS, clock);
         this.registrationsByIdentity = new SlidingWindowRateLimiter(REGISTRATIONS_PER_IDENTITY, REGISTRATION_WINDOW, MAX_KEYS, clock);
         this.statusByIp = new SlidingWindowRateLimiter(STATUS_LOOKUPS_PER_IP, STATUS_WINDOW, MAX_KEYS, clock);
+        this.activationResendsByIp = new SlidingWindowRateLimiter(ACTIVATION_RESENDS_PER_IP, REGISTRATION_WINDOW, MAX_KEYS, clock);
+        this.activationResendsByTarget = new SlidingWindowRateLimiter(ACTIVATION_RESENDS_PER_TARGET, REGISTRATION_WINDOW, MAX_KEYS, clock);
     }
 
     /** Throws 429 when the client address, the tax id or the e-mail exceeded its registration allowance. */
@@ -52,6 +58,19 @@ public class OnboardingRateLimiter {
 
     public void checkStatusLookup(String clientIp) {
         if (!statusByIp.tryAcquire("ip:" + clientIp)) {
+            throw tooMany();
+        }
+    }
+
+    /**
+     * Throws 429 when the client address or the targeted account exceeded its activation-link resend allowance.
+     * Both keys are always recorded and the target is counted whether or not the account exists, so the limit
+     * reveals nothing about which accounts exist.
+     */
+    public void checkActivationResend(String clientIp, String identifier) {
+        boolean allowed = activationResendsByIp.tryAcquire("ip:" + clientIp);
+        allowed &= activationResendsByTarget.tryAcquire("target:" + normalizeEmail(identifier));
+        if (!allowed) {
             throw tooMany();
         }
     }

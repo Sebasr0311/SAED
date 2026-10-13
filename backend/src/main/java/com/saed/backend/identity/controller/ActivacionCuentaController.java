@@ -7,6 +7,7 @@ import com.saed.backend.common.dto.ApiResponse;
 import com.saed.backend.identity.dto.ConfirmarActivacionRequestDTO;
 import com.saed.backend.identity.dto.TokenActivacionInfoDTO;
 import com.saed.backend.identity.service.TokenActivacionService;
+import com.saed.backend.platform.service.OnboardingRateLimiter;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
@@ -23,8 +24,11 @@ public class ActivacionCuentaController {
 
     private final TokenActivacionService tokenService;
 
-    public ActivacionCuentaController(TokenActivacionService tokenService) {
+    private final OnboardingRateLimiter rateLimiter;
+
+    public ActivacionCuentaController(TokenActivacionService tokenService, OnboardingRateLimiter rateLimiter) {
         this.tokenService = tokenService;
+        this.rateLimiter = rateLimiter;
     }
 
     @Operation(summary = "Validar token de activacion de cuenta")
@@ -52,7 +56,8 @@ public class ActivacionCuentaController {
             @RequestBody Map<String, String> body,
             HttpServletRequest request) {
         String identificador = body != null ? body.get("identificador") : null;
-        String ip = request != null ? request.getRemoteAddr() : "0.0.0.0";
+        String ip = request != null ? OnboardingRateLimiter.clientIp(request) : "0.0.0.0";
+        rateLimiter.checkActivationResend(ip, identificador);
         tokenService.solicitarReenvio(identificador, ip);
         return ResponseEntity.ok(ApiResponse.success(Map.of(
                 "success", true,
