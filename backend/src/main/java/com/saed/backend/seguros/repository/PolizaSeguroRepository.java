@@ -2,6 +2,7 @@ package com.saed.backend.seguros.repository;
 
 import com.saed.backend.seguros.dto.PolizaSeguroDTO;
 import com.saed.backend.seguros.dto.ResumenPolizasDTO;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
@@ -61,15 +62,6 @@ public class PolizaSeguroRepository {
         jdbcTemplate.update(sql, idPropiedad);
     }
 
-    public void actualizarEstadosVencimientoGlobal() {
-        String sql = "UPDATE POLIZAS_SEGURO SET ESTADO = CASE " +
-                     "WHEN FECHA_FIN < TRUNC(SYSDATE) THEN 'VENCIDA' " +
-                     "WHEN FECHA_FIN - TRUNC(SYSDATE) <= DIAS_ALERTA_VENCIMIENTO THEN 'POR_VENCER' " +
-                     "ELSE 'VIGENTE' END " +
-                     "WHERE ESTADO != 'CANCELADA'";
-        jdbcTemplate.update(sql);
-    }
-
     public List<PolizaSeguroDTO> findAllByPropiedad(Long idPropiedad) {
         actualizarEstadosVencimiento(idPropiedad);
         String sql = "SELECT * FROM POLIZAS_SEGURO WHERE ID_PROPIEDAD = ? ORDER BY FECHA_FIN ASC";
@@ -80,12 +72,6 @@ public class PolizaSeguroRepository {
         actualizarEstadosVencimiento(idPropiedad);
         String sql = "SELECT * FROM POLIZAS_SEGURO WHERE ID_PROPIEDAD = ? AND ESTADO IN ('VIGENTE', 'POR_VENCER') ORDER BY FECHA_FIN ASC";
         return jdbcTemplate.query(sql, rowMapper, idPropiedad);
-    }
-
-    public List<PolizaSeguroDTO> findPolizasProximasAVencerGlobal() {
-        actualizarEstadosVencimientoGlobal();
-        String sql = "SELECT * FROM POLIZAS_SEGURO WHERE ESTADO IN ('POR_VENCER', 'VENCIDA') AND ESTADO != 'CANCELADA' ORDER BY FECHA_FIN ASC";
-        return jdbcTemplate.query(sql, rowMapper);
     }
 
     public ResumenPolizasDTO getResumenPolizas(Long idPropiedad) {
@@ -131,27 +117,59 @@ public class PolizaSeguroRepository {
                 dto.getDeducible(), dto.getIdDocumento());
     }
 
-    public void update(PolizaSeguroDTO dto) {
+    public int update(PolizaSeguroDTO dto) {
         String sql = "UPDATE POLIZAS_SEGURO SET COMPANIA_ASEGURADORA = ?, NUMERO_POLIZA = ?, RAMO_COBERTURA = ?, " +
                      "VALOR_ASEGURADO = ?, VALOR_PRIMA_ANUAL = ?, FECHA_INICIO = ?, FECHA_FIN = ?, " +
                      "DIAS_ALERTA_VENCIMIENTO = ?, NOMBRE_CORREDOR_AGENTE = ?, TELEFONO_CONTACTO_AGENTE = ?, " +
                      "DOCUMENTO_CARATULA_URL = ?, ESTADO = ?, DEDUCIBLE = ?, ID_DOCUMENTO = ? " +
                      "WHERE ID_POLIZA = ? AND ID_PROPIEDAD = ?";
-        jdbcTemplate.update(sql, dto.getCompaniaAseguradora(), dto.getNumeroPoliza(), dto.getRamoCobertura(),
+        return jdbcTemplate.update(sql, dto.getCompaniaAseguradora(), dto.getNumeroPoliza(), dto.getRamoCobertura(),
                 dto.getValorAsegurado(), dto.getValorPrimaAnual(), dto.getFechaInicio(), dto.getFechaFin(),
                 dto.getDiasAlertaVencimiento(), dto.getNombreCorredorAgente(), dto.getTelefonoContactoAgente(),
                 dto.getDocumentoCaratulaUrl(), dto.getEstado(), dto.getDeducible(), dto.getIdDocumento(),
                 dto.getIdPoliza(), dto.getIdPropiedad());
     }
 
-    public void delete(Long idPoliza, Long idPropiedad) {
+    public int delete(Long idPoliza, Long idPropiedad) {
         String sql = "DELETE FROM POLIZAS_SEGURO WHERE ID_POLIZA = ? AND ID_PROPIEDAD = ?";
-        jdbcTemplate.update(sql, idPoliza, idPropiedad);
+        return jdbcTemplate.update(sql, idPoliza, idPropiedad);
     }
 
     public boolean validarDocumentoPerteneceAPropiedad(Long idDocumento, Long idPropiedad) {
         String sql = "SELECT COUNT(1) FROM DOCUMENTOS WHERE ID_DOCUMENTO = ? AND (ID_PROPIEDAD = ? OR ID_PROPIEDAD IS NULL)";
         Integer count = jdbcTemplate.queryForObject(sql, Integer.class, idDocumento, idPropiedad);
         return count != null && count > 0;
+    }
+
+    public List<PolizaSeguroDTO> findPorVencerOVencidasByPropiedad(Long idPropiedad) {
+        String sql = "SELECT * FROM POLIZAS_SEGURO WHERE ID_PROPIEDAD = ? AND ESTADO IN ('POR_VENCER', 'VENCIDA') ORDER BY FECHA_FIN ASC";
+        return jdbcTemplate.query(sql, rowMapper, idPropiedad);
+    }
+
+    /**
+     * Records the expiry alert of a policy for one period (its end date). Returns false when the alert
+     * for that policy and period already exists, including when a concurrent instance inserted it
+     * first (UQ_ALERTA_POLIZA_PERIODO, V5.71).
+     */
+    public boolean registrarAlertaVencimiento(Long idPropiedad, Long idPoliza, String periodo, String mensaje) {
+        String sql = "INSERT INTO ALERTAS_ADMIN (ID_PROPIEDAD, TIPO_ALERTA, ID_POLIZA, PERIODO_REFERENCIA, MENSAJE, LEIDA) " +
+                     "SELECT ?, 'VENCIMIENTO_POLIZA', ?, ?, ?, 'N' FROM DUAL WHERE NOT EXISTS (" +
+                     "SELECT 1 FROM ALERTAS_ADMIN WHERE ID_POLIZA = ? AND TIPO_ALERTA = 'VENCIMIENTO_POLIZA' AND PERIODO_REFERENCIA = ?)";
+        try {
+            return jdbcTemplate.update(sql, idPropiedad, idPoliza, periodo, mensaje, idPoliza, periodo) == 1;
+        } catch (DuplicateKeyException concurrentInsert) {
+            // Another instance recorded the same policy/period alert first: already notified.
+            return false;
+        }
+    }
+
+    public List<String> findEmailsAdministradores(Long idPropiedad) {
+        return jdbcTemplate.query(
+                "SELECT u.EMAIL FROM USUARIOS u " +
+                "JOIN USUARIO_ASIGNACIONES a ON u.ID_USUARIO = a.ID_USUARIO " +
+                "JOIN ROLES r ON a.ID_ROL = r.ID_ROL " +
+                "WHERE a.ID_PROPIEDAD = ? AND r.CODIGO = 'ADMIN_PROPIEDAD' AND u.ESTADO = 'ACTIVO' AND u.EMAIL IS NOT NULL",
+                (rs, rowNum) -> rs.getString("EMAIL"),
+                idPropiedad);
     }
 }

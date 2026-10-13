@@ -18,6 +18,9 @@ public interface IncidenteService {
     void escalarIncidente(Long idIncidente, IncidenteEscalamientoRequestDTO dto);
     void cerrarIncidente(Long idIncidente, String conclusiones);
 
+    /** Reopens a closed incident into investigation; admin only, reason required and persisted (F9-03). */
+    void reabrirIncidente(Long idIncidente, String motivo);
+
     // Personas y vehículos involucrados
     List<IncidenteInvolucradoDTO> getInvolucrados(Long idIncidente);
     Long addInvolucrado(Long idIncidente, IncidenteInvolucradoDTO dto);

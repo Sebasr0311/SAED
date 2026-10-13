@@ -154,7 +154,7 @@ export default function ResidentPetsSection({
     setSaving(true);
     const payload = {
       unidadId: Number(unitId),
-      responsableId: Number(editingPet?.responsableId || defaultPersonaId || 1),
+      responsableId: Number(editingPet?.responsableId || defaultPersonaId) || null,
       nombre: form.nombre.trim(),
       especie: form.especie.toUpperCase(),
       raza: form.raza ? form.raza.trim() : null,

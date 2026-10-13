@@ -3,6 +3,7 @@ package com.saed.backend.activos.controller;
 import com.saed.backend.activos.dto.ActivoCreateDTO;
 import com.saed.backend.activos.dto.ActivoDTO;
 import com.saed.backend.activos.dto.ActivoEstadoDTO;
+import com.saed.backend.activos.dto.ActivoHistorialDTO;
 import com.saed.backend.activos.dto.ActivoUpdateDTO;
 import com.saed.backend.activos.service.ActivoService;
 import com.saed.backend.audit.AuditCategory;
@@ -22,7 +23,7 @@ import java.util.List;
 @Tag(name = "Activos", description = "Módulo Completo de Activos e Inventario Físico de la Copropiedad (GAP-F9-02)")
 @RestController
 @RequestMapping("/api/v1/activos")
-@PreAuthorize("hasAuthority('SCOPE_SUPERADMIN') or hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
+@PreAuthorize("hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
 public class ActivoController {
 
     private final ActivoService activoService;
@@ -46,6 +47,12 @@ public class ActivoController {
     public ResponseEntity<ApiResponse<ActivoDTO>> obtenerPorId(@PathVariable Long id) {
         ActivoDTO dto = activoService.obtenerPorId(id);
         return ResponseEntity.ok(ApiResponse.success(dto));
+    }
+
+    @Operation(summary = "Hoja de vida: historial real de órdenes de mantenimiento del activo")
+    @GetMapping("/{id}/historial")
+    public ResponseEntity<ApiResponse<List<ActivoHistorialDTO>>> historial(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.success(activoService.historial(id)));
     }
 
     @Operation(summary = "Registrar un nuevo activo en la copropiedad")

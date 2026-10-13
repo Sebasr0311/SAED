@@ -155,6 +155,18 @@ class ExecutorGuardTest(unittest.TestCase):
         self.assertLess(stages.index("131-V5.31__mock.sql"), stages.index("lifecycle-fixture"))
         self.assertEqual(built["131-V5.31__mock.sql"][0], executor.OWNER)
 
+    def test_security_schema_migrations_run_as_security_principal(self):
+        # V5.34 replaces PKG_AUTH_BOOTSTRAP, an AUTHID DEFINER package owned by the security account.
+        installer = self.installer()
+        versions = list(range(1, 30)) + [31, 34]
+        files = {f"{100 + v}-V5.{v}__mock.sql": "a" * 64 for v in versions}
+        files["134-V5.34__sec_mock.sql"] = files.pop("134-V5.34__mock.sql")
+        installer.manifest = {"files": files}
+        with patch.object(executor.Path, "read_text", return_value='CREATE TABLE "EXAMPLE" (ID NUMBER);'):
+            built = installer.build_stages()
+        self.assertEqual(built["134-V5.34__sec_mock.sql"][0], executor.SECURITY)
+        self.assertEqual(built["131-V5.31__mock.sql"][0], executor.OWNER)
+
     def test_post_policy_lifecycle_fixture_has_context_before_dml(self):
         installer = self.installer()
         installer.stages["lifecycle-fixture"] = (executor.OWNER, "UPDATE USUARIOS SET ESTADO='INACTIVO' WHERE ID_USUARIO=92005;")

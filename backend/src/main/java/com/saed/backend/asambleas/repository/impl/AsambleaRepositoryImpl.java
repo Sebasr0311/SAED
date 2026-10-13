@@ -1,9 +1,8 @@
 package com.saed.backend.asambleas.repository.impl;
 
 import com.saed.backend.asambleas.dto.*;
+import com.saed.backend.asambleas.service.impl.QuorumCalculator;
 import com.saed.backend.asambleas.repository.AsambleaRepository;
-import com.saed.backend.context.SaedContext;
-import com.saed.backend.context.SaedContextHolder;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -61,15 +60,11 @@ public class AsambleaRepositoryImpl implements AsambleaRepository {
         dto.setTotalAsistentes(rs.getInt("TOTAL_ASISTENTES"));
         dto.setTotalVotaciones(rs.getInt("TOTAL_VOTACIONES"));
 
-        try {
-            long idOrg = rs.getLong("ID_ORGANIZACION");
-            if (!rs.wasNull()) dto.setIdOrganizacion(idOrg);
-        } catch (Exception ignored) {}
+        long idOrg = rs.getLong("ID_ORGANIZACION");
+        if (!rs.wasNull()) dto.setIdOrganizacion(idOrg);
 
-        try {
-            long idDoc = rs.getLong("ID_DOCUMENTO");
-            if (!rs.wasNull()) dto.setIdDocumento(idDoc);
-        } catch (Exception ignored) {}
+        long idDoc = rs.getLong("ID_DOCUMENTO");
+        if (!rs.wasNull()) dto.setIdDocumento(idDoc);
 
         return dto;
     };
@@ -205,15 +200,11 @@ public class AsambleaRepositoryImpl implements AsambleaRepository {
 
     @Override
     public Long findOrganizacionPropiedad(Long idPropiedad) {
-        try {
-            return jdbcTemplate.queryForObject(
-                    "SELECT ID_ORGANIZACION FROM PROPIEDADES WHERE ID_PROPIEDAD = :idPropiedad",
-                    new MapSqlParameterSource("idPropiedad", idPropiedad),
-                    Long.class
-            );
-        } catch (Exception e) {
-            return null;
-        }
+        List<Long> rows = jdbcTemplate.queryForList(
+                "SELECT ID_ORGANIZACION FROM PROPIEDADES WHERE ID_PROPIEDAD = :idPropiedad",
+                new MapSqlParameterSource("idPropiedad", idPropiedad),
+                Long.class);
+        return rows.isEmpty() ? null : rows.get(0);
     }
 
     @Override
@@ -326,12 +317,12 @@ public class AsambleaRepositoryImpl implements AsambleaRepository {
     }
 
     @Override
-    public void retirarAsistencia(Long idAsamblea, Long idUnidad) {
+    public int retirarAsistencia(Long idAsamblea, Long idUnidad) {
         String sql = "UPDATE ASISTENCIAS_ASAMBLEA " +
                 "SET HORA_RETIRO = FROM_TZ(CAST(SYSTIMESTAMP AS TIMESTAMP), 'America/Bogota') " +
                 "WHERE ID_ASAMBLEA = :idAsamblea AND ID_UNIDAD = :idUnidad AND HORA_RETIRO IS NULL";
 
-        jdbcTemplate.update(sql, new MapSqlParameterSource()
+        return jdbcTemplate.update(sql, new MapSqlParameterSource()
                 .addValue("idAsamblea", idAsamblea)
                 .addValue("idUnidad", idUnidad));
     }
@@ -340,25 +331,7 @@ public class AsambleaRepositoryImpl implements AsambleaRepository {
     public BigDecimal calcularQuorumAlcanzadoPct(Long idAsamblea, Long idPropiedad) {
         String sqlAsist = "SELECT COALESCE(SUM(COEFICIENTE_PONDERADO), 0) FROM ASISTENCIAS_ASAMBLEA WHERE ID_ASAMBLEA = :idAsamblea AND HORA_RETIRO IS NULL";
         BigDecimal sumaAsistentes = jdbcTemplate.queryForObject(sqlAsist, new MapSqlParameterSource("idAsamblea", idAsamblea), BigDecimal.class);
-        if (sumaAsistentes == null) sumaAsistentes = BigDecimal.ZERO;
-
-        BigDecimal pct;
-        if (sumaAsistentes.compareTo(BigDecimal.valueOf(1.0)) > 0) {
-            // Ya viene en escala porcentual (ej. 52.50)
-            pct = sumaAsistentes;
-        } else {
-            // Viene en escala decimal unitaria (ej. 0.525000 -> 52.50%)
-            pct = sumaAsistentes.multiply(BigDecimal.valueOf(100));
-        }
-
-        // Capping seguro para respetar la restricción de base de datos NUMBER(5,2) (máx 100.00)
-        if (pct.compareTo(BigDecimal.valueOf(100.00)) > 0) {
-            pct = BigDecimal.valueOf(100.00);
-        } else if (pct.compareTo(BigDecimal.ZERO) < 0) {
-            pct = BigDecimal.ZERO;
-        }
-
-        return pct.setScale(2, RoundingMode.HALF_UP);
+        return QuorumCalculator.toPercentage(sumaAsistentes);
     }
 
     @Override
@@ -530,35 +503,13 @@ public class AsambleaRepositoryImpl implements AsambleaRepository {
 
     @Override
     public BigDecimal findCoeficienteUnidad(Long idUnidad) {
+        // DEC-03: no fabricated fallback weight and no context elevation; a missing or non-positive
+        // coefficient is reported as null so the caller rejects the operation.
         String sql = "SELECT COEFICIENTE_COPROPIEDAD FROM UNIDADES WHERE ID_UNIDAD = :idUnidad";
-        try {
-            BigDecimal coef = jdbcTemplate.queryForObject(sql, new MapSqlParameterSource("idUnidad", idUnidad), BigDecimal.class);
-            if (coef != null && coef.compareTo(BigDecimal.ZERO) > 0) return coef;
-        } catch (EmptyResultDataAccessException ignored) {}
-
-        try {
-            jdbcTemplate.getJdbcOperations().execute("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1); END;");
-            BigDecimal coef = jdbcTemplate.queryForObject(sql, new MapSqlParameterSource("idUnidad", idUnidad), BigDecimal.class);
-            if (coef != null && coef.compareTo(BigDecimal.ZERO) > 0) return coef;
-        } catch (Exception ignored) {
-        } finally {
-            SaedContext ctx = SaedContextHolder.getContext();
-            if (ctx != null && ctx.getUserId() != null) {
-                try {
-                    String restoreSql = String.format(
-                            "BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(%d); PKG_SAED_SESSION.SET_CONTEXT(%d, %s, %s, '%s'); END;",
-                            ctx.getUserId(),
-                            ctx.getUserId(),
-                            ctx.getOrganizationId() != null ? String.valueOf(ctx.getOrganizationId()) : "NULL",
-                            ctx.getPropertyId() != null ? String.valueOf(ctx.getPropertyId()) : "NULL",
-                            ctx.getRoleCode() != null ? ctx.getRoleCode() : "RESIDENTE"
-                    );
-                    jdbcTemplate.getJdbcOperations().execute(restoreSql);
-                } catch (Exception ignored) {}
-            }
-        }
-
-        return BigDecimal.valueOf(0.010000);
+        List<BigDecimal> rows = jdbcTemplate.queryForList(sql, new MapSqlParameterSource("idUnidad", idUnidad), BigDecimal.class);
+        if (rows.isEmpty()) return null;
+        BigDecimal coef = rows.get(0);
+        return (coef != null && coef.signum() > 0) ? coef : null;
     }
 
     @Override
@@ -638,40 +589,10 @@ public class AsambleaRepositoryImpl implements AsambleaRepository {
     @Override
     public Long findPropiedadUnidad(Long idUnidad) {
         if (idUnidad == null) return null;
-        try {
-            String sql = "SELECT ID_PROPIEDAD FROM UNIDADES WHERE ID_UNIDAD = :idUnidad";
-            Long prop = jdbcTemplate.queryForObject(sql, new MapSqlParameterSource("idUnidad", idUnidad), Long.class);
-            if (prop != null) return prop;
-        } catch (EmptyResultDataAccessException ignored) {}
-
-        try {
-            String sqlAsig = "SELECT ID_PROPIEDAD FROM USUARIO_ASIGNACIONES WHERE ID_UNIDAD = :idUnidad AND ID_PROPIEDAD IS NOT NULL FETCH FIRST 1 ROWS ONLY";
-            Long prop = jdbcTemplate.queryForObject(sqlAsig, new MapSqlParameterSource("idUnidad", idUnidad), Long.class);
-            if (prop != null) return prop;
-        } catch (Exception ignored) {}
-
-        try {
-            jdbcTemplate.getJdbcOperations().execute("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1); END;");
-            String sql = "SELECT ID_PROPIEDAD FROM UNIDADES WHERE ID_UNIDAD = :idUnidad";
-            return jdbcTemplate.queryForObject(sql, new MapSqlParameterSource("idUnidad", idUnidad), Long.class);
-        } catch (Exception e) {
-            return null;
-        } finally {
-            SaedContext ctx = SaedContextHolder.getContext();
-            if (ctx != null && ctx.getUserId() != null) {
-                try {
-                    String restoreSql = String.format(
-                            "BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(%d); PKG_SAED_SESSION.SET_CONTEXT(%d, %s, %s, '%s'); END;",
-                            ctx.getUserId(),
-                            ctx.getUserId(),
-                            ctx.getOrganizationId() != null ? String.valueOf(ctx.getOrganizationId()) : "NULL",
-                            ctx.getPropertyId() != null ? String.valueOf(ctx.getPropertyId()) : "NULL",
-                            ctx.getRoleCode() != null ? ctx.getRoleCode() : "RESIDENTE"
-                    );
-                    jdbcTemplate.getJdbcOperations().execute(restoreSql);
-                } catch (Exception ignored) {}
-            }
-        }
+        // Read under the caller's own tenant context; a unit outside it is simply not found.
+        String sql = "SELECT ID_PROPIEDAD FROM UNIDADES WHERE ID_UNIDAD = :idUnidad";
+        List<Long> rows = jdbcTemplate.queryForList(sql, new MapSqlParameterSource("idUnidad", idUnidad), Long.class);
+        return rows.isEmpty() ? null : rows.get(0);
     }
 
     @Override
@@ -703,42 +624,6 @@ public class AsambleaRepositoryImpl implements AsambleaRepository {
     }
 
     @Override
-    public boolean usuarioPerteneceAUnidad(Long idUsuario, Long idUnidad, Long idPersona) {
-        if (idUsuario != null) {
-            String sqlAsig = "SELECT COUNT(1) FROM USUARIO_ASIGNACIONES " +
-                    "WHERE ID_USUARIO = :idUsuario AND ID_UNIDAD = :idUnidad AND ESTADO IN ('ACTIVA', 'ACTIVO')";
-            try {
-                Integer cnt = jdbcTemplate.queryForObject(sqlAsig, new MapSqlParameterSource()
-                        .addValue("idUsuario", idUsuario)
-                        .addValue("idUnidad", idUnidad), Integer.class);
-                if (cnt != null && cnt > 0) return true;
-            } catch (Exception ignored) {}
-        }
-
-        if (idPersona != null) {
-            try {
-                String sqlProp = "SELECT COUNT(1) FROM PROPIETARIOS_UNIDAD " +
-                        "WHERE ID_UNIDAD = :idUnidad AND ID_PERSONA = :idPersona AND NVL(ESTADO, 'ACTIVO') = 'ACTIVO'";
-                Integer cntProp = jdbcTemplate.queryForObject(sqlProp, new MapSqlParameterSource()
-                        .addValue("idUnidad", idUnidad)
-                        .addValue("idPersona", idPersona), Integer.class);
-                if (cntProp != null && cntProp > 0) return true;
-            } catch (Exception ignored) {}
-
-            try {
-                String sqlRes = "SELECT COUNT(1) FROM RESIDENTES_UNIDAD " +
-                        "WHERE ID_UNIDAD = :idUnidad AND ID_PERSONA = :idPersona AND NVL(ESTADO, 'ACTIVO') = 'ACTIVO'";
-                Integer cntRes = jdbcTemplate.queryForObject(sqlRes, new MapSqlParameterSource()
-                        .addValue("idUnidad", idUnidad)
-                        .addValue("idPersona", idPersona), Integer.class);
-                if (cntRes != null && cntRes > 0) return true;
-            } catch (Exception ignored) {}
-        }
-
-        return false;
-    }
-
-    @Override
     public Long findPersonaUsuario(Long idUsuario) {
         if (idUsuario == null) return null;
         String sql = "SELECT ID_PERSONA FROM USUARIOS WHERE ID_USUARIO = :idUsuario";
@@ -747,5 +632,41 @@ public class AsambleaRepositoryImpl implements AsambleaRepository {
         } catch (EmptyResultDataAccessException e) {
             return null;
         }
+    }
+
+    @Override
+    public boolean esPropietarioLegalActivo(Long idUnidad, Long idPersona) {
+        if (idUnidad == null || idPersona == null) return false;
+        String sql = "SELECT COUNT(1) FROM PROPIETARIOS_UNIDAD " +
+                "WHERE ID_UNIDAD = :idUnidad AND ID_PERSONA = :idPersona AND ESTADO = 'ACTIVO' " +
+                "AND (FECHA_FIN IS NULL OR FECHA_FIN >= TRUNC(SYSDATE))";
+        Integer count = jdbcTemplate.queryForObject(sql, new MapSqlParameterSource()
+                .addValue("idUnidad", idUnidad)
+                .addValue("idPersona", idPersona), Integer.class);
+        return count != null && count > 0;
+    }
+
+    @Override
+    public boolean tieneAsistenciaVigente(Long idAsamblea, Long idUnidad) {
+        String sql = "SELECT COUNT(1) FROM ASISTENCIAS_ASAMBLEA " +
+                "WHERE ID_ASAMBLEA = :idAsamblea AND ID_UNIDAD = :idUnidad AND HORA_RETIRO IS NULL";
+        Integer count = jdbcTemplate.queryForObject(sql, new MapSqlParameterSource()
+                .addValue("idAsamblea", idAsamblea)
+                .addValue("idUnidad", idUnidad), Integer.class);
+        return count != null && count > 0;
+    }
+
+    @Override
+    public boolean esPoderAprobadoDe(Long idPoder, Long idAsamblea, Long idUnidad, Long idPersonaApoderado) {
+        if (idPoder == null || idPersonaApoderado == null) return false;
+        String sql = "SELECT COUNT(1) FROM PODERES_REPRESENTACION " +
+                "WHERE ID_PODER = :idPoder AND ID_ASAMBLEA = :idAsamblea AND ID_UNIDAD = :idUnidad " +
+                "AND ID_PERSONA_APODERADO = :idPersona AND ESTADO = 'APROBADO'";
+        Integer count = jdbcTemplate.queryForObject(sql, new MapSqlParameterSource()
+                .addValue("idPoder", idPoder)
+                .addValue("idAsamblea", idAsamblea)
+                .addValue("idUnidad", idUnidad)
+                .addValue("idPersona", idPersonaApoderado), Integer.class);
+        return count != null && count > 0;
     }
 }

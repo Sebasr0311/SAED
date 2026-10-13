@@ -130,7 +130,16 @@ public class ObraRepositoryImpl implements ObraRepository {
                      "WHERE ID_OBRA = ? AND ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD = ?)";
         int updated = jdbcTemplate.update(sql, estado, aprobadoPor, estado, idObra, idPropiedad);
         if (updated == 0) {
-            throw new IllegalArgumentException("Obra no encontrada o sin acceso para actualizar");
+            throw new java.util.NoSuchElementException("Obra no encontrada.");
         }
+    }
+
+    @Override
+    public int finalizarConInspeccion(Long idObra, Long idPropiedad, String resultado, String observaciones, Long inspector) {
+        String sql = "UPDATE OBRAS SET ESTADO = 'FINALIZADA', INSPECCION_RESULTADO = ?, INSPECCION_OBSERVACIONES = ?, " +
+                     "INSPECCION_POR = ?, INSPECCION_FECHA = SYSTIMESTAMP " +
+                     "WHERE ID_OBRA = ? AND ESTADO IN ('APROBADA', 'EN_EJECUCION', 'SUSPENDIDA') " +
+                     "AND ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD = ?)";
+        return jdbcTemplate.update(sql, resultado, observaciones, inspector, idObra, idPropiedad);
     }
 }

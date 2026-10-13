@@ -39,6 +39,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -87,6 +88,7 @@ class PackagePinExposureTest {
         when(paquetesRepository.actualizarPaquete(eq(PACKAGE_ID), any())).thenReturn(stored);
         when(jdbcTemplate.queryForObject(anyString(), any(SqlParameterSource.class), eq(Integer.class)))
                 .thenReturn(1);
+        when(paquetesRepository.reservarIntentoPin(eq(PACKAGE_ID), anyInt())).thenReturn(true);
     }
 
     @AfterEach
@@ -198,7 +200,8 @@ class PackagePinExposureTest {
     @Test
     void missingContext_neverExposesThePin() {
         SaedContextHolder.clearContext();
-        assertNull(service.getPaqueteById(PACKAGE_ID).codigoRetiroPin());
+        // Without tenant context the request is denied outright (no PIN, no package data).
+        assertThrows(AccessDeniedException.class, () -> service.getPaqueteById(PACKAGE_ID));
     }
 
     // ---- Delivery verification is server-side ---------------------------------------------
@@ -212,7 +215,7 @@ class PackagePinExposureTest {
         assertThrows(IllegalArgumentException.class,
                 () -> service.registrarEntrega(PACKAGE_ID, new PaqueteEntregaDTO("0000", 900L, 1L, null)));
 
-        verify(paquetesRepository).incrementarIntentosFallidos(PACKAGE_ID);
+        verify(paquetesRepository).reservarIntentoPin(eq(PACKAGE_ID), anyInt());
         verify(paquetesRepository, never()).registrarEntrega(anyLong(), any(), anyLong());
     }
 

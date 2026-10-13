@@ -32,4 +32,10 @@ public interface DependentRepository {
     Optional<VisitanteDTO> getVisitanteByPersona(Long personaId);
     VisitanteDTO updateVisitante(Long id, VisitanteRequestDTO request);
     void deleteVisitante(Long id);
+
+    // F08-04 ownership checks
+    /** True when the person is an active resident or owner of the unit. */
+    boolean isPersonOfUnit(Long personaId, Long unidadId);
+
+    boolean isUnitInProperty(Long unidadId, Long propiedadId);
 }

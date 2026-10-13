@@ -16,9 +16,32 @@ public interface SancionRepository {
     Long crearSancion(SancionCreateRequestDTO request, Long idPropiedad, Long idUsuarioCreador, String numeroExpediente, LocalDate fechaLimiteDescargos);
     Long registrarDescargo(Long idSancion, Long idPersona, Long idUsuario, String argumentos, String pruebasUrl);
     void actualizarEstado(Long idSancion, String nuevoEstado);
-    void emitirResolucion(Long idSancion, String decision, String resolucionFinal);
     List<DescargoDTO> findDescargosBySancion(Long idSancion);
     String generarSiguienteExpediente(Long idPropiedad);
     Optional<Long> findConceptoMulta(Long idPropiedad);
-    void crearMultaDesdeSancion(Long idSancion, Long idUnidad, Long idPersona, Long idConcepto, BigDecimal monto, String motivo, Long idUsuario);
+    Long crearMultaDesdeSancion(Long idSancion, Long idUnidad, Long idPersona, Long idConcepto, BigDecimal monto, String motivo, Long idUsuario);
+
+    /**
+     * Records the resolution only while the file is still open (NOTIFICADA, EN_DESCARGOS,
+     * EN_DELIBERACION_CONSEJO). Returns the number of rows changed: 0 means another request already
+     * closed it, so no effect may be applied.
+     */
+    int emitirResolucionSiAbierta(Long idSancion, String decision, String resolucionFinal,
+                                  LocalDate restriccionDesde, LocalDate restriccionHasta);
+
+    Optional<Long> findMultaPorSancion(Long idSancion);
+
+    void vincularCuotaMulta(Long idMulta, Long idCuota);
+
+    /** APLICADA common-area suspension of the unit whose restriction period contains the date. */
+    boolean existeRestriccionZonasComunes(Long idUnidad, LocalDate fecha);
+
+    Long findPersonaUsuario(Long idUsuario);
+
+    /** The person is the unit's active legal owner or active resident. */
+    boolean personaVinculadaAUnidad(Long idPersona, Long idUnidad);
+
+    List<Long> findUnidadesPersona(Long idPersona);
+
+    Long findPropiedadUnidad(Long idUnidad);
 }

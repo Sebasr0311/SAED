@@ -15,6 +15,7 @@ public class ReservaDTO {
     private String horaFin;
     private Integer cantidadAsistentes;
     private BigDecimal costoTotal;
+    private BigDecimal depositoPagado;
     private String observaciones;
     private String estado;
     private ZonedDateTime fechaSolicitud;
@@ -58,4 +59,7 @@ public class ReservaDTO {
 
     public ZonedDateTime getFechaSolicitud() { return fechaSolicitud; }
     public void setFechaSolicitud(ZonedDateTime fechaSolicitud) { this.fechaSolicitud = fechaSolicitud; }
+
+    public BigDecimal getDepositoPagado() { return depositoPagado; }
+    public void setDepositoPagado(BigDecimal depositoPagado) { this.depositoPagado = depositoPagado; }
 }

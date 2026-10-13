@@ -799,9 +799,6 @@ export default function ResObrasPage() {
                             <span className="font-semibold text-foreground text-sm">
                               {t.nombreCompleto || `${t.primerNombre || ''} ${t.primerApellido || ''}`}
                             </span>
-                            <span className="text-muted-foreground">
-                              ({t.tipoDocumento || 'CC'} {t.numeroDocumento})
-                            </span>
                             {isAutorizado ? (
                               <Badge variant="success" className="text-[10px] px-1.5 py-0.5">
                                 Autorizado
@@ -826,14 +823,13 @@ export default function ResObrasPage() {
                             <span>Empresa: <strong className="text-foreground">{t.razonSocialProveedor || t.empresaIndependiente || 'Independiente'}</strong></span>
                           </div>
                           <div className="flex items-center gap-2 flex-wrap pt-0.5">
-                            <span className="text-muted-foreground">ARL: <strong className="text-foreground">{t.arlAseguradora || 'Sin ARL'}</strong></span>
                             {isArlVigente ? (
                               <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 border-emerald-500/40 text-emerald-600 bg-emerald-500/10">
-                                ARL Vigente (hasta {formatDate(t.arlFechaVencimiento)})
+                                ARL vigente
                               </Badge>
                             ) : (
                               <Badge variant="destructive" className="text-[10px] px-1.5 py-0.5">
-                                ARL Vencida / Inválida ({formatDate(t.arlFechaVencimiento) || 'Sin fecha'})
+                                ARL vencida o no reportada
                               </Badge>
                             )}
                           </div>
@@ -900,7 +896,7 @@ export default function ResObrasPage() {
               <option value="">-- Seleccione un operario --</option>
               {allTrabajadores.map((t) => (
                 <option key={t.idTrabajador} value={t.idTrabajador}>
-                  {t.nombreCompleto || `${t.primerNombre} ${t.primerApellido}`} - {t.tipoDocumento} {t.numeroDocumento} ({t.oficioEspecialidad || 'General'}) - ARL: {t.arlVigente ? 'Vigente' : 'Vencida'}
+                  {t.nombreCompleto || `${t.primerNombre} ${t.primerApellido}`} ({t.oficioEspecialidad || 'General'}) - ARL: {t.arlVigente ? 'Vigente' : 'Vencida'}
                 </option>
               ))}
             </select>
@@ -915,13 +911,9 @@ export default function ResObrasPage() {
                   <span className="font-medium text-foreground">{t.razonSocialProveedor || t.empresaIndependiente || 'Independiente'}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Aseguradora ARL:</span>
-                  <span className="font-medium text-foreground">{t.arlAseguradora || 'Sin ARL'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Vencimiento ARL:</span>
+                  <span className="text-muted-foreground">ARL:</span>
                   <span className={t.arlVigente ? 'font-medium text-emerald-600' : 'font-semibold text-rose-600'}>
-                    {formatDate(t.arlFechaVencimiento)} ({t.arlVigente ? 'Vigente' : 'Vencida'})
+                    {t.arlVigente ? 'Vigente' : 'Vencida o no reportada'}
                   </span>
                 </div>
                 {!t.arlVigente && (

@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
@@ -164,6 +164,14 @@ export default function ComunicacionesPage({ initialTab = 'todos' }) {
       toast.success('Comunicaciones sincronizadas');
     });
   }, [refetchAvisos, refetchAlertas, refetchNotif]);
+
+  // F8-11: reflect changes made from the bell or the mailbox (same tab) without a manual refresh.
+  useEffect(() => {
+    return subscribeNotificationsChanged(() => {
+      refetchAvisos();
+      refetchNotif();
+    });
+  }, [refetchAvisos, refetchNotif]);
 
   // Normalización de items
   const avisos = useMemo(() => {
@@ -866,8 +874,9 @@ export default function ComunicacionesPage({ initialTab = 'todos' }) {
               onChange={(e) => setAvisoForm({ ...avisoForm, tipoSegmentacion: e.target.value })}
             >
               <option value="TODOS">Toda la Copropiedad</option>
-              <option value="PROPIETARIOS">Solo Propietarios</option>
-              <option value="ARRENDATARIOS">Solo Arrendatarios</option>
+              <option value="SOLO_PROPIETARIOS">Solo Propietarios</option>
+              <option value="SOLO_ARRENDATARIOS">Solo Arrendatarios</option>
+              <option value="CONSEJO_ADMIN">Consejo de Administración</option>
             </Select>
           </div>
 

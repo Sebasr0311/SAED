@@ -33,7 +33,7 @@ public class SancionesController {
 
     @Operation(summary = "Obtener el detalle de un expediente disciplinario con sus descargos")
     @GetMapping("/{id}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_PROPIETARIO', 'SCOPE_PROPIETARIO_UNIDAD', 'SCOPE_RESIDENTE_CONVIVENCIA')")
     public ResponseEntity<SancionDTO> getSancionById(@PathVariable Long id) {
         return ResponseEntity.ok(sancionService.getSancionById(id));
     }

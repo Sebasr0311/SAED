@@ -64,12 +64,13 @@ END;
 -- 3. Backfill the new columns of existing intentions from their stored registration JSON.
 --    JSON_VALUE returns NULL for rows whose payload is not valid JSON (default NULL ON ERROR).
 BEGIN
-    EXECUTE IMMEDIATE q'[
+    -- q'{...}' delimiter: the regex below contains "]'", which would close a q'[...]' literal early (ORA-01756).
+    EXECUTE IMMEDIATE q'{
         UPDATE ONBOARDING_INTENCIONES
         SET IDENTIFICACION_FISCAL = REGEXP_REPLACE(JSON_VALUE(DATOS_REGISTRO, '$.identificacionFiscal'), '[^0-9A-Za-z-]', ''),
             EMAIL_ADMIN = LOWER(TRIM(JSON_VALUE(DATOS_REGISTRO, '$.emailAdmin'))),
             ID_PLAN = JSON_VALUE(DATOS_REGISTRO, '$.idPlan' RETURNING NUMBER)
-        WHERE IDENTIFICACION_FISCAL IS NULL AND EMAIL_ADMIN IS NULL AND ID_PLAN IS NULL]';
+        WHERE IDENTIFICACION_FISCAL IS NULL AND EMAIL_ADMIN IS NULL AND ID_PLAN IS NULL}';
     EXECUTE IMMEDIATE q'[
         UPDATE ONBOARDING_INTENCIONES
         SET TIPO_FLUJO = CASE WHEN MONTO_CENTAVOS = 0 THEN 'PRUEBA' ELSE 'PAGO' END

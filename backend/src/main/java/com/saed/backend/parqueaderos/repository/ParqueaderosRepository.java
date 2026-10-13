@@ -25,4 +25,7 @@ public interface ParqueaderosRepository {
     AsignacionParqueaderoDTO crearAsignacion(AsignacionParqueaderoRequestDTO request);
     void finalizarAsignacion(Long id);
     void actualizarEstadoParqueadero(Long idParqueadero, String estado);
+
+    /** Conditional claim: DISPONIBLE to ASIGNADO for a spot of the property; false when already taken. */
+    boolean reservarParqueadero(Long idParqueadero, Long idPropiedad);
 }

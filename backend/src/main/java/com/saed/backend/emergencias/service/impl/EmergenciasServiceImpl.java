@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.NoSuchElementException;
 
 @Service
 @Transactional
@@ -41,7 +42,7 @@ public class EmergenciasServiceImpl implements EmergenciasService {
     @Transactional(readOnly = true)
     public PlanEmergenciaDTO getPlanById(Long id) {
         return planRepository.findByIdAndPropiedad(id, getCurrentPropertyId())
-                .orElseThrow(() -> new IllegalArgumentException("Plan de emergencia no encontrado con ID: " + id));
+                .orElseThrow(() -> new NoSuchElementException("Plan de emergencia no encontrado con ID: " + id));
     }
 
     @Override
@@ -53,7 +54,7 @@ public class EmergenciasServiceImpl implements EmergenciasService {
     public void updatePlan(Long id, PlanEmergenciaRequestDTO dto) {
         Long propId = getCurrentPropertyId();
         planRepository.findByIdAndPropiedad(id, propId)
-                .orElseThrow(() -> new IllegalArgumentException("Plan de emergencia no encontrado con ID: " + id));
+                .orElseThrow(() -> new NoSuchElementException("Plan de emergencia no encontrado con ID: " + id));
         planRepository.update(id, propId, dto);
     }
 
@@ -61,7 +62,7 @@ public class EmergenciasServiceImpl implements EmergenciasService {
     public void deletePlan(Long id) {
         Long propId = getCurrentPropertyId();
         planRepository.findByIdAndPropiedad(id, propId)
-                .orElseThrow(() -> new IllegalArgumentException("Plan de emergencia no encontrado con ID: " + id));
+                .orElseThrow(() -> new NoSuchElementException("Plan de emergencia no encontrado con ID: " + id));
         planRepository.delete(id, propId);
     }
 
@@ -81,7 +82,7 @@ public class EmergenciasServiceImpl implements EmergenciasService {
     @Transactional(readOnly = true)
     public ContactoEmergenciaDTO getContactoById(Long id) {
         return contactoRepository.findByIdAndPropiedad(id, getCurrentPropertyId())
-                .orElseThrow(() -> new IllegalArgumentException("Contacto de emergencia no encontrado con ID: " + id));
+                .orElseThrow(() -> new NoSuchElementException("Contacto de emergencia no encontrado con ID: " + id));
     }
 
     @Override
@@ -93,7 +94,7 @@ public class EmergenciasServiceImpl implements EmergenciasService {
     public void updateContacto(Long id, ContactoEmergenciaRequestDTO dto) {
         Long propId = getCurrentPropertyId();
         contactoRepository.findByIdAndPropiedad(id, propId)
-                .orElseThrow(() -> new IllegalArgumentException("Contacto de emergencia no encontrado con ID: " + id));
+                .orElseThrow(() -> new NoSuchElementException("Contacto de emergencia no encontrado con ID: " + id));
         contactoRepository.update(id, propId, dto);
     }
 
@@ -101,7 +102,7 @@ public class EmergenciasServiceImpl implements EmergenciasService {
     public void deleteContacto(Long id) {
         Long propId = getCurrentPropertyId();
         contactoRepository.findByIdAndPropiedad(id, propId)
-                .orElseThrow(() -> new IllegalArgumentException("Contacto de emergencia no encontrado con ID: " + id));
+                .orElseThrow(() -> new NoSuchElementException("Contacto de emergencia no encontrado con ID: " + id));
         contactoRepository.delete(id, propId);
     }
 
