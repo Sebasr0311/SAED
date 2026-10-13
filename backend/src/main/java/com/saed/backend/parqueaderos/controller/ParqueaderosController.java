@@ -1,5 +1,6 @@
 package com.saed.backend.parqueaderos.controller;
 
+import com.saed.backend.platform.annotation.RequireModule;
 import com.saed.backend.parqueaderos.dto.AsignacionParqueaderoDTO;
 import com.saed.backend.parqueaderos.dto.AsignacionParqueaderoRequestDTO;
 import com.saed.backend.parqueaderos.dto.ParqueaderoDTO;
@@ -16,6 +17,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 
 @Tag(name = "Parqueaderos", description = "API para la gestion de Parqueaderos")
+@RequireModule("PARQUEADEROS")
 @RestController
 @RequestMapping("/api/v1/parqueaderos")
 public class ParqueaderosController {

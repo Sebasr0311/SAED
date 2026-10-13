@@ -241,14 +241,18 @@ export function ConvivientesSection({
       });
 
       const uData = resp?.data || resp || {};
-      setCreatedCredentials({
-        username: uData.username || form.nombreUsuario.trim().toLowerCase(),
-        password: uData.passwordGenerada || form.password || '(Autogenerada y enviada al correo)',
-        email: uData.email || form.email.trim().toLowerCase(),
-        nombre: `${form.primerNombre.trim()} ${form.primerApellido.trim()}`,
-      });
-
-      toast.success('Residente de convivencia registrado exitosamente. Se han enviado las credenciales de acceso por correo.');
+      if (uData.accountCreated === false) {
+        setCreatedCredentials(null);
+        toast.success('Conviviente vinculado sin modificar las credenciales de la cuenta existente.');
+      } else {
+        setCreatedCredentials({
+          username: uData.username || form.nombreUsuario.trim().toLowerCase(),
+          password: uData.passwordGenerada || form.password || '(Autogenerada y enviada al correo)',
+          email: uData.email || form.email.trim().toLowerCase(),
+          nombre: `${form.primerNombre.trim()} ${form.primerApellido.trim()}`,
+        });
+        toast.success('Residente de convivencia registrado exitosamente. Se han enviado las credenciales de acceso por correo.');
+      }
       setAddModalOpen(false);
       resetTouched();
       onRefresh();

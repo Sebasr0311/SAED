@@ -1,13 +1,19 @@
 name: CI - SAED 2.0
 on:
   push:
-    branches: [main]
+    branches: ['**']
   pull_request:
-    branches: [main]
+
+# Test tiers are selected by com.saed.backend.testsupport.TestTierFilter (backend/src/test):
+#   unit     = every test class that is not a @SpringBootTest and not @Tag("database")
+#              (Mockito, WebMvc slices, source guards). New classes are picked up automatically.
+#   database = every @SpringBootTest / @Tag("database") class; needs an Oracle schema.
+# The database tier never reports success without running: it is skipped (not passed) unless the
+# repository variable SAED_ORACLE_CI is 'true', and then it fails if the secrets are missing.
 
 jobs:
   backend:
-    name: Backend Build, Quality Gates & Test Suite
+    name: Backend build, Checkstyle and unit/security tier (no database)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -21,32 +27,88 @@ jobs:
 
       - name: Build backend
         working-directory: backend
-        run: mvn compile -q
+        run: mvn -B compile -q
 
       - name: Run Checkstyle Quality Gate
         working-directory: backend
-        run: mvn checkstyle:check -q
+        run: mvn -B checkstyle:check -q
 
-      - name: Run Unit & Web Security Test Suite
+      - name: Run unit and web-security tier
         working-directory: backend
-        run: mvn test -Dtest="OrganizationServiceTest,PropertyServiceTest,UnitServiceTest,AssignmentServiceTest,AssignmentManagementServiceTest,PropertyStatusServiceTest,PlantillaContratoServiceTest,PlantillaContratoRepositoryImplTest,ParqueaderosServiceTest,TokenActivacionServiceTest,AuthServiceTest,JwtAuthenticationFilterTest,InactivePropertyFilterTest,CorrelationIdFilterTest,AuditSanitizerTest,AuditAspectTest,FileStorageServiceTest"
-
-      - name: Run Oracle Integration Test Suite
-        if: ${{ env.DB_URL != '' }}
-        working-directory: backend
+        # Unroutable datasource: a unit-tier test that tries to reach a database fails instead of
+        # silently using a developer default.
         env:
-          DB_URL: ${{ secrets.DB_URL }}
-          DB_USERNAME: ${{ secrets.DB_USERNAME }}
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-          JWT_SECRET: ${{ secrets.JWT_SECRET }}
-        run: mvn test
+          DB_URL: jdbc:oracle:thin:@127.0.0.1:1/unit-tier-has-no-database
+        run: mvn -B test -Dsaed.test.tier=unit
+
+      - name: Unit tier summary
+        if: always()
+        working-directory: backend
+        run: |
+          shopt -s nullglob
+          reports=(target/surefire-reports/TEST-*.xml)
+          if [ ${#reports[@]} -eq 0 ]; then
+            echo "::error::No surefire reports were produced; the unit tier did not run."
+            exit 1
+          fi
+          echo "Unit tier: ${#reports[@]} test classes executed." >> "$GITHUB_STEP_SUMMARY"
+
+  backend-database:
+    name: Backend database tier (Oracle; skipped unless SAED_ORACLE_CI is enabled)
+    if: ${{ vars.SAED_ORACLE_CI == 'true' }}
+    runs-on: ubuntu-latest
+    env:
+      DB_URL: ${{ secrets.DB_URL }}
+      DB_USERNAME: ${{ secrets.DB_USERNAME }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
+      # Classes without @ActiveProfiles use the test profile instead of the prod default.
+      SPRING_PROFILES_ACTIVE: test
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Require database secrets
+        run: |
+          missing=0
+          for v in DB_URL DB_USERNAME DB_PASSWORD JWT_SECRET; do
+            if [ -z "${!v}" ]; then echo "::error::$v secret is not configured"; missing=1; fi
+          done
+          exit $missing
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Run database tier
+        working-directory: backend
+        run: mvn -B test -Dsaed.test.tier=database
+
+  dependency-check:
+    name: OWASP dependency check (skipped unless SAED_OWASP_CI is enabled)
+    if: ${{ vars.SAED_OWASP_CI == 'true' }}
+    runs-on: ubuntu-latest
+    env:
+      NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Require NVD API key
+        run: |
+          if [ -z "$NVD_API_KEY" ]; then echo "::error::NVD_API_KEY secret is not configured"; exit 1; fi
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
 
       - name: OWASP dependency check
-        if: ${{ env.NVD_API_KEY != '' }}
         working-directory: backend
-        env:
-          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
-        run: mvn dependency-check:check -DfailBuildOnCVSS=9 -DnvdApiKey=${{ secrets.NVD_API_KEY }} -q
+        run: mvn -B dependency-check:check -DfailBuildOnCVSS=9 -DnvdApiKey="$NVD_API_KEY" -q
 
   frontend:
     name: Frontend Lint & Build Quality Gates
@@ -66,7 +128,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: frontend
-        run: pnpm install --no-frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: ESLint Quality Gate
         working-directory: frontend

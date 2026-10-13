@@ -12,6 +12,7 @@ import com.saed.backend.common.service.VariableResolverService;
 import com.saed.backend.context.SaedContext;
 import com.saed.backend.context.SaedContextHolder;
 import com.saed.backend.finanzas.dto.*;
+import com.saed.backend.finanzas.exception.GatewayPaymentMethodNotAllowedException;
 import com.saed.backend.finanzas.repository.FinanzasRepository;
 import com.saed.backend.finanzas.service.FinanzasService;
 import org.slf4j.Logger;
@@ -520,20 +521,49 @@ public class FinanzasServiceImpl implements FinanzasService {
             throw new IllegalArgumentException("El valor pagado debe ser mayor a cero");
         }
 
+        // F06/C-09: a client-supplied gateway method must never approve a payment. Reject it
+        // before any lookup or ledger write; gateway settlement is webhook-only.
+        rechazarMetodoPasarela(request.metodoPago());
+
         CuotaDTO cuota = findCuotaById(request.idCuota());
         validarPermisoUnidadResidente(cuota.idUnidad());
 
-        boolean isWompi = "PASARELA_WOMPI".equalsIgnoreCase(request.metodoPago());
+        // Ordinary payments are ALWAYS registered as PENDIENTE_APROBACION: no fee debit,
+        // no portfolio recalculation and no receipt until an administrator approves them.
+        finanzasRepository.registrarPago(request, cuota.idUnidad(), "PENDIENTE_APROBACION", null, null);
+    }
 
-        if (isWompi) {
-            finanzasRepository.registrarPago(request, cuota.idUnidad(), "APROBADO", null, null);
-            finanzasRepository.actualizarSaldoCuota(request.idCuota(), request.valorPagado());
-            finanzasRepository.recalcularCarteraUnidad(cuota.idUnidad());
-            enviarReciboPagoSilencioso(cuota, request);
-        } else {
-            // Pagos manuales entran SIEMPRE como PENDIENTE_APROBACION
-            // No descuentan saldo de cuota, no afectan cartera, no envian recibo de pago todavía
-            finanzasRepository.registrarPago(request, cuota.idUnidad(), "PENDIENTE_APROBACION", null, null);
+    @Override
+    @Transactional
+    @Auditable(action = "CREATE", resource = "PAGO_PASARELA", category = AuditCategory.FINANCIAL, severity = AuditSeverity.CRITICAL)
+    public void registrarPagoPasarelaVerificado(PagoRequestDTO request) {
+        if (request == null) {
+            throw new IllegalArgumentException("La solicitud de pago no puede ser nula");
+        }
+        if (request.idCuota() == null) {
+            throw new IllegalArgumentException("El ID de cuota es obligatorio");
+        }
+        if (request.valorPagado() == null || request.valorPagado().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("El valor pagado debe ser mayor a cero");
+        }
+
+        CuotaDTO cuota = findCuotaById(request.idCuota());
+        validarPermisoUnidadResidente(cuota.idUnidad());
+
+        // Debit behavior intentionally unchanged (the V5.17 trigger double-debit is tracked separately).
+        finanzasRepository.registrarPago(request, cuota.idUnidad(), "APROBADO", null, null);
+        finanzasRepository.actualizarSaldoCuota(request.idCuota(), request.valorPagado());
+        finanzasRepository.recalcularCarteraUnidad(cuota.idUnidad());
+        enviarReciboPagoSilencioso(cuota, request);
+    }
+
+    private static void rechazarMetodoPasarela(String metodoPago) {
+        if (metodoPago == null) {
+            return;
+        }
+        String normalized = metodoPago.trim().toUpperCase(Locale.ROOT);
+        if (normalized.startsWith("PASARELA") || normalized.contains("WOMPI")) {
+            throw new GatewayPaymentMethodNotAllowedException();
         }
     }
 
@@ -550,6 +580,7 @@ public class FinanzasServiceImpl implements FinanzasService {
         if (request.valorPagado() == null || request.valorPagado().compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("El valor pagado debe ser mayor a cero");
         }
+        rechazarMetodoPasarela(request.metodoPago());
 
         CuotaDTO cuota = findCuotaById(request.idCuota());
         validarPermisoUnidadResidente(cuota.idUnidad());

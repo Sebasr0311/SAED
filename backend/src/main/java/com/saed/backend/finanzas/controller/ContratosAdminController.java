@@ -16,7 +16,7 @@ import java.util.List;
 @Tag(name = "ContratosAdmin", description = "API para coarrendatarios y contratos de proveedor")
 @RestController
 @RequestMapping("/api/v1/contratos-admin")
-@PreAuthorize("hasAuthority('SCOPE_SUPERADMIN') or hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
+@PreAuthorize("hasAuthority('SCOPE_ADMIN_ORGANIZACION') or hasAuthority('SCOPE_ADMIN_PROPIEDAD')")
 public class ContratosAdminController {
 
     private final ContratoParticipanteService participanteService;

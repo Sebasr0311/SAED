@@ -1,5 +1,6 @@
 package com.saed.backend.paquetes.controller;
 
+import com.saed.backend.platform.annotation.RequireModule;
 import com.saed.backend.paquetes.dto.PaqueteDTO;
 import com.saed.backend.paquetes.dto.PaqueteEntregaDTO;
 import com.saed.backend.paquetes.dto.PaqueteRequestDTO;
@@ -23,6 +24,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 
 @Tag(name = "Paquetes", description = "API para la gestion de Paquetes")
+@RequireModule("PAQUETES")
 @RestController
 @RequestMapping("/api/v1/paquetes")
 public class PaquetesController {

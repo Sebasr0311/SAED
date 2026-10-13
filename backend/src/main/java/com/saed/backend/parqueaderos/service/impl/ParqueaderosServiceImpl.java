@@ -43,7 +43,7 @@ public class ParqueaderosServiceImpl implements ParqueaderosService {
     @Transactional(readOnly = true)
     public ParqueaderoDTO getParqueaderoById(Long id) {
         return parqueaderosRepository.getParqueaderoById(id)
-                .orElseThrow(() -> new RuntimeException("Parqueadero no encontrado"));
+                .orElseThrow(() -> new java.util.NoSuchElementException("Parqueadero no encontrado"));
     }
 
     @Override
@@ -82,7 +82,7 @@ public class ParqueaderosServiceImpl implements ParqueaderosService {
     @Transactional(readOnly = true)
     public AsignacionParqueaderoDTO getAsignacionById(Long id) {
         return parqueaderosRepository.getAsignacionById(id)
-                .orElseThrow(() -> new RuntimeException("Asignacion no encontrada"));
+                .orElseThrow(() -> new java.util.NoSuchElementException("Asignacion no encontrada"));
     }
 
     @Override

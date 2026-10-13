@@ -386,7 +386,23 @@ public class PackageDeliverySecurityIntegrationTest {
                 .andExpect(status().isCreated())
                 .andReturn();
 
-        return objectMapper.readValue(result.getResponse().getContentAsString(), PaqueteDTO.class);
+        return withStoredPin(result.getResponse().getContentAsString());
+    }
+
+    /**
+     * C-11: the portero response never carries the pickup PIN. Tests that need it (to play the
+     * resident handing it over at pickup) read it from the database instead.
+     */
+    private PaqueteDTO withStoredPin(String responseJson) throws Exception {
+        assertFalse(responseJson.contains("codigoRetiroPin"), "Portero response must not expose the PIN");
+        PaqueteDTO p = objectMapper.readValue(responseJson, PaqueteDTO.class);
+        String pin = querySuperAdmin(
+                "SELECT CODIGO_RETIRO_PIN FROM PAQUETES WHERE ID_PAQUETE = ?", String.class, p.idPaquete());
+        return new PaqueteDTO(p.idPaquete(), p.idPropiedad(), p.idPorteria(), p.idUnidad(),
+                p.numeroApartamento(), p.idPersonaDestinatario(), p.nombreDestinatario(),
+                p.empresaMensajeria(), p.numeroGuia(), p.descripcion(), p.tamano(), p.fotoPaqueteUrl(),
+                pin, p.fechaRecepcion(), p.recibidoPorPortero(), p.fechaNotificacion(), p.fechaEntrega(),
+                p.entregadoAPersona(), p.entregadoPorPortero(), p.firmaUrl(), p.estado());
     }
 
     @Test
@@ -432,7 +448,7 @@ public class PackageDeliverySecurityIntegrationTest {
                 .andExpect(status().isCreated())
                 .andReturn();
 
-        PaqueteDTO p = objectMapper.readValue(res.getResponse().getContentAsString(), PaqueteDTO.class);
+        PaqueteDTO p = withStoredPin(res.getResponse().getContentAsString());
         assertNotNull(p.codigoRetiroPin());
         assertEquals(4, p.codigoRetiroPin().length());
         assertNotEquals("7777", p.codigoRetiroPin(), "Client-injected PIN must be ignored by backend");

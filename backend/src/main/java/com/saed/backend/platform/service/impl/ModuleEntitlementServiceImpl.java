@@ -4,17 +4,12 @@ import com.saed.backend.context.SaedContext;
 import com.saed.backend.context.SaedContextHolder;
 import com.saed.backend.platform.exception.ModuleNotEntitledException;
 import com.saed.backend.platform.service.ModuleEntitlementService;
-import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
-import org.springframework.web.context.request.RequestContextHolder;
-import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.util.*;
 
@@ -45,26 +40,16 @@ public class ModuleEntitlementServiceImpl implements ModuleEntitlementService {
             );
         }
 
-        SaedContext prevCtx = SaedContextHolder.getContext();
-        boolean elevated = false;
-        if (prevCtx == null || prevCtx.getUserId() == null) {
-            SaedContextHolder.setContext(SaedContext.builder()
-                    .userId(1L)
-                    .organizationId(organizationId)
-                    .propertyId(1L)
-                    .roleCode("SUPERADMIN")
-                    .roleScope("GLOBAL")
-                    .build());
-            elevated = true;
-            try {
-                jdbcTemplate.getJdbcOperations().execute("BEGIN PKG_SAED_SESSION.SET_BOOTSTRAP_CONTEXT(1); END;");
-                jdbcTemplate.getJdbcOperations().execute(
-                        String.format("BEGIN PKG_SAED_SESSION.SET_CONTEXT(1, %d, 1, 'SUPERADMIN'); END;", organizationId)
-                );
-            } catch (Exception ignored) {}
+        // Evaluated under the caller's own context; no SUPERADMIN/bootstrap elevation.
+        SaedContext callerCtx = SaedContextHolder.getContext();
+        if (callerCtx == null || callerCtx.getUserId() == null) {
+            throw new ModuleNotEntitledException(
+                    normalizedCode,
+                    "Se requiere contexto de organización para acceder al módulo '" + normalizedCode + "'."
+            );
         }
 
-        try {
+        {
             // 1. Obtener membresía activa o de prueba para la organización
             String memSql = """
                 SELECT m.ID_MEMBRESIA, m.ID_PLAN, m.ESTADO
@@ -159,13 +144,6 @@ public class ModuleEntitlementServiceImpl implements ModuleEntitlementService {
             }
 
             log.debug("[Entitlement] Módulo '{}' concedido exitosamente para organización {}", normalizedCode, organizationId);
-        } finally {
-            if (elevated) {
-                SaedContextHolder.setContext(prevCtx);
-                try {
-                    jdbcTemplate.getJdbcOperations().execute("BEGIN PKG_SAED_SESSION.CLEAR_CONTEXT(); END;");
-                } catch (Exception ignored) {}
-            }
         }
     }
 
@@ -307,79 +285,9 @@ public class ModuleEntitlementServiceImpl implements ModuleEntitlementService {
             }
         }
 
-        // 2. Request context (headers / params en llamadas HTTP)
-        try {
-            ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
-            if (attributes != null) {
-                HttpServletRequest req = attributes.getRequest();
-                String orgHeader = req.getHeader("X-Organization-Id");
-                if (StringUtils.hasText(orgHeader)) {
-                    try {
-                        return Long.parseLong(orgHeader.trim());
-                    } catch (NumberFormatException ignored) {}
-                }
-                String propHeader = req.getHeader("X-Property-Id");
-                if (StringUtils.hasText(propHeader)) {
-                    try {
-                        Long orgFromProp = getOrgFromProperty(Long.parseLong(propHeader.trim()));
-                        if (orgFromProp != null) {
-                            return orgFromProp;
-                        }
-                    } catch (NumberFormatException ignored) {}
-                }
-                String assignHeader = req.getHeader("X-Assignment-Id");
-                if (StringUtils.hasText(assignHeader)) {
-                    try {
-                        Long orgFromAssign = getOrgFromAssignment(Long.parseLong(assignHeader.trim()));
-                        if (orgFromAssign != null) {
-                            return orgFromAssign;
-                        }
-                    } catch (NumberFormatException ignored) {}
-                }
-                String paramOrg = req.getParameter("idOrganizacion");
-                if (StringUtils.hasText(paramOrg)) {
-                    try {
-                        return Long.parseLong(paramOrg.trim());
-                    } catch (NumberFormatException ignored) {}
-                }
-            }
-        } catch (Exception ignored) {}
-
-        // 3. SecurityContextHolder authentication (fallback para tests o tokens)
-        try {
-            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-            if (auth != null && auth.isAuthenticated()) {
-                String name = auth.getName();
-                if (StringUtils.hasText(name)) {
-                    try {
-                        Long userId = Long.parseLong(name.trim());
-                        Long orgFromUsr = getOrgFromUser(userId);
-                        if (orgFromUsr != null) {
-                            return orgFromUsr;
-                        }
-                    } catch (NumberFormatException ignored) {
-                        Long orgFromUsername = getOrgFromUsername(name.trim());
-                        if (orgFromUsername != null) {
-                            return orgFromUsername;
-                        }
-                    }
-                }
-                // Fallback para pruebas de autorización con @WithMockUser con roles operativos
-                boolean hasOperationalScope = auth.getAuthorities().stream().anyMatch(a ->
-                        a.getAuthority().startsWith("SCOPE_ADMIN_") ||
-                        a.getAuthority().startsWith("SCOPE_RESIDENTE") ||
-                        a.getAuthority().startsWith("ROLE_ADMIN_") ||
-                        a.getAuthority().startsWith("ROLE_RESIDENTE")
-                );
-                if (hasOperationalScope) {
-                    Long defaultOrg = getDefaultActiveOrganizationId();
-                    if (defaultOrg != null) {
-                        return defaultOrg;
-                    }
-                }
-            }
-        } catch (Exception ignored) {}
-
+        // F3-07 / F3-13: no client-supplied organization (headers, request parameters) and no
+        // "first active organization" fallback. Without a server-side context there is no tenant,
+        // so module access is denied.
         return null;
     }
 
@@ -418,67 +326,5 @@ public class ModuleEntitlementServiceImpl implements ModuleEntitlementService {
             log.debug("Error resolviendo organizacion desde usuario {}: {}", userId, e.getMessage());
             return null;
         }
-    }
-
-    private Long getOrgFromAssignment(Long assignmentId) {
-        try {
-            String sql = """
-                SELECT ua.ID_ORGANIZACION, p.ID_ORGANIZACION AS PROP_ORG
-                FROM USUARIO_ASIGNACIONES ua
-                LEFT JOIN PROPIEDADES p ON ua.ID_PROPIEDAD = p.ID_PROPIEDAD
-                WHERE ua.ID_ASIGNACION = :assignId
-                """;
-            List<Map<String, Object>> rows = jdbcTemplate.queryForList(
-                    sql,
-                    new MapSqlParameterSource("assignId", assignmentId)
-            );
-            if (!rows.isEmpty()) {
-                Map<String, Object> r = rows.get(0);
-                if (r.get("ID_ORGANIZACION") != null) {
-                    return ((Number) r.get("ID_ORGANIZACION")).longValue();
-                }
-                if (r.get("PROP_ORG") != null) {
-                    return ((Number) r.get("PROP_ORG")).longValue();
-                }
-            }
-            return null;
-        } catch (Exception e) {
-            log.debug("Error resolviendo organizacion desde asignacion {}: {}", assignmentId, e.getMessage());
-            return null;
-        }
-    }
-
-    private Long getOrgFromUsername(String username) {
-        try {
-            String sql = """
-                SELECT ua.ID_ORGANIZACION
-                FROM USUARIOS u
-                JOIN USUARIO_ASIGNACIONES ua ON u.ID_USUARIO = ua.ID_USUARIO
-                WHERE LOWER(u.USERNAME) = LOWER(:usrName)
-                  AND ua.ESTADO IN ('ACTIVA', 'ACTIVO')
-                  AND ua.ID_ORGANIZACION IS NOT NULL
-                ORDER BY ua.ID_ASIGNACION ASC
-                """;
-            List<Long> list = jdbcTemplate.query(
-                    sql,
-                    new MapSqlParameterSource("usrName", username),
-                    (rs, rowNum) -> rs.getLong("ID_ORGANIZACION")
-            );
-            return list.isEmpty() ? null : list.get(0);
-        } catch (Exception e) {
-            log.debug("Error resolviendo organizacion desde username {}: {}", username, e.getMessage());
-            return null;
-        }
-    }
-
-    private Long getDefaultActiveOrganizationId() {
-        try {
-            String sql = "SELECT ID_ORGANIZACION FROM ORGANIZACIONES WHERE ESTADO = 'ACTIVA' ORDER BY ID_ORGANIZACION ASC FETCH FIRST 1 ROWS ONLY";
-            List<Long> list = jdbcTemplate.query(sql, (rs, rowNum) -> rs.getLong("ID_ORGANIZACION"));
-            if (list != null && !list.isEmpty()) {
-                return list.get(0);
-            }
-        } catch (Exception ignored) {}
-        return 1L;
     }
 }

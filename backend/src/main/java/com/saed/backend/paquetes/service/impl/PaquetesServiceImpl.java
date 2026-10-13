@@ -156,7 +156,7 @@ public class PaquetesServiceImpl implements PaquetesService {
         } catch (Exception ignored) {
         }
 
-        return paquete;
+        return forCaller(paquete);
     }
 
     @Override
@@ -170,9 +170,9 @@ public class PaquetesServiceImpl implements PaquetesService {
             if (unitId == null) {
                 return List.of();
             }
-            return paquetesRepository.getPaquetesByUnidad(unitId);
+            return forCaller(paquetesRepository.getPaquetesByUnidad(unitId));
         }
-        return paquetesRepository.getPaquetesList();
+        return forCaller(paquetesRepository.getPaquetesList());
     }
 
     @Override
@@ -186,7 +186,7 @@ public class PaquetesServiceImpl implements PaquetesService {
                 throw new AccessDeniedException("Acceso denegado a paquetes de otra unidad");
             }
         }
-        return paquetesRepository.getPaquetesByUnidad(idUnidad);
+        return forCaller(paquetesRepository.getPaquetesByUnidad(idUnidad));
     }
 
     @Override
@@ -211,7 +211,7 @@ public class PaquetesServiceImpl implements PaquetesService {
             }
         }
 
-        return pq;
+        return forCaller(pq);
     }
 
     @Override
@@ -241,7 +241,7 @@ public class PaquetesServiceImpl implements PaquetesService {
             }
         }
 
-        return paquetesRepository.actualizarPaquete(id, request);
+        return forCaller(paquetesRepository.actualizarPaquete(id, request));
     }
 
     @Override
@@ -369,6 +369,32 @@ public class PaquetesServiceImpl implements PaquetesService {
         }
 
         return getPaqueteById(id);
+    }
+
+    private static boolean isUnitScopedResident(SaedContext ctx) {
+        return ctx != null && ("RESIDENTE".equalsIgnoreCase(ctx.getRoleCode())
+                || "RESIDENTE_CONVIVENCIA".equalsIgnoreCase(ctx.getRoleCode())
+                || "UNIDAD".equalsIgnoreCase(ctx.getRoleScope()));
+    }
+
+    /**
+     * The pickup PIN is only returned to a resident of the recipient unit. Staff (portero,
+     * admin) and any other caller get a redacted copy; the portero receives the PIN from the
+     * resident at pickup and the server verifies it in {@link #registrarEntrega}.
+     */
+    private PaqueteDTO forCaller(PaqueteDTO pq) {
+        if (pq == null) {
+            return null;
+        }
+        SaedContext ctx = SaedContextHolder.getContext();
+        boolean recipient = isUnitScopedResident(ctx)
+                && ctx.getUnitId() != null
+                && ctx.getUnitId().equals(pq.idUnidad());
+        return recipient ? pq : pq.withoutPin();
+    }
+
+    private List<PaqueteDTO> forCaller(List<PaqueteDTO> paquetes) {
+        return paquetes.stream().map(this::forCaller).toList();
     }
 
     @Override

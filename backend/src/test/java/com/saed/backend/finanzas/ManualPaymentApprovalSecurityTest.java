@@ -677,12 +677,12 @@ public class ManualPaymentApprovalSecurityTest {
     }
 
     @Test
-    @DisplayName("MP-22: Segregación Pasarela Wompi SaaS: Pagos en línea entran directamente como APROBADO")
-    void testWompiGatewayPaymentDirectlyApproved() throws Exception {
+    @DisplayName("MP-22: Ordinary registration rejects a client-supplied gateway method (no forged approval, no debit)")
+    void testClientGatewayMethodIsRejectedOnOrdinaryRegistration() throws Exception {
         setElevatedContext();
         Long cuotaId = crearCuotaPrueba(unidadA1, contratoA1, conceptoCobroA, new BigDecimal("180000.00"), "2099-10");
 
-        // Pago con PASARELA_WOMPI
+        // A client claiming PASARELA_WOMPI must not obtain an approved payment.
         PagoRequestDTO request = new PagoRequestDTO(
             cuotaId,
             LocalDate.now(),
@@ -691,18 +691,19 @@ public class ManualPaymentApprovalSecurityTest {
             "TEST-MP-22-WOMPI"
         );
 
-        finanzasService.registrarPago(request);
+        assertThrows(com.saed.backend.finanzas.exception.GatewayPaymentMethodNotAllowedException.class,
+            () -> finanzasService.registrarPago(request));
 
         setElevatedContext();
-        Map<String, Object> pagoDb = jdbcTemplate.queryForMap(
-            "SELECT ESTADO, METODO_PAGO FROM PAGOS WHERE REFERENCIA_COMPROBANTE = 'TEST-MP-22-WOMPI'"
+        Integer pagos = jdbcTemplate.queryForObject(
+            "SELECT COUNT(1) FROM PAGOS WHERE REFERENCIA_COMPROBANTE = 'TEST-MP-22-WOMPI'", Integer.class
         );
-        assertEquals("APROBADO", pagoDb.get("ESTADO"), "Pagos de pasarela Wompi entran directamente aprobados");
+        assertEquals(0, pagos, "No payment row may be written for a forged gateway method");
 
         BigDecimal saldo = jdbcTemplate.queryForObject(
             "SELECT SALDO_PENDIENTE FROM CUOTAS WHERE ID_CUOTA = ?", BigDecimal.class, cuotaId
         );
-        assertEquals(0, BigDecimal.ZERO.compareTo(saldo), "La cuota debe quedar saldada de inmediato");
+        assertEquals(0, new BigDecimal("180000.00").compareTo(saldo), "The fee balance must remain unchanged");
     }
 
     @Test

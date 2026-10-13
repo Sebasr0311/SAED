@@ -1,5 +1,6 @@
 package com.saed.backend.paquetes.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.ZonedDateTime;
 
@@ -16,7 +17,8 @@ public record PaqueteDTO(
     String descripcion,
     String tamano,
     String fotoPaqueteUrl,
-    String codigoRetiroPin,
+    // Pickup PIN: only the recipient resident may receive it; omitted from JSON when redacted.
+    @JsonInclude(JsonInclude.Include.NON_NULL) String codigoRetiroPin,
     ZonedDateTime fechaRecepcion,
     String recibidoPorPortero,
     ZonedDateTime fechaNotificacion,
@@ -26,6 +28,14 @@ public record PaqueteDTO(
     String firmaUrl,
     String estado
 ) {
+    /** Copy without the pickup PIN, for any caller that is not the recipient resident. */
+    public PaqueteDTO withoutPin() {
+        return new PaqueteDTO(idPaquete, idPropiedad, idPorteria, idUnidad, numeroApartamento,
+                idPersonaDestinatario, nombreDestinatario, empresaMensajeria, numeroGuia, descripcion,
+                tamano, fotoPaqueteUrl, null, fechaRecepcion, recibidoPorPortero, fechaNotificacion,
+                fechaEntrega, entregadoAPersona, entregadoPorPortero, firmaUrl, estado);
+    }
+
     @JsonProperty("idMensaje")
     public Long idMensaje() {
         return idPaquete;

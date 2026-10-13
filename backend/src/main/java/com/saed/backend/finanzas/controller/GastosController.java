@@ -1,5 +1,6 @@
 package com.saed.backend.finanzas.controller;
 
+import com.saed.backend.platform.annotation.RequireModule;
 import com.saed.backend.audit.Auditable;
 import com.saed.backend.audit.AuditCategory;
 import com.saed.backend.audit.AuditSeverity;
@@ -33,6 +34,7 @@ import java.sql.SQLException;
 import java.util.*;
 
 @Tag(name = "Gastos", description = "Gestion de gastos operativos y soportes documentales")
+@RequireModule("FINANZAS")
 @RestController
 @RequestMapping("/api/v1/gastos")
 public class GastosController {

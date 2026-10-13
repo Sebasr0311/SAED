@@ -1,4 +1,5 @@
 package com.saed.backend.finanzas.controller;
+import com.saed.backend.platform.annotation.RequireModule;
 import com.saed.backend.finanzas.dto.ResidenteDashboardDTO;
 import com.saed.backend.finanzas.service.FinanzasService;
 import org.springframework.http.ResponseEntity;
@@ -7,6 +8,7 @@ import org.springframework.web.bind.annotation.*;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 @Tag(name = "ResidentesFinanzas", description = "API para la gestion de ResidentesFinanzas")
+@RequireModule("FINANZAS")
 @RestController
 @RequestMapping("/api/v1/residentes")
 @PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_PROPIEDAD', 'SCOPE_RESIDENTE', 'SCOPE_PROPIETARIO')")

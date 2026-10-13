@@ -51,14 +51,14 @@ public class PersonaServiceImpl implements PersonaService {
     @Transactional(readOnly = true)
     public PersonaDTO getPersonaById(Long id) {
         return personaRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Persona no encontrada con ID: " + id));
+                .orElseThrow(() -> new java.util.NoSuchElementException("Persona no encontrada con ID: " + id));
     }
 
     @Override
     @Transactional(readOnly = true)
     public PersonaDTO getPersonaByUserId(Long userId) {
         return personaRepository.findByUserId(userId)
-                .orElseThrow(() -> new RuntimeException("Persona no encontrada para el usuario con ID: " + userId));
+                .orElseThrow(() -> new java.util.NoSuchElementException("Persona no encontrada para el usuario con ID: " + userId));
     }
 
     @Override

@@ -18,7 +18,7 @@ import java.util.List;
 @Tag(name = "Historial de Reportes", description = "Auditoría de ejecuciones, hashes de integridad y registros procesados")
 @RestController
 @RequestMapping("/api/v1/reportes/historial")
-@PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
+@PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
 public class HistorialReportesController {
 
     private final ReportesConfiguradosService reportesConfiguradosService;

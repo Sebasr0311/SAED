@@ -23,7 +23,7 @@ import java.util.Map;
 @Tag(name = "Organization Dashboard", description = "KPIs ejecutivos y métricas consolidadas para la Organización cliente")
 @RestController
 @RequestMapping("/api/v1/org/dashboard")
-@PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_SUPERADMIN')")
+@PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION')")
 public class OrgDashboardController {
 
     private final NamedParameterJdbcTemplate jdbcTemplate;

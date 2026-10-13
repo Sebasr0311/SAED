@@ -29,7 +29,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/v1/automatizaciones")
 @RequiredArgsConstructor
-@PreAuthorize("hasAnyAuthority('SCOPE_SUPERADMIN', 'SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
+@PreAuthorize("hasAnyAuthority('SCOPE_ADMIN_ORGANIZACION', 'SCOPE_ADMIN_PROPIEDAD')")
 public class AutomatizacionesController {
 
     private final AutomatizacionService service;

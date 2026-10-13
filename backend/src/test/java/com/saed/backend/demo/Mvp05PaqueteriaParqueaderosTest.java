@@ -93,7 +93,10 @@ public class Mvp05PaqueteriaParqueaderosTest {
         assertNotNull(paquete);
         assertNotNull(paquete.idPaquete());
         createdPaqueteId = paquete.idPaquete();
-        createdPaquetePin = paquete.codigoRetiroPin();
+        // C-11: staff responses never carry the PIN; read it as the resident would receive it.
+        assertNull(paquete.codigoRetiroPin(), "Staff response must not expose the PIN");
+        createdPaquetePin = jdbcTemplate.queryForObject(
+                "SELECT CODIGO_RETIRO_PIN FROM PAQUETES WHERE ID_PAQUETE = ?", String.class, createdPaqueteId);
 
         assertEquals(1L, paquete.idUnidad());
         assertEquals("RECIBIDO", paquete.estado());

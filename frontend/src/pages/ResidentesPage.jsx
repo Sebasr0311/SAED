@@ -700,7 +700,9 @@ export default function ResidentesPage() {
 
           const uRes = await tenantApi.post('/usuarios', userPayload);
           const pGen = uRes?.data?.passwordGenerada || uRes?.passwordGenerada;
-          if (pGen) {
+          if ((uRes?.data || uRes)?.accountCreated === false) {
+            toast.success("Cuenta existente vinculada sin modificar sus credenciales.");
+          } else if (pGen) {
             toast.success(
               `Cuenta creada para ${userPayload.username}. Clave temporal: ${pGen}. Credenciales enviadas a ${form.email}.`,
               { duration: 8000 }
@@ -847,7 +849,9 @@ export default function ResidentesPage() {
 
         const res = await tenantApi.post('/usuarios', payload);
         const pGen = res?.data?.passwordGenerada || res?.passwordGenerada;
-        if (pGen) {
+        if ((res?.data || res)?.accountCreated === false) {
+          toast.success("Cuenta existente vinculada sin modificar sus credenciales.");
+        } else if (pGen) {
           toast.success(
             `Cuenta creada para ${payload.username}. Clave temporal: ${pGen}. Se enviaron las credenciales a ${residente.email}.`,
             { duration: 8000 }

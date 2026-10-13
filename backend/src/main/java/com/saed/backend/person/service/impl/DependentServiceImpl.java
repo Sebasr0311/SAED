@@ -39,7 +39,7 @@ public class DependentServiceImpl implements DependentService {
     @Transactional(readOnly = true)
     public MascotaDTO getMascotaById(Long id) {
         MascotaDTO mascota = dependentRepository.getMascotaById(id)
-                .orElseThrow(() -> new RuntimeException("Mascota no encontrada"));
+                .orElseThrow(() -> new java.util.NoSuchElementException("Mascota no encontrada"));
         com.saed.backend.context.SaedContext ctx = com.saed.backend.context.SaedContextHolder.getContext();
         if ("RESIDENTE".equals(ctx.getRoleCode()) || "UNIDAD".equals(ctx.getRoleScope())) {
             if (ctx.getUnitId() != null && !ctx.getUnitId().equals(mascota.unidadId())) {
@@ -67,7 +67,7 @@ public class DependentServiceImpl implements DependentService {
         com.saed.backend.context.SaedContext ctx = com.saed.backend.context.SaedContextHolder.getContext();
         if ("RESIDENTE".equals(ctx.getRoleCode()) || "UNIDAD".equals(ctx.getRoleScope())) {
             MascotaDTO existing = dependentRepository.getMascotaById(id)
-                    .orElseThrow(() -> new RuntimeException("Mascota no encontrada"));
+                    .orElseThrow(() -> new java.util.NoSuchElementException("Mascota no encontrada"));
             if (ctx.getUnitId() != null && !ctx.getUnitId().equals(existing.unidadId())) {
                 throw new org.springframework.security.access.AccessDeniedException("No tiene permisos para modificar mascotas de otra unidad");
             }
@@ -84,7 +84,7 @@ public class DependentServiceImpl implements DependentService {
         com.saed.backend.context.SaedContext ctx = com.saed.backend.context.SaedContextHolder.getContext();
         if ("RESIDENTE".equals(ctx.getRoleCode()) || "UNIDAD".equals(ctx.getRoleScope())) {
             MascotaDTO existing = dependentRepository.getMascotaById(id)
-                    .orElseThrow(() -> new RuntimeException("Mascota no encontrada"));
+                    .orElseThrow(() -> new java.util.NoSuchElementException("Mascota no encontrada"));
             if (ctx.getUnitId() != null && !ctx.getUnitId().equals(existing.unidadId())) {
                 throw new org.springframework.security.access.AccessDeniedException("No tiene permisos para eliminar mascotas de otra unidad");
             }
@@ -109,7 +109,7 @@ public class DependentServiceImpl implements DependentService {
     @Transactional(readOnly = true)
     public VehiculoDTO getVehiculoById(Long id) {
         VehiculoDTO vehiculo = dependentRepository.getVehiculoById(id)
-                .orElseThrow(() -> new RuntimeException("Vehiculo no encontrado"));
+                .orElseThrow(() -> new java.util.NoSuchElementException("Vehiculo no encontrado"));
         com.saed.backend.context.SaedContext ctx = com.saed.backend.context.SaedContextHolder.getContext();
         if ("RESIDENTE".equals(ctx.getRoleCode()) || "UNIDAD".equals(ctx.getRoleScope())) {
             if (ctx.getUnitId() != null && !ctx.getUnitId().equals(vehiculo.unidadId())) {
@@ -137,7 +137,7 @@ public class DependentServiceImpl implements DependentService {
         com.saed.backend.context.SaedContext ctx = com.saed.backend.context.SaedContextHolder.getContext();
         if ("RESIDENTE".equals(ctx.getRoleCode()) || "UNIDAD".equals(ctx.getRoleScope())) {
             VehiculoDTO existing = dependentRepository.getVehiculoById(id)
-                    .orElseThrow(() -> new RuntimeException("Vehiculo no encontrado"));
+                    .orElseThrow(() -> new java.util.NoSuchElementException("Vehiculo no encontrado"));
             if (ctx.getUnitId() != null && !ctx.getUnitId().equals(existing.unidadId())) {
                 throw new org.springframework.security.access.AccessDeniedException("No tiene permisos para modificar vehículos de otra unidad");
             }
@@ -154,7 +154,7 @@ public class DependentServiceImpl implements DependentService {
         com.saed.backend.context.SaedContext ctx = com.saed.backend.context.SaedContextHolder.getContext();
         if ("RESIDENTE".equals(ctx.getRoleCode()) || "UNIDAD".equals(ctx.getRoleScope())) {
             VehiculoDTO existing = dependentRepository.getVehiculoById(id)
-                    .orElseThrow(() -> new RuntimeException("Vehiculo no encontrado"));
+                    .orElseThrow(() -> new java.util.NoSuchElementException("Vehiculo no encontrado"));
             if (ctx.getUnitId() != null && !ctx.getUnitId().equals(existing.unidadId())) {
                 throw new org.springframework.security.access.AccessDeniedException("No tiene permisos para eliminar vehículos de otra unidad");
             }
@@ -173,7 +173,7 @@ public class DependentServiceImpl implements DependentService {
     @Transactional(readOnly = true)
     public TutorDTO getTutorById(Long id) {
         return dependentRepository.getTutorById(id)
-                .orElseThrow(() -> new RuntimeException("Tutor no encontrado"));
+                .orElseThrow(() -> new java.util.NoSuchElementException("Tutor no encontrado"));
     }
 
     @Override
@@ -205,14 +205,14 @@ public class DependentServiceImpl implements DependentService {
     @Transactional(readOnly = true)
     public VisitanteDTO getVisitanteById(Long id) {
         return dependentRepository.getVisitanteById(id)
-                .orElseThrow(() -> new RuntimeException("Visitante no encontrado"));
+                .orElseThrow(() -> new java.util.NoSuchElementException("Visitante no encontrado"));
     }
 
     @Override
     @Transactional(readOnly = true)
     public VisitanteDTO getVisitanteByPersona(Long personaId) {
         return dependentRepository.getVisitanteByPersona(personaId)
-                .orElseThrow(() -> new RuntimeException("Visitante no encontrado"));
+                .orElseThrow(() -> new java.util.NoSuchElementException("Visitante no encontrado"));
     }
 
     @Override

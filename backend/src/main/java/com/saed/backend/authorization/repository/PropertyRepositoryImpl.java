@@ -9,7 +9,11 @@ import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Repository
@@ -130,6 +134,55 @@ public class PropertyRepositoryImpl implements PropertyRepository {
         return list.stream().findFirst();
     }
 
+    private static final String UNITS_OF_PROPERTY = "(SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD = :propId)";
+
+    /**
+     * Financial, legal and audit history that must never be destroyed by a property hard delete
+     * (decision D07). Each entry maps a table name to the predicate that links it to the property.
+     */
+    private static final Map<String, String> PROTECTED_HISTORY = buildProtectedHistory();
+
+    private static Map<String, String> buildProtectedHistory() {
+        Map<String, String> m = new LinkedHashMap<>();
+        m.put("CUOTAS", "ID_UNIDAD IN " + UNITS_OF_PROPERTY);
+        m.put("PAGOS", "ID_UNIDAD IN " + UNITS_OF_PROPERTY);
+        m.put("TRANSACCIONES_PAGO", "ID_UNIDAD IN " + UNITS_OF_PROPERTY);
+        m.put("CARTERA", "ID_PROPIEDAD = :propId OR ID_UNIDAD IN " + UNITS_OF_PROPERTY);
+        m.put("MULTAS", "ID_UNIDAD IN " + UNITS_OF_PROPERTY);
+        m.put("SANCIONES", "ID_PROPIEDAD = :propId OR ID_UNIDAD IN " + UNITS_OF_PROPERTY);
+        m.put("CONTRATOS", "ID_UNIDAD IN " + UNITS_OF_PROPERTY);
+        m.put("PAZ_Y_SALVOS", "ID_UNIDAD IN " + UNITS_OF_PROPERTY);
+        m.put("ASAMBLEAS", "ID_PROPIEDAD = :propId");
+        m.put("VOTOS", "ID_UNIDAD IN " + UNITS_OF_PROPERTY);
+        m.put("ASISTENCIAS_ASAMBLEA", "ID_UNIDAD IN " + UNITS_OF_PROPERTY);
+        m.put("PODERES_REPRESENTACION", "ID_UNIDAD IN " + UNITS_OF_PROPERTY);
+        m.put("GASTOS", "ID_PROPIEDAD = :propId");
+        m.put("CONCILIACIONES", "ID_PROPIEDAD = :propId");
+        m.put("REGISTROS_ACCESO", "ID_PROPIEDAD = :propId");
+        return Collections.unmodifiableMap(m);
+    }
+
+    @Override
+    public List<String> findProtectedHistory(Long propertyId) {
+        MapSqlParameterSource params = new MapSqlParameterSource("propId", propertyId);
+        List<String> found = new ArrayList<>();
+        // No exception is swallowed: if a check cannot run, deletion must not proceed.
+        for (Map.Entry<String, String> entry : PROTECTED_HISTORY.entrySet()) {
+            String sql = "SELECT COUNT(*) FROM DUAL WHERE EXISTS (SELECT 1 FROM " + entry.getKey()
+                    + " WHERE " + entry.getValue() + ")";
+            Integer exists = jdbcTemplate.queryForObject(sql, params, Integer.class);
+            if (exists != null && exists > 0) {
+                found.add(entry.getKey());
+            }
+        }
+        return found;
+    }
+
+    /**
+     * Hard-deletes a property that has NO protected history (callers must check
+     * {@link #findProtectedHistory(Long)} first). Only operational, non-historical rows are
+     * removed. All-or-nothing: any failure propagates and rolls the transaction back.
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean deletePropertyCascade(Long propertyId, Long organizationId) {
@@ -138,31 +191,13 @@ public class PropertyRepositoryImpl implements PropertyRepository {
                 .addValue("orgId", organizationId);
 
         String[] cleanupQueries = new String[] {
-            "DELETE FROM CONCILIACIONES WHERE ID_PROPIEDAD = :propId",
-            "DELETE FROM GASTOS WHERE ID_PROPIEDAD = :propId",
-            "DELETE FROM REGISTROS_ACCESO WHERE ID_PROPIEDAD = :propId",
             "DELETE FROM PAQUETES WHERE ID_PROPIEDAD = :propId",
-            "DELETE FROM TRANSACCIONES_PAGO WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD = :propId)",
-            "DELETE FROM PAGO_DETALLE WHERE ID_PAGO IN (SELECT ID_PAGO FROM PAGOS WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD = :propId)) OR ID_CUOTA IN (SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD = :propId))",
-            "DELETE FROM PAGOS WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD = :propId)",
-            "DELETE FROM CUOTAS WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD = :propId)",
-            "DELETE FROM MULTAS WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD = :propId)",
-            "DELETE FROM SANCIONES WHERE ID_PROPIEDAD = :propId OR ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD = :propId)",
-            "DELETE FROM CONTRATOS WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD = :propId)",
-            "DELETE FROM RESERVAS WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD = :propId)",
-            "DELETE FROM PAZ_Y_SALVOS WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD = :propId)",
-            "DELETE FROM ASISTENCIAS_ASAMBLEA WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD = :propId)",
-            "DELETE FROM VOTOS WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD = :propId)",
-            "DELETE FROM PODERES_REPRESENTACION WHERE ID_UNIDAD IN (SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD = :propId)",
+            "DELETE FROM RESERVAS WHERE ID_UNIDAD IN " + UNITS_OF_PROPERTY,
             "DELETE FROM UNIDADES WHERE ID_PROPIEDAD = :propId"
         };
 
         for (String q : cleanupQueries) {
-            try {
-                jdbcTemplate.update(q, params);
-            } catch (Exception ignored) {
-                // Tablas opcionales o sin registros
-            }
+            jdbcTemplate.update(q, params);
         }
 
         String deleteSql = "DELETE FROM PROPIEDADES WHERE ID_PROPIEDAD = :propId AND ID_ORGANIZACION = :orgId";

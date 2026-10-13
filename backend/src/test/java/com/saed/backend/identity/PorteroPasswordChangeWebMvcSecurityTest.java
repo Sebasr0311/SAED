@@ -50,6 +50,9 @@ public class PorteroPasswordChangeWebMvcSecurityTest {
     private MockMvc mockMvc;
 
     @MockBean
+    private com.saed.backend.platform.service.ModuleEntitlementService moduleEntitlementServiceMock;
+
+    @MockBean
     private ContextService contextService;
 
     @MockBean
