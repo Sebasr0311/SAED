@@ -36,6 +36,7 @@ import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 
 /**
  * Suite de Pruebas de Seguridad y Autorización para RESIDENTE_CONVIVENCIA (Fase 5).
@@ -287,11 +288,14 @@ public class ResidenteConvivenciaSecurityIntegrationTest {
                 .header("X-Assignment-Id", String.valueOf(CONVIVIENTE_ASSIGN_ID)))
                 .andExpect(status().isOk());
 
-        // 3. Intento de acceso a paquete de OTRA unidad (Unidad 2) -> 403 Forbidden
+        // 3. Intento de acceso a paquete de OTRA unidad (Unidad 2) -> bloqueado sin revelar que existe.
+        // DEC-01 non-disclosure / V5.58: RLS scopes the cohabitant to its own unit, so the foreign package is not
+        // even visible and the answer is 404 (d6bd314), never its data.
         mockMvc.perform(get("/api/v1/paquetes/" + p2.idPaquete())
                 .header("Authorization", "Bearer " + token)
                 .header("X-Assignment-Id", String.valueOf(CONVIVIENTE_ASSIGN_ID)))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isNotFound())
+                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("TRK-F5-U2"))));
     }
 
     @Test
