@@ -6,6 +6,7 @@ import com.saed.backend.audit.Auditable;
 import com.saed.backend.common.dto.ApiResponse;
 import com.saed.backend.context.SaedContext;
 import com.saed.backend.context.SaedContextHolder;
+import com.saed.backend.identity.service.PendingAccountCredentials;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
@@ -35,7 +36,6 @@ public class UsuarioController {
     private final com.saed.backend.identity.service.CohabitantAccountRegistry cohabitantRegistry;
     private final com.saed.backend.identity.service.AdministratorAccountRegistry accountRegistry;
     private final org.springframework.beans.factory.ObjectProvider<com.saed.backend.identity.service.TokenActivacionService> tokenServiceProvider;
-    private final com.saed.backend.common.service.EmailService emailService;
     private final com.saed.backend.person.service.ConvivienteQuotaService convivienteQuotaService;
     private final com.saed.backend.platform.service.PlanLimitService planLimitService;
 
@@ -43,7 +43,6 @@ public class UsuarioController {
             NamedParameterJdbcTemplate jdbcTemplate,
             PasswordEncoder passwordEncoder,
             org.springframework.beans.factory.ObjectProvider<com.saed.backend.identity.service.TokenActivacionService> tokenServiceProvider,
-            com.saed.backend.common.service.EmailService emailService,
             com.saed.backend.person.service.ConvivienteQuotaService convivienteQuotaService,
             com.saed.backend.platform.service.PlanLimitService planLimitService) {
         this.jdbcTemplate = jdbcTemplate;
@@ -52,7 +51,6 @@ public class UsuarioController {
         this.cohabitantRegistry = new com.saed.backend.identity.service.CohabitantAccountRegistry(jdbcTemplate);
         this.accountRegistry = new com.saed.backend.identity.service.AdministratorAccountRegistry(jdbcTemplate);
         this.tokenServiceProvider = tokenServiceProvider;
-        this.emailService = emailService;
         this.convivienteQuotaService = convivienteQuotaService;
         this.planLimitService = planLimitService;
     }
@@ -132,15 +130,8 @@ public class UsuarioController {
         }
         username = username.trim().toLowerCase();
 
-        String rawPassword = (String) payload.getOrDefault("password", payload.get("passwordHash"));
-        boolean enviarActivacion = Boolean.TRUE.equals(payload.get("enviarCorreoActivacion"))
-                || Boolean.TRUE.equals(payload.get("activacionPorCorreo"))
-                || "true".equalsIgnoreCase(String.valueOf(payload.get("enviarCorreoActivacion")));
-
-        if (rawPassword == null || rawPassword.trim().isBlank()) {
-            rawPassword = com.saed.backend.common.util.PasswordGenerator.generate();
-            enviarActivacion = true;
-        }
+        // DEC-13: a password supplied in the request is ignored. The account starts with an unusable credential
+        // and its owner sets a password through the single-use activation link.
 
         String rol = (String) payload.getOrDefault("rol", "PORTERO");
         if (rol == null || rol.trim().isBlank()) {
@@ -235,11 +226,6 @@ public class UsuarioController {
         Long idPersona = null;
         Long idUsuario = null;
         Long existingUserId = null;
-        String creatorName = "Un usuario de SAED";
-        String orgName = null;
-        String propName = null;
-        String unidadNombre = null;
-
         {
             // 1. Resolver o Crear PERSONA
             Object idPersonaObj = payload.getOrDefault("idPersona", payload.get("idResidente"));
@@ -394,24 +380,25 @@ public class UsuarioController {
             // 2. Insertar o Reactivar USUARIO
             if (viaSecurityProcedure) {
                 idUsuario = cohabitantRegistry.register(targetUnitId, idPersona, existingUserId, username, userEmail,
-                        existingUserId == null ? passwordEncoder.encode(rawPassword.trim()) : null);
+                        existingUserId == null ? PendingAccountCredentials.unusableHash(passwordEncoder) : null);
             } else if (existingUserId != null) {
                 idUsuario = existingUserId;
                 // Registration adds an authorized assignment; it never resets an existing identity.
             } else if ("ADMIN_PROPIEDAD".equals(callerRole) || "ADMIN_ORGANIZACION".equals(callerRole)) {
                 // V5.68: the USUARIOS policy refuses the first row of an account that has no assignment yet.
-                idUsuario = accountRegistry.create(idPersona, username, userEmail, passwordEncoder.encode(rawPassword.trim()));
+                idUsuario = accountRegistry.create(idPersona, username, userEmail,
+                        PendingAccountCredentials.unusableHash(passwordEncoder));
             } else {
                 KeyHolder khUsuario = new GeneratedKeyHolder();
                 String sqlUsuario = """
                     INSERT INTO USUARIOS (ID_PERSONA, NOMBRE_USUARIO, EMAIL, HASH_PASSWORD, ESTADO, INTENTOS_FALLIDOS)
-                    VALUES (:idPersona, :username, :email, :pwd, 'ACTIVO', 0)
+                    VALUES (:idPersona, :username, :email, :pwd, 'PENDIENTE_VERIFICACION', 0)
                     """;
                 MapSqlParameterSource paramU = new MapSqlParameterSource()
                         .addValue("idPersona", idPersona)
                         .addValue("username", username)
                         .addValue("email", userEmail)
-                        .addValue("pwd", passwordEncoder.encode(rawPassword.trim()));
+                        .addValue("pwd", PendingAccountCredentials.unusableHash(passwordEncoder));
                 jdbcTemplate.update(sqlUsuario, paramU, khUsuario, new String[]{"ID_USUARIO"});
                 idUsuario = extractGeneratedKey(khUsuario, "ID_USUARIO");
                 if (idUsuario == null) {
@@ -469,36 +456,6 @@ public class UsuarioController {
                 }
             }
 
-            // Datos para correo
-            try {
-                if (ctx != null && ctx.getUserId() != null) {
-                    List<String> names = jdbcTemplate.query(
-                        "SELECT TRIM(p.PRIMER_NOMBRE || ' ' || p.PRIMER_APELLIDO) FROM PERSONAS p JOIN USUARIOS u ON u.ID_PERSONA = p.ID_PERSONA WHERE u.ID_USUARIO = :uid",
-                        Map.of("uid", ctx.getUserId()),
-                        (rs, rowNum) -> rs.getString(1)
-                    );
-                    if (!names.isEmpty() && names.get(0) != null && !names.get(0).isBlank()) {
-                        creatorName = names.get(0);
-                    }
-                }
-            } catch (Exception ignored) {}
-
-            try {
-                List<String> oNames = jdbcTemplate.query("SELECT NOMBRE FROM ORGANIZACIONES WHERE ID_ORGANIZACION = :oid", Map.of("oid", effectiveOrgId), (rs, r) -> rs.getString(1));
-                if (!oNames.isEmpty()) orgName = oNames.get(0);
-            } catch (Exception ignored) {}
-
-            try {
-                List<String> pNames = jdbcTemplate.query("SELECT NOMBRE FROM PROPIEDADES WHERE ID_PROPIEDAD = :pid", Map.of("pid", effectivePropId), (rs, r) -> rs.getString(1));
-                if (!pNames.isEmpty()) propName = pNames.get(0);
-            } catch (Exception ignored) {}
-
-            if (idUnidad != null) {
-                try {
-                    List<String> uNames = jdbcTemplate.query("SELECT IDENTIFICADOR FROM UNIDADES WHERE ID_UNIDAD = :uid", Map.of("uid", idUnidad), (rs, r) -> rs.getString(1));
-                    if (!uNames.isEmpty()) unidadNombre = uNames.get(0);
-                } catch (Exception ignored) {}
-            }
         }
 
         if (existingUserId != null) {
@@ -507,33 +464,16 @@ public class UsuarioController {
                     "message", "Asignación registrada sin modificar las credenciales existentes")));
         }
 
-        String recipientFullName = ((payload.get("primerNombre") != null ? payload.get("primerNombre") : username) + " " +
-                                     (payload.get("primerApellido") != null ? payload.get("primerApellido") : "")).trim();
-
-        try {
-            emailService.enviarCredencialesCreadoPorUsuarioAsync(
-                userEmail,
-                recipientFullName,
-                creatorName,
-                callerRole,
-                orgName,
-                propName,
-                unidadNombre,
-                rol,
-                username,
-                rawPassword,
-                "https://saedfront.vercel.app/login"
-            );
-        } catch (Exception ignored) {}
+        // DEC-13: the owner receives a single-use activation link (hash stored only); no password is sent or returned.
+        tokenServiceProvider.getObject().generarYEnviarTokenActivacion(idUsuario, null);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(Map.of(
                 "idUsuario", idUsuario,
                 "username", username,
                 "rol", rol,
-                "passwordGenerada", rawPassword,
                 "accountCreated", true,
                 "email", userEmail,
-                "message", "Usuario creado exitosamente. Se han enviado las credenciales de acceso a " + userEmail
+                "message", "Usuario creado exitosamente. Se envió un enlace de activación a " + userEmail
         )));
     }
 

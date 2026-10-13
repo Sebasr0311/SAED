@@ -1,6 +1,5 @@
 package com.saed.backend.identity.controller;
 
-import com.saed.backend.common.service.EmailService;
 import com.saed.backend.context.SaedContext;
 import com.saed.backend.context.SaedContextHolder;
 import com.saed.backend.identity.service.TokenActivacionService;
@@ -31,7 +30,6 @@ class UserRegistrationAuthorizationTest {
     private NamedParameterJdbcTemplate jdbc;
     private JdbcOperations operations;
     private PasswordEncoder encoder;
-    private EmailService email;
     private ConvivienteQuotaService quota;
     private UsuarioController controller;
 
@@ -41,10 +39,9 @@ class UserRegistrationAuthorizationTest {
         jdbc = mock(NamedParameterJdbcTemplate.class);
         operations = mock(JdbcOperations.class);
         encoder = mock(PasswordEncoder.class);
-        email = mock(EmailService.class);
         quota = mock(ConvivienteQuotaService.class);
         when(jdbc.getJdbcOperations()).thenReturn(operations);
-        controller = new UsuarioController(jdbc, encoder, mock(ObjectProvider.class), email,
+        controller = new UsuarioController(jdbc, encoder, tokenProvider(),
                 quota, mock(PlanLimitService.class));
         SaedContextHolder.setContext(SaedContext.builder().userId(20L).organizationId(10L)
                 .propertyId(100L).unitId(1000L).roleCode("ADMIN_PROPIEDAD").build());
@@ -79,7 +76,7 @@ class UserRegistrationAuthorizationTest {
     private void noWrites() {
         assertTrue(mockingDetails(jdbc).getInvocations().stream()
                 .noneMatch(call -> call.getMethod().getName().equals("update")));
-        verifyNoInteractions(encoder, email);
+        verifyNoInteractions(encoder);
         verify(operations, never()).execute(anyString());
     }
 
@@ -148,7 +145,7 @@ class UserRegistrationAuthorizationTest {
                         || ((String) call.getArgument(0)).contains("UPDATE PERSONAS")
                         || ((String) call.getArgument(0)).contains("UPDATE USUARIO_ASIGNACIONES")
                         || ((String) call.getArgument(0)).contains("UPDATE RESIDENTES_UNIDAD")));
-        verifyNoInteractions(encoder, email);
+        verifyNoInteractions(encoder);
         verify(operations, never()).execute(anyString());
         assertFalse(response.getBody().getData().containsKey("passwordGenerada"));
         assertEquals(false, response.getBody().getData().get("accountCreated"));
@@ -376,5 +373,12 @@ class UserRegistrationAuthorizationTest {
         @org.springframework.web.bind.annotation.ExceptionHandler(AccessDeniedException.class)
         @org.springframework.web.bind.annotation.ResponseStatus(org.springframework.http.HttpStatus.FORBIDDEN)
         void denied() { }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static ObjectProvider<com.saed.backend.identity.service.TokenActivacionService> tokenProvider() {
+        ObjectProvider<com.saed.backend.identity.service.TokenActivacionService> provider = mock(ObjectProvider.class);
+        when(provider.getObject()).thenReturn(mock(com.saed.backend.identity.service.TokenActivacionService.class));
+        return provider;
     }
 }

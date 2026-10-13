@@ -7,7 +7,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.saed.backend.common.service.EmailService;
 import com.saed.backend.context.SaedContext;
 import com.saed.backend.context.SaedContextHolder;
 import com.saed.backend.person.service.ConvivienteQuotaService;
@@ -38,8 +37,7 @@ class SuperAdminUserListingScopeTest {
     void superAdminListsOnlyPlatformAccounts() {
         NamedParameterJdbcTemplate jdbc = mock(NamedParameterJdbcTemplate.class);
         when(jdbc.queryForList(anyString(), any(SqlParameterSource.class))).thenReturn(List.of());
-        UsuarioController controller = new UsuarioController(jdbc, mock(PasswordEncoder.class), mock(ObjectProvider.class),
-                mock(EmailService.class), mock(ConvivienteQuotaService.class), mock(PlanLimitService.class));
+        UsuarioController controller = new UsuarioController(jdbc, mock(PasswordEncoder.class), tokenProvider(), mock(ConvivienteQuotaService.class), mock(PlanLimitService.class));
         SaedContextHolder.setContext(SaedContext.builder().userId(1L).roleCode("SUPERADMIN").roleScope("GLOBAL").build());
 
         controller.listarUsuarios();
@@ -49,5 +47,12 @@ class SuperAdminUserListingScopeTest {
         String query = sql.getValue().replaceAll("\\s+", " ");
         assertTrue(query.contains("r.CODIGO IN ('SUPERADMIN', 'ADMIN_ORGANIZACION')"),
                 "SUPERADMIN listing must be limited to platform accounts: " + query);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static ObjectProvider<com.saed.backend.identity.service.TokenActivacionService> tokenProvider() {
+        ObjectProvider<com.saed.backend.identity.service.TokenActivacionService> provider = mock(ObjectProvider.class);
+        when(provider.getObject()).thenReturn(mock(com.saed.backend.identity.service.TokenActivacionService.class));
+        return provider;
     }
 }

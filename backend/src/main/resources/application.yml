@@ -65,6 +65,12 @@ saed:
   wompi:
     environment: ${WOMPI_ENVIRONMENT:SANDBOX}
 
+# Public frontend base URL used to build activation links (DEC-13). Dev falls back to the local Vite server;
+# the prod profile has no fallback (APP_FRONTEND_URL is required and must not be a local address).
+app:
+  frontend:
+    url: ${APP_FRONTEND_URL:http://localhost:5173}
+
 ---
 spring:
   config:
@@ -90,3 +96,9 @@ jwt:
   secret: ${JWT_SECRET}
   expiration:
     ms: 86400000
+
+# Activation links (DEC-13): no fallback in prod; the empty value is rejected by ProductionConfigurationGuard
+# (APP_FRONTEND_URL is required and must be the public frontend, not a local address).
+app:
+  frontend:
+    url: ${APP_FRONTEND_URL:}

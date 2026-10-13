@@ -10,7 +10,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockingDetails;
 import static org.mockito.Mockito.when;
 
-import com.saed.backend.common.service.EmailService;
 import com.saed.backend.context.SaedContext;
 import com.saed.backend.context.SaedContextHolder;
 import com.saed.backend.person.service.ConvivienteQuotaService;
@@ -67,7 +66,7 @@ class UsuarioPersonaOrganizationTest {
                     return 1;
                 });
         when(jdbc.queryForObject(anyString(), anyMap(), eq(Integer.class))).thenReturn(0);
-        controller = new UsuarioController(jdbc, encoder, mock(ObjectProvider.class), mock(EmailService.class),
+        controller = new UsuarioController(jdbc, encoder, tokenProvider(),
                 mock(ConvivienteQuotaService.class), mock(PlanLimitService.class));
     }
 
@@ -115,5 +114,12 @@ class UsuarioPersonaOrganizationTest {
 
         assertEquals(201, response.getStatusCode().value());
         assertEquals(CONTEXT_ORG, personaInsert().getValue("org"));
+    }
+
+    @SuppressWarnings("unchecked")
+    private static ObjectProvider<com.saed.backend.identity.service.TokenActivacionService> tokenProvider() {
+        ObjectProvider<com.saed.backend.identity.service.TokenActivacionService> provider = mock(ObjectProvider.class);
+        when(provider.getObject()).thenReturn(mock(com.saed.backend.identity.service.TokenActivacionService.class));
+        return provider;
     }
 }

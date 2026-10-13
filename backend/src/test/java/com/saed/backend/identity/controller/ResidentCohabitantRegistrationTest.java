@@ -12,7 +12,6 @@ import static org.mockito.Mockito.mockingDetails;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.saed.backend.common.service.EmailService;
 import com.saed.backend.context.SaedContext;
 import com.saed.backend.context.SaedContextHolder;
 import com.saed.backend.person.service.ConvivienteQuotaService;
@@ -68,7 +67,7 @@ class ResidentCohabitantRegistrationTest {
                     return 1;
                 });
         when(jdbc.queryForObject(anyString(), anyMap(), eq(Integer.class))).thenReturn(0);
-        controller = new UsuarioController(jdbc, encoder, mock(ObjectProvider.class), mock(EmailService.class),
+        controller = new UsuarioController(jdbc, encoder, tokenProvider(),
                 mock(ConvivienteQuotaService.class), mock(PlanLimitService.class));
         SaedContextHolder.setContext(SaedContext.builder().userId(20L).organizationId(10L).propertyId(100L)
                 .unitId(1000L).roleCode("RESIDENTE").roleScope("UNIDAD").build());
@@ -93,5 +92,12 @@ class ResidentCohabitantRegistrationTest {
                 .filter(call -> call.getMethod().getName().equals("update"))
                 .map(call -> ((String) call.getArgument(0)).toUpperCase())
                 .noneMatch(sql -> sql.contains("INSERT INTO USUARIOS") || sql.contains("INSERT INTO USUARIO_ASIGNACIONES")));
+    }
+
+    @SuppressWarnings("unchecked")
+    private static ObjectProvider<com.saed.backend.identity.service.TokenActivacionService> tokenProvider() {
+        ObjectProvider<com.saed.backend.identity.service.TokenActivacionService> provider = mock(ObjectProvider.class);
+        when(provider.getObject()).thenReturn(mock(com.saed.backend.identity.service.TokenActivacionService.class));
+        return provider;
     }
 }
