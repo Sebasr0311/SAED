@@ -65,6 +65,13 @@ public class Phase1DPersonIntegrationTest {
                 + "SELECT 88801, 'Adv Org 1', 'NIT-88801', 'org1@adv.com' FROM DUAL "
                 + "WHERE NOT EXISTS (SELECT 1 FROM ORGANIZACIONES WHERE ID_ORGANIZACION = 88801)");
 
+        // The mocked assignment carries property 88811; the inactive-property guard treats a property that does not
+        // exist as inactive (403 PROPERTY_INACTIVE), so a fresh database needs the row.
+        jdbcTemplate.update("INSERT INTO PROPIEDADES (ID_PROPIEDAD, ID_ORGANIZACION, ID_TIPO_PROPIEDAD, NOMBRE, DIRECCION, CIUDAD, PAIS, TIPO_OCUPACION_PREDOMINANTE, ESTADO) "
+                + "SELECT 88811, 88801, 1, 'Edificio Adv 1', 'Calle Adv 1', 'Bogota', 'Colombia', 'MIXTA', 'ACTIVA' FROM DUAL "
+                + "WHERE NOT EXISTS (SELECT 1 FROM PROPIEDADES WHERE ID_PROPIEDAD = 88811)");
+        jdbcTemplate.update("UPDATE PROPIEDADES SET ESTADO = 'ACTIVA' WHERE ID_PROPIEDAD = 88811 AND ESTADO <> 'ACTIVA'");
+
         jdbcTemplate.update("INSERT INTO PERSONAS (ID_PERSONA, ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, EMAIL, PRIMER_NOMBRE, PRIMER_APELLIDO) "
                 + "SELECT 888003, 1, 'DOC-888003', 'NATURAL', 'orgadmin@adv.com', 'Carlos', 'AdminOrg' FROM DUAL "
                 + "WHERE NOT EXISTS (SELECT 1 FROM PERSONAS WHERE ID_PERSONA = 888003)");
