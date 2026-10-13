@@ -127,7 +127,12 @@ SAED 2.0 define 6 scopes de seguridad en runtime:
    ```bash
    cp .env.example .env
    ```
-2. Configurar variables de base de datos en `backend/.env.example`.
+2. Copiar `backend/.env.example` a `backend/.env` (archivo no versionado) y reemplazar cada `change-me`.
+   El backend **no trae valores por defecto para secretos en ningún perfil** (incluido `dev`):
+   - Obligatorias: `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `JWT_SECRET` (mínimo 32 bytes; por ejemplo `openssl rand -base64 48`).
+   - Pagos (opcionales en desarrollo): `WOMPI_ENVIRONMENT`, `WOMPI_PUBLIC_KEY`, `WOMPI_INTEGRITY_SECRET`, `WOMPI_EVENTS_SECRET` con llaves de tu propia cuenta sandbox de Wompi.
+   - Correo (opcional; sin `BREVO_API_KEY` los correos solo se registran en el log): `BREVO_API_KEY`, `BREVO_SENDER_EMAIL`, `BREVO_SENDER_NAME`.
+   - Los tests unitarios y de base de datos usan valores falsos de `backend/src/test/resources`; solo requieren `DB_*` reales en el nivel de base de datos.
 
 ### Inicio Rápido (Scripts de Desarrollo)
 En Windows, utilizar los scripts incluidos en `scripts/dev/`:

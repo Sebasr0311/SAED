@@ -186,12 +186,22 @@ public class F11SecurityAndArchitectureHardeningIntegrationTest {
         ensureAsignacion(ASSIGN_ADMIN_PROP_2, USER_ADMIN_PROP_2, "ADMIN_PROPIEDAD", ORG_2_ID, PROP_2_ID, null);
         ensureAsignacion(ASSIGN_RESIDENTE, USER_RESIDENTE, "RESIDENTE", ORG_1_ID, PROP_1_ID, UNIDAD_1_ID);
         ensureAsignacion(ASSIGN_PORTERO, USER_PORTERO, "PORTERO", ORG_1_ID, PROP_1_ID, null);
+
+        // d5d1d0d: the resident dashboard resolves the household unit from RESIDENTES_UNIDAD/PROPIETARIOS_UNIDAD/contracts,
+        // not from the role assignment, so the resident needs a household row.
+        Integer household = jdbcTemplate.queryForObject(
+                "SELECT COUNT(1) FROM RESIDENTES_UNIDAD WHERE ID_UNIDAD = ? AND ID_PERSONA = ? AND ESTADO = 'ACTIVO'",
+                Integer.class, UNIDAD_1_ID, USER_RESIDENTE);
+        if (household == null || household == 0) {
+            jdbcTemplate.update("INSERT INTO RESIDENTES_UNIDAD (ID_UNIDAD, ID_PERSONA, TIPO_RESIDENTE, FECHA_INICIO, ESTADO) "
+                    + "VALUES (?, ?, 'PROPIETARIO', TRUNC(SYSDATE), 'ACTIVO')", UNIDAD_1_ID, USER_RESIDENTE);
+        }
     }
 
     private void ensureOrganizacion(long id, String nombre, String nit, String email) {
         Integer c = jdbcTemplate.queryForObject("SELECT COUNT(1) FROM ORGANIZACIONES WHERE ID_ORGANIZACION = ?", Integer.class, id);
         if (c == null || c == 0) {
-            jdbcTemplate.update("INSERT INTO ORGANIZACIONES (ID_ORGANIZACION, NOMBRE, NIT, EMAIL_CONTACTO, ESTADO) VALUES (?, ?, ?, ?, 'ACTIVA')",
+            jdbcTemplate.update("INSERT INTO ORGANIZACIONES (ID_ORGANIZACION, NOMBRE, IDENTIFICACION_FISCAL, EMAIL_CONTACTO, ESTADO) VALUES (?, ?, ?, ?, 'ACTIVA')",
                     id, nombre, nit, email);
         }
     }

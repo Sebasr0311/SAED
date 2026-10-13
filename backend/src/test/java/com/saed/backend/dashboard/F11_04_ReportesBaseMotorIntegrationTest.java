@@ -230,17 +230,17 @@ public class F11_04_ReportesBaseMotorIntegrationTest {
             VALUES (?, ?, '2026-08', 500000, 500000, 'VENCIDA', DATE '2026-08-15')
         """, UNIDAD_2_ID, CONCEPTO_2_ID);
 
-        // Pago en Prop 1 (Unidad 9101) con timestamp reciente para aparecer primero en orden desc
+        // Pago en Prop 1 (Unidad 9101) con timestamp futuro: aparece primero en orden desc aunque otras suites registren pagos con la fecha actual
         jdbcTemplate.update("""
             INSERT INTO PAGOS (ID_UNIDAD, MONTO_TOTAL, METODO_PAGO, ESTADO, FECHA_PAGO, REFERENCIA_COMPROBANTE)
-            VALUES (?, 200000, 'TRANSFERENCIA', 'APROBADO', TIMESTAMP '2026-09-30 14:30:00', 'REF-PAGO-001')
+            VALUES (?, 200000, 'TRANSFERENCIA', 'APROBADO', SYSTIMESTAMP + INTERVAL '1' DAY, 'REF-PAGO-001')
         """, UNIDAD_1_ID);
     }
 
     private void ensureOrganizacion(long id, String nombre, String nit, String email) {
         Integer c = jdbcTemplate.queryForObject("SELECT COUNT(1) FROM ORGANIZACIONES WHERE ID_ORGANIZACION = ?", Integer.class, id);
         if (c == null || c == 0) {
-            jdbcTemplate.update("INSERT INTO ORGANIZACIONES (ID_ORGANIZACION, NOMBRE, NIT, EMAIL_CONTACTO, ESTADO) VALUES (?, ?, ?, ?, 'ACTIVA')",
+            jdbcTemplate.update("INSERT INTO ORGANIZACIONES (ID_ORGANIZACION, NOMBRE, IDENTIFICACION_FISCAL, EMAIL_CONTACTO, ESTADO) VALUES (?, ?, ?, ?, 'ACTIVA')",
                     id, nombre, nit, email);
         }
     }
@@ -258,6 +258,9 @@ public class F11_04_ReportesBaseMotorIntegrationTest {
         if (c == null || c == 0) {
             jdbcTemplate.update("INSERT INTO UNIDADES (ID_UNIDAD, ID_PROPIEDAD, ID_TIPO_UNIDAD, IDENTIFICADOR, COEFICIENTE_COPROPIEDAD, ESTADO) VALUES (?, ?, 1, ?, ?, 'ACTIVA')",
                     id, propId, identificador, coef);
+        } else {
+            // Other suites reuse the same ids with their own identifiers; this suite asserts on the identifier.
+            jdbcTemplate.update("UPDATE UNIDADES SET IDENTIFICADOR = ? WHERE ID_UNIDAD = ?", identificador, id);
         }
     }
 
@@ -280,8 +283,8 @@ public class F11_04_ReportesBaseMotorIntegrationTest {
     private void ensureUsuario(long id, long personaId, String username, String email) {
         Integer c = jdbcTemplate.queryForObject("SELECT COUNT(1) FROM USUARIOS WHERE ID_USUARIO = ?", Integer.class, id);
         if (c == null || c == 0) {
-            jdbcTemplate.update("INSERT INTO USUARIOS (ID_USUARIO, ID_PERSONA, USERNAME, PASSWORD_HASH, ESTADO) VALUES (?, ?, ?, '$2a$10$abcdefghijklmnopqrstuvwxyz123456', 'ACTIVO')",
-                    id, personaId, username);
+            jdbcTemplate.update("INSERT INTO USUARIOS (ID_USUARIO, ID_PERSONA, NOMBRE_USUARIO, EMAIL, HASH_PASSWORD, ESTADO) VALUES (?, ?, ?, ?, '$2a$10$abcdefghijklmnopqrstuvwxyz123456', 'ACTIVO')",
+                    id, personaId, username, username + "@test.saed.local");
         }
     }
 

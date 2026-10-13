@@ -160,6 +160,12 @@ public class F10VotacionesIntegrationTest {
             ensureAsignacion(ASSIGN_APODERADO, USER_APODERADO, "RESIDENTE", ORG_1_ID, PROP_1_ID, UNIDAD_3_ID);
             ensureAsignacion(ASSIGN_PORTERO, USER_PORTERO, "PORTERO", ORG_1_ID, PROP_1_ID, null);
 
+            // DEC-03: only the unit's active legal owner (PROPIETARIOS_UNIDAD) or an approved proxy may attend and vote;
+            // the demo seed has no owner rows, so each unit used here gets its own owner.
+            ensurePropietario(UNIDAD_1_ID, USER_RESIDENTE_1);
+            ensurePropietario(UNIDAD_2_ID, USER_RESIDENTE_2);
+            ensurePropietario(UNIDAD_3_ID, USER_APODERADO);
+
             setupMockAssignments();
 
             tokenSuperAdmin = jwtProvider.generateIdentityToken(USER_SUPERADMIN);
@@ -203,6 +209,7 @@ public class F10VotacionesIntegrationTest {
                     SELECT ID_ASAMBLEA FROM ASAMBLEAS WHERE TITULO LIKE 'VOTACION-TEST-%'
                 );
                 DELETE FROM ASAMBLEAS WHERE TITULO LIKE 'VOTACION-TEST-%';
+                DELETE FROM PROPIETARIOS_UNIDAD WHERE ID_UNIDAD IN (9101, 9102, 9103, 9104, 9105, 9201);
             END;
         """);
     }
@@ -295,7 +302,7 @@ public class F10VotacionesIntegrationTest {
     private void ensureOrganizacion(long id, String nombre, String nit, String email) {
         Integer c = jdbcTemplate.queryForObject("SELECT COUNT(1) FROM ORGANIZACIONES WHERE ID_ORGANIZACION = ?", Integer.class, id);
         if (c == null || c == 0) {
-            jdbcTemplate.update("INSERT INTO ORGANIZACIONES (ID_ORGANIZACION, NOMBRE, NIT, EMAIL_CONTACTO, ESTADO) VALUES (?, ?, ?, ?, 'ACTIVA')",
+            jdbcTemplate.update("INSERT INTO ORGANIZACIONES (ID_ORGANIZACION, NOMBRE, IDENTIFICACION_FISCAL, EMAIL_CONTACTO, ESTADO) VALUES (?, ?, ?, ?, 'ACTIVA')",
                     id, nombre, nit, email);
         }
     }
@@ -315,7 +322,7 @@ public class F10VotacionesIntegrationTest {
             jdbcTemplate.update("INSERT INTO UNIDADES (ID_UNIDAD, ID_PROPIEDAD, ID_TIPO_UNIDAD, IDENTIFICADOR, COEFICIENTE_COPROPIEDAD, ESTADO) VALUES (?, ?, 1, ?, ?, 'ACTIVA')",
                     id, propId, identificador, coeficiente);
         } else {
-            jdbcTemplate.update("UPDATE UNIDADES SET COEFICIENTE_COPROPIEDAD = ? WHERE ID_UNIDAD = ?", coeficiente, id);
+            jdbcTemplate.update("UPDATE UNIDADES SET ID_PROPIEDAD = ?, COEFICIENTE_COPROPIEDAD = ? WHERE ID_UNIDAD = ?", propId, coeficiente, id);
         }
     }
 
@@ -326,6 +333,8 @@ public class F10VotacionesIntegrationTest {
                             "VALUES (?, 1, ?, ?, ?, ?, 'ACTIVO')",
                     id, doc, nombre, apellido, email);
         }
+        // A proxy (apoderado) must belong to the assembly's organization (AsambleaServiceImpl.radicarPoder).
+        jdbcTemplate.update("UPDATE PERSONAS SET ID_ORGANIZACION = ? WHERE ID_PERSONA = ? AND ID_ORGANIZACION IS NULL", ORG_1_ID, id);
     }
 
     private void ensureUsuario(long id, long idPersona, String username, String email) {
@@ -348,6 +357,44 @@ public class F10VotacionesIntegrationTest {
                             "ID_ORGANIZACION = ?, ID_PROPIEDAD = ?, ID_UNIDAD = ?, ESTADO = 'ACTIVA' WHERE ID_ASIGNACION = ?",
                     idUsuario, rol, idOrg, idProp, idUnidad, id);
         }
+    }
+
+    private void ensurePropietario(long idUnidad, long idPersona) {
+        Integer c = jdbcTemplate.queryForObject(
+                "SELECT COUNT(1) FROM PROPIETARIOS_UNIDAD WHERE ID_UNIDAD = ? AND ID_PERSONA = ? AND ESTADO = 'ACTIVO'",
+                Integer.class, idUnidad, idPersona);
+        if (c == null || c == 0) {
+            jdbcTemplate.update("INSERT INTO PROPIETARIOS_UNIDAD (ID_UNIDAD, ID_PERSONA, PORCENTAJE_PROPIEDAD, ES_PRINCIPAL, FECHA_INICIO, ESTADO) "
+                    + "VALUES (?, ?, 100, 'S', TRUNC(SYSDATE) - 1, 'ACTIVO')", idUnidad, idPersona);
+        }
+    }
+
+    private long propietarioDe(long idUnidad) {
+        if (idUnidad == UNIDAD_1_ID) return USER_RESIDENTE_1;
+        if (idUnidad == UNIDAD_2_ID) return USER_RESIDENTE_2;
+        return USER_APODERADO;
+    }
+
+    /** DEC-03: a unit may vote only with registered attendance; registers the owner's attendance through the API. */
+    private void registrarAsistencia(Long idAsamblea, long idUnidad) throws Exception {
+        mockMvc.perform(post("/api/v1/asambleas/" + idAsamblea + "/asistencias")
+                        .header("Authorization", "Bearer " + tokenAdminProp1)
+                        .header("X-Assignment-Id", ASSIGN_ADMIN_PROP_1)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(AsistenciaRequestDTO.builder()
+                                .idUnidad(idUnidad)
+                                .idPersonaAsistente(propietarioDe(idUnidad))
+                                .esPropietarioDirecto("S")
+                                .build())))
+                .andExpect(status().isCreated());
+    }
+
+    private Long crearAsambleaHelper(String titulo, String estado, long... unidadesConAsistencia) throws Exception {
+        Long id = crearAsambleaHelper(titulo, estado);
+        for (long unidad : unidadesConAsistencia) {
+            registrarAsistencia(id, unidad);
+        }
+        return id;
     }
 
     private Long crearAsambleaHelper(String titulo, String estado) throws Exception {
@@ -453,7 +500,7 @@ public class F10VotacionesIntegrationTest {
     @Order(3)
     @DisplayName("F10-04-03: Emisión legítima de voto por copropietario directo asignado a su unidad")
     public void test03_emisionVotoPropietarioDirectoExitoso() throws Exception {
-        Long idAsamblea = crearAsambleaHelper("VOTACION-TEST-03-VOTO-DIRECTO", "EN_CURSO");
+        Long idAsamblea = crearAsambleaHelper("VOTACION-TEST-03-VOTO-DIRECTO", "EN_CURSO", UNIDAD_1_ID);
 
         VotacionCreateRequestDTO votReq = VotacionCreateRequestDTO.builder()
                 .puntoOrdenDia(1)
@@ -497,7 +544,7 @@ public class F10VotacionesIntegrationTest {
     @Order(4)
     @DisplayName("F10-04-04: Prohibición estricta de voto duplicado para la misma unidad en la misma votación")
     public void test04_rechazoVotoDuplicadoMismaUnidad() throws Exception {
-        Long idAsamblea = crearAsambleaHelper("VOTACION-TEST-04-DUP", "EN_CURSO");
+        Long idAsamblea = crearAsambleaHelper("VOTACION-TEST-04-DUP", "EN_CURSO", UNIDAD_1_ID);
 
         VotacionCreateRequestDTO votReq = VotacionCreateRequestDTO.builder()
                 .puntoOrdenDia(1)
@@ -541,7 +588,7 @@ public class F10VotacionesIntegrationTest {
     @Order(5)
     @DisplayName("F10-04-05: Rechazo con 403 Forbidden cuando residente intenta votar por unidad no asignada sin poder")
     public void test05_rechazoVotoUnidadAjenaSinPoder() throws Exception {
-        Long idAsamblea = crearAsambleaHelper("VOTACION-TEST-05-AJENA", "EN_CURSO");
+        Long idAsamblea = crearAsambleaHelper("VOTACION-TEST-05-AJENA", "EN_CURSO", UNIDAD_2_ID);
 
         VotacionCreateRequestDTO votReq = VotacionCreateRequestDTO.builder()
                 .puntoOrdenDia(1)
@@ -577,7 +624,7 @@ public class F10VotacionesIntegrationTest {
     @Order(6)
     @DisplayName("F10-04-06: Rechazo con 403 Forbidden al votar con poder en estado PENDIENTE_REVISION")
     public void test06_rechazoVotoConPoderPendiente() throws Exception {
-        Long idAsamblea = crearAsambleaHelper("VOTACION-TEST-06-PODER-PEND", "EN_CURSO");
+        Long idAsamblea = crearAsambleaHelper("VOTACION-TEST-06-PODER-PEND", "EN_CURSO", UNIDAD_2_ID);
 
         // Radicar poder: Residente 2 (Unidad 2) otorga poder a Apoderado (USER_APODERADO)
         PoderRequestDTO poderReq = PoderRequestDTO.builder()
@@ -629,7 +676,7 @@ public class F10VotacionesIntegrationTest {
     @Order(7)
     @DisplayName("F10-04-07: Rechazo con 403 Forbidden al votar con poder RECHAZADO")
     public void test07_rechazoVotoConPoderRechazado() throws Exception {
-        Long idAsamblea = crearAsambleaHelper("VOTACION-TEST-07-PODER-RECH", "EN_CURSO");
+        Long idAsamblea = crearAsambleaHelper("VOTACION-TEST-07-PODER-RECH", "EN_CURSO", UNIDAD_2_ID);
 
         // Radicar poder
         PoderRequestDTO poderReq = PoderRequestDTO.builder()
@@ -691,7 +738,7 @@ public class F10VotacionesIntegrationTest {
     @Order(8)
     @DisplayName("F10-04-08: Emisión legítima de voto por apoderado con poder debidamente APROBADO")
     public void test08_emisionVotoConPoderAprobado() throws Exception {
-        Long idAsamblea = crearAsambleaHelper("VOTACION-TEST-08-PODER-OK", "EN_CURSO");
+        Long idAsamblea = crearAsambleaHelper("VOTACION-TEST-08-PODER-OK", "EN_CURSO", UNIDAD_2_ID);
 
         // Radicar poder
         PoderRequestDTO poderReq = PoderRequestDTO.builder()
@@ -801,7 +848,7 @@ public class F10VotacionesIntegrationTest {
     @Order(10)
     @DisplayName("F10-04-10: Concurrencia multihilo — 10 peticiones simultáneas de voto para la misma unidad: exactamente 1 éxito")
     public void test10_concurrenciaAltaDemandaDobleVoto() throws Exception {
-        Long idAsamblea = crearAsambleaHelper("VOTACION-TEST-10-CONCURRENCIA", "EN_CURSO");
+        Long idAsamblea = crearAsambleaHelper("VOTACION-TEST-10-CONCURRENCIA", "EN_CURSO", UNIDAD_1_ID);
 
         VotacionCreateRequestDTO votReq = VotacionCreateRequestDTO.builder()
                 .puntoOrdenDia(1)
@@ -904,7 +951,7 @@ public class F10VotacionesIntegrationTest {
     @Order(12)
     @DisplayName("F10-04-12: Rechazo con 4xx al intentar votar en punto de votación ANULADO")
     public void test12_rechazoVotoEnVotacionAnulada() throws Exception {
-        Long idAsamblea = crearAsambleaHelper("VOTACION-TEST-12-VOTO-ANULADO", "EN_CURSO");
+        Long idAsamblea = crearAsambleaHelper("VOTACION-TEST-12-VOTO-ANULADO", "EN_CURSO", UNIDAD_1_ID);
 
         VotacionCreateRequestDTO votReq = VotacionCreateRequestDTO.builder()
                 .puntoOrdenDia(1)
@@ -946,7 +993,7 @@ public class F10VotacionesIntegrationTest {
     @Order(13)
     @DisplayName("F10-04-13: Rechazo con 4xx al intentar votar en punto de votación CERRADO")
     public void test13_rechazoVotoEnVotacionCerrada() throws Exception {
-        Long idAsamblea = crearAsambleaHelper("VOTACION-TEST-13-VOTO-CERRADO", "EN_CURSO");
+        Long idAsamblea = crearAsambleaHelper("VOTACION-TEST-13-VOTO-CERRADO", "EN_CURSO", UNIDAD_1_ID);
 
         VotacionCreateRequestDTO votReq = VotacionCreateRequestDTO.builder()
                 .puntoOrdenDia(1)
@@ -993,7 +1040,7 @@ public class F10VotacionesIntegrationTest {
     @Order(14)
     @DisplayName("F10-04-14: Escrutinio Mayoría Simple (50% + 1) — Decisión Aprobada cuando SI > NO y SI > 50%")
     public void test14_escrutinioMayoriaSimpleAprobada() throws Exception {
-        Long idAsamblea = crearAsambleaHelper("VOTACION-TEST-14-MAY-SIMPLE-OK", "EN_CURSO");
+        Long idAsamblea = crearAsambleaHelper("VOTACION-TEST-14-MAY-SIMPLE-OK", "EN_CURSO", UNIDAD_1_ID, UNIDAD_2_ID, UNIDAD_3_ID);
 
         VotacionCreateRequestDTO votReq = VotacionCreateRequestDTO.builder()
                 .puntoOrdenDia(1)
@@ -1050,7 +1097,7 @@ public class F10VotacionesIntegrationTest {
     @Order(15)
     @DisplayName("F10-04-15: Escrutinio Mayoría Simple (50% + 1) — Decisión No Aprobada cuando NO >= SI")
     public void test15_escrutinioMayoriaSimpleRechazada() throws Exception {
-        Long idAsamblea = crearAsambleaHelper("VOTACION-TEST-15-MAY-SIMPLE-FAIL", "EN_CURSO");
+        Long idAsamblea = crearAsambleaHelper("VOTACION-TEST-15-MAY-SIMPLE-FAIL", "EN_CURSO", UNIDAD_1_ID, UNIDAD_2_ID);
 
         VotacionCreateRequestDTO votReq = VotacionCreateRequestDTO.builder()
                 .puntoOrdenDia(1)
@@ -1096,7 +1143,7 @@ public class F10VotacionesIntegrationTest {
     @Order(16)
     @DisplayName("F10-04-16: Escrutinio Mayoría Calificada (70%) — No aprobada cuando SI alcanza 68% (< 70%)")
     public void test16_escrutinioMayoriaCalificadaRechazada() throws Exception {
-        Long idAsamblea = crearAsambleaHelper("VOTACION-TEST-16-MAY-CALIF-FAIL", "EN_CURSO");
+        Long idAsamblea = crearAsambleaHelper("VOTACION-TEST-16-MAY-CALIF-FAIL", "EN_CURSO", UNIDAD_1_ID, UNIDAD_3_ID);
 
         VotacionCreateRequestDTO votReq = VotacionCreateRequestDTO.builder()
                 .puntoOrdenDia(1)
@@ -1142,7 +1189,7 @@ public class F10VotacionesIntegrationTest {
     @Order(17)
     @DisplayName("F10-04-17: Escrutinio Mayoría Calificada (70%, Ley 675 art. 46) — No aprobada: SI 55% del total de coeficientes aunque sea 78.5% de lo votado")
     public void test17_escrutinioMayoriaCalificadaAprobada() throws Exception {
-        Long idAsamblea = crearAsambleaHelper("VOTACION-TEST-17-MAY-CALIF-OK", "EN_CURSO");
+        Long idAsamblea = crearAsambleaHelper("VOTACION-TEST-17-MAY-CALIF-OK", "EN_CURSO", UNIDAD_1_ID, UNIDAD_2_ID, UNIDAD_3_ID);
 
         VotacionCreateRequestDTO votReq = VotacionCreateRequestDTO.builder()
                 .puntoOrdenDia(1)
@@ -1197,7 +1244,7 @@ public class F10VotacionesIntegrationTest {
     @Order(18)
     @DisplayName("F10-04-18: Escrutinio Unanimidad (100%) — Rechazada si existe al menos un voto en BLANCO, ABSTENCIÓN o NO")
     public void test18_escrutinioUnanimidadRechazada() throws Exception {
-        Long idAsamblea = crearAsambleaHelper("VOTACION-TEST-18-UNAN-FAIL", "EN_CURSO");
+        Long idAsamblea = crearAsambleaHelper("VOTACION-TEST-18-UNAN-FAIL", "EN_CURSO", UNIDAD_1_ID, UNIDAD_2_ID);
 
         VotacionCreateRequestDTO votReq = VotacionCreateRequestDTO.builder()
                 .puntoOrdenDia(1)
@@ -1243,7 +1290,7 @@ public class F10VotacionesIntegrationTest {
     @Order(19)
     @DisplayName("F10-04-19: Escrutinio Unanimidad (100%) — Aprobada cuando el 100% de los votos son SI")
     public void test19_escrutinioUnanimidadAprobada() throws Exception {
-        Long idAsamblea = crearAsambleaHelper("VOTACION-TEST-19-UNAN-OK", "EN_CURSO");
+        Long idAsamblea = crearAsambleaHelper("VOTACION-TEST-19-UNAN-OK", "EN_CURSO", UNIDAD_1_ID, UNIDAD_2_ID);
 
         VotacionCreateRequestDTO votReq = VotacionCreateRequestDTO.builder()
                 .puntoOrdenDia(1)
@@ -1293,7 +1340,7 @@ public class F10VotacionesIntegrationTest {
     @Order(20)
     @DisplayName("F10-04-20: Congelamiento de coeficiente nominal en VOTOS al momento de votar")
     public void test20_congelamientoCoeficienteEnVoto() throws Exception {
-        Long idAsamblea = crearAsambleaHelper("VOTACION-TEST-20-COEF", "EN_CURSO");
+        Long idAsamblea = crearAsambleaHelper("VOTACION-TEST-20-COEF", "EN_CURSO", UNIDAD_1_ID);
 
         VotacionCreateRequestDTO votReq = VotacionCreateRequestDTO.builder()
                 .puntoOrdenDia(1)
@@ -1320,6 +1367,7 @@ public class F10VotacionesIntegrationTest {
                 .andExpect(status().isCreated());
 
         // Verificar directamente en BD que COEFICIENTE_VOTO es exactamente 0.250000
+        setElevatedContext(); // direct verification query: VOTOS is protected by RLS (tearDown clears the context)
         BigDecimal coefEnBd = jdbcTemplate.queryForObject(
                 "SELECT COEFICIENTE_VOTO FROM VOTOS WHERE ID_VOTACION = ? AND ID_UNIDAD = ?",
                 BigDecimal.class, idVotacion, UNIDAD_1_ID
@@ -1369,7 +1417,7 @@ public class F10VotacionesIntegrationTest {
     @Order(22)
     @DisplayName("F10-04-22: Bloqueo de operaciones de votación para rol PORTERO con 403 Forbidden")
     public void test22_porteroRestringidoVotacion() throws Exception {
-        Long idAsamblea = crearAsambleaHelper("VOTACION-TEST-22-PORTERO", "EN_CURSO");
+        Long idAsamblea = crearAsambleaHelper("VOTACION-TEST-22-PORTERO", "EN_CURSO", UNIDAD_1_ID);
 
         // Portero intenta crear punto de votación -> 403
         mockMvc.perform(post("/api/v1/asambleas/" + idAsamblea + "/votaciones")
@@ -1394,7 +1442,7 @@ public class F10VotacionesIntegrationTest {
     @Order(23)
     @DisplayName("F10-04-23: Auditoría y trazabilidad — Registro inmutable de CREAR, VOTAR, CERRAR y ANULAR en AUDITORIA_LOG")
     public void test23_auditoriaLogRegistroCompleto() throws Exception {
-        Long idAsamblea = crearAsambleaHelper("VOTACION-TEST-23-AUDIT", "EN_CURSO");
+        Long idAsamblea = crearAsambleaHelper("VOTACION-TEST-23-AUDIT", "EN_CURSO", UNIDAD_1_ID);
 
         // 1. Crear Votación
         MvcResult votRes = mockMvc.perform(post("/api/v1/asambleas/" + idAsamblea + "/votaciones")

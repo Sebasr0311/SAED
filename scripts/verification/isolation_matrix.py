@@ -2,23 +2,26 @@
 
 For each synthetic caller, request tenant list endpoints and direct foreign-tenant resource ids,
 then flag any response that contains an identifier from the other organization's id range.
+Foreign rows are recognised exactly, from the fixture definition (fixture_scope), not by numeric id range: Oracle
+sequences hand out new ids inside the fixture ranges, so a range test reports false leaks after any scenario run.
 Never prints passwords, tokens or response bodies; only status codes and leaked id counts.
 
 Usage: isolation_matrix.py <recovery-state> <port>
 """
 import json
 import pathlib
-import re
 import sys
 import urllib.error
 import urllib.request
+
+import fixture_scope
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
 state = json.loads((REPO / "local" / "isolated-oracle" / sys.argv[1] / "private-state.json").read_text(encoding="utf-8"))
 BASE = f"http://127.0.0.1:{sys.argv[2]}"
 
-# Fixture id ranges: organization 91001 uses 91xxx ids, organization 92001 uses 92xxx ids.
-RANGES = {91001: (91000, 91999), 92001: (92000, 92999)}
+# Exact fixture ids per organization (organization, properties, units, persons/users/assignments).
+FIXTURE_IDS = {tenant: fixture_scope.fixture_ids(state["accounts"], tenant) for tenant in (91001, 92001)}
 
 LIST_ENDPOINTS = [
     "/api/v1/organizations",
@@ -68,31 +71,7 @@ def call(method, path, body=None, token=None):
 
 
 def leaked_ids(raw, foreign_org):
-    low, high = RANGES[foreign_org]
-    found = set()
-    try:
-        payload = json.loads(raw or b"null")
-    except ValueError:
-        payload = raw.decode("utf-8", "replace")
-
-    def walk(node):
-        if isinstance(node, bool):
-            return
-        if isinstance(node, (int, float)) and low <= node <= high:
-            found.add(int(node))
-        elif isinstance(node, str):
-            for match in re.findall(r"(?<!\d)(\d{5})(?!\d)", node):
-                if low <= int(match) <= high:
-                    found.add(int(match))
-        elif isinstance(node, dict):
-            for value in node.values():
-                walk(value)
-        elif isinstance(node, list):
-            for value in node:
-                walk(value)
-
-    walk(payload)
-    return sorted(found)
+    return fixture_scope.found_ids(raw, FIXTURE_IDS[foreign_org])
 
 
 def login(account):

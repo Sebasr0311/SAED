@@ -134,6 +134,8 @@ public class DashboardController {
 
         Long personaId = null;
         Long visitanteId = null;
+        // DEC-01: the visitor person belongs to the organization of the caller context, resolved before any elevation.
+        Long personaOrgId = com.saed.backend.person.service.PersonaOrganizationBinding.contextOrganization(jdbcTemplate);
         com.saed.backend.context.SaedContext prevCtx = com.saed.backend.context.SaedContextHolder.getContext();
         try {
             Long orgId = prevCtx != null && prevCtx.getOrganizationId() != null ? prevCtx.getOrganizationId() : 1L;
@@ -167,19 +169,10 @@ public class DashboardController {
 
             if (personaId == null) {
                 try {
-                    org.springframework.jdbc.support.KeyHolder kh = new org.springframework.jdbc.support.GeneratedKeyHolder();
-                    org.springframework.jdbc.core.namedparam.MapSqlParameterSource pParams = new org.springframework.jdbc.core.namedparam.MapSqlParameterSource()
-                        .addValue("idTipo", idTipoDoc)
-                        .addValue("doc", !doc.isEmpty() ? doc : "V-" + System.currentTimeMillis())
-                        .addValue("nom", nom)
-                        .addValue("ape", ape.isBlank() ? "N/A" : ape)
-                        .addValue("tel", tel.isBlank() ? null : tel)
-                        .addValue("email", email.isBlank() ? null : email);
-                    jdbcTemplate.update(
-                        "INSERT INTO PERSONAS (ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, PRIMER_NOMBRE, PRIMER_APELLIDO, TELEFONO, EMAIL, ESTADO) " +
-                        "VALUES (:idTipo, :doc, 'NATURAL', :nom, :ape, :tel, :email, 'ACTIVO')",
-                        pParams, kh, new String[]{"ID_PERSONA"}
-                    );
+                    org.springframework.jdbc.support.KeyHolder kh = com.saed.backend.person.service.PersonaOrganizationBinding
+                        .insertNaturalPerson(jdbcTemplate, personaOrgId, idTipoDoc,
+                            !doc.isEmpty() ? doc : "V-" + System.currentTimeMillis(), nom, ape.isBlank() ? "N/A" : ape,
+                            email.isBlank() ? null : email, tel.isBlank() ? null : tel);
                     personaId = extractGeneratedKey(kh, "ID_PERSONA");
                 } catch (Exception ignored) {}
                 if (personaId == null && !doc.isEmpty()) {
@@ -199,45 +192,20 @@ public class DashboardController {
                 return ResponseEntity.badRequest().body(Map.of("error", "No se pudo registrar la persona del visitante"));
             }
 
-            try {
-                List<Long> visList = jdbcTemplate.query(
-                    "SELECT ID_VISITANTE FROM VISITANTES WHERE ID_PERSONA = :p",
-                    Map.of("p", personaId), (rs, r) -> rs.getLong("ID_VISITANTE")
-                );
-                if (!visList.isEmpty()) {
-                    visitanteId = visList.get(0);
-                    jdbcTemplate.update(
-                        "UPDATE VISITANTES SET ES_FRECUENTE = 'S', EMPRESA = NVL(:emp, EMPRESA) WHERE ID_VISITANTE = :v",
-                        new org.springframework.jdbc.core.namedparam.MapSqlParameterSource()
-                            .addValue("emp", empresa)
-                            .addValue("v", visitanteId)
-                    );
-                } else {
-                    org.springframework.jdbc.support.KeyHolder khVis = new org.springframework.jdbc.support.GeneratedKeyHolder();
-                    jdbcTemplate.update(
-                        "INSERT INTO VISITANTES (ID_PERSONA, ES_FRECUENTE, EMPRESA, ESTADO) VALUES (:p, 'S', :emp, 'ACTIVO')",
-                        new org.springframework.jdbc.core.namedparam.MapSqlParameterSource()
-                            .addValue("p", personaId)
-                            .addValue("emp", empresa),
-                        khVis, new String[]{"ID_VISITANTE"}
-                    );
-                    visitanteId = extractGeneratedKey(khVis, "ID_VISITANTE");
-                }
-            } catch (Exception ignored) {}
-
-            if (visitanteId == null) {
-                try {
-                    List<Long> visList = jdbcTemplate.query(
-                        "SELECT ID_VISITANTE FROM VISITANTES WHERE ID_PERSONA = :p",
-                        Map.of("p", personaId), (rs, r) -> rs.getLong("ID_VISITANTE")
-                    );
-                    if (!visList.isEmpty()) {
-                        visitanteId = visList.get(0);
-                    }
-                } catch (Exception ignored) {}
-            }
         } finally {
             restoreSaedContext(prevCtx);
+        }
+
+        // The visitor row is resolved under the caller's own context by the security-schema resolver (V5.67): the
+        // person may already be a visitor the caller cannot see, and the unique key is global.
+        visitanteId = new com.saed.backend.person.service.VisitorIdentityRegistry(jdbcTemplate)
+                .resolveByPerson(personaId, true, empresa);
+        if (visitanteId != null) {
+            jdbcTemplate.update(
+                "UPDATE VISITANTES SET ES_FRECUENTE = 'S', EMPRESA = NVL(:emp, EMPRESA) WHERE ID_VISITANTE = :v",
+                new org.springframework.jdbc.core.namedparam.MapSqlParameterSource()
+                    .addValue("emp", empresa)
+                    .addValue("v", visitanteId));
         }
 
         // Vincular con unidad del residente
@@ -546,17 +514,18 @@ public class DashboardController {
         if (ctx != null) {
             String role = ctx.getRoleCode();
             if ("ADMIN_PROPIEDAD".equalsIgnoreCase(role) && ctx.getPropertyId() != null) {
-                Long unitPropId = jdbcTemplate.queryForObject(
+                // A unit hidden by RLS is indistinguishable from a foreign one: both answer 403 (no existence leak).
+                List<Long> unitProps = jdbcTemplate.queryForList(
                     "SELECT ID_PROPIEDAD FROM UNIDADES WHERE ID_UNIDAD = :u",
                     Map.of("u", unitId), Long.class);
-                if (unitPropId != null && !unitPropId.equals(ctx.getPropertyId())) {
+                if (unitProps.isEmpty() || (unitProps.get(0) != null && !unitProps.get(0).equals(ctx.getPropertyId()))) {
                     throw new AccessDeniedException("No tiene permisos para asignar habitantes en otra propiedad");
                 }
             } else if ("ADMIN_ORGANIZACION".equalsIgnoreCase(role) && ctx.getOrganizationId() != null) {
-                Long unitOrgId = jdbcTemplate.queryForObject(
+                List<Long> unitOrgs = jdbcTemplate.queryForList(
                     "SELECT p.ID_ORGANIZACION FROM UNIDADES u JOIN PROPIEDADES p ON u.ID_PROPIEDAD = p.ID_PROPIEDAD WHERE u.ID_UNIDAD = :u",
                     Map.of("u", unitId), Long.class);
-                if (unitOrgId != null && !unitOrgId.equals(ctx.getOrganizationId())) {
+                if (unitOrgs.isEmpty() || (unitOrgs.get(0) != null && !unitOrgs.get(0).equals(ctx.getOrganizationId()))) {
                     throw new AccessDeniedException("No tiene permisos para asignar habitantes en otra organización");
                 }
             }

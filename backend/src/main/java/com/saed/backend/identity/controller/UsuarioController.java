@@ -32,6 +32,8 @@ public class UsuarioController {
     private final NamedParameterJdbcTemplate jdbcTemplate;
     private final PasswordEncoder passwordEncoder;
     private final com.saed.backend.identity.service.UserRegistrationPolicy registrationPolicy;
+    private final com.saed.backend.identity.service.CohabitantAccountRegistry cohabitantRegistry;
+    private final com.saed.backend.identity.service.AdministratorAccountRegistry accountRegistry;
     private final org.springframework.beans.factory.ObjectProvider<com.saed.backend.identity.service.TokenActivacionService> tokenServiceProvider;
     private final com.saed.backend.common.service.EmailService emailService;
     private final com.saed.backend.person.service.ConvivienteQuotaService convivienteQuotaService;
@@ -47,6 +49,8 @@ public class UsuarioController {
         this.jdbcTemplate = jdbcTemplate;
         this.passwordEncoder = passwordEncoder;
         this.registrationPolicy = new com.saed.backend.identity.service.UserRegistrationPolicy(jdbcTemplate);
+        this.cohabitantRegistry = new com.saed.backend.identity.service.CohabitantAccountRegistry(jdbcTemplate);
+        this.accountRegistry = new com.saed.backend.identity.service.AdministratorAccountRegistry(jdbcTemplate);
         this.tokenServiceProvider = tokenServiceProvider;
         this.emailService = emailService;
         this.convivienteQuotaService = convivienteQuotaService;
@@ -215,6 +219,19 @@ public class UsuarioController {
         Long effectiveOrgId = registrationScope.organizationId();
         Long effectivePropId = registrationScope.propertyId();
 
+        // DEC-12: a registered RESIDENTE is stored with a real domain relation, never a synthetic value.
+        String residenceType = null;
+        if ("RESIDENTE".equals(rol)) {
+            Object requested = payload.get("tipoResidente");
+            String normalized = requested == null || requested.toString().isBlank()
+                    ? "PROPIETARIO" : requested.toString().trim().toUpperCase();
+            if (!"PROPIETARIO".equals(normalized) && !"ARRENDATARIO".equals(normalized)) {
+                return ResponseEntity.badRequest()
+                        .body(ApiResponse.error("El tipo de residente debe ser PROPIETARIO o ARRENDATARIO"));
+            }
+            residenceType = normalized;
+        }
+
         Long idPersona = null;
         Long idUsuario = null;
         Long existingUserId = null;
@@ -353,19 +370,9 @@ public class UsuarioController {
                     try { idTipoDoc = Long.valueOf(tipoDocObj.toString()); } catch (Exception ignored) {}
                 }
 
-                KeyHolder khPersona = new GeneratedKeyHolder();
-                String sqlPersona = """
-                    INSERT INTO PERSONAS (ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, PRIMER_NOMBRE, PRIMER_APELLIDO, EMAIL, TELEFONO, ESTADO)
-                    VALUES (:tipoDoc, :doc, 'NATURAL', :nombre, :apellido, :email, :tel, 'ACTIVO')
-                    """;
-                MapSqlParameterSource paramP = new MapSqlParameterSource()
-                        .addValue("tipoDoc", idTipoDoc)
-                        .addValue("doc", docFinal)
-                        .addValue("nombre", primerNombre)
-                        .addValue("apellido", primerApellido)
-                        .addValue("email", userEmail)
-                        .addValue("tel", tel);
-                jdbcTemplate.update(sqlPersona, paramP, khPersona, new String[]{"ID_PERSONA"});
+                // DEC-01: the person belongs to the organization of the validated registration scope.
+                KeyHolder khPersona = com.saed.backend.person.service.PersonaOrganizationBinding.insertNaturalPerson(
+                        jdbcTemplate, effectiveOrgId, idTipoDoc, docFinal, primerNombre, primerApellido, userEmail, tel);
                 idPersona = extractGeneratedKey(khPersona, "ID_PERSONA");
                 if (idPersona == null) {
                     List<Long> pIds = jdbcTemplate.query(
@@ -380,10 +387,20 @@ public class UsuarioController {
                 }
             }
 
+            // A resident session cannot insert users or assignments (row-level policies): the validated
+            // security-schema procedure creates the cohabitant account and its assignment (V5.66).
+            boolean viaSecurityProcedure = "RESIDENTE".equals(callerRole) && "RESIDENTE_CONVIVENCIA".equals(rol);
+
             // 2. Insertar o Reactivar USUARIO
-            if (existingUserId != null) {
+            if (viaSecurityProcedure) {
+                idUsuario = cohabitantRegistry.register(targetUnitId, idPersona, existingUserId, username, userEmail,
+                        existingUserId == null ? passwordEncoder.encode(rawPassword.trim()) : null);
+            } else if (existingUserId != null) {
                 idUsuario = existingUserId;
                 // Registration adds an authorized assignment; it never resets an existing identity.
+            } else if ("ADMIN_PROPIEDAD".equals(callerRole) || "ADMIN_ORGANIZACION".equals(callerRole)) {
+                // V5.68: the USUARIOS policy refuses the first row of an account that has no assignment yet.
+                idUsuario = accountRegistry.create(idPersona, username, userEmail, passwordEncoder.encode(rawPassword.trim()));
             } else {
                 KeyHolder khUsuario = new GeneratedKeyHolder();
                 String sqlUsuario = """
@@ -422,7 +439,7 @@ public class UsuarioController {
                     new MapSqlParameterSource("uid", idUsuario).addValue("roleId", idRol)
                             .addValue("orgId", effectiveOrgId).addValue("propId", effectivePropId)
                             .addValue("unitId", idUnidad), (rs, r) -> rs.getLong(1));
-            if (asigExistentes.isEmpty()) {
+            if (!viaSecurityProcedure && asigExistentes.isEmpty()) {
                 String sqlAsig = """
                     INSERT INTO USUARIO_ASIGNACIONES (ID_USUARIO, ID_ROL, ID_ORGANIZACION, ID_PROPIEDAD, ID_UNIDAD, ESTADO, FECHA_INICIO)
                     VALUES (:idUsuario, :idRol, :orgId, :propId, :idUnidad, 'ACTIVA', TRUNC(SYSDATE))
@@ -445,7 +462,7 @@ public class UsuarioController {
                     throw new IllegalStateException("No se pudo validar la relación residencial");
                 }
                 if (ruCount == 0) {
-                    String tipoRes = "RESIDENTE_CONVIVENCIA".equals(rol) ? "CONVIVIENTE" : "TITULAR";
+                    String tipoRes = "RESIDENTE_CONVIVENCIA".equals(rol) ? "CONVIVIENTE" : residenceType;
                     jdbcTemplate.update(
                             "INSERT INTO RESIDENTES_UNIDAD (ID_UNIDAD, ID_PERSONA, TIPO_RESIDENTE, FECHA_INICIO, ESTADO) VALUES (:u, :p, :tipo, TRUNC(SYSDATE), 'ACTIVO')",
                             Map.of("u", idUnidad, "p", idPersona, "tipo", tipoRes));

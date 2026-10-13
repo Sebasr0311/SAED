@@ -513,11 +513,6 @@ public class AsambleaServiceImpl implements AsambleaService {
             throw new IllegalStateException("No se puede votar en una votación en estado " + votacion.getEstado());
         }
 
-        Long propUnidad = repository.findPropiedadUnidad(request.getIdUnidad());
-        if (propUnidad == null || !propUnidad.equals(asamblea.getIdPropiedad())) {
-            throw new IllegalArgumentException("La unidad ID " + request.getIdUnidad() + " no pertenece a la copropiedad de la asamblea");
-        }
-
         SaedContext ctx = SaedContextHolder.getContext();
         Long userId = resolveUserId();
 
@@ -535,6 +530,14 @@ public class AsambleaServiceImpl implements AsambleaService {
         }
         request.setIdPersonaVotante(callerPersonaId);
 
+        // A proxy holder cannot read the represented unit under RLS (residents see only their own assignment's unit),
+        // so the property check applies only when the unit is readable; otherwise the APROBADO power and the
+        // assembly's own attendance record (both scoped to this assembly) establish that the unit belongs to it.
+        Long propUnidad = repository.findPropiedadUnidad(request.getIdUnidad());
+        if (propUnidad != null && !propUnidad.equals(asamblea.getIdPropiedad())) {
+            throw new IllegalArgumentException("La unidad ID " + request.getIdUnidad() + " no pertenece a la copropiedad de la asamblea");
+        }
+
         if (!repository.tieneAsistenciaVigente(asamblea.getIdAsamblea(), request.getIdUnidad())) {
             throw new IllegalStateException("La unidad ID " + request.getIdUnidad() + " no tiene asistencia vigente registrada en la asamblea");
         }
@@ -545,7 +548,14 @@ public class AsambleaServiceImpl implements AsambleaService {
 
         // F10-01 / DEC-03: the vote weight is always the unit's registered coefficient; any client-supplied
         // value is ignored and a missing coefficient rejects the vote.
-        BigDecimal coeficiente = requireUnitCoefficient(request.getIdUnidad());
+        BigDecimal coeficiente = repository.findCoeficienteUnidad(request.getIdUnidad());
+        if (coeficiente == null) {
+            // Unit row hidden by RLS (proxy voting): the weight recorded with the unit's attendance is the same coefficient.
+            coeficiente = repository.findCoeficienteAsistencia(asamblea.getIdAsamblea(), request.getIdUnidad());
+        }
+        if (coeficiente == null || coeficiente.signum() <= 0) {
+            throw new IllegalStateException("La unidad ID " + request.getIdUnidad() + " no tiene coeficiente de copropiedad registrado");
+        }
         request.setCoeficienteVoto(coeficiente);
 
         Long idVoto;

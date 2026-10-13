@@ -138,14 +138,19 @@ public class ContractDocumentPipelineIntegrationTest {
                     + "PKG_SAED_SESSION.SET_CONTEXT(1, 1, 1, 'SUPERADMIN'); END;");
         } catch (Exception ignored) {}
 
-        // Limpiar contratos previos en unidades de prueba
+        // Limpiar contratos previos en unidades de prueba. The seeded active contracts 1 and 2 (the demo tenants of
+        // Apto 101/102) are set aside for the duration of each test and restored afterwards; only contracts, fees and
+        // payments created above the seeded ids are removed.
         try {
+            ensureParkingUnit(9949L);
+            ensureParkingUnit(9950L);
+            jdbcTemplate.update("UPDATE CONTRATOS SET ID_UNIDAD = 9948 + ID_CONTRATO WHERE ID_CONTRATO IN (1, 2) AND ID_UNIDAD = ID_CONTRATO");
             jdbcTemplate.execute("""
                 BEGIN
-                    DELETE FROM PAGO_DETALLE WHERE ID_CUOTA IN (SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 9992));
-                    DELETE FROM MULTAS WHERE ID_CUOTA IN (SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 9992)) OR ID_UNIDAD IN (1, 2, 9992);
-                    DELETE FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 9992);
-                    DELETE FROM CONTRATOS WHERE ID_UNIDAD IN (1, 2, 9992);
+                    DELETE FROM PAGO_DETALLE WHERE ID_CUOTA IN (SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 9992) AND ID_CUOTA > 3);
+                    DELETE FROM MULTAS WHERE ID_CUOTA IN (SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 9992) AND ID_CUOTA > 3);
+                    DELETE FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 9992) AND ID_CUOTA > 3;
+                    DELETE FROM CONTRATOS WHERE ID_UNIDAD IN (1, 2, 9992) AND ID_CONTRATO > 2;
                 END;
             """);
         } catch (Exception e) {
@@ -161,21 +166,12 @@ public class ContractDocumentPipelineIntegrationTest {
 
             // Asegurar Propiedad 1 y Unidades 1 y 2
             ensurePropiedad(1L, 1L, "Edificio Residencial SAED");
-            ensureUnidad(1L, 1L, "Apto 101");
-            ensureUnidad(2L, 1L, "Apto 102");
+            ensureUnidad(UNIT_1_ID, 1L, "Apto 101");
+            ensureUnidad(UNIT_2_ID, 1L, "Apto 102");
 
             // Asegurar Personas y Usuarios de prueba
-            ensurePersona(1L, "1000000001", "Super", "Admin", "superadmin@saed.com");
-            ensureUsuario(1L, 1L, "superadmin", "superadmin@saed.com");
-
-            ensurePersona(2L, "1000000002", "Admin", "Propiedad", "admin@saed.com");
-            ensureUsuario(2L, 2L, "admin", "admin@saed.com");
-
-            ensurePersona(4L, "1000000004", "Carlos", "Martinez", "camartinez@saed.com");
-            ensureUsuario(4L, 4L, "carlos_m", "camartinez@saed.com");
-
-            ensurePersona(5L, "1000000005", "Ana", "Gomez", "anagomez@saed.com");
-            ensureUsuario(5L, 5L, "ana_g", "anagomez@saed.com");
+            // Users 1, 2, 4 and 5 (and their personas) come from the demo seed and are not rewritten here.
+            jdbcTemplate.update("UPDATE PERSONAS SET ID_ORGANIZACION = 1 WHERE ID_PERSONA IN (4, 5) AND ID_ORGANIZACION IS NULL");
 
             ensurePersona(8L, "1000000008", "AdminOrg1", "SAED", "admin_org1@saed.com");
             ensureUsuario(8L, 8L, "admin_org1", "admin_org1@saed.com");
@@ -216,10 +212,6 @@ public class ContractDocumentPipelineIntegrationTest {
                     jdbcTemplate.update(
                             "INSERT INTO MEMBRESIAS (ID_ORGANIZACION, ID_PLAN, ESTADO, FECHA_INICIO, FECHA_FIN, ES_PRUEBA) " +
                             "VALUES (1, ?, 'ACTIVA', TRUNC(SYSDATE), TRUNC(SYSDATE) + 365, 'N')",
-                            defaultPlanId);
-                } else {
-                    jdbcTemplate.update(
-                            "UPDATE MEMBRESIAS SET ID_PLAN = ?, ESTADO = 'ACTIVA', FECHA_FIN = TRUNC(SYSDATE) + 365 WHERE ID_ORGANIZACION = 1",
                             defaultPlanId);
                 }
 
@@ -284,13 +276,14 @@ public class ContractDocumentPipelineIntegrationTest {
 
             jdbcTemplate.execute("""
                 BEGIN
-                    DELETE FROM PAGO_DETALLE WHERE ID_CUOTA IN (SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 9992));
-                    DELETE FROM MULTAS WHERE ID_CUOTA IN (SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 9992)) OR ID_UNIDAD IN (1, 2, 9992);
-                    DELETE FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 9992);
-                    DELETE FROM CONTRATOS WHERE ID_UNIDAD IN (1, 2, 9992);
+                    DELETE FROM PAGO_DETALLE WHERE ID_CUOTA IN (SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 9992) AND ID_CUOTA > 3);
+                    DELETE FROM MULTAS WHERE ID_CUOTA IN (SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 9992) AND ID_CUOTA > 3);
+                    DELETE FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 9992) AND ID_CUOTA > 3;
+                    DELETE FROM CONTRATOS WHERE ID_UNIDAD IN (1, 2, 9992) AND ID_CONTRATO > 2;
                 END;
             """);
 
+            jdbcTemplate.update("UPDATE CONTRATOS SET ID_UNIDAD = ID_CONTRATO WHERE ID_CONTRATO IN (1, 2) AND ID_UNIDAD = 9948 + ID_CONTRATO");
             jdbcTemplate.execute("BEGIN PKG_SAED_SESSION.CLEAR_CONTEXT; END;");
         } catch (Exception ignored) {}
         SaedContextHolder.clearContext();
@@ -566,7 +559,7 @@ public class ContractDocumentPipelineIntegrationTest {
     }
 
     @Test
-    @DisplayName("GAP-F5-02.6: Control de acceso anti-IDOR estricto (403 Forbidden para accesos no autorizados)")
+    @DisplayName("GAP-F5-02.6: Control de acceso anti-IDOR estricto (404 sin revelar contratos ajenos)")
     public void testPipeline_AntiIdorEnforcement() throws Exception {
         Long contratoId = createTestContractViaApi();
 
@@ -574,29 +567,29 @@ public class ContractDocumentPipelineIntegrationTest {
         String tokenAdminProp2 = jwtProvider.generateIdentityToken(USER_ADMIN_PROP_2);
         String tokenAdminOrg2 = jwtProvider.generateIdentityToken(USER_ADMIN_ORG_2);
 
-        // 1. Residente 2 (otra unidad) intenta descargar contrato de Unidad 1 -> 403 Forbidden
+        // 1. Residente 2 (otra unidad) intenta descargar contrato de Unidad 1 -> 404 Not Found
         mockMvc.perform(get("/api/v1/contratos/" + contratoId + "/pdf")
                 .header("Authorization", "Bearer " + tokenResidente2)
                 .header("X-Assignment-Id", String.valueOf(ASSIGN_RESIDENTE_2)))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isNotFound()); // non-disclosure (DEC-01): a foreign contract is "not found"
 
-        // 2. Residente 2 intenta ver detalle del contrato de Unidad 1 -> 403 Forbidden
+        // 2. Residente 2 intenta ver detalle del contrato de Unidad 1 -> 404 Not Found
         mockMvc.perform(get("/api/v1/contratos/" + contratoId)
                 .header("Authorization", "Bearer " + tokenResidente2)
                 .header("X-Assignment-Id", String.valueOf(ASSIGN_RESIDENTE_2)))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isNotFound()); // non-disclosure (DEC-01): a foreign contract is "not found"
 
-        // 3. Admin Propiedad 2 (otra propiedad) intenta descargar contrato -> 403 Forbidden
+        // 3. Admin Propiedad 2 (otra propiedad) intenta descargar contrato -> 404 Not Found
         mockMvc.perform(get("/api/v1/contratos/" + contratoId + "/pdf")
                 .header("Authorization", "Bearer " + tokenAdminProp2)
                 .header("X-Assignment-Id", String.valueOf(ASSIGN_ADMIN_PROP_2)))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isNotFound()); // non-disclosure (DEC-01): a foreign contract is "not found"
 
-        // 4. Admin Organización 2 (otra organización) intenta descargar contrato -> 403 Forbidden
+        // 4. Admin Organización 2 (otra organización) intenta descargar contrato -> 404 Not Found
         mockMvc.perform(get("/api/v1/contratos/" + contratoId + "/pdf")
                 .header("Authorization", "Bearer " + tokenAdminOrg2)
                 .header("X-Assignment-Id", String.valueOf(ASSIGN_ADMIN_ORG_2)))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isNotFound()); // non-disclosure (DEC-01): a foreign contract is "not found"
 
         // 5. Descarga anónima / sin token -> 401 Unauthorized o 403 Forbidden
         mockMvc.perform(get("/api/v1/contratos/" + contratoId + "/pdf"))
@@ -739,6 +732,8 @@ public class ContractDocumentPipelineIntegrationTest {
                     "UPDATE PERSONAS SET NUMERO_DOCUMENTO = ?, PRIMER_NOMBRE = ?, PRIMER_APELLIDO = ?, EMAIL = ? WHERE ID_PERSONA = ?",
                     doc, nombre, apellido, email, id);
         }
+        // b4f0179: a tenant must belong to the organization of the unit's property to be accepted in a contract.
+        jdbcTemplate.update("UPDATE PERSONAS SET ID_ORGANIZACION = 1 WHERE ID_PERSONA = ? AND ID_ORGANIZACION IS NULL", id);
     }
 
     private void ensureUsuario(long id, long personaId, String username, String email) {
@@ -768,20 +763,12 @@ public class ContractDocumentPipelineIntegrationTest {
                 SELECT ID_ROL INTO v_rol_prop  FROM ROLES WHERE CODIGO = 'ADMIN_PROPIEDAD';
                 SELECT ID_ROL INTO v_rol_res   FROM ROLES WHERE CODIGO = 'RESIDENTE';
 
-                DELETE FROM USUARIO_ASIGNACIONES WHERE ID_ASIGNACION IN (101, 102, 301, 981, 991, 104, 105)
-                    OR (ID_USUARIO = 1 AND ID_ROL = v_rol_super)
-                    OR (ID_USUARIO = 2 AND ID_ROL = v_rol_prop AND NVL(ID_ORGANIZACION, -1) = 1 AND NVL(ID_PROPIEDAD, -1) = 1)
+                -- Assignments 101, 102, 104 and 105 belong to the demo seed and are left untouched; only the
+                -- assignments of this suite's own users (8, 98, 99) are recreated.
+                DELETE FROM USUARIO_ASIGNACIONES WHERE ID_ASIGNACION IN (301, 981, 991)
                     OR (ID_USUARIO = 8 AND ID_ROL = v_rol_org AND NVL(ID_ORGANIZACION, -1) = 1)
                     OR (ID_USUARIO = 98 AND ID_ROL = v_rol_org AND NVL(ID_ORGANIZACION, -1) = 9992)
-                    OR (ID_USUARIO = 99 AND ID_ROL = v_rol_prop AND NVL(ID_ORGANIZACION, -1) = 9992 AND NVL(ID_PROPIEDAD, -1) = 9992)
-                    OR (ID_USUARIO = 4 AND ID_ROL = v_rol_res AND NVL(ID_UNIDAD, -1) = 1)
-                    OR (ID_USUARIO = 5 AND ID_ROL = v_rol_res AND NVL(ID_UNIDAD, -1) = 2);
-
-                INSERT INTO USUARIO_ASIGNACIONES (ID_ASIGNACION, ID_USUARIO, ID_ROL, ID_ORGANIZACION, ID_PROPIEDAD, ESTADO, FECHA_INICIO)
-                VALUES (101, 1, v_rol_super, NULL, NULL, 'ACTIVA', TRUNC(SYSDATE));
-
-                INSERT INTO USUARIO_ASIGNACIONES (ID_ASIGNACION, ID_USUARIO, ID_ROL, ID_ORGANIZACION, ID_PROPIEDAD, ESTADO, FECHA_INICIO)
-                VALUES (102, 2, v_rol_prop, 1, 1, 'ACTIVA', TRUNC(SYSDATE));
+                    OR (ID_USUARIO = 99 AND ID_ROL = v_rol_prop AND NVL(ID_ORGANIZACION, -1) = 9992 AND NVL(ID_PROPIEDAD, -1) = 9992);
 
                 INSERT INTO USUARIO_ASIGNACIONES (ID_ASIGNACION, ID_USUARIO, ID_ROL, ID_ORGANIZACION, ID_PROPIEDAD, ESTADO, FECHA_INICIO)
                 VALUES (301, 8, v_rol_org, 1, NULL, 'ACTIVA', TRUNC(SYSDATE));
@@ -791,13 +778,16 @@ public class ContractDocumentPipelineIntegrationTest {
 
                 INSERT INTO USUARIO_ASIGNACIONES (ID_ASIGNACION, ID_USUARIO, ID_ROL, ID_ORGANIZACION, ID_PROPIEDAD, ESTADO, FECHA_INICIO)
                 VALUES (991, 99, v_rol_prop, 9992, 9992, 'ACTIVA', TRUNC(SYSDATE));
-
-                INSERT INTO USUARIO_ASIGNACIONES (ID_ASIGNACION, ID_USUARIO, ID_ROL, ID_ORGANIZACION, ID_PROPIEDAD, ID_UNIDAD, ESTADO, FECHA_INICIO)
-                VALUES (104, 4, v_rol_res, 1, 1, 1, 'ACTIVA', TRUNC(SYSDATE));
-
-                INSERT INTO USUARIO_ASIGNACIONES (ID_ASIGNACION, ID_USUARIO, ID_ROL, ID_ORGANIZACION, ID_PROPIEDAD, ID_UNIDAD, ESTADO, FECHA_INICIO)
-                VALUES (105, 5, v_rol_res, 1, 1, 2, 'ACTIVA', TRUNC(SYSDATE));
             END;
         """);
+    }
+
+    /** Parking units for the seeded contracts while a test owns the demo units (ID_UNIDAD of a contract is moved, not its state: the
+     *  unique index UIX_CONTRATOS_ACTIVO_UNIDAD admits a single non-active contract per unit). */
+    private void ensureParkingUnit(long id) {
+        Integer c = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM UNIDADES WHERE ID_UNIDAD = ?", Integer.class, id);
+        if (c == null || c == 0) {
+            jdbcTemplate.update("INSERT INTO UNIDADES (ID_UNIDAD, ID_PROPIEDAD, ID_TIPO_UNIDAD, IDENTIFICADOR, ESTADO) VALUES (?, 1, 1, ?, 'ACTIVA')", id, "Parking-" + id);
+        }
     }
 }

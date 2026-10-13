@@ -156,7 +156,7 @@ class UserRegistrationAuthorizationTest {
 
     @Test
     @SuppressWarnings("unchecked")
-    void validScopedNewIdentityCanBeRegistered() {
+    void validScopedNewIdentityCanBeRegistered() throws Exception {
         when(jdbc.queryForList(anyString(), anyMap())).thenAnswer(invocation ->
                 ((String) invocation.getArgument(0)).contains("FROM UNIDADES")
                         ? List.of(Map.of("ID_PROPIEDAD", 100L, "ID_ORGANIZACION", 10L)) : List.of());
@@ -171,18 +171,36 @@ class UserRegistrationAuthorizationTest {
                 });
         when(encoder.encode(anyString())).thenReturn("synthetic-encoded-value");
         when(jdbc.queryForObject(anyString(), anyMap(), eq(Integer.class))).thenReturn(0);
+        accountProcedureReturnsUserId(77L);
         var fresh = new java.util.HashMap<>(payload());
         fresh.remove("idPersona");
         var response = controller.crearUsuario(fresh);
         assertEquals(201, response.getStatusCode().value());
         verify(encoder).encode(anyString());
+        assertFalse(insertedUsuariosDirectly(), "the account row must come from the security procedure");
         verify(operations, never()).execute(anyString());
         assertEquals("ADMIN_PROPIEDAD", SaedContextHolder.getContext().getRoleCode());
         assertEquals(true, response.getBody().getData().get("accountCreated"));
     }
 
+    /** V5.68: the account row of a new identity is created by the security-schema procedure (output index 5). */
     @SuppressWarnings("unchecked")
-    private void freshRegistration() {
+    private void accountProcedureReturnsUserId(long userId) throws Exception {
+        java.sql.CallableStatement statement = mock(java.sql.CallableStatement.class);
+        when(statement.getLong(5)).thenReturn(userId);
+        when(operations.execute(anyString(), any(org.springframework.jdbc.core.CallableStatementCallback.class)))
+                .thenAnswer(invocation -> ((org.springframework.jdbc.core.CallableStatementCallback<?>)
+                        invocation.getArgument(1)).doInCallableStatement(statement));
+    }
+
+    private boolean insertedUsuariosDirectly() {
+        return mockingDetails(jdbc).getInvocations().stream()
+                .filter(call -> call.getMethod().getName().equals("update"))
+                .anyMatch(call -> ((String) call.getArgument(0)).contains("INSERT INTO USUARIOS "));
+    }
+
+    @SuppressWarnings("unchecked")
+    private void freshRegistration() throws Exception {
         when(jdbc.queryForList(anyString(), anyMap())).thenAnswer(invocation -> {
             String sql = invocation.getArgument(0);
             return sql.contains("FROM UNIDADES") || sql.contains("FROM PROPIEDADES")
@@ -199,11 +217,18 @@ class UserRegistrationAuthorizationTest {
                 });
         when(encoder.encode(anyString())).thenReturn("synthetic-encoded-value");
         when(jdbc.queryForObject(anyString(), anyMap(), eq(Integer.class))).thenReturn(0);
+        accountProcedureReturnsUserId(77L);
     }
 
     @Test
-    void residentCanRegisterConvivienteWithOwnUnitQuotaAndPreservedContext() {
+    void residentCanRegisterConvivienteWithOwnUnitQuotaAndPreservedContext() throws Exception {
         freshRegistration();
+        // V5.66: the resident session creates the account only through the security-schema procedure.
+        java.sql.CallableStatement statement = mock(java.sql.CallableStatement.class);
+        when(statement.getLong(7)).thenReturn(77L);
+        when(operations.execute(anyString(), any(org.springframework.jdbc.core.CallableStatementCallback.class)))
+                .thenAnswer(invocation -> ((org.springframework.jdbc.core.CallableStatementCallback<?>)
+                        invocation.getArgument(1)).doInCallableStatement(statement));
         SaedContext original = SaedContextHolder.getContext();
         original.setRoleCode("RESIDENTE");
         var request = new java.util.HashMap<>(payload());
@@ -221,14 +246,56 @@ class UserRegistrationAuthorizationTest {
         verify(operations, never()).execute(anyString());
     }
 
+    private String residenceTypeStoredFor(Map<String, Object> request) throws Exception {
+        freshRegistration();
+        var response = controller.crearUsuario(request);
+        assertEquals(201, response.getStatusCode().value());
+        return mockingDetails(jdbc).getInvocations().stream()
+                .filter(call -> call.getMethod().getName().equals("update")
+                        && ((String) call.getArgument(0)).startsWith("INSERT INTO RESIDENTES_UNIDAD"))
+                .map(call -> (String) ((Map<?, ?>) call.getArgument(1)).get("tipo"))
+                .findFirst().orElseThrow();
+    }
+
     @Test
-    void propertyAdminCanRegisterPorteroWithoutUnit() {
+    void registeredResidentStoresADomainResidenceTypeNeverTitular() throws Exception {
+        var request = new java.util.HashMap<>(payload());
+        request.remove("idPersona");
+        // Documented default (DEC-12): a RESIDENTE registered without a relation is the owner.
+        assertEquals("PROPIETARIO", residenceTypeStoredFor(request));
+    }
+
+    @Test
+    void registeredResidentTakesTheRelationFromTheRequest() throws Exception {
+        var request = new java.util.HashMap<>(payload());
+        request.remove("idPersona");
+        request.put("tipoResidente", "arrendatario");
+        assertEquals("ARRENDATARIO", residenceTypeStoredFor(request));
+    }
+
+    @Test
+    void residentRelationOutsideTheDomainIsRejectedBeforeAnyWrite() throws Exception {
+        freshRegistration();
+        for (String invalid : List.of("TITULAR", "CONVIVIENTE", "FAMILIAR", "x")) {
+            var request = new java.util.HashMap<>(payload());
+            request.remove("idPersona");
+            request.put("tipoResidente", invalid);
+            assertEquals(400, controller.crearUsuario(request).getStatusCode().value(), invalid);
+        }
+        noWrites();
+    }
+
+    @Test
+    void propertyAdminCanRegisterPorteroWithoutUnit() throws Exception {
         freshRegistration();
         var request = new java.util.HashMap<>(payload());
         request.remove("idPersona");
         request.remove("idUnidad");
         request.put("rol", "PORTERO");
         assertEquals(201, controller.crearUsuario(request).getStatusCode().value());
+        assertFalse(insertedUsuariosDirectly(), "the account row must come from the security procedure");
+        verify(operations).execute(contains("SP_REGISTRAR_CUENTA"),
+                any(org.springframework.jdbc.core.CallableStatementCallback.class));
         verifyNoInteractions(quota);
         assertTrue(mockingDetails(jdbc).getInvocations().stream()
                 .anyMatch(call -> call.getMethod().getName().equals("update")

@@ -101,7 +101,9 @@ class PolicyPredicateColumnsTest(unittest.TestCase):
         votos = function_text(body, "FN_FILTRO_PROPIEDAD")
         branch = votos[votos.index("p_tab = 'VOTOS'"):]
         branch = branch[:branch.index("ACCIONES_AUTOMATIZACION")]
-        self.assertIn("id_unidad IN (SELECT id_unidad FROM USUARIO_ASIGNACIONES", branch)
+        # V5.58 builds the unit-assignment subquery once (context-property scoped) in v_my_units.
+        self.assertTrue("id_unidad IN (SELECT id_unidad FROM USUARIO_ASIGNACIONES" in branch
+                        or "id_unidad IN (' || v_my_units || ')" in branch)
         self.assertIn("id_persona_votante IN (SELECT id_persona FROM USUARIOS", branch)
 
     def test_the_package_replacement_does_not_swallow_errors_after_the_body(self):

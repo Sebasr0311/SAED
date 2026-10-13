@@ -572,6 +572,20 @@ public class AsambleaRepositoryImpl implements AsambleaRepository {
     }
 
     @Override
+    public BigDecimal findCoeficienteAsistencia(Long idAsamblea, Long idUnidad) {
+        // Read under the caller's own context: ASISTENCIAS_ASAMBLEA is visible to the assembly's property
+        // participants, so this works for a proxy holder who cannot read the represented UNIDADES row.
+        String sql = "SELECT COEFICIENTE_PONDERADO FROM ASISTENCIAS_ASAMBLEA " +
+                "WHERE ID_ASAMBLEA = :idAsamblea AND ID_UNIDAD = :idUnidad AND HORA_RETIRO IS NULL";
+        List<BigDecimal> rows = jdbcTemplate.queryForList(sql, new MapSqlParameterSource()
+                .addValue("idAsamblea", idAsamblea)
+                .addValue("idUnidad", idUnidad), BigDecimal.class);
+        if (rows.isEmpty()) return null;
+        BigDecimal coef = rows.get(0);
+        return (coef != null && coef.signum() > 0) ? coef : null;
+    }
+
+    @Override
     public boolean existeAsistenciaUnidad(Long idAsamblea, Long idUnidad) {
         String sql = "SELECT COUNT(1) FROM ASISTENCIAS_ASAMBLEA WHERE ID_ASAMBLEA = :idAsamblea AND ID_UNIDAD = :idUnidad";
         Integer count = jdbcTemplate.queryForObject(sql, new MapSqlParameterSource()

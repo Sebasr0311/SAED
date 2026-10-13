@@ -94,6 +94,16 @@ public class PermanenciaTemporalIntegrationTest {
         } catch (Exception ignored) {}
     }
 
+    private void setPorteroContext() {
+        SaedContextHolder.setContext(SaedContext.builder()
+                .userId(testPorteroUserId)
+                .organizationId(1L)
+                .propertyId(testPropiedadId)
+                .roleCode("PORTERO")
+                .roleScope("PROPIEDAD")
+                .build());
+    }
+
     @BeforeEach
     void setUp() {
         setElevatedContext();
@@ -178,7 +188,8 @@ public class PermanenciaTemporalIntegrationTest {
     @Test
     @DisplayName("Test 1: Cálculo de minutos transcurridos para visita activa (EN_CURSO)")
     void test01_calculoMinutosTranscurridos_visitaActiva_enCurso() {
-        setElevatedContext();
+        // DEC-02: SUPERADMIN cannot read or schedule porteria data; the service is used as the property's doorman.
+        setPorteroContext();
 
         VisitaRequestDTO req = new VisitaRequestDTO(
                 testUnidadId, testVisitanteId, "LLAMADA_PORTERIA", "Visita familiar", testPersonaId, null, "EN_CURSO"

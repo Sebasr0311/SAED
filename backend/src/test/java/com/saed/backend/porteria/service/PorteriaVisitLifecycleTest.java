@@ -8,6 +8,8 @@ import com.saed.backend.porteria.dto.ParkingSpotClaim;
 import com.saed.backend.porteria.dto.QrAccesoDTO;
 import com.saed.backend.porteria.dto.QrAccesoRequestDTO;
 import com.saed.backend.porteria.dto.QrConsumoResultadoDTO;
+import com.saed.backend.porteria.dto.RegistroAccesoDTO;
+import com.saed.backend.porteria.dto.RegistroAccesoRequestDTO;
 import com.saed.backend.porteria.dto.VehiculoVisitaDTO;
 import com.saed.backend.porteria.dto.VehiculoVisitaRequestDTO;
 import com.saed.backend.porteria.dto.VisitaDTO;
@@ -319,6 +321,58 @@ class PorteriaVisitLifecycleTest {
         visit(FOREIGN_UNIT, PROP, "PROGRAMADA");
         assertThrows(NoSuchElementException.class, () -> service.getVisitaDetalle(VISIT));
         assertThrows(NoSuchElementException.class, () -> service.getVisitaById(VISIT));
+    }
+
+    // ---------- Manual check-in / check-out must never leave the visit state silently unchanged ----------
+
+    private static RegistroAccesoRequestDTO movement(String type) {
+        return new RegistroAccesoRequestDTO(PROP, 9L, null, VISIT, 900L, OWN_UNIT, null, type, "MANUAL_PORTERO", 30L, null, "manual");
+    }
+
+    @Test
+    void manualEntryMovesTheVisitToEnCursoAndRecordsTheAccess() {
+        portero();
+        when(repo.transitionVisitaEstado(eq(VISIT), eq("EN_CURSO"), any())).thenReturn(1);
+        RegistroAccesoDTO record = mock(RegistroAccesoDTO.class);
+        when(repo.createRegistroAcceso(any())).thenReturn(record);
+
+        assertEquals(record, service.registrarEntrada(movement("ENTRADA")));
+
+        verify(repo).transitionVisitaEstado(eq(VISIT), eq("EN_CURSO"), any());
+    }
+
+    @Test
+    void manualEntryFailsLoudlyWhenNoVisitRowWasUpdated() {
+        portero();
+        // 0 rows: the visit does not exist, is hidden by RLS (another property/unit) or is already closed.
+        when(repo.transitionVisitaEstado(eq(VISIT), eq("EN_CURSO"), any())).thenReturn(0);
+
+        assertThrows(NoSuchElementException.class, () -> service.registrarEntrada(movement("ENTRADA")));
+
+        verify(repo, never()).createRegistroAcceso(any());
+    }
+
+    @Test
+    void manualExitFailsLoudlyWhenNoVisitRowWasUpdated() {
+        portero();
+        when(repo.transitionVisitaEstado(eq(VISIT), eq("FINALIZADA"), any())).thenReturn(0);
+
+        assertThrows(NoSuchElementException.class, () -> service.registrarSalida(movement("SALIDA")));
+
+        verify(repo, never()).createRegistroAcceso(any());
+    }
+
+    @Test
+    void manualEntryWithoutAVisitStillRecordsTheAccess() {
+        portero();
+        RegistroAccesoDTO record = mock(RegistroAccesoDTO.class);
+        when(repo.createRegistroAcceso(any())).thenReturn(record);
+
+        RegistroAccesoRequestDTO walkIn = new RegistroAccesoRequestDTO(PROP, 9L, null, null, 900L, OWN_UNIT, null,
+            "ENTRADA", "MANUAL_PORTERO", 30L, null, "sin visita");
+
+        assertEquals(record, service.registrarEntrada(walkIn));
+        verify(repo, never()).transitionVisitaEstado(anyLong(), anyString(), any());
     }
 
     // ---------- F07-03 exit ----------

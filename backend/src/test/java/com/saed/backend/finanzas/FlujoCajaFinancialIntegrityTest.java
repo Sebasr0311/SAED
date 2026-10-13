@@ -260,8 +260,9 @@ public class FlujoCajaFinancialIntegrityTest {
     @Test
     @DisplayName("Test 5: Cuota vencida sin pago (SALDO_PENDIENTE = $500.000, ESTADO = VENCIDA) NO aparece como efectivo")
     void test05_cuotaVencida_noApareceComoEfectivo() {
+        // 2026-06: the demo seed owns unit 1 / 2026-08 (a paid fee with payment detail), which cannot be deleted.
         setElevatedContext(1L, testPropIdA, "SUPERADMIN");
-        jdbcTemplate.update("DELETE FROM CUOTAS WHERE ID_UNIDAD = ? AND PERIODO = '2026-08'", testUnidadA);
+        jdbcTemplate.update("DELETE FROM CUOTAS WHERE ID_UNIDAD = ? AND PERIODO = '2026-06'", testUnidadA);
 
         setElevatedContext(1L, testPropIdA, "ADMIN_PROPIEDAD");
         BigDecimal saldoInicial = repository.getSaldoActual();
@@ -269,7 +270,7 @@ public class FlujoCajaFinancialIntegrityTest {
         setElevatedContext(1L, testPropIdA, "SUPERADMIN");
         jdbcTemplate.update(
             "INSERT INTO CUOTAS (ID_UNIDAD, ID_CONCEPTO, PERIODO, VALOR_BASE, SALDO_PENDIENTE, ESTADO, FECHA_VENCIMIENTO) " +
-            "VALUES (?, ?, '2026-08', 500000, 500000, 'VENCIDA', TRUNC(SYSDATE) - 30)",
+            "VALUES (?, ?, '2026-06', 500000, 500000, 'VENCIDA', TRUNC(SYSDATE) - 30)",
             testUnidadA, testConceptoA
         );
 

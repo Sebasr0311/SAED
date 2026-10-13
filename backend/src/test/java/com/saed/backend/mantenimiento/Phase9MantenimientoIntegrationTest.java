@@ -140,6 +140,9 @@ public class Phase9MantenimientoIntegrationTest {
     @BeforeEach
     public void setUp() {
         setElevatedContext();
+        // 1ca286d: the gate reads CUOTAS in real time; the seeded outstanding fee of Apto 101 (cuota 2) is voided for the
+        // duration of each test and restored in tearDown.
+        jdbcTemplate.update("UPDATE CUOTAS SET ESTADO = 'ANULADA' WHERE ID_CUOTA = 2 AND ESTADO <> 'ANULADA'");
         try {
             // Limpieza controlada previa
             jdbcTemplate.execute("""
@@ -214,6 +217,7 @@ public class Phase9MantenimientoIntegrationTest {
     @AfterEach
     public void tearDown() {
         setElevatedContext();
+        jdbcTemplate.update("UPDATE CUOTAS SET ESTADO = 'PENDIENTE' WHERE ID_CUOTA = 2 AND ESTADO = 'ANULADA'");
         try {
             jdbcTemplate.execute("""
                 BEGIN

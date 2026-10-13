@@ -7,25 +7,25 @@ spring:
   datasource:
     driver-class-name: oracle.jdbc.OracleDriver
     url: ${DB_URL:jdbc:oracle:thin:@localhost:1521/XEPDB1}
-    username: ${DB_USERNAME:SAED_BASELINE_TEST_01}
-    password: ${DB_PASSWORD:saed2026}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
     hikari:
       maximum-pool-size: 10
       minimum-idle: 2
       connection-timeout: 30000
 
 jwt:
-  secret: c2VjcmV0LWtleS1kZWJlLXNlci1sYXJnYS1wYXJhLWhtYWMtc2hhMjU2
+  secret: g6ba6JDWFZ8v9pWD8nxx6j03siRpQoHw7Urw+c88o/tVLW14bzjnk0TCa7wQjVyH
   expiration:
     ms: 86400000
 
-# Test-profile placeholders (not real credentials): the paid-onboarding and payment-intention
+# Randomly generated, non-functional placeholders (not real credentials): the paid-onboarding and payment-intention
 # flows require configured keys and fail closed without them.
 saed:
   cors:
     allowed-origins: http://localhost:5173
   wompi:
     environment: SANDBOX
-    public-key: pub_test_saed_test_profile
-    integrity-secret: test_integrity_saed_test_profile
-    events-secret: test_events_saed_test_profile
+    public-key: pub_test_fake_acd76da429e0988f55ea5bd7
+    integrity-secret: test_integrity_fake_a18197149ca7974c5557c224
+    events-secret: test_events_fake_e7e78adc9991b3c27096b85f

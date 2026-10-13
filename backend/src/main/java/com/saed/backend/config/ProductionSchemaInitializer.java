@@ -654,8 +654,8 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
             jdbcTemplate.execute("ALTER TABLE RESIDENTES_UNIDAD DROP CONSTRAINT CK_RESIDUNIDAD_TIPO");
         } catch (Exception ignored) {}
         try {
-            jdbcTemplate.execute("ALTER TABLE RESIDENTES_UNIDAD ADD CONSTRAINT CK_RESIDUNIDAD_TIPO CHECK (tipo_residente IN ('PROPIETARIO', 'ARRENDATARIO', 'FAMILIAR', 'CONVIVIENTE', 'OTRO', 'TITULAR'))");
-            log.info("[SchemaInit] Restricción CK_RESIDUNIDAD_TIPO actualizada para soportar CONVIVIENTE y TITULAR.");
+            jdbcTemplate.execute("ALTER TABLE RESIDENTES_UNIDAD ADD CONSTRAINT CK_RESIDUNIDAD_TIPO CHECK (tipo_residente IN ('PROPIETARIO', 'ARRENDATARIO', 'FAMILIAR', 'CONVIVIENTE', 'OTRO'))");
+            log.info("[SchemaInit] Restricción CK_RESIDUNIDAD_TIPO actualizada para soportar CONVIVIENTE.");
         } catch (Exception e) {
             log.debug("[SchemaInit] Aviso al actualizar CK_RESIDUNIDAD_TIPO: {}", e.getMessage());
         }
@@ -789,12 +789,6 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
                     AND NOT EXISTS (
                         SELECT 1 FROM PROPIETARIOS_UNIDAD pu WHERE pu.ID_PERSONA = p.ID_PERSONA
                     );
-
-                    -- Limpiar ID_PROPIEDAD para jjuan123 y admin org para garantizar que el nuevo edificio inicie limpio con 0 registros
-                    UPDATE PERSONAS
-                    SET ID_PROPIEDAD = NULL
-                    WHERE EMAIL IN ('jjuan123@saed.com', 'juanrinconfarelo@gmail.com')
-                      OR NUMERO_DOCUMENTO IN ('1099999123', '1066268898');
 
                     COMMIT;
                 EXCEPTION WHEN OTHERS THEN NULL;

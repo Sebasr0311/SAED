@@ -5,8 +5,10 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.env.YamlPropertySourceLoader;
@@ -29,7 +31,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class ProductionConfigurationSafetyTest {
 
-    private static final String DEV_JWT_SECRET = "c2VjcmV0LWtleS1kZWJlLXNlci1sYXJnYS1wYXJhLWhtYWMtc2hhMjU2";
     private static final String STRONG_JWT_SECRET = "a-production-only-jwt-secret-with-more-than-32-bytes";
 
     private static MockEnvironment completeLiveProduction() {
@@ -101,11 +102,15 @@ class ProductionConfigurationSafetyTest {
     }
 
     @Test
-    void prodRejectsTheRepositoryPublishedDevelopmentJwtSecret() {
-        MockEnvironment env = completeLiveProduction();
-        env.setProperty("jwt.secret", DEV_JWT_SECRET);
+    void publishedSecretDigestsAreWellFormedSha256Hashes() throws ReflectiveOperationException {
+        Field field = ProductionConfigurationGuard.class.getDeclaredField("PUBLISHED_SECRET_DIGESTS");
+        field.setAccessible(true);
+        Set<?> digests = (Set<?>) field.get(null);
 
-        assertTrue(violationsOf(env).contains("jwt.secret"));
+        assertFalse(digests.isEmpty(), "the digests of the previously published secrets must stay blacklisted");
+        for (Object digest : digests) {
+            assertTrue(String.valueOf(digest).matches("[0-9a-f]{64}"), "not a SHA-256 hex digest");
+        }
     }
 
     @Test
@@ -133,20 +138,6 @@ class ProductionConfigurationSafetyTest {
         env.setProperty("saed.wompi.events-secret", "prod_events_abc");
 
         assertTrue(violationsOf(env).contains("saed.wompi.events-secret"));
-    }
-
-    @Test
-    void productionRejectsSandboxSecretsPublishedInTheRepository() {
-        MockEnvironment env = completeLiveProduction();
-        env.setProperty("saed.wompi.environment", "SANDBOX");
-        env.setProperty("saed.wompi.public-key", "pub_test_IZg6dmwtip4WYXjPP8G7zYvWzCU5wRaH");
-        env.setProperty("saed.wompi.integrity-secret", "test_integrity_CT3taBwOqVtSQITYMGUTcrJftHdoLoPQ");
-        env.setProperty("saed.wompi.events-secret", "test_events_VgrGtdTPd9q6XKtBz3iRTgTHJSUuwBBy");
-
-        String message = violationsOf(env);
-
-        assertTrue(message.contains("saed.wompi.integrity-secret"), message);
-        assertTrue(message.contains("saed.wompi.events-secret"), message);
     }
 
     @Test
@@ -212,8 +203,11 @@ class ProductionConfigurationSafetyTest {
                 "outside dev the Wompi secrets have no fallback");
         assertEquals("", resolvedDefault(rawValue(documents, null, "saed.cors.allowed-origins")),
                 "outside dev CORS allows no origin by default");
-        assertTrue(rawValue(documents, "dev", "jwt.secret").contains(DEV_JWT_SECRET),
-                "the published development JWT secret is confined to the dev profile");
+        assertEquals("${JWT_SECRET}", rawValue(documents, "dev", "jwt.secret"),
+                "the dev profile requires JWT_SECRET exactly like prod");
+        assertEquals("${DB_PASSWORD}", rawValue(documents, "dev", "spring.datasource.password"));
+        assertFalse(hasValue(documents, "dev", "saed.wompi.events-secret"),
+                "dev must not override the empty base default with a fallback");
         assertEquals("SANDBOX", resolvedDefault(rawValue(documents, "dev", "saed.wompi.environment")));
     }
 
@@ -232,10 +226,6 @@ class ProductionConfigurationSafetyTest {
             }
         }
         assertTrue(offenders.isEmpty(), "Wompi keys must come only from configuration: " + offenders);
-        String guard = Files.readString(Paths.get("src", "main", "java", "com", "saed", "backend", "config",
-                "ProductionConfigurationGuard.java"), StandardCharsets.UTF_8);
-        assertFalse(guard.contains("IZg6dmwtip4") || guard.contains("CT3taBwOq") || guard.contains("VgrGtdTPd9")
-                || guard.contains(DEV_JWT_SECRET), "the guard stores digests, not published secrets");
     }
 
     @Test

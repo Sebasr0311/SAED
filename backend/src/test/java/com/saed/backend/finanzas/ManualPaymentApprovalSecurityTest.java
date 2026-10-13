@@ -372,7 +372,10 @@ public class ManualPaymentApprovalSecurityTest {
                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated());
 
-        setElevatedContext();
+        // DEC-02: SUPERADMIN cannot read operational finance data; the services are queried as the property administrator.
+        SaedContextHolder.setContext(SaedContext.builder()
+                .userId(2L).organizationId(1L).propertyId(propIdA)
+                .roleCode("ADMIN_PROPIEDAD").roleScope("PROPIEDAD").build());
         // 1. Verificar Flujo de Caja: El pago en PENDIENTE_APROBACION NO debe computar como ingreso
         BigDecimal totalIngresos = flujoCajaRepository.getTotalIngresos();
         assertNotNull(totalIngresos);
@@ -550,6 +553,8 @@ public class ManualPaymentApprovalSecurityTest {
     @Test
     @DisplayName("MP-17: Rechazo sin motivo obligatorio (null o vacío) falla con 400 Bad Request")
     void testRejectPaymentWithoutReasonFails() throws Exception {
+        // Unique per run: earlier runs leave PAGOS rows behind and the lookup below expects exactly one.
+        final String mp17Ref = "TEST-MP-17-REF-" + System.nanoTime();
         setElevatedContext();
         Long cuotaId = crearCuotaPrueba(unidadA1, contratoA1, conceptoCobroA, new BigDecimal("100000.00"), "2099-06");
 
@@ -558,7 +563,7 @@ public class ManualPaymentApprovalSecurityTest {
             LocalDate.now(),
             new BigDecimal("100000.00"),
             "TRANSFERENCIA",
-            "TEST-MP-17-REF"
+            mp17Ref
         );
 
         mockMvc.perform(post("/api/v1/pagos")
@@ -570,7 +575,7 @@ public class ManualPaymentApprovalSecurityTest {
 
         setElevatedContext();
         Long idPago = jdbcTemplate.queryForObject(
-            "SELECT ID_PAGO FROM PAGOS WHERE REFERENCIA_COMPROBANTE = 'TEST-MP-17-REF'", Long.class
+            "SELECT ID_PAGO FROM PAGOS WHERE REFERENCIA_COMPROBANTE = ?", Long.class, mp17Ref
         );
 
         // Intento con motivo en blanco

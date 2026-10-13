@@ -23,27 +23,36 @@ import java.util.Map;
  * que es el flujo que ya funcionaba en produccion en SAED 1.0 y que Gmail no
  * bloquea desde hosts cloud (Render). Requiere BREVO_API_KEY en el entorno.
  *
- * Sender: gestion.residencias.upc@gmail.com (verificado en Brevo).
+ * Sender: configurable via BREVO_SENDER_EMAIL / BREVO_SENDER_NAME; debe estar verificado en Brevo.
  */
 @Service
 public class EmailService {
 
     private static final String BREVO_URL = "https://api.brevo.com/v3/smtp/email";
-    private static final String BREVO_SENDER = "gestion.residencias.upc@gmail.com";
-    private static final String BREVO_SENDER_NAME = "SAED";
 
     private final TemplateRenderService templateService;
     private final ObjectMapper objectMapper;
     private final HttpClient httpClient;
     private final org.thymeleaf.TemplateEngine templateEngine;
+    /** Spring's task executor: its threads carry the application class loader, unlike the JDK common pool. */
+    private final java.util.concurrent.Executor mailExecutor;
 
     @org.springframework.beans.factory.annotation.Value("${brevo.api-key:${BREVO_API_KEY:}}")
     private String brevoApiKey;
 
-    public EmailService(TemplateRenderService templateService, ObjectMapper objectMapper, org.thymeleaf.TemplateEngine templateEngine) {
+    /** Verified Brevo sender; the neutral default keeps no real mailbox in the repository. */
+    @org.springframework.beans.factory.annotation.Value("${brevo.sender-email:${BREVO_SENDER_EMAIL:no-reply@example.invalid}}")
+    private String brevoSenderEmail;
+
+    @org.springframework.beans.factory.annotation.Value("${brevo.sender-name:${BREVO_SENDER_NAME:SAED}}")
+    private String brevoSenderName;
+
+    public EmailService(TemplateRenderService templateService, ObjectMapper objectMapper, org.thymeleaf.TemplateEngine templateEngine,
+                        @org.springframework.beans.factory.annotation.Qualifier("applicationTaskExecutor") java.util.concurrent.Executor mailExecutor) {
         this.templateService = templateService;
         this.objectMapper = objectMapper;
         this.templateEngine = templateEngine;
+        this.mailExecutor = mailExecutor;
         this.httpClient = HttpClient.newBuilder().connectTimeout(java.time.Duration.ofSeconds(15)).build();
     }
 
@@ -70,7 +79,7 @@ public class EmailService {
         }
 
         Map<String, Object> payload = new HashMap<>();
-        payload.put("sender", Map.of("name", BREVO_SENDER_NAME, "email", BREVO_SENDER));
+        payload.put("sender", Map.of("name", brevoSenderName, "email", brevoSenderEmail));
         payload.put("to", List.of(Map.of("email", destinatario)));
         payload.put("subject", asunto);
         payload.put("htmlContent", html);
@@ -143,7 +152,7 @@ public class EmailService {
                 org.slf4j.LoggerFactory.getLogger(EmailService.class)
                     .warn("Fallo en envío asíncrono de correo QR a {}: {}", destinatario, e.getMessage());
             }
-        });
+        }, mailExecutor);
     }
 
     public void enviarNotificacionPQRS(String destinatario, String radicado, String estado, String respuesta) throws Exception {
@@ -308,7 +317,7 @@ public class EmailService {
                 org.slf4j.LoggerFactory.getLogger(EmailService.class)
                         .warn("Fallo en envío asíncrono de bienvenida credenciales a {}: {}", destinatario, e.getMessage());
             }
-        });
+        }, mailExecutor);
     }
 
     public void enviarCredencialesCreadoPorUsuario(
@@ -364,6 +373,6 @@ public class EmailService {
                 org.slf4j.LoggerFactory.getLogger(EmailService.class)
                         .warn("Fallo en envío asíncrono de credenciales creadas por usuario a {}: {}", destinatario, e.getMessage());
             }
-        });
+        }, mailExecutor);
     }
 }

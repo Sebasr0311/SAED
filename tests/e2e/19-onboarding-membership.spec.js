@@ -61,7 +61,7 @@ test.describe('Onboarding y Registro de Organización (SaaS Multi-tenant)', () =
             referencia: 'SAED-TX-TEST-E2E',
             montoCentavos: 143040000,
             moneda: 'COP',
-            wompiPublicKey: 'pub_test_IZg6dmwtip4WYXjPP8G7zYvWzCU5wRaH',
+            wompiPublicKey: process.env.E2E_WOMPI_PUBLIC_KEY || 'pub_test_e2e_mock',
             firmaIntegridad: 'e2e_mock_hash',
           },
         }),
@@ -117,7 +117,7 @@ test.describe('Onboarding y Registro de Organización (SaaS Multi-tenant)', () =
     await page.locator('#tipoDoc').selectOption('CC');
     await page.locator('#numDoc').fill('1065888999');
     await page.locator('#adminUsername').fill('srincon.admin');
-    await page.locator('#adminEmail').fill('juansebastianrincon+e2e@unicesar.edu.co');
+    await page.locator('#adminEmail').fill('e2e-admin@example.invalid');
     await page.locator('#adminTel').fill('3157891234');
 
     // Verificar resumen en vivo en el panel

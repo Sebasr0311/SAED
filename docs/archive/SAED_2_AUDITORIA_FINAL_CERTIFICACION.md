@@ -35,7 +35,7 @@ SAED 2.0 alcanza un **alto nivel de conformidad funcional y de seguridad** respe
 ```
 Branch: Sebasr0311/angelfish
 HEAD: 97e533ae48fc4e44c729be2c4894b49db40d060d
-Author: srusso <srusso@unicesar.edu.co>
+Author: <redacted>
 Date: Sat Sep 12 19:26:58 2026 -0500
 Subject: security: certify SAED 2.0 authorization closure
 
@@ -429,7 +429,7 @@ AND TIPO_RESIDENTE IN ('CONVIVIENTE', 'FAMILIAR', 'OTRO')
 | `DatabaseSeeder` sin `@Profile` | `DatabaseSeeder.java` | **CRÍTICO** | ❌ ACTIVO — se ejecuta en PROD también |
 | Seeder resetea contraseña `admin_global` en cada arranque | `DatabaseSeeder.java` L103-105 | **CRÍTICO** | ❌ SECURITY DEBT SD-01 activo |
 | Wompi test keys con fallback hardcoded | `WompiServiceImpl.java`, `PublicOnboardingController.java` | **ALTO** | ⚠️ Sandbox keys en @Value fallback |
-| `application.yml` fallback `saed2026` (dev profile) | `application.yml` | **MEDIO** | Aceptable en dev, riesgo si dev corre en prod |
+| `application.yml` fallback `<redacted>` (dev profile) | `application.yml` | **MEDIO** | Aceptable en dev, riesgo si dev corre en prod |
 | `admin_global123` en fuente | `DatabaseSeeder.java`, `AuthServiceTest.java` (negativo), `tests/e2e/helpers/auth.js` | **SD-01** | AuthService SIN BYPASS — Seeder lo usa para reset |
 
 ### SD-01 Aclaración crítica:

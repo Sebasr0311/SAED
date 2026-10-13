@@ -245,7 +245,7 @@ public class EmergenciasIntegrationTest {
     private void ensureOrganizacion(long id, String nombre, String nit, String email) {
         Integer c = jdbcTemplate.queryForObject("SELECT COUNT(1) FROM ORGANIZACIONES WHERE ID_ORGANIZACION = ?", Integer.class, id);
         if (c == null || c == 0) {
-            jdbcTemplate.update("INSERT INTO ORGANIZACIONES (ID_ORGANIZACION, NOMBRE, NIT, EMAIL_CONTACTO, ESTADO) VALUES (?, ?, ?, ?, 'ACTIVA')",
+            jdbcTemplate.update("INSERT INTO ORGANIZACIONES (ID_ORGANIZACION, NOMBRE, IDENTIFICACION_FISCAL, EMAIL_CONTACTO, ESTADO) VALUES (?, ?, ?, ?, 'ACTIVA')",
                     id, nombre, nit, email);
         }
     }
@@ -703,41 +703,41 @@ public class EmergenciasIntegrationTest {
                 .andExpect(jsonPath("$[*].idPlanEmergencia", hasItem(idPlanP2.intValue())))
                 .andExpect(jsonPath("$[*].idPlanEmergencia", not(hasItem(idPlanP1.intValue()))));
 
-        // E. Anti-IDOR: Admin Propiedad 1 NO puede leer, modificar ni eliminar el plan de Propiedad 2
+        // E. Anti-IDOR (non-disclosure, DEC-01: a foreign id answers 404, not 400/403): Admin Propiedad 1 NO puede leer, modificar ni eliminar el plan de Propiedad 2
         mockMvc.perform(get("/api/v1/emergencias/planes/" + idPlanP2)
                         .header("Authorization", "Bearer " + tokenAdminProp1)
                         .header("X-Assignment-Id", ASSIGN_ADMIN_PROP_1))
-                .andExpect(status().isBadRequest()); // IllegalArgumentException mapeado a 400 por GlobalExceptionHandler
+                .andExpect(status().isNotFound()); // foreign resources are not disclosed: NoSuchElementException -> 404 (DEC-01 direct ids give 404)
 
         mockMvc.perform(put("/api/v1/emergencias/planes/" + idPlanP2)
                         .header("Authorization", "Bearer " + tokenAdminProp1)
                         .header("X-Assignment-Id", ASSIGN_ADMIN_PROP_1)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(p1)))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isNotFound());
 
         mockMvc.perform(delete("/api/v1/emergencias/planes/" + idPlanP2)
                         .header("Authorization", "Bearer " + tokenAdminProp1)
                         .header("X-Assignment-Id", ASSIGN_ADMIN_PROP_1))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isNotFound());
 
         // F. Anti-IDOR: Admin Propiedad 1 NO puede leer, modificar ni eliminar el contacto de Propiedad 2
         mockMvc.perform(get("/api/v1/emergencias/contactos/" + idContactoP2)
                         .header("Authorization", "Bearer " + tokenAdminProp1)
                         .header("X-Assignment-Id", ASSIGN_ADMIN_PROP_1))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isNotFound());
 
         mockMvc.perform(put("/api/v1/emergencias/contactos/" + idContactoP2)
                         .header("Authorization", "Bearer " + tokenAdminProp1)
                         .header("X-Assignment-Id", ASSIGN_ADMIN_PROP_1)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(c2)))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isNotFound());
 
         mockMvc.perform(delete("/api/v1/emergencias/contactos/" + idContactoP2)
                         .header("Authorization", "Bearer " + tokenAdminProp1)
                         .header("X-Assignment-Id", ASSIGN_ADMIN_PROP_1))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isNotFound());
     }
 
     // =========================================================================

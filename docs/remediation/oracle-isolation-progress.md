@@ -403,3 +403,29 @@ Defects found and fixed during this attempt:
 - Audit advice ordering (`6d44970`): the transaction advisor and the audit aspect shared the default precedence, so nesting was unspecified. A losing concurrent approval held its connection while its REQUIRES_NEW failure audit waited for another, and the timed-out audit replaced the 409 with a 503. recovery-21's clean run was ordering luck. The transaction order is now explicit: success audits run inside the transaction, failure audits run outermost after rollback, and a failing audit never replaces the business exception. The audited IP comes from `ClientRequestInfo`.
 - `ResAsambleasPage` offered proxy filing to cohabitants and requested owners/residents they may not read (403); proxy filing is now limited to owners (`975ae7e`).
 - Ley 675: DEC-11 first measured majorities over the weight cast; corrected to Art. 45 (represented coefficients) and Art. 46 (total property coefficients).
+
+## Household and gatehouse registration (resident relation, administrator account creation)
+
+- Resident registration stored `TIPO_RESIDENTE = 'TITULAR'`, a value no migration allows (`CK_RESIDUNIDAD_TIPO` is V5.0 extended with `CONVIVIENTE` by V5.9). It now stores `PROPIETARIO` or `ARRENDATARIO` from the optional `tipoResidente` request field (default `PROPIETARIO`, DEC-12); `TITULAR` was removed from the startup DDL classes and from the SQL reads.
+- A property or organization administrator could not register any new account: `FN_FILTRO_USUARIOS` (V5.64) admits only accounts that already hold an assignment, so the insert failed with ORA-28115 (HTTP 403). V5.68 (`SP_REGISTRAR_CUENTA`, security schema) creates the account row after validating the caller from the session context; the assignment is still inserted by the administrator under the policies.
+- Tests no longer alter the shared schema (`TestSchemaImmutabilityGuardTest`); the `Phase1DPersonIntegrationTest` org-admin fixture is test-owned and deterministic.
+- End-to-end scenario: `python -B scripts/verification/household_gatehouse_scenario.py <state> <container> <port>`.
+
+## recovery-29 — F0–F11 final verification on a fresh install
+
+Fresh target `saed-isolated-9e86403899fc` (run `9e86403899fc64fc333851d50eb71dc2`), migrations V5.31–V5.69 applied at the first attempt, 0 invalid objects. Everything below ran on this never-used install; nothing was validated on a reused database.
+
+| Check | Result |
+|---|---|
+| Unit tier (compile + checkstyle) | 153 classes / 1196 tests, 0 failures |
+| Harness (`scripts/verification/test_*.py`) | OK |
+| RLS predicate sweep (97 tables × 6 profiles) and context-scope probe | 0 broken, 0 failures |
+| Household/gatehouse scenario (registration, cohabitant, visitors, porter, revocation) | 22/22 in three consecutive runs |
+| Payment single-debit scenario | 15/15 ×3; concurrent approvals `[200, 409, 409, 409, 409]` |
+| Voting close scenario (Ley 675 arts. 45/46) | 64/64 ×2 |
+| Smoke, isolation matrix, role/pool, SUPERADMIN probe — run after the scenarios | 9 MATCH + 2 expected 401; 0 leaks; 0 failures; 0 server errors |
+| Backend log | 0 ERROR, 0 SERVICE_BUSY |
+| Browser route walk, 6 roles (walk serves the build itself) | 0 routes with issues |
+| Database test tier (`run_database_tier.py`) | 99 classes / 1241 tests; one stale expectation (403→404 non-disclosure) fixed and re-run: **0 failures** |
+
+Defects found and fixed between recovery-24 and recovery-29 (each with a regression test): porter could not see visitors; residents could not pre-register visitors and duplicate visitors collided (SP_RESOLVER_VISITANTE); residents could not register cohabitants (SP_REGISTRAR_CONVIVIENTE); administrators could not create accounts (SP_REGISTRAR_CUENTA); resident registration stored an invalid residence type; persons created without organization (V5.69); credentials and QR e-mails never rendered in the packaged jar (common pool); contracts unique index allowed a single non-active contract per unit; positional null binds (ORA-17004); proxy voting blocked by RLS; empty lookups answered 500; manual porter check-in silently left the visit PROGRAMADA. Verification-tool defects fixed: test DDL on the shared schema, id-range leak detector, fixture identity collisions, order-dependent database-tier fixtures, dying preview server.

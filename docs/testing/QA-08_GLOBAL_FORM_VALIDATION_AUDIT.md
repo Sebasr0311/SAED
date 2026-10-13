@@ -252,7 +252,7 @@ Se ejecutó la suite de pruebas unitarias sobre el motor de validación (`scratc
   ✓ Email sin dominio "juan@" es rechazado
   ✓ Email sin usuario "@gmail.com" es rechazado
   ✓ Email con espacios "juan @gmail.com" es rechazado
-  ✓ Email estándar "juan@gmail.com" es aceptado
+  ✓ Email estándar "juan@example.invalid" es aceptado
   ✓ Email corporativo "juan.perez@empresa.com.co" es aceptado
 
 --- 5. PRUEBAS DE DOCUMENTOS COLOMBIANOS ---

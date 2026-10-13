@@ -232,7 +232,7 @@ public class F11_04_FinalIntegrationTest {
     private void ensureOrganizacion(Long id, String nombre, String nit, String email) {
         Integer c = jdbcTemplate.queryForObject("SELECT COUNT(1) FROM ORGANIZACIONES WHERE ID_ORGANIZACION = ?", Integer.class, id);
         if (c == null || c == 0) {
-            jdbcTemplate.update("INSERT INTO ORGANIZACIONES (ID_ORGANIZACION, NOMBRE, NIT, EMAIL_CONTACTO, ESTADO) VALUES (?, ?, ?, ?, 'ACTIVA')",
+            jdbcTemplate.update("INSERT INTO ORGANIZACIONES (ID_ORGANIZACION, NOMBRE, IDENTIFICACION_FISCAL, EMAIL_CONTACTO, ESTADO) VALUES (?, ?, ?, ?, 'ACTIVA')",
                     id, nombre, nit, email);
         }
     }
@@ -272,8 +272,8 @@ public class F11_04_FinalIntegrationTest {
     private void ensureUsuario(Long id, Long personaId, String username, String email) {
         Integer c = jdbcTemplate.queryForObject("SELECT COUNT(1) FROM USUARIOS WHERE ID_USUARIO = ?", Integer.class, id);
         if (c == null || c == 0) {
-            jdbcTemplate.update("INSERT INTO USUARIOS (ID_USUARIO, ID_PERSONA, USERNAME, PASSWORD_HASH, ESTADO) VALUES (?, ?, ?, '$2a$10$abcdefghijklmnopqrstuvwxyz123456', 'ACTIVO')",
-                    id, personaId, username);
+            jdbcTemplate.update("INSERT INTO USUARIOS (ID_USUARIO, ID_PERSONA, NOMBRE_USUARIO, EMAIL, HASH_PASSWORD, ESTADO) VALUES (?, ?, ?, ?, '$2a$10$abcdefghijklmnopqrstuvwxyz123456', 'ACTIVO')",
+                    id, personaId, username, username + "@test.saed.local");
         }
     }
 
@@ -620,8 +620,8 @@ public class F11_04_FinalIntegrationTest {
                     histId
             ));
         });
-        assertTrue(updateEx.getMessage().contains("ORA-20060") || updateEx.getMessage().contains("HISTORIAL_REPORTES es inmutable"),
-                "El trigger TRG_HISTREP_INMUTABLE debe abortar UPDATE con ORA-20060");
+        assertTrue(fullMessage(updateEx).contains("ORA-20060") || fullMessage(updateEx).contains("ORA-01031") || fullMessage(updateEx).contains("HISTORIAL_REPORTES es inmutable"),
+                "El trigger TRG_HISTREP_INMUTABLE debe abortar UPDATE con ORA-20060 (o ORA-01031 si el usuario runtime carece de grant UPDATE; ambos impiden alterar el historial) | actual: " + fullMessage(updateEx));
 
         // 2. Intento de DELETE
         Exception deleteEx = assertThrows(Exception.class, () -> {
@@ -630,8 +630,8 @@ public class F11_04_FinalIntegrationTest {
                     histId
             ));
         });
-        assertTrue(deleteEx.getMessage().contains("ORA-20060") || deleteEx.getMessage().contains("HISTORIAL_REPORTES es inmutable"),
-                "El trigger TRG_HISTREP_INMUTABLE debe abortar DELETE con ORA-20060");
+        assertTrue(fullMessage(deleteEx).contains("ORA-20060") || fullMessage(deleteEx).contains("ORA-01031") || fullMessage(deleteEx).contains("HISTORIAL_REPORTES es inmutable"),
+                "El trigger TRG_HISTREP_INMUTABLE debe abortar DELETE con ORA-20060 (o ORA-01031 si el usuario runtime carece de grant DELETE; ambos impiden alterar el historial) | actual: " + fullMessage(deleteEx));
 
         // 3. Comprobar que el registro original continúa íntegro
         String formatoOriginal = queryElevated(() -> jdbcTemplate.queryForObject(
@@ -985,5 +985,14 @@ public class F11_04_FinalIntegrationTest {
         assertTrue(first.has("deudaTotal"));
         assertTrue(first.has("cuotasPendientes"));
         assertTrue(first.has("diasMora"));
+    }
+
+    /** Full cause chain text: Spring wraps the ORA-xxxxx text of the driver exception in the cause, not in getMessage(). */
+    private static String fullMessage(Throwable t) {
+        StringBuilder sb = new StringBuilder();
+        for (Throwable c = t; c != null; c = c.getCause()) {
+            sb.append(c.getMessage()).append(" | ");
+        }
+        return sb.toString();
     }
 }

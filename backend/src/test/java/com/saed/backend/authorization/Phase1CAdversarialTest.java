@@ -144,16 +144,18 @@ public class Phase1CAdversarialTest {
 
     @Test
     public void testCreateAssignment_InvalidFK_DatabaseError() throws Exception {
-        String token = jwtProvider.generateIdentityToken(1000L);
+        // c074514 / DEC-02: assignment management belongs to the organization/property administrators (SUPERADMIN gets
+        // 403), so the invalid-reference case is exercised as the organization administrator of Org 999993.
+        String token = jwtProvider.generateIdentityToken(999993L);
 
         AssignmentRequestDTO request = new AssignmentRequestDTO();
         request.setIdUsuario(9999L); // Invalid user
         request.setIdRol(2L);
-        request.setIdOrganizacion(1000L);
+        request.setIdOrganizacion(999993L);
 
         mockMvc.perform(post("/api/v1/assignments")
                 .header("Authorization", "Bearer " + token)
-                .header("X-Assignment-Id", "1000") // SUPERADMIN role uses GLOBAL assignment
+                .header("X-Assignment-Id", "999993")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())

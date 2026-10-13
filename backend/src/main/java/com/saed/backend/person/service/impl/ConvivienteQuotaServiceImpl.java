@@ -204,7 +204,7 @@ public class ConvivienteQuotaServiceImpl implements ConvivienteQuotaService {
     }
 
     private int countActiveConvivientes(Long unitId) {
-        // Excluye explícitamente titular/principal ('PROPIETARIO', 'ARRENDATARIO', 'TITULAR')
+        // Excluye explícitamente titular/principal ('PROPIETARIO', 'ARRENDATARIO')
         // Solo computan convivientes activos: ('CONVIVIENTE')
         String sql = """
             SELECT COUNT(1)

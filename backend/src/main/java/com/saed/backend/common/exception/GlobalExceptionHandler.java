@@ -160,6 +160,14 @@ public class GlobalExceptionHandler {
     // 1. CAPA DE PERSISTENCIA Y ORACLE DATABASE
     // =========================================================================
 
+    /** A single-row lookup that found nothing (absent or hidden by RLS) is a 404; absent and foreign are indistinguishable (DEC-01). */
+    @ExceptionHandler(org.springframework.dao.EmptyResultDataAccessException.class)
+    public ResponseEntity<Map<String, Object>> handleEmptyResult(org.springframework.dao.EmptyResultDataAccessException ex) {
+        Map<String, Object> response = createLoggedErrorResponse(HttpStatus.NOT_FOUND, "NOT_FOUND",
+                "El recurso solicitado no fue encontrado.");
+        return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
+    }
+
     @ExceptionHandler(DataAccessException.class)
     public ResponseEntity<Map<String, Object>> handleDatabaseException(DataAccessException ex) {
         logFailureDiagnostic(ex);

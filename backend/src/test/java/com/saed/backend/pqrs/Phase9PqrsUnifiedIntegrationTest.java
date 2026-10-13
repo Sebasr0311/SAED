@@ -231,7 +231,7 @@ public class Phase9PqrsUnifiedIntegrationTest {
     private void ensureOrganizacion(Long id, String nombre, String nit, String email) {
         Integer c = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM ORGANIZACIONES WHERE ID_ORGANIZACION = ?", Integer.class, id);
         if (c == null || c == 0) {
-            jdbcTemplate.update("INSERT INTO ORGANIZACIONES (ID_ORGANIZACION, NOMBRE, NIT, EMAIL_CONTACTO, ESTADO) VALUES (?, ?, ?, ?, 'ACTIVA')",
+            jdbcTemplate.update("INSERT INTO ORGANIZACIONES (ID_ORGANIZACION, NOMBRE, IDENTIFICACION_FISCAL, EMAIL_CONTACTO, ESTADO) VALUES (?, ?, ?, ?, 'ACTIVA')",
                     id, nombre, nit, email);
         }
     }
@@ -247,8 +247,8 @@ public class Phase9PqrsUnifiedIntegrationTest {
     private void ensureUnidad(Long idUnidad, Long idProp, String ident) {
         Integer c = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM UNIDADES WHERE ID_UNIDAD = ?", Integer.class, idUnidad);
         if (c == null || c == 0) {
-            jdbcTemplate.update("INSERT INTO UNIDADES (ID_UNIDAD, ID_PROPIEDAD, IDENTIFICADOR, TIPO_UNIDAD, COEFICIENTE_COPROPIEDAD, ESTADO) " +
-                    "VALUES (?, ?, ?, 'RESIDENCIAL', 0.05, 'DISPONIBLE')", idUnidad, idProp, ident);
+            jdbcTemplate.update("INSERT INTO UNIDADES (ID_UNIDAD, ID_PROPIEDAD, ID_TIPO_UNIDAD, IDENTIFICADOR, COEFICIENTE_COPROPIEDAD, ESTADO) " +
+                    "VALUES (?, ?, 1, ?, 0.05, 'ACTIVA')", idUnidad, idProp, ident);
         }
     }
 
@@ -263,7 +263,7 @@ public class Phase9PqrsUnifiedIntegrationTest {
     private void ensureUsuario(Long idUsuario, Long idPersona, String username, String email) {
         Integer c = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM USUARIOS WHERE ID_USUARIO = ?", Integer.class, idUsuario);
         if (c == null || c == 0) {
-            jdbcTemplate.update("INSERT INTO USUARIOS (ID_USUARIO, ID_PERSONA, USERNAME, EMAIL, PASSWORD_HASH, ESTADO) " +
+            jdbcTemplate.update("INSERT INTO USUARIOS (ID_USUARIO, ID_PERSONA, NOMBRE_USUARIO, EMAIL, HASH_PASSWORD, ESTADO) " +
                     "VALUES (?, ?, ?, ?, '$2a$10$abcdefghijklmnopqrstuvwxyz123456', 'ACTIVO')", idUsuario, idPersona, username, email);
         }
     }
@@ -1109,8 +1109,9 @@ public class Phase9PqrsUnifiedIntegrationTest {
         mockMvc.perform(get("/api/v1/pqrs/" + idTicket)
                 .header("Authorization", "Bearer " + tokenAdmin2)
                 .header("X-Assignment-Id", String.valueOf(ASSIGN_ADMIN_PROP_2)))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message", containsString("no encontrado para la propiedad activa")));
+                // Non-disclosure: a ticket of another property is indistinguishable from a missing one (404, as in Test 24).
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message", containsString("Ticket PQRS no encontrado")));
     }
 
     @Test
@@ -1140,8 +1141,9 @@ public class Phase9PqrsUnifiedIntegrationTest {
                 .header("Authorization", "Bearer " + tokenAdmin2)
                 .header("X-Assignment-Id", String.valueOf(ASSIGN_ADMIN_PROP_2))
                 .param("estado", "EN_GESTION"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message", containsString("no encontrado para la propiedad activa")));
+                // Non-disclosure: a ticket of another property is indistinguishable from a missing one (404, as in Test 24).
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message", containsString("Ticket PQRS no encontrado")));
     }
 
     @Test

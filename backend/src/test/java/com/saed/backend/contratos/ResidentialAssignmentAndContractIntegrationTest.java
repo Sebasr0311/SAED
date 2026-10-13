@@ -82,8 +82,9 @@ public class ResidentialAssignmentAndContractIntegrationTest {
     private static final Long PERSONA_RESIDENTE = 998821L;
     private static final Long PERSONA_PROPIETARIO = 998822L;
 
-    private static final Long PLANTILLA_ACTIVA_ID = 998831L;
-    private static final Long PLANTILLA_BORRADOR_ID = 998832L;
+    // ID_PLANTILLA is an ALWAYS-generated identity, so the ids are read back after the insert.
+    private Long plantillaActivaId;
+    private Long plantillaBorradorId;
 
     @BeforeEach
     public void setUp() {
@@ -101,14 +102,14 @@ public class ResidentialAssignmentAndContractIntegrationTest {
         try {
             jdbcTemplate.update("""
                 MERGE INTO ORGANIZACIONES o 
-                USING (SELECT 998801 AS id, 'Org Residencial A' AS n, '900008801-1' AS if, 'adminA@test.com' AS ec FROM DUAL) s 
+                USING (SELECT 998801 AS id, 'Org Residencial A' AS n, 'RA-900008801-1' AS if, 'ra.adminA@test.com' AS ec FROM DUAL) s 
                 ON (o.ID_ORGANIZACION = s.id) 
                 WHEN NOT MATCHED THEN INSERT (ID_ORGANIZACION, NOMBRE, IDENTIFICACION_FISCAL, EMAIL_CONTACTO) VALUES (s.id, s.n, s.if, s.ec) 
                 WHEN MATCHED THEN UPDATE SET o.EMAIL_CONTACTO = s.ec
             """);
             jdbcTemplate.update("""
                 MERGE INTO ORGANIZACIONES o 
-                USING (SELECT 998802 AS id, 'Org Foranea B' AS n, '900008802-2' AS if, 'adminB@test.com' AS ec FROM DUAL) s 
+                USING (SELECT 998802 AS id, 'Org Foranea B' AS n, 'RA-900008802-2' AS if, 'ra.adminB@test.com' AS ec FROM DUAL) s 
                 ON (o.ID_ORGANIZACION = s.id) 
                 WHEN NOT MATCHED THEN INSERT (ID_ORGANIZACION, NOMBRE, IDENTIFICACION_FISCAL, EMAIL_CONTACTO) VALUES (s.id, s.n, s.if, s.ec) 
                 WHEN MATCHED THEN UPDATE SET o.EMAIL_CONTACTO = s.ec
@@ -148,26 +149,26 @@ public class ResidentialAssignmentAndContractIntegrationTest {
             // 3. Personas y Usuarios de Administrador
             jdbcTemplate.update("""
                 MERGE INTO PERSONAS p 
-                USING (SELECT 998811 AS id, 1 AS td, 'CC998811' AS doc, 'NATURAL' AS tp, 'adminA@test.com' AS em, 'AdminProp' AS n, 'A' AS a FROM DUAL) s 
+                USING (SELECT 998811 AS id, 1 AS td, 'CC998811' AS doc, 'NATURAL' AS tp, 'ra.adminA@test.com' AS em, 'AdminProp' AS n, 'A' AS a FROM DUAL) s 
                 ON (p.ID_PERSONA = s.id) 
                 WHEN NOT MATCHED THEN INSERT (ID_PERSONA, ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, EMAIL, PRIMER_NOMBRE, PRIMER_APELLIDO) VALUES (s.id, s.td, s.doc, s.tp, s.em, s.n, s.a)
             """);
             jdbcTemplate.update("""
                 MERGE INTO USUARIOS u 
-                USING (SELECT 998811 AS id, 998811 AS p, 'admin_prop_a_test' AS u, 'adminA@test.com' AS em, '$2a$10$Y8yWwG2uR38jM8eIq0f6oOV3/1vM7Z13GkIefw7U9M/P0FqX3q4P3' AS h, 'ACTIVO' AS st FROM DUAL) s 
+                USING (SELECT 998811 AS id, 998811 AS p, 'ra_admin_prop_a_test' AS u, 'ra.adminA@test.com' AS em, '$2a$10$Y8yWwG2uR38jM8eIq0f6oOV3/1vM7Z13GkIefw7U9M/P0FqX3q4P3' AS h, 'ACTIVO' AS st FROM DUAL) s 
                 ON (u.ID_USUARIO = s.id) 
                 WHEN NOT MATCHED THEN INSERT (ID_USUARIO, ID_PERSONA, NOMBRE_USUARIO, EMAIL, HASH_PASSWORD, ESTADO) VALUES (s.id, s.p, s.u, s.em, s.h, s.st)
             """);
 
             jdbcTemplate.update("""
                 MERGE INTO PERSONAS p 
-                USING (SELECT 998812 AS id, 1 AS td, 'CC998812' AS doc, 'NATURAL' AS tp, 'adminB@test.com' AS em, 'AdminProp' AS n, 'B' AS a FROM DUAL) s 
+                USING (SELECT 998812 AS id, 1 AS td, 'CC998812' AS doc, 'NATURAL' AS tp, 'ra.adminB@test.com' AS em, 'AdminProp' AS n, 'B' AS a FROM DUAL) s 
                 ON (p.ID_PERSONA = s.id) 
                 WHEN NOT MATCHED THEN INSERT (ID_PERSONA, ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, EMAIL, PRIMER_NOMBRE, PRIMER_APELLIDO) VALUES (s.id, s.td, s.doc, s.tp, s.em, s.n, s.a)
             """);
             jdbcTemplate.update("""
                 MERGE INTO USUARIOS u 
-                USING (SELECT 998812 AS id, 998812 AS p, 'admin_prop_b_test' AS u, 'adminB@test.com' AS em, '$2a$10$Y8yWwG2uR38jM8eIq0f6oOV3/1vM7Z13GkIefw7U9M/P0FqX3q4P3' AS h, 'ACTIVO' AS st FROM DUAL) s 
+                USING (SELECT 998812 AS id, 998812 AS p, 'ra_admin_prop_b_test' AS u, 'ra.adminB@test.com' AS em, '$2a$10$Y8yWwG2uR38jM8eIq0f6oOV3/1vM7Z13GkIefw7U9M/P0FqX3q4P3' AS h, 'ACTIVO' AS st FROM DUAL) s 
                 ON (u.ID_USUARIO = s.id) 
                 WHEN NOT MATCHED THEN INSERT (ID_USUARIO, ID_PERSONA, NOMBRE_USUARIO, EMAIL, HASH_PASSWORD, ESTADO) VALUES (s.id, s.p, s.u, s.em, s.h, s.st)
             """);
@@ -175,16 +176,19 @@ public class ResidentialAssignmentAndContractIntegrationTest {
             // 4. Personas para pruebas de asignación residencial
             jdbcTemplate.update("""
                 MERGE INTO PERSONAS p 
-                USING (SELECT 998821 AS id, 1 AS td, 'CC998821' AS doc, 'NATURAL' AS tp, 'residente@test.com' AS em, 'Carlos' AS n, 'Arrendatario' AS a FROM DUAL) s 
+                USING (SELECT 998821 AS id, 1 AS td, 'CC998821' AS doc, 'NATURAL' AS tp, 'ra.residente@test.com' AS em, 'Carlos' AS n, 'Arrendatario' AS a FROM DUAL) s 
                 ON (p.ID_PERSONA = s.id) 
                 WHEN NOT MATCHED THEN INSERT (ID_PERSONA, ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, EMAIL, PRIMER_NOMBRE, PRIMER_APELLIDO) VALUES (s.id, s.td, s.doc, s.tp, s.em, s.n, s.a)
             """);
             jdbcTemplate.update("""
                 MERGE INTO PERSONAS p 
-                USING (SELECT 998822 AS id, 1 AS td, 'CC998822' AS doc, 'NATURAL' AS tp, 'propietario@test.com' AS em, 'Gloria' AS n, 'Propietaria' AS a FROM DUAL) s 
+                USING (SELECT 998822 AS id, 1 AS td, 'CC998822' AS doc, 'NATURAL' AS tp, 'ra.propietario@test.com' AS em, 'Gloria' AS n, 'Propietaria' AS a FROM DUAL) s 
                 ON (p.ID_PERSONA = s.id) 
                 WHEN NOT MATCHED THEN INSERT (ID_PERSONA, ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, EMAIL, PRIMER_NOMBRE, PRIMER_APELLIDO) VALUES (s.id, s.td, s.doc, s.tp, s.em, s.n, s.a)
             """);
+
+            // b4f0179: a tenant must belong to the organization of the unit's property to be accepted in a contract.
+            jdbcTemplate.update("UPDATE PERSONAS SET ID_ORGANIZACION = 998801 WHERE ID_PERSONA IN (998821, 998822)");
 
             // 5. Asignaciones reales en Oracle para que SaedDataSourceProxy / PKG_SAED_SESSION no lance ORA-20080
             Long idRolProp = jdbcTemplate.queryForObject("SELECT ID_ROL FROM ROLES WHERE CODIGO = 'ADMIN_PROPIEDAD'", Long.class);
@@ -205,19 +209,23 @@ public class ResidentialAssignmentAndContractIntegrationTest {
             }
 
             // 7. Plantillas contractuales
-            jdbcTemplate.update("DELETE FROM PLANTILLAS_CONTRATOS WHERE ID_PLANTILLA IN (998831, 998832)");
+            jdbcTemplate.update("DELETE FROM PLANTILLAS_CONTRATOS WHERE ID_ORGANIZACION = 998801 AND CODIGO IN ('TPL_TEST_ACTIVA', 'TPL_TEST_BORRADOR')");
             jdbcTemplate.update("""
-                INSERT INTO PLANTILLAS_CONTRATOS (ID_PLANTILLA, ID_ORGANIZACION, CODIGO, NOMBRE, TIPO_CONTRATO, CONTENIDO_HTML, ESTADO, VERSION, CREADO_POR) 
-                VALUES (998831, 998801, 'TPL_TEST_ACTIVA', 'Plantilla Residencial Activa', 'INICIAL', 
+                INSERT INTO PLANTILLAS_CONTRATOS (ID_ORGANIZACION, CODIGO, NOMBRE, TIPO_CONTRATO, CONTENIDO_HTML, ESTADO, VERSION, CREADO_POR) 
+                VALUES (998801, 'TPL_TEST_ACTIVA', 'Plantilla Residencial Activa', 'INICIAL', 
                         '<html><head><style>body{font-family:sans-serif;}</style></head><body><h1>CONTRATO DE ARRENDAMIENTO</h1><p>Arrendatario: ${residente.nombreCompleto}</p><p>Documento: ${residente.numeroDocumento}</p><p>Inmueble: ${unidad.identificador}</p><p>Canon: ${contrato.canon_mensual}</p></body></html>', 
                         'ACTIVA', 1, 998811)
             """);
             jdbcTemplate.update("""
-                INSERT INTO PLANTILLAS_CONTRATOS (ID_PLANTILLA, ID_ORGANIZACION, CODIGO, NOMBRE, TIPO_CONTRATO, CONTENIDO_HTML, ESTADO, VERSION, CREADO_POR) 
-                VALUES (998832, 998801, 'TPL_TEST_BORRADOR', 'Plantilla Residencial Borrador', 'INICIAL', 
+                INSERT INTO PLANTILLAS_CONTRATOS (ID_ORGANIZACION, CODIGO, NOMBRE, TIPO_CONTRATO, CONTENIDO_HTML, ESTADO, VERSION, CREADO_POR) 
+                VALUES (998801, 'TPL_TEST_BORRADOR', 'Plantilla Residencial Borrador', 'INICIAL', 
                         '<html><body><h1>BORRADOR NO VALIDO</h1></body></html>', 
                         'BORRADOR', 1, 998811)
             """);
+            plantillaActivaId = jdbcTemplate.queryForObject(
+                    "SELECT ID_PLANTILLA FROM PLANTILLAS_CONTRATOS WHERE ID_ORGANIZACION = 998801 AND CODIGO = 'TPL_TEST_ACTIVA'", Long.class);
+            plantillaBorradorId = jdbcTemplate.queryForObject(
+                    "SELECT ID_PLANTILLA FROM PLANTILLAS_CONTRATOS WHERE ID_ORGANIZACION = 998801 AND CODIGO = 'TPL_TEST_BORRADOR'", Long.class);
         } catch (Exception e) {
             System.err.println("ERROR SETUP SEEDING: " + e.getMessage());
             e.printStackTrace();
@@ -366,7 +374,7 @@ public class ResidentialAssignmentAndContractIntegrationTest {
         payload.put("canonMensual", new BigDecimal("1750000.00"));
         payload.put("fechaInicio", "2026-10-01");
         payload.put("fechaFin", "2027-09-30");
-        payload.put("idPlantilla", PLANTILLA_ACTIVA_ID);
+        payload.put("idPlantilla", plantillaActivaId);
 
         mockMvc.perform(post("/api/v1/residentes/" + PERSONA_RESIDENTE + "/asignar-apartamento")
                 .header("Authorization", "Bearer " + token)
@@ -415,7 +423,7 @@ public class ResidentialAssignmentAndContractIntegrationTest {
         payload.put("crearContrato", true);
         payload.put("canonMensual", new BigDecimal("-500.00"));
         payload.put("fechaInicio", "2026-10-01");
-        payload.put("idPlantilla", PLANTILLA_ACTIVA_ID);
+        payload.put("idPlantilla", plantillaActivaId);
 
         mockMvc.perform(post("/api/v1/residentes/" + PERSONA_RESIDENTE + "/asignar-apartamento")
                 .header("Authorization", "Bearer " + token)
@@ -447,7 +455,7 @@ public class ResidentialAssignmentAndContractIntegrationTest {
         payload.put("canonMensual", new BigDecimal("1500000.00"));
         payload.put("fechaInicio", "2026-10-15");
         payload.put("fechaFin", "2026-10-01"); // Fecha fin anterior
-        payload.put("idPlantilla", PLANTILLA_ACTIVA_ID);
+        payload.put("idPlantilla", plantillaActivaId);
 
         mockMvc.perform(post("/api/v1/residentes/" + PERSONA_RESIDENTE + "/asignar-apartamento")
                 .header("Authorization", "Bearer " + token)
@@ -471,7 +479,7 @@ public class ResidentialAssignmentAndContractIntegrationTest {
         payload.put("crearContrato", true);
         payload.put("canonMensual", new BigDecimal("1500000.00"));
         payload.put("fechaInicio", "2026-10-01");
-        payload.put("idPlantilla", PLANTILLA_BORRADOR_ID); // Estado BORRADOR
+        payload.put("idPlantilla", plantillaBorradorId); // Estado BORRADOR
 
         mockMvc.perform(post("/api/v1/residentes/" + PERSONA_RESIDENTE + "/asignar-apartamento")
                 .header("Authorization", "Bearer " + token)

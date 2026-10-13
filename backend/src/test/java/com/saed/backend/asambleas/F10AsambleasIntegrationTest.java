@@ -124,6 +124,7 @@ public class F10AsambleasIntegrationTest {
                         SELECT ID_ASAMBLEA FROM ASAMBLEAS WHERE TITULO LIKE 'ASAMBLEA-TEST-%'
                     );
                     DELETE FROM ASAMBLEAS WHERE TITULO LIKE 'ASAMBLEA-TEST-%';
+                    DELETE FROM PROPIETARIOS_UNIDAD WHERE ID_UNIDAD IN (9101, 9102, 9103, 9201);
                 END;
             """);
 
@@ -168,6 +169,11 @@ public class F10AsambleasIntegrationTest {
             ensureAsignacion(ASSIGN_RESIDENTE, USER_RESIDENTE, "RESIDENTE", ORG_1_ID, PROP_1_ID, UNIDAD_1_ID);
             ensureAsignacion(ASSIGN_PORTERO, USER_PORTERO, "PORTERO", ORG_1_ID, PROP_1_ID, null);
 
+            // DEC-03: only the unit's active legal owner (PROPIETARIOS_UNIDAD) may attend, grant a proxy or vote; the demo
+            // seed has no owner rows, so the units used here get their own owners.
+            ensurePropietario(UNIDAD_1_ID, USER_RESIDENTE);
+            ensurePropietario(UNIDAD_2_ID, USER_ADMIN_PROP_1); // DEC-03: the voter is the caller itself, so the administrator who votes is the owner of unit 2
+
             setupMockAssignments();
 
             tokenSuperAdmin = jwtProvider.generateIdentityToken(USER_SUPERADMIN);
@@ -204,6 +210,7 @@ public class F10AsambleasIntegrationTest {
                         SELECT ID_ASAMBLEA FROM ASAMBLEAS WHERE TITULO LIKE 'ASAMBLEA-TEST-%'
                     );
                     DELETE FROM ASAMBLEAS WHERE TITULO LIKE 'ASAMBLEA-TEST-%';
+                    DELETE FROM PROPIETARIOS_UNIDAD WHERE ID_UNIDAD IN (9101, 9102, 9103, 9201);
                 END;
             """);
         } catch (Exception ignored) {}
@@ -291,7 +298,7 @@ public class F10AsambleasIntegrationTest {
     private void ensureOrganizacion(long id, String nombre, String nit, String email) {
         Integer c = jdbcTemplate.queryForObject("SELECT COUNT(1) FROM ORGANIZACIONES WHERE ID_ORGANIZACION = ?", Integer.class, id);
         if (c == null || c == 0) {
-            jdbcTemplate.update("INSERT INTO ORGANIZACIONES (ID_ORGANIZACION, NOMBRE, NIT, EMAIL_CONTACTO, ESTADO) VALUES (?, ?, ?, ?, 'ACTIVA')",
+            jdbcTemplate.update("INSERT INTO ORGANIZACIONES (ID_ORGANIZACION, NOMBRE, IDENTIFICACION_FISCAL, EMAIL_CONTACTO, ESTADO) VALUES (?, ?, ?, ?, 'ACTIVA')",
                     id, nombre, nit, email);
         }
     }
@@ -311,7 +318,7 @@ public class F10AsambleasIntegrationTest {
             jdbcTemplate.update("INSERT INTO UNIDADES (ID_UNIDAD, ID_PROPIEDAD, ID_TIPO_UNIDAD, IDENTIFICADOR, COEFICIENTE_COPROPIEDAD, ESTADO) VALUES (?, ?, 1, ?, ?, 'ACTIVA')",
                     id, propId, identificador, coeficiente);
         } else {
-            jdbcTemplate.update("UPDATE UNIDADES SET COEFICIENTE_COPROPIEDAD = ? WHERE ID_UNIDAD = ?", coeficiente, id);
+            jdbcTemplate.update("UPDATE UNIDADES SET ID_PROPIEDAD = ?, COEFICIENTE_COPROPIEDAD = ? WHERE ID_UNIDAD = ?", propId, coeficiente, id);
         }
     }
 
@@ -322,14 +329,39 @@ public class F10AsambleasIntegrationTest {
                             "VALUES (?, 1, ?, ?, ?, ?, 'ACTIVO')",
                     id, doc, nombre, apellido, email);
         }
+        // A proxy (apoderado) must belong to the assembly's organization (AsambleaServiceImpl.radicarPoder).
+        jdbcTemplate.update("UPDATE PERSONAS SET ID_ORGANIZACION = ? WHERE ID_PERSONA = ? AND ID_ORGANIZACION IS NULL", ORG_1_ID, id);
     }
 
     private void ensureUsuario(long id, long idPersona, String username, String email) {
         Integer c = jdbcTemplate.queryForObject("SELECT COUNT(1) FROM USUARIOS WHERE ID_USUARIO = ?", Integer.class, id);
         if (c == null || c == 0) {
-            jdbcTemplate.update("INSERT INTO USUARIOS (ID_USUARIO, ID_PERSONA, USERNAME, EMAIL, PASSWORD_HASH, ESTADO) " +
+            jdbcTemplate.update("INSERT INTO USUARIOS (ID_USUARIO, ID_PERSONA, NOMBRE_USUARIO, EMAIL, HASH_PASSWORD, ESTADO) " +
                             "VALUES (?, ?, ?, ?, '$2a$10$abcdefghijklmnopqrstuvwxyzABCDEF12345678901234567890', 'ACTIVO')",
                     id, idPersona, username, email);
+        }
+    }
+
+    private void registrarAsistenciaPropietario(Long idAsamblea, long idUnidad, long idPersona) throws Exception {
+        mockMvc.perform(post("/api/v1/asambleas/" + idAsamblea + "/asistencias")
+                        .header("Authorization", "Bearer " + tokenAdminProp1)
+                        .header("X-Assignment-Id", ASSIGN_ADMIN_PROP_1)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(AsistenciaRequestDTO.builder()
+                                .idUnidad(idUnidad)
+                                .idPersonaAsistente(idPersona)
+                                .esPropietarioDirecto("S")
+                                .build())))
+                .andExpect(status().isCreated());
+    }
+
+    private void ensurePropietario(long idUnidad, long idPersona) {
+        Integer c = jdbcTemplate.queryForObject(
+                "SELECT COUNT(1) FROM PROPIETARIOS_UNIDAD WHERE ID_UNIDAD = ? AND ID_PERSONA = ? AND ESTADO = 'ACTIVO'",
+                Integer.class, idUnidad, idPersona);
+        if (c == null || c == 0) {
+            jdbcTemplate.update("INSERT INTO PROPIETARIOS_UNIDAD (ID_UNIDAD, ID_PERSONA, PORCENTAJE_PROPIEDAD, ES_PRINCIPAL, FECHA_INICIO, ESTADO) "
+                    + "VALUES (?, ?, 100, 'S', TRUNC(SYSDATE) - 1, 'ACTIVO')", idUnidad, idPersona);
         }
     }
 
@@ -660,7 +692,7 @@ public class F10AsambleasIntegrationTest {
         // 3. Registrar Unidad 2 (coeficiente 30%)
         AsistenciaRequestDTO asis2 = AsistenciaRequestDTO.builder()
                 .idUnidad(UNIDAD_2_ID)
-                .idPersonaAsistente(USER_ADMIN_PROP_1B)
+                .idPersonaAsistente(USER_ADMIN_PROP_1)
                 .esPropietarioDirecto("S")
                 .coeficientePonderado(BigDecimal.valueOf(30.000000))
                 .build();
@@ -784,7 +816,7 @@ public class F10AsambleasIntegrationTest {
                 .build();
         AsistenciaRequestDTO asis2 = AsistenciaRequestDTO.builder()
                 .idUnidad(UNIDAD_2_ID)
-                .idPersonaAsistente(USER_ADMIN_PROP_1B)
+                .idPersonaAsistente(USER_ADMIN_PROP_1)
                 .esPropietarioDirecto("S")
                 .coeficientePonderado(BigDecimal.valueOf(30.000000))
                 .build();
@@ -944,6 +976,10 @@ public class F10AsambleasIntegrationTest {
         // Mover a EN_CURSO
         actualizarEstado(id, "EN_CURSO", tokenAdminProp1, ASSIGN_ADMIN_PROP_1);
 
+        // DEC-03: a unit votes only with registered attendance of its owner.
+        registrarAsistenciaPropietario(id, UNIDAD_1_ID, USER_RESIDENTE);
+        registrarAsistenciaPropietario(id, UNIDAD_2_ID, USER_ADMIN_PROP_1);
+
         // 1. Crear punto de votación
         VotacionCreateRequestDTO votReq = VotacionCreateRequestDTO.builder()
                 .puntoOrdenDia(1)
@@ -991,7 +1027,7 @@ public class F10AsambleasIntegrationTest {
         // 4. Emitir Voto Unidad 2 (NO)
         VotoRequestDTO voto2 = VotoRequestDTO.builder()
                 .idUnidad(UNIDAD_2_ID)
-                .idPersonaVotante(USER_ADMIN_PROP_1B)
+                .idPersonaVotante(USER_ADMIN_PROP_1)
                 .opcionVoto("NO")
                 .coeficienteVoto(BigDecimal.valueOf(10.000000))
                 .build();
@@ -1009,7 +1045,9 @@ public class F10AsambleasIntegrationTest {
                         .header("X-Assignment-Id", ASSIGN_ADMIN_PROP_1))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.estado").value("CERRADA"))
-                .andExpect(jsonPath("$.aprobada").value(true)); // 25 > 10
+                // DEC-11 (Ley 675 art. 45): SIMPLE_50_MAS_1 needs SI > 50% of the coefficients represented in the session;
+                // SI 25% of the 55% represented (units 1 and 2) is 45.5%, so the point is rejected.
+                .andExpect(jsonPath("$.aprobada").value(false));
     }
 
     // =========================================================================
@@ -1241,7 +1279,7 @@ public class F10AsambleasIntegrationTest {
             try {
                 AsistenciaRequestDTO asis = AsistenciaRequestDTO.builder()
                         .idUnidad(UNIDAD_2_ID)
-                        .idPersonaAsistente(USER_ADMIN_PROP_1B)
+                        .idPersonaAsistente(USER_ADMIN_PROP_1)
                         .esPropietarioDirecto("S")
                         .coeficientePonderado(BigDecimal.valueOf(30.000000))
                         .build();

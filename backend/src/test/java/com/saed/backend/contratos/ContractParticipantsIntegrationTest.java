@@ -126,28 +126,27 @@ public class ContractParticipantsIntegrationTest {
                     + "PKG_SAED_SESSION.SET_CONTEXT(1, 1, 1, 'SUPERADMIN'); END;");
         } catch (Exception ignored) {}
 
-        // Limpiar registros previos de prueba
+        // Limpiar registros previos de prueba. The seeded active contracts 1 and 2 (demo tenants of Apto 101/102) are
+        // set aside for the duration of each test and restored in tearDown; only rows created above the seeded ids
+        // (contracts > 2, fees > 3) are removed.
         cleanTestTables();
+        ensureParkingUnit(9949L);
+            ensureParkingUnit(9950L);
+            jdbcTemplate.update("UPDATE CONTRATOS SET ID_UNIDAD = 9948 + ID_CONTRATO WHERE ID_CONTRATO IN (1, 2) AND ID_UNIDAD = ID_CONTRATO");
 
         // Asegurar entidades multi-tenant
         ensureOrganizacion(1L, "Organización Central", "900000001-1", "org1@test.com");
         ensurePropiedad(1L, 1L, "Edificio Residencial SAED");
-        ensureUnidad(1L, 1L, "Apto 101");
-        ensureUnidad(2L, 1L, "Apto 102");
+        ensureUnidad(UNIT_1_ID, 1L, "Apto 101");
+        ensureUnidad(UNIT_2_ID, 1L, "Apto 102");
 
         ensureOrganizacion(9992L, "Organización Foránea", "900009992-9", "org9992@test.com");
         ensurePropiedad(9992L, 9992L, "Propiedad 9992 Test");
         ensureUnidad(9992L, 9992L, "Apto 9992");
 
         // Asegurar Personas con fechas de nacimiento
-        ensurePersona(1L, "1000000001", "Super", "Admin", "superadmin@saed.com", LocalDate.now().minusYears(35));
-        ensureUsuario(1L, 1L, "superadmin", "superadmin@saed.com");
-
-        ensurePersona(2L, "1000000002", "Admin", "Propiedad", "admin@saed.com", LocalDate.now().minusYears(38));
-        ensureUsuario(2L, 2L, "admin", "admin@saed.com");
-
-        ensurePersona(4L, "1000000004", "Carlos", "Martinez", "camartinez@saed.com", LocalDate.now().minusYears(30));
-        ensureUsuario(4L, 4L, "carlos_m", "camartinez@saed.com");
+        // Users 1, 2 and 4 (and their personas) come from the demo seed and are not rewritten here.
+        jdbcTemplate.update("UPDATE PERSONAS SET ID_ORGANIZACION = 1 WHERE ID_PERSONA IN (4, 5) AND ID_ORGANIZACION IS NULL");
 
         ensurePersona(8L, "1000000008", "AdminOrg1", "SAED", "admin_org1@saed.com", LocalDate.now().minusYears(40));
         ensureUsuario(8L, 8L, "admin_org1", "admin_org1@saed.com");
@@ -166,6 +165,14 @@ public class ContractParticipantsIntegrationTest {
 
         // Relación de tutoría en TUTORES
         ensureTutorRelation(PERSONA_MENOR_1, PERSONA_TUTOR_1, "MADRE");
+        // V5.58: TUTORES rows are only visible for minors that live in a unit of the active property, so the minor is
+        // a resident of the test unit (the household link is removed again by cleanTestTables).
+        Integer minorLinked = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM RESIDENTES_UNIDAD WHERE ID_UNIDAD = ? AND ID_PERSONA = ?", Integer.class, UNIT_1_ID, PERSONA_MENOR_1);
+        if (minorLinked == null || minorLinked == 0) {
+            jdbcTemplate.update("INSERT INTO RESIDENTES_UNIDAD (ID_UNIDAD, ID_PERSONA, TIPO_RESIDENTE, FECHA_INICIO, ESTADO) "
+                    + "VALUES (?, ?, 'CONVIVIENTE', TRUNC(SYSDATE), 'ACTIVO')", UNIT_1_ID, PERSONA_MENOR_1);
+        }
 
         // Membresías activas
         seedMemberships();
@@ -187,6 +194,9 @@ public class ContractParticipantsIntegrationTest {
     public void tearDown() {
         cleanTestTables();
         try {
+            jdbcTemplate.update("UPDATE CONTRATOS SET ID_UNIDAD = ID_CONTRATO WHERE ID_CONTRATO IN (1, 2) AND ID_UNIDAD = 9948 + ID_CONTRATO");
+        } catch (Exception ignored) {}
+        try {
             jdbcTemplate.execute("BEGIN PKG_SAED_SESSION.CLEAR_CONTEXT; END;");
         } catch (Exception ignored) {}
         SaedContextHolder.clearContext();
@@ -200,11 +210,11 @@ public class ContractParticipantsIntegrationTest {
 
             jdbcTemplate.execute("""
                 BEGIN
-                    DELETE FROM CONTRATO_RESIDENTE WHERE ID_CONTRATO IN (SELECT ID_CONTRATO FROM CONTRATOS WHERE ID_UNIDAD IN (1, 2, 9992));
-                    DELETE FROM PAGO_DETALLE WHERE ID_CUOTA IN (SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 9992));
-                    DELETE FROM MULTAS WHERE ID_CUOTA IN (SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 9992)) OR ID_UNIDAD IN (1, 2, 9992);
-                    DELETE FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 9992);
-                    DELETE FROM CONTRATOS WHERE ID_UNIDAD IN (1, 2, 9992);
+                    DELETE FROM CONTRATO_RESIDENTE WHERE ID_CONTRATO IN (SELECT ID_CONTRATO FROM CONTRATOS WHERE ID_UNIDAD IN (1, 2, 9992) AND ID_CONTRATO > 2);
+                    DELETE FROM PAGO_DETALLE WHERE ID_CUOTA IN (SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 9992) AND ID_CUOTA > 3);
+                    DELETE FROM MULTAS WHERE ID_CUOTA IN (SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 9992) AND ID_CUOTA > 3);
+                    DELETE FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 9992) AND ID_CUOTA > 3;
+                    DELETE FROM CONTRATOS WHERE ID_UNIDAD IN (1, 2, 9992) AND ID_CONTRATO > 2;
                     DELETE FROM RESIDENTES_UNIDAD WHERE ID_UNIDAD IN (1, 2, 9992) AND ID_PERSONA IN (20, 21, 22, 23);
                 END;
             """);
@@ -593,13 +603,13 @@ public class ContractParticipantsIntegrationTest {
 
         Long contratoId = ((Number) objectMapper.readValue(createRes.getResponse().getContentAsString(), Map.class).get("id")).longValue();
 
-        // Admin Prop 2 intenta listar coarrendatarios del contrato de Prop 1 -> 403 FORBIDDEN
+        // Admin Prop 2 intenta listar coarrendatarios del contrato de Prop 1 -> 404 NOT FOUND
         mockMvc.perform(get("/api/v1/contratos-admin/coarrendatarios/" + contratoId)
                 .header("Authorization", "Bearer " + tokenAdminProp2)
                 .header("X-Assignment-Id", String.valueOf(ASSIGN_ADMIN_PROP_2)))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isNotFound()); // non-disclosure (DEC-01)
 
-        // Admin Prop 2 intenta agregar coarrendatario al contrato de Prop 1 -> 403 FORBIDDEN
+        // Admin Prop 2 intenta agregar coarrendatario al contrato de Prop 1 -> 404 NOT FOUND
         CoarrendatarioCreateDTO addDto = new CoarrendatarioCreateDTO(
                 contratoId,
                 PERSONA_COARRENDATARIO_1,
@@ -613,7 +623,7 @@ public class ContractParticipantsIntegrationTest {
                 .header("X-Assignment-Id", String.valueOf(ASSIGN_ADMIN_PROP_2))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(addDto)))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isNotFound()); // non-disclosure (DEC-01)
     }
 
     @Test
@@ -729,6 +739,8 @@ public class ContractParticipantsIntegrationTest {
                     "UPDATE PERSONAS SET NUMERO_DOCUMENTO = ?, PRIMER_NOMBRE = ?, PRIMER_APELLIDO = ?, EMAIL = ?, FECHA_NACIMIENTO = ? WHERE ID_PERSONA = ?",
                     doc, nombre, apellido, email, sqlBirth, id);
         }
+        // b4f0179: a tenant must belong to the organization of the unit's property to be accepted in a contract.
+        jdbcTemplate.update("UPDATE PERSONAS SET ID_ORGANIZACION = 1 WHERE ID_PERSONA = ? AND ID_ORGANIZACION IS NULL", id);
     }
 
     private void ensureUsuario(long id, long personaId, String username, String email) {
@@ -774,10 +786,6 @@ public class ContractParticipantsIntegrationTest {
                     jdbcTemplate.update(
                             "INSERT INTO MEMBRESIAS (ID_ORGANIZACION, ID_PLAN, ESTADO, FECHA_INICIO, FECHA_FIN, ES_PRUEBA) " +
                             "VALUES (1, ?, 'ACTIVA', TRUNC(SYSDATE), TRUNC(SYSDATE) + 365, 'N')",
-                            defaultPlanId);
-                } else {
-                    jdbcTemplate.update(
-                            "UPDATE MEMBRESIAS SET ID_PLAN = ?, ESTADO = 'ACTIVA', FECHA_FIN = TRUNC(SYSDATE) + 365 WHERE ID_ORGANIZACION = 1",
                             defaultPlanId);
                 }
 
@@ -835,19 +843,12 @@ public class ContractParticipantsIntegrationTest {
                 SELECT ID_ROL INTO v_rol_prop  FROM ROLES WHERE CODIGO = 'ADMIN_PROPIEDAD';
                 SELECT ID_ROL INTO v_rol_res   FROM ROLES WHERE CODIGO = 'RESIDENTE';
 
-                DELETE FROM USUARIO_ASIGNACIONES WHERE ID_ASIGNACION IN (101, 102, 301, 981, 991, 104)
-                    OR (ID_USUARIO = 1 AND ID_ROL = v_rol_super)
-                    OR (ID_USUARIO = 2 AND ID_ROL = v_rol_prop AND NVL(ID_ORGANIZACION, -1) = 1 AND NVL(ID_PROPIEDAD, -1) = 1)
+                -- Assignments 101 (user 1), 102 (user 2) and 104 (user 4) belong to the demo seed and are left untouched;
+                -- only the assignments of this suite's own users (8, 98, 99) are recreated.
+                DELETE FROM USUARIO_ASIGNACIONES WHERE ID_ASIGNACION IN (301, 981, 991)
                     OR (ID_USUARIO = 8 AND ID_ROL = v_rol_org AND NVL(ID_ORGANIZACION, -1) = 1)
                     OR (ID_USUARIO = 98 AND ID_ROL = v_rol_org AND NVL(ID_ORGANIZACION, -1) = 9992)
-                    OR (ID_USUARIO = 99 AND ID_ROL = v_rol_prop AND NVL(ID_ORGANIZACION, -1) = 9992 AND NVL(ID_PROPIEDAD, -1) = 9992)
-                    OR (ID_USUARIO = 4 AND ID_ROL = v_rol_res AND NVL(ID_UNIDAD, -1) = 1);
-
-                INSERT INTO USUARIO_ASIGNACIONES (ID_ASIGNACION, ID_USUARIO, ID_ROL, ID_ORGANIZACION, ID_PROPIEDAD, ESTADO, FECHA_INICIO)
-                VALUES (101, 1, v_rol_super, NULL, NULL, 'ACTIVA', TRUNC(SYSDATE));
-
-                INSERT INTO USUARIO_ASIGNACIONES (ID_ASIGNACION, ID_USUARIO, ID_ROL, ID_ORGANIZACION, ID_PROPIEDAD, ESTADO, FECHA_INICIO)
-                VALUES (102, 2, v_rol_prop, 1, 1, 'ACTIVA', TRUNC(SYSDATE));
+                    OR (ID_USUARIO = 99 AND ID_ROL = v_rol_prop AND NVL(ID_ORGANIZACION, -1) = 9992 AND NVL(ID_PROPIEDAD, -1) = 9992);
 
                 INSERT INTO USUARIO_ASIGNACIONES (ID_ASIGNACION, ID_USUARIO, ID_ROL, ID_ORGANIZACION, ID_PROPIEDAD, ESTADO, FECHA_INICIO)
                 VALUES (301, 8, v_rol_org, 1, NULL, 'ACTIVA', TRUNC(SYSDATE));
@@ -857,10 +858,16 @@ public class ContractParticipantsIntegrationTest {
 
                 INSERT INTO USUARIO_ASIGNACIONES (ID_ASIGNACION, ID_USUARIO, ID_ROL, ID_ORGANIZACION, ID_PROPIEDAD, ESTADO, FECHA_INICIO)
                 VALUES (991, 99, v_rol_prop, 9992, 9992, 'ACTIVA', TRUNC(SYSDATE));
-
-                INSERT INTO USUARIO_ASIGNACIONES (ID_ASIGNACION, ID_USUARIO, ID_ROL, ID_ORGANIZACION, ID_PROPIEDAD, ID_UNIDAD, ESTADO, FECHA_INICIO)
-                VALUES (104, 4, v_rol_res, 1, 1, 1, 'ACTIVA', TRUNC(SYSDATE));
             END;
         """);
+    }
+
+    /** Parking units for the seeded contracts while a test owns the demo units (ID_UNIDAD of a contract is moved, not its state: the
+     *  unique index UIX_CONTRATOS_ACTIVO_UNIDAD admits a single non-active contract per unit). */
+    private void ensureParkingUnit(long id) {
+        Integer c = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM UNIDADES WHERE ID_UNIDAD = ?", Integer.class, id);
+        if (c == null || c == 0) {
+            jdbcTemplate.update("INSERT INTO UNIDADES (ID_UNIDAD, ID_PROPIEDAD, ID_TIPO_UNIDAD, IDENTIFICADOR, ESTADO) VALUES (?, 1, 1, ?, 'ACTIVA')", id, "Parking-" + id);
+        }
     }
 }

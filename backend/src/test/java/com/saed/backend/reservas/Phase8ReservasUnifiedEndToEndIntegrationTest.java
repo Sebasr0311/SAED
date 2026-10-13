@@ -12,6 +12,7 @@ import com.saed.backend.reservas.dto.UpdateZonaComunDTO;
 import com.saed.backend.reservas.dto.ZonaComunDTO;
 import com.saed.backend.reservas.repository.ReservasRepository;
 import com.saed.backend.security.jwt.JwtProvider;
+import com.saed.backend.testsupport.CohabitantFixture;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -130,9 +131,11 @@ public class Phase8ReservasUnifiedEndToEndIntegrationTest {
                     DELETE FROM RESERVAS WHERE ID_UNIDAD IN (1, 2, 701);
                     DELETE FROM PAZ_Y_SALVOS WHERE ID_UNIDAD IN (1, 2, 701);
                     DELETE FROM PAGO_DETALLE WHERE ID_CUOTA IN (SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 701));
+                    UPDATE MULTAS SET ID_CUOTA = NULL WHERE ID_UNIDAD IN (1, 2, 701);
+                    DELETE FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 701) AND ID_CUOTA > 3;
                     DELETE FROM MULTAS WHERE ID_UNIDAD IN (1, 2, 701);
-                    DELETE FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 701);
-                    DELETE FROM CARTERA WHERE ID_UNIDAD IN (1, 2, 701);
+                    DELETE FROM CARTERA WHERE ID_UNIDAD IN (1, 2, 701) AND ID_CARTERA > 4;
+                    UPDATE CUOTAS SET ESTADO = 'ANULADA' WHERE ID_CUOTA = 2 AND ESTADO <> 'ANULADA';
                 END;
             """);
 
@@ -167,12 +170,11 @@ public class Phase8ReservasUnifiedEndToEndIntegrationTest {
             ensureAsignacion(ASSIGN_ADMIN_PROP_1, USER_ADMIN_PROP_1, "ADMIN_PROPIEDAD", ORG_1_ID, PROP_1_ID, null);
             ensureAsignacion(ASSIGN_RESIDENTE_1, USER_RESIDENTE_1, "RESIDENTE", ORG_1_ID, PROP_1_ID, UNIT_1_ID);
             ensureAsignacion(ASSIGN_RESIDENTE_2, USER_RESIDENTE_2, "RESIDENTE", ORG_1_ID, PROP_1_ID, UNIT_2_ID);
-            ensureAsignacion(ASSIGN_CONVIVIENTE_1, USER_CONVIVIENTE_1, "RESIDENTE", ORG_1_ID, PROP_1_ID, UNIT_2_ID);
+            CohabitantFixture.ensure(jdbcTemplate, ASSIGN_CONVIVIENTE_1, USER_CONVIVIENTE_1, ORG_1_ID, PROP_1_ID, UNIT_2_ID);
             ensureAsignacion(ASSIGN_RESIDENTE_3, USER_RESIDENTE_3, "RESIDENTE", ORG_1_ID, PROP_1_ID, UNIT_3_ID);
 
             ensureResidenteUnidad(UNIT_1_ID, USER_RESIDENTE_1, "PROPIETARIO");
             ensureResidenteUnidad(UNIT_2_ID, USER_RESIDENTE_2, "PROPIETARIO");
-            ensureResidenteUnidad(UNIT_2_ID, USER_CONVIVIENTE_1, "CONVIVIENTE");
             ensureResidenteUnidad(UNIT_3_ID, USER_RESIDENTE_3, "PROPIETARIO");
 
             // Recalcular carteras al día por defecto para unidades 2 y 3
@@ -202,9 +204,11 @@ public class Phase8ReservasUnifiedEndToEndIntegrationTest {
                     DELETE FROM RESERVAS WHERE ID_UNIDAD IN (1, 2, 701);
                     DELETE FROM PAZ_Y_SALVOS WHERE ID_UNIDAD IN (1, 2, 701);
                     DELETE FROM PAGO_DETALLE WHERE ID_CUOTA IN (SELECT ID_CUOTA FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 701));
+                    UPDATE CUOTAS SET ESTADO = 'PENDIENTE' WHERE ID_CUOTA = 2 AND ESTADO = 'ANULADA';
+                    UPDATE MULTAS SET ID_CUOTA = NULL WHERE ID_UNIDAD IN (1, 2, 701);
+                    DELETE FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 701) AND ID_CUOTA > 3;
                     DELETE FROM MULTAS WHERE ID_UNIDAD IN (1, 2, 701);
-                    DELETE FROM CUOTAS WHERE ID_UNIDAD IN (1, 2, 701);
-                    DELETE FROM CARTERA WHERE ID_UNIDAD IN (1, 2, 701);
+                    DELETE FROM CARTERA WHERE ID_UNIDAD IN (1, 2, 701) AND ID_CARTERA > 4;
                 END;
             """);
         } catch (Exception ignored) {}
@@ -722,7 +726,7 @@ public class Phase8ReservasUnifiedEndToEndIntegrationTest {
     private void ensureOrganizacion(Long id, String nombre, String nit, String email) {
         Integer c = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM ORGANIZACIONES WHERE ID_ORGANIZACION = ?", Integer.class, id);
         if (c == null || c == 0) {
-            jdbcTemplate.update("INSERT INTO ORGANIZACIONES (ID_ORGANIZACION, NOMBRE, NIT, EMAIL_CONTACTO, ESTADO) VALUES (?, ?, ?, ?, 'ACTIVA')",
+            jdbcTemplate.update("INSERT INTO ORGANIZACIONES (ID_ORGANIZACION, NOMBRE, IDENTIFICACION_FISCAL, EMAIL_CONTACTO, ESTADO) VALUES (?, ?, ?, ?, 'ACTIVA')",
                     id, nombre, nit, email);
         }
     }
@@ -730,8 +734,8 @@ public class Phase8ReservasUnifiedEndToEndIntegrationTest {
     private void ensurePropiedad(Long id, Long idOrg, String nombre) {
         Integer c = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM PROPIEDADES WHERE ID_PROPIEDAD = ?", Integer.class, id);
         if (c == null || c == 0) {
-            jdbcTemplate.update("INSERT INTO PROPIEDADES (ID_PROPIEDAD, ID_ORGANIZACION, NOMBRE, DIRECCION, CIUDAD, TIPO_OCUPACION_PREDOMINANTE, ESTADO) " +
-                    "VALUES (?, ?, ?, 'Calle 123', 'Bogotá', 'RESIDENCIAL', 'ACTIVA')", id, idOrg, nombre);
+            jdbcTemplate.update("INSERT INTO PROPIEDADES (ID_PROPIEDAD, ID_ORGANIZACION, ID_TIPO_PROPIEDAD, NOMBRE, DIRECCION, CIUDAD, TIPO_OCUPACION_PREDOMINANTE, ESTADO) " +
+                    "VALUES (?, ?, 1, ?, 'Calle 123', 'Bogotá', 'MIXTA', 'ACTIVA')", id, idOrg, nombre);
         }
     }
 
@@ -746,15 +750,15 @@ public class Phase8ReservasUnifiedEndToEndIntegrationTest {
     private void ensurePersona(Long id, String doc, String nombre, String apellido, String email) {
         Integer c = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM PERSONAS WHERE ID_PERSONA = ?", Integer.class, id);
         if (c == null || c == 0) {
-            jdbcTemplate.update("INSERT INTO PERSONAS (ID_PERSONA, NUMERO_DOCUMENTO, PRIMER_NOMBRE, PRIMER_APELLIDO, EMAIL) " +
-                    "VALUES (?, ?, ?, ?, ?)", id, doc, nombre, apellido, email);
+            jdbcTemplate.update("INSERT INTO PERSONAS (ID_PERSONA, ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, PRIMER_NOMBRE, PRIMER_APELLIDO, EMAIL) " +
+                    "VALUES (?, 1, ?, ?, ?, ?)", id, doc, nombre, apellido, email);
         }
     }
 
     private void ensureUsuario(Long id, Long idPersona, String username, String email) {
         Integer c = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM USUARIOS WHERE ID_USUARIO = ?", Integer.class, id);
         if (c == null || c == 0) {
-            jdbcTemplate.update("INSERT INTO USUARIOS (ID_USUARIO, ID_PERSONA, USERNAME, EMAIL, PASSWORD_HASH, ESTADO) " +
+            jdbcTemplate.update("INSERT INTO USUARIOS (ID_USUARIO, ID_PERSONA, NOMBRE_USUARIO, EMAIL, HASH_PASSWORD, ESTADO) " +
                     "VALUES (?, ?, ?, ?, '$2a$10$abcdefghijklmnopqrstuvwxyz123456', 'ACTIVO')", id, idPersona, username, email);
         }
     }

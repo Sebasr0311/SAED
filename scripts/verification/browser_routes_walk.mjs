@@ -3,16 +3,49 @@
 // (the screen calls an endpoint its own role may not use), uncaught page errors and blank screens.
 // Never prints passwords or tokens.
 //
-// Usage (repo root): node scripts/verification/browser_routes_walk.mjs <state> <frontend-url> [usernames,...]
+// Usage (repo root): node scripts/verification/browser_routes_walk.mjs <state> <frontend-url|serve> [usernames,...]
+// With "serve" the walk itself serves local/isolated-oracle/<state>/dist (a `vite build` with VITE_API_BASE_URL=/api/v1)
+// and proxies /api to the isolated backend from port.txt, in this same process: no separate dev server can die mid-walk.
 import { createRequire } from 'node:module';
-import { readFileSync, writeFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { createServer, request as httpRequest } from 'node:http';
+import { extname, join, normalize, resolve } from 'node:path';
 
 const require = createRequire(resolve('frontend/package.json'));
 const { chromium } = require('playwright');
 
-const [, , stateName, baseUrl = 'http://127.0.0.1:5199', only] = process.argv;
+const [, , stateName, target = 'http://127.0.0.1:5199', only] = process.argv;
 const state = JSON.parse(readFileSync(join('local', 'isolated-oracle', stateName, 'private-state.json'), 'utf-8'));
+
+const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png',
+  '.ico': 'image/x-icon', '.json': 'application/json', '.woff2': 'font/woff2', '.woff': 'font/woff', '.jpg': 'image/jpeg' };
+
+async function serveBuild() {
+  const dist = resolve('local', 'isolated-oracle', stateName, 'dist');
+  const backendPort = Number(readFileSync(join('local', 'isolated-oracle', stateName, 'port.txt'), 'utf-8').trim());
+  const server = createServer((req, res) => {
+    if (req.url.startsWith('/api/')) {
+      const upstream = httpRequest({ host: '127.0.0.1', port: backendPort, path: req.url, method: req.method,
+        headers: { ...req.headers, host: `127.0.0.1:${backendPort}` } }, (up) => {
+        res.writeHead(up.statusCode, up.headers);
+        up.pipe(res);
+      });
+      upstream.on('error', () => { res.writeHead(502); res.end(); });
+      req.pipe(upstream);
+      return;
+    }
+    const path = normalize(join(dist, decodeURIComponent(req.url.split('?')[0])));
+    const file = path.startsWith(dist) && existsSync(path) && extname(path) ? path : join(dist, 'index.html');
+    res.writeHead(200, { 'Content-Type': MIME[extname(file)] || 'application/octet-stream' });
+    res.end(readFileSync(file));
+  });
+  // 5199 is the only origin the isolated profile allows for CORS (application-isolated.yml).
+  await new Promise((ok) => server.listen(5199, '127.0.0.1', ok));
+  return { server, url: `http://127.0.0.1:${server.address().port}` };
+}
+
+const served = target === 'serve' ? await serveBuild() : null;
+const baseUrl = served ? served.url : target;
 const PUBLIC = new Set(['/', '/suscripciones', '/planes', '/login', '/activar-cuenta', '/registro-organizacion', '/checkout-plan', '/onboarding', '/app']);
 const routes = [...new Set([...readFileSync('frontend/src/App.jsx', 'utf-8').matchAll(/path="([^"]+)"/g)]
   .map((m) => (m[1].startsWith('/') ? m[1] : `/${m[1]}`))
@@ -72,6 +105,7 @@ for (const username of users) {
   await context.close();
 }
 await browser.close();
+if (served) served.server.close();
 writeFileSync(join('local', 'isolated-oracle', stateName, 'browser-routes.json'), JSON.stringify(report, null, 2));
 
 let defects = 0;

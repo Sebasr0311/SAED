@@ -58,17 +58,17 @@ COMMIT;
 -- 4. RESIDENTES
 -- =============================================================================
 INSERT INTO RESIDENTES (id_residente, id_tipo_doc, numero_documento, nombres, apellidos, fecha_nacimiento, telefono, email, foto_url, fecha_ingreso, es_menor_edad, activo, fecha_registro, actualizado_en)
-VALUES (SEC_RESIDENTES.NEXTVAL, 1, '10456789', 'Carlos Andrés', 'Pérez Ramos', DATE '1990-03-15', '3001234567', 'carlos.perez@gmail.com', 'https://saed.storage/fotos/r1.jpg', DATE '2024-01-01', 0, 1, SYSTIMESTAMP, SYSTIMESTAMP);
+VALUES (SEC_RESIDENTES.NEXTVAL, 1, '10456789', 'Carlos Andrés', 'Pérez Ramos', DATE '1990-03-15', '3000000001', 'carlos.perez@example.invalid', 'https://saed.storage/fotos/r1.jpg', DATE '2024-01-01', 0, 1, SYSTIMESTAMP, SYSTIMESTAMP);
 INSERT INTO RESIDENTES (id_residente, id_tipo_doc, numero_documento, nombres, apellidos, fecha_nacimiento, telefono, email, foto_url, fecha_ingreso, es_menor_edad, activo, fecha_registro, actualizado_en)
-VALUES (SEC_RESIDENTES.NEXTVAL, 1, '52678901', 'María Fernanda', 'Ruiz Torres', DATE '1993-07-22', '3109876543', 'maria.ruiz@hotmail.com', 'https://saed.storage/fotos/r2.jpg', DATE '2024-01-01', 0, 1, SYSTIMESTAMP, SYSTIMESTAMP);
+VALUES (SEC_RESIDENTES.NEXTVAL, 1, '52678901', 'María Fernanda', 'Ruiz Torres', DATE '1993-07-22', '3000000002', 'maria.ruiz@example.invalid', 'https://saed.storage/fotos/r2.jpg', DATE '2024-01-01', 0, 1, SYSTIMESTAMP, SYSTIMESTAMP);
 INSERT INTO RESIDENTES (id_residente, id_tipo_doc, numero_documento, nombres, apellidos, fecha_nacimiento, telefono, email, foto_url, fecha_ingreso, es_menor_edad, activo, fecha_registro, actualizado_en)
-VALUES (SEC_RESIDENTES.NEXTVAL, 1, '80234567', 'Jhon Sebastián', 'Martínez López', DATE '1985-11-08', '3156781234', 'jhon.martinez@outlook.com', 'https://saed.storage/fotos/r3.jpg', DATE '2023-06-01', 0, 1, SYSTIMESTAMP, SYSTIMESTAMP);
+VALUES (SEC_RESIDENTES.NEXTVAL, 1, '80234567', 'Jhon Sebastián', 'Martínez López', DATE '1985-11-08', '3000000003', 'jhon.martinez@example.invalid', 'https://saed.storage/fotos/r3.jpg', DATE '2023-06-01', 0, 1, SYSTIMESTAMP, SYSTIMESTAMP);
 INSERT INTO RESIDENTES (id_residente, id_tipo_doc, numero_documento, nombres, apellidos, fecha_nacimiento, telefono, email, foto_url, fecha_ingreso, es_menor_edad, activo, fecha_registro, actualizado_en)
-VALUES (SEC_RESIDENTES.NEXTVAL, 1, '43567890', 'Luisa Valentina', 'Gómez Ríos', DATE '1991-05-30', '3204567890', 'luisa.gomez@gmail.com', NULL, DATE '2023-06-01', 0, 1, SYSTIMESTAMP, SYSTIMESTAMP);
+VALUES (SEC_RESIDENTES.NEXTVAL, 1, '43567890', 'Luisa Valentina', 'Gómez Ríos', DATE '1991-05-30', '3000000004', 'luisa.gomez@example.invalid', NULL, DATE '2023-06-01', 0, 1, SYSTIMESTAMP, SYSTIMESTAMP);
 INSERT INTO RESIDENTES (id_residente, id_tipo_doc, numero_documento, nombres, apellidos, fecha_nacimiento, telefono, email, foto_url, fecha_ingreso, es_menor_edad, activo, fecha_registro, actualizado_en)
-VALUES (SEC_RESIDENTES.NEXTVAL, 1, '71890123', 'Pedro Antonio', 'Soto Vargas', DATE '1978-02-14', '3012345678', 'pedro.soto@empresa.com', NULL, DATE '2022-03-01', 0, 1, SYSTIMESTAMP, SYSTIMESTAMP);
+VALUES (SEC_RESIDENTES.NEXTVAL, 1, '71890123', 'Pedro Antonio', 'Soto Vargas', DATE '1978-02-14', '3000000005', 'pedro.soto@example.invalid', NULL, DATE '2022-03-01', 0, 1, SYSTIMESTAMP, SYSTIMESTAMP);
 INSERT INTO RESIDENTES (id_residente, id_tipo_doc, numero_documento, nombres, apellidos, fecha_nacimiento, telefono, email, foto_url, fecha_ingreso, es_menor_edad, activo, fecha_registro, actualizado_en)
-VALUES (SEC_RESIDENTES.NEXTVAL, 1, '36789012', 'Ana Lucía', 'Morales Peña', DATE '1970-09-25', '3175678901', 'ana.morales@correo.co', NULL, DATE '2024-01-01', 0, 1, SYSTIMESTAMP, SYSTIMESTAMP);
+VALUES (SEC_RESIDENTES.NEXTVAL, 1, '36789012', 'Ana Lucía', 'Morales Peña', DATE '1970-09-25', '3000000006', 'ana.morales@example.invalid', NULL, DATE '2024-01-01', 0, 1, SYSTIMESTAMP, SYSTIMESTAMP);
 -- Menor de edad
 INSERT INTO RESIDENTES (id_residente, id_tipo_doc, numero_documento, nombres, apellidos, fecha_nacimiento, telefono, email, fecha_ingreso, es_menor_edad, activo, fecha_registro, actualizado_en)
 VALUES (SEC_RESIDENTES.NEXTVAL, 5, '1234567890', 'Miguel Ángel', 'Torres Soto', DATE '2010-06-12', NULL, NULL, DATE '2022-03-01', 1, 1, SYSTIMESTAMP, SYSTIMESTAMP);
@@ -165,7 +165,7 @@ COMMIT;
 INSERT INTO TUTORES (id_tutor, id_residente_menor, id_tipo_doc, numero_documento, nombres, apellidos, parentesco, telefono, email, fecha_registro, actualizado_en)
 VALUES (SEC_TUTORES.NEXTVAL,
         (SELECT id_residente FROM RESIDENTES WHERE numero_documento='1234567890'),
-        1, '71890123', 'Pedro Antonio', 'Soto Vargas', 'PADRE', '3012345678', 'pedro.soto@empresa.com',
+        1, '71890123', 'Pedro Antonio', 'Soto Vargas', 'PADRE', '3000000005', 'pedro.soto@example.invalid',
         SYSTIMESTAMP, SYSTIMESTAMP);
 COMMIT;
 
@@ -243,15 +243,15 @@ COMMIT;
 -- 11. VISITANTES
 -- =============================================================================
 INSERT INTO VISITANTES (id_visitante, id_tipo_doc, numero_documento, nombres, apellidos, telefono, activo, fecha_registro, actualizado_en)
-VALUES (SEC_VISITANTES.NEXTVAL, 1, '1098765432', 'Laura Camila', 'Díaz Suárez', '3113456789', 1, SYSTIMESTAMP, SYSTIMESTAMP);
+VALUES (SEC_VISITANTES.NEXTVAL, 1, '1098765432', 'Laura Camila', 'Díaz Suárez', '3000000007', 1, SYSTIMESTAMP, SYSTIMESTAMP);
 INSERT INTO VISITANTES (id_visitante, id_tipo_doc, numero_documento, nombres, apellidos, telefono, activo, fecha_registro, actualizado_en)
-VALUES (SEC_VISITANTES.NEXTVAL, 1, '9876543210', 'Roberto', 'Castillo Medina', '3184567890', 1, SYSTIMESTAMP, SYSTIMESTAMP);
+VALUES (SEC_VISITANTES.NEXTVAL, 1, '9876543210', 'Roberto', 'Castillo Medina', '3000000008', 1, SYSTIMESTAMP, SYSTIMESTAMP);
 INSERT INTO VISITANTES (id_visitante, id_tipo_doc, numero_documento, nombres, apellidos, telefono, activo, fecha_registro, actualizado_en)
 VALUES (SEC_VISITANTES.NEXTVAL, 4, 'PAS-78901234', 'Emily', 'Johnson', NULL, 1, SYSTIMESTAMP, SYSTIMESTAMP);
 INSERT INTO VISITANTES (id_visitante, id_tipo_doc, numero_documento, nombres, apellidos, telefono, activo, fecha_registro, actualizado_en)
-VALUES (SEC_VISITANTES.NEXTVAL, 1, '19234567', 'Fernando', 'Ospina Lara', '3001239876', 1, SYSTIMESTAMP, SYSTIMESTAMP);
+VALUES (SEC_VISITANTES.NEXTVAL, 1, '19234567', 'Fernando', 'Ospina Lara', '3000000009', 1, SYSTIMESTAMP, SYSTIMESTAMP);
 INSERT INTO VISITANTES (id_visitante, id_tipo_doc, numero_documento, nombres, apellidos, telefono, activo, fecha_registro, actualizado_en)
-VALUES (SEC_VISITANTES.NEXTVAL, 2, 'CE-456789', 'Jean Pierre', 'Dupont', '3170987654', 1, SYSTIMESTAMP, SYSTIMESTAMP);
+VALUES (SEC_VISITANTES.NEXTVAL, 2, 'CE-456789', 'Jean Pierre', 'Dupont', '3000000010', 1, SYSTIMESTAMP, SYSTIMESTAMP);
 COMMIT;
 
 -- =============================================================================
