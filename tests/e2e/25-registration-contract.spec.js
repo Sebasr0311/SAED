@@ -25,7 +25,7 @@ async function openFixture(page, accountCreated) {
       }
       const data = accountCreated
         ? { idUsuario: 77, accountCreated: true, username: 'synthetic-user',
-          passwordGenerada: 'synthetic-generated-value', email: 'synthetic@example.invalid' }
+          email: 'synthetic@example.invalid' }
         : { idUsuario: 77, accountCreated: false, rol: 'RESIDENTE_CONVIVENCIA' };
       await route.fulfill({ status: 201, contentType: 'application/json',
         body: JSON.stringify({ success: true, data }) });
@@ -51,19 +51,25 @@ test('reusing an existing identity reports binding without displaying replacemen
   const requests = await openFixture(page, false);
   await page.getByRole('button', { name: /Registrar/i }).click();
   await expect(page.getByText(/sin modificar.*credenciales/i)).toBeVisible();
-  await expect(page.getByRole('dialog', { name: /credenciales/i })).toHaveCount(0);
-  await expect(page.getByText(/enviado.*credenciales.*correo/i)).toHaveCount(0);
+  await expect(page.getByRole('dialog', { name: /credenciales|activación/i })).toHaveCount(0);
+  await expect(page.getByText(/enlace de activación.*(enviado|correo)/i)).toHaveCount(0);
   expect(requests).toHaveLength(1);
   expect(requests[0].idUnidad).toBe(1000);
   expect(requests[0].rol).toBe('RESIDENTE_CONVIVENCIA');
+  expect(requests[0]).not.toHaveProperty('password');
 });
 
-test('new identity reports new credentials while retaining the explicit unit request', async ({ page }) => {
+test('new identity confirms an activation link was sent and never displays a password', async ({ page }) => {
   const requests = await openFixture(page, true);
   await page.getByRole('button', { name: /Registrar/i }).click();
-  await expect(page.getByText('synthetic-generated-value')).toBeVisible();
+  const dialog = page.getByRole('dialog', { name: /Enlace de activación enviado/i });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByText('synthetic@example.invalid')).toBeVisible();
+  await expect(dialog.getByRole('button', { name: /Reenviar enlace/i })).toBeVisible();
+  await expect(dialog.getByText(/contraseña temporal/i)).toHaveCount(0);
   expect(requests).toHaveLength(1);
   expect(requests[0].idUnidad).toBe(1000);
+  expect(requests[0]).not.toHaveProperty('password');
 });
 
 test('a rejected registration remains visible as an error without displaying credentials', async ({ page }) => {
@@ -71,6 +77,6 @@ test('a rejected registration remains visible as an error without displaying cre
   await page.getByRole('button', { name: /Registrar/i }).click();
   await expect(page.getByText('No tiene autorización sobre el destino del registro')).toBeVisible();
   await expect(page.getByRole('dialog', { name: /Registrar Residente/i })).toBeVisible();
-  await expect(page.getByRole('dialog', { name: /credenciales/i })).toHaveCount(0);
+  await expect(page.getByRole('dialog', { name: /credenciales|activación/i })).toHaveCount(0);
   expect(requests).toHaveLength(1);
 });

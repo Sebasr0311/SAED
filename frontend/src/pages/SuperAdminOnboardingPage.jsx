@@ -54,8 +54,6 @@ export default function SuperAdminOnboardingPage() {
   const [resendModal, setResendModal] = useState(false);
   const [selectedItemForResend, setSelectedItemForResend] = useState(null);
   const [resendEmail, setResendEmail] = useState('');
-  const [resendMode, setResendMode] = useState('AUTO'); // 'AUTO' o 'MANUAL'
-  const [resendManualPass, setResendManualPass] = useState('');
   const [resending, setResending] = useState(false);
   const [resendResult, setResendResult] = useState(null);
 
@@ -191,8 +189,6 @@ export default function SuperAdminOnboardingPage() {
   function openResendModal(item) {
     setSelectedItemForResend(item);
     setResendEmail(item.adminEmail || '');
-    setResendMode('AUTO');
-    setResendManualPass('');
     setResendResult(null);
     setResendModal(true);
   }
@@ -203,10 +199,6 @@ export default function SuperAdminOnboardingPage() {
       toast.error('El correo de destino es obligatorio');
       return;
     }
-    if (resendMode === 'MANUAL' && resendManualPass.trim().length < 6) {
-      toast.error('La contraseña manual debe tener al menos 6 caracteres');
-      return;
-    }
 
     try {
       setResending(true);
@@ -215,8 +207,6 @@ export default function SuperAdminOnboardingPage() {
         idOrganizacion: selectedItemForResend.idOrganizacion,
         idUsuario: selectedItemForResend.idUsuario,
         emailDestino: resendEmail.trim(),
-        generarNuevaPassword: resendMode === 'AUTO',
-        passwordManual: resendMode === 'MANUAL' ? resendManualPass.trim() : null,
       };
 
       const res = await api.post('/platform/onboarding/reenviar-correo', payload);
@@ -224,15 +214,15 @@ export default function SuperAdminOnboardingPage() {
       setResendResult(data);
 
       if (data.estado === 'ENVIADO') {
-        toast.success('¡Correo de credenciales despachado exitosamente vía Brevo!');
+        toast.success('Enlace de activación enviado. La persona definirá su propia contraseña.');
       } else if (data.estado === 'SIMULADO') {
-        toast.info('Correo procesado en modo simulación (local). Credenciales listas para copiar.');
+        toast.info('Correo procesado en modo simulación (local). No se envió ningún mensaje real.');
       } else {
         toast.warning('El envío falló en el proveedor: ' + (data.detalle || ''));
       }
       loadData();
     } catch (err) {
-      toast.error(err?.response?.data?.message || 'Error al reenviar credenciales');
+      toast.error(err?.response?.data?.message || 'Error al reenviar el enlace de activación');
     } finally {
       setResending(false);
     }
@@ -710,7 +700,7 @@ export default function SuperAdminOnboardingPage() {
                               size="sm"
                               className="h-8 px-2.5 gap-1.5 text-xs text-foreground hover:bg-muted"
                               onClick={() => openResendModal(item)}
-                              title="Reenviar correo de bienvenida y credenciales"
+                              title="Reenviar enlace de activación"
                             >
                               <Mail className="h-3.5 w-3.5 text-primary" />
                               <span className="hidden xl:inline">Reenviar</span>
@@ -850,10 +840,10 @@ export default function SuperAdminOnboardingPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-foreground">
               <Mail className="h-5 w-5 text-primary" />
-              Reenviar Correo de Bienvenida
+              Reenviar Enlace de Activación
             </DialogTitle>
             <DialogDescription className="text-muted-foreground text-xs">
-              Envía nuevamente las instrucciones y credenciales de acceso para esta suscripción.
+              Envía nuevamente el enlace de activación de la cuenta de esta suscripción.
             </DialogDescription>
           </DialogHeader>
 
@@ -893,64 +883,10 @@ export default function SuperAdminOnboardingPage() {
                 </p>
               </div>
 
-              {/* Modo de Contraseña */}
-              <div className="space-y-2">
-                <Label className="text-xs">Estrategia de Credenciales</Label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setResendMode('AUTO')}
-                    className={`p-2.5 rounded-lg border text-left text-xs transition-colors ${
-                      resendMode === 'AUTO'
-                        ? 'border-primary bg-primary/10 text-primary font-medium'
-                        : 'border-border bg-background text-muted-foreground hover:bg-muted/50'
-                    }`}
-                  >
-                    <div className="font-semibold flex items-center gap-1">
-                      <Sparkles className="h-3.5 w-3.5" />
-                      Generar Nueva
-                    </div>
-                    <span className="text-[11px] opacity-80 mt-0.5 block">
-                      Crea clave temporal segura
-                    </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setResendMode('MANUAL')}
-                    className={`p-2.5 rounded-lg border text-left text-xs transition-colors ${
-                      resendMode === 'MANUAL'
-                        ? 'border-primary bg-primary/10 text-primary font-medium'
-                        : 'border-border bg-background text-muted-foreground hover:bg-muted/50'
-                    }`}
-                  >
-                    <div className="font-semibold flex items-center gap-1">
-                      <KeyRound className="h-3.5 w-3.5" />
-                      Clave Manual
-                    </div>
-                    <span className="text-[11px] opacity-80 mt-0.5 block">
-                      Especificar una fija
-                    </span>
-                  </button>
-                </div>
-              </div>
-
-              {resendMode === 'MANUAL' && (
-                <div className="space-y-1.5 animate-fadeIn">
-                  <Label htmlFor="manual-pass" className="text-xs">
-                    Nueva Contraseña Fija
-                  </Label>
-                  <Input
-                    id="manual-pass"
-                    type="text"
-                    value={resendManualPass}
-                    onChange={(e) => setResendManualPass(e.target.value)}
-                    placeholder="Mínimo 6 caracteres"
-                    className="bg-background text-sm font-mono"
-                    required
-                  />
-                </div>
-              )}
+              <p className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+                <Mail className="h-3.5 w-3.5 text-primary shrink-0" />
+                Se enviará un enlace de activación de un solo uso (vigente 48 horas). Nunca se envía ni se muestra una contraseña.
+              </p>
 
               {/* Resultado del reenvío (si ya se ejecutó) */}
               {resendResult && (
@@ -967,33 +903,6 @@ export default function SuperAdminOnboardingPage() {
                     {resendResult.estado === 'FALLIDO' && <XCircle className="h-4 w-4" />}
                     <span>{resendResult.detalle}</span>
                   </div>
-
-                  {resendResult.passwordGenerada && (
-                    <div className="bg-background/80 p-2 rounded border border-border/60 text-foreground">
-                      <span className="text-[11px] text-muted-foreground block">
-                        Contraseña generada (cópiala y entrégala al usuario):
-                      </span>
-                      <div className="flex items-center justify-between mt-1">
-                        <span className="font-mono font-bold text-sm text-primary">
-                          {resendResult.passwordGenerada}
-                        </span>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 px-2 text-xs"
-                          onClick={() => handleCopy(resendResult.passwordGenerada, 'result-pass')}
-                        >
-                          {copiedId === 'result-pass' ? (
-                            <Check className="h-3.5 w-3.5 text-emerald-500" />
-                          ) : (
-                            <Copy className="h-3.5 w-3.5" />
-                          )}
-                          <span className="ml-1">Copiar</span>
-                        </Button>
-                      </div>
-                    </div>
-                  )}
                 </div>
               )}
 
@@ -1018,7 +927,7 @@ export default function SuperAdminOnboardingPage() {
                   ) : (
                     <Send className="h-4 w-4" />
                   )}
-                  {resending ? 'Despachando...' : 'Reenviar Credenciales'}
+                  {resending ? 'Enviando...' : 'Reenviar Enlace'}
                 </Button>
               </DialogFooter>
             </form>

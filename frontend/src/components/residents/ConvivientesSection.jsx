@@ -16,7 +16,6 @@ import {
   Mail,
   Phone,
   RefreshCw,
-  Copy,
   Key,
 } from 'lucide-react';
 
@@ -28,6 +27,7 @@ import { ConfirmDialog } from '../ui/ConfirmDialog.jsx';
 import { Skeleton } from '../ui/skeleton.tsx';
 import { Input, Select } from '../ui/Form.jsx';
 import api from '../../lib/api.js';
+import { reenviarEnlaceActivacion } from '../../lib/activation.js';
 import { useLiveValidation } from '../../lib/hooks.js';
 import {
   valNombre,
@@ -36,7 +36,6 @@ import {
   valEmail,
   valDocumento,
   valUsername,
-  valPassword,
   getDocPlaceholder,
   getDocHint,
   soloLetras,
@@ -65,12 +64,25 @@ export function ConvivientesSection({
     telefono: '',
     email: '',
     nombreUsuario: '',
-    password: '',
   });
   const [formError, setFormError] = useState(null);
   const [formErrors, setFormErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const [createdCredentials, setCreatedCredentials] = useState(null);
+  const [resending, setResending] = useState(false);
+
+  const handleResendActivation = async () => {
+    if (!createdCredentials) return;
+    setResending(true);
+    try {
+      await reenviarEnlaceActivacion(createdCredentials.username);
+      toast.success('Si la cuenta está pendiente de activación, se envió un nuevo enlace a su correo.');
+    } catch (err) {
+      toast.error(err?.message || 'No se pudo reenviar el enlace de activación');
+    } finally {
+      setResending(false);
+    }
+  };
   const [showHistory, setShowHistory] = useState(false);
 
   // Hook de live validation
@@ -166,7 +178,6 @@ export function ConvivientesSection({
       telefono: '',
       email: '',
       nombreUsuario: '',
-      password: '',
     });
     setAddModalOpen(true);
   };
@@ -186,7 +197,6 @@ export function ConvivientesSection({
       'email',
       'telefono',
       'nombreUsuario',
-      'password',
     ]);
 
     const errors = {};
@@ -210,11 +220,6 @@ export function ConvivientesSection({
     const vUser = valUsername(form.nombreUsuario);
     if (!vUser.ok) errors.nombreUsuario = vUser.mensaje;
 
-    if (form.password) {
-      const vPass = valPassword(form.password, 'La contraseña');
-      if (!vPass.ok) errors.password = vPass.mensaje;
-    }
-
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors);
       const firstError = Object.values(errors)[0];
@@ -235,7 +240,6 @@ export function ConvivientesSection({
         telefono: form.telefono ? form.telefono.trim() : null,
         email: form.email.trim().toLowerCase(),
         nombreUsuario: form.nombreUsuario.trim().toLowerCase(),
-        password: form.password ? form.password : undefined,
         rol: 'RESIDENTE_CONVIVENCIA',
         idUnidad: Number(unitId),
       });
@@ -247,11 +251,10 @@ export function ConvivientesSection({
       } else {
         setCreatedCredentials({
           username: uData.username || form.nombreUsuario.trim().toLowerCase(),
-          password: uData.passwordGenerada || form.password || '(Autogenerada y enviada al correo)',
           email: uData.email || form.email.trim().toLowerCase(),
           nombre: `${form.primerNombre.trim()} ${form.primerApellido.trim()}`,
         });
-        toast.success('Residente de convivencia registrado exitosamente. Se han enviado las credenciales de acceso por correo.');
+        toast.success('Residente de convivencia registrado exitosamente. Se envió un enlace de activación a su correo.');
       }
       setAddModalOpen(false);
       resetTouched();
@@ -563,7 +566,7 @@ export function ConvivientesSection({
           ) : (
             <div className="text-[11px] text-muted-foreground flex items-center gap-2">
               <Info className="w-3.5 h-3.5 text-primary shrink-0" aria-hidden="true" />
-              <span>El titular de la unidad no consume cupo de convivencia. Cada conviviente activo cuenta con usuario y credenciales propias.</span>
+              <span>El titular de la unidad no consume cupo de convivencia. Cada conviviente activo cuenta con usuario propio y activa su cuenta con su propio enlace.</span>
             </div>
           )}
         </div>
@@ -869,7 +872,7 @@ export function ConvivientesSection({
           <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 text-xs text-muted-foreground flex items-start gap-2.5">
             <Shield className="w-4 h-4 text-primary shrink-0 mt-0.5" />
             <span>
-              Registra a un miembro de tu unidad. Se le creará un usuario de acceso y el sistema le enviará sus credenciales automáticamente por correo electrónico. Ocupará 1 cupo activo.
+              Registra a un miembro de tu unidad. Se le creará un usuario de acceso y el sistema le enviará por correo un enlace de activación de un solo uso (vigente 48 horas) para definir su contraseña. Ocupará 1 cupo activo.
             </span>
           </div>
 
@@ -992,21 +995,6 @@ export function ConvivientesSection({
               onBlur={() => touch('nombreUsuario')}
               error={fieldError('nombreUsuario', valUsername(form.nombreUsuario)) || formErrors.nombreUsuario}
             />
-
-            <Input
-              id="conv-password"
-              type="password"
-              label="Contraseña Temporal (Opcional)"
-              disabled={saving || reached}
-              placeholder="Autogenerada si se deja vacía"
-              value={form.password}
-              onChange={(e) => {
-                setForm((f) => ({ ...f, password: e.target.value }));
-                if (formErrors.password) setFormErrors((fe) => ({ ...fe, password: null }));
-              }}
-              onBlur={() => touch('password')}
-              error={form.password ? fieldError('password', valPassword(form.password, 'La contraseña')) || formErrors.password : undefined}
-            />
           </div>
         </form>
       </Modal>
@@ -1021,11 +1009,11 @@ export function ConvivientesSection({
         confirmLabel={confirmDialog.confirmLabel}
         danger={confirmDialog.danger}
       />
-      {/* MODAL DE CREDENCIALES GENERADAS */}
+      {/* CONFIRMACION DE ENLACE DE ACTIVACION */}
       <Modal
         open={!!createdCredentials}
         onClose={() => setCreatedCredentials(null)}
-        title="Credenciales de Acceso Asignadas"
+        title="Enlace de activación enviado"
         size="md"
         footer={
           <Button
@@ -1046,83 +1034,29 @@ export function ConvivientesSection({
                   ¡Habitante de convivencia registrado exitosamente!
                 </p>
                 <p className="text-muted-foreground">
-                  Se ha despachado un correo electrónico con estas credenciales de acceso a{' '}
-                  <strong className="text-foreground">{createdCredentials.email}</strong>.
+                  Se envió un enlace de activación de un solo uso (vigente 48 horas) a{' '}
+                  <strong className="text-foreground">{createdCredentials.email}</strong>.{' '}
+                  {createdCredentials.nombre} definirá su propia contraseña desde ese enlace.
                 </p>
               </div>
             </div>
 
-            <div className="p-4 rounded-xl border border-border bg-muted/30 space-y-3">
-              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Datos de inicio de sesión para {createdCredentials.nombre}
+            <div className="flex items-center justify-between p-2.5 rounded-lg bg-background border border-border/80 text-xs">
+              <div>
+                <span className="text-muted-foreground block text-[11px]">Usuario:</span>
+                <span className="font-mono font-bold text-foreground text-sm">{createdCredentials.username}</span>
               </div>
-
-              <div className="space-y-2 text-xs">
-                <div className="flex items-center justify-between p-2.5 rounded-lg bg-background border border-border/80">
-                  <div>
-                    <span className="text-muted-foreground block text-[11px]">Usuario:</span>
-                    <span className="font-mono font-bold text-foreground text-sm">{createdCredentials.username}</span>
-                  </div>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      navigator.clipboard.writeText(createdCredentials.username);
-                      toast.success('Usuario copiado al portapapeles');
-                    }}
-                    className="h-8 px-2.5 text-xs gap-1"
-                  >
-                    <Copy className="w-3.5 h-3.5" />
-                    Copiar
-                  </Button>
-                </div>
-
-                <div className="flex items-center justify-between p-2.5 rounded-lg bg-background border border-border/80">
-                  <div>
-                    <span className="text-muted-foreground block text-[11px]">Contraseña temporal:</span>
-                    <span className="font-mono font-bold text-foreground text-sm">{createdCredentials.password}</span>
-                  </div>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      navigator.clipboard.writeText(createdCredentials.password);
-                      toast.success('Contraseña copiada al portapapeles');
-                    }}
-                    className="h-8 px-2.5 text-xs gap-1"
-                  >
-                    <Copy className="w-3.5 h-3.5" />
-                    Copiar
-                  </Button>
-                </div>
-
-                <div className="flex items-center justify-between p-2.5 rounded-lg bg-background border border-border/80">
-                  <div>
-                    <span className="text-muted-foreground block text-[11px]">Portal de ingreso:</span>
-                    <span className="font-mono text-primary text-xs">https://saedfront.vercel.app/login</span>
-                  </div>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      navigator.clipboard.writeText('https://saedfront.vercel.app/login');
-                      toast.success('Enlace copiado al portapapeles');
-                    }}
-                    className="h-8 px-2.5 text-xs gap-1"
-                  >
-                    <Copy className="w-3.5 h-3.5" />
-                    Copiar
-                  </Button>
-                </div>
-              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={resending}
+                onClick={handleResendActivation}
+                className="h-8 px-2.5 text-xs gap-1"
+              >
+                {resending ? 'Enviando...' : 'Reenviar enlace'}
+              </Button>
             </div>
-
-            <p className="text-[11px] text-muted-foreground italic text-center">
-              El habitante podrá acceder al sistema de inmediato para registrar visitas, generar carnets QR y consultar correspondencia.
-            </p>
           </div>
         )}
       </Modal>
