@@ -10,6 +10,8 @@ import javax.sql.DataSource;
 import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
@@ -23,6 +25,12 @@ public class DatabaseHealthProbe {
     private static final Logger log = LoggerFactory.getLogger(DatabaseHealthProbe.class);
     private static final String PROBE_SQL = "SELECT 1 FROM DUAL";
     private static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(3);
+    // Dedicated daemon threads: the probe must never borrow the common pool nor keep the JVM alive.
+    private static final ExecutorService PROBE_EXECUTOR = Executors.newCachedThreadPool(task -> {
+        Thread thread = new Thread(task, "saed-health-probe");
+        thread.setDaemon(true);
+        return thread;
+    });
 
     private final JdbcTemplate jdbcTemplate;
     private final Duration timeout;
@@ -46,7 +54,7 @@ public class DatabaseHealthProbe {
     /** Returns true only when the database answered the probe within the time bound. */
     public boolean isUp() {
         CompletableFuture<Integer> probe = CompletableFuture.supplyAsync(
-                () -> jdbcTemplate.queryForObject(PROBE_SQL, Integer.class));
+                () -> jdbcTemplate.queryForObject(PROBE_SQL, Integer.class), PROBE_EXECUTOR);
         try {
             Integer answer = probe.get(timeout.toMillis(), TimeUnit.MILLISECONDS);
             return answer != null && answer == 1;
