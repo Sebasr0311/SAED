@@ -11,23 +11,14 @@ import { warmUpBackend } from './lib/api.js';
 // Code-splitting por ruta: cada página carga solo cuando se visita, reduciendo
 // el bundle inicial (~1.2MB -> fracciones). Login queda eager (entry point).
 const DashboardPage = lazy(() => import('./pages/DashboardPage.jsx'));
-const PersonasPage = lazy(() => import('./pages/PersonasPage.jsx'));
 const ResidentesPage = lazy(() => import('./pages/ResidentesPage.jsx'));
 const UnidadesPage = lazy(() => import('./pages/UnidadesPage.jsx'));
 const ContratosPage = lazy(() => import('./pages/ContratosPage.jsx'));
-const UsuariosPage = lazy(() => import('./pages/UsuariosPage.jsx'));
-const OrganizacionesPage = lazy(() => import('./pages/OrganizacionesPage.jsx'));
-const PropiedadesPage = lazy(() => import('./pages/PropiedadesPage.jsx'));
-const RolesYAsignacionesPage = lazy(() => import('./pages/RolesYAsignacionesPage.jsx'));
-const PlanesPage = lazy(() => import('./pages/PlanesPage.jsx'));
-const MembresiasPage = lazy(() => import('./pages/MembresiasPage.jsx'));
 const ReportesPage = lazy(() => import('./pages/ReportesPage.jsx'));
 const VisitasPage = lazy(() => import('./pages/VisitasPage.jsx'));
 const ParqueaderosPage = lazy(() => import('./pages/ParqueaderosPage.jsx'));
 const PagosPage = lazy(() => import('./pages/PagosPage.jsx'));
 const MultasPage = lazy(() => import('./pages/MultasPage.jsx'));
-const AlertasPage = lazy(() => import('./pages/AlertasPage.jsx'));
-const AvisosPage = lazy(() => import('./pages/AvisosPage.jsx'));
 const ComunicacionesPage = lazy(() => import('./pages/ComunicacionesPage.jsx'));
 const QuejasAdminPage = lazy(() => import('./pages/QuejasAdminPage.jsx'));
 const ReservasAdminPage = lazy(() => import('./pages/ReservasAdminPage.jsx'));
@@ -44,7 +35,6 @@ const MantenimientoAdminPage = lazy(() => import('./pages/MantenimientoAdminPage
 const ActivosPage = lazy(() => import('./pages/ActivosPage.jsx'));
 const ObrasAdminPage = lazy(() => import('./pages/ObrasAdminPage.jsx'));
 const ResObrasPage = lazy(() => import('./pages/ResObrasPage.jsx'));
-const GananciasPage = lazy(() => import('./pages/GananciasPage.jsx'));
 const HistorialVisitasPage = lazy(() => import('./pages/HistorialVisitasPage.jsx'));
 const PaquetesAdminPage = lazy(() => import('./pages/PaquetesAdminPage.jsx'));
 const EscannerQRPage = lazy(() => import('./pages/EscannerQRPage.jsx'));
