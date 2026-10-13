@@ -1,5 +1,7 @@
 package com.saed.backend.asambleas.service.impl;
 
+import com.saed.backend.common.util.ClientRequestInfo;
+
 import com.saed.backend.asambleas.dto.*;
 import com.saed.backend.asambleas.repository.AsambleaRepository;
 import com.saed.backend.asambleas.service.AsambleaService;
@@ -10,6 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -49,6 +52,9 @@ public class AsambleaServiceImpl implements AsambleaService {
         }
         throw new IllegalStateException("No hay una propiedad activa en el contexto de sesión");
     }
+
+    private static final Set<String> RESIDENT_ROLES =
+            Set.of("RESIDENTE", "RESIDENTE_CONVIVENCIA", "PROPIETARIO", "PROPIETARIO_UNIDAD");
 
     private Long resolveUserId() {
         SaedContext ctx = SaedContextHolder.getContext();
@@ -105,7 +111,7 @@ public class AsambleaServiceImpl implements AsambleaService {
         auditService.recordSuccess(
                 userId, orgId, propId,
                 "CONVOCAR_ASAMBLEA", "ASAMBLEAS", idAsamblea,
-                "127.0.0.1", "SAED-Core", null, (request.getEstado() != null ? request.getEstado() : "CONVOCADA")
+                ClientRequestInfo.ip(), ClientRequestInfo.userAgent(), null, (request.getEstado() != null ? request.getEstado() : "CONVOCADA")
         );
 
         log.info("Convocada nueva asamblea ID: {} para propiedad ID: {}", idAsamblea, propId);
@@ -131,7 +137,7 @@ public class AsambleaServiceImpl implements AsambleaService {
         auditService.recordSuccess(
                 userId, orgId, asamblea.getIdPropiedad(),
                 "ACTUALIZAR_ASAMBLEA", "ASAMBLEAS", idAsamblea,
-                "127.0.0.1", "SAED-Core", asamblea.getTitulo(), request.getTitulo()
+                ClientRequestInfo.ip(), ClientRequestInfo.userAgent(), asamblea.getTitulo(), request.getTitulo()
         );
 
         log.info("Asamblea ID: {} actualizada exitosamente", idAsamblea);
@@ -162,7 +168,7 @@ public class AsambleaServiceImpl implements AsambleaService {
         auditService.recordSuccess(
                 userId, orgId, asamblea.getIdPropiedad(),
                 "CAMBIO_ESTADO_ASAMBLEA", "ASAMBLEAS", idAsamblea,
-                "127.0.0.1", "SAED-Core", asamblea.getEstado(), nuevoEstado
+                ClientRequestInfo.ip(), ClientRequestInfo.userAgent(), asamblea.getEstado(), nuevoEstado
         );
 
         log.info("Asamblea ID: {} cambió estado de {} a {}", idAsamblea, asamblea.getEstado(), nuevoEstado);
@@ -238,7 +244,7 @@ public class AsambleaServiceImpl implements AsambleaService {
         auditService.recordSuccess(
                 userId, orgId, asamblea.getIdPropiedad(),
                 "REGISTRAR_ASISTENCIA", "ASISTENCIAS_ASAMBLEA", idAsistencia,
-                "127.0.0.1", "SAED-Core", null, "PRESENTE"
+                ClientRequestInfo.ip(), ClientRequestInfo.userAgent(), null, "PRESENTE"
         );
 
         log.info("Asistencia registrada ID: {} en asamblea ID: {}. Nuevo quórum: {}%", idAsistencia, idAsamblea, nuevoQuorum);
@@ -273,7 +279,7 @@ public class AsambleaServiceImpl implements AsambleaService {
         auditService.recordSuccess(
                 userId, orgId, asamblea.getIdPropiedad(),
                 "RETIRAR_ASISTENCIA", "ASISTENCIAS_ASAMBLEA", idUnidad,
-                "127.0.0.1", "SAED-Core", "PRESENTE", "RETIRADO"
+                ClientRequestInfo.ip(), ClientRequestInfo.userAgent(), "PRESENTE", "RETIRADO"
         );
 
         log.info("Retiro de unidad ID: {} en asamblea ID: {}. Nuevo quórum: {}%", idUnidad, idAsamblea, nuevoQuorum);
@@ -290,6 +296,17 @@ public class AsambleaServiceImpl implements AsambleaService {
     public PoderDTO radicarPoder(Long idAsamblea, PoderRequestDTO request) {
         AsambleaDTO asamblea = obtenerDetalleAsamblea(idAsamblea);
 
+        // A resident files only as the grantor: the caller's own persona must be the unit's active owner.
+        SaedContext filer = SaedContextHolder.getContext();
+        if (filer != null && filer.getRoleCode() != null && RESIDENT_ROLES.contains(filer.getRoleCode().toUpperCase())) {
+            Long callerPersonaId = repository.findPersonaUsuario(filer.getUserId());
+            if (callerPersonaId == null
+                    || !callerPersonaId.equals(request.getIdPersonaPropietario())
+                    || !repository.esPropietarioLegalActivo(request.getIdUnidad(), callerPersonaId)) {
+                throw new AccessDeniedException("Solo el propietario de la unidad puede radicar su poder de representación");
+            }
+        }
+
         if (Objects.equals(request.getIdPersonaPropietario(), request.getIdPersonaApoderado())) {
             throw new IllegalArgumentException("El propietario no puede otorgarse poder de representación a sí mismo");
         }
@@ -297,6 +314,13 @@ public class AsambleaServiceImpl implements AsambleaService {
         Long propUnidad = repository.findPropiedadUnidad(request.getIdUnidad());
         if (propUnidad == null || !propUnidad.equals(asamblea.getIdPropiedad())) {
             throw new IllegalArgumentException("La unidad ID " + request.getIdUnidad() + " no pertenece a la copropiedad de la asamblea");
+        }
+
+        if (!repository.esPropietarioLegalActivo(request.getIdUnidad(), request.getIdPersonaPropietario())) {
+            throw new IllegalArgumentException("La persona indicada no es propietaria vigente de la unidad ID " + request.getIdUnidad());
+        }
+        if (!repository.personaPerteneceAOrganizacion(request.getIdPersonaApoderado(), asamblea.getIdOrganizacion())) {
+            throw new IllegalArgumentException("El apoderado indicado no existe en la organización de la asamblea");
         }
 
         if (repository.existePoderUnidad(idAsamblea, request.getIdUnidad())) {
@@ -312,7 +336,7 @@ public class AsambleaServiceImpl implements AsambleaService {
         auditService.recordSuccess(
                 userId, orgId, asamblea.getIdPropiedad(),
                 "RADICAR_PODER", "PODERES_REPRESENTACION", idPoder,
-                "127.0.0.1", "SAED-Core", null, "RADICADO"
+                ClientRequestInfo.ip(), ClientRequestInfo.userAgent(), null, "RADICADO"
         );
 
         log.info("Poder radicado ID: {} para asamblea ID: {} y unidad ID: {}", idPoder, idAsamblea, request.getIdUnidad());
@@ -333,13 +357,20 @@ public class AsambleaServiceImpl implements AsambleaService {
 
     @Override
     @Transactional
-    public PoderDTO decidirPoder(Long idPoder, String nuevoEstado) {
+    public PoderDTO decidirPoder(Long idAsamblea, Long idPoder, String nuevoEstado) {
         if (!"APROBADO".equals(nuevoEstado) && !"RECHAZADO".equals(nuevoEstado)) {
             throw new IllegalArgumentException("Estado de decisión de poder inválido: " + nuevoEstado);
         }
 
+        // F10-10: the assembly of the path must be in the caller's scope and own the power; a power is decided once.
+        obtenerDetalleAsamblea(idAsamblea);
         Long userId = resolveUserId();
-        repository.decidirPoder(idPoder, nuevoEstado, userId);
+        if (repository.decidirPoder(idAsamblea, idPoder, nuevoEstado, userId) == 0) {
+            if (!repository.existePoder(idAsamblea, idPoder)) {
+                throw new NoSuchElementException("Poder no encontrado en la asamblea indicada");
+            }
+            throw new IllegalStateException("El poder ya fue decidido y no puede modificarse");
+        }
         log.info("Poder ID: {} decidido con estado: {} por usuario ID: {}", idPoder, nuevoEstado, userId);
 
         SaedContext ctx = SaedContextHolder.getContext();
@@ -349,7 +380,7 @@ public class AsambleaServiceImpl implements AsambleaService {
         auditService.recordSuccess(
                 userId, orgId, propId,
                 "DECIDIR_PODER", "PODERES_REPRESENTACION", idPoder,
-                "127.0.0.1", "SAED-Core", "RADICADO", nuevoEstado
+                ClientRequestInfo.ip(), ClientRequestInfo.userAgent(), "RADICADO", nuevoEstado
         );
 
         return PoderDTO.builder().idPoder(idPoder).estado(nuevoEstado).validadoPor(userId).build();
@@ -380,7 +411,7 @@ public class AsambleaServiceImpl implements AsambleaService {
         auditService.recordSuccess(
                 userId, orgId, asamblea.getIdPropiedad(),
                 "CREAR_PUNTO_VOTACION", "VOTACIONES", idVotacion,
-                "127.0.0.1", "SAED-Core", null, "ABIERTA"
+                ClientRequestInfo.ip(), ClientRequestInfo.userAgent(), null, "ABIERTA"
         );
 
         return repository.findVotacionById(idVotacion)
@@ -401,7 +432,15 @@ public class AsambleaServiceImpl implements AsambleaService {
             throw new IllegalStateException("La votación ya se encuentra " + votacion.getEstado());
         }
 
-        repository.cerrarVotacion(idVotacion);
+        // F10-12 / DEC-11: weighted result and required majority are evaluated and stored with the closing.
+        VotacionResultado resultado = VotacionResultadoCalculator.evaluar(
+                votacion.getTipoMayoriaRequerida(), votacion.getVotosSi(), votacion.getVotosNo(),
+                votacion.getVotosBlanco(), votacion.getVotosAbstencion(),
+                repository.sumCoeficientesPropiedad(asamblea.getIdPropiedad()),
+                repository.sumCoeficientesRepresentados(votacion.getIdAsamblea()));
+        if (repository.cerrarVotacion(idVotacion, resultado) == 0) {
+            throw new IllegalStateException("La votación ya fue cerrada por otra solicitud");
+        }
         log.info("Votación ID: {} cerrada con éxito", idVotacion);
 
         Long userId = resolveUserId();
@@ -412,7 +451,7 @@ public class AsambleaServiceImpl implements AsambleaService {
         auditService.recordSuccess(
                 userId, orgId, propId,
                 "CERRAR_VOTACION", "VOTACIONES", idVotacion,
-                "127.0.0.1", "SAED-Core", "ABIERTA", "CERRADA"
+                ClientRequestInfo.ip(), ClientRequestInfo.userAgent(), "ABIERTA", "CERRADA"
         );
 
         return repository.findVotacionById(idVotacion)
@@ -432,6 +471,10 @@ public class AsambleaServiceImpl implements AsambleaService {
         if ("ANULADA".equals(votacion.getEstado())) {
             throw new IllegalStateException("La votación ya se encuentra ANULADA");
         }
+        // F10-12: a closed voting is a recorded result; it can no longer be annulled.
+        if ("CERRADA".equals(votacion.getEstado())) {
+            throw new IllegalStateException("Una votación cerrada no puede anularse");
+        }
 
         repository.anularVotacion(idVotacion);
         log.info("Votación ID: {} anulada con éxito", idVotacion);
@@ -444,7 +487,7 @@ public class AsambleaServiceImpl implements AsambleaService {
         auditService.recordSuccess(
                 userId, orgId, propId,
                 "ANULAR_VOTACION", "VOTACIONES", idVotacion,
-                "127.0.0.1", "SAED-Core", votacion.getEstado(), "ANULADA"
+                ClientRequestInfo.ip(), ClientRequestInfo.userAgent(), votacion.getEstado(), "ANULADA"
         );
 
         return repository.findVotacionById(idVotacion)
@@ -520,7 +563,7 @@ public class AsambleaServiceImpl implements AsambleaService {
         auditService.recordSuccess(
                 userId, orgId, propId,
                 "EMITIR_VOTO", "VOTOS", idVoto,
-                "127.0.0.1", "SAED-Core", null, request.getOpcionVoto()
+                ClientRequestInfo.ip(), ClientRequestInfo.userAgent(), null, request.getOpcionVoto()
         );
     }
 

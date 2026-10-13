@@ -30,7 +30,11 @@ public interface AsambleaRepository {
 
     Long registrarPoder(Long idAsamblea, PoderRequestDTO request);
 
-    void decidirPoder(Long idPoder, String nuevoEstado, Long idUsuarioValidador);
+    /** Decides a pending power of the given assembly only; returns the rows changed (0 when it is not pending there). */
+    int decidirPoder(Long idAsamblea, Long idPoder, String nuevoEstado, Long idUsuarioValidador);
+
+    /** Whether the assembly has a power with that id (any state). */
+    boolean existePoder(Long idAsamblea, Long idPoder);
 
     List<VotacionDTO> findVotaciones(Long idAsamblea);
 
@@ -38,7 +42,17 @@ public interface AsambleaRepository {
 
     Long createVotacion(Long idAsamblea, VotacionCreateRequestDTO request);
 
-    void cerrarVotacion(Long idVotacion);
+    /**
+     * Closes an ABIERTA voting and stores its computed outcome in one statement; returns the rows changed
+     * (0 when the voting is no longer open).
+     */
+    int cerrarVotacion(Long idVotacion, VotacionResultado resultado);
+
+    /** Summed coefficient of the property's active units (the coefficient base of the voting result). */
+    BigDecimal sumCoeficientesPropiedad(Long idPropiedad);
+
+    /** Coefficients represented in the assembly: attendance rows still present, proxies included (Ley 675 art. 45). */
+    BigDecimal sumCoeficientesRepresentados(Long idAsamblea);
 
     Long registrarVoto(Long idVotacion, VotoRequestDTO request, BigDecimal coeficiente);
 
@@ -71,6 +85,9 @@ public interface AsambleaRepository {
 
     /** Active legal ownership (PROPIETARIOS_UNIDAD ESTADO = 'ACTIVO' and not ended). */
     boolean esPropietarioLegalActivo(Long idUnidad, Long idPersona);
+
+    /** Whether the persona exists in the organization (PERSONAS has no RLS, so the organization is checked explicitly). */
+    boolean personaPerteneceAOrganizacion(Long idPersona, Long idOrganizacion);
 
     /** The unit has an attendance row in the assembly that has not been withdrawn. */
     boolean tieneAsistenciaVigente(Long idAsamblea, Long idUnidad);

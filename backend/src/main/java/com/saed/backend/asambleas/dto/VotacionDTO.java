@@ -19,6 +19,13 @@ public class VotacionDTO {
     private BigDecimal votosAbstencion;
     private Integer totalVotos;
     private Boolean aprobada;
+    // F10-12: outcome persisted when the voting is closed (null while it is open)
+    private String resultado;
+    private String opcionGanadora;
+    private BigDecimal pesoTotalEmitido;
+    private BigDecimal baseCoeficientes;
+    private BigDecimal pesoRepresentado;
+    private BigDecimal porcentajeSi;
 
     public VotacionDTO() {}
 
@@ -132,4 +139,22 @@ public class VotacionDTO {
 
     public Boolean getAprobada() { return aprobada; }
     public void setAprobada(Boolean aprobada) { this.aprobada = aprobada; }
+
+    public String getResultado() { return resultado; }
+    public void setResultado(String resultado) { this.resultado = resultado; }
+
+    public String getOpcionGanadora() { return opcionGanadora; }
+    public void setOpcionGanadora(String opcionGanadora) { this.opcionGanadora = opcionGanadora; }
+
+    public BigDecimal getPesoTotalEmitido() { return pesoTotalEmitido; }
+    public void setPesoTotalEmitido(BigDecimal pesoTotalEmitido) { this.pesoTotalEmitido = pesoTotalEmitido; }
+
+    public BigDecimal getBaseCoeficientes() { return baseCoeficientes; }
+    public void setBaseCoeficientes(BigDecimal baseCoeficientes) { this.baseCoeficientes = baseCoeficientes; }
+
+    public BigDecimal getPesoRepresentado() { return pesoRepresentado; }
+    public void setPesoRepresentado(BigDecimal pesoRepresentado) { this.pesoRepresentado = pesoRepresentado; }
+
+    public BigDecimal getPorcentajeSi() { return porcentajeSi; }
+    public void setPorcentajeSi(BigDecimal porcentajeSi) { this.porcentajeSi = porcentajeSi; }
 }

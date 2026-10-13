@@ -14,6 +14,11 @@ export default defineConfig({
   // Solo afecta al dev server local; no se usa en el build de produccion.
   server: {
     allowedHosts: ['.vercel.run'],
+    // Optional same-origin proxy for local verification against an isolated backend
+    // (VITE_DEV_PROXY_TARGET=http://127.0.0.1:<port>, VITE_API_BASE_URL=/api/v1). Unset: no proxy.
+    ...(process.env.VITE_DEV_PROXY_TARGET
+      ? { proxy: { '/api': { target: process.env.VITE_DEV_PROXY_TARGET, changeOrigin: true } } }
+      : {}),
   },
   // Preview server (vite preview): v0 tambien puede servir el build por aqui.
   preview: {

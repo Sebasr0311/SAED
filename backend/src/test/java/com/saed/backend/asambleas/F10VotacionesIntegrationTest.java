@@ -1140,7 +1140,7 @@ public class F10VotacionesIntegrationTest {
 
     @Test
     @Order(17)
-    @DisplayName("F10-04-17: Escrutinio Mayoría Calificada (70%) — Aprobada cuando SI alcanza 78.5% (>= 70%)")
+    @DisplayName("F10-04-17: Escrutinio Mayoría Calificada (70%, Ley 675 art. 46) — No aprobada: SI 55% del total de coeficientes aunque sea 78.5% de lo votado")
     public void test17_escrutinioMayoriaCalificadaAprobada() throws Exception {
         Long idAsamblea = crearAsambleaHelper("VOTACION-TEST-17-MAY-CALIF-OK", "EN_CURSO");
 
@@ -1184,12 +1184,13 @@ public class F10VotacionesIntegrationTest {
                         .content(objectMapper.writeValueAsString(VotoRequestDTO.builder().idUnidad(UNIDAD_3_ID).opcionVoto("NO").build())))
                 .andExpect(status().isCreated());
 
-        // SI = 55, total = 70. 55 / 70 = 78.57% >= 70% -> aprobada == true
+        // Changed for Ley 675 art. 46: CALIFICADA needs 70% of the TOTAL property coefficients (base 100%). SI = 55% of the
+        // base (78.57% of the 70% cast, which the earlier cast-weight rule accepted) -> aprobada == false
         mockMvc.perform(put("/api/v1/asambleas/" + idAsamblea + "/votaciones/" + idVotacion + "/cerrar")
                         .header("Authorization", "Bearer " + tokenAdminProp1)
                         .header("X-Assignment-Id", ASSIGN_ADMIN_PROP_1))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.aprobada").value(true));
+                .andExpect(jsonPath("$.aprobada").value(false));
     }
 
     @Test
@@ -1276,7 +1277,7 @@ public class F10VotacionesIntegrationTest {
                         .content(objectMapper.writeValueAsString(VotoRequestDTO.builder().idUnidad(UNIDAD_2_ID).opcionVoto("SI").build())))
                 .andExpect(status().isCreated());
 
-        // Cerrar y verificar: 100% SI -> aprobada == true
+        // Cerrar y verificar: every represented coefficient (the voting units) voted SI -> aprobada == true (unanimity over the represented coefficients)
         mockMvc.perform(put("/api/v1/asambleas/" + idAsamblea + "/votaciones/" + idVotacion + "/cerrar")
                         .header("Authorization", "Bearer " + tokenAdminProp1)
                         .header("X-Assignment-Id", ASSIGN_ADMIN_PROP_1))

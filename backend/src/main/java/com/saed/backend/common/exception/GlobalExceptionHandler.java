@@ -390,6 +390,13 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
     }
 
+    @ExceptionHandler(org.springframework.web.bind.MissingServletRequestParameterException.class)
+    public ResponseEntity<Map<String, Object>> handleMissingParameter(org.springframework.web.bind.MissingServletRequestParameterException ex) {
+        Map<String, Object> response = createErrorResponse(HttpStatus.BAD_REQUEST, "MISSING_PARAMETER",
+                "Falta el parámetro obligatorio '" + ex.getParameterName() + "'.");
+        return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+    }
+
     @ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class)
     public ResponseEntity<Map<String, Object>> handleHttpMessageNotReadable(org.springframework.http.converter.HttpMessageNotReadableException ex) {
         Map<String, Object> response = createErrorResponse(HttpStatus.BAD_REQUEST, "MALFORMED_JSON",

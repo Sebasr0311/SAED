@@ -5,6 +5,7 @@ import com.saed.backend.context.SaedContextHolder;
 import com.saed.backend.documentos.dto.DocumentoDTO;
 import com.saed.backend.documentos.repository.DocumentoRepository;
 import com.saed.backend.seguros.controller.PolizaSeguroController;
+import com.saed.backend.seguros.dto.PolizaResidenteDTO;
 import com.saed.backend.seguros.dto.PolizaSeguroDTO;
 import com.saed.backend.seguros.dto.ResumenPolizasDTO;
 import com.saed.backend.seguros.service.PolizaSeguroService;
@@ -334,7 +335,7 @@ public class PolizasSeguroIntegrationTest {
         setSecurityContext(1L, List.of("SCOPE_RESIDENTE"));
 
         // El endpoint /vigentes debe permitir lectura al residente
-        ResponseEntity<List<PolizaSeguroDTO>> respVigentes = polizaController.getVigentes();
+        ResponseEntity<List<PolizaResidenteDTO>> respVigentes = polizaController.getVigentes();
         assertEquals(200, respVigentes.getStatusCode().value());
         assertNotNull(respVigentes.getBody());
 
@@ -410,7 +411,7 @@ public class PolizasSeguroIntegrationTest {
         assertFalse(listProp2.stream().anyMatch(p -> "TEST-PROP1-ISO".equals(p.getNumeroPoliza())));
 
         // También verificar en /vigentes
-        List<PolizaSeguroDTO> vigentesProp2 = polizaController.getVigentes().getBody();
+        List<PolizaResidenteDTO> vigentesProp2 = polizaController.getVigentes().getBody();
         assertNotNull(vigentesProp2);
         assertFalse(vigentesProp2.stream().anyMatch(p -> "TEST-PROP1-ISO".equals(p.getNumeroPoliza())));
     }

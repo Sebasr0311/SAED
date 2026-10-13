@@ -1,5 +1,7 @@
 package com.saed.backend.convivencia.service.impl;
 
+import com.saed.backend.common.util.ClientRequestInfo;
+
 import com.saed.backend.audit.AuditService;
 import com.saed.backend.common.service.EmailService;
 import com.saed.backend.context.SaedContext;
@@ -114,7 +116,7 @@ public class MultaServiceImpl implements MultaService {
         auditService.recordSuccess(
                 userId, orgId, propId,
                 "PAGAR_MULTA", "MULTAS", id,
-                "127.0.0.1", "SAED-Core", estadoActual, "PAGADA"
+                ClientRequestInfo.ip(), ClientRequestInfo.userAgent(), estadoActual, "PAGADA"
         );
 
         // Enviar notificación por email (non-blocking)
@@ -166,7 +168,7 @@ public class MultaServiceImpl implements MultaService {
         auditService.recordSuccess(
                 userId, orgId, propId,
                 "ANULAR_MULTA", "MULTAS", id,
-                "127.0.0.1", "SAED-Core", estadoActual, "ANULADA"
+                ClientRequestInfo.ip(), ClientRequestInfo.userAgent(), estadoActual, "ANULADA"
         );
     }
 }

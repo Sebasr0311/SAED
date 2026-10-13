@@ -146,7 +146,8 @@ export default function NotificationBell() {
   }, [vistoKey]);
 
   const cargar = useCallback(async () => {
-    if (!user) return;
+    // DEC-02: SUPERADMIN sees no operational data, so the mailbox/alert endpoints are never polled for it.
+    if (!user || user.rol === 'SUPERADMIN') return;
     setLoading(true);
     setError(false);
     try {

@@ -1,5 +1,7 @@
 package com.saed.backend.sanciones.service.impl;
 
+import com.saed.backend.common.util.ClientRequestInfo;
+
 import com.saed.backend.audit.AuditService;
 import com.saed.backend.common.service.EmailService;
 import com.saed.backend.context.SaedContext;
@@ -80,6 +82,7 @@ public class SancionServiceImpl implements SancionService {
             throw new IllegalArgumentException("Nivel de gravedad inválido. Debe ser LEVE, GRAVE o GRAVISIMA.");
         }
         request.setGravedad(grav);
+        request.setEvidenciasUrls(com.saed.backend.common.util.EvidenceUrlPolicy.validate(request.getEvidenciasUrls()));
 
         // F10-15: the property always comes from the session; there is no default property fallback.
         Long propId = resolvePropertyId();
@@ -109,7 +112,7 @@ public class SancionServiceImpl implements SancionService {
         auditService.recordSuccess(
                 idUsuarioCreador, orgId, propId,
                 "CREAR_SANCION", "SANCIONES", idSancion,
-                "127.0.0.1", "SAED-Core", null, "NOTIFICADA"
+                ClientRequestInfo.ip(), ClientRequestInfo.userAgent(), null, "NOTIFICADA"
         );
 
         notificarAperturaPliego(request.getIdPersonaImputada(), expediente, request.getTipoFalta(), fechaLimite);
@@ -149,7 +152,7 @@ public class SancionServiceImpl implements SancionService {
         auditService.recordSuccess(
                 userId, orgId, sancion.getIdPropiedad(),
                 "RADICAR_DESCARGOS", "SANCION_DESCARGOS", idSancion,
-                "127.0.0.1", "SAED-Core", sancion.getEstado(), "EN_DESCARGOS"
+                ClientRequestInfo.ip(), ClientRequestInfo.userAgent(), sancion.getEstado(), "EN_DESCARGOS"
         );
     }
 
@@ -222,7 +225,7 @@ public class SancionServiceImpl implements SancionService {
         auditService.recordSuccess(
                 userId, orgId, sancion.getIdPropiedad(),
                 "EMITIR_RESOLUCION", "SANCIONES", idSancion,
-                "127.0.0.1", "SAED-Core", sancion.getEstado(), dec
+                ClientRequestInfo.ip(), ClientRequestInfo.userAgent(), sancion.getEstado(), dec
         );
 
         notificarResolucion(sancion.getIdPersonaImputada(), sancion.getNumeroExpediente(), dec, request.getResolucionFinal());
@@ -276,7 +279,7 @@ public class SancionServiceImpl implements SancionService {
         auditService.recordSuccess(
                 userId, orgId, sancion.getIdPropiedad(),
                 "ANULAR_SANCION", "SANCIONES", idSancion,
-                "127.0.0.1", "SAED-Core", sancion.getEstado(), "ANULADA"
+                ClientRequestInfo.ip(), ClientRequestInfo.userAgent(), sancion.getEstado(), "ANULADA"
         );
     }
 

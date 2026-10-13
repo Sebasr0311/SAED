@@ -241,8 +241,13 @@ public class SancionRepositoryImpl implements SancionRepository {
     @Override
     public String generarSiguienteExpediente(Long idPropiedad) {
         int year = Year.now().getValue();
-        String countSql = "SELECT NVL(COUNT(*), 0) + 1 FROM SANCIONES WHERE ID_PROPIEDAD = :propId";
-        Integer nextSeq = jdbc.queryForObject(countSql, new MapSqlParameterSource().addValue("propId", idPropiedad, Types.NUMERIC), Integer.class);
+        MapSqlParameterSource params = new MapSqlParameterSource().addValue("propId", idPropiedad, Types.NUMERIC);
+        // F10-16: serialize the numbering per property (the caller's transaction holds the lock until commit) and
+        // continue after the highest number, so concurrent filings never collide on UQ(property, case number).
+        jdbc.queryForList("SELECT ID_PROPIEDAD FROM PROPIEDADES WHERE ID_PROPIEDAD = :propId FOR UPDATE", params);
+        String countSql = "SELECT NVL(MAX(TO_NUMBER(REGEXP_SUBSTR(NUMERO_EXPEDIENTE, '[0-9]+$'))), 0) + 1 "
+                + "FROM SANCIONES WHERE ID_PROPIEDAD = :propId AND REGEXP_LIKE(NUMERO_EXPEDIENTE, '[0-9]+$')";
+        Integer nextSeq = jdbc.queryForObject(countSql, params, Integer.class);
         if (nextSeq == null) nextSeq = 1;
         return String.format("EXP-%d-P%d-%04d", year, idPropiedad != null ? idPropiedad : 1L, nextSeq);
     }

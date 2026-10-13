@@ -106,7 +106,7 @@ public class AsambleasController {
             @PathVariable Long id,
             @PathVariable Long idPoder,
             @Valid @RequestBody PoderDecisionDTO request) {
-        return ResponseEntity.ok(asambleaService.decidirPoder(idPoder, request.getEstado()));
+        return ResponseEntity.ok(asambleaService.decidirPoder(id, idPoder, request.getEstado()));
     }
 
     @GetMapping("/{id}/votaciones")

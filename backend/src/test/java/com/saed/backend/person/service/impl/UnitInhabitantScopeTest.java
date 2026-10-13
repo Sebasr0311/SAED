@@ -114,6 +114,7 @@ class UnitInhabitantScopeTest {
     @Test
     void titularAddingConvivienteGoesThroughTheLockedQuota() {
         ctx("RESIDENTE", "UNIDAD", UNIT);
+        when(repo.personBelongsToOrganization(PERSON, ORG)).thenReturn(true);
         when(repo.insertResident(UNIT, new UnitResidentRequestDTO(PERSON, "CONVIVIENTE"))).thenReturn(3L);
         service.addResident(UNIT, new UnitResidentRequestDTO(PERSON, "CONVIVIENTE"));
         verify(quota).validateAndLockQuota(UNIT);

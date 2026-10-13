@@ -117,6 +117,14 @@ public class ReportesConfiguradosController {
             }
         }
 
+        // Without an explicit format the configuration's default format decides (metadata only on request).
+        if (!metadata && (effFormat == null || effFormat.isBlank())) {
+            String configured = reportesConfiguradosService.obtenerPorId(id).getFormatoSalidaDefecto();
+            if (configured != null && !configured.isBlank()) {
+                effFormat = configured;
+            }
+        }
+
         // Validates the format before any execution; a JSON request returns metadata from a single execution.
         if (metadata || ExportFormat.fromString(effFormat) == ExportFormat.JSON) {
             GenerarReporteResponseDTO meta = reportesConfiguradosService.generarReporteMetadata(id, effFormat, overrideFiltrosJson);

@@ -27,6 +27,9 @@ jwt:
   expiration:
     ms: 300000
 saed:
+  cors:
+    # Local browser verification only (Vite dev server proxying to this backend).
+    allowed-origins: http://127.0.0.1:5199
   database:
     maintenance:
       enabled: false

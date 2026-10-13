@@ -1,10 +1,12 @@
 package com.saed.backend.seguros.service;
 
 import com.saed.backend.context.SaedContextHolder;
+import com.saed.backend.seguros.dto.PolizaResidenteDTO;
 import com.saed.backend.seguros.dto.PolizaSeguroDTO;
 import com.saed.backend.seguros.dto.ResumenPolizasDTO;
 import com.saed.backend.seguros.repository.PolizaSeguroRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -70,13 +72,27 @@ public class PolizaSeguroService {
         return polizas;
     }
 
-    public List<PolizaSeguroDTO> getPolizasVigentesResidentes() {
+    public List<PolizaResidenteDTO> getPolizasVigentesResidentes() {
         Long propiedadId = SaedContextHolder.getContext().getPropertyId();
         List<PolizaSeguroDTO> all = repository.findAllByPropiedad(propiedadId);
         return all.stream()
                 .peek(p -> p.setEstado(calcularEstadoDinamico(p)))
                 .filter(p -> "VIGENTE".equals(p.getEstado()) || "POR_VENCER".equals(p.getEstado()))
+                .map(PolizaSeguroService::toResidentView)
                 .toList();
+    }
+
+    /** F10-17: residents see who insures the property, what is covered and until when; never the money fields. */
+    private static PolizaResidenteDTO toResidentView(PolizaSeguroDTO p) {
+        PolizaResidenteDTO view = new PolizaResidenteDTO();
+        view.setIdPoliza(p.getIdPoliza());
+        view.setCompaniaAseguradora(p.getCompaniaAseguradora());
+        view.setNumeroPoliza(p.getNumeroPoliza());
+        view.setRamoCobertura(p.getRamoCobertura());
+        view.setFechaInicio(p.getFechaInicio());
+        view.setFechaFin(p.getFechaFin());
+        view.setEstado(p.getEstado());
+        return view;
     }
 
     public ResumenPolizasDTO getResumen() {
@@ -128,6 +144,7 @@ public class PolizaSeguroService {
         return dto;
     }
 
+    @Transactional
     public void createPoliza(PolizaSeguroDTO dto) {
         Long propiedadId = SaedContextHolder.getContext().getPropertyId();
         validarReglasNegocio(dto, propiedadId);
@@ -139,6 +156,7 @@ public class PolizaSeguroService {
         repository.insert(dto);
     }
 
+    @Transactional
     public void updatePoliza(Long id, PolizaSeguroDTO dto) {
         Long propiedadId = SaedContextHolder.getContext().getPropertyId();
         validarReglasNegocio(dto, propiedadId);
@@ -153,10 +171,12 @@ public class PolizaSeguroService {
         }
     }
 
+    @Transactional
     public void delete(Long id) {
         deletePoliza(id);
     }
 
+    @Transactional
     public void deletePoliza(Long id) {
         Long propiedadId = SaedContextHolder.getContext().getPropertyId();
         if (repository.delete(id, propiedadId) == 0) {

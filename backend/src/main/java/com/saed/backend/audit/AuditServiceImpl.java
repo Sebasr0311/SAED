@@ -82,8 +82,12 @@ public class AuditServiceImpl implements AuditService {
         }
     }
 
+    /**
+     * Joins the audited business transaction: the record commits atomically with the change, and no second
+     * pooled connection is requested while the first one holds row locks.
+     */
     @Override
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Transactional(propagation = Propagation.REQUIRED)
     public void recordSuccess(Long idUsuario, Long idOrganizacion, Long idPropiedad,
                               String accion, String entidad, Long idEntidadAfectada,
                               String ipOrigen, String userAgent,

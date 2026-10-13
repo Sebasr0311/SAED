@@ -83,8 +83,14 @@ public class PersonaServiceImpl implements PersonaService {
 
     private boolean belongsToCallerOrganization(SaedContext ctx, Long personaId) {
         Optional<Long> org = personaRepository.findOrganizationId(personaId);
-        // Legacy identities without a home organization are editable only when already visible in scope.
-        return org.isEmpty() || ctx.getOrganizationId().equals(org.get());
+        if (org.isPresent()) {
+            return ctx.getOrganizationId().equals(org.get());
+        }
+        // Legacy identities without a home organization belong to the caller only when already visible in scope.
+        if (isUnitCaller(ctx)) {
+            return ctx.getUnitId() != null && personaRepository.isLinkedToUnit(personaId, ctx.getUnitId());
+        }
+        return personaRepository.findById(personaId).isPresent();
     }
 
     @Override
@@ -248,6 +254,8 @@ public class PersonaServiceImpl implements PersonaService {
                         // DEC-01: the global identity of another tenant is never overwritten by an import.
                         errores.add(new PersonaBatchFilaErrorDTO(fila, item.numeroDocumento(),
                                 "La persona ya está registrada por otra organización; sus datos no se modificaron"));
+                        fallidos++;
+                        continue;
                     }
                 } else {
                     personaId = personaRepository.insert(req);

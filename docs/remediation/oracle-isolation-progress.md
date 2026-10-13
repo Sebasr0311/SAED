@@ -356,3 +356,50 @@ recovery-20 (+F6 V5.50–V5.53): 64/64 stages at the first attempt. Backend 0 WA
 | remaining 50 approved | **0 PAGADA** |
 
 A first run exposed two 500s among concurrent approvals that `handleTransactionException` returned without diagnostics. That handler now logs the bounded diagnostic and maps connection-pool exhaustion (`SQLTransientConnectionException`) to a retryable **503 SERVICE_BUSY** with `Retry-After`; never a bare 500. Note: `POST /api/v1/pagos` returns only `{success, message}` (no payment id) — minor API gap.
+
+## recovery-21 — F0–F11 integrated verification after the open-items pass
+
+Fresh target `saed-isolated-0493593e4a0c` (run `0493593e4a0c6e6f47561fd87056347d`, same immutable image digest, 4 GiB, 2 CPUs, loopback 11521, random SYS password), harness rebound in a dedicated commit. Installation applied V5.54 (RLS through parent tables), V5.55 (`__sec_` household revocation), V5.56 (durable deletion challenges) and V5.90 (INCIDENTES module) at the first attempt.
+
+| Check | Result |
+|---|---|
+| Unit tier (clean reports, compile + checkstyle) | 134 classes / 1128 tests, 0 failures, 0 errors |
+| Install | complete, 0 errors |
+| RLS predicate sweep, 97 policy tables × 6 profiles (SUPERADMIN added) | **0 broken** (recovery-20: 4 tables with ORA-28113 for every profile) |
+| Six-profile smoke | 9 MATCH + 2 expected 401 (inactive and blocked accounts) |
+| Isolation matrix | 0 cross-tenant responses |
+| Role switching and pooled context (360 concurrent requests) | 0 failures |
+| Payment single-debit scenario | 15/15; concurrent approvals `[200, 409, 409, 409, 409]`, whole scenario 5 s |
+| Browser route walk, 6 roles × 115 routes (login verified per role) | 105 rendered routes, **0 with API 4xx/5xx, page errors or blank screens** (recovery-20: 19) |
+| SUPERADMIN HTTP probe, 142 parameterless GET routes | 104 × 403, 8 × 400, 30 × 200; tenant ids only in platform data; 0 server errors |
+| Audit visibility | SUPERADMIN: 24 tenant rows, 0 with state payloads; ADMIN_ORGANIZACION: its 24 rows with payloads |
+
+Defects found and fixed during this attempt:
+
+- The INCIDENTES module was never seeded, so every incident endpoint answered 403 to every role (V5.90 + `RequireModuleSeedTest`).
+- `DocumentoRepositoryImpl` bound a null property id (`? IS NULL`), failing listing, editing and deleting for organization admins.
+- Success audits used REQUIRES_NEW and asked the pool for a second connection while the first held row locks. Five concurrent approvals on a 4-connection pool stalled for the 10 s connection timeout (two 503s), and a timed-out audit write was only logged. Success audits now join the audited transaction; failure audits keep REQUIRES_NEW.
+- A missing required query parameter answered 500 on eight endpoints; it is now 400 `MISSING_PARAMETER`.
+- DEC-02: `/api/v1/audit` exposed tenant record payloads (`ESTADO_ANTERIOR`/`ESTADO_NUEVO`) to SUPERADMIN, and `limite` was unbounded; payloads are masked for tenant rows and the limit is capped at 500.
+- Verification gaps closed: the route walk now fails when a role cannot log in (a stale Vite proxy produced a silent all-redirect run), the RLS sweep covers SUPERADMIN with its real context, and the isolation matrix's blind spot for SUPERADMIN is covered by `superadmin_operational_probe.py`.
+
+Observation, not a defect: SUPERADMIN reads tenant rows at the database level (RLS returns no predicate for it), so DEC-02 is enforced by the application layer; the HTTP probe is the regression guard for it.
+
+## recovery-22 — F9/F10 completion (PQRS screens, proxy voting, voting close, policies)
+
+Fresh target `saed-isolated-fd8bba9ec6b9` (run `fd8bba9ec6b953823d45a0c5973b5b26`), V5.57 (voting close result) applied under VPD at the first attempt.
+
+| Check | Result |
+|---|---|
+| Unit tier | 139 classes / 1152 tests, 0 failures |
+| RLS sweep, 97 tables × 6 profiles | 0 broken |
+| Smoke / isolation matrix / role and pool / SUPERADMIN probe | 9 MATCH + 2 expected 401 / 0 leaks / 0 failures / 0 server errors |
+| Payment scenario, five consecutive runs | each 15/15, concurrent approvals `[200, 409, 409, 409, 409]`, 3–6 s, 0 SERVICE_BUSY, 0 lost audits |
+| Browser route walk, 6 roles | 0 routes with issues |
+| `voting_close_scenario.py`, two runs | 64/64 each: Art. 45 simple majority over represented coefficients (0.31/0.60 approved, 0.29/0.60 rejected although SI > NO), Art. 46 qualified majority over the property base (0.65 rejected, 0.70 approved), second close and annulment of a closed voting 409 with the stored result unchanged, API and VOTACIONES columns equal, proxy filing 403/403/201 |
+
+Defects found and fixed during this attempt:
+
+- Audit advice ordering (`6d44970`): the transaction advisor and the audit aspect shared the default precedence, so nesting was unspecified. A losing concurrent approval held its connection while its REQUIRES_NEW failure audit waited for another, and the timed-out audit replaced the 409 with a 503. recovery-21's clean run was ordering luck. The transaction order is now explicit: success audits run inside the transaction, failure audits run outermost after rollback, and a failing audit never replaces the business exception. The audited IP comes from `ClientRequestInfo`.
+- `ResAsambleasPage` offered proxy filing to cohabitants and requested owners/residents they may not read (403); proxy filing is now limited to owners (`975ae7e`).
+- Ley 675: DEC-11 first measured majorities over the weight cast; corrected to Art. 45 (represented coefficients) and Art. 46 (total property coefficients).

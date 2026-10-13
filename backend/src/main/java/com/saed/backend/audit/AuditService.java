@@ -8,6 +8,7 @@ public interface AuditService {
      */
     void recordEvent(AuditEntry entry);
 
+    /** Joins the caller's transaction, so the record commits atomically with the audited change. */
     void recordSuccess(Long idUsuario, Long idOrganizacion, Long idPropiedad,
                        String accion, String entidad, Long idEntidadAfectada,
                        String ipOrigen, String userAgent,

@@ -114,6 +114,13 @@ public class UnitInhabitantServiceImpl implements UnitInhabitantService {
         return ctx;
     }
 
+    /** PERSONAS has no row-level policy (DEC-01): a foreign identity is reported exactly like a missing one. */
+    private void requirePersonOfCallerOrganization(SaedContext ctx, Long personaId) {
+        if (personaId == null || !unitInhabitantRepository.personBelongsToOrganization(personaId, ctx.getOrganizationId())) {
+            throw new NoSuchElementException("Persona no encontrada");
+        }
+    }
+
     private static String normalizedType(String type) {
         return type == null ? "" : type.trim().toUpperCase();
     }
@@ -139,6 +146,7 @@ public class UnitInhabitantServiceImpl implements UnitInhabitantService {
         if (isUnitCaller(ctx)) {
             throw new AccessDeniedException("Solo la administración registra propietarios");
         }
+        requirePersonOfCallerOrganization(ctx, request.personaId());
         return unitInhabitantRepository.insertOwner(unitId, request);
     }
 
@@ -158,6 +166,8 @@ public class UnitInhabitantServiceImpl implements UnitInhabitantService {
         if (isUnitCaller(ctx) && !HOUSEHOLD_TYPES.contains(tipo)) {
             throw new AccessDeniedException("Como residente solo puede registrar convivientes o familiares");
         }
+
+        requirePersonOfCallerOrganization(ctx, request.personaId());
 
         // F05-02: the unit row is locked before counting, so parallel additions cannot exceed the quota.
         if ("CONVIVIENTE".equals(tipo)) {

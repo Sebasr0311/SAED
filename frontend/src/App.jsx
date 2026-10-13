@@ -530,7 +530,7 @@ export default function App() {
           <Route path="incidentes" element={<Navigate to="/incidentes-admin" replace />} />
           <Route path="mantenimiento-admin" element={<Navigate to="/mantenimientos" replace />} />
           <Route path="mantenimientos" element={<ProtectedRoute roles={['ADMIN_PROPIEDAD']}><MantenimientoAdminPage /></ProtectedRoute>} />
-          <Route path="activos" element={<ProtectedRoute roles={['ADMIN_PROPIEDAD', 'ADMIN_ORGANIZACION']}><ActivosPage /></ProtectedRoute>} />
+          <Route path="activos" element={<ProtectedRoute roles={['ADMIN_PROPIEDAD']}><ActivosPage /></ProtectedRoute>} />
           <Route path="asambleas-admin" element={<Navigate to="/asambleas" replace />} />
           <Route path="asambleas" element={<ProtectedRoute roles={['ADMIN_PROPIEDAD', 'ADMIN_ORGANIZACION']}><AsambleasAdminPage /></ProtectedRoute>} />
           <Route path="polizas-admin" element={<Navigate to="/polizas" replace />} />
