@@ -93,9 +93,9 @@ public class DatabaseSeeder implements ApplicationRunner {
             runSqlSafe("INSERT INTO ROLES (ID_ROL, CODIGO, NOMBRE, ALCANCE, ESTADO) SELECT 5, 'RESIDENTE', 'Residente', 'UNIDAD', 'ACTIVO' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM ROLES WHERE CODIGO = 'RESIDENTE')");
             runSqlSafe("INSERT INTO ROLES (ID_ROL, CODIGO, NOMBRE, ALCANCE, ESTADO) SELECT 6, 'RESIDENTE_CONVIVENCIA', 'Residente Conviviente', 'UNIDAD', 'ACTIVO' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM ROLES WHERE CODIGO = 'RESIDENTE_CONVIVENCIA')");
 
-            // 5. ORGANIZACIONES (Org 201 canónica: rincon farelo)
+            // 5. ORGANIZACIONES (Org 201 canónica: Organización Demo)
             runSqlSafe("INSERT INTO ORGANIZACIONES (ID_ORGANIZACION, NOMBRE, IDENTIFICACION_FISCAL, EMAIL_CONTACTO, TELEFONO_CONTACTO, CIUDAD, PAIS, ESTADO) " +
-                   "SELECT 201, 'rincon farelo', '1066872103', 'danielaaacunaa8@gmail.com', '3146313413', 'Valledupar (Cesar)', 'Colombia', 'ACTIVA' FROM DUAL " +
+                   "SELECT 201, 'Organizacion Demo', '900000001', 'contacto@example.invalid', '3000000000', 'Valledupar (Cesar)', 'Colombia', 'ACTIVA' FROM DUAL " +
                    "WHERE NOT EXISTS (SELECT 1 FROM ORGANIZACIONES WHERE ID_ORGANIZACION = 201)");
 
             // 6. PROPIEDADES (Propiedades de Org 201: Algarrobillos y Amparo)

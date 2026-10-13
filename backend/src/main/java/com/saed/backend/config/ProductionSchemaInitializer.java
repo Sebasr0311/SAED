@@ -790,12 +790,6 @@ public class ProductionSchemaInitializer implements ApplicationRunner {
                         SELECT 1 FROM PROPIETARIOS_UNIDAD pu WHERE pu.ID_PERSONA = p.ID_PERSONA
                     );
 
-                    -- Limpiar ID_PROPIEDAD para jjuan123 y admin org para garantizar que el nuevo edificio inicie limpio con 0 registros
-                    UPDATE PERSONAS
-                    SET ID_PROPIEDAD = NULL
-                    WHERE EMAIL IN ('jjuan123@saed.com', 'juanrinconfarelo@gmail.com')
-                      OR NUMERO_DOCUMENTO IN ('1099999123', '1066268898');
-
                     COMMIT;
                 EXCEPTION WHEN OTHERS THEN NULL;
                 END;

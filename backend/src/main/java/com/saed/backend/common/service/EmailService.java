@@ -23,14 +23,12 @@ import java.util.Map;
  * que es el flujo que ya funcionaba en produccion en SAED 1.0 y que Gmail no
  * bloquea desde hosts cloud (Render). Requiere BREVO_API_KEY en el entorno.
  *
- * Sender: gestion.residencias.upc@gmail.com (verificado en Brevo).
+ * Sender: configurable via BREVO_SENDER_EMAIL / BREVO_SENDER_NAME; debe estar verificado en Brevo.
  */
 @Service
 public class EmailService {
 
     private static final String BREVO_URL = "https://api.brevo.com/v3/smtp/email";
-    private static final String BREVO_SENDER = "gestion.residencias.upc@gmail.com";
-    private static final String BREVO_SENDER_NAME = "SAED";
 
     private final TemplateRenderService templateService;
     private final ObjectMapper objectMapper;
@@ -41,6 +39,13 @@ public class EmailService {
 
     @org.springframework.beans.factory.annotation.Value("${brevo.api-key:${BREVO_API_KEY:}}")
     private String brevoApiKey;
+
+    /** Verified Brevo sender; the neutral default keeps no real mailbox in the repository. */
+    @org.springframework.beans.factory.annotation.Value("${brevo.sender-email:${BREVO_SENDER_EMAIL:no-reply@example.invalid}}")
+    private String brevoSenderEmail;
+
+    @org.springframework.beans.factory.annotation.Value("${brevo.sender-name:${BREVO_SENDER_NAME:SAED}}")
+    private String brevoSenderName;
 
     public EmailService(TemplateRenderService templateService, ObjectMapper objectMapper, org.thymeleaf.TemplateEngine templateEngine,
                         @org.springframework.beans.factory.annotation.Qualifier("applicationTaskExecutor") java.util.concurrent.Executor mailExecutor) {
@@ -74,7 +79,7 @@ public class EmailService {
         }
 
         Map<String, Object> payload = new HashMap<>();
-        payload.put("sender", Map.of("name", BREVO_SENDER_NAME, "email", BREVO_SENDER));
+        payload.put("sender", Map.of("name", brevoSenderName, "email", brevoSenderEmail));
         payload.put("to", List.of(Map.of("email", destinatario)));
         payload.put("subject", asunto);
         payload.put("htmlContent", html);
