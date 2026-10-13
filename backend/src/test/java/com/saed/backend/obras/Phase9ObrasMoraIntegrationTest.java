@@ -5,6 +5,7 @@ import com.saed.backend.authorization.dto.*;
 import com.saed.backend.authorization.service.AssignmentService;
 import com.saed.backend.context.SaedContext;
 import com.saed.backend.context.SaedContextHolder;
+import com.saed.backend.finanzas.domain.CarteraRecalculation;
 import com.saed.backend.finanzas.dto.PazYSalvoEstadoFinancieroDTO;
 import com.saed.backend.finanzas.service.PazYSalvoService;
 import com.saed.backend.security.jwt.JwtProvider;
@@ -16,6 +17,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -126,6 +128,12 @@ public class Phase9ObrasMoraIntegrationTest {
             // time (1ca286d), so that single seeded fee is voided for the duration of each test and restored afterwards;
             // the other seeded fees (1 and 3) are paid and the tests only create and remove fees above id 3.
             jdbcTemplate.update("UPDATE CUOTAS SET ESTADO = 'ANULADA' WHERE ID_CUOTA = 2 AND ESTADO <> 'ANULADA'");
+            // CARTERA is a snapshot derived from CUOTAS. The cleanup above voids the seeded fee 2 (overdue since the seed's
+            // due date), so the snapshot must be recomputed too; otherwise a stale mora written by an earlier class
+            // (Mvp04 recalculates the property) is read back by the service as the unit's arrears.
+            for (long unit : new long[] {1L, 2L, 9992L}) {
+                CarteraRecalculation.recalcularUnidad(new NamedParameterJdbcTemplate(jdbcTemplate), unit);
+            }
 
             ensureOrganizacion(1L, "Organización Central", "900000001-1", "org1@saed.com");
             ensureOrganizacion(9992L, "Org 9992 Foranea", "900009992-9", "org9992@test.com");

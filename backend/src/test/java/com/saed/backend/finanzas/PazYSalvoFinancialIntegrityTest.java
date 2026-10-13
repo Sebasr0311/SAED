@@ -6,6 +6,7 @@ import com.saed.backend.authorization.service.AssignmentService;
 import com.saed.backend.common.service.FileStorageService;
 import com.saed.backend.context.SaedContext;
 import com.saed.backend.context.SaedContextHolder;
+import com.saed.backend.finanzas.domain.CarteraRecalculation;
 import com.saed.backend.finanzas.dto.PazYSalvoDetalleDTO;
 import com.saed.backend.finanzas.dto.PazYSalvoEstadoFinancieroDTO;
 import com.saed.backend.finanzas.service.PazYSalvoService;
@@ -128,6 +129,12 @@ public class PazYSalvoFinancialIntegrityTest {
                     UPDATE CUOTAS SET ESTADO = 'ANULADA' WHERE ID_CUOTA = 2 AND ESTADO <> 'ANULADA';
                 END;
             """);
+            // CARTERA is a snapshot derived from CUOTAS. The cleanup above voids the seeded fee 2 (overdue since the seed's
+            // due date), so the snapshot must be recomputed too; otherwise a stale mora written by an earlier class
+            // (Mvp04 recalculates the property) is read back by the service as the unit's arrears.
+            for (long unit : new long[] {1L, 2L, 9992L}) {
+                CarteraRecalculation.recalcularUnidad(namedParameterJdbcTemplate, unit);
+            }
 
             ensureOrganizacion(9992L, "Org 9992 Foranea", "900009992-9", "org9992@test.com");
             ensurePropiedad(9992L, 9992L, "Propiedad 9992 Test");
