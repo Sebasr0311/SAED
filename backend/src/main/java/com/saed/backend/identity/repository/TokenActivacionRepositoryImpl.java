@@ -1,18 +1,27 @@
 package com.saed.backend.identity.repository;
 
-import org.springframework.dao.EmptyResultDataAccessException;
+import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
-import org.springframework.jdbc.support.GeneratedKeyHolder;
-import org.springframework.jdbc.support.KeyHolder;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Repository;
 
+import java.sql.CallableStatement;
+import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.sql.Types;
 import java.time.Instant;
 import java.util.Optional;
 
 @Repository
 public class TokenActivacionRepositoryImpl implements TokenActivacionRepository {
+
+    private static final String EMIT_CALL = "{call SAED_SEC_MASTER.SP_EMITIR_TOKEN_ACTIVACION(?, ?, ?, ?, ?, ?, ?, ?)}";
+    private static final String RESEND_CALL = "{call SAED_SEC_MASTER.SP_REENVIAR_TOKEN_ACTIVACION(?, ?, ?, ?, ?, ?, ?, ?)}";
+    private static final String QUERY_CALL = "{call SAED_SEC_MASTER.SP_CONSULTAR_TOKEN_ACTIVACION(?, ?, ?, ?, ?, ?, ?, ?)}";
+    private static final String ACTIVATE_CALL = "{call SAED_SEC_MASTER.SP_ACTIVAR_CUENTA(?, ?, ?, ?, ?)}";
+    private static final int FIRST_REFUSAL = 20501;
+    private static final int LAST_REFUSAL = 20505;
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
 
@@ -21,70 +30,83 @@ public class TokenActivacionRepositoryImpl implements TokenActivacionRepository 
     }
 
     @Override
-    public Long guardarToken(Long idUsuario, String tokenHash, String tipo, Instant fechaExpiracion, String ip) {
-        String sql = """
-            INSERT INTO TOKENS_ACTIVACION (ID_USUARIO, TOKEN_HASH, TIPO, FECHA_EXPIRACION, USADO, IP_SOLICITUD)
-            VALUES (:idUsuario, :tokenHash, :tipo, :fechaExpiracion, 0, :ip)
-        """;
-        MapSqlParameterSource params = new MapSqlParameterSource()
-                .addValue("idUsuario", idUsuario)
-                .addValue("tokenHash", tokenHash)
-                .addValue("tipo", tipo)
-                .addValue("fechaExpiracion", Timestamp.from(fechaExpiracion))
-                .addValue("ip", ip);
-
-        KeyHolder kh = new GeneratedKeyHolder();
-        jdbcTemplate.update(sql, params, kh, new String[]{"ID_TOKEN"});
-        Number key = kh.getKey();
-        return key != null ? key.longValue() : null;
-    }
-
-    @Override
-    public Optional<TokenRegistro> buscarPorHash(String tokenHash) {
-        String sql = """
-            SELECT ID_TOKEN, ID_USUARIO, TOKEN_HASH, TIPO, FECHA_EXPIRACION, USADO
-            FROM TOKENS_ACTIVACION
-            WHERE TOKEN_HASH = :hash
-        """;
+    public Optional<UsuarioInfo> emitirToken(Long idUsuario, String tipo, String tokenHash, Instant fechaExpiracion,
+                                             String ip) {
         try {
-            TokenRegistro registro = jdbcTemplate.queryForObject(
-                    sql,
-                    new MapSqlParameterSource("hash", tokenHash),
-                    (rs, rowNum) -> new TokenRegistro(
-                            rs.getLong("ID_TOKEN"),
-                            rs.getLong("ID_USUARIO"),
-                            rs.getString("TOKEN_HASH"),
-                            rs.getString("TIPO"),
-                            rs.getTimestamp("FECHA_EXPIRACION").toInstant(),
-                            rs.getInt("USADO") == 1
-                    )
-            );
-            return Optional.ofNullable(registro);
-        } catch (EmptyResultDataAccessException e) {
-            return Optional.empty();
+            return jdbcTemplate.getJdbcOperations().execute(EMIT_CALL, (CallableStatement cs) -> {
+                cs.setLong(1, idUsuario);
+                cs.setString(2, tokenHash);
+                cs.setString(3, tipo);
+                cs.setTimestamp(4, Timestamp.from(fechaExpiracion));
+                setNullable(cs, 5, ip);
+                cs.registerOutParameter(6, Types.VARCHAR);
+                cs.registerOutParameter(7, Types.VARCHAR);
+                cs.registerOutParameter(8, Types.VARCHAR);
+                cs.execute();
+                return Optional.of(new UsuarioInfo(idUsuario, cs.getString(6), cs.getString(7), cs.getString(8), null));
+            });
+        } catch (DataAccessException ex) {
+            if (isRefusal(ex)) {
+                throw new AccessDeniedException("No tiene autorización para emitir un enlace de activación para esta cuenta");
+            }
+            throw ex;
         }
     }
 
     @Override
-    public void marcarComoUsado(Long idToken) {
-        String sql = """
-            UPDATE TOKENS_ACTIVACION
-            SET USADO = 1, FECHA_USO = CURRENT_TIMESTAMP
-            WHERE ID_TOKEN = :idToken
-        """;
-        jdbcTemplate.update(sql, new MapSqlParameterSource("idToken", idToken));
+    public Optional<UsuarioInfo> emitirTokenReenvio(String identificador, String tokenHash, Instant fechaExpiracion,
+                                                    String ip) {
+        return jdbcTemplate.getJdbcOperations().execute(RESEND_CALL, (CallableStatement cs) -> {
+            cs.setString(1, identificador);
+            cs.setString(2, tokenHash);
+            cs.setTimestamp(3, Timestamp.from(fechaExpiracion));
+            setNullable(cs, 4, ip);
+            cs.registerOutParameter(5, Types.NUMERIC);
+            cs.registerOutParameter(6, Types.VARCHAR);
+            cs.registerOutParameter(7, Types.VARCHAR);
+            cs.registerOutParameter(8, Types.VARCHAR);
+            cs.execute();
+            long id = cs.getLong(5);
+            if (cs.wasNull()) {
+                return Optional.<UsuarioInfo>empty();
+            }
+            return Optional.of(new UsuarioInfo(id, cs.getString(6), cs.getString(7), cs.getString(8), null));
+        });
     }
 
     @Override
-    public void invalidarTokensPrevios(Long idUsuario, String tipo) {
-        String sql = """
-            UPDATE TOKENS_ACTIVACION
-            SET USADO = 1, FECHA_USO = CURRENT_TIMESTAMP
-            WHERE ID_USUARIO = :idUsuario AND TIPO = :tipo AND USADO = 0
-        """;
-        jdbcTemplate.update(sql, new MapSqlParameterSource()
-                .addValue("idUsuario", idUsuario)
-                .addValue("tipo", tipo));
+    public Consulta consultar(String tokenHash, Instant ahora) {
+        return jdbcTemplate.getJdbcOperations().execute(QUERY_CALL, (CallableStatement cs) -> {
+            cs.setString(1, tokenHash);
+            cs.setTimestamp(2, Timestamp.from(ahora));
+            cs.registerOutParameter(3, Types.VARCHAR);
+            cs.registerOutParameter(4, Types.NUMERIC);
+            cs.registerOutParameter(5, Types.VARCHAR);
+            cs.registerOutParameter(6, Types.VARCHAR);
+            cs.registerOutParameter(7, Types.VARCHAR);
+            cs.registerOutParameter(8, Types.TIMESTAMP_WITH_TIMEZONE);
+            cs.execute();
+            String estado = cs.getString(3);
+            if (!"VALIDO".equals(estado)) {
+                return new Consulta(estado, null, null);
+            }
+            Timestamp expira = cs.getTimestamp(8);
+            UsuarioInfo user = new UsuarioInfo(cs.getLong(4), cs.getString(5), cs.getString(6), cs.getString(7), null);
+            return new Consulta(estado, user, expira == null ? null : expira.toInstant());
+        });
+    }
+
+    @Override
+    public String activar(String tokenHash, String hashPassword, Instant ahora) {
+        return jdbcTemplate.getJdbcOperations().execute(ACTIVATE_CALL, (CallableStatement cs) -> {
+            cs.setString(1, tokenHash);
+            cs.setString(2, hashPassword);
+            cs.setTimestamp(3, Timestamp.from(ahora));
+            cs.registerOutParameter(4, Types.VARCHAR);
+            cs.registerOutParameter(5, Types.NUMERIC);
+            cs.execute();
+            return cs.getString(4);
+        });
     }
 
     @Override
@@ -95,53 +117,25 @@ public class TokenActivacionRepositoryImpl implements TokenActivacionRepository 
             LEFT JOIN PERSONAS p ON u.ID_PERSONA = p.ID_PERSONA
             WHERE u.ID_USUARIO = :idUsuario
         """;
-        try {
-            UsuarioInfo info = jdbcTemplate.queryForObject(
-                    sql,
-                    new MapSqlParameterSource("idUsuario", idUsuario),
-                    (rs, rowNum) -> new UsuarioInfo(
-                            rs.getLong("ID_USUARIO"),
-                            rs.getString("NOMBRE_USUARIO"),
-                            rs.getString("EMAIL"),
-                            rs.getString("PRIMER_NOMBRE") != null ? rs.getString("PRIMER_NOMBRE") : rs.getString("NOMBRE_USUARIO"),
-                            rs.getString("ESTADO")
-                    )
-            );
-            return Optional.ofNullable(info);
-        } catch (EmptyResultDataAccessException e) {
-            return Optional.empty();
+        return jdbcTemplate.query(sql, new MapSqlParameterSource("idUsuario", idUsuario),
+                (rs, rowNum) -> new UsuarioInfo(
+                        rs.getLong("ID_USUARIO"),
+                        rs.getString("NOMBRE_USUARIO"),
+                        rs.getString("EMAIL"),
+                        rs.getString("PRIMER_NOMBRE") != null ? rs.getString("PRIMER_NOMBRE") : rs.getString("NOMBRE_USUARIO"),
+                        rs.getString("ESTADO"))).stream().findFirst();
+    }
+
+    private static void setNullable(CallableStatement cs, int index, String value) throws SQLException {
+        if (value == null) {
+            cs.setNull(index, Types.VARCHAR);
+        } else {
+            cs.setString(index, value);
         }
     }
 
-    @Override
-    public Optional<Long> buscarIdUsuarioPorIdentificador(String identificador) {
-        String sql = """
-            SELECT ID_USUARIO
-            FROM USUARIOS
-            WHERE (LOWER(NOMBRE_USUARIO) = LOWER(:id) OR LOWER(EMAIL) = LOWER(:id))
-              AND ROWNUM = 1
-        """;
-        try {
-            Long id = jdbcTemplate.queryForObject(
-                    sql,
-                    new MapSqlParameterSource("id", identificador.trim()),
-                    Long.class
-            );
-            return Optional.ofNullable(id);
-        } catch (EmptyResultDataAccessException e) {
-            return Optional.empty();
-        }
-    }
-
-    @Override
-    public void actualizarPasswordYActivar(Long idUsuario, String hashPassword) {
-        String sql = """
-            UPDATE USUARIOS
-            SET HASH_PASSWORD = :hash, ESTADO = 'ACTIVO', INTENTOS_FALLIDOS = 0
-            WHERE ID_USUARIO = :idUsuario
-        """;
-        jdbcTemplate.update(sql, new MapSqlParameterSource()
-                .addValue("idUsuario", idUsuario)
-                .addValue("hash", hashPassword));
+    private static boolean isRefusal(DataAccessException ex) {
+        return ex.getCause() instanceof SQLException sql
+                && sql.getErrorCode() >= FIRST_REFUSAL && sql.getErrorCode() <= LAST_REFUSAL;
     }
 }

@@ -46,35 +46,18 @@ public class TokenActivacionServiceImpl implements TokenActivacionService {
 
     @Override
     @Transactional
-    public String generarYEnviarTokenActivacion(Long idUsuario, String ipSolicitud) {
+    public void generarYEnviarTokenActivacion(Long idUsuario, String ipSolicitud) {
         if (idUsuario == null) {
             throw new IllegalArgumentException("El idUsuario es requerido");
         }
-
-        // 1. Invalidar tokens previos de activación no usados
-        tokenRepository.invalidarTokensPrevios(idUsuario, "ACTIVACION_INICIAL");
-
-        // 2. Generar token criptográfico aleatorio de 32 bytes (256 bits)
-        byte[] randomBytes = new byte[32];
-        new SecureRandom().nextBytes(randomBytes);
-        String rawToken = HexFormat.of().formatHex(randomBytes);
-
-        // 3. Almacenar el hash SHA-256 en base de datos (zero-knowledge)
-        String tokenHash = calcularSha256(rawToken);
+        String rawToken = nuevoTokenPlano();
         Instant fechaExpiracion = Instant.now().plus(EXPIRACION_TOKEN);
 
-        tokenRepository.guardarToken(idUsuario, tokenHash, "ACTIVACION_INICIAL", fechaExpiracion, ipSolicitud);
+        // Only the SHA-256 of the token is stored (zero-knowledge); the database invalidates the previous open tokens.
+        Optional<TokenActivacionRepository.UsuarioInfo> user = tokenRepository.emitirToken(
+                idUsuario, "ACTIVACION_INICIAL", calcularSha256(rawToken), fechaExpiracion, ipSolicitud);
         log.info("Token de activación generado para idUsuario={}, expira={}", idUsuario, fechaExpiracion);
-
-        // 4. Enviar correo electrónico con enlace de activación
-        tokenRepository.obtenerUsuarioInfo(idUsuario).ifPresent(user -> {
-            if (user.email() != null && !user.email().isBlank()) {
-                String enlace = frontendUrl + "/activar-cuenta?token=" + rawToken;
-                enviarCorreoBienvenidaActivacion(user.email(), user.primerNombre(), user.nombreUsuario(), enlace);
-            }
-        });
-
-        return rawToken;
+        user.ifPresent(u -> enviarEnlace(u, rawToken));
     }
 
     @Override
@@ -82,37 +65,19 @@ public class TokenActivacionServiceImpl implements TokenActivacionService {
         if (tokenPlano == null || tokenPlano.isBlank()) {
             return TokenActivacionInfoDTO.invalido("El token de activación no fue proporcionado.");
         }
-
-        String tokenHash = calcularSha256(tokenPlano.trim());
-        Optional<TokenActivacionRepository.TokenRegistro> optReg = tokenRepository.buscarPorHash(tokenHash);
-
-        if (optReg.isEmpty()) {
-            return TokenActivacionInfoDTO.invalido("El enlace de activación no es válido o no existe.");
-        }
-
-        TokenActivacionRepository.TokenRegistro reg = optReg.get();
-
-        if (reg.usado()) {
-            return TokenActivacionInfoDTO.invalido("Este enlace de activación ya ha sido utilizado previamente.");
-        }
-
-        if (reg.fechaExpiracion().isBefore(Instant.now())) {
-            return TokenActivacionInfoDTO.invalido("El enlace de activación ha expirado. Solicite un nuevo enlace.");
-        }
-
-        Optional<TokenActivacionRepository.UsuarioInfo> optUser = tokenRepository.obtenerUsuarioInfo(reg.idUsuario());
-        if (optUser.isEmpty()) {
-            return TokenActivacionInfoDTO.invalido("No se encontró el usuario asociado a este enlace.");
-        }
-
-        TokenActivacionRepository.UsuarioInfo user = optUser.get();
-        return TokenActivacionInfoDTO.valido(
-                user.idUsuario(),
-                user.nombreUsuario(),
-                user.email(),
-                user.primerNombre(),
-                reg.fechaExpiracion()
-        );
+        TokenActivacionRepository.Consulta consulta =
+                tokenRepository.consultar(calcularSha256(tokenPlano.trim()), Instant.now());
+        return switch (consulta.estado()) {
+            case "VALIDO" -> {
+                TokenActivacionRepository.UsuarioInfo user = consulta.usuario();
+                yield TokenActivacionInfoDTO.valido(user.idUsuario(), user.nombreUsuario(), user.email(),
+                        user.primerNombre(), consulta.fechaExpiracion());
+            }
+            case "USADO" -> TokenActivacionInfoDTO.invalido("Este enlace de activación ya ha sido utilizado previamente.");
+            case "EXPIRADO" -> TokenActivacionInfoDTO.invalido("El enlace de activación ha expirado. Solicite un nuevo enlace.");
+            case "USUARIO_NO_DISPONIBLE" -> TokenActivacionInfoDTO.invalido("No se encontró el usuario asociado a este enlace.");
+            default -> TokenActivacionInfoDTO.invalido("El enlace de activación no es válido o no existe.");
+        };
     }
 
     @Override
@@ -121,41 +86,28 @@ public class TokenActivacionServiceImpl implements TokenActivacionService {
         if (tokenPlano == null || tokenPlano.isBlank()) {
             throw new IllegalArgumentException("Token de activación no proporcionado");
         }
-
         if (password == null || password.isBlank()) {
             throw new IllegalArgumentException("La contraseña es requerida");
         }
-
         if (!password.equals(confirmPassword)) {
             throw new IllegalArgumentException("Las contraseñas no coinciden");
         }
-
         if (!PWD_PATTERN.matcher(password).matches()) {
             throw new IllegalArgumentException(
                 "La contraseña debe contener al menos 8 caracteres, una mayúscula, una minúscula, un número y un carácter especial (@#$%^&+=!._*-)."
             );
         }
 
-        String tokenHash = calcularSha256(tokenPlano.trim());
-        TokenActivacionRepository.TokenRegistro reg = tokenRepository.buscarPorHash(tokenHash)
-                .orElseThrow(() -> new IllegalArgumentException("El enlace de activación no es válido"));
-
-        if (reg.usado()) {
-            throw new IllegalStateException("Este enlace de activación ya fue utilizado");
+        // One atomic database operation: validates the token (unused, not expired), sets the password, activates
+        // the account and consumes the token, so a token can never be used twice.
+        String resultado = tokenRepository.activar(
+                calcularSha256(tokenPlano.trim()), passwordEncoder.encode(password), Instant.now());
+        switch (resultado) {
+            case "ACTIVADA" -> log.info("Cuenta activada exitosamente mediante token de activación");
+            case "USADO" -> throw new IllegalStateException("Este enlace de activación ya fue utilizado");
+            case "EXPIRADO" -> throw new IllegalStateException("El enlace de activación ha expirado");
+            default -> throw new IllegalArgumentException("El enlace de activación no es válido");
         }
-
-        if (reg.fechaExpiracion().isBefore(Instant.now())) {
-            throw new IllegalStateException("El enlace de activación ha expirado");
-        }
-
-        // 1. Hashear con BCrypt y actualizar usuario a estado ACTIVO
-        String hashPassword = passwordEncoder.encode(password);
-        tokenRepository.actualizarPasswordYActivar(reg.idUsuario(), hashPassword);
-
-        // 2. Marcar token como usado
-        tokenRepository.marcarComoUsado(reg.idToken());
-
-        log.info("Cuenta activada exitosamente para idUsuario={}", reg.idUsuario());
     }
 
     @Override
@@ -163,14 +115,27 @@ public class TokenActivacionServiceImpl implements TokenActivacionService {
         if (identificador == null || identificador.isBlank()) {
             return;
         }
+        try {
+            String rawToken = nuevoTokenPlano();
+            tokenRepository.emitirTokenReenvio(identificador.trim(), calcularSha256(rawToken),
+                            Instant.now().plus(EXPIRACION_TOKEN), ipSolicitud)
+                    .ifPresent(u -> enviarEnlace(u, rawToken));
+        } catch (RuntimeException ex) {
+            log.error("Error al reenviar token de activación ({})", ex.getClass().getSimpleName());
+        }
+    }
 
-        tokenRepository.buscarIdUsuarioPorIdentificador(identificador.trim()).ifPresent(idUsuario -> {
-            try {
-                generarYEnviarTokenActivacion(idUsuario, ipSolicitud);
-            } catch (Exception ex) {
-                log.error("Error al reenviar token de activación para idUsuario={}: {}", idUsuario, ex.getMessage());
-            }
-        });
+    private void enviarEnlace(TokenActivacionRepository.UsuarioInfo user, String rawToken) {
+        if (user.email() != null && !user.email().isBlank()) {
+            String enlace = frontendUrl + "/activar-cuenta?token=" + rawToken;
+            enviarCorreoBienvenidaActivacion(user.email(), user.primerNombre(), user.nombreUsuario(), enlace);
+        }
+    }
+
+    private static String nuevoTokenPlano() {
+        byte[] randomBytes = new byte[32];
+        new SecureRandom().nextBytes(randomBytes);
+        return HexFormat.of().formatHex(randomBytes);
     }
 
     private void enviarCorreoBienvenidaActivacion(String email, String nombre, String username, String enlace) {
@@ -223,9 +188,9 @@ public class TokenActivacionServiceImpl implements TokenActivacionService {
                 """.formatted(nombre, username, email, enlace, enlace);
 
             emailService.enviarHtmlPublico(email, asunto, html);
-            log.info("Correo de activación enviado exitosamente a {}", email);
+            log.info("Correo de activación enviado");
         } catch (Exception e) {
-            log.error("Fallo al enviar correo de activación a {}: {}", email, e.getMessage());
+            log.error("Fallo al enviar correo de activación ({})", e.getClass().getSimpleName());
         }
     }
 

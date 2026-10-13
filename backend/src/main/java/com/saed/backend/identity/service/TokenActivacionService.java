@@ -4,7 +4,8 @@ import com.saed.backend.identity.dto.TokenActivacionInfoDTO;
 
 public interface TokenActivacionService {
 
-    String generarYEnviarTokenActivacion(Long idUsuario, String ipSolicitud);
+    /** Issues a single-use token (hash stored only) and mails the activation link; the token is never returned. */
+    void generarYEnviarTokenActivacion(Long idUsuario, String ipSolicitud);
 
     TokenActivacionInfoDTO validarToken(String tokenPlano);
 
