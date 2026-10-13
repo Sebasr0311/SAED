@@ -25,7 +25,7 @@ La Fase 1 ejecutó la erradicación total, segura y quirúrgica de estos mecanis
 1. **Exposición pública por comodín de seguridad:** La configuración de Spring Security en `SecurityConfig.java` definía `requestMatchers("/api/v1/auth/**").permitAll()`. Al ubicar el controlador de onboarding público bajo `/api/v1/auth/onboarding`, cualquier endpoint declarado dentro de él quedaba automáticamente accesible sin requerir token JWT ni rol.
 2. **Endpoint destructivo legado:** Para propósitos de depuración y limpieza en etapas tempranas de desarrollo, se implementó `@PostMapping("/purgar-falsos")` en `PublicOnboardingController.java`, permitiendo a cualquier actor anónimo en internet invocar el borrado masivo de organizaciones, usuarios y datos asociados.
 3. **Elevación de privilegios huérfana en segundo plano:** `OnboardingServiceImpl` ejecutaba en `@PostConstruct` una tarea en segundo plano mediante `CompletableFuture.runAsync()`. Esta tarea establecía un contexto sintético con rol `SUPERADMIN` (`SaedContext.builder().roleCode("SUPERADMIN").build()`) e invocaba `purgarRegistrosFalsos()` en cada inicio de la aplicación.
-4. **Hardcoded credentials/identifiers:** El método de limpieza contenía listas estáticas con correos específicos (`sebasrusso95@gmail.com`, `sebasthompson95@gmail.com`), violando principios de inmutabilidad y seguridad de datos.
+4. **Hardcoded credentials/identifiers:** El método de limpieza contenía listas estáticas con correos específicos (`<redacted-email>`, `<redacted-email>`), violando principios de inmutabilidad y seguridad de datos.
 
 ---
 
@@ -50,7 +50,7 @@ La Fase 1 ejecutó la erradicación total, segura y quirúrgica de estos mecanis
 #### C. `OnboardingServiceImpl.java`
 * Se retiró la invocación asíncrona de purga dentro del método `@PostConstruct init()`. El método ahora únicamente garantiza la inicialización idempotente del esquema de staging (`inicializarEsquemaStaging()`).
 * Se eliminó el método `public int purgarRegistrosFalsos()`.
-* Se removió el bloque de correos hardcodeados (`sebasrusso95@gmail.com`, `sebasthompson95@gmail.com`) del método auxiliar `purgarUsuarioYPersona()`.
+* Se removió el bloque de correos hardcodeados (`<redacted-email>`, `<redacted-email>`) del método auxiliar `purgarUsuarioYPersona()`.
 
 #### D. `GlobalExceptionHandler.java`
 * Se agregaron controladores explícitos para `NoResourceFoundException` y `NoHandlerFoundException` que responden limpiamente con `HTTP 404 NOT FOUND` y `HttpRequestMethodNotSupportedException` con `HTTP 405 METHOD NOT ALLOWED`, evitando que rutas inexistentes deriven erróneamente en `HTTP 500 INTERNAL SERVER ERROR`.

@@ -34,7 +34,7 @@ PASO 2: (OPCIONAL) INSERTAR DATOS DE PRUEBA
 PASO 3: CONFIGURAR EL BACKEND
 Una vez ejecutado el Paso 1 (y opcionalmente el Paso 2), debes configurar tu Backend de Spring Boot (en tu archivo de variables de entorno de Render o localmente en el .env) para que use las credenciales de base de datos creadas.
 - DB_USERNAME=SAED_APP
-- DB_PASSWORD=saed2026 (o la que hayas modificado)
+- DB_PASSWORD=<redacted> (o la que hayas modificado)
 - DB_URL=jdbc:oracle:thin:@... (URL TNS de tu Oracle ATP)
 
 EXPLICACION DE LA ARQUITECTURA (ZERO-TRUST):

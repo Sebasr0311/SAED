@@ -86,7 +86,7 @@ Se ejecutó la creación y aprovisionamiento limpio del esquema `SAED_BASELINE_T
 
 ```sql
 -- Ejecución SQL*Plus:
-sqlplus -s SAED_BASELINE_TEST_01/saed2026@localhost:1521/XEPDB1 @database/migrations/V5.0__master_baseline.sql
+sqlplus -s SAED_BASELINE_TEST_01/<redacted>@localhost:1521/XEPDB1 @database/migrations/V5.0__master_baseline.sql
 -- Resultado: Exit code 0, sin errores de compilación ni fallos DDL.
 ```
 
