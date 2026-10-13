@@ -149,8 +149,11 @@ public class Phase1FPorteriaIntegrationTest {
                 testPorteriaId = ((Number) ports.get(0).get("ID_PORTERIA")).longValue();
             }
 
+            // The resident of the scenario sees only the unit of its own assignment (RLS), so the fixture visit must
+            // belong to that unit; "any unit of the property" picked a neighbour on a fresh database (404 on /qr).
             List<Map<String, Object>> units = jdbcTemplate.queryForList(
-                    "SELECT ID_UNIDAD FROM UNIDADES WHERE ID_PROPIEDAD = ? AND ROWNUM = 1", testPropiedadId
+                    "SELECT ID_UNIDAD FROM USUARIO_ASIGNACIONES WHERE ID_ASIGNACION = ? AND ID_USUARIO = ? AND ID_PROPIEDAD = ? AND ID_UNIDAD IS NOT NULL",
+                    residenteAssignmentId, residenteUserId, testPropiedadId
             );
             if (!units.isEmpty()) {
                 testUnidadId = ((Number) units.get(0).get("ID_UNIDAD")).longValue();
