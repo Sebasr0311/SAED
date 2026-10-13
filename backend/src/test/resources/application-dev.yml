@@ -1,0 +1,13 @@
+# Unit/slice-test configuration. Every value below is a randomly generated, non-functional
+# placeholder created for this repository's tests; none of them is a real credential.
+jwt:
+  secret: g6ba6JDWFZ8v9pWD8nxx6j03siRpQoHw7Urw+c88o/tVLW14bzjnk0TCa7wQjVyH
+
+saed:
+  cors:
+    allowed-origins: http://localhost:5173
+  wompi:
+    environment: SANDBOX
+    public-key: pub_test_fake_41838b62f732151bd7949914
+    integrity-secret: test_integrity_fake_57626fc39802c6c9e864d62c
+    events-secret: test_events_fake_0499af89c554e26f13a3ec3a
