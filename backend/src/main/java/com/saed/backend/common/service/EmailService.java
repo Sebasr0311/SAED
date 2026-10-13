@@ -238,85 +238,10 @@ public class EmailService {
         enviarHtml(destinatario, "CÓDIGO DE SEGURIDAD: Eliminación de " + nombrePropiedad, html, null, null);
     }
 
-    public void enviarBienvenidaCredenciales(
-            String destinatario,
-            String nombreCompleto,
-            String organizacion,
-            String planNombre,
-            String rol,
-            String nombreUsuario,
-            String passwordGenerada,
-            String urlLogin
-    ) throws Exception {
-        org.thymeleaf.context.Context context = new org.thymeleaf.context.Context();
-        context.setVariable("nombreCompleto", nombreCompleto != null ? nombreCompleto : "Usuario");
-        context.setVariable("organizacion", organizacion != null ? organizacion : "SAED");
-        context.setVariable("planNombre", planNombre != null ? planNombre : "Plan SAED");
-        context.setVariable("rol", rol != null ? rol : "ADMIN_ORGANIZACION");
-        context.setVariable("rolNombre", rol != null ? rol : "Administrador");
-        context.setVariable("rolDescripcion", "Acceso a la plataforma SAED.");
-        context.setVariable("nombreUsuario", nombreUsuario);
-        context.setVariable("passwordGenerada", passwordGenerada);
-        context.setVariable("urlLogin", urlLogin != null && !urlLogin.isBlank() ? urlLogin : "https://saedfront.vercel.app/login");
-
-        String html = templateEngine.process("correos/correo_bienvenida_credenciales", context);
-        String asunto = "¡Bienvenido a SAED! — Tus credenciales de acceso";
-        enviarHtml(destinatario, asunto, html, null, null);
-    }
-
     public record EmailDispatchResult(String estado, String detalle, boolean real) {}
 
     public boolean isRealDispatchConfigured() {
         String apiKey = getEffectiveApiKey();
         return apiKey != null && !apiKey.isBlank();
-    }
-
-    public EmailDispatchResult enviarBienvenidaCredencialesConResultado(
-            String destinatario,
-            String nombreCompleto,
-            String organizacion,
-            String planNombre,
-            String rol,
-            String nombreUsuario,
-            String passwordGenerada,
-            String urlLogin
-    ) {
-        if (destinatario == null || destinatario.isBlank()) {
-            return new EmailDispatchResult("FALLIDO", "Destinatario no especificado", false);
-        }
-        String apiKey = getEffectiveApiKey();
-        if (apiKey == null || apiKey.isBlank()) {
-            org.slf4j.LoggerFactory.getLogger(EmailService.class)
-                    .info("[EMAIL-SIMULATION] Envío simulado a {}: Asunto='¡Bienvenido a SAED! — Tus credenciales de acceso'", destinatario);
-            return new EmailDispatchResult("SIMULADO", "Envío simulado localmente (BREVO_API_KEY no configurada en entorno)", false);
-        }
-        try {
-            enviarBienvenidaCredenciales(destinatario, nombreCompleto, organizacion, planNombre, rol, nombreUsuario, passwordGenerada, urlLogin);
-            return new EmailDispatchResult("ENVIADO", "Correo entregado exitosamente vía Brevo API", true);
-        } catch (Exception e) {
-            org.slf4j.LoggerFactory.getLogger(EmailService.class)
-                    .error("Error despachando correo a {}: {}", destinatario, e.getMessage());
-            return new EmailDispatchResult("FALLIDO", "Error en proveedor de correo: " + e.getMessage(), false);
-        }
-    }
-
-    public void enviarBienvenidaCredencialesAsync(
-            String destinatario,
-            String nombreCompleto,
-            String organizacion,
-            String planNombre,
-            String rol,
-            String nombreUsuario,
-            String passwordGenerada,
-            String urlLogin
-    ) {
-        java.util.concurrent.CompletableFuture.runAsync(() -> {
-            try {
-                enviarBienvenidaCredenciales(destinatario, nombreCompleto, organizacion, planNombre, rol, nombreUsuario, passwordGenerada, urlLogin);
-            } catch (Exception e) {
-                org.slf4j.LoggerFactory.getLogger(EmailService.class)
-                        .warn("Fallo en envío asíncrono de bienvenida credenciales a {}: {}", destinatario, e.getMessage());
-            }
-        }, mailExecutor);
     }
 }

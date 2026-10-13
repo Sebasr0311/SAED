@@ -90,7 +90,7 @@ class ResidentRegistrationServiceTest {
 
     @Test
     void personLinkGuardianAndAccountAreCreatedInOrder() {
-        when(accounts.provision(any())).thenReturn(Map.of("idUsuario", 42L, "passwordGenerada", "tmp"));
+        when(accounts.provision(any())).thenReturn(Map.of("idUsuario", 42L));
 
         ResidentRegistrationResult result = service.register(request("FAMILIAR",
                 new ResidentRegistrationRequest.Guardian(null, person("222", null), "MADRE"),
@@ -109,7 +109,6 @@ class ResidentRegistrationServiceTest {
         assertEquals(500L, result.personId());
         assertEquals(501L, result.guardianPersonId());
         assertEquals(42L, result.userId());
-        assertEquals("tmp", result.generatedPassword());
         assertNull(result.ownerLinkId());
     }
 

@@ -399,7 +399,6 @@ public class PlatformOnboardingAdminServiceImpl implements PlatformOnboardingAdm
                     result.real(),
                     targetEmail,
                     username,
-                    null,
                     LocalDate.now().toString()
             );
         } finally {

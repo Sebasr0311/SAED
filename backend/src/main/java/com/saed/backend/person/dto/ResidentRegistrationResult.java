@@ -7,7 +7,6 @@ public record ResidentRegistrationResult(
         Long contractId,
         Long residentLinkId,
         Long ownerLinkId,
-        Long userId,
-        String generatedPassword
+        Long userId
 ) {
 }

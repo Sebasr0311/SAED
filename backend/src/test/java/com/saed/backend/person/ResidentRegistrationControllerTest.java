@@ -25,7 +25,7 @@ class ResidentRegistrationControllerTest {
 
     @Test
     void aValidRequestIsCreated() throws Exception {
-        when(service.register(any())).thenReturn(new ResidentRegistrationResult(500L, null, null, 900L, null, null, null));
+        when(service.register(any())).thenReturn(new ResidentRegistrationResult(500L, null, null, 900L, null, null));
 
         mvc.perform(post("/api/v1/residentes/registro-integral").contentType(MediaType.APPLICATION_JSON).content(
                         "{\"unitId\":100,\"tipoRelacion\":\"FAMILIAR\",\"person\":{\"tipoDocumentoId\":1,"

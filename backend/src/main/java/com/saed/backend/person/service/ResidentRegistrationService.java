@@ -129,17 +129,14 @@ public class ResidentRegistrationService {
 
         // 5. Access account
         Long userId = null;
-        String generatedPassword = null;
         if (request.account() != null) {
             Map<String, Object> result = accountProvisioner.provision(accountPayload(request, relation, personId));
             Object id = result.get("idUsuario");
             userId = id instanceof Number n ? n.longValue() : null;
-            Object password = result.get("passwordGenerada");
-            generatedPassword = password != null ? password.toString() : null;
         }
 
         return new ResidentRegistrationResult(personId, request.guardian() != null ? guardianId : null, contractId,
-                residentLinkId, ownerLinkId, userId, generatedPassword);
+                residentLinkId, ownerLinkId, userId);
     }
 
     private static Map<String, Object> accountPayload(ResidentRegistrationRequest request, String relation, Long personId) {

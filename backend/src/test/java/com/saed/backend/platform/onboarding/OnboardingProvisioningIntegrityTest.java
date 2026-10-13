@@ -230,8 +230,6 @@ class OnboardingProvisioningIntegrityTest {
                 && s.contains("'PENDIENTE_VERIFICACION'")));
         verify(tokens).generarYEnviarTokenActivacion(eq(902L), isNull());
         verify(templates).createDefaultTemplate(900L, 902L);
-        verify(email, never()).enviarBienvenidaCredencialesConResultado(anyString(), anyString(), anyString(),
-                anyString(), anyString(), anyString(), anyString(), anyString());
         assertNull(resp.get("password"));
         verifyNoDestructiveOrOverwritingStatements();
     }
