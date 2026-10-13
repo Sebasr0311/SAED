@@ -13,6 +13,8 @@ import com.saed.backend.context.SaedContextHolder;
 import com.saed.backend.paquetes.dto.PaqueteDTO;
 import com.saed.backend.paquetes.dto.PaqueteEntregaDTO;
 import com.saed.backend.security.jwt.JwtProvider;
+import com.saed.backend.testsupport.AssignmentFixture;
+import com.saed.backend.testsupport.CohabitantFixture;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -82,9 +84,6 @@ public class PackageDeliverySecurityIntegrationTest {
     private String portero2Token;
     private String alienToken;
 
-    private Long idRolPortero;
-    private Long idRolResidente;
-    private Long idRolConviviente;
 
     private <T> T querySuperAdmin(String sql, Class<T> clazz, Object... args) {
         SaedContext prev = SaedContextHolder.getContext();
@@ -113,182 +112,43 @@ public class PackageDeliverySecurityIntegrationTest {
         } catch (Exception ignored) {
         }
 
-        idRolPortero = jdbcTemplate.queryForObject(
-                "SELECT ID_ROL FROM ROLES WHERE CODIGO = 'PORTERO'", Long.class);
-        idRolResidente = jdbcTemplate.queryForObject(
-                "SELECT ID_ROL FROM ROLES WHERE CODIGO = 'RESIDENTE'", Long.class);
-        idRolConviviente = jdbcTemplate.queryForObject(
-                "SELECT ID_ROL FROM ROLES WHERE CODIGO = 'RESIDENTE_CONVIVENCIA'", Long.class);
+        // Fixture rows are plain "insert if absent" statements: a failure here is a real error, never swallowed, so the
+        // tests cannot silently run against a database that happens to hold rows left behind by other classes.
+        ensurePropiedad(1L, 1L, "Edificio Principal");
+        ensurePropiedad(2L, 1L, "Edificio Secundario");
+        ensureUnidad(1L, 1L, "Apt 101");
+        ensureUnidad(2L, 1L, "Apt 102");
 
-        // Propiedades
-        try {
-            jdbcTemplate.update("MERGE INTO PROPIEDADES p USING (SELECT 1 AS id, 1 AS o, 1 AS tp, "
-                    + "'Edificio Principal' AS n, 'Dir 1' AS d, 'Bogota' AS c, 'MIXTA' AS to FROM DUAL) s "
-                    + "ON (p.ID_PROPIEDAD = s.id) "
-                    + "WHEN NOT MATCHED THEN INSERT (ID_PROPIEDAD, ID_ORGANIZACION, ID_TIPO_PROPIEDAD, "
-                    + "NOMBRE, DIRECCION, CIUDAD, TIPO_OCUPACION_PREDOMINANTE) "
-                    + "VALUES (s.id, s.o, s.tp, s.n, s.d, s.c, s.to)");
-            jdbcTemplate.update("MERGE INTO PROPIEDADES p USING (SELECT 2 AS id, 1 AS o, 1 AS tp, "
-                    + "'Edificio Secundario' AS n, 'Dir 2' AS d, 'Bogota' AS c, 'MIXTA' AS to FROM DUAL) s "
-                    + "ON (p.ID_PROPIEDAD = s.id) "
-                    + "WHEN NOT MATCHED THEN INSERT (ID_PROPIEDAD, ID_ORGANIZACION, ID_TIPO_PROPIEDAD, "
-                    + "NOMBRE, DIRECCION, CIUDAD, TIPO_OCUPACION_PREDOMINANTE) "
-                    + "VALUES (s.id, s.o, s.tp, s.n, s.d, s.c, s.to)");
-        } catch (Exception ignored) {
-        }
+        jdbcTemplate.update("INSERT INTO COMUNICADOS (ID_COMUNICADO, ID_PROPIEDAD, TITULO, CONTENIDO, TIPO_SEGMENTACION, PRIORIDAD, ESTADO) "
+                + "SELECT 1, 1, 'Avisos', 'Contenido', 'TODOS', 'NORMAL', 'PUBLICADO' FROM DUAL "
+                + "WHERE NOT EXISTS (SELECT 1 FROM COMUNICADOS WHERE ID_COMUNICADO = 1)");
+        jdbcTemplate.update("INSERT INTO PORTERIAS (ID_PORTERIA, ID_PROPIEDAD, NOMBRE, ESTADO) "
+                + "SELECT 1, 1, 'Principal', 'ACTIVA' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM PORTERIAS WHERE ID_PORTERIA = 1)");
 
-        // Unidades
-        try {
-            jdbcTemplate.update("MERGE INTO UNIDADES u USING (SELECT 1 AS id, 1 AS p, 'Apt 101' AS idn, "
-                    + "'APARTAMENTO' AS tp, 'ACTIVA' AS st FROM DUAL) s ON (u.ID_UNIDAD = s.id) "
-                    + "WHEN NOT MATCHED THEN INSERT (ID_UNIDAD, ID_PROPIEDAD, IDENTIFICADOR, TIPO_UNIDAD, ESTADO) "
-                    + "VALUES (s.id, s.p, s.idn, s.tp, s.st) "
-                    + "WHEN MATCHED THEN UPDATE SET u.ID_PROPIEDAD = s.p, u.ESTADO = s.st");
-            jdbcTemplate.update("MERGE INTO UNIDADES u USING (SELECT 2 AS id, 1 AS p, 'Apt 102' AS idn, "
-                    + "'APARTAMENTO' AS tp, 'ACTIVA' AS st FROM DUAL) s ON (u.ID_UNIDAD = s.id) "
-                    + "WHEN NOT MATCHED THEN INSERT (ID_UNIDAD, ID_PROPIEDAD, IDENTIFICADOR, TIPO_UNIDAD, ESTADO) "
-                    + "VALUES (s.id, s.p, s.idn, s.tp, s.st) "
-                    + "WHEN MATCHED THEN UPDATE SET u.ID_PROPIEDAD = s.p, u.ESTADO = s.st");
-        } catch (Exception ignored) {
-        }
+        ensurePersonaYUsuario(3L, "CC3000", "Pedro", "Portero", "portero1", "portero@saed.com");
+        ensurePersonaYUsuario(4L, "CC4000", "Carlos", "Martinez", "camartinez", "camartinez@saed.com");
+        ensurePersonaYUsuario(5L, "CC5000", "Ana", "Gomez", "anagomez", "anagomez@saed.com");
+        ensurePersonaYUsuario(6L, "CC6000", "Sofia", "Martinez", "sofiamartinez", "sofia@saed.com");
+        ensurePersonaYUsuario(333L, "CC3330", "Luis", "Portero2", "portero2", "portero2@saed.com");
 
-        // Comunicado para notificaciones
-        try {
-            jdbcTemplate.update("MERGE INTO COMUNICADOS c USING (SELECT 1 AS id, 1 AS p, 'Avisos' AS t, "
-                    + "'Contenido' AS ct, 'TODOS' AS ts, 'NORMAL' AS pr, 'PUBLICADO' AS st FROM DUAL) s "
-                    + "ON (c.ID_COMUNICADO = s.id) "
-                    + "WHEN NOT MATCHED THEN INSERT (ID_COMUNICADO, ID_PROPIEDAD, TITULO, CONTENIDO, "
-                    + "TIPO_SEGMENTACION, PRIORIDAD, ESTADO) VALUES (s.id, s.p, s.t, s.ct, s.ts, s.pr, s.st) "
-                    + "WHEN MATCHED THEN UPDATE SET c.ID_PROPIEDAD = s.p, c.ESTADO = s.st");
-        } catch (Exception ignored) {
-        }
+        // Foreign tenant: it needs a real organization/property/unit/assignment too, because the session context is
+        // validated against USUARIO_ASIGNACIONES (ORA-20080 otherwise) and the test expects a clean 403/404.
+        jdbcTemplate.update("INSERT INTO ORGANIZACIONES (ID_ORGANIZACION, NOMBRE, IDENTIFICACION_FISCAL, EMAIL_CONTACTO) "
+                + "SELECT 888888, 'Org Test 888888', 'NIT888888', 'org888888@test.com' FROM DUAL "
+                + "WHERE NOT EXISTS (SELECT 1 FROM ORGANIZACIONES WHERE ID_ORGANIZACION = 888888)");
+        ensurePropiedad(888888L, 888888L, "Prop Alien 888888");
+        ensureUnidad(888888L, 888888L, "Alien-888888");
+        ensurePersonaYUsuario(888888L, "DOC888888", "Alien", "User", "alien888", "alien@test.com");
 
-        // Porterias
-        try {
-            jdbcTemplate.update("MERGE INTO PORTERIAS p USING (SELECT 1 AS id, 1 AS prop, 'Principal' AS n, "
-                    + "'ACTIVA' AS st FROM DUAL) s ON (p.ID_PORTERIA = s.id) "
-                    + "WHEN NOT MATCHED THEN INSERT (ID_PORTERIA, ID_PROPIEDAD, NOMBRE, ESTADO) "
-                    + "VALUES (s.id, s.prop, s.n, s.st)");
-        } catch (Exception ignored) {
-        }
-
-        // Personas y Usuarios
-        try {
-            jdbcTemplate.update("MERGE INTO PERSONAS p USING (SELECT 3 AS id, 1 AS td, 'CC3000' AS nd, 'NATURAL' AS tp, "
-                    + "'Pedro' AS pn, 'Portero' AS pa, 'portero@saed.com' AS em FROM DUAL) s ON (p.ID_PERSONA = s.id) "
-                    + "WHEN NOT MATCHED THEN INSERT (ID_PERSONA, ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, "
-                    + "PRIMER_NOMBRE, PRIMER_APELLIDO, EMAIL) VALUES (s.id, s.td, s.nd, s.tp, s.pn, s.pa, s.em)");
-            jdbcTemplate.update("MERGE INTO USUARIOS u USING (SELECT 3 AS id, 3 AS ip, 'portero1' AS nu, "
-                    + "'portero@saed.com' AS em, '$2a$10$abcdef' AS pw, 'ACTIVO' AS st FROM DUAL) s ON (u.ID_USUARIO = s.id) "
-                    + "WHEN NOT MATCHED THEN INSERT (ID_USUARIO, ID_PERSONA, NOMBRE_USUARIO, EMAIL, HASH_PASSWORD, ESTADO) "
-                    + "VALUES (s.id, s.ip, s.nu, s.em, s.pw, s.st) WHEN MATCHED THEN UPDATE SET u.ESTADO = 'ACTIVO'");
-
-            jdbcTemplate.update("MERGE INTO PERSONAS p USING (SELECT 4 AS id, 1 AS td, 'CC4000' AS nd, 'NATURAL' AS tp, "
-                    + "'Carlos' AS pn, 'Martinez' AS pa, 'camartinez@saed.com' AS em FROM DUAL) s ON (p.ID_PERSONA = s.id) "
-                    + "WHEN NOT MATCHED THEN INSERT (ID_PERSONA, ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, "
-                    + "PRIMER_NOMBRE, PRIMER_APELLIDO, EMAIL) VALUES (s.id, s.td, s.nd, s.tp, s.pn, s.pa, s.em)");
-            jdbcTemplate.update("MERGE INTO USUARIOS u USING (SELECT 4 AS id, 4 AS ip, 'camartinez' AS nu, "
-                    + "'camartinez@saed.com' AS em, '$2a$10$abcdef' AS pw, 'ACTIVO' AS st FROM DUAL) s ON (u.ID_USUARIO = s.id) "
-                    + "WHEN NOT MATCHED THEN INSERT (ID_USUARIO, ID_PERSONA, NOMBRE_USUARIO, EMAIL, HASH_PASSWORD, ESTADO) "
-                    + "VALUES (s.id, s.ip, s.nu, s.em, s.pw, s.st) WHEN MATCHED THEN UPDATE SET u.ESTADO = 'ACTIVO'");
-
-            jdbcTemplate.update("MERGE INTO PERSONAS p USING (SELECT 5 AS id, 1 AS td, 'CC5000' AS nd, 'NATURAL' AS tp, "
-                    + "'Ana' AS pn, 'Gomez' AS pa, 'anagomez@saed.com' AS em FROM DUAL) s ON (p.ID_PERSONA = s.id) "
-                    + "WHEN NOT MATCHED THEN INSERT (ID_PERSONA, ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, "
-                    + "PRIMER_NOMBRE, PRIMER_APELLIDO, EMAIL) VALUES (s.id, s.td, s.nd, s.tp, s.pn, s.pa, s.em)");
-            jdbcTemplate.update("MERGE INTO USUARIOS u USING (SELECT 5 AS id, 5 AS ip, 'anagomez' AS nu, "
-                    + "'anagomez@saed.com' AS em, '$2a$10$abcdef' AS pw, 'ACTIVO' AS st FROM DUAL) s ON (u.ID_USUARIO = s.id) "
-                    + "WHEN NOT MATCHED THEN INSERT (ID_USUARIO, ID_PERSONA, NOMBRE_USUARIO, EMAIL, HASH_PASSWORD, ESTADO) "
-                    + "VALUES (s.id, s.ip, s.nu, s.em, s.pw, s.st) WHEN MATCHED THEN UPDATE SET u.ESTADO = 'ACTIVO'");
-
-            jdbcTemplate.update("MERGE INTO PERSONAS p USING (SELECT 6 AS id, 1 AS td, 'CC6000' AS nd, 'NATURAL' AS tp, "
-                    + "'Sofia' AS pn, 'Martinez' AS pa, 'sofia@saed.com' AS em FROM DUAL) s ON (p.ID_PERSONA = s.id) "
-                    + "WHEN NOT MATCHED THEN INSERT (ID_PERSONA, ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, "
-                    + "PRIMER_NOMBRE, PRIMER_APELLIDO, EMAIL) VALUES (s.id, s.td, s.nd, s.tp, s.pn, s.pa, s.em)");
-            jdbcTemplate.update("MERGE INTO USUARIOS u USING (SELECT 6 AS id, 6 AS ip, 'sofiamartinez' AS nu, "
-                    + "'sofia@saed.com' AS em, '$2a$10$abcdef' AS pw, 'ACTIVO' AS st FROM DUAL) s ON (u.ID_USUARIO = s.id) "
-                    + "WHEN NOT MATCHED THEN INSERT (ID_USUARIO, ID_PERSONA, NOMBRE_USUARIO, EMAIL, HASH_PASSWORD, ESTADO) "
-                    + "VALUES (s.id, s.ip, s.nu, s.em, s.pw, s.st) WHEN MATCHED THEN UPDATE SET u.ESTADO = 'ACTIVO'");
-
-            jdbcTemplate.update("MERGE INTO PERSONAS p USING (SELECT 333 AS id, 1 AS td, 'CC3330' AS nd, 'NATURAL' AS tp, "
-                    + "'Luis' AS pn, 'Portero2' AS pa, 'portero2@saed.com' AS em FROM DUAL) s ON (p.ID_PERSONA = s.id) "
-                    + "WHEN NOT MATCHED THEN INSERT (ID_PERSONA, ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, "
-                    + "PRIMER_NOMBRE, PRIMER_APELLIDO, EMAIL) VALUES (s.id, s.td, s.nd, s.tp, s.pn, s.pa, s.em)");
-            jdbcTemplate.update("MERGE INTO USUARIOS u USING (SELECT 333 AS id, 333 AS ip, 'portero2' AS nu, "
-                    + "'portero2@saed.com' AS em, '$2a$10$abcdef' AS pw, 'ACTIVO' AS st FROM DUAL) s ON (u.ID_USUARIO = s.id) "
-                    + "WHEN NOT MATCHED THEN INSERT (ID_USUARIO, ID_PERSONA, NOMBRE_USUARIO, EMAIL, HASH_PASSWORD, ESTADO) "
-                    + "VALUES (s.id, s.ip, s.nu, s.em, s.pw, s.st) WHEN MATCHED THEN UPDATE SET u.ESTADO = 'ACTIVO'");
-
-            jdbcTemplate.update("MERGE INTO ORGANIZACIONES o USING (SELECT 888888 AS id, 'Org Test 888888' AS n, "
-                    + "'NIT888888' AS if, 'org888888@test.com' AS ec FROM DUAL) s ON (o.ID_ORGANIZACION = s.id) "
-                    + "WHEN NOT MATCHED THEN INSERT (ID_ORGANIZACION, NOMBRE, IDENTIFICACION_FISCAL, EMAIL_CONTACTO) "
-                    + "VALUES (s.id, s.n, s.if, s.ec)");
-            jdbcTemplate.update("MERGE INTO PERSONAS p USING (SELECT 888888 AS id, 1 AS td, 'DOC888888' AS nd, "
-                    + "'NATURAL' AS tp, 'Alien' AS pn, 'User' AS pa, 'alien@test.com' AS em FROM DUAL) s ON (p.ID_PERSONA = s.id) "
-                    + "WHEN NOT MATCHED THEN INSERT (ID_PERSONA, ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, "
-                    + "EMAIL, PRIMER_NOMBRE, PRIMER_APELLIDO) VALUES (s.id, s.td, s.nd, s.tp, s.em, s.pn, s.pa)");
-            jdbcTemplate.update("MERGE INTO USUARIOS u USING (SELECT 888888 AS id, 888888 AS ip, 'alien888' AS nu, "
-                    + "'alien@test.com' AS em, '$2a$10$abcdef' AS pw, 'ACTIVO' AS st FROM DUAL) s ON (u.ID_USUARIO = s.id) "
-                    + "WHEN NOT MATCHED THEN INSERT (ID_USUARIO, ID_PERSONA, NOMBRE_USUARIO, EMAIL, HASH_PASSWORD, ESTADO) "
-                    + "VALUES (s.id, s.ip, s.nu, s.em, s.pw, s.st) WHEN MATCHED THEN UPDATE SET u.ESTADO = 'ACTIVO'");
-        } catch (Exception ignored) {
-        }
-
-        // The foreign-tenant user needs a real property/unit/assignment too: the session context is validated against
-        // USUARIO_ASIGNACIONES (ORA-20080 otherwise), and the test expects a clean 403/404, not a connection failure.
-        try {
-            jdbcTemplate.update("MERGE INTO PROPIEDADES p USING (SELECT 888888 AS id FROM DUAL) s ON (p.ID_PROPIEDAD = s.id) "
-                    + "WHEN NOT MATCHED THEN INSERT (ID_PROPIEDAD, ID_ORGANIZACION, ID_TIPO_PROPIEDAD, NOMBRE, DIRECCION, CIUDAD, TIPO_OCUPACION_PREDOMINANTE, ESTADO) "
-                    + "VALUES (888888, 888888, 1, 'Prop Alien 888888', 'Calle Alien 1', 'Bogota', 'MIXTA', 'ACTIVA')");
-            jdbcTemplate.update("MERGE INTO UNIDADES u USING (SELECT 888888 AS id FROM DUAL) s ON (u.ID_UNIDAD = s.id) "
-                    + "WHEN NOT MATCHED THEN INSERT (ID_UNIDAD, ID_PROPIEDAD, ID_TIPO_UNIDAD, IDENTIFICADOR, ESTADO) "
-                    + "VALUES (888888, 888888, 1, 'Alien-888888', 'ACTIVA')");
-            Long idRolResAlien = jdbcTemplate.queryForObject("SELECT ID_ROL FROM ROLES WHERE CODIGO = 'RESIDENTE'", Long.class);
-            jdbcTemplate.update("MERGE INTO USUARIO_ASIGNACIONES ua USING (SELECT 888 AS id FROM DUAL) s ON (ua.ID_ASIGNACION = s.id) "
-                    + "WHEN NOT MATCHED THEN INSERT (ID_ASIGNACION, ID_USUARIO, ID_ROL, ID_ORGANIZACION, ID_PROPIEDAD, ID_UNIDAD, ESTADO, FECHA_INICIO) "
-                    + "VALUES (888, 888888, ?, 888888, 888888, 888888, 'ACTIVA', TRUNC(SYSDATE))", idRolResAlien);
-        } catch (Exception ignored) {
-        }
-
-        // Asignaciones
-        try {
-            jdbcTemplate.update("MERGE INTO USUARIO_ASIGNACIONES ua USING (SELECT 103 AS id, 3 AS u, ? AS r, 1 AS o, 1 AS p, "
-                    + "NULL AS un, 'ACTIVA' AS st FROM DUAL) s ON (ua.ID_ASIGNACION = s.id) "
-                    + "WHEN NOT MATCHED THEN INSERT (ID_ASIGNACION, ID_USUARIO, ID_ROL, ID_ORGANIZACION, ID_PROPIEDAD, "
-                    + "ID_UNIDAD, ESTADO, FECHA_INICIO) VALUES (s.id, s.u, s.r, s.o, s.p, s.un, s.st, TRUNC(SYSDATE)) "
-                    + "WHEN MATCHED THEN UPDATE SET ua.ID_USUARIO = s.u, ua.ID_ROL = s.r, ua.ID_ORGANIZACION = s.o, "
-                    + "ua.ID_PROPIEDAD = s.p, ua.ESTADO = s.st, ua.FECHA_INICIO = TRUNC(SYSDATE), ua.FECHA_FIN = NULL",
-                    idRolPortero);
-            jdbcTemplate.update("MERGE INTO USUARIO_ASIGNACIONES ua USING (SELECT 201 AS id, 4 AS u, ? AS r, 1 AS o, 1 AS p, "
-                    + "1 AS un, 'ACTIVA' AS st FROM DUAL) s ON (ua.ID_ASIGNACION = s.id) "
-                    + "WHEN NOT MATCHED THEN INSERT (ID_ASIGNACION, ID_USUARIO, ID_ROL, ID_ORGANIZACION, ID_PROPIEDAD, "
-                    + "ID_UNIDAD, ESTADO, FECHA_INICIO) VALUES (s.id, s.u, s.r, s.o, s.p, s.un, s.st, TRUNC(SYSDATE)) "
-                    + "WHEN MATCHED THEN UPDATE SET ua.ID_USUARIO = s.u, ua.ID_ROL = s.r, ua.ID_ORGANIZACION = s.o, "
-                    + "ua.ID_PROPIEDAD = s.p, ua.ID_UNIDAD = s.un, ua.ESTADO = s.st, ua.FECHA_INICIO = TRUNC(SYSDATE), ua.FECHA_FIN = NULL",
-                    idRolResidente);
-            jdbcTemplate.update("MERGE INTO USUARIO_ASIGNACIONES ua USING (SELECT 202 AS id, 5 AS u, ? AS r, 1 AS o, 1 AS p, "
-                    + "2 AS un, 'ACTIVA' AS st FROM DUAL) s ON (ua.ID_ASIGNACION = s.id) "
-                    + "WHEN NOT MATCHED THEN INSERT (ID_ASIGNACION, ID_USUARIO, ID_ROL, ID_ORGANIZACION, ID_PROPIEDAD, "
-                    + "ID_UNIDAD, ESTADO, FECHA_INICIO) VALUES (s.id, s.u, s.r, s.o, s.p, s.un, s.st, TRUNC(SYSDATE)) "
-                    + "WHEN MATCHED THEN UPDATE SET ua.ID_USUARIO = s.u, ua.ID_ROL = s.r, ua.ID_ORGANIZACION = s.o, "
-                    + "ua.ID_PROPIEDAD = s.p, ua.ID_UNIDAD = s.un, ua.ESTADO = s.st, ua.FECHA_INICIO = TRUNC(SYSDATE), ua.FECHA_FIN = NULL",
-                    idRolResidente);
-            jdbcTemplate.update("MERGE INTO USUARIO_ASIGNACIONES ua USING (SELECT 206 AS id, 6 AS u, ? AS r, 1 AS o, 1 AS p, "
-                    + "1 AS un, 'ACTIVA' AS st FROM DUAL) s ON (ua.ID_ASIGNACION = s.id) "
-                    + "WHEN NOT MATCHED THEN INSERT (ID_ASIGNACION, ID_USUARIO, ID_ROL, ID_ORGANIZACION, ID_PROPIEDAD, "
-                    + "ID_UNIDAD, ESTADO, FECHA_INICIO) VALUES (s.id, s.u, s.r, s.o, s.p, s.un, s.st, TRUNC(SYSDATE)) "
-                    + "WHEN MATCHED THEN UPDATE SET ua.ID_USUARIO = s.u, ua.ID_ROL = s.r, ua.ID_ORGANIZACION = s.o, "
-                    + "ua.ID_PROPIEDAD = s.p, ua.ID_UNIDAD = s.un, ua.ESTADO = s.st, ua.FECHA_INICIO = TRUNC(SYSDATE), ua.FECHA_FIN = NULL",
-                    idRolConviviente);
-            jdbcTemplate.update("MERGE INTO USUARIO_ASIGNACIONES ua USING (SELECT 133 AS id, 333 AS u, ? AS r, 1 AS o, 2 AS p, "
-                    + "NULL AS un, 'ACTIVA' AS st FROM DUAL) s ON (ua.ID_ASIGNACION = s.id) "
-                    + "WHEN NOT MATCHED THEN INSERT (ID_ASIGNACION, ID_USUARIO, ID_ROL, ID_ORGANIZACION, ID_PROPIEDAD, "
-                    + "ID_UNIDAD, ESTADO, FECHA_INICIO) VALUES (s.id, s.u, s.r, s.o, s.p, s.un, s.st, TRUNC(SYSDATE)) "
-                    + "WHEN MATCHED THEN UPDATE SET ua.ID_USUARIO = s.u, ua.ID_ROL = s.r, ua.ID_ORGANIZACION = s.o, "
-                    + "ua.ID_PROPIEDAD = s.p, ua.ESTADO = s.st, ua.FECHA_INICIO = TRUNC(SYSDATE), ua.FECHA_FIN = NULL",
-                    idRolPortero);
-        } catch (Exception ignored) {
-        }
+        // Assignments: the database validates the key (user, role, organization, property, unit); the numeric ids
+        // below are the ones the AssignmentService mock answers to. AssignmentFixture reuses a seeded row that
+        // already carries the key (e.g. 104 for user 4 / unit 1) instead of violating UIX_ASIGNACION_UNICA.
+        AssignmentFixture.ensure(jdbcTemplate, 103L, 3L, "PORTERO", 1L, 1L, null);
+        AssignmentFixture.ensure(jdbcTemplate, 201L, 4L, "RESIDENTE", 1L, 1L, 1L);
+        AssignmentFixture.ensure(jdbcTemplate, 202L, 5L, "RESIDENTE", 1L, 1L, 2L);
+        CohabitantFixture.ensure(jdbcTemplate, 206L, 6L, 1L, 1L, 1L);
+        AssignmentFixture.ensure(jdbcTemplate, 133L, 333L, "PORTERO", 1L, 2L, null);
+        AssignmentFixture.ensure(jdbcTemplate, 888L, 888888L, "RESIDENTE", 888888L, 888888L, 888888L);
 
         try {
             jdbcTemplate.execute("BEGIN PKG_SAED_SESSION.CLEAR_CONTEXT; END;");
@@ -660,7 +520,7 @@ public class PackageDeliverySecurityIntegrationTest {
     }
 
     @Test
-    @DisplayName("SEC-F8-13: Portero de otra propiedad no puede entregar paquete (403 Forbidden)")
+    @DisplayName("SEC-F8-13: Portero de otra propiedad no puede entregar paquete (403 o 404)")
     void secF8_13_porteroOtraPropiedadNoPuedeEntregar() throws Exception {
         PaqueteDTO p = createTestPackage(1L, "GUIA-F8-13", null);
 
@@ -669,12 +529,20 @@ public class PackageDeliverySecurityIntegrationTest {
         entregaReq.put("idPersonaRecibe", 4L);
         entregaReq.put("idPorteria", 1L);
 
-        mockMvc.perform(post("/api/v1/paquetes/" + p.idPaquete() + "/entrega")
+        MvcResult res = mockMvc.perform(post("/api/v1/paquetes/" + p.idPaquete() + "/entrega")
                 .header("Authorization", "Bearer " + portero2Token)
                 .header("X-Assignment-Id", "133")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(entregaReq)))
-                .andExpect(status().isForbidden());
+                .andReturn();
+
+        // Since 4dff0d0 (V5.58) the RLS predicates scope a porter to the property of the active context, so a package of
+        // another property is invisible and answers 404 (DEC-01 non-disclosure: indistinguishable from "does not exist");
+        // the service's own 403 guard remains for rows that are visible but out of scope. Either way nothing is delivered.
+        int st = res.getResponse().getStatus();
+        assertTrue(st == 403 || st == 404, "Must be 403 or 404 for a porter of another property, got: " + st);
+        assertNotEquals("ENTREGADO", querySuperAdmin("SELECT ESTADO FROM PAQUETES WHERE ID_PAQUETE = ?", String.class, p.idPaquete()),
+                "A rejected delivery must leave the package undelivered");
     }
 
     @Test
@@ -846,5 +714,27 @@ public class PackageDeliverySecurityIntegrationTest {
         );
         assertEquals(0, plainPinInAudit != null ? plainPinInAudit : 0,
                 "No raw unredacted PINs should be stored in AUDITORIA_LOG");
+    }
+
+    private void ensurePropiedad(long id, long idOrg, String nombre) {
+        jdbcTemplate.update("INSERT INTO PROPIEDADES (ID_PROPIEDAD, ID_ORGANIZACION, ID_TIPO_PROPIEDAD, NOMBRE, DIRECCION, CIUDAD, PAIS, TIPO_OCUPACION_PREDOMINANTE, ESTADO) "
+                + "SELECT ?, ?, 1, ?, 'Calle 1', 'Bogota', 'Colombia', 'MIXTA', 'ACTIVA' FROM DUAL "
+                + "WHERE NOT EXISTS (SELECT 1 FROM PROPIEDADES WHERE ID_PROPIEDAD = ?)", id, idOrg, nombre, id);
+    }
+
+    private void ensureUnidad(long id, long idProp, String identificador) {
+        jdbcTemplate.update("INSERT INTO UNIDADES (ID_UNIDAD, ID_PROPIEDAD, ID_TIPO_UNIDAD, IDENTIFICADOR, ESTADO) "
+                + "SELECT ?, ?, 1, ?, 'ACTIVA' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM UNIDADES WHERE ID_UNIDAD = ?)",
+                id, idProp, identificador, id);
+    }
+
+    private void ensurePersonaYUsuario(long id, String documento, String nombre, String apellido, String username, String email) {
+        jdbcTemplate.update("INSERT INTO PERSONAS (ID_PERSONA, ID_TIPO_DOCUMENTO, NUMERO_DOCUMENTO, TIPO_PERSONA, PRIMER_NOMBRE, PRIMER_APELLIDO, EMAIL) "
+                + "SELECT ?, 1, ?, 'NATURAL', ?, ?, ? FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM PERSONAS WHERE ID_PERSONA = ?)",
+                id, documento, nombre, apellido, email, id);
+        jdbcTemplate.update("INSERT INTO USUARIOS (ID_USUARIO, ID_PERSONA, NOMBRE_USUARIO, EMAIL, HASH_PASSWORD, ESTADO) "
+                + "SELECT ?, ?, ?, ?, '$2a$10$abcdef', 'ACTIVO' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM USUARIOS WHERE ID_USUARIO = ?)",
+                id, id, username, email, id);
+        jdbcTemplate.update("UPDATE USUARIOS SET ESTADO = 'ACTIVO' WHERE ID_USUARIO = ? AND ESTADO <> 'ACTIVO'", id);
     }
 }
