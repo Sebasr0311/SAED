@@ -123,6 +123,17 @@ public class PorteriaServiceImpl implements PorteriaService {
         return visita;
     }
 
+    /**
+     * Moves an open visit to {@code estado}. The UPDATE is subject to RLS, so zero affected rows means the visit does
+     * not exist, belongs to another property/unit, or is already closed: the movement is rejected (404, same answer
+     * for all three) instead of recording an access whose visit silently kept its previous state.
+     */
+    private void requireVisitTransition(Long visitaId, String estado) {
+        if (porteriaRepository.transitionVisitaEstado(visitaId, estado, OPEN_VISIT_STATES) == 0) {
+            throw new NoSuchElementException("Visita no encontrada");
+        }
+    }
+
     // --- ADMIN CRUD PORTERÍAS ---
     @Override
     @Transactional(readOnly = true)
@@ -425,7 +436,7 @@ public class PorteriaServiceImpl implements PorteriaService {
             throw new IllegalArgumentException("El movimiento debe ser ENTRADA");
         }
         if (request.visitaId() != null) {
-            porteriaRepository.updateVisitaEstado(request.visitaId(), "EN_CURSO");
+            requireVisitTransition(request.visitaId(), "EN_CURSO");
         }
         return porteriaRepository.createRegistroAcceso(request);
     }
@@ -437,7 +448,7 @@ public class PorteriaServiceImpl implements PorteriaService {
             throw new IllegalArgumentException("El movimiento debe ser SALIDA");
         }
         if (request.visitaId() != null) {
-            porteriaRepository.updateVisitaEstado(request.visitaId(), "FINALIZADA");
+            requireVisitTransition(request.visitaId(), "FINALIZADA");
         }
         return porteriaRepository.createRegistroAcceso(request);
     }
