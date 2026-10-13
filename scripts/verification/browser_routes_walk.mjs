@@ -1,6 +1,7 @@
 // Route-by-route browser walk: one account per runtime role visits every route declared in frontend/src/App.jsx.
 // For each route: redirected away (no access) or rendered. On rendered routes it records API 5xx, API 403/401
-// (the screen calls an endpoint its own role may not use), uncaught page errors and blank screens.
+// (the screen calls an endpoint its own role may not use), API 404 (path the backend does not serve), API 400 on
+// page load (wrong request contract), uncaught page errors and blank screens.
 // Never prints passwords or tokens.
 //
 // Usage (repo root): node scripts/verification/browser_routes_walk.mjs <state> <frontend-url|serve> [usernames,...]
@@ -63,7 +64,9 @@ for (const username of users) {
   let current = { api: [], errors: [] };
   page.on('response', (res) => {
     const url = res.url();
-    if (url.includes('/api/') && (res.status() >= 500 || res.status() === 403 || res.status() === 401)) {
+    // 404 = path the backend does not serve; 400 on page load = wrong request contract (both went unnoticed before).
+    const status = res.status();
+    if (url.includes('/api/') && (status >= 500 || status === 403 || status === 401 || status === 404 || status === 400)) {
       current.api.push(`${res.status()} ${res.request().method()} ${new URL(url).pathname}`);
     }
   });
