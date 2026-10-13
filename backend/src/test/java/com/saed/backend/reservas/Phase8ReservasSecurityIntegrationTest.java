@@ -10,6 +10,7 @@ import com.saed.backend.finanzas.repository.FinanzasRepository;
 import com.saed.backend.finanzas.service.PazYSalvoService;
 import com.saed.backend.reservas.dto.ReservaDTO;
 import com.saed.backend.security.jwt.JwtProvider;
+import com.saed.backend.testsupport.CohabitantFixture;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -158,6 +159,7 @@ public class Phase8ReservasSecurityIntegrationTest {
 
             ensurePersona(6L, "1000000006", "Pedro", "Perez", "pperez@saed.com");
             ensureUsuario(6L, 6L, "pedro_p", "pperez@saed.com");
+            CohabitantFixture.ensure(jdbcTemplate, ASSIGN_CONVIVIENTE_1, USER_CONVIVIENTE_1, 1L, 1L, 1L);
 
             ensurePersona(99L, "1000000099", "AdminProp2", "SAED", "admin_prop2@saed.com");
             ensureUsuario(99L, 99L, "admin_prop2", "admin_prop2@saed.com");

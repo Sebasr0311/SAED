@@ -12,6 +12,7 @@ import com.saed.backend.reservas.dto.UpdateZonaComunDTO;
 import com.saed.backend.reservas.dto.ZonaComunDTO;
 import com.saed.backend.reservas.repository.ReservasRepository;
 import com.saed.backend.security.jwt.JwtProvider;
+import com.saed.backend.testsupport.CohabitantFixture;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -169,12 +170,11 @@ public class Phase8ReservasUnifiedEndToEndIntegrationTest {
             ensureAsignacion(ASSIGN_ADMIN_PROP_1, USER_ADMIN_PROP_1, "ADMIN_PROPIEDAD", ORG_1_ID, PROP_1_ID, null);
             ensureAsignacion(ASSIGN_RESIDENTE_1, USER_RESIDENTE_1, "RESIDENTE", ORG_1_ID, PROP_1_ID, UNIT_1_ID);
             ensureAsignacion(ASSIGN_RESIDENTE_2, USER_RESIDENTE_2, "RESIDENTE", ORG_1_ID, PROP_1_ID, UNIT_2_ID);
-            ensureAsignacion(ASSIGN_CONVIVIENTE_1, USER_CONVIVIENTE_1, "RESIDENTE", ORG_1_ID, PROP_1_ID, UNIT_2_ID);
+            CohabitantFixture.ensure(jdbcTemplate, ASSIGN_CONVIVIENTE_1, USER_CONVIVIENTE_1, ORG_1_ID, PROP_1_ID, UNIT_2_ID);
             ensureAsignacion(ASSIGN_RESIDENTE_3, USER_RESIDENTE_3, "RESIDENTE", ORG_1_ID, PROP_1_ID, UNIT_3_ID);
 
             ensureResidenteUnidad(UNIT_1_ID, USER_RESIDENTE_1, "PROPIETARIO");
             ensureResidenteUnidad(UNIT_2_ID, USER_RESIDENTE_2, "PROPIETARIO");
-            ensureResidenteUnidad(UNIT_2_ID, USER_CONVIVIENTE_1, "CONVIVIENTE");
             ensureResidenteUnidad(UNIT_3_ID, USER_RESIDENTE_3, "PROPIETARIO");
 
             // Recalcular carteras al día por defecto para unidades 2 y 3

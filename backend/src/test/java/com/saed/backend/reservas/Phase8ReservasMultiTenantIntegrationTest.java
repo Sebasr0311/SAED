@@ -9,6 +9,7 @@ import com.saed.backend.finanzas.repository.FinanzasRepository;
 import com.saed.backend.reservas.dto.ReservaDTO;
 import com.saed.backend.reservas.repository.ReservasRepository;
 import com.saed.backend.security.jwt.JwtProvider;
+import com.saed.backend.testsupport.CohabitantFixture;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -204,6 +205,7 @@ public class Phase8ReservasMultiTenantIntegrationTest {
 
             ensurePersona(USER_CONVIVIENTE_1, "1000000006", "Pedro", "Perez", "pedroperez@saed.com");
             ensureUsuario(USER_CONVIVIENTE_1, USER_CONVIVIENTE_1, "pedro_p", "pedroperez@saed.com");
+            CohabitantFixture.ensure(jdbcTemplate, ASSIGN_CONVIVIENTE_1, USER_CONVIVIENTE_1, ORG_1_ID, PROP_1_ID, UNIT_1_ID);
 
             ensurePersona(USER_RESIDENTE_PROP_2, "1000000007", "Maria", "Lopez", "marialopez@saed.com");
             ensureUsuario(USER_RESIDENTE_PROP_2, USER_RESIDENTE_PROP_2, "maria_l", "marialopez@saed.com");

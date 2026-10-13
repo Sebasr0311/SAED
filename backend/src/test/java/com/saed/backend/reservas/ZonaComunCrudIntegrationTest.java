@@ -15,6 +15,7 @@ import com.saed.backend.reservas.dto.CreateZonaComunDTO;
 import com.saed.backend.reservas.dto.UpdateZonaComunDTO;
 import com.saed.backend.reservas.repository.ReservasRepository;
 import com.saed.backend.security.jwt.JwtProvider;
+import com.saed.backend.testsupport.CohabitantFixture;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -154,6 +155,7 @@ public class ZonaComunCrudIntegrationTest {
 
             ensurePersona(USER_CONVIVIENTE_1, "1000000006", "Pedro", "Perez", "pedroperez@saed.com");
             ensureUsuario(USER_CONVIVIENTE_1, USER_CONVIVIENTE_1, "pedro_p", "pedroperez@saed.com");
+            CohabitantFixture.ensure(jdbcTemplate, ASSIGN_CONVIVIENTE_1, USER_CONVIVIENTE_1, ORG_1_ID, PROP_1_ID, UNIT_1_ID);
 
             ensurePersona(USER_ADMIN_ORG_1, "1000000008", "Admin", "Org1", "adminorg1@saed.com");
             ensureUsuario(USER_ADMIN_ORG_1, USER_ADMIN_ORG_1, "admin_org1", "adminorg1@saed.com");
