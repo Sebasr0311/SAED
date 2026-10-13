@@ -1,7 +1,7 @@
 # SAED 2.0 — Sistema de Administración de Edificios y Copropiedades
 
 [![Java](https://img.shields.io/badge/Java-17%2B-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white)](https://openjdk.org/)
-[![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.3.3-6DB33F?style=for-the-badge&logo=spring-boot&logoColor=white)](https://spring.io/projects/spring-boot)
+[![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.2.3-6DB33F?style=for-the-badge&logo=spring-boot&logoColor=white)](https://spring.io/projects/spring-boot)
 [![React](https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
 [![Vite](https://img.shields.io/badge/Vite-5-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
 [![Oracle](https://img.shields.io/badge/Oracle_Autonomous_DB-19c-F80000?style=for-the-badge&logo=oracle&logoColor=white)](https://www.oracle.com/database/)
@@ -22,7 +22,7 @@ Convertirse en el estándar de software para la propiedad horizontal en Colombia
 ## 3. Arquitectura
 SAED 2.0 implementa una arquitectura desacoplada y orientada al dominio con segregación estricta:
 - **Frontend SPA:** Cliente ligero en React 18 con Vite, Tailwind CSS y componentes accesibles (Radix UI / Shadcn). Enrutamiento declarativo protegido por Guards de roles y scopes.
-- **Backend API REST:** Servicio stateless en Spring Boot 3 con Java 17+, gobernado por Spring Security y un contexto dinámico de sesión (`SaedContextHolder`).
+- **Backend API REST:** Servicio stateless en Spring Boot 3.2 con Java 17, gobernado por Spring Security y un contexto dinámico de sesión (`SaedContextHolder`).
 - **Persistencia y Aislamiento:** Oracle Autonomous Transaction Processing (ATP) utilizando Virtual Private Database (VPD) / Row Level Security (RLS). Cada conexión a la base de datos se ejecuta bajo el contexto seguro `SAED_CTX` que impide el acceso a datos entre organizaciones ajenas a nivel de motor de base de datos.
 - **Cero Confianza (Zero-Trust):** La seguridad no recae exclusivamente en la capa web; el motor de base de datos valida matemáticamente la organización, propiedad y asignación de cada consulta.
 
@@ -32,8 +32,8 @@ SAED 2.0 implementa una arquitectura desacoplada y orientada al dominio con segr
 
 | Capa | Tecnologías | Propósito |
 | :--- | :--- | :--- |
-| **Frontend** | React 18, Vite 5, Tailwind CSS, Lucide Icons, Axios | Aplicación web reactiva para 5 perfiles de usuario |
-| **Backend** | Spring Boot 3.3.3, Java 17, Spring Security 6, HikariCP | API REST empresarial y orquestación de negocio |
+| **Frontend** | React 18, Vite 5, Tailwind CSS, Lucide Icons, cliente HTTP propio sobre `fetch` (`frontend/src/lib/api.js`) | Aplicación web reactiva para 5 perfiles de usuario |
+| **Backend** | Spring Boot 3.2.3, Java 17, Spring Security 6, HikariCP | API REST empresarial y orquestación de negocio |
 | **Base de Datos** | Oracle Database 19c / 23ai (ATP / XE) | Base relacional con VPD/RLS y auditoría inmutable |
 | **Seguridad** | JWT (HMAC-SHA256), Spring Security, BCrypt | Autenticación basada en token y control de acceso (RBAC) |
 | **Pagos** | Wompi API v1 + Webhooks (HMAC-SHA256) | Pasarela de pagos para cuotas y onboarding de copropiedades |
@@ -54,14 +54,14 @@ SAED/
 │   ├── legacy/           # Antiguo monolito JavaFX, dumps v4 y utilitarios
 │   ├── scratch/          # Scripts experimentales de auditoría
 │   └── README.md         # Documentación de activos archivados
-├── backend/              # API REST empresarial (Spring Boot 3 + Java 17)
+├── backend/              # API REST empresarial (Spring Boot 3.2.3 + Java 17)
 │   ├── src/main/java/    # Código fuente: controladores, servicios, RLS
 │   ├── src/main/resources# application.yml multi-perfil y plantillas
 │   ├── src/test/java/    # Suites de pruebas unitarias, RLS y seguridad
 │   ├── Dockerfile        # Contenedor de producción
 │   └── pom.xml           # Descriptor de dependencias Maven
 ├── database/             # Única fuente de verdad de la base de datos
-│   ├── migrations/       # Migraciones evolutivas secuenciales (V5.0 a V5.12)
+│   ├── migrations/       # Migraciones evolutivas secuenciales (V3.9 a V5.90; baseline canónico V5.0)
 │   ├── seeds/            # Semillas de prueba, producción y demo
 │   └── README.md         # Guía de despliegue y estructura relacional
 ├── docs/                 # Centro de documentación técnica
@@ -75,13 +75,13 @@ SAED/
 │   └── archive/          # Reportes históricos de fases y sprints anteriores
 ├── frontend/             # Cliente Web SPA (React 18 + Vite + Tailwind)
 │   ├── src/components/   # Componentes reutilizables, AppShell, selectores
-│   ├── src/pages/        # 85 vistas operativas según rol
+│   ├── src/pages/        # 81 páginas (`*Page.jsx`) según rol
 │   ├── src/lib/          # Clientes API, contexto Auth/Tenant, API Colombia
 │   └── package.json      # Dependencias y scripts de empaquetado
 ├── scripts/              # Herramientas de automatización para desarrollo
 │   └── dev/              # Scripts de inicio rápido local (.bat)
 ├── tests/                # Suites de pruebas automatizadas
-│   ├── e2e/              # 24 especificaciones Playwright (JavaScript)
+│   ├── e2e/              # 25 especificaciones Playwright (JavaScript)
 │   ├── testsprite/       # Pruebas automatizadas de rol (Python)
 │   └── README.md         # Instrucciones de ejecución de pruebas
 ├── .env.example          # Plantilla oficial de variables de entorno
@@ -123,16 +123,22 @@ SAED 2.0 define 6 scopes de seguridad en runtime:
 - **Oracle Database:** Instancia XE local o ATP en Oracle Cloud.
 
 ### Configuración de Entorno
-1. Copiar `.env.example` a `.env` en la raíz o configurar variables del sistema:
-   ```bash
-   cp .env.example .env
-   ```
-2. Copiar `backend/.env.example` a `backend/.env` (archivo no versionado) y reemplazar cada `change-me`.
+1. Frontend (opcional): copiar `.env.example` a `frontend/.env` solo si se necesita `VITE_API_BASE_URL` (por defecto el cliente usa `http://localhost:8080/api/v1` en localhost) o `VITE_BASE_PATH`.
+2. Backend: copiar `backend/.env.example` a `backend/.env` (archivo no versionado) y reemplazar cada `change-me`. Spring lee `.env` del directorio de trabajo, por lo que el backend debe arrancarse desde `backend/`.
    El backend **no trae valores por defecto para secretos en ningún perfil** (incluido `dev`):
    - Obligatorias: `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `JWT_SECRET` (mínimo 32 bytes; por ejemplo `openssl rand -base64 48`).
    - Pagos (opcionales en desarrollo): `WOMPI_ENVIRONMENT`, `WOMPI_PUBLIC_KEY`, `WOMPI_INTEGRITY_SECRET`, `WOMPI_EVENTS_SECRET` con llaves de tu propia cuenta sandbox de Wompi.
    - Correo (opcional; sin `BREVO_API_KEY` los correos solo se registran en el log): `BREVO_API_KEY`, `BREVO_SENDER_EMAIL`, `BREVO_SENDER_NAME`.
    - Los tests unitarios y de base de datos usan valores falsos de `backend/src/test/resources`; solo requieren `DB_*` reales en el nivel de base de datos.
+
+### Inicio Manual
+```bash
+# Backend (desde backend/; el perfil dev viene en backend/.env.example)
+cd backend && ./mvnw spring-boot:run
+
+# Frontend (desde frontend/)
+cd frontend && npm install && npm run dev
+```
 
 ### Inicio Rápido (Scripts de Desarrollo)
 En Windows, utilizar los scripts incluidos en `scripts/dev/`:
@@ -155,10 +161,16 @@ El proyecto implementa pruebas continuas en múltiples niveles:
   cd backend
   ./mvnw test
   ```
-- **Frontend (Build y Verificación de Tipos):**
+- **Frontend (Lint y Build):**
   ```bash
   cd frontend
+  npm run lint
   npm run build
+  ```
+- **Contrato API frontend/backend (estático, sin red ni base de datos):**
+  ```bash
+  python scripts/verification/api_contract_check.py
+  python -B -m unittest discover -s scripts/verification -p "test_*.py"
   ```
 - **Pruebas End-to-End (Playwright):**
   ```bash
