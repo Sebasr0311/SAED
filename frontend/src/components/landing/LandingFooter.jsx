@@ -1,192 +1,64 @@
-import { LogIn } from 'lucide-react';
-
-const SAED_LOGO = 'https://hebbkx1anhila5yf.public.blob.vercel-storage.com/saed_logo_final_blue%20%281%29-RiV76ZtVQPCe5rZu3uEXDaXwmdxT7w.png';
+import './manual.css';
 import { Link } from 'react-router-dom';
 
-export default function LandingFooter() {
-  const currentYear = new Date().getFullYear();
+const SAED_EMBLEM = '/imagenes/saed_logo_emblem_only.png';
 
-  const scrollTo = (id) => {
-    const el = document.querySelector(id);
-    if (el) {
-      const topOffset = 84;
-      const elementPosition = el.getBoundingClientRect().top;
-      const offsetPosition = elementPosition + window.pageYOffset - topOffset;
-      window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
-    }
-  };
+const SECTION_LINKS = [
+  { name: 'Piezas', hash: '#piezas' },
+  { name: 'Pasos', hash: '#pasos' },
+  { name: 'Especificaciones', hash: '#especificaciones' },
+  { name: 'Preguntas', hash: '#preguntas' },
+];
+
+// Shared by the landing and /suscripciones, so it carries its own manual scope.
+export default function LandingFooter() {
+  const year = new Date().getFullYear();
 
   return (
-    <footer className="bg-[#050810] border-t border-slate-800/80 text-slate-400 pt-16 pb-12 text-xs">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        
-        {/* Main Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 pb-12 border-b border-slate-800/80">
-          
-          {/* Brand Identity Column */}
-          <div className="lg:col-span-2 space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="rounded-xl bg-white px-3 py-2 shadow-sm shadow-sky-500/10">
-                <img src={SAED_LOGO} alt="SAED" className="h-12 w-auto object-contain" />
-              </div>
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-400 border border-sky-500/25">
-                2.0
-              </span>
-            </div>
+    <footer className="saed-manual m-footer">
+      <div className="m-container m-footer-inner">
+        <div className="m-footer-brand">
+          <Link to="/" className="m-brand" aria-label="SAED 2.0, inicio">
+            <img src={SAED_EMBLEM} alt="" className="m-brand-mark" width="32" height="32" />
+            <span className="m-brand-name">SAED</span>
+            <span className="m-brand-ver">2.0</span>
+          </Link>
+          <p className="m-footer-note">
+            Sistema de administración para conjuntos de propiedad horizontal en Colombia.
+          </p>
+        </div>
 
-            <p className="text-slate-400 max-w-sm leading-relaxed text-xs">
-              Plataforma PropTech de gestión integral, control de acceso y finanzas para propiedades horizontales y conjuntos residenciales en Colombia.
-            </p>
+        <nav className="m-footer-nav" aria-label="Manual">
+          <h2 className="m-footer-title">Manual</h2>
+          <ul>
+            {SECTION_LINKS.map((link) => (
+              <li key={link.hash}>
+                <Link to={{ pathname: '/', hash: link.hash }} className="m-link">
+                  {link.name}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
 
-            <div className="flex items-center gap-2 text-sky-400 font-medium pt-1">
-              <span className="w-2 h-2 rounded-full bg-sky-400 animate-pulse" />
-              <span>Infraestructura Cloud Operativa</span>
-            </div>
-
-            <div className="pt-2">
-              <Link
-                to="/login"
-                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] text-white font-semibold transition-all border border-white/10 hover:border-white/20 backdrop-blur-md min-h-[44px]"
-              >
-                <LogIn className="w-4 h-4 text-sky-400" />
-                <span>Acceder a la plataforma</span>
+        <nav className="m-footer-nav" aria-label="Cuenta">
+          <h2 className="m-footer-title">Cuenta</h2>
+          <ul>
+            <li>
+              <Link to="/suscripciones" className="m-link">
+                Planes
               </Link>
-            </div>
-          </div>
-
-          {/* Navigation: Producto */}
-          <div className="space-y-3">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-white">Producto</h4>
-            <ul className="space-y-2">
-              <li>
-                <a
-                  href="#roles"
-                  onClick={(e) => { e.preventDefault(); scrollTo('#roles'); }}
-                  className="hover:text-sky-400 transition-colors py-1 block"
-                >
-                  Roles y Perfiles
-                </a>
-              </li>
-              <li>
-                <a
-                  href="#soluciones"
-                  onClick={(e) => { e.preventDefault(); scrollTo('#soluciones'); }}
-                  className="hover:text-sky-400 transition-colors py-1 block"
-                >
-                  El Reto y la Solución
-                </a>
-              </li>
-              <li>
-                <a
-                  href="#acceso"
-                  onClick={(e) => { e.preventDefault(); scrollTo('#acceso'); }}
-                  className="hover:text-sky-400 transition-colors py-1 block"
-                >
-                  Control de Visitas QR
-                </a>
-              </li>
-              <li>
-                <a
-                  href="#paqueteria"
-                  onClick={(e) => { e.preventDefault(); scrollTo('#paqueteria'); }}
-                  className="hover:text-sky-400 transition-colors py-1 block"
-                >
-                  Paquetería con PIN
-                </a>
-              </li>
-              <li>
-                <a
-                  href="#parqueaderos"
-                  onClick={(e) => { e.preventDefault(); scrollTo('#parqueaderos'); }}
-                  className="hover:text-sky-400 transition-colors py-1 block"
-                >
-                  Parqueaderos en Vivo
-                </a>
-              </li>
-            </ul>
-          </div>
-
-          {/* Navigation: Beneficios & Marco */}
-          <div className="space-y-3">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-white">Beneficios</h4>
-            <ul className="space-y-2">
-              <li>
-                <a
-                  href="#beneficios"
-                  onClick={(e) => { e.preventDefault(); scrollTo('#beneficios'); }}
-                  className="hover:text-sky-400 transition-colors py-1 block"
-                >
-                  Ahorro y Retorno de Inversión
-                </a>
-              </li>
-              <li>
-                <a
-                  href="#beneficios"
-                  onClick={(e) => { e.preventDefault(); scrollTo('#beneficios'); }}
-                  className="hover:text-sky-400 transition-colors py-1 block"
-                >
-                  Blindaje Legal Ley 675
-                </a>
-              </li>
-              <li>
-                <a
-                  href="#beneficios"
-                  onClick={(e) => { e.preventDefault(); scrollTo('#beneficios'); }}
-                  className="hover:text-sky-400 transition-colors py-1 block"
-                >
-                  Protección de Datos (Ley 1581)
-                </a>
-              </li>
-              <li>
-                <a
-                  href="#faq"
-                  onClick={(e) => { e.preventDefault(); scrollTo('#faq'); }}
-                  className="hover:text-sky-400 transition-colors py-1 block"
-                >
-                  Preguntas Frecuentes
-                </a>
-              </li>
-            </ul>
-          </div>
-
-          {/* Navigation: Planes & Acceso */}
-          <div className="space-y-3">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-white">Comunidad</h4>
-            <ul className="space-y-2">
-              <li>
-                <Link
-                  to="/suscripciones"
-                  className="hover:text-sky-400 transition-colors py-1 block"
-                >
-                  Planes y Suscripciones
-                </Link>
-              </li>
-              <li>
-                <Link to="/login" className="hover:text-emerald-300 transition-colors py-1 block">
-                  Portal de Administradores
-                </Link>
-              </li>
-              <li>
-                <Link to="/login" className="hover:text-emerald-300 transition-colors py-1 block">
-                  Consola de Garita
-                </Link>
-              </li>
-              <li>
-                <Link to="/login" className="hover:text-emerald-300 transition-colors py-1 block">
-                  Portal de Copropietarios
-                </Link>
-              </li>
-            </ul>
-          </div>
-
-        </div>
-
-        {/* Bottom Bar */}
-        <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-slate-500 text-[11px]">
-          <p>© {currentYear} SAED 2.0 — Sistema Automatizado para Edificios Digitales.</p>
-          <p>PropTech para propiedad horizontal · Diseñado bajo el marco operativo colombiano.</p>
-        </div>
-
+            </li>
+            <li>
+              <Link to="/login" className="m-link">
+                Iniciar sesión
+              </Link>
+            </li>
+          </ul>
+        </nav>
+      </div>
+      <div className="m-container m-footer-base">
+        <p>© {year} SAED. Pantallas y datos de la página con fines ilustrativos.</p>
       </div>
     </footer>
   );
