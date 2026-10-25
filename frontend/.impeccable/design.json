@@ -1,0 +1,183 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-25T00:00:00Z",
+  "title": "Design System: SAED 2.0",
+  "scope": {
+    "selector": ".saed-manual",
+    "source": "src/components/landing/manual.css",
+    "covers": ["src/pages/LandingPage.jsx", "src/components/landing/*", "LandingNavbar and LandingFooter on src/pages/SuscripcionesPage.jsx"],
+    "excludes": ["authenticated app UI (AppShell, src/components/ui/*, src/index.css, Tailwind theme)", "SuscripcionesPage body and LandingPricing (not yet migrated)"]
+  },
+  "extensions": {
+    "colorMeta": {
+      "blanco": { "role": "neutral", "displayName": "Blanco", "canonical": "#FFFFFF", "cssVar": "--m-paper", "tonalRamp": ["#1D2942", "#3A4766", "#6B7896", "#9AA5BE", "#C4CCDC", "#E3E8F1", "#F4F6FA", "#FFFFFF"] },
+      "perla": { "role": "neutral", "displayName": "Perla", "canonical": "#F7F9FE", "cssVar": "--m-page", "tonalRamp": ["#232B3D", "#3E4860", "#646F88", "#8E98AF", "#B8C0D2", "#DCE1EC", "#EEF1F9", "#F7F9FE"] },
+      "azul-pastel": { "role": "neutral", "displayName": "Azul pastel", "canonical": "#DFEBFF", "cssVar": "--m-ground", "tonalRamp": ["#14223D", "#22385F", "#3A5585", "#5D78A8", "#88A0C9", "#B4C8E8", "#DFEBFF", "#F1F6FF"] },
+      "lavanda": { "role": "secondary", "displayName": "Lavanda", "canonical": "#EEE8FF", "cssVar": "--m-lav (82% alpha)", "tonalRamp": ["#21183F", "#372965", "#53428F", "#7663B5", "#9C8DD5", "#C6BCEF", "#EEE8FF", "#F7F4FF"] },
+      "menta": { "role": "secondary", "displayName": "Menta", "canonical": "#DCF4EB", "cssVar": "--m-mint (82% alpha), --m-ok-bg", "tonalRamp": ["#0B2B21", "#0F4A38", "#0F6B4F", "#3C8E72", "#6FB39A", "#A6D6C4", "#DCF4EB", "#F0FBF7"] },
+      "indigo-saed": { "role": "primary", "displayName": "Índigo SAED", "canonical": "#5267DA", "cssVar": "--m-indigo", "tonalRamp": ["#161D45", "#25306F", "#33449D", "#4155C6", "#5267DA", "#7F8FE5", "#B3BDF1", "#E3E7FB"] },
+      "indigo-deep": { "role": "primary", "displayName": "Índigo profundo", "canonical": "#4155C6", "cssVar": "--m-indigo-hover, --m-indigo-text, --m-new-line" },
+      "azul-tinta": { "role": "neutral", "displayName": "Azul tinta", "canonical": "#1D2942", "cssVar": "--m-ink, --m-keyline", "tonalRamp": ["#0B111D", "#1D2942", "#3A4766", "#5B6785", "#828CA6", "#AAB2C6", "#D2D7E3", "#EEF0F5"] },
+      "tinta-suave": { "role": "neutral", "displayName": "Tinta suave", "canonical": "#3A4766", "cssVar": "--m-ink-2" },
+      "verde-ok": { "role": "secondary", "displayName": "Verde ok", "canonical": "#0F6B4F", "cssVar": "--m-ok" },
+      "noche-ground": { "role": "neutral", "displayName": "Noche", "canonical": "#070B14", "cssVar": "--m-ground (dark)" },
+      "noche-page": { "role": "neutral", "displayName": "Noche página", "canonical": "#0B1222", "cssVar": "--m-page (dark)" },
+      "noche-paper": { "role": "neutral", "displayName": "Noche papel", "canonical": "#0F172A", "cssVar": "--m-paper (dark)" },
+      "noche-ink": { "role": "neutral", "displayName": "Tinta luminosa", "canonical": "#EEF3FF", "cssVar": "--m-ink (dark)" },
+      "noche-ink-2": { "role": "neutral", "displayName": "Tinta luminosa suave", "canonical": "#B4C0DC", "cssVar": "--m-ink-2 (dark)" },
+      "indigo-luminoso": { "role": "primary", "displayName": "Índigo luminoso", "canonical": "#A3B0FF", "cssVar": "--m-indigo-text, --m-new-line, --m-focus (dark)" },
+      "menta-luminosa": { "role": "secondary", "displayName": "Menta luminosa", "canonical": "#86E3C1", "cssVar": "--m-ok (dark)" }
+    },
+    "alphaTokens": [
+      { "name": "keyline-soft", "light": "rgba(29, 41, 66, 0.22)", "dark": "rgba(214, 227, 255, 0.2)", "purpose": "Row dividers inside a container only." },
+      { "name": "keyline-dark", "dark": "rgba(214, 227, 255, 0.8)", "purpose": "Luminous keyline in dark mode." },
+      { "name": "glass", "light": "rgba(255, 255, 255, 0.6)", "dark": "rgba(15, 23, 42, 0.58)", "purpose": "Default piece and film-screen glass." },
+      { "name": "glass-strong", "light": "rgba(255, 255, 255, 0.86)", "dark": "rgba(15, 23, 42, 0.9)", "purpose": "Glass button and base plate." },
+      { "name": "glass-callout", "light": "rgba(255, 255, 255, 0.45)", "dark": "rgba(15, 23, 42, 0.55)", "purpose": "Glass call-outs overlapping the model." },
+      { "name": "new-fill", "light": "rgba(82, 103, 218, 0.82)", "dark": "rgba(98, 116, 232, 0.72)", "purpose": "The new piece of the current step." },
+      { "name": "ghost-line", "light": "rgba(29, 41, 66, 0.7)", "dark": "rgba(214, 227, 255, 0.55)", "purpose": "Dashed keyline and studs of ghosted pieces; done ticks." },
+      { "name": "dot", "light": "rgba(29, 41, 66, 0.12)", "dark": "rgba(214, 227, 255, 0.1)", "purpose": "Stud-dot grid on the root ground (1.3px dot, 24px pitch)." },
+      { "name": "dot-strong", "light": "rgba(29, 41, 66, 0.24)", "dark": "rgba(214, 227, 255, 0.2)", "purpose": "Stud-dense frames: model pages, parts tray, step frames." }
+    ],
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Hero headline only; balanced, max 15ch." },
+      "headline": { "displayName": "Headline", "purpose": "Section titles." },
+      "title": { "displayName": "Title", "purpose": "Sub-section titles." },
+      "numeral": { "displayName": "Step numeral", "purpose": "Giant step numerals and the live unit count (2rem small cut)." },
+      "lede": { "displayName": "Lede", "purpose": "Hero offer line, max 46ch, Tinta suave." },
+      "body": { "displayName": "Body", "purpose": "Section copy, max 62ch, Tinta suave." },
+      "label": { "displayName": "Label", "purpose": "Buttons and strip links." },
+      "caption": { "displayName": "Caption", "purpose": "Model captions, call-out body, parts labels." },
+      "stamp": { "displayName": "Stamp", "purpose": "1:1 scale marks, Próximamente, version tag, part counts." }
+    },
+    "shadows": [
+      { "name": "slab", "value": "0 10px 18px -12px rgba(29, 41, 66, 0.5), 0 2px 4px -1px rgba(29, 41, 66, 0.12)", "dark": "0 12px 22px -12px rgba(0, 0, 0, 0.9), 0 2px 4px -1px rgba(0, 0, 0, 0.5)", "purpose": "Under pieces, primary button, call-outs, units control, step cards, spec table, FAQ." },
+      { "name": "page", "value": "0 28px 48px -28px rgba(29, 41, 66, 0.55), 0 6px 12px -6px rgba(29, 41, 66, 0.14)", "dark": "0 30px 50px -28px rgba(0, 0, 0, 0.95), 0 6px 12px -6px rgba(0, 0, 0, 0.5)", "purpose": "Under hero spread, parts page, sticky stage, film screen, final step." },
+      { "name": "glass-highlight", "value": "inset 0 1px 0 rgba(255, 255, 255, 0.7)", "dark": "inset 0 1px 0 rgba(214, 227, 255, 0.2)", "purpose": "Top-edge highlight on glass call-outs; bottom inset on the strip." }
+    ],
+    "blur": [
+      { "name": "piece", "value": "blur(6px) saturate(1.15)" },
+      { "name": "button-glass", "value": "blur(8px)" },
+      { "name": "screen", "value": "blur(10px) saturate(1.15)" },
+      { "name": "strip", "value": "blur(14px) saturate(1.3)" },
+      { "name": "callout-glass", "value": "blur(18px) saturate(1.3)" }
+    ],
+    "motion": [
+      { "name": "ease-expo-out", "value": "cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "The only easing for pieces, presses and the FAQ chevron." },
+      { "name": "piece-transition", "value": "600ms", "purpose": "Piece state changes; 280ms when hiding; 300ms for color, left and height remaps." },
+      { "name": "drop-intro", "value": "650ms, 350ms delay", "purpose": "Hero new piece drops along its guide; guide fades in at 150ms (500ms)." },
+      { "name": "settle", "value": "520ms, 45ms stagger", "purpose": "Final set settles once on entering view, slight overshoot at 70%." },
+      { "name": "ui-state", "value": "150ms ease", "purpose": "Button, link and hover background changes." },
+      { "name": "chevron", "value": "250ms", "purpose": "FAQ disclosure rotation." },
+      { "name": "reduced-motion", "value": "150ms linear cross-fade", "purpose": "No transforms or keyframes; snap between assembled states." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Main action, e.g. Ver planes; Índigo fill inside a keyline.",
+      "html": "<a class=\"ds-btn ds-btn-primary\" href=\"#\"><span>Ver planes</span><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M5 12h14\"/><path d=\"m12 5 7 7-7 7\"/></svg></a>",
+      "css": ".ds-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 0 18px; border: 1.5px solid #1d2942; border-radius: 6px; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; font-weight: 700; font-size: 0.9375rem; line-height: 1.2; white-space: nowrap; text-decoration: none; color: #1d2942; transition: background-color 150ms ease, border-color 150ms ease, transform 150ms cubic-bezier(0.16, 1, 0.3, 1); } .ds-btn svg { width: 18px; height: 18px; } .ds-btn:active { transform: translateY(1px); } .ds-btn:focus-visible { outline: 2.5px solid #5267da; outline-offset: 3px; } .ds-btn-primary { background: #5267da; color: #ffffff; box-shadow: 0 10px 18px -12px rgba(29, 41, 66, 0.5), 0 2px 4px -1px rgba(29, 41, 66, 0.12); } .ds-btn-primary:hover { background: #4155c6; }"
+    },
+    {
+      "name": "Glass Button",
+      "kind": "button",
+      "refersTo": "button-glass",
+      "description": "Secondary action on the manual page; frosted paper inside a keyline.",
+      "html": "<a class=\"ds-btn-glass\" href=\"#\">Ver cómo se arma</a>",
+      "css": ".ds-btn-glass { display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; border: 1.5px solid #1d2942; border-radius: 6px; background: rgba(255, 255, 255, 0.86); backdrop-filter: blur(8px); font-family: 'Plus Jakarta Sans', system-ui, sans-serif; font-weight: 700; font-size: 0.9375rem; color: #1d2942; text-decoration: none; transition: background-color 150ms ease, border-color 150ms ease; } .ds-btn-glass:hover { background: #ffffff; border-color: #4155c6; } .ds-btn-glass:focus-visible { outline: 2.5px solid #5267da; outline-offset: 3px; }"
+    },
+    {
+      "name": "Icon Button",
+      "kind": "button",
+      "refersTo": "icon-button",
+      "description": "44px square keylined control for theme toggle, menu and units nudges.",
+      "html": "<button class=\"ds-icon-btn\" type=\"button\" aria-label=\"Sumar 10 unidades\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" aria-hidden=\"true\"><path d=\"M5 12h14\"/><path d=\"M12 5v14\"/></svg></button>",
+      "css": ".ds-icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border: 1.5px solid #1d2942; border-radius: 6px; background: #ffffff; color: #1d2942; transition: background-color 150ms ease; cursor: pointer; } .ds-icon-btn svg { width: 18px; height: 18px; } .ds-icon-btn:hover { background: #dfebff; } .ds-icon-btn:focus-visible { outline: 2.5px solid #5267da; outline-offset: 3px; } .ds-icon-btn:disabled { opacity: 0.4; cursor: not-allowed; }"
+    },
+    {
+      "name": "Units Control",
+      "kind": "input",
+      "refersTo": "units-control",
+      "description": "Range with nudges that remaps the complex model live.",
+      "html": "<div class=\"ds-units\"><div class=\"ds-units-head\"><label for=\"ds-range\">¿Cuántas unidades tiene tu conjunto?</label><output for=\"ds-range\"><span class=\"ds-units-num\">120</span> unidades</output></div><input id=\"ds-range\" class=\"ds-range\" type=\"range\" min=\"20\" max=\"400\" step=\"10\" value=\"120\" style=\"--fill: 26%\"></div>",
+      "css": ".ds-units { display: grid; gap: 10px; max-width: 520px; padding: 16px; border: 1.5px solid #1d2942; background: #ffffff; box-shadow: 0 10px 18px -12px rgba(29, 41, 66, 0.5), 0 2px 4px -1px rgba(29, 41, 66, 0.12); font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #1d2942; } .ds-units-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 4px 12px; font-weight: 700; } .ds-units-head output { font-weight: 600; font-size: 0.875rem; color: #3a4766; } .ds-units-num { font-family: 'Archivo', sans-serif; font-variation-settings: 'wdth' 125, 'wght' 900; font-size: 2rem; line-height: 1; color: #1d2942; font-variant-numeric: tabular-nums lining-nums; } .ds-range { width: 100%; height: 44px; background: transparent; -webkit-appearance: none; appearance: none; cursor: pointer; } .ds-range::-webkit-slider-runnable-track { height: 10px; border: 1.5px solid #1d2942; border-radius: 2px; background: linear-gradient(90deg, #5267da var(--fill, 0%), #dfebff var(--fill, 0%)); } .ds-range::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 28px; margin-top: -10.5px; border: 1.5px solid #1d2942; border-radius: 3px; background: #ffffff; } .ds-range:focus-visible { outline: 2.5px solid #5267da; outline-offset: 3px; }"
+    },
+    {
+      "name": "Top Strip",
+      "kind": "nav",
+      "refersTo": "top-strip",
+      "description": "Sticky manual top strip: frosted Perla, keyline bottom, wide wordmark.",
+      "html": "<header class=\"ds-strip\"><a class=\"ds-brand\" href=\"#\"><span class=\"ds-brand-mark\"></span><span class=\"ds-brand-name\">SAED</span><span class=\"ds-brand-ver\">2.0</span></a><nav class=\"ds-strip-nav\"><a href=\"#\">Piezas</a><a href=\"#\">Pasos</a><a href=\"#\">Especificaciones</a></nav></header>",
+      "css": ".ds-strip { display: flex; align-items: center; gap: 16px; height: 64px; padding: 0 24px; background: rgba(247, 249, 254, 0.68); backdrop-filter: blur(14px) saturate(1.3); box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.7); border-bottom: 1.5px solid #1d2942; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #1d2942; } .ds-brand { display: inline-flex; align-items: center; gap: 10px; color: inherit; text-decoration: none; } .ds-brand-mark { width: 34px; height: 34px; background: #ffffff; border: 1.5px solid #1d2942; } .ds-brand-name { font-family: 'Archivo', sans-serif; font-variation-settings: 'wdth' 125, 'wght' 900; font-size: 1.25rem; line-height: 1; } .ds-brand-ver { padding: 0 6px; border: 1.5px solid #1d2942; font-size: 0.75rem; font-weight: 800; line-height: 1.5; } .ds-strip-nav { display: flex; gap: 4px; margin-left: 16px; } .ds-strip-nav a { padding: 8px 12px; font-weight: 600; font-size: 0.9375rem; color: inherit; text-decoration: none; border-bottom: 2px solid transparent; transition: border-color 150ms ease; } .ds-strip-nav a:hover { border-bottom-color: #4155c6; } .ds-strip-nav a:focus-visible { outline: 2.5px solid #5267da; outline-offset: 3px; }"
+    },
+    {
+      "name": "1:1 Call-out",
+      "kind": "card",
+      "refersTo": "callout",
+      "description": "Square keylined box with a 1:1 stamp, illustrative content and the Datos de ejemplo foot.",
+      "html": "<figure class=\"ds-callout\"><figcaption class=\"ds-callout-head\"><span>Invitación QR</span><span class=\"ds-scale\">1:1</span></figcaption><div class=\"ds-callout-body\"><strong>Laura Gómez</strong><span>Apto 302 · Torre 1</span><span>Hoy, 2:00 – 6:00 p. m.</span></div><p class=\"ds-callout-note\">Datos de ejemplo</p></figure>",
+      "css": ".ds-callout { display: flex; flex-direction: column; max-width: 300px; margin: 0; background: #ffffff; border: 1.5px solid #1d2942; box-shadow: 0 10px 18px -12px rgba(29, 41, 66, 0.5), 0 2px 4px -1px rgba(29, 41, 66, 0.12); font-family: 'Plus Jakarta Sans', system-ui, sans-serif; font-size: 0.875rem; line-height: 1.4; color: #1d2942; } .ds-callout-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 7px 10px; border-bottom: 1.5px solid #1d2942; font-weight: 800; } .ds-scale { padding: 0 5px; border: 1.5px solid #1d2942; font-family: 'Archivo', sans-serif; font-variation-settings: 'wdth' 125, 'wght' 800; font-size: 0.75rem; line-height: 1.5; } .ds-callout-body { display: grid; gap: 7px; padding: 10px; } .ds-callout-note { margin: 0; padding: 5px 10px; border-top: 1.5px dashed #1d2942; font-size: 0.75rem; font-weight: 600; color: #3a4766; }"
+    },
+    {
+      "name": "Brick Pieces",
+      "kind": "custom",
+      "refersTo": "piece",
+      "description": "Glass bricks with studs: new (Índigo), inventory (Menta, Lavanda) and ghost (dashed).",
+      "html": "<div class=\"ds-tray\"><div class=\"ds-piece ds-piece-new\">Portería</div><div class=\"ds-piece ds-piece-mint\">Cartera</div><div class=\"ds-piece ds-piece-lav\">Roles</div><div class=\"ds-piece ds-piece-ghost\">Base</div></div>",
+      "css": ".ds-tray { display: flex; flex-wrap: wrap; gap: 24px; padding: 24px; background-color: #dfebff; background-image: radial-gradient(circle, rgba(29, 41, 66, 0.24) 1.6px, transparent 2.1px); background-size: 24px 24px; } .ds-piece { position: relative; display: flex; align-items: center; justify-content: center; width: 120px; height: 72px; border: 1.5px solid #1d2942; border-radius: 3px; background: rgba(255, 255, 255, 0.6); backdrop-filter: blur(6px) saturate(1.15); box-shadow: 0 10px 18px -12px rgba(29, 41, 66, 0.5), 0 2px 4px -1px rgba(29, 41, 66, 0.12); font-family: 'Plus Jakarta Sans', system-ui, sans-serif; font-weight: 700; font-size: 0.875rem; color: #1d2942; transition: transform 600ms cubic-bezier(0.16, 1, 0.3, 1), opacity 600ms cubic-bezier(0.16, 1, 0.3, 1); --stud: #1d2942; } .ds-piece::before { content: ''; position: absolute; left: 5px; right: 0; bottom: calc(100% + 1.5px); height: 6px; background-image: linear-gradient(90deg, var(--stud) 0 58%, transparent 58%); background-size: 24px 100%; } .ds-piece:hover { transform: translateY(-4px); } .ds-piece-new { --stud: #4155c6; border-color: #4155c6; background: rgba(82, 103, 218, 0.82); color: #ffffff; } .ds-piece-mint { background: rgba(220, 244, 235, 0.82); } .ds-piece-lav { background: rgba(238, 232, 255, 0.82); } .ds-piece-ghost { --stud: rgba(29, 41, 66, 0.7); opacity: 0.72; border-style: dashed; border-color: rgba(29, 41, 66, 0.7); box-shadow: none; }"
+    },
+    {
+      "name": "Unbuilt Piece",
+      "kind": "chip",
+      "refersTo": "stamp",
+      "description": "Dashed roadmap piece stamped Próximamente; never presented as available.",
+      "html": "<div class=\"ds-unbuilt\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9\"/><path d=\"M10.3 21a1.94 1.94 0 0 0 3.4 0\"/></svg><span class=\"ds-unbuilt-label\">Notificaciones push</span><span class=\"ds-stamp\">Próximamente</span></div>",
+      "css": ".ds-unbuilt { display: flex; align-items: center; gap: 12px; max-width: 420px; padding: 16px; border: 1.5px dashed #1d2942; border-radius: 3px; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #3a4766; } .ds-unbuilt svg { width: 24px; height: 24px; flex-shrink: 0; } .ds-unbuilt-label { flex: 1; font-weight: 700; color: #1d2942; } .ds-stamp { padding: 2px 8px; border: 1.5px solid #1d2942; background: #f7f9fe; color: #1d2942; font-family: 'Archivo', sans-serif; font-variation-settings: 'wdth' 112, 'wght' 800; font-size: 0.75rem; line-height: 1.5; white-space: nowrap; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Manual de armado del conjunto",
+    "overview": "The marketing surfaces read as a brick-build instruction book for a residential complex. Azul pastel pages are ruled by a 24px stud-dot module grid; every piece, page, call-out and control is outlined with an Azul tinta keyline; pieces are frosted-glass slabs that click onto one shared base. The piece added in the current step is Índigo, inventory pieces are Menta and Lavanda, earlier pieces sit ghosted behind dashed keylines, and oversized wide step numerals pace the reading. Hierarchy comes from piece size on a fixed S/M/L ramp and from type width, not from color washes.\n\nDensity is calm and generous: one spread, one model, one call-out at a time. Glass is the requested material, but it always sits inside a keyline; blur never stands alone as the edge of a surface. Dark mode is the same manual printed on night ink (Noche ground) with luminous keylines and luminous Índigo.\n\nScope boundary. This world is scoped to the .saed-manual class (tokens live as --m-* custom properties in src/components/landing/manual.css) and covers the public landing at / plus the shared LandingNavbar and LandingFooter, which self-scope and also render on /suscripciones. The authenticated app UI (AppShell, dashboards, shadcn ui/* components, src/index.css / Tailwind theme) keeps its incumbent system and must not inherit these tokens or rules. The /suscripciones body and LandingPricing have not been migrated into this world yet (see Don'ts).",
+    "keyCharacteristics": [
+      "24px stud module: background dot grid, brick studs at 24px pitch, parts tray on the same grid.",
+      "1.5px Azul tinta keylines on every piece; dashed keylines for guides, ghosts, page gutters and unbuilt pieces.",
+      "Frosted-glass slabs (6–18px blur) always bounded by a keyline.",
+      "One Índigo \"new piece\" per step; Menta and Lavanda for inventory.",
+      "Archivo variable at expanded widths (106–125%) for display, numerals and stamps; Plus Jakarta Sans for reading.",
+      "Square 1:1 call-outs stamped \"1:1\" and footed \"Datos de ejemplo\".",
+      "Expo-out motion: pieces drop along dashed arrows; reduced motion snaps between assembled states."
+    ],
+    "rules": [
+      { "name": "The One New Piece Rule", "body": "Índigo fill marks only the piece being added in the current step, the primary action and progress. Inventory and built pieces are Menta or Lavanda; earlier pieces are ghosted, never a second Índigo.", "section": "colors" },
+      { "name": "The Pinned Palette Rule", "body": "Light mode uses only the seven pinned identity colors plus their alpha glass mixes and three derived inks (Índigo profundo, Tinta suave, Verde ok). No new hues.", "section": "colors" },
+      { "name": "The Width Ramp Rule", "body": "Rank is carried by Archivo width and weight (106 → 112 → 125, 750 → 850 → 900), not by color or letter-spacing. Numerals are always the widest, heaviest cut.", "section": "typography" },
+      { "name": "The Sentence Case Rule", "body": "Every label, stamp and heading in the manual is sentence case with no tracking. The world has no uppercase tracked labels.", "section": "typography" },
+      { "name": "The Keyline-Bounded Glass Rule", "body": "Every blurred surface (pieces 6px, glass button 8px, film screen 10px, strip 14px, glass call-out 18px) carries a 1.5px keyline. Blur never defines an edge on its own.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do outline every piece, page, call-out and control with a 1.5px Azul tinta keyline (luminous rgba(214, 227, 255, 0.8) in dark mode).",
+      "Do keep every new surface on the 24px stud module and size model pieces in module units.",
+      "Do use dashed keylines for guides, ghosts, page gutters and unbuilt items, solid for built ones.",
+      "Do label every illustrative screen \"Datos de ejemplo\" in the call-out foot.",
+      "Do give the current step exactly one Índigo piece and leave earlier pieces ghosted.",
+      "Do set numerals and stamps in Archivo at 125% width with tabular lining figures.",
+      "Do provide a reduced-motion path that snaps between assembled states."
+    ],
+    "donts": [
+      "Don't let glass stand without a keyline, or use blur as the only edge of a surface.",
+      "Don't use uppercase tracked labels, kickers or eyebrows above headings; the manual speaks in sentence case.",
+      "Don't use hard offset shadows; depth is the soft slab and page shadow under pieces.",
+      "Don't round call-outs, pages or tables; pill shapes and 16–24px radii belong to the incumbent app UI, not this world.",
+      "Don't introduce hues outside the pinned palette, or a second Índigo piece in one step.",
+      "Don't apply --m-* tokens or these rules to the authenticated app UI; it keeps its incumbent system."
+    ]
+  }
+}

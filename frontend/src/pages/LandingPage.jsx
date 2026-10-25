@@ -1,65 +1,83 @@
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import LandingNavbar from '../components/landing/LandingNavbar.jsx';
 import LandingHero from '../components/landing/LandingHero.jsx';
-import LandingTrust from '../components/landing/LandingTrust.jsx';
-import LandingProblemSolution from '../components/landing/LandingProblemSolution.jsx';
-import LandingAccess from '../components/landing/LandingAccess.jsx';
-import LandingPackages from '../components/landing/LandingPackages.jsx';
-import LandingParking from '../components/landing/LandingParking.jsx';
-import LandingFinance from '../components/landing/LandingFinance.jsx';
-import LandingSecurity from '../components/landing/LandingSecurity.jsx';
+import LandingParts from '../components/landing/LandingParts.jsx';
+import LandingAssembly from '../components/landing/LandingAssembly.jsx';
+import LandingFilm from '../components/landing/LandingFilm.jsx';
+import LandingSpecs from '../components/landing/LandingSpecs.jsx';
 import LandingFAQ from '../components/landing/LandingFAQ.jsx';
+import LandingCTA from '../components/landing/LandingCTA.jsx';
 import LandingFooter from '../components/landing/LandingFooter.jsx';
+import { UNITS_DEFAULT } from '../components/landing/manualModel.js';
+import { applyTheme, persistTheme } from '../lib/theme.js';
+import '../components/landing/manual.css';
+
+const LANDING_THEME_KEY = 'saed_landing_theme';
 
 export default function LandingPage() {
+  const { hash } = useLocation();
+  const [units, setUnits] = useState(UNITS_DEFAULT);
+  const [theme, setTheme] = useState(() => {
+    try {
+      const saved = localStorage.getItem(LANDING_THEME_KEY);
+      if (saved === 'dark' || saved === 'light') return saved;
+    } catch {
+      /* ignore storage errors */
+    }
+    return 'light';
+  });
+
   useEffect(() => {
-    document.title = 'SAED 2.0 | Administración inteligente para propiedad horizontal';
+    document.title = 'SAED 2.0 | Administración para propiedad horizontal';
 
     const metaDescription = document.querySelector('meta[name="description"]');
     if (metaDescription) {
       metaDescription.setAttribute(
         'content',
-        'SAED 2.0 conecta administración, residentes, portería, cartera y operación en una sola plataforma PropTech.'
+        'SAED 2.0 conecta administración, portería, residentes y cartera de tu conjunto sobre un mismo registro.'
       );
     }
   }, []);
 
+  // Footer links from other routes arrive as "/#section".
+  useEffect(() => {
+    if (!hash) return;
+    const target = document.getElementById(hash.slice(1));
+    if (target) target.scrollIntoView();
+  }, [hash]);
+
+  useEffect(() => {
+    applyTheme(theme);
+    persistTheme(theme);
+    try {
+      localStorage.setItem(LANDING_THEME_KEY, theme);
+    } catch {
+      /* ignore storage errors */
+    }
+  }, [theme]);
+
+  const handleToggleTheme = () => {
+    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+  };
+
   return (
-    <div className="min-h-screen bg-[#070B14] text-slate-100 flex flex-col selection:bg-sky-500/25 selection:text-sky-300">
-      {/* 1. Minimalist Translucent Sticky Navigation Header */}
-      <LandingNavbar />
+    <div className={`saed-manual m-root ${theme === 'dark' ? 'dark' : ''}`}>
+      <a href="#m-main" className="m-skip">
+        Saltar al contenido
+      </a>
+      <LandingNavbar theme={theme} onToggleTheme={handleToggleTheme} />
 
-      {/* Main Editorial Storytelling Content */}
-      <main className="flex-1">
-        {/* 2. Monumental Editorial Hero */}
-        <LandingHero />
-
-        {/* 2. Trust & Hierarchy (Una plataforma. Cuatro perfiles. Una operación conectada.) */}
-        <LandingTrust />
-
-        {/* 3. Problem vs Solution Narrative & The Unified Equation */}
-        <LandingProblemSolution />
-
-        {/* 4. Product Deep Dive 01: Access & QR Security HUD */}
-        <LandingAccess />
-
-        {/* 5. Product Deep Dive 02: Package Custody with Cryptographic PIN */}
-        <LandingPackages />
-
-        {/* 6. Product Deep Dive 03: Real-Time Visitor Parking Bays */}
-        <LandingParking />
-
-        {/* 7. Financial Operations: Debt, Aging, and Wompi Gateway */}
-        <LandingFinance />
-
-        {/* 8. Architectural Security, ROI & Ley 675 */}
-        <LandingSecurity />
-
-        {/* 9. Accessible FAQ Accordion */}
+      <main id="m-main" className="m-main">
+        <LandingHero units={units} onUnitsChange={setUnits} />
+        <LandingParts />
+        <LandingAssembly units={units} />
+        <LandingFilm />
+        <LandingSpecs />
         <LandingFAQ />
+        <LandingCTA units={units} />
       </main>
 
-      {/* 14. Minimalist Enterprise Footer */}
       <LandingFooter />
     </div>
   );

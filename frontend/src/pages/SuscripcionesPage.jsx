@@ -1,27 +1,22 @@
 import { useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import {
-  Building2,
-  Sparkles,
-  ArrowLeft,
-  LogIn,
   ShieldCheck,
-  Zap,
-  HelpCircle,
   PhoneCall,
   CheckCircle2,
 } from 'lucide-react';
 import LandingPricing from '../components/landing/LandingPricing.jsx';
 import LandingFooter from '../components/landing/LandingFooter.jsx';
+import LandingNavbar from '../components/landing/LandingNavbar.jsx';
+import { useSaedTheme } from '../lib/theme.js';
 
 const SUBSCRIPTION_FAQS = [
   {
     q: '¿Cómo se factura el servicio en SAED 2.0?',
-    a: 'La facturación se realiza mensualmente o anualmente por cada unidad habitacional (apartamento o casa) registrada en la propiedad. Si eliges facturación anual, obtienes un 20% de descuento directo.',
+    a: 'La facturación se realiza mensualmente o anualmente según el plan y la escala de unidades habitacionales (apartamentos o casas) de tu copropiedad. Si eliges facturación anual, obtienes un 20% de descuento directo.',
   },
   {
-    q: '¿Qué incluye la implementación inicial?',
-    a: 'Todos los planes incluyen la carga masiva del censo de residentes, parametrización de cuotas, capacitación virtual para la administración y guardas de portería, y acceso inmediato a la plataforma.',
+    q: '¿Cómo se pone en marcha el conjunto?',
+    a: 'La administración registra las unidades y los residentes del conjunto en la plataforma. Cada persona recibe en su correo un enlace para activar su cuenta y crear su propia contraseña.',
   },
   {
     q: '¿Se requiere compra de hardware o equipos especiales?',
@@ -34,6 +29,8 @@ const SUBSCRIPTION_FAQS = [
 ];
 
 export default function SuscripcionesPage() {
+  const { theme, toggleTheme } = useSaedTheme();
+
   useEffect(() => {
     document.title = 'Suscripciones y Planes | SAED 2.0';
     window.scrollTo(0, 0);
@@ -48,87 +45,39 @@ export default function SuscripcionesPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#061018] text-slate-100 flex flex-col selection:bg-cyan-500/25 selection:text-cyan-300">
-      {/* 1. Header Minimalista Dedicado */}
-      <header className="sticky top-0 z-50 bg-[#070B14]/90 backdrop-blur-xl border-b border-slate-800/80 shadow-2xl py-3.5 sm:py-4">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
-          {/* Logo Brand */}
-          <Link
-            to="/"
-            className="flex items-center gap-3 group focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 rounded-xl py-1 px-1.5 transition-colors"
-            aria-label="Volver al inicio de SAED 2.0"
-          >
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-[#122347] to-[#070B14] border border-sky-500/30 flex items-center justify-center shadow-sm shadow-sky-500/10 group-hover:border-sky-400 transition-colors">
-              <Building2 className="w-4 h-4 sm:w-5 sm:h-5 text-sky-400" />
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xl sm:text-2xl font-extrabold tracking-tight text-white font-['Plus_Jakarta_Sans']">
-                SAED
-              </span>
-              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-sky-500/10 text-sky-400 border border-sky-500/25 tracking-wide">
-                2.0
-              </span>
-            </div>
-          </Link>
-
-          {/* Navigation Actions */}
-          <div className="flex items-center gap-3">
-            <Link
-              to="/"
-              className="flex items-center gap-1.5 px-3.5 py-2 text-xs sm:text-sm font-semibold text-slate-200 hover:text-white bg-slate-900/80 hover:bg-slate-800 rounded-xl border border-slate-700/80 transition-all min-h-[40px] shadow-sm"
-            >
-              <ArrowLeft className="w-4 h-4 text-cyan-400" />
-              <span>Volver al inicio</span>
-            </Link>
-
-            <Link
-              to="/login"
-              className="px-4 py-2 text-xs sm:text-sm font-semibold text-white bg-slate-800/90 hover:bg-slate-700 border border-slate-700/80 rounded-xl transition-all flex items-center gap-1.5 min-h-[40px]"
-            >
-              <LogIn className="w-4 h-4 text-sky-400" />
-              <span>Iniciar sesión</span>
-            </Link>
-          </div>
-        </div>
-      </header>
+    <div
+      className={`min-h-screen bg-[#F7F9FE] dark:bg-[#070B14] text-[#1D2942] dark:text-slate-100 flex flex-col selection:bg-[#DFEBFF] selection:text-[#1D2942] dark:selection:bg-sky-500/25 dark:selection:text-sky-300 transition-colors duration-300 ${
+        theme === 'dark' ? 'dark' : ''
+      }`}
+    >
+      <LandingNavbar theme={theme} onToggleTheme={toggleTheme} onLanding={false} />
 
       {/* Main Content */}
       <main className="flex-1">
         {/* 2. Hero de Suscripciones */}
-        <section className="relative pt-16 pb-12 sm:pt-24 sm:pb-16 overflow-hidden bg-gradient-to-b from-[#061018] via-[#0B1B27] to-[#061018]">
+        <section className="relative pt-14 pb-10 sm:pt-20 sm:pb-14 overflow-hidden bg-gradient-to-b from-white via-[#F7F9FE] to-[#F7F9FE] dark:from-[#070B14] dark:via-[#0B1B27] dark:to-[#070B14]">
           {/* Subtle grid accent */}
-          <div className="absolute inset-0 bg-[radial-gradient(#1E3A6E_1px,transparent_1px)] [background-size:36px_36px] opacity-15 pointer-events-none" />
+          <div className="absolute inset-0 bg-[radial-gradient(#5267DA_1px,transparent_1px)] [background-size:36px_36px] opacity-[0.08] dark:opacity-15 pointer-events-none" />
 
           <div className="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-6">
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-900/80 border border-sky-500/30 text-sky-400 text-xs font-bold tracking-widest uppercase shadow-lg shadow-sky-950/40 backdrop-blur-xl">
-              <Sparkles className="w-3.5 h-3.5 text-sky-400 animate-pulse" />
-              <span>TARIFAS TRANSPARENTES Y ESCALABLES</span>
-            </div>
 
-            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-tight font-['Plus_Jakarta_Sans']">
-              Planes diseñados para la escala de tu{' '}
-              <span className="text-sky-400 font-black">
-                copropiedad
-              </span>
+            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-[#1D2942] dark:text-white leading-tight font-['Plus_Jakarta_Sans']">
+              Planes diseñados para la escala de tu copropiedad
             </h1>
 
-            <p className="text-base sm:text-lg lg:text-xl text-slate-300 max-w-2xl mx-auto leading-relaxed">
-              Calcula la tarifa exacta para tu número de unidades. Todo incluido, sin costos de licenciamiento sorpresa y con aislamiento de datos bancario.
+            <p className="text-base sm:text-lg lg:text-xl text-[#475569] dark:text-slate-300 max-w-2xl mx-auto leading-relaxed">
+              Elige el plan según el número de unidades de tu conjunto. Los precios vigentes se muestran abajo.
             </p>
 
             {/* Quick Guarantees Strip */}
-            <div className="pt-4 flex flex-wrap items-center justify-center gap-4 sm:gap-6 text-xs text-slate-300">
-              <span className="flex items-center gap-1.5 bg-slate-900/60 px-3 py-1.5 rounded-lg border border-slate-800">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+            <div className="pt-2 flex flex-wrap items-center justify-center gap-3 sm:gap-4 text-xs font-bold">
+              <span className="flex items-center gap-1.5 bg-[#DCF4EB] text-[#065F46] dark:bg-emerald-500/15 dark:text-emerald-300 px-3.5 py-2 rounded-xl border border-[#A7F3D0] dark:border-emerald-500/30">
+                <CheckCircle2 className="w-4 h-4" />
                 20% de ahorro en pago anual
               </span>
-              <span className="flex items-center gap-1.5 bg-slate-900/60 px-3 py-1.5 rounded-lg border border-slate-800">
-                <ShieldCheck className="w-3.5 h-3.5 text-sky-400" />
-                Aislamiento RLS en Oracle Cloud
-              </span>
-              <span className="flex items-center gap-1.5 bg-slate-900/60 px-3 py-1.5 rounded-lg border border-slate-800">
-                <Zap className="w-3.5 h-3.5 text-amber-400" />
-                Activación en 24 horas hábiles
+              <span className="flex items-center gap-1.5 bg-[#DFEBFF] text-[#1D2942] dark:bg-sky-500/15 dark:text-sky-300 px-3.5 py-2 rounded-xl border border-[#5267DA]/20 dark:border-sky-500/30">
+                <ShieldCheck className="w-4 h-4 text-[#5267DA] dark:text-sky-400" />
+                Datos aislados por conjunto en la base de datos
               </span>
             </div>
           </div>
@@ -138,14 +87,10 @@ export default function SuscripcionesPage() {
         <LandingPricing />
 
         {/* 4. Preguntas Frecuentes de Suscripción */}
-        <section className="py-16 sm:py-20 bg-[#0A101E] border-t border-slate-800/80">
+        <section className="py-16 sm:py-20 bg-white dark:bg-[#0A101E] border-t border-[#DFEBFF] dark:border-slate-800/80 transition-colors">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center space-y-3 mb-12">
-              <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-slate-900 text-sky-400 text-xs font-semibold border border-slate-800">
-                <HelpCircle className="w-3.5 h-3.5" />
-                <span>RESOLVEMOS TUS DUDAS</span>
-              </div>
-              <h2 className="text-2xl sm:text-3xl font-bold text-white font-['Plus_Jakarta_Sans']">
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-[#1D2942] dark:text-white font-['Plus_Jakarta_Sans']">
                 Preguntas frecuentes sobre suscripciones
               </h2>
             </div>
@@ -154,13 +99,13 @@ export default function SuscripcionesPage() {
               {SUBSCRIPTION_FAQS.map((faq, i) => (
                 <div
                   key={i}
-                  className="p-5 sm:p-6 rounded-2xl bg-slate-900/80 border border-slate-800/90 space-y-2 hover:border-slate-700 transition-colors"
+                  className="p-6 rounded-2xl bg-[#F7F9FE] dark:bg-slate-900/80 border border-[#DFEBFF] dark:border-slate-800/90 space-y-2 hover:border-[#5267DA]/40 dark:hover:border-slate-700 transition-colors"
                 >
-                  <h3 className="text-sm sm:text-base font-bold text-white flex items-start gap-2">
-                    <span className="text-sky-400">Q.</span>
+                  <h3 className="text-sm sm:text-base font-extrabold text-[#1D2942] dark:text-white flex items-start gap-2">
+                    <span className="text-[#5267DA] dark:text-sky-400">Q.</span>
                     {faq.q}
                   </h3>
-                  <p className="text-xs sm:text-sm text-slate-300 leading-relaxed pl-5">
+                  <p className="text-xs sm:text-sm text-[#475569] dark:text-slate-300 leading-relaxed pl-5">
                     {faq.a}
                   </p>
                 </div>
@@ -168,18 +113,20 @@ export default function SuscripcionesPage() {
             </div>
 
             {/* Custom Assistance CTA */}
-            <div className="mt-12 p-6 rounded-2xl bg-gradient-to-r from-sky-950/40 via-slate-900 to-slate-900 border border-sky-500/20 text-center sm:text-left flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="space-y-1">
-                <h4 className="text-base font-bold text-white">¿Tienes un macro-proyecto o administras más de 5 copropiedades?</h4>
-                <p className="text-xs sm:text-sm text-slate-300">
+            <div className="mt-12 p-6 sm:p-8 rounded-3xl bg-[#1D2942] dark:bg-gradient-to-r dark:from-sky-950/40 dark:via-slate-900 dark:to-slate-900 border border-[#1D2942] dark:border-sky-500/20 text-center sm:text-left flex flex-col sm:flex-row items-center justify-between gap-5 shadow-xl">
+              <div className="space-y-1.5">
+                <h4 className="text-base sm:text-lg font-extrabold text-white font-['Plus_Jakarta_Sans']">
+                  ¿Tienes un macro-proyecto o administras más de 5 copropiedades?
+                </h4>
+                <p className="text-xs sm:text-sm text-[#DFEBFF] dark:text-slate-300">
                   Escríbenos para un plan corporativo multi-propiedad con acuerdos de nivel de servicio (SLA) a medida.
                 </p>
               </div>
               <a
-                href="https://wa.me/573000000000?text=Hola,%20quisiera%20cotizar%20un%20plan%20corporativo%20SAED%202.0"
+                href="https://wa.me/573026555881?text=Hola,%20quisiera%20cotizar%20un%20plan%20corporativo%20SAED%202.0"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="shrink-0 px-5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs sm:text-sm transition-colors flex items-center gap-2"
+                className="shrink-0 px-5 py-3 rounded-xl bg-[#5267DA] hover:bg-[#4155C6] text-white font-extrabold text-xs sm:text-sm transition-colors flex items-center gap-2 shadow-lg shadow-[#5267DA]/30"
               >
                 <PhoneCall className="w-4 h-4" />
                 <span>Hablar con un asesor</span>
