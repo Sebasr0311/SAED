@@ -1,19 +1,67 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import {
+  Activity,
+  ArrowRight,
+  BarChart3,
+  BellRing,
+  Building,
+  Building2,
+  CheckCircle2,
+  ChevronRight,
+  Clock,
+  CreditCard,
+  Database,
+  History,
+  RefreshCw,
+  Server,
+  ShieldCheck,
+  UserCheck,
+  Users,
+  BadgeCheck,
+} from 'lucide-react';
 import api from '../lib/api.js';
+import { formatDateTime } from '../lib/utils.js';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card.tsx';
 import { Badge } from '../components/ui/badge.tsx';
 import { Skeleton } from '../components/ui/skeleton.tsx';
 import { Button } from '../components/ui/button.tsx';
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableHead,
-  TableRow,
-  TableCell,
-} from '../components/ui/table.tsx';
+import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '../components/ui/table.tsx';
+import { PageHeader } from '../components/ui/PageHeader.jsx';
+import { PageContainer } from '../components/layout/PageContainer.jsx';
+import { MetricCard } from '../components/ui/MetricCard.jsx';
+import EmptyState from '../components/ui/EmptyState.jsx';
+import ErrorState from '../components/ui/ErrorState.jsx';
 import { KpiSummaryPanel } from '../components/KpiSummaryPanel.jsx';
+
+const HEALTHY = ['UP', 'OK', 'OPERATIVO', 'ACTIVO', 'HEALTHY', 'DISPONIBLE'];
+
+function healthVariant(estado) {
+  if (!estado) return 'secondary';
+  return HEALTHY.includes(String(estado).toUpperCase()) ? 'success' : 'warning';
+}
+
+const QUICK_LINKS = [
+  { label: 'Organizaciones', icon: Building, ruta: '/superadmin/organizaciones', desc: 'Clientes de la plataforma' },
+  { label: 'Propiedades', icon: Building2, ruta: '/superadmin/propiedades', desc: 'Copropiedades' },
+  { label: 'Planes', icon: CreditCard, ruta: '/superadmin/planes', desc: 'Tarifas y cupos' },
+  { label: 'Membresías', icon: BadgeCheck, ruta: '/superadmin/membresias', desc: 'Suscripciones' },
+  { label: 'Onboarding', icon: UserCheck, ruta: '/superadmin/onboarding', desc: 'Solicitudes' },
+  { label: 'Administradores', icon: ShieldCheck, ruta: '/superadmin/administradores', desc: 'Equipo SAED' },
+  { label: 'Métricas globales', icon: BarChart3, ruta: '/superadmin/metricas', desc: 'Analítica de plataforma' },
+];
+
+function SectionTitle({ icon: Icon, title, description }) {
+  return (
+    <div className="flex min-w-0 items-start gap-2.5">
+      <Icon className="mt-0.5 h-4 w-4 shrink-0 text-text-secondary" aria-hidden="true" />
+      <div className="min-w-0">
+        <CardTitle className="text-[15px]">{title}</CardTitle>
+        {description && <p className="mt-0.5 text-xs text-text-muted">{description}</p>}
+      </div>
+    </div>
+  );
+}
 
 export default function SuperAdminDashboardPage() {
   const navigate = useNavigate();
@@ -47,352 +95,236 @@ export default function SuperAdminDashboardPage() {
   const alertas = Array.isArray(data?.alertas) ? data.alertas : [];
   const actividad = Array.isArray(data?.actividadReciente) ? data.actividadReciente : [];
 
+  const servicios = [
+    { key: 'api', icon: Server, label: 'API backend', detail: salud.api?.version || 'Sin medición registrada', estado: salud.api?.estado },
+    { key: 'db', icon: Database, label: 'Base de datos Oracle', detail: 'Estado reportado por la consulta del tablero', estado: salud.database?.estado },
+    { key: 'jobs', icon: Clock, label: 'Tareas programadas', detail: 'Sin monitoreo de tareas programadas', estado: salud.schedulers?.estado },
+  ];
+  const medidos = servicios.filter((s) => s.estado);
+  const saludResumen =
+    medidos.length === 0
+      ? { label: 'Sin datos', variant: 'secondary' }
+      : medidos.every((s) => healthVariant(s.estado) === 'success')
+      ? { label: medidos.length === servicios.length ? 'Operativo' : 'Medición parcial', variant: medidos.length === servicios.length ? 'success' : 'secondary' }
+      : { label: 'Revisar', variant: 'warning' };
+
+  const header = (
+    <PageHeader
+      title="Dashboard operativo SAED"
+      subtitle="Estado de la plataforma, alertas que requieren atención y salud de los servicios."
+      action={
+        <>
+          <Button variant="outline" size="sm" onClick={loadData} disabled={loading} className="min-h-10 sm:min-h-9">
+            <RefreshCw aria-hidden="true" />
+            Actualizar
+          </Button>
+          <Button size="sm" onClick={() => navigate('/superadmin/metricas')} className="min-h-10 sm:min-h-9">
+            <BarChart3 aria-hidden="true" />
+            Ver métricas globales
+          </Button>
+        </>
+      }
+    />
+  );
+
   if (loading) {
     return (
-      <div className="p-6 space-y-6">
-        <div className="flex justify-between items-center">
-          <div>
-            <Skeleton className="h-8 w-64 mb-2" />
-            <Skeleton className="h-4 w-96" />
+      <PageContainer>
+        {header}
+        <div role="status" aria-busy="true" aria-label="Cargando dashboard" className="space-y-6">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {[1, 2, 3, 4].map((i) => (
+              <Skeleton key={i} className="h-28 rounded-lg" />
+            ))}
           </div>
-          <Skeleton className="h-10 w-32" />
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+            <Skeleton className="h-64 rounded-lg lg:col-span-2" />
+            <Skeleton className="h-64 rounded-lg" />
+          </div>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {[1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-28 rounded-xl" />
-          ))}
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <Skeleton className="h-64 rounded-xl lg:col-span-2" />
-          <Skeleton className="h-64 rounded-xl" />
-        </div>
-      </div>
+      </PageContainer>
+    );
+  }
+
+  if (error) {
+    return (
+      <PageContainer>
+        {header}
+        <ErrorState title="No se pudo cargar el dashboard" message={error} onRetry={loadData} />
+      </PageContainer>
     );
   }
 
   return (
-    <div className="p-6 space-y-8 animate-fadeIn">
+    <PageContainer>
+      {header}
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <MetricCard
+          label="Organizaciones activas"
+          value={orgs.activas}
+          context={`De ${orgs.total} registradas · ${orgs.inactivas} inactivas`}
+          icon={Building}
+        />
+        <MetricCard
+          label="Propiedades activas"
+          value={props.activas}
+          context={`De ${props.total} en el catálogo global`}
+          icon={Building2}
+          variant="info"
+        />
+        <MetricCard
+          label="Usuarios activos"
+          value={users.activos}
+          context={`De ${users.total} cuentas en el sistema`}
+          icon={Users}
+          variant="secondary"
+        />
+        <MetricCard
+          label="Membresías activas"
+          value={plans.membresiasActivas}
+          context={`${plans.porVencer > 0 ? `${plans.porVencer} por vencer` : 'Ninguna por vencer'} · ${plans.planesDisponibles} planes`}
+          icon={BadgeCheck}
+          variant={plans.porVencer > 0 ? 'warning' : 'success'}
+        />
+      </div>
+
       <KpiSummaryPanel />
-      {/* 1. Header Operativo */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-border pb-6">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-bold tracking-tight text-foreground">
-              Dashboard Operativo SAED
-            </h1>
-            <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 font-semibold px-2.5 py-0.5">
-              ESTADO GLOBAL
-            </Badge>
-          </div>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Supervisión ejecutiva en tiempo real: estado de plataforma, alertas críticas y salud de servicios.
-          </p>
-        </div>
 
-        <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={loadData}
-            className="gap-2 text-xs h-9"
-          >
-            <span className="material-symbols-outlined text-sm">refresh</span>
-            Actualizar
-          </Button>
-          <Button
-            size="sm"
-            onClick={() => navigate('/superadmin/metricas')}
-            className="gap-2 text-xs h-9 bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm"
-          >
-            <span className="material-symbols-outlined text-sm">analytics</span>
-            Ver Métricas Globales
-          </Button>
-        </div>
-      </div>
-
-      {error && (
-        <div className="p-4 rounded-lg bg-destructive/10 text-destructive border border-destructive/20 text-sm flex items-center justify-between">
-          <span>{error}</span>
-          <Button variant="ghost" size="sm" onClick={loadData} className="h-7 text-xs">
-            Reintentar
-          </Button>
-        </div>
-      )}
-
-      {/* 2. Tarjetas Compactas de Estado Actual */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {/* Organizaciones */}
-        <Card className="hover:shadow-md transition-shadow border-border/80">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Organizaciones Activas</CardTitle>
-            <span className="material-symbols-outlined text-primary p-2 rounded-lg bg-primary/10">domain</span>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-foreground">{orgs.activas}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              De <span className="font-semibold text-foreground">{orgs.total}</span> registradas · {orgs.inactivas} inactivas
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Propiedades */}
-        <Card className="hover:shadow-md transition-shadow border-border/80">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Propiedades Activas</CardTitle>
-            <span className="material-symbols-outlined text-indigo-500 p-2 rounded-lg bg-indigo-500/10">apartment</span>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-foreground">{props.activas}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              De <span className="font-semibold text-foreground">{props.total}</span> en catálogo global
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Usuarios */}
-        <Card className="hover:shadow-md transition-shadow border-border/80">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Usuarios Activos</CardTitle>
-            <span className="material-symbols-outlined text-amber-500 p-2 rounded-lg bg-amber-500/10">group</span>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-foreground">{users.activos}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              De <span className="font-semibold text-foreground">{users.total}</span> cuentas en el sistema
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Membresías */}
-        <Card className="hover:shadow-md transition-shadow border-border/80">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Membresías Activas</CardTitle>
-            <span className="material-symbols-outlined text-emerald-500 p-2 rounded-lg bg-emerald-500/10">card_membership</span>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-foreground">{plans.membresiasActivas}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {plans.porVencer > 0 ? (
-                <span className="text-amber-600 font-semibold">{plans.porVencer} por vencer</span>
-              ) : (
-                <span className="text-emerald-600 font-semibold">Todas al día</span>
-              )} · {plans.planesDisponibles} planes SaaS
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* 3. Fila Principal: Alertas & Atención + Salud Técnica */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Alertas / Situaciones que requieren atención (2 cols) */}
-        <Card className="lg:col-span-2 border-border/80 flex flex-col justify-between">
-          <CardHeader className="flex flex-row items-center justify-between pb-3 border-b border-border/40">
-            <div className="flex items-center gap-2.5">
-              <span className="material-symbols-outlined text-amber-500">notifications_active</span>
-              <div>
-                <CardTitle className="text-base font-semibold">Alertas y Atención Requerida</CardTitle>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Eventos del sistema que necesitan revisión o intervención administrativa.
-                </p>
-              </div>
-            </div>
-            <Badge variant={alertas.length > 0 ? 'destructive' : 'secondary'} className="font-bold text-xs">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <Card className="flex flex-col lg:col-span-2">
+          <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3 space-y-0 border-b border-border pb-3">
+            <SectionTitle
+              icon={BellRing}
+              title="Alertas y atención requerida"
+              description="Eventos del sistema que necesitan revisión o intervención administrativa."
+            />
+            <Badge variant={alertas.length > 0 ? 'destructive' : 'secondary'}>
               {alertas.length} {alertas.length === 1 ? 'alerta' : 'alertas'}
             </Badge>
           </CardHeader>
-          <CardContent className="pt-4 flex-1">
+          <CardContent className="flex-1 pt-4">
             {alertas.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-10 text-center space-y-2">
-                <span className="material-symbols-outlined text-emerald-500 text-4xl">check_circle</span>
-                <p className="text-sm font-semibold text-foreground">Operación Nominal</p>
-                <p className="text-xs text-muted-foreground max-w-sm">
-                  No hay situaciones críticas o alertas pendientes de atención en este momento.
-                </p>
-              </div>
+              <EmptyState
+                icon={CheckCircle2}
+                title="Sin alertas pendientes"
+                subtitle="No hay situaciones críticas pendientes de atención en este momento."
+              />
             ) : (
-              <div className="space-y-3">
+              <ul className="divide-y divide-border rounded-lg border border-border">
                 {alertas.map((alerta) => {
-                  const isDanger = alerta.tipo === 'DANGER';
-                  const isWarning = alerta.tipo === 'WARNING';
-                  const badgeColor = isDanger
-                    ? 'bg-rose-500/10 text-rose-600 border-rose-500/20'
-                    : isWarning
-                    ? 'bg-amber-500/10 text-amber-600 border-amber-500/20'
-                    : 'bg-blue-500/10 text-blue-600 border-blue-500/20';
-
+                  const variant =
+                    alerta.tipo === 'DANGER' ? 'destructive' : alerta.tipo === 'WARNING' ? 'warning' : 'info';
                   return (
-                    <div
+                    <li
                       key={alerta.id}
-                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-lg border border-border/60 bg-muted/20 hover:bg-muted/40 transition-colors gap-3"
+                      className="flex flex-col justify-between gap-3 p-3.5 transition-colors duration-150 hover:bg-surface-container sm:flex-row sm:items-center"
                     >
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className={`text-[10px] font-bold uppercase ${badgeColor}`}>
-                            {alerta.tipo || 'ALERTA'}
-                          </Badge>
-                          <span className="font-medium text-xs text-foreground">{alerta.titulo}</span>
+                      <div className="min-w-0 space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge variant={variant}>{alerta.tipo || 'ALERTA'}</Badge>
+                          <span className="text-sm font-semibold text-on-surface">{alerta.titulo}</span>
                         </div>
-                        <p className="text-xs text-muted-foreground">{alerta.mensaje}</p>
+                        <p className="text-xs text-text-secondary">{alerta.mensaje}</p>
                       </div>
                       {alerta.ruta && (
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => navigate(alerta.ruta)}
-                          className="shrink-0 h-8 text-xs font-semibold text-primary hover:text-primary/80 gap-1.5"
+                          className="h-10 shrink-0 self-start text-xs text-primary-text sm:h-8 sm:self-auto"
                         >
                           Atender
-                          <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                          <ArrowRight aria-hidden="true" />
                         </Button>
                       )}
-                    </div>
+                    </li>
                   );
                 })}
-              </div>
+              </ul>
             )}
           </CardContent>
         </Card>
 
-        {/* Salud Técnica de la Infraestructura (1 col) */}
-        <Card className="border-border/80 flex flex-col justify-between">
-          <CardHeader className="flex flex-row items-center justify-between pb-3 border-b border-border/40">
-            <div className="flex items-center gap-2.5">
-              <span className="material-symbols-outlined text-primary">monitor_heart</span>
-              <div>
-                <CardTitle className="text-base font-semibold">Salud Técnica</CardTitle>
-                <p className="text-xs text-muted-foreground mt-0.5">Infraestructura y runtime</p>
-              </div>
-            </div>
-            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-              Operativo
-            </span>
+        <Card className="flex flex-col">
+          <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0 border-b border-border pb-3">
+            <SectionTitle icon={Activity} title="Salud técnica" description="Infraestructura y ejecución" />
+            <Badge variant={saludResumen.variant}>{saludResumen.label}</Badge>
           </CardHeader>
-          <CardContent className="pt-4 space-y-3 flex-1">
-            {/* API Backend */}
-            <div className="p-3 rounded-lg border border-border/50 bg-muted/20 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <span className="material-symbols-outlined text-emerald-600 text-lg">api</span>
-                <div>
-                  <div className="text-xs font-semibold text-foreground">API Backend Spring Boot</div>
-                  <div className="text-[10px] text-muted-foreground">
-                    {salud.api?.version || 'Sin medición registrada'}
+          <CardContent className="flex-1 pt-4">
+            <ul className="divide-y divide-border rounded-lg border border-border">
+              {servicios.map((s) => (
+                <li key={s.key} className="flex items-center justify-between gap-3 p-3">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <s.icon className="h-4 w-4 shrink-0 text-text-secondary" aria-hidden="true" />
+                    <div className="min-w-0">
+                      <div className="text-[13px] font-semibold text-on-surface">{s.label}</div>
+                      <div className="truncate text-xs text-text-muted">{s.detail}</div>
+                    </div>
                   </div>
-                </div>
-              </div>
-              <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 text-[10px] font-bold">
-                {salud.api?.estado || 'SIN DATOS'}
-              </Badge>
-            </div>
-
-            {/* Oracle Database */}
-            <div className="p-3 rounded-lg border border-border/50 bg-muted/20 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <span className="material-symbols-outlined text-blue-600 text-lg">database</span>
-                <div>
-                  <div className="text-xs font-semibold text-foreground">Oracle Autonomous DB</div>
-                  <div className="text-[10px] text-muted-foreground">
-                    Estado reportado por la consulta del tablero
-                  </div>
-                </div>
-              </div>
-              <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 text-[10px] font-bold">
-                {salud.database?.estado || 'SIN DATOS'}
-              </Badge>
-            </div>
-
-            {/* Schedulers & Background Jobs */}
-            <div className="p-3 rounded-lg border border-border/50 bg-muted/20 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <span className="material-symbols-outlined text-indigo-600 text-lg">schedule</span>
-                <div>
-                  <div className="text-xs font-semibold text-foreground">Schedulers & Background Jobs</div>
-                  <div className="text-[10px] text-muted-foreground">
-                    Sin monitoreo de tareas programadas
-                  </div>
-                </div>
-              </div>
-              <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 text-[10px] font-bold">
-                {salud.schedulers?.estado || 'SIN DATOS'}
-              </Badge>
-            </div>
+                  <Badge variant={healthVariant(s.estado)} className="shrink-0">
+                    {s.estado || 'SIN DATOS'}
+                  </Badge>
+                </li>
+              ))}
+            </ul>
           </CardContent>
         </Card>
       </div>
 
-      {/* 4. Actividad Reciente de la Plataforma (AUDITORIA_LOG) */}
-      <Card className="border-border/80">
-        <CardHeader className="flex flex-row items-center justify-between pb-3 border-b border-border/40">
-          <div className="flex items-center gap-2.5">
-            <span className="material-symbols-outlined text-primary">history</span>
-            <div>
-              <CardTitle className="text-base font-semibold">Actividad Reciente de Plataforma</CardTitle>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Últimos eventos administrativos y operacionales registrados en auditoría inmutable.
-              </p>
-            </div>
-          </div>
+      <Card>
+        <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3 space-y-0 border-b border-border pb-3">
+          <SectionTitle
+            icon={History}
+            title="Actividad reciente de plataforma"
+            description="Últimos eventos administrativos registrados en la auditoría."
+          />
           <Button
             variant="outline"
             size="sm"
             onClick={() => navigate('/superadmin/auditoria')}
-            className="text-xs h-8 gap-1.5"
+            className="h-10 text-xs sm:h-8"
           >
-            Ver Auditoría Completa
-            <span className="material-symbols-outlined text-sm">arrow_forward</span>
+            Ver auditoría completa
+            <ArrowRight aria-hidden="true" />
           </Button>
         </CardHeader>
         <CardContent className="pt-2">
           {actividad.length === 0 ? (
-            <div className="text-center py-8 text-xs text-muted-foreground">
-              No hay actividad reciente registrada en el log de auditoría.
-            </div>
+            <EmptyState
+              icon={History}
+              title="Sin actividad reciente"
+              subtitle="No hay eventos recientes registrados en el log de auditoría."
+            />
           ) : (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="text-xs">Fecha y Hora</TableHead>
+                    <TableHead className="text-xs">Fecha y hora</TableHead>
                     <TableHead className="text-xs">Acción</TableHead>
                     <TableHead className="text-xs">Entidad</TableHead>
                     <TableHead className="text-xs">Usuario</TableHead>
-                    <TableHead className="text-xs">IP Origen</TableHead>
-                    <TableHead className="text-xs text-right">Resultado</TableHead>
+                    <TableHead className="text-xs">IP de origen</TableHead>
+                    <TableHead className="text-right text-xs">Resultado</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {actividad.map((item, idx) => {
-                    const isSuccess = item.resultado === 'SUCCESS' || item.resultado === 'EXITO';
+                    const isSuccess = !item.resultado || item.resultado === 'SUCCESS' || item.resultado === 'EXITO';
                     return (
-                      <TableRow key={item.idLog || idx} className="hover:bg-muted/30">
-                        <TableCell className="text-xs font-mono text-muted-foreground whitespace-nowrap">
-                          {item.fechaHora ? item.fechaHora.replace('T', ' ') : '-'}
+                      <TableRow key={item.idLog || idx}>
+                        <TableCell className="whitespace-nowrap text-xs tabular-nums text-text-secondary">
+                          {item.fechaHora ? formatDateTime(item.fechaHora) : '—'}
                         </TableCell>
-                        <TableCell className="text-xs font-semibold text-foreground">
-                          {item.accion || 'OPERACION'}
+                        <TableCell className="text-xs font-semibold text-on-surface">{item.accion || 'OPERACION'}</TableCell>
+                        <TableCell className="text-xs">
+                          <Badge variant="outline">{item.entidad || 'GLOBAL'}</Badge>
                         </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">
-                          <Badge variant="outline" className="text-[10px] font-normal">
-                            {item.entidad || 'GLOBAL'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-xs text-foreground font-medium">
-                          {item.usuario || 'Sistema'}
-                        </TableCell>
-                        <TableCell className="text-xs font-mono text-muted-foreground">
-                          {item.ip || '127.0.0.1'}
-                        </TableCell>
-                        <TableCell className="text-xs text-right">
-                          <Badge
-                            variant="outline"
-                            className={
-                              isSuccess
-                                ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20 text-[10px] font-bold'
-                                : 'bg-rose-500/10 text-rose-600 border-rose-500/20 text-[10px] font-bold'
-                            }
-                          >
-                            {item.resultado || 'SUCCESS'}
-                          </Badge>
+                        <TableCell className="text-xs font-medium text-on-surface">{item.usuario || 'Sistema'}</TableCell>
+                        <TableCell className="font-mono text-xs text-text-secondary">{item.ip || '—'}</TableCell>
+                        <TableCell className="text-right text-xs">
+                          <Badge variant={isSuccess ? 'success' : 'destructive'}>{item.resultado || 'SUCCESS'}</Badge>
                         </TableCell>
                       </TableRow>
                     );
@@ -404,43 +336,32 @@ export default function SuperAdminDashboardPage() {
         </CardContent>
       </Card>
 
-      {/* 5. Accesos Rápidos de Administración */}
-      <div className="space-y-3">
-        <h2 className="text-sm font-semibold tracking-tight text-foreground flex items-center gap-2">
-          <span className="material-symbols-outlined text-primary text-base">widgets</span>
-          Accesos Rápidos de Gestión
+      <section aria-labelledby="sa-accesos" className="space-y-3">
+        <h2 id="sa-accesos" className="text-[15px] font-bold text-on-surface">
+          Accesos de gestión
         </h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-7 gap-3">
-          {[
-            { label: 'Organizaciones', icon: 'domain', ruta: '/superadmin/organizaciones', desc: 'Tenants SaaS' },
-            { label: 'Propiedades', icon: 'apartment', ruta: '/superadmin/propiedades', desc: 'Copropiedades' },
-            { label: 'Planes SaaS', icon: 'credit_card', ruta: '/superadmin/planes', desc: 'Tarifas y cupos' },
-            { label: 'Membresías', icon: 'card_membership', ruta: '/superadmin/membresias', desc: 'Suscripciones' },
-            { label: 'Onboarding', icon: 'how_to_reg', ruta: '/superadmin/onboarding', desc: 'Solicitudes' },
-            { label: 'Administradores', icon: 'admin_panel_settings', ruta: '/superadmin/administradores', desc: 'Equipo SAED' },
-            { label: 'Métricas Globales', icon: 'analytics', ruta: '/superadmin/metricas', desc: 'Analítica SaaS' },
-          ].map((item, idx) => (
-            <button
-              key={idx}
-              type="button"
-              onClick={() => navigate(item.ruta)}
-              className="p-3.5 rounded-xl border border-border/70 bg-card hover:bg-muted/40 hover:border-primary/40 transition-all text-left flex flex-col justify-between group shadow-sm"
-            >
-              <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center text-primary group-hover:scale-105 group-hover:bg-primary group-hover:text-primary-foreground transition-all shrink-0 mb-2.5">
-                <span className="material-symbols-outlined text-xl select-none leading-none">
-                  {item.icon}
+        <ul className="grid grid-cols-1 overflow-hidden rounded-lg border border-border bg-surface sm:grid-cols-2 lg:grid-cols-4">
+          {QUICK_LINKS.map((item) => (
+            <li key={item.ruta} className="border-b border-border last:border-b-0 sm:border-r">
+              <button
+                type="button"
+                onClick={() => navigate(item.ruta)}
+                className="group flex min-h-12 w-full items-center gap-3 px-4 py-3 text-left transition-colors duration-150 hover:bg-surface-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+              >
+                <item.icon className="h-4 w-4 shrink-0 text-text-secondary" aria-hidden="true" />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[13px] font-semibold text-on-surface">{item.label}</span>
+                  <span className="block truncate text-xs text-text-muted">{item.desc}</span>
                 </span>
-              </div>
-              <div>
-                <div className="text-xs font-semibold text-foreground group-hover:text-primary transition-colors truncate">
-                  {item.label}
-                </div>
-                <div className="text-[10px] text-muted-foreground truncate">{item.desc}</div>
-              </div>
-            </button>
+                <ChevronRight
+                  className="h-4 w-4 shrink-0 text-text-muted transition-transform duration-150 ease-out group-hover:translate-x-0.5"
+                  aria-hidden="true"
+                />
+              </button>
+            </li>
           ))}
-        </div>
-      </div>
-    </div>
+        </ul>
+      </section>
+    </PageContainer>
   );
 }

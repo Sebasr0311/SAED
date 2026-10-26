@@ -2,7 +2,6 @@ import { useState, useMemo, useEffect } from 'react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import {
-  AlertCircle,
   AlertTriangle,
   ArrowRight,
   Bike,
@@ -21,9 +20,7 @@ import {
   QrCode,
   RefreshCw,
   Search,
-  ShieldCheck,
   Siren,
-  Truck,
   UserCheck,
   Users,
   Volume2,
@@ -34,7 +31,12 @@ import { PageContainer } from '../components/layout/PageContainer.jsx';
 import { MetricCard } from '../components/ui/MetricCard.jsx';
 import { Badge } from '../components/ui/badge.tsx';
 import { Button } from '../components/ui/Button.jsx';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card.tsx';
+import { Input as ShadcnInput } from '../components/ui/input.tsx';
+import { Button as UiButton } from '../components/ui/button.tsx';
+import { PageHeader } from '../components/ui/PageHeader.jsx';
+import EmptyState from '../components/ui/EmptyState.jsx';
+import ErrorState from '../components/ui/ErrorState.jsx';
+import LoadingState from '../components/ui/LoadingState.jsx';
 import { Input, Select, Textarea } from '../components/ui/Form.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
 import { DataTable } from '../components/ui/DataTable.jsx';
@@ -45,28 +47,28 @@ import { KpiSummaryPanel } from '../components/KpiSummaryPanel.jsx';
 const ACCIONES_OPERATIVAS = [
   {
     id: 'visitas',
-    label: 'Gestión de Visitas',
+    label: 'Visitas',
     desc: 'Consultar programación y visitas registradas',
     icon: Users,
     path: '/visitas',
   },
   {
     id: 'escanner',
-    label: 'Control de Acceso QR',
+    label: 'Escáner QR',
     desc: 'Escanear credenciales y autorizar ingreso',
     icon: QrCode,
     path: '/escanner-qr',
   },
   {
     id: 'paquetes',
-    label: 'Paquetería y Encomiendas',
+    label: 'Paquetes',
     desc: 'Custodia, registro y entrega con PIN',
     icon: Package,
     path: '/paquetes',
   },
   {
     id: 'parqueaderos',
-    label: 'Control de Parqueaderos',
+    label: 'Parqueaderos',
     desc: 'Disponibilidad de cupos y vehículos dentro',
     icon: Car,
     path: '/parqueaderos',
@@ -162,7 +164,7 @@ function ModalRegistrarDomicilio({ open, onClose, onConfirm, apartamentos, tenan
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
-          <div className="flex items-center gap-2 rounded-lg border border-rose-500/20 bg-rose-500/10 p-3 text-xs font-medium text-rose-700 dark:text-rose-300">
+          <div className="flex items-center gap-2 rounded-lg border border-tint-red-fg/25 bg-tint-red-bg p-3 text-xs font-medium text-tint-red-fg">
             <AlertTriangle className="h-4 w-4 shrink-0" />
             <span>{error}</span>
           </div>
@@ -493,7 +495,7 @@ function ModalGenerarMulta({ open, onClose, onConfirm, apartamentos, tipoInicial
     >
       <div className="space-y-4">
         {error && (
-          <div className="flex items-center gap-2 rounded-lg border border-rose-500/20 bg-rose-500/10 p-3 text-xs font-medium text-rose-700 dark:text-rose-300">
+          <div className="flex items-center gap-2 rounded-lg border border-tint-red-fg/25 bg-tint-red-bg p-3 text-xs font-medium text-tint-red-fg">
             <AlertTriangle className="h-4 w-4 shrink-0" />
             <span>{error}</span>
           </div>
@@ -531,33 +533,33 @@ function ModalGenerarMulta({ open, onClose, onConfirm, apartamentos, tipoInicial
         {tipo === 'RUIDO' && idApartamento && (
           <div className="space-y-2">
             {checkingAviso ? (
-              <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 p-3 text-xs text-muted-foreground animate-pulse">
+              <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
                 <Clock className="h-4 w-4 shrink-0" />
                 <span>Verificando precedentes de aviso de ruido...</span>
               </div>
             ) : estadoAviso && !estadoAviso.tieneAviso ? (
-              <div className="flex items-start gap-2.5 rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-xs font-medium text-rose-700 dark:text-rose-300">
-                <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-rose-600 dark:text-rose-400" />
+              <div className="flex items-start gap-2.5 rounded-lg border border-tint-red-fg/25 bg-tint-red-bg p-3 text-xs font-medium text-tint-red-fg">
+                <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-tint-red-fg" />
                 <div className="space-y-1">
                   <p className="font-bold">Debe hacer el aviso de ruido primero</p>
-                  <p className="text-[11px] leading-relaxed">
+                  <p className="text-xs leading-relaxed">
                     No se encontró ningún aviso de ruido previo para este apartamento. El protocolo exige enviar primero el aviso al residente.
                   </p>
                 </div>
               </div>
             ) : estadoAviso && estadoAviso.tieneAviso && !estadoAviso.puedeMultar ? (
-              <div className="flex items-start gap-2.5 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs font-medium text-amber-700 dark:text-amber-300">
-                <Clock className="h-4 w-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+              <div className="flex items-start gap-2.5 rounded-lg border border-tint-amber-fg/25 bg-tint-amber-bg p-3 text-xs font-medium text-tint-amber-fg">
+                <Clock className="h-4 w-4 shrink-0 mt-0.5 text-tint-amber-fg" />
                 <div className="space-y-1">
                   <p className="font-bold">Tiempo de espera reglamentario en curso</p>
-                  <p className="text-[11px] leading-relaxed">
+                  <p className="text-xs leading-relaxed">
                     {estadoAviso.mensaje}
                   </p>
                 </div>
               </div>
             ) : estadoAviso && estadoAviso.puedeMultar ? (
-              <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs font-medium text-emerald-700 dark:text-emerald-300">
-                <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+              <div className="flex items-center gap-2 rounded-lg border border-tint-green-fg/25 bg-tint-green-bg p-3 text-xs font-medium text-tint-green-fg">
+                <CheckCircle2 className="h-4 w-4 shrink-0 text-tint-green-fg" />
                 <span>{estadoAviso.mensaje}</span>
               </div>
             ) : null}
@@ -693,7 +695,7 @@ function ModalPaquetes({ open, onClose, onConfirm, tenantApi }) {
             </div>
             <div className="flex justify-between border-b border-border/60 pb-2 text-xs">
               <span className="text-muted-foreground">Fecha Recepción:</span>
-              <span className="font-mono text-foreground">{formatDate(detalle.fechaCreacion)}</span>
+              <span className="text-foreground tabular-nums">{formatDate(detalle.fechaCreacion)}</span>
             </div>
             {detalle.fotoCaptura && (
               <div className="pt-2">
@@ -748,10 +750,11 @@ function ModalVisitasActivas({ open, onClose, visitasActivas, onMarcarSalida, ma
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
               type="text"
+              aria-label="Buscar visitas activas"
               placeholder="Buscar por visitante, cédula o apartamento..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 rounded-lg border border-border bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              className="h-10 w-full rounded-md border border-input bg-surface pl-9 pr-4 text-sm text-on-surface placeholder:text-text-hint transition-[border-color,box-shadow] duration-150 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
             />
           </div>
           {search && (
@@ -770,7 +773,7 @@ function ModalVisitasActivas({ open, onClose, visitasActivas, onMarcarSalida, ma
                 <div>
                   <p className="font-semibold text-foreground text-xs">{r.nombreVisitante || 'Visitante'}</p>
                   {r.documentoVisitante && (
-                    <p className="text-[11px] text-muted-foreground font-mono">Doc: {r.documentoVisitante}</p>
+                    <p className="text-xs text-muted-foreground tabular-nums">Doc: {r.documentoVisitante}</p>
                   )}
                 </div>
               ),
@@ -779,7 +782,7 @@ function ModalVisitasActivas({ open, onClose, visitasActivas, onMarcarSalida, ma
               key: 'numeroApartamento',
               label: 'Apto',
               render: (r) => (
-                <Badge variant="outline" className="font-mono text-xs">
+                <Badge variant="outline" className="tabular-nums text-xs">
                   {formatApto(r.numeroApartamento)}
                 </Badge>
               ),
@@ -788,7 +791,7 @@ function ModalVisitasActivas({ open, onClose, visitasActivas, onMarcarSalida, ma
               key: 'fechaIngreso',
               label: 'Ingreso',
               render: (r) => (
-                <span className="text-xs text-muted-foreground font-mono">
+                <span className="text-xs text-muted-foreground tabular-nums">
                   {r.fechaIngreso ? formatDate(r.fechaIngreso) : 'En espera'}
                 </span>
               ),
@@ -797,7 +800,7 @@ function ModalVisitasActivas({ open, onClose, visitasActivas, onMarcarSalida, ma
               key: 'estado',
               label: 'Estado',
               render: (r) => (
-                <Badge variant={r.estado === 'ACTIVA' ? 'success' : 'warning'} className="text-[10px]">
+                <Badge variant={r.estado === 'ACTIVA' ? 'success' : 'warning'} className="text-xs">
                   {r.estado}
                 </Badge>
               ),
@@ -811,7 +814,7 @@ function ModalVisitasActivas({ open, onClose, visitasActivas, onMarcarSalida, ma
                   variant="outline"
                   onClick={() => onMarcarSalida(r)}
                   disabled={marcandoId === r.idVisita}
-                  className="text-xs py-1 px-2.5 h-auto font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30 border-rose-200 dark:border-rose-900/50 flex items-center gap-1.5"
+                  className="text-xs py-1 px-2.5 h-auto font-semibold text-tint-red-fg hover:text-tint-red-fg hover:bg-tint-red-bg border-tint-red-fg/25 flex items-center gap-1.5"
                 >
                   <LogOut className="h-3.5 w-3.5" />
                   {marcandoId === r.idVisita ? 'Registrando...' : 'Marcar Salida'}
@@ -853,7 +856,7 @@ export default function PorteroDashboardPage() {
   const kpisPorteria = useMemo(() => kpisPorteriaRaw?.data || kpisPorteriaRaw || null, [kpisPorteriaRaw]);
 
   // Consume endpoints de detalle operativos
-  const { data: visitasRaw, loading: loadingVisitas, refetch: refetchVisitas } = useFetch(
+  const { data: visitasRaw, loading: loadingVisitas, error: errorVisitas, refetch: refetchVisitas } = useFetch(
     () => tenantApi.get('/porteria/visitas-resumen'),
     []
   );
@@ -863,7 +866,7 @@ export default function PorteroDashboardPage() {
   );
   const { data: paquetesRaw } = useFetch(() => tenantApi.get('/buzon/paquetes-pendientes'), []);
   const { data: apartamentos } = useFetch(() => tenantApi.get('/units'), []);
-  const { data: domiciliosRaw, loading: loadingDomicilios, refetch: refetchDomicilios } = useFetch(
+  const { data: domiciliosRaw, loading: loadingDomicilios, error: errorDomicilios, refetch: refetchDomicilios } = useFetch(
     () => tenantApi.get('/domicilios?estado=EN_CURSO'),
     []
   );
@@ -987,581 +990,440 @@ export default function PorteroDashboardPage() {
   const breadcrumbs = useMemo(
     () => [
       { label: 'Inicio', href: '/' },
-      { label: 'Garita de Portería', active: true },
+      { label: 'Panel de portería', active: true },
     ],
     []
   );
 
+  const refreshing = loadingVisitas || loadingDomicilios;
+
   return (
     <PageContainer breadcrumbs={breadcrumbs} maxWidth="max-w-7xl">
-      <KpiSummaryPanel />
-      {/* Header Contextual */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-              Panel Operativo de Portería
-            </h1>
-            <Badge variant="outline" className="text-xs font-semibold uppercase tracking-wider">
-              PORTERO
-            </Badge>
-          </div>
-          <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-            <span className="flex items-center gap-1.5 font-medium text-emerald-600 dark:text-emerald-400">
-              <span className="inline-block h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-              Turno Activo
-            </span>
-            <span>·</span>
-            <span>Centro de control de garita, accesos vehiculares y convivencia</span>
-          </div>
-        </div>
+      <PageHeader
+        title="Panel de portería"
+        subtitle="Accesos, visitas, domicilios y convivencia del turno en un solo lugar."
+        action={
+          <>
+            <UiButton
+              variant="outline"
+              className="h-10"
+              onClick={() => {
+                refetchVisitas();
+                refetchParq();
+                refetchDomicilios();
+              }}
+              aria-label="Actualizar datos de garita"
+            >
+              <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} aria-hidden="true" />
+              <span className="hidden sm:inline">Actualizar</span>
+            </UiButton>
+          </>
+        }
+      />
 
-        <div className="flex items-center gap-2">
+      {/* Primary gatehouse actions: large, always in the same place */}
+      <section aria-label="Acciones de garita" className="rounded-lg border border-border bg-surface p-3 shadow-sm sm:p-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
           <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              refetchVisitas();
-              refetchParq();
-              refetchDomicilios();
-            }}
-            className="flex items-center gap-2 border-border/80 hover:bg-muted/50"
-            aria-label="Actualizar datos de garita"
+            size="lg"
+            onClick={() => navigate('/escanner-qr')}
+            className="h-12 w-full text-base lg:w-auto"
           >
-            <RefreshCw className={`h-4 w-4 ${loadingVisitas || loadingDomicilios ? 'animate-spin' : ''}`} />
-            <span className="hidden sm:inline">Actualizar</span>
+            <QrCode className="h-5 w-5" aria-hidden="true" />
+            Abrir escáner QR
           </Button>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:flex lg:flex-1 lg:flex-wrap lg:justify-end">
+            <Button variant="outline" onClick={() => setModalDomicilio(true)} className="h-11">
+              <Bike className="h-4 w-4" aria-hidden="true" />
+              Registrar domicilio
+            </Button>
+            <Button variant="outline" onClick={() => setModalPaquetes(true)} className="h-11">
+              <Package className="h-4 w-4" aria-hidden="true" />
+              Entregar paquete
+            </Button>
+            <Button variant="outline" onClick={() => setModalAviso(true)} className="h-11">
+              <Volume2 className="h-4 w-4" aria-hidden="true" />
+              Aviso de ruido
+            </Button>
+            <Button variant="outline" onClick={() => setModalMulta('RUIDO')} className="h-11">
+              <Gavel className="h-4 w-4" aria-hidden="true" />
+              Multa por ruido
+            </Button>
+            <Button variant="outline" onClick={() => setModalMulta('PARQUEADERO')} className="h-11">
+              <Car className="h-4 w-4" aria-hidden="true" />
+              Multa de parqueadero
+            </Button>
+          </div>
         </div>
-      </div>
+      </section>
 
-      {/* Tira de KPIs Operativos */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      {/* Operational KPIs */}
+      <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 lg:grid-cols-5">
         <MetricCard
-          title="Visitas Activas / Dentro"
+          title="Visitas dentro"
           value={totalVisitasActivasCount}
-          subtitle="En predio o programadas hoy · Clic para ver"
+          subtitle="En el predio o programadas hoy"
           icon={UserCheck}
           variant="primary"
           onClick={() => setModalVisitasActivas(true)}
-          className="cursor-pointer transition-all hover:border-primary/50"
         />
         <MetricCard
-          title="Domicilios en Curso"
+          title="Domicilios en curso"
           value={totalDomiciliosActivosCount}
-          subtitle="Repartidores en predio · Clic registrar"
+          subtitle="Repartidores en el predio"
           icon={Bike}
           variant="warning"
           onClick={() => setModalDomicilio(true)}
-          className="cursor-pointer transition-all hover:border-amber-500/50"
         />
         <MetricCard
-          title="Total Pases Registrados"
+          title="Pases registrados"
           value={totalPasesCount}
-          subtitle="Censo de visitas del condominio"
+          subtitle="Visitas registradas"
           icon={LogIn}
           variant="info"
         />
         <MetricCard
-          title="Cupos Visitantes Libres"
+          title="Cupos de visitantes libres"
           value={`${parqDisponibles} / ${parqVisitantesTotal}`}
           subtitle={parqDisponibles === 0 ? 'Sin cupos disponibles' : 'Disponibles para ingreso'}
           icon={Car}
           variant={parqDisponibles > 2 ? 'success' : 'warning'}
         />
         <MetricCard
-          title="Paquetes en Custodia"
+          title="Paquetes en custodia"
           value={paquetesCount}
-          subtitle="Pendientes por entrega en garita"
+          subtitle="Pendientes de entrega"
           icon={Package}
           variant="secondary"
+          onClick={() => setModalPaquetes(true)}
         />
       </div>
 
-      {/* Hero Showcase Card: Centro de Control QR */}
-      <Card className="border-primary/30 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent shadow-xs">
-        <CardContent className="p-6">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-            <div className="space-y-2 max-w-2xl">
-              <div className="inline-flex items-center gap-2 rounded-full bg-primary/15 px-3 py-1 text-xs font-bold text-primary">
-                <QrCode className="h-3.5 w-3.5" />
-                Showcase Operativo SAED 2.0
-              </div>
-              <h2 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">
-                Centro de Validación y Control de Acceso QR
-              </h2>
-              <p className="text-xs sm:text-sm text-muted-foreground">
-                Acredite credenciales de visitantes en tiempo real mediante cámara o token manual, registre
-                ingresos vehiculares con asignación instantánea de parqueadero y certifique salidas seguras.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3">
-              <Button
-                onClick={() => navigate('/escanner-qr')}
-                className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-xs flex items-center gap-2 px-5 py-2.5 text-sm"
-              >
-                <QrCode className="h-4 w-4" />
-                Abrir Escáner y Control de Acceso
-                <ArrowRight className="h-4 w-4 ml-1" />
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Gestión Inmediata de Visitas Activas y Salidas */}
-      <Card className="border-border/80 shadow-xs">
-        <CardHeader className="pb-3 border-b border-border/60">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <CardTitle className="text-base font-bold flex items-center gap-2">
-                <UserCheck className="h-5 w-5 text-primary" />
-                Control de Visitas Activas en Garita
-                <Badge variant={visitasActivas.length > 0 ? 'success' : 'secondary'} className="ml-1 text-xs">
-                  {visitasActivas.length} dentro
-                </Badge>
-              </CardTitle>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Registre la salida de visitantes directamente desde este panel sin navegar a otras secciones.
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="relative w-full sm:w-64">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                <input
-                  type="text"
-                  placeholder="Filtrar por nombre, doc o apto..."
-                  value={searchVisitasActivas}
-                  onChange={(e) => setSearchVisitasActivas(e.target.value)}
-                  className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-border bg-background text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                />
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigate('/visitas')}
-                className="text-xs shrink-0 flex items-center gap-1"
-              >
-                <span>Ver Todas</span>
-                <ArrowRight className="h-3 w-3" />
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="pt-4">
-          <DataTable
-            columns={[
-              {
-                key: 'visitante',
-                label: 'Visitante',
-                render: (r) => (
-                  <div>
-                    <span className="font-semibold text-foreground text-xs">{r.nombreVisitante || 'Visitante'}</span>
-                    {r.documentoVisitante && (
-                      <span className="block text-[11px] text-muted-foreground font-mono">Doc: {r.documentoVisitante}</span>
-                    )}
-                  </div>
-                ),
-              },
-              {
-                key: 'numeroApartamento',
-                label: 'Apartamento',
-                render: (r) => (
-                  <Badge variant="outline" className="font-mono text-xs">
-                    {formatApto(r.numeroApartamento)}
-                  </Badge>
-                ),
-              },
-              {
-                key: 'fechaIngreso',
-                label: 'Hora Ingreso',
-                render: (r) => (
-                  <span className="text-xs text-muted-foreground font-mono">
-                    {r.fechaIngreso ? formatDateTime(r.fechaIngreso) : 'En espera'}
-                  </span>
-                ),
-              },
-              {
-                key: 'permanencia',
-                label: 'Permanencia',
-                render: (r) => {
-                  if (r.minutosTranscurridos == null) {
-                    return <span className="text-xs text-muted-foreground">—</span>;
-                  }
-                  return (
-                    <div className="flex items-center gap-1.5">
-                      <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                      <span className="text-xs font-mono font-medium">
-                        {r.minutosTranscurridos} min
-                      </span>
-                      {r.tiempoMaximoMinutos && (
-                        <span className="text-[10px] text-muted-foreground">
-                          / {r.tiempoMaximoMinutos}m
-                        </span>
-                      )}
-                      {r.excedido && (
-                        <Badge variant="destructive" className="ml-1 text-[10px] py-0 px-1.5 flex items-center gap-1">
-                          <AlertTriangle className="h-3 w-3" />
-                          <span>Demora</span>
-                        </Badge>
-                      )}
-                    </div>
-                  );
-                },
-              },
-              {
-                key: 'estado',
-                label: 'Estado',
-                render: (r) => (
-                  <Badge variant={(r.estado === 'ACTIVA' || r.estado === 'EN_CURSO') ? 'success' : 'warning'} className="text-[10px]">
-                    {r.estado}
-                  </Badge>
-                ),
-              },
-              {
-                key: 'actions',
-                label: 'Acción Salida',
-                render: (r) => (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleRegistrarSalida(r)}
-                    disabled={registrandoSalidaId === r.idVisita}
-                    className="text-xs py-1 px-2.5 h-auto font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30 border-rose-200 dark:border-rose-900/50 flex items-center gap-1.5"
-                  >
-                    <LogOut className="h-3.5 w-3.5" />
-                    {registrandoSalidaId === r.idVisita ? 'Registrando...' : 'Marcar Salida'}
-                  </Button>
-                ),
-              },
-            ]}
-            rows={visitasActivasFiltradas}
-            pageSize={5}
-            empty={{
-              icon: 'person_off',
-              title: 'No hay visitas activas en el predio',
-              subtitle: searchVisitasActivas
-                ? 'No se encontraron resultados con ese filtro.'
-                : 'Cuando ingrese una visita autorizada, aparecerá aquí para registrar su salida.',
-            }}
-            keyField="idVisita"
-          />
-        </CardContent>
-      </Card>
-
-      {/* Control Operativo de Domicilios en Curso (GAP-F7-03-A) */}
-      <Card className="border-border/80 shadow-xs">
-        <CardHeader className="pb-3 border-b border-border/60">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <CardTitle className="text-base font-bold flex items-center gap-2">
-                <Bike className="h-5 w-5 text-amber-500" />
-                Domicilios y Repartidores en Predio
-                <Badge variant={domiciliosActivos.length > 0 ? 'warning' : 'secondary'} className="ml-1 text-xs">
-                  {domiciliosActivos.length} activos
-                </Badge>
-              </CardTitle>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Seguimiento en tiempo real de entregas y domiciliarios autorizados en garita.
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() => setModalDomicilio(true)}
-                className="text-xs shrink-0 flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white font-medium"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                <span>Registrar Domicilio</span>
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="pt-4">
-          <DataTable
-            columns={[
-              {
-                key: 'repartidor',
-                label: 'Repartidor / Empresa',
-                render: (r) => (
-                  <div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-semibold text-foreground text-xs">{r.nombreDomiciliario}</span>
-                      <Badge variant="outline" className="text-[10px] uppercase font-mono px-1.5 py-0">
-                        {r.empresa}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground">
-                      {r.documentoDomiciliario && <span>Doc: {r.documentoDomiciliario}</span>}
-                      {r.telefonoDomiciliario && <span>· Tel: {r.telefonoDomiciliario}</span>}
-                    </div>
-                  </div>
-                ),
-              },
-              {
-                key: 'numeroApartamento',
-                label: 'Unidad Destino',
-                render: (r) => (
-                  <Badge variant="outline" className="font-mono text-xs">
-                    {formatApto(r.numeroApartamento || r.idUnidad)}
-                  </Badge>
-                ),
-              },
-              {
-                key: 'tipoTransporte',
-                label: 'Tipo / Transporte',
-                render: (r) => (
-                  <div className="flex flex-col gap-0.5">
-                    <span className="text-xs text-foreground font-medium">{r.tipoDomicilio || 'COMIDA'}</span>
-                    <span className="text-[10px] text-muted-foreground font-mono">
-                      {r.medioTransporte || 'A PIE'} {r.placaVehiculo ? `· ${r.placaVehiculo}` : ''}
-                    </span>
-                  </div>
-                ),
-              },
-              {
-                key: 'fechaIngreso',
-                label: 'Hora Ingreso',
-                render: (r) => {
-                  const fecha = r.fechaEntrada || r.fechaIngreso;
-                  return (
-                    <span className="text-xs text-muted-foreground font-mono">
-                      {fecha ? formatDateTime(fecha) : '—'}
-                    </span>
-                  );
-                },
-              },
-              {
-                key: 'permanencia',
-                label: 'Permanencia',
-                render: (r) => {
-                  if (r.minutosTranscurridos == null) {
-                    return <span className="text-xs text-muted-foreground">—</span>;
-                  }
-                  return (
-                    <div className="flex items-center gap-1.5">
-                      <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                      <span className="text-xs font-mono font-medium">
-                        {r.minutosTranscurridos} min
-                      </span>
-                      {r.tiempoMaximoMinutos && (
-                        <span className="text-[10px] text-muted-foreground">
-                          / {r.tiempoMaximoMinutos}m
-                        </span>
-                      )}
-                      {r.excedido && (
-                        <Badge variant="destructive" className="ml-1 text-[10px] py-0 px-1.5 flex items-center gap-1">
-                          <AlertTriangle className="h-3 w-3" />
-                          <span>Excedido</span>
-                        </Badge>
-                      )}
-                    </div>
-                  );
-                },
-              },
-              {
-                key: 'actions',
-                label: 'Acción Salida',
-                render: (r) => (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleFinalizarDomicilio(r)}
-                    disabled={finalizandoDomId === r.idDomicilio}
-                    className="text-xs py-1 px-2.5 h-auto font-semibold text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/50 flex items-center gap-1.5"
-                  >
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                    {finalizandoDomId === r.idDomicilio ? 'Finalizando...' : 'Finalizar Entrega'}
-                  </Button>
-                ),
-              },
-            ]}
-            rows={domiciliosActivos}
-            pageSize={5}
-            empty={{
-              icon: 'delivery_dining',
-              title: 'No hay domicilios activos en el predio',
-              subtitle: 'Cuando ingrese un repartidor a garita, regístrelo para controlar su permanencia y autorizar salida.',
-            }}
-            keyField="idDomicilio"
-          />
-        </CardContent>
-      </Card>
-
-      {/* Acciones Rápidas de Seguridad y Convivencia */}
-      <Card className="border-border/80 shadow-xs">
-        <CardHeader className="pb-3 border-b border-border/60">
-          <CardTitle className="text-base font-bold flex items-center gap-2">
-            <ShieldCheck className="h-5 w-5 text-primary" />
-            Protocolos de Seguridad y Convivencia
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="pt-4">
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <button
-              type="button"
-              onClick={() => setModalAviso(true)}
-              className="flex flex-col items-center justify-center gap-2 rounded-xl border border-border/80 bg-card p-4 text-center transition-all hover:border-primary/50 hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-            >
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
-                <Volume2 className="h-6 w-6" />
-              </div>
-              <span className="text-xs font-bold text-foreground">Aviso de Ruido</span>
-              <span className="text-[10px] text-muted-foreground">Notificar a residente</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setModalMulta('RUIDO')}
-              className="flex flex-col items-center justify-center gap-2 rounded-xl border border-border/80 bg-card p-4 text-center transition-all hover:border-primary/50 hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-            >
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400">
-                <Gavel className="h-6 w-6" />
-              </div>
-              <span className="text-xs font-bold text-foreground">Multa por Ruido</span>
-              <span className="text-[10px] text-muted-foreground">Sanción de convivencia</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setModalMulta('PARQUEADERO')}
-              className="flex flex-col items-center justify-center gap-2 rounded-xl border border-border/80 bg-card p-4 text-center transition-all hover:border-primary/50 hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-            >
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
-                <Car className="h-6 w-6" />
-              </div>
-              <span className="text-xs font-bold text-foreground">Multa Parqueadero</span>
-              <span className="text-[10px] text-muted-foreground">Infracción vehicular</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setModalPaquetes(true)}
-              className="flex flex-col items-center justify-center gap-2 rounded-xl border border-border/80 bg-card p-4 text-center transition-all hover:border-primary/50 hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-            >
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-orange-500/10 text-orange-600 dark:text-orange-400">
-                <Package className="h-6 w-6" />
-              </div>
-              <span className="text-xs font-bold text-foreground">Paquetes Pendientes</span>
-              <span className="text-[10px] text-muted-foreground">Entrega con PIN ({paquetesCount})</span>
-            </button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Minuta Táctica de Emergencia (Directorio Rápido de Garita) */}
-      <Card className="border-red-500/30 bg-gradient-to-br from-red-500/5 via-transparent to-transparent shadow-xs">
-        <CardHeader className="pb-3 border-b border-border/60">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base font-bold flex items-center gap-2 text-foreground">
-              <Siren className="h-5 w-5 text-red-600 dark:text-red-400" />
-              Minuta Táctica de Emergencia — Directorio Rápido de Garita
-            </CardTitle>
-            <span className="text-xs font-semibold text-red-700 dark:text-red-400 bg-red-500/10 border border-red-500/20 px-2.5 py-0.5 rounded-full">
-              Prioritarios 24/7
-            </span>
-          </div>
-        </CardHeader>
-        <CardContent className="pt-4">
-          {loadingMinuta ? (
-            <div className="py-8 text-center text-muted-foreground">
-              <div className="animate-spin w-6 h-6 border-2 border-red-500 border-t-transparent rounded-full mx-auto mb-2" />
-              <p className="text-xs">Cargando minuta de emergencia...</p>
-            </div>
-          ) : errorMinuta ? (
-            <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive text-xs flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0" />
-              <span>Error al consultar los contactos de emergencia de la propiedad.</span>
-            </div>
-          ) : contactosMinuta.length === 0 ? (
-            <div className="p-6 text-center text-muted-foreground bg-muted/20 border border-border/40 rounded-xl">
-              <Phone className="w-8 h-8 mx-auto mb-2 opacity-40 text-muted-foreground" />
-              <p className="font-semibold text-sm text-foreground">Sin contactos en minuta táctica</p>
-              <p className="text-xs mt-0.5">La administración no ha marcado contactos prioritarios para garita.</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {contactosMinuta.map((c, idx) => (
-                <div
-                  key={c.idContactoEmergencia || idx}
-                  className="rounded-xl border border-border/80 bg-card p-3.5 flex flex-col justify-between hover:border-red-500/40 hover:shadow-xs transition-all"
-                >
-                  <div>
-                    <div className="flex items-center justify-between gap-1 mb-1.5">
-                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-red-500/10 text-red-700 dark:text-red-400">
-                        {c.tipoServicio ? c.tipoServicio.replace(/_/g, ' ') : 'EMERGENCIA'}
-                      </span>
-                      <span className="text-[10px] text-muted-foreground font-mono">#{c.ordenVisualizacion || (idx + 1)}</span>
-                    </div>
-                    <h4 className="text-xs font-bold text-foreground line-clamp-1">{c.entidad}</h4>
-                    {c.direccion && (
-                      <p className="text-[11px] text-muted-foreground line-clamp-1 flex items-center gap-1 mt-0.5">
-                        <MapPin className="w-3 h-3 shrink-0" /> {c.direccion}
-                      </p>
-                    )}
-                  </div>
-                  <div className="mt-3 pt-2.5 border-t border-border/50 flex flex-col gap-1">
-                    <a
-                      href={`tel:${c.telefonoPrincipal}`}
-                      className="inline-flex items-center justify-center gap-1.5 w-full py-1.5 px-3 rounded-lg bg-red-600 text-white hover:bg-red-700 font-mono font-bold text-xs shadow-xs transition-colors"
-                    >
-                      <Phone className="w-3.5 h-3.5" />
-                      {c.telefonoPrincipal}
-                    </a>
-                    {c.telefonoAlterno && (
-                      <a
-                        href={`tel:${c.telefonoAlterno}`}
-                        className="inline-flex items-center justify-center gap-1 text-[11px] text-muted-foreground hover:text-foreground font-mono py-0.5"
-                      >
-                        Alt: {c.telefonoAlterno}
-                      </a>
-                    )}
-                  </div>
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+        <div className="min-w-0 space-y-6 xl:col-span-2">
+          {/* Active visits and exits */}
+          <OpsSection
+            id="porteria-visitas"
+            icon={UserCheck}
+            title="Visitas activas"
+            count={visitasActivas.length}
+            countLabel="dentro"
+            countVariant={visitasActivas.length > 0 ? 'success' : 'secondary'}
+            description="Registre la salida de los visitantes sin salir de este panel."
+            actions={
+              <>
+                <div className="relative w-full sm:w-64">
+                  <Search
+                    className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted"
+                    aria-hidden="true"
+                  />
+                  <ShadcnInput
+                    type="search"
+                    aria-label="Filtrar visitas activas"
+                    placeholder="Nombre, documento o apto"
+                    value={searchVisitasActivas}
+                    onChange={(e) => setSearchVisitasActivas(e.target.value)}
+                    className="h-10 pl-9"
+                  />
                 </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                <Button variant="ghost" size="sm" onClick={() => navigate('/visitas')} className="shrink-0">
+                  Ver todas
+                  <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+                </Button>
+              </>
+            }
+          >
+            {errorVisitas && !visitas.length ? (
+              <ErrorState
+                compact
+                title="No se pudieron cargar las visitas"
+                message={errorVisitas.message || 'Revise la conexión e intente de nuevo.'}
+                onRetry={refetchVisitas}
+              />
+            ) : (
+              <DataTable
+                loading={loadingVisitas && !visitas.length}
+                columns={[
+                  {
+                    key: 'visitante',
+                    label: 'Visitante',
+                    render: (r) => (
+                      <div className="min-w-0">
+                        <span className="text-sm font-semibold text-on-surface">{r.nombreVisitante || 'Visitante'}</span>
+                        {r.documentoVisitante && (
+                          <span className="block text-xs text-text-muted tabular-nums">Doc. {r.documentoVisitante}</span>
+                        )}
+                      </div>
+                    ),
+                  },
+                  {
+                    key: 'numeroApartamento',
+                    label: 'Apartamento',
+                    render: (r) => (
+                      <Badge variant="outline" className="tabular-nums">
+                        {formatApto(r.numeroApartamento)}
+                      </Badge>
+                    ),
+                  },
+                  {
+                    key: 'fechaIngreso',
+                    label: 'Ingreso',
+                    render: (r) => (
+                      <span className="text-xs text-text-secondary tabular-nums">
+                        {r.fechaIngreso ? formatDateTime(r.fechaIngreso) : 'En espera'}
+                      </span>
+                    ),
+                  },
+                  {
+                    key: 'permanencia',
+                    label: 'Permanencia',
+                    render: (r) => <Permanencia r={r} excedidoLabel="Demora" />,
+                  },
+                  {
+                    key: 'estado',
+                    label: 'Estado',
+                    render: (r) => (
+                      <Badge variant={r.estado === 'ACTIVA' || r.estado === 'EN_CURSO' ? 'success' : 'warning'}>
+                        {ESTADO_VISITA_LABEL[r.estado] || r.estado}
+                      </Badge>
+                    ),
+                  },
+                  {
+                    key: 'actions',
+                    label: 'Salida',
+                    render: (r) => (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleRegistrarSalida(r)}
+                        loading={registrandoSalidaId === r.idVisita}
+                        className="text-destructive hover:bg-tint-red-bg hover:text-destructive"
+                      >
+                        {registrandoSalidaId !== r.idVisita && <LogOut className="h-3.5 w-3.5" aria-hidden="true" />}
+                        {registrandoSalidaId === r.idVisita ? 'Registrando...' : 'Marcar salida'}
+                      </Button>
+                    ),
+                  },
+                ]}
+                rows={visitasActivasFiltradas}
+                pageSize={5}
+                empty={{
+                  icon: UserCheck,
+                  title: searchVisitasActivas ? 'Ninguna visita coincide con el filtro' : 'No hay visitas activas en el predio',
+                  subtitle: searchVisitasActivas
+                    ? 'Revise el nombre, documento o apartamento.'
+                    : 'Cuando ingrese una visita autorizada aparecerá aquí para registrar su salida.',
+                }}
+                keyField="idVisita"
+              />
+            )}
+          </OpsSection>
 
-      {/* Módulos de Operación de Garita */}
-      <Card className="border-border/80 shadow-xs">
-        <CardHeader className="pb-3 border-b border-border/60">
-          <CardTitle className="text-base font-bold flex items-center gap-2">
-            <ClipboardList className="h-5 w-5 text-primary" />
-            Módulos Operativos de Garita
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="pt-4">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {ACCIONES_OPERATIVAS.map((a) => {
-              const Icon = a.icon;
-              return (
-                <button
-                  key={a.id}
-                  type="button"
-                  onClick={() => navigate(a.path)}
-                  className="flex items-center justify-between rounded-xl border border-border/80 bg-card p-4 text-left transition-all hover:border-primary/60 hover:bg-muted/30 hover:shadow-xs group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                      <Icon className="h-5 w-5" />
+          {/* Deliveries in progress */}
+          <OpsSection
+            id="porteria-domicilios"
+            icon={Bike}
+            title="Domicilios en el predio"
+            count={domiciliosActivos.length}
+            countLabel="activos"
+            countVariant={domiciliosActivos.length > 0 ? 'warning' : 'secondary'}
+            description="Controle la permanencia de los repartidores y registre su salida."
+            actions={
+              <Button size="sm" onClick={() => setModalDomicilio(true)} className="shrink-0">
+                <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                Registrar domicilio
+              </Button>
+            }
+          >
+            {errorDomicilios && !domiciliosActivos.length ? (
+              <ErrorState
+                compact
+                title="No se pudieron cargar los domicilios"
+                message={errorDomicilios.message || 'Revise la conexión e intente de nuevo.'}
+                onRetry={refetchDomicilios}
+              />
+            ) : (
+              <DataTable
+                loading={loadingDomicilios && !domiciliosActivos.length}
+                columns={[
+                  {
+                    key: 'repartidor',
+                    label: 'Repartidor',
+                    render: (r) => (
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="text-sm font-semibold text-on-surface">{r.nombreDomiciliario}</span>
+                          <Badge variant="secondary">{r.empresa}</Badge>
+                        </div>
+                        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-text-muted tabular-nums">
+                          {r.documentoDomiciliario && <span>Doc. {r.documentoDomiciliario}</span>}
+                          {r.telefonoDomiciliario && <span>Tel. {r.telefonoDomiciliario}</span>}
+                        </div>
+                      </div>
+                    ),
+                  },
+                  {
+                    key: 'numeroApartamento',
+                    label: 'Destino',
+                    render: (r) => (
+                      <Badge variant="outline" className="tabular-nums">
+                        {formatApto(r.numeroApartamento || r.idUnidad)}
+                      </Badge>
+                    ),
+                  },
+                  {
+                    key: 'tipoTransporte',
+                    label: 'Tipo',
+                    render: (r) => (
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-xs font-medium text-on-surface">{humanize(r.tipoDomicilio || 'COMIDA')}</span>
+                        <span className="text-xs text-text-muted">
+                          {humanize(r.medioTransporte || 'A PIE')} {r.placaVehiculo ? `· ${r.placaVehiculo}` : ''}
+                        </span>
+                      </div>
+                    ),
+                  },
+                  {
+                    key: 'fechaIngreso',
+                    label: 'Ingreso',
+                    render: (r) => {
+                      const fecha = r.fechaEntrada || r.fechaIngreso;
+                      return (
+                        <span className="text-xs text-text-secondary tabular-nums">
+                          {fecha ? formatDateTime(fecha) : '—'}
+                        </span>
+                      );
+                    },
+                  },
+                  {
+                    key: 'permanencia',
+                    label: 'Permanencia',
+                    render: (r) => <Permanencia r={r} excedidoLabel="Excedido" />,
+                  },
+                  {
+                    key: 'actions',
+                    label: 'Salida',
+                    render: (r) => (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleFinalizarDomicilio(r)}
+                        loading={finalizandoDomId === r.idDomicilio}
+                      >
+                        {finalizandoDomId !== r.idDomicilio && <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />}
+                        {finalizandoDomId === r.idDomicilio ? 'Finalizando...' : 'Finalizar entrega'}
+                      </Button>
+                    ),
+                  },
+                ]}
+                rows={domiciliosActivos}
+                pageSize={5}
+                empty={{
+                  icon: Bike,
+                  title: 'No hay domicilios en el predio',
+                  subtitle: 'Registre cada repartidor al ingresar para controlar su permanencia y su salida.',
+                }}
+                keyField="idDomicilio"
+              />
+            )}
+          </OpsSection>
+        </div>
+
+        <div className="min-w-0 space-y-6">
+          {/* Emergency directory */}
+          <OpsSection
+            id="porteria-minuta"
+            icon={Siren}
+            title="Contactos de emergencia"
+            description="Directorio prioritario de la garita."
+          >
+            {loadingMinuta ? (
+              <LoadingState size="sm" message="Cargando contactos de emergencia..." />
+            ) : errorMinuta ? (
+              <ErrorState
+                compact
+                title="No se pudo cargar la minuta"
+                message="Error al consultar los contactos de emergencia de la propiedad."
+              />
+            ) : contactosMinuta.length === 0 ? (
+              <EmptyState
+                icon={Phone}
+                title="Sin contactos en la minuta"
+                subtitle="La administración aún no ha marcado contactos prioritarios para la garita."
+                className="py-6"
+              />
+            ) : (
+              <ul className="divide-y divide-border">
+                {contactosMinuta.map((c, idx) => (
+                  <li key={c.idContactoEmergencia || idx} className="flex flex-wrap items-center gap-3 py-3 first:pt-0 last:pb-0">
+                    <div className="min-w-0 flex-1">
+                      <Badge variant="destructive" className="mb-1">
+                        {c.tipoServicio ? humanize(c.tipoServicio) : 'Emergencia'}
+                      </Badge>
+                      <p className="truncate text-sm font-semibold text-on-surface">{c.entidad}</p>
+                      {c.direccion && (
+                        <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-text-muted">
+                          <MapPin className="h-3 w-3 shrink-0" aria-hidden="true" /> {c.direccion}
+                        </p>
+                      )}
                     </div>
-                    <div>
-                      <h4 className="text-xs font-bold text-foreground group-hover:text-primary transition-colors">
-                        {a.label}
-                      </h4>
-                      <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">{a.desc}</p>
+                    <div className="flex shrink-0 flex-col items-end gap-1">
+                      <a
+                        href={`tel:${c.telefonoPrincipal}`}
+                        className="inline-flex h-11 items-center gap-1.5 rounded-md bg-btn-danger px-3 text-sm font-bold text-white tabular-nums shadow-sm transition-colors duration-150 hover:bg-btn-danger-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        aria-label={`Llamar a ${c.entidad}: ${c.telefonoPrincipal}`}
+                      >
+                        <Phone className="h-4 w-4" aria-hidden="true" />
+                        {c.telefonoPrincipal}
+                      </a>
+                      {c.telefonoAlterno && (
+                        <a
+                          href={`tel:${c.telefonoAlterno}`}
+                          className="text-xs text-text-secondary tabular-nums underline-offset-4 hover:text-on-surface hover:underline"
+                        >
+                          Alterno: {c.telefonoAlterno}
+                        </a>
+                      )}
                     </div>
-                  </div>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground/60 group-hover:text-primary group-hover:translate-x-0.5 transition-all shrink-0" />
-                </button>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </OpsSection>
+
+          {/* Quick navigation to the gatehouse modules */}
+          <OpsSection id="porteria-modulos" icon={ClipboardList} title="Módulos de garita">
+            <ul className="-mx-1 divide-y divide-border">
+              {ACCIONES_OPERATIVAS.map((a) => {
+                const Icon = a.icon;
+                return (
+                  <li key={a.id}>
+                    <button
+                      type="button"
+                      onClick={() => navigate(a.path)}
+                      className="group flex min-h-12 w-full items-center gap-3 rounded-md px-1 py-2.5 text-left transition-colors duration-150 hover:bg-surface-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-tint-primary-bg text-tint-primary-fg">
+                        <Icon className="h-4 w-4" aria-hidden="true" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-semibold text-on-surface">{a.label}</span>
+                        <span className="block truncate text-xs text-text-muted">{a.desc}</span>
+                      </span>
+                      <ChevronRight
+                        className="h-4 w-4 shrink-0 text-text-muted transition-transform duration-150 group-hover:translate-x-0.5"
+                        aria-hidden="true"
+                      />
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </OpsSection>
+        </div>
+      </div>
+
+      <KpiSummaryPanel />
 
       {/* Modales funcionales */}
       <ModalVisitasActivas
@@ -1612,5 +1474,60 @@ export default function PorteroDashboardPage() {
         tenantApi={tenantApi}
       />
     </PageContainer>
+  );
+}
+
+const ESTADO_VISITA_LABEL = {
+  ACTIVA: 'Activa',
+  EN_CURSO: 'En curso',
+  PENDIENTE: 'Pendiente',
+};
+
+function humanize(value) {
+  const s = String(value || '').replace(/_/g, ' ').toLowerCase();
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function Permanencia({ r, excedidoLabel }) {
+  if (r.minutosTranscurridos == null) {
+    return <span className="text-xs text-text-muted">—</span>;
+  }
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <Clock className="h-3.5 w-3.5 shrink-0 text-text-muted" aria-hidden="true" />
+      <span className="text-xs font-semibold text-on-surface tabular-nums">{r.minutosTranscurridos} min</span>
+      {r.tiempoMaximoMinutos && (
+        <span className="text-xs text-text-muted tabular-nums">/ {r.tiempoMaximoMinutos} min</span>
+      )}
+      {r.excedido && (
+        <Badge variant="destructive">
+          <AlertTriangle className="h-3 w-3" aria-hidden="true" />
+          {excedidoLabel}
+        </Badge>
+      )}
+    </div>
+  );
+}
+
+function OpsSection({ id, icon: Icon, title, count, countLabel, countVariant = 'secondary', description, actions, children }) {
+  return (
+    <section aria-labelledby={`${id}-title`} className="rounded-lg border border-border bg-surface shadow-sm">
+      <div className="flex flex-col gap-3 border-b border-border px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+        <div className="min-w-0">
+          <h2 id={`${id}-title`} className="flex flex-wrap items-center gap-2 text-base font-bold text-on-surface">
+            {Icon && <Icon className="h-4 w-4 text-primary-text" aria-hidden="true" />}
+            {title}
+            {count != null && (
+              <Badge variant={countVariant} className="tabular-nums">
+                {count} {countLabel}
+              </Badge>
+            )}
+          </h2>
+          {description && <p className="mt-0.5 text-xs text-text-secondary">{description}</p>}
+        </div>
+        {actions && <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">{actions}</div>}
+      </div>
+      <div className="p-4 sm:p-5">{children}</div>
+    </section>
   );
 }

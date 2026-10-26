@@ -25,7 +25,10 @@ import {
   Compass,
 } from 'lucide-react';
 import { PageHeader } from '../components/ui/PageHeader';
+import { PageContainer } from '../components/layout/PageContainer.jsx';
 import { Modal } from '../components/ui/Modal';
+import { LoadingState } from '../components/ui/LoadingState.jsx';
+import { ErrorState } from '../components/ui/ErrorState.jsx';
 import { useFetch } from '../lib/hooks';
 import { useAuth } from '../lib/AuthContext.jsx';
 import { useTenant } from '../lib/TenantContext.jsx';
@@ -33,14 +36,14 @@ import { useTenantApi } from '../lib/useTenantApi.js';
 import { toast } from 'sonner';
 
 const TIPOS_SERVICIO = [
-  { id: 'POLICIA_CAI', label: 'Policía Nacional / CAI', icon: Siren, color: 'text-blue-500 bg-blue-500/10 border-blue-500/30' },
-  { id: 'BOMBEROS', label: 'Cuerpo de Bomberos', icon: Flame, color: 'text-red-500 bg-red-500/10 border-red-500/30' },
-  { id: 'CRUZ_ROJA_AMBULANCIA', label: 'Cruz Roja / Ambulancia', icon: HeartPulse, color: 'text-rose-500 bg-rose-500/10 border-rose-500/30' },
-  { id: 'DEFENSA_CIVIL', label: 'Defensa Civil', icon: LifeBuoy, color: 'text-orange-500 bg-orange-500/10 border-orange-500/30' },
-  { id: 'GAS_EMERGENCIAS', label: 'Gas Natural (Emergencias)', icon: AlertTriangle, color: 'text-amber-500 bg-amber-500/10 border-amber-500/30' },
-  { id: 'ACUEDUCTO_URGENCIAS', label: 'Acueducto y Alcantarillado', icon: Droplets, color: 'text-cyan-500 bg-cyan-500/10 border-cyan-500/30' },
-  { id: 'ENERGIA_URGENCIAS', label: 'Energía Eléctrica (Urgencias)', icon: Zap, color: 'text-yellow-500 bg-yellow-500/10 border-yellow-500/30' },
-  { id: 'OTRO', label: 'Otro Servicio de Asistencia', icon: Phone, color: 'text-neutral-500 bg-neutral-500/10 border-neutral-500/30' },
+  { id: 'POLICIA_CAI', label: 'Policía Nacional / CAI', icon: Siren, color: 'text-tint-blue-fg bg-tint-blue-bg border-tint-blue-fg/25' },
+  { id: 'BOMBEROS', label: 'Cuerpo de Bomberos', icon: Flame, color: 'text-tint-red-fg bg-tint-red-bg border-tint-red-fg/25' },
+  { id: 'CRUZ_ROJA_AMBULANCIA', label: 'Cruz Roja / Ambulancia', icon: HeartPulse, color: 'text-tint-red-fg bg-tint-red-bg border-tint-red-fg/25' },
+  { id: 'DEFENSA_CIVIL', label: 'Defensa Civil', icon: LifeBuoy, color: 'text-tint-amber-fg bg-tint-amber-bg border-tint-amber-fg/25' },
+  { id: 'GAS_EMERGENCIAS', label: 'Gas Natural (Emergencias)', icon: AlertTriangle, color: 'text-tint-amber-fg bg-tint-amber-bg border-tint-amber-fg/25' },
+  { id: 'ACUEDUCTO_URGENCIAS', label: 'Acueducto y Alcantarillado', icon: Droplets, color: 'text-tint-blue-fg bg-tint-blue-bg border-tint-blue-fg/25' },
+  { id: 'ENERGIA_URGENCIAS', label: 'Energía Eléctrica (Urgencias)', icon: Zap, color: 'text-tint-amber-fg bg-tint-amber-bg border-tint-amber-fg/25' },
+  { id: 'OTRO', label: 'Otro Servicio de Asistencia', icon: Phone, color: 'text-text-secondary bg-tint-neutral-bg border-border' },
 ];
 
 const TIPOS_CONTINGENCIA = [
@@ -53,8 +56,8 @@ const TIPOS_CONTINGENCIA = [
 ];
 
 const ESTADOS_PLAN = {
-  ACTIVO: { label: 'Activo / Vigente', color: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30' },
-  EN_REVISION: { label: 'En Revisión', color: 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30' },
+  ACTIVO: { label: 'Activo / Vigente', color: 'bg-tint-green-bg text-tint-green-fg border border-tint-green-fg/25' },
+  EN_REVISION: { label: 'En Revisión', color: 'bg-tint-amber-bg text-tint-amber-fg border border-tint-amber-fg/25' },
   OBSOLETO: { label: 'Obsoleto', color: 'bg-muted text-muted-foreground border border-border' },
 };
 
@@ -105,12 +108,14 @@ export default function EmergenciasAdminPage() {
   const {
     data: contactosRaw,
     loading: loadingContactos,
+    error: errorContactos,
     refetch: refetchContactos,
   } = useFetch(() => tenantApi.get('/emergencias/contactos'), [tenant.activeAssignmentId]);
 
   const {
     data: planesRaw,
     loading: loadingPlanes,
+    error: errorPlanes,
     refetch: refetchPlanes,
   } = useFetch(() => tenantApi.get('/emergencias/planes'), [tenant.activeAssignmentId]);
 
@@ -310,7 +315,7 @@ export default function EmergenciasAdminPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <PageContainer className="pb-12">
       <PageHeader
         title="Directorio y Planes de Emergencia"
         description="Líneas de emergencia para minuta de portería, planes de contingencia y protocolos de evacuación"
@@ -337,7 +342,7 @@ export default function EmergenciasAdminPage() {
       />
 
       {isReadOnly && (
-        <div className="flex items-center gap-2 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg text-amber-700 dark:text-amber-400 text-xs font-medium">
+        <div className="flex items-center gap-2 p-3 bg-tint-amber-bg border border-tint-amber-fg/25 rounded-lg text-tint-amber-fg text-xs font-medium">
           <AlertCircle className="w-4 h-4 shrink-0" />
           <span>Modo de sólo lectura: Como Administrador Organizacional puede consultar los planes y contactos de la copropiedad, pero las modificaciones deben ser gestionadas por el Administrador de la Propiedad.</span>
         </div>
@@ -348,10 +353,10 @@ export default function EmergenciasAdminPage() {
         <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Directorio Telefónico</p>
+              <p className="text-xs font-medium text-muted-foreground">Directorio Telefónico</p>
               <h3 className="text-2xl font-bold mt-1 text-foreground">{resumen.totalContactos}</h3>
             </div>
-            <div className="p-3 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-xl">
+            <div className="p-3 bg-tint-blue-bg text-tint-blue-fg rounded-xl">
               <Phone className="w-6 h-6" />
             </div>
           </div>
@@ -363,14 +368,14 @@ export default function EmergenciasAdminPage() {
         <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Prioritarios Minuta</p>
-              <h3 className="text-2xl font-bold mt-1 text-red-600 dark:text-red-400">{resumen.contactosPrioritarios}</h3>
+              <p className="text-xs font-medium text-muted-foreground">Prioritarios Minuta</p>
+              <h3 className="text-2xl font-bold mt-1 text-tint-red-fg">{resumen.contactosPrioritarios}</h3>
             </div>
-            <div className="p-3 bg-red-500/10 text-red-600 dark:text-red-400 rounded-xl">
+            <div className="p-3 bg-tint-red-bg text-tint-red-fg rounded-xl">
               <Siren className="w-6 h-6" />
             </div>
           </div>
-          <p className="text-xs text-red-600 dark:text-red-400 mt-3 flex items-center gap-1">
+          <p className="text-xs text-tint-red-fg mt-3 flex items-center gap-1">
             <CheckCircle2 className="w-3.5 h-3.5" /> Visibles en portería y accesos
           </p>
         </div>
@@ -378,10 +383,10 @@ export default function EmergenciasAdminPage() {
         <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Planes de Contingencia</p>
+              <p className="text-xs font-medium text-muted-foreground">Planes de Contingencia</p>
               <h3 className="text-2xl font-bold mt-1 text-foreground">{resumen.totalPlanes}</h3>
             </div>
-            <div className="p-3 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-xl">
+            <div className="p-3 bg-tint-amber-bg text-tint-amber-fg rounded-xl">
               <Compass className="w-6 h-6" />
             </div>
           </div>
@@ -393,15 +398,15 @@ export default function EmergenciasAdminPage() {
         <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Planes Activos</p>
-              <h3 className="text-2xl font-bold mt-1 text-emerald-600 dark:text-emerald-400">{resumen.planesActivos}</h3>
+              <p className="text-xs font-medium text-muted-foreground">Planes Activos</p>
+              <h3 className="text-2xl font-bold mt-1 text-tint-green-fg">{resumen.planesActivos}</h3>
             </div>
-            <div className="p-3 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-xl">
+            <div className="p-3 bg-tint-green-bg text-tint-green-fg rounded-xl">
               <Shield className="w-6 h-6" />
             </div>
           </div>
           <p className="text-xs text-muted-foreground mt-3 flex items-center gap-1">
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> Protocolos vigentes
+            <CheckCircle2 className="w-3.5 h-3.5 text-tint-green-fg" /> Protocolos vigentes
           </p>
         </div>
       </div>
@@ -482,11 +487,16 @@ export default function EmergenciasAdminPage() {
             ))}
           </div>
 
-          {loadingContactos ? (
-            <div className="p-12 text-center text-muted-foreground bg-card border border-border rounded-xl">
-              <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-3" />
-              <p className="text-sm">Cargando directorio de emergencias...</p>
+          {loadingContactos && !contactosRaw ? (
+            <div className="bg-card border border-border rounded-lg">
+              <LoadingState message="Cargando directorio de emergencias..." />
             </div>
+          ) : errorContactos && !contactosRaw ? (
+            <ErrorState
+              title="No se pudo cargar el directorio de emergencias"
+              message={errorContactos?.message || 'Verifique su conexión e intente nuevamente.'}
+              onRetry={() => refetchContactos().catch(() => {})}
+            />
           ) : contactosFiltrados.length === 0 ? (
             <div className="p-12 text-center bg-card border border-border rounded-xl">
               <Phone className="w-12 h-12 text-muted-foreground/40 mx-auto mb-3" />
@@ -497,7 +507,8 @@ export default function EmergenciasAdminPage() {
               {!isReadOnly && (
                 <button
                   onClick={handleOpenCrearContacto}
-                  className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground font-medium rounded-lg text-sm font-medium shadow-sm hover:bg-primary/90 transition-colors"
+                  type="button"
+                  className="mt-4 inline-flex min-h-10 items-center gap-2 px-4 py-2 bg-btn-primary text-white rounded-md text-sm font-semibold shadow-sm hover:bg-btn-primary-hover transition-colors duration-150"
                 >
                   <Plus className="w-4 h-4" />
                   Agregar Contacto
@@ -522,7 +533,7 @@ export default function EmergenciasAdminPage() {
                           {srvCfg.label}
                         </span>
                         {c.esPrioritarioMinuta === 'S' && (
-                          <span className="bg-red-500/15 text-red-700 dark:text-red-400 border border-red-500/30 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1">
+                          <span className="bg-tint-red-bg text-tint-red-fg border border-tint-red-fg/25 text-[11.5px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
                             <Siren className="w-3 h-3" /> Minuta
                           </span>
                         )}
@@ -595,11 +606,16 @@ export default function EmergenciasAdminPage() {
       {/* PESTAÑA: PLANES DE CONTINGENCIA Y EVACUACIÓN */}
       {tabActiva === 'planes' && (
         <div className="space-y-4">
-          {loadingPlanes ? (
-            <div className="p-12 text-center text-muted-foreground bg-card border border-border rounded-xl">
-              <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-3" />
-              <p className="text-sm">Cargando planes de evacuación...</p>
+          {loadingPlanes && !planesRaw ? (
+            <div className="bg-card border border-border rounded-lg">
+              <LoadingState message="Cargando planes de evacuación..." />
             </div>
+          ) : errorPlanes && !planesRaw ? (
+            <ErrorState
+              title="No se pudieron cargar los planes de emergencia"
+              message={errorPlanes?.message || 'Verifique su conexión e intente nuevamente.'}
+              onRetry={() => refetchPlanes().catch(() => {})}
+            />
           ) : planesFiltrados.length === 0 ? (
             <div className="p-12 text-center bg-card border border-border rounded-xl">
               <Compass className="w-12 h-12 text-muted-foreground/40 mx-auto mb-3" />
@@ -610,7 +626,8 @@ export default function EmergenciasAdminPage() {
               {!isReadOnly && (
                 <button
                   onClick={handleOpenCrearPlan}
-                  className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground font-medium rounded-lg text-sm font-medium shadow-sm hover:bg-primary/90 transition-colors"
+                  type="button"
+                  className="mt-4 inline-flex min-h-10 items-center gap-2 px-4 py-2 bg-btn-primary text-white rounded-md text-sm font-semibold shadow-sm hover:bg-btn-primary-hover transition-colors duration-150"
                 >
                   <Plus className="w-4 h-4" />
                   Crear Primer Plan
@@ -629,7 +646,7 @@ export default function EmergenciasAdminPage() {
                   >
                     <div>
                       <div className="flex items-start justify-between gap-2 mb-2">
-                        <span className="px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-primary/10 text-primary border border-primary/20">
+                        <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-primary/10 text-primary border border-primary/20">
                           {contCfg ? contCfg.label : p.tipoContingencia}
                         </span>
                         <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${estCfg.color}`}>
@@ -1040,6 +1057,6 @@ export default function EmergenciasAdminPage() {
           </div>
         </div>
       </Modal>
-    </div>
+    </PageContainer>
   );
 }

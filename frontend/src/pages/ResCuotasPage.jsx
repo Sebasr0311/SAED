@@ -11,7 +11,6 @@ import {
   RefreshCw,
   Search,
   Eye,
-  Sparkles,
   UploadCloud,
   FileText,
 } from 'lucide-react';
@@ -19,11 +18,12 @@ import {
 import { PageContainer } from '../components/layout/PageContainer.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { MetricCard } from '../components/ui/MetricCard.jsx';
-import { Card } from '../components/ui/card.tsx';
 import { Button } from '../components/ui/button.tsx';
 import { Badge } from '../components/ui/badge.tsx';
 import { Modal } from '../components/ui/Modal.jsx';
 import EmptyState from '../components/ui/EmptyState.jsx';
+import { Input, Select, Textarea } from '../components/ui/Form.jsx';
+import ErrorState from '../components/ui/ErrorState.jsx';
 import LoadingState from '../components/ui/LoadingState.jsx';
 
 import { useAuth } from '../lib/AuthContext.jsx';
@@ -35,29 +35,29 @@ const ESTADO_CONFIG = {
   PAGADA: {
     label: 'Pagada',
     badgeVariant: 'success',
-    colorClass: 'text-emerald-700 dark:text-emerald-400',
-    bgClass: 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/60',
+    colorClass: 'text-tint-green-fg',
+    bgClass: 'bg-tint-green-bg border-tint-green-fg/25',
     icon: CheckCircle2,
   },
   PENDIENTE: {
     label: 'Pendiente de Pago',
     badgeVariant: 'warning',
-    colorClass: 'text-amber-700 dark:text-amber-400',
-    bgClass: 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800/60',
+    colorClass: 'text-tint-amber-fg',
+    bgClass: 'bg-tint-amber-bg border-tint-amber-fg/25',
     icon: Clock,
   },
   VENCIDA: {
     label: 'Vencida',
     badgeVariant: 'destructive',
-    colorClass: 'text-rose-700 dark:text-rose-400',
-    bgClass: 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800/60',
+    colorClass: 'text-tint-red-fg',
+    bgClass: 'bg-tint-red-bg border-tint-red-fg/25',
     icon: AlertCircle,
   },
   ANULADA: {
     label: 'Anulada',
     badgeVariant: 'secondary',
-    colorClass: 'text-slate-600 dark:text-slate-400',
-    bgClass: 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700',
+    colorClass: 'text-text-secondary',
+    bgClass: 'bg-surface-dim border-border',
     icon: AlertCircle,
   },
 };
@@ -72,7 +72,7 @@ export default function ResCuotasPage() {
     [resolvedPersonaId]
   );
 
-  const { data: misPagosData, loading: loadingMisPagos, refetch: refetchMisPagos } = useFetch(
+  const { data: misPagosData, loading: loadingMisPagos, error: errorMisPagos, refetch: refetchMisPagos } = useFetch(
     () => api.get('/pagos'),
     []
   );
@@ -344,29 +344,36 @@ export default function ResCuotasPage() {
   return (
     <PageContainer>
       <PageHeader
-        title="Mis Cuotas de Administración"
-        subtitle={`Estado de cuenta, pasarela en línea y comprobantes de tu unidad ${
+        title="Mis cuotas de administración"
+        subtitle={`Estado de cuenta, pago en línea y comprobantes de tu unidad ${
           apartamento?.numero || user?.unidad || ''
         }`}
         action={
-          <Button variant="outline" size="sm" onClick={() => refetch()}>
-            <RefreshCw className="w-4 h-4 mr-1.5" />
+          <Button
+            variant="outline"
+            onClick={() => {
+              refetch().catch(() => {});
+              refetchMisPagos().catch(() => {});
+            }}
+            className="min-h-10"
+          >
+            <RefreshCw className="h-4 w-4" aria-hidden="true" />
             Actualizar
           </Button>
         }
       />
 
       {/* 1. Tarjetas de KPIs Financieros */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard
-          label="Saldo Total Pendiente"
-          value={formatCurrency(stats.saldoPendienteTotal)}
+          label="Saldo total pendiente"
+          value={loading ? '…' : error ? '—' : formatCurrency(stats.saldoPendienteTotal)}
           icon={Wallet}
           variant={stats.alDia ? 'success' : 'warning'}
-          context={stats.alDia ? 'Paz y Salvo Vigente' : `${stats.pendientesCount} cuota(s) pendiente(s)`}
+          context={error ? 'No se pudo consultar' : stats.alDia ? 'Paz y salvo vigente' : `${stats.pendientesCount} cuota(s) pendiente(s)`}
         />
         <MetricCard
-          label="Próximo Vencimiento"
+          label="Próximo vencimiento"
           value={
             stats.proximaVencer?.fechaLimite
               ? formatDate(stats.proximaVencer.fechaLimite)
@@ -381,49 +388,43 @@ export default function ResCuotasPage() {
           }
         />
         <MetricCard
-          label="Cuotas Pagadas"
-          value={String(stats.pagadasCount)}
+          label="Cuotas pagadas"
+          value={loading ? '…' : String(stats.pagadasCount)}
           icon={CheckCircle2}
           variant="success"
           context={`Total: ${formatCurrency(stats.totalPagado)}`}
         />
         <MetricCard
-          label="Estado de Cartera"
-          value={stats.alDia ? 'Al Día' : 'En Mora'}
+          label="Estado de cartera"
+          value={loading ? '…' : error ? '—' : stats.alDia ? 'Al día' : 'En mora'}
           icon={ShieldCheck}
-          variant={stats.alDia ? 'success' : 'danger'}
+          variant={error ? 'secondary' : stats.alDia ? 'success' : 'danger'}
           context={user?.nombrePropiedad || 'Copropiedad'}
         />
       </div>
 
       {/* Banner de Paz y Salvo cuando está al día */}
       {stats.alDia && cuotas.length > 0 && (
-        <div className="mb-6 p-4 rounded-xl border border-emerald-200 dark:border-emerald-800/60 bg-gradient-to-r from-emerald-50 to-teal-50/50 dark:from-emerald-950/20 dark:to-teal-950/10 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-full bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300">
-              <Sparkles className="w-5 h-5" />
-            </div>
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-tint-green-fg/25 bg-tint-green-bg px-4 py-3">
+          <div className="flex items-start gap-3">
+            <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-tint-green-fg" aria-hidden="true" />
             <div>
-              <h4 className="text-sm font-bold text-emerald-900 dark:text-emerald-200">
-                ¡Felicidades! Tu inmueble se encuentra al día
-              </h4>
-              <p className="text-xs text-emerald-700/80 dark:text-emerald-400 mt-0.5">
-                No tienes cobros vencidos ni cuotas extraordinarias pendientes en la administración.
+              <h2 className="text-sm font-bold text-on-surface">Tu unidad está al día</h2>
+              <p className="mt-0.5 text-xs text-text-secondary">
+                No tienes cobros vencidos ni cuotas extraordinarias pendientes.
               </p>
             </div>
           </div>
-          <Badge variant="outline" className="bg-white/80 border-emerald-300 text-emerald-800 font-semibold shrink-0">
-            Paz y Salvo Activo
-          </Badge>
+          <Badge variant="success">Paz y salvo activo</Badge>
         </div>
       )}
 
       {/* 2. Barra de Filtros y Búsqueda */}
-      <div className="flex flex-col sm:flex-row gap-3 items-center justify-between mb-4">
+      <div className="flex flex-col items-stretch justify-between gap-3 sm:flex-row sm:items-center">
         <div className="flex gap-2 items-center flex-wrap w-full sm:w-auto">
           {[
             { id: 'PENDIENTES', label: `Pendientes (${stats.pendientesCount})` },
-            { id: 'REPORTADOS', label: `Pagos Reportados (${misPagos.length})` },
+            { id: 'REPORTADOS', label: `Pagos reportados (${misPagos.length})` },
             { id: 'PAGADAS', label: `Pagadas (${stats.pagadasCount})` },
             { id: 'TODAS', label: `Todas (${stats.totalCuotas})` },
           ].map((tab) => (
@@ -431,10 +432,11 @@ export default function ResCuotasPage() {
               key={tab.id}
               type="button"
               onClick={() => setTabFiltro(tab.id)}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              aria-pressed={tabFiltro === tab.id}
+              className={`min-h-10 rounded-md px-3.5 text-xs font-semibold tabular-nums transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-h-9 ${
                 tabFiltro === tab.id
-                  ? 'bg-primary text-primary-foreground shadow-sm'
-                  : 'bg-card border border-border text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                  ? 'bg-btn-primary text-white shadow-sm'
+                  : 'border border-border bg-surface text-text-secondary hover:bg-surface-container hover:text-on-surface'
               }`}
             >
               {tab.label}
@@ -450,7 +452,8 @@ export default function ResCuotasPage() {
               placeholder="Buscar por período o concepto..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-3 py-1.5 text-sm rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+              aria-label="Buscar cuotas"
+              className="h-10 w-full rounded-md border border-input bg-surface pl-9 pr-3 text-sm text-on-surface placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/25"
             />
           </div>
         </div>
@@ -459,10 +462,18 @@ export default function ResCuotasPage() {
       {/* 3. Listado de Cuotas o Pagos Reportados */}
       {tabFiltro === 'REPORTADOS' ? (
         loadingMisPagos ? (
-          <LoadingState text="Cargando tus pagos reportados..." />
+          <div className="rounded-lg border border-border bg-surface shadow-sm">
+            <LoadingState message="Cargando tus pagos reportados…" />
+          </div>
+        ) : errorMisPagos ? (
+          <ErrorState
+            title="No se pudieron cargar tus pagos reportados"
+            message="Revisa tu conexión e intenta de nuevo."
+            onRetry={() => refetchMisPagos().catch(() => {})}
+          />
         ) : misPagos.length === 0 ? (
           <EmptyState
-            icon="payments"
+            icon={UploadCloud}
             title="No has reportado pagos manuales"
             subtitle="Cuando reportes una consignación o transferencia con comprobante, podrás hacerle seguimiento aquí."
           />
@@ -475,23 +486,23 @@ export default function ResCuotasPage() {
               return (
                 <div
                   key={p.idPago}
-                  className="bg-card border border-border rounded-xl p-4 sm:p-5 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4"
+                  className="flex flex-col justify-between gap-4 rounded-lg border border-border bg-surface p-4 shadow-sm sm:p-5 md:flex-row md:items-center"
                 >
                   <div className="space-y-1.5">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-bold text-base text-foreground">Pago #{p.idPago}</span>
                       {esPend && (
-                        <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
-                          Pendiente de Verificación
+                        <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-tint-amber-bg text-tint-amber-fg border border-tint-amber-fg/25">
+                          Pendiente de verificación
                         </span>
                       )}
                       {esAprob && (
-                        <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                        <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-tint-green-bg text-tint-green-fg border border-tint-green-fg/25">
                           Aprobado
                         </span>
                       )}
                       {esRech && (
-                        <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-300">
+                        <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-tint-red-bg text-tint-red-fg border border-tint-red-fg/25">
                           Rechazado
                         </span>
                       )}
@@ -505,12 +516,12 @@ export default function ResCuotasPage() {
                       {p.referenciaComprobante && <span>Ref: <strong>{p.referenciaComprobante}</strong></span>}
                     </div>
                     {esRech && p.observaciones && (
-                      <div className="p-2.5 rounded-lg bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900 text-xs text-rose-800 dark:text-rose-300">
+                      <div className="p-2.5 rounded-lg bg-tint-red-bg border border-tint-red-fg/25 text-xs text-tint-red-fg">
                         <strong>Motivo de rechazo:</strong> {p.observaciones}
                       </div>
                     )}
                     {esPend && (
-                      <p className="text-xs text-amber-700/90 dark:text-amber-400">
+                      <p className="text-xs text-tint-amber-fg">
                         La administración está verificando este soporte. El saldo de tu cuota se actualizará tan pronto sea aprobado.
                       </p>
                     )}
@@ -519,7 +530,7 @@ export default function ResCuotasPage() {
                   <div className="flex items-center justify-between md:justify-end gap-4 shrink-0 pt-3 md:pt-0 border-t md:border-t-0 border-border">
                     <div className="text-left md:text-right">
                       <div className="text-xs text-muted-foreground font-medium">Monto Reportado</div>
-                      <div className="text-lg font-black text-foreground">
+                      <div className="app-numeral text-xl text-on-surface">
                         {formatCurrency(p.montoTotal)}
                       </div>
                     </div>
@@ -530,7 +541,7 @@ export default function ResCuotasPage() {
                         onClick={() => setComprobanteModal(p)}
                       >
                         <FileText className="w-4 h-4 mr-1.5" />
-                        Ver Soporte
+                        Ver soporte
                       </Button>
                     )}
                   </div>
@@ -540,22 +551,22 @@ export default function ResCuotasPage() {
           </div>
         )
       ) : loading ? (
-        <LoadingState text="Consultando estado de cuenta con la administración..." />
+        <div className="rounded-lg border border-border bg-surface shadow-sm">
+          <LoadingState message="Consultando tu estado de cuenta…" />
+        </div>
       ) : error ? (
-        <Card className="p-8 text-center">
-          <AlertCircle className="w-8 h-8 text-destructive mx-auto mb-2" />
-          <p className="text-sm font-medium text-destructive">{error.message || 'Error al cargar cuotas'}</p>
-          <Button variant="outline" size="sm" className="mt-4" onClick={() => refetch()}>
-            Reintentar
-          </Button>
-        </Card>
+        <ErrorState
+          title="No se pudo consultar tu estado de cuenta"
+          message="Revisa tu conexión e intenta de nuevo."
+          onRetry={() => refetch().catch(() => {})}
+        />
       ) : filteredCuotas.length === 0 ? (
         <EmptyState
-          icon="receipt_long"
+          icon={FileText}
           title="No hay cuotas en este criterio"
           subtitle={
             tabFiltro === 'PENDIENTES'
-              ? 'No tienes pagos pendientes pendientes. ¡Estás al día!'
+              ? 'No tienes cuotas pendientes. Estás al día.'
               : 'Las cuotas generadas por la administración aparecerán aquí.'
           }
         />
@@ -571,11 +582,11 @@ export default function ResCuotasPage() {
             return (
               <div
                 key={cuotaId}
-                className="bg-card border border-border rounded-xl p-4 sm:p-5 hover:border-primary/30 transition-all shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4"
+                className="flex flex-col justify-between gap-4 rounded-lg border border-border bg-surface p-4 shadow-sm transition-colors duration-150 hover:border-primary/40 sm:p-5 md:flex-row md:items-center"
               >
                 {/* Info principal */}
                 <div className="flex items-start gap-3.5 min-w-0">
-                  <div className={`p-2.5 rounded-xl shrink-0 ${config.bgClass}`}>
+                  <div className={`shrink-0 rounded-md border p-2.5 ${config.bgClass}`}>
                     <Icon className={`w-5 h-5 ${config.colorClass}`} />
                   </div>
                   <div className="space-y-1 min-w-0">
@@ -598,7 +609,7 @@ export default function ResCuotasPage() {
                         Límite de Pago: <strong className="text-foreground">{formatDate(c.fechaLimite)}</strong>
                       </span>
                       {c.fechaPago && (
-                        <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                        <span className="flex items-center gap-1 text-tint-green-fg">
                           <CheckCircle2 className="w-3.5 h-3.5" />
                           Pagado el: {formatDate(c.fechaPago)}
                         </span>
@@ -612,11 +623,11 @@ export default function ResCuotasPage() {
                 <div className="flex items-center justify-between md:justify-end gap-4 shrink-0 pt-3 md:pt-0 border-t md:border-t-0 border-border">
                   <div className="text-left md:text-right">
                     <div className="text-xs text-muted-foreground font-medium">Monto Total</div>
-                    <div className="text-lg sm:text-xl font-black text-foreground">
+                    <div className="app-numeral text-xl text-on-surface">
                       {formatCurrency(c.valorTotal)}
                     </div>
                     {esPendiente && c.saldoPendiente != null && c.saldoPendiente !== c.valorTotal && (
-                      <div className="text-xs text-amber-600 dark:text-amber-400 font-semibold">
+                      <div className="text-xs text-tint-amber-fg font-semibold">
                         Saldo: {formatCurrency(c.saldoPendiente)}
                       </div>
                     )}
@@ -639,21 +650,21 @@ export default function ResCuotasPage() {
                           variant="outline"
                           size="sm"
                           onClick={() => abrirReporteTransferencia(c)}
-                          className="border-amber-500/50 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/30"
+                          className="border-tint-amber-fg/25 text-tint-amber-fg hover:bg-tint-amber-bg"
                           title="Reportar comprobante de consignación o transferencia bancaria"
                         >
                           <UploadCloud className="w-4 h-4 mr-1.5" />
-                          <span className="hidden sm:inline">Reportar Transferencia</span>
+                          <span className="hidden sm:inline">Reportar transferencia</span>
                           <span className="sm:hidden">Reportar</span>
                         </Button>
                         <Button
                           size="sm"
                           disabled={estaPagando}
                           onClick={() => pagarCuotaConWompi(c)}
-                          className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm font-semibold"
+                          className="min-h-10 sm:min-h-8"
                         >
-                          <CreditCard className="w-4 h-4 mr-1.5" />
-                          {estaPagando ? 'Procesando...' : 'Pagar con Wompi'}
+                          <CreditCard className="h-4 w-4" aria-hidden="true" />
+                          {estaPagando ? 'Procesando…' : 'Pagar con Wompi'}
                         </Button>
                       </>
                     )}
@@ -669,7 +680,7 @@ export default function ResCuotasPage() {
       <Modal
         open={!!modalDetalle}
         onClose={() => setModalDetalle(null)}
-        title={`Detalle de Cobro: ${modalDetalle ? periodoLabel(modalDetalle.anio, modalDetalle.mes) : ''}`}
+        title={`Detalle de cobro: ${modalDetalle ? periodoLabel(modalDetalle.anio, modalDetalle.mes) : ''}`}
         footer={
           <div className="flex items-center justify-between w-full">
             <Button variant="outline" onClick={() => setModalDetalle(null)}>
@@ -683,10 +694,9 @@ export default function ResCuotasPage() {
                   setModalDetalle(null);
                   pagarCuotaConWompi(target);
                 }}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
               >
-                <CreditCard className="w-4 h-4 mr-1.5" />
-                Pagar Ahora ({formatCurrency(modalDetalle.saldoPendiente || modalDetalle.valorTotal)})
+                <CreditCard className="h-4 w-4" aria-hidden="true" />
+                Pagar ahora ({formatCurrency(modalDetalle.saldoPendiente || modalDetalle.valorTotal)})
               </Button>
             )}
           </div>
@@ -726,29 +736,29 @@ export default function ResCuotasPage() {
 
             {/* Desglose financiero */}
             <div className="border border-border rounded-xl p-3.5 space-y-2">
-              <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                Desglose Liquidado
+              <div className="text-xs font-bold text-muted-foreground">
+                Desglose liquidado
               </div>
               <div className="flex justify-between text-xs py-1 border-b border-border/50">
-                <span className="text-muted-foreground">Valor Base de Administración:</span>
+                <span className="text-muted-foreground">Valor base de administración:</span>
                 <span className="font-semibold text-foreground">
                   {formatCurrency(modalDetalle.valorBase || modalDetalle.valorTotal)}
                 </span>
               </div>
               {modalDetalle.recargoMora && Number(modalDetalle.recargoMora) > 0 && (
-                <div className="flex justify-between text-xs py-1 border-b border-border/50 text-rose-600">
-                  <span>Intereses de Mora:</span>
+                <div className="flex justify-between text-xs py-1 border-b border-border/50 text-tint-red-fg">
+                  <span>Intereses de mora:</span>
                   <span className="font-semibold">{formatCurrency(modalDetalle.recargoMora)}</span>
                 </div>
               )}
               {modalDetalle.descuentoProntoPago && Number(modalDetalle.descuentoProntoPago) > 0 && (
-                <div className="flex justify-between text-xs py-1 border-b border-border/50 text-emerald-600">
-                  <span>Descuento Pronto Pago:</span>
+                <div className="flex justify-between text-xs py-1 border-b border-border/50 text-tint-green-fg">
+                  <span>Descuento pronto pago:</span>
                   <span className="font-semibold">-{formatCurrency(modalDetalle.descuentoProntoPago)}</span>
                 </div>
               )}
               <div className="flex justify-between text-sm pt-1.5 font-bold">
-                <span>Total a Pagar:</span>
+                <span>Total a pagar:</span>
                 <span className="text-primary text-base font-black">
                   {formatCurrency(modalDetalle.valorTotal)}
                 </span>
@@ -756,13 +766,13 @@ export default function ResCuotasPage() {
             </div>
 
             {/* Opciones de Pago */}
-            <div className="p-3.5 rounded-xl border border-blue-100 dark:border-blue-900/40 bg-blue-50/50 dark:bg-blue-950/20 text-xs text-blue-900 dark:text-blue-300 space-y-1.5">
+            <div className="p-3.5 rounded-xl border border-tint-blue-fg/25 bg-tint-blue-bg text-xs text-tint-blue-fg space-y-1.5">
               <div className="font-bold flex items-center gap-1.5">
-                <ShieldCheck className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                Medios de Pago Autorizados
+                <ShieldCheck className="w-4 h-4 text-tint-blue-fg" />
+                Medios de pago autorizados
               </div>
               <p>
-                Puedes pagar en línea con tarjeta o PSE vía <strong>Wompi</strong>, o reportar una consignación bancaria adjuntando el comprobante para revisión y aprobación de la administración.
+                Puedes pagar en línea con PSE o tarjeta a través de <strong>Wompi</strong>, o reportar una consignación bancaria adjuntando el comprobante para revisión y aprobación de la administración.
               </p>
             </div>
           </div>
@@ -775,7 +785,7 @@ export default function ResCuotasPage() {
         onClose={() => {
           if (!enviandoReporte) setModalReporte(null);
         }}
-        title={`Reportar Pago por Transferencia — Cuota #${modalReporte?.id || modalReporte?.idCuota || ''}`}
+        title={`Reportar pago por transferencia — cuota #${modalReporte?.id || modalReporte?.idCuota || ''}`}
         footer={
           <div className="flex items-center justify-between w-full">
             <Button
@@ -788,94 +798,86 @@ export default function ResCuotasPage() {
             <Button
               onClick={enviarReportePago}
               disabled={enviandoReporte}
-              className="bg-amber-600 hover:bg-amber-700 text-white font-semibold"
+              className="bg-btn-warn hover:bg-btn-warn-hover text-white font-semibold"
             >
-              {enviandoReporte ? 'Enviando Comprobante...' : 'Enviar a Aprobación'}
+              {enviandoReporte ? 'Enviando comprobante…' : 'Enviar a aprobación'}
             </Button>
           </div>
         }
       >
         {modalReporte && (
           <form onSubmit={enviarReportePago} className="space-y-3.5 text-sm">
-            <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 text-xs text-amber-800 dark:text-amber-300">
-              <strong>Nota Importante:</strong> El pago ingresará en estado <em>Pendiente de Aprobación</em>. El saldo de tu cuota no se descontará hasta que el administrador verifique y apruebe el soporte.
+            <div className="p-3 rounded-lg bg-tint-amber-bg border border-tint-amber-fg/25 text-xs text-tint-amber-fg">
+              <strong>Importante:</strong> el pago quedará en estado <em>pendiente de aprobación</em>. El saldo de tu cuota no se descontará hasta que el administrador verifique y apruebe el soporte.
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-semibold mb-1">Monto Pagado ($)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  required
-                  value={reporteForm.valor}
-                  onChange={(e) => setReporteForm((f) => ({ ...f, valor: e.target.value }))}
-                  className="w-full p-2 text-sm rounded border border-border bg-card text-foreground"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold mb-1">Fecha de Pago</label>
-                <input
-                  type="date"
-                  required
-                  value={reporteForm.fecha}
-                  onChange={(e) => setReporteForm((f) => ({ ...f, fecha: e.target.value }))}
-                  className="w-full p-2 text-sm rounded border border-border bg-card text-foreground"
-                />
-              </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Input
+                id="reporteValor"
+                label="Monto pagado (COP)"
+                type="number"
+                step="0.01"
+                inputMode="decimal"
+                required
+                value={reporteForm.valor}
+                onChange={(e) => setReporteForm((f) => ({ ...f, valor: e.target.value }))}
+              />
+              <Input
+                id="reporteFecha"
+                label="Fecha de pago"
+                type="date"
+                required
+                value={reporteForm.fecha}
+                onChange={(e) => setReporteForm((f) => ({ ...f, fecha: e.target.value }))}
+              />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-semibold mb-1">Método de Pago</label>
-                <select
-                  value={reporteForm.metodo}
-                  onChange={(e) => setReporteForm((f) => ({ ...f, metodo: e.target.value }))}
-                  className="w-full p-2 text-sm rounded border border-border bg-card text-foreground"
-                >
-                  <option value="TRANSFERENCIA">Transferencia Bancaria</option>
-                  <option value="CONSIGNACION">Consignación Bancaria</option>
-                  <option value="EFECTIVO">Efectivo</option>
-                  <option value="OTRO">Otro Medio</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-semibold mb-1">Número de Aprobación / Ref</label>
-                <input
-                  type="text"
-                  placeholder="Ej. TRANSF-091823"
-                  value={reporteForm.referencia}
-                  onChange={(e) => setReporteForm((f) => ({ ...f, referencia: e.target.value }))}
-                  className="w-full p-2 text-sm rounded border border-border bg-card text-foreground"
-                />
-              </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Select
+                id="reporteMetodo"
+                label="Método de pago"
+                value={reporteForm.metodo}
+                onChange={(e) => setReporteForm((f) => ({ ...f, metodo: e.target.value }))}
+              >
+                <option value="TRANSFERENCIA">Transferencia bancaria</option>
+                <option value="CONSIGNACION">Consignación bancaria</option>
+                <option value="EFECTIVO">Efectivo</option>
+                <option value="OTRO">Otro medio</option>
+              </Select>
+              <Input
+                id="reporteReferencia"
+                label="Número de aprobación o referencia"
+                type="text"
+                placeholder="Ej. TRANSF-091823"
+                value={reporteForm.referencia}
+                onChange={(e) => setReporteForm((f) => ({ ...f, referencia: e.target.value }))}
+              />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold mb-1">
-                Adjuntar Comprobante (JPG, PNG, WEBP o PDF - Máx 5MB)
+              <label htmlFor="reporteArchivo" className="mb-1 block text-xs font-semibold text-on-surface">
+                Adjuntar comprobante (JPG, PNG, WEBP o PDF, máx. 5 MB)
               </label>
               <input
+                id="reporteArchivo"
                 type="file"
                 accept="image/jpeg,image/png,image/webp,application/pdf"
                 onChange={(e) => {
                   const file = e.target.files?.[0] || null;
                   setReporteForm((f) => ({ ...f, archivo: file }));
                 }}
-                className="w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:bg-muted file:text-foreground hover:file:bg-muted/80"
+                className="w-full text-xs text-text-secondary file:mr-3 file:min-h-9 file:rounded file:border file:border-border file:bg-surface-container file:px-3 file:text-xs file:font-semibold file:text-on-surface hover:file:bg-surface-dim"
               />
             </div>
 
-            <div>
-              <label className="block text-xs font-semibold mb-1">Observaciones / Notas</label>
-              <textarea
-                rows={2}
-                placeholder="Indica información adicional sobre la consignación..."
-                value={reporteForm.notas}
-                onChange={(e) => setReporteForm((f) => ({ ...f, notas: e.target.value }))}
-                className="w-full p-2 text-xs rounded border border-border bg-card text-foreground"
-              />
-            </div>
+            <Textarea
+              id="reporteNotas"
+              label="Observaciones"
+              rows={2}
+              placeholder="Información adicional sobre la consignación…"
+              value={reporteForm.notas}
+              onChange={(e) => setReporteForm((f) => ({ ...f, notas: e.target.value }))}
+            />
           </form>
         )}
       </Modal>
@@ -912,7 +914,7 @@ export default function ResCuotasPage() {
                 rel="noreferrer"
                 className="inline-block text-xs px-3.5 py-2 rounded-lg border border-border bg-card text-foreground font-semibold hover:bg-muted/50"
               >
-                Descargar Comprobante Original
+                Descargar comprobante original
               </a>
             </div>
           </div>

@@ -10,9 +10,6 @@ import {
   ShieldCheck,
   FileText,
   ExternalLink,
-  Info,
-  Calendar,
-  Sparkles,
 } from 'lucide-react';
 
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../ui/card.tsx';
@@ -206,24 +203,24 @@ export default function ResidentPetsSection({
   }, [pets]);
 
   return (
-    <Card className="border-border/70 shadow-xs">
-      <CardHeader className="pb-3 border-b border-border/50">
+    <Card className="border-border bg-surface shadow-xs">
+      <CardHeader className="pb-3 border-b border-border bg-surface-container rounded-t-xl">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-lg bg-pink-500/10 text-pink-600 dark:text-pink-400">
+            <div className="p-2 rounded-xl bg-tint-purple-bg text-primary-text">
               <Heart className="w-5 h-5" aria-hidden="true" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <CardTitle className="text-base font-semibold text-foreground">
-                  Mascotas de la Unidad
+                <CardTitle className="text-base font-bold text-on-surface">
+                  Mascotas de la unidad
                 </CardTitle>
-                <Badge variant="outline" className="text-xs font-medium">
+                <Badge variant="lavender" className="text-xs font-semibold">
                   {totalActivas} {totalActivas === 1 ? 'activa' : 'activas'}
                 </Badge>
               </div>
-              <CardDescription className="text-xs text-muted-foreground mt-0.5">
-                Censo animal, microchips y cumplimiento de Ley 1801 (Manejo Especial)
+              <CardDescription className="text-xs text-text-muted mt-0.5">
+                Censo animal, microchips y cumplimiento de Ley 1801 (manejo especial)
               </CardDescription>
             </div>
           </div>
@@ -238,7 +235,7 @@ export default function ResidentPetsSection({
               aria-label="Actualizar lista de mascotas"
             >
               <RefreshCw
-                className={`h-3.5 w-3.5 mr-1.5 ${refreshing ? 'animate-spin text-primary' : ''}`}
+                className={`h-3.5 w-3.5 mr-1.5 ${refreshing ? 'animate-spin text-primary-text' : ''}`}
                 aria-hidden="true"
               />
               Actualizar
@@ -251,7 +248,7 @@ export default function ResidentPetsSection({
                 className="text-xs min-h-[36px] gap-1.5 shadow-xs"
               >
                 <Plus className="w-3.5 h-3.5" aria-hidden="true" />
-                <span>Registrar Mascota</span>
+                <span>Registrar mascota</span>
               </Button>
             )}
           </div>
@@ -262,7 +259,7 @@ export default function ResidentPetsSection({
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {[1, 2].map((i) => (
-              <div key={i} className="p-4 rounded-xl border border-border/60 bg-muted/20 space-y-2">
+              <div key={i} className="p-4 rounded-xl border border-border bg-surface-container space-y-2">
                 <Skeleton className="h-4 w-24" />
                 <Skeleton className="h-6 w-32" />
                 <Skeleton className="h-3 w-40" />
@@ -270,13 +267,13 @@ export default function ResidentPetsSection({
             ))}
           </div>
         ) : pets.length === 0 ? (
-          <div className="p-8 text-center border border-dashed border-border rounded-xl bg-muted/10 space-y-3">
-            <div className="w-12 h-12 rounded-full bg-pink-500/10 text-pink-600 dark:text-pink-400 flex items-center justify-center mx-auto">
-              <Heart className="w-6 h-6 opacity-80" aria-hidden="true" />
+          <div className="p-8 text-center border border-dashed border-border rounded-xl bg-surface-container space-y-3">
+            <div className="w-12 h-12 rounded-full bg-tint-purple-bg text-primary-text flex items-center justify-center mx-auto">
+              <Heart className="w-6 h-6 opacity-90" aria-hidden="true" />
             </div>
             <div className="space-y-1">
-              <p className="text-sm font-semibold text-foreground">Sin mascotas registradas</p>
-              <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+              <p className="text-sm font-bold text-on-surface">Sin mascotas registradas</p>
+              <p className="text-xs text-text-muted max-w-sm mx-auto">
                 No hay caninos, felinos u otras mascotas registradas para el censo de convivencia de esta unidad.
               </p>
             </div>
@@ -287,8 +284,8 @@ export default function ResidentPetsSection({
                 onClick={openCreateModal}
                 className="text-xs min-h-[36px] gap-1.5 mt-2"
               >
-                <Plus className="w-3.5 h-3.5 text-primary" aria-hidden="true" />
-                <span>Registrar Primera Mascota</span>
+                <Plus className="w-3.5 h-3.5 text-primary-text" aria-hidden="true" />
+                <span>Registrar primera mascota</span>
               </Button>
             )}
           </div>
@@ -305,16 +302,16 @@ export default function ResidentPetsSection({
               return (
                 <div
                   key={pet.idMascota}
-                  className="p-4 rounded-xl border border-border/70 bg-card hover:border-primary/40 hover:shadow-xs transition-all space-y-3"
+                  className="p-4 rounded-xl border border-border bg-surface hover:border-primary/50 hover:shadow-xs transition-all space-y-3"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-2.5">
-                      <div className="p-2 rounded-lg bg-pink-500/10 text-pink-600 dark:text-pink-400 shrink-0">
+                      <div className="p-2 rounded-xl bg-tint-purple-bg text-primary-text shrink-0">
                         <Heart className="w-4 h-4" aria-hidden="true" />
                       </div>
                       <div>
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-base font-bold text-foreground">
+                          <span className="text-base font-bold text-on-surface">
                             {pet.nombre}
                           </span>
                           <Badge
@@ -324,12 +321,12 @@ export default function ResidentPetsSection({
                             {pet.estado || 'Activa'}
                           </Badge>
                           {pet.genero && (
-                            <span className="text-xs font-semibold px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                            <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-tint-purple-bg text-primary-text">
                               {pet.genero === 'H' ? 'Hembra' : 'Macho'}
                             </span>
                           )}
                         </div>
-                        <p className="text-xs font-medium text-muted-foreground mt-0.5">
+                        <p className="text-xs font-medium text-text-muted mt-0.5">
                           {especieLabel}
                           {pet.raza ? ` · ${pet.raza}` : ''}
                           {pet.color ? ` · Color ${pet.color}` : ''}
@@ -343,7 +340,7 @@ export default function ResidentPetsSection({
                         <button
                           type="button"
                           onClick={() => openEditModal(pet)}
-                          className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                          className="p-1.5 rounded-lg text-text-muted hover:text-primary-text hover:bg-tint-purple-bg transition-colors"
                           aria-label={`Editar mascota ${pet.nombre}`}
                         >
                           <Pencil className="w-3.5 h-3.5" aria-hidden="true" />
@@ -351,7 +348,7 @@ export default function ResidentPetsSection({
                         <button
                           type="button"
                           onClick={() => setConfirmDelete({ open: true, pet })}
-                          className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                          className="p-1.5 rounded-lg text-text-muted hover:text-destructive hover:bg-destructive/10 transition-colors"
                           aria-label={`Eliminar mascota ${pet.nombre}`}
                         >
                           <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
@@ -361,19 +358,19 @@ export default function ResidentPetsSection({
                   </div>
 
                   {/* Microchip & Ley 1801 */}
-                  <div className="space-y-1.5 pt-2 border-t border-border/50 text-xs">
+                  <div className="space-y-1.5 pt-2 border-t border-border text-xs">
                     {pet.numeroMicrochip && (
-                      <div className="flex items-center justify-between text-muted-foreground">
-                        <span>Microchip de Identificación:</span>
-                        <span className="font-mono font-bold text-foreground text-[11px] bg-muted px-1.5 py-0.5 rounded border border-border">
+                      <div className="flex items-center justify-between text-text-muted">
+                        <span>Microchip de identificación:</span>
+                        <span className="font-mono font-bold text-on-surface text-[11px] bg-surface-container px-2 py-0.5 rounded-md border border-border">
                           {pet.numeroMicrochip}
                         </span>
                       </div>
                     )}
 
                     {isManejoEspecial ? (
-                      <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 flex items-start gap-2">
-                        <ShieldAlert className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+                      <div className="p-2.5 rounded-xl bg-tint-amber-bg border border-tint-amber-fg/25 text-tint-amber-fg flex items-start gap-2">
+                        <ShieldAlert className="w-4 h-4 shrink-0 text-tint-amber-fg mt-0.5" />
                         <div className="space-y-0.5">
                           <p className="font-semibold text-[11px]">Raza de Manejo Especial (Ley 1801)</p>
                           {pet.polizaResponsabilidadUrl ? (
@@ -381,15 +378,15 @@ export default function ResidentPetsSection({
                               href={pet.polizaResponsabilidadUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-[10px] font-medium text-primary hover:underline flex items-center gap-1"
+                              className="text-[10px] font-semibold text-primary-text hover:underline flex items-center gap-1"
                             >
-                              <ShieldCheck className="w-3 h-3 text-emerald-600" />
-                              Ver Póliza de Responsabilidad Civil
+                              <ShieldCheck className="w-3 h-3 text-tint-green-fg" />
+                              Ver póliza de responsabilidad civil
                               <ExternalLink className="w-2.5 h-2.5" />
                             </a>
                           ) : (
                             <p className="text-[10px] text-destructive font-medium">
-                              ⚠️ Pendiente adjuntar póliza de responsabilidad civil vigente
+                              Pendiente adjuntar póliza de responsabilidad civil vigente
                             </p>
                           )}
                         </div>
@@ -398,15 +395,15 @@ export default function ResidentPetsSection({
 
                     {pet.carnetVacunacionUrl && (
                       <div className="flex items-center justify-between pt-1">
-                        <span className="text-muted-foreground">Carnet de Vacunación:</span>
+                        <span className="text-text-muted">Carnet de vacunación:</span>
                         <a
                           href={pet.carnetVacunacionUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-primary hover:underline font-medium flex items-center gap-1 text-[11px]"
+                          className="text-primary-text hover:underline font-semibold flex items-center gap-1 text-[11px]"
                         >
                           <FileText className="w-3 h-3" />
-                          Consultar Carnet
+                          Consultar carnet
                           <ExternalLink className="w-2.5 h-2.5" />
                         </a>
                       </div>
@@ -430,7 +427,7 @@ export default function ResidentPetsSection({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Input
-                label="Nombre de la Mascota *"
+                label="Nombre de la mascota *"
                 value={form.nombre}
                 onChange={(e) => setForm({ ...form, nombre: e.target.value })}
                 placeholder="Ej. Firulais, Luna"
@@ -461,7 +458,7 @@ export default function ResidentPetsSection({
             </div>
             <div>
               <Input
-                label="Color / Características"
+                label="Color / características"
                 value={form.color}
                 onChange={(e) => setForm({ ...form, color: e.target.value })}
                 placeholder="Ej. Dorado, Blanco"
@@ -481,7 +478,7 @@ export default function ResidentPetsSection({
             <div>
               <Input
                 type="date"
-                label="Nacimiento Aprox."
+                label="Nacimiento aprox."
                 value={form.fechaNacimientoAprox}
                 onChange={(e) => setForm({ ...form, fechaNacimientoAprox: e.target.value })}
               />
@@ -499,7 +496,7 @@ export default function ResidentPetsSection({
             </div>
             <div>
               <Input
-                label="Número de Microchip"
+                label="Número de microchip"
                 value={form.numeroMicrochip}
                 onChange={(e) =>
                   setForm({ ...form, numeroMicrochip: e.target.value.toUpperCase() })
@@ -511,15 +508,15 @@ export default function ResidentPetsSection({
           </div>
 
           {/* Toggle Raza de Manejo Especial (Ley 1801) */}
-          <div className="p-3 rounded-xl border border-border bg-muted/20 space-y-2">
+          <div className="p-3 rounded-xl border border-border bg-surface-container space-y-2">
             <div className="flex items-center justify-between">
               <div>
-                <label className="text-xs font-semibold text-foreground flex items-center gap-1.5 cursor-pointer">
+                <label className="text-xs font-semibold text-on-surface flex items-center gap-1.5 cursor-pointer">
                   <span>¿Es raza de manejo especial?</span>
-                  <span className="text-[10px] text-muted-foreground font-normal">(Ley 1801 de 2016)</span>
+                  <span className="text-[10px] text-text-muted font-normal">(Ley 1801 de 2016)</span>
                 </label>
-                <p className="text-[11px] text-muted-foreground">
-                  Aplica a caninos con características físicas o razas tipificadas por el Código de Convivencia.
+                <p className="text-[11px] text-text-muted">
+                  Aplica a caninos con características físicas o razas tipificadas por el código de convivencia.
                 </p>
               </div>
               <Select
@@ -534,9 +531,9 @@ export default function ResidentPetsSection({
             </div>
 
             {form.esRazaManejoEspecial === 'S' && (
-              <div className="pt-2 border-t border-border/60">
+              <div className="pt-2 border-t border-border">
                 <Input
-                  label="URL Póliza de Responsabilidad Civil (Obligatoria) *"
+                  label="URL póliza de responsabilidad civil (obligatoria) *"
                   value={form.polizaResponsabilidadUrl}
                   onChange={(e) =>
                     setForm({ ...form, polizaResponsabilidadUrl: e.target.value })
@@ -552,7 +549,7 @@ export default function ResidentPetsSection({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Input
-                label="URL Carnet de Vacunación (Opcional)"
+                label="URL carnet de vacunación (opcional)"
                 value={form.carnetVacunacionUrl}
                 onChange={(e) => setForm({ ...form, carnetVacunacionUrl: e.target.value })}
                 placeholder="https://..."
@@ -591,7 +588,7 @@ export default function ResidentPetsSection({
         onConfirm={handleDelete}
         title="¿Remover del censo animal?"
         message={`Esta acción eliminará a ${confirmDelete.pet?.nombre} del censo de mascotas de la unidad.`}
-        confirmLabel="Eliminar Mascota"
+        confirmLabel="Eliminar mascota"
         danger
       />
     </Card>

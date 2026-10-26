@@ -22,7 +22,7 @@ export function Modal({ open, onClose, title, children, footer, size = 'md' }) {
     <Dialog open={open} onOpenChange={(o) => !o && onClose?.()}>
       <DialogContent className={cn('max-h-[90dvh] overflow-y-auto', sizes[size] || sizes.md)}>
         <DialogHeader>
-          <DialogTitle className="text-lg font-semibold">{title}</DialogTitle>
+          <DialogTitle className="pr-10">{title}</DialogTitle>
         </DialogHeader>
         {children}
         {footer && <DialogFooter>{footer}</DialogFooter>}

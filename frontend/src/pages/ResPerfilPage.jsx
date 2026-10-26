@@ -16,25 +16,28 @@ import {
   Users,
   Car,
   CheckCircle2,
-  Sparkles,
   MapPin,
   Layers,
   Key,
   AlertCircle,
   ArrowRight,
   FileText,
-  UserPlus,
+  ChevronRight,
 } from 'lucide-react';
 
 import { useAuth } from '../lib/AuthContext.jsx';
 import { useTenant } from '../lib/TenantContext.jsx';
 import { useFetch, useLiveValidation, useTiposDocumento } from '../lib/hooks.js';
 import api from '../lib/api.js';
-import { formatCurrency, formatDate } from '../lib/utils.js';
-import { valTelefono, valEmail, valDocumento, getDocPlaceholder } from '../lib/validation.js';
+import { formatCurrency, formatDate, cn } from '../lib/utils.js';
+import { valTelefono, valEmail } from '../lib/validation.js';
 
 import { PageHeader } from '../components/ui/PageHeader.jsx';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../components/ui/card.tsx';
+import { PageContainer } from '../components/layout/PageContainer.jsx';
+import { MetricCard } from '../components/ui/MetricCard.jsx';
+import EmptyState from '../components/ui/EmptyState.jsx';
+import ErrorState from '../components/ui/ErrorState.jsx';
+import LoadingState from '../components/ui/LoadingState.jsx';
 import { Badge } from '../components/ui/badge.tsx';
 import { Button } from '../components/ui/button.tsx';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs.tsx';
@@ -51,27 +54,28 @@ function CopyChip({ text, label, icon: Icon }) {
   const handleCopy = (e) => {
     e.stopPropagation();
     if (!text) return;
-    navigator.clipboard.writeText(String(text));
+    navigator.clipboard?.writeText(String(text)).catch(() => {});
     setCopied(true);
     toast.success(`${label || 'Valor'} copiado al portapapeles`);
     setTimeout(() => setCopied(false), 2000);
   };
 
-  if (!text) return null;
+  if (!text || text === '—') return null;
 
   return (
     <button
       type="button"
       onClick={handleCopy}
       title={`Copiar ${label || ''}: ${text}`}
-      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-white/10 hover:bg-white/20 text-white/90 border border-white/15 transition-all duration-150 backdrop-blur-sm cursor-pointer group"
+      aria-label={`Copiar ${label || 'valor'}: ${text}`}
+      className="group inline-flex min-h-8 max-w-full items-center gap-1.5 rounded-md border border-border bg-surface px-2.5 py-1 text-xs font-medium text-text-secondary transition-colors duration-150 hover:border-primary/50 hover:text-on-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
-      {Icon && <Icon className="w-3.5 h-3.5 opacity-75 group-hover:opacity-100" />}
-      <span className="truncate max-w-[180px]">{text}</span>
+      {Icon && <Icon className="h-3.5 w-3.5 shrink-0 text-text-muted" aria-hidden="true" />}
+      <span className="max-w-[180px] truncate tabular-nums">{text}</span>
       {copied ? (
-        <Check className="w-3 h-3 text-emerald-300 ml-0.5" />
+        <Check className="h-3 w-3 shrink-0 text-tint-green-fg" aria-hidden="true" />
       ) : (
-        <Copy className="w-3 h-3 opacity-50 group-hover:opacity-100 ml-0.5" />
+        <Copy className="h-3 w-3 shrink-0 text-text-muted group-hover:text-on-surface" aria-hidden="true" />
       )}
     </button>
   );
@@ -79,19 +83,17 @@ function CopyChip({ text, label, icon: Icon }) {
 
 function DetailItem({ icon: Icon, label, value, badge, subtext, isMono = false }) {
   return (
-    <div className="flex items-start gap-3 p-3 rounded-lg border border-border/50 bg-background/50 hover:bg-muted/40 transition-colors">
-      <div className="p-2 rounded-md bg-primary/10 text-primary mt-0.5 shrink-0">
-        <Icon className="w-4 h-4" />
-      </div>
-      <div className="flex-1 min-w-0">
+    <div className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
+      <Icon className="mt-0.5 h-4 w-4 shrink-0 text-text-muted" aria-hidden="true" />
+      <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
-          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{label}</span>
+          <dt className="text-xs font-semibold text-text-muted">{label}</dt>
           {badge}
         </div>
-        <p className={`text-sm font-semibold text-foreground truncate mt-0.5 ${isMono ? 'font-mono' : ''}`}>
-          {value || '—'}
-        </p>
-        {subtext && <p className="text-xs text-muted-foreground mt-0.5">{subtext}</p>}
+        <dd className={cn('mt-0.5 break-words text-sm font-bold text-on-surface', isMono && 'tabular-nums')}>
+          {value || <span className="font-medium text-text-muted">Sin registrar</span>}
+        </dd>
+        {subtext && <dd className="mt-0.5 text-xs text-text-muted">{subtext}</dd>}
       </div>
     </div>
   );
@@ -125,7 +127,7 @@ export default function ResPerfilPage() {
   const residentId = user?.idPersona || user?.idResidente || user?.idUsuario;
 
   // 1. Datos personales de la persona
-  const { data: personaData, loading: personaLoading, refetch: refetchPersona } = useFetch(
+  const { data: personaData, loading: personaLoading, error: personaError, refetch: refetchPersona } = useFetch(
     () => api.get('/personas/me').catch(() => (residentId ? api.get(`/personas/${residentId}`) : Promise.resolve(null))),
     [residentId]
   );
@@ -133,7 +135,7 @@ export default function ResPerfilPage() {
   const resolvedPersonaId = perfil.id || perfil.idPersona || user?.idPersona || user?.idResidente || residentId;
 
   // 2. Dashboard financiero y de unidad del residente (Solo residente titular)
-  const { data: dashboardData, loading: dashboardLoading, refetch: refetchDashboard } = useFetch(
+  const { data: dashboardData, loading: dashboardLoading, error: dashboardError, refetch: refetchDashboard } = useFetch(
     () => (!isConviviente && resolvedPersonaId ? api.get(`/residentes/${resolvedPersonaId}/dashboard`) : Promise.resolve(null)),
     [resolvedPersonaId, isConviviente]
   );
@@ -172,8 +174,8 @@ export default function ResPerfilPage() {
   );
 
   const handleRefreshHabitantes = () => {
-    if (refetchResidents) refetchResidents();
-    if (refetchQuota) refetchQuota();
+    if (refetchResidents) refetchResidents().catch(() => {});
+    if (refetchQuota) refetchQuota().catch(() => {});
   };
 
   // 5. Asignaciones de parqueadero
@@ -216,11 +218,11 @@ export default function ResPerfilPage() {
     user?.identificadorUnidad ||
     tenant?.activeUnitNumber;
 
-  const numeroApto = rawNumeroApto || (isUnitDataLoading ? '...' : 'Sin Asignar');
-  const nombreBloque = u.bloqueNombre || aptoInfo.bloque || aptoInfo.torre || (isUnitDataLoading ? '...' : '—');
+  const numeroApto = rawNumeroApto || (isUnitDataLoading ? '…' : 'Sin asignar');
+  const nombreBloque = u.bloqueNombre || aptoInfo.bloque || aptoInfo.torre || (isUnitDataLoading ? '…' : '—');
   const pisoApto = aptoInfo.piso || u.piso || (rawNumeroApto && rawNumeroApto.match(/\d+/) ? rawNumeroApto.match(/\d+/)[0][0] : '—');
-  const areaApto = u.areaM2 ? `${u.areaM2} m²` : aptoInfo.areaM2 ? `${aptoInfo.areaM2} m²` : (isUnitDataLoading ? '...' : '—');
-  const tipoUnidad = u.tipoUnidadNombre || aptoInfo.tipo || 'Apartamento Residencial';
+  const areaApto = u.areaM2 ? `${u.areaM2} m²` : aptoInfo.areaM2 ? `${aptoInfo.areaM2} m²` : (isUnitDataLoading ? '…' : '—');
+  const tipoUnidad = u.tipoUnidadNombre || aptoInfo.tipo || 'Apartamento';
   const coeficiente = u.coeficienteCopropiedad
     ? `${(Number(u.coeficienteCopropiedad) * 100).toFixed(2)}%`
     : '—';
@@ -252,7 +254,7 @@ export default function ResPerfilPage() {
     return (cuotas || []).filter((c) => c.estado !== 'PAGADA');
   }, [cuotas]);
   const alDia = cuotasPendientes.length === 0;
-  const tipoContrato = contratoInfo.tipoContrato || 'Copropietario Residente';
+  const tipoContrato = contratoInfo.tipoContrato || (isConviviente ? 'Residente conviviente' : 'Residente titular');
 
   // Parqueadero asignado
   const parqueaderoAsignado = useMemo(() => {
@@ -310,8 +312,8 @@ export default function ResPerfilPage() {
       });
       toast.success('Perfil de residente actualizado exitosamente');
       setModalOpen(false);
-      refetchPersona();
-      refetchDashboard();
+      refetchPersona().catch(() => {});
+      refetchDashboard().catch(() => {});
     } catch (err) {
       toast.error(err.message || 'Error al actualizar el perfil');
     } finally {
@@ -321,482 +323,397 @@ export default function ResPerfilPage() {
   }
 
   return (
-    <div className="space-y-6 pb-12 max-w-7xl mx-auto">
-      {/* Título de navegación */}
+    <PageContainer className="pb-12">
       <PageHeader
-        title="Mi Perfil & Apartamento"
-        subtitle="Centro de gestión integral del copropietario y residente"
+        title="Mi perfil y apartamento"
+        subtitle="Tus datos de contacto, la ficha de tu unidad y los accesos a tus gestiones."
       />
 
-      {/* HERO BANNER DEL RESIDENTE */}
-      <div className="relative overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-slate-900 via-primary/95 to-slate-900 text-white shadow-xl">
-        {/* Patrón de fondo geométrico sutil */}
-        <div
-          className="absolute inset-0 opacity-5 pointer-events-none"
-          style={{
-            backgroundImage:
-              'radial-gradient(circle at 20% 30%, white 1px, transparent 1px), radial-gradient(circle at 80% 70%, white 1px, transparent 1px)',
-            backgroundSize: '28px 28px',
-          }}
+      {personaError && !personaLoading && (
+        <ErrorState
+          compact
+          title="No se pudieron cargar tus datos personales"
+          message="Algunos campos pueden aparecer vacíos. Intenta de nuevo en unos segundos."
+          onRetry={() => refetchPersona().catch(() => {})}
         />
+      )}
 
-        <div className="relative p-6 sm:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-          <div className="flex items-center gap-5">
-            {/* Avatar con aura y badge de actividad */}
-            <div className="relative shrink-0">
-              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-white/10 backdrop-blur-md border-2 border-white/30 flex items-center justify-center text-white text-2xl sm:text-3xl font-extrabold shadow-2xl ring-4 ring-white/10">
-                {iniciales}
-              </div>
-              <div
-                className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-emerald-500 border-2 border-slate-900 flex items-center justify-center"
-                title="Residente Activo y Conectado"
-              >
-                <div className="w-2.5 h-2.5 rounded-full bg-white animate-pulse" />
-              </div>
+      {/* Identity summary */}
+      <section
+        aria-labelledby="perfil-identidad"
+        className="relative overflow-hidden rounded-lg border border-border bg-surface shadow-sm"
+      >
+        <div
+          className="app-studs pointer-events-none absolute inset-y-0 right-0 hidden w-1/2 sm:block [mask-image:linear-gradient(to_left,black,transparent)]"
+          aria-hidden="true"
+        />
+        <div className="relative flex flex-col gap-5 p-5 sm:p-6 md:flex-row md:items-center md:justify-between">
+          <div className="flex min-w-0 items-start gap-4">
+            <div
+              className="app-numeral flex h-14 w-14 shrink-0 items-center justify-center rounded-md bg-tint-purple-bg text-xl text-on-surface ring-1 ring-inset ring-keyline/15"
+              aria-hidden="true"
+            >
+              {personaLoading ? '' : iniciales}
             </div>
-
-            {/* Identidad y Rol */}
-            <div className="space-y-1.5">
+            <div className="min-w-0 space-y-2">
+              {personaLoading ? (
+                <div className="space-y-2" aria-hidden="true">
+                  <div className="app-skeleton h-5 w-48" />
+                  <div className="app-skeleton h-3 w-32" />
+                </div>
+              ) : (
+                <h2 id="perfil-identidad" className="app-display break-words text-xl leading-tight text-on-surface sm:text-2xl">
+                  {nombreCompleto}
+                </h2>
+              )}
+              <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm text-text-secondary">
+                <span className="inline-flex items-center gap-1.5 font-semibold text-on-surface">
+                  <Home className="h-4 w-4 shrink-0 text-primary-text" aria-hidden="true" />
+                  <span className="tabular-nums">{numeroApto}</span>
+                </span>
+                {nombreBloque && nombreBloque !== '—' && (
+                  <>
+                    <span className="text-text-muted" aria-hidden="true">·</span>
+                    <span>{nombreBloque}</span>
+                  </>
+                )}
+                {user?.nombrePropiedad && (
+                  <>
+                    <span className="text-text-muted" aria-hidden="true">·</span>
+                    <span className="min-w-0 truncate">{user.nombrePropiedad}</span>
+                  </>
+                )}
+              </p>
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">{nombreCompleto}</h1>
-                <Badge variant="secondary" className="bg-white/20 text-white border-white/20 hover:bg-white/30">
-                  {isConviviente ? 'Residente Conviviente' : 'Residente Titular'}
-                </Badge>
+                <Badge variant="lavender">{isConviviente ? 'Residente conviviente' : 'Residente titular'}</Badge>
                 {isConviviente ? (
-                  <Badge
-                    variant="outline"
-                    className="bg-blue-500/20 text-blue-300 border-blue-500/30 font-medium"
-                  >
-                    <CheckCircle2 className="w-3 h-3 mr-1" />
-                    Conviviente Autorizado
+                  <Badge variant="success">
+                    <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
+                    Conviviente autorizado
                   </Badge>
-                ) : alDia ? (
-                  <Badge
-                    variant="outline"
-                    className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30 font-medium"
-                  >
-                    <CheckCircle2 className="w-3 h-3 mr-1" />
-                    Al Día
+                ) : dashboardLoading || dashboardError ? null : alDia ? (
+                  <Badge variant="success">
+                    <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
+                    Al día
                   </Badge>
                 ) : (
-                  <Badge
-                    variant="outline"
-                    className="bg-amber-500/20 text-amber-300 border-amber-500/30 font-medium"
-                  >
-                    <AlertCircle className="w-3 h-3 mr-1" />
-                    Saldo Pendiente
+                  <Badge variant="warning">
+                    <AlertCircle className="h-3 w-3" aria-hidden="true" />
+                    Saldo pendiente
                   </Badge>
                 )}
               </div>
-
-              <p className="text-sm text-white/80 font-medium flex items-center gap-1.5">
-                <Home className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>
-                  {numeroApto} · {nombreBloque} · Piso {pisoApto}
-                </span>
-                <span className="text-white/40">•</span>
-                <span className="text-white/70">{user?.nombrePropiedad || 'Edificio Residencial SAED'}</span>
-              </p>
-
-              {/* Chips de contacto con copia rápida */}
               <div className="flex flex-wrap items-center gap-2 pt-1">
+                <CopyChip text={perfil.numeroDocumento || user?.numeroDocumento} label="Documento" icon={Shield} />
                 <CopyChip
-                  text={perfil.numeroDocumento || user?.numeroDocumento || '—'}
-                  label="Documento"
-                  icon={Shield}
-                />
-                <CopyChip
-                  text={perfil.telefono || perfil.celular || perfil.telefonoContacto || user?.telefono || '—'}
+                  text={perfil.telefono || perfil.celular || perfil.telefonoContacto || user?.telefono}
                   label="Teléfono"
                   icon={Phone}
                 />
-                <CopyChip
-                  text={perfil.email || user?.email || '—'}
-                  label="Correo"
-                  icon={Mail}
-                />
+                <CopyChip text={perfil.email || user?.email} label="Correo" icon={Mail} />
               </div>
             </div>
           </div>
-
-          {/* Quick Info Box / Nomenclatura Destacada */}
-          <div className="w-full md:w-auto flex md:flex-col items-center md:items-end justify-between border-t md:border-t-0 md:border-l border-white/15 pt-4 md:pt-0 md:pl-6 gap-3">
+          <div className="flex shrink-0 items-center justify-between gap-3 border-t border-border pt-4 md:flex-col md:items-end md:border-l md:border-t-0 md:pl-6 md:pt-0">
             <div className="text-left md:text-right">
-              <div className="text-xs text-white/60 uppercase tracking-wider font-semibold">Unidad Habitacional</div>
-              <div className="text-2xl font-black text-white tracking-tight">{numeroApto}</div>
-              <div className="text-xs text-white/70">{tipoUnidad}</div>
+              <p className="text-xs font-semibold text-text-muted">Unidad</p>
+              <p className="app-numeral text-[1.625rem] text-on-surface">{numeroApto}</p>
+              <p className="text-xs text-text-muted">{tipoUnidad}</p>
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* STRIP DE KPIS / STATUS EN 4 COLUMNAS */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* KPI 1: Inmueble */}
-        <Card className="hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 border-border/70">
-          <CardContent className="p-5 flex items-center gap-4">
-            <div className="p-3 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
-              <Building2 className="w-6 h-6" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Apartamento</p>
-              <h3 className="text-xl font-bold text-foreground truncate">{numeroApto}</h3>
-              <p className="text-xs text-muted-foreground truncate">{nombreBloque} · {areaApto}</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* KPI 2: Finanzas o Zonas Comunes */}
+      {/* Status strip */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <MetricCard
+          label="Apartamento"
+          value={numeroApto}
+          context={[nombreBloque, areaApto].filter((v) => v && v !== '—' && v !== '…').join(' · ') || 'Datos de la unidad'}
+          icon={Building2}
+          variant="primary"
+        />
         {isConviviente ? (
-          <Card className="hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 border-border/70">
-            <CardContent className="p-5 flex items-center gap-4">
-              <div className="p-3 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400">
-                <Calendar className="w-6 h-6" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Zonas Comunes</p>
-                <h3 className="text-xl font-bold text-foreground">Habilitado</h3>
-                <p className="text-xs text-muted-foreground truncate">Acceso a áreas sociales</p>
-              </div>
-            </CardContent>
-          </Card>
+          <MetricCard
+            label="Zonas comunes"
+            value="Habilitado"
+            context="Puedes reservar áreas sociales"
+            icon={Calendar}
+            variant="info"
+          />
         ) : (
-          <Card className="hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 border-border/70">
-            <CardContent className="p-5 flex items-center gap-4">
-              <div className="p-3 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                <CreditCard className="w-6 h-6" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Estado de Cartera</p>
-                <h3 className="text-xl font-bold text-foreground">
-                  {alDia ? 'Al Día' : `${cuotasPendientes.length} Pendiente(s)`}
-                </h3>
-                <p className="text-xs text-muted-foreground truncate">
-                  {alDia ? 'Sin obligaciones en mora' : 'Requiere pago oportuno'}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+          <MetricCard
+            label="Estado de cartera"
+            value={
+              dashboardLoading ? '…' : dashboardError ? '—' : alDia ? 'Al día' : `${cuotasPendientes.length} pendiente(s)`
+            }
+            context={dashboardError ? 'No se pudo consultar' : alDia ? 'Sin obligaciones en mora' : 'Requiere pago oportuno'}
+            icon={CreditCard}
+            variant={dashboardError ? 'secondary' : alDia ? 'success' : 'warning'}
+          />
         )}
-
-        {/* KPI 3: Habitantes */}
-        <Card className="hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 border-border/70">
-          <CardContent className="p-5 flex items-center gap-4">
-            <div className="p-3 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400">
-              <Users className="w-6 h-6" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Habitantes</p>
-              <h3 className="text-xl font-bold text-foreground">{listaHabitantes.length} Registrado(s)</h3>
-              <p className="text-xs text-muted-foreground truncate">Núcleo familiar activo</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* KPI 4: Movilidad / Parqueadero */}
-        <Card className="hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 border-border/70">
-          <CardContent className="p-5 flex items-center gap-4">
-            <div className="p-3 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
-              <Car className="w-6 h-6" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Parqueadero</p>
-              <h3 className="text-xl font-bold text-foreground">
-                {parqueaderoAsignado ? `Celda ${parqueaderoAsignado.identificador || parqueaderoAsignado.numero || 'P-1'}` : 'Comunal / Libre'}
-              </h3>
-              <p className="text-xs text-muted-foreground truncate">
-                {parqueaderoAsignado ? (parqueaderoAsignado.tipo || 'Privado cubierto') : 'Acceso vehicular'}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+        <MetricCard
+          label="Habitantes"
+          value={listaHabitantes.length}
+          context="Registrados en la unidad"
+          icon={Users}
+          variant="info"
+        />
+        <MetricCard
+          label="Parqueadero"
+          value={
+            parqueaderoAsignado
+              ? parqueaderoAsignado.identificador || parqueaderoAsignado.numero || 'Asignado'
+              : 'Sin celda'
+          }
+          context={parqueaderoAsignado ? parqueaderoAsignado.tipo || 'Celda asignada' : 'Sin celda privada asignada'}
+          icon={Car}
+          variant="secondary"
+        />
       </div>
 
-      {/* PESTAÑAS PRINCIPALES INTEGRADAS */}
       <Tabs defaultValue="perfil" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3 max-w-xl h-11 p-1 bg-muted/80 rounded-xl border border-border">
-          <TabsTrigger value="perfil" className="gap-2 text-sm font-semibold">
-            <User className="w-4 h-4" />
-            Mi Perfil
-          </TabsTrigger>
-          <TabsTrigger value="apartamento" className="gap-2 text-sm font-semibold">
-            <Home className="w-4 h-4" />
-            Mi Apartamento
-          </TabsTrigger>
-          <TabsTrigger value="gestiones" className="gap-2 text-sm font-semibold">
-            <Sparkles className="w-4 h-4" />
-            Gestiones & Atajos
-          </TabsTrigger>
-        </TabsList>
+        <div className="-mx-1 overflow-x-auto px-1 pb-1">
+          <TabsList className="w-max">
+            <TabsTrigger value="perfil" className="gap-2">
+              <User className="h-4 w-4" aria-hidden="true" />
+              Mi perfil
+            </TabsTrigger>
+            <TabsTrigger value="apartamento" className="gap-2">
+              <Home className="h-4 w-4" aria-hidden="true" />
+              Mi apartamento
+            </TabsTrigger>
+            <TabsTrigger value="gestiones" className="gap-2">
+              <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              Gestiones
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
-        {/* TAB 1: DATOS PERSONALES & CUENTA */}
+        {/* Tab 1: personal data and account */}
         <TabsContent value="perfil" className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Tarjeta 1.1: Datos de Identidad */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Shield className="w-5 h-5 text-primary" />
-                  Identidad y Registro Civil
-                </CardTitle>
-                <CardDescription>Datos legales validados ante la administración</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <DetailItem
-                  icon={User}
-                  label="Nombre Completo"
-                  value={nombreCompleto}
-                  badge={<Badge variant="outline">Natural</Badge>}
-                />
-                <DetailItem
-                  icon={Shield}
-                  label="Documento de Identidad"
-                  value={`${perfil.numeroDocumento || user?.numeroDocumento || '—'}`}
-                  subtext={perfil.tipoDocumentoNombre || 'Cédula de Ciudadanía (CC)'}
-                  badge={<Badge variant="success">Verificado</Badge>}
-                  isMono
-                />
-                <DetailItem
-                  icon={Calendar}
-                  label="Fecha de Nacimiento"
-                  value={perfil.fechaNacimiento ? formatDate(perfil.fechaNacimiento) : '—'}
-                  subtext="Mayor de edad legal (Colombia)"
-                />
-                <DetailItem
-                  icon={Layers}
-                  label="Tipo de Persona"
-                  value={perfil.tipoPersona === 'JURIDICA' ? 'Persona Jurídica' : 'Persona Natural'}
-                  subtext="Copropietario Habitante"
-                />
-              </CardContent>
-            </Card>
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+            <Panel icon={Shield} title="Identidad" description="Datos registrados ante la administración">
+              {personaLoading ? (
+                <LoadingState size="sm" message="Cargando tus datos…" className="p-0" />
+              ) : (
+                <dl className="divide-y divide-border-subtle">
+                  <DetailItem icon={User} label="Nombre completo" value={nombreCompleto} />
+                  <DetailItem
+                    icon={Shield}
+                    label="Documento de identidad"
+                    value={perfil.numeroDocumento || user?.numeroDocumento}
+                    subtext={perfil.tipoDocumentoNombre}
+                    isMono
+                  />
+                  <DetailItem
+                    icon={Calendar}
+                    label="Fecha de nacimiento"
+                    value={perfil.fechaNacimiento ? formatDate(perfil.fechaNacimiento) : null}
+                  />
+                  <DetailItem
+                    icon={Layers}
+                    label="Tipo de persona"
+                    value={perfil.tipoPersona === 'JURIDICA' ? 'Persona jurídica' : 'Persona natural'}
+                    subtext={isConviviente ? 'Residente conviviente' : 'Residente titular'}
+                  />
+                </dl>
+              )}
+            </Panel>
 
-            {/* Tarjeta 1.2: Información de Contacto */}
-            <Card>
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <Phone className="w-5 h-5 text-primary" />
-                      Canales de Contacto
-                    </CardTitle>
-                    <CardDescription>Utilizados para avisos, citaciones y emergencias</CardDescription>
-                  </div>
-                  <Button variant="ghost" size="sm" onClick={openEdit} className="text-primary hover:text-primary">
-                    <Pencil className="w-3.5 h-3.5 mr-1" />
-                    Editar
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <DetailItem
-                  icon={Phone}
-                  label="Teléfono Celular"
-                  value={perfil.telefono || perfil.celular || perfil.telefonoContacto || user?.telefono || '—'}
-                  badge={<Badge variant="outline">Principal</Badge>}
-                  subtext="Habilitado para llamadas de citofonía y SMS"
-                  isMono
-                />
-                <DetailItem
-                  icon={Mail}
-                  label="Correo Electrónico"
-                  value={perfil.email || user?.email || '—'}
-                  badge={<Badge variant="success">Notificaciones OK</Badge>}
-                  subtext="Recepción de estados de cuenta y circulares"
-                />
-                <DetailItem
-                  icon={MapPin}
-                  label="Dirección de la Copropiedad"
-                  value={user?.direccionPropiedad || '—'}
-                  subtext={user?.ciudadPropiedad || ''}
-                />
-                <DetailItem
-                  icon={Building2}
-                  label="Copropiedad / Conjunto"
-                  value={user?.nombrePropiedad || 'Edificio Residencial SAED'}
-                  badge={<Badge variant="secondary">Propiedad #1</Badge>}
-                />
-              </CardContent>
-            </Card>
+            <Panel
+              icon={Phone}
+              title="Contacto"
+              description="Se usa para avisos, citaciones y emergencias"
+              action={
+                <Button variant="outline" size="sm" onClick={openEdit} className="min-h-10 sm:min-h-8">
+                  <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+                  Editar
+                </Button>
+              }
+            >
+              {personaLoading ? (
+                <LoadingState size="sm" message="Cargando tus datos de contacto…" className="p-0" />
+              ) : (
+                <dl className="divide-y divide-border-subtle">
+                  <DetailItem
+                    icon={Phone}
+                    label="Teléfono celular"
+                    value={perfil.telefono || perfil.celular || perfil.telefonoContacto || user?.telefono}
+                    isMono
+                  />
+                  <DetailItem icon={Mail} label="Correo electrónico" value={perfil.email || user?.email} />
+                  <DetailItem
+                    icon={MapPin}
+                    label="Dirección de la copropiedad"
+                    value={user?.direccionPropiedad}
+                    subtext={user?.ciudadPropiedad || ''}
+                  />
+                  <DetailItem icon={Building2} label="Copropiedad" value={user?.nombrePropiedad} />
+                </dl>
+              )}
+            </Panel>
 
-            {/* Tarjeta 1.3: Seguridad y Credenciales */}
-            <Card className="md:col-span-2">
-              <CardHeader className="pb-3">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                  <div>
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <Key className="w-5 h-5 text-primary" />
-                      Cuenta de Usuario y Seguridad
-                    </CardTitle>
-                    <CardDescription>Permisos y trazabilidad de acceso en la plataforma</CardDescription>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setChangePasswordOpen(true)}
-                    className="gap-1.5"
-                  >
-                    <Key className="w-3.5 h-3.5" />
-                    <span>Cambiar Contraseña</span>
-                  </Button>
+            <Panel
+              icon={Key}
+              title="Cuenta de usuario"
+              description="Tu acceso a la plataforma"
+              className="md:col-span-2"
+              action={
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setChangePasswordOpen(true)}
+                  className="min-h-10 sm:min-h-8"
+                >
+                  <Key className="h-3.5 w-3.5" aria-hidden="true" />
+                  Cambiar contraseña
+                </Button>
+              }
+            >
+              <dl className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
+                <div>
+                  <dt className="text-xs font-semibold text-text-muted">Nombre de usuario</dt>
+                  <dd className="mt-1 break-all font-mono text-sm font-bold text-on-surface">
+                    @{user?.nombreUsuario || user?.username || perfil.nombreUsuario || 'residente'}
+                  </dd>
                 </div>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="p-4 rounded-xl border border-border/60 bg-muted/20">
-                    <span className="text-xs font-semibold text-muted-foreground uppercase">Nombre de Usuario</span>
-                    <p className="text-base font-bold text-foreground font-mono mt-1">@{user?.nombreUsuario || user?.username || perfil.nombreUsuario || 'residente'}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">Credencial única para inicio de sesión</p>
-                  </div>
-                  <div className="p-4 rounded-xl border border-border/60 bg-muted/20">
-                    <span className="text-xs font-semibold text-muted-foreground uppercase">Rol Asignado</span>
-                    <div className="mt-1 flex items-center gap-2">
-                      <Badge variant="default" className="bg-primary font-semibold">
-                        {isConviviente ? 'RESIDENTE_CONVIVENCIA' : 'RESIDENTE'}
-                      </Badge>
-                      <span className="text-xs text-muted-foreground">Nivel Unidad</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">
+                <div>
+                  <dt className="text-xs font-semibold text-text-muted">Rol asignado</dt>
+                  <dd className="mt-1 space-y-1">
+                    <Badge variant="lavender">{isConviviente ? 'Residente conviviente' : 'Residente titular'}</Badge>
+                    <p className="text-xs text-text-muted">
                       {isConviviente
-                        ? 'Acceso a visitas, buzón, PQRS y zonas comunes'
-                        : 'Acceso a cuotas, visitas, buzón y reservas'}
+                        ? 'Acceso a visitas, buzón, PQRS, zonas comunes, vehículos y mascotas.'
+                        : 'Acceso a cuotas, visitas, buzón, reservas y gestión del núcleo familiar.'}
                     </p>
-                  </div>
-                  <div className="p-4 rounded-xl border border-border/60 bg-muted/20">
-                    <span className="text-xs font-semibold text-muted-foreground uppercase">Seguridad de Acceso</span>
-                    <div className="mt-1 flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-semibold text-sm">
-                      <CheckCircle2 className="w-4 h-4" />
-                      Sesión Cifrada JWT
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-0.5">Aislamiento por RLS / VPD activo</p>
-                  </div>
+                  </dd>
                 </div>
-              </CardContent>
-            </Card>
+              </dl>
+            </Panel>
           </div>
         </TabsContent>
 
-        {/* TAB 2: MI APARTAMENTO & CONTRATO */}
+        {/* Tab 2: unit */}
         <TabsContent value="apartamento" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* 2.1: Ficha Técnica de la Unidad (2 columnas) */}
-            <Card className="lg:col-span-2">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+            <Panel
+              icon={Building2}
+              title="Ficha del inmueble"
+              description="Datos de la unidad y coeficiente de copropiedad"
+              className="lg:col-span-2"
+              action={<Badge variant="success">{estadoUnidad}</Badge>}
+            >
+              {isUnitDataLoading ? (
+                <LoadingState size="sm" message="Cargando la ficha de tu unidad…" className="p-0" />
+              ) : (
+                <div className="space-y-5">
+                  <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-md border border-border bg-border sm:grid-cols-3">
+                    {[
+                      ['Nomenclatura', numeroApto],
+                      ['Bloque / torre', nombreBloque],
+                      ['Piso', pisoApto],
+                      ['Área privada', areaApto],
+                      ['Coeficiente', coeficiente],
+                      ['Destinación', 'Residencial'],
+                    ].map(([label, value]) => (
+                      <div key={label} className="bg-surface p-3">
+                        <dt className="text-xs font-semibold text-text-muted">{label}</dt>
+                        <dd className="mt-0.5 text-[15px] font-bold tabular-nums text-on-surface">{value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+
                   <div>
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <Building2 className="w-5 h-5 text-primary" />
-                      Ficha Técnica del Inmueble
-                    </CardTitle>
-                    <CardDescription>Parámetros catastrales y coeficientes de copropiedad</CardDescription>
-                  </div>
-                  <Badge variant="success" className="font-semibold">{estadoUnidad}</Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  <div className="p-3 rounded-lg border border-border bg-card/60">
-                    <span className="text-xs font-medium text-muted-foreground">Nomenclatura</span>
-                    <p className="text-lg font-bold text-foreground mt-0.5">{numeroApto}</p>
-                  </div>
-                  <div className="p-3 rounded-lg border border-border bg-card/60">
-                    <span className="text-xs font-medium text-muted-foreground">Bloque / Torre</span>
-                    <p className="text-lg font-bold text-foreground mt-0.5">{nombreBloque}</p>
-                  </div>
-                  <div className="p-3 rounded-lg border border-border bg-card/60">
-                    <span className="text-xs font-medium text-muted-foreground">Nivel / Piso</span>
-                    <p className="text-lg font-bold text-foreground mt-0.5">Piso {pisoApto}</p>
-                  </div>
-                  <div className="p-3 rounded-lg border border-border bg-card/60">
-                    <span className="text-xs font-medium text-muted-foreground">Área Privada</span>
-                    <p className="text-lg font-bold text-foreground mt-0.5">{areaApto}</p>
-                  </div>
-                  <div className="p-3 rounded-lg border border-border bg-card/60">
-                    <span className="text-xs font-medium text-muted-foreground">Coeficiente</span>
-                    <p className="text-lg font-bold text-foreground mt-0.5 font-mono">{coeficiente}</p>
-                  </div>
-                  <div className="p-3 rounded-lg border border-border bg-card/60">
-                    <span className="text-xs font-medium text-muted-foreground">Destinación</span>
-                    <p className="text-lg font-bold text-foreground mt-0.5">Residencial</p>
-                  </div>
-                </div>
-
-                <div className="pt-2 border-t border-border">
-                  <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-                    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                      Relación de Tenencia y Cuota de Administración
-                    </h4>
-                    <span className="text-[11px] text-muted-foreground bg-muted px-2 py-0.5 rounded-full font-medium">
-                      Información registrada por administración · Solo lectura
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <DetailItem
-                      icon={FileText}
-                      label="Modalidad"
-                      value={tipoContrato}
-                      subtext={contratoInfo.estado ? `Estado: ${contratoInfo.estado}` : 'Registro de copropietario vigente'}
-                      badge={<Badge variant="outline">Activo</Badge>}
-                    />
-                    <DetailItem
-                      icon={CreditCard}
-                      label="Cuota de Administración"
-                      value={isConviviente ? 'Gestionado por titular' : formatCurrency(contratoInfo.valorMensual || 450000)}
-                      subtext={isConviviente ? 'Atendido por copropietario o residente titular' : `Corte de facturación: Día ${contratoInfo.diaPago || 5} de cada mes`}
-                      badge={<Badge variant={isConviviente ? 'secondary' : 'success'}>{isConviviente ? 'Informativo' : 'Fijada por Asamblea'}</Badge>}
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* 2.2: Parqueadero & Asignaciones (1 columna) */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Car className="w-5 h-5 text-primary" />
-                  Movilidad y Parqueo
-                </CardTitle>
-                <CardDescription>Celdas asignadas a la unidad</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {parqueaderoAsignado ? (
-                  <div className="p-4 rounded-xl border border-primary/20 bg-primary/5 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-primary uppercase">Celda Asignada</span>
-                      <Badge variant="default" className="bg-primary">Asignado</Badge>
+                    <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                      <h4 className="text-[13px] font-bold text-on-surface">Tenencia y cuota de administración</h4>
+                      <span className="text-xs text-text-muted">Registrado por la administración · solo lectura</span>
                     </div>
-                    <p className="text-2xl font-black text-foreground">
-                      {parqueaderoAsignado.identificador || parqueaderoAsignado.numero || 'Celda P-201'}
+                    <dl className="divide-y divide-border-subtle rounded-md border border-border px-3">
+                      <DetailItem
+                        icon={FileText}
+                        label="Modalidad"
+                        value={tipoContrato}
+                        subtext={contratoInfo.estado ? `Estado: ${contratoInfo.estado}` : undefined}
+                      />
+                      <DetailItem
+                        icon={CreditCard}
+                        label="Cuota de administración"
+                        value={
+                          isConviviente
+                            ? 'Gestionada por el titular'
+                            : contratoInfo.valorMensual != null
+                              ? formatCurrency(contratoInfo.valorMensual)
+                              : null
+                        }
+                        subtext={
+                          isConviviente
+                            ? 'La atiende el propietario o el residente titular'
+                            : contratoInfo.diaPago
+                              ? `Corte de facturación: día ${contratoInfo.diaPago} de cada mes`
+                              : undefined
+                        }
+                        isMono={!isConviviente}
+                      />
+                    </dl>
+                  </div>
+                </div>
+              )}
+            </Panel>
+
+            <Panel icon={Car} title="Parqueadero" description="Celdas asignadas a la unidad">
+              <div className="space-y-3">
+                {parqueaderoAsignado ? (
+                  <div className="space-y-1.5 rounded-md border border-border bg-surface-container p-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-text-muted">Celda asignada</span>
+                      <Badge variant="info">Asignado</Badge>
+                    </div>
+                    <p className="app-numeral text-[1.625rem] text-on-surface">
+                      {parqueaderoAsignado.identificador || parqueaderoAsignado.numero || '—'}
                     </p>
-                    <p className="text-xs text-muted-foreground">
-                      Tipo: {parqueaderoAsignado.tipo || 'Automóvil cubierto'}
-                    </p>
+                    {parqueaderoAsignado.tipo && (
+                      <p className="text-xs text-text-muted">Tipo: {parqueaderoAsignado.tipo}</p>
+                    )}
                     {parqueaderoAsignado.placa && (
-                      <div className="pt-2 border-t border-border/50 flex items-center justify-between text-xs">
-                        <span className="text-muted-foreground">Vehículo registrado:</span>
-                        <span className="font-mono font-bold text-foreground">{parqueaderoAsignado.placa}</span>
+                      <div className="flex items-center justify-between border-t border-border pt-2 text-xs">
+                        <span className="text-text-muted">Vehículo registrado</span>
+                        <span className="font-mono font-bold text-on-surface">{parqueaderoAsignado.placa}</span>
                       </div>
                     )}
                   </div>
                 ) : (
-                  <div className="p-4 rounded-xl border border-dashed border-border text-center space-y-2">
-                    <Car className="w-8 h-8 text-muted-foreground mx-auto opacity-50" />
-                    <p className="text-sm font-semibold text-foreground">Sin celda privada exclusiva</p>
-                    <p className="text-xs text-muted-foreground">
-                      Tu unidad cuenta con derecho a parqueadero comunal según disponibilidad y reglamento.
-                    </p>
-                  </div>
+                  <EmptyState
+                    icon={Car}
+                    title="Sin celda privada asignada"
+                    subtitle="El uso de parqueadero comunal depende de la disponibilidad y del reglamento."
+                    className="py-6"
+                  />
                 )}
+                <p className="flex items-start gap-2 text-xs text-text-secondary">
+                  <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-text-muted" aria-hidden="true" />
+                  Gestiona los vehículos de tu hogar en la sección de vehículos más abajo.
+                </p>
+              </div>
+            </Panel>
 
-                <div className="p-3 rounded-lg border border-border bg-muted/20 text-xs text-muted-foreground flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />
-                  <span>Para registrar un nuevo vehículo o moto, acércate a la oficina de administración.</span>
+            {isConviviente && (
+              <div className="flex items-start gap-3 rounded-lg border border-border bg-surface p-4 shadow-sm lg:col-span-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-tint-purple-bg text-tint-purple-fg">
+                  <Shield className="h-[18px] w-[18px]" aria-hidden="true" />
                 </div>
-              </CardContent>
-            </Card>
+                <div className="space-y-1">
+                  <h3 className="text-sm font-bold text-on-surface">Perfil de residente conviviente</h3>
+                  <p className="max-w-[80ch] text-[13px] leading-relaxed text-text-secondary">
+                    Como integrante autorizado del hogar en <strong className="text-on-surface">{numeroApto}</strong>,
+                    puedes registrar vehículos y mascotas de la unidad, reservar zonas comunes, emitir pases QR para
+                    visitantes, consultar encomiendas en el buzón y radicar PQRS. La administración de convivientes y la
+                    facturación corresponden al residente titular.
+                  </p>
+                </div>
+              </div>
+            )}
 
-            {/* 2.3: Habitantes Registrados en la Unidad y Límite Parametrizado de Convivientes (P2-01) - Solo Titular */}
             {!isConviviente && (
               <ConvivientesSection
                 unitId={unitId}
@@ -804,8 +721,16 @@ export default function ResPerfilPage() {
                 tiposDoc={tiposDoc}
                 titularFallback={{
                   id: residentId,
-                  nombres: perfil.primerNombre || perfil.nombres || user?.nombreCompleto?.split(' ')[0] || user?.nombreUsuario || 'Titular',
-                  apellidos: perfil.primerApellido || perfil.apellidos || (user?.nombreCompleto ? user.nombreCompleto.split(' ').slice(1).join(' ') : ''),
+                  nombres:
+                    perfil.primerNombre ||
+                    perfil.nombres ||
+                    user?.nombreCompleto?.split(' ')[0] ||
+                    user?.nombreUsuario ||
+                    'Titular',
+                  apellidos:
+                    perfil.primerApellido ||
+                    perfil.apellidos ||
+                    (user?.nombreCompleto ? user.nombreCompleto.split(' ').slice(1).join(' ') : ''),
                   numeroDocumento: perfil.numeroDocumento || user?.numeroDocumento || '—',
                   tipoResidente: 'TITULAR',
                   estado: 'ACTIVO',
@@ -818,214 +743,113 @@ export default function ResPerfilPage() {
               />
             )}
 
-            {/* 2.4: Parque Automotor y Movilidad de la Unidad */}
             <div className="lg:col-span-3">
-              <ResidentVehiclesSection
-                unitId={unitId}
-                defaultPersonaId={residentId}
-              />
+              <ResidentVehiclesSection unitId={unitId} defaultPersonaId={residentId} />
             </div>
 
-            {/* 2.5: Mascotas y Cuidado Animal de la Unidad */}
             <div className="lg:col-span-3">
-              <ResidentPetsSection
-                unitId={unitId}
-                defaultPersonaId={residentId}
-              />
+              <ResidentPetsSection unitId={unitId} defaultPersonaId={residentId} />
             </div>
           </div>
         </TabsContent>
 
-        {/* TAB 3: GESTIONES Y ATAJOS RÁPIDOS */}
-        <TabsContent value="gestiones" className="space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {/* Atajo 1: Cuotas y Pagos (Solo Titular) */}
-            {!isConviviente && (
-              <Card
-                onClick={() => navigate('/res-cuotas')}
-                className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:-translate-y-1 group border-border/70"
-              >
-                <CardContent className="p-6 space-y-3">
-                  <div className="w-12 h-12 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <CreditCard className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <h3 className="text-base font-bold text-foreground group-hover:text-primary transition-colors flex items-center justify-between">
-                      Mis Cuotas y Pagos
-                      <ArrowRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
-                    </h3>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Consulta tus saldos, genera comprobantes y realiza pagos seguros en línea con Wompi.
-                    </p>
-                  </div>
-                  <Badge variant={alDia ? 'success' : 'destructive'} className="text-xs">
-                    {alDia ? 'Al día sin mora' : `${cuotasPendientes.length} cuota(s) pendiente(s)`}
+        {/* Tab 3: shortcuts */}
+        <TabsContent value="gestiones">
+          <section className="rounded-lg border border-border bg-surface shadow-sm" aria-label="Accesos a tus gestiones">
+            <ul className="divide-y divide-border-subtle">
+              {!isConviviente && (
+                <ShortcutRow
+                  icon={CreditCard}
+                  title="Mis cuotas y pagos"
+                  description="Consulta saldos, descarga comprobantes y paga en línea con PSE o tarjeta a través de Wompi."
+                  meta={
+                    dashboardLoading || dashboardError ? null : (
+                      <Badge variant={alDia ? 'success' : 'warning'}>
+                        {alDia ? 'Al día' : `${cuotasPendientes.length} pendiente(s)`}
+                      </Badge>
+                    )
+                  }
+                  onClick={() => navigate('/res-cuotas')}
+                />
+              )}
+              <ShortcutRow
+                icon={Key}
+                title="Registrar visita con QR"
+                description="Autoriza el ingreso por portería con un código QR."
+                onClick={() => navigate('/res-visitas')}
+              />
+              <ShortcutRow
+                icon={Users}
+                title="Visitantes frecuentes"
+                description="Familiares, empleados y personas con ingreso recurrente."
+                meta={
+                  <Badge variant="outline" className="tabular-nums">
+                    {numFrecuentes} registrado(s)
                   </Badge>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Atajo 2: Visitas & Códigos QR */}
-            <Card
-              onClick={() => navigate('/res-visitas')}
-              className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:-translate-y-1 group border-border/70"
-            >
-              <CardContent className="p-6 space-y-3">
-                <div className="w-12 h-12 rounded-xl bg-blue-500/10 text-blue-600 flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <Key className="w-6 h-6" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-foreground group-hover:text-primary transition-colors flex items-center justify-between">
-                    Registrar Visita (QR)
-                    <ArrowRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </h3>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Autoriza accesos directos por portería generando un código QR dinámico de seguridad.
-                  </p>
-                </div>
-                <Badge variant="outline" className="text-xs">
-                  Autorización inmediata
-                </Badge>
-              </CardContent>
-            </Card>
-
-            {/* Atajo 3: Visitantes Frecuentes */}
-            <Card
-              onClick={() => navigate('/res-visitas')}
-              className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:-translate-y-1 group border-border/70"
-            >
-              <CardContent className="p-6 space-y-3">
-                <div className="w-12 h-12 rounded-xl bg-purple-500/10 text-purple-600 flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <Users className="w-6 h-6" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-foreground group-hover:text-primary transition-colors flex items-center justify-between">
-                    Visitantes Frecuentes
-                    <ArrowRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </h3>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Administra familiares, empleados y personas con permiso permanente de entrada.
-                  </p>
-                </div>
-                <Badge variant="secondary" className="text-xs">
-                  {numFrecuentes} registrado(s)
-                </Badge>
-              </CardContent>
-            </Card>
-
-            {/* Atajo 4: Buzón y Comunicados */}
-            <Card
-              onClick={() => navigate('/res-buzon')}
-              className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:-translate-y-1 group border-border/70"
-            >
-              <CardContent className="p-6 space-y-3">
-                <div className="w-12 h-12 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <Mail className="w-6 h-6" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-foreground group-hover:text-primary transition-colors flex items-center justify-between">
-                    Buzón de Comunicados
-                    <ArrowRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </h3>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Circulares oficiales, convocatorias de asamblea y avisos de mantenimiento.
-                  </p>
-                </div>
-                <Badge variant="outline" className="text-xs">
-                  Comunidad informada
-                </Badge>
-              </CardContent>
-            </Card>
-
-            {/* Atajo 5: Peticiones y Reclamos (PQRS) */}
-            <Card
-              onClick={() => navigate('/res-quejas')}
-              className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:-translate-y-1 group border-border/70"
-            >
-              <CardContent className="p-6 space-y-3">
-                <div className="w-12 h-12 rounded-xl bg-rose-500/10 text-rose-600 flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <AlertCircle className="w-6 h-6" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-foreground group-hover:text-primary transition-colors flex items-center justify-between">
-                    PQRS & Soporte
-                    <ArrowRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </h3>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Envía solicitudes, quejas de convivencia o reportes de fallas locativas con seguimiento.
-                  </p>
-                </div>
-                <Badge variant="outline" className="text-xs">
-                  Respuesta formal
-                </Badge>
-              </CardContent>
-            </Card>
-
-            {/* Atajo 6: Panel General */}
-            <Card
-              onClick={() => navigate('/residente-dashboard')}
-              className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:-translate-y-1 group border-border/70"
-            >
-              <CardContent className="p-6 space-y-3">
-                <div className="w-12 h-12 rounded-xl bg-slate-500/10 text-slate-600 flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <Home className="w-6 h-6" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-foreground group-hover:text-primary transition-colors flex items-center justify-between">
-                    Panel de Control Principal
-                    <ArrowRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </h3>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Visualiza métricas globales, gráficos de pagos y actividad reciente de la copropiedad.
-                  </p>
-                </div>
-                <Badge variant="secondary" className="text-xs">
-                  Dashboard
-                </Badge>
-              </CardContent>
-            </Card>
-          </div>
+                }
+                onClick={() => navigate('/res-visitas')}
+              />
+              <ShortcutRow
+                icon={Mail}
+                title="Buzón y comunicados"
+                description="Circulares, encomiendas con PIN de retiro y avisos de mantenimiento."
+                onClick={() => navigate('/res-buzon')}
+              />
+              <ShortcutRow
+                icon={AlertCircle}
+                title="PQRS y soporte"
+                description="Solicitudes, quejas de convivencia o reportes de fallas con seguimiento."
+                onClick={() => navigate('/res-quejas')}
+              />
+              <ShortcutRow
+                icon={Home}
+                title="Mi panel"
+                description="Lo que requiere tu atención y la actividad reciente de tu unidad."
+                onClick={() => navigate('/residente-dashboard')}
+              />
+            </ul>
+          </section>
         </TabsContent>
       </Tabs>
 
-      {/* MODAL DE EDICIÓN DE CONTACTO */}
       <Modal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        title="Editar Datos de Contacto"
+        title="Editar datos de contacto"
         footer={
           <>
             <Button variant="outline" onClick={() => setModalOpen(false)} disabled={saving}>
               Cancelar
             </Button>
-            <Button onClick={handleSave} disabled={saving} className="gap-2">
-              {saving ? 'Guardando cambios...' : 'Guardar Cambios'}
+            <Button onClick={handleSave} disabled={saving}>
+              {saving ? 'Guardando cambios…' : 'Guardar cambios'}
             </Button>
           </>
         }
       >
         <div className="space-y-4 py-2">
-          <p className="text-xs text-muted-foreground">
-            Los datos de contacto son confidenciales y se utilizan exclusivamente para notificaciones oficiales y citofonía.
+          <p className="text-xs text-text-muted">
+            Tus datos de contacto son confidenciales y se usan solo para notificaciones oficiales y citofonía.
           </p>
 
           <div>
             <Input
               id="editTelefono"
-              label="Teléfono Celular *"
+              label="Teléfono celular"
               placeholder="Ej. 3001234567"
+              inputMode="numeric"
               value={edit.telefono}
               onChange={(e) => setEdit((s) => ({ ...s, telefono: e.target.value }))}
               onBlur={() => touch('telefono')}
               error={fieldError('telefono', valTelefono(edit.telefono, { required: false })) || errors.telefono}
             />
-            <p className="text-[11px] text-muted-foreground mt-1">10 dígitos numéricos para telefonía móvil colombiana.</p>
+            <p className="mt-1 text-xs text-text-muted">10 dígitos, número móvil colombiano.</p>
           </div>
 
           <div>
             <Input
               id="editEmail"
-              label="Correo Electrónico *"
+              label="Correo electrónico"
               type="email"
               placeholder="Ej. residente@ejemplo.com"
               value={edit.email}
@@ -1033,16 +857,54 @@ export default function ResPerfilPage() {
               onBlur={() => touch('email')}
               error={fieldError('email', valEmail(edit.email, { required: false })) || errors.email}
             />
-            <p className="text-[11px] text-muted-foreground mt-1">Recibirás los comprobantes de pago y avisos aquí.</p>
+            <p className="mt-1 text-xs text-text-muted">Aquí recibirás comprobantes de pago y avisos.</p>
           </div>
         </div>
       </Modal>
 
-      {/* MODAL DE CAMBIO DE CONTRASEÑA */}
-      <ChangePasswordModal
-        open={changePasswordOpen}
-        onOpenChange={setChangePasswordOpen}
-      />
-    </div>
+      <ChangePasswordModal open={changePasswordOpen} onOpenChange={setChangePasswordOpen} />
+    </PageContainer>
+  );
+}
+
+/** Section card with a title row; the body owns its loading, error and empty states. */
+function Panel({ icon: Icon, title, description, action, className, children }) {
+  return (
+    <section className={cn('rounded-lg border border-border bg-surface shadow-sm', className)}>
+      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2 px-4 pt-4 sm:px-5 sm:pt-5">
+        <div className="min-w-0">
+          <h3 className="flex items-center gap-2 text-[15px] font-bold text-on-surface">
+            {Icon && <Icon className="h-4 w-4 shrink-0 text-text-secondary" aria-hidden="true" />}
+            {title}
+          </h3>
+          {description && <p className="mt-0.5 text-xs text-text-muted">{description}</p>}
+        </div>
+        {action ? <div className="shrink-0">{action}</div> : null}
+      </div>
+      <div className="p-4 sm:p-5">{children}</div>
+    </section>
+  );
+}
+
+function ShortcutRow({ icon: Icon, title, description, meta, onClick }) {
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={onClick}
+        className="group flex w-full min-w-0 items-center gap-3 px-4 py-3.5 text-left transition-colors duration-150 hover:bg-surface-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring sm:gap-4 sm:px-5"
+      >
+        <Icon className="h-5 w-5 shrink-0 text-text-secondary" aria-hidden="true" />
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-semibold text-on-surface">{title}</span>
+          <span className="mt-0.5 block text-xs text-text-muted">{description}</span>
+        </span>
+        {meta && <span className="hidden shrink-0 sm:block">{meta}</span>}
+        <ChevronRight
+          className="h-4 w-4 shrink-0 text-text-muted transition-transform duration-150 ease-out group-hover:translate-x-0.5"
+          aria-hidden="true"
+        />
+      </button>
+    </li>
   );
 }

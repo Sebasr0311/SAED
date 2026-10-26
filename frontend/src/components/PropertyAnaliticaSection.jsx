@@ -16,6 +16,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/tabs.tsx';
 import { Badge } from './ui/badge.tsx';
 import { Button } from './ui/Button.jsx';
 import { Skeleton } from './ui/skeleton.tsx';
+import ErrorState from './ui/ErrorState.jsx';
 import {
   ChartContainer,
   ChartTooltip,
@@ -26,7 +27,6 @@ import {
 import {
   TrendingUp,
   Activity,
-  AlertTriangle,
   RefreshCw,
   Receipt,
   Users,
@@ -42,30 +42,30 @@ import {
 const finChartConfig = {
   facturado: {
     label: 'Facturado',
-    color: '#2563eb', // primary blue
+    color: 'var(--chart-1)',
   },
   recaudado: {
     label: 'Recaudado',
-    color: '#10b981', // emerald
+    color: 'var(--chart-3)',
   },
   gastos: {
     label: 'Gastos',
-    color: '#f43f5e', // rose
+    color: 'var(--chart-4)',
   },
 };
 
 const opChartConfig = {
   visitas: {
     label: 'Visitas',
-    color: '#2563eb', // primary blue
+    color: 'var(--chart-1)',
   },
   paquetes: {
     label: 'Paquetes',
-    color: '#f59e0b', // amber
+    color: 'var(--chart-4)',
   },
   pqrs: {
     label: 'PQRS',
-    color: '#8b5cf6', // purple
+    color: 'var(--chart-5)',
   },
 };
 
@@ -204,20 +204,15 @@ export function PropertyAnaliticaSection() {
     const errorMsg =
       error?.response?.data?.message ||
       error?.message ||
-      (typeof error === 'string'
-        ? error
-        : 'No se pudieron sincronizar las métricas analíticas.');
+      (typeof error === 'string' ? error : 'Revisa tu conexión e inténtalo de nuevo.');
 
     return (
-      <div className="bg-destructive/10 border border-destructive/30 text-destructive p-4 rounded-xl flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <AlertTriangle className="h-4 w-4 shrink-0" />
-          <span className="text-xs font-medium">{errorMsg}</span>
-        </div>
-        <Button variant="outline" size="sm" onClick={() => refetch()}>
-          Reintentar
-        </Button>
-      </div>
+      <ErrorState
+        compact
+        title="No se pudieron cargar las tendencias de la copropiedad"
+        message={errorMsg}
+        onRetry={() => refetch().catch(() => {})}
+      />
     );
   }
 
@@ -239,14 +234,11 @@ export function PropertyAnaliticaSection() {
                 <TrendingUp className="h-4 w-4 text-primary" />
                 Tendencias y Rendimiento
               </CardTitle>
-              <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/20 font-semibold">
-                COPROPIEDAD
-              </Badge>
             </div>
             <CardDescription className="text-xs text-muted-foreground mt-1 flex items-center gap-2">
               <Calendar className="h-3.5 w-3.5" />
               <span>Horizonte:</span>
-              <span className="font-mono font-medium text-foreground">
+              <span className="tabular-nums font-medium text-foreground">
                 {analitica?.horizonteTemporal || 'Periodo analizado'}
               </span>
             </CardDescription>
@@ -257,7 +249,7 @@ export function PropertyAnaliticaSection() {
             <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-lg bg-muted/60 border border-border/70 text-xs">
               <Users className="h-3.5 w-3.5 text-muted-foreground" />
               <span className="text-muted-foreground">Ocupación:</span>
-              <span className="font-mono font-bold text-foreground">
+              <span className="tabular-nums font-bold text-foreground">
                 {ocupacionPct.toFixed(1)}%
               </span>
             </div>
@@ -330,7 +322,7 @@ export function PropertyAnaliticaSection() {
 
             {/* Mini resumen de la pestaña activa */}
             <div className="flex items-center gap-4 text-xs text-muted-foreground">
-              <span className="sm:hidden flex items-center gap-1 font-mono">
+              <span className="sm:hidden flex items-center gap-1 tabular-nums">
                 Ocupación: <strong className="text-foreground">{ocupacionPct.toFixed(1)}%</strong>
               </span>
             </div>
@@ -342,38 +334,33 @@ export function PropertyAnaliticaSection() {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div className="p-3 rounded-lg border border-border/60 bg-muted/20 space-y-1">
                 <p className="text-[11px] text-muted-foreground font-medium">Facturado Acumulado</p>
-                <p className="text-sm sm:text-base font-bold font-mono text-primary">
+                <p className="text-sm sm:text-base font-bold tabular-nums text-primary-text">
                   {formatCompactCOP(finTotals.facturado)}
                 </p>
               </div>
               <div className="p-3 rounded-lg border border-border/60 bg-muted/20 space-y-1">
                 <p className="text-[11px] text-muted-foreground font-medium">Recaudo Efectivo</p>
-                <p className="text-sm sm:text-base font-bold font-mono text-emerald-600 dark:text-emerald-400">
+                <p className="text-sm sm:text-base font-bold tabular-nums text-tint-green-fg">
                   {formatCompactCOP(finTotals.recaudado)}
                 </p>
               </div>
               <div className="p-3 rounded-lg border border-border/60 bg-muted/20 space-y-1">
                 <p className="text-[11px] text-muted-foreground font-medium">Gastos Registrados</p>
-                <p className="text-sm sm:text-base font-bold font-mono text-rose-600 dark:text-rose-400">
+                <p className="text-sm sm:text-base font-bold tabular-nums text-tint-amber-fg">
                   {formatCompactCOP(finTotals.gastos)}
                 </p>
               </div>
               <div className="p-3 rounded-lg border border-border/60 bg-muted/20 space-y-1">
                 <p className="text-[11px] text-muted-foreground font-medium">Eficiencia de Cobro</p>
                 <div className="flex items-center gap-2">
-                  <p className="text-sm sm:text-base font-bold font-mono text-foreground">
+                  <p className="text-sm sm:text-base font-bold tabular-nums text-foreground">
                     {tasaRecaudo}%
                   </p>
-                  <Badge
-                    variant="outline"
-                    className={`text-[9px] px-1 py-0 font-bold ${
-                      tasaRecaudo >= 80
-                        ? 'text-emerald-600 border-emerald-500/30 bg-emerald-500/10'
-                        : 'text-amber-600 border-amber-500/30 bg-amber-500/10'
-                    }`}
-                  >
-                    {tasaRecaudo >= 80 ? 'Óptimo' : 'Atención'}
-                  </Badge>
+                  {finTotals.facturado > 0 && (
+                    <Badge variant={tasaRecaudo >= 80 ? 'success' : 'warning'} className="px-1.5 py-0 text-[10px]">
+                      {tasaRecaudo >= 80 ? 'Óptimo' : 'Atención'}
+                    </Badge>
+                  )}
                 </div>
               </div>
             </div>
@@ -399,23 +386,23 @@ export function PropertyAnaliticaSection() {
                   <tbody className="divide-y divide-border/50">
                     {finTrend.map((row) => (
                       <tr key={row.periodo} className="hover:bg-muted/20 transition-colors">
-                        <td className="py-2 px-3 font-mono font-medium text-foreground">
+                        <td className="py-2 px-3 tabular-nums font-medium text-foreground">
                           {row.periodo}
                         </td>
-                        <td className="py-2 px-3 text-right font-mono text-primary">
+                        <td className="py-2 px-3 text-right tabular-nums text-primary-text">
                           {formatCOP(row.facturado)}
                         </td>
-                        <td className="py-2 px-3 text-right font-mono text-emerald-600 dark:text-emerald-400">
+                        <td className="py-2 px-3 text-right tabular-nums text-tint-green-fg">
                           {formatCOP(row.recaudado)}
                         </td>
-                        <td className="py-2 px-3 text-right font-mono text-rose-600 dark:text-rose-400">
+                        <td className="py-2 px-3 text-right tabular-nums text-tint-amber-fg">
                           {formatCOP(row.gastos)}
                         </td>
                         <td
-                          className={`py-2 px-3 text-right font-mono font-bold ${
+                          className={`py-2 px-3 text-right tabular-nums font-bold ${
                             Number(row.balanceNeto) >= 0
-                              ? 'text-emerald-600 dark:text-emerald-400'
-                              : 'text-rose-600 dark:text-rose-400'
+                              ? 'text-tint-green-fg'
+                              : 'text-tint-red-fg'
                           }`}
                         >
                           {formatCOP(row.balanceNeto)}
@@ -486,21 +473,21 @@ export function PropertyAnaliticaSection() {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div className="p-3 rounded-lg border border-border/60 bg-muted/20 space-y-1">
                 <p className="text-[11px] text-muted-foreground font-medium">Visitas Atendidas</p>
-                <p className="text-sm sm:text-base font-bold font-mono text-primary flex items-center gap-1.5">
+                <p className="text-sm sm:text-base font-bold tabular-nums text-primary-text flex items-center gap-1.5">
                   <UserCheck className="h-4 w-4" />
                   {opTotals.visitas}
                 </p>
               </div>
               <div className="p-3 rounded-lg border border-border/60 bg-muted/20 space-y-1">
                 <p className="text-[11px] text-muted-foreground font-medium">Paquetería Custodiada</p>
-                <p className="text-sm sm:text-base font-bold font-mono text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                <p className="text-sm sm:text-base font-bold tabular-nums text-tint-amber-fg flex items-center gap-1.5">
                   <Package className="h-4 w-4" />
                   {opTotals.paquetes}
                 </p>
               </div>
               <div className="p-3 rounded-lg border border-border/60 bg-muted/20 space-y-1">
                 <p className="text-[11px] text-muted-foreground font-medium">PQRS Radicadas</p>
-                <p className="text-sm sm:text-base font-bold font-mono text-purple-600 dark:text-purple-400 flex items-center gap-1.5">
+                <p className="text-sm sm:text-base font-bold tabular-nums text-tint-purple-fg flex items-center gap-1.5">
                   <Receipt className="h-4 w-4" />
                   {opTotals.pqrs}
                 </p>
@@ -508,16 +495,15 @@ export function PropertyAnaliticaSection() {
               <div className="p-3 rounded-lg border border-border/60 bg-muted/20 space-y-1">
                 <p className="text-[11px] text-muted-foreground font-medium">SLA Promedio</p>
                 <div className="flex items-center gap-2">
-                  <p className="text-sm sm:text-base font-bold font-mono text-foreground">
+                  <p className="text-sm sm:text-base font-bold tabular-nums text-foreground">
                     {slaPromedio}%
                   </p>
-                  <Badge
-                    variant="outline"
-                    className="text-[9px] px-1 py-0 font-bold text-emerald-600 border-emerald-500/30 bg-emerald-500/10"
-                  >
-                    <ShieldCheck className="h-2.5 w-2.5 mr-0.5" />
-                    Cumplido
-                  </Badge>
+                  {opTrend.length > 0 && (
+                    <Badge variant={Number(slaPromedio) >= 80 ? 'success' : 'warning'} className="px-1.5 py-0 text-[10px]">
+                      <ShieldCheck className="h-2.5 w-2.5" aria-hidden="true" />
+                      {Number(slaPromedio) >= 80 ? 'Cumplido' : 'Por debajo'}
+                    </Badge>
+                  )}
                 </div>
               </div>
             </div>
@@ -542,17 +528,14 @@ export function PropertyAnaliticaSection() {
                   <tbody className="divide-y divide-border/50">
                     {opTrend.map((row) => (
                       <tr key={row.periodo} className="hover:bg-muted/20 transition-colors">
-                        <td className="py-2 px-3 font-mono font-medium text-foreground">
+                        <td className="py-2 px-3 tabular-nums font-medium text-foreground">
                           {row.periodo}
                         </td>
-                        <td className="py-2 px-3 text-center font-mono">{row.totalVisitas}</td>
-                        <td className="py-2 px-3 text-center font-mono">{row.totalPaquetes}</td>
-                        <td className="py-2 px-3 text-center font-mono">{row.pqrsRadicadas}</td>
+                        <td className="py-2 px-3 text-center tabular-nums">{row.totalVisitas}</td>
+                        <td className="py-2 px-3 text-center tabular-nums">{row.totalPaquetes}</td>
+                        <td className="py-2 px-3 text-center tabular-nums">{row.pqrsRadicadas}</td>
                         <td className="py-2 px-3 text-center">
-                          <Badge
-                            variant="outline"
-                            className="font-mono text-[10px] bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
-                          >
+                          <Badge variant="success" className="tabular-nums text-[10px]">
                             {Number(row.pqrsResueltasEnSlaPct || 0).toFixed(1)}%
                           </Badge>
                         </td>

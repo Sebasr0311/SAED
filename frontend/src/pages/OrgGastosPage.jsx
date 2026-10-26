@@ -5,18 +5,14 @@ import {
   FileCheck,
   AlertCircle,
   Search,
-  Filter,
   Eye,
   Download,
-  Calendar,
   FileText,
   Building2,
   X,
   History,
   ShieldCheck,
-  CheckCircle2,
   TrendingUp,
-  ExternalLink,
 } from 'lucide-react';
 import { useFetch } from '../lib/hooks.js';
 import { api, BASE_URL } from '../lib/api.js';
@@ -27,7 +23,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card.
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '../components/ui/dialog.tsx';
@@ -47,6 +42,13 @@ import {
   TableRow,
 } from '../components/ui/table.tsx';
 import { Skeleton } from '../components/ui/skeleton.tsx';
+import { PageContainer } from '../components/layout/PageContainer.jsx';
+import { MetricCard } from '../components/ui/MetricCard.jsx';
+import EmptyState from '../components/ui/EmptyState.jsx';
+import ErrorState from '../components/ui/ErrorState.jsx';
+
+const FILTER_CONTROL =
+  'h-10 w-full rounded-md border border-input bg-surface px-3 text-sm text-on-surface transition-[border-color,box-shadow] duration-150 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25';
 import { toast } from 'sonner';
 
 const fmtCOP = new Intl.NumberFormat('es-CO', {
@@ -56,9 +58,9 @@ const fmtCOP = new Intl.NumberFormat('es-CO', {
 });
 
 const ESTADOS_GASTO = [
-  { value: 'REGISTRADO', label: 'Registrado', badgeClass: 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-300' },
-  { value: 'PAGADO', label: 'Pagado', badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300' },
-  { value: 'ANULADO', label: 'Anulado', badgeClass: 'bg-slate-100 text-slate-600 border-slate-300 dark:bg-slate-800 dark:text-slate-400' },
+  { value: 'REGISTRADO', label: 'Registrado', badgeClass: 'bg-tint-blue-bg text-tint-blue-fg border-tint-blue-fg/25' },
+  { value: 'PAGADO', label: 'Pagado', badgeClass: 'bg-tint-green-bg text-tint-green-fg border-tint-green-fg/25' },
+  { value: 'ANULADO', label: 'Anulado', badgeClass: 'bg-surface-dim text-text-secondary border-border' },
 ];
 
 export default function OrgGastosPage() {
@@ -92,7 +94,7 @@ export default function OrgGastosPage() {
   }, [idPropiedad, fechaInicio, fechaFin, categoria, estado, conSoporte]);
 
   // Fetch consolidated gastos
-  const { data: rawConsolidado, loading, refetch } = useFetch(
+  const { data: rawConsolidado, loading, error: loadError, refetch } = useFetch(
     () => api.get(`/org/gastos${queryString ? `?${queryString}` : ''}`),
     [queryString]
   );
@@ -228,82 +230,57 @@ export default function OrgGastosPage() {
       : 100;
 
   return (
-    <div className="space-y-6">
+    <PageContainer>
       {/* 1. Header */}
       <PageHeader
-        title="Auditoría de Gastos Consolidados"
-        subtitle="Supervisión financiera, verificación de facturas de soporte y trazabilidad en todas las propiedades"
+        title="Auditoría de gastos consolidados"
+        subtitle="Supervisión financiera, verificación de facturas de soporte y trazabilidad en todas las propiedades."
       />
 
       {/* 2. KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="border shadow-sm">
-          <CardContent className="p-5 flex items-center justify-between">
-            <div className="space-y-1">
-              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Egresos Totales</p>
-              <p className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-                {fmtCOP.format(Number(consolidado.totalGastado || 0))}
-              </p>
-              <p className="text-xs text-muted-foreground">Total consolidado en el período</p>
-            </div>
-            <div className="p-3 bg-indigo-50 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-400 rounded-xl">
-              <DollarSign className="h-6 w-6" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border shadow-sm">
-          <CardContent className="p-5 flex items-center justify-between">
-            <div className="space-y-1">
-              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Total Movimientos</p>
-              <p className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-                {consolidado.cantidadGastos}
-              </p>
-              <p className="text-xs text-muted-foreground">Registros ejecutados</p>
-            </div>
-            <div className="p-3 bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400 rounded-xl">
-              <Receipt className="h-6 w-6" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border shadow-sm">
-          <CardContent className="p-5 flex items-center justify-between">
-            <div className="space-y-1">
-              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Cumplimiento Soporte</p>
-              <div className="flex items-baseline gap-2">
-                <p className="text-2xl font-bold tracking-tight text-emerald-600 dark:text-emerald-400">
-                  {consolidado.conSoporte}
-                </p>
-                <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300">
-                  {porcentajeSoporte}%
-                </span>
-              </div>
-              <p className="text-xs text-muted-foreground">Con factura o documento legal</p>
-            </div>
-            <div className="p-3 bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400 rounded-xl">
-              <FileCheck className="h-6 w-6" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border shadow-sm">
-          <CardContent className="p-5 flex items-center justify-between">
-            <div className="space-y-1">
-              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Sin Soporte Adjunto</p>
-              <p className="text-2xl font-bold tracking-tight text-amber-600 dark:text-amber-400">
-                {consolidado.sinSoporte}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {consolidado.sinSoporte > 0 ? 'Requieren regularización urgente' : 'Auditoría 100% al día'}
-              </p>
-            </div>
-            <div className="p-3 bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400 rounded-xl">
-              <AlertCircle className="h-6 w-6" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      {loading && !rawConsolidado ? (
+        <div role="status" aria-busy="true" aria-label="Cargando indicadores" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} className="h-28 rounded-lg" />
+          ))}
+        </div>
+      ) : loadError ? (
+        <ErrorState
+          title="No se pudieron cargar los gastos"
+          message={loadError?.message || 'Revisa la conexión e inténtalo de nuevo.'}
+          onRetry={() => refetch().catch(() => {})}
+        />
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <MetricCard
+            label="Egresos totales"
+            value={fmtCOP.format(Number(consolidado.totalGastado || 0))}
+            context="Total consolidado en el período"
+            icon={DollarSign}
+          />
+          <MetricCard
+            label="Total de movimientos"
+            value={consolidado.cantidadGastos}
+            context="Registros ejecutados"
+            icon={Receipt}
+            variant="info"
+          />
+          <MetricCard
+            label="Con soporte"
+            value={consolidado.conSoporte}
+            context={consolidado.cantidadGastos > 0 ? `${porcentajeSoporte}% con factura o documento legal` : 'Sin movimientos en el período'}
+            icon={FileCheck}
+            variant="success"
+          />
+          <MetricCard
+            label="Sin soporte adjunto"
+            value={consolidado.sinSoporte}
+            context={consolidado.sinSoporte > 0 ? 'Requieren regularización' : 'Todos los egresos tienen soporte'}
+            icon={AlertCircle}
+            variant={consolidado.sinSoporte > 0 ? 'warning' : 'secondary'}
+          />
+        </div>
+      )}
 
       {/* 3. Executive Filter Bar */}
       <Card className="border shadow-sm">
@@ -312,9 +289,10 @@ export default function OrgGastosPage() {
             {/* Propiedad */}
             <div className="lg:col-span-2">
               <select
+                aria-label="Filtrar por propiedad"
                 value={idPropiedad}
                 onChange={(e) => setIdPropiedad(e.target.value)}
-                className="w-full py-2 px-3 text-sm rounded-lg border bg-background focus:ring-2 focus:ring-primary/20"
+                className={FILTER_CONTROL}
               >
                 <option value="">Todas las propiedades</option>
                 {propiedades.map((p) => (
@@ -329,10 +307,11 @@ export default function OrgGastosPage() {
             <div>
               <input
                 type="date"
-                title="Fecha Desde"
+                title="Fecha desde"
+                aria-label="Fecha desde"
                 value={fechaInicio}
                 onChange={(e) => setFechaInicio(e.target.value)}
-                className="w-full py-2 px-3 text-sm rounded-lg border bg-background focus:ring-2 focus:ring-primary/20"
+                className={FILTER_CONTROL}
               />
             </div>
 
@@ -340,19 +319,21 @@ export default function OrgGastosPage() {
             <div>
               <input
                 type="date"
-                title="Fecha Hasta"
+                title="Fecha hasta"
+                aria-label="Fecha hasta"
                 value={fechaFin}
                 onChange={(e) => setFechaFin(e.target.value)}
-                className="w-full py-2 px-3 text-sm rounded-lg border bg-background focus:ring-2 focus:ring-primary/20"
+                className={FILTER_CONTROL}
               />
             </div>
 
             {/* Estado */}
             <div>
               <select
+                aria-label="Filtrar por estado"
                 value={estado}
                 onChange={(e) => setEstado(e.target.value)}
-                className="w-full py-2 px-3 text-sm rounded-lg border bg-background focus:ring-2 focus:ring-primary/20"
+                className={FILTER_CONTROL}
               >
                 <option value="">Estado: Todos</option>
                 {ESTADOS_GASTO.map((est) => (
@@ -364,13 +345,14 @@ export default function OrgGastosPage() {
             {/* Soporte */}
             <div>
               <select
+                aria-label="Filtrar por soporte"
                 value={conSoporte}
                 onChange={(e) => setConSoporte(e.target.value)}
-                className="w-full py-2 px-3 text-sm rounded-lg border bg-background focus:ring-2 focus:ring-primary/20"
+                className={FILTER_CONTROL}
               >
                 <option value="TODOS">Soporte: Todos</option>
-                <option value="CON_SOPORTE">Con Factura</option>
-                <option value="SIN_SOPORTE">Sin Factura</option>
+                <option value="CON_SOPORTE">Con factura</option>
+                <option value="SIN_SOPORTE">Sin factura</option>
               </select>
             </div>
           </div>
@@ -378,13 +360,14 @@ export default function OrgGastosPage() {
           {/* Quick Search and Clear */}
           <div className="flex flex-col sm:flex-row justify-between items-center gap-3 pt-2 border-t">
             <div className="relative w-full sm:w-96">
-              <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" aria-hidden="true" />
               <input
-                type="text"
+                type="search"
+                aria-label="Buscar egresos"
                 placeholder="Filtrar por beneficiario, NIT, concepto o propiedad..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-9 pr-4 py-1.5 text-xs rounded-lg border bg-background focus:ring-2 focus:ring-primary/20"
+                className={`${FILTER_CONTROL} pl-9`}
               />
             </div>
 
@@ -404,8 +387,8 @@ export default function OrgGastosPage() {
         <Card className="border shadow-sm">
           <CardHeader className="p-4 pb-2 border-b">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <Building2 className="h-4 w-4 text-primary" />
-              Egresos por Propiedad
+              <Building2 className="h-4 w-4 text-text-secondary" aria-hidden="true" />
+              Egresos por propiedad
             </CardTitle>
           </CardHeader>
           <CardContent className="p-4 space-y-3">
@@ -418,14 +401,14 @@ export default function OrgGastosPage() {
                   return (
                     <div key={p.idPropiedad} className="space-y-1">
                       <div className="flex justify-between items-center text-xs">
-                        <span className="font-medium text-slate-800 dark:text-slate-200">{p.nombrePropiedad}</span>
+                        <span className="font-medium text-on-surface">{p.nombrePropiedad}</span>
                         <div className="flex items-center gap-2">
-                          <span className="text-muted-foreground font-mono">{p.cantidadGastos} egresos</span>
-                          <span className="font-bold text-slate-900 dark:text-white font-mono">{fmtCOP.format(totalGasto)}</span>
+                          <span className="text-muted-foreground tabular-nums">{p.cantidadGastos} egresos</span>
+                          <span className="font-bold text-on-surface tabular-nums">{fmtCOP.format(totalGasto)}</span>
                         </div>
                       </div>
-                      <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
-                        <div className="bg-primary h-full rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
+                      <div className="h-2 w-full overflow-hidden rounded-[2px] bg-surface-dim" aria-hidden="true">
+                        <div className="h-full bg-btn-primary transition-[width] duration-300 ease-out" style={{ width: `${pct}%` }} />
                       </div>
                     </div>
                   );
@@ -441,8 +424,8 @@ export default function OrgGastosPage() {
         <Card className="border shadow-sm">
           <CardHeader className="p-4 pb-2 border-b">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-emerald-600" />
-              Distribución por Categoría
+              <TrendingUp className="h-4 w-4 text-text-secondary" aria-hidden="true" />
+              Distribución por categoría
             </CardTitle>
           </CardHeader>
           <CardContent className="p-4 space-y-3">
@@ -455,14 +438,14 @@ export default function OrgGastosPage() {
                   return (
                     <div key={cat} className="space-y-1">
                       <div className="flex justify-between items-center text-xs">
-                        <span className="font-medium text-slate-800 dark:text-slate-200">{cat}</span>
+                        <span className="font-medium text-on-surface">{cat}</span>
                         <div className="flex items-center gap-2">
-                          <span className="text-muted-foreground text-[11px]">{pct}%</span>
-                          <span className="font-bold text-slate-900 dark:text-white font-mono">{fmtCOP.format(montoNum)}</span>
+                          <span className="text-muted-foreground text-xs">{pct}%</span>
+                          <span className="font-bold text-on-surface tabular-nums">{fmtCOP.format(montoNum)}</span>
                         </div>
                       </div>
-                      <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
-                        <div className="bg-emerald-500 h-full rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
+                      <div className="h-2 w-full overflow-hidden rounded-[2px] bg-surface-dim" aria-hidden="true">
+                        <div className="h-full bg-tint-green-fg transition-[width] duration-300 ease-out" style={{ width: `${pct}%` }} />
                       </div>
                     </div>
                   );
@@ -479,32 +462,43 @@ export default function OrgGastosPage() {
       <Card className="border shadow-sm">
         <CardContent className="p-0">
           {loading ? (
-            <div className="p-6 space-y-3">
+            <div className="p-6 space-y-3" role="status" aria-busy="true" aria-label="Cargando egresos">
               <Skeleton className="h-10 w-full" />
               <Skeleton className="h-10 w-full" />
               <Skeleton className="h-10 w-full" />
             </div>
+          ) : loadError ? (
+            <ErrorState
+              compact
+              className="m-4"
+              title="No se pudo cargar el detalle de egresos"
+              onRetry={() => refetch().catch(() => {})}
+            />
           ) : gastosFiltrados.length === 0 ? (
-            <div className="p-12 text-center space-y-3">
-              <Receipt className="h-8 w-8 text-slate-400 mx-auto" />
-              <p className="text-base font-medium text-slate-700 dark:text-slate-200">No se encontraron egresos</p>
-              <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-                No existen registros de gastos para los criterios y fechas seleccionados en las propiedades de la organización.
-              </p>
-            </div>
+            <EmptyState
+              icon={Receipt}
+              title="No se encontraron egresos"
+              subtitle="No existen gastos para los criterios y fechas seleccionados en las propiedades de la organización."
+            >
+              {(idPropiedad || fechaInicio || fechaFin || categoria || estado || conSoporte !== 'TODOS' || search) && (
+                <Button variant="outline" size="sm" className="mt-3" onClick={limpiarFiltros}>
+                  Limpiar filtros
+                </Button>
+              )}
+            </EmptyState>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="max-h-[70vh] overflow-auto">
               <Table>
                 <TableHeader>
-                  <TableRow className="bg-slate-50/75 dark:bg-slate-900/50">
+                  <TableRow className="bg-surface-container">
                     <TableHead className="w-32">Propiedad</TableHead>
                     <TableHead className="w-24">Fecha</TableHead>
-                    <TableHead>Beneficiario & NIT</TableHead>
-                    <TableHead>Categoría & Justificación</TableHead>
+                    <TableHead>Beneficiario y NIT</TableHead>
+                    <TableHead>Categoría y justificación</TableHead>
                     <TableHead>Estado</TableHead>
-                    <TableHead>Soporte de Respaldo</TableHead>
+                    <TableHead>Soporte</TableHead>
                     <TableHead className="text-right">Monto</TableHead>
-                    <TableHead className="text-right w-24">Auditoría</TableHead>
+                    <TableHead className="text-right w-24">Expediente</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -513,23 +507,23 @@ export default function OrgGastosPage() {
                     const tieneSop = Boolean(g.facturaSoporteUrl);
                     const estadoConfig = ESTADOS_GASTO.find((e) => e.value === g.estado) || {
                       label: g.estado,
-                      badgeClass: 'bg-slate-100 text-slate-700',
+                      badgeClass: 'bg-surface-dim text-text-secondary',
                     };
 
                     return (
-                      <TableRow key={id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/40">
+                      <TableRow key={id} className="hover:bg-surface-container">
                         <TableCell>
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-tint-primary-bg text-primary-text border border-primary/40">
                             {g.nombrePropiedad || `Propiedad #${g.idPropiedad}`}
                           </span>
                         </TableCell>
 
-                        <TableCell className="font-mono text-xs whitespace-nowrap text-slate-600 dark:text-slate-400">
+                        <TableCell className="text-xs whitespace-nowrap tabular-nums text-text-secondary">
                           {g.fechaGasto || '-'}
                         </TableCell>
 
                         <TableCell>
-                          <div className="font-medium text-slate-900 dark:text-white leading-tight">
+                          <div className="font-medium text-on-surface leading-tight">
                             {g.beneficiario}
                           </div>
                           {g.proveedorNit && (
@@ -540,7 +534,7 @@ export default function OrgGastosPage() {
                         </TableCell>
 
                         <TableCell className="max-w-xs">
-                          <div className="text-xs font-medium text-slate-800 dark:text-slate-200">
+                          <div className="text-xs font-medium text-on-surface">
                             {g.categoria}
                           </div>
                           {g.justificacion ? (
@@ -548,12 +542,12 @@ export default function OrgGastosPage() {
                               {g.justificacion}
                             </p>
                           ) : (
-                            <span className="text-[11px] text-slate-400 italic">Sin justificación</span>
+                            <span className="text-xs text-text-muted italic">Sin justificación</span>
                           )}
                         </TableCell>
 
                         <TableCell>
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${estadoConfig.badgeClass}`}>
+                          <span className={`inline-flex items-center rounded-[3px] border px-2 py-0.5 text-xs font-bold ${estadoConfig.badgeClass}`}>
                             {estadoConfig.label}
                           </span>
                         </TableCell>
@@ -561,21 +555,22 @@ export default function OrgGastosPage() {
                         <TableCell>
                           {tieneSop ? (
                             <button
+                              type="button"
                               onClick={() => verSoporte(id, g.archivoNombreOrig, g.archivoMimeType)}
-                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 transition-colors"
+                              className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-tint-green-fg/25 bg-tint-green-bg px-2.5 py-1 text-xs font-semibold text-tint-green-fg transition-[filter] duration-150 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                             >
                               <FileCheck className="h-3.5 w-3.5" />
                               <span className="truncate max-w-[130px]">{g.archivoNombreOrig || 'Ver Factura'}</span>
                             </button>
                           ) : (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-tint-amber-bg text-tint-amber-fg border border-tint-amber-fg/25">
                               <AlertCircle className="h-3 w-3" />
                               Sin soporte
                             </span>
                           )}
                         </TableCell>
 
-                        <TableCell className="text-right font-mono font-bold text-slate-900 dark:text-white">
+                        <TableCell className="whitespace-nowrap text-right font-bold tabular-nums text-on-surface">
                           {fmtCOP.format(Number(g.monto || 0))}
                         </TableCell>
 
@@ -587,7 +582,8 @@ export default function OrgGastosPage() {
                             className="gap-1 text-xs"
                             title="Ver expediente y auditoría"
                           >
-                            <Eye className="h-4 w-4 text-slate-600 dark:text-slate-300" />
+                            <Eye className="h-4 w-4 text-text-secondary" aria-hidden="true" />
+                            <span className="sr-only">Ver expediente de {g.beneficiario}</span>
                           </Button>
                         </TableCell>
                       </TableRow>
@@ -606,7 +602,7 @@ export default function OrgGastosPage() {
           <SheetHeader>
             <SheetTitle className="flex items-center gap-2">
               <ShieldCheck className="h-5 w-5 text-primary" />
-              Expediente de Gasto & Auditoría
+              Expediente del gasto
             </SheetTitle>
             <SheetDescription>
               Inspección de egreso, proveedor, justificación legal y soporte documental.
@@ -622,13 +618,13 @@ export default function OrgGastosPage() {
           ) : gastoDetalle ? (
             <div className="space-y-6 py-4">
               {/* Tarjeta de Monto y Propiedad */}
-              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900 border space-y-3">
+              <div className="p-4 rounded-xl bg-surface-container border space-y-3">
                 <div className="flex justify-between items-start">
                   <div>
-                    <span className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
+                    <span className="text-xs text-muted-foreground font-semibold">
                       {gastoDetalle.nombrePropiedad}
                     </span>
-                    <p className="text-3xl font-mono font-bold text-slate-900 dark:text-white">
+                    <p className="app-numeral text-[1.75rem] text-on-surface">
                       {fmtCOP.format(Number(gastoDetalle.monto || 0))}
                     </p>
                   </div>
@@ -639,11 +635,11 @@ export default function OrgGastosPage() {
 
                 <div className="grid grid-cols-2 gap-2 pt-2 border-t text-xs">
                   <div>
-                    <span className="text-muted-foreground">Fecha Egreso: </span>
+                    <span className="text-muted-foreground">Fecha del egreso: </span>
                     <span className="font-medium">{gastoDetalle.fechaGasto || '-'}</span>
                   </div>
                   <div>
-                    <span className="text-muted-foreground">Método Pago: </span>
+                    <span className="text-muted-foreground">Método de pago: </span>
                     <span className="font-medium">{gastoDetalle.metodoPago || '-'}</span>
                   </div>
                   <div>
@@ -660,11 +656,11 @@ export default function OrgGastosPage() {
               {/* Proveedor y Justificación */}
               <div className="space-y-3">
                 <div>
-                  <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">
+                  <h4 className="text-xs font-semibold text-text-muted mb-1">
                     Beneficiario / Proveedor
                   </h4>
                   <div className="p-3 rounded-lg border bg-background text-sm space-y-1">
-                    <p className="font-semibold text-slate-900 dark:text-white">{gastoDetalle.beneficiario}</p>
+                    <p className="font-semibold text-on-surface">{gastoDetalle.beneficiario}</p>
                     {gastoDetalle.proveedorNit && (
                       <p className="text-xs text-muted-foreground font-mono">NIT / CC: {gastoDetalle.proveedorNit}</p>
                     )}
@@ -672,10 +668,10 @@ export default function OrgGastosPage() {
                 </div>
 
                 <div>
-                  <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">
+                  <h4 className="text-xs font-semibold text-text-muted mb-1">
                     Justificación Registrada
                   </h4>
-                  <div className="p-3 rounded-lg border bg-background text-sm text-slate-700 dark:text-slate-300 italic">
+                  <div className="p-3 rounded-lg border bg-background text-sm text-text-secondary italic">
                     {gastoDetalle.justificacion || 'No se ingresó justificación textual para este gasto.'}
                   </div>
                 </div>
@@ -683,14 +679,14 @@ export default function OrgGastosPage() {
 
               {/* Factura o Documento Soporte */}
               <div className="space-y-2">
-                <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                <h4 className="text-xs font-semibold text-text-muted">
                   Documento Soporte de Respaldo
                 </h4>
                 {gastoDetalle.facturaSoporteUrl ? (
                   <div className="p-4 rounded-xl border bg-background space-y-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2 truncate">
-                        <FileText className="h-5 w-5 text-emerald-600 flex-shrink-0" />
+                        <FileText className="h-5 w-5 text-tint-green-fg flex-shrink-0" />
                         <div className="truncate">
                           <p className="text-sm font-medium truncate">{gastoDetalle.archivoNombreOrig || 'Factura Soporte'}</p>
                           <p className="text-xs text-muted-foreground">
@@ -720,16 +716,16 @@ export default function OrgGastosPage() {
                     </div>
 
                     {gastoDetalle.archivoSha256 && (
-                      <div className="pt-2 border-t text-[11px] text-muted-foreground font-mono flex items-center gap-1 truncate">
-                        <ShieldCheck className="h-3.5 w-3.5 text-emerald-600 flex-shrink-0" />
+                      <div className="pt-2 border-t text-xs text-muted-foreground font-mono flex items-center gap-1 truncate">
+                        <ShieldCheck className="h-3.5 w-3.5 text-tint-green-fg flex-shrink-0" />
                         <span className="truncate">SHA-256: {gastoDetalle.archivoSha256}</span>
                       </div>
                     )}
                   </div>
                 ) : (
-                  <div className="p-4 rounded-xl border border-dashed text-center space-y-1 bg-amber-50/40 dark:bg-amber-950/20">
-                    <AlertCircle className="h-6 w-6 text-amber-500 mx-auto" />
-                    <p className="text-xs text-amber-700 dark:text-amber-300 font-medium">
+                  <div className="p-4 rounded-xl border border-dashed text-center space-y-1 bg-tint-amber-bg">
+                    <AlertCircle className="h-6 w-6 text-tint-amber-fg mx-auto" />
+                    <p className="text-xs text-tint-amber-fg font-medium">
                       Este gasto no posee factura ni documento soporte adjunto.
                     </p>
                   </div>
@@ -737,25 +733,25 @@ export default function OrgGastosPage() {
               </div>
 
               {/* Registro de Auditoría de Usuario */}
-              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900 border space-y-2 text-xs">
-                <h4 className="font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+              <div className="p-4 rounded-xl bg-surface-container border space-y-2 text-xs">
+                <h4 className="font-semibold text-text-secondary flex items-center gap-1.5">
                   <History className="h-4 w-4 text-primary" />
                   Trazabilidad de Registro
                 </h4>
-                <div className="space-y-1 text-slate-600 dark:text-slate-400">
+                <div className="space-y-1 text-text-secondary">
                   <p>
-                    <span className="font-medium text-slate-800 dark:text-slate-200">Registrado por: </span>
+                    <span className="font-medium text-on-surface">Registrado por: </span>
                     {gastoDetalle.registradoPorNombre || `Usuario #${gastoDetalle.registradoPor || '-'}`}
                   </p>
                   {gastoDetalle.fechaCreacion && (
                     <p>
-                      <span className="font-medium text-slate-800 dark:text-slate-200">Fecha de creación: </span>
+                      <span className="font-medium text-on-surface">Fecha de creación: </span>
                       {gastoDetalle.fechaCreacion}
                     </p>
                   )}
                   {gastoDetalle.modificadoPorNombre && (
                     <p>
-                      <span className="font-medium text-slate-800 dark:text-slate-200">Última modificación por: </span>
+                      <span className="font-medium text-on-surface">Última modificación por: </span>
                       {gastoDetalle.modificadoPorNombre}
                       {gastoDetalle.fechaModificacion ? ` el ${gastoDetalle.fechaModificacion}` : ''}
                     </p>
@@ -766,23 +762,23 @@ export default function OrgGastosPage() {
               {/* Historial de Soportes Reemplazados */}
               {gastoDetalle.historialSoportes && gastoDetalle.historialSoportes.length > 0 && (
                 <div className="space-y-2">
-                  <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-                    <History className="h-4 w-4 text-indigo-500" />
+                  <h4 className="text-xs font-semibold text-text-muted flex items-center gap-1.5">
+                    <History className="h-4 w-4 text-primary-text" />
                     Historial de Soportes Reemplazados ({gastoDetalle.historialSoportes.length})
                   </h4>
                   <div className="space-y-2">
                     {gastoDetalle.historialSoportes.map((h) => (
-                      <div key={h.idHistorial} className="p-3 rounded-lg border bg-slate-50/50 dark:bg-slate-900/50 text-xs space-y-1">
+                      <div key={h.idHistorial} className="p-3 rounded-lg border bg-surface-container text-xs space-y-1">
                         <div className="flex justify-between items-center">
-                          <span className="font-medium text-slate-800 dark:text-slate-200 truncate max-w-[200px]">
+                          <span className="font-medium text-on-surface truncate max-w-[200px]">
                             {h.archivoNombreOrig || 'Soporte archivado'}
                           </span>
-                          <span className="text-[11px] text-muted-foreground">{h.fechaReemplazo || '-'}</span>
+                          <span className="text-xs text-muted-foreground">{h.fechaReemplazo || '-'}</span>
                         </div>
                         <p className="text-muted-foreground italic">
                           Motivo: {h.motivoReemplazo || 'Sustitución de soporte'}
                         </p>
-                        <p className="text-[11px] text-muted-foreground">
+                        <p className="text-xs text-muted-foreground">
                           Reemplazado por: {h.reemplazadoPorNombre || `Usuario #${h.reemplazadoPor || '-'}`}
                         </p>
                       </div>
@@ -816,11 +812,12 @@ export default function OrgGastosPage() {
             </div>
           </DialogHeader>
 
-          <div className="flex-1 min-h-[500px] flex items-center justify-center p-2 bg-slate-100 dark:bg-slate-950 rounded-lg overflow-hidden">
+          <div className="flex-1 min-h-[500px] flex items-center justify-center p-2 bg-surface-dim rounded-lg overflow-hidden">
             {previewLoading ? (
-              <div className="space-y-3 text-center">
-                <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
-                <p className="text-xs text-muted-foreground">Cargando documento seguro...</p>
+              <div className="w-full max-w-md space-y-3" role="status" aria-busy="true">
+                <Skeleton className="h-6 w-2/3" />
+                <Skeleton className="h-64 w-full" />
+                <p className="text-xs text-muted-foreground">Cargando documento...</p>
               </div>
             ) : previewBlobUrl ? (
               previewFileInfo.type.includes('image') ? (
@@ -832,7 +829,7 @@ export default function OrgGastosPage() {
               ) : (
                 <iframe
                   src={previewBlobUrl}
-                  title="Visor de Factura"
+                  title="Visor de factura"
                   className="w-full h-[75vh] rounded border-0"
                 />
               )
@@ -842,6 +839,6 @@ export default function OrgGastosPage() {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageContainer>
   );
 }

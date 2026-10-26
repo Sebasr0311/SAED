@@ -17,12 +17,12 @@ import {
 import { PageContainer } from '../components/layout/PageContainer.jsx';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { MetricCard } from '../components/ui/MetricCard.jsx';
-import { Card } from '../components/ui/card.tsx';
 import { Button } from '../components/ui/button.tsx';
 import { Badge } from '../components/ui/badge.tsx';
 import { Modal } from '../components/ui/Modal.jsx';
 import { Input, Select, Textarea } from '../components/ui/Form.jsx';
 import EmptyState from '../components/ui/EmptyState.jsx';
+import ErrorState from '../components/ui/ErrorState.jsx';
 import LoadingState from '../components/ui/LoadingState.jsx';
 
 import api from '../lib/api.js';
@@ -57,64 +57,64 @@ const ESTADO_CONFIG = {
     label: 'Radicado',
     step: 1,
     badgeVariant: 'warning',
-    colorClass: 'text-amber-700 dark:text-amber-400',
-    bgClass: 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800/60',
+    colorClass: 'text-tint-amber-fg',
+    bgClass: 'bg-tint-amber-bg border-tint-amber-fg/25',
     icon: Clock,
   },
   ASIGNADO: {
     label: 'Asignado',
     step: 2,
     badgeVariant: 'info',
-    colorClass: 'text-blue-700 dark:text-blue-400',
-    bgClass: 'bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800/60',
+    colorClass: 'text-tint-blue-fg',
+    bgClass: 'bg-tint-blue-bg border-tint-blue-fg/25',
     icon: Layers,
   },
   EN_GESTION: {
     label: 'En Gestión',
     step: 2,
     badgeVariant: 'info',
-    colorClass: 'text-blue-700 dark:text-blue-400',
-    bgClass: 'bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800/60',
+    colorClass: 'text-tint-blue-fg',
+    bgClass: 'bg-tint-blue-bg border-tint-blue-fg/25',
     icon: Layers,
   },
   EN_REVISION: {
     label: 'En Revisión',
     step: 2,
     badgeVariant: 'info',
-    colorClass: 'text-blue-700 dark:text-blue-400',
-    bgClass: 'bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800/60',
+    colorClass: 'text-tint-blue-fg',
+    bgClass: 'bg-tint-blue-bg border-tint-blue-fg/25',
     icon: Layers,
   },
   ESCALADO: {
     label: 'Escalado',
     step: 2,
     badgeVariant: 'warning',
-    colorClass: 'text-purple-700 dark:text-purple-400',
-    bgClass: 'bg-purple-50 dark:bg-purple-950/40 border-purple-200 dark:border-purple-800/60',
+    colorClass: 'text-tint-purple-fg',
+    bgClass: 'bg-tint-purple-bg border-tint-purple-fg/25',
     icon: Layers,
   },
   RESUELTO: {
     label: 'Resuelto con Éxito',
     step: 3,
     badgeVariant: 'success',
-    colorClass: 'text-emerald-700 dark:text-emerald-400',
-    bgClass: 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/60',
+    colorClass: 'text-tint-green-fg',
+    bgClass: 'bg-tint-green-bg border-tint-green-fg/25',
     icon: CheckCircle2,
   },
   CERRADO: {
     label: 'Cerrado',
     step: 3,
     badgeVariant: 'secondary',
-    colorClass: 'text-slate-600 dark:text-slate-400',
-    bgClass: 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700',
+    colorClass: 'text-text-secondary',
+    bgClass: 'bg-surface-dim border-border',
     icon: ShieldCheck,
   },
   RECHAZADO: {
     label: 'Rechazado',
     step: 3,
     badgeVariant: 'destructive',
-    colorClass: 'text-red-600 dark:text-red-400',
-    bgClass: 'bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-800/60',
+    colorClass: 'text-tint-red-fg',
+    bgClass: 'bg-tint-red-bg border-tint-red-fg/25',
     icon: AlertCircle,
   },
 };
@@ -285,8 +285,8 @@ export default function ResQuejasPage() {
   return (
     <PageContainer>
       <PageHeader
-        title="PQRS — Atención y Solicitudes"
-        subtitle="Radica peticiones, quejas, reclamos y sugerencias con seguimiento oficial y tiempos SLA"
+        title="PQRS — atención y solicitudes"
+        subtitle="Radica peticiones, quejas, reclamos y sugerencias, y sigue su respuesta y tiempos de atención."
         action={
           <Button
             onClick={() => {
@@ -295,32 +295,33 @@ export default function ResQuejasPage() {
               resetTouched();
               setModalOpen(true);
             }}
+            className="min-h-10"
           >
-            <Plus className="w-4 h-4 mr-1.5" />
-            Radicar Solicitud
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            Radicar solicitud
           </Button>
         }
       />
 
       {/* 1. Métricas Ejecutivas */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <MetricCard
-          label="Total Radicados"
-          value={String(stats.total)}
+          label="Total radicados"
+          value={loading ? '…' : error ? '—' : String(stats.total)}
           icon={FileText}
           variant="primary"
           context="Historial de solicitudes"
         />
         <MetricCard
-          label="En Trámite"
-          value={String(stats.enTramite)}
+          label="En trámite"
+          value={loading ? '…' : error ? '—' : String(stats.enTramite)}
           icon={Clock}
           variant={stats.enTramite > 0 ? 'warning' : 'primary'}
           context={stats.enTramite > 0 ? 'En revisión administrativa' : 'Sin trámites pendientes'}
         />
         <MetricCard
-          label="Resueltos / Cerrados"
-          value={String(stats.resueltos)}
+          label="Resueltos / cerrados"
+          value={loading ? '…' : error ? '—' : String(stats.resueltos)}
           icon={CheckCircle2}
           variant="success"
           context="Gestión completada"
@@ -328,21 +329,22 @@ export default function ResQuejasPage() {
       </div>
 
       {/* 2. Barra de Filtros y Búsqueda */}
-      <div className="flex flex-col sm:flex-row gap-3 items-center justify-between mb-4">
+      <div className="flex flex-col items-stretch justify-between gap-3 sm:flex-row sm:items-center">
         <div className="flex gap-2 items-center flex-wrap w-full sm:w-auto">
           {[
             { id: 'TODOS', label: `Todos (${stats.total})` },
-            { id: 'EN_TRAMITE', label: `En Trámite (${stats.enTramite})` },
+            { id: 'EN_TRAMITE', label: `En trámite (${stats.enTramite})` },
             { id: 'RESUELTOS', label: `Resueltos (${stats.resueltos})` },
           ].map((tab) => (
             <button
               key={tab.id}
               type="button"
               onClick={() => setTabFiltro(tab.id)}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              aria-pressed={tabFiltro === tab.id}
+              className={`min-h-10 rounded-md px-3.5 text-xs font-semibold tabular-nums transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-h-9 ${
                 tabFiltro === tab.id
-                  ? 'bg-primary text-primary-foreground shadow-sm'
-                  : 'bg-card border border-border text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                  ? 'bg-btn-primary text-white shadow-sm'
+                  : 'bg-surface border border-border text-text-secondary hover:text-on-surface hover:bg-surface-container'
               }`}
             >
               {tab.label}
@@ -358,7 +360,8 @@ export default function ResQuejasPage() {
               placeholder="Buscar por radicado, asunto, categoría..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-3 py-1.5 text-sm rounded-lg border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+              aria-label="Buscar solicitudes"
+              className="h-10 w-full rounded-md border border-input bg-surface pl-9 pr-3 text-sm text-on-surface placeholder:text-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/25"
             />
           </div>
         </div>
@@ -366,23 +369,23 @@ export default function ResQuejasPage() {
 
       {/* 3. Listado de Tickets PQRS */}
       {loading ? (
-        <LoadingState text="Consultando historial de radicados PQRS..." />
+        <div className="rounded-lg border border-border bg-surface shadow-sm">
+          <LoadingState message="Consultando tus solicitudes…" />
+        </div>
       ) : error ? (
-        <Card className="p-8 text-center">
-          <AlertCircle className="w-8 h-8 text-destructive mx-auto mb-2" />
-          <p className="text-sm font-medium text-destructive">{error.message || 'Error al cargar tickets'}</p>
-          <Button variant="outline" size="sm" className="mt-4" onClick={() => refetch()}>
-            Reintentar
-          </Button>
-        </Card>
+        <ErrorState
+          title="No se pudieron cargar tus solicitudes"
+          message="Revisa tu conexión e intenta de nuevo."
+          onRetry={() => refetch().catch(() => {})}
+        />
       ) : filteredTickets.length === 0 ? (
         <EmptyState
-          icon="support_agent"
+          icon={FileText}
           title="No hay solicitudes en este filtro"
           subtitle={
             tabFiltro === 'EN_TRAMITE'
               ? 'No tienes requerimientos en trámite actualmente.'
-              : 'Radica tu primera solicitud con el botón "Radicar Solicitud".'
+              : 'Radica tu primera solicitud con el botón «Radicar solicitud».'
           }
         />
       ) : (
@@ -396,10 +399,10 @@ export default function ResQuejasPage() {
             return (
               <div
                 key={t.idTicket || t.numeroRadicado}
-                className="bg-card border border-border rounded-xl p-4 sm:p-5 hover:border-primary/30 transition-all shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4"
+                className="flex flex-col justify-between gap-4 rounded-lg border border-border bg-surface p-4 shadow-sm transition-colors duration-150 hover:border-primary/50 sm:p-5 md:flex-row md:items-center"
               >
                 <div className="flex items-start gap-3.5 min-w-0">
-                  <div className={`p-2.5 rounded-xl shrink-0 ${config.bgClass}`}>
+                  <div className={`shrink-0 rounded-md border p-2.5 ${config.bgClass}`}>
                     <Icon className={`w-5 h-5 ${config.colorClass}`} />
                   </div>
                   <div className="space-y-1 min-w-0">
@@ -407,7 +410,7 @@ export default function ResQuejasPage() {
                       <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-muted text-foreground">
                         {t.numeroRadicado || `#T-${t.idTicket}`}
                       </span>
-                      <h3 className="text-base font-bold text-foreground truncate">
+                      <h3 className="min-w-0 break-words text-[15px] font-bold text-on-surface">
                         {t.asunto}
                       </h3>
                       <Badge variant={config.badgeVariant} className="text-xs">
@@ -434,7 +437,7 @@ export default function ResQuejasPage() {
                         <span
                           className={
                             esVencidoSla
-                              ? 'text-rose-600 dark:text-rose-400 font-semibold'
+                              ? 'text-tint-red-fg font-semibold'
                               : 'text-muted-foreground'
                           }
                         >
@@ -451,9 +454,10 @@ export default function ResQuejasPage() {
                     variant="outline"
                     size="sm"
                     onClick={() => openDetalle(t)}
+                    className="min-h-10 sm:min-h-8"
                   >
-                    <Eye className="w-4 h-4 mr-1.5" />
-                    Ver Trazabilidad
+                    <Eye className="h-4 w-4" aria-hidden="true" />
+                    Ver trazabilidad
                   </Button>
                 </div>
               </div>
@@ -466,7 +470,7 @@ export default function ResQuejasPage() {
       <Modal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        title="Radicar Nueva Solicitud PQRS"
+        title="Radicar nueva solicitud PQRS"
         footer={
           <div className="flex items-center justify-end gap-2 w-full">
             <Button variant="outline" onClick={() => setModalOpen(false)}>
@@ -482,7 +486,7 @@ export default function ResQuejasPage() {
           <div className="form-row">
             <Select
               id="tipo"
-              label="Tipo de Solicitud *"
+              label="Tipo de solicitud *"
               value={form.tipo}
               onChange={(e) => setForm((f) => ({ ...f, tipo: e.target.value }))}
             >
@@ -494,7 +498,7 @@ export default function ResQuejasPage() {
             </Select>
             <Select
               id="categoria"
-              label="Categoría del Asunto *"
+              label="Categoría del asunto *"
               value={form.categoria}
               onChange={(e) => setForm((f) => ({ ...f, categoria: e.target.value }))}
             >
@@ -509,7 +513,7 @@ export default function ResQuejasPage() {
           <div className="form-group">
             <Select
               id="prioridad"
-              label="Nivel de Prioridad"
+              label="Nivel de prioridad"
               value={form.prioridad}
               onChange={(e) => setForm((f) => ({ ...f, prioridad: e.target.value }))}
             >
@@ -524,7 +528,7 @@ export default function ResQuejasPage() {
           <div className="form-group">
             <Input
               id="asunto"
-              label="Asunto de la Solicitud *"
+              label="Asunto de la solicitud *"
               placeholder="Ej. Filtración de agua en zona común de piso 3"
               value={form.asunto}
               onChange={(e) => setForm((f) => ({ ...f, asunto: e.target.value }))}
@@ -544,7 +548,7 @@ export default function ResQuejasPage() {
           <div className="form-group">
             <Textarea
               id="descripcion"
-              label="Descripción Detallada de los Hechos *"
+              label="Descripción detallada de los hechos *"
               rows={4}
               placeholder="Explica tu requerimiento con claridad indicando antecedentes, ubicación precisa y cualquier información que facilite la gestión..."
               value={form.descripcion}
@@ -562,8 +566,8 @@ export default function ResQuejasPage() {
             />
           </div>
 
-          <div className="p-3 rounded-xl bg-blue-50/60 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/50 flex items-start gap-2.5 text-xs text-blue-900 dark:text-blue-300">
-            <Info className="w-4 h-4 shrink-0 text-blue-600 mt-0.5" />
+          <div className="p-3 rounded-xl bg-tint-blue-bg border border-tint-blue-fg/25 flex items-start gap-2.5 text-xs text-tint-blue-fg">
+            <Info className="w-4 h-4 shrink-0 text-tint-blue-fg mt-0.5" />
             <div>
               Al enviar, el sistema genera automáticamente un <strong>código de radicado formal</strong> con sello de
               tiempo para garantizar el seguimiento legal conforme a la Ley de Propiedad Horizontal.
@@ -579,7 +583,7 @@ export default function ResQuejasPage() {
         title={`Trazabilidad Radicado: ${modalDetalle?.numeroRadicado || ''}`}
         footer={
           <Button variant="outline" onClick={() => setModalDetalle(null)}>
-            Cerrar Ficha
+            Cerrar ficha
           </Button>
         }
       >
@@ -625,8 +629,8 @@ export default function ResQuejasPage() {
 
             {/* Asunto y Descripción */}
             <div className="p-3.5 rounded-xl border border-border space-y-2">
-              <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                Contenido de la Solicitud
+              <div className="text-xs font-bold text-muted-foreground">
+                Contenido de la solicitud
               </div>
               <div className="text-sm font-bold text-foreground">
                 {modalDetalle.asunto}
@@ -638,7 +642,7 @@ export default function ResQuejasPage() {
 
             {/* Historial de movimientos */}
             <div className="p-3.5 rounded-xl border border-border space-y-2">
-              <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+              <div className="text-xs font-bold text-muted-foreground">
                 Historial y respuestas
               </div>
               {trazaLoading ? (
@@ -687,23 +691,23 @@ export default function ResQuejasPage() {
 
             {/* Respuesta formal de la administración si existe */}
             {modalDetalle.observacionCierre || modalDetalle.respuestaAdministracion || modalDetalle.ultimaRespuesta ? (
-              <div className="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 space-y-1.5">
-                <div className="text-xs font-bold text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                  Respuesta Oficial de la Administración
+              <div className="p-3.5 rounded-xl bg-tint-green-bg border border-tint-green-fg/25 space-y-1.5">
+                <div className="text-xs font-bold text-tint-green-fg flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-tint-green-fg" />
+                  Respuesta oficial de la administración
                 </div>
-                <p className="text-xs text-emerald-950 dark:text-emerald-200 leading-relaxed whitespace-pre-wrap">
+                <p className="text-xs text-tint-green-fg leading-relaxed whitespace-pre-wrap">
                   {modalDetalle.observacionCierre || modalDetalle.respuestaAdministracion || modalDetalle.ultimaRespuesta}
                 </p>
                 {modalDetalle.fechaCierre && (
-                  <div className="text-[11px] text-emerald-700/80 dark:text-emerald-400 pt-1">
+                  <div className="text-[11px] text-tint-green-fg pt-1">
                     Atendido formalmente el {formatDateTime(modalDetalle.fechaCierre)}
                   </div>
                 )}
               </div>
             ) : (
-              <div className="p-3 rounded-xl bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/40 text-xs text-blue-900 dark:text-blue-300 flex items-center gap-2">
-                <Clock className="w-4 h-4 text-blue-600 shrink-0" />
+              <div className="p-3 rounded-xl bg-tint-blue-bg border border-tint-blue-fg/25 text-xs text-tint-blue-fg flex items-center gap-2">
+                <Clock className="w-4 h-4 text-tint-blue-fg shrink-0" />
                 <span>
                   Tu solicitud se encuentra en curso. El equipo de administración revisará los hechos y te
                   notificará por correo y en este buzón.

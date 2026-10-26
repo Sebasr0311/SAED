@@ -32,6 +32,12 @@ import {
   FileCheck,
 } from 'lucide-react';
 import { PageHeader } from '../components/ui/PageHeader';
+import { PageContainer } from '../components/layout/PageContainer.jsx';
+import { MetricCard } from '../components/ui/MetricCard.jsx';
+import { Button } from '../components/ui/button.tsx';
+import EmptyState from '../components/ui/EmptyState.jsx';
+import { ErrorState } from '../components/ui/ErrorState.jsx';
+import { LoadingState } from '../components/ui/LoadingState.jsx';
 import { Modal } from '../components/ui/Modal';
 import { useFetch } from '../lib/hooks';
 import { useTenant } from '../lib/TenantContext.jsx';
@@ -42,18 +48,18 @@ import { toast } from 'sonner';
 
 const ESTADOS_ASAMBLEA = {
   BORRADOR: { label: 'Borrador', color: 'bg-muted text-muted-foreground border border-border' },
-  CONVOCADA: { label: 'Convocada', color: 'bg-blue-500/15 text-blue-700 dark:text-blue-400 border border-blue-500/30' },
-  EN_CURSO: { label: 'En Curso', color: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30' },
-  EN_RECESO: { label: 'En Receso', color: 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30' },
-  FINALIZADA: { label: 'Finalizada', color: 'bg-gray-500/15 text-gray-700 dark:text-gray-400' },
-  CANCELADA: { label: 'Cancelada', color: 'bg-red-500/15 text-red-700 dark:text-red-400' },
+  CONVOCADA: { label: 'Convocada', color: 'bg-tint-blue-bg text-tint-blue-fg border border-tint-blue-fg/25' },
+  EN_CURSO: { label: 'En Curso', color: 'bg-tint-green-bg text-tint-green-fg border border-tint-green-fg/25' },
+  EN_RECESO: { label: 'En Receso', color: 'bg-tint-amber-bg text-tint-amber-fg border border-tint-amber-fg/25' },
+  FINALIZADA: { label: 'Finalizada', color: 'bg-tint-neutral-bg text-on-surface' },
+  CANCELADA: { label: 'Cancelada', color: 'bg-tint-red-bg text-tint-red-fg' },
 };
 
 const ESTADOS_ACTA = {
-  BORRADOR: { label: 'Borrador', color: 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30' },
-  EN_REVISION_COMISION: { label: 'En Revisión (Comisión)', color: 'bg-blue-500/15 text-blue-700 dark:text-blue-400 border border-blue-500/30' },
-  APROBADA: { label: 'Aprobada por Comisión', color: 'bg-purple-500/15 text-purple-700 dark:text-purple-400 border border-purple-500/30' },
-  PUBLICADA_OFICIAL: { label: 'Publicada Oficialmente (Ley 675)', color: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30' },
+  BORRADOR: { label: 'Borrador', color: 'bg-tint-amber-bg text-tint-amber-fg border border-tint-amber-fg/25' },
+  EN_REVISION_COMISION: { label: 'En Revisión (Comisión)', color: 'bg-tint-blue-bg text-tint-blue-fg border border-tint-blue-fg/25' },
+  APROBADA: { label: 'Aprobada por Comisión', color: 'bg-tint-purple-bg text-tint-purple-fg border border-tint-purple-fg/25' },
+  PUBLICADA_OFICIAL: { label: 'Publicada Oficialmente (Ley 675)', color: 'bg-tint-green-bg text-tint-green-fg border border-tint-green-fg/25' },
 };
 
 const MAYORIAS = {
@@ -543,135 +549,83 @@ export default function AsambleasAdminPage() {
   }, [asambleas, filtroEstado]);
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-12">
-      {/* 1. Header Ejecutivo */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <PageHeader
-          title="Asambleas y Decisiones Copropietarias"
-          description="Convocatorias legales, quórum en tiempo real conforme a la Ley 675, poderes de representación y votaciones vinculantes."
-        />
-        <div className="flex items-center gap-3">
-          <button
-            onClick={handleRefetchAll}
-            disabled={sincronizando}
-            className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg border border-border bg-card text-foreground hover:bg-muted transition-colors shadow-xs"
-            title="Sincronizar quórum y asambleas"
-          >
-            <RefreshCw className={`w-4 h-4 ${sincronizando ? 'animate-spin text-primary' : ''}`} />
-            Sincronizar
-          </button>
-          <button
-            onClick={() => setModalConvocarOpen(true)}
-            className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-xs"
-          >
-            <Plus className="w-4 h-4" />
-            Convocar Asamblea
-          </button>
-        </div>
-      </div>
+    <PageContainer className="pb-12">
+      <PageHeader
+        title="Asambleas y Decisiones Copropietarias"
+        description="Convocatorias, quórum en tiempo real conforme a la Ley 675, poderes de representación y votaciones."
+        action={
+          <>
+            <Button
+              variant="outline"
+              onClick={handleRefetchAll}
+              disabled={sincronizando}
+              className="min-h-10"
+              title="Sincronizar quórum y asambleas"
+            >
+              <RefreshCw className={sincronizando ? 'animate-spin' : ''} aria-hidden="true" />
+              Sincronizar
+            </Button>
+            <Button onClick={() => setModalConvocarOpen(true)} className="min-h-10">
+              <Plus aria-hidden="true" />
+              Convocar Asamblea
+            </Button>
+          </>
+        }
+      />
 
-      {/* 2. Tarjetas KPI de Alto Impacto */}
+      {/* KPIs */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-card text-card-foreground border border-border rounded-xl p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Próxima Convocatoria
-            </span>
-            <div className="p-2 rounded-lg bg-blue-500/10 text-blue-600">
-              <Calendar className="w-5 h-5" />
-            </div>
-          </div>
-          <div className="mt-3">
-            <div className="text-lg font-bold truncate">
-              {proximaAsamblea ? proximaAsamblea.titulo : 'Sin asambleas pendientes'}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
+        <div className="relative flex items-center justify-between gap-4 overflow-hidden rounded-lg border border-border bg-card p-5 shadow-sm">
+          <div className="min-w-0 flex-1 space-y-1">
+            <p className="text-[13px] font-semibold text-text-secondary">Próxima convocatoria</p>
+            <p className="truncate text-base font-bold text-on-surface">
+              {!asambleasRaw ? '—' : proximaAsamblea ? proximaAsamblea.titulo : 'Sin asambleas pendientes'}
+            </p>
+            <p className="text-xs text-text-muted">
               {proximaAsamblea
-                ? `${proximaAsamblea.tipo} • ${proximaAsamblea.modalidad}`
-                : 'Todas las asambleas están al día'}
+                ? `${proximaAsamblea.tipo} · ${proximaAsamblea.modalidad}`
+                : asambleasRaw ? 'Todas las asambleas están al día' : 'Sin datos'}
             </p>
+          </div>
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-tint-blue-bg text-tint-blue-fg">
+            <Calendar className="h-5 w-5" aria-hidden="true" />
           </div>
         </div>
 
-        <div className="bg-card text-card-foreground border border-border rounded-xl p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Quórum en Vivo
-            </span>
-            <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-600">
-              <Percent className="w-5 h-5" />
-            </div>
-          </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <div className="text-2xl font-bold">
-              {quorumLive ? `${quorumLive.quorumAlcanzadoPct || 0}%` : `${asambleaActiva?.quorumAlcanzadoPct || 0}%`}
-            </div>
-            <span className="text-xs text-muted-foreground">
-              / req. {asambleaActiva?.quorumRequeridoPct || 50.01}%
-            </span>
-          </div>
-          <div className="mt-2 flex items-center gap-1.5">
-            {quorumLive?.tieneQuorum ? (
-              <span className="badge badge-xs bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 font-medium">
-                ✅ Quórum Válido
-              </span>
-            ) : (
-              <span className="badge badge-xs bg-amber-500/15 text-amber-700 dark:text-amber-400 font-medium">
-                ⏳ Quórum en Registro
-              </span>
-            )}
-            <span className="text-xs text-muted-foreground">
-              ({quorumLive?.totalUnidadesRegistradas || 0} unidades)
-            </span>
-          </div>
-        </div>
+        <MetricCard
+          label="Quórum en vivo"
+          value={quorumLive ? `${quorumLive.quorumAlcanzadoPct || 0}%` : asambleaActiva ? `${asambleaActiva.quorumAlcanzadoPct || 0}%` : '—'}
+          context={`${quorumLive?.tieneQuorum ? 'Quórum válido' : 'Quórum en registro'} · req. ${asambleaActiva?.quorumRequeridoPct || 50.01}% · ${quorumLive?.totalUnidadesRegistradas || 0} unidades`}
+          icon={Percent}
+          variant={quorumLive?.tieneQuorum ? 'success' : 'warning'}
+        />
 
-        <div className="bg-card text-card-foreground border border-border rounded-xl p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Historial Asambleas
-            </span>
-            <div className="p-2 rounded-lg bg-purple-500/10 text-purple-600">
-              <Award className="w-5 h-5" />
-            </div>
-          </div>
-          <div className="mt-3">
-            <div className="text-2xl font-bold">{asambleas.length}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {asambleas.filter((a) => a.estado === 'FINALIZADA').length} concluidas formalmente
-            </p>
-          </div>
-        </div>
+        <MetricCard
+          label="Historial de asambleas"
+          value={asambleasRaw ? asambleas.length : '—'}
+          context={`${asambleas.filter((a) => a.estado === 'FINALIZADA').length} concluidas formalmente`}
+          icon={Award}
+          variant="info"
+        />
 
-        <div className="bg-card text-card-foreground border border-border rounded-xl p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Poderes por Revisar
-            </span>
-            <div className="p-2 rounded-lg bg-amber-500/10 text-amber-600">
-              <ShieldCheck className="w-5 h-5" />
-            </div>
-          </div>
-          <div className="mt-3">
-            <div className="text-2xl font-bold">{poderesPendientes}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {poderesPendientes > 0
-                ? 'Requieren validación de administración'
-                : 'Todos los poderes revisados'}
-            </p>
-          </div>
-        </div>
+        <MetricCard
+          label="Poderes por revisar"
+          value={asambleasRaw ? poderesPendientes : '—'}
+          context={poderesPendientes > 0 ? 'Requieren validación de administración' : 'Todos los poderes revisados'}
+          icon={ShieldCheck}
+          variant={poderesPendientes > 0 ? 'warning' : 'secondary'}
+        />
       </div>
 
       {/* 3. Selector de Asamblea Activa para Salas y Votaciones */}
       {asambleas.length > 0 && (
-        <div className="bg-card text-card-foreground border border-border rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
+        <div className="bg-card text-card-foreground border border-border rounded-lg p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-lg bg-primary/10 text-primary">
-              <Building className="w-5 h-5" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-md bg-tint-primary-bg text-primary-text">
+              <Building className="w-5 h-5" aria-hidden="true" />
             </div>
             <div>
-              <div className="text-xs text-muted-foreground font-medium uppercase">Asamblea en Foco Operativo</div>
+              <label htmlFor="asamblea-foco" className="text-xs text-text-secondary font-semibold">Asamblea seleccionada</label>
               <div className="font-semibold text-base">
                 {asambleaActiva?.titulo || 'Seleccione una asamblea'}
               </div>
@@ -680,7 +634,8 @@ export default function AsambleasAdminPage() {
 
           <div className="flex items-center gap-3 w-full sm:w-auto">
             <select
-              className="w-full sm:w-72 px-3 py-1.5 text-xs rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 shadow-xs"
+              id="asamblea-foco"
+              className="h-10 w-full sm:w-72 px-3 text-sm rounded-md border border-input bg-surface text-on-surface focus-visible:outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25"
               value={asambleaActiva?.idAsamblea || ''}
               onChange={(e) => setAsambleaSeleccionadaId(Number(e.target.value))}
             >
@@ -694,7 +649,8 @@ export default function AsambleasAdminPage() {
             {asambleaActiva && asambleaActiva.estado === 'CONVOCADA' && (
               <button
                 onClick={() => handleCambiarEstado(asambleaActiva.idAsamblea, 'EN_CURSO')}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-xs"
+                type="button"
+                className="inline-flex h-10 shrink-0 items-center gap-1.5 px-3 text-sm font-semibold rounded-md bg-btn-primary text-white hover:bg-btn-primary-hover transition-colors duration-150 shadow-sm"
                 title="Iniciar sesión formal"
               >
                 <Play className="w-3.5 h-3.5" /> Iniciar
@@ -704,7 +660,8 @@ export default function AsambleasAdminPage() {
             {asambleaActiva && asambleaActiva.estado === 'EN_CURSO' && (
               <button
                 onClick={() => handleCambiarEstado(asambleaActiva.idAsamblea, 'FINALIZADA')}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-destructive/30 text-destructive hover:bg-destructive/10 transition-colors"
+                type="button"
+                className="inline-flex h-10 shrink-0 items-center gap-1.5 px-3 text-sm font-semibold rounded-md border border-destructive/40 text-destructive hover:bg-tint-red-bg transition-colors duration-150"
                 title="Finalizar asamblea"
               >
                 <Square className="w-3.5 h-3.5" /> Finalizar
@@ -715,38 +672,53 @@ export default function AsambleasAdminPage() {
       )}
 
       {/* 4. Pestañas de Navegación del Módulo */}
-      <div className="tabs tabs-boxed bg-muted/60 p-1 rounded-xl flex flex-wrap gap-1">
+      <div role="tablist" aria-label="Secciones de asambleas" className="flex gap-1 overflow-x-auto rounded-lg border border-border bg-surface-dim p-1">
         <button
           onClick={() => setTabActiva('asambleas')}
-          className={`tab tab-sm font-medium transition-all ${tabActiva === 'asambleas' ? 'tab-active bg-card text-foreground shadow-xs' : 'text-muted-foreground'}`}
+          type="button"
+          role="tab"
+          aria-selected={tabActiva === 'asambleas'}
+          className={`inline-flex min-h-10 shrink-0 items-center rounded-md px-3 text-[13px] font-semibold transition-colors duration-150 ${tabActiva === 'asambleas' ? 'bg-surface text-primary-text shadow-sm' : 'text-text-secondary hover:text-on-surface'}`}
         >
           <Calendar className="w-4 h-4 mr-1.5" />
           Convocatorias y Asambleas ({asambleas.length})
         </button>
         <button
           onClick={() => setTabActiva('quorum')}
-          className={`tab tab-sm font-medium transition-all ${tabActiva === 'quorum' ? 'tab-active bg-card text-foreground shadow-xs' : 'text-muted-foreground'}`}
+          type="button"
+          role="tab"
+          aria-selected={tabActiva === 'quorum'}
+          className={`inline-flex min-h-10 shrink-0 items-center rounded-md px-3 text-[13px] font-semibold transition-colors duration-150 ${tabActiva === 'quorum' ? 'bg-surface text-primary-text shadow-sm' : 'text-text-secondary hover:text-on-surface'}`}
         >
           <UserCheck className="w-4 h-4 mr-1.5" />
           Quórum y Asistencia en Vivo ({asistencias.filter((a) => !a.horaRetiro).length})
         </button>
         <button
           onClick={() => setTabActiva('poderes')}
-          className={`tab tab-sm font-medium transition-all ${tabActiva === 'poderes' ? 'tab-active bg-card text-foreground shadow-xs' : 'text-muted-foreground'}`}
+          type="button"
+          role="tab"
+          aria-selected={tabActiva === 'poderes'}
+          className={`inline-flex min-h-10 shrink-0 items-center rounded-md px-3 text-[13px] font-semibold transition-colors duration-150 ${tabActiva === 'poderes' ? 'bg-surface text-primary-text shadow-sm' : 'text-text-secondary hover:text-on-surface'}`}
         >
           <ShieldCheck className="w-4 h-4 mr-1.5" />
           Poderes y Representación ({poderes.length})
         </button>
         <button
           onClick={() => setTabActiva('votaciones')}
-          className={`tab tab-sm font-medium transition-all ${tabActiva === 'votaciones' ? 'tab-active bg-card text-foreground shadow-xs' : 'text-muted-foreground'}`}
+          type="button"
+          role="tab"
+          aria-selected={tabActiva === 'votaciones'}
+          className={`inline-flex min-h-10 shrink-0 items-center rounded-md px-3 text-[13px] font-semibold transition-colors duration-150 ${tabActiva === 'votaciones' ? 'bg-surface text-primary-text shadow-sm' : 'text-text-secondary hover:text-on-surface'}`}
         >
           <Vote className="w-4 h-4 mr-1.5" />
           Votaciones y Escrutinio ({votaciones.length})
         </button>
         <button
           onClick={() => setTabActiva('actas')}
-          className={`tab tab-sm font-medium transition-all ${tabActiva === 'actas' ? 'tab-active bg-card text-foreground shadow-xs' : 'text-muted-foreground'}`}
+          type="button"
+          role="tab"
+          aria-selected={tabActiva === 'actas'}
+          className={`inline-flex min-h-10 shrink-0 items-center rounded-md px-3 text-[13px] font-semibold transition-colors duration-150 ${tabActiva === 'actas' ? 'bg-surface text-primary-text shadow-sm' : 'text-text-secondary hover:text-on-surface'}`}
         >
           <FileText className="w-4 h-4 mr-1.5" />
           Acta Oficial (Ley 675) {actaData ? `(#${actaData.numeroActa})` : ''}
@@ -763,7 +735,8 @@ export default function AsambleasAdminPage() {
             </div>
             <div className="flex items-center gap-2">
               <select
-                className="px-2.5 py-1 text-xs rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary/20 shadow-xs"
+                aria-label="Filtrar asambleas por estado"
+                className="h-10 px-3 text-sm rounded-md border border-input bg-surface text-on-surface focus-visible:outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25"
                 value={filtroEstado}
                 onChange={(e) => setFiltroEstado(e.target.value)}
               >
@@ -776,25 +749,31 @@ export default function AsambleasAdminPage() {
             </div>
           </div>
 
-          {loadingAsambleas ? (
-            <div className="text-center py-12 text-muted-foreground">Cargando asambleas...</div>
+          {loadingAsambleas && !asambleasRaw ? (
+            <LoadingState message="Cargando asambleas..." />
+          ) : errorAsambleas && !asambleasRaw ? (
+            <ErrorState
+              title="No se pudieron cargar las asambleas"
+              message={errorAsambleas?.message || 'Verifique su conexión e intente nuevamente.'}
+              onRetry={() => refetchAsambleas().catch(() => {})}
+            />
           ) : asambleasFiltradas.length === 0 ? (
-            <div className="text-center py-12 border border-dashed border-border rounded-xl">
-              <Calendar className="w-10 h-10 text-muted-foreground mx-auto mb-2 opacity-50" />
-              <p className="font-semibold text-sm">No hay asambleas registradas</p>
-              <p className="text-xs text-muted-foreground mt-1">Convoque la primera asamblea para comenzar.</p>
-              <button
-                onClick={() => setModalConvocarOpen(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-xs mt-4"
-              >
-                Convocar Ahora
-              </button>
-            </div>
+            <EmptyState
+              icon={Calendar}
+              title={filtroEstado ? 'No hay asambleas en este estado' : 'No hay asambleas registradas'}
+              subtitle={filtroEstado ? 'Cambie el filtro para ver otras asambleas.' : 'Convoque la primera asamblea para comenzar.'}
+            >
+              {!filtroEstado && (
+                <Button onClick={() => setModalConvocarOpen(true)} className="mt-4 min-h-10">
+                  Convocar Ahora
+                </Button>
+              )}
+            </EmptyState>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-xs text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-border bg-muted/40 text-muted-foreground text-[11px] uppercase tracking-wider">
+                  <tr className="border-b border-border bg-muted/40 text-muted-foreground text-[11.5px]">
                     <th className="py-2.5 px-3 font-semibold">Título & Convocatoria</th>
                     <th className="py-2.5 px-3 font-semibold">Tipo</th>
                     <th className="py-2.5 px-3 font-semibold">Modalidad</th>
@@ -814,13 +793,13 @@ export default function AsambleasAdminPage() {
                           <div className="text-xs text-muted-foreground">Convocatoria #{a.convocatoriaNumero || 1}</div>
                         </td>
                         <td className="py-2.5 px-3">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium border border-border bg-secondary/50 text-secondary-foreground">{a.tipo}</span>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11.5px] font-medium border border-border bg-secondary/50 text-secondary-foreground">{a.tipo}</span>
                         </td>
                         <td className="py-2.5 px-3">
                           <span className="text-xs font-medium flex items-center gap-1">
-                            {a.modalidad === 'VIRTUAL' && <Video className="w-3.5 h-3.5 text-blue-500" />}
-                            {a.modalidad === 'PRESENCIAL' && <Users className="w-3.5 h-3.5 text-emerald-500" />}
-                            {a.modalidad === 'MIXTA' && <Building className="w-3.5 h-3.5 text-amber-500" />}
+                            {a.modalidad === 'VIRTUAL' && <Video className="w-3.5 h-3.5 text-tint-blue-fg" />}
+                            {a.modalidad === 'PRESENCIAL' && <Users className="w-3.5 h-3.5 text-tint-green-fg" />}
+                            {a.modalidad === 'MIXTA' && <Building className="w-3.5 h-3.5 text-tint-amber-fg" />}
                             {a.modalidad}
                           </span>
                         </td>
@@ -831,7 +810,7 @@ export default function AsambleasAdminPage() {
                           <div className="flex items-center gap-2">
                             <div className="w-20 bg-muted rounded-full h-2 overflow-hidden">
                               <div
-                                className={`h-full ${a.quorumAlcanzadoPct >= a.quorumRequeridoPct ? 'bg-emerald-500' : 'bg-primary'}`}
+                                className={`h-full ${a.quorumAlcanzadoPct >= a.quorumRequeridoPct ? 'bg-btn-success' : 'bg-primary'}`}
                                 style={{ width: `${Math.min(a.quorumAlcanzadoPct || 0, 100)}%` }}
                               />
                             </div>
@@ -839,7 +818,7 @@ export default function AsambleasAdminPage() {
                           </div>
                         </td>
                         <td className="py-2.5 px-3">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium ${estadoMeta.color}`}>{estadoMeta.label}</span>
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11.5px] font-medium ${estadoMeta.color}`}>{estadoMeta.label}</span>
                         </td>
                         <td className="py-2.5 px-3 text-right">
                           <button
@@ -869,7 +848,7 @@ export default function AsambleasAdminPage() {
           <div className="bg-card text-card-foreground border border-border rounded-xl p-6 shadow-sm">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-border/60">
               <div>
-                <span className="text-xs font-semibold uppercase text-primary tracking-wider">
+                <span className="text-xs font-semibold text-primary">
                   Control de Asistencia y Quórum Legal (Ley 675 / 2001)
                 </span>
                 <h3 className="text-xl font-bold mt-0.5">{asambleaActiva.titulo}</h3>
@@ -906,7 +885,7 @@ export default function AsambleasAdminPage() {
               {/* Progress Bar con Marcador */}
               <div className="relative w-full bg-border rounded-full h-4 overflow-hidden">
                 <div
-                  className={`h-full transition-all duration-500 ${(quorumLive?.quorumAlcanzadoPct || asambleaActiva.quorumAlcanzadoPct || 0) >= asambleaActiva.quorumRequeridoPct ? 'bg-emerald-500' : 'bg-primary'}`}
+                  className={`h-full transition-all duration-500 ${(quorumLive?.quorumAlcanzadoPct || asambleaActiva.quorumAlcanzadoPct || 0) >= asambleaActiva.quorumRequeridoPct ? 'bg-btn-success' : 'bg-primary'}`}
                   style={{ width: `${Math.min(quorumLive?.quorumAlcanzadoPct || asambleaActiva.quorumAlcanzadoPct || 0, 100)}%` }}
                 />
               </div>
@@ -916,11 +895,11 @@ export default function AsambleasAdminPage() {
                   Unidades presentes: <strong className="text-foreground">{asistencias.filter((a) => !a.horaRetiro).length}</strong>
                 </span>
                 {quorumLive?.tieneQuorum ? (
-                  <span className="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
+                  <span className="text-tint-green-fg font-bold flex items-center gap-1">
                     <CheckCircle2 className="w-4 h-4" /> Quórum legal deliberatorio y decisorio alcanzado
                   </span>
                 ) : (
-                  <span className="text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1">
+                  <span className="text-tint-amber-fg font-medium flex items-center gap-1">
                     <AlertTriangle className="w-4 h-4" /> Pendiente para deliberar válidamente
                   </span>
                 )}
@@ -958,7 +937,7 @@ export default function AsambleasAdminPage() {
                           <td>{asist.nombreAsistente || 'N/D'}</td>
                           <td className="font-mono text-xs">{asist.documentoAsistente || '-'}</td>
                           <td>
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium border border-border bg-secondary/50 text-secondary-foreground">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[11.5px] font-medium border border-border bg-secondary/50 text-secondary-foreground">
                               {asist.esPropietarioDirecto === 'S' ? 'Propietario Directo' : 'Apoderado'}
                             </span>
                           </td>
@@ -968,9 +947,9 @@ export default function AsambleasAdminPage() {
                           </td>
                           <td>
                             {asist.horaRetiro ? (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-muted text-muted-foreground">Retirado ({new Date(asist.horaRetiro).toLocaleTimeString('es-CO')})</span>
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[11.5px] font-medium bg-muted text-muted-foreground">Retirado ({new Date(asist.horaRetiro).toLocaleTimeString('es-CO')})</span>
                             ) : (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">Presente</span>
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[11.5px] font-medium bg-tint-green-bg text-tint-green-fg">Presente</span>
                             )}
                           </td>
                           <td className="text-right">
@@ -1023,7 +1002,7 @@ export default function AsambleasAdminPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-xs text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-border bg-muted/40 text-muted-foreground text-[11px] uppercase tracking-wider">
+                  <tr className="border-b border-border bg-muted/40 text-muted-foreground text-[11.5px]">
                     <th className="py-2.5 px-3 font-semibold">Unidad</th>
                     <th className="py-2.5 px-3 font-semibold">Propietario Otorgante</th>
                     <th className="py-2.5 px-3 font-semibold">Apoderado Receptor</th>
@@ -1064,13 +1043,13 @@ export default function AsambleasAdminPage() {
                       </td>
                       <td className="py-2.5 px-3">
                         {p.estado === 'PENDIENTE_REVISION' && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30">Por Validar</span>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11.5px] font-medium bg-tint-amber-bg text-tint-amber-fg border border-tint-amber-fg/25">Por Validar</span>
                         )}
                         {p.estado === 'APROBADO' && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">Aprobado</span>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11.5px] font-medium bg-tint-green-bg text-tint-green-fg border border-tint-green-fg/25">Aprobado</span>
                         )}
                         {p.estado === 'RECHAZADO' && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-destructive/15 text-destructive border border-destructive/30">Rechazado</span>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11.5px] font-medium bg-destructive/15 text-destructive border border-destructive/30">Rechazado</span>
                         )}
                       </td>
                       <td className="py-2.5 px-3 text-right">
@@ -1078,7 +1057,7 @@ export default function AsambleasAdminPage() {
                           <div className="flex items-center justify-end gap-1.5">
                             <button
                               onClick={() => handleDecidirPoder(p.idPoder, 'APROBADO')}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-md bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-xs"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-md bg-btn-success text-white hover:bg-btn-success/90 transition-colors shadow-xs"
                             >
                               <Check className="w-3 h-3" /> Aprobar
                             </button>
@@ -1147,7 +1126,7 @@ export default function AsambleasAdminPage() {
                     >
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                         <div className="flex items-center gap-3">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-primary text-primary-foreground">Punto #{v.puntoOrdenDia}</span>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-[3px] text-xs font-bold bg-tint-primary-bg text-primary-text border border-tint-primary-fg/25 tabular-nums">Punto #{v.puntoOrdenDia}</span>
                           <h4 className="font-bold text-base">{v.titulo}</h4>
                         </div>
                         <div className="flex items-center gap-2">
@@ -1155,10 +1134,14 @@ export default function AsambleasAdminPage() {
                             {MAYORIAS[v.tipoMayoriaRequerida] || v.tipoMayoriaRequerida}
                           </span>
                           {v.estado === 'ABIERTA' ? (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 animate-pulse">Votación Abierta</span>
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-[3px] text-[11.5px] font-bold bg-tint-green-bg text-tint-green-fg border border-tint-green-fg/25">Votación abierta</span>
                           ) : (
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium ${v.aprobada ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30' : 'bg-muted text-muted-foreground border border-border'}`}>
-                              {v.aprobada ? '✓ APROBADA' : '✕ NO APROBADA'}
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11.5px] font-medium ${v.aprobada ? 'bg-tint-green-bg text-tint-green-fg border border-tint-green-fg/25' : 'bg-muted text-muted-foreground border border-border'}`}>
+                              {v.aprobada ? (
+                                <><Check className="mr-1 h-3 w-3" aria-hidden="true" />Aprobada</>
+                              ) : (
+                                <><X className="mr-1 h-3 w-3" aria-hidden="true" />No aprobada</>
+                              )}
                             </span>
                           )}
                         </div>
@@ -1171,14 +1154,14 @@ export default function AsambleasAdminPage() {
                       {/* Escrutinio Visual */}
                       <div className="space-y-2 pt-2">
                         <div className="flex items-center justify-between text-xs font-semibold">
-                          <span className="text-emerald-600 dark:text-emerald-400">SÍ: {si} ({pctSi}%)</span>
-                          <span className="text-red-600 dark:text-red-400">NO: {no} ({pctNo}%)</span>
+                          <span className="text-tint-green-fg">SÍ: {si} ({pctSi}%)</span>
+                          <span className="text-tint-red-fg">NO: {no} ({pctNo}%)</span>
                         </div>
                         <div className="w-full bg-muted rounded-full h-3 flex overflow-hidden">
-                          <div className="bg-emerald-500 h-full transition-all" style={{ width: `${pctSi}%` }} />
-                          <div className="bg-red-500 h-full transition-all" style={{ width: `${pctNo}%` }} />
+                          <div className="bg-btn-success h-full transition-all" style={{ width: `${pctSi}%` }} />
+                          <div className="bg-btn-danger h-full transition-all" style={{ width: `${pctNo}%` }} />
                         </div>
-                        <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1">
+                        <div className="flex items-center justify-between text-[11.5px] text-muted-foreground pt-1">
                           <span>Blanco: {blanco} • Abstención: {abst}</span>
                           <span>Total Votos Emitidos: {v.totalVotos}</span>
                         </div>
@@ -1213,9 +1196,8 @@ export default function AsambleasAdminPage() {
               <p>Seleccione una asamblea del listado para gestionar o consultar su acta oficial.</p>
             </div>
           ) : loadingActa ? (
-            <div className="bg-card text-card-foreground border border-border rounded-xl p-8 text-center text-muted-foreground">
-              <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-primary" />
-              <p>Cargando información del acta oficial...</p>
+            <div className="bg-card text-card-foreground border border-border rounded-lg">
+              <LoadingState message="Cargando información del acta oficial..." />
             </div>
           ) : !actaData ? (
             <div className="bg-card text-card-foreground border border-border rounded-xl p-6 shadow-sm space-y-4">
@@ -1226,12 +1208,12 @@ export default function AsambleasAdminPage() {
                     Asamblea #{asambleaActiva.idAsamblea}: {asambleaActiva.titulo}
                   </p>
                 </div>
-                <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30">Sin Acta Creada</span>
+                <span className="inline-flex items-center px-2 py-0.5 rounded text-[11.5px] font-medium bg-tint-amber-bg text-tint-amber-fg border border-tint-amber-fg/25">Sin Acta Creada</span>
               </div>
 
               <div className="p-4 rounded-xl bg-muted/40 border border-border/60 text-sm space-y-2">
                 <div className="flex items-center gap-2 font-semibold text-foreground">
-                  <AlertCircle className="w-4 h-4 text-amber-500" />
+                  <AlertCircle className="w-4 h-4 text-tint-amber-fg" />
                   Marco Legal — Artículo 47 Ley 675 de 2001
                 </div>
                 <p className="text-xs text-muted-foreground leading-relaxed">
@@ -1308,7 +1290,7 @@ export default function AsambleasAdminPage() {
                       <button
                         onClick={() => handleCambiarEstadoActa('EN_REVISION_COMISION')}
                         disabled={submittingActa}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-blue-500/30 text-blue-600 dark:text-blue-400 hover:bg-blue-500/10 transition-colors shadow-xs"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-tint-blue-fg/25 text-tint-blue-fg hover:bg-tint-blue-bg transition-colors shadow-xs"
                       >
                         <UserCheck className="w-4 h-4" />
                         Enviar a Comisión Verificadora
@@ -1347,7 +1329,7 @@ export default function AsambleasAdminPage() {
                         <button
                           onClick={() => handleCambiarEstadoActa('PUBLICADA_OFICIAL')}
                           disabled={submittingActa || !puedePublicarOficial}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-xs disabled:opacity-50"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-btn-success text-white hover:bg-btn-success/90 transition-colors shadow-xs disabled:opacity-50"
                           title={
                             !puedePublicarOficial
                               ? 'Requiere asamblea finalizada, votos cerrados y documento firmado adjunto'
@@ -1361,7 +1343,7 @@ export default function AsambleasAdminPage() {
                     )}
 
                     {actaData.estado === 'PUBLICADA_OFICIAL' && (
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-tint-green-bg text-tint-green-fg border border-tint-green-fg/25">
                         <Lock className="w-3.5 h-3.5" />
                         Oficial e Inmutable
                       </span>
@@ -1372,15 +1354,15 @@ export default function AsambleasAdminPage() {
                 {/* Checklist de Requisitos de Publicación si está en APROBADA o EN_REVISION_COMISION */}
                 {(actaData.estado === 'APROBADA' || actaData.estado === 'EN_REVISION_COMISION') && (
                   <div className="p-4 rounded-xl bg-muted/40 border border-border/60 text-xs space-y-2">
-                    <span className="font-semibold text-foreground uppercase tracking-wider block">
+                    <span className="font-semibold text-foreground block">
                       Condiciones Previas para Publicación Oficial (Art. 47 Ley 675):
                     </span>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
                       <div className="flex items-center gap-2">
                         {asambleaFinalizada ? (
-                          <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                          <CheckCircle2 className="w-4 h-4 text-tint-green-fg shrink-0" />
                         ) : (
-                          <XCircle className="w-4 h-4 text-amber-500 shrink-0" />
+                          <XCircle className="w-4 h-4 text-tint-amber-fg shrink-0" />
                         )}
                         <span>
                           Asamblea Finalizada: <strong>{asambleaActiva.estado}</strong>
@@ -1388,9 +1370,9 @@ export default function AsambleasAdminPage() {
                       </div>
                       <div className="flex items-center gap-2">
                         {todasVotacionesCerradas ? (
-                          <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                          <CheckCircle2 className="w-4 h-4 text-tint-green-fg shrink-0" />
                         ) : (
-                          <XCircle className="w-4 h-4 text-amber-500 shrink-0" />
+                          <XCircle className="w-4 h-4 text-tint-amber-fg shrink-0" />
                         )}
                         <span>
                           Votaciones Cerradas ({votaciones.filter((v) => v.estado === 'ABIERTA').length} abiertas)
@@ -1398,9 +1380,9 @@ export default function AsambleasAdminPage() {
                       </div>
                       <div className="flex items-center gap-2">
                         {tieneDocumentoAdjunto ? (
-                          <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                          <CheckCircle2 className="w-4 h-4 text-tint-green-fg shrink-0" />
                         ) : (
-                          <XCircle className="w-4 h-4 text-amber-500 shrink-0" />
+                          <XCircle className="w-4 h-4 text-tint-amber-fg shrink-0" />
                         )}
                         <span>Documento Firmado Adjunto</span>
                       </div>
@@ -1456,9 +1438,9 @@ export default function AsambleasAdminPage() {
                 </div>
 
                 {tieneDocumentoAdjunto ? (
-                  <div className="p-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                  <div className="p-4 rounded-xl border border-tint-green-fg/25 bg-tint-green-bg flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
                     <div>
-                      <p className="font-semibold text-emerald-800 dark:text-emerald-300">
+                      <p className="font-semibold text-tint-green-fg">
                         Documento oficial adjunto e integrado con F10-01 Gestión Documental
                       </p>
                       <p className="text-muted-foreground">
@@ -1595,8 +1577,8 @@ export default function AsambleasAdminPage() {
                           <span
                             className={`px-2 py-0.5 rounded-full font-semibold ${
                               v.aprobada
-                                ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
-                                : 'bg-red-500/15 text-red-700 dark:text-red-400'
+                                ? 'bg-tint-green-bg text-tint-green-fg'
+                                : 'bg-tint-red-bg text-tint-red-fg'
                             }`}
                           >
                             {v.aprobada ? 'APROBADA' : 'NO APROBADA'}
@@ -1997,6 +1979,6 @@ export default function AsambleasAdminPage() {
         </form>
       </Modal>
 
-    </div>
+    </PageContainer>
   );
 }

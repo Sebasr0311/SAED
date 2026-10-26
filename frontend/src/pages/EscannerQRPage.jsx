@@ -28,7 +28,7 @@ import {
 import { useTenant } from '../lib/TenantContext.jsx';
 import { useTenantApi } from '../lib/useTenantApi.js';
 import { useFetch } from '../lib/hooks.js';
-import { formatDate, formatDateTime, formatTime, parseDateSafe } from '../lib/utils.js';
+import { formatDate, formatDateTime, parseDateSafe } from '../lib/utils.js';
 import { valPlaca } from '../lib/validation.js';
 import { PageContainer } from '../components/layout/PageContainer.jsx';
 import { MetricCard } from '../components/ui/MetricCard.jsx';
@@ -37,12 +37,15 @@ import { ErrorState } from '../components/ui/ErrorState.jsx';
 import { Badge } from '../components/ui/badge.tsx';
 import { Button } from '../components/ui/Button.jsx';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card.tsx';
+import { Button as UiButton } from '../components/ui/button.tsx';
+import { PageHeader } from '../components/ui/PageHeader.jsx';
+import EmptyState from '../components/ui/EmptyState.jsx';
 
 const TABS = [
-  { id: 'validar', label: 'Validar y Acceso QR', icon: QrCode },
-  { id: 'activas', label: 'Visitas Dentro / Salida', icon: LogOut },
-  { id: 'parqueaderos', label: 'Cupos de Parqueadero', icon: Car },
-  { id: 'historial', label: 'Historial de Accesos', icon: Clock },
+  { id: 'validar', label: 'Validar QR', icon: QrCode },
+  { id: 'activas', label: 'Visitas dentro', icon: LogOut },
+  { id: 'parqueaderos', label: 'Cupos de parqueadero', icon: Car },
+  { id: 'historial', label: 'Historial de accesos', icon: Clock },
 ];
 
 const MEDIOS_TRANSPORTE = [
@@ -443,80 +446,59 @@ export default function EscannerQRPage() {
     () => [
       { label: 'Inicio', href: '/' },
       { label: 'Operación', href: '/visitas' },
-      { label: 'Control de Acceso y QR', active: true },
+      { label: 'Escáner QR', active: true },
     ],
     []
   );
 
-  if (visitasError) {
-    return (
-      <PageContainer breadcrumbs={breadcrumbs} maxWidth="max-w-7xl">
-        <ErrorState
-          title="Error al cargar datos de portería"
-          message={visitasError.message || 'No se pudieron consultar los accesos'}
-          onRetry={refrescarTodo}
-        />
-      </PageContainer>
-    );
-  }
-
   return (
     <PageContainer breadcrumbs={breadcrumbs} maxWidth="max-w-7xl">
-      {/* 1. Header Contextual de Operación */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-              Control de Acceso y Validación QR
-            </h1>
-            <Badge variant="outline" className="text-xs font-semibold uppercase tracking-wider">
-              PORTERO
-            </Badge>
-          </div>
-          <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-            <span className="flex items-center gap-1.5 font-medium text-emerald-600 dark:text-emerald-400">
-              <span className="inline-block h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-              Garita Activa
-            </span>
-            <span>·</span>
-            <span>Acreditación en garita, autorización de visitantes y control vehicular</span>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Button
+      <PageHeader
+        title="Escáner QR y control de acceso"
+        subtitle="Valide el pase del visitante, registre su ingreso y marque la salida."
+        action={
+          <UiButton
             variant="outline"
-            size="sm"
             onClick={refrescarTodo}
-            className="flex items-center gap-2 border-border/80 hover:bg-muted/50"
+            className="h-10"
             aria-label="Actualizar datos de portería"
           >
             <RefreshCw
               className={`h-4 w-4 ${visitasLoading || parqLoading ? 'animate-spin' : ''}`}
+              aria-hidden="true"
             />
             <span className="hidden sm:inline">Actualizar</span>
-          </Button>
-        </div>
-      </div>
+          </UiButton>
+        }
+      />
+
+      {visitasError && (
+        <ErrorState
+          compact
+          title="No se pudieron consultar las visitas"
+          message={`${visitasError.message || 'Error de conexión'}. El escáner sigue disponible.`}
+          onRetry={refrescarTodo}
+        />
+      )}
 
       {/* 2. Tira de KPIs Operativos */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 lg:grid-cols-4">
         <MetricCard
-          title="Visitas en Curso"
+          title="Visitas en curso"
           value={visitasDentro.length}
           subtitle="Visitantes dentro del predio"
           icon={UserCheck}
           variant="primary"
         />
         <MetricCard
-          title="Total Activas / Hoy"
+          title="Activas hoy"
           value={visitasActivas.length}
           subtitle="Programadas y en curso"
           icon={LogIn}
           variant="info"
         />
         <MetricCard
-          title="Cupos Visitantes Libres"
+          title="Cupos de visitantes libres"
           value={`${parqVisitantesDisponibles.length} / ${parqVisitantes.length || 0}`}
           subtitle={
             parqVisitantesDisponibles.length === 0
@@ -527,7 +509,7 @@ export default function EscannerQRPage() {
           variant={parqVisitantesDisponibles.length > 2 ? 'success' : 'warning'}
         />
         <MetricCard
-          title="Salidas Pendientes"
+          title="Salidas pendientes"
           value={visitasDentro.length}
           subtitle="Por marcar egreso en garita"
           icon={LogOut}
@@ -536,7 +518,11 @@ export default function EscannerQRPage() {
       </div>
 
       {/* 3. Navegación por Pestañas Corporativas */}
-      <div className="flex border-b border-border/80 overflow-x-auto" role="tablist">
+      <div
+        className="flex gap-1 overflow-x-auto rounded-lg border border-border bg-surface-container p-1"
+        role="tablist"
+        aria-label="Secciones del escáner"
+      >
         {TABS.map((t) => {
           const Icon = t.icon;
           const activa = tabActiva === t.id;
@@ -551,16 +537,16 @@ export default function EscannerQRPage() {
                 setTabActiva(t.id);
                 if (t.id !== 'validar') detenerCamara();
               }}
-              className={`flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-semibold transition-colors whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+              className={`flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-md px-4 text-sm font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                 activa
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-muted-foreground hover:border-border hover:text-foreground'
+                  ? 'bg-surface text-primary-text shadow-sm'
+                  : 'text-text-secondary hover:bg-surface/60 hover:text-on-surface'
               }`}
             >
-              <Icon className="h-4 w-4" />
+              <Icon className="h-4 w-4" aria-hidden="true" />
               <span>{t.label}</span>
               {t.id === 'activas' && visitasActivas.length > 0 && (
-                <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-bold text-primary">
+                <span className="rounded-[3px] bg-tint-primary-bg px-1.5 py-0.5 text-xs font-bold text-tint-primary-fg tabular-nums">
                   {visitasActivas.length}
                 </span>
               )}
@@ -581,18 +567,19 @@ export default function EscannerQRPage() {
                 <div className="flex items-center justify-between">
                   <CardTitle className="flex items-center gap-2 text-base font-bold">
                     <QrCode className="h-5 w-5 text-primary" />
-                    Lector de Credenciales QR
+                    Lector de pases QR
                   </CardTitle>
-                  <div className="flex rounded-lg border border-border/80 bg-muted/30 p-0.5">
+                  <div className="flex rounded-md border border-border bg-surface-container p-0.5" role="group" aria-label="Modo de lectura">
                     <button
                       type="button"
                       onClick={() => {
                         setModoEscaneo('camara');
                         iniciarCamara();
                       }}
-                      className={`flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-semibold transition-all ${
+                      aria-pressed={modoEscaneo === 'camara'}
+                      className={`flex min-h-9 items-center gap-1.5 rounded px-3 text-xs font-semibold transition-colors duration-150 ${
                         modoEscaneo === 'camara'
-                          ? 'bg-background text-foreground shadow-xs'
+                          ? 'bg-surface text-primary-text shadow-sm'
                           : 'text-muted-foreground hover:text-foreground'
                       }`}
                     >
@@ -605,14 +592,15 @@ export default function EscannerQRPage() {
                         setModoEscaneo('manual');
                         detenerCamara();
                       }}
-                      className={`flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-semibold transition-all ${
+                      aria-pressed={modoEscaneo === 'manual'}
+                      className={`flex min-h-9 items-center gap-1.5 rounded px-3 text-xs font-semibold transition-colors duration-150 ${
                         modoEscaneo === 'manual'
-                          ? 'bg-background text-foreground shadow-xs'
+                          ? 'bg-surface text-primary-text shadow-sm'
                           : 'text-muted-foreground hover:text-foreground'
                       }`}
                     >
                       <FileText className="h-3.5 w-3.5" />
-                      Manual / USB
+                      Manual o USB
                     </button>
                   </div>
                 </div>
@@ -622,7 +610,7 @@ export default function EscannerQRPage() {
                 {/* MODO CÁMARA */}
                 {modoEscaneo === 'camara' && (
                   <div className="space-y-3">
-                    <div className="relative mx-auto flex h-64 w-full max-w-sm flex-col items-center justify-center overflow-hidden rounded-xl border-2 border-dashed border-border/80 bg-slate-950/90 text-slate-100 shadow-inner">
+                    <div className="relative mx-auto flex aspect-[4/3] w-full max-w-md flex-col items-center justify-center overflow-hidden rounded-lg border border-border bg-[#0B1222] text-[#EEF3FF]">
                       {/* Video siempre montado en el DOM para evitar refs nulas al activar */}
                       <video
                         ref={videoRef}
@@ -634,35 +622,28 @@ export default function EscannerQRPage() {
 
                       {streaming ? (
                         <>
-                          {/* HUD Visor Overlay */}
+                          {/* Viewfinder */}
                           <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                            <div className="relative h-44 w-44 rounded-lg border-2 border-emerald-400/80 shadow-[0_0_20px_rgba(52,211,153,0.3)]">
-                              <div className="absolute -top-1 -left-1 h-4 w-4 border-t-4 border-l-4 border-emerald-400" />
-                              <div className="absolute -top-1 -right-1 h-4 w-4 border-t-4 border-r-4 border-emerald-400" />
-                              <div className="absolute -bottom-1 -left-1 h-4 w-4 border-b-4 border-l-4 border-emerald-400" />
-                              <div className="absolute -bottom-1 -right-1 h-4 w-4 border-b-4 border-r-4 border-emerald-400" />
-                              {/* Scanline */}
-                              <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-transparent via-emerald-300 to-transparent animate-pulse" />
+                            <div className="relative h-48 w-48">
+                              <div className="absolute left-0 top-0 h-6 w-6 border-l-[3px] border-t-[3px] border-[#A3B0FF]" />
+                              <div className="absolute right-0 top-0 h-6 w-6 border-r-[3px] border-t-[3px] border-[#A3B0FF]" />
+                              <div className="absolute bottom-0 left-0 h-6 w-6 border-b-[3px] border-l-[3px] border-[#A3B0FF]" />
+                              <div className="absolute bottom-0 right-0 h-6 w-6 border-b-[3px] border-r-[3px] border-[#A3B0FF]" />
                             </div>
                           </div>
-                          <div className="absolute bottom-2 rounded-full bg-slate-900/80 px-3 py-1 text-xs font-medium text-emerald-400 backdrop-blur-xs">
-                            Alinee el código QR en el visor
+                          <div className="absolute bottom-3 rounded-md bg-[#0B1222]/85 px-3 py-1.5 text-xs font-semibold text-[#EEF3FF]" role="status">
+                            Alinee el código QR dentro del recuadro
                           </div>
                         </>
                       ) : (
-                        <div className="flex flex-col items-center gap-3 p-6 text-center text-slate-400">
-                          <Camera className="h-10 w-10 stroke-[1.5] text-slate-500" />
-                          <p className="text-xs max-w-xs">
-                            Active la cámara de la garita o dispositivo móvil para escanear el pase
-                            QR del visitante.
+                        <div className="flex flex-col items-center gap-3 p-6 text-center text-[#B4C0DC]">
+                          <Camera className="h-10 w-10 stroke-[1.5]" aria-hidden="true" />
+                          <p className="max-w-xs text-sm">
+                            Active la cámara de la garita para escanear el pase QR del visitante.
                           </p>
-                          <Button
-                            size="sm"
-                            onClick={iniciarCamara}
-                            className="flex items-center gap-2 bg-primary text-primary-foreground shadow-xs"
-                          >
-                            <Camera className="h-4 w-4" />
-                            Activar Cámara
+                          <Button size="lg" onClick={iniciarCamara}>
+                            <Camera className="h-4 w-4" aria-hidden="true" />
+                            Activar cámara
                           </Button>
                         </div>
                       )}
@@ -670,7 +651,7 @@ export default function EscannerQRPage() {
                     </div>
 
                     {errorCamara && (
-                      <div className="flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-xs font-medium text-amber-700 dark:text-amber-400">
+                      <div className="flex items-center gap-2 rounded-lg border border-tint-amber-fg/25 bg-tint-amber-bg p-3 text-xs font-medium text-tint-amber-fg">
                         <AlertTriangle className="h-4 w-4 shrink-0" />
                         <span>{errorCamara}</span>
                       </div>
@@ -684,8 +665,8 @@ export default function EscannerQRPage() {
                           onClick={detenerCamara}
                           className="flex items-center gap-1.5 text-xs text-muted-foreground"
                         >
-                          <CameraOff className="h-3.5 w-3.5" />
-                          Detener Cámara
+                          <CameraOff className="h-3.5 w-3.5" aria-hidden="true" />
+                          Detener cámara
                         </Button>
                       </div>
                     )}
@@ -696,9 +677,9 @@ export default function EscannerQRPage() {
                 <div className="space-y-3">
                   <label
                     htmlFor="input-codigo-qr"
-                    className="text-xs font-bold uppercase tracking-wider text-muted-foreground"
+                    className="text-sm font-semibold text-on-surface"
                   >
-                    Código o Token de la Credencial
+                    Código del pase
                   </label>
                   <div className="relative">
                     <input
@@ -709,14 +690,15 @@ export default function EscannerQRPage() {
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') ejecutarValidacion();
                       }}
-                      placeholder="Ingrese el token alfanumérico o escanee con lector USB..."
-                      className="w-full rounded-lg border border-border/80 bg-background px-3.5 py-2.5 font-mono text-sm tracking-wide text-foreground placeholder:text-muted-foreground/60 focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none"
+                      placeholder="Escriba el código o token, o escanee con el lector USB"
+                      autoComplete="off"
+                      className="h-12 w-full rounded-md border border-input bg-surface px-3.5 pr-11 text-base text-on-surface placeholder:text-text-hint transition-[border-color,box-shadow] duration-150 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
                     />
                     {codigoManual && (
                       <button
                         type="button"
                         onClick={() => setCodigoManual('')}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        className="absolute right-1 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-md text-text-secondary hover:bg-surface-container hover:text-on-surface"
                         aria-label="Limpiar campo de código"
                       >
                         <X className="h-4 w-4" />
@@ -733,14 +715,14 @@ export default function EscannerQRPage() {
                       className="flex items-center gap-1.5 text-xs border-border/80 text-muted-foreground hover:text-foreground"
                     >
                       <Copy className="h-3.5 w-3.5" />
-                      Pegar portapapeles
+                      Pegar código
                     </Button>
 
                     <Button
                       type="button"
                       onClick={() => ejecutarValidacion()}
                       disabled={!codigoManual.trim() || validando}
-                      className="flex items-center gap-2 bg-primary text-primary-foreground shadow-xs font-semibold"
+                      size="lg"
                     >
                       {validando ? (
                         <>
@@ -750,7 +732,7 @@ export default function EscannerQRPage() {
                       ) : (
                         <>
                           <ShieldCheck className="h-4 w-4" />
-                          Validar Credencial
+                          Validar pase
                         </>
                       )}
                     </Button>
@@ -759,11 +741,11 @@ export default function EscannerQRPage() {
 
                 {/* ALERTA DE ERROR EN VALIDACIÓN */}
                 {errorValidacion && (
-                  <div className="flex items-start gap-3 rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-rose-800 dark:text-rose-300">
-                    <ShieldAlert className="h-5 w-5 shrink-0 text-rose-600 dark:text-rose-400 mt-0.5" />
+                  <div className="flex items-start gap-3 rounded-xl border border-tint-red-fg/25 bg-tint-red-bg p-4 text-tint-red-fg">
+                    <ShieldAlert className="h-5 w-5 shrink-0 text-tint-red-fg mt-0.5" />
                     <div className="space-y-1 text-xs">
-                      <p className="font-bold">Acceso Denegado / Pase Inválido</p>
-                      <p className="text-rose-700/90 dark:text-rose-300/90">{errorValidacion}</p>
+                      <p className="text-sm font-bold">Acceso denegado: pase inválido</p>
+                      <p className="text-tint-red-fg">{errorValidacion}</p>
                     </div>
                   </div>
                 )}
@@ -776,10 +758,10 @@ export default function EscannerQRPage() {
                 <div className="flex items-start gap-3 text-xs text-muted-foreground">
                   <Radio className="h-4 w-4 shrink-0 text-primary mt-0.5" />
                   <div>
-                    <span className="font-semibold text-foreground">Procedimiento de Garita:</span>{' '}
-                    Escanee el código QR presentado por el visitante. El sistema certificará la
-                    vigencia en Oracle ATP. Seleccione el medio de transporte para registrar el
-                    ingreso y asignar cupo de parqueadero automáticamente.
+                    <span className="font-semibold text-on-surface">Procedimiento:</span>{' '}
+                    escanee el pase QR del visitante; el sistema verifica que siga vigente. Luego
+                    seleccione el medio de transporte para registrar el ingreso y, si aplica,
+                    asignar un cupo de parqueadero.
                   </div>
                 </div>
               </CardContent>
@@ -789,17 +771,17 @@ export default function EscannerQRPage() {
           {/* Columna Derecha: Acreditación y Autorización de Entrada */}
           <div className="space-y-6 lg:col-span-6">
             {resultadoQr ? (
-              <Card className="border-emerald-500/40 shadow-xs ring-1 ring-emerald-500/20">
-                <CardHeader className="border-b border-border/60 bg-emerald-500/5 pb-3">
+              <Card className="border-tint-green-fg/25 shadow-xs ring-1 ring-tint-green-fg/25">
+                <CardHeader className="border-b border-border/60 bg-tint-green-bg pb-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-                      <CardTitle className="text-base font-bold text-emerald-950 dark:text-emerald-100">
-                        Credencial Verificada
+                      <CheckCircle2 className="h-5 w-5 text-tint-green-fg" />
+                      <CardTitle className="text-base font-bold text-on-surface">
+                        Pase verificado
                       </CardTitle>
                     </div>
                     <Badge variant="success" className="font-semibold">
-                      AUTORIZADO
+                      Autorizado
                     </Badge>
                   </div>
                 </CardHeader>
@@ -808,7 +790,7 @@ export default function EscannerQRPage() {
                   {/* Datos del Visitante y Anfitrión */}
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 rounded-lg border border-border/80 bg-card p-4">
                     <div className="space-y-1">
-                      <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      <span className="text-xs font-semibold text-muted-foreground">
                         Visitante
                       </span>
                       <div className="flex items-center gap-2">
@@ -819,7 +801,7 @@ export default function EscannerQRPage() {
                           <p className="text-sm font-bold text-foreground">
                             {resultadoQr.nombreVisitante || 'Visitante Autorizado'}
                           </p>
-                          <p className="text-xs font-mono text-muted-foreground">
+                          <p className="text-xs tabular-nums text-muted-foreground">
                             Doc: {resultadoQr.documentoVisitante || 'Sin registrar'}
                           </p>
                         </div>
@@ -827,7 +809,7 @@ export default function EscannerQRPage() {
                     </div>
 
                     <div className="space-y-1 sm:border-l sm:border-border/60 sm:pl-4">
-                      <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      <span className="text-xs font-semibold text-muted-foreground">
                         Destino / Anfitrión
                       </span>
                       <div className="flex items-center gap-2">
@@ -856,19 +838,19 @@ export default function EscannerQRPage() {
                         <div className="sm:col-span-2 border-t border-border/40 pt-2 text-xs text-muted-foreground flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
                           <span className="flex items-center gap-1.5 font-medium">
                             <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                            Válido hasta (Expiración):
+                            Válido hasta:
                           </span>
-                          <div className="flex items-center gap-2 font-mono">
+                          <div className="flex items-center gap-2 tabular-nums">
                             <span className="font-semibold text-foreground">
                               {formatDateTime(resultadoQr.fechaExpiracion)}
                             </span>
                             {expirado ? (
-                              <span className="inline-flex items-center rounded-sm bg-destructive/10 px-1.5 py-0.5 text-[10px] font-bold text-destructive">
+                              <span className="inline-flex items-center rounded-sm bg-destructive/10 px-1.5 py-0.5 text-xs font-bold text-destructive">
                                 Expiró hace {Math.abs(diffMin)}m
                               </span>
                             ) : diffMin !== null ? (
-                              <span className={`inline-flex items-center rounded-sm px-1.5 py-0.5 text-[10px] font-bold ${
-                                expiraPronto ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400' : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+                              <span className={`inline-flex items-center rounded-sm px-1.5 py-0.5 text-xs font-bold ${
+                                expiraPronto ? 'bg-tint-amber-bg text-tint-amber-fg' : 'bg-tint-green-bg text-tint-green-fg'
                               }`}>
                                 Vence en {diffMin}m
                               </span>
@@ -881,11 +863,11 @@ export default function EscannerQRPage() {
 
                   {/* Formulario de Transporte y Placa */}
                   <div className="space-y-3 pt-1">
-                    <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                      Medio de Transporte del Visitante
-                    </label>
+                    <p className="text-sm font-semibold text-on-surface" id="medio-transporte-label">
+                      Medio de transporte del visitante
+                    </p>
 
-                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3" role="group" aria-labelledby="medio-transporte-label">
                       {MEDIOS_TRANSPORTE.map((m) => {
                         const Icon = m.icon;
                         const seleccionado = medioTransporte === m.id;
@@ -894,15 +876,16 @@ export default function EscannerQRPage() {
                             key={m.id}
                             type="button"
                             disabled={entradaRegistrada}
+                            aria-pressed={seleccionado}
                             onClick={() => {
                               if (entradaRegistrada) return;
                               setMedioTransporte(m.id);
                               setErrorEntrada('');
                             }}
-                            className={`flex items-center gap-2 rounded-lg border p-2.5 text-left text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                            className={`flex min-h-12 items-center gap-2 rounded-md border px-3 text-left text-sm font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                               seleccionado
-                                ? 'border-primary bg-primary/10 text-primary shadow-xs'
-                                : 'border-border/80 bg-background text-muted-foreground hover:border-border hover:text-foreground'
+                                ? 'border-btn-primary bg-btn-primary text-white shadow-sm'
+                                : 'border-input/60 bg-surface text-on-surface hover:border-primary/70'
                             } ${entradaRegistrada ? 'opacity-60 cursor-not-allowed' : ''}`}
                           >
                             <Icon className="h-4 w-4 shrink-0" />
@@ -920,9 +903,9 @@ export default function EscannerQRPage() {
                             htmlFor="input-placa"
                             className="text-xs font-bold text-foreground"
                           >
-                            Placa del Vehículo <span className="text-rose-500">*</span>
+                            Placa del vehículo <span className="text-destructive" aria-hidden="true">*</span>
                           </label>
-                          <span className="text-[11px] text-muted-foreground">
+                          <span className="text-xs text-muted-foreground">
                             {medioTransporte === 'CARRO'
                               ? 'Formato: ABC 123'
                               : 'Formato: ABC 12D'}
@@ -937,7 +920,7 @@ export default function EscannerQRPage() {
                           placeholder={
                             medioTransporte === 'CARRO' ? 'Ej: ABC 123' : 'Ej: ABC 12D'
                           }
-                          className="w-full rounded-md border border-border/80 bg-background px-3 py-2 font-mono text-sm font-bold tracking-widest text-foreground uppercase placeholder:text-muted-foreground/60 focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed"
+                          className="h-11 w-full rounded-md border border-input bg-surface px-3 text-base font-bold text-on-surface placeholder:normal-case placeholder:tracking-normal placeholder:text-text-hint focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25 disabled:cursor-not-allowed disabled:opacity-60"
                         />
                       </div>
                     )}
@@ -948,7 +931,7 @@ export default function EscannerQRPage() {
                           htmlFor="input-desc-vehiculo"
                           className="text-xs font-bold text-foreground"
                         >
-                          Descripción del Vehículo <span className="text-rose-500">*</span>
+                          Descripción del vehículo <span className="text-destructive" aria-hidden="true">*</span>
                         </label>
                         <input
                           id="input-desc-vehiculo"
@@ -957,13 +940,13 @@ export default function EscannerQRPage() {
                           value={descripcion}
                           onChange={(e) => setDescripcion(e.target.value)}
                           placeholder="Marca, color, modelo o características..."
-                          className="w-full rounded-md border border-border/80 bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed"
+                          className="h-11 w-full rounded-md border border-input bg-surface px-3 text-sm text-on-surface placeholder:text-text-hint focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25 disabled:cursor-not-allowed disabled:opacity-60"
                         />
                       </div>
                     )}
 
                     {errorEntrada && (
-                      <div className="flex items-center gap-2 rounded-lg border border-rose-500/20 bg-rose-500/10 p-3 text-xs font-medium text-rose-700 dark:text-rose-300">
+                      <div className="flex items-center gap-2 rounded-lg border border-tint-red-fg/25 bg-tint-red-bg p-3 text-xs font-medium text-tint-red-fg">
                         <AlertTriangle className="h-4 w-4 shrink-0" />
                         <span>{errorEntrada}</span>
                       </div>
@@ -973,17 +956,17 @@ export default function EscannerQRPage() {
                   {/* Feedback de Entrada Exitosa y Parqueadero Asignado */}
                   {entradaRegistrada && (
                     <div className="space-y-3">
-                      <div className="flex items-center gap-2.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3.5 text-xs font-semibold text-emerald-800 dark:text-emerald-300">
-                        <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
-                        <span>¡Ingreso autorizado y registrado con éxito en la bitácora de portería!</span>
+                      <div className="flex items-center gap-2.5 rounded-lg border border-tint-green-fg/25 bg-tint-green-bg p-3.5 text-xs font-semibold text-tint-green-fg">
+                        <CheckCircle2 className="h-5 w-5 shrink-0 text-tint-green-fg" />
+                        <span>Ingreso autorizado y registrado en la bitácora de portería.</span>
                       </div>
 
                       {parqueaderoAsignado && (
-                        <div className="rounded-xl border border-emerald-500/40 bg-gradient-to-br from-emerald-500/20 via-emerald-500/10 to-transparent p-5 text-center shadow-xs">
-                          <span className="text-xs font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
-                            Cupo de Parqueadero Asignado Automáticamente
+                        <div className="rounded-xl border border-tint-green-fg/25 p-5 text-center shadow-xs">
+                          <span className="text-xs font-bold text-tint-green-fg">
+                            Cupo de parqueadero asignado
                           </span>
-                          <div className="mt-2 text-3xl font-extrabold tracking-tight text-emerald-950 dark:text-emerald-50">
+                          <div className="mt-2 text-3xl font-extrabold tracking-tight text-on-surface">
                             {parqueaderoAsignado}
                           </div>
                           <p className="mt-1 text-xs text-muted-foreground">
@@ -1000,10 +983,10 @@ export default function EscannerQRPage() {
                       <Button
                         type="button"
                         onClick={limpiarFormulario}
-                        className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-xs py-2.5 text-sm"
+                        className="flex-1 bg-btn-success hover:opacity-90 text-white font-bold shadow-xs py-2.5 text-sm"
                       >
                         <CheckCircle2 className="mr-2 h-4 w-4" />
-                        Finalizar y Escanear Siguiente
+                        Finalizar y escanear el siguiente
                       </Button>
                     ) : (
                       <>
@@ -1020,17 +1003,17 @@ export default function EscannerQRPage() {
                           type="button"
                           onClick={registrarEntrada}
                           disabled={registrandoEntrada}
-                          className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-xs py-2.5 text-sm"
+                          className="flex-1 bg-btn-success hover:opacity-90 text-white font-bold shadow-xs py-2.5 text-sm"
                         >
                           {registrandoEntrada ? (
                             <>
                               <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                              Registrando Ingreso...
+                              Registrando ingreso...
                             </>
                           ) : (
                             <>
                               <LogIn className="mr-2 h-4 w-4" />
-                              Autorizar y Registrar Entrada
+                              Autorizar y registrar entrada
                             </>
                           )}
                         </Button>
@@ -1047,11 +1030,11 @@ export default function EscannerQRPage() {
                     <ShieldCheck className="h-8 w-8 stroke-[1.5]" />
                   </div>
                   <h3 className="text-base font-bold text-foreground">
-                    Esperando Validación de Credencial
+                    Esperando un pase
                   </h3>
                   <p className="mt-1 max-w-sm text-xs text-muted-foreground">
-                    Escanee el código QR con la cámara de garita o ingrese el código alfanumérico en
-                    el panel lateral para verificar los permisos del visitante.
+                    Escanee el código QR con la cámara o escriba el código del pase para verificar
+                    los permisos del visitante.
                   </p>
                 </CardContent>
               </Card>
@@ -1067,22 +1050,22 @@ export default function EscannerQRPage() {
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <CardTitle className="text-base font-bold">
-                  Visitantes Actualmente en la Copropiedad
+                  Visitantes dentro de la copropiedad
                 </CardTitle>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Registro de pases activos. Marque la salida al momento de abandono de las
-                  instalaciones.
+                  Pases activos. Marque la salida cuando el visitante abandone las instalaciones.
                 </p>
               </div>
 
               <div className="relative w-full sm:w-64">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" aria-hidden="true" />
                 <input
-                  type="text"
+                  type="search"
+                  aria-label="Buscar visitante o apartamento"
                   value={searchActivas}
                   onChange={(e) => setSearchActivas(e.target.value)}
-                  placeholder="Buscar visitante o apartamento..."
-                  className="w-full rounded-md border border-border/80 bg-background pl-8 pr-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/60 focus:border-primary focus:outline-none"
+                  placeholder="Buscar visitante o apartamento"
+                  className="h-10 w-full rounded-md border border-input bg-surface pl-9 pr-3 text-sm text-on-surface placeholder:text-text-hint focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
                 />
               </div>
             </div>
@@ -1090,27 +1073,42 @@ export default function EscannerQRPage() {
 
           <CardContent className="p-0">
             {visitasLoading ? (
-              <div className="p-8">
+              <div className="p-6">
                 <LoadingState message="Cargando visitantes activos..." />
               </div>
-            ) : visitasActivasFiltradas.length === 0 ? (
-              <div className="p-12 text-center">
-                <UserCheck className="mx-auto h-10 w-10 text-muted-foreground/60" />
-                <h4 className="mt-2 text-sm font-bold text-foreground">
-                  No hay visitantes registrados en curso
-                </h4>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {searchActivas
-                    ? 'No se encontraron coincidencias para la búsqueda.'
-                    : 'Todas las visitas han marcado salida o no hay ingresos activos en este momento.'}
-                </p>
+            ) : visitasError ? (
+              <div className="p-4 sm:p-6">
+                <ErrorState
+                  compact
+                  title="No se pudieron cargar las visitas activas"
+                  message={visitasError.message || 'Revise la conexión e intente de nuevo.'}
+                  onRetry={refrescarTodo}
+                />
               </div>
+            ) : visitasActivasFiltradas.length === 0 ? (
+              <EmptyState
+                icon={UserCheck}
+                title={searchActivas ? 'Ninguna visita coincide con la búsqueda' : 'No hay visitantes dentro'}
+                subtitle={
+                  searchActivas
+                    ? 'Revise el nombre o el apartamento.'
+                    : 'Cuando registre un ingreso, el visitante aparecerá aquí para marcar su salida.'
+                }
+                className="py-10"
+              >
+                {!searchActivas && (
+                  <Button variant="outline" size="sm" onClick={() => setTabActiva('validar')} className="mt-4">
+                    <QrCode className="h-4 w-4" aria-hidden="true" />
+                    Validar un pase
+                  </Button>
+                )}
+              </EmptyState>
             ) : (
               <>
                 {/* Tabla Desktop (hidden md:table) */}
                 <div className="hidden md:block overflow-x-auto">
                   <table className="w-full text-left text-xs">
-                    <thead className="border-b border-border/60 bg-muted/40 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                    <thead className="border-b border-border bg-surface-container text-xs font-bold text-text-secondary">
                       <tr>
                         <th className="px-4 py-3">ID / Visitante</th>
                         <th className="px-4 py-3">Documento</th>
@@ -1132,13 +1130,13 @@ export default function EscannerQRPage() {
                                 <p className="font-bold text-foreground">
                                   {v.nombreVisitante || 'Visitante'}
                                 </p>
-                                <span className="text-[10px] text-muted-foreground font-mono">
+                                <span className="text-xs text-muted-foreground tabular-nums">
                                   Pase #{v.idVisita}
                                 </span>
                               </div>
                             </div>
                           </td>
-                          <td className="px-4 py-3 font-mono text-muted-foreground">
+                          <td className="px-4 py-3 tabular-nums text-muted-foreground">
                             {v.documentoVisitante || '-'}
                           </td>
                           <td className="px-4 py-3">
@@ -1166,14 +1164,14 @@ export default function EscannerQRPage() {
                               variant="outline"
                               onClick={() => registrarSalida(v.idVisita)}
                               disabled={registrandoSalidaId === v.idVisita}
-                              className="border-border/80 hover:bg-rose-500/10 hover:text-rose-600 hover:border-rose-500/30 text-xs font-semibold"
+                              className="border-border/80 hover:bg-tint-red-bg hover:text-tint-red-fg hover:border-tint-red-fg/25 text-xs font-semibold"
                             >
                               {registrandoSalidaId === v.idVisita ? (
                                 <RefreshCw className="h-3.5 w-3.5 animate-spin" />
                               ) : (
                                 <>
                                   <LogOut className="mr-1.5 h-3.5 w-3.5" />
-                                  Marcar Salida
+                                  Marcar salida
                                 </>
                               )}
                             </Button>
@@ -1197,7 +1195,7 @@ export default function EscannerQRPage() {
                             <p className="text-sm font-bold text-foreground">
                               {v.nombreVisitante || 'Visitante'}
                             </p>
-                            <p className="text-xs text-muted-foreground font-mono">
+                            <p className="text-xs text-muted-foreground tabular-nums">
                               Doc: {v.documentoVisitante || 'Sin documento'}
                             </p>
                           </div>
@@ -1223,14 +1221,14 @@ export default function EscannerQRPage() {
                         variant="outline"
                         onClick={() => registrarSalida(v.idVisita)}
                         disabled={registrandoSalidaId === v.idVisita}
-                        className="w-full border-border/80 hover:bg-rose-500/10 hover:text-rose-600 text-xs font-semibold py-2.5 min-h-[44px]"
+                        className="w-full border-border/80 hover:bg-tint-red-bg hover:text-tint-red-fg text-xs font-semibold py-2.5 min-h-[44px]"
                       >
                         {registrandoSalidaId === v.idVisita ? (
                           <RefreshCw className="h-4 w-4 animate-spin" />
                         ) : (
                           <>
                             <LogOut className="mr-2 h-4 w-4" />
-                            Registrar Salida de Copropiedad
+                            Registrar salida
                           </>
                         )}
                       </Button>
@@ -1251,10 +1249,10 @@ export default function EscannerQRPage() {
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <CardTitle className="text-base font-bold">
-                    Ocupación de Parqueaderos de Visitantes
+                    Ocupación de parqueaderos
                   </CardTitle>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Disponibilidad y asignación de cupos en tiempo real
+                    Disponibilidad de cupos según el último registro
                   </p>
                 </div>
 
@@ -1262,7 +1260,8 @@ export default function EscannerQRPage() {
                   <select
                     value={filtroParq}
                     onChange={(e) => setFiltroParq(e.target.value)}
-                    className="rounded-md border border-border/80 bg-background px-3 py-1.5 text-xs text-foreground focus:border-primary focus:outline-none"
+                    aria-label="Filtrar parqueaderos"
+                    className="h-10 rounded-md border border-input bg-surface px-3 text-sm text-on-surface focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
                   >
                     <option value="TODOS">Todos los parqueaderos</option>
                     <option value="VISITANTES">Solo visitantes</option>
@@ -1279,14 +1278,25 @@ export default function EscannerQRPage() {
                   <LoadingState message="Consultando cupos de parqueadero..." />
                 </div>
               ) : parqError ? (
-                <div className="p-6 text-center text-xs text-rose-600">
-                  No se pudo cargar el estado de parqueaderos.
-                </div>
+                <ErrorState
+                  compact
+                  title="No se pudo cargar el estado de los parqueaderos"
+                  message={parqError.message || 'Revise la conexión e intente de nuevo.'}
+                  onRetry={refrescarTodo}
+                />
               ) : parqueaderosFiltrados.length === 0 ? (
-                <div className="p-12 text-center text-muted-foreground">
-                  <Car className="mx-auto h-10 w-10 text-muted-foreground/60" />
-                  <p className="mt-2 text-xs">No hay parqueaderos que coincidan con el filtro.</p>
-                </div>
+                <EmptyState
+                  icon={Car}
+                  title="Ningún parqueadero coincide con el filtro"
+                  subtitle="Cambie el filtro para ver otros cupos."
+                  className="py-10"
+                >
+                  {filtroParq !== 'TODOS' && (
+                    <Button variant="outline" size="sm" onClick={() => setFiltroParq('TODOS')} className="mt-4">
+                      Ver todos los parqueaderos
+                    </Button>
+                  )}
+                </EmptyState>
               ) : (
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
                   {parqueaderosFiltrados.map((p) => {
@@ -1295,24 +1305,24 @@ export default function EscannerQRPage() {
                     return (
                       <div
                         key={p.idParqueadero}
-                        className={`flex flex-col justify-between rounded-xl border p-3.5 transition-all ${
+                        className={`flex flex-col justify-between rounded-md border p-3.5 ${
                           ocupado
-                            ? 'border-rose-500/30 bg-rose-500/5 dark:bg-rose-500/10'
+                            ? 'border-tint-red-fg/25 bg-tint-red-bg'
                             : disponible
-                              ? 'border-emerald-500/30 bg-emerald-500/5 dark:bg-emerald-500/10'
-                              : 'border-border/80 bg-muted/20'
+                              ? 'border-tint-green-fg/25 bg-tint-green-bg'
+                              : 'border-border bg-surface-container'
                         }`}
                       >
                         <div className="flex items-center justify-between">
-                          <span className="font-mono text-sm font-extrabold text-foreground">
+                          <span className="tabular-nums text-sm font-extrabold text-foreground">
                             {p.codigo || p.numeroParqueadero}
                           </span>
                           <Car
                             className={`h-4 w-4 ${
                               ocupado
-                                ? 'text-rose-500'
+                                ? 'text-tint-red-fg'
                                 : disponible
-                                  ? 'text-emerald-500'
+                                  ? 'text-tint-green-fg'
                                   : 'text-muted-foreground'
                             }`}
                           />
@@ -1320,12 +1330,12 @@ export default function EscannerQRPage() {
 
                         <div className="mt-3 space-y-1">
                           <Badge
-                            variant={ocupado ? 'danger' : disponible ? 'success' : 'secondary'}
-                            className="text-[10px] font-bold"
+                            variant={ocupado ? 'destructive' : disponible ? 'success' : 'secondary'}
+                            className="text-xs font-bold"
                           >
                             {p.estado}
                           </Badge>
-                          <p className="text-[10px] text-muted-foreground truncate">
+                          <p className="text-xs text-muted-foreground truncate">
                             {p.esVisitante ? 'Visitante' : 'Residente'} · {p.tipo || 'Vehículo'}
                           </p>
                         </div>
@@ -1344,10 +1354,10 @@ export default function EscannerQRPage() {
         <Card className="border-border/80 shadow-xs" id="panel-historial" role="tabpanel">
           <CardHeader className="border-b border-border/60 pb-3">
             <CardTitle className="text-base font-bold">
-              Historial de Accesos Recientes en Garita
+              Historial de accesos recientes
             </CardTitle>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Auditoría cronológica de ingresos y salidas en el condominio
+              Últimos 20 ingresos y salidas registrados en la garita
             </p>
           </CardHeader>
 
@@ -1356,27 +1366,38 @@ export default function EscannerQRPage() {
               <div className="p-8">
                 <LoadingState message="Cargando historial de accesos..." />
               </div>
-            ) : todasVisitas.length === 0 ? (
-              <div className="p-12 text-center text-muted-foreground">
-                <Clock className="mx-auto h-10 w-10 text-muted-foreground/60" />
-                <p className="mt-2 text-xs">No hay registros de acceso en el historial.</p>
+            ) : visitasError ? (
+              <div className="p-4 sm:p-6">
+                <ErrorState
+                  compact
+                  title="No se pudo cargar el historial"
+                  message={visitasError.message || 'Revise la conexión e intente de nuevo.'}
+                  onRetry={refrescarTodo}
+                />
               </div>
+            ) : todasVisitas.length === 0 ? (
+              <EmptyState
+                icon={Clock}
+                title="Aún no hay accesos registrados"
+                subtitle="Los ingresos y salidas aparecerán aquí a medida que se registren."
+                className="py-10"
+              />
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
-                  <thead className="border-b border-border/60 bg-muted/40 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                  <thead className="sticky top-0 border-b border-border bg-surface-container text-xs font-bold text-text-secondary">
                     <tr>
-                      <th className="px-4 py-3">Pase #</th>
+                      <th className="px-4 py-3">Pase</th>
                       <th className="px-4 py-3">Visitante</th>
                       <th className="px-4 py-3">Apartamento</th>
-                      <th className="px-4 py-3">Fecha y Hora</th>
-                      <th className="px-4 py-3">Estado Final</th>
+                      <th className="px-4 py-3">Fecha</th>
+                      <th className="px-4 py-3">Estado</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/60">
                     {todasVisitas.slice(0, 20).map((v) => (
                       <tr key={v.idVisita} className="hover:bg-muted/30 transition-colors">
-                        <td className="px-4 py-3 font-mono font-semibold text-muted-foreground">
+                        <td className="px-4 py-3 tabular-nums font-semibold text-muted-foreground">
                           #{v.idVisita}
                         </td>
                         <td className="px-4 py-3 font-bold text-foreground">
@@ -1394,7 +1415,7 @@ export default function EscannerQRPage() {
                           <Badge
                             variant={
                               v.estado === 'FINALIZADA'
-                                ? 'neutral'
+                                ? 'secondary'
                                 : v.estado === 'ACTIVA' || v.estado === 'EN_CURSO'
                                   ? 'success'
                                   : 'secondary'

@@ -1,8 +1,13 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useFetch } from '../lib/hooks.js';
 import { api } from '../lib/api.js';
 import { toast } from 'sonner';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
+import { MetricCard } from '../components/ui/MetricCard.jsx';
+import EmptyState from '../components/ui/EmptyState.jsx';
+import ErrorState from '../components/ui/ErrorState.jsx';
+import LoadingState from '../components/ui/LoadingState.jsx';
+import { Badge } from '../components/ui/badge.tsx';
 import { Button } from '../components/ui/Button.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
 import {
@@ -34,18 +39,18 @@ const TIPOS_INCIDENTE = [
 ];
 
 const SEVERIDADES = {
-  LEVE: { label: 'Leve', badge: 'bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-500/20' },
-  MODERADA: { label: 'Moderada', badge: 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20' },
-  GRAVE: { label: 'Grave', badge: 'bg-orange-500/10 text-orange-700 dark:text-orange-400 border-orange-500/20' },
-  CRITICA: { label: 'Crítica', badge: 'bg-destructive/10 text-destructive border-destructive/20 font-bold' },
+  LEVE: { label: 'Leve', variant: 'secondary' },
+  MODERADA: { label: 'Moderada', variant: 'warning' },
+  GRAVE: { label: 'Grave', variant: 'warning' },
+  CRITICA: { label: 'Crítica', variant: 'destructive' },
 };
 
 const ESTADOS_INCIDENTE = {
-  REPORTADO: { label: 'Reportado', badge: 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20' },
-  EN_INVESTIGACION: { label: 'En Investigación', badge: 'bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20' },
-  ESCALADO_A_SANCION: { label: 'Escalado a Sanción', badge: 'bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/20' },
-  ACCION_TOMADA: { label: 'Acción Tomada', badge: 'bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 border-cyan-500/20' },
-  CERRADO: { label: 'Cerrado', badge: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20' },
+  REPORTADO: { label: 'Reportado', variant: 'warning' },
+  EN_INVESTIGACION: { label: 'En investigación', variant: 'info' },
+  ESCALADO_A_SANCION: { label: 'Escalado a sanción', variant: 'lavender' },
+  ACCION_TOMADA: { label: 'Acción tomada', variant: 'info' },
+  CERRADO: { label: 'Cerrado', variant: 'success' },
 };
 
 export default function IncidentesAdminPage() {
@@ -316,76 +321,46 @@ export default function IncidentesAdminPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Gestión de Incidentes y Bitácora"
-        subtitle="Registro operativo de novedades, investigación interna, personas involucradas y escalamiento a sanciones"
+        title="Incidentes y bitácora"
+        subtitle="Novedades de seguridad y convivencia: investigación, personas involucradas y escalamiento a sanción."
         action={
           <Button onClick={() => setModalOpen(true)} className="flex items-center gap-2">
             <Plus className="w-4 h-4" />
-            Reportar Incidente
+            Reportar incidente
           </Button>
         }
       />
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-card border border-border rounded-xl p-4 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-muted-foreground">Total Incidentes</span>
-            <AlertTriangle className="w-4 h-4 text-muted-foreground" />
-          </div>
-          <div className="mt-2 text-2xl font-bold text-foreground">{kpis.total}</div>
-          <div className="text-xs text-muted-foreground mt-1">Histórico registrado</div>
-        </div>
-
-        <div className="bg-card border border-border rounded-xl p-4 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-blue-600 dark:text-blue-400">En Investigación</span>
-            <Clock className="w-4 h-4 text-blue-500" />
-          </div>
-          <div className="mt-2 text-2xl font-bold text-blue-600 dark:text-blue-400">{kpis.investigacion}</div>
-          <div className="text-xs text-muted-foreground mt-1">Con pesquisas abiertas</div>
-        </div>
-
-        <div className="bg-card border border-border rounded-xl p-4 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-amber-600 dark:text-amber-400">Escalados a Sanción</span>
-            <ArrowUpRight className="w-4 h-4 text-amber-500" />
-          </div>
-          <div className="mt-2 text-2xl font-bold text-amber-600 dark:text-amber-400">{kpis.escalados}</div>
-          <div className="text-xs text-muted-foreground mt-1">Para comité de convivencia</div>
-        </div>
-
-        <div className="bg-card border border-border rounded-xl p-4 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">Cerrados / Resueltos</span>
-            <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-          </div>
-          <div className="mt-2 text-2xl font-bold text-emerald-600 dark:text-emerald-400">{kpis.cerrados}</div>
-          <div className="text-xs text-muted-foreground mt-1">Con resolución final</div>
-        </div>
+      <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 lg:grid-cols-4">
+        <MetricCard label="Total de incidentes" value={kpis.total} context="Registrados" icon={AlertTriangle} variant="secondary" />
+        <MetricCard label="En investigación" value={kpis.investigacion} context="Con indagación abierta" icon={Clock} variant="info" />
+        <MetricCard label="Escalados a sanción" value={kpis.escalados} context="Para el comité de convivencia" icon={ArrowUpRight} variant="warning" />
+        <MetricCard label="Cerrados" value={kpis.cerrados} context="Con resolución final" icon={CheckCircle2} variant="success" />
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="bg-card border border-border rounded-xl p-4 flex flex-col sm:flex-row gap-3 items-center justify-between">
-        <div className="flex flex-wrap gap-2 items-center w-full sm:w-auto">
+      <div className="flex flex-col items-stretch justify-between gap-3 rounded-lg border border-border bg-surface p-3 shadow-sm sm:flex-row sm:items-center sm:p-4">
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
           <select
             value={filtroEstado}
             onChange={(e) => setFiltroEstado(e.target.value)}
-            className="text-xs font-medium bg-background border border-border rounded-lg px-3 py-1.5 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+            aria-label="Filtrar por estado"
+            className="h-10 w-full rounded-md border border-input bg-surface text-sm text-on-surface placeholder:text-text-hint transition-[border-color,box-shadow] duration-150 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25 w-auto px-3"
           >
-            <option value="TODOS">Todos los Estados</option>
+            <option value="TODOS">Todos los estados</option>
             <option value="REPORTADO">Reportados</option>
-            <option value="EN_INVESTIGACION">En Investigación</option>
-            <option value="ESCALADO_A_SANCION">Escalados a Sanción</option>
+            <option value="EN_INVESTIGACION">En investigación</option>
+            <option value="ESCALADO_A_SANCION">Escalados a sanción</option>
             <option value="CERRADO">Cerrados</option>
           </select>
 
           <select
             value={filtroSeveridad}
             onChange={(e) => setFiltroSeveridad(e.target.value)}
-            className="text-xs font-medium bg-background border border-border rounded-lg px-3 py-1.5 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+            aria-label="Filtrar por severidad"
+            className="h-10 w-full rounded-md border border-input bg-surface text-sm text-on-surface placeholder:text-text-hint transition-[border-color,box-shadow] duration-150 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25 w-auto px-3"
           >
-            <option value="TODOS">Todas las Severidades</option>
+            <option value="TODOS">Todas las severidades</option>
             <option value="LEVE">Leve</option>
             <option value="MODERADA">Moderada</option>
             <option value="GRAVE">Grave</option>
@@ -394,52 +369,54 @@ export default function IncidentesAdminPage() {
         </div>
 
         <div className="relative w-full sm:w-72">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" aria-hidden="true" />
           <input
-            type="text"
-            placeholder="Buscar por título, hecho o investigador..."
+            type="search"
+            aria-label="Buscar incidentes"
+            placeholder="Título, hechos o investigador"
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 text-xs bg-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+            className="h-10 w-full rounded-md border border-input bg-surface text-sm text-on-surface placeholder:text-text-hint transition-[border-color,box-shadow] duration-150 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25 pl-9 pr-3"
           />
         </div>
       </div>
 
       {/* Data Table */}
       {loading ? (
-        <div className="p-12 text-center text-muted-foreground bg-card border border-border rounded-xl">
-          <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-3" />
-          <p className="text-sm">Cargando incidentes y bitácora de seguridad...</p>
+        <div className="rounded-lg border border-border bg-surface shadow-sm">
+          <LoadingState message="Cargando incidentes y bitácora..." />
         </div>
       ) : loadError ? (
-        <div role="alert" className="p-12 text-center bg-card border border-destructive/30 rounded-xl">
-          <AlertTriangle className="w-12 h-12 text-destructive/60 mx-auto mb-3" />
-          <h3 className="text-base font-semibold text-foreground">No se pudieron cargar los incidentes</h3>
-          <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
-            {loadError.response?.data?.message || loadError.message || 'Error de comunicación con el servidor.'}
-          </p>
-          <Button variant="outline" className="mt-4" onClick={() => refetch().catch(() => undefined)}>
-            Reintentar
-          </Button>
-        </div>
+        <ErrorState
+          title="No se pudieron cargar los incidentes"
+          message={loadError.response?.data?.message || loadError.message || 'Error de comunicación con el servidor.'}
+          onRetry={() => refetch().catch(() => undefined)}
+        />
       ) : filteredItems.length === 0 ? (
-        <div className="p-12 text-center bg-card border border-border rounded-xl">
-          <ShieldAlert className="w-12 h-12 text-muted-foreground/40 mx-auto mb-3" />
-          <h3 className="text-base font-semibold text-foreground">No se encontraron incidentes</h3>
-          <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
-            {busqueda || filtroEstado !== 'TODOS' || filtroSeveridad !== 'TODOS'
-              ? 'No hay registros que coincidan con los filtros aplicados.'
-              : 'No hay novedades o incidentes reportados en la copropiedad.'}
-          </p>
-        </div>
+        <EmptyState
+          icon={ShieldAlert}
+          title={busqueda || filtroEstado !== 'TODOS' || filtroSeveridad !== 'TODOS' ? 'Ningún incidente coincide con los filtros' : 'No hay incidentes reportados'}
+          subtitle={
+            busqueda || filtroEstado !== 'TODOS' || filtroSeveridad !== 'TODOS'
+              ? 'Cambie la búsqueda o los filtros.'
+              : 'Las novedades que se reporten en la copropiedad aparecerán aquí.'
+          }
+          className="rounded-lg border border-border bg-surface py-10"
+        >
+          {!(busqueda || filtroEstado !== 'TODOS' || filtroSeveridad !== 'TODOS') && (
+            <Button className="mt-4" onClick={() => setModalOpen(true)} icon={<Plus className="h-4 w-4" />}>
+              Reportar incidente
+            </Button>
+          )}
+        </EmptyState>
       ) : (
-        <div className="bg-card border border-border rounded-xl overflow-hidden shadow-xs">
-          <div className="overflow-x-auto">
+        <div className="overflow-hidden rounded-lg border border-border bg-surface shadow-sm">
+          <div className="max-h-[70vh] overflow-auto">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
-                <tr className="bg-muted/40 border-b border-border text-muted-foreground font-semibold">
-                  <th className="py-3 px-4">Fecha / ID</th>
-                  <th className="py-3 px-4">Título y Hechos</th>
+                <tr className="sticky top-0 z-10 border-b border-border bg-surface-container text-text-secondary font-bold">
+                  <th className="py-3 px-4">Fecha</th>
+                  <th className="py-3 px-4">Título y hechos</th>
                   <th className="py-3 px-4">Severidad</th>
                   <th className="py-3 px-4">Autoridades</th>
                   <th className="py-3 px-4">Estado</th>
@@ -452,28 +429,28 @@ export default function IncidentesAdminPage() {
                   const estCfg = ESTADOS_INCIDENTE[i.estado] || ESTADOS_INCIDENTE.REPORTADO;
 
                   return (
-                    <tr key={i.idIncidente} className="hover:bg-muted/30 transition-colors">
+                    <tr key={i.idIncidente} className="transition-colors hover:bg-surface-container">
                       <td className="py-3 px-4 align-top whitespace-nowrap">
-                        <div className="font-semibold text-foreground">
-                          {i.fechaHoraIncidente ? new Date(i.fechaHoraIncidente).toLocaleDateString() : '—'}
+                        <div className="font-semibold text-foreground tabular-nums">
+                          {i.fechaHoraIncidente ? new Date(i.fechaHoraIncidente).toLocaleDateString('es-CO') : '—'}
                         </div>
-                        <div className="text-[11px] text-muted-foreground">
-                          {i.fechaHoraIncidente ? new Date(i.fechaHoraIncidente).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                        <div className="text-xs text-muted-foreground tabular-nums">
+                          {i.fechaHoraIncidente ? new Date(i.fechaHoraIncidente).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) : ''}
                         </div>
-                        <span className="text-[10px] text-muted-foreground font-mono">#{i.idIncidente}</span>
+                        <span className="text-xs text-muted-foreground tabular-nums">#{i.idIncidente}</span>
                       </td>
 
                       <td className="py-3 px-4 align-top max-w-xs sm:max-w-sm">
                         <div className="font-semibold text-foreground text-sm">{i.titulo}</div>
-                        <div className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5">
+                        <div className="text-xs text-muted-foreground line-clamp-2 mt-0.5">
                           {i.descripcionHechos}
                         </div>
                         <div className="flex flex-wrap items-center gap-2 mt-1.5">
-                          <span className="text-[10px] bg-secondary text-secondary-foreground px-2 py-0.5 rounded font-medium">
+                          <Badge variant="secondary">
                             {TIPOS_INCIDENTE.find((t) => t.id === i.tipoIncidente)?.label || i.tipoIncidente}
-                          </span>
+                          </Badge>
                           {i.investigadorAsignado && (
-                            <span className="text-[10px] text-blue-600 dark:text-blue-400 font-medium">
+                            <span className="text-xs text-tint-blue-fg font-medium">
                               Investigador: {i.investigadorAsignado}
                             </span>
                           )}
@@ -481,9 +458,7 @@ export default function IncidentesAdminPage() {
                       </td>
 
                       <td className="py-3 px-4 align-top whitespace-nowrap">
-                        <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] border font-medium ${sevCfg.badge}`}>
-                          {sevCfg.label}
-                        </span>
+                        <Badge variant={sevCfg.variant}>{sevCfg.label}</Badge>
                       </td>
 
                       <td className="py-3 px-4 align-top whitespace-nowrap">
@@ -497,9 +472,7 @@ export default function IncidentesAdminPage() {
                       </td>
 
                       <td className="py-3 px-4 align-top whitespace-nowrap">
-                        <span className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] border font-medium ${estCfg.badge}`}>
-                          {estCfg.label}
-                        </span>
+                        <Badge variant={estCfg.variant}>{estCfg.label}</Badge>
                       </td>
 
                       <td className="py-3 px-4 align-top text-right whitespace-nowrap">
@@ -510,16 +483,19 @@ export default function IncidentesAdminPage() {
                               setSelectedIncidente(i);
                               setDetalleOpen(true);
                             }}
-                            className="p-1 text-muted-foreground hover:text-foreground rounded hover:bg-muted"
-                            title="Ver Bitácora Completa"
+                            type="button"
+                            className="flex h-9 w-9 items-center justify-center rounded-md text-text-secondary hover:bg-surface-container hover:text-on-surface"
+                            title="Ver bitácora completa"
+                            aria-label={`Ver bitácora del incidente ${i.idIncidente}`}
                           >
-                            <Eye className="w-4 h-4" />
+                            <Eye className="h-4 w-4" aria-hidden="true" />
                           </button>
 
                           {/* Involucrados */}
                           <button
                             onClick={() => loadInvolucrados(i)}
-                            className="px-2 py-1 text-xs font-medium border border-border rounded-lg bg-card text-foreground hover:bg-muted transition-colors flex items-center gap-1"
+                            type="button"
+                            className="flex h-9 items-center gap-1 rounded-md border border-input/60 bg-surface px-2.5 text-xs font-semibold text-on-surface transition-colors hover:border-primary/70 hover:bg-surface-container"
                             title="Gestionar Personas Involucradas"
                           >
                             <Users className="w-3.5 h-3.5" />
@@ -539,7 +515,8 @@ export default function IncidentesAdminPage() {
                                 });
                                 setInvestigacionOpen(true);
                               }}
-                              className="px-2 py-1 text-xs font-medium bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/20 rounded-lg hover:bg-blue-500/20 transition-colors"
+                              type="button"
+                              className="h-9 rounded-md px-2.5 text-xs font-semibold bg-tint-blue-bg text-tint-blue-fg border border-tint-blue-fg/25 transition-opacity hover:opacity-90"
                             >
                               {i.estado === 'REPORTADO' ? 'Investigar' : 'Actualizar'}
                             </button>
@@ -553,7 +530,8 @@ export default function IncidentesAdminPage() {
                                 setEscForm({ justificacionEscalamiento: '', sancionSugerida: '' });
                                 setEscalarOpen(true);
                               }}
-                              className="px-2 py-1 text-xs font-medium bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-500/20 rounded-lg hover:bg-purple-500/20 transition-colors"
+                              type="button"
+                              className="h-9 rounded-md px-2.5 text-xs font-semibold bg-tint-purple-bg text-tint-purple-fg border border-tint-purple-fg/25 transition-opacity hover:opacity-90"
                             >
                               Escalar
                             </button>
@@ -567,7 +545,8 @@ export default function IncidentesAdminPage() {
                                 setConclusiones('');
                                 setCierreOpen(true);
                               }}
-                              className="px-2 py-1 text-xs font-medium bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 rounded-lg hover:bg-emerald-500/20 transition-colors"
+                              type="button"
+                              className="h-9 rounded-md px-2.5 text-xs font-semibold bg-tint-green-bg text-tint-green-fg border border-tint-green-fg/25 transition-opacity hover:opacity-90"
                             >
                               Cerrar
                             </button>
@@ -581,7 +560,7 @@ export default function IncidentesAdminPage() {
                                 setMotivoReapertura('');
                                 setReabrirOpen(true);
                               }}
-                              className="px-2 py-1 text-xs font-medium bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 rounded-lg hover:bg-amber-500/20 transition-colors flex items-center gap-1"
+                              className="px-2 py-1 text-xs font-medium bg-tint-amber-bg text-tint-amber-fg border border-tint-amber-fg/25 rounded-lg hover:bg-tint-amber-bg transition-colors flex items-center gap-1"
                             >
                               <RotateCcw className="w-3 h-3" />
                               Reabrir
@@ -616,23 +595,23 @@ export default function IncidentesAdminPage() {
       >
         <div className="space-y-4 pt-2">
           <div>
-            <label className="block text-xs font-semibold text-foreground mb-1">Título del Incidente *</label>
-            <input
+            <label htmlFor="inc-f1" className="block text-xs font-semibold text-foreground mb-1">Título del Incidente *</label>
+            <input id="inc-f1"
               type="text"
               value={form.titulo}
               onChange={(e) => setForm({ ...form, titulo: e.target.value })}
               placeholder="Ej: Daño a puerta garita vehicular principal"
-              className="w-full text-xs bg-background border border-border rounded-lg px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+              className="w-full text-xs bg-background border border-border rounded-lg px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-ring/25"
             />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-foreground mb-1">Tipo de Novedad</label>
-              <select
+              <label htmlFor="inc-f2" className="block text-xs font-semibold text-foreground mb-1">Tipo de Novedad</label>
+              <select id="inc-f2"
                 value={form.tipoIncidente}
                 onChange={(e) => setForm({ ...form, tipoIncidente: e.target.value })}
-                className="w-full text-xs bg-background border border-border rounded-lg px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+                className="w-full text-xs bg-background border border-border rounded-lg px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-ring/25"
               >
                 {TIPOS_INCIDENTE.map((t) => (
                   <option key={t.id} value={t.id}>
@@ -643,11 +622,11 @@ export default function IncidentesAdminPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-foreground mb-1">Nivel de Severidad</label>
-              <select
+              <label htmlFor="inc-f3" className="block text-xs font-semibold text-foreground mb-1">Nivel de Severidad</label>
+              <select id="inc-f3"
                 value={form.nivelSeveridad}
                 onChange={(e) => setForm({ ...form, nivelSeveridad: e.target.value })}
-                className="w-full text-xs bg-background border border-border rounded-lg px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+                className="w-full text-xs bg-background border border-border rounded-lg px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-ring/25"
               >
                 <option value="LEVE">Leve</option>
                 <option value="MODERADA">Moderada</option>
@@ -658,13 +637,13 @@ export default function IncidentesAdminPage() {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-foreground mb-1">Descripción de los Hechos *</label>
-            <textarea
+            <label htmlFor="inc-f4" className="block text-xs font-semibold text-foreground mb-1">Descripción de los Hechos *</label>
+            <textarea id="inc-f4"
               rows={3}
               value={form.descripcionHechos}
               onChange={(e) => setForm({ ...form, descripcionHechos: e.target.value })}
               placeholder="Detalle lugar exacto, circunstancias de tiempo y modo..."
-              className="w-full text-xs bg-background border border-border rounded-lg px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+              className="w-full text-xs bg-background border border-border rounded-lg px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-ring/25"
             />
           </div>
 
@@ -674,7 +653,7 @@ export default function IncidentesAdminPage() {
                 type="checkbox"
                 checked={form.requirioAutoridades === 'S'}
                 onChange={(e) => setForm({ ...form, requirioAutoridades: e.target.checked ? 'S' : 'N' })}
-                className="rounded border-border text-primary focus:ring-primary/20"
+                className="rounded border-border text-primary focus:ring-ring/25"
               />
               ¿Requirió intervención de autoridades externas? (Policía Nacional, Bomberos, Defensa Civil)
             </label>
@@ -686,7 +665,7 @@ export default function IncidentesAdminPage() {
                   value={form.entidadAutoridad}
                   onChange={(e) => setForm({ ...form, entidadAutoridad: e.target.value })}
                   placeholder="Ej: Cuadrante 12 Policía / Móvil Bomberos Estación Norte"
-                  className="w-full text-xs bg-background border border-border rounded-lg px-3 py-1.5 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  className="w-full text-xs bg-background border border-border rounded-lg px-3 py-1.5 text-foreground focus:outline-none focus:ring-2 focus:ring-ring/25"
                 />
               </div>
             )}
@@ -736,8 +715,8 @@ export default function IncidentesAdminPage() {
             </div>
 
             {selectedIncidente.investigadorAsignado && (
-              <div className="p-3 border border-blue-500/20 bg-blue-500/5 rounded-lg space-y-1">
-                <span className="font-semibold text-blue-700 dark:text-blue-300">Investigación Oficial</span>
+              <div className="p-3 border border-tint-blue-fg/25 bg-tint-blue-bg rounded-lg space-y-1">
+                <span className="font-semibold text-tint-blue-fg">Investigación Oficial</span>
                 <p className="text-foreground">
                   <strong>Investigador:</strong> {selectedIncidente.investigadorAsignado}
                 </p>
@@ -755,8 +734,8 @@ export default function IncidentesAdminPage() {
             )}
 
             {selectedIncidente.conclusionesCierre && (
-              <div className="p-3 border border-emerald-500/20 bg-emerald-500/5 rounded-lg space-y-1">
-                <span className="font-semibold text-emerald-700 dark:text-emerald-300">Resolución y Cierre</span>
+              <div className="p-3 border border-tint-green-fg/25 bg-tint-green-bg rounded-lg space-y-1">
+                <span className="font-semibold text-tint-green-fg">Resolución y Cierre</span>
                 <p className="text-foreground">{selectedIncidente.conclusionesCierre}</p>
               </div>
             )}
@@ -783,35 +762,35 @@ export default function IncidentesAdminPage() {
         >
           <div className="space-y-4 pt-2">
             <div>
-              <label className="block text-xs font-semibold text-foreground mb-1">Oficial / Investigador Asignado</label>
-              <input
+              <label htmlFor="inc-f5" className="block text-xs font-semibold text-foreground mb-1">Oficial / Investigador Asignado</label>
+              <input id="inc-f5"
                 type="text"
                 value={invForm.investigadorAsignado}
                 onChange={(e) => setInvForm({ ...invForm, investigadorAsignado: e.target.value })}
                 placeholder="Nombre del administrador o supervisor de seguridad..."
-                className="w-full text-xs bg-background border border-border rounded-lg px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+                className="w-full text-xs bg-background border border-border rounded-lg px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-ring/25"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-foreground mb-1">Líneas de Investigación</label>
-              <textarea
+              <label htmlFor="inc-f6" className="block text-xs font-semibold text-foreground mb-1">Líneas de Investigación</label>
+              <textarea id="inc-f6"
                 rows={2}
                 value={invForm.lineasInvestigacion}
                 onChange={(e) => setInvForm({ ...invForm, lineasInvestigacion: e.target.value })}
                 placeholder="Revisión de cámaras CCTV torre 2, entrevistas a vigilante de turno..."
-                className="w-full text-xs bg-background border border-border rounded-lg px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+                className="w-full text-xs bg-background border border-border rounded-lg px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-ring/25"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-foreground mb-1">Hallazgos y Evidencias</label>
-              <textarea
+              <label htmlFor="inc-f7" className="block text-xs font-semibold text-foreground mb-1">Hallazgos y Evidencias</label>
+              <textarea id="inc-f7"
                 rows={3}
                 value={invForm.hallazgos}
                 onChange={(e) => setInvForm({ ...invForm, hallazgos: e.target.value })}
                 placeholder="Hallazgos preliminares o definitivos recaudados..."
-                className="w-full text-xs bg-background border border-border rounded-lg px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+                className="w-full text-xs bg-background border border-border rounded-lg px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-ring/25"
               />
             </div>
 
@@ -820,7 +799,7 @@ export default function IncidentesAdminPage() {
                 type="checkbox"
                 checked={invForm.concluir}
                 onChange={(e) => setInvForm({ ...invForm, concluir: e.target.checked })}
-                className="rounded border-border text-primary focus:ring-primary/20"
+                className="rounded border-border text-primary focus:ring-ring/25"
               />
               Concluir formalmente la etapa de investigación
             </label>
@@ -851,24 +830,24 @@ export default function IncidentesAdminPage() {
             </p>
 
             <div>
-              <label className="block text-xs font-semibold text-foreground mb-1">Justificación del Escalamiento *</label>
-              <textarea
+              <label htmlFor="inc-f8" className="block text-xs font-semibold text-foreground mb-1">Justificación del Escalamiento *</label>
+              <textarea id="inc-f8"
                 rows={3}
                 value={escForm.justificacionEscalamiento}
                 onChange={(e) => setEscForm({ ...escForm, justificacionEscalamiento: e.target.value })}
                 placeholder="Motivo por el cual la falta amerita trámite disciplinario y sanción pecuniaria..."
-                className="w-full text-xs bg-background border border-border rounded-lg px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+                className="w-full text-xs bg-background border border-border rounded-lg px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-ring/25"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-foreground mb-1">Sanción Sugerida (Opcional)</label>
-              <input
+              <label htmlFor="inc-f9" className="block text-xs font-semibold text-foreground mb-1">Sanción Sugerida (Opcional)</label>
+              <input id="inc-f9"
                 type="text"
                 value={escForm.sancionSugerida}
                 onChange={(e) => setEscForm({ ...escForm, sancionSugerida: e.target.value })}
                 placeholder="Ej: Multa económica tipo 1 (0.5 cuotas ordinarias)"
-                className="w-full text-xs bg-background border border-border rounded-lg px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+                className="w-full text-xs bg-background border border-border rounded-lg px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-ring/25"
               />
             </div>
           </div>
@@ -901,7 +880,7 @@ export default function IncidentesAdminPage() {
               value={conclusiones}
               onChange={(e) => setConclusiones(e.target.value)}
               placeholder="Conclusiones finales y acuerdos de cierre..."
-              className="w-full text-xs bg-background border border-border rounded-lg px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+              className="w-full text-xs bg-background border border-border rounded-lg px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-ring/25"
             />
           </div>
         </Modal>
@@ -933,7 +912,7 @@ export default function IncidentesAdminPage() {
               value={motivoReapertura}
               onChange={(e) => setMotivoReapertura(e.target.value)}
               placeholder="Motivo formal de la reapertura..."
-              className="w-full text-xs bg-background border border-border rounded-lg px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+              className="w-full text-xs bg-background border border-border rounded-lg px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-ring/25"
             />
           </div>
         </Modal>
@@ -978,17 +957,17 @@ export default function IncidentesAdminPage() {
                           <span className="font-semibold text-foreground">
                             {inv.nombreCompleto || inv.nombreIdentificacionExterna || 'Anónimo'}
                           </span>
-                          <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-secondary text-secondary-foreground">
+                          <span className="px-2 py-0.5 rounded text-xs font-medium bg-secondary text-secondary-foreground">
                             {inv.rolInvolucrado}
                           </span>
                           {inv.idPersona ? (
-                            <span className="text-[10px] text-blue-600 dark:text-blue-400 font-medium">Residente</span>
+                            <span className="text-xs text-tint-blue-fg font-medium">Residente</span>
                           ) : (
-                            <span className="text-[10px] text-muted-foreground">Externo</span>
+                            <span className="text-xs text-muted-foreground">Externo</span>
                           )}
                         </div>
                         {inv.declaracionRendida && (
-                          <p className="text-[11px] text-muted-foreground mt-1 italic">
+                          <p className="text-xs text-muted-foreground mt-1 italic">
                             "{inv.declaracionRendida}"
                           </p>
                         )}
@@ -1011,11 +990,11 @@ export default function IncidentesAdminPage() {
               <span className="text-xs font-semibold text-foreground block">Vincular Nueva Persona</span>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[11px] font-medium text-foreground mb-1">Rol en el Incidente</label>
-                  <select
+                  <label htmlFor="inc-f10" className="block text-xs font-medium text-foreground mb-1">Rol en el Incidente</label>
+                  <select id="inc-f10"
                     value={newInvolucrado.rolInvolucrado}
                     onChange={(e) => setNewInvolucrado({ ...newInvolucrado, rolInvolucrado: e.target.value })}
-                    className="w-full text-xs bg-background border border-border rounded-lg px-2.5 py-1.5 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    className="w-full text-xs bg-background border border-border rounded-lg px-2.5 py-1.5 text-foreground focus:outline-none focus:ring-2 focus:ring-ring/25"
                   >
                     <option value="AFECTADO">Afectado / Víctima</option>
                     <option value="TESTIGO">Testigo Presencial</option>
@@ -1026,38 +1005,38 @@ export default function IncidentesAdminPage() {
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-medium text-foreground mb-1">ID Persona (Si es Residente registrado)</label>
-                  <input
+                  <label htmlFor="inc-f11" className="block text-xs font-medium text-foreground mb-1">ID Persona (Si es Residente registrado)</label>
+                  <input id="inc-f11"
                     type="number"
                     value={newInvolucrado.idPersona}
                     onChange={(e) => setNewInvolucrado({ ...newInvolucrado, idPersona: e.target.value })}
                     placeholder="ID en el sistema..."
-                    className="w-full text-xs bg-background border border-border rounded-lg px-2.5 py-1.5 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    className="w-full text-xs bg-background border border-border rounded-lg px-2.5 py-1.5 text-foreground focus:outline-none focus:ring-2 focus:ring-ring/25"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-[11px] font-medium text-foreground mb-1">
+                <label htmlFor="inc-f12" className="block text-xs font-medium text-foreground mb-1">
                   Nombre e Identificación Externa (Si es visitante o tercero)
                 </label>
-                <input
+                <input id="inc-f12"
                   type="text"
                   value={newInvolucrado.nombreIdentificacionExterna}
                   onChange={(e) => setNewInvolucrado({ ...newInvolucrado, nombreIdentificacionExterna: e.target.value })}
                   placeholder="Ej: Carlos Mendoza - CC 10203040"
-                  className="w-full text-xs bg-background border border-border rounded-lg px-2.5 py-1.5 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  className="w-full text-xs bg-background border border-border rounded-lg px-2.5 py-1.5 text-foreground focus:outline-none focus:ring-2 focus:ring-ring/25"
                 />
               </div>
 
               <div>
-                <label className="block text-[11px] font-medium text-foreground mb-1">Declaración o Testimonio</label>
-                <textarea
+                <label htmlFor="inc-f13" className="block text-xs font-medium text-foreground mb-1">Declaración o Testimonio</label>
+                <textarea id="inc-f13"
                   rows={2}
                   value={newInvolucrado.declaracionRendida}
                   onChange={(e) => setNewInvolucrado({ ...newInvolucrado, declaracionRendida: e.target.value })}
                   placeholder="Manifestación o declaración voluntaria rendida..."
-                  className="w-full text-xs bg-background border border-border rounded-lg px-2.5 py-1.5 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  className="w-full text-xs bg-background border border-border rounded-lg px-2.5 py-1.5 text-foreground focus:outline-none focus:ring-2 focus:ring-ring/25"
                 />
               </div>
 

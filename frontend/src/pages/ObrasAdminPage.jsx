@@ -22,6 +22,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
+import { PageContainer } from '../components/layout/PageContainer.jsx';
 import { MetricCard } from '../components/ui/MetricCard.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
 import { Badge } from '../components/ui/badge.tsx';
@@ -29,6 +30,7 @@ import { Button } from '../components/ui/Button.jsx';
 import { Input, Textarea } from '../components/ui/Form.jsx';
 import EmptyState from '../components/ui/EmptyState.jsx';
 import LoadingState from '../components/ui/LoadingState.jsx';
+import { ErrorState } from '../components/ui/ErrorState.jsx';
 import { useFetch } from '../lib/hooks.js';
 import { useTenant } from '../lib/TenantContext.jsx';
 import { useTenantApi } from '../lib/useTenantApi.js';
@@ -39,25 +41,25 @@ const ESTADOS_MAP = {
   SOLICITADA: {
     label: 'En Revisión',
     badgeVariant: 'warning',
-    color: 'border-amber-500/30 text-amber-600 dark:text-amber-400 bg-amber-500/10',
+    color: 'border-tint-amber-fg/25 text-tint-amber-fg bg-tint-amber-bg',
     icon: Clock,
   },
   APROBADA: {
     label: 'Aprobada / En Curso',
     badgeVariant: 'success',
-    color: 'border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10',
+    color: 'border-tint-green-fg/25 text-tint-green-fg bg-tint-green-bg',
     icon: CheckCircle2,
   },
   FINALIZADA: {
     label: 'Finalizada',
     badgeVariant: 'info',
-    color: 'border-blue-500/30 text-blue-600 dark:text-blue-400 bg-blue-500/10',
+    color: 'border-tint-blue-fg/25 text-tint-blue-fg bg-tint-blue-bg',
     icon: ShieldCheck,
   },
   RECHAZADA: {
     label: 'No Autorizada',
     badgeVariant: 'destructive',
-    color: 'border-rose-500/30 text-rose-600 dark:text-rose-400 bg-rose-500/10',
+    color: 'border-tint-red-fg/25 text-tint-red-fg bg-tint-red-bg',
     icon: XCircle,
   },
 };
@@ -77,7 +79,7 @@ export default function ObrasAdminPage() {
   const tenant = useTenant();
   const tenantApi = useTenantApi();
 
-  const { data: obrasData, loading: loadingObras, refetch: refetchObras } = useFetch(
+  const { data: obrasData, loading: loadingObras, error: errorObras, refetch: refetchObras } = useFetch(
     () => tenantApi.get('/obras/admin'),
     [tenant?.activeAssignmentId]
   );
@@ -363,7 +365,7 @@ export default function ObrasAdminPage() {
   }
 
   return (
-    <div className="space-y-6 animate-fadeIn pb-12">
+    <PageContainer className="pb-12">
       {/* Header Principal */}
       <PageHeader
         title="Obras y Remodelaciones"
@@ -392,21 +394,21 @@ export default function ObrasAdminPage() {
           label="En Revisión"
           value={stats.solicitadas}
           subtitle="Pendientes de aprobación"
-          icon={<Clock className="w-5 h-5 text-amber-500" />}
+          icon={<Clock className="w-5 h-5 text-tint-amber-fg" />}
           variant="warning"
         />
         <MetricCard
           label="Aprobadas / En Curso"
           value={stats.aprobadas}
           subtitle="Con póliza y depósito activo"
-          icon={<CheckCircle2 className="w-5 h-5 text-emerald-500" />}
+          icon={<CheckCircle2 className="w-5 h-5 text-tint-green-fg" />}
           variant="success"
         />
         <MetricCard
           label="Finalizadas"
           value={stats.finalizadas}
           subtitle="Obras cerradas a conformidad"
-          icon={<ShieldCheck className="w-5 h-5 text-blue-500" />}
+          icon={<ShieldCheck className="w-5 h-5 text-tint-blue-fg" />}
           variant="info"
         />
       </div>
@@ -460,29 +462,35 @@ export default function ObrasAdminPage() {
       </div>
 
       {/* Tabla Principal */}
-      <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
-        {filteredItems.length === 0 ? (
+      <div className="bg-card border border-border rounded-lg shadow-sm overflow-hidden">
+        {errorObras && !obrasData ? (
+          <ErrorState
+            className="m-4"
+            title="No se pudo cargar el registro de obras"
+            message={errorObras?.message || 'Verifique su conexión e intente nuevamente.'}
+            onRetry={() => refetchObras().catch(() => {})}
+          />
+        ) : filteredItems.length === 0 ? (
           <div className="py-12">
             <EmptyState
-              icon={<HardHat className="w-12 h-12 text-muted-foreground" />}
+              icon={HardHat}
               title="No hay obras encontradas"
-              description={
+              subtitle={
                 searchTerm || filterTab !== 'TODAS'
                   ? 'No se encontraron resultados para los filtros seleccionados.'
                   : 'Aún no se han registrado proyectos de obra o remodelación.'
               }
-              action={
-                <Button variant="outline" size="sm" onClick={handleOpenCreate}>
+            >
+              <div className="mt-4 flex justify-center empty:hidden"><Button variant="outline" size="sm" onClick={handleOpenCreate}>
                   Registrar Primera Obra
-                </Button>
-              }
-            />
+                </Button></div>
+            </EmptyState>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-sm">
               <thead>
-                <tr className="border-b border-border bg-muted/30 text-muted-foreground font-semibold text-xs uppercase tracking-wider">
+                <tr className="border-b border-border bg-muted/30 text-muted-foreground font-semibold text-xs">
                   <th className="py-3.5 px-4">Unidad</th>
                   <th className="py-3.5 px-4">Descripción de Obra</th>
                   <th className="py-3.5 px-4">Cronograma</th>
@@ -543,7 +551,7 @@ export default function ObrasAdminPage() {
                           <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
                           <span>{formatDate(o.fechaInicio)}</span>
                         </div>
-                        <div className="text-muted-foreground pl-5 text-[11px]">
+                        <div className="text-muted-foreground pl-5 text-[11.5px]">
                           hasta {formatDate(o.fechaFinEstimada)}
                         </div>
                       </td>
@@ -605,7 +613,7 @@ export default function ObrasAdminPage() {
                                 type="button"
                                 onClick={() => handleActionClick(o, 'APROBAR')}
                                 title="Autorizar obra"
-                                className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 transition-all"
+                                className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-tint-green-bg text-tint-green-fg hover:bg-tint-green-bg transition-all"
                               >
                                 <Check className="w-4 h-4" />
                               </button>
@@ -613,7 +621,7 @@ export default function ObrasAdminPage() {
                                 type="button"
                                 onClick={() => handleActionClick(o, 'RECHAZAR')}
                                 title="Rechazar obra"
-                                className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-rose-500/10 text-rose-600 hover:bg-rose-500/20 transition-all"
+                                className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-tint-red-bg text-tint-red-fg hover:bg-tint-red-bg transition-all"
                               >
                                 <X className="w-4 h-4" />
                               </button>
@@ -625,8 +633,8 @@ export default function ObrasAdminPage() {
                               variant="outline"
                               size="sm"
                               onClick={() => handleActionClick(o, 'FINALIZADA')}
-                              icon={<ShieldCheck className="w-3.5 h-3.5 text-blue-600" />}
-                              className="text-xs border-blue-200 hover:bg-blue-50 dark:border-blue-900 dark:hover:bg-blue-950/50"
+                              icon={<ShieldCheck className="w-3.5 h-3.5 text-tint-blue-fg" />}
+                              className="text-xs border-tint-blue-fg/25 hover:bg-tint-blue-bg"
                             >
                               Finalizar
                             </Button>
@@ -810,7 +818,7 @@ export default function ObrasAdminPage() {
             </div>
 
             <div>
-              <span className="text-xs text-muted-foreground font-semibold uppercase tracking-wider block mb-1">
+              <span className="text-xs text-muted-foreground font-semibold block mb-1">
                 Descripción de Intervención
               </span>
               <p className="bg-card p-3 rounded-lg border border-border text-foreground leading-relaxed">
@@ -927,24 +935,24 @@ export default function ObrasAdminPage() {
                               ({t.tipoDocumento || 'CC'} {t.numeroDocumento})
                             </span>
                             {isAutorizado ? (
-                              <Badge variant="success" className="text-[10px] px-1.5 py-0.5">
+                              <Badge variant="success" className="text-[11.5px] px-1.5 py-0.5">
                                 Autorizado
                               </Badge>
                             ) : ot.fechaRevocacion ? (
-                              <Badge variant="warning" className="text-[10px] px-1.5 py-0.5">
+                              <Badge variant="warning" className="text-[11.5px] px-1.5 py-0.5">
                                 Revocado
                               </Badge>
                             ) : (
-                              <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 border-amber-500/40 text-amber-600 bg-amber-500/10">
+                              <Badge variant="outline" className="text-[11.5px] px-1.5 py-0.5 border-tint-amber-fg/25 text-tint-amber-fg bg-tint-amber-bg">
                                 Pendiente Autorización
                               </Badge>
                             )}
                             {isActivo ? (
-                              <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 border-emerald-500/30 text-emerald-600 bg-emerald-500/10">
+                              <Badge variant="outline" className="text-[11.5px] px-1.5 py-0.5 border-tint-green-fg/25 text-tint-green-fg bg-tint-green-bg">
                                 Activo
                               </Badge>
                             ) : (
-                              <Badge variant="destructive" className="text-[10px] px-1.5 py-0.5">
+                              <Badge variant="destructive" className="text-[11.5px] px-1.5 py-0.5">
                                 Inactivo
                               </Badge>
                             )}
@@ -956,11 +964,11 @@ export default function ObrasAdminPage() {
                           <div className="flex items-center gap-2 flex-wrap pt-0.5">
                             <span className="text-muted-foreground">ARL: <strong className="text-foreground">{t.arlAseguradora || 'Sin ARL'}</strong></span>
                             {isArlVigente ? (
-                              <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 border-emerald-500/40 text-emerald-600 bg-emerald-500/10">
+                              <Badge variant="outline" className="text-[11.5px] px-1.5 py-0.5 border-tint-green-fg/25 text-tint-green-fg bg-tint-green-bg">
                                 ARL Vigente (hasta {formatDate(t.arlFechaVencimiento)})
                               </Badge>
                             ) : (
-                              <Badge variant="destructive" className="text-[10px] px-1.5 py-0.5">
+                              <Badge variant="destructive" className="text-[11.5px] px-1.5 py-0.5">
                                 ARL Vencida / Inválida ({formatDate(t.arlFechaVencimiento) || 'Sin fecha'})
                               </Badge>
                             )}
@@ -973,7 +981,7 @@ export default function ObrasAdminPage() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                className="h-7 text-xs text-amber-600 border-amber-200 hover:bg-amber-50 dark:border-amber-900/50 dark:hover:bg-amber-950/30"
+                                className="h-7 text-xs text-tint-amber-fg border-tint-amber-fg/25 hover:bg-tint-amber-bg"
                                 onClick={() => handleRevocarTrabajador(ot.idTrabajador)}
                                 title="Revocar autorización de ingreso a la copropiedad"
                               >
@@ -983,7 +991,7 @@ export default function ObrasAdminPage() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                className="h-7 text-xs text-emerald-600 border-emerald-200 hover:bg-emerald-50 dark:border-emerald-900/50 dark:hover:bg-emerald-950/30"
+                                className="h-7 text-xs text-tint-green-fg border-tint-green-fg/25 hover:bg-tint-green-bg"
                                 onClick={() => handleAutorizarTrabajador(ot.idTrabajador)}
                                 title="Autorizar ingreso del operario"
                               >
@@ -993,7 +1001,7 @@ export default function ObrasAdminPage() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-7 w-7 p-0 text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                              className="h-7 w-7 p-0 text-tint-red-fg hover:text-tint-red-fg hover:bg-tint-red-bg"
                               onClick={() => handleDesasignarTrabajador(ot.idTrabajador)}
                               title="Retirar de esta obra"
                             >
@@ -1069,13 +1077,13 @@ export default function ObrasAdminPage() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Vencimiento ARL:</span>
-                  <span className={t.arlVigente ? 'font-medium text-emerald-600' : 'font-semibold text-rose-600'}>
+                  <span className={t.arlVigente ? 'font-medium text-tint-green-fg' : 'font-semibold text-tint-red-fg'}>
                     {formatDate(t.arlFechaVencimiento)} ({t.arlVigente ? 'Vigente' : 'Vencida'})
                   </span>
                 </div>
                 {!t.arlVigente && (
-                  <p className="text-[11px] text-rose-500 pt-1">
-                    ⚠️ Atención: Este trabajador tiene la ARL vencida. La obra no podrá pasar a estado En Ejecución mientras tenga trabajadores autorizados con ARL vencida.
+                  <p className="text-[11.5px] text-tint-red-fg pt-1">
+                    Atención: Este trabajador tiene la ARL vencida. La obra no podrá pasar a estado En Ejecución mientras tenga trabajadores autorizados con ARL vencida.
                   </p>
                 )}
               </div>
@@ -1173,6 +1181,6 @@ export default function ObrasAdminPage() {
           )}
         </div>
       </Modal>
-    </div>
+    </PageContainer>
   );
 }

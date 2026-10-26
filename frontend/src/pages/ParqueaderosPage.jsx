@@ -27,14 +27,25 @@ import PageContainer from '../components/layout/PageContainer.jsx';
 import { MetricCard } from '../components/ui/MetricCard.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
 import { ConfirmPasswordDialog } from '../components/ui/ConfirmPasswordDialog.jsx';
-import {
-  Breadcrumb,
-  BreadcrumbList,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbSeparator,
-  BreadcrumbPage,
-} from '../components/ui/Breadcrumb.jsx';
+import { PageHeader } from '../components/ui/PageHeader.jsx';
+import EmptyState from '../components/ui/EmptyState.jsx';
+import ErrorState from '../components/ui/ErrorState.jsx';
+import LoadingState from '../components/ui/LoadingState.jsx';
+import { Badge } from '../components/ui/badge.tsx';
+
+const ESTADO_PARQ_LABEL = {
+  DISPONIBLE: 'Disponible',
+  OCUPADO: 'Ocupado',
+  EN_MANTENIMIENTO: 'Mantenimiento',
+  MANTENIMIENTO: 'Mantenimiento',
+  RESERVADO: 'Reservado',
+};
+
+function estadoVariant(estado) {
+  if (estado === 'DISPONIBLE') return 'success';
+  if (estado === 'OCUPADO') return 'destructive';
+  return 'warning';
+}
 
 const TIPOS = [
   { id: '', label: 'Todos los tipos' },
@@ -134,6 +145,7 @@ export default function ParqueaderosPage() {
   const {
     data: rawParqueaderos,
     loading,
+    error: loadError,
     refetch,
   } = useFetch(() => api.get(`/parqueaderos?${qs}`), [filtroEstado, filtroTipo]);
 
@@ -293,110 +305,80 @@ export default function ParqueaderosPage() {
   }
 
   return (
-    <PageContainer>
-      {/* 1. Breadcrumb */}
-      <Breadcrumb>
-        <BreadcrumbList>
-          <BreadcrumbItem>
-            <BreadcrumbLink to={isPortero ? '/portero-dashboard' : '/dashboard'}>
-              {isPortero ? 'Garita Principal' : 'Panel de Control'}
-            </BreadcrumbLink>
-          </BreadcrumbItem>
-          <BreadcrumbSeparator />
-          <BreadcrumbItem>
-            <BreadcrumbPage>Gestión de Parqueaderos</BreadcrumbPage>
-          </BreadcrumbItem>
-        </BreadcrumbList>
-      </Breadcrumb>
-
-      {/* 2. Cabecera Contextual Enterprise */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-border/60 pb-5">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">
-              Control y Cupos de Parqueaderos
-            </h1>
-            <span className="px-2 py-0.5 text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded border border-slate-200 dark:border-slate-700">
-              {isPortero ? 'PORTERO' : 'ADMIN_PROPIEDAD'}
-            </span>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Monitoreo en tiempo real de bahías de estacionamiento, control vehicular de visitantes y asignaciones fijas.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {/* Toggle de Vistas: Grilla vs Tabla */}
-          <div className="inline-flex rounded-lg border border-border bg-card p-0.5 shadow-sm">
-            <button
-              onClick={() => setViewMode('grid')}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
-                viewMode === 'grid'
-                  ? 'bg-emerald-600 text-white shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              <LayoutGrid className="w-3.5 h-3.5" />
-              Bahías
-            </button>
-            <button
-              onClick={() => setViewMode('table')}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
-                viewMode === 'table'
-                  ? 'bg-emerald-600 text-white shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              <List className="w-3.5 h-3.5" />
-              Lista
-            </button>
-          </div>
-
-          <button
-            onClick={() => refetch()}
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg bg-card border border-border hover:bg-muted text-foreground transition-colors shadow-sm min-h-[44px]"
-            title="Refrescar estado"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-emerald-500' : ''}`} />
-            Actualizar
-          </button>
-
-          {!isPortero && (
-            <div className="flex items-center gap-2">
+    <PageContainer
+      breadcrumbs={[
+        { label: isPortero ? 'Panel de portería' : 'Panel de control', href: isPortero ? '/portero-dashboard' : '/dashboard' },
+        { label: 'Parqueaderos', active: true },
+      ]}
+    >
+      <PageHeader
+        title="Control de parqueaderos"
+        subtitle="Estado de cada bahía, vehículos de visitantes y cupos asignados a las unidades."
+        action={
+          <>
+            <div className="inline-flex rounded-md border border-border bg-surface-container p-0.5" role="group" aria-label="Vista">
               <button
-                onClick={() => {
-                  setEditing(null);
-                  setForm(emptyForm);
-                  setFormErrors({});
-                  setModalOpen(true);
-                }}
-                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg border border-border bg-card hover:bg-muted text-foreground transition-colors shadow-sm min-h-[44px]"
+                type="button"
+                onClick={() => setViewMode('grid')}
+                aria-pressed={viewMode === 'grid'}
+                className={`inline-flex min-h-10 items-center gap-1.5 rounded px-3 text-sm font-semibold transition-colors duration-150 ${
+                  viewMode === 'grid' ? 'bg-surface text-primary-text shadow-sm' : 'text-text-secondary hover:text-on-surface'
+                }`}
               >
-                <Plus className="w-4 h-4" />
-                Individual
+                <LayoutGrid className="h-4 w-4" aria-hidden="true" />
+                Bahías
               </button>
               <button
-                onClick={() => {
-                  setModalMasivoOpen(true);
-                }}
-                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition-colors shadow-sm min-h-[44px]"
+                type="button"
+                onClick={() => setViewMode('table')}
+                aria-pressed={viewMode === 'table'}
+                className={`inline-flex min-h-10 items-center gap-1.5 rounded px-3 text-sm font-semibold transition-colors duration-150 ${
+                  viewMode === 'table' ? 'bg-surface text-primary-text shadow-sm' : 'text-text-secondary hover:text-on-surface'
+                }`}
               >
-                <Layers className="w-4 h-4" />
-                Lote Masivo
+                <List className="h-4 w-4" aria-hidden="true" />
+                Lista
               </button>
             </div>
-          )}
-        </div>
-      </div>
+
+            <button type="button" onClick={() => refetch()} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-input/60 bg-surface px-3.5 text-sm font-semibold text-on-surface shadow-xs transition-colors duration-150 hover:border-primary/70 hover:bg-surface-container sm:min-h-10" aria-label="Actualizar estado de parqueaderos">
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} aria-hidden="true" />
+              Actualizar
+            </button>
+
+            {!isPortero && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditing(null);
+                    setForm(emptyForm);
+                    setFormErrors({});
+                    setModalOpen(true);
+                  }}
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-input/60 bg-surface px-3.5 text-sm font-semibold text-on-surface shadow-xs transition-colors duration-150 hover:border-primary/70 hover:bg-surface-container sm:min-h-10"
+                >
+                  <Plus className="h-4 w-4" aria-hidden="true" />
+                  Nueva bahía
+                </button>
+                <button type="button" onClick={() => setModalMasivoOpen(true)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-btn-primary px-4 text-sm font-semibold text-white shadow-sm transition-colors duration-150 hover:bg-btn-primary-hover disabled:opacity-50 sm:min-h-10">
+                  <Layers className="h-4 w-4" aria-hidden="true" />
+                  Crear en lote
+                </button>
+              </>
+            )}
+          </>
+        }
+      />
 
       {/* 3. Strip de KPIs Métricas */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 lg:grid-cols-4">
         <MetricCard
           label="Total Bahías"
           value={stats.total}
-          context="Cupos catastrados"
+          context="Cupos registrados"
           icon={Building}
-          variant="neutral"
+          variant="secondary"
         />
         <MetricCard
           label="Disponibles"
@@ -413,31 +395,34 @@ export default function ParqueaderosPage() {
           variant={stats.ocupados > 0 ? 'warning' : 'primary'}
         />
         <MetricCard
-          label="Visitantes Libres"
+          label="Visitantes libres"
           value={stats.visitantesLibres}
-          context="Bahías flotantes"
+          context="Cupos de visitantes"
           icon={ShieldCheck}
           variant="info"
         />
       </div>
 
       {/* 4. Barra de Filtros y Búsqueda */}
-      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 bg-card p-4 rounded-xl border border-border/80 shadow-sm">
+      <div className="flex flex-col items-stretch justify-between gap-3 rounded-lg border border-border bg-surface p-3 shadow-sm sm:p-4 md:flex-row md:items-center">
         <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" aria-hidden="true" />
           <input
-            type="text"
-            placeholder="Buscar por código (ej. V-01), placa o apto..."
+            type="search"
+            aria-label="Buscar parqueadero"
+            placeholder="Código (ej. V-01), placa o apartamento"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-8 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+            className="h-10 w-full rounded-md border border-input bg-surface text-sm text-on-surface placeholder:text-text-hint transition-[border-color,box-shadow] duration-150 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25 pl-9 pr-10"
           />
           {search && (
             <button
+              type="button"
               onClick={() => setSearch('')}
-              className="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground"
+              aria-label="Limpiar búsqueda"
+              className="absolute right-0 top-0 flex h-10 w-10 items-center justify-center text-text-secondary hover:text-on-surface"
             >
-              <X className="w-4 h-4" />
+              <X className="h-4 w-4" aria-hidden="true" />
             </button>
           )}
         </div>
@@ -446,7 +431,8 @@ export default function ParqueaderosPage() {
           <select
             value={filtroTipo}
             onChange={(e) => setFiltroTipo(e.target.value)}
-            className="px-3 py-2 text-xs font-medium rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+            aria-label="Filtrar por tipo"
+            className="h-10 w-full rounded-md border border-input bg-surface text-sm text-on-surface placeholder:text-text-hint transition-[border-color,box-shadow] duration-150 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25 w-auto px-3"
           >
             {TIPOS.map((t) => (
               <option key={t.id} value={t.id}>
@@ -458,7 +444,8 @@ export default function ParqueaderosPage() {
           <select
             value={filtroEstado}
             onChange={(e) => setFiltroEstado(e.target.value)}
-            className="px-3 py-2 text-xs font-medium rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+            aria-label="Filtrar por estado"
+            className="h-10 w-full rounded-md border border-input bg-surface text-sm text-on-surface placeholder:text-text-hint transition-[border-color,box-shadow] duration-150 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25 w-auto px-3"
           >
             {ESTADOS.map((e) => (
               <option key={e.id} value={e.id}>
@@ -469,19 +456,43 @@ export default function ParqueaderosPage() {
         </div>
       </div>
 
-      {/* 5. VISTA 1: Cuadrícula Visual de Bahías (Estilo PropTech Premium) */}
-      {viewMode === 'grid' && (
+      {loading && !rawParqueaderos ? (
+        <div className="rounded-lg border border-border bg-surface shadow-sm">
+          <LoadingState message="Consultando el estado de los parqueaderos..." />
+        </div>
+      ) : loadError && !rawParqueaderos ? (
+        <ErrorState
+          title="No se pudieron cargar los parqueaderos"
+          message={loadError.message || 'Revise la conexión e intente de nuevo.'}
+          onRetry={refetch}
+        />
+      ) : null}
+
+      {/* 5. Vista de bahías */}
+      {viewMode === 'grid' && !(loading && !rawParqueaderos) && !(loadError && !rawParqueaderos) && (
         <div className="space-y-4">
           {filtrados.length === 0 ? (
-            <div className="bg-card rounded-xl border border-border/80 p-12 text-center text-muted-foreground">
-              <Car className="w-12 h-12 mx-auto text-muted-foreground/30 mb-3" />
-              <p className="text-base font-semibold text-foreground">No se encontraron bahías de estacionamiento</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Ajuste los filtros o registre un nuevo cupo con el botón superior.
-              </p>
-            </div>
+            <EmptyState
+              icon={Car}
+              title={search || filtroTipo || filtroEstado ? 'Ninguna bahía coincide con los filtros' : 'No hay bahías registradas'}
+              subtitle={
+                search || filtroTipo || filtroEstado
+                  ? 'Cambie la búsqueda, el tipo o el estado.'
+                  : isPortero
+                  ? 'La administración aún no ha registrado parqueaderos.'
+                  : 'Registre una bahía o cree varias en lote.'
+              }
+              className="rounded-lg border border-border bg-surface py-10"
+            >
+              {!isPortero && !(search || filtroTipo || filtroEstado) && (
+                <button type="button" onClick={() => setModalMasivoOpen(true)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-btn-primary px-4 text-sm font-semibold text-white shadow-sm transition-colors duration-150 hover:bg-btn-primary-hover disabled:opacity-50 sm:min-h-10 mt-4">
+                  <Layers className="h-4 w-4" aria-hidden="true" />
+                  Crear en lote
+                </button>
+              )}
+            </EmptyState>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6" data-testid="parking-grid">
               {filtrados.map((p) => {
                 const IconComponent = getTipoIcon(p.tipo);
                 const isDisponible = p.estado === 'DISPONIBLE';
@@ -489,72 +500,61 @@ export default function ParqueaderosPage() {
                 const isMantenimiento = p.estado === 'EN_MANTENIMIENTO' || p.estado === 'MANTENIMIENTO';
                 const codigo = p.codigo || p.numeroParqueadero || `P-${p.idParqueadero}`;
 
-                let cardBorder = 'border-border/80 hover:border-emerald-500/50';
-                let cardBg = 'bg-card';
-                let statusText = p.estado;
-                let statusBadge = 'bg-slate-500/10 text-slate-600 border-slate-500/20';
-
+                // Free bays read as a ghosted dashed piece; taken bays as a solid keylined piece.
+                let cardBorder = 'border-border';
+                let cardBg = 'bg-surface';
+                const statusText = ESTADO_PARQ_LABEL[p.estado] || p.estado;
                 if (isDisponible) {
-                  cardBorder = 'border-emerald-500/30 hover:border-emerald-500';
-                  cardBg = 'bg-emerald-500/[0.02] dark:bg-emerald-950/[0.15]';
-                  statusText = 'DISPONIBLE';
-                  statusBadge = 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30';
+                  cardBorder = 'border-dashed border-tint-green-fg/50';
+                  cardBg = 'bg-surface';
                 } else if (isOcupado) {
-                  cardBorder = 'border-rose-500/40 hover:border-rose-500';
-                  cardBg = 'bg-rose-500/[0.03] dark:bg-rose-950/[0.2]';
-                  statusText = 'OCUPADO';
-                  statusBadge = 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30';
+                  cardBorder = 'border-keyline/60';
+                  cardBg = 'bg-tint-red-bg';
                 } else if (isMantenimiento) {
-                  cardBorder = 'border-amber-500/40';
-                  cardBg = 'bg-amber-500/[0.03] dark:bg-amber-950/[0.15]';
-                  statusText = 'MANTENIMIENTO';
-                  statusBadge = 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30';
+                  cardBorder = 'border-tint-amber-fg/40';
+                  cardBg = 'bg-tint-amber-bg';
                 }
 
                 return (
                   <div
                     key={p.idParqueadero}
-                    className={`rounded-xl border p-3.5 transition-all shadow-sm flex flex-col justify-between space-y-3 ${cardBorder} ${cardBg}`}
+                    className={`flex flex-col justify-between space-y-3 rounded-md border-[1.5px] p-3.5 ${cardBorder} ${cardBg}`}
                   >
                     {/* Cabecera del Cupo: Código + Tipo */}
                     <div className="flex items-start justify-between">
                       <div>
-                        <span className="text-lg font-black font-mono tracking-tight text-foreground block">
+                        <span className="app-numeral block text-lg text-on-surface">
                           {codigo}
                         </span>
-                        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                        <span className="text-xs font-semibold text-muted-foreground">
                           {p.tipo}
                         </span>
                       </div>
-                      <div className="p-1.5 rounded-lg bg-muted/60 text-muted-foreground">
-                        <IconComponent className="w-4 h-4" />
+                      <div className="rounded-md bg-surface-container p-1.5 text-text-secondary">
+                        <IconComponent className="h-4 w-4" aria-hidden="true" />
                       </div>
                     </div>
 
                     {/* Estado y Datos del Vehículo */}
                     <div className="space-y-2">
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-black tracking-wide border ${statusBadge}`}
-                      >
-                        {statusText}
-                      </span>
+                      <Badge variant={estadoVariant(p.estado)}>{statusText}</Badge>
 
                       {/* Información de Ocupación */}
                       {isOcupado && (
                         <div className="space-y-1 text-xs pt-1 border-t border-border/60">
                           {p.placaVehiculo ? (
-                            <div className="flex items-center gap-1.5 font-mono font-bold text-foreground">
-                              <Car className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-                              <span className="bg-slate-900 text-white px-1.5 py-0.5 rounded text-[11px]">
+                            <div className="flex items-center gap-1.5 tabular-nums font-bold text-foreground">
+                              <Car className="w-3.5 h-3.5 text-tint-red-fg shrink-0" />
+                              <span className="inline-flex items-center rounded-[3px] border-[1.5px] border-on-surface bg-surface px-1.5 py-0.5 text-xs font-bold tracking-wider text-on-surface tabular-nums">
                                 {p.placaVehiculo}
                               </span>
                             </div>
                           ) : (
-                            <span className="text-muted-foreground italic text-[11px]">En uso</span>
+                            <span className="text-muted-foreground italic text-xs">En uso</span>
                           )}
 
                           {p.numeroApartamento && (
-                            <span className="text-[11px] text-muted-foreground block font-medium">
+                            <span className="text-xs text-muted-foreground block font-medium">
                               Apto {p.numeroApartamento}
                             </span>
                           )}
@@ -562,13 +562,11 @@ export default function ParqueaderosPage() {
                       )}
 
                       {isDisponible && (
-                        <p className="text-[11px] text-emerald-600/80 dark:text-emerald-400/80 font-medium">
-                          Cupo libre para asignación
-                        </p>
+                        <p className="text-xs font-medium text-text-secondary">Cupo libre</p>
                       )}
 
                       {isMantenimiento && (
-                        <div className="flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400">
+                        <div className="flex items-center gap-1 text-xs text-tint-amber-fg">
                           <Wrench className="w-3 h-3" />
                           <span>No operativo</span>
                         </div>
@@ -592,18 +590,20 @@ export default function ParqueaderosPage() {
                             setFormErrors({});
                             setModalOpen(true);
                           }}
-                          className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                          className="flex h-10 w-10 items-center justify-center rounded-md text-text-secondary transition-colors hover:bg-surface-container hover:text-on-surface"
                           title="Editar cupo"
+                          aria-label={`Editar cupo ${codigo}`}
                         >
-                          <Edit3 className="w-3.5 h-3.5" />
+                          <Edit3 className="h-4 w-4" aria-hidden="true" />
                         </button>
                         <button
                           type="button"
                           onClick={() => setConfirmDel(p)}
-                          className="p-1.5 rounded-md hover:bg-rose-500/10 text-muted-foreground hover:text-rose-600 transition-colors"
+                          className="flex h-10 w-10 items-center justify-center rounded-md text-text-secondary transition-colors hover:bg-tint-red-bg hover:text-destructive"
                           title="Eliminar cupo"
+                          aria-label={`Eliminar cupo ${codigo}`}
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className="h-4 w-4" aria-hidden="true" />
                         </button>
                       </div>
                     )}
@@ -616,12 +616,12 @@ export default function ParqueaderosPage() {
       )}
 
       {/* 6. VISTA 2: Tabla Analítica (Desktop) + Tarjetas (Móvil) */}
-      {viewMode === 'table' && (
+      {viewMode === 'table' && !(loading && !rawParqueaderos) && !(loadError && !rawParqueaderos) && (
         <div className="space-y-4">
           {/* Desktop Table */}
-          <div className="hidden md:block bg-card rounded-xl border border-border/80 shadow-sm overflow-hidden">
+          <div className="hidden max-h-[70vh] overflow-auto rounded-lg border border-border bg-surface shadow-sm md:block">
             <table className="w-full text-left text-sm">
-              <thead className="bg-muted/40 border-b border-border/80 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <thead className="sticky top-0 z-10 border-b border-border bg-surface-container text-xs font-bold text-text-secondary">
                 <tr>
                   <th className="px-4 py-3">Código</th>
                   <th className="px-4 py-3">Tipo</th>
@@ -635,19 +635,17 @@ export default function ParqueaderosPage() {
               <tbody className="divide-y divide-border/60">
                 {filtrados.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
-                      No se encontraron parqueaderos registrados
+                    <td colSpan={7} className="px-4 py-10 text-center text-sm text-text-secondary">
+                      No se encontraron parqueaderos con estos filtros.
                     </td>
                   </tr>
                 ) : (
                   filtrados.map((p) => {
-                    const isDisponible = p.estado === 'DISPONIBLE';
-                    const isOcupado = p.estado === 'OCUPADO';
                     const codigo = p.codigo || p.numeroParqueadero;
 
                     return (
-                      <tr key={p.idParqueadero} className="hover:bg-muted/30 transition-colors">
-                        <td className="px-4 py-3 font-mono font-bold text-foreground">
+                      <tr key={p.idParqueadero} className="transition-colors hover:bg-surface-container">
+                        <td className="px-4 py-3 tabular-nums font-bold text-foreground">
                           {codigo}
                         </td>
                         <td className="px-4 py-3 text-foreground whitespace-nowrap">
@@ -657,21 +655,11 @@ export default function ParqueaderosPage() {
                           {p.esVisitante || p.tipo === 'VISITANTES' ? 'Visitante' : 'Residente'}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
-                          <span
-                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${
-                              isDisponible
-                                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
-                                : isOcupado
-                                ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
-                                : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
-                            }`}
-                          >
-                            {p.estado}
-                          </span>
+                          <Badge variant={estadoVariant(p.estado)}>{ESTADO_PARQ_LABEL[p.estado] || p.estado}</Badge>
                         </td>
-                        <td className="px-4 py-3 font-mono text-xs whitespace-nowrap">
+                        <td className="px-4 py-3 tabular-nums text-xs whitespace-nowrap">
                           {p.placaVehiculo ? (
-                            <span className="bg-slate-900 text-white px-2 py-0.5 rounded font-bold">
+                            <span className="inline-flex items-center rounded-[3px] border-[1.5px] border-on-surface bg-surface px-1.5 py-0.5 text-xs font-bold tracking-wider text-on-surface tabular-nums">
                               {p.placaVehiculo}
                             </span>
                           ) : (
@@ -698,18 +686,20 @@ export default function ParqueaderosPage() {
                                   setFormErrors({});
                                   setModalOpen(true);
                                 }}
-                                className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                                className="flex h-9 w-9 items-center justify-center rounded-md text-text-secondary transition-colors hover:bg-surface-container hover:text-on-surface"
                                 title="Editar"
+                                aria-label={`Editar ${codigo}`}
                               >
-                                <Edit3 className="w-3.5 h-3.5" />
+                                <Edit3 className="h-4 w-4" aria-hidden="true" />
                               </button>
                               <button
                                 type="button"
                                 onClick={() => setConfirmDel(p)}
-                                className="p-1.5 rounded hover:bg-rose-500/10 text-muted-foreground hover:text-rose-600 transition-colors"
+                                className="flex h-9 w-9 items-center justify-center rounded-md text-text-secondary transition-colors hover:bg-tint-red-bg hover:text-destructive"
                                 title="Eliminar"
+                                aria-label={`Eliminar ${codigo}`}
                               >
-                                <Trash2 className="w-3.5 h-3.5" />
+                                <Trash2 className="h-4 w-4" aria-hidden="true" />
                               </button>
                             </div>
                           </td>
@@ -725,39 +715,24 @@ export default function ParqueaderosPage() {
           {/* Mobile Card List */}
           <div className="md:hidden space-y-3">
             {filtrados.length === 0 ? (
-              <div className="bg-card rounded-xl border border-border/80 p-8 text-center text-muted-foreground">
-                <Car className="w-10 h-10 mx-auto text-muted-foreground/40 mb-2" />
-                <p className="font-semibold text-foreground">No se encontraron bahías</p>
-              </div>
+              <EmptyState icon={Car} title="No se encontraron bahías" className="rounded-lg border border-border bg-surface py-8" />
             ) : (
               filtrados.map((p) => {
-                const isDisponible = p.estado === 'DISPONIBLE';
-                const isOcupado = p.estado === 'OCUPADO';
                 const codigo = p.codigo || p.numeroParqueadero;
 
                 return (
                   <div
                     key={p.idParqueadero}
-                    className="bg-card rounded-xl border border-border/80 p-4 space-y-3 shadow-sm"
+                    className="space-y-3 rounded-lg border border-border bg-surface p-4 shadow-sm"
                   >
                     <div className="flex items-center justify-between border-b border-border/60 pb-2">
                       <div className="flex items-center gap-2">
-                        <span className="text-lg font-black font-mono text-foreground">
+                        <span className="app-numeral text-lg text-on-surface">
                           {codigo}
                         </span>
                         <span className="text-xs text-muted-foreground">({p.tipo})</span>
                       </div>
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${
-                          isDisponible
-                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
-                            : isOcupado
-                            ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
-                            : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
-                        }`}
-                      >
-                        {p.estado}
-                      </span>
+                      <Badge variant={estadoVariant(p.estado)}>{ESTADO_PARQ_LABEL[p.estado] || p.estado}</Badge>
                     </div>
 
                     <div className="grid grid-cols-2 gap-2 text-xs">
@@ -770,7 +745,7 @@ export default function ParqueaderosPage() {
                       <div>
                         <span className="text-muted-foreground block">Vehículo / Placa:</span>
                         {p.placaVehiculo ? (
-                          <span className="font-mono font-bold bg-slate-900 text-white px-1.5 py-0.5 rounded text-[11px]">
+                          <span className="inline-flex items-center rounded-[3px] border-[1.5px] border-on-surface bg-surface px-1.5 py-0.5 text-xs font-bold tracking-wider text-on-surface tabular-nums">
                             {p.placaVehiculo}
                           </span>
                         ) : (
@@ -802,14 +777,14 @@ export default function ParqueaderosPage() {
                             setFormErrors({});
                             setModalOpen(true);
                           }}
-                          className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-border bg-card hover:bg-muted text-foreground min-h-[44px]"
+                          className="min-h-[44px] rounded-md border border-input/60 bg-surface px-3 text-sm font-semibold text-on-surface hover:bg-surface-container"
                         >
                           Editar
                         </button>
                         <button
                           type="button"
                           onClick={() => setConfirmDel(p)}
-                          className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 min-h-[44px]"
+                          className="min-h-[44px] rounded-md border border-tint-red-fg/25 bg-tint-red-bg px-3 text-sm font-semibold text-destructive"
                         >
                           Eliminar
                         </button>
@@ -827,42 +802,42 @@ export default function ParqueaderosPage() {
       <Modal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        title={editing ? 'Editar Bahía de Parqueadero' : 'Nueva Bahía de Parqueadero'}
+        title={editing ? 'Editar bahía de parqueadero' : 'Nueva bahía de parqueadero'}
       >
         <form onSubmit={handleSave} className="space-y-4 p-1">
           <div>
-            <label className="block text-xs font-semibold text-foreground mb-1.5">
+            <label htmlFor="parq-f1" className="mb-1.5 block text-sm font-semibold text-on-surface">
               Código / Número de Parqueadero *
             </label>
             <div className="relative">
               <Hash className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
-              <input
+              <input id="parq-f1"
                 type="text"
                 value={form.numeroParqueadero}
                 onChange={(e) => setForm({ ...form, numeroParqueadero: e.target.value })}
                 placeholder={codigoSugerido}
-                className="w-full pl-9 pr-3 py-2 text-sm font-mono uppercase rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                className="w-full pl-9 pr-3 py-2 text-sm tabular-nums rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring/25 focus:border-ring"
               />
             </div>
             {!editing && (
-              <p className="text-[11px] text-muted-foreground mt-1">
-                Sugerido: <span className="font-mono font-bold text-foreground">{codigoSugerido}</span> (déjelo en blanco para usar el sugerido).
+              <p className="text-xs text-muted-foreground mt-1">
+                Sugerido: <span className="tabular-nums font-bold text-foreground">{codigoSugerido}</span> (déjelo en blanco para usar el sugerido).
               </p>
             )}
             {formErrors.numeroParqueadero && (
-              <p className="text-xs text-rose-500 mt-1">{formErrors.numeroParqueadero}</p>
+              <p className="text-xs text-tint-red-fg mt-1">{formErrors.numeroParqueadero}</p>
             )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-foreground mb-1.5">
+              <label htmlFor="parq-f2" className="mb-1.5 block text-sm font-semibold text-on-surface">
                 Tipo de Parqueadero *
               </label>
-              <select
+              <select id="parq-f2"
                 value={form.tipo}
                 onChange={(e) => setForm({ ...form, tipo: e.target.value })}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                className="h-10 w-full rounded-md border border-input bg-surface text-sm text-on-surface placeholder:text-text-hint transition-[border-color,box-shadow] duration-150 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25 px-3"
               >
                 <option value="VISITANTES">Visitantes</option>
                 <option value="PRIVADO">Privado (Residente)</option>
@@ -873,13 +848,13 @@ export default function ParqueaderosPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-foreground mb-1.5">
+              <label htmlFor="parq-f3" className="mb-1.5 block text-sm font-semibold text-on-surface">
                 Estado Operativo *
               </label>
-              <select
+              <select id="parq-f3"
                 value={form.estado}
                 onChange={(e) => setForm({ ...form, estado: e.target.value })}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                className="h-10 w-full rounded-md border border-input bg-surface text-sm text-on-surface placeholder:text-text-hint transition-[border-color,box-shadow] duration-150 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25 px-3"
               >
                 <option value="DISPONIBLE">Disponible</option>
                 <option value="OCUPADO">Ocupado</option>
@@ -891,13 +866,13 @@ export default function ParqueaderosPage() {
 
           {form.tipo === 'PRIVADO' && (
             <div>
-              <label className="block text-xs font-semibold text-foreground mb-1.5">
+              <label htmlFor="parq-f4" className="mb-1.5 block text-sm font-semibold text-on-surface">
                 Apartamento Asignado
               </label>
-              <select
+              <select id="parq-f4"
                 value={form.idApartamento}
                 onChange={(e) => setForm({ ...form, idApartamento: e.target.value })}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                className="h-10 w-full rounded-md border border-input bg-surface text-sm text-on-surface placeholder:text-text-hint transition-[border-color,box-shadow] duration-150 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25 px-3"
               >
                 <option value="">Sin asignar / Seleccionar unidad...</option>
                 {unidades.map((u) => {
@@ -924,7 +899,7 @@ export default function ParqueaderosPage() {
             <button
               type="submit"
               disabled={saving}
-              className="inline-flex items-center gap-2 px-5 py-2 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition-colors shadow-sm disabled:opacity-50 min-h-[44px]"
+              className="inline-flex items-center gap-2 px-5 py-2 text-xs font-semibold rounded-lg bg-btn-primary hover:bg-btn-primary-hover text-white transition-colors shadow-sm disabled:opacity-50 min-h-[44px]"
             >
               {saving ? (
                 <>
@@ -946,7 +921,7 @@ export default function ParqueaderosPage() {
       <Modal
         open={modalMasivoOpen}
         onClose={() => setModalMasivoOpen(false)}
-        title="Creación Masiva de Bahías de Parqueadero"
+        title="Crear bahías en lote"
       >
         <form onSubmit={handleSaveMasivo} className="space-y-4 p-1">
           <p className="text-xs text-muted-foreground">
@@ -955,29 +930,29 @@ export default function ParqueaderosPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-foreground mb-1.5">
+              <label htmlFor="parq-f5" className="mb-1.5 block text-sm font-semibold text-on-surface">
                 Prefijo (ej: P, V, MOTO, B)
               </label>
-              <input
+              <input id="parq-f5"
                 type="text"
                 value={formMasivo.prefijo}
                 onChange={(e) => setFormMasivo({ ...formMasivo, prefijo: e.target.value.toUpperCase() })}
                 placeholder="P"
-                className="w-full px-3 py-2 text-sm font-mono uppercase rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                className="w-full px-3 py-2 text-sm tabular-nums rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring/25 focus:border-ring"
               />
-              <p className="text-[11px] text-muted-foreground mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 Opcional. Se agregará guión automáticamente si aplica.
               </p>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-foreground mb-1.5">
+              <label htmlFor="parq-f6" className="mb-1.5 block text-sm font-semibold text-on-surface">
                 Tipo de Bahía *
               </label>
-              <select
+              <select id="parq-f6"
                 value={formMasivo.tipo}
                 onChange={(e) => setFormMasivo({ ...formMasivo, tipo: e.target.value })}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                className="h-10 w-full rounded-md border border-input bg-surface text-sm text-on-surface placeholder:text-text-hint transition-[border-color,box-shadow] duration-150 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25 px-3"
               >
                 <option value="PRIVADO">Privado (Residente)</option>
                 <option value="VISITANTES">Visitantes</option>
@@ -990,41 +965,41 @@ export default function ParqueaderosPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-foreground mb-1.5">
+              <label htmlFor="parq-f7" className="mb-1.5 block text-sm font-semibold text-on-surface">
                 Número Inicial *
               </label>
-              <input
+              <input id="parq-f7"
                 type="number"
                 min="1"
                 value={formMasivo.numeroInicial}
                 onChange={(e) => setFormMasivo({ ...formMasivo, numeroInicial: Math.max(1, parseInt(e.target.value) || 1) })}
-                className="w-full px-3 py-2 text-sm font-mono rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                className="w-full px-3 py-2 text-sm tabular-nums rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring/25 focus:border-ring"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-foreground mb-1.5">
+              <label htmlFor="parq-f8" className="mb-1.5 block text-sm font-semibold text-on-surface">
                 Cantidad a Generar *
               </label>
-              <input
+              <input id="parq-f8"
                 type="number"
                 min="1"
                 max="500"
                 value={formMasivo.cantidad}
                 onChange={(e) => setFormMasivo({ ...formMasivo, cantidad: Math.min(500, Math.max(1, parseInt(e.target.value) || 1)) })}
-                className="w-full px-3 py-2 text-sm font-mono rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                className="w-full px-3 py-2 text-sm tabular-nums rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring/25 focus:border-ring"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-foreground mb-1.5">
+            <label htmlFor="parq-f9" className="mb-1.5 block text-sm font-semibold text-on-surface">
               Estado Inicial *
             </label>
-            <select
+            <select id="parq-f9"
               value={formMasivo.estado}
               onChange={(e) => setFormMasivo({ ...formMasivo, estado: e.target.value })}
-              className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+              className="h-10 w-full rounded-md border border-input bg-surface text-sm text-on-surface placeholder:text-text-hint transition-[border-color,box-shadow] duration-150 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25 px-3"
             >
               <option value="DISPONIBLE">Disponible</option>
               <option value="MANTENIMIENTO">Mantenimiento</option>
@@ -1036,11 +1011,11 @@ export default function ParqueaderosPage() {
           <div className="p-3 bg-muted/50 rounded-lg border border-border/80">
             <div className="flex items-center justify-between mb-1.5">
               <span className="text-xs font-medium text-foreground">Vista Previa del Lote:</span>
-              <span className="text-[11px] font-mono text-emerald-600 dark:text-emerald-400 font-semibold">
+              <span className="text-xs tabular-nums text-primary-text font-semibold">
                 {formMasivo.cantidad} cupos
               </span>
             </div>
-            <div className="text-xs font-mono text-muted-foreground flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
+            <div className="text-xs tabular-nums text-muted-foreground flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
               {masivoPreviewList.map((item, idx) => (
                 <span key={idx} className="px-2 py-0.5 bg-background rounded border border-border text-foreground">
                   {item}
@@ -1065,7 +1040,7 @@ export default function ParqueaderosPage() {
             <button
               type="submit"
               disabled={savingMasivo}
-              className="inline-flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm min-h-[44px] disabled:opacity-50"
+              className="inline-flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-btn-primary hover:bg-btn-primary-hover text-white shadow-sm min-h-[44px] disabled:opacity-50"
             >
               {savingMasivo ? (
                 <>
@@ -1084,16 +1059,16 @@ export default function ParqueaderosPage() {
       <Modal
         open={!!confirmDel}
         onClose={() => setConfirmDel(null)}
-        title="Eliminar Bahía de Parqueadero"
+        title="Eliminar bahía de parqueadero"
       >
         {confirmDel && (
           <div className="space-y-4 p-1">
-            <div className="flex items-start gap-3 p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs">
+            <div className="flex items-start gap-3 p-3 rounded-lg bg-tint-red-bg border border-tint-red-fg/25 text-tint-red-fg text-xs">
               <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
               <div>
                 <span className="font-bold block">¿Está seguro de eliminar este cupo?</span>
                 Esta acción retirará la bahía{' '}
-                <span className="font-mono font-bold">
+                <span className="tabular-nums font-bold">
                   {confirmDel.codigo || confirmDel.numeroParqueadero}
                 </span>{' '}
                 del inventario catastral de la copropiedad.
@@ -1113,7 +1088,7 @@ export default function ParqueaderosPage() {
                 onClick={() => {
                   setPwdConfirmOpen(true);
                 }}
-                className="px-4 py-2 text-xs font-semibold rounded-lg bg-rose-600 hover:bg-rose-700 text-white transition-colors min-h-[44px]"
+                className="px-4 py-2 text-xs font-semibold rounded-lg bg-btn-danger hover:opacity-90 text-white transition-colors min-h-[44px]"
               >
                 Continuar
               </button>

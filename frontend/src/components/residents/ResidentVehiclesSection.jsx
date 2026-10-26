@@ -7,10 +7,6 @@ import {
   Trash2,
   RefreshCw,
   Tag,
-  CheckCircle2,
-  AlertCircle,
-  Shield,
-  Search,
 } from 'lucide-react';
 
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../ui/card.tsx';
@@ -182,23 +178,23 @@ export default function ResidentVehiclesSection({
   }, [vehicles]);
 
   return (
-    <Card className="border-border/70 shadow-xs">
-      <CardHeader className="pb-3 border-b border-border/50">
+    <Card className="border-border bg-surface shadow-xs">
+      <CardHeader className="pb-3 border-b border-border bg-surface-container rounded-t-xl">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-lg bg-primary/10 text-primary">
+            <div className="p-2 rounded-xl bg-tint-blue-bg text-primary-text">
               <Car className="w-5 h-5" aria-hidden="true" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <CardTitle className="text-base font-semibold text-foreground">
-                  Vehículos de la Unidad
+                <CardTitle className="text-base font-bold text-on-surface">
+                  Vehículos de la unidad
                 </CardTitle>
-                <Badge variant="outline" className="text-xs font-medium">
+                <Badge variant="success" className="text-xs font-semibold">
                   {totalActivos} {totalActivos === 1 ? 'activo' : 'activos'}
                 </Badge>
               </div>
-              <CardDescription className="text-xs text-muted-foreground mt-0.5">
+              <CardDescription className="text-xs text-text-muted mt-0.5">
                 Censo vehicular, placas autorizadas y control de acceso RFID
               </CardDescription>
             </div>
@@ -214,7 +210,7 @@ export default function ResidentVehiclesSection({
               aria-label="Actualizar lista de vehículos"
             >
               <RefreshCw
-                className={`h-3.5 w-3.5 mr-1.5 ${refreshing ? 'animate-spin text-primary' : ''}`}
+                className={`h-3.5 w-3.5 mr-1.5 ${refreshing ? 'animate-spin text-primary-text' : ''}`}
                 aria-hidden="true"
               />
               Actualizar
@@ -227,7 +223,7 @@ export default function ResidentVehiclesSection({
                 className="text-xs min-h-[36px] gap-1.5 shadow-xs"
               >
                 <Plus className="w-3.5 h-3.5" aria-hidden="true" />
-                <span>Registrar Vehículo</span>
+                <span>Registrar vehículo</span>
               </Button>
             )}
           </div>
@@ -238,7 +234,7 @@ export default function ResidentVehiclesSection({
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {[1, 2].map((i) => (
-              <div key={i} className="p-4 rounded-xl border border-border/60 bg-muted/20 space-y-2">
+              <div key={i} className="p-4 rounded-xl border border-border bg-surface-container space-y-2">
                 <Skeleton className="h-4 w-24" />
                 <Skeleton className="h-6 w-32" />
                 <Skeleton className="h-3 w-40" />
@@ -246,13 +242,13 @@ export default function ResidentVehiclesSection({
             ))}
           </div>
         ) : vehicles.length === 0 ? (
-          <div className="p-8 text-center border border-dashed border-border rounded-xl bg-muted/10 space-y-3">
-            <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto">
-              <Car className="w-6 h-6 opacity-80" aria-hidden="true" />
+          <div className="p-8 text-center border border-dashed border-border rounded-xl bg-surface-container space-y-3">
+            <div className="w-12 h-12 rounded-full bg-tint-blue-bg text-primary-text flex items-center justify-center mx-auto">
+              <Car className="w-6 h-6 opacity-90" aria-hidden="true" />
             </div>
             <div className="space-y-1">
-              <p className="text-sm font-semibold text-foreground">Sin vehículos registrados</p>
-              <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+              <p className="text-sm font-bold text-on-surface">Sin vehículos registrados</p>
+              <p className="text-xs text-text-muted max-w-sm mx-auto">
                 Esta unidad no tiene automóviles, motocicletas o bicicletas registradas para control de acceso y parqueo.
               </p>
             </div>
@@ -263,8 +259,8 @@ export default function ResidentVehiclesSection({
                 onClick={openCreateModal}
                 className="text-xs min-h-[36px] gap-1.5 mt-2"
               >
-                <Plus className="w-3.5 h-3.5 text-primary" aria-hidden="true" />
-                <span>Registrar Primer Vehículo</span>
+                <Plus className="w-3.5 h-3.5 text-primary-text" aria-hidden="true" />
+                <span>Registrar primer vehículo</span>
               </Button>
             )}
           </div>
@@ -280,16 +276,16 @@ export default function ResidentVehiclesSection({
               return (
                 <div
                   key={veh.idVehiculo}
-                  className="p-4 rounded-xl border border-border/70 bg-card hover:border-primary/40 hover:shadow-xs transition-all space-y-3"
+                  className="p-4 rounded-xl border border-border bg-surface hover:border-primary/50 hover:shadow-xs transition-all space-y-3"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-2.5">
-                      <div className="p-2 rounded-lg bg-primary/10 text-primary shrink-0">
+                      <div className="p-2 rounded-xl bg-tint-blue-bg text-primary-text shrink-0">
                         <Car className="w-4 h-4" aria-hidden="true" />
                       </div>
                       <div>
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-mono text-base font-black tracking-wider text-foreground px-2 py-0.5 rounded bg-muted border border-border">
+                          <span className="font-mono text-base font-black text-on-surface px-2.5 py-0.5 rounded-lg bg-surface-container border border-border">
                             {veh.placa}
                           </span>
                           <Badge
@@ -299,7 +295,7 @@ export default function ResidentVehiclesSection({
                             {isActivo ? 'Activo' : 'Inactivo'}
                           </Badge>
                         </div>
-                        <p className="text-xs font-medium text-muted-foreground mt-1">
+                        <p className="text-xs font-medium text-text-muted mt-1">
                           {tipoLabel}
                           {veh.marca ? ` · ${veh.marca}` : ''}
                           {veh.modelo ? ` ${veh.modelo}` : ''}
@@ -313,7 +309,7 @@ export default function ResidentVehiclesSection({
                         <button
                           type="button"
                           onClick={() => openEditModal(veh)}
-                          className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                          className="p-1.5 rounded-lg text-text-muted hover:text-primary-text hover:bg-surface-selected transition-colors"
                           aria-label={`Editar vehículo ${veh.placa}`}
                         >
                           <Pencil className="w-3.5 h-3.5" aria-hidden="true" />
@@ -321,7 +317,7 @@ export default function ResidentVehiclesSection({
                         <button
                           type="button"
                           onClick={() => setConfirmDelete({ open: true, vehicle: veh })}
-                          className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                          className="p-1.5 rounded-lg text-text-muted hover:text-destructive hover:bg-destructive/10 transition-colors"
                           aria-label={`Eliminar vehículo ${veh.placa}`}
                         >
                           <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
@@ -331,12 +327,12 @@ export default function ResidentVehiclesSection({
                   </div>
 
                   {veh.tagRfid && (
-                    <div className="pt-2 border-t border-border/50 flex items-center justify-between text-xs">
-                      <span className="text-muted-foreground flex items-center gap-1.5">
-                        <Tag className="w-3.5 h-3.5 text-primary/70" aria-hidden="true" />
-                        Tag RFID Asignado:
+                    <div className="pt-2 border-t border-border flex items-center justify-between text-xs">
+                      <span className="text-text-muted flex items-center gap-1.5">
+                        <Tag className="w-3.5 h-3.5 text-primary-text" aria-hidden="true" />
+                        Tag RFID asignado:
                       </span>
-                      <span className="font-mono font-bold text-foreground text-[11px] bg-primary/5 px-2 py-0.5 rounded border border-primary/20">
+                      <span className="font-mono font-bold text-primary-text text-[11px] bg-tint-purple-bg px-2 py-0.5 rounded-md border border-border">
                         {veh.tagRfid}
                       </span>
                     </div>
@@ -359,20 +355,20 @@ export default function ResidentVehiclesSection({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Input
-                label="Placa o Identificador *"
+                label="Placa o identificador *"
                 value={form.placa}
                 onChange={(e) =>
                   setForm({ ...form, placa: e.target.value.toUpperCase().replace(/\s+/g, '') })
                 }
                 placeholder="Ej. ABC123"
                 error={formErrors.placa}
-                className="font-mono uppercase font-bold"
+                className="font-mono font-bold"
                 required
               />
             </div>
             <div>
               <Select
-                label="Tipo de Vehículo *"
+                label="Tipo de vehículo *"
                 value={form.tipoVehiculo}
                 onChange={(e) => setForm({ ...form, tipoVehiculo: e.target.value })}
                 error={formErrors.tipoVehiculo}
@@ -393,7 +389,7 @@ export default function ResidentVehiclesSection({
             </div>
             <div>
               <Input
-                label="Modelo / Línea"
+                label="Modelo / línea"
                 value={form.modelo}
                 onChange={(e) => setForm({ ...form, modelo: e.target.value })}
                 placeholder="Ej. Corolla"
@@ -412,7 +408,7 @@ export default function ResidentVehiclesSection({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Input
-                label="Tag RFID (Antena Portería)"
+                label="Tag RFID (antena portería)"
                 value={form.tagRfid}
                 onChange={(e) =>
                   setForm({ ...form, tagRfid: e.target.value.toUpperCase() })
@@ -453,7 +449,7 @@ export default function ResidentVehiclesSection({
         onConfirm={handleDelete}
         title="¿Eliminar registro vehicular?"
         message={`Esta acción removerá el vehículo con placa ${confirmDelete.vehicle?.placa} del censo de la unidad. La portería ya no podrá reconocer automáticamente este vehículo.`}
-        confirmLabel="Eliminar Vehículo"
+        confirmLabel="Eliminar vehículo"
         danger
       />
     </Card>

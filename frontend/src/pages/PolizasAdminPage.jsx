@@ -20,7 +20,10 @@ import {
   XCircle,
 } from 'lucide-react';
 import { PageHeader } from '../components/ui/PageHeader';
+import { PageContainer } from '../components/layout/PageContainer.jsx';
 import { Modal } from '../components/ui/Modal';
+import { LoadingState } from '../components/ui/LoadingState.jsx';
+import { ErrorState } from '../components/ui/ErrorState.jsx';
 import { useFetch } from '../lib/hooks';
 import { useTenant } from '../lib/TenantContext.jsx';
 import { useTenantApi } from '../lib/useTenantApi.js';
@@ -39,9 +42,9 @@ const RAMOS_COBERTURA = [
 ];
 
 const ESTADOS_POLIZA = {
-  VIGENTE: { label: 'Vigente', color: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30' },
-  POR_VENCER: { label: 'Por Vencer', color: 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 animate-pulse' },
-  VENCIDA: { label: 'Vencida', color: 'bg-red-500/15 text-red-700 dark:text-red-400 border border-red-500/30' },
+  VIGENTE: { label: 'Vigente', color: 'bg-tint-green-bg text-tint-green-fg border border-tint-green-fg/25' },
+  POR_VENCER: { label: 'Por Vencer', color: 'bg-tint-amber-bg text-tint-amber-fg border border-tint-amber-fg/25 animate-pulse' },
+  VENCIDA: { label: 'Vencida', color: 'bg-tint-red-bg text-tint-red-fg border border-tint-red-fg/25' },
   CANCELADA: { label: 'Cancelada', color: 'bg-muted text-muted-foreground border border-border' },
 };
 
@@ -227,13 +230,13 @@ export default function PolizasAdminPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <PageContainer className="pb-12">
       <PageHeader
         title="Gestión de Pólizas de Seguro"
         description="Administración de coberturas, pólizas de áreas comunes y alertas de vencimiento bajo Ley 675"
         action={
           isReadOnly ? (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 rounded-lg text-xs font-semibold">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-tint-blue-bg text-tint-blue-fg border border-tint-blue-fg/25 rounded-lg text-xs font-semibold">
               <Shield className="w-3.5 h-3.5" /> Supervisión (Solo Lectura)
             </div>
           ) : (
@@ -253,10 +256,10 @@ export default function PolizasAdminPage() {
         <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Pólizas</p>
+              <p className="text-xs font-medium text-muted-foreground">Total Pólizas</p>
               <h3 className="text-2xl font-bold mt-1 text-foreground">{resumen.totalPolizas}</h3>
             </div>
-            <div className="p-3 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-xl">
+            <div className="p-3 bg-tint-blue-bg text-tint-blue-fg rounded-xl">
               <Shield className="w-6 h-6" />
             </div>
           </div>
@@ -268,29 +271,29 @@ export default function PolizasAdminPage() {
         <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Pólizas Vigentes</p>
-              <h3 className="text-2xl font-bold mt-1 text-emerald-600 dark:text-emerald-400">{resumen.vigentes}</h3>
+              <p className="text-xs font-medium text-muted-foreground">Pólizas Vigentes</p>
+              <h3 className="text-2xl font-bold mt-1 text-tint-green-fg">{resumen.vigentes}</h3>
             </div>
-            <div className="p-3 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-xl">
+            <div className="p-3 bg-tint-green-bg text-tint-green-fg rounded-xl">
               <ShieldCheck className="w-6 h-6" />
             </div>
           </div>
           <p className="text-xs text-muted-foreground mt-3 flex items-center gap-1">
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> Sin riesgo inmediato
+            <CheckCircle2 className="w-3.5 h-3.5 text-tint-green-fg" /> Sin riesgo inmediato
           </p>
         </div>
 
         <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Por Vencer</p>
-              <h3 className="text-2xl font-bold mt-1 text-amber-600 dark:text-amber-400">{resumen.porVencer}</h3>
+              <p className="text-xs font-medium text-muted-foreground">Por Vencer</p>
+              <h3 className="text-2xl font-bold mt-1 text-tint-amber-fg">{resumen.porVencer}</h3>
             </div>
-            <div className="p-3 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-xl">
+            <div className="p-3 bg-tint-amber-bg text-tint-amber-fg rounded-xl">
               <ShieldAlert className="w-6 h-6" />
             </div>
           </div>
-          <p className="text-xs text-amber-600 dark:text-amber-400 mt-3 flex items-center gap-1">
+          <p className="text-xs text-tint-amber-fg mt-3 flex items-center gap-1">
             <Clock className="w-3.5 h-3.5" /> Requieren renovación próxima
           </p>
         </div>
@@ -298,10 +301,10 @@ export default function PolizasAdminPage() {
         <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Asegurado</p>
+              <p className="text-xs font-medium text-muted-foreground">Total Asegurado</p>
               <h3 className="text-xl font-bold mt-1 text-foreground">{formatCurrency(resumen.valorAseguradoTotal)}</h3>
             </div>
-            <div className="p-3 bg-purple-500/10 text-purple-600 dark:text-purple-400 rounded-xl">
+            <div className="p-3 bg-tint-purple-bg text-tint-purple-fg rounded-xl">
               <DollarSign className="w-6 h-6" />
             </div>
           </div>
@@ -345,11 +348,16 @@ export default function PolizasAdminPage() {
       </div>
 
       {/* Main Content: Policy Cards & Table */}
-      {loadingPolizas ? (
-        <div className="p-12 text-center text-muted-foreground bg-card border border-border rounded-xl">
-          <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-3" />
-          <p className="text-sm">Cargando pólizas de seguro...</p>
+      {loadingPolizas && !polizasRaw ? (
+        <div className="bg-card border border-border rounded-lg">
+          <LoadingState message="Cargando pólizas de seguro..." />
         </div>
+      ) : errorPolizas && !polizasRaw ? (
+        <ErrorState
+          title="No se pudieron cargar las pólizas"
+          message={errorPolizas?.message || 'Verifique su conexión e intente nuevamente.'}
+          onRetry={() => refetchPolizas().catch(() => {})}
+        />
       ) : polizasFiltradas.length === 0 ? (
         <div className="p-12 text-center bg-card border border-border rounded-xl">
           <ShieldAlert className="w-12 h-12 text-muted-foreground/40 mx-auto mb-3" />
@@ -362,7 +370,8 @@ export default function PolizasAdminPage() {
           {!busqueda && filtroEstado === 'TODOS' && (
             <button
               onClick={handleOpenCrear}
-              className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium shadow-sm hover:bg-primary/90 transition-colors"
+              type="button"
+              className="mt-4 inline-flex min-h-10 items-center gap-2 px-4 py-2 bg-btn-primary text-white rounded-md text-sm font-semibold shadow-sm hover:bg-btn-primary-hover transition-colors duration-150"
             >
               <Plus className="w-4 h-4" />
               Registrar Primera Póliza
@@ -426,7 +435,7 @@ export default function PolizasAdminPage() {
                     {p.deducible && (
                       <div className="flex justify-between items-center text-muted-foreground">
                         <span className="flex items-center gap-1.5">
-                          <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" /> Deducible:
+                          <ShieldCheck className="w-3.5 h-3.5 text-tint-green-fg" /> Deducible:
                         </span>
                         <span className="font-medium text-foreground">
                           {p.deducible}
@@ -470,7 +479,7 @@ export default function PolizasAdminPage() {
                         rel="noreferrer"
                         className="inline-flex items-center gap-1 text-xs text-primary hover:underline font-medium"
                       >
-                        <FileText className="w-3.5 h-3.5 text-emerald-500" /> Doc. Certificado F10-01 (#{p.idDocumento})
+                        <FileText className="w-3.5 h-3.5 text-tint-green-fg" /> Doc. Certificado F10-01 (#{p.idDocumento})
                         <ExternalLink className="w-3 h-3" />
                       </a>
                     ) : p.documentoCaratulaUrl ? (
@@ -787,6 +796,6 @@ export default function PolizasAdminPage() {
           </div>
         </div>
       </Modal>
-    </div>
+    </PageContainer>
   );
 }

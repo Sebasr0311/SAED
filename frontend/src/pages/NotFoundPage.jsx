@@ -1,31 +1,45 @@
 import { useNavigate } from 'react-router-dom';
-import { PageHeader } from '../components/ui/PageHeader.jsx';
+import { ArrowLeft, Home } from 'lucide-react';
+import '../components/landing/manual.css';
+import '../components/landing/manual-public.css';
 
+// Rendered inside the app shell (authenticated); unauthenticated unknown routes redirect to /login.
 export default function NotFoundPage() {
   const navigate = useNavigate();
   return (
-    <div>
-      <PageHeader title="Página no encontrada" subtitle="La dirección que buscás no existe o fue movida." />
-      <div className="table-container p-8">
-        <div className="empty-state">
-          <div className="empty-icon" aria-hidden="true">
-            <span className="material-symbols-outlined">explore_off</span>
-          </div>
-          <div className="empty-title">Error 404</div>
-          <p className="empty-subtitle">
-            Verificá el enlace o volvé al inicio del sistema.
+    <section className="saed-manual m-pub-embed" aria-labelledby="not-found-title">
+      <div className="m-pub-404">
+        <div className="m-pub-404-text">
+          <p className="m-numeral m-pub-404-numeral" aria-hidden="true">
+            404
           </p>
-          <div style={{ display: 'flex', gap: '8px', marginTop: '16px', justifyContent: 'center' }}>
-            <button
-              type="button"
-              className="inline-flex items-center justify-center px-4 py-2 text-xs font-semibold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-xs"
-              onClick={() => navigate('/')}
-            >
-              Ir al inicio
+          <h1 id="not-found-title" className="m-h3">
+            Página no encontrada
+          </h1>
+          <p className="m-body">
+            La dirección que buscas no existe o fue movida. Verifica el enlace o vuelve al inicio del
+            sistema.
+          </p>
+          <div className="m-actions">
+            <button type="button" className="m-btn m-btn--primary" onClick={() => navigate('/')}>
+              <Home aria-hidden="true" />
+              <span>Ir al inicio</span>
+            </button>
+            <button type="button" className="m-btn m-btn--glass" onClick={() => navigate(-1)}>
+              <ArrowLeft aria-hidden="true" />
+              <span>Volver atrás</span>
             </button>
           </div>
         </div>
+        <div className="m-pub-404-plate" aria-hidden="true">
+          <span />
+          <span />
+          <span />
+          <span />
+          <span className="is-missing" />
+          <span />
+        </div>
       </div>
-    </div>
+    </section>
   );
 }

@@ -1,3 +1,4 @@
+import { ChevronDown } from 'lucide-react';
 import { cn } from '../../lib/utils.js';
 import { Input as ShadcnInput } from './input.tsx';
 import { Textarea as ShadcnTextarea } from './textarea.tsx';
@@ -16,8 +17,8 @@ function FieldShell({ label, id, required, error, children, className }) {
         <Label
           htmlFor={id}
           className={cn(
-            'text-sm font-medium transition-colors',
-            error ? 'text-destructive font-semibold' : 'text-foreground'
+            'text-sm font-semibold transition-colors',
+            error ? 'text-destructive' : 'text-on-surface'
           )}
         >
           {label}
@@ -26,8 +27,8 @@ function FieldShell({ label, id, required, error, children, className }) {
       )}
       {children}
       {error && (
-        <p id={id ? `${id}-error` : undefined} role="alert" className="text-xs text-destructive font-medium flex items-center gap-1.5 mt-1 animate-fadeIn">
-          <span className="inline-block w-1.5 h-1.5 rounded-full bg-destructive shrink-0" />
+        <p id={id ? `${id}-error` : undefined} role="alert" className="text-xs text-destructive font-semibold flex items-center gap-1.5 mt-0.5">
+          <span className="inline-block w-1.5 h-1.5 rounded-[1px] bg-destructive shrink-0" aria-hidden="true" />
           <span>{error}</span>
         </p>
       )}
@@ -64,8 +65,8 @@ export function Select({ label, error, id, children, className = '', ...props })
           aria-invalid={Boolean(error)}
           aria-describedby={error && id ? `${id}-error` : undefined}
           className={cn(
-            'flex h-9 w-full appearance-none rounded-md border border-input bg-background px-3 py-1 pr-8 text-sm shadow-sm transition-colors text-foreground',
-            'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+            'flex h-9 w-full appearance-none rounded-md border border-input bg-surface px-3 py-1 pr-8 text-sm shadow-xs text-on-surface transition-[border-color,box-shadow] duration-150',
+            'hover:border-keyline/70 focus-visible:outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25',
             'disabled:cursor-not-allowed disabled:opacity-50',
             error
               ? '!border-destructive focus-visible:!ring-destructive ring-1 !ring-destructive/30 bg-destructive/5'
@@ -75,9 +76,10 @@ export function Select({ label, error, id, children, className = '', ...props })
         >
           {children}
         </select>
-        <span className="material-symbols-outlined pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-base text-muted-foreground">
-          expand_more
-        </span>
+        <ChevronDown
+          className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-text-secondary"
+          aria-hidden="true"
+        />
       </div>
     </FieldShell>
   );

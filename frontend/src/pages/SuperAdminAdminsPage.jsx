@@ -1,45 +1,52 @@
 import { useEffect, useState, useMemo } from 'react';
+import { Search, ShieldCheck, UserPlus, UserX } from 'lucide-react';
 import api from '../lib/api.js';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card.tsx';
 import { Button } from '../components/ui/button.tsx';
 import { Badge } from '../components/ui/badge.tsx';
 import { Skeleton } from '../components/ui/skeleton.tsx';
-import { Input } from '../components/ui/input.tsx';
-import { Label } from '../components/ui/label.tsx';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '../components/ui/dialog.tsx';
+import { Input as SearchInput } from '../components/ui/input.tsx';
+import { Input, Select } from '../components/ui/Form.jsx';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '../components/ui/dialog.tsx';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog.jsx';
+import { PageHeader } from '../components/ui/PageHeader.jsx';
+import { PageContainer } from '../components/layout/PageContainer.jsx';
+import EmptyState from '../components/ui/EmptyState.jsx';
+import ErrorState from '../components/ui/ErrorState.jsx';
 import { toast } from 'sonner';
+
+const EMPTY_FORM = {
+  nombreUsuario: '',
+  email: '',
+  password: '',
+  primerNombre: '',
+  primerApellido: '',
+  nivel: 'SOPORTE',
+};
 
 export default function SuperAdminAdminsPage() {
   const [admins, setAdmins] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [formErrors, setFormErrors] = useState({});
+  const [confirmTarget, setConfirmTarget] = useState(null);
 
-  const [form, setForm] = useState({
-    nombreUsuario: '',
-    email: '',
-    password: '',
-    primerNombre: '',
-    primerApellido: '',
-    nivel: 'SOPORTE',
-  });
+  const [form, setForm] = useState(EMPTY_FORM);
 
   async function loadData() {
     try {
       setLoading(true);
+      setLoadError(null);
       const res = await api.get('/platform/admins');
       const list = res?.data || res || [];
       setAdmins(Array.isArray(list) ? list : []);
     } catch (err) {
       console.error(err);
       toast.error('Error al cargar operadores de plataforma');
+      setLoadError(err?.message || 'No fue posible consultar los operadores de plataforma.');
     } finally {
       setLoading(false);
     }
@@ -61,9 +68,20 @@ export default function SuperAdminAdminsPage() {
     );
   }, [admins, search]);
 
+  function setField(field, value) {
+    setForm((f) => ({ ...f, [field]: value }));
+    if (formErrors[field]) setFormErrors((e) => ({ ...e, [field]: undefined }));
+  }
+
   async function handleCreate(e) {
     e.preventDefault();
-    if (!form.nombreUsuario.trim() || !form.email.trim() || !form.password.trim()) {
+    const errors = {};
+    if (!form.nombreUsuario.trim()) errors.nombreUsuario = 'El nombre de usuario es obligatorio.';
+    if (!form.email.trim()) errors.email = 'El correo es obligatorio.';
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) errors.email = 'Ingresa un correo válido.';
+    if (!form.password.trim()) errors.password = 'La contraseña inicial es obligatoria.';
+    if (Object.keys(errors).length) {
+      setFormErrors(errors);
       toast.error('Nombre de usuario, email y contraseña son obligatorios');
       return;
     }
@@ -72,14 +90,8 @@ export default function SuperAdminAdminsPage() {
       await api.post('/platform/admins', form);
       toast.success('Operador SUPERADMIN registrado exitosamente');
       setShowModal(false);
-      setForm({
-        nombreUsuario: '',
-        email: '',
-        password: '',
-        primerNombre: '',
-        primerApellido: '',
-        nivel: 'SOPORTE',
-      });
+      setForm(EMPTY_FORM);
+      setFormErrors({});
       loadData();
     } catch (err) {
       console.error(err);
@@ -106,126 +118,136 @@ export default function SuperAdminAdminsPage() {
   }
 
   return (
-    <div className="p-6 space-y-6 animate-fadeIn">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border pb-6">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
-            <span className="material-symbols-outlined text-primary text-2xl">admin_panel_settings</span>
-            Operadores de Plataforma SAED
-          </h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Usuarios con credenciales de nivel SUPERADMIN y alcance GLOBAL sobre la plataforma.
-          </p>
-        </div>
-        <Button onClick={() => setShowModal(true)} className="gap-2 shrink-0">
-          <span className="material-symbols-outlined text-sm">person_add</span>
-          Nuevo Operador
-        </Button>
-      </div>
+    <PageContainer>
+      <PageHeader
+        title="Operadores de plataforma SAED"
+        subtitle="Usuarios con credenciales SUPERADMIN y alcance global sobre la plataforma."
+        action={
+          <Button onClick={() => setShowModal(true)} className="min-h-10">
+            <UserPlus aria-hidden="true" />
+            Nuevo operador
+          </Button>
+        }
+      />
 
-      {/* Barra de Filtro */}
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1 max-w-sm">
-          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
-            search
-          </span>
-          <Input
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="relative w-full sm:max-w-sm">
+          <Search
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted"
+            aria-hidden="true"
+          />
+          <SearchInput
             id="admin-search-input"
             type="search"
+            aria-label="Buscar operadores"
             placeholder="Buscar por usuario, email o nombre…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 text-sm"
+            className="h-10 pl-9 text-sm"
           />
         </div>
-        <div className="text-xs text-muted-foreground ml-auto font-medium">
-          {filteredAdmins.length} {filteredAdmins.length === 1 ? 'operador' : 'operadores'}
+        <div className="text-xs font-semibold text-text-secondary sm:ml-auto">
+          <span className="app-numeral">{filteredAdmins.length}</span>{' '}
+          {filteredAdmins.length === 1 ? 'operador' : 'operadores'}
         </div>
       </div>
 
-      {/* Tabla */}
-      <Card className="border-border/80 shadow-sm">
+      <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base font-semibold">Administradores Globales Activos</CardTitle>
+          <CardTitle className="text-[15px]">Administradores globales</CardTitle>
         </CardHeader>
         <CardContent>
           {loading ? (
-            <div className="space-y-3">
-              {[1, 2, 3].map((i) => (
-                <Skeleton key={i} className="h-14 w-full rounded-lg" />
+            <div className="space-y-2" role="status" aria-busy="true" aria-label="Cargando operadores">
+              {[1, 2, 3, 4].map((i) => (
+                <Skeleton key={i} className="h-11 w-full" />
               ))}
             </div>
+          ) : loadError ? (
+            <ErrorState title="No se pudo cargar la lista" message={loadError} onRetry={loadData} />
           ) : filteredAdmins.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground space-y-2">
-              <span className="material-symbols-outlined text-4xl text-muted-foreground/60">person_off</span>
-              <p className="text-sm font-medium">
-                {search ? 'No se encontraron operadores con ese criterio.' : 'No hay operadores registrados.'}
-              </p>
-            </div>
+            <EmptyState
+              icon={UserX}
+              title={search ? 'Sin coincidencias' : 'No hay operadores registrados'}
+              subtitle={
+                search
+                  ? 'No se encontraron operadores con ese criterio.'
+                  : 'Registra un operador para delegar soporte o auditoría de la plataforma.'
+              }
+            >
+              {search ? (
+                <Button variant="outline" size="sm" className="mt-3" onClick={() => setSearch('')}>
+                  Limpiar búsqueda
+                </Button>
+              ) : (
+                <Button size="sm" className="mt-3" onClick={() => setShowModal(true)}>
+                  <UserPlus aria-hidden="true" />
+                  Nuevo operador
+                </Button>
+              )}
+            </EmptyState>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm border-collapse">
+            <div className="table-container max-h-[70vh] overflow-y-auto">
+              <table className="data-table">
                 <thead>
-                  <tr className="border-b border-border text-muted-foreground text-xs font-semibold uppercase tracking-wider">
-                    <th className="py-3 px-4">ID</th>
-                    <th className="py-3 px-4">Usuario</th>
-                    <th className="py-3 px-4">Nombre Completo</th>
-                    <th className="py-3 px-4">Email</th>
-                    <th className="py-3 px-4">Nivel</th>
-                    <th className="py-3 px-4 text-center">Estado</th>
-                    <th className="py-3 px-4 text-right">Acción</th>
+                  <tr>
+                    <th scope="col">ID</th>
+                    <th scope="col">Usuario</th>
+                    <th scope="col">Nombre completo</th>
+                    <th scope="col">Email</th>
+                    <th scope="col">Nivel</th>
+                    <th scope="col" className="text-center">Estado</th>
+                    <th scope="col" className="text-right">Acción</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-border">
-                  {filteredAdmins.map((adm) => (
-                    <tr key={adm.idUsuario || adm.ID_USUARIO} className="hover:bg-muted/40 transition-colors">
-                      <td className="py-3.5 px-4 font-mono text-xs text-muted-foreground">
-                        #{adm.idUsuario || adm.ID_USUARIO}
-                      </td>
-                      <td className="py-3.5 px-4 font-semibold text-foreground font-mono text-xs">
-                        {adm.nombreUsuario || adm.NOMBRE_USUARIO}
-                      </td>
-                      <td className="py-3.5 px-4 text-foreground text-xs">
-                        {adm.primerNombre || adm.PRIMER_NOMBRE} {adm.primerApellido || adm.PRIMER_APELLIDO}
-                      </td>
-                      <td className="py-3.5 px-4 text-muted-foreground text-xs font-mono">
-                        {adm.email || adm.EMAIL}
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <Badge variant="outline" className="font-mono text-xs">
-                          {adm.nivel || 'GLOBAL'}
-                        </Badge>
-                      </td>
-                      <td className="py-3.5 px-4 text-center">
-                        <Badge
-                          variant={(adm.estado || adm.ESTADO) === 'ACTIVO' ? 'default' : 'secondary'}
-                          className={
-                            (adm.estado || adm.ESTADO) === 'ACTIVO'
-                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-xs'
-                              : 'text-xs'
-                          }
-                        >
-                          {adm.estado || adm.ESTADO || 'ACTIVO'}
-                        </Badge>
-                      </td>
-                      <td className="py-3.5 px-4 text-right">
-                        {(Number(adm.idUsuario || adm.ID_USUARIO) === 1 || (adm.nombreUsuario || adm.NOMBRE_USUARIO) === 'admin_global') ? (
-                          <Badge variant="outline" className="text-xs text-amber-600 dark:text-amber-400 border-amber-500/30 bg-amber-500/10 font-medium">
-                            Principal Protegido
+                <tbody>
+                  {filteredAdmins.map((adm) => {
+                    const id = adm.idUsuario || adm.ID_USUARIO;
+                    const usuario = adm.nombreUsuario || adm.NOMBRE_USUARIO;
+                    const estado = adm.estado || adm.ESTADO;
+                    const protegido = Number(id) === 1 || usuario === 'admin_global';
+                    return (
+                      <tr key={id}>
+                        <td className="font-mono text-xs text-text-secondary tabular-nums">#{id}</td>
+                        <td className="font-mono text-xs font-semibold text-on-surface">{usuario}</td>
+                        <td className="text-xs text-on-surface">
+                          {adm.primerNombre || adm.PRIMER_NOMBRE} {adm.primerApellido || adm.PRIMER_APELLIDO}
+                        </td>
+                        <td className="font-mono text-xs text-text-secondary">{adm.email || adm.EMAIL}</td>
+                        <td>
+                          <Badge variant="outline" className="font-mono">
+                            {adm.nivel || 'GLOBAL'}
                           </Badge>
-                        ) : (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-xs h-8 px-2"
-                            onClick={() => handleToggleStatus(adm.idUsuario || adm.ID_USUARIO, adm.estado || adm.ESTADO)}
-                          >
-                            {(adm.estado || adm.ESTADO) === 'ACTIVO' ? 'Desactivar' : 'Activar'}
-                          </Button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td className="text-center">
+                          <Badge variant={(estado || 'ACTIVO') === 'ACTIVO' ? 'success' : 'secondary'}>
+                            {estado || 'ACTIVO'}
+                          </Badge>
+                        </td>
+                        <td className="text-right">
+                          {protegido ? (
+                            <Badge variant="warning">
+                              <ShieldCheck className="h-3 w-3" aria-hidden="true" />
+                              Principal protegido
+                            </Badge>
+                          ) : (
+                            <Button
+                              variant={estado === 'ACTIVO' ? 'ghost' : 'outline'}
+                              size="sm"
+                              className="h-10 px-2.5 text-xs sm:h-8"
+                              onClick={() =>
+                                estado === 'ACTIVO'
+                                  ? setConfirmTarget({ id, usuario, estado })
+                                  : handleToggleStatus(id, estado)
+                              }
+                            >
+                              {estado === 'ACTIVO' ? 'Desactivar' : 'Activar'}
+                            </Button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -233,118 +255,104 @@ export default function SuperAdminAdminsPage() {
         </CardContent>
       </Card>
 
-      {/* Modal Crear Operador */}
-      <Dialog open={showModal} onOpenChange={setShowModal}>
-        <DialogContent className="max-w-md">
+      <ConfirmDialog
+        open={!!confirmTarget}
+        onClose={() => setConfirmTarget(null)}
+        onConfirm={() => handleToggleStatus(confirmTarget.id, confirmTarget.estado)}
+        title="Desactivar operador"
+        message={`${confirmTarget?.usuario || 'El operador'} perderá el acceso a la consola de plataforma hasta que se reactive.`}
+        confirmLabel="Desactivar"
+        danger
+      />
+
+      <Dialog
+        open={showModal}
+        onOpenChange={(o) => {
+          setShowModal(o);
+          if (!o) setFormErrors({});
+        }}
+      >
+        <DialogContent className="max-h-[90dvh] max-w-md overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-lg font-bold">
-              <span className="material-symbols-outlined text-primary">person_add</span>
-              Registrar Operador SUPERADMIN
-            </DialogTitle>
+            <DialogTitle>Registrar operador SUPERADMIN</DialogTitle>
+            <DialogDescription>Los campos marcados con * son obligatorios.</DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={handleCreate} className="space-y-4 pt-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="adm-usuario" className="text-xs font-semibold uppercase text-muted-foreground">
-                Nombre de Usuario *
-              </Label>
+          <form onSubmit={handleCreate} className="space-y-4 pt-1" noValidate>
+            <Input
+              id="adm-usuario"
+              label="Nombre de usuario"
+              required
+              value={form.nombreUsuario}
+              onChange={(e) => setField('nombreUsuario', e.target.value)}
+              placeholder="Ej. operador_soporte1"
+              autoComplete="off"
+              error={formErrors.nombreUsuario}
+              className="font-mono"
+            />
+
+            <Input
+              id="adm-email"
+              label="Correo electrónico"
+              type="email"
+              required
+              value={form.email}
+              onChange={(e) => setField('email', e.target.value)}
+              placeholder="operador@saed.com"
+              autoComplete="off"
+              error={formErrors.email}
+            />
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Input
-                id="adm-usuario"
-                required
-                value={form.nombreUsuario}
-                onChange={(e) => setForm({ ...form, nombreUsuario: e.target.value })}
-                placeholder="Ej. operador_soporte1"
-                className="text-sm font-mono"
+                id="adm-pnombre"
+                label="Primer nombre"
+                value={form.primerNombre}
+                onChange={(e) => setField('primerNombre', e.target.value)}
+              />
+              <Input
+                id="adm-papellido"
+                label="Primer apellido"
+                value={form.primerApellido}
+                onChange={(e) => setField('primerApellido', e.target.value)}
               />
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="adm-email" className="text-xs font-semibold uppercase text-muted-foreground">
-                Correo Electrónico *
-              </Label>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Select
+                id="adm-nivel"
+                label="Nivel de operación"
+                value={form.nivel}
+                onChange={(e) => setField('nivel', e.target.value)}
+              >
+                <option value="SOPORTE">SOPORTE</option>
+                <option value="AUDITOR">AUDITOR</option>
+                <option value="ADMIN_GLOBAL">ADMIN_GLOBAL</option>
+              </Select>
+
               <Input
-                id="adm-email"
-                type="email"
+                id="adm-pass"
+                label="Contraseña inicial"
+                type="password"
                 required
-                value={form.email}
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
-                placeholder="operador@saed.com"
-                className="text-sm font-mono"
+                value={form.password}
+                onChange={(e) => setField('password', e.target.value)}
+                autoComplete="new-password"
+                error={formErrors.password}
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="adm-pnombre" className="text-xs font-semibold uppercase text-muted-foreground">
-                  Primer Nombre
-                </Label>
-                <Input
-                  id="adm-pnombre"
-                  value={form.primerNombre}
-                  onChange={(e) => setForm({ ...form, primerNombre: e.target.value })}
-                  placeholder="Carlos"
-                  className="text-sm"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="adm-papellido" className="text-xs font-semibold uppercase text-muted-foreground">
-                  Primer Apellido
-                </Label>
-                <Input
-                  id="adm-papellido"
-                  value={form.primerApellido}
-                  onChange={(e) => setForm({ ...form, primerApellido: e.target.value })}
-                  placeholder="Méndez"
-                  className="text-sm"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="adm-nivel" className="text-xs font-semibold uppercase text-muted-foreground">
-                  Nivel de Operación
-                </Label>
-                <select
-                  id="adm-nivel"
-                  value={form.nivel}
-                  onChange={(e) => setForm({ ...form, nivel: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                >
-                  <option value="SOPORTE">SOPORTE</option>
-                  <option value="AUDITOR">AUDITOR</option>
-                  <option value="ADMIN_GLOBAL">ADMIN_GLOBAL</option>
-                </select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="adm-pass" className="text-xs font-semibold uppercase text-muted-foreground">
-                  Contraseña Inicial *
-                </Label>
-                <Input
-                  id="adm-pass"
-                  type="password"
-                  required
-                  value={form.password}
-                  onChange={(e) => setForm({ ...form, password: e.target.value })}
-                  placeholder="••••••••"
-                  className="text-sm"
-                />
-              </div>
-            </div>
-
-            <DialogFooter className="pt-3 gap-2">
+            <DialogFooter className="gap-2 pt-3">
               <Button type="button" variant="outline" onClick={() => setShowModal(false)}>
                 Cancelar
               </Button>
-              <Button type="submit" disabled={submitting} className="gap-2">
-                {submitting ? 'Guardando…' : 'Crear Operador'}
+              <Button type="submit" disabled={submitting}>
+                {submitting ? 'Guardando…' : 'Crear operador'}
               </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageContainer>
   );
 }

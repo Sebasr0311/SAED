@@ -25,21 +25,24 @@ import {
   X,
 } from 'lucide-react';
 import { PageHeader } from '../components/ui/PageHeader';
+import { PageContainer } from '../components/layout/PageContainer.jsx';
 import { MetricCard } from '../components/ui/MetricCard';
 import { Modal } from '../components/ui/Modal';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
+import { LoadingState } from '../components/ui/LoadingState.jsx';
+import { ErrorState } from '../components/ui/ErrorState.jsx';
 import { useFetch } from '../lib/hooks';
 import { useTenant } from '../lib/TenantContext.jsx';
 import { useTenantApi } from '../lib/useTenantApi.js';
 import { toast } from 'sonner';
 
 const SERVICIOS = [
-  { id: 'AGUA', label: 'Agua Potable', icon: Droplets, unit: 'm³', color: 'text-cyan-500 bg-cyan-500/10 border-cyan-500/30', badgeColor: 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/20' },
-  { id: 'ENERGIA', label: 'Energía Eléctrica', icon: Zap, unit: 'kWh', color: 'text-amber-500 bg-amber-500/10 border-amber-500/30', badgeColor: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20' },
-  { id: 'GAS', label: 'Gas Natural', icon: Flame, unit: 'm³', color: 'text-orange-500 bg-orange-500/10 border-orange-500/30', badgeColor: 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20' },
+  { id: 'AGUA', label: 'Agua Potable', icon: Droplets, unit: 'm³', color: 'text-tint-blue-fg bg-tint-blue-bg border-tint-blue-fg/25', badgeColor: 'bg-tint-blue-bg text-tint-blue-fg border-tint-blue-fg/25' },
+  { id: 'ENERGIA', label: 'Energía Eléctrica', icon: Zap, unit: 'kWh', color: 'text-tint-amber-fg bg-tint-amber-bg border-tint-amber-fg/25', badgeColor: 'bg-tint-amber-bg text-tint-amber-fg border-tint-amber-fg/25' },
+  { id: 'GAS', label: 'Gas Natural', icon: Flame, unit: 'm³', color: 'text-tint-amber-fg bg-tint-amber-bg border-tint-amber-fg/25', badgeColor: 'bg-tint-amber-bg text-tint-amber-fg border-tint-amber-fg/25' },
 ];
 
 const SERVICIOS_MAP = SERVICIOS.reduce((acc, s) => {
@@ -125,7 +128,8 @@ export default function ConsumosAdminPage() {
   const {
     data: rawMediciones,
     loading: loadingMediciones,
-    refresh: refreshMediciones,
+    error: errorMediciones,
+    refetch: refetchMediciones,
   } = useFetch(
     () =>
       tenantApi.get(
@@ -145,7 +149,7 @@ export default function ConsumosAdminPage() {
   const {
     data: resumen,
     loading: loadingResumen,
-    refresh: refreshResumen,
+    refetch: refetchResumen,
   } = useFetch(
     () => tenantApi.get(`/consumos/resumen?periodo=${periodoFiltro}`),
     [periodoFiltro, tenant.activeAssignmentId]
@@ -155,7 +159,7 @@ export default function ConsumosAdminPage() {
   const {
     data: tendenciasRaw,
     loading: loadingTendencias,
-    refresh: refreshTendencias,
+    refetch: refetchTendencias,
   } = useFetch(
     () => tenantApi.get(`/consumos/tendencias?meses=12`),
     [tenant.activeAssignmentId]
@@ -185,6 +189,11 @@ export default function ConsumosAdminPage() {
       );
     });
   }, [mediciones, busqueda]);
+
+  // useFetch returns `refetch` (the former `refresh` names were undefined and threw on call).
+  const refreshMediciones = useCallback(() => refetchMediciones().catch(() => {}), [refetchMediciones]);
+  const refreshResumen = useCallback(() => refetchResumen().catch(() => {}), [refetchResumen]);
+  const refreshTendencias = useCallback(() => refetchTendencias().catch(() => {}), [refetchTendencias]);
 
   // Refrescar todo
   const refreshAll = useCallback(() => {
@@ -372,46 +381,49 @@ export default function ConsumosAdminPage() {
   }, [consumoEstimado, form.tarifaUnitaria]);
 
   return (
-    <div className="space-y-6 pb-12">
+    <PageContainer className="pb-12">
       {/* Header */}
       <PageHeader
         title="Consumos y Sostenibilidad"
         subtitle="Monitoreo y facturación de servicios públicos (Agua, Energía, Gas), detección de fugas y huella ecológica"
-      >
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setMostrarTendencias(!mostrarTendencias)}
-            className="flex items-center gap-1.5"
-          >
-            <BarChart3 className="w-4 h-4 text-primary" />
-            <span>{mostrarTendencias ? 'Ocultar Tendencias' : 'Ver Tendencias'}</span>
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={refreshAll}
-            className="flex items-center gap-1.5"
-          >
-            <RefreshCw className="w-4 h-4" />
-            <span className="hidden sm:inline">Actualizar</span>
-          </Button>
-          <Button
-            onClick={handleOpenCreate}
-            size="sm"
-            className="flex items-center gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Nueva Medición</span>
-          </Button>
-        </div>
-      </PageHeader>
+      action={
+        <>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setMostrarTendencias(!mostrarTendencias)}
+                className="flex items-center gap-1.5"
+              >
+                <BarChart3 className="w-4 h-4 text-primary" />
+                <span>{mostrarTendencias ? 'Ocultar Tendencias' : 'Ver Tendencias'}</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={refreshAll}
+                className="flex items-center gap-1.5"
+              >
+                <RefreshCw className="w-4 h-4" />
+                <span className="hidden sm:inline">Actualizar</span>
+              </Button>
+              <Button
+                onClick={handleOpenCreate}
+                size="sm"
+                className="flex items-center gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Nueva Medición</span>
+              </Button>
+            </div>
+        </>
+      }
+      />
 
       {/* Alerta de Anomalías Global del Período */}
       {resumen?.anomaliasDetectadas > 0 && (
-        <div className="flex items-center gap-3 p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-200 animate-in fade-in duration-300">
-          <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+        <div className="flex items-center gap-3 p-4 rounded-xl border border-tint-amber-fg/25 bg-tint-amber-bg text-tint-amber-fg animate-in fade-in duration-300">
+          <AlertTriangle className="w-5 h-5 text-tint-amber-fg flex-shrink-0" />
           <div className="flex-1 text-sm">
             <span className="font-semibold">¡Atención requerida! </span>
             Se detectaron{' '}
@@ -470,10 +482,8 @@ export default function ConsumosAdminPage() {
             </span>
           </div>
 
-          {loadingTendencias ? (
-            <div className="h-40 flex items-center justify-center text-muted-foreground text-sm">
-              Cargando tendencias históricas...
-            </div>
+          {loadingTendencias && !tendenciasRaw ? (
+            <LoadingState size="sm" message="Cargando tendencias históricas..." />
           ) : tendencias.length === 0 ? (
             <div className="h-32 flex items-center justify-center text-muted-foreground text-sm">
               No hay suficientes registros históricos para calcular tendencias.
@@ -522,10 +532,10 @@ export default function ConsumosAdminPage() {
                               <div
                                 className={`h-full rounded-full transition-all duration-500 ${
                                   srv === 'AGUA'
-                                    ? 'bg-cyan-500'
+                                    ? 'bg-btn-primary'
                                     : srv === 'ENERGIA'
-                                    ? 'bg-amber-500'
-                                    : 'bg-orange-500'
+                                    ? 'bg-btn-warn'
+                                    : 'bg-btn-warn'
                                 }`}
                                 style={{ width: `${pct}%` }}
                               />
@@ -629,10 +639,15 @@ export default function ConsumosAdminPage() {
 
       {/* Tabla de Mediciones */}
       <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
-        {loadingMediciones ? (
-          <div className="p-8 text-center text-muted-foreground text-sm">
-            Cargando mediciones del período {periodoFiltro}...
-          </div>
+        {loadingMediciones && !rawMediciones ? (
+          <LoadingState message={`Cargando mediciones del período ${periodoFiltro}...`} />
+        ) : errorMediciones && !rawMediciones ? (
+          <ErrorState
+            className="m-4"
+            title="No se pudieron cargar las mediciones"
+            message={errorMediciones?.message || 'Verifique su conexión e intente nuevamente.'}
+            onRetry={refreshMediciones}
+          />
         ) : medicionesFiltradas.length === 0 ? (
           <div className="p-12 text-center space-y-3">
             <Gauge className="w-12 h-12 mx-auto text-muted-foreground/40" />
@@ -729,7 +744,7 @@ export default function ConsumosAdminPage() {
                       {/* Consumo Calculado */}
                       <td className="py-3 px-4 text-right whitespace-nowrap font-bold text-foreground">
                         {formatNumber(m.consumoCalculado, 2)}{' '}
-                        <span className="text-[10px] text-muted-foreground font-normal">
+                        <span className="text-[11.5px] text-muted-foreground font-normal">
                           {m.unidadMedida}
                         </span>
                       </td>
@@ -740,7 +755,7 @@ export default function ConsumosAdminPage() {
                       </td>
 
                       {/* Costo Total */}
-                      <td className="py-3 px-4 text-right whitespace-nowrap font-semibold text-emerald-600 dark:text-emerald-400">
+                      <td className="py-3 px-4 text-right whitespace-nowrap font-semibold text-tint-green-fg">
                         {formatCurrency(m.costoTotal)}
                       </td>
 
@@ -749,14 +764,14 @@ export default function ConsumosAdminPage() {
                         {m.anomaliaDetectada === 'S' ? (
                           <span
                             title={m.observacionAnomalia || 'Variación superior al +50% sobre el promedio'}
-                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 cursor-help"
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11.5px] font-semibold bg-tint-amber-bg text-tint-amber-fg border border-tint-amber-fg/25 cursor-help"
                           >
-                            <AlertTriangle className="w-3 h-3 text-amber-500" />
+                            <AlertTriangle className="w-3 h-3 text-tint-amber-fg" />
                             Anomalía (+50%)
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-700 dark:text-emerald-400">
-                            <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11.5px] font-medium bg-tint-green-bg text-tint-green-fg">
+                            <CheckCircle2 className="w-3 h-3 text-tint-green-fg" />
                             Normal
                           </span>
                         )}
@@ -770,13 +785,13 @@ export default function ConsumosAdminPage() {
                               setFotoVisualizar(m.fotoMedidorUrl);
                               setModalFotoOpen(true);
                             }}
-                            className="inline-flex items-center gap-1 text-primary hover:underline text-[11px]"
+                            className="inline-flex items-center gap-1 text-primary hover:underline text-[11.5px]"
                           >
                             <Camera className="w-3.5 h-3.5" />
                             Ver Foto
                           </button>
                         ) : (
-                          <span className="text-muted-foreground text-[10px]">—</span>
+                          <span className="text-muted-foreground text-[11.5px]">—</span>
                         )}
                       </td>
 
@@ -883,7 +898,7 @@ export default function ConsumosAdminPage() {
                       form.numeroMedidor
                     )
                   }
-                  className="text-[10px] text-primary hover:underline flex items-center gap-1"
+                  className="text-[11.5px] text-primary hover:underline flex items-center gap-1"
                 >
                   <RefreshCw className="w-2.5 h-2.5" /> Traer última lectura
                 </button>
@@ -892,7 +907,7 @@ export default function ConsumosAdminPage() {
                 placeholder="Ej: MED-AGUA-GEN-01"
                 value={form.numeroMedidor}
                 onChange={(e) => setForm({ ...form, numeroMedidor: e.target.value.toUpperCase() })}
-                className="h-9 text-xs uppercase"
+                className="h-9 text-xs"
               />
             </div>
 
@@ -949,7 +964,7 @@ export default function ConsumosAdminPage() {
               <Input
                 value={form.unidadMedida}
                 onChange={(e) => setForm({ ...form, unidadMedida: e.target.value.toUpperCase() })}
-                className="h-9 text-xs uppercase font-mono"
+                className="h-9 text-xs font-mono"
               />
             </div>
           </div>
@@ -957,7 +972,7 @@ export default function ConsumosAdminPage() {
           {/* Tarjeta de Cálculo en Vivo */}
           <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 flex items-center justify-between">
             <div className="space-y-0.5">
-              <span className="text-[11px] text-muted-foreground uppercase tracking-wider font-semibold">
+              <span className="text-[11.5px] text-muted-foreground font-semibold">
                 Consumo Resultante
               </span>
               <div className="text-base font-bold text-foreground">
@@ -965,10 +980,10 @@ export default function ConsumosAdminPage() {
               </div>
             </div>
             <div className="text-right space-y-0.5">
-              <span className="text-[11px] text-muted-foreground uppercase tracking-wider font-semibold">
+              <span className="text-[11.5px] text-muted-foreground font-semibold">
                 Costo Proyectado
               </span>
-              <div className="text-base font-bold text-emerald-600 dark:text-emerald-400">
+              <div className="text-base font-bold text-tint-green-fg">
                 {formatCurrency(costoEstimado)}
               </div>
             </div>
@@ -1112,6 +1127,6 @@ export default function ConsumosAdminPage() {
           </div>
         </div>
       </Modal>
-    </div>
+    </PageContainer>
   );
 }

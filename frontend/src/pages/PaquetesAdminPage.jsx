@@ -15,18 +15,15 @@ import { formatDate, imageSrc } from '../lib/utils.js';
 import PageContainer from '../components/layout/PageContainer.jsx';
 import { MetricCard } from '../components/ui/MetricCard.jsx';
 import { Modal } from '../components/ui/Modal.jsx';
-import {
-  Breadcrumb,
-  BreadcrumbList,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbSeparator,
-  BreadcrumbPage,
-} from '../components/ui/Breadcrumb.jsx';
+import { PageHeader } from '../components/ui/PageHeader.jsx';
+import EmptyState from '../components/ui/EmptyState.jsx';
+import ErrorState from '../components/ui/ErrorState.jsx';
+import LoadingState from '../components/ui/LoadingState.jsx';
+import { Badge } from '../components/ui/badge.tsx';
 
 const ESTADOS_FILTRO = [
   { id: 'TODOS', label: 'Todos los estados' },
-  { id: 'RECIBIDO', label: 'En Custodia / Recibidos' },
+  { id: 'RECIBIDO', label: 'En custodia' },
   { id: 'ENTREGADO', label: 'Entregados' },
 ];
 
@@ -49,6 +46,7 @@ export default function PaquetesAdminPage() {
   const {
     data: paquetesRaw,
     loading,
+    error: loadError,
     refetch,
   } = useFetch(() => api.get('/paquetes'), []);
 
@@ -97,59 +95,34 @@ export default function PaquetesAdminPage() {
   }, [all]);
 
   return (
-    <PageContainer>
-      {/* 1. Breadcrumb de Navegación */}
-      <Breadcrumb>
-        <BreadcrumbList>
-          <BreadcrumbItem>
-            <BreadcrumbLink to="/dashboard">Panel de Control</BreadcrumbLink>
-          </BreadcrumbItem>
-          <BreadcrumbSeparator />
-          <BreadcrumbItem>
-            <BreadcrumbPage>Custodia de Paquetería</BreadcrumbPage>
-          </BreadcrumbItem>
-        </BreadcrumbList>
-      </Breadcrumb>
-
-      {/* 2. Cabecera Contextual Enterprise */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-border/60 pb-5">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">
-              Custodia y Auditoría de Paquetería
-            </h1>
-            <span className="px-2 py-0.5 text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded border border-slate-200 dark:border-slate-700">
-              ADMIN_PROPIEDAD
-            </span>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Monitoreo en tiempo real de encomiendas recibidas en garita, tiempos de custodia y trazabilidad de entrega.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => refetch()}
-            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-lg bg-card border border-border hover:bg-muted text-foreground transition-colors shadow-sm min-h-[44px]"
-            title="Refrescar lista"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-emerald-500' : ''}`} />
+    <PageContainer
+      breadcrumbs={[
+        { label: 'Panel de control', href: '/dashboard' },
+        { label: 'Paquetería', active: true },
+      ]}
+    >
+      <PageHeader
+        title="Custodia de paquetería"
+        subtitle="Encomiendas recibidas en la garita, tiempo en custodia y entregas confirmadas con PIN."
+        action={
+          <button type="button" onClick={() => refetch()} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-input/60 bg-surface px-3.5 text-sm font-semibold text-on-surface shadow-xs transition-colors duration-150 hover:border-primary/70 hover:bg-surface-container sm:min-h-10" aria-label="Actualizar lista de paquetes">
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} aria-hidden="true" />
             Actualizar
           </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* 3. Strip de Métricas de Auditoría */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 lg:grid-cols-4">
         <MetricCard
-          label="Total Encomiendas"
+          label="Total de encomiendas"
           value={stats.total}
-          context="Histórico de recepciones"
+          context="Recepciones registradas"
           icon={Boxes}
-          variant="neutral"
+          variant="secondary"
         />
         <MetricCard
-          label="En Custodia Activa"
+          label="En custodia"
           value={stats.enCustodia}
           context="Pendientes de retiro"
           icon={Inbox}
@@ -158,36 +131,39 @@ export default function PaquetesAdminPage() {
         <MetricCard
           label="Entregados"
           value={stats.entregados}
-          context="Despachados a residentes"
+          context="Entregados a residentes"
           icon={CheckCircle2}
           variant="success"
         />
         <MetricCard
-          label="Tasa de Despacho"
+          label="Tasa de entrega"
           value={`${stats.tasa}%`}
-          context="Efectividad de entrega"
+          context="Entregados sobre recibidos"
           icon={Percent}
           variant="info"
         />
       </div>
 
       {/* 4. Barra de Filtros y Búsqueda */}
-      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 bg-card p-4 rounded-xl border border-border/80 shadow-sm">
+      <div className="flex flex-col items-stretch justify-between gap-3 rounded-lg border border-border bg-surface p-3 shadow-sm sm:p-4 md:flex-row md:items-center">
         <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" aria-hidden="true" />
           <input
-            type="text"
-            placeholder="Buscar por apto, destinatario, empresa o guía..."
+            type="search"
+            aria-label="Buscar paquetes"
+            placeholder="Apto, destinatario, empresa o guía"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-8 py-2 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+            className="h-10 w-full rounded-md border border-input bg-surface text-sm text-on-surface placeholder:text-text-hint transition-[border-color,box-shadow] duration-150 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25 pl-9 pr-10"
           />
           {search && (
             <button
+              type="button"
               onClick={() => setSearch('')}
-              className="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground"
+              aria-label="Limpiar búsqueda"
+              className="absolute right-0 top-0 flex h-10 w-10 items-center justify-center text-text-secondary hover:text-on-surface"
             >
-              <X className="w-4 h-4" />
+              <X className="h-4 w-4" aria-hidden="true" />
             </button>
           )}
         </div>
@@ -196,7 +172,8 @@ export default function PaquetesAdminPage() {
           <select
             value={filtroEstado}
             onChange={(e) => setFiltroEstado(e.target.value)}
-            className="px-3 py-2 text-xs font-medium rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+            aria-label="Filtrar por estado"
+            className="h-10 w-full rounded-md border border-input bg-surface text-sm text-on-surface placeholder:text-text-hint transition-[border-color,box-shadow] duration-150 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25 w-auto px-3"
           >
             {ESTADOS_FILTRO.map((e) => (
               <option key={e.id} value={e.id}>
@@ -208,7 +185,8 @@ export default function PaquetesAdminPage() {
           <select
             value={filtroTamano}
             onChange={(e) => setFiltroTamano(e.target.value)}
-            className="px-3 py-2 text-xs font-medium rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+            aria-label="Filtrar por tamaño"
+            className="h-10 w-full rounded-md border border-input bg-surface text-sm text-on-surface placeholder:text-text-hint transition-[border-color,box-shadow] duration-150 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25 w-auto px-3"
           >
             {TAMANOS_FILTRO.map((t) => (
               <option key={t.id} value={t.id}>
@@ -219,10 +197,22 @@ export default function PaquetesAdminPage() {
         </div>
       </div>
 
+      {loading && !paquetesRaw ? (
+        <div className="rounded-lg border border-border bg-surface shadow-sm">
+          <LoadingState message="Cargando encomiendas..." />
+        </div>
+      ) : loadError && !paquetesRaw ? (
+        <ErrorState
+          title="No se pudieron cargar las encomiendas"
+          message={loadError.message || 'Revise la conexión e intente de nuevo.'}
+          onRetry={refetch}
+        />
+      ) : (
+      <>
       {/* 5. Vista Desktop: Tabla Analítica Responsiva */}
-      <div className="hidden md:block bg-card rounded-xl border border-border/80 shadow-sm overflow-x-auto">
-        <table className="w-full text-left text-sm min-w-[920px]">
-          <thead className="bg-muted/40 border-b border-border/80 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+      <div className="hidden max-h-[70vh] overflow-auto rounded-lg border border-border bg-surface shadow-sm md:block">
+        <table className="w-full min-w-[920px] text-left text-sm">
+          <thead className="sticky top-0 z-10 border-b border-border bg-surface-container text-xs font-bold text-text-secondary">
             <tr>
               <th className="px-4 py-3.5 w-28 whitespace-nowrap">Unidad</th>
               <th className="px-4 py-3.5 min-w-[150px]">Destinatario</th>
@@ -231,7 +221,7 @@ export default function PaquetesAdminPage() {
               <th className="px-4 py-3.5 w-28 whitespace-nowrap">Recepción</th>
               <th className="px-4 py-3.5 w-20 text-center">Foto</th>
               <th className="px-4 py-3.5 w-32 text-center whitespace-nowrap">Estado</th>
-              <th className="px-4 py-3.5 w-28 text-right whitespace-nowrap sticky right-0 bg-muted/95 backdrop-blur-xs">
+              <th className="px-4 py-3.5 w-28 text-right whitespace-nowrap sticky right-0 bg-surface-container">
                 Acción
               </th>
             </tr>
@@ -239,12 +229,17 @@ export default function PaquetesAdminPage() {
           <tbody className="divide-y divide-border/60">
             {filtrados.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-4 py-12 text-center text-muted-foreground">
-                  <Inbox className="w-10 h-10 mx-auto text-muted-foreground/40 mb-2" />
-                  <p className="font-semibold text-foreground">No se encontraron paquetes registrados</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {search ? 'Intente ajustar los términos de búsqueda o filtros.' : 'No hay encomiendas registradas.'}
-                  </p>
+                <td colSpan={8} className="p-0">
+                  <EmptyState
+                    icon={Inbox}
+                    title={search || filtroEstado !== 'TODOS' || filtroTamano !== 'TODOS' ? 'Ningún paquete coincide con los filtros' : 'Aún no hay encomiendas registradas'}
+                    subtitle={
+                      search || filtroEstado !== 'TODOS' || filtroTamano !== 'TODOS'
+                        ? 'Cambie la búsqueda o los filtros.'
+                        : 'Las encomiendas que reciba la portería aparecerán aquí.'
+                    }
+                    className="py-10"
+                  />
                 </td>
               </tr>
             ) : (
@@ -255,7 +250,7 @@ export default function PaquetesAdminPage() {
                   <tr
                     key={id}
                     onClick={() => setDetalle(p)}
-                    className="hover:bg-muted/30 transition-colors cursor-pointer group"
+                    className="group cursor-pointer transition-colors hover:bg-surface-container"
                   >
                     <td className="px-4 py-3 font-semibold text-foreground whitespace-nowrap">
                       Apto {p.numeroApartamento || 'N/A'}
@@ -264,11 +259,11 @@ export default function PaquetesAdminPage() {
                       {p.nombreResidente || p.nombreDestinatario || 'Residente'}
                     </td>
                     <td className="px-4 py-3 text-foreground whitespace-nowrap">
-                      <span className="font-medium text-emerald-600 dark:text-emerald-400">
+                      <span className="font-medium text-on-surface">
                         {p.empresaMensajeria || 'Mensajería'}
                       </span>
                       {p.numeroGuia && (
-                        <span className="block text-xs font-mono text-muted-foreground">
+                        <span className="block text-xs tabular-nums text-muted-foreground">
                           {p.numeroGuia}
                         </span>
                       )}
@@ -276,12 +271,12 @@ export default function PaquetesAdminPage() {
                     <td className="px-4 py-3 text-foreground max-w-xs truncate">
                       <span>{p.descripcion || p.titulo || 'Sin descripción'}</span>
                       {p.tamano && (
-                        <span className="ml-2 inline-block px-1.5 py-0.5 text-[10px] font-semibold bg-muted text-muted-foreground rounded">
+                        <Badge variant="secondary" className="ml-2">
                           {p.tamano}
-                        </span>
+                        </Badge>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap font-mono">
+                    <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap tabular-nums">
                       {formatDate(p.fechaRecepcion || p.fechaCreacion)}
                     </td>
                     <td className="px-4 py-3 text-center">
@@ -296,27 +291,20 @@ export default function PaquetesAdminPage() {
                       )}
                     </td>
                     <td className="px-4 py-3 text-center whitespace-nowrap">
-                      <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                          isEntregado
-                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
-                            : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
-                        }`}
-                      >
-                        {isEntregado ? 'Entregado' : 'En Custodia'}
-                      </span>
+                      <Badge variant={isEntregado ? 'success' : 'warning'}>{isEntregado ? 'Entregado' : 'En custodia'}</Badge>
                     </td>
-                    <td className="px-4 py-3 text-right whitespace-nowrap sticky right-0 bg-card group-hover:bg-muted/50 transition-colors shadow-[-6px_0_12px_-4px_rgba(0,0,0,0.06)]">
+                    <td className="px-4 py-3 text-right whitespace-nowrap sticky right-0 bg-surface transition-colors group-hover:bg-surface-container">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           setDetalle(p);
                         }}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-border bg-card hover:bg-muted text-foreground transition-colors min-h-[36px]"
-                        title="Auditar paquete"
+                        type="button"
+                        className="inline-flex h-9 items-center gap-1.5 rounded-md border border-input/60 bg-surface px-3 text-xs font-semibold text-on-surface transition-colors hover:border-primary/70 hover:bg-surface-container"
+                        title="Ver trazabilidad del paquete"
                       >
-                        <Eye className="w-3.5 h-3.5" />
-                        Auditar
+                        <Eye className="h-3.5 w-3.5" aria-hidden="true" />
+                        Ver detalle
                       </button>
                     </td>
                   </tr>
@@ -330,10 +318,7 @@ export default function PaquetesAdminPage() {
       {/* 6. Vista Móvil: Tarjetas Adaptativas */}
       <div className="md:hidden space-y-3">
         {filtrados.length === 0 ? (
-          <div className="bg-card rounded-xl border border-border/80 p-8 text-center text-muted-foreground">
-            <Inbox className="w-10 h-10 mx-auto text-muted-foreground/40 mb-2" />
-            <p className="font-semibold text-foreground">No se encontraron paquetes</p>
-          </div>
+          <EmptyState icon={Inbox} title="No se encontraron paquetes" className="rounded-lg border border-border bg-surface py-8" />
         ) : (
           filtrados.map((p) => {
             const id = p.idPaquete || p.idMensaje;
@@ -342,7 +327,7 @@ export default function PaquetesAdminPage() {
               <div
                 key={id}
                 onClick={() => setDetalle(p)}
-                className="bg-card rounded-xl border border-border/80 p-4 space-y-3 shadow-sm cursor-pointer"
+                className="cursor-pointer space-y-3 rounded-lg border border-border bg-surface p-4 shadow-sm"
               >
                 <div className="flex items-center justify-between border-b border-border/60 pb-2">
                   <div className="flex items-center gap-2">
@@ -353,15 +338,7 @@ export default function PaquetesAdminPage() {
                       • {p.nombreResidente || p.nombreDestinatario || 'Residente'}
                     </span>
                   </div>
-                  <span
-                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${
-                      isEntregado
-                        ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
-                        : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
-                    }`}
-                  >
-                    {isEntregado ? 'Entregado' : 'En Custodia'}
-                  </span>
+                  <Badge variant={isEntregado ? 'success' : 'warning'}>{isEntregado ? 'Entregado' : 'En custodia'}</Badge>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 text-xs">
@@ -371,7 +348,7 @@ export default function PaquetesAdminPage() {
                       {p.empresaMensajeria || 'Mensajería'}
                     </span>
                     {p.numeroGuia && (
-                      <span className="font-mono text-muted-foreground block text-[11px]">
+                      <span className="tabular-nums text-muted-foreground block text-xs">
                         {p.numeroGuia}
                       </span>
                     )}
@@ -387,7 +364,7 @@ export default function PaquetesAdminPage() {
                 <div className="text-xs bg-muted/40 p-2.5 rounded-lg text-foreground">
                   <span className="font-medium">{p.descripcion || p.titulo || 'Sin descripción'}</span>
                   {p.tamano && (
-                    <span className="ml-2 px-1.5 py-0.5 text-[10px] font-semibold bg-card border border-border rounded text-muted-foreground">
+                    <span className="ml-2 px-1.5 py-0.5 text-xs font-semibold bg-card border border-border rounded text-muted-foreground">
                       {p.tamano}
                     </span>
                   )}
@@ -403,7 +380,7 @@ export default function PaquetesAdminPage() {
                     className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg bg-card border border-border hover:bg-muted text-foreground min-h-[44px]"
                   >
                     <Eye className="w-3.5 h-3.5" />
-                    Ver Trazabilidad Completa
+                    Ver detalle
                   </button>
                 </div>
               </div>
@@ -411,17 +388,19 @@ export default function PaquetesAdminPage() {
           })
         )}
       </div>
+      </>
+      )}
 
       {/* 7. Modal de Auditoría y Trazabilidad */}
       <Modal
         open={!!detalle}
         onClose={() => setDetalle(null)}
-        title="Auditoría de Encomienda"
+        title="Detalle de la encomienda"
       >
         {detalle && (
           <div className="space-y-4 p-1">
             {(detalle.fotoPaqueteUrl || detalle.fotoCaptura) && (
-              <div className="aspect-video w-full rounded-xl overflow-hidden border border-border bg-slate-950">
+              <div className="aspect-video w-full rounded-xl overflow-hidden border border-border bg-surface-dim">
                 <img
                   src={imageSrc(detalle.fotoPaqueteUrl || detalle.fotoCaptura)}
                   alt="Foto de la encomienda"
@@ -450,7 +429,7 @@ export default function PaquetesAdminPage() {
               </div>
               <div className="p-2.5 rounded-lg bg-muted/40 border border-border/60">
                 <span className="text-muted-foreground block">Número de Guía:</span>
-                <span className="font-mono text-foreground">{detalle.numeroGuia || 'Sin guía'}</span>
+                <span className="tabular-nums text-foreground">{detalle.numeroGuia || 'Sin guía'}</span>
               </div>
             </div>
 
@@ -461,8 +440,8 @@ export default function PaquetesAdminPage() {
 
             {/* Trazabilidad de Auditoría */}
             <div className="space-y-2 border-t border-border/60 pt-3">
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Pista de Trazabilidad y Custodia
+              <h4 className="text-xs font-semibold text-muted-foreground">
+                Trazabilidad
               </h4>
               <div className="space-y-2 text-xs">
                 <div className="flex items-center justify-between p-2 rounded-lg bg-muted/30">
@@ -477,11 +456,11 @@ export default function PaquetesAdminPage() {
                   <span
                     className={`font-semibold ${
                       detalle.entregado || detalle.estado === 'ENTREGADO'
-                        ? 'text-emerald-600 dark:text-emerald-400'
-                        : 'text-amber-600 dark:text-amber-400'
+                        ? 'text-tint-green-fg'
+                        : 'text-tint-amber-fg'
                     }`}
                   >
-                    {detalle.entregado || detalle.estado === 'ENTREGADO' ? 'Entregado' : 'En Custodia'}
+                    {detalle.entregado || detalle.estado === 'ENTREGADO' ? 'Entregado' : 'En custodia'}
                   </span>
                 </div>
 
@@ -500,7 +479,7 @@ export default function PaquetesAdminPage() {
               <button
                 type="button"
                 onClick={() => setDetalle(null)}
-                className="px-4 py-2 text-xs font-semibold rounded-lg bg-muted hover:bg-muted/80 text-foreground min-h-[44px]"
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-input/60 bg-surface px-3.5 text-sm font-semibold text-on-surface shadow-xs transition-colors duration-150 hover:border-primary/70 hover:bg-surface-container sm:min-h-10"
               >
                 Cerrar
               </button>

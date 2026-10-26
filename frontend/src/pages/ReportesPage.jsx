@@ -3,20 +3,44 @@ import { useFetch } from '../lib/hooks.js';
 import { api } from '../lib/api.js';
 import { downloadReportFile, exportToExcel } from '../lib/exportUtils.js';
 import { toast } from 'sonner';
+import {
+  Ban,
+  BarChart3,
+  Copy,
+  CreditCard,
+  FileDown,
+  FileSpreadsheet,
+  FileText,
+  History,
+  Plus,
+  Receipt,
+  RefreshCw,
+  ScrollText,
+  SlidersHorizontal,
+  Wallet,
+} from 'lucide-react';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { Badge } from '../components/ui/badge.tsx';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card.tsx';
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from '../components/ui/table.tsx';
+import { Button } from '../components/ui/Button.jsx';
+import { Button as IconButton } from '../components/ui/button.tsx';
+import { Input as BareInput } from '../components/ui/input.tsx';
+import { Input, Select, Textarea } from '../components/ui/Form.jsx';
+import { Modal } from '../components/ui/Modal.jsx';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog.jsx';
+import { ErrorState } from '../components/ui/ErrorState.jsx';
+import EmptyState from '../components/ui/EmptyState.jsx';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs.tsx';
 import { Skeleton } from '../components/ui/skeleton.tsx';
 
-const ACCION_COLORS = {
-  INSERT: 'bg-green-100 text-green-800',
-  UPDATE: 'bg-blue-100 text-blue-800',
-  DELETE: 'bg-red-100 text-red-800',
-  DENIED: 'bg-orange-100 text-orange-800',
+const ACCION_VARIANT = {
+  INSERT: 'success',
+  UPDATE: 'info',
+  DELETE: 'destructive',
+  DENIED: 'warning',
 };
+
+const SELECT_CLASS =
+  'h-10 rounded-md border border-input bg-surface px-3 text-sm text-on-surface shadow-xs transition-[border-color,box-shadow] duration-150 hover:border-keyline/70 focus-visible:outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25 sm:h-9';
 
 const fmtCOP = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' });
 
@@ -39,11 +63,16 @@ export default function ReportesPage() {
   if (filtro.accion) params.set('accion', filtro.accion);
   params.set('limite', filtro.limite);
 
-  const { data: auditData, loading: auditLoading } = useFetch(
+  const { data: auditData, loading: auditLoading, error: auditError, refetch: refetchAudit } = useFetch(
     () => api.get(`/audit?${params.toString()}`),
     [filtro]
   );
-  const { data: statsData } = useFetch(() => api.get('/audit/stats'), []);
+  const {
+    data: statsData,
+    loading: statsLoading,
+    error: statsError,
+    refetch: refetchStats,
+  } = useFetch(() => api.get('/audit/stats'), []);
 
   // --- Business reports ---
   const [reporteFiltro, setReporteFiltro] = useState({ fechaInicio: '', fechaFin: '' });
@@ -52,15 +81,15 @@ export default function ReportesPage() {
   if (reporteFiltro.fechaFin) reportParams.set('fechaFin', reporteFiltro.fechaFin);
   const reportQuery = reportParams.toString() ? `?${reportParams.toString()}` : '';
 
-  const { data: morosaData, loading: morosaLoading, error: morosaError } = useFetch(
+  const { data: morosaData, loading: morosaLoading, error: morosaError, refetch: refetchMorosa } = useFetch(
     () => api.get(`/reportes/cartera-morosa${reportQuery}`),
     [tabActiva === 'morosa', reporteFiltro.fechaInicio, reporteFiltro.fechaFin]
   );
-  const { data: cuotasData, loading: cuotasLoading, error: cuotasError } = useFetch(
+  const { data: cuotasData, loading: cuotasLoading, error: cuotasError, refetch: refetchCuotasRep } = useFetch(
     () => api.get(`/reportes/ejecucion-cuotas${reportQuery}`),
     [tabActiva === 'cuotas', reporteFiltro.fechaInicio, reporteFiltro.fechaFin]
   );
-  const { data: pagosData, loading: pagosLoading, error: pagosError } = useFetch(
+  const { data: pagosData, loading: pagosLoading, error: pagosError, refetch: refetchPagosRep } = useFetch(
     () => api.get(`/reportes/pagos-recientes${reportQuery}`),
     [tabActiva === 'pagos', reporteFiltro.fechaInicio, reporteFiltro.fechaFin]
   );
@@ -78,6 +107,7 @@ export default function ReportesPage() {
     parametrosFiltroJson: '',
   });
   const [guardandoConfig, setGuardandoConfig] = useState(false);
+  const [desactivarTarget, setDesactivarTarget] = useState(null);
 
   const { data: configsData, loading: configsLoading, error: configsError } = useFetch(
     () => api.get('/reportes/configurados'),
@@ -119,11 +149,12 @@ export default function ReportesPage() {
   };
 
   const handleDesactivarConfigurado = async (id) => {
-    if (!window.confirm('¿Está seguro de desactivar esta plantilla de reporte?')) return;
+    if (!id) return;
     try {
       await api.delete(`/reportes/configurados/${id}`);
       toast.success('Configuración desactivada exitosamente');
       setRefreshConfigTrigger((v) => v + 1);
+      setDesactivarTarget(null);
     } catch (err) {
       toast.error(err.message || 'Error al desactivar plantilla');
     }
@@ -343,79 +374,108 @@ export default function ReportesPage() {
   };
 
   const renderExportButtons = (tipo, hasData) => (
-    <div className="flex items-center gap-1.5 border-l pl-3 ml-2">
-      <button
-        type="button"
+    <div className="flex flex-wrap items-center gap-1.5 sm:border-l sm:border-border sm:pl-3">
+      <Button
+        variant="outline"
+        size="sm"
         disabled={exportando[`${tipo}-pdf`] || !hasData}
         onClick={() => handleExportPdf(tipo)}
-        className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded bg-red-50 text-red-700 hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        title="Descargar PDF oficial"
+        icon={<FileDown className="h-3.5 w-3.5" />}
       >
-        <span className="material-symbols-outlined text-sm">picture_as_pdf</span>
-        {exportando[`${tipo}-pdf`] ? 'Generando...' : 'PDF'}
-      </button>
-
-      <button
-        type="button"
+        {exportando[`${tipo}-pdf`] ? 'Generando…' : 'PDF'}
+      </Button>
+      <Button
+        variant="outline"
+        size="sm"
         disabled={exportando[`${tipo}-csv`] || !hasData}
         onClick={() => handleExportCsv(tipo)}
-        className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        title="Descargar CSV delimitado por comas (UTF-8 con BOM)"
+        icon={<FileText className="h-3.5 w-3.5" />}
       >
-        <span className="material-symbols-outlined text-sm">description</span>
-        {exportando[`${tipo}-csv`] ? 'Generando...' : 'CSV'}
-      </button>
-
-      <button
-        type="button"
+        {exportando[`${tipo}-csv`] ? 'Generando…' : 'CSV'}
+      </Button>
+      <Button
+        variant="outline"
+        size="sm"
         disabled={exportando[`${tipo}-excel`] || !hasData}
         onClick={() => handleExportExcel(tipo)}
-        className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded bg-blue-50 text-blue-700 hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        title="Exportar archivo Excel (.xlsx) estilizado"
+        icon={<FileSpreadsheet className="h-3.5 w-3.5" />}
       >
-        <span className="material-symbols-outlined text-sm">table_view</span>
-        {exportando[`${tipo}-excel`] ? 'Generando...' : 'Excel'}
-      </button>
+        {exportando[`${tipo}-excel`] ? 'Generando…' : 'Excel'}
+      </Button>
     </div>
   );
 
+  const renderDateFilter = (prefix, desdeLabel) => (
+    <div className="flex flex-wrap items-end gap-2">
+      <div className="grid gap-1">
+        <label htmlFor={`${prefix}-desde`} className="text-xs font-semibold text-text-secondary">
+          {desdeLabel}
+        </label>
+        <BareInput
+          id={`${prefix}-desde`}
+          type="date"
+          className="h-9 w-40 tabular-nums"
+          value={reporteFiltro.fechaInicio}
+          onChange={(e) => setReporteFiltro((prev) => ({ ...prev, fechaInicio: e.target.value }))}
+        />
+      </div>
+      <div className="grid gap-1">
+        <label htmlFor={`${prefix}-hasta`} className="text-xs font-semibold text-text-secondary">
+          Hasta
+        </label>
+        <BareInput
+          id={`${prefix}-hasta`}
+          type="date"
+          className="h-9 w-40 tabular-nums"
+          value={reporteFiltro.fechaFin}
+          onChange={(e) => setReporteFiltro((prev) => ({ ...prev, fechaFin: e.target.value }))}
+        />
+      </div>
+      {(reporteFiltro.fechaInicio || reporteFiltro.fechaFin) && (
+        <Button variant="ghost" size="sm" onClick={() => setReporteFiltro({ fechaInicio: '', fechaFin: '' })}>
+          Limpiar
+        </Button>
+      )}
+    </div>
+  );
+
+  const retry = (fn) => () => fn().catch(() => {});
+
+  const TABS = [
+    { id: 'audit', label: 'Registro de auditoría', icon: History },
+    { id: 'stats', label: 'Estadísticas', icon: BarChart3 },
+    { id: 'morosa', label: 'Cartera morosa', icon: Wallet },
+    { id: 'cuotas', label: 'Ejecución de cuotas', icon: Receipt },
+    { id: 'pagos', label: 'Pagos recientes', icon: CreditCard },
+    { id: 'configurados', label: 'Reportes guardados', icon: SlidersHorizontal },
+    { id: 'historial', label: 'Historial de reportes', icon: ScrollText },
+  ];
+
   return (
     <div className="space-y-6">
-      <PageHeader title="Reportes y Auditoría" subtitle="Registros de actividad del sistema" />
+      <PageHeader
+        title="Reportes y auditoría"
+        subtitle="Actividad del sistema, reportes financieros exportables y plantillas guardadas"
+      />
 
-      {/* Tabs */}
-      <div className="flex gap-2 border-b pb-2">
-        {[
-          { id: 'audit', label: 'Registro de Auditoría', icon: 'history' },
-          { id: 'stats', label: 'Estadísticas', icon: 'bar_chart' },
-          { id: 'morosa', label: 'Cartera Morosa', icon: 'money_off' },
-          { id: 'cuotas', label: 'Ejecución de Cuotas', icon: 'assessment' },
-          { id: 'pagos', label: 'Pagos Recientes', icon: 'payments' },
-          { id: 'configurados', label: 'Reportes Guardados', icon: 'tune' },
-          { id: 'historial', label: 'Historial de Reportes', icon: 'receipt_long' },
-        ].map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setTabActiva(t.id)}
-            className={`flex items-center gap-1 px-3 py-1.5 text-sm rounded-t font-medium transition-colors ${
-              tabActiva === t.id
-                ? 'border-b-2 border-primary text-foreground'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <span className="material-symbols-outlined text-base">{t.icon}</span>
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <Tabs value={tabActiva} onValueChange={setTabActiva}>
+        <div className="-mx-1 overflow-x-auto px-1 pb-1">
+          <TabsList>
+            {TABS.map(({ id, label, icon: Icon }) => (
+              <TabsTrigger key={id} value={id} className="gap-1.5">
+                <Icon className="h-4 w-4" aria-hidden="true" />
+                {label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </div>
 
-      {/* ======= TAB: Auditoría ======= */}
-      {tabActiva === 'audit' && (
-        <>
-          {/* Filtros */}
-          <div className="flex gap-3 flex-wrap">
+        {/* Audit log */}
+        <TabsContent value="audit" className="mt-4 space-y-4">
+          <div className="flex flex-wrap gap-2">
             <select
-              className="border rounded px-3 py-1.5 text-sm"
+              aria-label="Filtrar por tabla"
+              className={SELECT_CLASS}
               value={filtro.tabla}
               onChange={(e) => setFiltro((f) => ({ ...f, tabla: e.target.value }))}
             >
@@ -426,267 +486,224 @@ export default function ReportesPage() {
               <option value="MULTAS">Multas</option>
             </select>
             <select
-              className="border rounded px-3 py-1.5 text-sm"
+              aria-label="Filtrar por acción"
+              className={SELECT_CLASS}
               value={filtro.accion}
               onChange={(e) => setFiltro((f) => ({ ...f, accion: e.target.value }))}
             >
               <option value="">Todas las acciones</option>
-              <option value="INSERT">INSERT</option>
-              <option value="UPDATE">UPDATE</option>
-              <option value="DELETE">DELETE</option>
-              <option value="DENIED">DENIED (acceso denegado)</option>
+              <option value="INSERT">Creación (INSERT)</option>
+              <option value="UPDATE">Actualización (UPDATE)</option>
+              <option value="DELETE">Eliminación (DELETE)</option>
+              <option value="DENIED">Acceso denegado (DENIED)</option>
             </select>
             <select
-              className="border rounded px-3 py-1.5 text-sm"
+              aria-label="Cantidad de registros"
+              className={SELECT_CLASS}
               value={filtro.limite}
               onChange={(e) => setFiltro((f) => ({ ...f, limite: Number(e.target.value) }))}
             >
-              <option value={25}>25</option>
-              <option value={50}>50</option>
-              <option value={100}>100</option>
-              <option value={200}>200</option>
+              <option value={25}>25 registros</option>
+              <option value={50}>50 registros</option>
+              <option value={100}>100 registros</option>
+              <option value={200}>200 registros</option>
             </select>
           </div>
 
-          <Card>
-            <CardContent className="pt-6">
-              {auditLoading ? (
-                <div className="space-y-2"><Skeleton className="h-8 w-full" /><Skeleton className="h-8 w-full" /><Skeleton className="h-8 w-full" /></div>
-              ) : registros.length === 0 ? (
-                <p className="py-8 text-center text-muted-foreground">No hay registros de auditoría.</p>
-              ) : (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Fecha</TableHead>
-                        <TableHead>Tabla</TableHead>
-                        <TableHead>Acción</TableHead>
-                        <TableHead>ID Reg.</TableHead>
-                        <TableHead>Usuario</TableHead>
-                        <TableHead>Estado Anterior</TableHead>
-                        <TableHead>Estado Nuevo</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {registros.map((r, i) => (
-                        <TableRow key={r.ID || r.id || i}>
-                          <TableCell className="text-xs whitespace-nowrap">
-                            {r.FECHA_ACCION || r.fechaAccion || '-'}
-                          </TableCell>
-                          <TableCell className="font-mono text-xs">{r.TABLA || r.tabla}</TableCell>
-                          <TableCell>
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${ACCION_COLORS[r.ACCION || r.accion] || 'bg-gray-100'}`}>
-                              {r.ACCION || r.accion}
-                            </span>
-                          </TableCell>
-                          <TableCell className="font-mono text-xs">{r.ID_REGISTRO || r.idRegistro}</TableCell>
-                          <TableCell className="text-xs">{r.USUARIO || r.usuario}</TableCell>
-                          <TableCell className="text-xs max-w-[120px] truncate">
-                            {parseEstado(r.ESTADO_ANTERIOR || r.estadoAnterior)}
-                          </TableCell>
-                          <TableCell className="text-xs max-w-[120px] truncate">
-                            {parseEstado(r.ESTADO_NUEVO || r.estadoNuevo)}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </>
-      )}
-
-      {/* ======= TAB: Estadísticas ======= */}
-      {tabActiva === 'stats' && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Resumen de Actividad</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {stats.length === 0 ? (
-              <p className="py-4 text-center text-muted-foreground">Sin estadísticas disponibles.</p>
+          <section className="table-container" aria-label="Registro de auditoría">
+            {auditLoading ? (
+              <SkeletonRows />
+            ) : auditError ? (
+              <div className="p-4">
+                <ErrorState compact title="No se pudo cargar el registro de auditoría" onRetry={retry(refetchAudit)} />
+              </div>
+            ) : registros.length === 0 ? (
+              <EmptyState icon={History} title="No hay registros de auditoría" subtitle="Ajuste los filtros para ampliar la búsqueda." />
             ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Tabla</TableHead>
-                      <TableHead>Acción</TableHead>
-                      <TableHead className="text-right">Total</TableHead>
-                      <TableHead>Primera</TableHead>
-                      <TableHead>Última</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {stats.map((s, i) => (
-                      <TableRow key={i}>
-                        <TableCell className="font-mono text-sm">{s.TABLA || s.tabla}</TableCell>
-                        <TableCell>
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${ACCION_COLORS[s.ACCION || s.accion] || 'bg-gray-100'}`}>
-                            {s.ACCION || s.accion}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-right font-bold">{Number(s.TOTAL || s.total).toLocaleString()}</TableCell>
-                        <TableCell className="text-xs">{s.PRIMERA || s.primera || '-'}</TableCell>
-                        <TableCell className="text-xs">{s.ULTIMA || s.ultima || '-'}</TableCell>
-                      </TableRow>
+              <div className="max-h-[70vh] overflow-auto">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Fecha</th>
+                      <th scope="col">Tabla</th>
+                      <th scope="col">Acción</th>
+                      <th scope="col">ID registro</th>
+                      <th scope="col">Usuario</th>
+                      <th scope="col">Estado anterior</th>
+                      <th scope="col">Estado nuevo</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {registros.map((r, i) => (
+                      <tr key={r.ID || r.id || i}>
+                        <td className="whitespace-nowrap tabular-nums text-text-secondary">{r.FECHA_ACCION || r.fechaAccion || '—'}</td>
+                        <td className="font-mono text-xs">{r.TABLA || r.tabla}</td>
+                        <td><AccionBadge accion={r.ACCION || r.accion} /></td>
+                        <td className="tabular-nums">{r.ID_REGISTRO || r.idRegistro}</td>
+                        <td>{r.USUARIO || r.usuario}</td>
+                        <td className="max-w-[140px] truncate text-text-secondary">{parseEstado(r.ESTADO_ANTERIOR || r.estadoAnterior)}</td>
+                        <td className="max-w-[140px] truncate text-text-secondary">{parseEstado(r.ESTADO_NUEVO || r.estadoNuevo)}</td>
+                      </tr>
                     ))}
-                  </TableBody>
-                </Table>
+                  </tbody>
+                </table>
               </div>
             )}
-          </CardContent>
-        </Card>
-      )}
+          </section>
+        </TabsContent>
 
-      {/* ======= TAB: Cartera Morosa ======= */}
-      {tabActiva === 'morosa' && (
-        <Card>
-          <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <CardTitle className="text-base">Cartera Morosa - Unidades con Saldo Vencido</CardTitle>
-            <div className="flex flex-wrap items-center gap-2 text-xs">
-              <label htmlFor="morosa-desde" className="text-muted-foreground font-medium">Vencimiento Desde:</label>
-              <input
-                id="morosa-desde"
-                type="date"
-                className="border rounded px-2 py-1 text-xs bg-background text-foreground"
-                value={reporteFiltro.fechaInicio}
-                onChange={(e) => setReporteFiltro((prev) => ({ ...prev, fechaInicio: e.target.value }))}
-              />
-              <label htmlFor="morosa-hasta" className="text-muted-foreground font-medium">Hasta:</label>
-              <input
-                id="morosa-hasta"
-                type="date"
-                className="border rounded px-2 py-1 text-xs bg-background text-foreground"
-                value={reporteFiltro.fechaFin}
-                onChange={(e) => setReporteFiltro((prev) => ({ ...prev, fechaFin: e.target.value }))}
-              />
-              {(reporteFiltro.fechaInicio || reporteFiltro.fechaFin) && (
-                <button
-                  type="button"
-                  onClick={() => setReporteFiltro({ fechaInicio: '', fechaFin: '' })}
-                  className="text-primary hover:underline font-medium"
-                >
-                  Limpiar
-                </button>
-              )}
-              {renderExportButtons('morosa', morosa.length > 0)}
-            </div>
-          </CardHeader>
-          <CardContent>
+        {/* Stats */}
+        <TabsContent value="stats" className="mt-4">
+          <ReportPanel title="Resumen de actividad">
+            {statsLoading ? (
+              <SkeletonRows />
+            ) : statsError ? (
+              <div className="p-4">
+                <ErrorState compact title="No se pudieron cargar las estadísticas" onRetry={retry(refetchStats)} />
+              </div>
+            ) : stats.length === 0 ? (
+              <EmptyState icon={BarChart3} title="Sin estadísticas disponibles" subtitle="Aparecen cuando el sistema registra actividad." />
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Tabla</th>
+                      <th scope="col">Acción</th>
+                      <th scope="col" className="text-right">Total</th>
+                      <th scope="col">Primera</th>
+                      <th scope="col">Última</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stats.map((s, i) => (
+                      <tr key={i}>
+                        <td className="font-mono text-xs">{s.TABLA || s.tabla}</td>
+                        <td><AccionBadge accion={s.ACCION || s.accion} /></td>
+                        <td className="text-right font-bold tabular-nums">{Number(s.TOTAL || s.total).toLocaleString('es-CO')}</td>
+                        <td className="whitespace-nowrap tabular-nums text-text-secondary">{s.PRIMERA || s.primera || '—'}</td>
+                        <td className="whitespace-nowrap tabular-nums text-text-secondary">{s.ULTIMA || s.ultima || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </ReportPanel>
+        </TabsContent>
+
+        {/* Overdue receivables */}
+        <TabsContent value="morosa" className="mt-4">
+          <ReportPanel
+            title="Cartera morosa"
+            description="Unidades con saldo vencido"
+            toolbar={
+              <>
+                {renderDateFilter('morosa', 'Vencimiento desde')}
+                {renderExportButtons('morosa', morosa.length > 0)}
+              </>
+            }
+          >
             {morosaError ? (
-              <div className="p-4 bg-destructive/10 border border-destructive/30 rounded-lg text-sm text-destructive">
-                Error al cargar el reporte de cartera morosa. {morosaError?.message || ''}
+              <div className="p-4">
+                <ErrorState
+                  compact
+                  title="No se pudo cargar el reporte de cartera morosa"
+                  message={morosaError?.message}
+                  onRetry={retry(refetchMorosa)}
+                />
               </div>
             ) : morosaLoading ? (
-              <div className="space-y-2">
-                <Skeleton className="h-8 w-full" />
-                <Skeleton className="h-8 w-full" />
-                <Skeleton className="h-8 w-full" />
-              </div>
+              <SkeletonRows />
             ) : morosa.length === 0 ? (
-              <p className="py-8 text-center text-muted-foreground">No hay cuotas vencidas registradas para los filtros seleccionados.</p>
+              <EmptyState icon={Wallet} title="No hay cuotas vencidas" subtitle="Ninguna unidad registra saldo vencido para los filtros seleccionados." />
             ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Unidad</TableHead>
-                      <TableHead>Propiedad</TableHead>
-                      <TableHead className="text-right">Cuotas Pendientes</TableHead>
-                      <TableHead className="text-right">Deuda Total</TableHead>
-                      <TableHead>Primer Vencimiento</TableHead>
-                      <TableHead>Último Vencimiento</TableHead>
-                      <TableHead className="text-right">Días Mora</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
+              <div className="max-h-[70vh] overflow-auto">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Unidad</th>
+                      <th scope="col">Propiedad</th>
+                      <th scope="col" className="text-right">Cuotas pendientes</th>
+                      <th scope="col" className="text-right">Deuda total</th>
+                      <th scope="col">Primer vencimiento</th>
+                      <th scope="col">Último vencimiento</th>
+                      <th scope="col" className="text-right">Días de mora</th>
+                    </tr>
+                  </thead>
+                  <tbody>
                     {morosa.map((m, i) => (
-                      <TableRow key={i}>
-                        <TableCell className="font-mono text-sm">{m.unidad || m.UNIDAD}</TableCell>
-                        <TableCell>{m.propiedad || m.PROPIEDAD}</TableCell>
-                        <TableCell className="text-right font-bold">{Number(m.cuotasPendientes ?? m.CUOTAS_PENDIENTES ?? 0).toLocaleString()}</TableCell>
-                        <TableCell className="text-right font-bold text-red-600">{fmtCOP.format(Number(m.deudaTotal ?? m.DEUDA_TOTAL ?? 0))}</TableCell>
-                        <TableCell className="text-xs">{m.primerVencimiento || m.PRIMER_VENCIMIENTO || '-'}</TableCell>
-                        <TableCell className="text-xs">{m.ultimoVencimiento || m.ULTIMO_VENCIMIENTO || '-'}</TableCell>
-                        <TableCell className="text-right font-medium text-amber-600 text-xs">
-                          {(m.diasMora ?? m.DIAS_MORA) != null ? `${m.diasMora ?? m.DIAS_MORA} d` : '-'}
-                        </TableCell>
-                      </TableRow>
+                      <tr key={i}>
+                        <td className="font-semibold">{m.unidad || m.UNIDAD}</td>
+                        <td>{m.propiedad || m.PROPIEDAD}</td>
+                        <td className="text-right tabular-nums">{Number(m.cuotasPendientes ?? m.CUOTAS_PENDIENTES ?? 0).toLocaleString('es-CO')}</td>
+                        <td className="whitespace-nowrap text-right font-bold tabular-nums">{fmtCOP.format(Number(m.deudaTotal ?? m.DEUDA_TOTAL ?? 0))}</td>
+                        <td className="whitespace-nowrap tabular-nums text-text-secondary">{m.primerVencimiento || m.PRIMER_VENCIMIENTO || '—'}</td>
+                        <td className="whitespace-nowrap tabular-nums text-text-secondary">{m.ultimoVencimiento || m.ULTIMO_VENCIMIENTO || '—'}</td>
+                        <td className="whitespace-nowrap text-right font-semibold tabular-nums">
+                          {(m.diasMora ?? m.DIAS_MORA) != null ? `${m.diasMora ?? m.DIAS_MORA} días` : '—'}
+                        </td>
+                      </tr>
                     ))}
-                  </TableBody>
-                </Table>
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t border-border bg-surface-container text-sm font-bold text-on-surface">
+                      <th scope="row" colSpan={2} className="px-4 py-3 text-left">Total</th>
+                      <td className="px-4 py-3 text-right tabular-nums">
+                        {morosa.reduce((acc, m) => acc + Number(m.cuotasPendientes ?? m.CUOTAS_PENDIENTES ?? 0), 0).toLocaleString('es-CO')}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums">
+                        {fmtCOP.format(morosa.reduce((acc, m) => acc + Number(m.deudaTotal ?? m.DEUDA_TOTAL ?? 0), 0))}
+                      </td>
+                      <td colSpan={3} />
+                    </tr>
+                  </tfoot>
+                </table>
               </div>
             )}
-          </CardContent>
-        </Card>
-      )}
+          </ReportPanel>
+        </TabsContent>
 
-      {/* ======= TAB: Ejecución de Cuotas ======= */}
-      {tabActiva === 'cuotas' && (
-        <Card>
-          <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <CardTitle className="text-base">Ejecución de Cuotas por Período</CardTitle>
-            <div className="flex flex-wrap items-center gap-2 text-xs">
-              <label htmlFor="cuotas-desde" className="text-muted-foreground font-medium">Desde:</label>
-              <input
-                id="cuotas-desde"
-                type="date"
-                className="border rounded px-2 py-1 text-xs bg-background text-foreground"
-                value={reporteFiltro.fechaInicio}
-                onChange={(e) => setReporteFiltro((prev) => ({ ...prev, fechaInicio: e.target.value }))}
-              />
-              <label htmlFor="cuotas-hasta" className="text-muted-foreground font-medium">Hasta:</label>
-              <input
-                id="cuotas-hasta"
-                type="date"
-                className="border rounded px-2 py-1 text-xs bg-background text-foreground"
-                value={reporteFiltro.fechaFin}
-                onChange={(e) => setReporteFiltro((prev) => ({ ...prev, fechaFin: e.target.value }))}
-              />
-              {(reporteFiltro.fechaInicio || reporteFiltro.fechaFin) && (
-                <button
-                  type="button"
-                  onClick={() => setReporteFiltro({ fechaInicio: '', fechaFin: '' })}
-                  className="text-primary hover:underline font-medium"
-                >
-                  Limpiar
-                </button>
-              )}
-              {renderExportButtons('cuotas', cuotas.length > 0)}
-            </div>
-          </CardHeader>
-          <CardContent>
+        {/* Fee execution */}
+        <TabsContent value="cuotas" className="mt-4">
+          <ReportPanel
+            title="Ejecución de cuotas por periodo"
+            description="Facturado frente a recaudado"
+            toolbar={
+              <>
+                {renderDateFilter('cuotas', 'Desde')}
+                {renderExportButtons('cuotas', cuotas.length > 0)}
+              </>
+            }
+          >
             {cuotasError ? (
-              <div className="p-4 bg-destructive/10 border border-destructive/30 rounded-lg text-sm text-destructive">
-                Error al cargar el reporte de ejecución de cuotas. {cuotasError?.message || ''}
+              <div className="p-4">
+                <ErrorState
+                  compact
+                  title="No se pudo cargar el reporte de ejecución de cuotas"
+                  message={cuotasError?.message}
+                  onRetry={retry(refetchCuotasRep)}
+                />
               </div>
             ) : cuotasLoading ? (
-              <div className="space-y-2">
-                <Skeleton className="h-8 w-full" />
-                <Skeleton className="h-8 w-full" />
-                <Skeleton className="h-8 w-full" />
-              </div>
+              <SkeletonRows />
             ) : cuotas.length === 0 ? (
-              <p className="py-8 text-center text-muted-foreground">No hay datos de ejecución de cuotas para el periodo seleccionado.</p>
+              <EmptyState icon={Receipt} title="Sin datos de ejecución" subtitle="No hay cuotas para el periodo seleccionado." />
             ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Período</TableHead>
-                      <TableHead className="text-right">Total</TableHead>
-                      <TableHead className="text-right">Pagadas</TableHead>
-                      <TableHead className="text-right">Pendientes</TableHead>
-                      <TableHead className="text-right">Total Facturado</TableHead>
-                      <TableHead className="text-right">Total Recaudado</TableHead>
-                      <TableHead className="w-40">% Recaudado</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
+              <div className="max-h-[70vh] overflow-auto">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Periodo</th>
+                      <th scope="col" className="text-right">Cuotas</th>
+                      <th scope="col" className="text-right">Pagadas</th>
+                      <th scope="col" className="text-right">Pendientes</th>
+                      <th scope="col" className="text-right">Facturado</th>
+                      <th scope="col" className="text-right">Recaudado</th>
+                      <th scope="col" className="w-44">Recaudo</th>
+                    </tr>
+                  </thead>
+                  <tbody>
                     {cuotas.map((c, i) => {
                       const totalFacturado = Number(c.totalFacturado ?? c.TOTAL_FACTURADO ?? 0);
                       const totalRecaudado = Number(c.totalRecaudado ?? c.TOTAL_RECAUDADO ?? 0);
@@ -694,475 +711,422 @@ export default function ReportesPage() {
                         ? Number(c.porcentajeRecaudado)
                         : (totalFacturado > 0 ? (totalRecaudado / totalFacturado) * 100 : 0);
                       return (
-                        <TableRow key={i}>
-                          <TableCell className="font-mono text-sm">{c.periodo || c.PERIODO}</TableCell>
-                          <TableCell className="text-right">{Number(c.totalCuotas ?? c.TOTAL_CUOTAS ?? 0).toLocaleString()}</TableCell>
-                          <TableCell className="text-right text-green-600">{Number(c.pagadas ?? c.PAGADAS ?? 0).toLocaleString()}</TableCell>
-                          <TableCell className="text-right text-amber-600">{Number(c.pendientes ?? c.PENDIENTES ?? 0).toLocaleString()}</TableCell>
-                          <TableCell className="text-right">{fmtCOP.format(totalFacturado)}</TableCell>
-                          <TableCell className="text-right">{fmtCOP.format(totalRecaudado)}</TableCell>
-                          <TableCell>
+                        <tr key={i}>
+                          <td className="whitespace-nowrap font-semibold tabular-nums">{c.periodo || c.PERIODO}</td>
+                          <td className="text-right tabular-nums">{Number(c.totalCuotas ?? c.TOTAL_CUOTAS ?? 0).toLocaleString('es-CO')}</td>
+                          <td className="text-right tabular-nums">{Number(c.pagadas ?? c.PAGADAS ?? 0).toLocaleString('es-CO')}</td>
+                          <td className="text-right tabular-nums">{Number(c.pendientes ?? c.PENDIENTES ?? 0).toLocaleString('es-CO')}</td>
+                          <td className="whitespace-nowrap text-right tabular-nums">{fmtCOP.format(totalFacturado)}</td>
+                          <td className="whitespace-nowrap text-right font-semibold tabular-nums">{fmtCOP.format(totalRecaudado)}</td>
+                          <td>
                             <div className="flex items-center gap-2">
-                              <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                              <div
+                                className="h-2 flex-1 overflow-hidden rounded-[3px] bg-surface-dim"
+                                role="img"
+                                aria-label={`${pct.toFixed(1)} % recaudado`}
+                              >
                                 <div
-                                  className="h-full bg-green-500 rounded-full transition-all"
+                                  className="h-full rounded-[3px] bg-on-surface/70 transition-[width] duration-300 ease-out"
                                   style={{ width: `${Math.min(pct, 100)}%` }}
                                 />
                               </div>
-                              <span className="text-xs font-medium whitespace-nowrap">{pct.toFixed(1)}%</span>
+                              <span className="whitespace-nowrap text-xs font-semibold tabular-nums">{pct.toFixed(1)} %</span>
                             </div>
-                          </TableCell>
-                        </TableRow>
+                          </td>
+                        </tr>
                       );
                     })}
-                  </TableBody>
-                </Table>
+                  </tbody>
+                </table>
               </div>
             )}
-          </CardContent>
-        </Card>
-      )}
+          </ReportPanel>
+        </TabsContent>
 
-      {/* ======= TAB: Pagos Recientes ======= */}
-      {tabActiva === 'pagos' && (
-        <Card>
-          <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <CardTitle className="text-base">Historial de Pagos Registrados</CardTitle>
-            <div className="flex flex-wrap items-center gap-2 text-xs">
-              <label htmlFor="pagos-desde" className="text-muted-foreground font-medium">Pago Desde:</label>
-              <input
-                id="pagos-desde"
-                type="date"
-                className="border rounded px-2 py-1 text-xs bg-background text-foreground"
-                value={reporteFiltro.fechaInicio}
-                onChange={(e) => setReporteFiltro((prev) => ({ ...prev, fechaInicio: e.target.value }))}
-              />
-              <label htmlFor="pagos-hasta" className="text-muted-foreground font-medium">Hasta:</label>
-              <input
-                id="pagos-hasta"
-                type="date"
-                className="border rounded px-2 py-1 text-xs bg-background text-foreground"
-                value={reporteFiltro.fechaFin}
-                onChange={(e) => setReporteFiltro((prev) => ({ ...prev, fechaFin: e.target.value }))}
-              />
-              {(reporteFiltro.fechaInicio || reporteFiltro.fechaFin) && (
-                <button
-                  type="button"
-                  onClick={() => setReporteFiltro({ fechaInicio: '', fechaFin: '' })}
-                  className="text-primary hover:underline font-medium"
-                >
-                  Limpiar
-                </button>
-              )}
-              {renderExportButtons('pagos', pagos.length > 0)}
-            </div>
-          </CardHeader>
-          <CardContent>
+        {/* Recent payments */}
+        <TabsContent value="pagos" className="mt-4">
+          <ReportPanel
+            title="Pagos registrados"
+            toolbar={
+              <>
+                {renderDateFilter('pagos', 'Pago desde')}
+                {renderExportButtons('pagos', pagos.length > 0)}
+              </>
+            }
+          >
             {pagosError ? (
-              <div className="p-4 bg-destructive/10 border border-destructive/30 rounded-lg text-sm text-destructive">
-                Error al cargar el reporte de pagos recientes. {pagosError?.message || ''}
+              <div className="p-4">
+                <ErrorState
+                  compact
+                  title="No se pudo cargar el reporte de pagos"
+                  message={pagosError?.message}
+                  onRetry={retry(refetchPagosRep)}
+                />
               </div>
             ) : pagosLoading ? (
-              <div className="space-y-2">
-                <Skeleton className="h-8 w-full" />
-                <Skeleton className="h-8 w-full" />
-                <Skeleton className="h-8 w-full" />
-              </div>
+              <SkeletonRows />
             ) : pagos.length === 0 ? (
-              <p className="py-8 text-center text-muted-foreground">No hay pagos registrados para los filtros seleccionados.</p>
+              <EmptyState icon={CreditCard} title="No hay pagos registrados" subtitle="Ningún pago coincide con los filtros seleccionados." />
             ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>ID</TableHead>
-                      <TableHead>Unidad</TableHead>
-                      <TableHead className="text-right">Monto</TableHead>
-                      <TableHead>Método</TableHead>
-                      <TableHead>Estado</TableHead>
-                      <TableHead>Fecha</TableHead>
-                      <TableHead>Referencia</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
+              <div className="max-h-[70vh] overflow-auto">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">ID</th>
+                      <th scope="col">Unidad</th>
+                      <th scope="col" className="text-right">Monto</th>
+                      <th scope="col">Método</th>
+                      <th scope="col">Estado</th>
+                      <th scope="col">Fecha</th>
+                      <th scope="col">Referencia</th>
+                    </tr>
+                  </thead>
+                  <tbody>
                     {pagos.map((p) => {
                       const est = p.estado || p.ESTADO;
                       return (
-                        <TableRow key={p.idPago ?? p.ID_PAGO}>
-                          <TableCell className="font-mono text-sm">{p.idPago ?? p.ID_PAGO}</TableCell>
-                          <TableCell className="font-mono text-sm">{p.unidad || p.UNIDAD}</TableCell>
-                          <TableCell className="text-right font-bold">{fmtCOP.format(Number(p.montoTotal ?? p.MONTO_TOTAL ?? 0))}</TableCell>
-                          <TableCell>{p.metodoPago || p.METODO_PAGO}</TableCell>
-                          <TableCell>
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                              est === 'CONFIRMADO' || est === 'APROBADO' ? 'bg-green-100 text-green-800' :
-                              est === 'PENDIENTE' ? 'bg-amber-100 text-amber-800' :
-                              'bg-gray-100 text-gray-800'
-                            }`}>
+                        <tr key={p.idPago ?? p.ID_PAGO}>
+                          <td className="tabular-nums text-text-muted">{p.idPago ?? p.ID_PAGO}</td>
+                          <td className="font-semibold">{p.unidad || p.UNIDAD}</td>
+                          <td className="whitespace-nowrap text-right font-bold tabular-nums">{fmtCOP.format(Number(p.montoTotal ?? p.MONTO_TOTAL ?? 0))}</td>
+                          <td>{p.metodoPago || p.METODO_PAGO}</td>
+                          <td>
+                            <Badge
+                              variant={
+                                est === 'CONFIRMADO' || est === 'APROBADO'
+                                  ? 'success'
+                                  : est === 'PENDIENTE'
+                                  ? 'warning'
+                                  : 'secondary'
+                              }
+                            >
                               {est}
-                            </span>
-                          </TableCell>
-                          <TableCell className="text-xs whitespace-nowrap">{(p.fechaPago || p.FECHA_PAGO || '-').toString().replace('T', ' ').substring(0, 19)}</TableCell>
-                          <TableCell className="text-xs max-w-[120px] truncate">{p.referenciaComprobante || p.REFERENCIA_COMPROBANTE || '-'}</TableCell>
-                        </TableRow>
+                            </Badge>
+                          </td>
+                          <td className="whitespace-nowrap tabular-nums text-text-secondary">
+                            {(p.fechaPago || p.FECHA_PAGO || '-').toString().replace('T', ' ').substring(0, 19)}
+                          </td>
+                          <td className="max-w-[140px] truncate tabular-nums">{p.referenciaComprobante || p.REFERENCIA_COMPROBANTE || '—'}</td>
+                        </tr>
                       );
                     })}
-                  </TableBody>
-                </Table>
+                  </tbody>
+                </table>
               </div>
             )}
-          </CardContent>
-        </Card>
-      )}
+          </ReportPanel>
+        </TabsContent>
 
-      {/* ======= TAB: Reportes Guardados / Configurables ======= */}
-      {tabActiva === 'configurados' && (
-        <Card>
-          <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div>
-              <CardTitle className="text-base">Plantillas y Reportes Guardados</CardTitle>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Configuraciones de reportes con fuentes allowlistadas e inmutabilidad de ejecución.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setModalNuevaConfig(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-            >
-              <span className="material-symbols-outlined text-sm">add_circle</span>
-              Nueva Configuración
-            </button>
-          </CardHeader>
-          <CardContent>
+        {/* Saved report templates */}
+        <TabsContent value="configurados" className="mt-4">
+          <ReportPanel
+            title="Plantillas de reportes guardados"
+            description="Reportes configurados sobre fuentes de datos autorizadas."
+            toolbar={
+              <Button size="sm" onClick={() => setModalNuevaConfig(true)} icon={<Plus className="h-3.5 w-3.5" />}>
+                Nueva configuración
+              </Button>
+            }
+          >
             {configsError ? (
-              <div className="p-4 bg-destructive/10 border border-destructive/30 rounded-lg text-sm text-destructive">
-                Error al cargar reportes configurados. {configsError?.message || ''}
+              <div className="p-4">
+                <ErrorState
+                  compact
+                  title="No se pudieron cargar los reportes configurados"
+                  message={configsError?.message}
+                  onRetry={() => setRefreshConfigTrigger((v) => v + 1)}
+                />
               </div>
             ) : configsLoading ? (
-              <div className="space-y-2">
-                <Skeleton className="h-8 w-full" />
-                <Skeleton className="h-8 w-full" />
-                <Skeleton className="h-8 w-full" />
-              </div>
+              <SkeletonRows />
             ) : configurados.length === 0 ? (
-              <p className="py-8 text-center text-muted-foreground">No hay reportes configurados registrados.</p>
+              <EmptyState icon={SlidersHorizontal} title="No hay reportes configurados" subtitle="Cree una plantilla para generar el mismo reporte cuando lo necesite.">
+                <div className="mt-3">
+                  <Button size="sm" onClick={() => setModalNuevaConfig(true)}>Nueva configuración</Button>
+                </div>
+              </EmptyState>
             ) : (
               <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Nombre / Código</TableHead>
-                      <TableHead>Clave Origen</TableHead>
-                      <TableHead>Formato Defecto</TableHead>
-                      <TableHead>Ámbito</TableHead>
-                      <TableHead>Estado</TableHead>
-                      <TableHead className="text-right">Acciones de Generación</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Nombre y código</th>
+                      <th scope="col">Fuente</th>
+                      <th scope="col">Formato</th>
+                      <th scope="col">Ámbito</th>
+                      <th scope="col">Estado</th>
+                      <th scope="col" className="text-right">Generar</th>
+                    </tr>
+                  </thead>
+                  <tbody>
                     {configurados.map((c) => {
                       const isActivo = (c.estado || 'ACTIVO').toUpperCase() === 'ACTIVO';
                       const isGlobal = !c.idOrganizacion;
                       return (
-                        <TableRow key={c.idReporteConfig}>
-                          <TableCell>
-                            <div className="font-medium text-foreground">{c.nombre}</div>
-                            <div className="font-mono text-xs text-muted-foreground">{c.codigo}</div>
-                            {c.descripcion && <div className="text-xs text-muted-foreground truncate max-w-xs">{c.descripcion}</div>}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className="font-mono text-xs bg-slate-50 text-slate-800 border-slate-200">
-                              {c.consultaOrigenClave}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <span className="font-mono text-xs font-semibold">{c.formatoSalidaDefecto || 'PDF'}</span>
-                          </TableCell>
-                          <TableCell>
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                              isGlobal ? 'bg-primary/10 text-primary font-semibold' : 'bg-secondary text-secondary-foreground'
-                            }`}>
-                              {isGlobal ? 'Estándar Sistema' : 'Organización'}
-                            </span>
-                          </TableCell>
-                          <TableCell>
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                              isActivo ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold' : 'bg-muted text-muted-foreground'
-                            }`}>
-                              {c.estado || 'ACTIVO'}
-                            </span>
-                          </TableCell>
-                          <TableCell className="text-right">
+                        <tr key={c.idReporteConfig}>
+                          <td className="min-w-[12rem]">
+                            <div className="font-semibold">{c.nombre}</div>
+                            <div className="font-mono text-xs text-text-muted">{c.codigo}</div>
+                            {c.descripcion && <div className="max-w-xs truncate text-xs text-text-muted">{c.descripcion}</div>}
+                          </td>
+                          <td>
+                            <Badge variant="outline" className="font-mono">{c.consultaOrigenClave}</Badge>
+                          </td>
+                          <td className="font-mono text-xs font-semibold">{c.formatoSalidaDefecto || 'PDF'}</td>
+                          <td>
+                            <Badge variant={isGlobal ? 'info' : 'secondary'}>{isGlobal ? 'Estándar del sistema' : 'Organización'}</Badge>
+                          </td>
+                          <td>
+                            <Badge variant={isActivo ? 'success' : 'secondary'}>{c.estado || 'ACTIVO'}</Badge>
+                          </td>
+                          <td className="text-right">
                             <div className="flex items-center justify-end gap-1.5">
-                              <button
-                                type="button"
+                              <Button
+                                variant="outline"
+                                size="sm"
                                 disabled={!isActivo || exportando[`gen-${c.idReporteConfig}-PDF`]}
                                 onClick={() => handleGenerarConfigurado(c, 'PDF')}
-                                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded bg-red-50 text-red-700 hover:bg-red-100 disabled:opacity-40 transition-colors"
-                                title="Generar y descargar en PDF"
                               >
-                                <span className="material-symbols-outlined text-xs">picture_as_pdf</span>
-                                {exportando[`gen-${c.idReporteConfig}-PDF`] ? '...' : 'PDF'}
-                              </button>
-                              <button
-                                type="button"
+                                {exportando[`gen-${c.idReporteConfig}-PDF`] ? 'Generando…' : 'PDF'}
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
                                 disabled={!isActivo || exportando[`gen-${c.idReporteConfig}-CSV`]}
                                 onClick={() => handleGenerarConfigurado(c, 'CSV')}
-                                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-40 transition-colors"
-                                title="Generar y descargar en CSV"
                               >
-                                <span className="material-symbols-outlined text-xs">description</span>
-                                {exportando[`gen-${c.idReporteConfig}-CSV`] ? '...' : 'CSV'}
-                              </button>
+                                {exportando[`gen-${c.idReporteConfig}-CSV`] ? 'Generando…' : 'CSV'}
+                              </Button>
                               {!isGlobal && isActivo && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleDesactivarConfigurado(c.idReporteConfig)}
-                                  className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded bg-muted text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors ml-1"
+                                <IconButton
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-10 w-10 text-destructive hover:text-destructive"
+                                  onClick={() => setDesactivarTarget(c)}
+                                  aria-label={`Desactivar plantilla ${c.nombre}`}
                                   title="Desactivar plantilla"
                                 >
-                                  <span className="material-symbols-outlined text-xs">block</span>
-                                </button>
+                                  <Ban aria-hidden="true" />
+                                </IconButton>
                               )}
                             </div>
-                          </TableCell>
-                        </TableRow>
+                          </td>
+                        </tr>
                       );
                     })}
-                  </TableBody>
-                </Table>
+                  </tbody>
+                </table>
               </div>
             )}
-          </CardContent>
-        </Card>
-      )}
+          </ReportPanel>
+        </TabsContent>
 
-      {/* ======= TAB: Historial de Reportes ======= */}
-      {tabActiva === 'historial' && (
-        <Card>
-          <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div>
-              <CardTitle className="text-base">Historial y Auditoría de Reportes Generados</CardTitle>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Evidencia de ejecución inmutable protegida por trigger Oracle (<span className="font-mono">TRG_HISTREP_INMUTABLE</span>) y firma SHA-256.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setRefreshHistTrigger((v) => v + 1)}
-              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded border border-border text-foreground hover:bg-muted transition-colors"
-            >
-              <span className="material-symbols-outlined text-sm">refresh</span>
-              Actualizar
-            </button>
-          </CardHeader>
-          <CardContent>
+        {/* Generated report history */}
+        <TabsContent value="historial" className="mt-4">
+          <ReportPanel
+            title="Historial de reportes generados"
+            description="Cada ejecución queda registrada de forma inmutable con su huella SHA-256."
+            toolbar={
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setRefreshHistTrigger((v) => v + 1)}
+                icon={<RefreshCw className="h-3.5 w-3.5" />}
+              >
+                Actualizar
+              </Button>
+            }
+          >
             {histError ? (
-              <div className="p-4 bg-destructive/10 border border-destructive/30 rounded-lg text-sm text-destructive">
-                Error al cargar historial de reportes. {histError?.message || ''}
+              <div className="p-4">
+                <ErrorState
+                  compact
+                  title="No se pudo cargar el historial de reportes"
+                  message={histError?.message}
+                  onRetry={() => setRefreshHistTrigger((v) => v + 1)}
+                />
               </div>
             ) : histLoading ? (
-              <div className="space-y-2">
-                <Skeleton className="h-8 w-full" />
-                <Skeleton className="h-8 w-full" />
-                <Skeleton className="h-8 w-full" />
-              </div>
+              <SkeletonRows />
             ) : historial.length === 0 ? (
-              <p className="py-8 text-center text-muted-foreground">No hay registros en el historial de reportes.</p>
+              <EmptyState icon={ScrollText} title="Sin reportes generados" subtitle="Los reportes que genere desde una plantilla aparecerán aquí." />
             ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>ID</TableHead>
-                      <TableHead>Fecha Ejecución</TableHead>
-                      <TableHead>Formato</TableHead>
-                      <TableHead>Archivo Generado</TableHead>
-                      <TableHead className="text-right">Registros</TableHead>
-                      <TableHead className="text-right">Tiempo</TableHead>
-                      <TableHead>Integridad SHA-256</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
+              <div className="max-h-[70vh] overflow-auto">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">ID</th>
+                      <th scope="col">Fecha de ejecución</th>
+                      <th scope="col">Formato</th>
+                      <th scope="col">Archivo generado</th>
+                      <th scope="col" className="text-right">Registros</th>
+                      <th scope="col" className="text-right">Tiempo</th>
+                      <th scope="col">Integridad SHA-256</th>
+                    </tr>
+                  </thead>
+                  <tbody>
                     {historial.map((h) => {
                       const sha = h.archivoSha256 || '';
                       return (
-                        <TableRow key={h.idHistorialReporte}>
-                          <TableCell className="font-mono text-xs">{h.idHistorialReporte}</TableCell>
-                          <TableCell className="text-xs whitespace-nowrap">
+                        <tr key={h.idHistorialReporte}>
+                          <td className="tabular-nums text-text-muted">{h.idHistorialReporte}</td>
+                          <td className="whitespace-nowrap tabular-nums">
                             {(h.fechaEjecucion || '-').toString().replace('T', ' ').substring(0, 19)}
-                          </TableCell>
-                          <TableCell>
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-semibold ${
-                              (h.formatoGenerado || '').toUpperCase() === 'PDF' ? 'bg-red-100 text-red-800' :
-                              (h.formatoGenerado || '').toUpperCase() === 'CSV' ? 'bg-emerald-100 text-emerald-800' :
-                              'bg-blue-100 text-blue-800'
-                            }`}>
-                              {h.formatoGenerado || 'PDF'}
-                            </span>
-                          </TableCell>
-                          <TableCell className="font-mono text-xs max-w-xs truncate" title={h.archivoGeneradoUrl}>
-                            {h.archivoGeneradoUrl || '-'}
-                          </TableCell>
-                          <TableCell className="text-right text-xs font-medium">
-                            {Number(h.registrosProcesados ?? 0).toLocaleString()}
-                          </TableCell>
-                          <TableCell className="text-right text-xs text-muted-foreground">
-                            {h.tiempoGeneracionMs ? `${h.tiempoGeneracionMs} ms` : '-'}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-1.5">
-                              <span className="font-mono text-xs bg-slate-100 px-1.5 py-0.5 rounded text-slate-700" title={sha}>
-                                {sha.substring(0, 10)}...{sha.substring(sha.length - 6)}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => handleCopiarHash(sha)}
-                                className="p-1 text-muted-foreground hover:text-foreground rounded hover:bg-muted"
-                                title="Copiar SHA-256 completo al portapapeles"
-                              >
-                                <span className="material-symbols-outlined text-xs">content_copy</span>
-                              </button>
-                              <span className="text-[10px] bg-slate-200 text-slate-700 px-1 rounded font-mono" title="Registro inmutable ORA-20060">
-                                Inmutable
-                              </span>
-                            </div>
-                          </TableCell>
-                        </TableRow>
+                          </td>
+                          <td>
+                            <Badge variant="outline" className="font-mono">{h.formatoGenerado || 'PDF'}</Badge>
+                          </td>
+                          <td className="max-w-xs truncate font-mono text-xs" title={h.archivoGeneradoUrl}>
+                            {h.archivoGeneradoUrl || '—'}
+                          </td>
+                          <td className="text-right tabular-nums">{Number(h.registrosProcesados ?? 0).toLocaleString('es-CO')}</td>
+                          <td className="whitespace-nowrap text-right tabular-nums text-text-secondary">
+                            {h.tiempoGeneracionMs ? `${h.tiempoGeneracionMs} ms` : '—'}
+                          </td>
+                          <td>
+                            {sha ? (
+                              <div className="flex items-center gap-1.5">
+                                <span className="rounded-[3px] bg-surface-dim px-1.5 py-0.5 font-mono text-xs text-on-surface" title={sha}>
+                                  {sha.substring(0, 10)}…{sha.substring(sha.length - 6)}
+                                </span>
+                                <IconButton
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-9 w-9"
+                                  onClick={() => handleCopiarHash(sha)}
+                                  aria-label="Copiar SHA-256 completo"
+                                  title="Copiar SHA-256"
+                                >
+                                  <Copy aria-hidden="true" />
+                                </IconButton>
+                                <Badge variant="secondary">Inmutable</Badge>
+                              </div>
+                            ) : (
+                              <span className="text-text-muted">—</span>
+                            )}
+                          </td>
+                        </tr>
                       );
                     })}
-                  </TableBody>
-                </Table>
+                  </tbody>
+                </table>
               </div>
             )}
-          </CardContent>
-        </Card>
-      )}
+          </ReportPanel>
+        </TabsContent>
+      </Tabs>
 
-      {/* Modal: Crear Configuración */}
-      {modalNuevaConfig && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-background rounded-lg shadow-xl max-w-md w-full border border-border overflow-hidden">
-            <div className="px-6 py-4 border-b border-border flex items-center justify-between">
-              <h3 className="font-semibold text-base text-foreground">Nueva Configuración de Reporte</h3>
-              <button
-                type="button"
-                onClick={() => setModalNuevaConfig(false)}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <span className="material-symbols-outlined text-lg">close</span>
-              </button>
-            </div>
-            <form onSubmit={handleCrearConfiguracion} className="p-6 space-y-4">
-              <div>
-                <label className="block text-xs font-medium text-foreground mb-1">
-                  Nombre de la Configuración <span className="text-destructive">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Ej: Cartera Morosa Trimestral"
-                  className="w-full border rounded px-3 py-1.5 text-sm bg-background text-foreground"
-                  value={nuevaConfigForm.nombre}
-                  onChange={(e) => setNuevaConfigForm({ ...nuevaConfigForm, nombre: e.target.value })}
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-foreground mb-1">
-                  Código Mnemotécnico (opcional)
-                </label>
-                <input
-                  type="text"
-                  placeholder="Ej: REP_CARTERA_Q3"
-                  className="w-full border rounded px-3 py-1.5 text-sm font-mono bg-background text-foreground uppercase"
-                  value={nuevaConfigForm.codigo}
-                  onChange={(e) => setNuevaConfigForm({ ...nuevaConfigForm, codigo: e.target.value.toUpperCase() })}
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-foreground mb-1">
-                  Consulta de Origen (Registro Seguro Allowlistado) <span className="text-destructive">*</span>
-                </label>
-                <select
-                  className="w-full border rounded px-3 py-1.5 text-sm bg-background text-foreground font-mono"
-                  value={nuevaConfigForm.consultaOrigenClave}
-                  onChange={(e) => setNuevaConfigForm({ ...nuevaConfigForm, consultaOrigenClave: e.target.value })}
-                >
-                  <option value="CARTERA_MOROSA">CARTERA_MOROSA — Cartera Morosa</option>
-                  <option value="EJECUCION_CUOTAS">EJECUCION_CUOTAS — Ejecución de Cuotas</option>
-                  <option value="PAGOS_RECIENTES">PAGOS_RECIENTES — Pagos Recientes</option>
-                  <option value="EJECUCION_PRESUPUESTAL">EJECUCION_PRESUPUESTAL — Ejecución Presupuestal</option>
-                </select>
-                <p className="text-[11px] text-muted-foreground mt-1">
-                  Solo se permiten claves vinculadas a implementaciones certificadas del motor Java.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-foreground mb-1">
-                    Formato por Defecto
-                  </label>
-                  <select
-                    className="w-full border rounded px-3 py-1.5 text-sm bg-background text-foreground"
-                    value={nuevaConfigForm.formatoSalidaDefecto}
-                    onChange={(e) => setNuevaConfigForm({ ...nuevaConfigForm, formatoSalidaDefecto: e.target.value })}
-                  >
-                    <option value="PDF">PDF</option>
-                    <option value="CSV">CSV</option>
-                    <option value="XLSX">Excel (XLSX)</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-foreground mb-1">
-                    Filtros JSON (opcional)
-                  </label>
-                  <input
-                    type="text"
-                    placeholder='{"size": 100}'
-                    className="w-full border rounded px-3 py-1.5 text-sm font-mono bg-background text-foreground"
-                    value={nuevaConfigForm.parametrosFiltroJson}
-                    onChange={(e) => setNuevaConfigForm({ ...nuevaConfigForm, parametrosFiltroJson: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-foreground mb-1">
-                  Descripción (opcional)
-                </label>
-                <textarea
-                  rows={2}
-                  placeholder="Detalles sobre el propósito de este reporte..."
-                  className="w-full border rounded px-3 py-1.5 text-sm bg-background text-foreground"
-                  value={nuevaConfigForm.descripcion}
-                  onChange={(e) => setNuevaConfigForm({ ...nuevaConfigForm, descripcion: e.target.value })}
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2 border-t border-border">
-                <button
-                  type="button"
-                  onClick={() => setModalNuevaConfig(false)}
-                  className="px-3 py-1.5 text-xs font-medium rounded border border-border text-foreground hover:bg-muted"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={guardandoConfig}
-                  className="px-3 py-1.5 text-xs font-medium rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-                >
-                  {guardandoConfig ? 'Guardando...' : 'Crear Plantilla'}
-                </button>
-              </div>
-            </form>
+      <Modal open={modalNuevaConfig} onClose={() => setModalNuevaConfig(false)} title="Nueva configuración de reporte">
+        <form onSubmit={handleCrearConfiguracion} className="space-y-4">
+          <Input
+            id="rep-nombre"
+            label="Nombre de la configuración"
+            required
+            placeholder="Ej. Cartera morosa trimestral"
+            value={nuevaConfigForm.nombre}
+            onChange={(e) => setNuevaConfigForm({ ...nuevaConfigForm, nombre: e.target.value })}
+          />
+          <Input
+            id="rep-codigo"
+            label="Código (opcional)"
+            placeholder="Ej. REP_CARTERA_Q3"
+            className="font-mono uppercase"
+            value={nuevaConfigForm.codigo}
+            onChange={(e) => setNuevaConfigForm({ ...nuevaConfigForm, codigo: e.target.value.toUpperCase() })}
+          />
+          <div className="space-y-1">
+            <Select
+              id="rep-origen"
+              label="Fuente de datos"
+              required
+              value={nuevaConfigForm.consultaOrigenClave}
+              onChange={(e) => setNuevaConfigForm({ ...nuevaConfigForm, consultaOrigenClave: e.target.value })}
+            >
+              <option value="CARTERA_MOROSA">Cartera morosa (CARTERA_MOROSA)</option>
+              <option value="EJECUCION_CUOTAS">Ejecución de cuotas (EJECUCION_CUOTAS)</option>
+              <option value="PAGOS_RECIENTES">Pagos recientes (PAGOS_RECIENTES)</option>
+              <option value="EJECUCION_PRESUPUESTAL">Ejecución presupuestal (EJECUCION_PRESUPUESTAL)</option>
+            </Select>
+            <p className="text-xs text-text-muted">Solo se permiten fuentes autorizadas por el sistema.</p>
           </div>
-        </div>
-      )}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Select
+              id="rep-formato"
+              label="Formato por defecto"
+              value={nuevaConfigForm.formatoSalidaDefecto}
+              onChange={(e) => setNuevaConfigForm({ ...nuevaConfigForm, formatoSalidaDefecto: e.target.value })}
+            >
+              <option value="PDF">PDF</option>
+              <option value="CSV">CSV</option>
+              <option value="XLSX">Excel (XLSX)</option>
+            </Select>
+            <Input
+              id="rep-filtros"
+              label="Filtros JSON (opcional)"
+              placeholder='{"size": 100}'
+              className="font-mono"
+              value={nuevaConfigForm.parametrosFiltroJson}
+              onChange={(e) => setNuevaConfigForm({ ...nuevaConfigForm, parametrosFiltroJson: e.target.value })}
+            />
+          </div>
+          <Textarea
+            id="rep-descripcion"
+            label="Descripción (opcional)"
+            rows={2}
+            placeholder="Propósito de este reporte"
+            value={nuevaConfigForm.descripcion}
+            onChange={(e) => setNuevaConfigForm({ ...nuevaConfigForm, descripcion: e.target.value })}
+          />
+          <div className="flex justify-end gap-2 border-t border-border pt-3">
+            <Button variant="outline" type="button" onClick={() => setModalNuevaConfig(false)} disabled={guardandoConfig}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={guardandoConfig} loading={guardandoConfig}>
+              {guardandoConfig ? 'Guardando…' : 'Crear plantilla'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      <ConfirmDialog
+        open={!!desactivarTarget}
+        onClose={() => setDesactivarTarget(null)}
+        onConfirm={() => handleDesactivarConfigurado(desactivarTarget?.idReporteConfig)}
+        title="Desactivar plantilla"
+        message={`¿Está seguro de desactivar la plantilla "${desactivarTarget?.nombre || ''}"?`}
+        confirmLabel="Desactivar"
+        danger
+      />
     </div>
   );
+}
+
+function SkeletonRows() {
+  return (
+    <div className="space-y-3 p-4" role="status" aria-label="Cargando">
+      <Skeleton className="h-9 w-full" />
+      <Skeleton className="h-9 w-full" />
+      <Skeleton className="h-9 w-full" />
+    </div>
+  );
+}
+
+function ReportPanel({ title, description, toolbar, children }) {
+  return (
+    <section className="table-container" aria-label={title}>
+      <div className="flex flex-col gap-3 border-b border-border px-4 py-3.5 sm:px-5 lg:flex-row lg:items-end lg:justify-between">
+        <div className="min-w-0">
+          <h2 className="text-base font-bold text-on-surface">{title}</h2>
+          {description && <p className="mt-0.5 text-xs text-text-muted">{description}</p>}
+        </div>
+        {toolbar && <div className="flex flex-wrap items-end gap-3">{toolbar}</div>}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function AccionBadge({ accion }) {
+  const variant = ACCION_VARIANT[accion] || 'secondary';
+  return <Badge variant={variant} className="font-mono">{accion}</Badge>;
 }

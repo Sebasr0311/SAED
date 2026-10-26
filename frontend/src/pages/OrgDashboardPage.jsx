@@ -1,64 +1,70 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../lib/api.js';
+import { cn } from '../lib/utils.js';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card.tsx';
 import { Badge } from '../components/ui/badge.tsx';
 import { Skeleton } from '../components/ui/skeleton.tsx';
 import { Button } from '../components/ui/button.tsx';
-import { Building2, Home, Users, DollarSign, ShieldCheck, ArrowUpRight, TrendingUp, AlertCircle } from 'lucide-react';
+import { PageHeader } from '../components/ui/PageHeader.jsx';
+import { PageContainer } from '../components/layout/PageContainer.jsx';
+import { MetricCard } from '../components/ui/MetricCard.jsx';
+import EmptyState from '../components/ui/EmptyState.jsx';
+import ErrorState from '../components/ui/ErrorState.jsx';
+import { Building2, Home, Users, DollarSign, ArrowUpRight, Plus } from 'lucide-react';
 import { KpiSummaryPanel } from '../components/KpiSummaryPanel.jsx';
+
+/** Plan consumption meter: Índigo fill, amber from 80 %, danger at the limit. */
+function UsageMeter({ label, used, limit, percent }) {
+  const pct = Math.max(0, Math.min(100, Number(percent) || 0));
+  const tone = pct >= 100 ? 'bg-btn-danger' : pct >= 80 ? 'bg-btn-warn' : 'bg-btn-primary';
+  return (
+    <div className="space-y-2">
+      <div className="flex items-baseline justify-between gap-2 text-xs">
+        <span className="font-semibold text-on-surface">{label}</span>
+        <span className="tabular-nums text-text-secondary">
+          {used || 0} / {limit || '∞'}
+        </span>
+      </div>
+      <div
+        className="h-2 w-full overflow-hidden rounded-[2px] bg-surface-dim"
+        role="progressbar"
+        aria-label={`${label}: ${pct}% utilizado`}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={pct}
+      >
+        <div className={cn('h-full transition-[width] duration-300 ease-out', tone)} style={{ width: `${pct}%` }} />
+      </div>
+      <p className={cn('text-right text-xs tabular-nums', pct >= 80 ? 'font-semibold text-tint-amber-fg' : 'text-text-muted')}>
+        {pct}% utilizado
+      </p>
+    </div>
+  );
+}
 
 export default function OrgDashboardPage() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    async function load() {
-      try {
-        setLoading(true);
-        const res = await api.get('/org/dashboard');
-        setData(res?.data || res || {});
-      } catch (err) {
-        console.error('Error loading org dashboard:', err);
-        setError('No se pudo cargar el dashboard organizacional.');
-      } finally {
-        setLoading(false);
-      }
+  const load = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await api.get('/org/dashboard');
+      setData(res?.data || res || {});
+    } catch (err) {
+      console.error('Error loading org dashboard:', err);
+      setError('No se pudo cargar el dashboard organizacional.');
+    } finally {
+      setLoading(false);
     }
-    load();
   }, []);
 
-  if (loading) {
-    return (
-      <div className="p-6 space-y-6">
-        <div className="flex justify-between items-center">
-          <div>
-            <Skeleton className="h-8 w-64 mb-2" />
-            <Skeleton className="h-4 w-96" />
-          </div>
-          <Skeleton className="h-10 w-32" />
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {[1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-32 rounded-xl" />
-          ))}
-        </div>
-        <Skeleton className="h-64 w-full rounded-xl" />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="p-6">
-        <div className="bg-destructive/15 border border-destructive text-destructive px-4 py-3 rounded-lg flex items-center gap-3">
-          <AlertCircle className="w-5 h-5" />
-          <span>{error}</span>
-        </div>
-      </div>
-    );
-  }
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const props = data?.propiedades || { total: 0, activas: 0, inactivas: 0 };
   const units = data?.unidades || { total: 0 };
@@ -71,260 +77,191 @@ export default function OrgDashboardPage() {
   const formatCOP = (val) =>
     new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(val || 0);
 
-  return (
-    <div className="p-6 space-y-8 animate-fadeIn">
-      <KpiSummaryPanel />
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-border pb-6">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-bold tracking-tight text-foreground">
-              Consola de Organización
-            </h1>
-            <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 text-xs px-2.5 py-0.5 font-medium">
-              {sub?.planNombre || 'Plan Activo'}
-            </Badge>
-          </div>
-          <p className="text-sm text-muted-foreground mt-1">
-            Supervisión institucional, límites de suscripción y cartera agregada de sus propiedades.
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
+  const header = (
+    <PageHeader
+      title="Consola de organización"
+      subtitle="Supervisión de sus propiedades, límites de suscripción y cartera agregada."
+      badge={!loading && !error && sub?.planNombre ? <Badge variant="info">{sub.planNombre}</Badge> : null}
+      action={
+        <Button asChild>
           <Link to="/org/propiedades">
-            <Button className="flex items-center gap-2">
-              <Home className="w-4 h-4" />
-              <span>Gestionar Propiedades</span>
-            </Button>
+            <Home aria-hidden="true" />
+            Gestionar propiedades
           </Link>
+        </Button>
+      }
+    />
+  );
+
+  if (loading) {
+    return (
+      <PageContainer>
+        {header}
+        <div role="status" aria-busy="true" aria-label="Cargando consola" className="space-y-6">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {[1, 2, 3, 4].map((i) => (
+              <Skeleton key={i} className="h-28 rounded-lg" />
+            ))}
+          </div>
+          <Skeleton className="h-40 w-full rounded-lg" />
+          <Skeleton className="h-64 w-full rounded-lg" />
         </div>
+      </PageContainer>
+    );
+  }
+
+  if (error) {
+    return (
+      <PageContainer>
+        {header}
+        <ErrorState title="No se pudo cargar la consola" message={error} onRetry={load} />
+      </PageContainer>
+    );
+  }
+
+  return (
+    <PageContainer>
+      {header}
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <MetricCard
+          label="Propiedades activas"
+          value={props.activas}
+          context={`${props.total} registradas · ${sub.porcentajePropiedades || 0}% del límite`}
+          icon={Home}
+        />
+        <MetricCard
+          label="Unidades totales"
+          value={units.total}
+          context={`En todas las copropiedades · ${sub.porcentajeUnidades || 0}% del límite`}
+          icon={Building2}
+          variant="info"
+        />
+        <MetricCard
+          label="Administradores"
+          value={admins.activos}
+          context={`${users.total} usuarios en la organización`}
+          icon={Users}
+          variant="secondary"
+        />
+        <MetricCard
+          label="Recaudo consolidado"
+          value={formatCOP(finanzas.totalRecaudado)}
+          context={`Por cobrar: ${formatCOP(finanzas.carteraPendiente)}`}
+          icon={DollarSign}
+          variant="success"
+        />
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="border border-border/80 shadow-sm hover:shadow-md transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Propiedades
-            </CardTitle>
-            <div className="p-2 bg-primary/10 text-primary rounded-lg">
-              <Home className="w-5 h-5" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-extrabold text-foreground">{props.activas}</div>
-            <p className="text-xs text-muted-foreground mt-1 flex items-center justify-between">
-              <span>{props.total} registradas en total</span>
-              <span className="font-semibold text-primary">{sub.porcentajePropiedades || 0}% límite</span>
-            </p>
-          </CardContent>
-        </Card>
+      <KpiSummaryPanel />
 
-        <Card className="border border-border/80 shadow-sm hover:shadow-md transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Unidades Totales
-            </CardTitle>
-            <div className="p-2 bg-blue-500/10 text-blue-600 rounded-lg">
-              <Building2 className="w-5 h-5" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-extrabold text-foreground">{units.total}</div>
-            <p className="text-xs text-muted-foreground mt-1 flex items-center justify-between">
-              <span>Distribuidas en copropiedades</span>
-              <span className="font-semibold text-blue-600">{sub.porcentajeUnidades || 0}% límite</span>
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="border border-border/80 shadow-sm hover:shadow-md transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Administradores
-            </CardTitle>
-            <div className="p-2 bg-emerald-500/10 text-emerald-600 rounded-lg">
-              <Users className="w-5 h-5" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-extrabold text-foreground">{admins.activos}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {users.total} usuarios totales en la organización
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="border border-border/80 shadow-sm hover:shadow-md transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Recaudo Consolidado
-            </CardTitle>
-            <div className="p-2 bg-emerald-500/10 text-emerald-600 rounded-lg">
-              <DollarSign className="w-5 h-5" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-foreground truncate">
-              {formatCOP(finanzas.totalRecaudado)}
-            </div>
-            <p className="text-xs text-amber-600 font-medium mt-1">
-              Cartera por cobrar: {formatCOP(finanzas.carteraPendiente)}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Plan Limits Consumption Progress */}
-      <Card className="border border-border/80 shadow-sm">
-        <CardHeader className="border-b border-border/40 pb-4">
-          <div className="flex items-center justify-between">
+      <Card>
+        <CardHeader className="border-b border-border pb-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <CardTitle className="text-base font-semibold text-foreground">
-                Consumo de Límites del Plan SaaS
-              </CardTitle>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Capacidad contratada para su organización según el plan {sub.planNombre || 'SaaS'}
+              <CardTitle className="text-[15px]">Consumo de límites del plan</CardTitle>
+              <p className="mt-0.5 text-xs text-text-muted">
+                Capacidad contratada según el plan {sub.planNombre || 'vigente'}.
               </p>
             </div>
-            <Link to="/org/plan">
-              <Button variant="ghost" size="sm" className="text-xs gap-1 text-primary">
-                <span>Ver Plan Completo</span>
-                <ArrowUpRight className="w-3.5 h-3.5" />
-              </Button>
-            </Link>
+            <Button asChild variant="ghost" size="sm" className="min-h-10 text-primary-text sm:min-h-8">
+              <Link to="/org/plan">
+                Ver plan completo
+                <ArrowUpRight aria-hidden="true" />
+              </Link>
+            </Button>
           </div>
         </CardHeader>
         <CardContent className="pt-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Propiedades */}
-            <div className="space-y-2">
-              <div className="flex justify-between text-xs">
-                <span className="font-medium text-foreground">Propiedades</span>
-                <span className="text-muted-foreground">{sub.consumoPropiedades || 0} / {sub.limitePropiedades || '∞'}</span>
-              </div>
-              <div className="w-full bg-secondary h-2.5 rounded-full overflow-hidden">
-                <div
-                  className="bg-primary h-full transition-all duration-500"
-                  style={{ width: `${Math.min(100, sub.porcentajePropiedades || 0)}%` }}
-                />
-              </div>
-              <p className="text-[11px] text-muted-foreground text-right">{sub.porcentajePropiedades || 0}% utilizado</p>
-            </div>
-
-            {/* Unidades */}
-            <div className="space-y-2">
-              <div className="flex justify-between text-xs">
-                <span className="font-medium text-foreground">Unidades Residenciales</span>
-                <span className="text-muted-foreground">{sub.consumoUnidades || 0} / {sub.limiteUnidades || '∞'}</span>
-              </div>
-              <div className="w-full bg-secondary h-2.5 rounded-full overflow-hidden">
-                <div
-                  className="bg-blue-600 h-full transition-all duration-500"
-                  style={{ width: `${Math.min(100, sub.porcentajeUnidades || 0)}%` }}
-                />
-              </div>
-              <p className="text-[11px] text-muted-foreground text-right">{sub.porcentajeUnidades || 0}% utilizado</p>
-            </div>
-
-            {/* Usuarios */}
-            <div className="space-y-2">
-              <div className="flex justify-between text-xs">
-                <span className="font-medium text-foreground">Usuarios de Plataforma</span>
-                <span className="text-muted-foreground">{sub.consumoUsuarios || 0} / {sub.limiteUsuarios || '∞'}</span>
-              </div>
-              <div className="w-full bg-secondary h-2.5 rounded-full overflow-hidden">
-                <div
-                  className="bg-emerald-600 h-full transition-all duration-500"
-                  style={{ width: `${Math.min(100, sub.porcentajeUsuarios || 0)}%` }}
-                />
-              </div>
-              <p className="text-[11px] text-muted-foreground text-right">{sub.porcentajeUsuarios || 0}% utilizado</p>
-            </div>
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+            <UsageMeter
+              label="Propiedades"
+              used={sub.consumoPropiedades}
+              limit={sub.limitePropiedades}
+              percent={sub.porcentajePropiedades}
+            />
+            <UsageMeter
+              label="Unidades residenciales"
+              used={sub.consumoUnidades}
+              limit={sub.limiteUnidades}
+              percent={sub.porcentajeUnidades}
+            />
+            <UsageMeter
+              label="Usuarios de plataforma"
+              used={sub.consumoUsuarios}
+              limit={sub.limiteUsuarios}
+              percent={sub.porcentajeUsuarios}
+            />
           </div>
         </CardContent>
       </Card>
 
-      {/* Recent Properties Section */}
-      <Card className="border border-border/80 shadow-sm">
-        <CardHeader className="flex flex-row items-center justify-between border-b border-border/40 pb-4">
-          <div>
-            <CardTitle className="text-base font-semibold text-foreground">
-              Propiedades de la Organización
-            </CardTitle>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Últimas copropiedades y edificios registrados
-            </p>
-          </div>
-          <Link to="/org/propiedades">
-            <Button variant="outline" size="sm" className="text-xs">
-              Ver todas ({props.total})
+      <Card>
+        <CardHeader className="border-b border-border pb-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <CardTitle className="text-[15px]">Propiedades de la organización</CardTitle>
+              <p className="mt-0.5 text-xs text-text-muted">Últimas copropiedades registradas.</p>
+            </div>
+            <Button asChild variant="outline" size="sm" className="min-h-10 sm:min-h-8">
+              <Link to="/org/propiedades">Ver todas ({props.total})</Link>
             </Button>
-          </Link>
+          </div>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left">
-              <thead className="text-xs text-muted-foreground bg-muted/30 border-b border-border">
-                <tr>
-                  <th className="px-6 py-3 font-semibold">ID</th>
-                  <th className="px-6 py-3 font-semibold">Nombre de Copropiedad</th>
-                  <th className="px-6 py-3 font-semibold">Ubicación</th>
-                  <th className="px-6 py-3 font-semibold">Tipo</th>
-                  <th className="px-6 py-3 font-semibold text-center">Unidades</th>
-                  <th className="px-6 py-3 font-semibold text-center">Admins</th>
-                  <th className="px-6 py-3 font-semibold text-center">Estado</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {recientes.length === 0 ? (
+          {recientes.length === 0 ? (
+            <EmptyState
+              icon={Home}
+              title="No hay propiedades registradas aún"
+              subtitle="Registra la primera copropiedad para empezar a administrarla desde la organización."
+            >
+              <Button asChild size="sm" className="mt-3">
+                <Link to="/org/propiedades">
+                  <Plus aria-hidden="true" />
+                  Registrar propiedad
+                </Link>
+              </Button>
+            </EmptyState>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="data-table">
+                <thead>
                   <tr>
-                    <td colSpan="7" className="px-6 py-8 text-center text-muted-foreground">
-                      No hay propiedades registradas aún.
-                    </td>
+                    <th scope="col">ID</th>
+                    <th scope="col">Copropiedad</th>
+                    <th scope="col">Ubicación</th>
+                    <th scope="col">Tipo</th>
+                    <th scope="col" className="text-right">Unidades</th>
+                    <th scope="col" className="text-right">Administradores</th>
+                    <th scope="col" className="text-center">Estado</th>
                   </tr>
-                ) : (
-                  recientes.map((p) => (
-                    <tr key={p.ID_PROPIEDAD} className="hover:bg-muted/20 transition-colors">
-                      <td className="px-6 py-4 font-mono text-xs font-semibold text-muted-foreground">
-                        #{p.ID_PROPIEDAD}
-                      </td>
-                      <td className="px-6 py-4 font-medium text-foreground">
-                        {p.NOMBRE}
-                      </td>
-                      <td className="px-6 py-4 text-xs text-muted-foreground">
+                </thead>
+                <tbody>
+                  {recientes.map((p) => (
+                    <tr key={p.ID_PROPIEDAD}>
+                      <td className="font-mono text-xs font-semibold text-text-secondary tabular-nums">#{p.ID_PROPIEDAD}</td>
+                      <td className="min-w-[10rem] font-semibold text-on-surface">{p.NOMBRE}</td>
+                      <td className="min-w-[10rem] text-xs text-text-secondary">
                         {p.DIRECCION || 'Sin dirección'}, {p.CIUDAD || 'N/A'}
                       </td>
-                      <td className="px-6 py-4 text-xs">
-                        <Badge variant="outline" className="text-[11px]">
-                          {p.TIPO_PROPIEDAD_NOMBRE || 'Edificio'}
-                        </Badge>
+                      <td>
+                        <Badge variant="outline">{p.TIPO_PROPIEDAD_NOMBRE || 'Edificio'}</Badge>
                       </td>
-                      <td className="px-6 py-4 text-xs text-center font-semibold">
-                        {p.TOTAL_UNIDADES || 0}
-                      </td>
-                      <td className="px-6 py-4 text-xs text-center font-semibold">
-                        {p.TOTAL_ADMINS || 0}
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        <Badge
-                          variant={p.ESTADO === 'ACTIVA' ? 'default' : 'secondary'}
-                          className={
-                            p.ESTADO === 'ACTIVA'
-                              ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/20 text-xs'
-                              : 'text-xs'
-                          }
-                        >
-                          {p.ESTADO || 'ACTIVA'}
+                      <td className="app-numeral text-right text-sm">{p.TOTAL_UNIDADES || 0}</td>
+                      <td className="app-numeral text-right text-sm">{p.TOTAL_ADMINS || 0}</td>
+                      <td className="text-center">
+                        <Badge variant={(p.ESTADO || 'ACTIVA') === 'ACTIVA' ? 'success' : 'secondary'}>
+                          {(p.ESTADO || 'ACTIVA') === 'ACTIVA' ? 'Activa' : p.ESTADO}
                         </Badge>
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </CardContent>
       </Card>
-    </div>
+    </PageContainer>
   );
 }

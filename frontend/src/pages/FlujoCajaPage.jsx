@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Wallet,
   TrendingUp,
@@ -10,26 +10,28 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Receipt,
-  CheckCircle2,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
 import { MetricCard } from '../components/ui/MetricCard.jsx';
 import { Badge } from '../components/ui/badge.tsx';
 import { Button } from '../components/ui/Button.jsx';
 import EmptyState from '../components/ui/EmptyState.jsx';
 import LoadingState from '../components/ui/LoadingState.jsx';
+import { ErrorState } from '../components/ui/ErrorState.jsx';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs.tsx';
 import { api } from '../lib/api.js';
 import { formatCurrency, formatDate } from '../lib/utils.js';
-import { toast } from 'sonner';
 
 export default function FlujoCajaPage() {
   const [resumen, setResumen] = useState(null);
   const [movimientos, setMovimientos] = useState([]);
   const [proyeccion, setProyeccion] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
   const [tab, setTab] = useState('resumen');
 
-  const cargarDatos = async () => {
+  const cargarDatos = useCallback(async () => {
     try {
       setLoading(true);
       const [resumenRes, movRes, proyRes] = await Promise.all([
@@ -40,16 +42,18 @@ export default function FlujoCajaPage() {
       setResumen(resumenRes?.data ?? resumenRes ?? {});
       setMovimientos(Array.isArray(movRes?.data) ? movRes.data : Array.isArray(movRes) ? movRes : []);
       setProyeccion(Array.isArray(proyRes?.data) ? proyRes.data : Array.isArray(proyRes) ? proyRes : []);
+      setLoadError(null);
     } catch (e) {
+      setLoadError(e);
       toast.error('No se pudo cargar la información de flujo de caja');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     cargarDatos();
-  }, []);
+  }, [cargarDatos]);
 
   const fmt = (v) => {
     const n = Number(v);
@@ -57,293 +61,297 @@ export default function FlujoCajaPage() {
     return formatCurrency(n);
   };
 
+  const header = (
+    <PageHeader
+      title="Flujo de caja y proyección"
+      subtitle="Ingresos confirmados, egresos ejecutados y liquidez estimada al cierre del periodo"
+      action={
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={cargarDatos}
+          disabled={loading}
+          icon={<RefreshCw className={loading ? 'h-3.5 w-3.5 animate-spin' : 'h-3.5 w-3.5'} />}
+        >
+          Actualizar balance
+        </Button>
+      }
+    />
+  );
+
   if (loading && !resumen) {
-    return <LoadingState message="Calculando balances y proyecciones de tesorería..." />;
+    return (
+      <div className="space-y-6">
+        {header}
+        <div className="rounded-lg border border-border bg-surface shadow-sm">
+          <LoadingState size="lg" message="Calculando balances y proyecciones…" />
+        </div>
+      </div>
+    );
+  }
+
+  // Without a successful load the figures would read as zero balances, so show the error instead.
+  if (loadError && !resumen) {
+    return (
+      <div className="space-y-6">
+        {header}
+        <ErrorState
+          title="No se pudo cargar el flujo de caja"
+          message="Los saldos y proyecciones no están disponibles. Revise su conexión e intente de nuevo."
+          onRetry={cargarDatos}
+        />
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-6 animate-fadeIn pb-12">
-      {/* Header Principal */}
-      <PageHeader
-        title="Flujo de Caja y Proyección"
-        subtitle="Control de tesorería en tiempo real, conciliación de ingresos, gastos ejecutados y liquidez estimada"
-        action={
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={cargarDatos}
-            icon={<RefreshCw className="w-3.5 h-3.5" />}
-          >
-            Actualizar Balance
-          </Button>
-        }
-      />
+    <div className="space-y-6 pb-12">
+      {header}
 
-      {/* Métricas Ejecutivas */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-        <MetricCard
-          label="Saldo en Bancos"
-          value={fmt(resumen?.saldoActual)}
-          subtitle="Saldo consolidado disponible"
-          icon={<Wallet className="w-5 h-5 text-primary" />}
-          variant="primary"
+      {loadError && (
+        <ErrorState
+          compact
+          title="No se pudo actualizar el balance"
+          message="Se muestran los últimos datos cargados."
+          onRetry={cargarDatos}
         />
-        <MetricCard
-          label="Ingresos Realizados"
-          value={fmt(resumen?.totalIngresos)}
-          subtitle="Cuotas y recaudos confirmados"
-          icon={<TrendingUp className="w-5 h-5 text-emerald-500" />}
-          variant="success"
-        />
-        <MetricCard
-          label="Egresos Ejecutados"
-          value={fmt(resumen?.totalEgresos)}
-          subtitle="Gastos operativos pagados"
-          icon={<TrendingDown className="w-5 h-5 text-rose-500" />}
-          variant="danger"
-        />
-        <MetricCard
-          label="Ingresos Esperados"
-          value={fmt(resumen?.ingresosEsperados)}
-          subtitle="Cartera pendiente del mes"
-          icon={<Clock className="w-5 h-5 text-amber-500" />}
-          variant="warning"
-        />
-        <MetricCard
-          label="Gastos Programados"
-          value={fmt(resumen?.gastosProgramados)}
-          subtitle="Facturas y servicios por pagar"
-          icon={<Receipt className="w-5 h-5 text-amber-500" />}
-          variant="warning"
-        />
-        <MetricCard
-          label="Proyección Final"
-          value={fmt(resumen?.proyeccionSaldo)}
-          subtitle="Liquidez estimada al cierre"
-          icon={<BarChart3 className="w-5 h-5 text-sky-500" />}
-          variant="info"
-        />
+      )}
+
+      <div className="space-y-3">
+        <h2 className="text-[13px] font-semibold text-text-secondary">Realizado</h2>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <MetricCard
+            label="Saldo en bancos"
+            value={fmt(resumen?.saldoActual)}
+            subtitle="Saldo consolidado disponible"
+            icon={Wallet}
+            variant="primary"
+          />
+          <MetricCard
+            label="Ingresos realizados"
+            value={fmt(resumen?.totalIngresos)}
+            subtitle="Cuotas y recaudos confirmados"
+            icon={TrendingUp}
+            variant="success"
+          />
+          <MetricCard
+            label="Egresos ejecutados"
+            value={fmt(resumen?.totalEgresos)}
+            subtitle="Gastos operativos pagados"
+            icon={TrendingDown}
+            variant="danger"
+          />
+        </div>
+        <h2 className="pt-2 text-[13px] font-semibold text-text-secondary">Proyectado</h2>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <MetricCard
+            label="Ingresos esperados"
+            value={fmt(resumen?.ingresosEsperados)}
+            subtitle="Cartera pendiente del mes"
+            icon={Clock}
+            variant="warning"
+          />
+          <MetricCard
+            label="Gastos programados"
+            value={fmt(resumen?.gastosProgramados)}
+            subtitle="Facturas y servicios por pagar"
+            icon={Receipt}
+            variant="warning"
+          />
+          <MetricCard
+            label="Proyección al cierre"
+            value={fmt(resumen?.proyeccionSaldo)}
+            subtitle="Liquidez estimada"
+            icon={BarChart3}
+            variant="info"
+          />
+        </div>
       </div>
 
-      {/* Tabs de Navegación */}
-      <div className="flex border-b border-border gap-1 overflow-x-auto">
-        {[
-          { id: 'resumen', label: 'Resumen Ejecutivo', icon: BarChart3 },
-          { id: 'movimientos', label: 'Movimientos Recientes', icon: Receipt },
-          { id: 'proyeccion', label: 'Proyecciones Pendientes', icon: Calendar },
-        ].map((t) => {
-          const Icon = t.icon;
-          const isActive = tab === t.id;
-          return (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={`flex items-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-semibold transition-all border-b-2 -mb-px whitespace-nowrap ${
-                isActive
-                  ? 'border-primary text-primary bg-primary/5'
-                  : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40'
-              }`}
-            >
-              <Icon className={`w-4 h-4 ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />
-              <span>{t.label}</span>
-            </button>
-          );
-        })}
-      </div>
+      <Tabs value={tab} onValueChange={setTab}>
+        <div className="-mx-1 overflow-x-auto px-1 pb-1">
+          <TabsList>
+            <TabsTrigger value="resumen" className="gap-1.5">
+              <BarChart3 className="h-4 w-4" aria-hidden="true" />
+              Resumen
+            </TabsTrigger>
+            <TabsTrigger value="movimientos" className="gap-1.5">
+              <Receipt className="h-4 w-4" aria-hidden="true" />
+              Movimientos recientes
+            </TabsTrigger>
+            <TabsTrigger value="proyeccion" className="gap-1.5">
+              <Calendar className="h-4 w-4" aria-hidden="true" />
+              Proyecciones pendientes
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
-      {/* Tab: Resumen */}
-      {tab === 'resumen' && (
-        <div className="bg-card border border-border rounded-xl shadow-sm p-6 space-y-6">
-          <div>
-            <h3 className="text-lg font-bold text-foreground">Balance Consolidado del Periodo</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Cálculo automatizado basado en recaudo de cartera y ejecución presupuestal
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-5 space-y-3">
-              <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-bold text-sm">
-                <ArrowUpRight className="w-4 h-4" />
-                <span>Flujo Positivo (Ingresos)</span>
-              </div>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between items-center py-1.5 border-b border-emerald-500/10">
-                  <span className="text-muted-foreground">Recaudo Confirmado:</span>
-                  <span className="font-bold text-foreground">{fmt(resumen?.totalIngresos)}</span>
-                </div>
-                <div className="flex justify-between items-center py-1.5">
-                  <span className="text-muted-foreground">Recaudo Pendiente Estimado:</span>
-                  <span className="font-semibold text-amber-600 dark:text-amber-400">{fmt(resumen?.ingresosEsperados)}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-rose-500/5 border border-rose-500/20 rounded-xl p-5 space-y-3">
-              <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400 font-bold text-sm">
-                <ArrowDownRight className="w-4 h-4" />
-                <span>Flujo Negativo (Egresos)</span>
-              </div>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between items-center py-1.5 border-b border-rose-500/10">
-                  <span className="text-muted-foreground">Egresos Pagados:</span>
-                  <span className="font-bold text-foreground">{fmt(resumen?.totalEgresos)}</span>
-                </div>
-                <div className="flex justify-between items-center py-1.5">
-                  <span className="text-muted-foreground">Gastos Comprometidos / Pendientes:</span>
-                  <span className="font-semibold text-rose-600 dark:text-rose-400">{fmt(resumen?.gastosProgramados)}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-muted/30 border border-border p-5 rounded-xl flex flex-col sm:flex-row justify-between items-center gap-4">
-            <div>
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
-                Fórmula de Proyección
-              </span>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Saldo Actual + Ingresos Estimados - Egresos Programados
+        <TabsContent value="resumen" className="mt-4">
+          <section className="rounded-lg border border-border bg-surface shadow-sm">
+            <div className="border-b border-border px-4 py-3.5 sm:px-5">
+              <h2 className="text-base font-bold text-on-surface">Balance consolidado del periodo</h2>
+              <p className="mt-0.5 text-xs text-text-muted">
+                Calculado con el recaudo de cartera y la ejecución presupuestal
               </p>
             </div>
-            <div className="text-right">
-              <span className="text-xs text-muted-foreground block">Saldo Proyectado al Cierre</span>
-              <span className="text-2xl font-black text-primary tracking-tight">
-                {fmt(resumen?.proyeccionSaldo)}
-              </span>
+            <div className="grid grid-cols-1 divide-y divide-border-subtle md:grid-cols-2 md:divide-x md:divide-y-0">
+              <div className="p-4 sm:p-5">
+                <h3 className="mb-2 flex items-center gap-1.5 text-sm font-bold text-tint-green-fg">
+                  <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
+                  Entradas
+                </h3>
+                <dl>
+                <BalanceLine label="Recaudo confirmado" value={fmt(resumen?.totalIngresos)} />
+                <BalanceLine label="Recaudo pendiente estimado" value={fmt(resumen?.ingresosEsperados)} muted />
+                </dl>
+              </div>
+              <div className="p-4 sm:p-5">
+                <h3 className="mb-2 flex items-center gap-1.5 text-sm font-bold text-tint-red-fg">
+                  <ArrowDownRight className="h-4 w-4" aria-hidden="true" />
+                  Salidas
+                </h3>
+                <dl>
+                <BalanceLine label="Egresos pagados" value={fmt(resumen?.totalEgresos)} />
+                <BalanceLine label="Gastos comprometidos o pendientes" value={fmt(resumen?.gastosProgramados)} muted />
+                </dl>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+            <div className="flex flex-col gap-3 border-t border-border bg-surface-container px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+              <div>
+                <p className="text-[13px] font-semibold text-on-surface">Fórmula de proyección</p>
+                <p className="mt-0.5 text-xs text-text-secondary">
+                  Saldo actual + ingresos esperados − gastos programados
+                </p>
+              </div>
+              <div className="sm:text-right">
+                <p className="text-xs text-text-secondary">Saldo proyectado al cierre</p>
+                <p className="app-numeral mt-1 text-2xl text-on-surface">{fmt(resumen?.proyeccionSaldo)}</p>
+              </div>
+            </div>
+          </section>
+        </TabsContent>
 
-      {/* Tab: Movimientos Recientes */}
-      {tab === 'movimientos' && (
-        <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
-          {movimientos.length === 0 ? (
-            <div className="py-12">
+        <TabsContent value="movimientos" className="mt-4">
+          <section className="table-container">
+            {movimientos.length === 0 ? (
               <EmptyState
-                icon={<Receipt className="w-12 h-12 text-muted-foreground" />}
+                icon={Receipt}
                 title="Sin movimientos recientes"
-                description="No se registran transacciones bancarias o pagos en el periodo seleccionado."
+                subtitle="No se registran ingresos ni egresos en el periodo."
               />
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-sm">
-                <thead>
-                  <tr className="border-b border-border bg-muted/30 text-muted-foreground font-semibold text-xs uppercase tracking-wider">
-                    <th className="py-3 px-4">Fecha</th>
-                    <th className="py-3 px-4">Tipo</th>
-                    <th className="py-3 px-4">Categoría</th>
-                    <th className="py-3 px-4">Descripción</th>
-                    <th className="py-3 px-4 text-right">Monto</th>
-                    <th className="py-3 px-4 text-center">Estado</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {movimientos.map((m, i) => {
-                    const isIngreso = m.tipo === 'INGRESO';
-                    return (
-                      <tr key={i} className="hover:bg-muted/20 transition-colors">
-                        <td className="py-3 px-4 whitespace-nowrap text-xs text-muted-foreground">
-                          {formatDate(m.fecha)}
-                        </td>
-                        <td className="py-3 px-4 whitespace-nowrap">
-                          <span
-                            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
-                              isIngreso
-                                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
-                                : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
-                            }`}
-                          >
-                            {isIngreso ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-                            {m.tipo}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4 font-medium text-foreground">{m.categoria || 'Operativo'}</td>
-                        <td className="py-3 px-4 text-muted-foreground max-w-xs truncate">{m.descripcion || '-'}</td>
-                        <td
-                          className={`py-3 px-4 text-right font-bold whitespace-nowrap ${
-                            isIngreso ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
-                          }`}
-                        >
-                          {isIngreso ? '+' : '-'}{fmt(m.monto)}
-                        </td>
-                        <td className="py-3 px-4 text-center">
-                          <Badge variant={m.estado === 'PAGADO' || m.estado === 'CONFIRMADO' ? 'success' : 'secondary'}>
-                            {m.estado || 'PROCESADO'}
-                          </Badge>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
+            ) : (
+              <div className="max-h-[70vh] overflow-auto">
+                <table className="data-table">
+                  <caption className="sr-only">Últimos 25 movimientos de caja</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Fecha</th>
+                      <th scope="col">Tipo</th>
+                      <th scope="col">Categoría</th>
+                      <th scope="col">Descripción</th>
+                      <th scope="col" className="text-right">Monto</th>
+                      <th scope="col">Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {movimientos.map((m, i) => {
+                      const isIngreso = m.tipo === 'INGRESO';
+                      return (
+                        <tr key={i}>
+                          <td className="whitespace-nowrap tabular-nums text-text-secondary">{formatDate(m.fecha)}</td>
+                          <td className="whitespace-nowrap">
+                            <FlowBadge ingreso={isIngreso} label={m.tipo} />
+                          </td>
+                          <td className="font-medium">{m.categoria || 'Operativo'}</td>
+                          <td className="max-w-xs truncate text-text-secondary">{m.descripcion || '—'}</td>
+                          <td className="whitespace-nowrap text-right font-bold tabular-nums">
+                            {isIngreso ? '+' : '−'}
+                            {fmt(m.monto)}
+                          </td>
+                          <td>
+                            <Badge variant={m.estado === 'PAGADO' || m.estado === 'CONFIRMADO' ? 'success' : 'secondary'}>
+                              {m.estado || 'PROCESADO'}
+                            </Badge>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        </TabsContent>
 
-      {/* Tab: Proyección */}
-      {tab === 'proyeccion' && (
-        <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
-          {proyeccion.length === 0 ? (
-            <div className="py-12">
+        <TabsContent value="proyeccion" className="mt-4">
+          <section className="table-container">
+            {proyeccion.length === 0 ? (
               <EmptyState
-                icon={<Calendar className="w-12 h-12 text-muted-foreground" />}
+                icon={Calendar}
                 title="Sin proyecciones pendientes"
-                description="Todas las obligaciones y cuotas proyectadas han sido conciliadas."
+                subtitle="No hay cuotas ni obligaciones proyectadas por conciliar."
               />
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-sm">
-                <thead>
-                  <tr className="border-b border-border bg-muted/30 text-muted-foreground font-semibold text-xs uppercase tracking-wider">
-                    <th className="py-3 px-4">Fecha Estimada</th>
-                    <th className="py-3 px-4">Naturaleza</th>
-                    <th className="py-3 px-4">Rubro</th>
-                    <th className="py-3 px-4">Concepto</th>
-                    <th className="py-3 px-4 text-right">Monto Estimado</th>
-                    <th className="py-3 px-4">Unidad / Destino</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {proyeccion.map((p, i) => {
-                    const isIngreso = String(p.tipo || '').toUpperCase().includes('INGRESO');
-                    return (
-                      <tr key={i} className="hover:bg-muted/20 transition-colors">
-                        <td className="py-3 px-4 whitespace-nowrap text-xs text-muted-foreground">
-                          {formatDate(p.fecha)}
-                        </td>
-                        <td className="py-3 px-4 whitespace-nowrap">
-                          <span
-                            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
-                              isIngreso
-                                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
-                                : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
-                            }`}
-                          >
-                            {isIngreso ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-                            {p.tipo}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4 font-medium text-foreground">{p.categoria || 'Presupuestal'}</td>
-                        <td className="py-3 px-4 text-muted-foreground">{p.descripcion || '-'}</td>
-                        <td className="py-3 px-4 text-right font-bold text-foreground whitespace-nowrap">
-                          {fmt(p.monto)}
-                        </td>
-                        <td className="py-3 px-4 text-muted-foreground">{p.unidad || 'General'}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
+            ) : (
+              <div className="max-h-[70vh] overflow-auto">
+                <table className="data-table">
+                  <caption className="sr-only">Ingresos y egresos proyectados</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Fecha estimada</th>
+                      <th scope="col">Naturaleza</th>
+                      <th scope="col">Rubro</th>
+                      <th scope="col">Concepto</th>
+                      <th scope="col" className="text-right">Monto estimado</th>
+                      <th scope="col">Unidad o destino</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {proyeccion.map((p, i) => {
+                      const isIngreso = String(p.tipo || '').toUpperCase().includes('INGRESO');
+                      return (
+                        <tr key={i}>
+                          <td className="whitespace-nowrap tabular-nums text-text-secondary">{formatDate(p.fecha)}</td>
+                          <td className="whitespace-nowrap">
+                            <FlowBadge ingreso={isIngreso} label={p.tipo} pending />
+                          </td>
+                          <td className="font-medium">{p.categoria || 'Presupuestal'}</td>
+                          <td className="text-text-secondary">{p.descripcion || '—'}</td>
+                          <td className="whitespace-nowrap text-right font-bold tabular-nums">
+                            {isIngreso ? '+' : '−'}
+                            {fmt(p.monto)}
+                          </td>
+                          <td className="text-text-secondary">{p.unidad || 'General'}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
 
+function BalanceLine({ label, value, muted = false }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3 border-b border-border-subtle py-2 last:border-b-0">
+      <dt className="text-sm text-text-secondary">{label}</dt>
+      <dd className={muted ? 'text-sm font-semibold tabular-nums text-text-secondary' : 'text-sm font-bold tabular-nums text-on-surface'}>
+        {value}
+      </dd>
+    </div>
+  );
+}
+
+function FlowBadge({ ingreso, label, pending = false }) {
+  const Icon = ingreso ? ArrowUpRight : ArrowDownRight;
+  return (
+    <Badge variant={ingreso ? 'success' : pending ? 'warning' : 'destructive'}>
+      <Icon className="h-3 w-3" aria-hidden="true" />
+      {label}
+    </Badge>
+  );
+}

@@ -19,12 +19,12 @@ import {
   RefreshCw,
   Search,
   Send,
-  ShieldCheck,
   Trash2,
   User,
   UserCheck,
   UserPlus,
   Users,
+  X,
 } from 'lucide-react';
 
 import api from '../lib/api.js';
@@ -50,6 +50,10 @@ import { Modal } from '../components/ui/Modal.jsx';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog.jsx';
 import { Input, Select } from '../components/ui/Form.jsx';
 import EmptyState from '../components/ui/EmptyState.jsx';
+import ErrorState from '../components/ui/ErrorState.jsx';
+import LoadingState from '../components/ui/LoadingState.jsx';
+import { PageHeader } from '../components/ui/PageHeader.jsx';
+import { MetricCard } from '../components/ui/MetricCard.jsx';
 import { LocalQRCode } from '../components/ui/LocalQRCode.jsx';
 
 const emptyVisitante = {
@@ -97,6 +101,7 @@ export default function ResVisitasPage() {
   const {
     data: frecuentesRaw,
     loading: loadingFrecuentes,
+    error: errorFrecuentes,
     refetch: refetchFrecuentes,
   } = useFetch(
     () =>
@@ -115,6 +120,7 @@ export default function ResVisitasPage() {
   const {
     data: qrsRaw,
     loading: loadingQrs,
+    error: errorQrs,
     refetch: refetchQrs,
   } = useFetch(
     () =>
@@ -144,6 +150,7 @@ export default function ResVisitasPage() {
   const {
     data: historialRaw,
     loading: loadingHistorial,
+    error: errorHistorial,
     refetch: refetchHistorial,
   } = useFetch(
     () => {
@@ -648,149 +655,95 @@ export default function ResVisitasPage() {
 
   return (
     <PageContainer>
-      {/* 1. CABECERA PRINCIPAL CON BOTÓN DE REGISTRAR NUEVA VISITA */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-2 border-b border-border/70">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
-              Visitas
-            </h1>
-            <Badge variant="outline" className="text-xs font-semibold">
-              Control Peatonal y Vehicular
-            </Badge>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Gestiona tus visitantes frecuentes, autoriza nuevas visitas y comparte pases QR dinámicos para portería.
-          </p>
-        </div>
+      <PageHeader
+        title="Visitas"
+        subtitle="Gestiona tus visitantes frecuentes, autoriza nuevas visitas y comparte pases QR para portería."
+        badge={isConviviente ? <Badge variant="success">Conviviente autorizado</Badge> : null}
+        action={
+          <>
+            <Button
+              variant="outline"
+              onClick={refetchAll}
+              disabled={refreshing}
+              aria-label="Actualizar listados de visitas"
+              className="min-h-10 gap-1.5"
+            >
+              <RefreshCw className={cn('h-4 w-4', refreshing && 'animate-spin motion-reduce:animate-none')} aria-hidden="true" />
+              <span className="hidden sm:inline">Actualizar</span>
+            </Button>
+            <Button
+              onClick={() => {
+                setForm(emptyForm);
+                setBuscarDoc('');
+                setBuscarDocDebounced('');
+                setErrors({});
+                resetTouched();
+                setModalNuevaVisita(true);
+              }}
+              className="min-h-10 gap-2"
+            >
+              <UserPlus className="h-4 w-4" aria-hidden="true" />
+              Registrar nueva visita
+            </Button>
+          </>
+        }
+      />
 
-        <div className="flex items-center gap-2.5 self-stretch sm:self-auto">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={refetchAll}
-            disabled={refreshing}
-            className="gap-1.5 shadow-sm text-xs"
-          >
-            <RefreshCw className={cn('w-3.5 h-3.5', refreshing && 'animate-spin')} />
-            <span className="hidden sm:inline">Actualizar</span>
-          </Button>
-
-          <Button
-            onClick={() => {
-              setForm(emptyForm);
-              setBuscarDoc('');
-              setBuscarDocDebounced('');
-              setErrors({});
-              resetTouched();
-              setModalNuevaVisita(true);
-            }}
-            className="gap-2 font-semibold shadow-sm text-xs sm:text-sm bg-primary text-primary-foreground hover:bg-primary/90"
-          >
-            <UserPlus className="w-4 h-4" />
-            Registrar Nueva Visita
-          </Button>
-        </div>
+      <div className={cn('grid grid-cols-1 gap-4', isConviviente ? 'sm:grid-cols-2' : 'sm:grid-cols-3')}>
+        <MetricCard
+          label="Visitantes frecuentes"
+          value={loadingFrecuentes ? '…' : errorFrecuentes ? '—' : frecuentes.length}
+          context="Familiares, amigos y servicios de confianza"
+          icon={Users}
+          variant="info"
+        />
+        <MetricCard
+          label="Pases QR vigentes"
+          value={loadingQrs ? '…' : errorQrs ? '—' : qrActivos.length}
+          context={qrActivos.length > 0 ? 'Listos para validar en portería' : 'Sin invitaciones en curso'}
+          icon={QrCode}
+          variant={qrActivos.length > 0 ? 'success' : 'secondary'}
+        />
+        {!isConviviente && (
+          <MetricCard
+            label="Visitas en el historial"
+            value={loadingHistorial ? '…' : errorHistorial ? '—' : totalHistorial}
+            context="Ingresos registrados por portería"
+            icon={History}
+            variant="secondary"
+          />
+        )}
       </div>
 
-      {/* 2. STRIP DE 3 KPIS DE GESTIÓN DE VISITAS */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {/* KPI 1: Frecuentes */}
-        <Card className="border-border/70 bg-card">
-          <CardContent className="p-4 sm:p-5 flex items-center gap-4">
-            <div className="p-3 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 shrink-0">
-              <Users className="w-6 h-6" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Visitantes Frecuentes
-              </p>
-              <h3 className="text-xl font-bold text-foreground truncate">
-                {frecuentes.length} Registrado(s)
-              </h3>
-              <p className="text-xs text-muted-foreground truncate">
-                Familiares, amigos y servicios de confianza
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* KPI 2: QR Activos */}
-        <Card className="border-border/70 bg-card">
-          <CardContent className="p-4 sm:p-5 flex items-center gap-4">
-            <div className="p-3 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 shrink-0">
-              <QrCode className="w-6 h-6" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Pases QR Vigentes
-              </p>
-              <h3 className="text-xl font-bold text-foreground truncate">
-                {qrActivos.length} Activo(s)
-              </h3>
-              <p className="text-xs text-muted-foreground truncate">
-                {qrActivos.length > 0
-                  ? 'Listos para validación en portería'
-                  : 'Sin invitaciones en tránsito'}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* KPI 3: Seguridad y Protocolo */}
-        <Card className="border-border/70 bg-card">
-          <CardContent className="p-4 sm:p-5 flex items-center gap-4">
-            <div className="p-3 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 shrink-0">
-              <ShieldCheck className="w-6 h-6" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Portería & Seguridad
-              </p>
-              <h3 className="text-xl font-bold text-foreground truncate">
-                Control 24/7
-              </h3>
-              <p className="text-xs text-muted-foreground truncate">
-                Lector digital y registro fotográfico
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* 3. TABS: FRECUENTES, PASES ACTIVOS & HISTORIAL (SOLO RESIDENTE TITULAR) */}
       <Tabs defaultValue="frecuentes" className="space-y-6">
-        <TabsList
-          className={cn(
-            'grid w-full h-11 p-1 bg-muted/80 rounded-xl border border-border',
-            isConviviente ? 'grid-cols-2 max-w-md' : 'grid-cols-3 max-w-xl'
-          )}
-        >
-          <TabsTrigger value="frecuentes" className="gap-2 text-xs sm:text-sm font-semibold">
-            <Users className="w-4 h-4" />
-            Visitantes Frecuentes ({frecuentes.length})
-          </TabsTrigger>
-          <TabsTrigger value="activos" className="gap-2 text-xs sm:text-sm font-semibold">
-            <QrCode className="w-4 h-4" />
-            Pases QR Activos ({qrActivos.length})
-          </TabsTrigger>
-          {!isConviviente && (
-            <TabsTrigger value="historial" className="gap-2 text-xs sm:text-sm font-semibold">
-              <History className="w-4 h-4" />
-              Historial ({totalHistorial})
+        <div className="-mx-1 overflow-x-auto px-1 pb-1">
+          <TabsList className="w-max">
+            <TabsTrigger value="frecuentes" className="gap-2">
+              <Users className="h-4 w-4" aria-hidden="true" />
+              Frecuentes <span className="tabular-nums">({frecuentes.length})</span>
             </TabsTrigger>
-          )}
-        </TabsList>
+            <TabsTrigger value="activos" className="gap-2">
+              <QrCode className="h-4 w-4" aria-hidden="true" />
+              Pases QR activos <span className="tabular-nums">({qrActivos.length})</span>
+            </TabsTrigger>
+            {!isConviviente && (
+              <TabsTrigger value="historial" className="gap-2">
+                <History className="h-4 w-4" aria-hidden="true" />
+                Historial <span className="tabular-nums">({totalHistorial})</span>
+              </TabsTrigger>
+            )}
+          </TabsList>
+        </div>
 
         {/* TAB 1: VISITANTES FRECUENTES */}
         <TabsContent value="frecuentes" className="space-y-4">
-          <Card className="border-border/80">
+          <Card className="border-border bg-surface">
             <CardHeader className="pb-3">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <UserCheck className="w-5 h-5 text-primary" />
-                    Mis Visitantes Frecuentes
+                  <CardTitle className="text-lg flex items-center gap-2 text-on-surface">
+                    <UserCheck className="w-5 h-5 text-primary-text" />
+                    Mis visitantes frecuentes
                   </CardTitle>
                   <CardDescription>
                     Genera pases de acceso rápido en un solo clic con los datos habituales de tus invitados
@@ -799,21 +752,22 @@ export default function ResVisitasPage() {
 
                 {/* Buscador en tiempo real */}
                 <div className="w-full sm:w-72 relative">
-                  <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <Search className="w-4 h-4 text-primary-text absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
                     type="text"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder="Buscar por nombre o cédula..."
-                    className="w-full pl-9 pr-3 py-1.5 text-xs rounded-lg border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    className="w-full pl-9 pr-3 py-1.5 text-xs rounded-lg border border-border bg-surface-container text-on-surface focus:outline-none focus:ring-2 focus:ring-ring"
                   />
                   {search && (
                     <button
                       type="button"
                       onClick={() => setSearch('')}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs"
+                      className="absolute right-1 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded text-text-muted hover:text-on-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      aria-label="Limpiar búsqueda"
                     >
-                      ×
+                      <X className="h-3.5 w-3.5" aria-hidden="true" />
                     </button>
                   )}
                 </div>
@@ -821,12 +775,17 @@ export default function ResVisitasPage() {
             </CardHeader>
             <CardContent>
               {loadingFrecuentes ? (
-                <div className="p-8 text-center text-muted-foreground text-xs">
-                  Cargando visitantes frecuentes...
-                </div>
+                <LoadingState size="sm" message="Cargando visitantes frecuentes…" className="p-0" />
+              ) : errorFrecuentes ? (
+                <ErrorState
+                  compact
+                  title="No se pudieron cargar tus visitantes frecuentes"
+                  message="Revisa tu conexión e intenta de nuevo."
+                  onRetry={() => refetchFrecuentes().catch(() => {})}
+                />
               ) : frecuentesFiltrados.length === 0 ? (
                 <EmptyState
-                  icon="groups"
+                  icon={Users}
                   title={search ? 'No se encontraron coincidencias' : 'Aún no tienes visitantes frecuentes'}
                   subtitle={
                     search
@@ -844,16 +803,16 @@ export default function ResVisitasPage() {
                         resetTouched();
                         setModalNuevaVisita(true);
                       }}
-                      className="gap-2 text-xs font-semibold"
+                      className="gap-2 text-xs font-semibold bg-btn-primary hover:bg-btn-primary-hover text-white"
                     >
                       <UserPlus className="w-4 h-4" />
-                      Registrar Nueva Visita
+                      Registrar nueva visita
                     </Button>
                   </div>
                 </EmptyState>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {frecuentesFiltrados.map((f) => {
+                  {frecuentesFiltrados.map((f, idx) => {
                     const iniciales = (f.nombreVisitante || 'Visitante')
                       .split(' ')
                       .filter(Boolean)
@@ -864,52 +823,52 @@ export default function ResVisitasPage() {
 
                     return (
                       <div
-                        key={f.idFrecuente || f.idVisitante}
-                        className="p-5 rounded-xl border border-border bg-card hover:shadow-sm transition-all space-y-4 flex flex-col justify-between"
+                        key={f.idFrecuente || f.idVisitante || `frecuente-${idx}`}
+                        className="p-5 rounded-xl border border-border bg-surface hover:border-primary/40 hover:shadow-md transition-all space-y-4 flex flex-col justify-between"
                       >
                         <div className="space-y-3">
                           <div className="flex items-start gap-3.5">
-                            <div className="w-12 h-12 rounded-xl bg-primary/10 border border-primary/20 text-primary font-black text-sm flex items-center justify-center shrink-0">
+                            <div className="w-12 h-12 rounded-xl bg-tint-purple-bg border border-primary/20 text-primary-text font-black text-sm flex items-center justify-center shrink-0">
                               {iniciales || 'VI'}
                             </div>
                             <div className="min-w-0 flex-1">
-                              <h4 className="text-sm font-bold text-foreground truncate">
+                              <h4 className="text-sm font-bold text-on-surface truncate">
                                 {f.nombreVisitante || 'Visitante Frecuente'}
                               </h4>
-                              <p className="text-xs text-muted-foreground font-mono mt-0.5">
+                              <p className="text-xs text-text-muted font-mono mt-0.5">
                                 Doc: {f.documento || '—'}
                               </p>
                               {f.empresa && (
-                                <Badge variant="secondary" className="text-[10px] mt-1">
+                                <Badge className="text-[10px] mt-1 bg-tint-blue-bg text-on-surface border-border">
                                   {f.empresa}
                                 </Badge>
                               )}
                             </div>
                           </div>
 
-                          <div className="p-3 rounded-lg bg-muted/30 border border-border/50 text-xs space-y-1.5">
+                          <div className="p-3 rounded-lg bg-surface-container border border-border text-xs space-y-1.5">
                             {f.ultimaPlaca ? (
                               <div className="flex items-center justify-between">
-                                <span className="text-muted-foreground flex items-center gap-1">
-                                  <Car className="w-3.5 h-3.5" /> Placa habitual:
+                                <span className="text-text-muted flex items-center gap-1">
+                                  <Car className="w-3.5 h-3.5 text-primary-text" /> Placa habitual:
                                 </span>
-                                <span className="font-mono font-bold text-foreground bg-card px-1.5 py-0.5 rounded border border-border">
+                                <span className="font-mono font-bold text-on-surface bg-surface px-1.5 py-0.5 rounded border border-border">
                                   {f.ultimaPlaca}
                                 </span>
                               </div>
                             ) : (
-                              <div className="flex items-center justify-between text-muted-foreground">
+                              <div className="flex items-center justify-between text-text-muted">
                                 <span>Medio habitual:</span>
-                                <span className="font-medium text-foreground">Peatonal (A pie)</span>
+                                <span className="font-medium text-on-surface">Peatonal (A pie)</span>
                               </div>
                             )}
 
                             {f.ultimaVisita && (
                               <div className="flex items-center justify-between">
-                                <span className="text-muted-foreground flex items-center gap-1">
-                                  <Clock className="w-3.5 h-3.5" /> Último ingreso:
+                                <span className="text-text-muted flex items-center gap-1">
+                                  <Clock className="w-3.5 h-3.5 text-primary-text" /> Último ingreso:
                                 </span>
-                                <span className="text-foreground">
+                                <span className="text-on-surface font-medium">
                                   {formatDate(f.ultimaVisita)}
                                 </span>
                               </div>
@@ -922,16 +881,16 @@ export default function ResVisitasPage() {
                             variant="default"
                             size="sm"
                             onClick={() => abrirPaseRapido(f)}
-                            className="flex-1 gap-1.5 text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90"
+                            className="flex-1 gap-1.5 text-xs font-semibold bg-btn-primary text-white hover:bg-btn-primary-hover"
                           >
                             <QrCode className="w-3.5 h-3.5" />
-                            Pase Rápido
+                            Pase rápido
                           </Button>
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() => setConfirmQuitar(f)}
-                            className="px-2.5 text-muted-foreground hover:text-rose-600 hover:border-rose-300 dark:hover:border-rose-800"
+                            className="px-2.5 border-border text-text-muted hover:text-tint-red-fg hover:border-tint-red-fg/25"
                             title="Quitar de frecuentes"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -948,13 +907,13 @@ export default function ResVisitasPage() {
 
         {/* TAB 2: PASES QR ACTIVOS */}
         <TabsContent value="activos" className="space-y-4">
-          <Card className="border-border/80">
+          <Card className="border-border bg-surface">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <QrCode className="w-5 h-5 text-primary" />
-                    Pases de Acceso QR Vigentes
+                  <CardTitle className="text-lg flex items-center gap-2 text-on-surface">
+                    <QrCode className="w-5 h-5 text-primary-text" />
+                    Pases de acceso QR vigentes
                   </CardTitle>
                   <CardDescription>
                     Códigos QR activos que tus invitados pueden presentar al guardia en portería
@@ -970,21 +929,26 @@ export default function ResVisitasPage() {
                     resetTouched();
                     setModalNuevaVisita(true);
                   }}
-                  className="gap-1.5 text-xs"
+                  className="gap-1.5 text-xs bg-btn-primary hover:bg-btn-primary-hover text-white font-semibold"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  Nuevo Pase
+                  Nuevo pase
                 </Button>
               </div>
             </CardHeader>
             <CardContent>
               {loadingQrs ? (
-                <div className="p-8 text-center text-muted-foreground text-xs">
-                  Consultando pases en portería...
-                </div>
+                <LoadingState size="sm" message="Consultando pases vigentes…" className="p-0" />
+              ) : errorQrs ? (
+                <ErrorState
+                  compact
+                  title="No se pudieron consultar tus pases QR"
+                  message="Revisa tu conexión e intenta de nuevo."
+                  onRetry={() => refetchQrs().catch(() => {})}
+                />
               ) : qrActivos.length === 0 ? (
                 <EmptyState
-                  icon="qr_code_2"
+                  icon={QrCode}
                   title="No tienes pases QR vigentes"
                   subtitle="Genera una nueva invitación para que tus visitantes o entregas ingresen con validación rápida."
                 >
@@ -998,19 +962,19 @@ export default function ResVisitasPage() {
                         resetTouched();
                         setModalNuevaVisita(true);
                       }}
-                      className="gap-2 text-xs font-semibold"
+                      className="gap-2 text-xs font-semibold bg-btn-primary hover:bg-btn-primary-hover text-white"
                     >
                       <Plus className="w-4 h-4" />
-                      Generar Pase de Acceso
+                      Generar pase de acceso
                     </Button>
                   </div>
                 </EmptyState>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {qrActivos.map((qr) => (
+                  {qrActivos.map((qr, idx) => (
                     <div
-                      key={qr.idQr}
-                      className="p-5 rounded-xl border border-border bg-card space-y-4 hover:shadow-sm transition-all flex flex-col justify-between"
+                      key={qr.idQr ?? `qr-${idx}`}
+                      className="p-5 rounded-xl border border-border bg-surface space-y-4 hover:border-primary/40 hover:shadow-md transition-all flex flex-col justify-between"
                     >
                       <div className="flex items-start gap-4">
                         <LocalQRCode
@@ -1022,37 +986,37 @@ export default function ResVisitasPage() {
                           className="w-18 h-18 rounded-xl border border-border cursor-zoom-in bg-white p-1 shrink-0 shadow-xs"
                         />
                         <div className="min-w-0 flex-1">
-                          <Badge variant="outline" className="text-[10px] mb-1">
-                            Pase Dinámico
+                          <Badge className="text-[10px] mb-1 bg-tint-green-bg text-tint-green-fg border-tint-green-fg/25 hover:bg-tint-green-bg font-semibold">
+                            Pase dinámico
                           </Badge>
-                          <h4 className="text-sm font-bold text-foreground truncate">
+                          <h4 className="text-sm font-bold text-on-surface truncate">
                             {qr.nombreVisitante || 'Visitante Autorizado'}
                           </h4>
                           {qr.documentoVisitante && (
-                            <p className="text-xs text-muted-foreground font-mono mt-0.5">
+                            <p className="text-xs text-text-muted font-mono mt-0.5">
                               Doc: {qr.documentoVisitante}
                             </p>
                           )}
-                          <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                            <Users className="w-3 h-3" />
+                          <p className="text-xs text-text-muted flex items-center gap-1 mt-0.5">
+                            <Users className="w-3 h-3 text-primary-text" />
                             {qr.cantidadPersonas || 1} Persona(s)
                           </p>
                           {qr.fechaCreacion && (
-                            <p className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5">
-                              <Calendar className="w-3 h-3" />
+                            <p className="text-[11px] text-text-muted flex items-center gap-1 mt-0.5">
+                              <Calendar className="w-3 h-3 text-primary-text" />
                               Generado: {formatDateTime(qr.fechaCreacion)}
                             </p>
                           )}
-                          <p className="text-[11px] text-amber-600 dark:text-amber-400 font-semibold flex items-center gap-1 mt-0.5">
+                          <p className="text-[11px] text-tint-amber-fg font-semibold flex items-center gap-1 mt-0.5">
                             <Clock className="w-3 h-3" />
                             Expira: {formatDateTime(qr.fechaExpiracion)}
                           </p>
                         </div>
                       </div>
 
-                      <div className="p-2.5 rounded-lg bg-muted/40 font-mono text-[11px] flex justify-between items-center">
-                        <span className="text-muted-foreground">Código:</span>
-                        <span className="font-bold text-foreground">
+                      <div className="p-2.5 rounded-lg bg-surface-container border border-border font-mono text-[11px] flex justify-between items-center">
+                        <span className="text-text-muted">Código:</span>
+                        <span className="font-bold text-on-surface">
                           #{String(qr.codigoQr).slice(0, 14)}...
                         </span>
                       </div>
@@ -1062,7 +1026,7 @@ export default function ResVisitasPage() {
                           variant="outline"
                           size="sm"
                           onClick={() => compartirTelegram(qr.codigoQr, qr.nombreVisitante)}
-                          className="h-8 p-0 text-blue-500"
+                          className="h-8 p-0 text-primary-text border-border hover:bg-surface-selected"
                           title="Enviar por Telegram"
                         >
                           <Send className="w-3.5 h-3.5" />
@@ -1071,7 +1035,7 @@ export default function ResVisitasPage() {
                           variant="outline"
                           size="sm"
                           onClick={() => compartirSMS(qr.codigoQr, '')}
-                          className="h-8 p-0 text-emerald-500"
+                          className="h-8 p-0 text-tint-green-fg border-border hover:bg-tint-green-bg"
                           title="Enviar por SMS"
                         >
                           <Phone className="w-3.5 h-3.5" />
@@ -1080,8 +1044,8 @@ export default function ResVisitasPage() {
                           variant="outline"
                           size="sm"
                           onClick={() => compartirCorreo(qr.codigoQr, qr.nombreVisitante, '')}
-                          className="h-8 p-0 text-purple-500"
-                          title="Enviar por Correo"
+                          className="h-8 p-0 text-primary-text border-border hover:bg-tint-purple-bg"
+                          title="Enviar por correo"
                         >
                           <Mail className="w-3.5 h-3.5" />
                         </Button>
@@ -1089,7 +1053,7 @@ export default function ResVisitasPage() {
                           variant="outline"
                           size="sm"
                           onClick={() => copiarQR(qr.codigoQr)}
-                          className="h-8 p-0 text-slate-500"
+                          className="h-8 p-0 text-on-surface border-border hover:bg-surface-container"
                           title="Copiar código"
                         >
                           <Copy className="w-3.5 h-3.5" />
@@ -1106,13 +1070,13 @@ export default function ResVisitasPage() {
         {/* TAB 3: HISTORIAL DE VISITAS (SOLO RESIDENTE TITULAR) */}
         {!isConviviente && (
           <TabsContent value="historial" className="space-y-4">
-            <Card className="border-border/80">
+            <Card className="border-border bg-surface">
               <CardHeader className="pb-3">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <History className="w-5 h-5 text-primary" />
-                      Historial de Visitas Emitidas
+                    <CardTitle className="text-lg flex items-center gap-2 text-on-surface">
+                      <History className="w-5 h-5 text-primary-text" />
+                      Historial de visitas emitidas
                     </CardTitle>
                     <CardDescription>
                       Registro histórico de todas las visitas generadas para tu unidad residencial, medios de transporte y estado de ingreso.
@@ -1121,21 +1085,22 @@ export default function ResVisitasPage() {
 
                   {/* Buscador en tiempo real de historial */}
                   <div className="w-full sm:w-72 relative">
-                    <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <Search className="w-4 h-4 text-primary-text absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
                       type="text"
                       value={searchHistorial}
                       onChange={(e) => setSearchHistorial(e.target.value)}
                       placeholder="Buscar por visitante, doc, placa..."
-                      className="w-full pl-9 pr-8 py-1.5 text-xs rounded-lg border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      className="w-full pl-9 pr-8 py-1.5 text-xs rounded-lg border border-border bg-surface-container text-on-surface focus:outline-none focus:ring-2 focus:ring-ring"
                     />
                     {searchHistorial && (
                       <button
                         type="button"
                         onClick={() => setSearchHistorial('')}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs"
+                        className="absolute right-1 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded text-text-muted hover:text-on-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        aria-label="Limpiar búsqueda"
                       >
-                        ×
+                        <X className="h-3.5 w-3.5" aria-hidden="true" />
                       </button>
                     )}
                   </div>
@@ -1144,13 +1109,17 @@ export default function ResVisitasPage() {
 
               <CardContent>
                 {loadingHistorial ? (
-                  <div className="p-12 text-center text-muted-foreground text-xs flex flex-col items-center gap-2">
-                    <RefreshCw className="w-5 h-5 animate-spin text-primary" />
-                    <span>Consultando historial de visitas...</span>
-                  </div>
+                  <LoadingState size="sm" message="Consultando historial de visitas…" className="p-0" />
+                ) : errorHistorial ? (
+                  <ErrorState
+                    compact
+                    title="No se pudo consultar el historial de visitas"
+                    message="Revisa tu conexión e intenta de nuevo."
+                    onRetry={() => refetchHistorial().catch(() => {})}
+                  />
                 ) : historialItems.length === 0 ? (
                   <EmptyState
-                    icon="history"
+                    icon={History}
                     title={searchHistorial ? 'No se encontraron visitas' : 'No hay visitas registradas'}
                     subtitle={
                       searchHistorial
@@ -1161,10 +1130,10 @@ export default function ResVisitasPage() {
                 ) : (
                   <div className="space-y-4">
                     {/* Vista Desktop: Tabla completa */}
-                    <div className="hidden md:block overflow-x-auto rounded-lg border border-border">
+                    <div className="hidden md:block overflow-x-auto rounded-xl border border-border">
                       <table className="w-full text-left text-xs border-collapse">
                         <thead>
-                          <tr className="bg-muted/50 border-b border-border text-muted-foreground font-semibold">
+                          <tr className="bg-surface-container border-b border-border text-on-surface font-semibold">
                             <th className="py-3 px-3.5">Fecha y Hora Generación</th>
                             <th className="py-3 px-3.5">Quién Generó</th>
                             <th className="py-3 px-3.5">Para Quién (Visitante)</th>
@@ -1173,45 +1142,45 @@ export default function ResVisitasPage() {
                             <th className="py-3 px-3.5 text-right">Acción</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-border">
-                          {historialItems.map((v) => {
+                        <tbody className="divide-y divide-border-subtle ">
+                          {historialItems.map((v, idx) => {
                             const isEfectuada = v.efectuada === 'SI';
                             const medio = (v.medioTransporte || 'PEATONAL').toUpperCase();
 
                             return (
                               <tr
-                                key={v.idVisita}
-                                className="hover:bg-muted/30 transition-colors cursor-pointer"
+                                key={v.idVisita ?? `visita-${idx}`}
+                                className="hover:bg-surface-container transition-colors cursor-pointer"
                                 onClick={() => setDetalleVisita(v)}
                               >
                                 <td className="py-3 px-3.5 whitespace-nowrap">
-                                  <div className="flex items-center gap-1.5 font-medium text-foreground">
-                                    <Calendar className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                                  <div className="flex items-center gap-1.5 font-medium text-on-surface">
+                                    <Calendar className="w-3.5 h-3.5 text-primary-text shrink-0" />
                                     <span>{v.fechaGeneracion ? formatDateTime(v.fechaGeneracion) : '—'}</span>
                                   </div>
                                   {v.fechaProgramada && (
-                                    <div className="text-[11px] text-muted-foreground mt-0.5">
+                                    <div className="text-[11px] text-text-muted mt-0.5">
                                       Programada: {formatDate(v.fechaProgramada)}
                                     </div>
                                   )}
                                 </td>
 
                                 <td className="py-3 px-3.5">
-                                  <Badge variant="outline" className="text-[11px] font-medium bg-primary/5 text-primary border-primary/20">
+                                  <Badge variant="outline" className="text-[11px] font-semibold bg-tint-purple-bg text-primary-text border-tint-purple-fg/25">
                                     {v.generadoPor || 'Residente'}
                                   </Badge>
                                   {v.usernameGenerador && (
-                                    <div className="text-[10px] text-muted-foreground font-mono mt-0.5">
+                                    <div className="text-[10px] text-text-muted font-mono mt-0.5">
                                       @{v.usernameGenerador}
                                     </div>
                                   )}
                                 </td>
 
                                 <td className="py-3 px-3.5">
-                                  <div className="font-bold text-foreground">
+                                  <div className="font-bold text-on-surface">
                                     {v.nombreVisitante || 'Visitante'}
                                   </div>
-                                  <div className="text-[11px] text-muted-foreground font-mono mt-0.5">
+                                  <div className="text-[11px] text-text-muted font-mono mt-0.5">
                                     Doc: {v.documentoVisitante || '—'}
                                   </div>
                                 </td>
@@ -1219,33 +1188,33 @@ export default function ResVisitasPage() {
                                 <td className="py-3 px-3.5">
                                   <div className="flex items-center gap-1.5">
                                     {medio === 'CARRO' ? (
-                                      <Badge variant="secondary" className="gap-1 text-[11px] font-normal">
-                                        <Car className="w-3.5 h-3.5 text-blue-500" />
+                                      <Badge variant="secondary" className="gap-1 text-[11px] font-normal bg-tint-blue-bg text-on-surface">
+                                        <Car className="w-3.5 h-3.5 text-primary-text" />
                                         <span>Carro</span>
                                         {v.placa && (
-                                          <span className="font-mono font-bold ml-1 bg-background px-1 py-0.2 rounded border text-[10px]">
+                                          <span className="font-mono font-bold ml-1 bg-surface px-1 py-0.2 rounded border border-border text-[10px]">
                                             {v.placa}
                                           </span>
                                         )}
                                       </Badge>
                                     ) : medio === 'MOTO' ? (
-                                      <Badge variant="secondary" className="gap-1 text-[11px] font-normal">
-                                        <Bike className="w-3.5 h-3.5 text-amber-500" />
+                                      <Badge variant="secondary" className="gap-1 text-[11px] font-normal bg-tint-purple-bg text-on-surface">
+                                        <Bike className="w-3.5 h-3.5 text-primary-text" />
                                         <span>Moto</span>
                                         {v.placa && (
-                                          <span className="font-mono font-bold ml-1 bg-background px-1 py-0.2 rounded border text-[10px]">
+                                          <span className="font-mono font-bold ml-1 bg-surface px-1 py-0.2 rounded border border-border text-[10px]">
                                             {v.placa}
                                           </span>
                                         )}
                                       </Badge>
                                     ) : medio === 'BICICLETA' ? (
-                                      <Badge variant="secondary" className="gap-1 text-[11px] font-normal">
-                                        <Bike className="w-3.5 h-3.5 text-emerald-500" />
+                                      <Badge variant="secondary" className="gap-1 text-[11px] font-normal bg-tint-green-bg text-tint-green-fg">
+                                        <Bike className="w-3.5 h-3.5 text-tint-green-fg" />
                                         <span>Bicicleta</span>
                                       </Badge>
                                     ) : (
-                                      <Badge variant="outline" className="gap-1 text-[11px] font-normal text-muted-foreground">
-                                        <Footprints className="w-3.5 h-3.5" />
+                                      <Badge variant="outline" className="gap-1 text-[11px] font-normal border-border text-text-secondary">
+                                        <Footprints className="w-3.5 h-3.5 text-primary-text" />
                                         <span>Peatonal</span>
                                       </Badge>
                                     )}
@@ -1255,12 +1224,12 @@ export default function ResVisitasPage() {
                                 <td className="py-3 px-3.5">
                                   {isEfectuada ? (
                                     <div>
-                                      <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 border-emerald-500/20 gap-1 text-[11px] font-semibold">
+                                      <Badge className="bg-tint-green-bg text-tint-green-fg hover:bg-tint-green-bg border-tint-green-fg/25 gap-1 text-[11px] font-semibold">
                                         <CheckCircle2 className="w-3.5 h-3.5" />
-                                        Sí (Efectuada)
+                                        Sí (efectuada)
                                       </Badge>
                                       {v.fechaIngreso && (
-                                        <div className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-1">
+                                        <div className="text-[10px] text-text-muted mt-0.5 flex items-center gap-1">
                                           <Clock className="w-3 h-3" />
                                           Ingreso: {formatDateTime(v.fechaIngreso)}
                                         </div>
@@ -1268,12 +1237,12 @@ export default function ResVisitasPage() {
                                     </div>
                                   ) : (
                                     <div>
-                                      <Badge variant="outline" className="text-muted-foreground gap-1 text-[11px]">
-                                        <Clock className="w-3.5 h-3.5 text-amber-500" />
+                                      <Badge variant="outline" className="text-text-muted border-border gap-1 text-[11px]">
+                                        <Clock className="w-3.5 h-3.5 text-tint-amber-fg" />
                                         No
                                       </Badge>
                                       {v.estadoVisita && (
-                                        <div className="text-[10px] text-muted-foreground capitalize mt-0.5">
+                                        <div className="text-[10px] text-text-muted capitalize mt-0.5">
                                           {v.estadoVisita.toLowerCase()}
                                         </div>
                                       )}
@@ -1289,7 +1258,7 @@ export default function ResVisitasPage() {
                                       e.stopPropagation();
                                       setDetalleVisita(v);
                                     }}
-                                    className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
+                                    className="h-8 px-2 text-xs text-primary-text hover:text-primary-text hover:bg-surface-selected"
                                   >
                                     <Eye className="w-3.5 h-3.5 mr-1" />
                                     Detalle
@@ -1304,64 +1273,64 @@ export default function ResVisitasPage() {
 
                     {/* Vista Mobile: Cards */}
                     <div className="grid grid-cols-1 gap-3 md:hidden">
-                      {historialItems.map((v) => {
+                      {historialItems.map((v, idx) => {
                         const isEfectuada = v.efectuada === 'SI';
                         const medio = (v.medioTransporte || 'PEATONAL').toUpperCase();
 
                         return (
                           <div
-                            key={v.idVisita}
+                            key={v.idVisita ?? `visita-${idx}`}
                             onClick={() => setDetalleVisita(v)}
-                            className="p-4 rounded-xl border border-border bg-card space-y-3 cursor-pointer hover:shadow-sm"
+                            className="p-4 rounded-xl border border-border bg-surface space-y-3 cursor-pointer hover:shadow-sm"
                           >
                             <div className="flex items-start justify-between gap-2">
                               <div>
-                                <h4 className="text-sm font-bold text-foreground">
+                                <h4 className="text-sm font-bold text-on-surface">
                                   {v.nombreVisitante || 'Visitante'}
                                 </h4>
-                                <p className="text-xs text-muted-foreground font-mono">
+                                <p className="text-xs text-text-muted font-mono">
                                   Doc: {v.documentoVisitante || '—'}
                                 </p>
                               </div>
                               {isEfectuada ? (
-                                <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-[10px] gap-1 font-semibold">
+                                <Badge className="bg-tint-green-bg text-tint-green-fg border-tint-green-fg/25 text-[10px] gap-1 font-semibold">
                                   <CheckCircle2 className="w-3 h-3" />
-                                  Sí (Efectuada)
+                                  Sí (efectuada)
                                 </Badge>
                               ) : (
-                                <Badge variant="outline" className="text-muted-foreground text-[10px] gap-1">
-                                  <Clock className="w-3 h-3 text-amber-500" />
+                                <Badge variant="outline" className="text-text-muted border-border text-[10px] gap-1">
+                                  <Clock className="w-3 h-3 text-tint-amber-fg" />
                                   No
                                 </Badge>
                               )}
                             </div>
 
-                            <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground pt-1 border-t border-border/60">
+                            <div className="grid grid-cols-2 gap-2 text-xs text-text-muted pt-1 border-t border-border">
                               <div>
-                                <span className="text-[10px] uppercase font-semibold block">Generado por</span>
-                                <span className="font-medium text-foreground">{v.generadoPor || 'Residente'}</span>
+                                <span className="text-[10px] font-semibold block">Generado por</span>
+                                <span className="font-medium text-on-surface">{v.generadoPor || 'Residente'}</span>
                               </div>
                               <div>
-                                <span className="text-[10px] uppercase font-semibold block">Transporte</span>
-                                <span className="font-medium text-foreground flex items-center gap-1">
+                                <span className="text-[10px] font-semibold block">Transporte</span>
+                                <span className="font-medium text-on-surface flex items-center gap-1">
                                   {medio === 'CARRO' ? (
                                     <>
-                                      <Car className="w-3 h-3 text-blue-500" /> Carro {v.placa ? `(${v.placa})` : ''}
+                                      <Car className="w-3 h-3 text-primary-text" /> Carro {v.placa ? `(${v.placa})` : ''}
                                     </>
                                   ) : medio === 'MOTO' ? (
                                     <>
-                                      <Bike className="w-3 h-3 text-amber-500" /> Moto {v.placa ? `(${v.placa})` : ''}
+                                      <Bike className="w-3 h-3 text-primary-text" /> Moto {v.placa ? `(${v.placa})` : ''}
                                     </>
                                   ) : (
                                     <>
-                                      <Footprints className="w-3 h-3" /> Peatonal
+                                      <Footprints className="w-3 h-3 text-primary-text" /> Peatonal
                                     </>
                                   )}
                                 </span>
                               </div>
                               <div className="col-span-2">
-                                <span className="text-[10px] uppercase font-semibold block">Generación</span>
-                                <span className="text-foreground">{v.fechaGeneracion ? formatDateTime(v.fechaGeneracion) : '—'}</span>
+                                <span className="text-[10px] font-semibold block">Generación</span>
+                                <span className="text-on-surface">{v.fechaGeneracion ? formatDateTime(v.fechaGeneracion) : '—'}</span>
                               </div>
                             </div>
                           </div>
@@ -1370,17 +1339,17 @@ export default function ResVisitasPage() {
                     </div>
 
                     {/* Barra de Paginación: 10 visitas por página */}
-                    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-border text-xs text-muted-foreground">
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-border text-xs text-text-muted">
                       <div>
                         Mostrando{' '}
-                        <span className="font-semibold text-foreground">
+                        <span className="font-semibold text-on-surface">
                           {totalHistorial === 0 ? 0 : pageHistorial * 10 + 1}
                         </span>{' '}
                         a{' '}
-                        <span className="font-semibold text-foreground">
+                        <span className="font-semibold text-on-surface">
                           {Math.min((pageHistorial + 1) * 10, totalHistorial)}
                         </span>{' '}
-                        de <span className="font-semibold text-foreground">{totalHistorial}</span> visitas
+                        de <span className="font-semibold text-on-surface">{totalHistorial}</span> visitas
                       </div>
 
                       <div className="flex items-center gap-2">
@@ -1389,13 +1358,13 @@ export default function ResVisitasPage() {
                           size="sm"
                           onClick={() => setPageHistorial((p) => Math.max(0, p - 1))}
                           disabled={pageHistorial === 0 || loadingHistorial}
-                          className="h-8 gap-1 text-xs"
+                          className="h-8 gap-1 text-xs border-border"
                         >
                           <ChevronLeft className="w-3.5 h-3.5" />
                           Anterior
                         </Button>
 
-                        <div className="px-2 font-medium text-foreground">
+                        <div className="px-2 font-medium text-on-surface">
                           Pág. {pageHistorial + 1} de {Math.max(1, totalPagesHistorial)}
                         </div>
 
@@ -1404,7 +1373,7 @@ export default function ResVisitasPage() {
                           size="sm"
                           onClick={() => setPageHistorial((p) => Math.min(totalPagesHistorial - 1, p + 1))}
                           disabled={pageHistorial >= totalPagesHistorial - 1 || loadingHistorial}
-                          className="h-8 gap-1 text-xs"
+                          className="h-8 gap-1 text-xs border-border"
                         >
                           Siguiente
                           <ChevronRight className="w-3.5 h-3.5" />
@@ -1423,7 +1392,7 @@ export default function ResVisitasPage() {
       <Modal
         open={modalNuevaVisita}
         onClose={() => !sending && setModalNuevaVisita(false)}
-        title="Registrar Nueva Visita"
+        title="Registrar nueva visita"
         size="lg"
         footer={
           <div className="flex items-center justify-end gap-3 w-full">
@@ -1437,10 +1406,10 @@ export default function ResVisitasPage() {
             <Button
               onClick={registrarVisita}
               disabled={sending}
-              className="gap-2 font-semibold bg-primary text-primary-foreground hover:bg-primary/90"
+              className="gap-2 font-semibold bg-btn-primary text-white hover:bg-btn-primary-hover"
             >
               <QrCode className="w-4 h-4" />
-              {sending ? 'Generando QR...' : 'Generar Pase QR'}
+              {sending ? 'Generando QR…' : 'Generar Pase QR'}
             </Button>
           </div>
         }
@@ -1451,11 +1420,11 @@ export default function ResVisitasPage() {
           </p>
 
           {/* Bloque: Datos del Visitante */}
-          <div className="p-4 rounded-xl border border-border bg-card/50 space-y-3">
+          <div className="p-4 rounded-xl border border-border bg-surface-container space-y-3">
             <div className="flex items-center gap-2">
-              <User className="w-4 h-4 text-primary" />
-              <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Datos del Visitante
+              <User className="w-4 h-4 text-primary-text" />
+              <h4 className="text-xs font-bold text-on-surface">
+                Datos del visitante
               </h4>
             </div>
 
@@ -1463,7 +1432,7 @@ export default function ResVisitasPage() {
               <div>
                 <Select
                   id="idTipoDoc"
-                  label="Tipo de Documento"
+                  label="Tipo de documento"
                   value={form.visitante.idTipoDoc}
                   onChange={(e) => updateForm('visitante.idTipoDoc', Number(e.target.value))}
                   onBlur={() => touch('visitante.idTipoDoc')}
@@ -1478,8 +1447,8 @@ export default function ResVisitasPage() {
                   required
                 >
                   <option value="">Seleccione tipo...</option>
-                  {tiposDoc.map((t) => (
-                    <option key={t.idTipoDoc ?? t.value} value={t.idTipoDoc ?? t.value}>
+                  {tiposDoc.map((t, idx) => (
+                    <option key={t.idTipoDoc ?? t.value ?? idx} value={t.idTipoDoc ?? t.value}>
                       {t.descripcion || t.nombre}
                     </option>
                   ))}
@@ -1494,7 +1463,7 @@ export default function ResVisitasPage() {
               <div>
                 <Input
                   id="numeroDocumento"
-                  label="Número de Documento"
+                  label="Número de documento"
                   placeholder={getDocPlaceholder(codigoDocSeleccionado)}
                   value={form.visitante.numeroDocumento}
                   onChange={(e) => handleDocumentoChange(e.target.value)}
@@ -1516,9 +1485,9 @@ export default function ResVisitasPage() {
 
             {/* Aviso de visitante encontrado */}
             {visitanteEncontrado && visitanteEncontrado.nombres && (
-              <div className="p-2.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-xs flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                <span className="text-foreground">
+              <div className="p-2.5 rounded-lg border border-tint-green-fg/25 bg-tint-green-bg text-xs flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-tint-green-fg shrink-0" />
+                <span className="text-tint-green-fg">
                   Visitante registrado: <strong>{visitanteEncontrado.nombres} {visitanteEncontrado.apellidos}</strong>
                 </span>
               </div>
@@ -1561,7 +1530,7 @@ export default function ResVisitasPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Input
                 id="telefono"
-                label="Teléfono Celular (opcional)"
+                label="Teléfono celular (opcional)"
                 placeholder="Ej. 300 123 4567"
                 inputMode="numeric"
                 maxLength={10}
@@ -1578,7 +1547,7 @@ export default function ResVisitasPage() {
 
               <Input
                 id="email"
-                label="Correo Electrónico (opcional)"
+                label="Correo electrónico (opcional)"
                 placeholder="Ej. visitante@correo.com"
                 type="email"
                 value={form.visitante.email}
@@ -1595,18 +1564,18 @@ export default function ResVisitasPage() {
           </div>
 
           {/* Bloque: Parámetros de la Visita */}
-          <div className="p-4 rounded-xl border border-border bg-card/50 space-y-3">
+          <div className="p-4 rounded-xl border border-border bg-surface-container space-y-3">
             <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-primary" />
-              <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Parámetros de Entrada & Seguridad
+              <Clock className="w-4 h-4 text-primary-text" />
+              <h4 className="text-xs font-bold text-on-surface">
+                Parámetros de entrada & seguridad
               </h4>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Input
                 id="tiempoValidezMin"
-                label="Vigencia del Pase (minutos)"
+                label="Vigencia del pase (minutos)"
                 type="number"
                 min="5"
                 max="60"
@@ -1629,7 +1598,7 @@ export default function ResVisitasPage() {
 
               <Input
                 id="cantidadPersonas"
-                label="Cantidad de Personas"
+                label="Cantidad de personas"
                 type="number"
                 min="1"
                 max="99"
@@ -1654,7 +1623,7 @@ export default function ResVisitasPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Select
                 id="medioTransporte"
-                label="Medio de Transporte"
+                label="Medio de transporte"
                 value={form.medioTransporte}
                 onChange={(e) => updateForm('medioTransporte', e.target.value)}
               >
@@ -1720,7 +1689,7 @@ export default function ResVisitasPage() {
 
             <Input
               id="motivo"
-              label="Motivo o Notas de la Visita (opcional)"
+              label="Motivo o notas de la visita (opcional)"
               placeholder="Ej. Visita familiar / Almuerzo / Entrega de documento"
               value={form.motivo}
               onChange={(e) => updateForm('motivo', e.target.value)}
@@ -1733,9 +1702,9 @@ export default function ResVisitasPage() {
                 id="guardarFrecuente"
                 checked={form.guardarFrecuente}
                 onChange={(e) => updateForm('guardarFrecuente', e.target.checked)}
-                className="w-4 h-4 rounded border-border text-primary focus:ring-primary/20"
+                className="w-4 h-4 rounded border-border text-primary-text focus:ring-ring"
               />
-              <label htmlFor="guardarFrecuente" className="text-xs text-foreground cursor-pointer font-medium">
+              <label htmlFor="guardarFrecuente" className="text-xs text-on-surface cursor-pointer font-medium">
                 Guardar este visitante en mi lista de <strong>Visitantes Frecuentes</strong>
               </label>
             </div>
@@ -1761,7 +1730,7 @@ export default function ResVisitasPage() {
             <Button
               onClick={generarPaseRapido}
               disabled={generandoRapido}
-              className="gap-2 font-semibold bg-primary text-primary-foreground hover:bg-primary/90"
+              className="gap-2 font-semibold bg-btn-primary text-white hover:bg-btn-primary-hover"
             >
               <QrCode className="w-4 h-4" />
               {generandoRapido ? 'Generando...' : 'Emitir Pase QR'}
@@ -1771,17 +1740,17 @@ export default function ResVisitasPage() {
       >
         {frecuenteSeleccionado && (
           <div className="space-y-4 py-1">
-            <div className="p-3 rounded-lg border border-border bg-muted/30 text-xs flex items-center justify-between">
+            <div className="p-3 rounded-xl border border-border bg-surface-container text-xs flex items-center justify-between">
               <div>
-                <p className="font-bold text-foreground">
+                <p className="font-bold text-on-surface">
                   {frecuenteSeleccionado.nombreVisitante}
                 </p>
-                <p className="text-muted-foreground font-mono">
+                <p className="text-text-muted font-mono">
                   Documento: {frecuenteSeleccionado.documento || '—'}
                 </p>
               </div>
-              <Badge variant="secondary" className="text-[10px]">
-                Visitante de Confianza
+              <Badge className="text-[10px] bg-tint-purple-bg text-primary-text border-tint-purple-fg/25">
+                Visitante de confianza
               </Badge>
             </div>
 
@@ -1817,7 +1786,7 @@ export default function ResVisitasPage() {
             <div className="grid grid-cols-2 gap-3">
               <Select
                 id="rapidoMedio"
-                label="Medio de Transporte"
+                label="Medio de transporte"
                 value={rapidoForm.medioTransporte}
                 onChange={(e) =>
                   setRapidoForm((f) => ({ ...f, medioTransporte: e.target.value }))
@@ -1867,17 +1836,20 @@ export default function ResVisitasPage() {
       <Modal
         open={!!qrExito}
         onClose={() => setQrExito(null)}
-        title="¡Pase QR Generado Exitosamente!"
+        title="¡Pase QR generado exitosamente!"
         size="md"
         footer={
-          <Button onClick={() => setQrExito(null)} className="w-full font-semibold">
-            Listo, Entendido
+          <Button
+            onClick={() => setQrExito(null)}
+            className="w-full font-semibold bg-btn-primary hover:bg-btn-primary-hover text-white"
+          >
+            Listo, entendido
           </Button>
         }
       >
         {qrExito && (
           <div className="flex flex-col items-center justify-center p-2 space-y-4 text-center">
-            <div className="p-4 bg-white rounded-2xl border-2 border-primary/20 shadow-md flex flex-col items-center">
+            <div className="p-4 bg-white rounded-lg border border-border shadow-sm flex flex-col items-center">
               <LocalQRCode
                 value={qrExito.codigoQr}
                 size={220}
@@ -1888,16 +1860,16 @@ export default function ResVisitasPage() {
             </div>
 
             <div className="space-y-1">
-              <h3 className="text-base font-bold text-foreground">
+              <h3 className="text-base font-bold text-on-surface">
                 {qrExito.nombreVisitante || 'Visitante Autorizado'}
               </h3>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-text-muted">
                 Comparte este código con tu invitado para que lo presente en portería
               </p>
-              <p className="text-xs font-mono font-bold text-primary bg-primary/10 py-1 px-3 rounded-full inline-block mt-1">
+              <p className="text-xs font-mono font-bold text-primary-text bg-tint-blue-bg py-1 px-3 rounded-full inline-block mt-1">
                 #{qrExito.codigoQr}
               </p>
-              <p className="text-xs text-amber-600 dark:text-amber-400 font-semibold mt-1">
+              <p className="text-xs text-tint-green-fg bg-tint-green-bg py-0.5 px-2.5 rounded-full font-semibold inline-block mt-1 ml-1">
                 Válido durante {qrExito.tiempoValidezMin} minutos
               </p>
             </div>
@@ -1907,7 +1879,7 @@ export default function ResVisitasPage() {
                 variant="outline"
                 size="sm"
                 onClick={() => compartirTelegram(qrExito.codigoQr, qrExito.nombreVisitante)}
-                className="gap-1.5 text-xs text-blue-500"
+                className="gap-1.5 text-xs text-primary-text border-border"
               >
                 <Send className="w-3.5 h-3.5" /> Telegram
               </Button>
@@ -1915,7 +1887,7 @@ export default function ResVisitasPage() {
                 variant="outline"
                 size="sm"
                 onClick={() => compartirSMS(qrExito.codigoQr, '')}
-                className="gap-1.5 text-xs text-emerald-500"
+                className="gap-1.5 text-xs text-tint-green-fg border-border"
               >
                 <Phone className="w-3.5 h-3.5" /> SMS
               </Button>
@@ -1923,7 +1895,7 @@ export default function ResVisitasPage() {
                 variant="outline"
                 size="sm"
                 onClick={() => compartirCorreo(qrExito.codigoQr, qrExito.nombreVisitante, '')}
-                className="gap-1.5 text-xs text-purple-500"
+                className="gap-1.5 text-xs text-primary-text border-border"
               >
                 <Mail className="w-3.5 h-3.5" /> Correo
               </Button>
@@ -1931,7 +1903,7 @@ export default function ResVisitasPage() {
                 variant="outline"
                 size="sm"
                 onClick={() => copiarQR(qrExito.codigoQr)}
-                className="gap-1.5 text-xs"
+                className="gap-1.5 text-xs border-border"
               >
                 <Copy className="w-3.5 h-3.5" /> Copiar
               </Button>
@@ -1944,17 +1916,20 @@ export default function ResVisitasPage() {
       <Modal
         open={!!qrZoom}
         onClose={() => setQrZoom(null)}
-        title="Pase QR de Acceso"
+        title="Pase QR de acceso"
         size="md"
         footer={
-          <Button onClick={() => setQrZoom(null)} className="w-full">
+          <Button
+            onClick={() => setQrZoom(null)}
+            className="w-full bg-btn-primary hover:bg-btn-primary-hover text-white"
+          >
             Cerrar
           </Button>
         }
       >
         {qrZoom && (
           <div className="flex flex-col items-center justify-center p-2 space-y-4 text-center">
-            <div className="p-4 bg-white rounded-2xl border-2 border-primary/20 shadow-md flex flex-col items-center">
+            <div className="p-4 bg-white rounded-lg border border-border shadow-sm flex flex-col items-center">
               <LocalQRCode
                 value={qrZoom.codigoQr}
                 size={220}
@@ -1964,13 +1939,13 @@ export default function ResVisitasPage() {
               />
             </div>
             <div>
-              <h3 className="text-base font-bold text-foreground">
+              <h3 className="text-base font-bold text-on-surface">
                 {qrZoom.nombreVisitante || 'Visitante Autorizado'}
               </h3>
-              <p className="text-xs font-mono text-muted-foreground mt-0.5">
+              <p className="text-xs font-mono text-text-muted mt-0.5">
                 Código: #{qrZoom.codigoQr}
               </p>
-              <p className="text-xs text-amber-600 dark:text-amber-400 font-semibold mt-1">
+              <p className="text-xs text-tint-amber-fg font-semibold mt-1">
                 Expira: {formatDateTime(qrZoom.fechaExpiracion)}
               </p>
             </div>
@@ -1978,7 +1953,7 @@ export default function ResVisitasPage() {
               <Button
                 variant="outline"
                 onClick={() => copiarQR(qrZoom.codigoQr)}
-                className="gap-1.5 text-xs"
+                className="gap-1.5 text-xs border-border"
               >
                 <Copy className="w-3.5 h-3.5" /> Copiar Código
               </Button>
@@ -1992,7 +1967,7 @@ export default function ResVisitasPage() {
         open={!!confirmQuitar}
         onClose={() => setConfirmQuitar(null)}
         onConfirm={confirmarQuitarFrecuente}
-        title="Quitar Visitante Frecuente"
+        title="Quitar visitante frecuente"
         message={`¿Estás seguro de que deseas retirar a ${confirmQuitar?.nombreVisitante || 'este visitante'} de tu lista de frecuentes? Podrás volver a agregarlo en cualquier momento.`}
         confirmLabel="Sí, quitar"
         danger
@@ -2002,24 +1977,24 @@ export default function ResVisitasPage() {
       <Modal
         open={!!detalleVisita}
         onClose={() => setDetalleVisita(null)}
-        title="Detalle de Visita"
+        title="Detalle de visita"
         size="md"
       >
         {detalleVisita && (
           <div className="space-y-4 text-xs">
-            <div className="p-3.5 rounded-xl bg-muted/40 border border-border flex items-start justify-between gap-3">
+            <div className="p-3.5 rounded-xl bg-surface-container border border-border flex items-start justify-between gap-3">
               <div>
-                <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">
+                <p className="text-[10px] font-bold text-text-muted">
                   Visitante
                 </p>
-                <h3 className="text-base font-bold text-foreground">
+                <h3 className="text-base font-bold text-on-surface">
                   {detalleVisita.nombreVisitante || 'Visitante Autorizado'}
                 </h3>
-                <p className="text-muted-foreground font-mono mt-0.5">
+                <p className="text-text-muted font-mono mt-0.5">
                   Documento: {detalleVisita.documentoVisitante || '—'}
                 </p>
                 {detalleVisita.telefonoVisitante && (
-                  <p className="text-muted-foreground mt-0.5">
+                  <p className="text-text-muted mt-0.5">
                     Tel: {detalleVisita.telefonoVisitante}
                   </p>
                 )}
@@ -2028,8 +2003,8 @@ export default function ResVisitasPage() {
                 className={cn(
                   'text-[11px] font-semibold gap-1',
                   detalleVisita.efectuada === 'SI'
-                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
-                    : 'bg-muted text-muted-foreground border-border'
+                    ? 'bg-tint-green-bg text-tint-green-fg border-tint-green-fg/25'
+                    : 'bg-surface-container text-text-secondary border-border'
                 )}
               >
                 {detalleVisita.efectuada === 'SI' ? (
@@ -2038,74 +2013,74 @@ export default function ResVisitasPage() {
                   </>
                 ) : (
                   <>
-                    <Clock className="w-3.5 h-3.5 text-amber-500" /> No efectuada
+                    <Clock className="w-3.5 h-3.5 text-tint-amber-fg" /> No efectuada
                   </>
                 )}
               </Badge>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 p-3.5 rounded-xl border border-border bg-card">
+            <div className="grid grid-cols-2 gap-3 p-3.5 rounded-xl border border-border bg-surface">
               <div>
-                <span className="text-[10px] uppercase font-bold text-muted-foreground block">
-                  Generado Por
+                <span className="text-[10px] font-bold text-text-muted block">
+                  Generado por
                 </span>
-                <span className="font-semibold text-foreground">
+                <span className="font-semibold text-on-surface">
                   {detalleVisita.generadoPor || 'Residente Titular'}
                 </span>
                 {detalleVisita.usernameGenerador && (
-                  <span className="text-[10px] text-muted-foreground block font-mono">
+                  <span className="text-[10px] text-text-muted block font-mono">
                     @{detalleVisita.usernameGenerador}
                   </span>
                 )}
               </div>
 
               <div>
-                <span className="text-[10px] uppercase font-bold text-muted-foreground block">
-                  Unidad / Apto
+                <span className="text-[10px] font-bold text-text-muted block">
+                  Unidad / apto
                 </span>
-                <span className="font-semibold text-foreground">
+                <span className="font-semibold text-on-surface">
                   {detalleVisita.identificadorUnidad ? `Apto ${detalleVisita.identificadorUnidad}` : 'Tu Unidad'}
                 </span>
               </div>
 
               <div>
-                <span className="text-[10px] uppercase font-bold text-muted-foreground block">
-                  Medio de Transporte
+                <span className="text-[10px] font-bold text-text-muted block">
+                  Medio de transporte
                 </span>
-                <span className="font-semibold text-foreground capitalize">
+                <span className="font-semibold text-on-surface capitalize">
                   {detalleVisita.medioTransporte ? String(detalleVisita.medioTransporte).toLowerCase() : 'Peatonal'}
                 </span>
                 {detalleVisita.placa && (
-                  <span className="font-mono text-primary font-bold block">
+                  <span className="font-mono text-primary-text font-bold block">
                     Placa: {detalleVisita.placa}
                   </span>
                 )}
               </div>
 
               <div>
-                <span className="text-[10px] uppercase font-bold text-muted-foreground block">
-                  Estado de la Visita
+                <span className="text-[10px] font-bold text-text-muted block">
+                  Estado de la visita
                 </span>
-                <span className="font-semibold text-foreground capitalize">
+                <span className="font-semibold text-on-surface capitalize">
                   {detalleVisita.estadoVisita ? String(detalleVisita.estadoVisita).toLowerCase() : 'Registrada'}
                 </span>
               </div>
 
-              <div className="col-span-2 pt-2 border-t border-border/60">
-                <span className="text-[10px] uppercase font-bold text-muted-foreground block">
-                  Fecha y Hora de Generación
+              <div className="col-span-2 pt-2 border-t border-border">
+                <span className="text-[10px] font-bold text-text-muted block">
+                  Fecha y hora de generación
                 </span>
-                <span className="text-foreground">
+                <span className="text-on-surface">
                   {detalleVisita.fechaGeneracion ? formatDateTime(detalleVisita.fechaGeneracion) : '—'}
                 </span>
               </div>
 
               {detalleVisita.fechaIngreso && (
                 <div>
-                  <span className="text-[10px] uppercase font-bold text-emerald-600 dark:text-emerald-400 block">
-                    Registro de Entrada
+                  <span className="text-[10px] font-bold text-tint-green-fg block">
+                    Registro de entrada
                   </span>
-                  <span className="text-foreground font-medium">
+                  <span className="text-on-surface font-medium">
                     {formatDateTime(detalleVisita.fechaIngreso)}
                   </span>
                 </div>
@@ -2113,21 +2088,21 @@ export default function ResVisitasPage() {
 
               {detalleVisita.fechaSalida && (
                 <div>
-                  <span className="text-[10px] uppercase font-bold text-blue-600 dark:text-blue-400 block">
-                    Registro de Salida
+                  <span className="text-[10px] font-bold text-primary-text block">
+                    Registro de salida
                   </span>
-                  <span className="text-foreground font-medium">
+                  <span className="text-on-surface font-medium">
                     {formatDateTime(detalleVisita.fechaSalida)}
                   </span>
                 </div>
               )}
 
               {detalleVisita.motivo && (
-                <div className="col-span-2 pt-2 border-t border-border/60">
-                  <span className="text-[10px] uppercase font-bold text-muted-foreground block">
+                <div className="col-span-2 pt-2 border-t border-border">
+                  <span className="text-[10px] font-bold text-text-muted block">
                     Motivo
                   </span>
-                  <p className="text-muted-foreground mt-0.5 italic">
+                  <p className="text-text-muted mt-0.5 italic">
                     "{detalleVisita.motivo}"
                   </p>
                 </div>

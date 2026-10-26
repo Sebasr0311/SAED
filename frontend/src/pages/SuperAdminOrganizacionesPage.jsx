@@ -4,8 +4,13 @@ import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card.
 import { Button } from '../components/ui/button.tsx';
 import { Badge } from '../components/ui/badge.tsx';
 import { Skeleton } from '../components/ui/skeleton.tsx';
-import { Input } from '../components/ui/input.tsx';
-import { Label } from '../components/ui/label.tsx';
+import { Input as SearchInput } from '../components/ui/input.tsx';
+import { Input } from '../components/ui/Form.jsx';
+import { PageHeader } from '../components/ui/PageHeader.jsx';
+import { PageContainer } from '../components/layout/PageContainer.jsx';
+import EmptyState from '../components/ui/EmptyState.jsx';
+import ErrorState from '../components/ui/ErrorState.jsx';
+import { Building, Lock, PauseCircle, PlayCircle, Plus, Search, Trash2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -20,6 +25,8 @@ import LocationSelector from '../components/ui/LocationSelector';
 export default function SuperAdminOrganizacionesPage() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
+  const [formErrors, setFormErrors] = useState({});
   const [showModal, setShowModal] = useState(false);
   const [search, setSearch] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -43,6 +50,12 @@ export default function SuperAdminOrganizacionesPage() {
 
   function resetForm() {
     setForm(INITIAL_FORM);
+    setFormErrors({});
+  }
+
+  function setField(field, value) {
+    setForm((prev) => ({ ...prev, [field]: value }));
+    if (formErrors[field]) setFormErrors((prev) => ({ ...prev, [field]: undefined }));
   }
 
   function handleOpenChange(open) {
@@ -55,12 +68,14 @@ export default function SuperAdminOrganizacionesPage() {
   async function loadData() {
     try {
       setLoading(true);
+      setLoadError(null);
       const res = await api.get('/organizations');
       const list = res?.data || res || [];
       setItems(Array.isArray(list) ? list : []);
     } catch (err) {
       console.error(err);
       toast.error('Error al cargar organizaciones');
+      setLoadError(err?.message || 'No fue posible consultar las organizaciones.');
     } finally {
       setLoading(false);
     }
@@ -89,18 +104,26 @@ export default function SuperAdminOrganizacionesPage() {
     e.preventDefault();
     const cleanNit = form.identificacionFiscal.trim();
     if (!form.nombre.trim() || !cleanNit || !form.emailContacto.trim()) {
+      setFormErrors({
+        nombre: !form.nombre.trim() ? 'El nombre es obligatorio.' : undefined,
+        identificacionFiscal: !cleanNit ? 'El NIT es obligatorio.' : undefined,
+        emailContacto: !form.emailContacto.trim() ? 'El email es obligatorio.' : undefined,
+      });
       toast.error('Por favor completa los campos obligatorios (*)');
       return;
     }
     if (!EMAIL_REGEX.test(form.emailContacto.trim())) {
+      setFormErrors({ emailContacto: 'Ingresa un correo válido (ej. nombre@dominio.com).' });
       toast.error('Por favor ingrese un correo electrónico válido (ej. nombre@dominio.com)');
       return;
     }
     if (!NIT_REGEX.test(cleanNit)) {
+      setFormErrors({ identificacionFiscal: 'Usa solo números, con dígito de verificación opcional (901234567-8).' });
       toast.error('El NIT debe ser numérico válido (ej. 901234567 o 901234567-8)');
       return;
     }
     if (form.telefonoContacto && form.telefonoContacto.replace(/[^0-9]/g, '').length < 7) {
+      setFormErrors({ telefonoContacto: 'El teléfono debe tener al menos 7 dígitos.' });
       toast.error('El teléfono debe tener al menos 7 dígitos');
       return;
     }
@@ -188,137 +211,150 @@ export default function SuperAdminOrganizacionesPage() {
     }
   }
 
-  return (
-    <div className="p-6 space-y-6 animate-fadeIn">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border pb-6">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
-            <span className="material-symbols-outlined text-primary text-2xl">domain</span>
-            Organizaciones SaaS
-          </h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Empresas administradoras y constructoras de copropiedades clientes de SAED.
-          </p>
-        </div>
-        <Button onClick={() => setShowModal(true)} className="gap-2 shrink-0">
-          <span className="material-symbols-outlined text-sm">add_business</span>
-          Nueva Organización
-        </Button>
-      </div>
+  function closeDelete() {
+    setOrgToDelete(null);
+    setDeletePin('');
+    setPinError('');
+  }
 
-      {/* Barra de Filtros */}
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1 max-w-sm">
-          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
-            search
-          </span>
-          <Input
+  return (
+    <PageContainer>
+      <PageHeader
+        title="Organizaciones"
+        subtitle="Empresas administradoras y constructoras de copropiedades clientes de SAED."
+        action={
+          <Button onClick={() => setShowModal(true)} className="min-h-10">
+            <Plus aria-hidden="true" />
+            Nueva organización
+          </Button>
+        }
+      />
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="relative w-full sm:max-w-sm">
+          <Search
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted"
+            aria-hidden="true"
+          />
+          <SearchInput
             id="org-search-input"
             type="search"
+            aria-label="Buscar organizaciones"
             placeholder="Buscar por nombre, NIT, email o ciudad…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 text-sm"
+            className="h-10 pl-9 text-sm"
           />
         </div>
-        <div className="text-xs text-muted-foreground ml-auto font-medium">
-          {filteredItems.length} {filteredItems.length === 1 ? 'organización' : 'organizaciones'}
+        <div className="text-xs font-semibold text-text-secondary sm:ml-auto">
+          <span className="app-numeral">{filteredItems.length}</span>{' '}
+          {filteredItems.length === 1 ? 'organización' : 'organizaciones'}
         </div>
       </div>
 
-      {/* Listado */}
-      <Card className="border-border/80 shadow-sm">
+      <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base font-semibold">Listado de Organizaciones Registradas</CardTitle>
+          <CardTitle className="text-[15px]">Organizaciones registradas</CardTitle>
         </CardHeader>
         <CardContent>
           {loading ? (
-            <div className="space-y-3">
-              {[1, 2, 3].map((i) => (
-                <Skeleton key={i} className="h-14 w-full rounded-lg" />
+            <div className="space-y-2" role="status" aria-busy="true" aria-label="Cargando organizaciones">
+              {[1, 2, 3, 4].map((i) => (
+                <Skeleton key={i} className="h-11 w-full" />
               ))}
             </div>
+          ) : loadError ? (
+            <ErrorState title="No se pudo cargar la lista" message={loadError} onRetry={loadData} />
           ) : filteredItems.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground space-y-2">
-              <span className="material-symbols-outlined text-4xl text-muted-foreground/60">domain_disabled</span>
-              <p className="text-sm font-medium">
-                {search ? 'No se encontraron organizaciones con ese criterio.' : 'No hay organizaciones registradas en la plataforma.'}
-              </p>
-            </div>
+            <EmptyState
+              icon={Building}
+              title={search ? 'Sin coincidencias' : 'No hay organizaciones registradas'}
+              subtitle={
+                search
+                  ? 'No se encontraron organizaciones con ese criterio.'
+                  : 'Registra la primera organización cliente para asignarle plan y propiedades.'
+              }
+            >
+              {search ? (
+                <Button variant="outline" size="sm" className="mt-3" onClick={() => setSearch('')}>
+                  Limpiar búsqueda
+                </Button>
+              ) : (
+                <Button size="sm" className="mt-3" onClick={() => setShowModal(true)}>
+                  <Plus aria-hidden="true" />
+                  Nueva organización
+                </Button>
+              )}
+            </EmptyState>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm border-collapse">
+            <div className="table-container max-h-[70vh] overflow-y-auto">
+              <table className="data-table">
                 <thead>
-                  <tr className="border-b border-border text-muted-foreground text-xs font-semibold uppercase tracking-wider">
-                    <th className="py-3 px-4">ID</th>
-                    <th className="py-3 px-4">Nombre Comercial</th>
-                    <th className="py-3 px-4">NIT / ID Fiscal</th>
-                    <th className="py-3 px-4">Contacto</th>
-                    <th className="py-3 px-4">Ubicación</th>
-                    <th className="py-3 px-4 text-center">Estado</th>
-                    <th className="py-3 px-4 text-right">Acciones</th>
+                  <tr>
+                    <th scope="col">ID</th>
+                    <th scope="col">Nombre comercial</th>
+                    <th scope="col">NIT</th>
+                    <th scope="col">Contacto</th>
+                    <th scope="col">Ubicación</th>
+                    <th scope="col" className="text-center">Estado</th>
+                    <th scope="col" className="text-right">Acciones</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-border">
-                  {filteredItems.map((org) => (
-                    <tr key={org.id || org.idOrganizacion} className="hover:bg-muted/40 transition-colors">
-                      <td className="py-3.5 px-4 font-mono text-xs text-muted-foreground">#{org.id || org.idOrganizacion}</td>
-                      <td className="py-3.5 px-4 font-semibold text-foreground">{org.nombre}</td>
-                      <td className="py-3.5 px-4 text-muted-foreground font-mono text-xs">{org.identificacionFiscal || org.nit || '—'}</td>
-                      <td className="py-3.5 px-4">
-                        <div className="flex flex-col">
-                          <span className="text-foreground text-xs">{org.emailContacto || org.email || '—'}</span>
-                          {org.telefonoContacto && (
-                            <span className="text-muted-foreground text-[11px] font-mono">{org.telefonoContacto}</span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="py-3.5 px-4 text-xs text-muted-foreground">
-                        {org.ciudad ? `${org.ciudad}, ${org.pais || 'Colombia'}` : org.pais || 'Colombia'}
-                      </td>
-                      <td className="py-3.5 px-4 text-center">
-                        <Badge
-                          variant={org.estado === 'ACTIVA' ? 'default' : 'secondary'}
-                          className={
-                            org.estado === 'ACTIVA'
-                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-xs'
-                              : 'text-xs'
-                          }
-                        >
-                          {org.estado || 'ACTIVA'}
-                        </Badge>
-                      </td>
-                      <td className="py-3.5 px-4 text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleToggleStatus(org)}
-                            title={org.estado === 'ACTIVA' ? 'Desactivar organización' : 'Activar organización'}
-                            className="h-8 px-2 text-xs"
-                          >
-                            <span
-                              className={`material-symbols-outlined text-base ${
-                                org.estado === 'ACTIVA' ? 'text-amber-500' : 'text-emerald-500'
-                              }`}
+                <tbody>
+                  {filteredItems.map((org) => {
+                    const activa = (org.estado || 'ACTIVA') === 'ACTIVA';
+                    return (
+                      <tr key={org.id || org.idOrganizacion}>
+                        <td className="font-mono text-xs text-text-secondary tabular-nums">#{org.id || org.idOrganizacion}</td>
+                        <td className="min-w-[10rem] font-semibold text-on-surface">{org.nombre}</td>
+                        <td className="whitespace-nowrap font-mono text-xs text-text-secondary">
+                          {org.identificacionFiscal || org.nit || '—'}
+                        </td>
+                        <td>
+                          <div className="flex flex-col">
+                            <span className="text-xs text-on-surface">{org.emailContacto || org.email || '—'}</span>
+                            {org.telefonoContacto && (
+                              <span className="font-mono text-xs text-text-muted">{org.telefonoContacto}</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="text-xs text-text-secondary">
+                          {org.ciudad ? `${org.ciudad}, ${org.pais || 'Colombia'}` : org.pais || 'Colombia'}
+                        </td>
+                        <td className="text-center">
+                          <Badge variant={activa ? 'success' : 'secondary'}>{org.estado || 'ACTIVA'}</Badge>
+                        </td>
+                        <td className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleToggleStatus(org)}
+                              title={org.estado === 'ACTIVA' ? 'Desactivar organización' : 'Activar organización'}
+                              aria-label={`${org.estado === 'ACTIVA' ? 'Desactivar' : 'Activar'} ${org.nombre}`}
+                              className="h-10 w-10"
                             >
-                              {org.estado === 'ACTIVA' ? 'pause_circle' : 'play_circle'}
-                            </span>
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setOrgToDelete(org)}
-                            title="Eliminar organización"
-                            className="h-8 px-2 text-xs text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10"
-                          >
-                            <span className="material-symbols-outlined text-base">delete</span>
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                              {org.estado === 'ACTIVA' ? (
+                                <PauseCircle className="text-tint-amber-fg" aria-hidden="true" />
+                              ) : (
+                                <PlayCircle className="text-tint-green-fg" aria-hidden="true" />
+                              )}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setOrgToDelete(org)}
+                              title="Eliminar organización"
+                              aria-label={`Eliminar ${org.nombre}`}
+                              className="h-10 w-10 hover:bg-tint-red-bg hover:text-destructive"
+                            >
+                              <Trash2 aria-hidden="true" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -326,73 +362,57 @@ export default function SuperAdminOrganizacionesPage() {
         </CardContent>
       </Card>
 
-      {/* Modal Accesible con Radix UI Dialog */}
       <Dialog open={showModal} onOpenChange={handleOpenChange}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-h-[90dvh] max-w-lg overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-lg font-bold">
-              <span className="material-symbols-outlined text-primary">add_business</span>
-              Registrar Organización SaaS
-            </DialogTitle>
+            <DialogTitle>Registrar organización</DialogTitle>
+            <DialogDescription>Los campos marcados con * son obligatorios.</DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={handleCreate} className="space-y-4 pt-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="org-nombre" className="text-xs font-semibold uppercase text-muted-foreground">
-                Nombre Comercial / Razón Social *
-              </Label>
+          <form onSubmit={handleCreate} className="space-y-4 pt-1" noValidate>
+            <Input
+              id="org-nombre"
+              label="Nombre comercial o razón social"
+              required
+              value={form.nombre}
+              onChange={(e) => setField('nombre', e.target.value)}
+              placeholder="Ej. Inversiones Residenciales S.A.S."
+              error={formErrors.nombre}
+            />
+
+            <Input
+              id="org-nit"
+              label="NIT"
+              required
+              value={form.identificacionFiscal}
+              onChange={(e) => setField('identificacionFiscal', e.target.value)}
+              placeholder="Ej. 901234567-8"
+              inputMode="numeric"
+              error={formErrors.identificacionFiscal}
+              className="font-mono"
+            />
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Input
-                id="org-nombre"
+                id="org-email"
+                label="Email de contacto"
+                type="email"
                 required
-                value={form.nombre}
-                onChange={(e) => setForm({ ...form, nombre: e.target.value })}
-                placeholder="Ej. Inversiones Residenciales S.A.S."
-                className="text-sm"
+                value={form.emailContacto}
+                onChange={(e) => setField('emailContacto', e.target.value)}
+                placeholder="admin@empresa.com"
+                error={formErrors.emailContacto}
               />
-            </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="org-nit" className="text-xs font-semibold uppercase text-muted-foreground">
-                NIT / Identificación Fiscal *
-              </Label>
               <Input
-                id="org-nit"
-                required
-                value={form.identificacionFiscal}
-                onChange={(e) => setForm({ ...form, identificacionFiscal: e.target.value })}
-                placeholder="Ej. 901234567-8"
-                className="text-sm font-mono"
+                id="org-tel"
+                label="Teléfono"
+                type="tel"
+                value={form.telefonoContacto}
+                onChange={(e) => setField('telefonoContacto', e.target.value.replace(/[^0-9+\s()-]/g, '').slice(0, 20))}
+                placeholder="+57 300 123 4567"
+                error={formErrors.telefonoContacto}
               />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="org-email" className="text-xs font-semibold uppercase text-muted-foreground">
-                  Email de Contacto *
-                </Label>
-                <Input
-                  id="org-email"
-                  type="email"
-                  required
-                  value={form.emailContacto}
-                  onChange={(e) => setForm({ ...form, emailContacto: e.target.value })}
-                  placeholder="admin@empresa.com"
-                  className="text-sm"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="org-tel" className="text-xs font-semibold uppercase text-muted-foreground">
-                  Teléfono
-                </Label>
-                <Input
-                  id="org-tel"
-                  value={form.telefonoContacto}
-                  onChange={(e) => setForm({ ...form, telefonoContacto: e.target.value.replace(/[^0-9+\s()-]/g, '').slice(0, 20) })}
-                  placeholder="+57 300 123 4567"
-                  className="text-sm"
-                />
-              </div>
             </div>
 
             <LocationSelector
@@ -405,55 +425,57 @@ export default function SuperAdminOrganizacionesPage() {
               }
             />
 
-            <div className="space-y-1.5">
-              <Label htmlFor="org-dir" className="text-xs font-semibold uppercase text-muted-foreground">
-                Dirección Comercial
-              </Label>
-              <Input
-                id="org-dir"
-                value={form.direccion}
-                onChange={(e) => setForm({ ...form, direccion: e.target.value })}
-                placeholder="Calle 100 # 15-20 Of. 401"
-                className="text-sm"
-              />
-            </div>
+            <Input
+              id="org-dir"
+              label="Dirección comercial"
+              value={form.direccion}
+              onChange={(e) => setField('direccion', e.target.value)}
+              placeholder="Calle 100 # 15-20 Of. 401"
+            />
 
-            <DialogFooter className="pt-3 gap-2">
+            <DialogFooter className="gap-2 pt-3">
               <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
                 Cancelar
               </Button>
-              <Button type="submit" disabled={submitting} className="gap-2">
-                {submitting ? 'Guardando…' : 'Crear Organización'}
+              <Button type="submit" disabled={submitting}>
+                {submitting ? 'Guardando…' : 'Crear organización'}
               </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
 
-      {/* Modal de confirmación para eliminar organización */}
-      <Dialog open={Boolean(orgToDelete)} onOpenChange={(open) => !open && setOrgToDelete(null)}>
+      <Dialog open={Boolean(orgToDelete)} onOpenChange={(open) => !open && closeDelete()}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-foreground font-semibold">
-              <span className="material-symbols-outlined text-rose-500">delete</span>
-              ¿Eliminar Organización?
-            </DialogTitle>
-            <DialogDescription className="text-muted-foreground text-sm">
-              ¿Estás seguro de que deseas eliminar o inactivar la organización{' '}
-              <strong className="text-foreground">"{orgToDelete?.nombre}"</strong> (NIT: {orgToDelete?.identificacionFiscal || orgToDelete?.nit})?
+            <DialogTitle>¿Eliminar organización?</DialogTitle>
+            <DialogDescription>
+              Se eliminará o inactivará la organización{' '}
+              <strong className="text-on-surface">"{orgToDelete?.nombre}"</strong> (NIT:{' '}
+              {orgToDelete?.identificacionFiscal || orgToDelete?.nit}). Si tiene historial asociado, quedará inactiva.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="py-2 space-y-2">
-            <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-              <span className="material-symbols-outlined text-xs text-amber-500">lock</span>
-              Contraseña de administrador requerida:
+          <form
+            className="space-y-2 py-1"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!deleting && deletePin.trim().length >= 4) handleDeleteOrg();
+            }}
+          >
+            <label htmlFor="org-delete-pin" className="flex items-center gap-1.5 text-sm font-semibold text-on-surface">
+              <Lock className="h-3.5 w-3.5 text-text-secondary" aria-hidden="true" />
+              Contraseña de administrador
             </label>
-            <Input
+            <SearchInput
+              id="org-delete-pin"
               type="password"
               placeholder="Ingresa tu contraseña de administrador"
               value={deletePin}
               maxLength={50}
+              autoComplete="current-password"
+              aria-invalid={Boolean(pinError)}
+              aria-describedby={pinError ? 'org-delete-pin-error' : 'org-delete-pin-hint'}
               onChange={(e) => {
                 setDeletePin(e.target.value);
                 setPinError('');
@@ -462,36 +484,25 @@ export default function SuperAdminOrganizacionesPage() {
               autoFocus
             />
             {pinError && (
-              <p className="text-xs text-rose-500 font-medium">{pinError}</p>
+              <p id="org-delete-pin-error" role="alert" className="text-xs font-semibold text-destructive">
+                {pinError}
+              </p>
             )}
-            <p className="text-[11px] text-muted-foreground">
-              Esta acción destructiva está protegida y será registrada de forma inmutable en la bitácora de auditoría.
+            <p id="org-delete-pin-hint" className="text-xs text-text-muted">
+              Acción protegida: quedará registrada en la bitácora de auditoría.
             </p>
-          </div>
+          </form>
 
-          <DialogFooter className="gap-2 sm:gap-0 pt-2">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setOrgToDelete(null);
-                setDeletePin('');
-                setPinError('');
-              }}
-              disabled={deleting}
-            >
+          <DialogFooter className="gap-2 pt-2 sm:gap-0">
+            <Button variant="outline" onClick={closeDelete} disabled={deleting}>
               Cancelar
             </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDeleteOrg}
-              disabled={deleting || deletePin.trim().length < 4}
-              className="bg-rose-600 hover:bg-rose-700 text-white"
-            >
+            <Button variant="destructive" onClick={handleDeleteOrg} disabled={deleting || deletePin.trim().length < 4}>
               {deleting ? 'Eliminando…' : 'Sí, eliminar'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageContainer>
   );
 }

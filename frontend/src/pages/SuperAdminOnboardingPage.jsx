@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import api from '../lib/api.js';
-import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card.tsx';
+import { Card, CardContent } from '../components/ui/card.tsx';
 import { Button } from '../components/ui/button.tsx';
 import { Badge } from '../components/ui/badge.tsx';
 import { Skeleton } from '../components/ui/skeleton.tsx';
@@ -15,6 +15,14 @@ import {
   DialogFooter,
 } from '../components/ui/dialog.tsx';
 import { toast } from 'sonner';
+import { PageHeader } from '../components/ui/PageHeader.jsx';
+import { PageContainer } from '../components/layout/PageContainer.jsx';
+import { MetricCard } from '../components/ui/MetricCard.jsx';
+import EmptyState from '../components/ui/EmptyState.jsx';
+import ErrorState from '../components/ui/ErrorState.jsx';
+
+const FILTER_SELECT =
+  'h-10 w-full rounded-md border border-input bg-surface px-3 text-sm text-on-surface transition-[border-color,box-shadow] duration-150 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25 sm:w-auto';
 import {
   Search,
   RefreshCw,
@@ -86,14 +94,18 @@ export default function SuperAdminOnboardingPage() {
   // Copied tracking
   const [copiedId, setCopiedId] = useState(null);
 
+  const [loadError, setLoadError] = useState(null);
+
   async function loadData() {
     try {
       setLoading(true);
+      setLoadError(null);
       const res = await api.get('/platform/onboarding/solicitudes');
       const list = res?.data || res || [];
       setItems(Array.isArray(list) ? list : []);
-    } catch {
+    } catch (err) {
       toast.error('Error al cargar solicitudes de onboarding');
+      setLoadError(err?.message || 'No fue posible consultar las solicitudes.');
     } finally {
       setLoading(false);
     }
@@ -346,158 +358,111 @@ export default function SuperAdminOnboardingPage() {
   }
 
   return (
-    <div className="p-6 space-y-6 animate-fadeIn">
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border pb-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">Suscripciones & Onboarding</h1>
-            <Badge variant="outline" className="border-primary/40 text-primary text-xs">
-              SuperAdmin Global
-            </Badge>
-          </div>
-          <p className="text-sm text-muted-foreground mt-1">
-            Gestión de solicitudes de suscripción (organizaciones y personas naturales), trazabilidad de correos y credenciales.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={loadData} disabled={loading} className="gap-2">
-            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+    <PageContainer>
+      <PageHeader
+        title="Suscripciones y onboarding"
+        subtitle="Solicitudes de suscripción de organizaciones y personas naturales, con trazabilidad de pagos y correos de activación."
+        action={
+          <Button variant="outline" size="sm" onClick={loadData} disabled={loading} className="min-h-10 gap-2 sm:min-h-9">
+            <RefreshCw className={loading ? 'animate-spin' : ''} aria-hidden="true" />
             Actualizar
           </Button>
+        }
+      />
+
+      {loading ? (
+        <div role="status" aria-busy="true" aria-label="Cargando indicadores" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} className="h-28 rounded-lg" />
+          ))}
         </div>
-      </div>
-
-      {/* KPI Cards Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="bg-card border-border shadow-sm">
-          <CardHeader className="pb-2 flex flex-row items-center justify-between">
-            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Total Solicitudes
-            </CardTitle>
-            <Building2 className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <Skeleton className="h-8 w-16" />
-            ) : (
-              <div className="text-2xl font-bold text-foreground">{metrics.total}</div>
-            )}
-            <p className="text-xs text-muted-foreground mt-1">Registros en el sistema</p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-card border-border shadow-sm">
-          <CardHeader className="pb-2 flex flex-row items-center justify-between">
-            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Activas / Pagadas
-            </CardTitle>
-            <ShieldCheck className="h-4 w-4 text-emerald-500" />
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <Skeleton className="h-8 w-16" />
-            ) : (
-              <div className="text-2xl font-bold text-emerald-500">{metrics.pagados}</div>
-            )}
-            <p className="text-xs text-muted-foreground mt-1">Materializadas y con acceso</p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-card border-border shadow-sm">
-          <CardHeader className="pb-2 flex flex-row items-center justify-between">
-            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Pendientes de Pago
-            </CardTitle>
-            <CreditCard className="h-4 w-4 text-amber-500" />
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <Skeleton className="h-8 w-16" />
-            ) : (
-              <div className="text-2xl font-bold text-amber-500">{metrics.pendientes}</div>
-            )}
-            <p className="text-xs text-muted-foreground mt-1">Esperando pasarela Wompi</p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-card border-border shadow-sm">
-          <CardHeader className="pb-2 flex flex-row items-center justify-between">
-            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Despacho de Correos
-            </CardTitle>
-            <Mail className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <Skeleton className="h-8 w-24" />
-            ) : (
-              <div className="flex items-center gap-2">
-                <span className="text-xl font-bold text-emerald-500">{metrics.enviadosReal}</span>
-                <span className="text-xs text-muted-foreground">reales /</span>
-                <span className="text-xl font-bold text-amber-500">{metrics.simulados}</span>
-                <span className="text-xs text-muted-foreground">simulados</span>
-              </div>
-            )}
-            <p className="text-xs text-muted-foreground mt-1">
-              {metrics.fallidos > 0 ? (
-                <span className="text-destructive font-medium">{metrics.fallidos} fallidos</span>
-              ) : (
-                'Sin fallos en envío'
-              )}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      ) : loadError ? null : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <MetricCard label="Total de solicitudes" value={metrics.total} context="Registros en el sistema" icon={Building2} />
+          <MetricCard
+            label="Activas o pagadas"
+            value={metrics.pagados}
+            context="Materializadas y con acceso"
+            icon={ShieldCheck}
+            variant="success"
+          />
+          <MetricCard
+            label="Pendientes de pago"
+            value={metrics.pendientes}
+            context="Esperando confirmación de Wompi"
+            icon={CreditCard}
+            variant={metrics.pendientes > 0 ? 'warning' : 'secondary'}
+          />
+          <MetricCard
+            label="Correos de activación"
+            value={
+              <span className="flex items-baseline gap-1.5">
+                <span>{metrics.enviadosReal}</span>
+                <span className="font-sans text-xs font-semibold text-text-muted">enviados ·</span>
+                <span>{metrics.simulados}</span>
+                <span className="font-sans text-xs font-semibold text-text-muted">simulados</span>
+              </span>
+            }
+            context={metrics.fallidos > 0 ? `${metrics.fallidos} fallidos` : 'Sin fallos de envío'}
+            icon={Mail}
+            variant={metrics.fallidos > 0 ? 'danger' : 'info'}
+          />
+        </div>
+      )}
 
       {/* Filter and Search Bar */}
       <Card className="bg-card border-border shadow-sm">
         <CardContent className="p-4">
           <div className="flex flex-col md:flex-row gap-3 items-center justify-between">
             <div className="relative w-full md:w-96">
-              <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" aria-hidden="true" />
               <Input
+                type="search"
+                aria-label="Buscar solicitudes"
                 placeholder="Buscar por organización, persona, usuario, email, NIT o ref..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="pl-9 bg-background"
+                className="h-10 pl-9"
               />
             </div>
             <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
               {/* Filtro Pago */}
               <select
-                className="h-9 px-3 py-1 text-xs rounded-md border border-input bg-background text-foreground shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                aria-label="Filtrar por pago"
+                className={FILTER_SELECT}
                 value={filterPago}
                 onChange={(e) => setFilterPago(e.target.value)}
               >
-                <option value="TODOS">Todos los Pagos</option>
-                <option value="APROBADO">Pagado / Aprobado</option>
-                <option value="PENDIENTE">Pendiente Wompi</option>
+                <option value="TODOS">Todos los pagos</option>
+                <option value="APROBADO">Pagado o aprobado</option>
+                <option value="PENDIENTE">Pendiente en Wompi</option>
                 <option value="RECHAZADO">Rechazado</option>
               </select>
 
               {/* Filtro Correo */}
               <select
-                className="h-9 px-3 py-1 text-xs rounded-md border border-input bg-background text-foreground shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                aria-label="Filtrar por correo"
+                className={FILTER_SELECT}
                 value={filterCorreo}
                 onChange={(e) => setFilterCorreo(e.target.value)}
               >
-                <option value="TODOS">Todos los Correos</option>
-                <option value="ENVIADO">Enviado (Real)</option>
-                <option value="SIMULADO">Simulado (Local)</option>
+                <option value="TODOS">Todos los correos</option>
+                <option value="ENVIADO">Enviado</option>
+                <option value="SIMULADO">Simulado (local)</option>
                 <option value="FALLIDO">Fallido</option>
                 <option value="PENDIENTE">Pendiente</option>
               </select>
 
               {/* Filtro Tipo */}
               <select
-                className="h-9 px-3 py-1 text-xs rounded-md border border-input bg-background text-foreground shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                aria-label="Filtrar por tipo"
+                className={FILTER_SELECT}
                 value={filterTipo}
                 onChange={(e) => setFilterTipo(e.target.value)}
               >
-                <option value="TODOS">Todos los Tipos</option>
-                <option value="NATURAL">Persona Natural</option>
-                <option value="JURIDICA">Persona Jurídica</option>
+                <option value="TODOS">Todos los tipos</option>
+                <option value="NATURAL">Persona natural</option>
+                <option value="JURIDICA">Persona jurídica</option>
               </select>
             </div>
           </div>
@@ -508,31 +473,51 @@ export default function SuperAdminOnboardingPage() {
       <Card className="bg-card border-border shadow-sm overflow-hidden">
         <CardContent className="p-0">
           {loading ? (
-            <div className="p-6 space-y-4">
+            <div className="p-6 space-y-4" role="status" aria-busy="true" aria-label="Cargando solicitudes">
               <Skeleton className="h-12 w-full" />
               <Skeleton className="h-12 w-full" />
               <Skeleton className="h-12 w-full" />
             </div>
+          ) : loadError ? (
+            <ErrorState className="m-4" title="No se pudieron cargar las solicitudes" message={loadError} onRetry={loadData} />
           ) : filteredItems.length === 0 ? (
-            <div className="p-12 text-center">
-              <Building2 className="h-12 w-12 text-muted-foreground mx-auto mb-3 opacity-40" />
-              <h3 className="text-base font-semibold text-foreground">No se encontraron solicitudes</h3>
-              <p className="text-sm text-muted-foreground mt-1 max-w-sm mx-auto">
-                No hay registros que coincidan con los filtros aplicados o aún no se han registrado organizaciones en la plataforma.
-              </p>
-            </div>
+            <EmptyState
+              icon={Building2}
+              title="No se encontraron solicitudes"
+              subtitle={
+                items.length === 0
+                  ? 'Aún no se han registrado organizaciones en la plataforma.'
+                  : 'No hay registros que coincidan con los filtros aplicados.'
+              }
+            >
+              {items.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-3"
+                  onClick={() => {
+                    setSearch('');
+                    setFilterPago('TODOS');
+                    setFilterCorreo('TODOS');
+                    setFilterTipo('TODOS');
+                  }}
+                >
+                  Limpiar filtros
+                </Button>
+              )}
+            </EmptyState>
           ) : (
             <>
-              <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm border-collapse">
+              <div className="max-h-[70vh] overflow-auto">
+              <table className="data-table">
                 <thead>
-                  <tr className="border-b border-border bg-muted/40 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    <th className="py-3 px-4">Organización / Titular</th>
-                    <th className="py-3 px-4">Administrador / Acceso</th>
-                    <th className="py-3 px-4">Plan & Membresía</th>
-                    <th className="py-3 px-4">Pago Wompi</th>
-                    <th className="py-3 px-4">Estado de Correo</th>
-                    <th className="py-3 px-4 text-right">Acciones</th>
+                  <tr>
+                    <th scope="col">Organización o titular</th>
+                    <th scope="col">Administrador y acceso</th>
+                    <th scope="col">Plan y membresía</th>
+                    <th scope="col">Pago Wompi</th>
+                    <th scope="col">Correo de activación</th>
+                    <th scope="col" className="text-right">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -543,23 +528,23 @@ export default function SuperAdminOnboardingPage() {
 
                     return (
                       <tr key={item.referencia || idx} className="hover:bg-muted/20 transition-colors">
-                        {/* Organización / Titular */}
-                        <td className="py-3 px-4 align-top">
+                        {/* Organización o titular */}
+                        <td className="align-top">
                           <div className="font-semibold text-foreground flex items-center gap-1.5">
                             {isNatural ? (
-                              <User className="h-4 w-4 text-sky-400 shrink-0" />
+                              <User className="h-4 w-4 text-tint-blue-fg shrink-0" />
                             ) : (
-                              <Building2 className="h-4 w-4 text-indigo-400 shrink-0" />
+                              <Building2 className="h-4 w-4 text-primary-text shrink-0" />
                             )}
                             <span>{item.nombreOrganizacion || 'Sin nombre'}</span>
                           </div>
                           <div className="flex items-center gap-2 mt-1">
                             <Badge
                               variant="outline"
-                              className={`text-[10px] px-1.5 py-0 font-normal ${
+                              className={`text-xs px-1.5 py-0 font-normal ${
                                 isNatural
-                                  ? 'border-sky-500/30 text-sky-400 bg-sky-500/10'
-                                  : 'border-indigo-500/30 text-indigo-400 bg-indigo-500/10'
+                                  ? 'border-tint-blue-fg/25 text-tint-blue-fg bg-tint-blue-bg'
+                                  : 'border-primary/40 text-primary-text bg-tint-primary-bg'
                               }`}
                             >
                               {isNatural ? 'Persona Natural' : 'Persona Jurídica'}
@@ -570,14 +555,14 @@ export default function SuperAdminOnboardingPage() {
                             </span>
                           </div>
                           {item.fechaRegistro && (
-                            <div className="text-[11px] text-muted-foreground mt-1">
+                            <div className="text-xs text-muted-foreground mt-1">
                               Registrado: {item.fechaRegistro}
                             </div>
                           )}
                         </td>
 
-                        {/* Administrador / Acceso */}
-                        <td className="py-3 px-4 align-top">
+                        {/* Administrador y acceso */}
+                        <td className="align-top">
                           <div className="font-medium text-foreground">
                             {item.adminNombreCompleto || 'No asignado'}
                           </div>
@@ -591,7 +576,7 @@ export default function SuperAdminOnboardingPage() {
                               title="Copiar usuario"
                             >
                               {copiedId === `usr-${idx}` ? (
-                                <Check className="h-3 w-3 text-emerald-500" />
+                                <Check className="h-3 w-3 text-tint-green-fg" />
                               ) : (
                                 <Copy className="h-3 w-3" />
                               )}
@@ -606,7 +591,7 @@ export default function SuperAdminOnboardingPage() {
                                 title="Copiar correo"
                               >
                                 {copiedId === `email-${idx}` ? (
-                                  <Check className="h-3 w-3 text-emerald-500" />
+                                  <Check className="h-3 w-3 text-tint-green-fg" />
                                 ) : (
                                   <Copy className="h-3 w-3" />
                                 )}
@@ -615,15 +600,15 @@ export default function SuperAdminOnboardingPage() {
                           </div>
                         </td>
 
-                        {/* Plan & Membresía */}
-                        <td className="py-3 px-4 align-top">
+                        {/* Plan y membresía */}
+                        <td className="align-top">
                           <div className="font-medium text-foreground">{item.planNombre || 'Plan Comercial'}</div>
                           <div className="flex items-center gap-1.5 mt-1">
-                            <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                            <Badge variant="outline" className="text-xs px-1.5 py-0">
                               {item.cicloFacturacion || 'MENSUAL'}
                             </Badge>
                             {item.esPrueba && (
-                              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-amber-500/10 text-amber-400">
+                              <Badge variant="secondary" className="text-xs px-1.5 py-0 bg-tint-amber-bg text-tint-amber-fg">
                                 Prueba
                               </Badge>
                             )}
@@ -634,10 +619,10 @@ export default function SuperAdminOnboardingPage() {
                         </td>
 
                         {/* Pago Wompi */}
-                        <td className="py-3 px-4 align-top">
+                        <td className="align-top">
                           {isPaid ? (
-                            <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 gap-1 text-xs">
-                              <CheckCircle2 className="h-3 w-3 text-emerald-500" />
+                            <Badge className="bg-tint-green-bg text-tint-green-fg border border-tint-green-fg/25 gap-1 text-xs">
+                              <CheckCircle2 className="h-3 w-3 text-tint-green-fg" />
                               Aprobado
                             </Badge>
                           ) : item.estadoPago === 'RECHAZADO' ? (
@@ -646,27 +631,27 @@ export default function SuperAdminOnboardingPage() {
                               Rechazado
                             </Badge>
                           ) : (
-                            <Badge className="bg-amber-500/10 text-amber-400 border border-amber-500/20 gap-1 text-xs">
-                              <Clock className="h-3 w-3 text-amber-500" />
-                              Pendiente Wompi
+                            <Badge className="bg-tint-amber-bg text-tint-amber-fg border border-tint-amber-fg/25 gap-1 text-xs">
+                              <Clock className="h-3 w-3 text-tint-amber-fg" />
+                              Pendiente en Wompi
                             </Badge>
                           )}
-                          <div className="text-[11px] font-mono text-muted-foreground mt-1 truncate max-w-[140px]" title={item.referencia}>
+                          <div className="text-xs font-mono text-muted-foreground mt-1 truncate max-w-[140px]" title={item.referencia}>
                             Ref: {item.referencia}
                           </div>
                         </td>
 
-                        {/* Estado de Correo */}
-                        <td className="py-3 px-4 align-top">
+                        {/* Correo de activación */}
+                        <td className="align-top">
                           {item.estadoCorreo === 'ENVIADO' ? (
-                            <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 gap-1 text-xs">
-                              <CheckCircle2 className="h-3 w-3 text-emerald-500" />
+                            <Badge className="bg-tint-green-bg text-tint-green-fg border border-tint-green-fg/25 gap-1 text-xs">
+                              <CheckCircle2 className="h-3 w-3 text-tint-green-fg" />
                               Enviado (Brevo)
                             </Badge>
                           ) : item.estadoCorreo === 'SIMULADO' ? (
-                            <Badge className="bg-amber-500/10 text-amber-400 border border-amber-500/20 gap-1 text-xs" title="No hay BREVO_API_KEY en entorno">
-                              <AlertCircle className="h-3 w-3 text-amber-500" />
-                              Simulado (Local)
+                            <Badge className="bg-tint-amber-bg text-tint-amber-fg border border-tint-amber-fg/25 gap-1 text-xs" title="No hay BREVO_API_KEY en entorno">
+                              <AlertCircle className="h-3 w-3 text-tint-amber-fg" />
+                              Simulado (local)
                             </Badge>
                           ) : item.estadoCorreo === 'FALLIDO' ? (
                             <Badge className="bg-destructive/10 text-destructive border border-destructive/20 gap-1 text-xs" title={item.detalleCorreo}>
@@ -680,19 +665,19 @@ export default function SuperAdminOnboardingPage() {
                             </Badge>
                           )}
                           {item.detalleCorreo && (
-                            <div className="text-[11px] text-muted-foreground mt-1 max-w-[190px] truncate" title={item.detalleCorreo}>
+                            <div className="text-xs text-muted-foreground mt-1 max-w-[190px] truncate" title={item.detalleCorreo}>
                               {item.detalleCorreo}
                             </div>
                           )}
                           {item.fechaCorreo && (
-                            <div className="text-[10px] text-muted-foreground/70">
+                            <div className="text-xs text-muted-foreground/70">
                               Último: {item.fechaCorreo}
                             </div>
                           )}
                         </td>
 
                         {/* Acciones */}
-                        <td className="py-3 px-4 align-top text-right">
+                        <td className="align-top text-right">
                           <div className="flex items-center justify-end gap-1.5">
                             {/* Reenviar Correo */}
                             <Button
@@ -715,7 +700,7 @@ export default function SuperAdminOnboardingPage() {
                                 onClick={() => openEditModal(item)}
                                 title="Editar usuario y contraseña"
                               >
-                                <KeyRound className="h-3.5 w-3.5 text-amber-400" />
+                                <KeyRound className="h-3.5 w-3.5 text-tint-amber-fg" />
                                 <span className="hidden xl:inline">Editar</span>
                               </Button>
                             )}
@@ -725,7 +710,7 @@ export default function SuperAdminOnboardingPage() {
                               <Button
                                 variant="secondary"
                                 size="sm"
-                                className="h-8 px-2.5 gap-1.5 text-xs bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/30"
+                                className="h-8 px-2.5 gap-1.5 text-xs bg-tint-green-bg text-tint-green-fg hover:bg-tint-green-bg border border-tint-green-fg/25"
                                 onClick={() => openApproveModal(item)}
                                 title="Aprobar pago manualmente y activar"
                               >
@@ -739,7 +724,7 @@ export default function SuperAdminOnboardingPage() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                className="h-8 px-2.5 gap-1.5 text-xs text-amber-500 hover:text-amber-600 hover:bg-amber-500/10 border-amber-500/30"
+                                className="h-8 px-2.5 gap-1.5 text-xs text-tint-amber-fg hover:text-tint-amber-fg hover:bg-tint-amber-bg border-tint-amber-fg/25"
                                 onClick={() => openRechazarModal(item)}
                                 title="Rechazar solicitud de onboarding"
                               >
@@ -878,12 +863,12 @@ export default function SuperAdminOnboardingPage() {
                   className="bg-background text-sm"
                   required
                 />
-                <p className="text-[11px] text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   Si el usuario se equivocó al escribir su correo, puedes corregirlo aquí.
                 </p>
               </div>
 
-              <p className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+              <p className="text-xs text-muted-foreground flex items-center gap-1.5">
                 <Mail className="h-3.5 w-3.5 text-primary shrink-0" />
                 Se enviará un enlace de activación de un solo uso (vigente 48 horas). Nunca se envía ni se muestra una contraseña.
               </p>
@@ -892,9 +877,9 @@ export default function SuperAdminOnboardingPage() {
               {resendResult && (
                 <div className={`p-3 rounded-lg border text-xs space-y-2 animate-fadeIn ${
                   resendResult.estado === 'ENVIADO'
-                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                    ? 'bg-tint-green-bg border-tint-green-fg/25 text-tint-green-fg'
                     : resendResult.estado === 'SIMULADO'
-                    ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+                    ? 'bg-tint-amber-bg border-tint-amber-fg/25 text-tint-amber-fg'
                     : 'bg-destructive/10 border-destructive/30 text-destructive'
                 }`}>
                   <div className="flex items-center gap-1.5 font-semibold">
@@ -940,7 +925,7 @@ export default function SuperAdminOnboardingPage() {
         <DialogContent className="sm:max-w-md bg-card border-border">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-foreground">
-              <KeyRound className="h-5 w-5 text-amber-400" />
+              <KeyRound className="h-5 w-5 text-tint-amber-fg" />
               Editar Credenciales del Administrador
             </DialogTitle>
             <DialogDescription className="text-muted-foreground text-xs">
@@ -1002,7 +987,7 @@ export default function SuperAdminOnboardingPage() {
                   <button
                     type="button"
                     onClick={() => setEditPassword(generateSecurePassword())}
-                    className="text-[11px] text-primary hover:underline flex items-center gap-1 font-medium"
+                    className="text-xs text-primary hover:underline flex items-center gap-1 font-medium"
                   >
                     <Sparkles className="h-3 w-3" />
                     Generar segura
@@ -1026,7 +1011,7 @@ export default function SuperAdminOnboardingPage() {
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
-                <p className="text-[11px] text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   Solo llena este campo si deseas cambiar la clave actual del usuario.
                 </p>
               </div>
@@ -1081,7 +1066,7 @@ export default function SuperAdminOnboardingPage() {
         <DialogContent className="sm:max-w-md bg-card border-border">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-foreground">
-              <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+              <CheckCircle2 className="h-5 w-5 text-tint-green-fg" />
               Aprobar y Materializar Suscripción
             </DialogTitle>
             <DialogDescription className="text-muted-foreground text-xs">
@@ -1091,8 +1076,8 @@ export default function SuperAdminOnboardingPage() {
 
           {selectedItemForApprove && (
             <div className="space-y-4 pt-2">
-              <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-start gap-2">
-                <AlertTriangle className="h-4 w-4 shrink-0 text-amber-400 mt-0.5" />
+              <div className="p-3 rounded-lg bg-tint-amber-bg border border-tint-amber-fg/25 text-tint-amber-fg text-xs flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 shrink-0 text-tint-amber-fg mt-0.5" />
                 <div>
                   <strong>Atención:</strong> Utiliza esta opción únicamente si validaste que el pago en Wompi (o transferencia manual) fue efectuado correctamente, o si estás en entorno sandbox/pruebas.
                 </div>
@@ -1132,7 +1117,7 @@ export default function SuperAdminOnboardingPage() {
                   size="sm"
                   onClick={handleExecuteApprove}
                   disabled={approving}
-                  className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+                  className="gap-2 bg-btn-success hover:opacity-90 text-white"
                 >
                   {approving ? (
                     <RefreshCw className="h-4 w-4 animate-spin" />
@@ -1152,7 +1137,7 @@ export default function SuperAdminOnboardingPage() {
         <DialogContent className="sm:max-w-md bg-card border-border">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-foreground">
-              <XCircle className="h-5 w-5 text-amber-500" />
+              <XCircle className="h-5 w-5 text-tint-amber-fg" />
               Rechazar Solicitud de Onboarding
             </DialogTitle>
             <DialogDescription className="text-muted-foreground text-xs">
@@ -1202,7 +1187,7 @@ export default function SuperAdminOnboardingPage() {
                   size="sm"
                   onClick={handleExecuteRechazar}
                   disabled={rechazando}
-                  className="gap-2 bg-amber-600 hover:bg-amber-700 text-white"
+                  className="gap-2 bg-btn-warn hover:bg-btn-warn-hover text-white"
                 >
                   {rechazando ? (
                     <RefreshCw className="h-4 w-4 animate-spin" />
@@ -1270,6 +1255,6 @@ export default function SuperAdminOnboardingPage() {
           )}
         </DialogContent>
       </Dialog>
-    </div>
+    </PageContainer>
   );
 }

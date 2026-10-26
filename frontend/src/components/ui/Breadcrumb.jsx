@@ -90,7 +90,7 @@ export const BreadcrumbNav = memo(function BreadcrumbNav({ items = [], className
         {items.map((item, index) => {
           const isLast = index === items.length - 1;
           return (
-            <span key={item.label || index} className="inline-flex items-center gap-1.5 sm:gap-2.5">
+            <span key={`${item.href || item.to || item.label || ''}-${index}`} className="inline-flex items-center gap-1.5 sm:gap-2.5">
               <BreadcrumbItem>
                 {isLast ? (
                   <BreadcrumbPage>{item.label}</BreadcrumbPage>

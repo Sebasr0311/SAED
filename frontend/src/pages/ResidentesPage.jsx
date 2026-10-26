@@ -55,6 +55,8 @@ import { Badge } from '../components/ui/badge.tsx';
 import { MetricCard } from '../components/ui/MetricCard.jsx';
 import { LoadingState } from '../components/ui/LoadingState.jsx';
 import { ErrorState } from '../components/ui/ErrorState.jsx';
+import EmptyState from '../components/ui/EmptyState.jsx';
+import { PageHeader } from '../components/ui/PageHeader.jsx';
 import ResidentVehiclesSection from '../components/residents/ResidentVehiclesSection.jsx';
 import ResidentPetsSection from '../components/residents/ResidentPetsSection.jsx';
 
@@ -105,7 +107,7 @@ function getRelacionBadge(tipoRelacion) {
       return (
         <Badge
           variant="outline"
-          className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800 text-[10px] font-semibold"
+          className="bg-tint-green-bg text-tint-green-fg border-tint-green-fg/25 text-[11.5px] font-semibold"
         >
           Propietario Residente
         </Badge>
@@ -114,7 +116,7 @@ function getRelacionBadge(tipoRelacion) {
       return (
         <Badge
           variant="outline"
-          className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800 text-[10px] font-semibold"
+          className="bg-tint-blue-bg text-tint-blue-fg border-tint-blue-fg/25 text-[11.5px] font-semibold"
         >
           Propietario No Residente
         </Badge>
@@ -123,7 +125,7 @@ function getRelacionBadge(tipoRelacion) {
       return (
         <Badge
           variant="outline"
-          className="bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800 text-[10px] font-semibold"
+          className="bg-tint-primary-bg text-primary-text border-tint-primary-fg/25 text-[11.5px] font-semibold"
         >
           Arrendatario
         </Badge>
@@ -133,7 +135,7 @@ function getRelacionBadge(tipoRelacion) {
       return (
         <Badge
           variant="outline"
-          className="bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 text-[10px] font-medium"
+          className="bg-surface-dim text-on-surface border-border text-[11.5px] font-medium"
         >
           Conviviente
         </Badge>
@@ -142,7 +144,7 @@ function getRelacionBadge(tipoRelacion) {
       return (
         <Badge
           variant="outline"
-          className="bg-muted text-muted-foreground text-[10px]"
+          className="bg-muted text-muted-foreground text-[11.5px]"
         >
           Residente
         </Badge>
@@ -1152,92 +1154,65 @@ export default function ResidentesPage() {
 
   return (
     <PageContainer className="space-y-6">
-      {/* 1. Header Contextual Enterprise */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between border-b border-border/70 pb-5">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-              Residentes
-            </h1>
-            <Badge
+      <PageHeader
+        title="Residentes"
+        subtitle="Registro y censo de los habitantes de la copropiedad."
+        action={
+          <>
+            <Button variant="outline" size="sm" onClick={refetch} disabled={loading}>
+              <RefreshCw
+                className={`h-3.5 w-3.5 mr-1.5 ${loading ? 'animate-spin' : ''}`}
+                aria-hidden="true"
+              />
+              Actualizar
+            </Button>
+            <Button
               variant="outline"
-              className="bg-primary/5 text-primary border-primary/20 text-xs font-semibold"
+              size="sm"
+              onClick={() => {
+                setImportResult(null);
+                setImportFile(null);
+                setParsedRows([]);
+                setImportModalOpen(true);
+              }}
             >
-              Censo Poblacional
-            </Badge>
-          </div>
-          <p className="text-xs sm:text-sm text-muted-foreground">
-            Gestión, registro y censo de habitantes de la copropiedad
-          </p>
-        </div>
-
-        {/* Acciones del Header */}
-        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={refetch}
-            disabled={loading}
-            className="text-xs min-h-[44px] sm:min-h-9"
-          >
-            <RefreshCw
-              className={`h-3.5 w-3.5 mr-1.5 ${loading ? 'animate-spin text-primary' : ''}`}
-              aria-hidden="true"
-            />
-            Actualizar
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setImportResult(null);
-              setImportFile(null);
-              setParsedRows([]);
-              setImportModalOpen(true);
-            }}
-            className="text-xs min-h-[44px] sm:min-h-9 border-primary/30 text-primary hover:bg-primary/5"
-          >
-            <Upload className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
-            Carga Masiva (Excel)
-          </Button>
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={openCreate}
-            className="text-xs min-h-[44px] sm:min-h-9 shadow-xs"
-          >
-            <UserPlus className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
-            Nuevo Residente
-          </Button>
-        </div>
-      </div>
+              <Upload className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
+              Carga Masiva (Excel)
+            </Button>
+            <Button variant="primary" size="sm" onClick={openCreate}>
+              <UserPlus className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
+              Nuevo Residente
+            </Button>
+          </>
+        }
+      />
 
       {/* 2. Grid de KPIs Operativos (Requisitos #11 y #12) */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard
-          label="Total en Censo"
-          value={kpis.total}
+          label="Total Residentes"
+          value={data ? kpis.total : '—'}
           subtitle="Censo general de personas"
           icon={Users}
           variant="primary"
         />
         <MetricCard
           label="Propietarios Residentes"
-          value={kpis.propResidentes}
+          value={data ? kpis.propResidentes : '—'}
           subtitle="Habitan y son titulares de dominio"
           icon={ShieldCheck}
           variant="success"
         />
         <MetricCard
           label="Propietarios No Residentes"
-          value={kpis.propNoResidentes}
+          value={data ? kpis.propNoResidentes : '—'}
           subtitle="Inversionistas (patrimonial / asambleas)"
           icon={ShieldAlert}
           variant="info"
         />
         <MetricCard
           label="Arrendatarios y Convivientes"
-          value={kpis.arrendatarios + kpis.convivientes}
+          value={data ? kpis.arrendatarios + kpis.convivientes : '—'}
           subtitle={`${kpis.arrendatarios} arrendatarios · ${kpis.convivientes} convivientes`}
           icon={Building}
           variant="secondary"
@@ -1263,7 +1238,7 @@ export default function ResidentesPage() {
                   setPage(0);
                 }}
                 placeholder="Buscar por nombre, apellido o documento..."
-                className="w-full pl-9 pr-9 py-2 text-xs sm:text-sm bg-background border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-foreground placeholder:text-muted-foreground"
+                className="h-10 w-full rounded-md border border-input bg-surface pl-9 pr-10 text-sm text-on-surface placeholder:text-text-muted transition-[border-color,box-shadow] duration-150 focus-visible:outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25"
                 aria-label="Buscar residentes"
               />
               {search && (
@@ -1273,7 +1248,7 @@ export default function ResidentesPage() {
                     setSearch('');
                     setPage(0);
                   }}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground rounded-full"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 inline-flex h-8 w-8 items-center justify-center rounded-md text-text-secondary hover:bg-surface-dim hover:text-on-surface"
                   aria-label="Limpiar búsqueda"
                 >
                   <X className="h-3.5 w-3.5" aria-hidden="true" />
@@ -1283,8 +1258,8 @@ export default function ResidentesPage() {
 
             <div className="flex items-center gap-2 text-xs text-muted-foreground self-end sm:self-center">
               <span>
-                Mostrando <strong className="text-foreground">{rows.length}</strong> de{' '}
-                <strong className="text-foreground">{items.length}</strong> residentes
+                Mostrando <strong className="tabular-nums text-on-surface">{rows.length}</strong> de{' '}
+                <strong className="tabular-nums text-on-surface">{items.length}</strong> residentes
               </span>
             </div>
           </div>
@@ -1301,22 +1276,23 @@ export default function ResidentesPage() {
               <button
                 key={f.id}
                 type="button"
+                aria-pressed={filterRelacion === f.id}
                 onClick={() => {
                   setFilterRelacion(f.id);
                   setPage(0);
                 }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shrink-0 flex items-center gap-1.5 ${
+                className={`min-h-10 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors duration-150 shrink-0 flex items-center gap-1.5 ${
                   filterRelacion === f.id
-                    ? 'bg-primary text-primary-foreground shadow-xs'
-                    : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground'
+                    ? 'bg-btn-primary text-white shadow-sm'
+                    : 'bg-surface-dim text-text-secondary hover:bg-surface-container hover:text-on-surface'
                 }`}
               >
                 <span>{f.label}</span>
                 <span
-                  className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                  className={`px-1.5 rounded-[3px] text-[11.5px] font-bold tabular-nums ${
                     filterRelacion === f.id
-                      ? 'bg-primary-foreground/20 text-primary-foreground'
-                      : 'bg-background text-muted-foreground'
+                      ? 'bg-white/20 text-white'
+                      : 'bg-surface text-text-secondary'
                   }`}
                 >
                   {f.count}
@@ -1347,36 +1323,36 @@ export default function ResidentesPage() {
               />
             </div>
           ) : items.length === 0 ? (
-            <div className="flex flex-col items-center justify-center p-12 text-center">
-              <div className="p-3.5 rounded-2xl bg-primary/10 text-primary mb-3">
-                <Users className="h-8 w-8" aria-hidden="true" />
-              </div>
-              <h3 className="text-base font-semibold text-foreground">
-                {search ? 'Sin resultados encontrados' : 'No hay residentes registrados'}
-              </h3>
-              <p className="text-xs sm:text-sm text-muted-foreground max-w-sm mt-1 mb-4">
-                {search
+            <EmptyState
+              icon={Users}
+              title={search ? 'Sin resultados encontrados' : 'No hay residentes registrados'}
+              subtitle={
+                search
                   ? `No se encontró ningún residente que coincida con "${search}". Intente con otro criterio de búsqueda.`
-                  : 'Comience registrando al primer habitante de la copropiedad con el botón "Nuevo Residente".'}
-              </p>
-              {search ? (
-                <Button variant="outline" size="sm" onClick={() => setSearch('')}>
-                  Limpiar búsqueda
-                </Button>
-              ) : (
-                <Button variant="primary" size="sm" onClick={openCreate}>
-                  <UserPlus className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
-                  Registrar Residente
-                </Button>
-              )}
-            </div>
+                  : 'Registre al primer habitante de la copropiedad con el botón "Nuevo Residente".'
+              }
+              className="py-12"
+            >
+              <div className="mt-4">
+                {search ? (
+                  <Button variant="outline" size="sm" onClick={() => setSearch('')}>
+                    Limpiar búsqueda
+                  </Button>
+                ) : (
+                  <Button variant="primary" size="sm" onClick={openCreate}>
+                    <UserPlus className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
+                    Registrar Residente
+                  </Button>
+                )}
+              </div>
+            </EmptyState>
           ) : (
             <>
               {/* Tabla Desktop & Tablet (md+) */}
               <div className="hidden md:block overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="border-b border-border/70 bg-muted/30 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                    <tr className="border-b border-border/70 bg-muted/30 text-[11.5px] font-semibold text-muted-foreground">
                       <th className="py-3 px-4 w-12 text-center">#</th>
                       <th className="py-3 px-4">Residente</th>
                       <th className="py-3 px-4">Identificación</th>
@@ -1401,7 +1377,7 @@ export default function ResidentesPage() {
                           key={r.id}
                           className="hover:bg-muted/40 transition-colors group"
                         >
-                          <td className="py-3.5 px-4 font-mono text-[11px] text-muted-foreground text-center">
+                          <td className="py-3.5 px-4 font-mono tabular-nums text-[11.5px] text-text-muted text-center">
                             {rowNum}
                           </td>
                           <td className="py-3.5 px-4">
@@ -1417,11 +1393,11 @@ export default function ResidentesPage() {
                                   <p className="font-semibold text-foreground group-hover:text-primary transition-colors truncate">
                                     {r.nombres} {r.apellidos}
                                   </p>
-                                  <span className="text-[10px] font-mono text-muted-foreground/80 bg-muted px-1.5 py-0.5 rounded border border-border/40">
+                                  <span className="text-[11.5px] font-mono text-muted-foreground/80 bg-muted px-1.5 py-0.5 rounded border border-border/40">
                                     ID #{r.id}
                                   </span>
                                 </div>
-                                <div className="text-[11px] text-muted-foreground flex items-center gap-1.5 mt-1 flex-wrap">
+                                <div className="text-[11.5px] text-muted-foreground flex items-center gap-1.5 mt-1 flex-wrap">
                                   {getRelacionBadge(r.tipoRelacion)}
                                   {r.tipoPersona && (
                                     <span className="capitalize">{r.tipoPersona.toLowerCase()}</span>
@@ -1429,7 +1405,7 @@ export default function ResidentesPage() {
                                   {r.esMenorEdad && (
                                     <Badge
                                       variant="warning"
-                                      className="text-[9px] px-1 py-0 uppercase font-bold"
+                                      className="text-[11.5px] px-1 py-0 font-bold"
                                     >
                                       Menor
                                     </Badge>
@@ -1440,7 +1416,7 @@ export default function ResidentesPage() {
                           </td>
                           <td className="py-3.5 px-4">
                             <div className="space-y-0.5">
-                              <span className="inline-block px-1.5 py-0.5 text-[10px] font-semibold rounded bg-muted text-muted-foreground border border-border">
+                              <span className="inline-block px-1.5 py-0.5 text-[11.5px] font-semibold rounded bg-muted text-muted-foreground border border-border">
                                 {tipoDocLabel}
                               </span>
                               <p className="font-mono text-foreground text-xs">
@@ -1452,13 +1428,13 @@ export default function ResidentesPage() {
                             {unidadDesc ? (
                               <Badge
                                 variant="outline"
-                                className="bg-info-50 text-info-700 border-info-200 dark:bg-info-950/40 dark:text-info-400 dark:border-info-800 text-[11px] font-medium"
+                                className="bg-tint-blue-bg text-tint-blue-fg border-tint-blue-fg/25 text-[11.5px] font-medium"
                               >
                                 <Building className="h-3 w-3 mr-1" aria-hidden="true" />
                                 {unidadDesc}
                               </Badge>
                             ) : (
-                              <span className="text-muted-foreground text-[11px]">
+                              <span className="text-muted-foreground text-[11.5px]">
                                 — Sin asignar —
                               </span>
                             )}
@@ -1478,7 +1454,7 @@ export default function ResidentesPage() {
                                 </p>
                               )}
                               {!r.email && !r.telefono && (
-                                <span className="text-muted-foreground text-[11px]">Sin contacto</span>
+                                <span className="text-muted-foreground text-[11.5px]">Sin contacto</span>
                               )}
                             </div>
                           </td>
@@ -1489,8 +1465,8 @@ export default function ResidentesPage() {
                                   variant="outline"
                                   className={
                                     (r.estadoUsuario || '').toUpperCase() === 'ACTIVO'
-                                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800 text-[10px] font-medium'
-                                      : 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800 text-[10px] font-medium'
+                                      ? 'bg-tint-green-bg text-tint-green-fg border-tint-green-fg/25 text-[11.5px] font-medium'
+                                      : 'bg-tint-amber-bg text-tint-amber-fg border-tint-amber-fg/25 text-[11.5px] font-medium'
                                   }
                                 >
                                   {(r.estadoUsuario || '').toUpperCase() === 'ACTIVO' ? (
@@ -1505,12 +1481,12 @@ export default function ResidentesPage() {
                                     </>
                                   )}
                                 </Badge>
-                                <span className="font-mono text-[10px] text-muted-foreground truncate max-w-[110px]" title={r.nombreUsuario}>
+                                <span className="font-mono text-[11.5px] text-muted-foreground truncate max-w-[110px]" title={r.nombreUsuario}>
                                   @{r.nombreUsuario}
                                 </span>
                               </div>
                             ) : (
-                              <span className="text-muted-foreground/60 text-[11px] italic">Sin cuenta</span>
+                              <span className="text-muted-foreground/60 text-[11.5px] italic">Sin cuenta</span>
                             )}
                           </td>
                           <td className="py-3.5 px-4 text-right">
@@ -1521,7 +1497,7 @@ export default function ResidentesPage() {
                                   e.stopPropagation();
                                   openManageAccount(r);
                                 }}
-                                className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                                className="inline-flex h-9 w-9 items-center justify-center rounded-md text-text-secondary transition-colors duration-150 hover:bg-surface-dim hover:text-primary-text"
                                 aria-label={`Gestionar cuenta de acceso de ${r.nombres}`}
                                 title={r.idUsuario ? 'Gestionar credenciales y estado de cuenta' : 'Crear cuenta de acceso al portal'}
                               >
@@ -1534,7 +1510,7 @@ export default function ResidentesPage() {
                                     e.stopPropagation();
                                     openUnitAssets(r);
                                   }}
-                                  className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                                  className="inline-flex h-9 w-9 items-center justify-center rounded-md text-text-secondary transition-colors duration-150 hover:bg-surface-dim hover:text-primary-text"
                                   aria-label={`Gestionar vehículos y mascotas de ${r.nombres}`}
                                   title="Gestionar vehículos y mascotas de la unidad"
                                 >
@@ -1547,7 +1523,7 @@ export default function ResidentesPage() {
                                   e.stopPropagation();
                                   openEdit(r);
                                 }}
-                                className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                                className="inline-flex h-9 w-9 items-center justify-center rounded-md text-text-secondary transition-colors duration-150 hover:bg-surface-dim hover:text-primary-text"
                                 aria-label={`Editar a ${r.nombres}`}
                               >
                                 <Pencil className="h-4 w-4" aria-hidden="true" />
@@ -1558,7 +1534,7 @@ export default function ResidentesPage() {
                                   e.stopPropagation();
                                   setConfirmDel(r);
                                 }}
-                                className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                                className="inline-flex h-9 w-9 items-center justify-center rounded-md text-text-secondary transition-colors duration-150 hover:bg-tint-red-bg hover:text-destructive"
                                 aria-label={`Eliminar a ${r.nombres}`}
                               >
                                 <Trash2 className="h-4 w-4" aria-hidden="true" />
@@ -1598,7 +1574,7 @@ export default function ResidentesPage() {
                             </p>
                             <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                               {getRelacionBadge(r.tipoRelacion)}
-                              <span className="text-[11px] text-muted-foreground font-mono">
+                              <span className="text-[11.5px] text-muted-foreground font-mono">
                                 {tipoDocLabel} {r.numeroDocumento || '—'}
                               </span>
                               {r.idUsuario ? (
@@ -1606,14 +1582,14 @@ export default function ResidentesPage() {
                                   variant="outline"
                                   className={
                                     (r.estadoUsuario || '').toUpperCase() === 'ACTIVO'
-                                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 text-[10px]'
-                                      : 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 text-[10px]'
+                                      ? 'bg-tint-green-bg text-tint-green-fg border-tint-green-fg/25 text-[11.5px]'
+                                      : 'bg-tint-amber-bg text-tint-amber-fg border-tint-amber-fg/25 text-[11.5px]'
                                   }
                                 >
                                   {(r.estadoUsuario || '').toUpperCase() === 'ACTIVO' ? 'Cuenta Activa' : 'Cuenta Suspendida'}
                                 </Badge>
                               ) : (
-                                <span className="text-[10px] text-muted-foreground italic">Sin cuenta</span>
+                                <span className="text-[11.5px] text-muted-foreground italic">Sin cuenta</span>
                               )}
                             </div>
                           </div>
@@ -1621,7 +1597,7 @@ export default function ResidentesPage() {
                         {unidadDesc && (
                           <Badge
                             variant="outline"
-                            className="bg-info-50 text-info-700 border-info-200 dark:bg-info-950/40 dark:text-info-400 dark:border-info-800 text-[10px] shrink-0"
+                            className="bg-tint-blue-bg text-tint-blue-fg border-tint-blue-fg/25 text-[11.5px] shrink-0"
                           >
                             {unidadDesc}
                           </Badge>
@@ -1786,7 +1762,7 @@ export default function ResidentesPage() {
           </div>
 
           {errorTiposDoc && !tiposDoc.length && (
-            <p className="text-xs text-danger-600 font-medium">
+            <p className="text-xs text-tint-red-fg font-medium">
               Error al consultar el catálogo de tipos de documento.
             </p>
           )}
@@ -1903,8 +1879,8 @@ export default function ResidentesPage() {
           <div className="space-y-3 pt-1">
 
               {form.tipoRelacion === 'PROPIETARIO_NO_RESIDENTE' && (
-                <div className="text-[11px] bg-blue-500/10 border border-blue-500/20 text-blue-700 dark:text-blue-300 p-3 rounded-lg flex items-start gap-2.5">
-                  <ShieldAlert className="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400 mt-0.5" aria-hidden="true" />
+                <div className="text-[11.5px] bg-tint-blue-bg border border-tint-blue-fg/25 text-tint-blue-fg p-3 rounded-lg flex items-start gap-2.5">
+                  <ShieldAlert className="h-4 w-4 shrink-0 text-tint-blue-fg mt-0.5" aria-hidden="true" />
                   <div>
                     <strong className="font-semibold block mb-0.5">Aislamiento Zero-Trust Patrimonial:</strong>
                     El propietario no residente tiene facultades patrimoniales (asambleas, reglamentos, actas y pólizas), pero <strong>no</strong> tiene acceso a la vida privada del inquilino (visitas, encomiendas, reservas ni llaves de acceso).
@@ -1913,8 +1889,8 @@ export default function ResidentesPage() {
               )}
 
               {form.tipoRelacion === 'PROPIETARIO_RESIDENTE' && (
-                <div className="text-[11px] bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300 p-2.5 rounded-lg flex items-start gap-2">
-                  <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400 mt-0.5" aria-hidden="true" />
+                <div className="text-[11.5px] bg-tint-green-bg border border-tint-green-fg/25 text-tint-green-fg p-2.5 rounded-lg flex items-start gap-2">
+                  <ShieldCheck className="h-4 w-4 shrink-0 text-tint-green-fg mt-0.5" aria-hidden="true" />
                   <span>
                     <strong>Titular Residente:</strong> Goza de plenas facultades como copropietario patrimonial (asambleas y cartera) y habitante residente en el portal.
                   </span>
@@ -1923,7 +1899,7 @@ export default function ResidentesPage() {
 
               {form.tipoRelacion === 'CONVIVIENTE' && (
                 <div className="space-y-2">
-                  <div className="text-[11px] bg-muted/40 border border-border p-2.5 rounded-lg flex items-start gap-2">
+                  <div className="text-[11.5px] bg-muted/40 border border-border p-2.5 rounded-lg flex items-start gap-2">
                     <Info className="h-4 w-4 shrink-0 text-primary mt-0.5" aria-hidden="true" />
                     <div className="space-y-1">
                       <strong className="font-semibold block text-foreground">Habitante de Convivencia (Requisito P2-01):</strong>
@@ -1932,11 +1908,11 @@ export default function ResidentesPage() {
                         <div className="pt-1.5 flex items-center gap-2">
                           <span className="text-muted-foreground">Cupo de unidad:</span>
                           {aptQuota.limiteAlcanzado ? (
-                            <Badge variant="destructive" className="text-[10px] py-0 font-semibold">
+                            <Badge variant="destructive" className="text-[11.5px] py-0 font-semibold">
                               Límite alcanzado ({aptQuota.convivientesActivos}/{aptQuota.limiteConfigurado})
                             </Badge>
                           ) : (
-                            <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[10px] py-0 font-semibold">
+                            <Badge className="bg-tint-green-bg text-tint-green-fg border border-tint-green-fg/25 text-[11.5px] py-0 font-semibold">
                               {aptQuota.cuposDisponibles} disponible(s) ({aptQuota.convivientesActivos}/{aptQuota.limiteConfigurado})
                             </Badge>
                           )}
@@ -1946,7 +1922,7 @@ export default function ResidentesPage() {
                   </div>
 
                   {aptQuota?.limiteAlcanzado && (
-                    <div className="text-[11px] bg-destructive/10 border border-destructive/20 text-destructive p-2.5 rounded-lg flex items-start gap-2">
+                    <div className="text-[11.5px] bg-destructive/10 border border-destructive/20 text-destructive p-2.5 rounded-lg flex items-start gap-2">
                       <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
                       <span>
                         <strong>Atención:</strong> Esta unidad ya alcanzó el cupo máximo de {aptQuota.limiteConfigurado} convivientes activos. La asignación será rechazada por el servidor (409 Conflict).
@@ -1971,11 +1947,11 @@ export default function ResidentesPage() {
                       </span>
                     </label>
                     {!form.crearContrato ? (
-                      <Badge variant="outline" className="text-[10px] text-muted-foreground border-border/60">
+                      <Badge variant="outline" className="text-[11.5px] text-muted-foreground border-border/60">
                         Sin contrato formal
                       </Badge>
                     ) : (
-                      <Badge variant="default" className="text-[10px] bg-primary text-primary-foreground font-semibold">
+                      <Badge variant="default" className="text-[11.5px] bg-primary text-primary-foreground font-semibold">
                         Formalización Activa
                       </Badge>
                     )}
@@ -1993,7 +1969,7 @@ export default function ResidentesPage() {
                               type="button"
                               onClick={handlePreviewPlantilla}
                               disabled={previewLoading}
-                              className="text-[11px] font-semibold text-primary hover:underline flex items-center gap-1"
+                              className="text-[11.5px] font-semibold text-primary hover:underline flex items-center gap-1"
                             >
                               <Eye className="w-3.5 h-3.5" />
                               {previewLoading ? 'Renderizando...' : 'Previsualizar'}
@@ -2022,7 +1998,7 @@ export default function ResidentesPage() {
                           ))}
                         </select>
                         {errors.idPlantilla && (
-                          <p className="text-[11px] text-destructive mt-1 font-medium">{errors.idPlantilla}</p>
+                          <p className="text-[11.5px] text-destructive mt-1 font-medium">{errors.idPlantilla}</p>
                         )}
                       </div>
 
@@ -2041,7 +2017,7 @@ export default function ResidentesPage() {
                             }`}
                           />
                           {errors.contratoCanon && (
-                            <p className="text-[11px] text-destructive mt-1 font-medium">{errors.contratoCanon}</p>
+                            <p className="text-[11.5px] text-destructive mt-1 font-medium">{errors.contratoCanon}</p>
                           )}
                         </div>
                         <div>
@@ -2057,7 +2033,7 @@ export default function ResidentesPage() {
                             }`}
                           />
                           {errors.contratoFechaInicio && (
-                            <p className="text-[11px] text-destructive mt-1 font-medium">{errors.contratoFechaInicio}</p>
+                            <p className="text-[11.5px] text-destructive mt-1 font-medium">{errors.contratoFechaInicio}</p>
                           )}
                         </div>
                         <div>
@@ -2073,7 +2049,7 @@ export default function ResidentesPage() {
                             }`}
                           />
                           {errors.contratoFechaFin && (
-                            <p className="text-[11px] text-destructive mt-1 font-medium">{errors.contratoFechaFin}</p>
+                            <p className="text-[11.5px] text-destructive mt-1 font-medium">{errors.contratoFechaFin}</p>
                           )}
                         </div>
                       </div>
@@ -2085,14 +2061,14 @@ export default function ResidentesPage() {
 
           {/* Sección Condicional: Tutor Legal */}
           {requiereTutor && (
-            <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 p-4 space-y-3 mt-4">
+            <div className="rounded-xl border border-tint-amber-fg/25 bg-tint-amber-bg p-4 space-y-3 mt-4">
               <div className="flex items-center gap-2">
-                <ShieldAlert className="h-4 w-4 text-amber-600 dark:text-amber-400" aria-hidden="true" />
-                <h4 className="text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300">
+                <ShieldAlert className="h-4 w-4 text-tint-amber-fg" aria-hidden="true" />
+                <h4 className="text-xs font-bold text-tint-amber-fg">
                   Datos del Tutor Legal Requerido
                 </h4>
               </div>
-              <p className="text-[11px] text-muted-foreground leading-relaxed">
+              <p className="text-[11.5px] text-muted-foreground leading-relaxed">
                 El residente registrado tiene entre 16 y 17 años. Conforme a la normativa de
                 propiedad horizontal, puede residir independientemente pero requiere un tutor legal
                 registrado.
@@ -2259,7 +2235,7 @@ export default function ResidentesPage() {
                       placeholder="usuario.portal"
                     />
                   </div>
-                  <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+                  <p className="text-[11.5px] text-muted-foreground flex items-center gap-1">
                     <Mail className="h-3.5 w-3.5 text-primary shrink-0" />
                     Se enviará un enlace de activación de un solo uso (vigente 48 horas) para definir la contraseña al correo {form.email || '(ingrese correo arriba)'}.
                   </p>
@@ -2296,8 +2272,8 @@ export default function ResidentesPage() {
         }
       >
         <div className="space-y-3 py-2 text-xs sm:text-sm">
-          <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-900 dark:text-amber-200 flex items-start gap-2.5">
-            <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" aria-hidden="true" />
+          <div className="p-3 rounded-lg bg-tint-amber-bg border border-tint-amber-fg/25 text-tint-amber-fg flex items-start gap-2.5">
+            <AlertTriangle className="h-5 w-5 shrink-0 text-tint-amber-fg mt-0.5" aria-hidden="true" />
             <div className="space-y-1">
               <p className="font-semibold">Baja administrativa del censo activo</p>
               <p className="text-xs opacity-90">
@@ -2312,7 +2288,7 @@ export default function ResidentesPage() {
 
           <div className="p-3 rounded-lg bg-muted/50 border border-border/60 text-muted-foreground space-y-1.5 text-xs">
             <div className="flex items-center gap-2 font-medium text-foreground">
-              <ShieldCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+              <ShieldCheck className="h-4 w-4 text-tint-green-fg" />
               <span>Garantía de Auditoría Histórica (Zero Data Loss)</span>
             </div>
             <p>
@@ -2409,8 +2385,8 @@ export default function ResidentesPage() {
                 variant="outline"
                 className={
                   accountModal.activo
-                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                    : 'bg-amber-50 text-amber-700 border-amber-200'
+                    ? 'bg-tint-green-bg text-tint-green-fg border-tint-green-fg/25'
+                    : 'bg-tint-amber-bg text-tint-amber-fg border-tint-amber-fg/25'
                 }
               >
                 {accountModal.activo ? 'Cuenta Activa' : 'Cuenta Suspendida'}
@@ -2458,7 +2434,7 @@ export default function ResidentesPage() {
                 </Button>
               </div>
             ) : (
-              <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+              <p className="text-[11.5px] text-muted-foreground flex items-center gap-1">
                 <Mail className="h-3.5 w-3.5 text-primary shrink-0" />
                 La persona recibirá un enlace de activación de un solo uso (vigente 48 horas) en {accountModal.residente?.email || 'su correo'}.
               </p>
@@ -2475,7 +2451,7 @@ export default function ResidentesPage() {
                     onClick={() => setAccountModal((m) => ({ ...m, activo: true }))}
                     className={`flex-1 py-2 px-3 rounded-lg border text-xs font-medium flex items-center justify-center gap-2 transition-colors ${
                       accountModal.activo
-                        ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 font-semibold'
+                        ? 'border-tint-green-fg/25 bg-tint-green-bg text-tint-green-fg font-semibold'
                         : 'border-border bg-background text-muted-foreground hover:bg-muted'
                     }`}
                   >
@@ -2487,7 +2463,7 @@ export default function ResidentesPage() {
                     onClick={() => setAccountModal((m) => ({ ...m, activo: false }))}
                     className={`flex-1 py-2 px-3 rounded-lg border text-xs font-medium flex items-center justify-center gap-2 transition-colors ${
                       !accountModal.activo
-                        ? 'border-amber-500 bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 font-semibold'
+                        ? 'border-tint-amber-fg/25 bg-tint-amber-bg text-tint-amber-fg font-semibold'
                         : 'border-border bg-background text-muted-foreground hover:bg-muted'
                     }`}
                   >
@@ -2495,7 +2471,7 @@ export default function ResidentesPage() {
                     Suspender Acceso
                   </button>
                 </div>
-                <p className="text-[11px] text-muted-foreground mt-2">
+                <p className="text-[11.5px] text-muted-foreground mt-2">
                   {accountModal.activo
                     ? 'El residente puede iniciar sesión en la aplicación móvil y portal web.'
                     : 'El residente no podrá iniciar sesión mientras su cuenta permanezca suspendida.'}
@@ -2567,7 +2543,7 @@ export default function ResidentesPage() {
         open={importModalOpen}
         onClose={resetImportModal}
         title="Carga Masiva de Residentes (Censo Excel)"
-        className="max-w-4xl"
+        size="xl"
         footer={
           importResult ? (
             <Button
@@ -2616,7 +2592,7 @@ export default function ResidentesPage() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl bg-muted/40 border border-border/60">
             <div className="space-y-1">
               <p className="font-semibold text-foreground flex items-center gap-1.5">
-                <FileSpreadsheet className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                <FileSpreadsheet className="h-4 w-4 text-tint-green-fg" />
                 Plantilla Oficial de Ingesta Masiva
               </p>
               <p className="text-xs text-muted-foreground">
@@ -2627,7 +2603,7 @@ export default function ResidentesPage() {
               variant="outline"
               size="sm"
               onClick={handleDownloadTemplate}
-              className="text-xs font-semibold shrink-0 border-emerald-500/30 text-emerald-700 hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-950/40"
+              className="text-xs font-semibold shrink-0 border-tint-green-fg/25 text-tint-green-fg hover:bg-tint-green-bg"
             >
               <Download className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
               Descargar Plantilla (.xlsx)
@@ -2640,19 +2616,19 @@ export default function ResidentesPage() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="p-3 rounded-lg border border-border/70 bg-card text-center">
                   <p className="text-xs text-muted-foreground">Total Filas Procesadas</p>
-                  <p className="text-2xl font-bold font-mono text-foreground mt-1">
+                  <p className="app-numeral text-2xl text-foreground mt-1">
                     {importResult.totalProcesados}
                   </p>
                 </div>
-                <div className="p-3 rounded-lg border border-emerald-200 bg-emerald-50/50 dark:bg-emerald-950/20 dark:border-emerald-800 text-center">
-                  <p className="text-xs text-emerald-700 dark:text-emerald-300">Exitosos</p>
-                  <p className="text-2xl font-bold font-mono text-emerald-700 dark:text-emerald-300 mt-1">
+                <div className="p-3 rounded-lg border border-tint-green-fg/25 bg-tint-green-bg text-center">
+                  <p className="text-xs text-tint-green-fg">Exitosos</p>
+                  <p className="app-numeral text-2xl text-tint-green-fg mt-1">
                     {importResult.totalExitosos}
                   </p>
                 </div>
                 <div className="p-3 rounded-lg border border-destructive/30 bg-destructive/5 text-center">
                   <p className="text-xs text-destructive">Fallidos / Errores</p>
-                  <p className="text-2xl font-bold font-mono text-destructive mt-1">
+                  <p className="app-numeral text-2xl text-destructive mt-1">
                     {importResult.totalFallidos}
                   </p>
                 </div>
@@ -2711,14 +2687,23 @@ export default function ResidentesPage() {
                     if (file) processSpreadsheet(file);
                   }}
                   onClick={() => fileInputRef.current?.click()}
-                  className={`p-8 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center text-center cursor-pointer transition-colors ${
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      fileInputRef.current?.click();
+                    }
+                  }}
+                  role="button"
+                  tabIndex={0}
+                  aria-label="Seleccionar archivo Excel o CSV para la carga masiva"
+                  className={`p-8 border-2 border-dashed rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring flex flex-col items-center justify-center text-center cursor-pointer transition-colors ${
                     dragActive
                       ? 'border-primary bg-primary/5'
                       : 'border-border/80 hover:border-primary/50 hover:bg-muted/30'
                   }`}
                 >
-                  <div className="p-3 rounded-full bg-primary/10 text-primary mb-3">
-                    <FileUp className="h-7 w-7" aria-hidden="true" />
+                  <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-md border border-dashed border-keyline/40 bg-tint-primary-bg text-primary-text">
+                    <FileUp className="h-6 w-6" aria-hidden="true" />
                   </div>
                   <p className="font-semibold text-foreground text-sm">
                     Haga clic o arrastre el archivo aquí
@@ -2732,14 +2717,14 @@ export default function ResidentesPage() {
                   {/* Resumen del Archivo y Métricas de Validación Previa */}
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl bg-card border border-border">
                     <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-600">
+                      <div className="p-2 rounded-lg bg-tint-green-bg text-tint-green-fg">
                         <FileSpreadsheet className="h-5 w-5" />
                       </div>
                       <div>
                         <p className="font-semibold text-foreground text-xs sm:text-sm truncate max-w-[280px]">
                           {importFile.name}
                         </p>
-                        <p className="text-[11px] text-muted-foreground">
+                        <p className="text-[11.5px] text-muted-foreground">
                           {(importFile.size / 1024).toFixed(1)} KB · {parsedRows.length} filas detectadas
                         </p>
                       </div>
@@ -2760,19 +2745,19 @@ export default function ResidentesPage() {
 
                   {/* Badges de Validación Previa */}
                   <div className="flex items-center gap-2 flex-wrap text-xs">
-                    <span className="px-2.5 py-1 rounded-full bg-muted font-medium text-foreground">
+                    <span className="px-2 py-0.5 rounded-[3px] bg-muted font-medium text-foreground">
                       Total: <strong>{parsedRows.length}</strong>
                     </span>
-                    <span className="px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-medium">
+                    <span className="px-2 py-0.5 rounded-[3px] bg-tint-green-bg text-tint-green-fg font-medium">
                       Válidas para importar: <strong>{parsedRows.filter((r) => r.status === 'VALID').length}</strong>
                     </span>
                     {parsedRows.filter((r) => r.status === 'WARNING').length > 0 && (
-                      <span className="px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300 font-medium">
+                      <span className="px-2 py-0.5 rounded-[3px] bg-tint-amber-bg text-tint-amber-fg font-medium">
                         Con advertencia: <strong>{parsedRows.filter((r) => r.status === 'WARNING').length}</strong>
                       </span>
                     )}
                     {parsedRows.filter((r) => r.status === 'INVALID').length > 0 && (
-                      <span className="px-2.5 py-1 rounded-full bg-destructive/10 text-destructive font-medium">
+                      <span className="px-2 py-0.5 rounded-[3px] bg-destructive/10 text-destructive font-medium">
                         Inválidas (se omitirán): <strong>{parsedRows.filter((r) => r.status === 'INVALID').length}</strong>
                       </span>
                     )}
@@ -2783,7 +2768,7 @@ export default function ResidentesPage() {
                     <div className="max-h-60 overflow-y-auto">
                       <table className="w-full text-left border-collapse text-xs">
                         <thead>
-                          <tr className="border-b border-border/70 bg-muted/40 text-[11px] font-semibold text-muted-foreground uppercase">
+                          <tr className="border-b border-border/70 bg-muted/40 text-[11.5px] font-semibold text-muted-foreground">
                             <th className="py-2 px-3 w-10 text-center">#</th>
                             <th className="py-2 px-3">Documento</th>
                             <th className="py-2 px-3">Habitante</th>
@@ -2806,11 +2791,11 @@ export default function ResidentesPage() {
                               </td>
                               <td className="py-2 px-3">
                                 {r.numeroUnidad ? (
-                                  <Badge variant="outline" className="text-[10px]">
+                                  <Badge variant="outline" className="text-[11.5px]">
                                     Apto {r.numeroUnidad}
                                   </Badge>
                                 ) : (
-                                  <span className="text-muted-foreground text-[10px]">Sin asignar</span>
+                                  <span className="text-muted-foreground text-[11.5px]">Sin asignar</span>
                                 )}
                               </td>
                               <td className="py-2 px-3">
@@ -2818,15 +2803,15 @@ export default function ResidentesPage() {
                               </td>
                               <td className="py-2 px-3">
                                 {r.status === 'VALID' ? (
-                                  <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px]">
+                                  <Badge variant="outline" className="bg-tint-green-bg text-tint-green-fg border-tint-green-fg/25 text-[11.5px]">
                                     Válida
                                   </Badge>
                                 ) : r.status === 'WARNING' ? (
-                                  <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-[10px]" title={r.validationMsg}>
+                                  <Badge variant="outline" className="bg-tint-amber-bg text-tint-amber-fg border-tint-amber-fg/25 text-[11.5px]" title={r.validationMsg}>
                                     Aviso
                                   </Badge>
                                 ) : (
-                                  <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20 text-[10px]" title={r.validationMsg}>
+                                  <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20 text-[11.5px]" title={r.validationMsg}>
                                     {r.validationMsg || 'Inválida'}
                                   </Badge>
                                 )}

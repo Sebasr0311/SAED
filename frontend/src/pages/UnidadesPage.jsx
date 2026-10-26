@@ -3,7 +3,26 @@ import { useTenant } from '../lib/TenantContext.jsx';
 import { useTenantApi } from '../lib/useTenantApi.js';
 import { useFetch } from '../lib/hooks.js';
 import { PageHeader } from '../components/ui/PageHeader.jsx';
-import { Button } from '../components/ui/Button.jsx';
+import { Button } from '../components/ui/button.tsx';
+import { PageContainer } from '../components/layout/PageContainer.jsx';
+import { MetricCard } from '../components/ui/MetricCard.jsx';
+import EmptyState from '../components/ui/EmptyState.jsx';
+import { ErrorState } from '../components/ui/ErrorState.jsx';
+import {
+  AlertTriangle,
+  Building2,
+  CheckCircle2,
+  CornerDownRight,
+  Layers,
+  Network,
+  Pencil,
+  Plus,
+  PlusCircle,
+  SlidersHorizontal,
+  ToggleLeft,
+  ToggleRight,
+  Trash2,
+} from 'lucide-react';
 import { Badge } from '../components/ui/badge.tsx';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card.tsx';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs.tsx';
@@ -32,19 +51,28 @@ import PropertyConfigModal from '../components/PropertyConfigModal.jsx';
  * 3. Acceso directo a Configuración Operativa de la Propiedad (GAP-CFG-07).
  */
 const ESTADO_BADGE = {
-  ACTIVA: 'default',
-  ACTIVO: 'default',
+  ACTIVA: 'success',
+  ACTIVO: 'success',
   INACTIVA: 'secondary',
   INACTIVO: 'secondary',
   EN_CONSTRUCCION: 'outline',
   SUSPENDIDA: 'destructive',
 };
 
+const ESTADO_LABEL = {
+  ACTIVA: 'Activa',
+  ACTIVO: 'Activo',
+  INACTIVA: 'Inactiva',
+  INACTIVO: 'Inactivo',
+  EN_CONSTRUCCION: 'En construcción',
+  SUSPENDIDA: 'Suspendida',
+};
+
 const BLOCK_TIPO_BADGE = {
-  TORRE: 'default',
+  TORRE: 'info',
   BLOQUE: 'secondary',
   ETAPA: 'outline',
-  MANZANA: 'default',
+  MANZANA: 'lavender',
   PISO: 'secondary',
   SECTOR: 'outline',
 };
@@ -72,7 +100,7 @@ export default function UnidadesPage() {
   const activePropertyId = tenant.activePropertyId;
 
   // Unidades data
-  const { data, loading, refetch: refetchUnidades } = useFetch(
+  const { data, loading, error: errorUnidades, refetch: refetchUnidades } = useFetch(
     () => tenantApi.get('/units'),
     [tenant.activeAssignmentId]
   );
@@ -82,7 +110,7 @@ export default function UnidadesPage() {
   );
 
   // Bloques data (intentar endpoint específico de propiedad y fallback a /bloques)
-  const { data: bloquesData, loading: loadingBloques, refetch: refetchBloques } = useFetch(
+  const { data: bloquesData, loading: loadingBloques, error: errorBloques, refetch: refetchBloques } = useFetch(
     () => activePropertyId
       ? tenantApi.get(`/properties/${activePropertyId}/blocks`).catch(() => tenantApi.get('/bloques'))
       : tenantApi.get('/bloques'),
@@ -270,57 +298,57 @@ export default function UnidadesPage() {
 
   const stats = useMemo(
     () => [
-      { label: 'Unidades', value: total, icon: 'apartment' },
-      { label: 'Activas', value: activas, icon: 'check_circle' },
-      { label: 'Tipos', value: tipos.length, icon: 'category' },
-      { label: 'Bloques / Torres', value: bloquesList.length, icon: 'account_tree' },
+      { label: 'Unidades', value: total, icon: Building2, variant: 'primary' },
+      { label: 'Activas', value: activas, icon: CheckCircle2, variant: 'success' },
+      { label: 'Tipos', value: tipos.length, icon: Layers, variant: 'secondary' },
+      { label: 'Bloques / Torres', value: bloquesList.length, icon: Network, variant: 'info' },
     ],
     [total, activas, tipos.length, bloquesList.length]
   );
 
   return (
-    <div className="unidades-page space-y-6">
+    <PageContainer className="unidades-page">
       <PageHeader
         title="Unidades y Estructura"
-        subtitle="Configuración de copropiedad: Estructura arquitectónica, bloques y unidades habitacionales"
-      >
-        <div className="flex items-center gap-2">
-          {activePropertyId && (
+        subtitle="Estructura de la copropiedad: bloques, torres y unidades habitacionales."
+        action={
+          <>
+            {activePropertyId && (
+              <Button
+                variant="outline"
+                onClick={() => setConfigModalOpen(true)}
+                className="min-h-10"
+                title="Ajustar parámetros y límites de la copropiedad"
+              >
+                <SlidersHorizontal aria-hidden="true" />
+                Configuración
+              </Button>
+            )}
             <Button
-              variant="outline"
-              onClick={() => setConfigModalOpen(true)}
-              className="flex items-center gap-1.5 text-xs"
-              title="Ajustar parámetros y límites de la copropiedad"
+              className="min-h-10"
+              onClick={() => { setEditing(null); setForm(emptyForm); refetchBloques(); setDialogOpen(true); }}
             >
-              <span className="material-symbols-outlined text-base">tune</span>
-              Configuración
+              <Plus aria-hidden="true" />
+              Nueva Unidad
             </Button>
-          )}
-          <Button onClick={() => { setEditing(null); setForm(emptyForm); refetchBloques(); setDialogOpen(true); }}>
-            <span className="material-symbols-outlined text-base mr-1">add</span>
-            Nueva Unidad
-          </Button>
-        </div>
-      </PageHeader>
+          </>
+        }
+      />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((s) => (
-          <Card key={s.label}>
-            <CardContent className="flex items-center gap-3 pt-6">
-              <div className="rounded-lg bg-primary/10 p-2.5 text-primary">
-                <span className="material-symbols-outlined">{s.icon}</span>
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{s.value}</p>
-                <p className="text-sm text-muted-foreground">{s.label}</p>
-              </div>
-            </CardContent>
-          </Card>
+          <MetricCard
+            key={s.label}
+            label={s.label}
+            value={!data ? '—' : s.value}
+            icon={s.icon}
+            variant={s.variant}
+          />
         ))}
       </div>
 
       {coefSummary?.advertencia && (
-        <div role="status" className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        <div role="status" className="rounded-md border border-tint-amber-fg/25 bg-tint-amber-bg px-4 py-3 text-sm text-tint-amber-fg">
           {coefSummary.advertencia}
         </div>
       )}
@@ -328,12 +356,12 @@ export default function UnidadesPage() {
       <Tabs defaultValue="unidades" className="w-full space-y-4">
         <TabsList className="grid w-full max-w-md grid-cols-2">
           <TabsTrigger value="unidades" className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-sm">apartment</span>
-            <span>Unidades ({total})</span>
+            <Building2 className="h-4 w-4" aria-hidden="true" />
+            <span>Unidades <span className="tabular-nums">({total})</span></span>
           </TabsTrigger>
           <TabsTrigger value="estructura" className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-sm">account_tree</span>
-            <span>Estructura / Bloques ({bloquesList.length})</span>
+            <Network className="h-4 w-4" aria-hidden="true" />
+            <span>Estructura / Bloques <span className="tabular-nums">({bloquesList.length})</span></span>
           </TabsTrigger>
         </TabsList>
 
@@ -349,16 +377,32 @@ export default function UnidadesPage() {
               </div>
             </CardHeader>
             <CardContent>
-              {loading ? (
-                <div className="space-y-2">
+              {loading && !data ? (
+                <div className="space-y-2" role="status" aria-label="Cargando unidades">
                   <Skeleton className="h-8 w-full" />
                   <Skeleton className="h-8 w-full" />
                   <Skeleton className="h-8 w-full" />
                 </div>
+              ) : errorUnidades && !data ? (
+                <ErrorState
+                  title="No se pudieron cargar las unidades"
+                  message={errorUnidades?.message || 'Verifique su conexión e intente nuevamente.'}
+                  onRetry={() => refetchUnidades().catch(() => {})}
+                />
               ) : unidades.length === 0 ? (
-                <p className="py-8 text-center text-muted-foreground">
-                  No hay unidades registradas en esta copropiedad todavía.
-                </p>
+                <EmptyState
+                  icon={Building2}
+                  title="No hay unidades registradas"
+                  subtitle="Registre la primera unidad habitacional de esta copropiedad."
+                >
+                  <Button
+                    className="mt-4 min-h-10"
+                    onClick={() => { setEditing(null); setForm(emptyForm); refetchBloques(); setDialogOpen(true); }}
+                  >
+                    <Plus aria-hidden="true" />
+                    Nueva Unidad
+                  </Button>
+                </EmptyState>
               ) : (
                 <div className="overflow-x-auto">
                   <Table>
@@ -391,15 +435,15 @@ export default function UnidadesPage() {
                               <span className="text-xs text-muted-foreground italic">Sin bloque</span>
                             )}
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="tabular-nums">
                             {u.areaM2 != null ? `${formatMiles(u.areaM2)} m²` : '—'}
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="tabular-nums">
                             {u.coeficienteCopropiedad != null ? `${u.coeficienteCopropiedad}` : '—'}
                           </TableCell>
                           <TableCell>
-                            <Badge variant={ESTADO_BADGE[u.estado] || 'default'}>
-                              {u.estado || 'ACTIVA'}
+                            <Badge variant={ESTADO_BADGE[u.estado || 'ACTIVA'] || 'secondary'}>
+                              {ESTADO_LABEL[u.estado || 'ACTIVA'] || u.estado}
                             </Badge>
                           </TableCell>
                           <TableCell className="text-right">
@@ -421,7 +465,7 @@ export default function UnidadesPage() {
                               }}
                               aria-label={`Editar ${u.identificador}`}
                             >
-                              <span className="material-symbols-outlined text-base">edit</span>
+                              <Pencil aria-hidden="true" />
                             </Button>
                           </TableCell>
                         </TableRow>
@@ -440,7 +484,7 @@ export default function UnidadesPage() {
             <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div>
                 <CardTitle className="text-base flex items-center gap-2">
-                  <span className="material-symbols-outlined text-primary text-xl">account_tree</span>
+                  <Network className="h-5 w-5 text-primary-text" aria-hidden="true" />
                   Estructura Arquitectónica de la Copropiedad
                 </CardTitle>
                 <CardDescription className="text-xs">
@@ -454,42 +498,42 @@ export default function UnidadesPage() {
                   setBlockForm(emptyBlockForm);
                   setBlockDialogOpen(true);
                 }}
-                className="flex items-center gap-1.5 text-xs"
+                className="min-h-10"
               >
-                <span className="material-symbols-outlined text-base">add</span>
+                <Plus aria-hidden="true" />
                 Nuevo Bloque / Torre
               </Button>
             </CardHeader>
             <CardContent>
-              {loadingBloques ? (
-                <div className="space-y-2">
+              {loadingBloques && !bloquesData ? (
+                <div className="space-y-2" role="status" aria-label="Cargando estructura">
                   <Skeleton className="h-8 w-full" />
                   <Skeleton className="h-8 w-full" />
                 </div>
+              ) : errorBloques && !bloquesData ? (
+                <ErrorState
+                  title="No se pudo cargar la estructura"
+                  message={errorBloques?.message || 'Verifique su conexión e intente nuevamente.'}
+                  onRetry={() => refetchBloques().catch(() => {})}
+                />
               ) : bloquesList.length === 0 ? (
-                <div className="py-12 text-center space-y-3">
-                  <span className="material-symbols-outlined text-4xl text-muted-foreground/60">
-                    domain_disabled
-                  </span>
-                  <p className="text-sm font-medium text-foreground">
-                    No hay bloques ni torres configuradas en esta copropiedad.
-                  </p>
-                  <p className="text-xs text-muted-foreground max-w-md mx-auto">
-                    Puede definir la estructura (Torre A, Torre B, Manzana 1, Piso 1, etc.) para organizar y asignar sus unidades.
-                  </p>
+                <EmptyState
+                  icon={Network}
+                  title="No hay bloques ni torres configurados"
+                  subtitle="Defina la estructura (Torre A, Torre B, Manzana 1, Piso 1, etc.) para organizar y asignar sus unidades."
+                >
                   <Button
-                    size="sm"
                     variant="outline"
                     onClick={() => {
                       setEditingBlock(null);
                       setBlockForm(emptyBlockForm);
                       setBlockDialogOpen(true);
                     }}
-                    className="text-xs"
+                    className="mt-4 min-h-10"
                   >
                     Crear primera estructura
                   </Button>
-                </div>
+                </EmptyState>
               ) : (
                 <div className="overflow-x-auto">
                   <Table>
@@ -510,7 +554,7 @@ export default function UnidadesPage() {
                         return (
                           <TableRow key={b.idBloque}>
                             <TableCell>
-                              <Badge variant={BLOCK_TIPO_BADGE[b.tipo] || 'outline'} className="text-[11px]">
+                              <Badge variant={BLOCK_TIPO_BADGE[b.tipo] || 'outline'} className="text-[11.5px]">
                                 {b.tipo}
                               </Badge>
                             </TableCell>
@@ -523,19 +567,19 @@ export default function UnidadesPage() {
                             <TableCell className="text-xs text-muted-foreground">
                               {padre ? (
                                 <span className="flex items-center gap-1">
-                                  <span className="material-symbols-outlined text-xs">subdirectory_arrow_right</span>
+                                  <CornerDownRight className="h-3 w-3" aria-hidden="true" />
                                   {padre.nombre} ({padre.codigo})
                                 </span>
                               ) : (
                                 <span className="italic">Nivel principal</span>
                               )}
                             </TableCell>
-                            <TableCell className="text-xs font-mono">
+                            <TableCell className="text-xs font-mono tabular-nums">
                               {b.orden}
                             </TableCell>
                             <TableCell>
-                              <Badge variant={ESTADO_BADGE[b.estado] || 'default'} className="text-xs">
-                                {b.estado}
+                              <Badge variant={ESTADO_BADGE[b.estado] || 'secondary'}>
+                                {ESTADO_LABEL[b.estado] || b.estado}
                               </Badge>
                             </TableCell>
                             <TableCell className="text-right">
@@ -549,21 +593,21 @@ export default function UnidadesPage() {
                                     refetchBloques();
                                     setDialogOpen(true);
                                   }}
-                                  className="h-8 w-8 p-0 text-muted-foreground hover:text-primary"
+                                  className="h-9 w-9 p-0 hover:text-primary-text"
                                   title={`Registrar unidad en ${b.nombre}`}
+                                  aria-label={`Registrar unidad en ${b.nombre}`}
                                 >
-                                  <span className="material-symbols-outlined text-base">add_circle</span>
+                                  <PlusCircle aria-hidden="true" />
                                 </Button>
                                 <Button
                                   variant="ghost"
                                   size="sm"
                                   onClick={() => toggleBlockStatus(b)}
-                                  className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                                  className="h-9 w-9 p-0"
                                   title={b.estado === 'ACTIVO' ? 'Desactivar bloque' : 'Activar bloque'}
+                                  aria-label={b.estado === 'ACTIVO' ? `Desactivar ${b.nombre}` : `Activar ${b.nombre}`}
                                 >
-                                  <span className="material-symbols-outlined text-base">
-                                    {b.estado === 'ACTIVO' ? 'toggle_on' : 'toggle_off'}
-                                  </span>
+                                  {b.estado === 'ACTIVO' ? <ToggleRight aria-hidden="true" /> : <ToggleLeft aria-hidden="true" />}
                                 </Button>
                                 <Button
                                   variant="ghost"
@@ -579,19 +623,21 @@ export default function UnidadesPage() {
                                     });
                                     setBlockDialogOpen(true);
                                   }}
-                                  className="h-8 w-8 p-0 text-muted-foreground hover:text-primary"
+                                  className="h-9 w-9 p-0 hover:text-primary-text"
                                   title={`Editar ${b.nombre}`}
+                                  aria-label={`Editar ${b.nombre}`}
                                 >
-                                  <span className="material-symbols-outlined text-base">edit</span>
+                                  <Pencil aria-hidden="true" />
                                 </Button>
                                 <Button
                                   variant="ghost"
                                   size="sm"
                                   onClick={() => setDeleteBlockTarget(b)}
-                                  className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                                  className="h-9 w-9 p-0 hover:text-destructive"
                                   title={`Eliminar ${b.nombre}`}
+                                  aria-label={`Eliminar ${b.nombre}`}
                                 >
-                                  <span className="material-symbols-outlined text-base">delete</span>
+                                  <Trash2 aria-hidden="true" />
                                 </Button>
                               </div>
                             </TableCell>
@@ -672,7 +718,7 @@ export default function UnidadesPage() {
                     ))}
                 </SelectContent>
               </Select>
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-[11.5px] text-muted-foreground">
                 Opcional para casas independientes o inmuebles unibloque. Recomendado para apartamentos en torres, etapas o manzanas.
               </p>
             </div>
@@ -804,7 +850,7 @@ export default function UnidadesPage() {
                     ))}
                 </SelectContent>
               </Select>
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-[11.5px] text-muted-foreground">
                 Útil para jerarquías como Torres conteniendo Pisos, o Etapas conteniendo Manzanas.
               </p>
             </div>
@@ -839,7 +885,7 @@ export default function UnidadesPage() {
           <DialogContent className="sm:max-w-sm">
             <DialogHeader>
               <DialogTitle className="text-base font-bold text-destructive flex items-center gap-2">
-                <span className="material-symbols-outlined">warning</span>
+                <AlertTriangle className="h-5 w-5" aria-hidden="true" />
                 Eliminar Estructura
               </DialogTitle>
               <DialogDescription className="text-xs">
@@ -870,6 +916,6 @@ export default function UnidadesPage() {
           onClose={() => setConfigModalOpen(false)}
         />
       )}
-    </div>
+    </PageContainer>
   );
 }

@@ -44,7 +44,7 @@ export function ConfirmDialog({ open, onClose, onConfirm, title, message, confir
               e.preventDefault();
               handleConfirm();
             }}
-            className={danger ? 'bg-destructive text-white hover:bg-destructive/90' : undefined}
+            className={danger ? 'bg-btn-danger text-white hover:bg-btn-danger-hover' : undefined}
           >
             {loading ? 'Procesando...' : confirmLabel}
           </AlertDialogAction>

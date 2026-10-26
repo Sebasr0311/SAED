@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef } from 'react';
 import { toast } from 'sonner';
-import { safeHttpUrls } from '../lib/safeUrl.js';
+import { safeHttpUrl, safeHttpUrls } from '../lib/safeUrl.js';
 import { useFetch } from '../lib/hooks.js';
 import api from '../lib/api.js';
 import { formatDate, formatDateTime, formatCurrency } from '../lib/utils.js';
@@ -11,7 +11,10 @@ import EmptyState from '../components/ui/EmptyState.jsx';
 import LoadingState from '../components/ui/LoadingState.jsx';
 import { Badge } from '../components/ui/badge.tsx';
 import { Textarea } from '../components/ui/Form.jsx';
-import { StatCard } from '../components/ui/StatCard.jsx';
+import { MetricCard } from '../components/ui/MetricCard.jsx';
+import ErrorState from '../components/ui/ErrorState.jsx';
+import { PageContainer } from '../components/layout/PageContainer.jsx';
+import { useAuth } from '../lib/AuthContext.jsx';
 import {
   ShieldCheck,
   Clock,
@@ -20,11 +23,9 @@ import {
   Search,
   Eye,
   Send,
-  AlertTriangle,
   ExternalLink,
   Scale,
   Receipt,
-  DollarSign,
 } from 'lucide-react';
 
 const ESTADOS_CONFIG = {
@@ -32,48 +33,48 @@ const ESTADOS_CONFIG = {
     label: 'Pliego Notificado',
     sublabel: 'Pendiente de Descargos',
     badgeVariant: 'warning',
-    colorClass: 'text-amber-600 dark:text-amber-400',
-    bgClass: 'bg-amber-500/10 border-amber-200 dark:border-amber-800/60',
+    colorClass: 'text-tint-amber-fg',
+    bgClass: 'bg-tint-amber-bg border-tint-amber-fg/25',
     icon: Clock,
   },
   EN_DESCARGOS: {
-    label: 'En Descargos',
+    label: 'En descargos',
     sublabel: 'En Revisión por Comité/Admin',
     badgeVariant: 'info',
-    colorClass: 'text-blue-600 dark:text-blue-400',
-    bgClass: 'bg-blue-500/10 border-blue-200 dark:border-blue-800/60',
+    colorClass: 'text-tint-blue-fg',
+    bgClass: 'bg-tint-blue-bg border-tint-blue-fg/25',
     icon: Scale,
   },
   ABSUELTA: {
     label: 'Absuelta / Exonerada',
     sublabel: 'Sin Responsabilidad',
     badgeVariant: 'success',
-    colorClass: 'text-emerald-600 dark:text-emerald-400',
-    bgClass: 'bg-emerald-500/10 border-emerald-200 dark:border-emerald-800/60',
+    colorClass: 'text-tint-green-fg',
+    bgClass: 'bg-tint-green-bg border-tint-green-fg/25',
     icon: CheckCircle2,
   },
   APLICADA: {
     label: 'Sanción en Firme',
     sublabel: 'Sanción Ratificada',
     badgeVariant: 'destructive',
-    colorClass: 'text-rose-600 dark:text-rose-400',
-    bgClass: 'bg-rose-500/10 border-rose-200 dark:border-rose-800/60',
+    colorClass: 'text-tint-red-fg',
+    bgClass: 'bg-tint-red-bg border-tint-red-fg/25',
     icon: XCircle,
   },
   SANCION_APLICADA: {
     label: 'Sanción en Firme',
     sublabel: 'Sanción Ratificada',
     badgeVariant: 'destructive',
-    colorClass: 'text-rose-600 dark:text-rose-400',
-    bgClass: 'bg-rose-500/10 border-rose-200 dark:border-rose-800/60',
+    colorClass: 'text-tint-red-fg',
+    bgClass: 'bg-tint-red-bg border-tint-red-fg/25',
     icon: XCircle,
   },
   ARCHIVADA: {
     label: 'Archivada',
     sublabel: 'Proceso Cerrado',
     badgeVariant: 'secondary',
-    colorClass: 'text-slate-600 dark:text-slate-400',
-    bgClass: 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700',
+    colorClass: 'text-text-secondary',
+    bgClass: 'bg-surface-dim border-border',
     icon: ShieldCheck,
   },
 };
@@ -82,17 +83,17 @@ const GRAVEDAD_CONFIG = {
   LEVE: {
     label: 'Leve',
     badgeVariant: 'secondary',
-    borderClass: 'border-slate-300 dark:border-slate-700',
+    borderClass: 'border-border',
   },
   GRAVE: {
     label: 'Grave',
     badgeVariant: 'warning',
-    borderClass: 'border-amber-400 dark:border-amber-600',
+    borderClass: 'border-tint-amber-fg',
   },
   GRAVISIMA: {
     label: 'Gravísima',
     badgeVariant: 'destructive',
-    borderClass: 'border-rose-400 dark:border-rose-600',
+    borderClass: 'border-tint-red-fg',
   },
 };
 
@@ -102,7 +103,7 @@ const MULTAS_ESTADO_CONFIG = {
     badgeVariant: 'warning',
   },
   EN_DESCARGOS: {
-    label: 'En Descargos',
+    label: 'En descargos',
     badgeVariant: 'info',
   },
   RATIFICADA: {
@@ -128,6 +129,8 @@ const MULTAS_ESTADO_CONFIG = {
 };
 
 export default function ResSancionesPage() {
+  // Household members see only the cases issued to them and have no financial actions.
+  const { isConviviente } = useAuth();
   const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
   const initialTab = searchParams?.get('tab') === 'multas' ? 'multas' : 'sanciones';
   const [mainTab, setMainTab] = useState(initialTab);
@@ -279,73 +282,76 @@ export default function ResSancionesPage() {
   }
 
   return (
-    <div className="space-y-6 pb-12 animate-saed-fade">
-      {/* Encabezado */}
+    <PageContainer className="pb-12">
       <PageHeader
-        title={mainTab === 'sanciones' ? 'Mis Procesos & Sanciones' : 'Mis Multas Económicas'}
+        title={mainTab === 'sanciones' ? 'Mis procesos y sanciones' : 'Mis multas'}
         subtitle={
           mainTab === 'sanciones'
-            ? 'Consulta tus expedientes disciplinarios, requerimientos normativos y ejerce tu derecho al debido proceso y descargos'
-            : 'Consulta las multas económicas impuestas, soporte reglamentario, evidencias y estado de pago'
+            ? 'Consulta tus expedientes disciplinarios y ejerce tu derecho al debido proceso presentando descargos.'
+            : isConviviente
+              ? 'Consulta las multas impuestas, su soporte reglamentario y las evidencias.'
+              : 'Consulta las multas impuestas, su soporte reglamentario, las evidencias y su estado de pago.'
         }
       />
 
+      {isConviviente && (
+        <p className="flex items-start gap-2 rounded-md border border-border bg-surface px-3 py-2.5 text-[13px] text-text-secondary">
+          <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-text-muted" aria-hidden="true" />
+          Solo ves los expedientes y multas emitidos a tu nombre. Los pagos de la unidad los gestiona el residente titular.
+        </p>
+      )}
+
       {/* Selector Principal de Módulo: Sanciones vs Multas */}
-      <div className="flex items-center gap-2 border-b border-border pb-3">
+      <div className="-mx-1 overflow-x-auto px-1 pb-1">
+      <div className="inline-flex items-center gap-1 rounded-lg border border-border bg-surface-container p-1" role="group" aria-label="Tipo de expediente">
         <button
           type="button"
           onClick={() => setMainTab('sanciones')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all ${
+          aria-pressed={mainTab === 'sanciones'}
+          className={`inline-flex min-h-10 shrink-0 items-center gap-2 rounded-md px-3 text-sm font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
             mainTab === 'sanciones'
-              ? 'bg-primary text-primary-foreground shadow-sm'
-              : 'bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground'
+              ? 'bg-surface text-primary-text shadow-sm ring-1 ring-border'
+              : 'text-text-secondary hover:text-on-surface'
           }`}
         >
           <Scale className="h-4 w-4" />
-          <span>Procesos Disciplinarios ({items.length})</span>
+          <span>Procesos disciplinarios <span className="tabular-nums">({items.length})</span></span>
         </button>
 
         <button
           type="button"
           onClick={() => setMainTab('multas')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all ${
+          aria-pressed={mainTab === 'multas'}
+          className={`inline-flex min-h-10 shrink-0 items-center gap-2 rounded-md px-3 text-sm font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
             mainTab === 'multas'
-              ? 'bg-primary text-primary-foreground shadow-sm'
-              : 'bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground'
+              ? 'bg-surface text-primary-text shadow-sm ring-1 ring-border'
+              : 'text-text-secondary hover:text-on-surface'
           }`}
         >
           <Receipt className="h-4 w-4" />
-          <span>Multas Económicas ({multasItems.length})</span>
+          <span>Multas <span className="tabular-nums">({multasItems.length})</span></span>
         </button>
+      </div>
       </div>
 
       {mainTab === 'sanciones' && (
         <>
           {/* Tarjetas de Métricas / KPIs */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <StatCard
-              icon="gavel"
-              value={stats.total}
-              label="Total Procesos"
-              color="primary"
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <MetricCard icon={Scale} value={loading ? '…' : error ? '—' : stats.total} label="Total procesos" variant="primary" />
+            <MetricCard
+              icon={Clock}
+              value={loading ? '…' : error ? '—' : stats.notificada}
+              label="Por responder"
+              context="Pliegos notificados"
+              variant={stats.notificada > 0 ? 'warning' : 'secondary'}
             />
-            <StatCard
-              icon="pending_actions"
-              value={stats.notificada}
-              label="Por Responder (Pliegos)"
-              color="amber"
-            />
-            <StatCard
-              icon="balance"
-              value={stats.enDescargos}
-              label="En Revisión"
-              color="blue"
-            />
-            <StatCard
-              icon="verified"
-              value={stats.absueltaOArchivada}
-              label="Absueltas / Cerradas"
-              color="green"
+            <MetricCard icon={Search} value={loading ? '…' : error ? '—' : stats.enDescargos} label="En revisión" variant="info" />
+            <MetricCard
+              icon={CheckCircle2}
+              value={loading ? '…' : error ? '—' : stats.absueltaOArchivada}
+              label="Absueltas o cerradas"
+              variant="success"
             />
           </div>
 
@@ -355,9 +361,9 @@ export default function ResSancionesPage() {
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
               {[
                 { key: 'TODOS', label: 'Todos' },
-                { key: 'NOTIFICADA', label: 'Por Responder' },
-                { key: 'EN_DESCARGOS', label: 'En Revisión' },
-                { key: 'APLICADA', label: 'Sanciones Aplicadas' },
+                { key: 'NOTIFICADA', label: 'Por responder' },
+                { key: 'EN_DESCARGOS', label: 'En revisión' },
+                { key: 'APLICADA', label: 'Sanciones aplicadas' },
                 { key: 'ABSUELTA', label: 'Absueltas' },
               ].map((tab) => {
                 const isActive = statusFilter === tab.key;
@@ -379,7 +385,7 @@ export default function ResSancionesPage() {
             </div>
 
             {/* Buscador */}
-            <div className="relative min-w-[220px]">
+            <div className="relative min-w-0 sm:min-w-[220px]">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input
                 type="text"
@@ -395,21 +401,18 @@ export default function ResSancionesPage() {
           {loading ? (
             <LoadingState message="Consultando expedientes disciplinarios..." />
           ) : error ? (
-            <div className="rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50/50 dark:bg-rose-950/20 p-6 text-center">
-              <AlertTriangle className="mx-auto h-8 w-8 text-rose-500 mb-2" />
-              <h4 className="font-semibold text-rose-700 dark:text-rose-400">Error al cargar expedientes</h4>
-              <p className="text-xs text-muted-foreground mt-1">{error.message || 'Error de comunicación'}</p>
-              <Button variant="outline" size="sm" onClick={() => refetch()} className="mt-4">
-                Reintentar
-              </Button>
-            </div>
+            <ErrorState
+              title="No se pudieron cargar tus expedientes"
+              message="Revisa tu conexión e intenta de nuevo."
+              onRetry={() => refetch().catch(() => {})}
+            />
           ) : filteredItems.length === 0 ? (
             <EmptyState
-              icon={<ShieldCheck className="h-10 w-10 text-emerald-600 dark:text-emerald-400" />}
+              icon={ShieldCheck}
               title={
                 searchTerm || statusFilter !== 'TODOS'
                   ? 'No se encontraron expedientes con ese filtro'
-                  : 'Todo en orden: No tienes sanciones ni pliegos activos'
+                  : 'No tienes sanciones ni pliegos activos'
               }
               subtitle={
                 searchTerm || statusFilter !== 'TODOS'
@@ -474,15 +477,15 @@ export default function ResSancionesPage() {
                       <div className="space-y-1.5 text-xs text-muted-foreground mb-3.5">
                         {sancion.fechaAperturaPliego && (
                           <div className="flex items-center justify-between text-[11px]">
-                            <span>Apertura de Pliego:</span>
+                            <span>Apertura de pliego:</span>
                             <span className="font-medium text-foreground">{formatDate(sancion.fechaAperturaPliego)}</span>
                           </div>
                         )}
                         {sancion.fechaLimiteDescargos && (
-                          <div className="flex items-center justify-between text-[11px] p-1.5 rounded bg-amber-500/10 border border-amber-200 dark:border-amber-900/60 text-amber-800 dark:text-amber-300">
+                          <div className="flex items-center justify-between text-[11px] p-1.5 rounded bg-tint-amber-bg border border-tint-amber-fg/25 text-tint-amber-fg">
                             <span className="flex items-center gap-1 font-semibold">
                               <Clock className="h-3 w-3" />
-                              <span>Límite Descargos:</span>
+                              <span>Límite descargos:</span>
                             </span>
                             <span className="font-bold">{formatDate(sancion.fechaLimiteDescargos)}</span>
                           </div>
@@ -492,19 +495,19 @@ export default function ResSancionesPage() {
                       {/* Sanción Propuesta o Dictamen */}
                       {sancion.tipoSancionPropuesta && (
                         <div className="text-[11px] text-muted-foreground mb-3 flex items-center justify-between p-2 rounded bg-muted/40 border border-border/50">
-                          <span>Sanción Propuesta:</span>
+                          <span>Sanción propuesta:</span>
                           <span className="font-semibold text-foreground">{sancion.tipoSancionPropuesta}</span>
                         </div>
                       )}
 
                       {/* Dictamen de Administración si aplica */}
                       {sancion.resolucionFinal && (
-                        <div className="rounded-lg bg-emerald-500/10 border border-emerald-200 dark:border-emerald-900/60 p-2.5 mb-3 text-xs text-emerald-800 dark:text-emerald-300">
+                        <div className="rounded-lg bg-tint-green-bg border border-tint-green-fg/25 p-2.5 mb-3 text-xs text-tint-green-fg">
                           <div className="flex items-center gap-1.5 font-semibold text-[11px] mb-1">
-                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-                            <span>Resolución de la Administración:</span>
+                            <CheckCircle2 className="h-3.5 w-3.5 text-tint-green-fg" />
+                            <span>Resolución de la administración:</span>
                           </div>
-                          <p className="text-[11px] leading-relaxed line-clamp-2 text-emerald-700 dark:text-emerald-400/90">
+                          <p className="text-[11px] leading-relaxed line-clamp-2 text-tint-green-fg">
                             {sancion.resolucionFinal}
                           </p>
                         </div>
@@ -520,7 +523,7 @@ export default function ResSancionesPage() {
                         className="h-8 text-xs flex items-center gap-1"
                       >
                         <Eye className="h-3.5 w-3.5" />
-                        <span>Ver Expediente</span>
+                        <span>Ver expediente</span>
                       </Button>
 
                       {requiereDescargos && (
@@ -530,7 +533,7 @@ export default function ResSancionesPage() {
                           className="h-8 text-xs flex items-center gap-1 font-semibold"
                         >
                           <Send className="h-3.5 w-3.5" />
-                          <span>Presentar Descargos</span>
+                          <span>Presentar descargos</span>
                         </Button>
                       )}
                     </div>
@@ -546,31 +549,28 @@ export default function ResSancionesPage() {
       {mainTab === 'multas' && (
         <>
           {/* Tarjetas de Métricas Multas */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <StatCard
-              icon="receipt_long"
-              value={multasStats.total}
-              label="Total Multas"
-              color="primary"
+          <div className={`grid grid-cols-1 gap-4 sm:grid-cols-2 ${isConviviente ? 'lg:grid-cols-3' : 'lg:grid-cols-4'}`}>
+            <MetricCard icon={Receipt} value={multasLoading ? '…' : multasError ? '—' : multasStats.total} label="Total multas" variant="primary" />
+            <MetricCard
+              icon={Clock}
+              value={multasLoading ? '…' : multasError ? '—' : multasStats.pendientes}
+              label="Impuestas o en cobro"
+              variant={multasStats.pendientes > 0 ? 'warning' : 'secondary'}
             />
-            <StatCard
-              icon="pending_actions"
-              value={multasStats.pendientes}
-              label="Impuestas / En Cobro"
-              color="amber"
+            <MetricCard
+              icon={CheckCircle2}
+              value={multasLoading ? '…' : multasError ? '—' : multasStats.pagadas}
+              label="Multas pagadas"
+              variant="success"
             />
-            <StatCard
-              icon="verified"
-              value={multasStats.pagadas}
-              label="Multas Pagadas"
-              color="green"
-            />
-            <StatCard
-              icon="payments"
-              value={formatCurrency(multasStats.totalSaldo)}
-              label="Total Saldo Pendiente"
-              color="primary"
-            />
+            {!isConviviente && (
+              <MetricCard
+                icon={Receipt}
+                value={multasLoading ? '…' : multasError ? '—' : formatCurrency(multasStats.totalSaldo)}
+                label="Saldo pendiente"
+                variant="secondary"
+              />
+            )}
           </div>
 
           {/* Barra de Filtros y Búsqueda Multas */}
@@ -579,7 +579,7 @@ export default function ResSancionesPage() {
               {[
                 { key: 'TODOS', label: 'Todas' },
                 { key: 'IMPUESTA', label: 'Impuestas' },
-                { key: 'EN_DESCARGOS', label: 'En Descargos' },
+                { key: 'EN_DESCARGOS', label: 'En descargos' },
                 { key: 'RATIFICADA', label: 'Ratificadas' },
                 { key: 'PAGADA', label: 'Pagadas' },
                 { key: 'ANULADA', label: 'Anuladas' },
@@ -602,7 +602,7 @@ export default function ResSancionesPage() {
               })}
             </div>
 
-            <div className="relative min-w-[220px]">
+            <div className="relative min-w-0 sm:min-w-[220px]">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input
                 type="text"
@@ -618,17 +618,14 @@ export default function ResSancionesPage() {
           {multasLoading ? (
             <LoadingState message="Consultando multas económicas..." />
           ) : multasError ? (
-            <div className="rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50/50 dark:bg-rose-950/20 p-6 text-center">
-              <AlertTriangle className="mx-auto h-8 w-8 text-rose-500 mb-2" />
-              <h4 className="font-semibold text-rose-700 dark:text-rose-400">Error al cargar multas</h4>
-              <p className="text-xs text-muted-foreground mt-1">{multasError.message || 'Error de comunicación'}</p>
-              <Button variant="outline" size="sm" onClick={() => refetchMultas()} className="mt-4">
-                Reintentar
-              </Button>
-            </div>
+            <ErrorState
+              title="No se pudieron cargar tus multas"
+              message="Revisa tu conexión e intenta de nuevo."
+              onRetry={() => refetchMultas().catch(() => {})}
+            />
           ) : filteredMultas.length === 0 ? (
             <EmptyState
-              icon={<Receipt className="h-10 w-10 text-emerald-600 dark:text-emerald-400" />}
+              icon={Receipt}
               title={
                 multaSearchTerm || multaStatusFilter !== 'TODOS'
                   ? 'No se encontraron multas con ese filtro'
@@ -637,7 +634,9 @@ export default function ResSancionesPage() {
               subtitle={
                 multaSearchTerm || multaStatusFilter !== 'TODOS'
                   ? 'Intenta restablecer los filtros para ver todas tus multas.'
-                  : 'No registras multas económicas impuestas asociadas a tu unidad.'
+                  : isConviviente
+                    ? 'No registras multas emitidas a tu nombre.'
+                    : 'No registras multas impuestas asociadas a tu unidad.'
               }
             />
           ) : (
@@ -680,7 +679,7 @@ export default function ResSancionesPage() {
 
                       {/* Monto Prominente */}
                       <div className="rounded-lg bg-primary/5 border border-primary/20 p-3 mb-3 text-center">
-                        <span className="text-[11px] text-muted-foreground block font-medium">Monto de la Multa</span>
+                        <span className="text-[11px] text-muted-foreground block font-medium">Monto de la multa</span>
                         <span className="text-lg font-bold text-primary block mt-0.5">
                           {formatCurrency(multa.monto)}
                         </span>
@@ -689,16 +688,16 @@ export default function ResSancionesPage() {
                       {/* Sanción de Origen */}
                       {multa.idSancionOrigen && (
                         <div className="text-[11px] text-muted-foreground mb-3 flex items-center justify-between p-2 rounded bg-muted/40 border border-border/50">
-                          <span>Sanción Origen:</span>
+                          <span>Sanción origen:</span>
                           <span className="font-semibold text-foreground font-mono">Expediente #{multa.idSancionOrigen}</span>
                         </div>
                       )}
 
                       {/* Evidencias */}
-                      {(multa.fotoEvidencia || multa.evidenciaUrl) && (
+                      {safeHttpUrl(multa.fotoEvidencia || multa.evidenciaUrl) && (
                         <div className="mb-3">
                           <a
-                            href={multa.fotoEvidencia || multa.evidenciaUrl}
+                            href={safeHttpUrl(multa.fotoEvidencia || multa.evidenciaUrl)}
                             target="_blank"
                             rel="noreferrer"
                             className="text-xs text-primary hover:underline flex items-center gap-1 font-medium"
@@ -722,7 +721,7 @@ export default function ResSancionesPage() {
                         className="h-8 text-xs flex items-center gap-1 w-full justify-center"
                       >
                         <Eye className="h-3.5 w-3.5" />
-                        <span>Ver Detalle Completo</span>
+                        <span>Ver detalle completo</span>
                       </Button>
                     </div>
                   </div>
@@ -764,7 +763,7 @@ export default function ResSancionesPage() {
                 ) : (
                   <>
                     <Send className="h-4 w-4" />
-                    <span>Radicar Descargos</span>
+                    <span>Radicar descargos</span>
                   </>
                 )}
               </Button>
@@ -773,12 +772,12 @@ export default function ResSancionesPage() {
         >
           <form onSubmit={handleSubmitDescargos} className="space-y-4 py-1">
             {/* Banner de Garantía de Debido Proceso */}
-            <div className="rounded-lg bg-blue-50/70 dark:bg-blue-950/20 border border-blue-200/60 dark:border-blue-800/40 p-3 text-xs text-blue-800 dark:text-blue-300 flex items-start gap-2.5">
-              <Scale className="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400 mt-0.5" />
+            <div className="rounded-lg bg-tint-blue-bg border border-tint-blue-fg/25 p-3 text-xs text-tint-blue-fg flex items-start gap-2.5">
+              <Scale className="h-4 w-4 shrink-0 text-tint-blue-fg mt-0.5" />
               <div>
                 <p className="font-semibold">Garantía Constitucional y Ley 675 de 2001</p>
-                <p className="mt-0.5 text-blue-700 dark:text-blue-400/90 leading-relaxed">
-                  Tienes derecho al debido proceso y a la contradicción. Describe tu versión de los hechos, aclaraciones y justificaciones. Este documento será revisado formalmente por el Comité de Convivencia y la Administración.
+                <p className="mt-0.5 text-tint-blue-fg leading-relaxed">
+                  Tienes derecho al debido proceso y a la contradicción. Describe tu versión de los hechos, aclaraciones y justificaciones. Este documento será revisado formalmente por el comité de convivencia y la administración.
                 </p>
               </div>
             </div>
@@ -786,31 +785,31 @@ export default function ResSancionesPage() {
             {/* Resumen del pliego */}
             <div className="p-3 rounded-lg border border-border bg-muted/20 text-xs space-y-1.5">
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Falta Imputada:</span>
+                <span className="text-muted-foreground">Falta imputada:</span>
                 <span className="font-semibold text-foreground">{selectedSancion.tipoFalta}</span>
               </div>
               {selectedSancion.articuloReglamentoViolado && (
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Artículo Violado:</span>
+                  <span className="text-muted-foreground">Artículo violado:</span>
                   <span className="font-medium text-foreground">{selectedSancion.articuloReglamentoViolado}</span>
                 </div>
               )}
               {selectedSancion.fechaLimiteDescargos && (
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Fecha Límite:</span>
-                  <span className="font-bold text-amber-600 dark:text-amber-400">
+                  <span className="text-muted-foreground">Fecha límite:</span>
+                  <span className="font-bold text-tint-amber-fg">
                     {formatDate(selectedSancion.fechaLimiteDescargos)}
                   </span>
                 </div>
               )}
               <div className="pt-1 border-t border-border text-muted-foreground">
-                <span className="font-medium block text-foreground mb-0.5">Hechos Notificados:</span>
+                <span className="font-medium block text-foreground mb-0.5">Hechos notificados:</span>
                 <p className="line-clamp-3">{selectedSancion.descripcionHechos}</p>
               </div>
             </div>
 
             <Textarea
-              label="Tus Descargos, Aclaraciones y Pruebas"
+              label="Tus descargos, aclaraciones y pruebas"
               required
               id="descargos-texto"
               rows={5}
@@ -845,7 +844,7 @@ export default function ResSancionesPage() {
                   className="flex items-center gap-1.5"
                 >
                   <Send className="h-3.5 w-3.5" />
-                  <span>Presentar Descargos</span>
+                  <span>Presentar descargos</span>
                 </Button>
               ) : <div />}
 
@@ -859,7 +858,7 @@ export default function ResSancionesPage() {
             {/* Estado y Gravedad */}
             <div className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-lg bg-muted/30 border border-border">
               <div>
-                <span className="text-xs text-muted-foreground font-medium block">Estado del Proceso</span>
+                <span className="text-xs text-muted-foreground font-medium block">Estado del proceso</span>
                 <span className="font-semibold text-foreground">
                   {ESTADOS_CONFIG[selectedSancion.estado]?.label || selectedSancion.estado}
                 </span>
@@ -876,7 +875,7 @@ export default function ResSancionesPage() {
 
             {/* Falta y Normativa */}
             <div>
-              <span className="text-xs text-muted-foreground font-semibold uppercase block mb-1">Motivo / Falta</span>
+              <span className="text-xs text-muted-foreground font-semibold block mb-1">Motivo / falta</span>
               <h4 className="font-semibold text-foreground text-sm mb-1">{selectedSancion.tipoFalta}</h4>
               {selectedSancion.articuloReglamentoViolado && (
                 <span className="text-xs text-muted-foreground">
@@ -887,7 +886,7 @@ export default function ResSancionesPage() {
 
             {/* Hechos */}
             <div>
-              <span className="text-xs text-muted-foreground font-semibold uppercase block mb-1">Hechos Imputados</span>
+              <span className="text-xs text-muted-foreground font-semibold block mb-1">Hechos imputados</span>
               <div className="p-3 rounded-lg border border-border bg-background text-xs leading-relaxed text-foreground">
                 {selectedSancion.descripcionHechos}
               </div>
@@ -896,14 +895,14 @@ export default function ResSancionesPage() {
             {/* Fechas */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
               <div className="p-2.5 rounded-lg border border-border bg-card">
-                <span className="text-muted-foreground block text-[11px]">Fecha de Notificación</span>
+                <span className="text-muted-foreground block text-[11px]">Fecha de notificación</span>
                 <span className="font-medium text-foreground">
                   {formatDateTime(selectedSancion.fechaAperturaPliego)}
                 </span>
               </div>
               <div className="p-2.5 rounded-lg border border-border bg-card">
-                <span className="text-muted-foreground block text-[11px]">Fecha Límite para Descargos</span>
-                <span className="font-medium text-amber-600 dark:text-amber-400">
+                <span className="text-muted-foreground block text-[11px]">Fecha límite para descargos</span>
+                <span className="font-medium text-tint-amber-fg">
                   {formatDate(selectedSancion.fechaLimiteDescargos)}
                 </span>
               </div>
@@ -912,7 +911,7 @@ export default function ResSancionesPage() {
             {/* Sanción Propuesta */}
             {selectedSancion.tipoSancionPropuesta && (
               <div className="p-2.5 rounded-lg border border-border bg-muted/20 text-xs flex items-center justify-between">
-                <span className="text-muted-foreground">Sanción o Medida Propuesta:</span>
+                <span className="text-muted-foreground">Sanción o medida propuesta:</span>
                 <span className="font-semibold text-foreground">{selectedSancion.tipoSancionPropuesta}</span>
               </div>
             )}
@@ -920,7 +919,7 @@ export default function ResSancionesPage() {
             {/* Evidencias si existen */}
             {selectedSancion.evidenciasUrls && (
               <div className="p-2.5 rounded-lg border border-border bg-card text-xs flex items-center justify-between">
-                <span className="text-muted-foreground">Anexos / Evidencias:</span>
+                <span className="text-muted-foreground">Anexos / evidencias:</span>
                 {safeHttpUrls(selectedSancion.evidenciasUrls).length > 0 ? (
                   <span className="flex flex-col items-end gap-1">
                     {safeHttpUrls(selectedSancion.evidenciasUrls).map((href, i) => (
@@ -944,17 +943,17 @@ export default function ResSancionesPage() {
 
             {/* Dictamen / Resolución Final */}
             {selectedSancion.resolucionFinal && (
-              <div className="p-3.5 rounded-lg border border-emerald-300 dark:border-emerald-800 bg-emerald-50/60 dark:bg-emerald-950/30 text-xs text-emerald-900 dark:text-emerald-200 space-y-1.5">
-                <div className="flex items-center gap-1.5 font-semibold text-emerald-800 dark:text-emerald-300">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                  <span>Resolución y Fallo de la Administración</span>
+              <div className="p-3.5 rounded-lg border border-tint-green-fg/25 bg-tint-green-bg text-xs text-tint-green-fg space-y-1.5">
+                <div className="flex items-center gap-1.5 font-semibold text-tint-green-fg">
+                  <CheckCircle2 className="h-4 w-4 text-tint-green-fg" />
+                  <span>Resolución y fallo de la administración</span>
                 </div>
                 {selectedSancion.fechaResolucion && (
-                  <span className="text-[11px] text-emerald-700 dark:text-emerald-400/90 block">
+                  <span className="text-[11px] text-tint-green-fg block">
                     Emitida el: {formatDateTime(selectedSancion.fechaResolucion)}
                   </span>
                 )}
-                <p className="leading-relaxed bg-background/80 p-2.5 rounded border border-emerald-200 dark:border-emerald-900/60">
+                <p className="leading-relaxed bg-background/80 p-2.5 rounded border border-tint-green-fg/25">
                   {selectedSancion.resolucionFinal}
                 </p>
               </div>
@@ -981,7 +980,7 @@ export default function ResSancionesPage() {
           <div className="space-y-4 py-2 text-sm">
             <div className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-lg bg-muted/30 border border-border">
               <div>
-                <span className="text-xs text-muted-foreground font-medium block">Estado de la Multa</span>
+                <span className="text-xs text-muted-foreground font-medium block">Estado de la multa</span>
                 <span className="font-semibold text-foreground">
                   {MULTAS_ESTADO_CONFIG[selectedMulta.estado]?.label || selectedMulta.estado}
                 </span>
@@ -993,13 +992,13 @@ export default function ResSancionesPage() {
 
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div className="p-2.5 rounded-lg border border-border bg-card">
-                <span className="text-muted-foreground block text-[11px]">Unidad / Inmueble</span>
+                <span className="text-muted-foreground block text-[11px]">Unidad / inmueble</span>
                 <span className="font-semibold text-foreground text-sm">
                   {selectedMulta.numeroApartamento ? `Apto ${selectedMulta.numeroApartamento}` : `Unidad #${selectedMulta.idUnidad}`}
                 </span>
               </div>
               <div className="p-2.5 rounded-lg border border-border bg-card">
-                <span className="text-muted-foreground block text-[11px]">Valor de la Multa</span>
+                <span className="text-muted-foreground block text-[11px]">Valor de la multa</span>
                 <span className="font-bold text-foreground text-sm text-primary">
                   {formatCurrency(selectedMulta.monto)}
                 </span>
@@ -1008,7 +1007,7 @@ export default function ResSancionesPage() {
 
             {selectedMulta.motivo && (
               <div>
-                <span className="text-xs text-muted-foreground font-semibold uppercase block mb-1">Motivo</span>
+                <span className="text-xs text-muted-foreground font-semibold block mb-1">Motivo</span>
                 <p className="p-2.5 rounded-lg border border-border bg-background text-xs font-medium text-foreground">
                   {selectedMulta.motivo}
                 </p>
@@ -1017,7 +1016,7 @@ export default function ResSancionesPage() {
 
             {selectedMulta.descripcion && (
               <div>
-                <span className="text-xs text-muted-foreground font-semibold uppercase block mb-1">Descripción de los Hechos</span>
+                <span className="text-xs text-muted-foreground font-semibold block mb-1">Descripción de los hechos</span>
                 <p className="p-2.5 rounded-lg border border-border bg-background text-xs text-muted-foreground leading-relaxed">
                   {selectedMulta.descripcion}
                 </p>
@@ -1026,22 +1025,22 @@ export default function ResSancionesPage() {
 
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div className="p-2.5 rounded-lg border border-border bg-card">
-                <span className="text-muted-foreground block text-[11px]">Fecha de Imposición</span>
+                <span className="text-muted-foreground block text-[11px]">Fecha de imposición</span>
                 <span className="font-medium text-foreground">{formatDate(selectedMulta.fechaCreacion)}</span>
               </div>
               {selectedMulta.idSancionOrigen && (
                 <div className="p-2.5 rounded-lg border border-border bg-card">
-                  <span className="text-muted-foreground block text-[11px]">Expediente Disciplinario Origen</span>
+                  <span className="text-muted-foreground block text-[11px]">Expediente disciplinario origen</span>
                   <span className="font-medium text-foreground">#{selectedMulta.idSancionOrigen}</span>
                 </div>
               )}
             </div>
 
-            {(selectedMulta.fotoEvidencia || selectedMulta.evidenciaUrl) && (
+            {safeHttpUrl(selectedMulta.fotoEvidencia || selectedMulta.evidenciaUrl) && (
               <div className="p-2.5 rounded-lg border border-border bg-card text-xs flex items-center justify-between">
-                <span className="text-muted-foreground">Evidencia Adjunta:</span>
+                <span className="text-muted-foreground">Evidencia adjunta:</span>
                 <a
-                  href={selectedMulta.fotoEvidencia || selectedMulta.evidenciaUrl}
+                  href={safeHttpUrl(selectedMulta.fotoEvidencia || selectedMulta.evidenciaUrl)}
                   target="_blank"
                   rel="noreferrer"
                   className="font-medium text-primary hover:underline flex items-center gap-1"
@@ -1054,6 +1053,6 @@ export default function ResSancionesPage() {
           </div>
         </Modal>
       )}
-    </div>
+    </PageContainer>
   );
 }
