@@ -12,7 +12,7 @@ const RAW_BASE_URL =
   (typeof window !== 'undefined' && window._API_BASE_URL) ||
   (isLocalhost
     ? 'http://localhost:8080/api/v1'
-    : 'https://saed-backend.onrender.com/api/v1');
+    : 'https://saed-h5x8.onrender.com/api/v1');
 
 export const BASE_URL = RAW_BASE_URL.replace(/\/+$/, '');
 const TIMEOUT_MS = 90000; // 90s para absorber el cold start de Render sin abortar
